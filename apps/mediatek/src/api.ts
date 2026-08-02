@@ -59,7 +59,33 @@ export function library(link: ServiceLink) {
   const get = async <T>(path: string, what: string): Promise<T> =>
     json(await fetch(`${link.base}${path}`, { headers }), what);
 
+  const post = async <T>(
+    path: string,
+    body: unknown,
+    what: string,
+  ): Promise<T> =>
+    json(
+      await fetch(`${link.base}${path}`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      what,
+    );
+
   return {
+    /** The user's workspaces — what an import can be pulled from. */
+    workspaces: () =>
+      get<{ workspaces: { name: string }[] }>("/workspaces", "workspaces"),
+
+    /** Copy a workspace's shared folders in. Additive: it never replaces what is here. */
+    importWorkspace: (workspace: string) =>
+      post<{ copied: string[]; skipped: string[]; absent: string[] }>(
+        "/mediatek/import",
+        { workspace },
+        "import",
+      ),
+
     summary: () =>
       get<{
         present: boolean;

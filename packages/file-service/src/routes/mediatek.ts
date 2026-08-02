@@ -3,12 +3,15 @@
 // because the library is per MACHINE — a workspace has nothing to do with it, the same
 // way /workspaces and /ssh-key need only the user.
 
-import { wrap } from "@frediverse/http/route";
+import { validate, wrap } from "@frediverse/http/route";
 import { listFamily, search, summary } from "@studio/mediatek/catalogue";
+import { importFromWorkspace } from "@studio/mediatek/ingest";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
 import { revisions } from "@studio/mediatek/revision";
 import { FAMILIES, type Family } from "@studio/mediatek/types";
 import { Router } from "express";
+import { z } from "zod";
+import { slugify, workspaceRoot } from "../slug.ts";
 
 export const mediatekRouter: Router = Router();
 
@@ -44,6 +47,33 @@ mediatekRouter.get(
         .status(400)
         .json({ error: `family must be one of: ${FAMILIES.join(", ")}` });
     res.json(listFamily(family));
+  }),
+);
+
+/**
+ * Copy a workspace's `_modules` / `_library` / `_ui` into the library.
+ *
+ * The one route here that writes. Additive — it never replaces what is already in the
+ * library (see @studio/mediatek/docs/ingest.md) — and it answers with exactly what it
+ * copied and what it left alone, which is what makes it undoable by hand.
+ *
+ * The workspace is resolved from the AUTHENTICATED user, not from anything the caller
+ * sends beyond a name, so this cannot be pointed at somebody else's folder.
+ */
+const importBody = z.object({ workspace: z.string().min(1) });
+mediatekRouter.post(
+  "/mediatek/import",
+  validate(importBody),
+  wrap((req, res) => {
+    const { workspace } = req.body as z.infer<typeof importBody>;
+    let root: string;
+    try {
+      root = workspaceRoot(slugify(req.userEmail!), workspace);
+    } catch (e) {
+      // assertWorkspaceName refuses anything that isn't one plain path segment.
+      return res.status(400).json({ error: (e as Error).message });
+    }
+    res.json(importFromWorkspace(root));
   }),
 );
 

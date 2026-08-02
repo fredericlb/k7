@@ -27,6 +27,58 @@ function bytes(n: number | undefined): string {
   return `${(n / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
+interface ImportReport {
+  copied: string[];
+  skipped: string[];
+  absent: string[];
+}
+
+/** Pull a workspace's shared folders in. The one thing this app writes, so it names the
+ *  workspace it will read rather than acting on an implied one. */
+function ImportControl({
+  api,
+  onDone,
+}: {
+  api: ReturnType<typeof library>;
+  onDone: (r: ImportReport) => void;
+}) {
+  const [names, setNames] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void api
+      .workspaces()
+      .then((w) => setNames(w.workspaces.map((x) => x.name)))
+      .catch(() => setNames([]));
+  }, [api]);
+
+  if (!names?.length) return null;
+
+  return (
+    <select
+      className="rounded-md border bg-background px-2 py-1 text-xs"
+      disabled={busy}
+      value=""
+      onChange={(e) => {
+        const ws = e.target.value;
+        if (!ws) return;
+        setBusy(true);
+        void api
+          .importWorkspace(ws)
+          .then(onDone)
+          .finally(() => setBusy(false));
+      }}
+    >
+      <option value="">{busy ? "import…" : "Importer un workspace…"}</option>
+      {names.map((n) => (
+        <option key={n} value={n}>
+          {n}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function Library({ link }: { link: ServiceLink }) {
   const api = useRef(library(link)).current;
   const [family, setFamily] = useState<FamilyId>("morceaux");
@@ -35,6 +87,7 @@ export function Library({ link }: { link: ServiceLink }) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imported, setImported] = useState<ImportReport | null>(null);
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
@@ -97,7 +150,21 @@ export function Library({ link }: { link: ServiceLink }) {
             {root}
           </span>
         ) : null}
+        <div className="ml-auto">
+          <ImportControl api={api} onDone={setImported} />
+        </div>
       </header>
+      {imported ? (
+        // Said, not just done: an import that skipped things looks identical to one that
+        // copied everything, and which it was is the whole answer.
+        <div className="border-b bg-muted/40 px-6 py-2 text-xs text-muted-foreground">
+          {imported.copied.length} ajouté(s), {imported.skipped.length} déjà
+          présent(s)
+          {imported.absent.length
+            ? `, ${imported.absent.join(" et ")} absent(s) du workspace`
+            : null}
+        </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1">
         <nav className="w-52 shrink-0 border-r p-3">

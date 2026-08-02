@@ -26,18 +26,19 @@ and the families move at completely different rates — a sample pack is dropped
 never touched, modules get edited all afternoon. A shared token would make the quiet
 families pay for the busy one on every poll.
 
-## What the token misses, deliberately
+## Two ingredients, because neither is enough
 
 Count plus newest mtime cannot see a change that preserves both: an in-place overwrite
-inside the same filesystem-timestamp tick, with no file added or removed.
+inside the same filesystem-timestamp tick, with no file added or removed. That is exactly
+the shape of "import a library, then list it".
 
-`workspace.ts` covers its own version of that case with a mutation counter, because writes
-go through it. **Nothing writes through the mediatek yet** — it is read-only — so there is
-nothing to count and the walk stands alone.
+So the token also carries a **mutation counter**, bumped by whatever did the writing —
+the same pair `workspace.ts` uses, and for the same reason. `ingest.ts` bumps it only when
+a file actually landed: an import that copied nothing changed nothing, and moving the
+token would make every surface refetch a listing that is identical.
 
-**When ingest lands, add the counter.** Without it, a write followed by a read in the same
-millisecond serves the stale listing, and that is exactly the shape of "import a track,
-then list the library".
+The counter is per process, which is the honest scope: it covers writes WE caused, and
+the walk covers everything else — a file dropped in by hand, a `git pull`, another tool.
 
 A content hash was considered and rejected for the same reason `workspace.ts` rejects it:
 reading every file to decide whether to read every file costs more than the thing it

@@ -10,7 +10,8 @@
     "./types": "./src/types.ts",
     "./scan": "./src/scan.ts",
     "./revision": "./src/revision.ts",
-    "./catalogue": "./src/catalogue.ts"
+    "./catalogue": "./src/catalogue.ts",
+    "./ingest": "./src/ingest.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

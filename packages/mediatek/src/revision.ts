@@ -45,19 +45,31 @@ function walk(dir: string): { count: number; newest: number } {
 }
 
 /**
+ * Our OWN writes, per family.
+ *
+ * The walk alone cannot see a change that preserves both its ingredients — files replaced
+ * in place inside one filesystem-timestamp tick, none added or removed. That is exactly
+ * the shape of "import a library, then list it", so a write we caused has to say so
+ * rather than wait to be noticed. Same two ingredients as file-service's workspace
+ * revision, and for the same reason.
+ */
+const mutations: Partial<Record<Family, number>> = {};
+
+/** Record that this family was written to. Called by whatever did the writing. */
+export function bumped(family: Family): void {
+  mutations[family] = (mutations[family] ?? 0) + 1;
+}
+
+/**
  * One family's change token.
  *
  * PER FAMILY, not one for the whole library: importing a morceau must not invalidate the
  * module list, and the families move at wildly different rates — a sample pack is dropped
  * in once, modules are edited all afternoon.
- *
- * There is no mutation counter yet, unlike workspace's: nothing writes through this
- * service. Add one the moment ingest lands, or a write followed by a same-millisecond
- * read will serve the stale listing.
  */
 export function familyRevision(family: Family): string {
   const { count, newest } = walk(familyDir(family));
-  return `${count}:${newest}`;
+  return `${mutations[family] ?? 0}:${count}:${newest}`;
 }
 
 /** Every family's token at once — what a listing is stamped with. */

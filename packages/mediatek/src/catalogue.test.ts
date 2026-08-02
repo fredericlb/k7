@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listFamily, reset, search, summary } from "./catalogue.ts";
+import { importFromWorkspace } from "./ingest.ts";
 import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
@@ -164,6 +165,74 @@ describe("the revision token", () => {
     mkdirSync(join(root, "samples", ".cache"), { recursive: true });
     writeFileSync(join(root, "samples", ".cache", "x.json"), "{}");
     expect(familyRevision("samples")).toBe(before);
+  });
+});
+
+describe("importing a workspace's shared folders", () => {
+  let ws: string;
+  beforeEach(() => {
+    ensureLayout();
+    ws = mkdtempSync(join(tmpdir(), "mediatek-ws-"));
+    const w = (rel: string, body = "x") => {
+      const abs = join(ws, rel);
+      mkdirSync(join(abs, ".."), { recursive: true });
+      writeFileSync(abs, body, "utf8");
+    };
+    w("_modules/config.yaml", "namespace: engine\n");
+    w("_modules/audio/reverb/module.yaml", "plugin: {}\n");
+    w("_library/ir/hall.wav");
+    w(
+      "_ui/audio/reverb.yaml",
+      "ref: audio/reverb\ncols: 1\nrows: 1\nwidgets: {}\n",
+    );
+  });
+  afterEach(() => rmSync(ws, { recursive: true, force: true }));
+
+  it("copies the three folders and says what it did", () => {
+    const r = importFromWorkspace(ws);
+    expect(r.copied).toContain("modules/audio/reverb/module.yaml");
+    expect(r.copied).toContain("library/ir/hall.wav");
+    expect(r.copied).toContain("ui/audio/reverb.yaml");
+    expect(r.skipped).toEqual([]);
+    expect(listFamily("modules").entries.map((e) => e.name)).toContain(
+      "reverb",
+    );
+  });
+
+  it("never replaces what is already there", () => {
+    // The library is shared: clobbering a module would change what every project that
+    // inherits it plays, from an action aimed at a different workspace.
+    importFromWorkspace(ws);
+    writeFileSync(
+      join(root, "modules", "audio", "reverb", "module.yaml"),
+      "plugin: {name: Mine}\n",
+      "utf8",
+    );
+    const again = importFromWorkspace(ws);
+    expect(again.copied).toEqual([]);
+    expect(again.skipped).toContain("modules/audio/reverb/module.yaml");
+    expect(
+      readFileSync(join(root, "modules/audio/reverb/module.yaml"), "utf8"),
+    ).toContain("Mine");
+  });
+
+  it("reports a folder the workspace hasn't got, rather than failing", () => {
+    rmSync(join(ws, "_library"), { recursive: true, force: true });
+    expect(importFromWorkspace(ws).absent).toEqual(["_library"]);
+  });
+
+  it("moves the token even when the walk alone could not see the write", () => {
+    // The mutation counter's whole reason: same file count, same tick.
+    const before = familyRevision("modules");
+    importFromWorkspace(ws);
+    expect(familyRevision("modules")).not.toBe(before);
+  });
+
+  it("leaves the token alone when nothing landed", () => {
+    importFromWorkspace(ws);
+    const after = familyRevision("modules");
+    importFromWorkspace(ws); // everything skipped
+    expect(familyRevision("modules")).toBe(after);
   });
 });
 
