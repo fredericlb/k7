@@ -55,6 +55,11 @@ export async function ensure(
   registryUrl: string,
   /** The media library root, when the user moved it off the system drive. */
   mediatekDir: string | null = null,
+  /** The hosted library this machine caches, and the token to reach it. */
+  mediatek: { url: string | null; token: string | null } = {
+    url: null,
+    token: null,
+  },
 ): Promise<SpawnResult> {
   if (await isServing(filePort)) return { kind: "foreign" };
 
@@ -80,6 +85,10 @@ export async function ensure(
       // Only when set: unset means the file service falls back to ~/.lanes/mediatek itself,
       // and passing an empty string here would read as "the current directory".
       ...(mediatekDir ? { LANES_MEDIATEK: mediatekDir } : {}),
+      // Only when configured: with no URL the local folder is simply not a cache of
+      // anything, which is a working state and not a broken one.
+      ...(mediatek.url ? { MEDIATEK_URL: mediatek.url } : {}),
+      ...(mediatek.token ? { MEDIATEK_TOKEN: mediatek.token } : {}),
     },
   });
   if (child.stdout) pump(child.stdout, "file");

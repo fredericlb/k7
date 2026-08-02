@@ -216,6 +216,10 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       state.settings.filePort,
       state.registryUrl,
       state.settings.mediatekDir,
+      {
+        url: state.settings.mediatekUrl,
+        token: state.settings.mediatekToken,
+      },
     );
     if (r.kind === "spawned") {
       state.fileChild = r.child;

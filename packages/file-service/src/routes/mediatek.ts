@@ -1,12 +1,14 @@
-// mediatek.ts — the media library over HTTP. Read-only: it lists what is on disk and
-// says how stale a listing is, and nothing here writes. Mounted BEFORE resolveWorkspace
-// because the library is per MACHINE — a workspace has nothing to do with it, the same
-// way /workspaces and /ssh-key need only the user.
+// mediatek.ts — the media library as THIS MACHINE holds it. The library itself is hosted
+// now (see apps/mediatek/backend); what lives here is a cache the moteur plays from, so
+// these routes report what is cached and pull down what is missing. Mounted BEFORE
+// resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
 import { validate, wrap } from "@frediverse/http/route";
+import { markSynced, syncFamily } from "@studio/mediatek/cache";
 import { listFamily, search, summary } from "@studio/mediatek/catalogue";
 import { importFromWorkspace } from "@studio/mediatek/ingest";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
+import { remoteLibrary } from "@studio/mediatek/remote";
 import { revisions } from "@studio/mediatek/revision";
 import { FAMILIES, type Family } from "@studio/mediatek/types";
 import { Router } from "express";
@@ -18,12 +20,42 @@ export const mediatekRouter: Router = Router();
 const asFamily = (v: unknown): Family | undefined =>
   FAMILIES.includes(v as Family) ? (v as Family) : undefined;
 
-/** What the catalogue screen opens with: is there a library, and how much is in it.
- *  `present: false` is a normal answer — nothing has created one yet — never a 404. */
+/** What this machine holds, and where. Not the catalogue — that is the hosted service's
+ *  answer; this is the cache's. `present: false` is normal, never a 404. */
 mediatekRouter.get(
   "/mediatek",
   wrap((_req, res) => {
-    res.json({ ...summary(), root: mediatekDir() });
+    res.json({ ...summary(), root: mediatekDir(), cached: true });
+  }),
+);
+
+/** Pull one family's cache in line with the hosted library.
+ *
+ * Configured, not requested: the caller says WHICH family, never where to fetch from, so a
+ * browser cannot point this machine's downloader at somewhere else. */
+mediatekRouter.post(
+  "/mediatek/sync",
+  wrap(async (req, res) => {
+    const family = asFamily(req.body?.family);
+    if (!family)
+      return res
+        .status(400)
+        .json({ error: `family must be one of: ${FAMILIES.join(", ")}` });
+    const base = process.env.MEDIATEK_URL;
+    if (!base)
+      return res
+        .status(503)
+        .json({ error: "no hosted library configured (MEDIATEK_URL)" });
+    const source = remoteLibrary({ base, token: process.env.MEDIATEK_TOKEN });
+    try {
+      const report = await syncFamily(source, family);
+      // Only a clean sync counts as caught up — otherwise the missing files are never retried.
+      if (!report.failed.length)
+        markSynced(family, (await source.revisions())[family]);
+      res.json(report);
+    } catch (e) {
+      res.status(502).json({ error: (e as Error).message });
+    }
   }),
 );
 

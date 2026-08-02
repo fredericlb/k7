@@ -12,7 +12,9 @@
     "./revision": "./src/revision.ts",
     "./catalogue": "./src/catalogue.ts",
     "./ingest": "./src/ingest.ts",
-    "./manifest": "./src/manifest.ts"
+    "./manifest": "./src/manifest.ts",
+    "./remote": "./src/remote.ts",
+    "./cache": "./src/cache.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

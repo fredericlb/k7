@@ -3,6 +3,7 @@
 // caches it asks both sides the same questions. No database — see the package's docs/index.md.
 
 import { setupAuth } from "@frediverse/oidc";
+import { apiTokenAuth } from "@frediverse/oidc/api-auth";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import express from "express";
 import { libraryRouter } from "./routes/library.ts";
@@ -27,8 +28,26 @@ const { requireAuth } = await setupAuth(app, {
   service: "mediatek-backend",
 });
 
-// Everything is behind the session: a library is somebody's work, not a public bucket.
-app.use("/api/mediatek", requireAuth, libraryRouter);
+// A bearer token stands in for the session, because the main consumer has no cookie jar:
+// the LOCAL service syncing a cache runs headless beside the engine. Same scheme radiok7
+// already uses for the lanes CLI — a signed {sub,iat}, no server-side storage, rotate the
+// secret to revoke everything.
+const { issueApiToken, bearerOrSession } = apiTokenAuth(
+  process.env.API_TOKEN_SECRET ||
+    `${process.env.SESSION_SECRET ?? ""}:mediatek`,
+);
+
+// Everything is behind one of the two: a library is somebody's work, not a public bucket.
+app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
+
+/** Mint a token for the signed-in user — what you paste into a machine's settings once.
+ *  Session only, deliberately: a token must not be able to mint another. */
+app.post("/api/token", requireAuth, (req, res) => {
+  const sub = (req as { user?: { sub?: string; email?: string } }).user;
+  const id = sub?.sub ?? sub?.email;
+  if (!id) return res.status(401).json({ error: "no user on the session" });
+  res.json({ token: issueApiToken(id) });
+});
 
 app.listen(PORT, () => {
   // Created on boot like the local service does, so an empty volume is a working library
