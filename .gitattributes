@@ -1,0 +1,19 @@
+# Force LF in the working tree on every platform, not just in the index.
+#
+# Biome's formatter emits LF, so a Windows checkout with core.autocrlf=true
+# would rewrite every file to CRLF and `npm run lint` would report the whole
+# repo as a format error on a fresh clone. eol=lf overrides autocrlf.
+* text=auto eol=lf
+
+# Binaries git must never touch.
+*.png binary
+*.jpg binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.mp4 binary
+*.exe binary
+*.dll binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
