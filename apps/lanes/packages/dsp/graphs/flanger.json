@@ -38,51 +38,78 @@
     },
     {
       "type": "alfo",
-      "k": ["Rate"],
+      "k": [
+        "Rate"
+      ],
       "out": "n1",
       "shape": "sine"
     },
     {
       "type": "amul",
       "out": "n2",
-      "in": ["n1"],
-      "k": ["Depth"]
+      "in": [
+        "n1"
+      ],
+      "k": [
+        "Depth"
+      ]
     },
     {
       "type": "aadd",
       "out": "n3",
-      "in": ["n2"],
-      "k": ["Centre"]
+      "in": [
+        "n2"
+      ],
+      "k": [
+        "Centre"
+      ]
     },
     {
       "type": "amul",
       "out": "n4",
-      "in": ["fb"],
-      "k": ["Feedback"]
+      "in": [
+        "fb"
+      ],
+      "k": [
+        "Feedback"
+      ]
     },
     {
       "type": "aadd",
       "out": "n5",
-      "in": ["n0", "n4"]
+      "in": [
+        "n0",
+        "n4"
+      ]
     },
     {
       "type": "adelay",
-      "in": ["n5", "n3"],
+      "in": [
+        "n5",
+        "n3"
+      ],
       "out": "fb",
       "maxMs": 20
     },
     {
       "type": "aadd",
       "out": "n6",
-      "in": ["n0", "fb"]
+      "in": [
+        "n0",
+        "fb"
+      ]
     },
     {
       "type": "aout",
-      "in": ["n6"]
+      "in": [
+        "n6"
+      ]
     },
     {
       "type": "mix",
-      "in": ["Mix"]
+      "in": [
+        "Mix"
+      ]
     }
   ]
 }

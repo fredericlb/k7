@@ -47,68 +47,109 @@
       "min": 0,
       "max": 1,
       "default": 0,
-      "labels": ["up", "down"]
+      "labels": [
+        "up",
+        "down"
+      ]
     }
   ],
   "nodes": [
     {
       "type": "envelope",
-      "in": ["Attack", "Release"],
+      "in": [
+        "Attack",
+        "Release"
+      ],
       "out": "n0"
     },
     {
       "type": "todb",
-      "in": ["n0"],
+      "in": [
+        "n0"
+      ],
       "out": "n1"
     },
     {
       "type": "lerp",
-      "in": [-60, -15, "Sensitivity"],
+      "in": [
+        -60,
+        -15,
+        "Sensitivity"
+      ],
       "out": "n2"
     },
     {
       "type": "linmap",
-      "in": ["n1", "n2", 0],
+      "in": [
+        "n1",
+        "n2",
+        0
+      ],
       "out": "n3"
     },
     {
       "type": "sub",
-      "in": [1, "n3"],
+      "in": [
+        1,
+        "n3"
+      ],
       "out": "n4"
     },
     {
       "type": "select",
-      "in": ["n3", "n4", "Direction"],
+      "in": [
+        "n3",
+        "n4",
+        "Direction"
+      ],
       "out": "n5"
     },
     {
       "type": "geolerp",
-      "in": ["Low", "High", "n5"],
+      "in": [
+        "Low",
+        "High",
+        "n5"
+      ],
       "out": "n6"
     },
     {
       "type": "mul",
-      "in": ["sr", 0.45],
+      "in": [
+        "sr",
+        0.45
+      ],
       "out": "n7"
     },
     {
       "type": "clamp",
-      "in": ["n6", 60, "n7"],
+      "in": [
+        "n6",
+        60,
+        "n7"
+      ],
       "out": "n8"
     },
     {
       "type": "glide",
-      "in": ["n8"],
+      "in": [
+        "n8"
+      ],
       "out": "n9"
     },
     {
       "type": "biquad",
-      "in": ["n9", "Resonance"],
+      "in": [
+        "n9",
+        "Resonance"
+      ],
       "mode": "bandpass"
     },
     {
       "type": "mix",
-      "in": ["Mix"]
+      "in": [
+        "Mix"
+      ]
     }
   ]
 }
