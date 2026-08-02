@@ -224,7 +224,7 @@ add_subdirectory(server)
 # --- Unit tests (JUCE-free data layer) ----------------------------------------
 # ON by default for local dev; the build presets pin "targets": ["lanes-engine"],
 # so the test target isn't built by a normal preset build — build + run it with
-# `npm run lanes:test:mac` (or `ctest`). Turn off with -DLANES_BUILD_TESTS=OFF.
+# `npm run test:mac --workspace moteur` (or `ctest`). Off with -DLANES_BUILD_TESTS=OFF.
 option(LANES_BUILD_TESTS "Build the engine unit tests" ON)
 if(LANES_BUILD_TESTS)
     enable_testing()

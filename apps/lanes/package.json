@@ -5,14 +5,6 @@
   "license": "ISC",
   "author": "",
   "scripts": {
-    "dev": "turbo run dev --filter=./web/* --filter=./packages/file-service --filter=./packages/engine-host",
-    "engine:build": "node scripts/build-engine.mjs",
-    "engine:dev": "node scripts/build-engine.mjs --dev",
-    "engine:sidecar": "node scripts/build-engine.mjs --sidecar-only",
-    "engine:start": "node scripts/start-engine.mjs",
-    "engine:buildstart": "npm run engine:dev && npm run engine:start",
-    "lanes:build:win": "cd engine && cmake --preset windows-msvc && cmake --build --preset windows-msvc",
-    "lanes:build:mac": "cd engine && cmake --preset macos-clang && cmake --build --preset macos-clang",
-    "lanes:test:mac": "cd engine && cmake --preset macos-clang && cmake --build build/macos-clang --target lanes_engine_tests && ctest --test-dir build/macos-clang -R lanes_engine_tests --output-on-failure"
+    "dev": "turbo run dev --filter=./web/* --filter=./packages/file-service --filter=./packages/engine-host"
   }
 }

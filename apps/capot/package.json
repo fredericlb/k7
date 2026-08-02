@@ -5,11 +5,16 @@
   "type": "module",
   "description": "lanes menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @lanes/engine-host over the same ~/.lanes + registry contract.",
   "scripts": {
-    "predev": "node ../scripts/build-engine.mjs --sidecar-only",
+    "predev": "node scripts/build-engine.mjs --sidecar-only",
     "dev": "tauri dev",
-    "prebuild": "node ../scripts/build-engine.mjs --sidecar-only",
+    "prebuild": "node scripts/build-engine.mjs --sidecar-only",
     "build": "tauri build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "engine:build": "node scripts/build-engine.mjs",
+    "engine:dev": "node scripts/build-engine.mjs --dev",
+    "engine:sidecar": "node scripts/build-engine.mjs --sidecar-only",
+    "engine:start": "node scripts/start-engine.mjs",
+    "engine:buildstart": "npm run engine:dev && npm run engine:start"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

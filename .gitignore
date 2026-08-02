@@ -4,8 +4,8 @@ dist/
 
 # The tray's frontendDist stub. Tauri refuses to build without it and nothing
 # generates it, so it is version-controlled despite the blanket dist/ rule above.
-!apps/lanes/engine-tray/dist/
-!apps/lanes/engine-tray/dist/index.html
+!apps/capot/dist/
+!apps/capot/dist/index.html
 storybook-static/
 
 # `turbo prune` output (the Docker deps stage generates this inside the image)

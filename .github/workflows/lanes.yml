@@ -1,9 +1,13 @@
 # lanes CI.
 #
-# Scoped to apps/lanes deliberately. `turbo run test` across the whole repo is 62
-# tasks over eight apps; this is 14. A CI that is red on arrival for reasons nobody on
-# this change caused is a CI people learn to ignore — so it starts narrow and green.
-# Widening it is one filter per job.
+# Scoped to the lanes side of the repo deliberately — apps/lanes plus the two native
+# halves it owns, apps/moteur (C++) and apps/capot (the Tauri tray). `turbo run test`
+# across the whole repo is 62 tasks over eight apps; this is 14. A CI that is red on
+# arrival for reasons nobody on this change caused is a CI people learn to ignore — so
+# it starts narrow and green. Widening it is one filter per job.
+#
+# The file name and the three job `name:` fields are load-bearing: they are what branch
+# protection matches on. Renaming them is its own change, made with that setting.
 #
 # Three jobs, and only two of them can fail the build:
 #
@@ -28,12 +32,16 @@ on:
     branches: [master]
     paths:
       - "apps/lanes/**"
+      - "apps/moteur/**"
+      - "apps/capot/**"
       - "package-lock.json"
       - "turbo.json"
       - ".github/workflows/lanes.yml"
   pull_request:
     paths:
       - "apps/lanes/**"
+      - "apps/moteur/**"
+      - "apps/capot/**"
       - "package-lock.json"
       - "turbo.json"
       - ".github/workflows/lanes.yml"
@@ -68,16 +76,17 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
 
-      # engine-tray is excluded from BOTH turbo steps: it is a workspace, but its
+      # capot is excluded from BOTH turbo steps: it is a workspace, but its
       # `build` is `tauri build` — a full release bundle needing the C++ engine and a
-      # vendored Node. The `rust` job below is what covers the tray.
+      # vendored Node. The `rust` job below is what covers the tray. `apps/moteur`
+      # declares no `build`/`test` script at all, so turbo never tries to compile C++.
       - name: test
-        run: npx turbo run test --filter="./apps/lanes/**" --filter="!@lanes/engine-tray"
+        run: npx turbo run test --filter="./apps/lanes/**" --filter="!./apps/capot"
 
       # `build` is `tsc --noEmit` for every package; for web/frontend it is a real
       # `vite build && tsc --noEmit`, which is a stronger gate and worth the minute.
       - name: typecheck + build
-        run: npx turbo run build --filter="./apps/lanes/**" --filter="!@lanes/engine-tray"
+        run: npx turbo run build --filter="./apps/lanes/**" --filter="!./apps/capot"
 
       # web/backend has only a `typecheck` script — no `build` — so turbo covers it in
       # neither step. Run it directly rather than adding a script to its package.json
@@ -101,7 +110,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/lanes/engine-tray/src-tauri
+          workspaces: apps/capot/src-tauri
 
       # tauri_build refuses to build when an `externalBin` sidecar is missing, errors on a
       # `resources` glob that matches nothing, and requires `frontendDist` to exist. All
@@ -112,17 +121,16 @@ jobs:
       # `node scripts/build-engine.mjs --sidecar-only`, which is what a developer and the
       # release build run.
       #
-      # `engine-tray/dist/` is the odd one out: it holds a 4-line placeholder page (the
-      # tray opens no windows) which is GITIGNORED and untracked, so it is absent from
-      # every fresh clone — not just CI. Committing it would let anyone check out the
-      # repo and build the tray; until then, this recreates it.
+      # `capot/dist/index.html` is the odd one out: a 4-line placeholder page (the tray
+      # opens no windows). It IS tracked — force-un-ignored in .gitignore — so the guard
+      # below is a no-op on a normal checkout and only covers a stripped one.
       - name: stub the sidecars, resources and frontendDist
         shell: bash
-        working-directory: apps/lanes/engine-tray
+        working-directory: apps/capot
         run: |
           set -euo pipefail
           mkdir -p src-tauri/binaries src-tauri/resources/songs dist
-          for name in lanes-engine node cue lanes-cue; do
+          for name in lanes-engine node; do
             : > "src-tauri/binaries/${name}-x86_64-pc-windows-msvc.exe"
           done
           : > src-tauri/resources/engine-host.mjs
@@ -130,11 +138,11 @@ jobs:
           [ -f dist/index.html ] || printf '<!doctype html><html><head><title>lanes engine tray</title></head><body></body></html>\n' > dist/index.html
 
       - name: cargo check
-        working-directory: apps/lanes/engine-tray/src-tauri
+        working-directory: apps/capot/src-tauri
         run: cargo check --all-targets
 
       - name: cargo test
-        working-directory: apps/lanes/engine-tray/src-tauri
+        working-directory: apps/capot/src-tauri
         run: cargo test
 
   lint:

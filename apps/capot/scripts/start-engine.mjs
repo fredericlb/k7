@@ -8,7 +8,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url)); // apps/lanes/scripts
+const here = dirname(fileURLToPath(import.meta.url)); // apps/capot/scripts
 const OUT_DEV = join(dirname(here), "out", "dev");
 
 let target = null;

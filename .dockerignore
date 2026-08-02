@@ -18,14 +18,15 @@ ds-bundle
 .docker-revision
 env.yaml
 
-# lanes' NATIVE build outputs. None of it belongs in an image — the audio engine
+# The moteur's and the capot's NATIVE build outputs. None of it belongs in an image — the audio engine
 # and the Tauri tray are per-machine binaries, and the web image builds from the
 # workspace sources only. All are gitignored, so CI's fresh checkout never has
 # them; this is what stops a LOCAL image build from shipping ~30GB of CMake and
 # Cargo artifacts to the daemon as build context.
-apps/lanes/engine/build
-apps/lanes/out
-apps/lanes/engine-tray/src-tauri/target
-apps/lanes/engine-tray/src-tauri/binaries
-apps/lanes/engine-tray/src-tauri/resources
-apps/lanes/engine-tray/src-tauri/gen
+apps/moteur/build
+apps/capot/out
+apps/capot/.cache
+apps/capot/src-tauri/target
+apps/capot/src-tauri/binaries
+apps/capot/src-tauri/resources
+apps/capot/src-tauri/gen

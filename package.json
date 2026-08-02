@@ -21,7 +21,8 @@
     "apps/lanes",
     "apps/lanes/packages/*",
     "apps/lanes/web/*",
-    "apps/lanes/engine-tray"
+    "apps/moteur",
+    "apps/capot"
   ],
   "scripts": {
     "clean": "rm -rf node_modules .turbo commons/packages/*/node_modules commons/dev/*/node_modules packages/*/node_modules apps/*/node_modules apps/*/*/node_modules apps/*/*/*/node_modules",

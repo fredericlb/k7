@@ -23,7 +23,7 @@ pub fn merged_log_path() -> PathBuf {
 }
 
 /// The monorepo root, for locating dev builds: `$LANES_REPO_ROOT`, else walk up from the manifest dir
-/// until a directory containing `apps/lanes/engine` appears.
+/// until a directory containing `apps/moteur` appears.
 pub fn repo_root() -> Option<PathBuf> {
     if let Ok(root) = std::env::var("LANES_REPO_ROOT") {
         let p = PathBuf::from(root);
@@ -31,9 +31,9 @@ pub fn repo_root() -> Option<PathBuf> {
             return Some(p);
         }
     }
-    let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // .../engine-tray/src-tauri
+    let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // .../capot/src-tauri
     loop {
-        if dir.join("apps/lanes/engine").is_dir() {
+        if dir.join("apps/moteur").is_dir() {
             return Some(dir);
         }
         if !dir.pop() {

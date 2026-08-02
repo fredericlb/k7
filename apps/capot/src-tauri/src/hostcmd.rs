@@ -48,7 +48,7 @@ fn bundled() -> Option<HostCmd> {
 fn from_repo() -> Option<HostCmd> {
     let root = crate::paths::repo_root()?;
     let tsx = root.join("node_modules/tsx/dist/cli.mjs");
-    let entry = root.join("apps/lanes/packages/engine-host/src/main.ts");
+    let entry = root.join("apps/lanes/packages/engine-host/src/main.ts"); // moves to packages/ in the next step
     if !tsx.is_file() || !entry.is_file() {
         return None;
     }

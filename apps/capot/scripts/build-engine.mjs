@@ -20,12 +20,12 @@ import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url)); // apps/lanes/scripts
-const lanes = dirname(here); //                       apps/lanes
-const engineDir = join(lanes, "engine");
-const trayDir = join(lanes, "engine-tray");
-const OUT = join(lanes, "out");
-const CACHE = join(lanes, ".cache"); // vendored downloads (gitignored)
+const here = dirname(fileURLToPath(import.meta.url)); // apps/capot/scripts
+const trayDir = dirname(here); //                      apps/capot — this app IS the tray
+const repo = join(trayDir, "..", ".."); //             the monorepo root
+const engineDir = join(repo, "apps", "moteur");
+const OUT = join(trayDir, "out");
+const CACHE = join(trayDir, ".cache"); // vendored downloads (gitignored)
 
 // The Node we vendor into the app: pinned and downloaded, since a Homebrew node is a shim that breaks off
 // this machine. Kept on the repo's Node 22 line (.nvmrc). See docs/buildEngine.md.
@@ -58,7 +58,7 @@ function run(cmd, args, cwd, extraEnv, { allowFail = false } = {}) {
 
 // The workspace-hoisted Tauri CLI, else fall back to npx fetching it.
 function tauriCmd() {
-  let dir = lanes;
+  let dir = trayDir;
   for (;;) {
     const bin = join(dir, "node_modules", ".bin", "tauri");
     if (existsSync(bin)) return { cmd: bin, args: [] };
@@ -163,10 +163,10 @@ function vendorNode() {
   return cached;
 }
 
-// Bundle the file service into one .mjs the vendored Node runs directly, and copy engine-tray/songs into the
+// Bundle the file service into one .mjs the vendored Node runs directly, and copy this app's songs/ into the
 // app's resources (minus a checkout's per-machine junk), replaced wholesale so deleted demos don't linger.
 function stageDemos(destDir) {
-  const src = join(lanes, "engine-tray", "songs");
+  const src = join(trayDir, "songs");
   if (!existsSync(src)) {
     console.error(`error: no demo songs at ${src}.`);
     process.exit(1);
@@ -200,7 +200,7 @@ async function bundleTs(entry, outFile) {
     process.exit(1);
   }
   mkdirSync(dirname(outFile), { recursive: true });
-  console.log(`\n▸ esbuild (API) ${relative(lanes, entry)} → ${outFile}`);
+  console.log(`\n▸ esbuild (API) ${relative(repo, entry)} → ${outFile}`);
   await esbuild.build({
     entryPoints: [entry],
     bundle: true,
@@ -349,23 +349,23 @@ function buildDevApp() {
   console.log(`\n✔ dev app in ${OUT_DEV}`);
   for (const n of got) console.log(`   • ${n}`);
   console.log(
-    "\n  It uses the REPO's engine (engine/build) and runs the file service from\n" +
+    "\n  It uses the REPO's engine (apps/moteur/build) and runs the file service from\n" +
       "  source via tsx — edit either and just restart the app. Not distributable.",
   );
   process.exit(status);
 }
 
 // ── 1. the C++ engine ──────────────────────────────────────────────────────────
-// Dev mode never rebuilds it — it points at whatever is in engine/build, which is what makes the loop fast.
-// Delegated to the lanes:build:* npm scripts; Linux has no such script yet and keeps its preset here.
+// Dev mode never rebuilds it — it points at whatever is in apps/moteur/build, which is what makes the loop fast.
+// Delegated to the moteur's own build:* npm scripts; Linux has no such script yet and keeps its preset here.
 if (!sidecarOnly && !devMode) {
   const engineScript = {
-    win32: "lanes:build:win",
-    darwin: "lanes:build:mac",
+    win32: "build:win",
+    darwin: "build:mac",
   }[process.platform];
   if (engineScript) {
     console.log(`\n=== engine (npm run ${engineScript}) ===`);
-    run("npm", ["run", engineScript], lanes);
+    run("npm", ["run", engineScript], engineDir);
   } else {
     console.log(`\n=== engine (${PRESET}) ===`);
     run("cmake", ["--preset", PRESET], engineDir);
@@ -377,8 +377,8 @@ const engineBin = findEngineBinary();
 if (!engineBin && !devMode) {
   console.error(
     sidecarOnly
-      ? "error: no engine binary under engine/build — build it first (npm run engine:build)."
-      : "error: the engine built but no binary was found under engine/build.",
+      ? "error: no engine binary under apps/moteur/build — build it first (npm run engine:build)."
+      : "error: the engine built but no binary was found under apps/moteur/build.",
   );
   process.exit(1);
 }
@@ -389,8 +389,8 @@ if (!engineBin && !devMode) {
 if (devMode) {
   if (!engineBin)
     console.warn(
-      "warning: no engine binary under engine/build — the dev app will have nothing to\n" +
-        "  run until you build one (npm run lanes:build:mac).",
+      "warning: no engine binary under apps/moteur/build — the dev app will have nothing to\n" +
+        "  run until you build one (npm run build:mac --workspace moteur).",
     );
   buildDevApp();
   // buildDevApp() exits.
@@ -419,13 +419,13 @@ stage(vendorNode(), "node");
 // tauri.conf.json lists both as resources and Tauri ERRORS on a glob matching nothing.
 console.log("\n=== file service bundle ===");
 await bundleTs(
-  join(lanes, "packages", "file-service", "src", "server.ts"),
+  join(repo, "apps", "lanes", "packages", "file-service", "src", "server.ts"),
   join(trayDir, "src-tauri", "resources", "file-service.mjs"),
 );
 
 console.log("\n=== supervisor bundle ===");
 await bundleTs(
-  join(lanes, "packages", "engine-host", "src", "main.ts"),
+  join(repo, "apps", "lanes", "packages", "engine-host", "src", "main.ts"),
   join(trayDir, "src-tauri", "resources", "engine-host.mjs"),
 );
 
