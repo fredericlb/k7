@@ -14,7 +14,9 @@
     "engine:dev": "node scripts/build-engine.mjs --dev",
     "engine:sidecar": "node scripts/build-engine.mjs --sidecar-only",
     "engine:start": "node scripts/start-engine.mjs",
-    "engine:buildstart": "npm run engine:dev && npm run engine:start"
+    "engine:buildstart": "npm run engine:dev && npm run engine:start",
+    "tray:restart": "node scripts/restart-tray.mjs",
+    "tray:stop": "node scripts/restart-tray.mjs --stop"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

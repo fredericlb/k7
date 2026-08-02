@@ -94,6 +94,13 @@ Needs the MSVC Rust toolchain on Windows, not `-gnu`.
   `node ../scripts/build-engine.mjs --sidecar-only`, which stages the sidecars **and
   builds both `.mjs` bundles** — Tauri errors on a resource glob matching nothing, so
   even `cargo check` needs them present.
+- `npm run tray:restart` — stop → `engine:dev` → `engine:start` → wait for the merged log
+  to say `supervisor up`, exit non-zero if it didn't. The loop to use when nobody is
+  watching a terminal: `tauri dev` never returns, so it can't report. It stops **every**
+  running tray first, whatever build it came from — single-instance is keyed on the
+  identifier, so a survivor would silently win — and it builds the dev app rather than
+  raw `cargo`, because only the `out/dev` copy makes `hostcmd.rs` take its dev tier. See
+  `scripts/docs/restartTray.md`.
 
 ## Verify
 
