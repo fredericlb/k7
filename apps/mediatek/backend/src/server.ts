@@ -7,6 +7,7 @@ import { apiTokenAuth } from "@frediverse/oidc/api-auth";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import express from "express";
 import { libraryRouter } from "./routes/library.ts";
+import { mirrorRouter } from "./routes/mirror.ts";
 
 const PORT = Number(process.env.PORT || 8795);
 
@@ -39,6 +40,11 @@ const { issueApiToken, bearerOrSession } = apiTokenAuth(
 
 // Everything is behind one of the two: a library is somebody's work, not a public bucket.
 app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
+
+// SESSION only, unlike the library routes. A pull reaches into another system and rewrites
+// a family; a token exists so a headless cache can READ, and widening it to this would let
+// a leaked one repopulate somebody's library from a Grist document they never chose.
+app.use("/api/mirror", requireAuth, mirrorRouter);
 
 /** Mint a token for the signed-in user — what you paste into a machine's settings once.
  *  Session only, deliberately: a token must not be able to mint another. */
