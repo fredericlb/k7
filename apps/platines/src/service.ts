@@ -53,6 +53,20 @@ export const service = {
 
   morceaux: (s: Settings) =>
     get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=morceaux"),
+
+  modules: (s: Settings) =>
+    get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=modules"),
+
+  /** One cached file's text. The deck needs a module's `plugin:` block, and the catalogue
+   *  carries where a module IS, never what it runs. */
+  moduleFile: async (s: Settings, path: string): Promise<string> => {
+    const res = await fetch(
+      `${s.service}/mediatek/file?path=${encodeURIComponent(path)}`,
+      { headers: { [USER_HEADER]: s.user } },
+    );
+    if (!res.ok) throw new Error(`module ${res.status}`);
+    return res.text();
+  },
 };
 
 /**

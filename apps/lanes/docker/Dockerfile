@@ -56,6 +56,12 @@ RUN npm ci
 FROM deps AS frontend-build
 WORKDIR /app
 COPY --from=pruner /repo/out/full/ ./
+# The build stamp "YY.MMDDHHmm" the buildspec also tags this image with, shown in
+# the SPA chrome. A plain `docker build` leaves it "dev" — only CI claims a version.
+# Declared here rather than before the first FROM so a new stamp busts this layer
+# alone; see docs/versioning.md for why it is an ENV and not a RUN-line prefix.
+ARG APP_VERSION=dev
+ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build --workspace lanes-frontend
 
 # ---- backend prod deps -----------------------------------------------------

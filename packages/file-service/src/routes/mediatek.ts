@@ -3,11 +3,17 @@
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
+import { streamFile } from "@frediverse/http";
 import { validate, wrap } from "@frediverse/http/route";
 import { markSynced, syncFamily } from "@studio/mediatek/cache";
 import { listFamily, search, summary } from "@studio/mediatek/catalogue";
 import { uploadWorkspace } from "@studio/mediatek/ingest";
-import { exists, mediatekDir } from "@studio/mediatek/layout";
+import {
+  exists,
+  mediatekDir,
+  PathEscapesError,
+  safePath,
+} from "@studio/mediatek/layout";
 import { remoteLibrary, remoteWriter } from "@studio/mediatek/remote";
 import { revisions } from "@studio/mediatek/revision";
 import { FAMILIES, type Family } from "@studio/mediatek/types";
@@ -119,6 +125,34 @@ mediatekRouter.post(
       );
     } catch (e) {
       res.status(502).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/**
+ * One cached file's BYTES.
+ *
+ * The catalogue says where a thing is; it never says what is in it. That was enough while
+ * everything downstream either listed the cache or handed the moteur a path — but a browser
+ * that has to read a module's `plugin:` block has neither a filesystem nor a way in. This
+ * is that way in, and it is read-only: writing to the cache is what a sync is for, and a
+ * route that let a caller edit it would produce files the next sync silently deletes.
+ *
+ * `safePath` confines every path to the cache root, lexically and via realpath — the same
+ * guard the hosted service uses, since this one is now reachable from a second app.
+ */
+mediatekRouter.get(
+  "/mediatek/file",
+  wrap((req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path is required" });
+    try {
+      return streamFile(req, res, safePath(rel));
+    } catch (e) {
+      // A path that escapes is the caller's mistake, not ours: 400, never 500.
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      return res.status(404).json({ error: (e as Error).message });
     }
   }),
 );

@@ -6,40 +6,20 @@ import {
   emptyDoc,
   enginePlugin,
   pluginDoc,
+  readPluginBlock,
   trackDoc,
 } from "@studio/engine-protocol/build";
+
 import type { ProjectDoc } from "@studio/engine-protocol/project";
+
+// Re-exported, not redefined: it moved to @studio/engine-protocol/build when platines
+// wanted the same two scalars. Kept named here so this module's callers and its tests are
+// unchanged by where it now lives.
+export { readPluginBlock };
 
 /** The chain a preview lives on. One name, so the plugin's id is predictable and the
  *  editor can ask for its parameters without being told. */
 export const PREVIEW_CHAIN = "preview";
-
-/**
- * The `plugin:` block of a module file, without a YAML parser.
- *
- * A preview needs two scalars, and pulling a parser into the browser to get them would be
- * a lot of weight for `type` and `name`. Both spellings are read — the indented block and
- * the inline flow map — because module files in this repo use each.
- *
- * Unparseable means undefined, never a throw: the caller then previews a module with no
- * plugin, which is a real thing (an io module) and shows an empty parameter list.
- */
-export function readPluginBlock(
-  yaml: string,
-): { type?: string; name?: string } | undefined {
-  // The block form: `plugin:` on its own line, then the indented lines under it.
-  const block = /^[ \t]*plugin:[ \t]*\r?\n((?:[ \t]+\S.*\r?\n?)*)/m.exec(yaml);
-  const inline = /^[ \t]*plugin:[ \t]*\{([^}]*)\}/m.exec(yaml);
-  const body = block?.[1] ?? inline?.[1];
-  if (!body) return undefined;
-  const field = (k: string): string | undefined =>
-    new RegExp(`(?:^|[{,\\s])${k}\\s*:\\s*["']?([^"'\\n,}]+)`)
-      .exec(body)?.[1]
-      ?.trim();
-  const type = field("type");
-  const name = field("name");
-  return type === undefined && name === undefined ? undefined : { type, name };
-}
 
 /** The engine address of the previewed plugin — `chain:module`, its own id scheme. */
 export const previewPluginId = (module: string): string =>

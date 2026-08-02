@@ -2,11 +2,21 @@
 // what each node IS before you read its name: a keyboard makes sound, a MIDI plug
 // transforms notes, a waveform processes audio, arrows are the way in or out. Video
 // modules fall back to none rather than borrowing one that would read as audio.
-// Same icon set and reasons as trackIcons.tsx, but keyed by CATEGORY rather than a name prefix.
+// Same icon set and reasons as lanes' trackIcons.tsx, but keyed by CATEGORY rather than a
 import type { WebModuleCategory } from "@studio/graph-model";
-import type { TrackGlyph } from "./trackIcons";
 
-const GLYPHS: Record<string, TrackGlyph> = {
+/** An inline SVG, as a viewBox and a body. Declared here rather than imported from lanes'
+ *  trackIcons — which is where it started — because that file stayed in the app: its
+ *  TrackIcon draws the same lanes in the mixer and the timeline, so a graph package owning
+ *  it would have those two importing one. ModuleIcon has no such tie: it is keyed on
+ *  WebModuleCategory, which is the GRAPH's vocabulary, and its only consumer anywhere was
+ *  the chains icon table. Two fields is a cheaper duplication than that coupling. */
+export interface Glyph {
+  vb: string;
+  body: string;
+}
+
+const GLYPHS: Record<string, Glyph> = {
   "piano-16": {
     vb: "0 0 16 16",
     body: '<path fill="currentColor" d="M2.5 14c-.663 0-1.3-.263-1.77-.732a2.5 2.5 0 0 1-.732-1.77v-7c0-.663.263-1.3.732-1.77a2.5 2.5 0 0 1 1.77-.732h11c.663 0 1.3.263 1.77.732c.469.469.732 1.1.732 1.77v7c0 .663-.263 1.3-.732 1.77c-.469.469-1.1.732-1.77.732zM4 3H2.5a1.5 1.5 0 0 0-1.499 1.499v7A1.5 1.5 0 0 0 2.5 12.998H5v-3a.997.997 0 0 1-1-1v-6zm5 0H7v6a.997.997 0 0 1-1 1v3h4v-3a.997.997 0 0 1-1-1zm4.5 0H12v6a.997.997 0 0 1-1 1v3h2.5a1.5 1.5 0 0 0 1.499-1.499v-7A1.5 1.5 0 0 0 13.5 3.002z"/>',
@@ -44,7 +54,7 @@ const FOR_CATEGORY: Partial<Record<WebModuleCategory, string>> = {
 export function moduleGlyph(
   category?: WebModuleCategory,
   missing?: boolean,
-): TrackGlyph | null {
+): Glyph | null {
   if (missing) return GLYPHS["question-16"];
   const name = category ? FOR_CATEGORY[category] : undefined;
   return name ? GLYPHS[name] : null;

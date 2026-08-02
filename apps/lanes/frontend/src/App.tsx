@@ -100,6 +100,9 @@ import type { CommandInfo, ProjectInfo, WorkspaceInfo } from "./types";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 export default function App({
   engineUrl,
   onQuitWorkspace,
@@ -918,6 +921,9 @@ export default function App({
               centre section, sits at the true horizontal middle of the header. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="font-semibold">lanes</span>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {VERSION}
+            </span>
             <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
               {project?.name ?? "…"}
             </span>

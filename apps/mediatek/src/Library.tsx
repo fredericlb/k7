@@ -23,6 +23,9 @@ type FamilyId = (typeof FAMILIES)[number]["id"];
  *  something moved) and slow enough that a library nobody is touching costs nothing. */
 const POLL_MS = 3000;
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 function bytes(n: number | undefined): string {
   if (n === undefined) return "";
   if (n < 1024) return `${n} o`;
@@ -101,6 +104,9 @@ export function Library() {
         <span className="text-lg font-semibold tracking-tight">mediatek</span>
         <span className="text-xs text-muted-foreground">
           la médiathèque de studio
+        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {VERSION}
         </span>
       </header>
 

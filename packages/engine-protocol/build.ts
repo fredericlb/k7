@@ -108,6 +108,37 @@ export const EXTERNAL_PLUGIN_FORMATS = new Set([
 ]);
 
 /**
+ * The `plugin:` block of a module file, without a YAML parser.
+ *
+ * Lives beside `enginePlugin` — which consumes exactly what it produces — for the reason
+ * stated there: a browser that needs to know what a module runs should not drag in a
+ * parser, nor a module that reads the filesystem, for two scalars.
+ *
+ * Both spellings module files in this repo use are read: the indented block and the inline
+ * flow map. Unparseable means `undefined`, never a throw — a module with no plugin is a
+ * real thing (an io module), and the caller shows it as loading nothing.
+ *
+ * Third-copy rule: this started in mediatek's module preview, and platines wanting the same
+ * two scalars is what moved it here rather than making a second one.
+ */
+export function readPluginBlock(
+  yaml: string,
+): { type?: string; name?: string } | undefined {
+  // The block form: `plugin:` on its own line, then the indented lines under it.
+  const block = /^[ \t]*plugin:[ \t]*\r?\n((?:[ \t]+\S.*\r?\n?)*)/m.exec(yaml);
+  const inline = /^[ \t]*plugin:[ \t]*\{([^}]*)\}/m.exec(yaml);
+  const body = block?.[1] ?? inline?.[1];
+  if (!body) return undefined;
+  const field = (k: string): string | undefined =>
+    new RegExp(`(?:^|[{,\\s])${k}\\s*:\\s*["']?([^"'\\n,}]+)`)
+      .exec(body)?.[1]
+      ?.trim();
+  const type = field("type");
+  const name = field("name");
+  return type === undefined && name === undefined ? undefined : { type, name };
+}
+
+/**
  * Map an authored `plugin: {type, name}` onto the engine's older wire form, where `type`
  * holds either a built-in's xmlTypeName or an external format. `fallback` is the module
  * name. Full mapping table: @studio/song's docs/enginePlugin.md.

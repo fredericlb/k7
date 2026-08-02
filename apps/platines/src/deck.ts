@@ -3,8 +3,15 @@
 // hear what the interface is putting out. See docs/plumbing.md.
 
 import type { EngineClient } from "@studio/engine-browser";
-import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
+import {
+  clipDoc,
+  emptyDoc,
+  enginePlugin,
+  pluginDoc,
+  trackDoc,
+} from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
+import type { DeckModule } from "./graph";
 
 /** The chain a deck lives on. One name, so the document is predictable and the engine's
  *  diff sees a track it already has rather than a new one on every load. */
@@ -23,7 +30,11 @@ export const DECK = "deck-a";
  * explain away. What IS shared is the layer under both: the document constructors in
  * @studio/engine-protocol/build, which is where the duplication was actually worth removing.
  */
-export function deckDoc(absolutePath: string, name: string): ProjectDoc {
+export function deckDoc(
+  absolutePath: string,
+  name: string,
+  modules: DeckModule[] = [],
+): ProjectDoc {
   return emptyDoc({
     name: `platines: ${name}`,
     tracks: [
@@ -37,6 +48,19 @@ export function deckDoc(absolutePath: string, name: string): ProjectDoc {
             source: absolutePath,
           }),
         ],
+        // The SAME list the graph draws, in the SAME order, addressed by the same
+        // `chain:module` id. That identity is the point: a graph showing a filter the
+        // engine never loaded would be a picture of a signal path that does not exist,
+        // and a decorative graph is worse than no graph.
+        plugins: modules.map((m) => {
+          const { type, name: pname } = enginePlugin(m.plugin, m.name);
+          return pluginDoc({
+            id: `${DECK}:${m.name}`,
+            type,
+            name: pname,
+            enabled: m.enabled,
+          });
+        }),
       }),
     ],
   });
@@ -49,7 +73,8 @@ export function loadAndPlay(
   engine: EngineClient,
   absolutePath: string,
   name: string,
+  modules: DeckModule[] = [],
 ): void {
-  engine.sendProject(deckDoc(absolutePath, name));
+  engine.sendProject(deckDoc(absolutePath, name, modules));
   engine.transport("play");
 }

@@ -5,10 +5,13 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Input } from "@frediverse/ui/input";
+import { readPluginBlock } from "@studio/engine-protocol/build";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Disc3, Headphones, Loader2, Play, Plug, Square } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { loadAndPlay } from "./deck";
+import { ChainsPanel } from "./chains";
+import { deckDoc, loadAndPlay } from "./deck";
+import { categoryOf, type DeckModule } from "./graph";
 import {
   loadSettings,
   playablePath,
@@ -25,12 +28,21 @@ export function App() {
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<MediatekEntry | null>(null);
+  const [available, setAvailable] = useState<MediatekEntry[]>([]);
+  const [modules, setModules] = useState<DeckModule[]>([]);
 
   const refresh = useCallback(async (s: Settings) => {
     try {
       const sum = await service.summary(s);
       setRoot(sum.root);
       setEntries((await service.morceaux(s)).entries);
+      // The médiathèque's modules are the deck's vocabulary — the same catalogue, the same
+      // cache. Allowed to fail on its own: a deck with no effects still plays.
+      try {
+        setAvailable((await service.modules(s)).entries);
+      } catch {
+        setAvailable([]);
+      }
       setError(null);
     } catch (e) {
       setEntries(null);
@@ -53,7 +65,38 @@ export function App() {
       );
     setError(null);
     setLoaded(e);
-    loadAndPlay(deck.engine, abs, e.name);
+    loadAndPlay(deck.engine, abs, e.name, modules);
+  };
+
+  /** Re-send the document without touching the transport. The engine DIFFS, so a chain
+   *  change rebuilds only what moved — the song keeps playing under it. */
+  const reapply = useCallback(
+    (next: DeckModule[]) => {
+      setModules(next);
+      if (!deck.engine || !root || !loaded) return;
+      const abs = playablePath(root, loaded);
+      if (abs) deck.engine.sendProject(deckDoc(abs, loaded.name, next));
+    },
+    [deck.engine, root, loaded],
+  );
+
+  /** Put a médiathèque module on the deck. Its `plugin:` block is read from the CACHE —
+   *  the catalogue says where a module is, never what it runs. */
+  const addModule = async (e: MediatekEntry) => {
+    try {
+      const yaml = await service.moduleFile(settings, `${e.path}/module.yaml`);
+      reapply([
+        ...modules,
+        {
+          name: e.name,
+          category: categoryOf(e.path),
+          plugin: readPluginBlock(yaml),
+          enabled: true,
+        },
+      ]);
+    } catch (err) {
+      setError(`${e.name} : ${(err as Error).message}`);
+    }
   };
 
   return (
@@ -137,6 +180,49 @@ export function App() {
             </ul>
           )}
         </main>
+
+        {/* The signal path. Not decorative: the modules it draws are the same list, in the
+            same order, that goes into the ProjectDoc — see deckDoc. */}
+        <section className="flex min-h-0 w-[28rem] shrink-0 flex-col border-l">
+          <div className="flex shrink-0 items-baseline gap-2 border-b px-3 py-2">
+            <span className="text-sm font-semibold">Chaîne</span>
+            <span className="text-xs text-muted-foreground">
+              {modules.length} module(s)
+            </span>
+          </div>
+          <div className="min-h-0 flex-1">
+            <ChainsPanel
+              song={loaded?.name ?? null}
+              modules={modules}
+              onBypass={(name) =>
+                reapply(
+                  modules.map((m) =>
+                    m.name === name ? { ...m, enabled: !m.enabled } : m,
+                  ),
+                )
+              }
+            />
+          </div>
+          {available.length ? (
+            <div className="shrink-0 border-t p-2">
+              <select
+                className="w-full rounded-md border bg-background px-2 py-1 text-xs"
+                value=""
+                onChange={(ev) => {
+                  const hit = available.find((m) => m.id === ev.target.value);
+                  if (hit) void addModule(hit);
+                }}
+              >
+                <option value="">ajouter un module…</option>
+                {available.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </section>
 
         <aside className="flex w-80 shrink-0 flex-col gap-4 border-l p-4">
           <Card className="p-4">
