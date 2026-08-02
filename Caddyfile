@@ -59,3 +59,15 @@ lanes.test {
 
 	reverse_proxy 127.0.0.1:5223
 }
+
+# The media library. It has no backend of its own: /api and /auth go to the SAME
+# one lanes uses, which is the studio-wide OIDC gate and engine registry. The
+# library itself is fetched cross-origin from the local file service.
+mediatek.test {
+	tls internal
+
+	@backend path /api/* /auth/*
+	reverse_proxy @backend 127.0.0.1:8789
+
+	reverse_proxy 127.0.0.1:5224
+}

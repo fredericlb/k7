@@ -7,7 +7,8 @@
   "types": "./src/engine.ts",
   "exports": {
     ".": "./src/engine.ts",
-    "./store": "./src/engineStore.ts"
+    "./store": "./src/engineStore.ts",
+    "./probe": "./src/probe.ts"
   },
   "dependencies": {
     "@studio/engine-protocol": "*"

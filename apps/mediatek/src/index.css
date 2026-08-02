@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Shared design tokens (palette + radii) — keeps mediatek in step with the other apps. */
+@import "@frediverse/ui/theme.css";
+
+/* @frediverse/ui is consumed as source OUTSIDE this app tree, so Tailwind v4 must be told
+   to scan it, or none of its component classes are generated. Tailwind ignores a @source
+   path that doesn't exist WITHOUT warning, so a wrong one silently drops every
+   design-system class the app doesn't also happen to use itself.
+
+   NOTE the `commons/` segment: @frediverse/ui lives in the submodule, at
+   commons/packages/ui/src — which is what .storybook/preview.css already points at.
+   lanes and radiok7 both say `packages/ui/src`, which resolves to nothing; that is a
+   real bug in those two, not a convention to copy. */
+@source "../../../commons/packages/ui/src";
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+}

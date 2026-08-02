@@ -35,6 +35,7 @@ one app:
 | `apps/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
 | `apps/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
 | `apps/lanes` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — OIDC auth and the engine registry only). Owns the timeline; shares the chains view. |
+| `apps/mediatek` | TypeScript | The media library — morceaux, samples, modules. A SPA with no backend of its own: it borrows lanes' for auth and the registry, and reads the catalogue from the local file service. |
 | `apps/obscura` | TypeScript | The blind-test game — six SPAs behind one origin. |
 | `apps/radiok7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
 

@@ -1,12 +1,28 @@
-// engineProbe.ts — classify each registered engine into a locality tier by actually
-// reaching it: loopback answers = same machine (Tier 1), a LAN IP answers = same LAN
-// (Tier 2), neither = elsewhere. The probe sends {type:"whoami"} and MATCHES THE ID, so a
-// lookalike listener can't pass as this engine; the reply's token goes to the backend.
+// probe.ts — classify each registered engine into a locality tier by actually reaching it:
+// loopback answers = same machine (Tier 1), a LAN IP answers = same LAN (Tier 2), neither
+// = elsewhere. The probe sends {type:"whoami"} and MATCHES THE ID, so a lookalike listener
+// can't pass as this engine; the reply's token goes to the backend.
 
-import type { EngineTier, PublicEngine } from "./types";
+/** How near an engine is. 1 = this machine, 2 = this LAN, 3 = unreachable from here. */
+export type EngineTier = 1 | 2 | 3;
 
-export interface RankedEngine {
-  engine: PublicEngine;
+/**
+ * The least an engine must tell us to be probed. Declared structurally rather than
+ * imported: the registry's `PublicEngine` satisfies it, and taking the dependency would
+ * drag auth, workspaces and git types into the browser client for two field names.
+ */
+export interface ProbeTarget {
+  id: string;
+  addresses: {
+    loopback: string;
+    lanIps: string[];
+    port: number;
+    filePort: number;
+  };
+}
+
+export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
+  engine: E;
   tier: EngineTier;
   wsUrl: string | null; // the engine ws address that answered; null for Tier 3
   fileBase: string | null; // the file service on the SAME host; null for Tier 3
@@ -66,7 +82,7 @@ interface Candidate {
   url: string;
 }
 
-function candidatesFor(e: PublicEngine): Candidate[] {
+function candidatesFor(e: ProbeTarget): Candidate[] {
   const { loopback, lanIps, port } = e.addresses;
   return [
     { tier: 1, host: loopback, url: `ws://${loopback}:${port}` },
@@ -76,7 +92,7 @@ function candidatesFor(e: PublicEngine): Candidate[] {
   ];
 }
 
-async function rank(e: PublicEngine): Promise<RankedEngine> {
+async function rank<E extends ProbeTarget>(e: E): Promise<RankedEngine<E>> {
   // Probe every candidate at once and take the lowest tier that answered, paying no serial timeout for misses.
   const results = await Promise.all(
     candidatesFor(e).map(async (c) => ({
@@ -102,9 +118,9 @@ async function rank(e: PublicEngine): Promise<RankedEngine> {
 }
 
 // Rank every engine, closest tier first. Assigned ones are ranked too, so a caller can grey rather than hide.
-export async function probeEngines(
-  engines: PublicEngine[],
-): Promise<RankedEngine[]> {
-  const ranked = await Promise.all(engines.map(rank));
+export async function probeEngines<E extends ProbeTarget>(
+  engines: E[],
+): Promise<RankedEngine<E>[]> {
+  const ranked = await Promise.all(engines.map((e) => rank(e)));
   return ranked.sort((a, b) => a.tier - b.tier);
 }

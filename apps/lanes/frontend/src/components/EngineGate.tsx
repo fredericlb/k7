@@ -3,11 +3,11 @@
 // and mounts <App/> with the chosen ws address. A reload reuses the last pick when it is
 // still reachable, otherwise shows the picker again.
 
+import { probeEngines } from "@studio/engine-browser/probe";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
-import { probeEngines, type RankedEngine } from "../engineProbe";
-import { ENGINE_ASSIGN_RENEW_MS } from "../types";
+import { ENGINE_ASSIGN_RENEW_MS, type RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
 import { WorkspaceGate } from "./WorkspaceGate";
 

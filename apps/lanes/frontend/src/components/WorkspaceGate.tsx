@@ -9,8 +9,8 @@ import { useCallback, useEffect, useState } from "react";
 import App from "../App";
 import type { FileServiceFault } from "../api";
 import { api, configureFileApi, diagnoseFileService } from "../api";
-import type { RankedEngine } from "../engineProbe";
 import { m } from "../paraglide/messages.js";
+import type { RankedEngine } from "../types";
 import { SshKeyPage } from "./SshKeyPage";
 import { WorkspaceSelect } from "./WorkspaceSelect";
 

@@ -1,0 +1,27 @@
+{
+  "name": "mediatek",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The media library: what studio owns, in one place — morceaux, samples and modules. Read-only for now; the module builder moves in later.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@frediverse/ui": "*",
+    "@studio/engine-browser": "*",
+    "@studio/web-protocol": "*",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@frediverse/vite-config": "*",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.0.0"
+  }
+}

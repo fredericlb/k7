@@ -1,12 +1,12 @@
-// EngineSelect.tsx — pick the engine to drive, ordered by how close it is. The tier comes
-// from actually reaching the engine (engineProbe.ts), so a Tier-1/2 row is genuinely
+// EngineSelect.tsx â€” pick the engine to drive, ordered by how close it is. The tier comes
+// from actually reaching the engine (@studio/engine-browser/probe), so a Tier-1/2 row is genuinely
 // connectable; a Tier-3 row is shown for awareness but can't be selected yet.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Loader2, RefreshCw, Server } from "lucide-react";
-import type { RankedEngine } from "../engineProbe";
 import { m } from "../paraglide/messages.js";
+import type { RankedEngine } from "../types";
 
 const TIER_LABEL: Record<number, () => string> = {
   1: m["engines.tier1"],
