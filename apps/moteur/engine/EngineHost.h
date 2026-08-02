@@ -5,6 +5,7 @@
 // compiles without seeing JUCE. applyFull() builds from scratch; apply(target) diffs and mutates in place,
 // which stable ids are what make possible. See docs/engineHost.md.
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
@@ -163,6 +164,44 @@ public:
 
     // Drain every active tap, keyed "chain:module:side" — called by the state timer for each broadcast.
     std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps();
+
+    // --- Audio broadcast (TWO threads — read each method's own note) ---------
+    //
+    // The mix leaving for the interface, copied out for the network. Nothing is tapped
+    // until somebody asks: the stream is ~3 Mbit/s uncompressed, so an engine nobody is
+    // listening to must not pay a copy per block. See docs/broadcast.md.
+    //
+    // Unlike every other section here, this one is NOT uniformly message-thread. The two
+    // setup calls are; the two ring calls belong to the sender thread and must never be
+    // wrapped in post(), which would put a second reader on a single-consumer ring.
+
+    // Put the tap on the master plugin list, or take it off. Idempotent. The tap survives
+    // a project apply the way the level meters do — reasserted by buildLevelMeters.
+    void enableBroadcast(bool on);
+    bool isBroadcasting() const;
+
+    // What a drain answered with. `lostFrames` is what the writer overwrote before the
+    // sender reached it — a real hole, which the sender reports as a sequence jump.
+    struct BroadcastChunk {
+        std::vector<float> samples;   // interleaved, channels() per frame
+        size_t frames = 0;
+        size_t lostFrames = 0;
+        double sampleRate = 0.0;
+    };
+    static constexpr int broadcastChannels() { return 2; }
+
+    // Take up to `maxFrames` frames. Empty (frames == 0) whenever there is nothing yet,
+    // which is the ordinary case between audio callbacks.
+    //
+    // SENDER THREAD ONLY, and exactly one of them: the ring is single-producer/
+    // single-consumer, and a second caller would race the read cursor. It needs no lock and
+    // no post() precisely because the ring is EngineHost's own and outlives every edit.
+    BroadcastChunk drainBroadcast(size_t maxFrames);
+
+    // Drop whatever is buffered and resume from live. Same thread as drainBroadcast — the
+    // read cursor belongs to it. Called when a listener arrives, so it hears now rather
+    // than the third of a second that was already in the ring.
+    void skipBroadcastToLive();
 
     // Open a plugin's native editor — the window the plugin itself draws, not the module's widget grid. `id` is the
     // PluginDoc id, and only external plugins have one. Message-thread only.

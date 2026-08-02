@@ -20,6 +20,7 @@ add_library(lanes_engine STATIC
     OfflineRender.cpp
     Waveform.cpp
     WaveformTapPlugin.cpp
+    BroadcastTapPlugin.cpp
     NamPlugin.cpp
     DspGraph.cpp
     GraphDspPlugin.cpp

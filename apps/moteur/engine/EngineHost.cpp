@@ -7,6 +7,7 @@
 #include "EditBuilder.h"       // populateEdit / trackById / addPlugin / applyTrackParams / …
 #include "AudioInputs.h"       // findWaveInput / monitorModeOf / findTrackInput
 #include "NamPlugin.h"          // the neural amp modeller (a .nam model as a plugin)
+#include "BroadcastTapPlugin.h" // the transparent tap plugin for network broadcast
 #include "WaveformTapPlugin.h" // the transparent tap plugin for waveform display
 
 #include <algorithm>
@@ -54,6 +55,10 @@ EngineHost::~EngineHost() {
         // through goes away. Only ever attached if something asked for a pitch.
         if (impl_->tunerAttached)
             impl_->engine.getDeviceManager().deviceManager.removeAudioCallback(&impl_->tuner);
+        // Take the broadcast tap off the master list before anything else goes away. Belt
+        // and braces — the ring is declared ahead of `engine` so it would outlive the
+        // callbacks anyway — but a tap that is gone cannot write into anything at all.
+        enableBroadcast(false);
         impl_->detachLevelMeters();    // unregister output clients before the edit tears down
         impl_->detachInputClients();   // and input clients before the devices (their measurers) do
     }
@@ -68,6 +73,10 @@ void EngineHost::teardownProjectState() {
     impl_->lastSavedState.clear();
     impl_->detachLevelMeters();   // unregister clients before their measurers die
     impl_->waveformPlugins.clear();  // release taps before the edit dies
+    // The broadcast PLUGIN goes with them; the ring does not, being EngineHost's. And
+    // `broadcastWanted` stays, so buildLevelMeters puts a fresh tap on the new edit and a
+    // listener survives an apply.
+    impl_->broadcastPlugin = nullptr;
     // The transport dies with the edit, so drop the listener while there is still something to drop it from.
     if (impl_->recordListener)
         if (auto* tc = impl_->transport())
@@ -147,6 +156,14 @@ void EngineHost::buildLevelMeters() {
         impl_->masterClient = std::make_unique<te::LevelMeasurer::Client>();
         lm->measurer.addClient(*impl_->masterClient);
         impl_->masterMeter = master;
+    }
+
+    // The broadcast tap goes back on the same list. A rebuild threw away the old edit and
+    // every plugin on it, so the WISH is what survived — without this, saving a file
+    // silences every listener, which is not a fault anyone would trace back to a save.
+    if (impl_->broadcastWanted) {
+        impl_->broadcastPlugin = nullptr;
+        enableBroadcast(true);
     }
 }
 
@@ -501,6 +518,50 @@ std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWavefor
             result[key] = std::move(data);
     }
     return result;
+}
+
+// --- Audio broadcast ---------------------------------------------------------
+
+void EngineHost::enableBroadcast(bool on) {
+    impl_->broadcastWanted = on;
+    if (!on) {
+        if (auto* p = impl_->broadcastPlugin.get()) p->deleteFromParent();
+        impl_->broadcastPlugin = nullptr;
+        return;
+    }
+    if (impl_->broadcastPlugin != nullptr) return;   // already tapping
+    if (!impl_->edit) return;                        // reasserted by buildLevelMeters later
+
+    // Appended (-1) to the MASTER list, so it sees the mix after everything, exactly like
+    // the master level meter it sits beside — that is the signal leaving for the interface.
+    auto tap = impl_->edit->getPluginCache().createNewPlugin(
+        lanes::BroadcastTapPlugin::xmlTypeName, {});
+    if (!tap) return;
+    // Point it at the ring BEFORE it joins the list: once inserted, an audio callback can
+    // reach it at any moment, and a plugin with no ring yet would drop those blocks.
+    if (auto* bt = dynamic_cast<lanes::BroadcastTapPlugin*>(tap.get()))
+        bt->setTap(&impl_->broadcastRing);
+    impl_->edit->getMasterPluginList().insertPlugin(tap, -1, nullptr);
+    impl_->broadcastPlugin = tap;
+}
+
+bool EngineHost::isBroadcasting() const {
+    return impl_->broadcastWanted;
+}
+
+EngineHost::BroadcastChunk EngineHost::drainBroadcast(size_t maxFrames) {
+    // SENDER THREAD. It reads the ring, which EngineHost owns and which outlives every
+    // edit — deliberately, so this needs no lock and cannot be caught mid-rebuild.
+    BroadcastChunk chunk;
+    const auto d = impl_->broadcastRing.drain(chunk.samples, maxFrames);
+    chunk.frames = d.frames;
+    chunk.lostFrames = d.lostFrames;
+    chunk.sampleRate = impl_->broadcastRing.sampleRate();
+    return chunk;
+}
+
+void EngineHost::skipBroadcastToLive() {
+    impl_->broadcastRing.skipToLive();
 }
 
 // --- Server support ----------------------------------------------------------

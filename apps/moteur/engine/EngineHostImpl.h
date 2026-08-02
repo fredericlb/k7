@@ -8,6 +8,7 @@
 
 #include "EngineHost.h"
 #include "EngineTypes.h"
+#include "BroadcastTap.h"
 #include "InputTuner.h"
 #include "WaveformTap.h"
 
@@ -37,6 +38,14 @@ struct EngineHost::Impl {
     // JUCE's message manager must outlive `engine`, so declaring it first constructs it first and destroys it last.
     // Owning it here is what lets the server stay free of any JUCE include.
     juce::ScopedJuceInitialiser_GUI juceInit;
+
+    // BEFORE `engine`, so it is destroyed AFTER it — declaration order here is destruction
+    // order reversed, and this one is load-bearing. A live BroadcastTapPlugin on the master
+    // list holds a pointer to this ring and writes into it from the audio thread on every
+    // callback; the device only closes when `engine` dies. Declared after it, the ring
+    // would be freed while those callbacks were still running.
+    BroadcastTap broadcastRing;
+
     te::Engine engine{"Lanes", nullptr, std::make_unique<ServerBehaviour>()};
     std::unique_ptr<te::Edit> edit;
     std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
@@ -63,6 +72,14 @@ struct EngineHost::Impl {
     // the master is not one of the audio tracks, and its meter has to survive being asked for on its own.
     te::Plugin::Ptr masterMeter;
     std::unique_ptr<te::LevelMeasurer::Client> masterClient;
+
+    // The network broadcast tap. The RING it writes into is declared at the top of this
+    // struct — deliberately, see there. `broadcastWanted` outlives the plugin: an apply
+    // rebuilds the edit, so the WISH is what survives in order to be reasserted, otherwise
+    // a listener goes silent the moment somebody saves a file, which is the sort of fault
+    // nobody connects to a save.
+    te::Plugin::Ptr broadcastPlugin;
+    bool broadcastWanted = false;
 
     void detachLevelMeters() {
         for (size_t i = 0; i < levelMeters.size() && i < levelClients.size(); ++i)

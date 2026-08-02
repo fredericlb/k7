@@ -9,6 +9,7 @@
 #include "MixerPlugin.h"
 #include "MidiGraphPlugin.h"
 #include "NamPlugin.h"
+#include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
 
@@ -241,6 +242,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
     auto& pm = engine.getPluginManager();
     // Ours.
     pm.createBuiltInType<lanes::WaveformTapPlugin>();
+    pm.createBuiltInType<lanes::BroadcastTapPlugin>();
     pm.createBuiltInType<lanes::NamPlugin>();
     pm.createBuiltInType<lanes::GraphDspPlugin>();
     pm.createBuiltInType<lanes::MidiGraphPlugin>();

@@ -10,10 +10,13 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <csignal>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -30,6 +33,75 @@
 using json = nlohmann::json;
 
 namespace {
+
+// --- The audio broadcast frame ------------------------------------------------
+//
+// The other half of packages/engine-protocol/stream.ts, and the two must agree byte for
+// byte: nothing checks that they do but a listener, and a disagreement plays as noise
+// rather than failing. Every constant below is named there too.
+
+constexpr uint32_t kStreamMagic = 0x4c535452;   // "LSTR"
+constexpr uint8_t kStreamVersion = 1;
+constexpr size_t kStreamHeaderBytes = 32;
+constexpr uint8_t kStreamCodecPcmF32 = 0;
+
+// 480 frames = 10 ms at 48 kHz. Smaller frames would mean more syscalls for the same
+// audio; larger ones would put their own duration under the latency.
+constexpr size_t kBroadcastMaxFrames = 480;
+
+// The sender wakes this often and drains everything waiting. Shorter than the frame it
+// sends, so it stays ahead of production even when a wake-up runs late.
+constexpr int kBroadcastTickMs = 5;
+
+// How many frames one pass may send before yielding. 32 frames is ~320 ms of 48 kHz audio,
+// against the ~240 the engine produces in one 5 ms tick — ample headroom, and the bound is
+// only there to keep a pathological burst from spinning the loop.
+constexpr int kBroadcastFramesPerPass = 32;
+
+// How much may sit unsent for one listener before frames are skipped rather than queued —
+// about a third of a second of stereo float32. A cheap guard, not the real protection; see
+// the sender thread for why.
+constexpr size_t kBroadcastMaxQueuedBytes = 512 * 1024;
+
+// Sender thread only, so no synchronisation: it is the one thing that reads or writes it.
+uint32_t broadcastSeq = 0;
+
+// Set by a connection thread when the first listener arrives, cleared by the sender, which
+// is the only thread allowed to move the ring's read cursor. A flag rather than a direct
+// call for exactly that reason.
+std::atomic<bool> firstListenerArrived{false};
+
+// Little-endian writes, explicitly, rather than memcpy of a struct: the wire order is part
+// of the contract, and every target being little-endian today is not a reason to bake the
+// host's order into it silently.
+void putU32(std::string& out, size_t at, uint32_t v) {
+    out[at + 0] = static_cast<char>(v & 0xff);
+    out[at + 1] = static_cast<char>((v >> 8) & 0xff);
+    out[at + 2] = static_cast<char>((v >> 16) & 0xff);
+    out[at + 3] = static_cast<char>((v >> 24) & 0xff);
+}
+
+std::string encodeStreamFrame(const lanes::EngineHost::BroadcastChunk& chunk,
+                              uint32_t seq, double captureMs) {
+    const int channels = lanes::EngineHost::broadcastChannels();
+    const size_t count = chunk.frames * static_cast<size_t>(channels);
+    std::string out(kStreamHeaderBytes + count * 4, '\0');
+
+    putU32(out, 0, kStreamMagic);
+    out[4] = static_cast<char>(kStreamVersion);
+    out[5] = static_cast<char>(channels);
+    // 6..7 reserved, already zero
+    putU32(out, 8, static_cast<uint32_t>(chunk.sampleRate));
+    putU32(out, 12, static_cast<uint32_t>(chunk.frames));
+    putU32(out, 16, seq);
+    out[20] = static_cast<char>(kStreamCodecPcmF32);
+    // 21..23 reserved, already zero
+    static_assert(sizeof(double) == 8, "the header's captureMs is an IEEE-754 binary64");
+    std::memcpy(&out[24], &captureMs, 8);
+    if (count > 0)
+        std::memcpy(&out[kStreamHeaderBytes], chunk.samples.data(), count * 4);
+    return out;
+}
 
 lanes::ProjectDoc docFromJson(const json& j) {
     lanes::ProjectDoc doc;
@@ -416,8 +488,16 @@ int main(int argc, char** argv) {
     std::mutex loggedMx;
     std::unordered_set<std::string> loggedConns;
 
+    // Who asked for audio. By POINTER, matched against server.getClients(), because the
+    // stream is ~3 Mbit/s uncompressed and must never go to a connection that did not ask
+    // — the tray polls this port several times a second on sockets it drops immediately.
+    // Same mutex discipline as loggedConns: one callback thread per connection.
+    std::mutex listenersMx;
+    std::unordered_set<const ix::WebSocket*> listeners;
+
     server.setOnClientMessageCallback(
-        [&host, &broadcast, &loggedMx, &loggedConns, engineId, engineToken](
+        [&host, &broadcast, &loggedMx, &loggedConns, &listenersMx, &listeners,
+         engineId, engineToken](
             std::shared_ptr<ix::ConnectionState> conn,
             ix::WebSocket& ws, const ix::WebSocketMessagePtr& msg) {
             // Who is talking to us: the TUI, the web backend and the CLI all connect here, and an arrival or a drop explains
@@ -426,6 +506,23 @@ int main(int argc, char** argv) {
             if (msg->type == ix::WebSocketMessageType::Open)
                 return;
             if (msg->type == ix::WebSocketMessageType::Close) {
+                // Drop the listener FIRST: a socket that closed mid-stream must stop being
+                // sent to before anything else happens, and "the listener hung up" is the
+                // case this whole path most needs to survive.
+                //
+                // And take the tap off when that was the last one. A closed tab never sends
+                // {"broadcast": false}, so without this the engine would copy every block
+                // and encode a frame 200 times a second for nobody, for the rest of its
+                // life — with buildLevelMeters faithfully reasserting the tap on every apply.
+                {
+                    // The post happens UNDER the lock, so two connection threads cannot
+                    // compute their wishes in one order and queue them in the other — which
+                    // would let a departing listener's alse land after an arriving one's
+                    // 	rue and silence a listener that is still there.
+                    std::lock_guard<std::mutex> lk(listenersMx);
+                    if (listeners.erase(&ws) > 0 && listeners.empty())
+                        host.post([&host] { host.enableBroadcast(false); });
+                }
                 bool announced;
                 {
                     std::lock_guard<std::mutex> lk(loggedMx);
@@ -510,6 +607,25 @@ int main(int argc, char** argv) {
                     }
                     broadcast(json{{"type", "busy"}, {"busy", false}});
                 });
+            } else if (type == "broadcast") {
+                // Subscribe or unsubscribe THIS connection to the master audio stream. The
+                // tap is put on the master plugin list for the first listener and taken off
+                // when the last one goes, so an engine nobody is listening to copies nothing.
+                const bool on = j.value("on", false);
+                size_t remaining = 0;
+                bool first = false;
+                {
+                    // Same discipline as the Close handler: decide and queue under one lock.
+                    std::lock_guard<std::mutex> lk(listenersMx);
+                    first = on && listeners.empty();
+                    if (on) listeners.insert(&ws);
+                    else listeners.erase(&ws);
+                    remaining = listeners.size();
+                    if (first) firstListenerArrived.store(true, std::memory_order_relaxed);
+                    host.post([&host, want = remaining > 0] { host.enableBroadcast(want); });
+                }
+                std::cerr << "[broadcast] " << (on ? "listener added" : "listener removed")
+                          << " (" << remaining << " listening)\n";
             } else if (type == "flush") {
                 // Forget the project (plugins, edit, diff baseline) so the next one is built from scratch. Sent when the client
                 // switches projects: diffing a new song against the old is meaningless, and the old plugins must not survive.
@@ -899,6 +1015,113 @@ int main(int argc, char** argv) {
         return 1;
     }
     server.start();
+
+    // The audio broadcast: drain the master tap and push it to whoever asked, as BINARY on
+    // this same socket.
+    //
+    // ITS OWN THREAD, and that is not a preference. For a SERVER-side socket IXWebSocket
+    // sets _blockingSend, and WebSocketServer leaves its send timeout at -1: sendBinary
+    // does not return until the listener's TCP window drains, with no bound. On the message
+    // thread — where this started — one suspended laptop would park the whole engine: no
+    // meters, no transport, no applies, and it would read as a hang with no cause.
+    //
+    // What this does NOT fix, and is worth knowing before trusting it: the JSON broadcast()
+    // above still sends from the message thread, and IXWebSocket takes a per-socket write
+    // mutex for the whole of a send. So a listener wedged here still stalls the 20 Hz state
+    // frame behind that mutex. That hazard predates the audio stream — any client could
+    // always do it — but a 3 Mbit/s subscriber makes it likely rather than theoretical, and
+    // fixing it means giving the JSON path a bounded send too. Measure it (docs/broadcast.md)
+    // before deciding.
+    //
+    // The bufferedAmount() guard below is a cheap check, not the protection: after a
+    // blocking send returns the tx buffer is empty, so it reads ~0 nearly every time.
+    std::atomic<bool> senderRunning{true};
+    std::thread senderThread([&host, &server, &listenersMx, &listeners, &sinceBoot,
+                              &senderRunning] {
+        std::vector<std::shared_ptr<ix::WebSocket>> targets;
+        bool warnedNoRate = false;
+        while (senderRunning.load(std::memory_order_relaxed)) {
+            // Honoured HERE because skipping is a move of the read cursor, which belongs to
+            // this thread alone.
+            if (firstListenerArrived.exchange(false, std::memory_order_relaxed))
+                host.skipBroadcastToLive();
+            // Drain everything waiting, not one frame per pass. A fixed ceiling equal to
+            // the production rate has NO headroom: any late wake-up adds backlog no later
+            // pass can work off, so the ring fills within a second and stays full — a
+            // permanent third-of-a-second latency and a third of the audio dropped, for
+            // ever. The bound is only there so a burst cannot spin this loop; at 32 frames
+            // it moves ~320 ms of 48 kHz audio per pass, well clear of the 5 ms it sleeps.
+            for (int guard = 0; guard < kBroadcastFramesPerPass; ++guard) {
+                // Nobody listening: the tap is on its way off, so drop what is buffered
+                // rather than encoding it for nobody. The next listener starts from live.
+                {
+                    std::lock_guard<std::mutex> lk(listenersMx);
+                    if (listeners.empty()) {
+                        host.skipBroadcastToLive();
+                        break;
+                    }
+                }
+                auto chunk = host.drainBroadcast(kBroadcastMaxFrames);
+                if (chunk.frames == 0) break;
+
+                // A rate of 0 means the tap has never been through initialise(). The
+                // decoder rejects it (stream.ts guards the range), so it would vanish in
+                // silence — say it once instead of streaming into a void.
+                if (chunk.sampleRate < 8000.0) {
+                    if (!warnedNoRate) {
+                        std::cerr << "[broadcast] the tap has no sample rate yet — frames "
+                                     "withheld until the graph has prepared it\n";
+                        warnedNoRate = true;
+                    }
+                    break;
+                }
+
+                // A hole the tap overwrote becomes a JUMP in the sequence number, which is
+                // how the listener learns to re-cushion instead of splicing unrelated
+                // samples together. Rounded UP: integer division would report a hole
+                // shorter than one frame as no hole at all, which is the exact case this
+                // line exists to signal.
+                broadcastSeq +=
+                    1 + static_cast<uint32_t>((chunk.lostFrames + kBroadcastMaxFrames - 1) /
+                                              kBroadcastMaxFrames);
+
+                const auto payload = encodeStreamFrame(chunk, broadcastSeq, sinceBoot());
+
+                // Copy the target list under the lock and send OUTSIDE it. Sending while
+                // holding it would let the blocking send above stall every connection
+                // thread reaching the Close handler — a disconnect could not even be
+                // processed. Holding the shared_ptrs keeps them alive across the send.
+                targets.clear();
+                {
+                    const auto clients = server.getClients();
+                    std::lock_guard<std::mutex> lk(listenersMx);
+                    // Prune anything no longer connected, THEN take the targets. The set is
+                    // keyed by raw pointer, so an entry left behind by a connection whose
+                    // Close never arrived could be matched by a later socket the allocator
+                    // put at the same address — handing a tray probe a 3 Mbit/s stream it
+                    // never asked for. Pruning every pass keeps that window at one tick.
+                    for (auto it = listeners.begin(); it != listeners.end();) {
+                        const bool live = std::any_of(
+                            clients.begin(), clients.end(),
+                            [&](const std::shared_ptr<ix::WebSocket>& c) {
+                                return c.get() == *it;
+                            });
+                        it = live ? std::next(it) : listeners.erase(it);
+                    }
+                    if (listeners.empty()) break;
+                    for (auto& client : clients)
+                        if (listeners.count(client.get()) != 0) targets.push_back(client);
+                }
+                for (auto& client : targets) {
+                    if (client->bufferedAmount() > kBroadcastMaxQueuedBytes) continue;
+                    client->sendBinary(payload);
+                }
+                if (chunk.frames < kBroadcastMaxFrames) break;   // ring is empty
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(kBroadcastTickMs));
+        }
+    });
+
     std::cerr << "lanes-engine listening on ws://" << bindHost << ":" << port
               << (engineId.empty() ? std::string{}
                                    : " (id " + engineId + ")")
@@ -924,7 +1147,14 @@ int main(int argc, char** argv) {
 
     host.run();          // blocks on the JUCE message loop until quit()
 
+    // server.stop() FIRST, then join. The sender can be parked in a send to a listener that
+    // stopped reading, and that send has no timeout — the only thing that unwedges it is
+    // the socket being closed, which is what stop() does. Joining first would hang the
+    // engine on Ctrl-C until the TCP stack gave up on its own.
+    senderRunning.store(false, std::memory_order_relaxed);
     server.stop();
+    senderThread.join();
+
     ix::uninitNetSystem();
     return 0;
 }

@@ -24,6 +24,7 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 | `{ type: "set-preset", module: "synth", index: 3, path: "" }` | pick a preset |
 | `{ type: "list-edit-plugins" }` | → an `edit-plugins` reply |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
+| `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
 
 ## server → client
 
@@ -38,3 +39,11 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 | `{ type: "edit-plugins", plugins: [{id,name,hasNativePluginUI}, …] }` | what the loaded project holds |
 | `{ type: "busy", busy: true\|false }` | the message thread is (un)blocked by an apply |
 | `{ type: "error", message }` | |
+
+## server -> client, BINARY
+
+One message type, and the only binary this socket carries: a frame of master audio, sent
+only to connections that asked with `broadcast`. A 32-byte header then interleaved
+float32 — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
+`server/main.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
+checks that they do but a listener. See docs/broadcast.md.
