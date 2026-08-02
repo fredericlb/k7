@@ -15,6 +15,7 @@ import type {
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 
 export type {
   EngineState,
@@ -216,6 +217,22 @@ export class EngineClient {
     this.send({ type: "show-native-plugin-ui", id });
   }
   // Ask a plugin's current values: the project records only OVERRIDDEN params, and defaults live in the engine.
+  /**
+   * Apply a project.
+   *
+   * lanes never calls this — its documents are COMPILED from a folder of YAML, which the
+   * file service does, so the browser only ever drives transport. An app that builds a
+   * document itself (a module preview, a deck) has nothing to compile and no reason to go
+   * through a second process to reach a socket it already holds.
+   *
+   * Sent as given. The Node client folds groups onto members and strips video first; a
+   * document from `@studio/engine-protocol/build` has neither, so both folds are identity
+   * — fold before calling if yours might.
+   */
+  sendProject(doc: ProjectDoc): void {
+    this.send({ type: "project", doc });
+  }
+
   getPluginParams(id: string): void {
     this.send({ type: "get-plugin-params", id });
   }

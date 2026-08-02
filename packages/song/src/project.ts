@@ -66,33 +66,13 @@ export function parseSettings(raw: unknown): SettingsDoc {
   };
 }
 
-// Formats loaded from disk via the scan cache, vs a built-in named by xmlTypeName — mirrors isExternalFormat.
-export const EXTERNAL_PLUGIN_FORMATS = new Set([
-  "vst3",
-  "vst",
-  "vst2",
-  "au",
-  "audiounit",
-  "clap",
-  "lv2",
-  "ladspa",
-  "aax",
-]);
-
-// Map an authored `plugin: {type, name}` to the engine's older wire form, where `type`
-// holds either a built-in's xmlTypeName or an external format. Full mapping table:
-// docs/enginePlugin.md. `fallback` is the module name.
-export function enginePlugin(
-  plugin: { type?: unknown; name?: unknown } | undefined,
-  fallback: string,
-): { type: string; name: string } {
-  const type = String(plugin?.type ?? "");
-  const name = plugin?.name != null ? String(plugin.name) : "";
-  if (type === "internal") return { type: name, name: fallback };
-  if (EXTERNAL_PLUGIN_FORMATS.has(type.toLowerCase()))
-    return { type, name: name || fallback };
-  return { type, name: name || fallback }; // legacy: `type` is the xmlTypeName itself
-}
+// Both now live in @studio/engine-protocol/build — they map onto the WIRE, and a browser
+// needs them without this module's filesystem imports. Re-exported here, where every
+// caller already looks.
+export {
+  EXTERNAL_PLUGIN_FORMATS,
+  enginePlugin,
+} from "@studio/engine-protocol/build";
 
 // Fold each group's mute/solo onto its members on the way to the engine, which resolves
 // both per audio track and knows nothing about groups. OR, not override — see

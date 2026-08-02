@@ -48,4 +48,28 @@ export const library = {
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>
     `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+
+  /** One file's text. The library serves bytes; a module is YAML, so this reads it back. */
+  readFile: async (
+    path: string,
+  ): Promise<{ path: string; content: string }> => {
+    const res = await fetch(
+      `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+    );
+    if (!res.ok) throw new Error(`file ${res.status}`);
+    return { path, content: await res.text() };
+  },
+
+  /** Write one file back. The library replaces — there is no fork, see docs/ingest.md. */
+  writeFile: async (path: string, content: string): Promise<void> => {
+    const res = await fetch(
+      `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/octet-stream" },
+        body: content,
+      },
+    );
+    if (!res.ok) throw new Error(`write ${res.status}`);
+  },
 };

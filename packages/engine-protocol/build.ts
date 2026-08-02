@@ -91,6 +91,43 @@ export function clipDoc(
   };
 }
 
+/**
+ * Formats loaded from disk via the scan cache, as opposed to a built-in named by its
+ * xmlTypeName. Mirrors the engine's own isExternalFormat.
+ */
+export const EXTERNAL_PLUGIN_FORMATS = new Set([
+  "vst3",
+  "vst",
+  "vst2",
+  "au",
+  "audiounit",
+  "clap",
+  "lv2",
+  "ladspa",
+  "aax",
+]);
+
+/**
+ * Map an authored `plugin: {type, name}` onto the engine's older wire form, where `type`
+ * holds either a built-in's xmlTypeName or an external format. `fallback` is the module
+ * name. Full mapping table: @studio/song's docs/enginePlugin.md.
+ *
+ * Lives here rather than with the song compiler that used to own it: this is a mapping
+ * onto the WIRE, and a browser building a one-module document to preview needs it without
+ * dragging in a module that reads the filesystem. `@studio/song` re-exports it.
+ */
+export function enginePlugin(
+  plugin: { type?: unknown; name?: unknown } | undefined,
+  fallback: string,
+): { type: string; name: string } {
+  const type = String(plugin?.type ?? "");
+  const name = plugin?.name != null ? String(plugin.name) : "";
+  if (type === "internal") return { type: name, name: fallback };
+  if (EXTERNAL_PLUGIN_FORMATS.has(type.toLowerCase()))
+    return { type, name: name || fallback };
+  return { type, name: name || fallback }; // legacy: `type` is the xmlTypeName itself
+}
+
 /** A plugin instance. `id` is the engine's `chain:module` address — nothing else can supply it. */
 export function pluginDoc(
   over: Partial<PluginDoc> & Pick<PluginDoc, "id">,

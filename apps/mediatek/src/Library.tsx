@@ -7,6 +7,7 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import { Boxes, Disc3, Loader2, Waves } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
+import { ModuleParams } from "./engine/ModuleParams";
 
 const FAMILIES = [
   { id: "morceaux", label: "Morceaux", icon: Disc3 },
@@ -33,6 +34,8 @@ export function Library() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The module whose parameters are on screen. Modules only — a sample has none to ask for.
+  const [picked, setPicked] = useState<MediatekEntry | null>(null);
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
@@ -100,6 +103,7 @@ export function Library() {
               onClick={() => {
                 setFamily(id);
                 setEntries(null);
+                setPicked(null);
               }}
               className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
                 family === id
@@ -134,6 +138,7 @@ export function Library() {
                 <li
                   key={e.id}
                   className="flex items-baseline gap-3 rounded-md px-3 py-2 hover:bg-accent/40"
+                  onClick={() => setPicked((p) => (p?.id === e.id ? null : e))}
                 >
                   <span className="min-w-0 flex-1 truncate">{e.name}</span>
                   {/* Not filed: found on disk with no sidecar. Worth SAYING rather than hiding. */}
@@ -163,6 +168,17 @@ export function Library() {
             </ul>
           )}
         </main>
+
+        {/* Only for modules: it is the one family with a plugin behind it, and the engine
+            is the only thing that knows what that plugin's parameters are called. */}
+        {family === "modules" && picked ? (
+          <aside className="w-96 shrink-0 overflow-auto border-l p-4">
+            <div className="mb-3 truncate text-sm font-semibold">
+              {picked.name}
+            </div>
+            <ModuleParams entry={picked} />
+          </aside>
+        ) : null}
       </div>
     </div>
   );

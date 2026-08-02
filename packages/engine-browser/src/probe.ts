@@ -117,6 +117,58 @@ async function rank<E extends ProbeTarget>(e: E): Promise<RankedEngine<E>> {
   return { engine: e, tier: 3, wsUrl: null, fileBase: null, token: null };
 }
 
+/**
+ * Ask whatever is listening on loopback who it is.
+ *
+ * For a surface that wants THIS machine's engine and has no registry to consult — a module
+ * preview plays on the machine the module is on, so the registry's whole job (which of my
+ * machines?) has no question to answer. Accepts whichever id answers, because the id is not
+ * what is being trusted: the TOKEN is, and it is verified by the service that gates on it.
+ */
+export function probeLocalEngine(
+  port = 8765,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<{ id: string; token: string; wsUrl: string } | null> {
+  const wsUrl = `ws://127.0.0.1:${port}`;
+  return new Promise((resolve) => {
+    let ws: WebSocket;
+    let done = false;
+    const finish = (v: { id: string; token: string; wsUrl: string } | null) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        /* not open */
+      }
+      resolve(v);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch {
+      return finish(null);
+    }
+    ws.onopen = () => ws.send(JSON.stringify({ type: "whoami" }));
+    ws.onmessage = (ev) => {
+      try {
+        const m = JSON.parse(String(ev.data)) as {
+          type?: string;
+          id?: string;
+          token?: string;
+        };
+        if (m.type === "whoami" && m.id)
+          finish({ id: m.id, token: m.token ?? "", wsUrl });
+      } catch {
+        /* ignore non-JSON frames */
+      }
+    };
+    ws.onerror = () => finish(null);
+    ws.onclose = () => finish(null);
+  });
+}
+
 // Rank every engine, closest tier first. Assigned ones are ranked too, so a caller can grey rather than hide.
 export async function probeEngines<E extends ProbeTarget>(
   engines: E[],
