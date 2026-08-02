@@ -56,6 +56,8 @@ export interface IoLevels {
   clarity: number[];
 }
 type IoLevelsCb = (l: IoLevels) => void;
+/** One binary audio frame, exactly as it arrived. See @studio/engine-protocol/stream. */
+type StreamCb = (frame: ArrayBuffer) => void;
 
 // Every field any engine push carries. One shape rather than a union: the dispatch reads `type` first and the
 // rest is optional anyway, and naming it is what lets the dispatch be a method the freeze watchdog can time.
@@ -93,6 +95,10 @@ export class EngineClient {
   private busyCbs = new Set<BusyCb>();
   private warningCbs = new Set<WarningCb>();
   private ioLevelsCbs = new Set<IoLevelsCb>();
+  // Raw audio frames, handed on undecoded: this client's job is to route bytes, and
+  // @studio/engine-browser/stream is what knows how to read them.
+  private streamCbs = new Set<StreamCb>();
+  private broadcasting = false;
   // Plugins we asked to follow. The subscription lives in the ENGINE, so it is replayed on every open.
   private watched = new Set<string>();
   // Active waveform subscriptions, replayed on reconnect like `watched`. Keyed "id:side".
@@ -109,6 +115,9 @@ export class EngineClient {
     // A reconnect queued before dispose() must not resurrect the client — onclose's timer can still be pending.
     if (this.closed) return;
     const ws = new WebSocket(this.url);
+    // Audio frames arrive as binary on this same socket. Without this they would surface
+    // as Blobs, which stringify to "[object Blob]" and die silently in the JSON parse.
+    ws.binaryType = "arraybuffer";
     this.ws = ws;
     ws.onopen = () => {
       for (const m of this.outbox) ws.send(m);
@@ -121,6 +130,8 @@ export class EngineClient {
           id: sub.id,
           side: sub.side,
         });
+      // The broadcast subscription lives in the ENGINE, so it is replayed like the others.
+      if (this.broadcasting) this.send({ type: "broadcast", on: true });
       this.emitConn(true);
     };
     ws.onclose = () => {
@@ -130,6 +141,12 @@ export class EngineClient {
     };
     ws.onerror = () => {};
     ws.onmessage = (ev) => {
+      // Binary is audio, and never goes near the JSON path — it arrives at ~100 Hz and a
+      // parse attempt per frame would be pure waste even though it would fail harmlessly.
+      if (ev.data instanceof ArrayBuffer) {
+        for (const cb of this.streamCbs) cb(ev.data);
+        return;
+      }
       let m: EngineMessage;
       try {
         m = JSON.parse(String(ev.data));
@@ -277,6 +294,25 @@ export class EngineClient {
     if (!this.waveformSubs.has(key)) return;
     this.waveformSubs.delete(key);
     this.send({ type: "unsubscribe-waveform", id, side });
+  }
+
+  /**
+   * Turn the master audio broadcast on or off for THIS connection.
+   *
+   * Idempotent and replayed across reconnects, like the waveform subscriptions. The engine
+   * taps its master plugin list and pushes binary frames; nothing is sent to a connection
+   * that never asked, because the stream is ~3 Mbit/s and a tray poll must not pay it.
+   */
+  broadcast(on: boolean): void {
+    if (on === this.broadcasting) return;
+    this.broadcasting = on;
+    this.send({ type: "broadcast", on });
+  }
+
+  /** Raw audio frames. Decode with @studio/engine-browser/stream — see docs/streaming.md. */
+  onStreamFrame(cb: StreamCb): () => void {
+    this.streamCbs.add(cb);
+    return () => this.streamCbs.delete(cb);
   }
 
   onState(cb: StateCb): () => void {

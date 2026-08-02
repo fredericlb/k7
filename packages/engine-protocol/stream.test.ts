@@ -1,0 +1,144 @@
+import { describe, expect, it } from "vitest";
+import {
+  decodeStreamFrame,
+  encodeStreamFrame,
+  STREAM_CODEC_PCM_F32,
+  STREAM_HEADER_BYTES,
+  STREAM_MAGIC,
+  STREAM_VERSION,
+  type StreamFrame,
+  seqGap,
+} from "./stream";
+
+const frame = (over: Partial<StreamFrame> = {}): StreamFrame => {
+  const channels = over.channels ?? 2;
+  const frames = over.frames ?? 4;
+  return {
+    version: STREAM_VERSION,
+    channels,
+    sampleRate: 48000,
+    frames,
+    seq: 7,
+    codec: STREAM_CODEC_PCM_F32,
+    captureMs: 1234.5,
+    samples: new Float32Array(frames * channels).map((_, i) => i / 100),
+    ...over,
+  };
+};
+
+describe("the broadcast frame round-trips", () => {
+  it("carries every header field back unchanged", () => {
+    const f = frame();
+    const got = decodeStreamFrame(encodeStreamFrame(f));
+    expect(got).not.toBeNull();
+    expect(got?.channels).toBe(2);
+    expect(got?.sampleRate).toBe(48000);
+    expect(got?.frames).toBe(4);
+    expect(got?.seq).toBe(7);
+    expect(got?.captureMs).toBeCloseTo(1234.5, 6);
+  });
+
+  it("carries the samples back bit-for-bit", () => {
+    // Not "close to": a float32 written and read as float32 must be identical, and a
+    // rounding difference here would mean the payload took a conversion it should not.
+    const f = frame({ frames: 64 });
+    const got = decodeStreamFrame(encodeStreamFrame(f));
+    expect(Array.from(got?.samples ?? [])).toEqual(Array.from(f.samples));
+  });
+
+  it("puts the payload where a Float32Array view can be taken", () => {
+    // The whole reason the header is 32 bytes: 32 % 4 === 0, so the view is zero-copy.
+    // A header that grew to 30 would still decode here but throw in the browser.
+    expect(STREAM_HEADER_BYTES % 4).toBe(0);
+    const buf = encodeStreamFrame(frame({ frames: 8, channels: 2 }));
+    expect(buf.byteLength).toBe(STREAM_HEADER_BYTES + 8 * 2 * 4);
+    expect(() => new Float32Array(buf, STREAM_HEADER_BYTES, 16)).not.toThrow();
+  });
+
+  it("survives a mono frame", () => {
+    const got = decodeStreamFrame(encodeStreamFrame(frame({ channels: 1 })));
+    expect(got?.channels).toBe(1);
+    expect(got?.samples).toHaveLength(4);
+  });
+
+  it("refuses to encode a payload that disagrees with the header", () => {
+    expect(() =>
+      encodeStreamFrame(frame({ samples: new Float32Array(3) })),
+    ).toThrow(/samples/);
+  });
+});
+
+// Everything below is the same question: this decoder runs on whatever lands on a socket
+// that also carries JSON and, one day, other people's binary. Anything it does not fully
+// recognise has to come back null — a frame played on a guess is a burst of noise into
+// somebody's monitors.
+describe("the decoder rejects rather than guesses", () => {
+  it("ignores a buffer that is not ours", () => {
+    expect(
+      decodeStreamFrame(new TextEncoder().encode("hello").buffer),
+    ).toBeNull();
+  });
+
+  it("ignores a buffer too short to hold a header", () => {
+    expect(decodeStreamFrame(new ArrayBuffer(8))).toBeNull();
+  });
+
+  it("ignores a future version rather than misreading its header", () => {
+    const buf = encodeStreamFrame(frame());
+    new DataView(buf).setUint8(4, STREAM_VERSION + 1);
+    expect(decodeStreamFrame(buf)).toBeNull();
+  });
+
+  it("ignores a codec it cannot decode", () => {
+    // The day Opus lands, an old client must go quiet rather than play compressed bytes
+    // as PCM — which is exactly what a magic-and-version-only check would have done.
+    const buf = encodeStreamFrame(frame());
+    new DataView(buf).setUint8(20, 1);
+    expect(decodeStreamFrame(buf)).toBeNull();
+  });
+
+  it("ignores a frame whose length disagrees with its header", () => {
+    const buf = encodeStreamFrame(frame({ frames: 8 }));
+    new DataView(buf).setUint32(12, 9, true); // says 9 frames, carries 8
+    expect(decodeStreamFrame(buf)).toBeNull();
+  });
+
+  it("ignores an impossible channel count", () => {
+    const buf = encodeStreamFrame(frame());
+    new DataView(buf).setUint8(5, 0);
+    expect(decodeStreamFrame(buf)).toBeNull();
+  });
+
+  it("ignores an impossible sample rate", () => {
+    const buf = encodeStreamFrame(frame());
+    new DataView(buf).setUint32(8, 12, true);
+    expect(decodeStreamFrame(buf)).toBeNull();
+  });
+
+  it("writes the magic where a sniffer can see it", () => {
+    expect(new DataView(encodeStreamFrame(frame())).getUint32(0, true)).toBe(
+      STREAM_MAGIC,
+    );
+  });
+});
+
+// A gap means the sender DECIDED to drop, since TCP loses nothing in flight. Getting the
+// wrap wrong would report ~4 billion dropped frames once every 1.4 years at 100 fps — and
+// a player that reacts to a gap by resetting would then reset for no reason.
+describe("counting what the sender dropped", () => {
+  it("is zero for consecutive frames", () => {
+    expect(seqGap(41, 42)).toBe(0);
+  });
+
+  it("counts the frames that never arrived", () => {
+    expect(seqGap(10, 14)).toBe(3);
+  });
+
+  it("counts zero across the 32-bit wrap", () => {
+    expect(seqGap(0xffffffff, 0)).toBe(0);
+  });
+
+  it("counts correctly across the wrap", () => {
+    expect(seqGap(0xfffffffe, 1)).toBe(2);
+  });
+});

@@ -9,7 +9,15 @@
     ".": "./src/engine.ts",
     "./store": "./src/engineStore.ts",
     "./params": "./src/params.ts",
-    "./probe": "./src/probe.ts"
+    "./probe": "./src/probe.ts",
+    "./stream": "./src/streamPlayer.ts",
+    "./stream-sink": "./src/streamSink.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@studio/engine-protocol": "*"
