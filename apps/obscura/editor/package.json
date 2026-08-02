@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@frediverse/api-client": "*",
+    "@studio/player-web": "*",
     "@frediverse/i18n": "*",
     "@frediverse/ui": "*",
     "obscura-shared": "*",

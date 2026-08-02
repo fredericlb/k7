@@ -1,5 +1,5 @@
-import type { Player } from "./player";
-import type { PreloaderState, SongEntry } from "./songPreloader";
+import type { Player } from "@studio/player-web";
+import type { PreloaderState, SongEntry } from "@studio/player-web/preloader";
 
 // Playlist-mode playback: two rotating <audio> elements (one playing, one
 // prefetching the next track) instead of SongPreloader's decoded AudioBuffers.

@@ -1,11 +1,11 @@
-import { useSyncExternalStore } from "react";
 import {
   createEffectChain,
   type EffectChain,
   getDetune,
   getPlaybackRate,
   PitchWobble,
-} from "./audioEffects";
+} from "@studio/player-web/effects";
+import { useSyncExternalStore } from "react";
 
 // Framework-free port of composables/useEditorAudio.ts — the preview engine
 // behind the track panel's play/range/seek controls and its waveform. The Vue

@@ -1,6 +1,6 @@
+import { SongPreloader } from "@studio/player-web/preloader";
 import { useSyncExternalStore } from "react";
 import type { WSMessage, WSSubscriber } from "./monitor";
-import { SongPreloader } from "./songPreloader";
 
 // Framework-free port of composables/useAudioPlayback.ts. Owns the
 // SongPreloader engine and drives it from WS traffic (next / phase_change /

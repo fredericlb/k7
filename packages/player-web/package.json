@@ -1,0 +1,16 @@
+{
+  "name": "@studio/player-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Obscura's Web Audio playback: the decoded-buffer preloader, the effect chain, and the Player interface both engines satisfy. One copy — it was three, and the copies had already drifted.",
+  "types": "./src/player.ts",
+  "exports": {
+    ".": "./src/player.ts",
+    "./preloader": "./src/songPreloader.ts",
+    "./effects": "./src/audioEffects.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

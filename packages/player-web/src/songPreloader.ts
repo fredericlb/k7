@@ -7,10 +7,14 @@ import {
   PitchWobble,
 } from "./audioEffects";
 
-// Framework-free port of shared/composables/useSongPreloader.ts. The audio
-// engine is identical (effect chain, fusion dual-source, reversed buffers,
-// multi-track, trim scheduling); the Vue refs became a snapshot object +
+// Framework-free port of shared/composables/useSongPreloader.ts: category preload,
+// pause/resume, mic ducking, playback-rate override, fusion dual-source, reversed
+// buffers, multi-track, trim scheduling. The Vue refs became a snapshot object +
 // subscribe so React consumes it via useSyncExternalStore.
+//
+// There were two copies. online's was a solo-game trim of monitor-web's — the same
+// engine minus the methods it never called, with the state fields for them still
+// declared. This is monitor-web's, which was the superset; nothing was arbitrated away.
 
 export interface SongEntry {
   artist?: string;
@@ -49,6 +53,8 @@ export class SongPreloader {
   private audioCtx: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   private gainNode: GainNode | null = null;
+  // Master duck node: sits between all output and destination so the mic
+  // passthrough can reduce main audio volume when voice is detected.
   private duckGain: GainNode | null = null;
   private secondSource: AudioBufferSourceNode | null = null;
   private secondGainNode: GainNode | null = null;
@@ -220,7 +226,25 @@ export class SongPreloader {
     }
   }
 
-  private stopMulti(): void {
+  /**
+   * Preload songs for a single category. Unloads previous buffers first,
+   * then fetches and decodes all paths.
+   */
+  async preloadCategory(songs: SongEntry[]): Promise<void> {
+    this.ensureContext();
+    this.unload();
+    if (songs.length === 0) {
+      this.set({ progress: 1 });
+      return;
+    }
+    await Promise.all(songs.map((s) => this.preloadSong(s)));
+    // Give every decoded AudioBuffer time to fully settle on the audio
+    // thread before the next play() call — without this, the first song
+    // after preload can drop out or start mid-sample.
+    await new Promise<void>((r) => setTimeout(r, 2000));
+  }
+
+  stopMulti(): void {
     for (const src of this.multiSources) {
       src.onended = null;
       try {
@@ -270,7 +294,7 @@ export class SongPreloader {
     }
   }
 
-  private stopSecond(): void {
+  stopSecond(): void {
     if (this.secondSource) {
       this.secondSource.onended = null;
       try {
@@ -315,8 +339,28 @@ export class SongPreloader {
     }
   }
 
+  setPlaybackRate(rate: number): void {
+    if (this.currentSource) this.currentSource.playbackRate.value = rate;
+    if (this.secondSource) this.secondSource.playbackRate.value = rate;
+  }
+
   setGain(value: number): void {
     if (this.gainNode) this.gainNode.gain.value = value;
+  }
+
+  /**
+   * Audio ducking driven by the mic level: factor 1 = no duck, 0.5 = max
+   * attenuation (−6 dB). Smoothed via setTargetAtTime so rapid level
+   * changes don't pop.
+   */
+  setDuck(factor: number): void {
+    if (!this.duckGain || !this.audioCtx) return;
+    const clamped = Math.max(0.5, Math.min(1, factor));
+    this.duckGain.gain.setTargetAtTime(
+      clamped,
+      this.audioCtx.currentTime,
+      0.05,
+    );
   }
 
   /** Current playback position in seconds (absolute buffer position). */
@@ -327,6 +371,10 @@ export class SongPreloader {
       );
     }
     return this.pauseOffset;
+  }
+
+  getBuffer(path: string): AudioBuffer | undefined {
+    return this.cache.get(path);
   }
 
   setSecondGain(value: number): void {
@@ -383,6 +431,38 @@ export class SongPreloader {
     this.scheduleStop(from);
   }
 
+  pause(): void {
+    if (!this.audioCtx || !this.state.isPlaying) return;
+    this.clearStopTimer();
+    this.pauseOffset =
+      this.currentFrom + (this.audioCtx.currentTime - this.playStartTime);
+    this.stop();
+    this.set({ isPaused: true });
+  }
+
+  async resume(path: string): Promise<void> {
+    if (!this.audioCtx) return;
+    this.stop();
+    this.connectEffectChain();
+    const buffer = this.cache.get(path);
+    if (!buffer) {
+      console.warn("[preloader] buffer not found for", path);
+      return;
+    }
+    if (this.audioCtx.state === "suspended") await this.audioCtx.resume();
+    const source = this.audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.gainNode ?? this.audioCtx.destination);
+    source.onended = () => this.set({ isPlaying: false, isPaused: false });
+    source.start(0, this.pauseOffset);
+    this.applySourceEffects(source);
+    this.applyWobble(source);
+    this.playStartTime = this.audioCtx.currentTime;
+    this.currentSource = source;
+    this.set({ isPlaying: true, isPaused: false });
+    this.scheduleStop(this.pauseOffset);
+  }
+
   private getOrCreateReversedBuffer(path: string): AudioBuffer | null {
     if (this.reversedCache.has(path)) return this.reversedCache.get(path)!;
     const original = this.cache.get(path);
@@ -435,6 +515,7 @@ export class SongPreloader {
     from = 0,
     to = 0,
     from2?: number,
+    _to2?: number,
   ): Promise<void> {
     if (!this.audioCtx) return;
     this.stop();

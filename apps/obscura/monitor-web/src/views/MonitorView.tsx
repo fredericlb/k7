@@ -1,10 +1,10 @@
+import { usePreloaderState } from "@studio/player-web/preloader";
 import { useEffect, useMemo, useState } from "react";
 import { AuthBadge } from "../components/AuthBadge";
 import { f } from "../lib/api";
 import { useAudioUIState } from "../lib/audioPlayback";
 import { useMicState } from "../lib/mic";
 import { useMonitorState } from "../lib/monitor";
-import { usePreloaderState } from "../lib/songPreloader";
 import { createMonitorSystem } from "../lib/system";
 import { useVirtualBuzzersState } from "../lib/virtualBuzzers";
 

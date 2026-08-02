@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
+import { type Player, usePlayerState } from "@studio/player-web";
+import { SongPreloader } from "@studio/player-web/preloader";
 import {
   ArrowRight,
   Check,
@@ -49,8 +51,6 @@ import {
   markGuestPlayedSession,
   type PlayedKind,
 } from "../lib/guest";
-import { type Player, usePlayerState } from "../lib/player";
-import { SongPreloader } from "../lib/songPreloader";
 import { m } from "../paraglide/messages.js";
 
 // Solo gameplay walker (React port of SoloGame.vue). The imperative game
