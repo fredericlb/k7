@@ -1,25 +1,38 @@
 // engine.ts — the browser WebSocket link to the C++ engine: same protocol as the Node
 // client, native browser WebSocket, transport + live state, auto-reconnecting. The URL is
-// not fixed — the user picks an engine from the registry and its probed ws address is
-// passed in. Wire shapes come from @studio/engine-protocol and are re-exported here.
+// not fixed — the caller picks an engine and passes its probed ws address in. Wire shapes
+// come from @studio/engine-protocol and are re-exported here.
+//
+// There is exactly ONE browser implementation of this contract, and this is it. The repo
+// already ran the experiment of keeping two implementations of the engine contract in
+// step; they diverged anyway. Any app that drives the engine from a browser uses this.
 
 import type {
   EngineState,
   ParamMeta,
   PluginParams,
+  PresetInfo,
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
-import { beginActivity } from "./freezeWatchdog";
-import type { PresetInfo } from "./types";
 
 export type {
   EngineState,
   ParamMeta,
   PluginParams,
+  PresetInfo,
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
+
+/**
+ * Marks a stretch of work for a host that watches for stalls, returning its end callback.
+ * The engine pushes state at frame rate and params at 20 Hz, so a handler that got slow
+ * is invisible in a profile taken afterwards but obvious in a stall report — and whether
+ * anyone is watching is the host's business, not this client's. Defaults to doing nothing.
+ */
+export type BeginActivity = (name: string) => () => void;
+const noActivity: BeginActivity = () => () => {};
 
 type StateCb = (s: EngineState) => void;
 type ConnCb = (connected: boolean) => void;
@@ -86,7 +99,10 @@ export class EngineClient {
   private closed = false;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(private readonly url: string) {}
+  constructor(
+    private readonly url: string,
+    private readonly beginActivity: BeginActivity = noActivity,
+  ) {}
 
   connect(): void {
     // A reconnect queued before dispose() must not resurrect the client — onclose's timer can still be pending.
@@ -119,9 +135,8 @@ export class EngineClient {
       } catch {
         return;
       }
-      // Breadcrumb by message type: the engine pushes state at frame rate and params at 20 Hz, so a handler that
-      // got slow is invisible in a profile taken after the fact but obvious in a stall report. See freezeWatchdog.
-      const doneDispatch = beginActivity(`ws ${m.type ?? "?"}`);
+      // Breadcrumb by message type, for whatever the host uses to spot a stall. See BeginActivity.
+      const doneDispatch = this.beginActivity(`ws ${m.type ?? "?"}`);
       try {
         this.dispatch(m);
       } finally {

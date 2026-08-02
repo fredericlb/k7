@@ -4,11 +4,11 @@
 // already lays out LR, so don't hand-roll a strip — it would lose the routed sends.
 // The track comes from the caret, so the panel has no selection state of its own.
 
+import { useActiveTracks } from "@studio/engine-browser/store";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import type { MenuCtx } from "../contextMenu";
-import { useActiveTracks } from "../engineStore";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
 import { DomChains } from "./DomChains";

@@ -3,8 +3,8 @@
 // the WHOLE tree even when nothing changed. Components subscribe to just the SLICE they
 // draw via useEngineState(selector), so the editor never re-renders on a frame at all.
 
+import type { EngineState } from "@studio/engine-protocol";
 import { createContext, useContext, useRef, useSyncExternalStore } from "react";
-import type { EngineState } from "./engine";
 
 const INITIAL: EngineState = {
   playing: false,

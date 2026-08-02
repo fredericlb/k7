@@ -5,6 +5,7 @@
 // component's imperative handle. See docs/timeline.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
+import { useEngineState } from "@studio/engine-browser/store";
 import { beatsToPosition } from "@studio/song/timecode";
 import { trackLabel } from "@studio/song/trackKind";
 import { labelled, labelStride, subdivideBeats } from "@studio/ui-waveform";
@@ -26,7 +27,6 @@ import {
 } from "react";
 import { api } from "../api";
 import type { MenuCtx } from "../contextMenu";
-import { useEngineState } from "../engineStore";
 import { blurOnClick } from "../keys";
 import {
   findRow,

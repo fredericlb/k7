@@ -3,8 +3,8 @@
 // Left-click-drag draws a note (press = pitch + start, release = end) via `sequence note
 // new`; wheel zooms time, middle-drag pans. Opened as the timeline's bottom split pane.
 
+import { useEngineState } from "@studio/engine-browser/store";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useEngineState } from "../engineStore";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject } from "../types";
 import { useHZoom, usePanScroll } from "../usePanZoom";

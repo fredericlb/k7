@@ -3,9 +3,9 @@
 // the timeline caret. Clicking (or dragging across) scrubs the playhead to that
 // position — the whole song is always mapped to the full width, so it never scrolls.
 
+import { useEngineState } from "@studio/engine-browser/store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import { useEngineState } from "../engineStore";
 import { m } from "../paraglide/messages.js";
 import { HATCH, projectRows, type RowKey, rowIndexOf } from "../rows";
 import type { WebProject, WebTrack } from "../types";

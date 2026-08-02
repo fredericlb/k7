@@ -5,9 +5,9 @@
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
+import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { arrayEq, useEngineState } from "../engineStore";
 import { blurOnClick } from "../keys";
 import { m } from "../paraglide/messages.js";
 import { TrackIcon, trackIcon } from "../trackIcons";

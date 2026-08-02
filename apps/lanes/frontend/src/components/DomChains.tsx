@@ -4,6 +4,12 @@
 // can read. Shared by the Chains tab and the Graph panel — mount it only where it has a
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
+import type { WaveformEnvelope } from "@studio/engine-browser";
+import {
+  useEngineState,
+  useInputLevel,
+  useTrackLevel,
+} from "@studio/engine-browser/store";
 import type { WebSignal, WebWidget } from "@studio/graph-model";
 import {
   type AutoTarget,
@@ -29,8 +35,6 @@ import {
 import { Snowflake } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MenuCtx } from "../contextMenu";
-import type { WaveformEnvelope } from "../engine";
-import { useEngineState, useInputLevel, useTrackLevel } from "../engineStore";
 import { ModuleIcon, moduleGlyph } from "../moduleIcons";
 import { PluginParamsStore, usePluginParams } from "../pluginParamsStore";
 import { TrackIcon } from "../trackIcons";

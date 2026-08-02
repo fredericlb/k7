@@ -218,13 +218,9 @@ export type PreviewReq =
   | { kind: "clip"; clip: string }
   | { kind: "slice"; source: string; from: number; to: number };
 
-// A selectable module preset — found by the engine in the plugin (program/file), or authored by the user ("user").
-export interface PresetInfo {
-  name: string;
-  source: "program" | "file" | "user";
-  index: number; // program-list index (source "program"), else -1
-  path: string; // absolute preset path (source "file" | "user"), else ""
-}
+// A module preset. The ENGINE discovers these, so the shape is its; re-exported here
+// because the file service's /presets route hands the same objects to the browser.
+export type { PresetInfo } from "@studio/engine-protocol";
 
 // Progress of the background waveform prewarm (for the status-line spinner).
 export interface WaveformStatus {

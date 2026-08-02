@@ -3,11 +3,11 @@
 // song with `video: true`, but still guards the empty case so a project that loses its
 // video mid-session shows a message rather than a black rectangle.
 
+import { useEngineState } from "@studio/engine-browser/store";
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import { buildScene, type VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useMemo, useState } from "react";
 import { api, mediaUrl } from "../api";
-import { useEngineState } from "../engineStore";
 import type { WebProject } from "../types";
 import { VideoCanvas } from "./VideoCanvas";
 

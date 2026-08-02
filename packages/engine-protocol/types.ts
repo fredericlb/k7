@@ -48,3 +48,12 @@ export interface PluginParams {
   // Only on the reply to `get-plugin-params`: a range can't change while loaded, so re-sending it 20×/s is waste.
   meta?: Record<string, ParamMeta>;
 }
+
+// A selectable module preset — found by the engine in the plugin (program/file), or authored by the user ("user").
+// The engine is what discovers these, so the shape is its; the file service's /presets route passes them through.
+export interface PresetInfo {
+  name: string;
+  source: "program" | "file" | "user";
+  index: number; // program-list index (source "program"), else -1
+  path: string; // absolute preset path (source "file" | "user"), else ""
+}

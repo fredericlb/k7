@@ -8,6 +8,12 @@ import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { cn } from "@frediverse/ui/lib/utils";
+import {
+  arrayEq,
+  EngineStore,
+  EngineStoreProvider,
+  useStoreState,
+} from "@studio/engine-browser/store";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { Circle, Loader2, Pause, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,12 +53,6 @@ import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { Toaster } from "./components/Toast";
 import { VideoTab } from "./components/VideoTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
-import {
-  arrayEq,
-  EngineStore,
-  EngineStoreProvider,
-  useStoreState,
-} from "./engineStore";
 import { fuzzyScore } from "./fuzzy";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useLogs } from "./hooks/useLogs";

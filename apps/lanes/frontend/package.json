@@ -25,6 +25,7 @@
     "@studio/ui-chains": "*",
     "@studio/ui-editor": "*",
     "@studio/ui-eyes": "*",
+    "@studio/engine-browser": "*",
     "@studio/graph-model": "*",
     "@studio/web-protocol": "*",
     "@uiw/react-codemirror": "^4.23.0",

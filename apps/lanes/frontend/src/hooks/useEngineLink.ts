@@ -2,11 +2,12 @@
 // EngineClient, wires its callbacks into state, and exposes the stable senders the
 // panes call. Extracted from App.tsx; the behaviour is unchanged.
 
+import { EngineClient } from "@studio/engine-browser";
+import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
-import { EngineClient } from "../engine";
-import type { EngineStore } from "../engineStore";
+import { beginActivity } from "../freezeWatchdog";
 import type { PluginParamsStore } from "../pluginParamsStore";
 import type { PresetInfo } from "../types";
 
@@ -56,7 +57,9 @@ export function useEngineLink(
   >({});
 
   useEffect(() => {
-    const engine = new EngineClient(engineUrl);
+    // The client is app-agnostic; the stall breadcrumbs are lanes' own instrumentation, so
+    // the shell hands its watchdog in rather than the package importing one.
+    const engine = new EngineClient(engineUrl, beginActivity);
     engineRef.current = engine;
     const offState = engine.onState((s) => {
       store.set(s); // external store — subscribers re-render on the slice they read

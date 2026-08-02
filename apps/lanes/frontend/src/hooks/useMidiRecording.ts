@@ -3,8 +3,8 @@
 // 20 Hz frames with performance.now(), so onsets aren't quantised to the frame rate. On
 // stop the notes land in the armed track's sequence, offset to clip-local beats.
 
+import type { EngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef } from "react";
-import type { EngineStore } from "../engineStore";
 import { MidiRecorder } from "../webmidi";
 
 export function useMidiRecording(opts: {

@@ -1,0 +1,18 @@
+{
+  "name": "@studio/engine-browser",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The browser's WebSocket link to the C++ engine, and the React store over its ~20 Hz state push. The counterpart of @studio/engine-client (Node) — and the only browser implementation there is, deliberately.",
+  "types": "./src/engine.ts",
+  "exports": {
+    ".": "./src/engine.ts",
+    "./store": "./src/engineStore.ts"
+  },
+  "dependencies": {
+    "@studio/engine-protocol": "*"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

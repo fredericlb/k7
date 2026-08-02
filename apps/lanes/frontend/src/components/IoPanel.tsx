@@ -12,11 +12,11 @@
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
+import type { EngineClient } from "@studio/engine-browser";
+import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
 import { ArrowDownToLine, ArrowUpFromLine, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import type { EngineClient } from "../engine";
-import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "../engineStore";
 import type { IoPort } from "../types";
 
 const POLL_MS = 100; // ~10 Hz: a meter reads as live, and each frame enables devices engine-side

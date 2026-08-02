@@ -4,14 +4,14 @@
 // and drawn off the store directly so the canvas updates without re-rendering the overlay.
 
 import { Button } from "@frediverse/ui/button";
-import { Circle, Square } from "lucide-react";
-import { type ReactNode, useEffect, useRef } from "react";
 import {
   INPUT_VU_MAX_DB,
   INPUT_VU_MIN_DB,
   useEngineState,
   useEngineStore,
-} from "../engineStore";
+} from "@studio/engine-browser/store";
+import { Circle, Square } from "lucide-react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 // The envelope is capped and then scrolls; at ~20 Hz that is ~200s, so most takes never scroll at all.
 const MAX_BUCKETS = 4000;

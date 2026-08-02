@@ -2,6 +2,7 @@
 // two tiny presentational pieces the header uses (the transport clock, the metronome
 // glyph). Extracted from App.tsx so the shell reads as wiring, not tables.
 
+import { useEngineState } from "@studio/engine-browser/store";
 import {
   AudioWaveform,
   Clapperboard,
@@ -15,7 +16,6 @@ import {
   Video,
   Workflow,
 } from "lucide-react";
-import { useEngineState } from "./engineStore";
 import type { Pane, Panel, View } from "./routes";
 
 // The three panes, not tabs: the global view shows all three, and a "view" is a LAYOUT over the same instances.

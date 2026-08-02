@@ -4,10 +4,10 @@
 // waveform itself is the shared @studio/ui-waveform Waveform (fed a dB envelope
 // from the clip's samples); the notes/grid come from the backend (/api/waveform).
 
+import { useEngineState } from "@studio/engine-browser/store";
 import { Waveform } from "@studio/ui-waveform";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { useEngineState } from "../engineStore";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
 import { useHZoom, usePanScroll } from "../usePanZoom";
