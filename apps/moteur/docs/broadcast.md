@@ -186,12 +186,25 @@ projects, and a 2 ms spread would not have survived that.
 zero overruns over 150 s says the copy is not costing anything visible, which is the
 question that mattered; a profiler pass is still the honest way to put a number on it.
 
+### A real browser, since then
+
+`scripts/listen-headless.mjs` drives headless Chrome over CDP with the actual
+`@studio/engine-browser` modules bundled in, so the `AudioWorklet` really renders. It
+plays: 10995 frames over 110 s, nothing dropped, nothing undecodable, no format change.
+
+It also moved a number. The sender's jitter is 2.2 ms measured from Node; through a browser
+it is 22 ms over 30 s and 66 ms over 110 s, because what is being measured there is the
+listener's *main thread*. One underrun, ring down to 64 frames. The default cushion went
+from 50 ms to 150 ms as a result — the full reasoning is in
+`packages/engine-browser/docs/streaming.md`.
+
 ### Still unmeasured
 
-* A real browser as the listener — the `AudioWorklet` path has unit tests behind it but has
-  never played a sound.
-* Two machines, i.e. the drift figure that actually governs the design.
+* **Two machines** — the drift figure that actually governs the design. Both figures here
+  compare a sound card against a system clock, never two cards against each other.
 * Sustained multi-listener load, and the JSON-broadcast stall described above.
+* A real lanes tab as the listener: it has a React tree and a canvas to schedule around,
+  so its main thread will be worse than the empty page measured here.
 
 ## What is deliberately absent
 

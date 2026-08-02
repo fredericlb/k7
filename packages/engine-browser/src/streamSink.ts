@@ -24,7 +24,7 @@ class LanesStreamProcessor extends AudioWorkletProcessor {
     const o = (options && options.processorOptions) || {};
     this.channels = o.channels || 2;
     this.capacity = o.capacity || 96000;
-    this.startFrames = o.startFrames || 2400;
+    this.startFrames = o.startFrames || 7200;
     this.ring = [];
     for (let c = 0; c < this.channels; c++)
       this.ring.push(new Float32Array(this.capacity));
@@ -119,7 +119,19 @@ export interface WorkletSinkOptions {
   channels: number;
   /** Ring size in frames. Default ~2 s at 48 kHz: big enough to ride out a stall. */
   capacity?: number;
-  /** The cushion, in frames, before playback starts. Default 50 ms at 48 kHz. */
+  /**
+   * The cushion, in frames, before playback starts. Default 7200 — **150 ms** at 48 kHz.
+   *
+   * It was 50 ms, which arrival jitter alone said was ample: the sender's spread measured
+   * 2.2 ms. Then a headless-Chrome run measured what actually matters, which is not the
+   * network but the LISTENER'S MAIN THREAD: a 66 ms spread over 110 s, one stall deep
+   * enough to leave 64 frames in the ring, and one underrun. The engine was never the
+   * problem — a browser tab is, because it also runs everything else.
+   *
+   * 150 ms is a deliberate trade against latency, and an easy one here: broadcast is for
+   * listening to a room, not for monitoring your own playing. Anything that needs tighter
+   * should pass its own value and expect to hear the stalls.
+   */
   startFrames?: number;
 }
 
@@ -152,7 +164,7 @@ export async function createWorkletSink(
     processorOptions: {
       channels: opts.channels,
       capacity: opts.capacity ?? 96000,
-      startFrames: opts.startFrames ?? 2400,
+      startFrames: opts.startFrames ?? 7200,
     },
   });
 

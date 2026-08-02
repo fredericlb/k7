@@ -80,8 +80,9 @@ short enough to read in one screen, and that is the whole mitigation.
 
 ### What the processor does at the edges, and why
 
-* **It waits for a cushion before starting** (`startFrames`, default 50 ms). Starting on
-  the first sample underruns on the very next block for any jitter at all.
+* **It waits for a cushion before starting** (`startFrames`, default **150 ms**). Starting
+  on the first sample underruns on the very next block for any jitter at all. The default
+  was 50 ms until it was measured — see below.
 * **An underrun outputs silence, not a repeat of the last block.** A repeat sounds
   smoother — which is exactly the problem. This mockup exists to *find* dropouts, and a
   concealment that hides them would defeat it. When the measurements are in and the design
@@ -118,3 +119,42 @@ That is the measurement that decides step 7's real design. Take it before writin
 
 A run that matters is a long one: minutes, not seconds, because drift is the thing that
 only appears with time.
+
+## What the measurements actually said
+
+`node apps/moteur/scripts/listen-headless.mjs ws://HOST:PORT [seconds]` bundles *these*
+modules with esbuild, serves them, and drives headless Chrome over CDP — so the worklet
+below really renders, with nobody in the room. Two runs against a live engine on loopback:
+
+| | 30 s @ 50 ms | 110 s @ 50 ms | 120 s @ 150 ms |
+|---|---|---|---|
+| frames decoded | 2988 | 10995 | 12000 |
+| dropped / undecodable / format changes | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| **jitter spread** | 22 ms | **66 ms** | 31 ms |
+| **worklet underruns** | 0 | **1** | **0** |
+| overruns | 0 | 0 | 0 |
+| buffer depth (frames) | 1920 → 2144, min 1920 | 2240 → 3104, **min 64** | 7040 → 6400, **min 5600** |
+| drift | — | −0.17 ms/min | −0.11 ms/min |
+
+The third column is the same harness after the change, and it is what closes the argument:
+the ring never came within 5600 frames of empty, where the 50 ms cushion had reached 64.
+
+**The finding that changed the code: the network was never the problem.** The sender's own
+jitter, measured from Node on the same machine, is 2.2 ms. Through a browser it is 22 ms
+over 30 s and 66 ms over 110 s — because the number being measured is the *listener's main
+thread*, which also runs everything else the page does. The 50 ms cushion survived the
+short run and lost one block to the long one, with the ring down to 64 frames. So the
+default became 150 ms.
+
+That is the whole shape of the lesson: a cushion is not sized against the network, it is
+sized against the worst stall of the machine playing it back. Expect a real lanes tab, with
+a React tree and a canvas, to be worse than this one.
+
+**Drift, by contrast, was a non-event** — −0.17 ms/min here, −0.46 ms/min measured from
+Node against the engine's own card. Both are small enough that a cushion outlives any
+session, which is why no resampler was written.
+
+Two caveats worth keeping: headless Chrome renders Web Audio to a null sink clocked by the
+system timer, not by a sound card, so its drift figure is not a real two-crystal
+measurement; and the harness's own CDP polling contributes some of the stall it reports.
+Neither weakens the conclusion — a real tab has *more* to do, not less.
