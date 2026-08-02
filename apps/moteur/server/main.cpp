@@ -520,8 +520,16 @@ int main(int argc, char** argv) {
                     // would let a departing listener's alse land after an arriving one's
                     // 	rue and silence a listener that is still there.
                     std::lock_guard<std::mutex> lk(listenersMx);
-                    if (listeners.erase(&ws) > 0 && listeners.empty())
-                        host.post([&host] { host.enableBroadcast(false); });
+                    if (listeners.erase(&ws) > 0) {
+                        // Said out loud: a listener leaving by closing its tab is the
+                        // ordinary way this ends, and without a line the tap coming off is
+                        // invisible — you cannot tell "stopped tapping" from "still copying
+                        // every block for nobody" from the outside.
+                        std::cerr << "[broadcast] listener gone (" << listeners.size()
+                                  << " listening)\n";
+                        if (listeners.empty())
+                            host.post([&host] { host.enableBroadcast(false); });
+                    }
                 }
                 bool announced;
                 {

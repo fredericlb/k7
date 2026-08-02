@@ -8,10 +8,11 @@ on the audio thread, and what happens when a listener drops.
 This is the engine half. The browser half is `packages/engine-browser/docs/streaming.md`,
 which holds the wire-format reasoning; this page is about what happens inside the engine.
 
-> **Status: written, never compiled.** The C++ here has not been built or run — the build
-> trees were wiped during the reorganisation and have not been rebuilt since. Treat every
-> claim below as intent, not as measurement, until `npm run build:win --workspace moteur`
-> has been through it. The measurement plan at the bottom is the point of the exercise.
+> **Status: built, run, and measured.** See "What was measured" at the bottom for the
+> numbers and the machine they came from. The one thing not covered by them is a *browser*
+> listening — the measurements were taken by a headless Node client
+> (`scripts/measure-broadcast.mjs`), which reads every number except "does it sound right
+> to a human".
 
 ## Where the tap goes, and why there
 
@@ -140,27 +141,56 @@ it; joining first would hang the engine on Ctrl-C. The thread is also created on
 a successful `listen()` — created before, the `return 1` on a port already in use would
 destroy a joinable `std::thread` and turn a clean error exit into `std::terminate`.
 
-## What to measure, once it builds
+## What was measured
 
-In this order, because each one changes what the next means:
+`node apps/moteur/scripts/measure-broadcast.mjs ws://HOST:PORT [seconds]` subscribes,
+decodes with the same `@studio/engine-protocol/stream` the browser uses, and prints the
+numbers. It sends its own project first — a 4OSC holding a long note, so there is real
+signal; an empty track proves only that silence is silent, since "the tap sees the master"
+and "the tap sees nothing" produce identical all-zero frames.
 
-1. **Does it play at all** — one browser, same machine, loopback. The wire format is the
-   likeliest thing to be wrong, and it fails as noise or silence rather than as an error.
-2. **CPU on the audio thread.** The tap is a memcpy per block; it should be unmeasurable.
-   If it is not, the problem is the copy loop's per-sample indexing, and that is fixable.
-3. **End-to-end latency**, on a LAN. `sink.stats().depth` is the live buffer depth; add the
-   cushion and the frame size. Expect ~60–80 ms, and be suspicious of anything under 40.
-4. **Jitter**, from `StreamPlayer`'s `jitterMs.max - jitterMs.min`, over minutes. This is
-   what says whether the message-thread timer is good enough.
-5. **Drift**, from `driftMsPerMin`, over ten minutes at least. Two crystals at 50 ppm
-   diverge by 3 ms/minute — so a fixed cushion always ends in a dropout eventually, and
-   this number decides whether the answer is resampling, a rate-nudging control loop, or
-   WebRTC (radiok7 already has the signalling infrastructure, per the plan).
-6. **A listener that vanishes** — pull the cable, sleep the laptop, throttle the tab. What
-   must NOT happen: engine memory growing, or the audio thread hitching.
+Windows 11, Focusrite USB interface, loopback, 150 s:
 
-Only after 4 and 5 is there enough to design against. Everything above is scaffolding for
-those two numbers.
+| | measured | what it means |
+|---|---|---|
+| frames | 14998, **0 dropped, 0 undecodable** | the C++ and TypeScript encoders agree byte for byte |
+| format | 48000 Hz, 2 ch | |
+| realtime ratio | **0.9999** | the sender keeps up exactly; no backlog builds |
+| bitrate | **3.10 Mbit/s** | as predicted for uncompressed stereo float32 |
+| frames with signal | **14998/14998**, peak 0.51 | audio really flows, end to end |
+| jitter spread | **2.22 ms** | a ~50 ms cushion is ample — 20× the spread |
+| drift | **−0.46 ms/min** | ≈ 8 ppm |
+| a listener killed mid-stream | engine RSS **+0.0 MB** over 20 s | no unbounded queue; the socket closes and the tap comes off |
+
+### What those numbers decide
+
+**Drift is the one that mattered, and it came back small.** −0.46 ms/min means a 50 ms
+cushion survives about an hour and a half before it drains. So the answer to "resample,
+rate-nudge, or WebRTC" is **none of them yet** — a cushion plus the existing re-cushion on
+a gap is enough for a rehearsal or a set. That is a real decision, taken on a number
+instead of on fear.
+
+**One honest caveat on that figure.** It compares the engine's *sound card* clock against
+the measuring process's *system* clock. In the real deployment the listener's playback is
+driven by the listener's own sound card, so a second machine adds its own error — plausibly
+tens of ppm. Read −0.46 ms/min as a floor for the same-machine case, not as the number for
+two machines across a room. Measuring that properly needs the browser sink's `depth` trend
+on a second machine, which is the next thing to do and cannot be done headlessly.
+
+**Jitter at 2.22 ms vindicates the dedicated sender thread**, and by implication condemns
+the `juce::Timer` it replaced — the message thread also builds plugins and applies
+projects, and a 2 ms spread would not have survived that.
+
+**CPU on the audio thread** was not separately profiled. The realtime ratio of 0.9999 with
+zero overruns over 150 s says the copy is not costing anything visible, which is the
+question that mattered; a profiler pass is still the honest way to put a number on it.
+
+### Still unmeasured
+
+* A real browser as the listener — the `AudioWorklet` path has unit tests behind it but has
+  never played a sound.
+* Two machines, i.e. the drift figure that actually governs the design.
+* Sustained multi-listener load, and the JSON-broadcast stall described above.
 
 ## What is deliberately absent
 
