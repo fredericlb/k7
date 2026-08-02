@@ -4,6 +4,7 @@
 // can read. Shared by the Chains tab and the Graph panel — mount it only where it has a
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
+import type { WebSignal, WebWidget } from "@studio/graph-model";
 import {
   type AutoTarget,
   arrowPoints,
@@ -25,7 +26,6 @@ import {
   widgetNorm,
   widgetRect,
 } from "@studio/ui-chains/graph";
-import type { WebSignal, WebWidget } from "@studio/web-protocol";
 import { Snowflake } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MenuCtx } from "../contextMenu";

@@ -8,7 +8,7 @@
 // mark anything a frozen chain touches and a SHARED module — a reverb bus fed by four tracks, one of them frozen —
 // goes grey while it is still processing the other three.
 
-import type { WebGraph } from "@studio/web-protocol";
+import type { WebGraph } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";
 import { buildGraph } from "./graph";
 

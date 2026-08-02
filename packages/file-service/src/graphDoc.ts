@@ -4,11 +4,11 @@
 // method with no instance state at all.
 
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
+import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
 import { listLibrary, listLibraryKinds } from "@studio/song/loader";
 import { EXTERNAL_PLUGIN_FORMATS } from "@studio/song/project";
-import type { WebChainStep, WebGraph } from "@studio/web-protocol";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
 // was declared here a second time, identically, and docs/loader.md's list of copies to
