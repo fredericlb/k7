@@ -43,6 +43,7 @@
     "./yaml/trackFile": "./src/yaml/trackFile.ts",
     "./yaml/sequenceFile": "./src/yaml/sequenceFile.ts",
     "./engineCatalogue": "./src/engineCatalogue.ts",
+    "./mediatekRoot": "./src/mediatekRoot.ts",
     "./moduleTypes": "./src/moduleTypes.ts"
   },
   "scripts": {

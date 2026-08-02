@@ -8,7 +8,11 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_COUNT_IN } from "./project";
-import { ensureSharedLibrary, ensureSharedModules } from "./sharedFolders";
+import {
+  ensureMediatekModules,
+  ensureSharedLibrary,
+  ensureSharedModules,
+} from "./sharedFolders";
 
 const q = (s: string) => JSON.stringify(s);
 
@@ -208,9 +212,12 @@ export function scaffold(dir: string, name: string, video = false): string[] {
     copied.push("clips/sample.mp4");
   }
 
-  // Point at the workspace's shared folders, if they exist (see sharedFolders.ts — a no-op otherwise).
+  // Point at the shared folders that exist — the workspace's own, then the machine's media
+  // library. Each is a no-op when absent (see sharedFolders.ts); the workspace comes first
+  // because order is precedence, and what is beside the song should beat what is global.
   ensureSharedModules(dir);
   ensureSharedLibrary(dir);
+  ensureMediatekModules(dir);
 
   return [...Object.keys(files), ...copied];
 }

@@ -16,6 +16,7 @@ import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import { engineModules, engineRef } from "./engineCatalogue";
+import { resolveMediatekRef } from "./mediatekRoot";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
 import {
   categoryForRole,
@@ -144,7 +145,11 @@ export function libraryDirs(dir: string): string[] {
   }
   return from
     .filter((p) => typeof p === "string" && p)
-    .map((p) => (isAbsolute(p) ? p : resolve(dir, p)))
+    .map(
+      (p) =>
+        resolveMediatekRef(p, "library") ??
+        (isAbsolute(p) ? p : resolve(dir, p)),
+    )
     .filter((abs) => existsSync(abs));
 }
 
@@ -692,7 +697,8 @@ export function loadModuleRefs(
   }
 
   for (const p of modulesFrom) {
-    const ext = isAbsolute(p) ? p : resolve(dir, p);
+    const ext =
+      resolveMediatekRef(p, "modules") ?? (isAbsolute(p) ? p : resolve(dir, p));
     if (!existsSync(ext))
       throw new Error(`modules_from '${p}': folder not found (${ext})`);
     const config = entityFileFor(ext, "", "config");

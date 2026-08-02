@@ -64,12 +64,15 @@ function writeMediatek(at: string, namespace = "mediatek"): void {
   mkdirSync(join(at, "ui"), { recursive: true });
 }
 
-const declareMediatek = (at: string): void =>
+// The project names the library by TOKEN, never by path — project.yaml is committed.
+const declareMediatek = (at: string): void => {
+  process.env.LANES_MEDIATEK = at;
   writeFileSync(
     join(dir, "project.yaml"),
-    `project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - ${join(at, "modules").replace(/\\/g, "/")}\n`,
+    "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - '@mediatek'\n",
     "utf8",
   );
+};
 
 describe("panels across more than one library", () => {
   // The mediatek sits outside the workspace, so its panels are reached through
@@ -80,7 +83,18 @@ describe("panels across more than one library", () => {
     writeMediatek(media);
     declareMediatek(media);
   });
-  afterEach(() => rmSync(media, { recursive: true, force: true }));
+  afterEach(() => {
+    delete process.env.LANES_MEDIATEK;
+    rmSync(media, { recursive: true, force: true });
+  });
+
+  it("loads a module OUT of the media library, through the @mediatek token", () => {
+    // The end of the chain this step exists for: the project names a library it does not
+    // contain, and the module resolves — with no path anywhere in project.yaml.
+    const refs = loadModuleRefs(dir, ["../_modules", "@mediatek"]);
+    expect(refs["@mediatek/audio/reverb"]).toBeTruthy();
+    expect(refs["@engine/audio/delay/tape-delay"]).toBeTruthy();
+  });
 
   it("finds a panel in the ui/ folder beside a declared module library", () => {
     writeYaml(join(media, "ui", "audio", "reverb.yaml"), {

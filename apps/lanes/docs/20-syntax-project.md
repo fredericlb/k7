@@ -15,14 +15,17 @@ project:
   # Each folder carries a config.yaml declaring its namespace, and its
   # modules are then addressed by it: "@engine/audio/amp/neural-amp-modeler".
   # A workspace's shared library is a sibling of the song folder.
-  modules_from: ["../_modules"]
+  # "@mediatek" is the machine's media library — a NAME, not a path, so this
+  # file still means something on somebody else's computer. Order is
+  # precedence: what sits beside the song beats what is global.
+  modules_from: ["../_modules", "@mediatek"]
 
   # Shared ASSET folders — each with one subfolder per kind: ir/ for impulse
   # responses, nam/ for Neural Amp Modeler profiles. A module names a file by
   # its path INSIDE a library ("ir/marshall.wav"), so what the module says
   # stays short and survives being copied to another workspace.
   # Searched in order, first hit wins: put your own library first to shadow
-  # an asset the workspace library also has.
+  # an asset the workspace library also has. "@mediatek" works here too.
   libraries_from: ["../_library", "./library"]
 
   # optional picture:

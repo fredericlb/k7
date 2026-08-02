@@ -6,6 +6,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { EXTS_PATH } from "@studio/song/engineCatalogue";
+import { mediatekRoot } from "@studio/song/mediatekRoot";
 
 /** `~/.lanes` — the shared state dir. */
 export function lanesDir(): string {
@@ -92,9 +93,13 @@ export function rootDir(): string {
  *  radiok7 release and an obscura track can be the same thing, which a per-user split
  *  would undo. Overridable via `$LANES_MEDIATEK` because it holds audio and video and
  *  will not always belong on the system drive — the supervisor passes it down from its
- *  settings, the same way it passes the ports. */
+ *  settings, the same way it passes the ports.
+ *
+ *  The SECOND entry defined elsewhere, for the same reason as `extsCachePath` above:
+ *  `@studio/song` resolves a project's `@mediatek` reference to it and cannot import this
+ *  package, so song owns the spelling and this delegates. */
 export function mediatekDir(): string {
-  return process.env.LANES_MEDIATEK || join(lanesDir(), "mediatek");
+  return mediatekRoot();
 }
 
 /** Per-workspace SSH keys, `~/.lanes/ssh/<slug>`. Written by the file service so a

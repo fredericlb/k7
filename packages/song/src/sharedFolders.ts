@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { isSeq, parseDocument } from "yaml";
+import { MEDIATEK_REF, resolveMediatekRef } from "./mediatekRoot";
 import { entityFileFor } from "./yaml/moduleIO";
 
 /** Where the shared UI library sits, relative to a project — the sibling of `_modules/`.
@@ -58,7 +59,11 @@ export function moduleLibraryDirs(dir: string): string[] {
     return []; // an unparseable header is the compiler's problem to report, not ours
   }
   return declared(doc)
-    .map((p) => (isAbsolute(p) ? p : resolve(dir, p)))
+    .map(
+      (p) =>
+        resolveMediatekRef(p, "modules") ??
+        (isAbsolute(p) ? p : resolve(dir, p)),
+    )
     .filter((abs) => existsSync(abs));
 }
 
@@ -85,22 +90,45 @@ export function uiLibraryDirs(dir: string): string[] {
   return out;
 }
 
-/** Ensure `project.modules_from` lists the shared folder (appended, existing entries kept). Returns true when project.yaml was rewritten. */
-export function ensureSharedModules(dir: string): boolean {
-  if (!hasSharedModules(dir)) return false;
+/** Append one entry to `project.modules_from`, keeping what is there. Returns true when project.yaml was rewritten. */
+function addModulesFrom(dir: string, entry: string): boolean {
   const path = join(dir, "project.yaml");
   if (!existsSync(path)) return false;
   const text = readFileSync(path, "utf8");
   const doc = parseDocument(text, { version: "1.2" });
   const paths = declared(doc);
-  if (paths.includes(SHARED_MODULES_PATH)) return false;
-  const list = doc.createNode([...paths, SHARED_MODULES_PATH]);
+  if (paths.includes(entry)) return false;
+  const list = doc.createNode([...paths, entry]);
   list.flow = true; // one short line, as the scaffold writes it
   doc.setIn(["project", "modules_from"], list);
   const next = doc.toString({ lineWidth: 0 });
   if (next === text) return false;
   writeFileSync(path, next, "utf8");
   return true;
+}
+
+/** Ensure `project.modules_from` lists the workspace's own shared folder. */
+export function ensureSharedModules(dir: string): boolean {
+  if (!hasSharedModules(dir)) return false;
+  return addModulesFrom(dir, SHARED_MODULES_PATH);
+}
+
+/**
+ * Ensure `project.modules_from` names the machine's media library.
+ *
+ * Written as the `@mediatek` TOKEN, never as the path it resolves to: `project.yaml` is
+ * committed, so an absolute path would break on the next machine and put someone's home
+ * directory in a shared repo. Same reason the modules themselves are referenced by
+ * namespace rather than by location.
+ *
+ * A no-op when there is no library on this machine — the loader THROWS on a `modules_from`
+ * it can't resolve, so writing the reference speculatively would turn a working project
+ * into one that won't load. That is the rule every function in this file follows.
+ */
+export function ensureMediatekModules(dir: string): boolean {
+  const resolved = resolveMediatekRef(MEDIATEK_REF, "modules");
+  if (!resolved || !existsSync(resolved)) return false;
+  return addModulesFrom(dir, MEDIATEK_REF);
 }
 
 // --- the asset library -------------------------------------------------------

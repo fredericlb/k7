@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  ensureMediatekModules,
   ensureSharedLibrary,
   ensureSharedModules,
   hasSharedLibrary,
@@ -49,6 +50,49 @@ describe("sharedFolders", () => {
   };
   const addLibrary = () =>
     mkdirSync(join(ws, "_library/nam"), { recursive: true });
+
+  describe("the machine's media library", () => {
+    // Named, not located: project.yaml is committed, so the reference has to survive
+    // being read on somebody else's machine.
+    let media: string;
+    beforeEach(() => {
+      media = mkdtempSync(join(tmpdir(), "td-media-"));
+      process.env.LANES_MEDIATEK = media;
+    });
+    afterEach(() => {
+      delete process.env.LANES_MEDIATEK;
+      rmSync(media, { recursive: true, force: true });
+    });
+
+    it("says nothing when this machine has no library", () => {
+      // Same rule as the workspace folders: the loader THROWS on a modules_from it can't
+      // resolve, so a speculative reference would break a project that worked.
+      expect(ensureMediatekModules(project)).toBe(false);
+      expect(projectFile()).not.toContain("@mediatek");
+    });
+
+    it("writes the token, never the path it resolves to", () => {
+      mkdirSync(join(media, "modules"), { recursive: true });
+      expect(ensureMediatekModules(project)).toBe(true);
+      const text = projectFile();
+      expect(text).toContain("@mediatek");
+      // The give-away that would betray a machine-specific path leaking into git.
+      expect(text).not.toContain(media);
+    });
+
+    it("is idempotent and keeps the workspace's own folder first", () => {
+      addModules();
+      mkdirSync(join(media, "modules"), { recursive: true });
+      ensureSharedModules(project);
+      expect(ensureMediatekModules(project)).toBe(true);
+      expect(ensureMediatekModules(project)).toBe(false);
+      const list = projectFile();
+      // Order is precedence: what sits beside the song beats what is global to the machine.
+      expect(list.indexOf("../_modules")).toBeLessThan(
+        list.indexOf("@mediatek"),
+      );
+    });
+  });
 
   it("does nothing when the workspace has no shared folders", () => {
     // The important half: `loadModuleRefs` THROWS on a modules_from path it can't
