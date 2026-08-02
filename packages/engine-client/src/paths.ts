@@ -86,6 +86,17 @@ export function rootDir(): string {
   return join(lanesDir(), "root");
 }
 
+/** `~/.lanes/mediatek` — the media library: morceaux, samples and modules.
+ *
+ *  Per MACHINE, not per user, unlike `rootDir()`: it is the one place a lanes song, a
+ *  radiok7 release and an obscura track can be the same thing, which a per-user split
+ *  would undo. Overridable via `$LANES_MEDIATEK` because it holds audio and video and
+ *  will not always belong on the system drive — the supervisor passes it down from its
+ *  settings, the same way it passes the ports. */
+export function mediatekDir(): string {
+  return process.env.LANES_MEDIATEK || join(lanesDir(), "mediatek");
+}
+
 /** Per-workspace SSH keys, `~/.lanes/ssh/<slug>`. Written by the file service so a
  *  workspace can talk to a git remote as itself. */
 export function sshDir(slug: string): string {

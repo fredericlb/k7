@@ -1,0 +1,133 @@
+// catalogue.ts — the queryable view over the library: listings held in memory, rebuilt
+// per family when that family's revision moves, warm-started from .cache/index.json so a
+// restart doesn't re-walk the disk. No database anywhere. See docs/index.md.
+
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cacheDir, exists, indexPath } from "./layout.ts";
+import { familyRevision } from "./revision.ts";
+import { scanFamily } from "./scan.ts";
+import {
+  FAMILIES,
+  type Family,
+  type FamilyListing,
+  type MediatekEntry,
+} from "./types.ts";
+
+const memory = new Map<Family, FamilyListing>();
+let warmed = false;
+
+/** Pull whatever the last process left behind. Any problem — absent, truncated, written by
+ *  an older shape — just means a cold start, so nothing here throws or logs. */
+function warm(): void {
+  if (warmed) return;
+  warmed = true;
+  try {
+    const raw = JSON.parse(readFileSync(indexPath(), "utf8")) as {
+      families?: Record<string, FamilyListing>;
+    };
+    for (const f of FAMILIES) {
+      const l = raw.families?.[f];
+      if (l && typeof l.rev === "string" && Array.isArray(l.entries))
+        memory.set(f, { family: f, rev: l.rev, entries: l.entries });
+    }
+  } catch {
+    /* cold start */
+  }
+}
+
+/** Best-effort persist. A library on a read-only or full disk still WORKS — it just walks
+ *  again next time — so a failure here must not reach the caller. */
+function persist(): void {
+  try {
+    mkdirSync(cacheDir(), { recursive: true });
+    const families = Object.fromEntries(
+      [...memory.entries()].map(([f, l]) => [f, l]),
+    );
+    writeFileSync(indexPath(), JSON.stringify({ families }), "utf8");
+  } catch {
+    /* cache is an optimisation, never a requirement */
+  }
+}
+
+/**
+ * One family's listing, rescanned only when its revision moved.
+ *
+ * The walk is the expensive half and it is what the token exists to avoid: `/graph` in the
+ * file service already costs more than this and is polled at 700 ms, so a walk skipped on
+ * an unchanged family is the whole point.
+ */
+export function listFamily(family: Family): FamilyListing {
+  warm();
+  const rev = familyRevision(family);
+  const cached = memory.get(family);
+  if (cached && cached.rev === rev) return cached;
+  const listing: FamilyListing = {
+    family,
+    rev,
+    entries: scanFamily(family),
+  };
+  memory.set(family, listing);
+  persist();
+  return listing;
+}
+
+/** Every family at once — what the catalogue screen opens with. */
+export function listAll(): FamilyListing[] {
+  return FAMILIES.map(listFamily);
+}
+
+export interface Query {
+  family?: Family;
+  /** Case-insensitive substring over the name and the path. Absent == everything. */
+  q?: string;
+  /** The family's own subdivision, e.g. "recorded" or "instruments". */
+  kind?: string;
+  limit?: number;
+}
+
+/**
+ * Filter in memory. This is what `ModulesPage` already does client-side over the module
+ * catalogue; it moves server-side here only because the corpus is bigger — the mechanism
+ * is the same, and it is still a scan over an array, not an index lookup.
+ */
+export function search(query: Query = {}): MediatekEntry[] {
+  const families = query.family ? [query.family] : FAMILIES;
+  const needle = query.q?.trim().toLowerCase();
+  const out: MediatekEntry[] = [];
+  for (const f of families)
+    for (const e of listFamily(f).entries) {
+      if (query.kind && e.kind !== query.kind) continue;
+      if (
+        needle &&
+        !e.name.toLowerCase().includes(needle) &&
+        !e.path.toLowerCase().includes(needle)
+      )
+        continue;
+      out.push(e);
+      if (query.limit && out.length >= query.limit) return out;
+    }
+  return out;
+}
+
+/** How many of each family, and whether there is a library at all. What a surface shows
+ *  before anything is picked — and `present: false` is a real answer, not an error. */
+export function summary(): {
+  present: boolean;
+  counts: Record<Family, number>;
+} {
+  if (!exists())
+    return {
+      present: false,
+      counts: { morceaux: 0, samples: 0, modules: 0 },
+    };
+  const counts = Object.fromEntries(
+    FAMILIES.map((f) => [f, listFamily(f).entries.length]),
+  ) as Record<Family, number>;
+  return { present: true, counts };
+}
+
+/** Drop the in-memory index. For tests, and for a root that changed under us. */
+export function reset(): void {
+  memory.clear();
+  warmed = false;
+}

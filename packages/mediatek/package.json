@@ -1,0 +1,29 @@
+{
+  "name": "@studio/mediatek",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The media library: what lives under ~/.lanes/mediatek, how it is scanned, and the change token surfaces poll. A library, not a service — the HTTP routes live in @studio/file-service. Consumed as source.",
+  "types": "./src/layout.ts",
+  "exports": {
+    "./layout": "./src/layout.ts",
+    "./types": "./src/types.ts",
+    "./scan": "./src/scan.ts",
+    "./revision": "./src/revision.ts",
+    "./catalogue": "./src/catalogue.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@studio/engine-client": "*",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
