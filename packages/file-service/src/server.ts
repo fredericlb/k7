@@ -6,6 +6,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { validate, wrap } from "@frediverse/http/route";
+import { ensureLayout } from "@studio/mediatek/layout";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
@@ -20,6 +21,7 @@ import { syncAllRepos } from "./demos.ts";
 import { setSelectedEngine } from "./engineLink.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
+import { mediatekRouter } from "./routes/mediatek.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { generateKey, publicKey } from "./sshKeys.ts";
 import {
@@ -153,6 +155,10 @@ app.post(
   }),
 );
 
+// The media library is per MACHINE, so it needs the user (for the gate) but no workspace —
+// registered here for the same reason /workspaces is.
+app.use(mediatekRouter);
+
 // The user's SSH key: GET reads, POST generates if absent (idempotent). Only ever the PUBLIC half.
 app.get(
   "/ssh-key",
@@ -170,6 +176,14 @@ app.use(resolveWorkspace, filesRouter);
 
 app.listen(FILE_PORT, "0.0.0.0", () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.lanes/root exists
+  // Same for the media library. Tolerated rather than required: the root is overridable
+  // and may point at a drive that isn't mounted, which must not stop the file service —
+  // the catalogue then simply reports no library.
+  try {
+    console.log(`   mediatek: ${ensureLayout()}`);
+  } catch (e) {
+    console.warn(`   mediatek unavailable: ${(e as Error).message}`);
+  }
   console.log(`📁 lanes file service on http://0.0.0.0:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
   // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.

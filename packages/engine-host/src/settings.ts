@@ -21,6 +21,10 @@ export interface Settings {
   /** Where to go when `audioDevice` isn't present (or nothing is selected at all).
    *  Typically the built-in output — the point is to never end up on no device. */
   audioFallback: string | null;
+  /** The media library's root. null == `~/.lanes/mediatek`. Here rather than in the UI for
+   *  the same reason the ports are: it is set once, on a machine whose media lives on a
+   *  second drive, and never again. Passed down to the file service as $LANES_MEDIATEK. */
+  mediatekDir: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   filePort: 8770,
   audioDevice: null,
   audioFallback: null,
+  mediatekDir: null,
 };
 
 // A hand-edited file is normal here, so each field is validated alone: one bad key must not lose the other four.
@@ -57,6 +62,7 @@ export function loadSettings(): Settings {
     filePort: port(raw.filePort, DEFAULT_SETTINGS.filePort),
     audioDevice: str(raw.audioDevice),
     audioFallback: str(raw.audioFallback),
+    mediatekDir: str(raw.mediatekDir),
   };
 }
 

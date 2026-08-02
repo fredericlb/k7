@@ -53,6 +53,8 @@ export async function ensure(
   enginePort: number,
   filePort: number,
   registryUrl: string,
+  /** The media library root, when the user moved it off the system drive. */
+  mediatekDir: string | null = null,
 ): Promise<SpawnResult> {
   if (await isServing(filePort)) return { kind: "foreign" };
 
@@ -75,6 +77,9 @@ export async function ensure(
       LANES_REGISTRY_URL: registryUrl,
       // A packaged app has no useful PATH: point the file service at the staged demo songs, or a new workspace opens empty.
       ...(bundle.demos() ? { LANES_DEMOS: bundle.demos() as string } : {}),
+      // Only when set: unset means the file service falls back to ~/.lanes/mediatek itself,
+      // and passing an empty string here would read as "the current directory".
+      ...(mediatekDir ? { LANES_MEDIATEK: mediatekDir } : {}),
     },
   });
   if (child.stdout) pump(child.stdout, "file");

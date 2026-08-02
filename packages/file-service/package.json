@@ -22,6 +22,7 @@
     "@studio/translator": "*",
     "@frediverse/http": "*",
     "@studio/graph-model": "*",
+    "@studio/mediatek": "*",
     "@studio/web-protocol": "*",
     "chokidar": "^3.6.0",
     "cors": "^2.8.5",

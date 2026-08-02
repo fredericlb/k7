@@ -215,6 +215,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       state.settings.port,
       state.settings.filePort,
       state.registryUrl,
+      state.settings.mediatekDir,
     );
     if (r.kind === "spawned") {
       state.fileChild = r.child;
