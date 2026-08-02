@@ -161,6 +161,7 @@ Windows 11, Focusrite USB interface, loopback, 150 s:
 | jitter spread | **2.22 ms** | a ~50 ms cushion is ample — 20× the spread |
 | drift | **−0.46 ms/min** | ≈ 8 ppm |
 | a listener killed mid-stream | engine RSS **+0.0 MB** over 20 s | no unbounded queue; the socket closes and the tap comes off |
+| both departure paths | `listener gone (0 listening)` on close code 1005 **and** 1006 | a clean goodbye and a killed process both retire the tap |
 
 ### What those numbers decide
 
