@@ -1,7 +1,7 @@
-// pluginParamsStore.ts — live plugin parameter values as an EXTERNAL store, for the same
-// reason as engineStore.ts: while the graph watches a plugin the engine reports its full
-// parameter set ~20×/s, and holding that on App re-rendered the whole tree just to move one
-// knob. Only the graph subscribes; App writes and never re-renders on a frame.
+// params.ts — live plugin parameter values as an EXTERNAL store, for the same reason as
+// engineStore.ts beside it: while a surface watches a plugin the engine reports its full
+// parameter set ~20×/s, and holding that in React state re-renders a whole tree just to
+// move one knob. The writer never re-renders on a frame; only what draws the values does.
 
 import { useSyncExternalStore } from "react";
 

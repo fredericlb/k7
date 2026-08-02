@@ -9,6 +9,10 @@ import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { cn } from "@frediverse/ui/lib/utils";
 import {
+  PluginParamsStore,
+  usePluginParams,
+} from "@studio/engine-browser/params";
+import {
   arrayEq,
   EngineStore,
   EngineStoreProvider,
@@ -85,7 +89,6 @@ import {
 } from "./moduleInsert";
 import { buildPaletteCommands, makeCompleteArg } from "./palette";
 import { m } from "./paraglide/messages.js";
-import { PluginParamsStore, usePluginParams } from "./pluginParamsStore";
 import { fileStem } from "./projectPaths";
 import type { Pane, Panel, View } from "./routes";
 import type { RowKey } from "./rows";

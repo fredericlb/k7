@@ -8,6 +8,7 @@ import { useActiveTracks } from "@studio/engine-browser/store";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { LANES_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
@@ -68,6 +69,7 @@ export function GraphPanel({
     if (!laid) return <Note>No chain takes {trackId} as its source.</Note>;
     return (
       <DomChains
+        icons={LANES_ICONS}
         graph={laid}
         selected={selected}
         activeTracks={activeTracks}

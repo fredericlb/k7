@@ -6,11 +6,19 @@
 
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import {
+  PluginParamsStore,
+  usePluginParams,
+} from "@studio/engine-browser/params";
+import {
   useEngineState,
   useInputLevel,
   useTrackLevel,
 } from "@studio/engine-browser/store";
-import type { WebSignal, WebWidget } from "@studio/graph-model";
+import type {
+  WebModuleCategory,
+  WebSignal,
+  WebWidget,
+} from "@studio/graph-model";
 import {
   type AutoTarget,
   arrowPoints,
@@ -33,11 +41,68 @@ import {
   widgetRect,
 } from "@studio/ui-chains/graph";
 import { Snowflake } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MenuCtx } from "../contextMenu";
-import { ModuleIcon, moduleGlyph } from "../moduleIcons";
-import { PluginParamsStore, usePluginParams } from "../pluginParamsStore";
-import { TrackIcon } from "../trackIcons";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+/**
+ * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
+ *
+ * lanes' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
+ * has no way to produce. Declaring the narrow union here is what lets the component say
+ * what it emits instead of importing an app's idea of a menu; a host whose own type is
+ * wider accepts a handler for it unchanged.
+ */
+export type GraphMenuCtx =
+  | { kind: "track"; id: string }
+  | { kind: "module"; id: string; missing?: boolean }
+  | { kind: "chain"; id: string }
+  | { kind: "sink"; id: string };
+
+/**
+ * The glyphs a node draws itself with, supplied by the host.
+ *
+ * Injected rather than imported because they are the APP's vocabulary, not the graph's:
+ * lanes draws the same track icons in its mixer and its timeline, so they cannot live in
+ * a chains package without those two importing one. A second consumer that wants lanes'
+ * exact icons can pass lanes' exact icons.
+ */
+export interface ChainsIcons {
+  ModuleIcon: (props: {
+    category?: WebModuleCategory;
+    missing?: boolean;
+    className?: string;
+    style?: React.CSSProperties;
+  }) => React.ReactNode;
+  /** Whether a category HAS a glyph, so a node knows to leave room for one. */
+  moduleGlyph: (category?: WebModuleCategory, missing?: boolean) => unknown;
+  TrackIcon: (props: {
+    name: string;
+    video?: boolean;
+    color?: string;
+    className?: string;
+    style?: React.CSSProperties;
+  }) => React.ReactNode;
+}
+
+// Carried by context, not by props: `Node` is nested several layers down, and threading
+// them through every layer is the kind of thing that made this file 2000 lines. The
+// PROVIDER is not a caller's job though — DomChains takes `icons` as a required prop and
+// provides it itself, so there is no arrangement in which a caller forgets and the graph
+// throws at render. The compiler is the guarantee; the throw below is unreachable.
+const IconsContext = createContext<ChainsIcons | null>(null);
+
+function useIcons(): ChainsIcons {
+  const v = useContext(IconsContext);
+  if (!v) throw new Error("DomChains rendered without its icons");
+  return v;
+}
 
 // A shared, never-updated store for a graph without live params — lets DomChains call the hook unconditionally.
 const EMPTY_PARAMS_STORE = new PluginParamsStore();
@@ -1063,6 +1128,7 @@ function Node({
   // The project's shared library; a library dropdown lists the slice of it under its own folder.
   libraryFiles?: string[];
 }) {
+  const { ModuleIcon, moduleGlyph, TrackIcon } = useIcons();
   const jc = n.kind === "curve" ? MAUVE : SAND;
   // The category whose glyph this node wears. A sink has none of its own, but it IS io, so it gets io's arrows.
   const iconCategory =
@@ -1566,7 +1632,7 @@ function Cables({
 }
 
 // Map a right-clicked node to the shell's menu context (track id, module instance, chain name; curves have none).
-function nodeToCtx(n: GraphNode): MenuCtx | null {
+function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
   switch (n.kind) {
     case "track":
       return { kind: "track", id: n.label };
@@ -1586,6 +1652,7 @@ function nodeToCtx(n: GraphNode): MenuCtx | null {
 export type FitToFn = (nodes: GraphNode[], panOnly?: GraphNode) => void;
 
 export function DomChains({
+  icons,
   graph,
   selected,
   activeTracks,
@@ -1611,6 +1678,8 @@ export function DomChains({
   onTrackToggle,
   onTrackSet,
 }: {
+  /** The glyphs the nodes wear. Required, so no caller can render a graph without them. */
+  icons: ChainsIcons;
   graph: LaidOutGraph;
   selected: string | null;
   activeTracks?: string[];
@@ -1618,7 +1687,7 @@ export function DomChains({
   trackOrder?: string[];
   onSelect: (c: string | null) => void;
   onPickModule?: (module: string | null) => void;
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
+  onContextMenu?: (ctx: GraphMenuCtx, x: number, y: number) => void;
   onEdgeInsert?: (info: EdgeInsert, x: number, y: number) => void;
   /** Right-click on EMPTY canvas — a pick lands in the graph wired to nothing. */
   onCanvasInsert?: (x: number, y: number) => void;
@@ -2140,55 +2209,57 @@ export function DomChains({
   const linkBoost = Math.min(3, Math.max(1, WIDGET_MIN_SCALE / cam.k));
 
   return (
-    <div
-      ref={hostRef}
-      className={`dgx${panning ? " panning" : ""}`}
-      onPointerDown={onPointerDown}
-      onWheel={onWheel}
-      onContextMenu={canvasMenu}
-      style={{ cursor: hovered ? "pointer" : undefined }}
-    >
+    <IconsContext.Provider value={icons}>
       <div
-        className="dgx-world"
-        style={{
-          transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.k})`,
-        }}
+        ref={hostRef}
+        className={`dgx${panning ? " panning" : ""}`}
+        onPointerDown={onPointerDown}
+        onWheel={onWheel}
+        onContextMenu={canvasMenu}
+        style={{ cursor: hovered ? "pointer" : undefined }}
       >
-        <svg className="dgx-cables" width={graph.width} height={graph.height}>
-          <Cables
-            signal={model.signal}
-            auto={model.auto}
-            live={live}
-            showLabels={showLabels}
-            boost={linkBoost}
-            hovered={hovered}
-            setHovered={setHovered}
-            onInsert={insert}
-          />
-        </svg>
-        {graph.nodes.map((n) => (
-          <Node
-            key={n.id}
-            n={n}
-            selected={selected}
-            showWidgets={showWidgets}
-            far={far}
-            ch={ch}
-            trackOrder={trackOrder ?? EMPTY_ORDER}
-            onTapNode={tapNode}
-            onContext={contextNode}
-            onOpenPlugin={openPlugin}
-            onBypass={bypassModule}
-            warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
-            onDragStart={beginDrag}
-            onTapWidget={tapWidget}
-            onPickWidget={pickWidget}
-            onPickLibrary={pickLibrary}
-            onWatchWaveform={onWatchWaveform}
-            libraryFiles={libraryFiles}
-          />
-        ))}
+        <div
+          className="dgx-world"
+          style={{
+            transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.k})`,
+          }}
+        >
+          <svg className="dgx-cables" width={graph.width} height={graph.height}>
+            <Cables
+              signal={model.signal}
+              auto={model.auto}
+              live={live}
+              showLabels={showLabels}
+              boost={linkBoost}
+              hovered={hovered}
+              setHovered={setHovered}
+              onInsert={insert}
+            />
+          </svg>
+          {graph.nodes.map((n) => (
+            <Node
+              key={n.id}
+              n={n}
+              selected={selected}
+              showWidgets={showWidgets}
+              far={far}
+              ch={ch}
+              trackOrder={trackOrder ?? EMPTY_ORDER}
+              onTapNode={tapNode}
+              onContext={contextNode}
+              onOpenPlugin={openPlugin}
+              onBypass={bypassModule}
+              warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
+              onDragStart={beginDrag}
+              onTapWidget={tapWidget}
+              onPickWidget={pickWidget}
+              onPickLibrary={pickLibrary}
+              onWatchWaveform={onWatchWaveform}
+              libraryFiles={libraryFiles}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </IconsContext.Provider>
   );
 }

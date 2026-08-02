@@ -3,12 +3,12 @@
 // panes call. Extracted from App.tsx; the behaviour is unchanged.
 
 import { EngineClient } from "@studio/engine-browser";
+import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { beginActivity } from "../freezeWatchdog";
-import type { PluginParamsStore } from "../pluginParamsStore";
 import type { PresetInfo } from "../types";
 
 export interface EngineLink {

@@ -4,14 +4,15 @@
 // send that skips a column doesn't slice through the module between. Shared with GraphPanel.
 
 import { cn } from "@frediverse/ui/lib/utils";
+import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { LANES_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
-import type { PluginParamsStore } from "../pluginParamsStore";
 import type { WebGraph } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { DomChains, type FitToFn } from "./DomChains";
@@ -433,6 +434,7 @@ export function ChainsTab({
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
+            icons={LANES_ICONS}
             graph={shown}
             selected={selected}
             activeTracks={activeTracks}

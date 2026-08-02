@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/engine.ts",
     "./store": "./src/engineStore.ts",
+    "./params": "./src/params.ts",
     "./probe": "./src/probe.ts"
   },
   "dependencies": {
