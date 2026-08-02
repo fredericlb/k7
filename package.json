@@ -23,6 +23,7 @@
     "apps/lanes/backend",
     "apps/mediatek",
     "apps/mediatek/backend",
+    "apps/platines",
     "apps/moteur",
     "apps/capot"
   ],

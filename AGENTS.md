@@ -13,9 +13,11 @@ the **why**. Long rationale belongs in the zone's `docs/` directory:
 | a shared package | `packages/<pkg>/docs/` |
 | the lanes frontend | `apps/lanes/frontend/docs/` |
 | the médiathèque | `apps/mediatek/docs/` |
+| the decks | `apps/platines/docs/` |
 | the C++ engine | `apps/moteur/docs/` |
 | the tray app | `apps/capot/docs/` |
 | the build scripts | `apps/capot/scripts/docs/` |
+| CI and deployment, which belong to no single app | `docs/` |
 
 (Those are notes for developers. `apps/lanes/docs/` is the exception: it is the
 user-facing documentation the app ships and renders at `/docs`.)
@@ -37,6 +39,7 @@ one app:
 | `apps/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
 | `apps/lanes` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — OIDC auth and the engine registry only). Owns the timeline; shares the chains view. |
 | `apps/mediatek` | TypeScript | The media library — morceaux, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so the module builder lives here; it also connects to a local `apps/moteur` to ask a plugin what its parameters are. |
+| `apps/platines` | TypeScript | The decks. A frontend and nothing else: it reads the médiathèque's local **cache** through the machine's file service and plays through the machine's `apps/moteur`, because the engine opens file paths and cannot fetch a URL. |
 | `apps/obscura` | TypeScript | The blind-test game — six SPAs behind one origin. |
 | `apps/radiok7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
 
@@ -47,8 +50,9 @@ engines, and the waveform component. All are `@studio/*` and are consumed as
 `exports` subpaths, so a bare deep import fails on purpose.
 
 They are named `@studio/*` rather than `@lanes/*` because lanes is only one of
-their consumers: `apps/mediatek` and `apps/platines` are coming, and obscura will
-follow.
+their consumers: `apps/mediatek` and `apps/platines` both drive them now, and
+obscura's moteur-backed player is behind the seam `@studio/player-web` already
+had.
 
 `commons/` is a **git submodule** — the shared base, also used by the `phare`
 monorepo. Editing something under `commons/` means committing in two places:

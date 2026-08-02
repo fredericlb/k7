@@ -121,6 +121,11 @@ function scanMorceaux(): MediatekEntry[] {
           mtime: newestUnder(abs),
           meta: {
             catalogued: hasSidecar, // false == found on disk, never filed
+            // The playable file's NAME inside the folder. `path` is the folder — a morceau
+            // is a folder with a sidecar — so without this a consumer that has to OPEN the
+            // audio (the moteur, which takes file paths) has nothing to open. Absent when
+            // the folder is catalogued but carries no audio yet.
+            ...(master ? { master: master.name } : {}),
             ...(artist ? { artist } : {}),
             ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
             // The upstream key of a mirrored entry. Its ABSENCE is what says "mediatek-native".

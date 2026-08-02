@@ -70,3 +70,12 @@ mediatek.test {
 
 	reverse_proxy 127.0.0.1:5224
 }
+
+# The decks. No backend of its own: it reads the machine's file service and its
+# engine directly, both cross-origin, so there is nothing here to reverse-proxy
+# but the dev server.
+platines.test {
+	tls internal
+
+	reverse_proxy 127.0.0.1:5225
+}

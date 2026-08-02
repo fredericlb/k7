@@ -1,0 +1,31 @@
+{
+  "name": "platines",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The decks: pick a morceau from the médiathèque's local cache and let the moteur play it. Frontend only — it talks to the machine's own file service and its own engine, and hosts nothing.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc --noEmit",
+    "test": "vitest run",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@frediverse/ui": "*",
+    "@studio/engine-browser": "*",
+    "@studio/engine-protocol": "*",
+    "@studio/mediatek": "*",
+    "@studio/web-protocol": "*",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@frediverse/vite-config": "*",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "vite": "^8.0.0"
+  }
+}
