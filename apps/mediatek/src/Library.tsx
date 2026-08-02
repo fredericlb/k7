@@ -2,12 +2,14 @@
 // in the middle. Refetches a family only when ITS revision moved, which is the whole
 // reason the service hands out one token per family.
 
+import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { Boxes, Disc3, Loader2, Waves } from "lucide-react";
+import { Boxes, Disc3, Loader2, Pencil, Waves } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
 import { ModuleParams } from "./engine/ModuleParams";
+import { ModuleEditor } from "./ModuleEditor";
 
 const FAMILIES = [
   { id: "morceaux", label: "Morceaux", icon: Disc3 },
@@ -36,6 +38,9 @@ export function Library() {
   const [error, setError] = useState<string | null>(null);
   // The module whose parameters are on screen. Modules only — a sample has none to ask for.
   const [picked, setPicked] = useState<MediatekEntry | null>(null);
+  // …and the one being EDITED, which takes over the whole screen. Only the médiathèque is
+  // editable, so this is the one place in the repo a module can be written from.
+  const [editing, setEditing] = useState<MediatekEntry | null>(null);
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
@@ -84,6 +89,11 @@ export function Library() {
       clearInterval(t);
     };
   }, [family, load]);
+
+  // The editor replaces the catalogue rather than sitting beside it: it needs both halves
+  // of the width, and there is nothing to compare against while editing one module.
+  if (editing)
+    return <ModuleEditor entry={editing} onBack={() => setEditing(null)} />;
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
@@ -173,8 +183,13 @@ export function Library() {
             is the only thing that knows what that plugin's parameters are called. */}
         {family === "modules" && picked ? (
           <aside className="w-96 shrink-0 overflow-auto border-l p-4">
-            <div className="mb-3 truncate text-sm font-semibold">
-              {picked.name}
+            <div className="mb-3 flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                {picked.name}
+              </span>
+              <Button size="sm" onClick={() => setEditing(picked)}>
+                <Pencil className="mr-1 h-3.5 w-3.5" /> Éditer
+              </Button>
             </div>
             <ModuleParams entry={picked} />
           </aside>

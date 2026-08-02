@@ -72,8 +72,8 @@ export function ChainsTab({
   pendingInsert?: { before: string; after: string } | null;
   // Lifts the tapped module up to the shell so the Docs panel can follow it.
   onPickModule?: (module: string | null) => void;
-  // No "edit this module" here on purpose: a module is a WORKSPACE thing — the same file backs every project
-  // beside it — so its builder lives in the settings panel (see ModulesPage), not in one song's graph.
+  // No "edit this module" here on purpose: a module is a LIBRARY thing — the same file backs every project
+  // that names it — so its builder lives in the médiathèque, not in one song's graph.
   // Right-click a node → the shell opens its context menu.
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   // A `+` click opens the module picker at the pointer, and pre-writes a command once one is chosen.

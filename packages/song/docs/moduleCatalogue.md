@@ -11,8 +11,12 @@ the entry point, not a design. And for a module the project inherited, it did no
 went through `hints.paths`, which by construction only holds the project's **own** modules, so a shared one
 came back "couldn't resolve".
 
-So the builder moved. It is an entry in the settings panel, beside I/O — `ModulesPage` lists the catalogue,
-picking one opens its builder, and there is no path from the graph.
+So the builder moved — twice. First to lanes' settings panel, and then out of lanes entirely: it lives in
+`apps/mediatek` now, where the modules themselves do. The settings entry that used to open it is a link out.
+
+`moduleCatalogue` stays, and is still useful, because it answers a different question: it lists what **this
+workspace** can name in a chain, which is what the module picker and the docs panel read. What it no longer
+does is feed a builder.
 
 ## What is listed
 
@@ -29,10 +33,11 @@ listed — the builder's one job is to open it, and a row that only ever reports
 
 ## Saving
 
-The builder writes the shared file in place. That is what "per-project module UI editing is removed" means
-concretely: there is no project copy any more, and an edit here changes every project in the workspace. The
-mechanism is the `editShared` flag on `Workspace.write` — see `moduleFork.md` for why the fork still exists for
-every other caller.
+Nothing here saves any more. A workspace's `_modules` is read-only without exception — the escape hatch
+(`editShared` on `Workspace.write`) is gone, because the one caller that used it moved out. A save aimed at a
+shared module still forks (`moduleFork.md`), for everybody, which is what read-only does here instead of
+refusing.
 
-The panel itself is unaffected by any of this: it already lived outside the module, in the workspace's `_ui`,
-keyed by ref (`uiLibrary.md`). It was the module file, not the grid, that needed a way in.
+Edits happen in the médiathèque, against its own service. The panel is unaffected by any of this: it always
+lived outside the module, keyed by ref (`uiLibrary.md`) — first in the workspace's `_ui`, now in the library's
+`ui/` beside the modules it draws.

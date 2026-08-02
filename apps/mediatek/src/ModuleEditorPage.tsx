@@ -5,24 +5,16 @@
 
 import { Button } from "@frediverse/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
+import type { Hints, ModuleUiFile, PresetInfo } from "@studio/web-protocol";
 import {
   ArrowLeft,
   ChevronDown,
@@ -30,13 +22,11 @@ import {
   LayoutGrid,
   Loader2,
   type LucideIcon,
-  Plus,
   Save,
   SlidersHorizontal,
-  UserCircle2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { library } from "./api";
 import {
   hasMalformedUiFile,
   ioOf,
@@ -44,19 +34,17 @@ import {
   readParams,
   readUiFile,
   writeUiFile,
-} from "../moduleUi";
-import { setParamDrag } from "../paramDrag";
-import type { ForkedModule, Hints, ModuleUiFile, PresetInfo } from "../types";
-import { EditorPane } from "./EditorPane";
+} from "./moduleUi";
+import { setParamDrag } from "./paramDrag";
 import { WidgetGridEditor } from "./WidgetGridEditor";
+import { YamlPane } from "./YamlPane";
 
-// The preset menu's sections in display order, each with the icon for its source: user, program bank, OS file.
+// The preset menu's sections in display order, each with the icon for its source: program bank, OS file.
 const PRESET_GROUPS: {
   source: PresetInfo["source"];
   label: string;
   Icon: LucideIcon;
 }[] = [
-  { source: "user", label: "My presets", Icon: UserCircle2 },
   { source: "program", label: "Programs", Icon: LayoutGrid },
   { source: "file", label: "Factory presets", Icon: Folder },
 ];
@@ -66,12 +54,9 @@ export function ModuleEditorPage({
   kind,
   moduleName,
   paramRef,
-  presetRef,
   vimMode,
   onBack,
   onSaved,
-  editShared,
-  onForked,
   setStatus,
   presets,
   onListPresets,
@@ -84,16 +69,9 @@ export function ModuleEditorPage({
   moduleName: string; // the module that was clicked (for the title)
   // The ref whose params feed the `bind` dropdown. May be null — the list is then empty, free-text bind still works.
   paramRef: string | null;
-  // The ref whose preset library this reads/writes — always the FILE being edited. Null means no user presets.
-  presetRef: string | null;
   vimMode: boolean;
   onBack: () => void;
-  onSaved: () => void; // bump the shell's reloadKey so the graph redraws
-  // Set when the editor came from the module BUILDER, whose whole subject is the shared catalogue: the save
-  // writes `_modules` in place instead of forking a project copy, and every project sees the edit.
-  editShared?: boolean;
-  // A shared module was copied into the project on save: re-aim the editor at the copy.
-  onForked: (forked: ForkedModule) => void;
+  onSaved: () => void; // bump the shell's reloadKey so the listing refreshes
   setStatus: (s: string) => void;
   // Presets the module's external plugin offers, and the two calls behind the dropdown. Empty for a built-in.
   presets: PresetInfo[];
@@ -120,66 +98,26 @@ export function ModuleEditorPage({
   const [pane, setPane] = useState<"module" | "panel">("panel");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // User presets live in the song and come from the file service; factory ones ride the socket. Refetched on save.
-  const [userPresets, setUserPresets] = useState<PresetInfo[]>([]);
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [saveName, setSaveName] = useState("");
-  const [savingPreset, setSavingPreset] = useState(false);
-
   // Factory presets need a live plugin instance, so ask only when editing the module itself.
   useEffect(() => {
     if (kind === "module") onListPresets(moduleName);
   }, [kind, moduleName, onListPresets]);
 
-  const loadUserPresets = useCallback(() => {
-    if (!presetRef) return setUserPresets([]);
-    api
-      .listUserPresets(presetRef)
-      .then((r) => setUserPresets(r.presets))
-      .catch(() => setUserPresets([])); // no active project / bad ref ⇒ just the engine's
-  }, [presetRef]);
-  useEffect(() => loadUserPresets(), [loadUserPresets]);
-
-  // Apply a preset: a user preset is written onto the module by the brain, a factory one goes to the live plugin.
+  /**
+   * Apply a preset to the live plugin.
+   *
+   * USER presets are gone with the move, and by argument rather than by amputation: in
+   * lanes they were params saved into the active PROJECT, and a library has none. For a
+   * module here, "save the current parameters" is what Save already does — the module file
+   * IS its parameters, so a second place to keep them would be a second truth.
+   */
   const applyPreset = useCallback(
     (p: PresetInfo) => {
-      if (p.source === "user") {
-        // The brain rewrote the file and reloaded — re-read it so editor and grid follow, and bump the shell to redraw.
-        api
-          .applyPreset(moduleName, p.path)
-          .then(() => api.read(path))
-          .then((f) => {
-            // Only the module file: a preset sets params, and the panel it is drawn on is a different file.
-            setContent(f.content);
-            setDirty(false);
-            setStatus(`preset: ${p.name}`);
-            onSaved();
-          })
-          .catch((e) => setStatus(`preset error: ${(e as Error).message}`));
-      } else {
-        onSetPreset(moduleName, { index: p.index, path: p.path });
-        setStatus(`preset: ${p.name}`);
-      }
+      onSetPreset(moduleName, { index: p.index, path: p.path });
+      setStatus(`preset: ${p.name}`);
     },
-    [moduleName, path, onSetPreset, onSaved, setStatus],
+    [moduleName, onSetPreset, setStatus],
   );
-
-  const doSavePreset = useCallback(async () => {
-    const name = saveName.trim();
-    if (!name) return;
-    setSavingPreset(true);
-    try {
-      await api.savePreset(moduleName, name);
-      setStatus(`saved preset "${name}"`);
-      setSaveOpen(false);
-      setSaveName("");
-      loadUserPresets();
-    } catch (e) {
-      setStatus(`save preset error: ${(e as Error).message}`);
-    } finally {
-      setSavingPreset(false);
-    }
-  }, [saveName, moduleName, setStatus, loadUserPresets]);
 
   // Load the file and the project's hints once, for this path.
   useEffect(() => {
@@ -189,13 +127,13 @@ export function ModuleEditorPage({
     setDirty(false);
     setUiDirty(false);
     setError(null);
-    api
-      .read(path)
+    library
+      .readFile(path)
       .then((f) => alive && setContent(f.content))
       .catch((e) => alive && setError((e as Error).message));
     // The panel is fetched separately and is allowed to fail: a file that isn't a module (a base being edited
     // by path, say) still opens for its text — the grid is just disabled.
-    api
+    library
       .moduleUi(path)
       .then((f) => {
         if (!alive) return;
@@ -204,7 +142,7 @@ export function ModuleEditorPage({
         setParsable(!hasMalformedUiFile(f.content));
       })
       .catch(() => alive && setParsable(false));
-    api
+    library
       .hints()
       .then((h) => alive && setHints(h))
       .catch(() => {}); // no hints ⇒ the bind list is empty, editing still works
@@ -248,36 +186,24 @@ export function ModuleEditorPage({
     if (content == null) return;
     setSaving(true);
     try {
-      // The panel first, and on its own path: it is the ordinary case (the grid is what people come here for),
-      // and it never forks — `_ui` is writable where `_modules` is not.
+      // The panel first, and on its own path: it is the ordinary case — the grid is what people come here for.
       if (uiDirty && uiFile) {
-        await api.write(uiFile.path, uiFile.content);
+        await library.writeFile(uiFile.path, uiFile.content);
         setUiDirty(false);
         setUiFile((f) => (f ? { ...f, exists: true } : f));
         setStatus(`saved ${uiFile.path}`);
         onSaved();
         if (!dirty) return;
       }
-      const { forked } = await api.write(path, content, editShared);
-      // Saving a SHARED module copies it into the project instead of writing to the library (which every song
-      // in the workspace reads). The editor has to follow the copy, or the next save would fork a second one.
-      if (forked) {
-        onForked(forked);
-        setDirty(false);
-        setStatus(
-          `${forked.ref} is shared — saved a project copy as ${forked.module}` +
-            (forked.chains.length
-              ? `, and repointed ${forked.chains.join(", ")}`
-              : ""),
-        );
-        onSaved();
-        return;
-      }
-      // Tidy the file as the brain's own edits do. Best-effort: a write that saved but wouldn't format still saved.
+      // Writes IN PLACE, and there is no fork to follow: the library is one place, shared
+      // by every project that names @mediatek, and the workspace a copy used to land in is
+      // now somebody else's machine.
+      await library.writeFile(path, content);
+      // Read back what landed, as this editor always did on save.
       try {
-        setContent((await api.fmt(path)).content);
+        setContent((await library.readFile(path)).content);
       } catch {
-        /* formatting is cosmetic */
+        /* cosmetic */
       }
       setDirty(false);
       setStatus(`saved ${path}`);
@@ -287,17 +213,7 @@ export function ModuleEditorPage({
     } finally {
       setSaving(false);
     }
-  }, [
-    content,
-    path,
-    uiFile,
-    uiDirty,
-    dirty,
-    editShared,
-    onSaved,
-    onForked,
-    setStatus,
-  ]);
+  }, [content, path, uiFile, uiDirty, dirty, onSaved, setStatus]);
 
   const params = paramRef ? (hints?.paramsByBase[paramRef] ?? []) : [];
   // Ranges for a built-in whose params lanes defines (see builtinParams.ts). The engine's live report is
@@ -352,17 +268,16 @@ export function ModuleEditorPage({
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {/* Presets menu — the user's own (source "user", stored in the song) and the
-              plugin's factory ones (source "program"/"file", from the engine), each with a
-              distinct icon. Applying either loads it without opening the plugin's window.
-              Shown when there's anything to pick, or when editing the module (to offer a save). */}
-          {(kind === "module" || userPresets.length + presets.length > 0) && (
+          {/* The plugin's factory presets, from the engine. Applying one loads it without
+              opening the plugin's own window. There is no "save as preset" here: a module's
+              parameters ARE its file, and Save already writes them. */}
+          {presets.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="secondary"
                   size="sm"
-                  title="presets — your own, and the plugin's factory ones"
+                  title="the plugin's factory presets"
                 >
                   <SlidersHorizontal className="mr-1 h-4 w-4" /> Preset
                   <ChevronDown className="ml-1 h-4 w-4 opacity-70" />
@@ -372,13 +287,8 @@ export function ModuleEditorPage({
                 align="end"
                 className="max-h-[70vh] w-56 overflow-y-auto"
               >
-                {userPresets.length + presets.length === 0 && (
-                  <DropdownMenuLabel>No presets yet</DropdownMenuLabel>
-                )}
                 {PRESET_GROUPS.map(({ source, label, Icon }) => {
-                  const items = (
-                    source === "user" ? userPresets : presets
-                  ).filter((p) => p.source === source);
+                  const items = presets.filter((p) => p.source === source);
                   if (!items.length) return null;
                   return (
                     <div key={source}>
@@ -395,21 +305,6 @@ export function ModuleEditorPage({
                     </div>
                   );
                 })}
-                {kind === "module" && (
-                  <>
-                    {userPresets.length + presets.length > 0 && (
-                      <DropdownMenuSeparator />
-                    )}
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault(); // keep focus for the dialog that opens
-                        setSaveOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4" /> Save as preset…
-                    </DropdownMenuItem>
-                  </>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -429,49 +324,6 @@ export function ModuleEditorPage({
           </Button>
         </div>
       </header>
-
-      {/* Name-and-save a preset. Snapshots the module's current state (params, or its
-          .vstpreset blob) into the module's own preset library. */}
-      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Save as preset</DialogTitle>
-            <DialogDescription>
-              Saves {moduleName}'s current state to module{" "}
-              <span className="font-mono">{presetRef ?? "—"}</span>'s own preset
-              library.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            autoFocus
-            value={saveName}
-            placeholder="preset name"
-            onChange={(e) => setSaveName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void doSavePreset();
-            }}
-          />
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSaveOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!saveName.trim() || savingPreset}
-              onClick={() => void doSavePreset()}
-            >
-              {savingPreset && (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              )}
-              Save preset
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {error ? (
         <div className="p-4 text-sm text-red-400">
@@ -521,20 +373,11 @@ export function ModuleEditorPage({
               )}
             </div>
             <div className="min-h-0 flex-1">
-              <EditorPane
-                file={
-                  pane === "panel" && uiFile
-                    ? {
-                        path: uiFile.path,
-                        binary: false,
-                        content: uiFile.content,
-                      }
-                    : { path, binary: false, content }
-                }
+              <YamlPane
+                path={pane === "panel" && uiFile ? uiFile.path : path}
+                content={pane === "panel" && uiFile ? uiFile.content : content}
                 hints={hints}
                 vimMode={vimMode}
-                seqView="none"
-                audioClip={null}
                 onChange={pane === "panel" ? onPanelChange : onCodeChange}
                 onSave={() => void save()}
               />

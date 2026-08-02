@@ -73,6 +73,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 - **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
   `~/.lanes/preferences.yaml`); `:w` is wired to the tab's `onSave`.
+- **Modules** — not here. The builder moved to `apps/mediatek`, because only the
+  médiathèque is editable and a workspace's `_modules` is a read-only mirror. The
+  settings entry is a link out (`MEDIATEK_URL` in `src/api.ts`); a module file opened
+  from the file tree still forks into the project, which is the one editing path left.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `DomChains.tsx` for drawing:
   HTML nodes plus one SVG cable layer. **Never hand-roll layout or edge routing.**
   dagre owns both; the renderer consumes its numbers. Pan/zoom is one CSS transform on

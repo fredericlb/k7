@@ -612,18 +612,16 @@ filesRouter.get(
 const writeBody = z.object({
   path: z.string().min(1),
   content: z.string(),
-  // The module builder edits the shared catalogue in place; every other caller gets the fork (see write()).
-  editShared: z.boolean().optional(),
 });
 filesRouter.put(
   "/file",
   validate(writeBody),
   wrap((req, res) => {
-    const { path, content, editShared } = req.body as z.infer<typeof writeBody>;
+    const { path, content } = req.body as z.infer<typeof writeBody>;
     try {
       // `forked` is set when the target was a shared module: the save landed on a project-local copy, and the
       // editor has to follow it — the file it had open is unchanged and still read-only.
-      res.json({ ok: true, ...req.ws!.write(path, content, editShared) });
+      res.json({ ok: true, ...req.ws!.write(path, content) });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

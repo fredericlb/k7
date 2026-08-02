@@ -9,7 +9,6 @@ import type { ParamMeta } from "@studio/engine-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { beginActivity } from "../freezeWatchdog";
-import type { PresetInfo } from "../types";
 
 export interface EngineLink {
   engineRef: React.RefObject<EngineClient | undefined>;
@@ -23,8 +22,6 @@ export interface EngineLink {
   engineWarnings: Record<string, string>;
   /** Param ranges per plugin id — stable while the plugin is loaded (see below). */
   pluginParamMeta: Record<string, Record<string, ParamMeta>>;
-  modulePresets: PresetInfo[];
-  setModulePresets: (p: PresetInfo[]) => void;
   transport: (a: Parameters<EngineClient["transport"]>[0]) => void;
   seek: (seconds: number) => void;
   requestPluginParams: (id: string) => void;
@@ -51,7 +48,6 @@ export function useEngineLink(
   const [engineWarnings, setEngineWarnings] = useState<Record<string, string>>(
     {},
   );
-  const [modulePresets, setModulePresets] = useState<PresetInfo[]>([]);
   const [pluginParamMeta, setPluginParamMeta] = useState<
     Record<string, Record<string, ParamMeta>>
   >({});
@@ -73,9 +69,6 @@ export function useEngineLink(
     });
     const offLiveParams = engine.onPluginParamsLive(({ id, params }) =>
       pluginParamsStore.set(id, params),
-    );
-    const offPresets = engine.onPresets((_module, presets) =>
-      setModulePresets(presets),
     );
     const offBusy = engine.onBusy((b) => {
       // A new apply rebuilds every plugin, so the previous load's complaints are stale —
@@ -113,7 +106,6 @@ export function useEngineLink(
       offConn();
       offParams();
       offLiveParams();
-      offPresets();
       offWarning();
       offBusy();
       engine.dispose();
@@ -165,8 +157,6 @@ export function useEngineLink(
     engineBusy,
     engineBusyRef,
     pluginParamMeta,
-    modulePresets,
-    setModulePresets,
     transport,
     seek,
     requestPluginParams,

@@ -3,6 +3,7 @@
 // moteur plays from, and nothing on this screen reads it.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
+import type { Hints, ModuleUiFile } from "@studio/web-protocol";
 
 export interface AuthUser {
   sub?: string;
@@ -58,6 +59,71 @@ export const library = {
     );
     if (!res.ok) throw new Error(`file ${res.status}`);
     return { path, content: await res.text() };
+  },
+
+  /**
+   * A module's panel file, read from the library's `ui/` folder.
+   *
+   * The path is derived, not asked for: a panel mirrors the module's own path under `ui/`,
+   * which is the same filing rule `@studio/song`'s uiPathFor applies. Absent is NOT an
+   * error — the editor is told where it WOULD go and shown a blank grid, so the first save
+   * creates it through the ordinary write route.
+   */
+  moduleUi: async (modulePath: string): Promise<ModuleUiFile> => {
+    // modules/<type>/<name>/module.yaml -> ui/<type>/<name>.yaml
+    const parts = modulePath.split("/");
+    const ref = parts.slice(1, -1).join("/");
+    const path = `ui/${ref}.yaml`;
+    try {
+      const f = await library.readFile(path);
+      return { ref, path, content: f.content, exists: true };
+    } catch {
+      return {
+        ref,
+        path,
+        content: `ref: ${ref}\ncols: 4\nrows: 2\nwidgets: {}\n`,
+        exists: false,
+      };
+    }
+  },
+
+  /**
+   * What the editor can complete against.
+   *
+   * A shadow of lanes': most of `Hints` describes a SONG — its tracks, clips, chains — and
+   * a library has none of those. What survives is the asset list a widget's library
+   * dropdown offers. Parameter names used to come from here too; the engine reports them
+   * now (see engine/useModuleEngine), which is a better source anyway — it is the loaded
+   * plugin talking rather than a table about it.
+   */
+  hints: async (): Promise<Hints> => {
+    let libraryFiles: string[] = [];
+    try {
+      const l = await library.list("modules");
+      libraryFiles = l.entries.map((e) => e.path);
+    } catch {
+      /* an unreachable library just means an empty dropdown */
+    }
+    return {
+      baseModules: [],
+      ioSinks: [],
+      modules: [],
+      tracks: [],
+      channels: [],
+      clips: [],
+      videoTracks: [],
+      sequences: [],
+      chains: [],
+      libraryFiles,
+      paramsByBase: {},
+      paramMetaByBase: {},
+      racks: {},
+      keywords: [],
+      pluginNames: {},
+      paths: {},
+      projectRoot: "",
+      media: {},
+    };
   },
 
   /** Write one file back. The library replaces — there is no fork, see docs/ingest.md. */

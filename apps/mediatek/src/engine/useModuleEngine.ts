@@ -4,7 +4,7 @@
 
 import { EngineClient } from "@studio/engine-browser";
 import { probeLocalEngine } from "@studio/engine-browser/probe";
-import type { ParamMeta } from "@studio/engine-protocol";
+import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
@@ -19,12 +19,16 @@ export interface ModuleEngine {
   paramNames: string[];
   /** What each spans, so a bound widget adopts the real range instead of a 0..1 guess. */
   paramMeta: Record<string, ParamMeta>;
+  /** Factory presets the loaded plugin offers. Empty for a built-in, which has none. */
+  presets: PresetInfo[];
   /** Load a module so the engine can answer for it. Safe to call on every edit. */
   preview: (
     module: string,
     plugin: { type?: unknown; name?: unknown } | undefined,
     params?: Record<string, number>,
   ) => void;
+  listPresets: (module: string) => void;
+  setPreset: (module: string, sel: { index?: number; path?: string }) => void;
   retry: () => void;
 }
 
@@ -40,6 +44,7 @@ export function useModuleEngine(): ModuleEngine {
   const [phase, setPhase] = useState<EnginePhase>({ k: "looking" });
   const [paramNames, setParamNames] = useState<string[]>([]);
   const [paramMeta, setParamMeta] = useState<Record<string, ParamMeta>>({});
+  const [presets, setPresets] = useState<PresetInfo[]>([]);
   const engine = useRef<EngineClient | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
   // The module currently loaded, so a reconnect can put it back.
@@ -55,16 +60,18 @@ export function useModuleEngine(): ModuleEngine {
 
       const client = new EngineClient(found.wsUrl);
       engine.current = client;
-      const off = client.onPluginParams(({ params, meta }) => {
+      client.onPluginParams(({ params, meta }) => {
         setParamNames(Object.keys(params));
         if (meta) setParamMeta(meta);
       });
+      client.onPresets((_module, list) => setPresets(list));
       client.connect();
       setPhase({ k: "ready", id: found.id });
       // A doc asked for before the socket opened is replayed here rather than lost.
       if (loaded.current) sendPreview(client, ...loaded.current);
-      return () => off();
     })();
+    // No unsubscribe of our own: dispose() drops the client and its callbacks together,
+    // and this hook owns the client outright — nobody else holds a reference to it.
     return () => {
       cancelled = true;
       engine.current?.dispose();
@@ -81,11 +88,22 @@ export function useModuleEngine(): ModuleEngine {
     [],
   );
 
+  const listPresets = useCallback((module: string) => {
+    engine.current?.listPresets(module);
+  }, []);
+
+  const setPreset = useCallback<ModuleEngine["setPreset"]>((module, sel) => {
+    engine.current?.setPreset(module, sel);
+  }, []);
+
   return {
     phase,
     paramNames,
     paramMeta,
+    presets,
     preview,
+    listPresets,
+    setPreset,
     retry: () => setAttempt((n) => n + 1),
   };
 }

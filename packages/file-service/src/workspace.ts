@@ -582,17 +582,13 @@ export class Workspace {
    * and the chains are repointed at it (see moduleFork.ts). `forked` is what the editor needs to follow the
    * file it is now editing; a plain save returns nothing.
    *
-   * `editShared` opts OUT of that copy, for the one caller that means the catalogue: the module builder edits
-   * `_modules` in place now, and a fork there would put the edit somewhere it was never aimed. The guard stays
-   * for everyone else — a file opened from the tree still reads as read-only, because from there it is.
+   * There is NO opt-out. There used to be one, for the module builder that edited `_modules` in place; the
+   * builder lives in the médiathèque now, which is the only editable catalogue, so a workspace's `_modules`
+   * is read-only without exception — and the fork is what "read-only" does here instead of refusing.
    */
-  write(
-    rel: string,
-    content: string,
-    editShared = false,
-  ): { forked?: ForkedModule } {
+  write(rel: string, content: string): { forked?: ForkedModule } {
     const abs = this.safePath(rel);
-    if (!editShared && isInSharedModules(this.toRel(abs))) {
+    if (isInSharedModules(this.toRel(abs))) {
       const dir = this.requireActive();
       const forked = forkSharedModule(dir, abs, content);
       this.invalidateProjectDoc();

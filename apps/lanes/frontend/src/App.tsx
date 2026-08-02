@@ -8,17 +8,13 @@ import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { cn } from "@frediverse/ui/lib/utils";
-import {
-  PluginParamsStore,
-  usePluginParams,
-} from "@studio/engine-browser/params";
+import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
   arrayEq,
   EngineStore,
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
-import type { ParamMeta } from "@studio/engine-protocol";
 import { Circle, Loader2, Pause, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
@@ -42,13 +38,11 @@ import { LogsPanel } from "./components/LogsPanel";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MixerTab } from "./components/MixerTab";
 import { MobileMenu, MobileTabBar } from "./components/MobileChrome";
-import { ModuleEditorPage } from "./components/ModuleEditorPage";
 import {
   type ModulePick,
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { ModulesPage } from "./components/ModulesPage";
 import { RecordingOverlay } from "./components/RecordingOverlay";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
@@ -130,15 +124,7 @@ export default function App({
   );
   const [panelH, setPanelH] = useState(280);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
-  // The module builder — a full-screen overlay over the Modules settings screen, which is the only way in now.
-  // Not the graph: a module is a WORKSPACE thing, and editing one from inside a song only looked per-project.
-  const [moduleEditor, setModuleEditor] = useState<{
-    path: string;
-    kind: "base" | "module";
-    moduleName: string;
-    paramRef: string | null;
-    presetRef: string | null;
-  } | null>(null);
+
   // What the editor has open (a clip/track), for the minimap's highlight ring.
   const [openItem, setOpenItem] = useState<MinimapItem | null>(null);
   // The timeline caret: the minimap needs its row, and m/s need its id (commands address a track by name).
@@ -183,7 +169,6 @@ export default function App({
   const editorRef = useRef<EditorHandle>(null);
   // Live plugin params go to an EXTERNAL store: at ~20 Hz a top-level setState would re-render the app each frame.
   const pluginParamsStore = useRef(new PluginParamsStore()).current;
-  const pluginParamsAll = usePluginParams(pluginParamsStore);
   // The backend command catalogue (canonical name + trailing param names), for the step-by-step palette. Fetched once.
   const [backendCmds, setBackendCmds] = useState<CommandInfo[]>([]);
   const lastActive = useRef<string | null>(null);
@@ -202,37 +187,12 @@ export default function App({
     engineBusy,
     engineWarnings,
     watchWaveform,
-    pluginParamMeta,
-    modulePresets,
-    setModulePresets,
     transport,
     seek,
     requestPluginParams,
     setPluginParam,
     watchPluginParams,
   } = useEngineLink(engineUrl, store, pluginParamsStore, setStatus, pushLog);
-
-  // Live param names for the edited module, matched on the instance name in each `chain:module` key.
-  const pluginParamNamesForModule = useMemo(() => {
-    if (!moduleEditor) return [];
-    const name = moduleEditor.moduleName;
-    const names = new Set<string>();
-    for (const [id, params] of Object.entries(pluginParamsAll)) {
-      if (id.endsWith(`:${name}`))
-        for (const k of Object.keys(params)) names.add(k);
-    }
-    return [...names].sort();
-  }, [moduleEditor, pluginParamsAll]);
-  // What those parameters span. Instances of one module share a plugin type, so any of them gives the same ranges.
-  const pluginParamMetaForModule = useMemo(() => {
-    if (!moduleEditor) return {};
-    const name = moduleEditor.moduleName;
-    const out: Record<string, ParamMeta> = {};
-    for (const [id, meta] of Object.entries(pluginParamMeta))
-      if (id.endsWith(`:${name}`))
-        for (const [k, v] of Object.entries(meta)) out[k] ??= v;
-    return out;
-  }, [moduleEditor, pluginParamMeta]);
 
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
@@ -870,8 +830,8 @@ export default function App({
   // Global keys. Every binding names a command and runs through runCommand.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // A settings screen or the module editor owns the surface: the panes its bindings would act on are hidden.
-      if (settingsScreen || moduleEditor) return;
+      // A settings screen owns the surface: the panes its bindings would act on are hidden.
+      if (settingsScreen) return;
       const el = e.target as HTMLElement | null;
       if (
         el &&
@@ -915,7 +875,7 @@ export default function App({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [conditions, runCommand, settingsScreen, moduleEditor]);
+  }, [conditions, runCommand, settingsScreen]);
 
   // The global view has no mobile form, so entering mobile lands on the timeline — the pane that says what a song is.
   useEffect(() => {
@@ -933,27 +893,6 @@ export default function App({
   // as no spinner at all. What is left to wait for on a first load is the first state frame, which is exactly
   // what `waitingForEngine` means.
   const transportWaiting = engineBusy || waitingForEngine;
-
-  // Ask the engine for this module's parameters: you open this editor precisely on a module with no ui to read.
-  useEffect(() => {
-    if (!moduleEditor) return;
-    const name = moduleEditor.moduleName;
-    let alive = true;
-    api
-      .graph()
-      .then((g) => {
-        if (!alive) return;
-        // Instances of one module share a plugin type, so any of them answers with the same param names.
-        for (const c of Object.values(g.chains))
-          for (const s of c.use)
-            if (s.module === name && s.pluginId)
-              requestPluginParams(s.pluginId);
-      })
-      .catch(() => {}); // no project or no engine ⇒ the pane says so on its own
-    return () => {
-      alive = false;
-    };
-  }, [moduleEditor, requestPluginParams]);
 
   // The step-by-step palette's command catalogue and per-argument completion.
   const paletteCommands = useMemo(
@@ -1537,48 +1476,6 @@ export default function App({
           </div>
         )}
 
-        {/* The module builder — code + widget grid for a module's file. Above the settings
-            overlay it opens from (z-50 vs z-40), so Back returns to the Modules list. */}
-        {moduleEditor && (
-          <div className="absolute inset-0 z-50 bg-background">
-            <ModuleEditorPage
-              path={moduleEditor.path}
-              kind={moduleEditor.kind}
-              moduleName={moduleEditor.moduleName}
-              paramRef={moduleEditor.paramRef}
-              presetRef={moduleEditor.presetRef}
-              vimMode={vimMode}
-              onBack={() => setModuleEditor(null)}
-              onSaved={bumpReload}
-              // The builder's subject IS the shared catalogue, so it writes `_modules` in place rather than
-              // forking a project copy — which is what "per-project module editing is gone" means in one flag.
-              editShared
-              // Kept for the fork the server can still answer with (a module file opened from the file tree).
-              onForked={(f) => {
-                setModuleEditor((m) =>
-                  m
-                    ? {
-                        ...m,
-                        path: f.path,
-                        kind: "module",
-                        moduleName: f.module,
-                        paramRef: f.module,
-                        presetRef: f.module,
-                      }
-                    : m,
-                );
-                bumpReload();
-              }}
-              setStatus={setStatus}
-              presets={modulePresets}
-              pluginParamNames={pluginParamNamesForModule}
-              pluginParamMeta={pluginParamMetaForModule}
-              onListPresets={(mod) => engineRef.current?.listPresets(mod)}
-              onSetPreset={(mod, sel) => engineRef.current?.setPreset(mod, sel)}
-            />
-          </div>
-        )}
-
         {/* "import this .dawproject?" — clicking one in the tree lands here */}
         <ImportDialog
           path={imp.importPath}
@@ -1612,27 +1509,6 @@ export default function App({
           <div className="absolute inset-0 z-40 bg-background">
             {settingsScreen === "ssh-keys" ? (
               <SshKeyPage onBack={() => setSettingsScreen(null)} />
-            ) : settingsScreen === "modules" ? (
-              <ModulesPage
-                reloadKey={reloadKey}
-                onBack={() => setSettingsScreen(null)}
-                // The catalogue already carries what the builder needs: params come from the base it extends
-                // (else its own definition), presets from the module itself. No path lookup, no project.
-                onPick={(mod) => {
-                  // An ENGINE module has no file to open — it is the engine's plugin, not
-                  // a document. Only the ones the workspace holds (a jsdsp source, a
-                  // rack) are editable, so a pick with no path is not a builder session.
-                  if (!mod.path) return;
-                  setModuleEditor({
-                    path: mod.path,
-                    kind: "module",
-                    moduleName: mod.ref,
-                    paramRef: mod.extends ?? mod.ref,
-                    presetRef: mod.ref,
-                  });
-                  setModulePresets([]);
-                }}
-              />
             ) : (
               <EditorSettingsPage
                 vimMode={vimMode}

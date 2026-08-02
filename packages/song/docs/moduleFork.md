@@ -16,11 +16,10 @@ the UI, since the routes are reachable without it.
 Read-only alone would be a dead end, though: a module has to be changeable somewhere. So a save aimed at a
 shared module is not refused — it is redirected.
 
-**One caller opts out.** The module builder's whole subject *is* the library (see `moduleCatalogue.md`): it
-lists `_modules` and edits what it lists, so redirecting its save would put the edit in a project it was never
-aimed at. It passes `editShared` to `Workspace.write`, and nothing else does. The rule above still holds for
-every other way in — a module file opened from the file tree still forks, because from there the edit really
-was aimed at one song.
+**Nothing opts out.** There used to be one exception, `editShared`, for the module builder whose whole subject
+*was* the library. The builder lives in the médiathèque now (see `moduleCatalogue.md`) and edits it there, so
+the exception has no caller left and is gone. A workspace's `_modules` is a read-only mirror, and every save
+aimed into it forks — including one that meant it.
 
 ## What a fork does
 
@@ -56,10 +55,9 @@ the point: the project now owns its copy, and a later edit to the library cannot
 
 ## What the UI does with it
 
-`PUT /file` answers `{ ok: true, forked }` when the save was redirected. Both editors follow the copy — the
-module editor re-aims at it (so the params and presets shown belong to the copy), the text editor opens it —
-and say so in the status bar, naming the chains that moved. `FileTree` hides its mutating actions inside
+`PUT /file` answers `{ ok: true, forked }` when the save was redirected. The text editor follows the copy and
+says so in the status bar, naming the chains that moved. `FileTree` hides its mutating actions inside
 `_modules` entirely, so the read-only rule is visible before it is hit rather than after.
 
-Since the builder moved to the catalogue, the fork's live entry point is the file tree: it is what happens when
-a module file is opened as a *file*, in a song, rather than as a module.
+The file tree is now the fork's ONLY entry point: it is what happens when a module file is opened as a *file*,
+in a song, rather than as a module. Opening it as a module means opening the médiathèque.

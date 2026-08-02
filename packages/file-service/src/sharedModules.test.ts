@@ -145,17 +145,17 @@ describe("saving a shared module forks it into the project", () => {
   });
 });
 
-// The module BUILDER is the exception, and it is the whole reason the flag exists: it lists `_modules` and
-// edits what it lists, so a fork would put the edit in a project it was never aimed at. Nothing else passes it,
-// which is what keeps the library read-only from the file tree.
-describe("the module builder edits the library in place", () => {
+// There is NO exception any more. The builder used to pass a flag that wrote `_modules` in place; it lives in
+// the médiathèque now, which is the only editable catalogue, so a workspace's copy is read-only for everyone
+// without exception — and this test guards that the escape hatch stays closed.
+describe("nothing edits the workspace library in place", () => {
   const EDIT =
     "plugin:\n  name: Tape Delay\n  type: vst3\nparams:\n  Mix: 0.9\n";
 
-  it("writes the shared file itself, and forks nothing", () => {
-    expect(ws.write(SHARED, EDIT, true)).toEqual({});
-    expect(readFileSync(join(root, SHARED), "utf8")).toBe(EDIT);
-    expect(existsSync(join(root, "song", "modules", "audio"))).toBe(false);
+  it("forks even a save aimed straight at the shared file", () => {
+    const before = readFileSync(join(root, SHARED), "utf8");
+    expect(ws.write(SHARED, EDIT).forked).toBeDefined();
+    expect(readFileSync(join(root, SHARED), "utf8")).toBe(before);
   });
 });
 

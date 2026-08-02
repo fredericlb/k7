@@ -36,6 +36,18 @@ import {
   type WorkspaceList,
 } from "./types";
 
+/**
+ * The médiathèque, which is somewhere else entirely.
+ *
+ * Modules are no longer edited here — only the library is editable, so the settings entry
+ * that used to open a builder is a link out. Two hosts exist and both are known, so this
+ * is a constant rather than a build-time variable; the day a third appears is the day to
+ * make it configurable.
+ */
+export const MEDIATEK_URL = import.meta.env.PROD
+  ? "https://media.studio.frediver.se"
+  : "https://mediatek.test";
+
 // ── The hosted backend (same-origin): auth + registry ───────────────────────────
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path);
@@ -240,12 +252,11 @@ export const api = {
     fget<FileContent>(`/file?path=${encodeURIComponent(path)}`),
   // Saving a file in the shared `_modules` library doesn't write there: it copies the module into the project
   // and repoints the chains at the copy, and `forked` says where the edit actually landed (see moduleFork.ts).
-  // `editShared` opts out — the module builder edits the catalogue in place, which is what it is FOR.
-  write: (path: string, content: string, editShared = false) =>
+  // There is no opt-out any more — the catalogue is edited in the médiathèque, and nowhere else.
+  write: (path: string, content: string) =>
     fsend<{ ok: true; forked?: ForkedModule }>("PUT", "/file", {
       path,
       content,
-      ...(editShared ? { editShared } : {}),
     }),
   // The `_ui` panel file a module file's grid edits — existing, or scaffolded at the path it would take.
   moduleUi: (path: string) =>

@@ -24,8 +24,8 @@ import {
   Type,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import type { ModuleUI, Widget, WidgetType } from "../moduleUi";
-import { isParamDrag, type ParamDrag, readParamDrag } from "../paramDrag";
+import type { ModuleUI, Widget, WidgetType } from "./moduleUi";
+import { isParamDrag, type ParamDrag, readParamDrag } from "./paramDrag";
 
 // Row height in px (columns are elastic), in one place so the pointer→cell maths and the CSS grid agree.
 const ROW_PX = 64;
