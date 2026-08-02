@@ -27,6 +27,7 @@
     "@studio/ui-eyes": "*",
     "@studio/engine-browser": "*",
     "@studio/graph-model": "*",
+    "@studio/ui-chains-react": "*",
     "@studio/web-protocol": "*",
     "@uiw/react-codemirror": "^4.23.0",
     "lucide-react": "^1.24.0",

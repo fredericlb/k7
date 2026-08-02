@@ -39,7 +39,12 @@ export default defineAppConfig({
     // these and choke on the .ts extension in their exports maps — exclude them
     // so they're served as source like the rest of the app.
     optimizeDeps: {
-      exclude: ["@studio/ui-eyes", "@studio/ui-chains", "@studio/ui-editor"],
+      exclude: [
+        "@studio/ui-eyes",
+        "@studio/ui-chains",
+        "@studio/ui-chains-react",
+        "@studio/ui-editor",
+      ],
     },
   },
 });

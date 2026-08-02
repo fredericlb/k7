@@ -8,6 +8,7 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
+import { DomChains, type FitToFn } from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -15,7 +16,6 @@ import { LANES_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import type { WebGraph } from "../types";
 import { useIsMobile } from "../useIsMobile";
-import { DomChains, type FitToFn } from "./DomChains";
 
 export function ChainsTab({
   reloadKey,
