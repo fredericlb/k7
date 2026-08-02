@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { emptyDoc, trackDoc } from "@studio/engine-protocol/build";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import {
@@ -19,42 +20,8 @@ import type { CommandHost } from "./commands";
 // completion provider (it reads `project().tracks.map(t => t.id)`). Every engine op
 // is a no-op; completion never calls them.
 function host(trackIds: string[]): CommandHost {
-  const tracks: TrackDoc[] = trackIds.map((id) => ({
-    id,
-    name: id,
-    role: "regular",
-    contentType: "audio",
-    group: "",
-    generated: false,
-    color: "",
-    mute: false,
-    solo: false,
-    disabled: false,
-    inputChannels: [],
-    monitor: "auto",
-    inputGain: 0,
-    clips: [],
-    plugins: [],
-    sends: [],
-    automation: [],
-  }));
-  const project = (): ProjectDoc => ({
-    name: "test",
-    tempo: 120,
-    sampleRate: 48000,
-    timeSigNumerator: 4,
-    timeSigDenominator: 4,
-    recordDir: "",
-    tracks,
-    groups: [],
-    strudel: false,
-    video: false,
-    viewport: [0, 0],
-    fps: 30,
-    videoTracks: [],
-    markers: [],
-    settings: { metronome: false, countIn: 0 },
-  });
+  const tracks: TrackDoc[] = trackIds.map((id) => trackDoc(id));
+  const project = (): ProjectDoc => emptyDoc({ name: "test", tracks });
   return {
     songPath: "",
     project,

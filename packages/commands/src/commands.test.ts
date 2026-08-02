@@ -1,85 +1,21 @@
-import type {
-  ClipDoc,
-  PluginDoc,
-  ProjectDoc,
-  TrackDoc,
-} from "@studio/song/project";
+import {
+  clipDoc as clip,
+  emptyDoc,
+  pluginDoc,
+  trackDoc as track,
+} from "@studio/engine-protocol/build";
+import type { PluginDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import { collectPluginModules, collectSequences } from "./commands";
 
-// Minimal fixtures — the collect* functions read only a few fields, so the
-// factories fill the rest with harmless defaults to satisfy the full doc types.
-function clip(over: Partial<ClipDoc> & Pick<ClipDoc, "id" | "type">): ClipDoc {
-  return {
-    name: "",
-    source: "",
-    start: 0,
-    length: 0,
-    offset: 0,
-    fadeIn: 0,
-    fadeOut: 0,
-    loopStart: 0,
-    loopEnd: 0,
-    notes: [],
-    ...over,
-  };
-}
+// Minimal fixtures: the collect* functions read only a few fields, and the shared
+// constructors fill the rest. They used to be hand-written here and again in
+// commandSpec.test.ts, which is how one of them fell behind a new required field.
+const plugin = (over: Partial<PluginDoc> & Pick<PluginDoc, "id">): PluginDoc =>
+  pluginDoc({ type: "vst", role: "instrument", ...over });
 
-function plugin(over: Partial<PluginDoc> & Pick<PluginDoc, "id">): PluginDoc {
-  return {
-    type: "vst",
-    name: "",
-    path: "",
-    presetSave: "",
-    role: "instrument",
-    enabled: true,
-    params: {},
-    ...over,
-  };
-}
-
-function track(id: string, over: Partial<TrackDoc> = {}): TrackDoc {
-  return {
-    id,
-    name: id,
-    role: "regular",
-    contentType: "audio",
-    group: "",
-    generated: false,
-    color: "",
-    mute: false,
-    solo: false,
-    disabled: false,
-    inputChannels: [],
-    monitor: "auto",
-    inputGain: 0,
-    clips: [],
-    plugins: [],
-    sends: [],
-    automation: [],
-    ...over,
-  };
-}
-
-function project(tracks: TrackDoc[]): ProjectDoc {
-  return {
-    name: "test",
-    tempo: 120,
-    sampleRate: 48000,
-    timeSigNumerator: 4,
-    timeSigDenominator: 4,
-    recordDir: "",
-    tracks,
-    groups: [],
-    strudel: false,
-    video: false,
-    viewport: [0, 0],
-    fps: 30,
-    videoTracks: [],
-    markers: [],
-    settings: { metronome: false, countIn: 0 },
-  };
-}
+const project = (tracks: TrackDoc[]): ProjectDoc =>
+  emptyDoc({ name: "test", tracks });
 
 describe("collectSequences", () => {
   const p = project([

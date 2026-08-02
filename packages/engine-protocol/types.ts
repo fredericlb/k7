@@ -2,7 +2,8 @@
 // clients of the C++ engine (the Node one and the browser one), so they can't silently
 // drift. Types only: the message-type strings stay in each client, since every surface
 // implements its own subset and the engine itself is the authority on the full contract.
-// Being type-only, the whole module is erased at runtime and costs nothing to share.
+// Being type-only, this module and ./project are erased at runtime and cost nothing to
+// share. ./build is the exception — constructors, so it emits code.
 
 // A live engine state frame — the ~20 Hz meter/transport push.
 export interface EngineState {

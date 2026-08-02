@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "description": "The engine wire protocol: the state frames (.) and the compiled project document (./project), both types-only and erased at runtime, plus constructors for that document (./build), the one subpath that emits code.",
   "types": "./types.ts",
   "exports": {
     ".": "./types.ts",
-    "./project": "./project.ts"
+    "./project": "./project.ts",
+    "./build": "./build.ts"
   }
 }
