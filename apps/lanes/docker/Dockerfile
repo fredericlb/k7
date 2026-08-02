@@ -79,20 +79,20 @@ RUN npm ci --omit=dev
 FROM ${BASE_IMAGE} AS runtime
 WORKDIR /app
 # Workspace dependencies are hoisted to /app/node_modules; the backend resolves
-# them by walking up from /app/apps/lanes/web/backend, and its own
+# them by walking up from /app/apps/lanes/backend, and its own
 # package.json marks it ESM.
 COPY --from=backend-deps /app/node_modules ./node_modules
 # The backend's whole workspace closure, computed by the backend-only prune.
 COPY --from=pruner /repo/out-backend/full/ ./
 
-COPY --from=frontend-build /app/apps/lanes/web/frontend/dist /usr/share/nginx/html
+COPY --from=frontend-build /app/apps/lanes/frontend/dist /usr/share/nginx/html
 COPY apps/lanes/docker/nginx.conf /etc/nginx/http.d/default.conf
 
 # No VOLUME: the engine registry is in-memory and the user's files live on the
 # engine host, not here.
 ENV PORT=8789
 
-WORKDIR /app/apps/lanes/web/backend
+WORKDIR /app/apps/lanes/backend
 # The base image's entrypoint runs this alongside nginx. Invoked by absolute
 # path rather than through npm so the process the entrypoint supervises (and
 # signals) is the server itself, with no npm wrapper in between.

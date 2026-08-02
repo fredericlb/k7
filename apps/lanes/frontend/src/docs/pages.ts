@@ -4,7 +4,7 @@
 // title — a manifest would be a second place to forget to update.
 
 // Bundled at build time (`?raw`): the docs must work with no backend, which is exactly when they are read.
-const FILES = import.meta.glob("../../../../docs/*.md", {
+const FILES = import.meta.glob("../../../docs/*.md", {
   query: "?raw",
   import: "default",
   eager: true,

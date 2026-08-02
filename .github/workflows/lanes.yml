@@ -90,11 +90,11 @@ jobs:
       - name: typecheck + build
         run: npx turbo run build --filter="./apps/lanes/**" --filter="./packages/**" --filter="!./apps/capot"
 
-      # web/backend has only a `typecheck` script — no `build` — so turbo covers it in
+      # the backend has only a `typecheck` script — no `build` — so turbo covers it in
       # neither step. Run it directly rather than adding a script to its package.json
       # purely to satisfy CI.
-      - name: typecheck web/backend
-        working-directory: apps/lanes/web/backend
+      - name: typecheck the lanes backend
+        working-directory: apps/lanes/backend
         run: npx tsc --noEmit
 
   rust:
