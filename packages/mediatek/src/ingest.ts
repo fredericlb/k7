@@ -20,6 +20,23 @@ export interface ImportReport {
   failed: { path: string; error: string }[];
   /** Workspace folders that weren't there — not an error, most workspaces have some. */
   absent: string[];
+  /** Files deliberately not sent, with why. Reported rather than silent: "it uploaded"
+   *  and "it uploaded everything" are different claims, and only one of them is true. */
+  skipped: { path: string; reason: string }[];
+}
+
+/**
+ * Files a workspace holds that are the LIBRARY's to decide, not a contributor's.
+ *
+ * Only `_modules/config.yaml`, so far — it declares the namespace every module ref is keyed
+ * by (`@mediatek/audio/reverb`). Uploading it made the last workspace pushed rename the
+ * whole library, silently, for every project that inherits from it. `ensureLayout` writes
+ * the library's own once and nothing else touches it. See layout.ts.
+ */
+function libraryOwned(rel: string): string | null {
+  return rel === "modules/config.yaml"
+    ? "the library declares its own namespace (see layout.ts)"
+    : null;
 }
 
 function entries(abs: string): Dirent[] {
@@ -74,7 +91,12 @@ export async function uploadWorkspace(
   sink: LibrarySink,
   wsRoot: string,
 ): Promise<ImportReport> {
-  const report: ImportReport = { uploaded: [], failed: [], absent: [] };
+  const report: ImportReport = {
+    uploaded: [],
+    failed: [],
+    absent: [],
+    skipped: [],
+  };
 
   for (const f of FOLDERS) {
     const src = join(wsRoot, f.from);
@@ -83,6 +105,11 @@ export async function uploadWorkspace(
       continue;
     }
     for (const [abs, rel] of filesUnder(src, f.to)) {
+      const owned = libraryOwned(rel);
+      if (owned) {
+        report.skipped.push({ path: rel, reason: owned });
+        continue;
+      }
       try {
         await sink.put(rel, readFileSync(abs));
         report.uploaded.push(rel);

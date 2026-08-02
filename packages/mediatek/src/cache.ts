@@ -33,7 +33,10 @@ export function heldManifest(family: Family): Manifest {
   }
 }
 
-function rememberManifest(family: Family, m: Manifest): void {
+/** Record what the owner said about the files we now hold. Exported for evict.ts, which
+ *  MUST rewrite it: a file deleted without being forgotten is one the cache believes it
+ *  still has for ever, and would never re-fetch. */
+export function rememberManifest(family: Family, m: Manifest): void {
   const p = manifestPath(family);
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(m), "utf8");

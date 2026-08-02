@@ -37,6 +37,44 @@ const w = (rel: string, body = "x"): void => {
   writeFileSync(abs, body, "utf8");
 };
 
+// The namespace in `_modules/config.yaml` is what every module ref is keyed by. Uploading
+// it made the LAST workspace pushed rename the whole library — silently, for every project
+// inheriting from it. It is the library's own now (see layout.ts).
+describe("what the library keeps for itself", () => {
+  it("refuses to send a workspace's modules/config.yaml", async () => {
+    w("_modules/config.yaml", "namespace: someone-elses\n");
+    w("_modules/audio/reverb/module.yaml", "plugin: {}\n");
+    const { sink, put } = fakeSink();
+    const r = await uploadWorkspace(sink, ws);
+    expect(put.has("modules/config.yaml")).toBe(false);
+    expect(r.uploaded).toEqual(["modules/audio/reverb/module.yaml"]);
+  });
+
+  it("says so, rather than dropping it quietly", () => {
+    // "it uploaded" and "it uploaded everything" are different claims, and a caller
+    // wondering where its config went deserves the answer in the report.
+    w("_modules/config.yaml", "namespace: someone-elses\n");
+    return uploadWorkspace(fakeSink().sink, ws).then((r) => {
+      expect(r.skipped).toHaveLength(1);
+      expect(r.skipped[0].path).toBe("modules/config.yaml");
+      expect(r.skipped[0].reason).toMatch(/namespace/);
+    });
+  });
+
+  it("still sends a config.yaml that is not the modules root's", async () => {
+    // Only the ONE path is the library's. A module of its own named config.yaml, or one in
+    // `_library`, is ordinary content — a blanket filename rule would have eaten those.
+    w("_modules/audio/reverb/config.yaml", "gain: 3\n");
+    w("_library/config.yaml", "x");
+    const r = await uploadWorkspace(fakeSink().sink, ws);
+    expect(r.skipped).toEqual([]);
+    expect(r.uploaded.sort()).toEqual([
+      "library/config.yaml",
+      "modules/audio/reverb/config.yaml",
+    ]);
+  });
+});
+
 describe("pushing a workspace's shared folders up", () => {
   it("maps each workspace folder onto its library name", () => {
     w("_modules/audio/reverb/module.yaml", "plugin: {}\n");

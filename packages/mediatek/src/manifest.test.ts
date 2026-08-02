@@ -47,7 +47,13 @@ describe("the manifest", () => {
     write("samples/audio/a.wav");
     write("modules/instruments/synth/module.yaml", "plugin: {}\n");
     expect(manifest("samples")).toHaveLength(1);
-    expect(manifest("modules")).toHaveLength(1);
+    // …and modules also carries the library's own config.yaml, which ensureLayout writes
+    // and which declares the namespace every ref is keyed by. It is a real file the cache
+    // must receive — a modules root without one is a hard error in the loader.
+    expect(manifest("modules").map((e) => e.path)).toEqual([
+      "modules/config.yaml",
+      "modules/instruments/synth/module.yaml",
+    ]);
   });
 });
 

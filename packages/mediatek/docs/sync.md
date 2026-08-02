@@ -45,8 +45,14 @@ Size plus the owner's mtime misses a file replaced in place, same second, same l
 library whose writes go through one service that bumps a mutation counter, that is a gap the
 poll closes rather than the manifest.
 
-## Eviction is not decided here
+## Eviction lives next door
 
-`diff()` returns `drop` — what the cache holds and the owner no longer has. Whether a cache
-should also drop things it simply has not used, and on what budget, is a policy question
-with no obvious answer for video, and it is deliberately not answered by this module.
+`diff()` returns `drop` — what the cache holds and the owner **no longer has**. That is a
+different question from "what can this disk afford", which was open here for a while and is
+now answered in `docs/eviction.md`: a per-family byte budget, least-recently-fetched first,
+`modules` never evicted, and nothing automatic.
+
+One thing from that page belongs here too, because it is really a fact about *this* one:
+eviction has to rewrite the remembered manifest. Deleting bytes without forgetting them
+leaves a cache that believes it still holds a file for ever — `diff()` compares against the
+memory, not the disk, which is the whole point of the section above.

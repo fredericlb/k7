@@ -45,11 +45,21 @@ that landed is a file the library now has, and the caller can retry the rest.
 A workspace missing one is normal — most have some and not others — so those are reported
 in `absent` rather than thrown.
 
-## What this still does NOT do
+## The namespace is the library's, and no longer a contributor's
 
-**It does not decide the library's namespace.** A workspace's `_modules/config.yaml` is
-pushed like any other file, so the last workspace uploaded now wins — where before, the
-first one did. Either way it is the wrong thing: the namespace is what refs are keyed by
-(`@mine/audio/reverb`), so it should be the library's own choice, declared once in
-`mediatek.yaml`, not inherited from whichever workspace happened to go through. Still the
-next thing this needs, and still called out rather than papered over.
+This used to push `_modules/config.yaml` like any other file, so the **last workspace
+uploaded renamed the whole library** — silently, for every project inheriting from it,
+because that file declares the namespace refs are keyed by (`@mediatek/audio/reverb`).
+
+It is now skipped, and reported in `skipped` rather than dropped quietly: "it uploaded" and
+"it uploaded everything" are different claims and only one of them is true.
+
+The declaration itself stays in `modules/config.yaml` rather than moving into
+`mediatek.yaml`, which was the earlier idea here. Two reasons it is better where it is:
+that path is where `@studio/song`'s loader already looks — a `modules_from` root without a
+namespace is a hard error — and duplicating it into the marker would create a second source
+of truth for one string. `ensureLayout` writes it once, at creation, with `mediatek` as the
+default; nothing overwrites it afterwards.
+
+Changing it later is a **rename of every module in every project that inherits them**. The
+file says so in its own comment, which is the only place someone about to edit it will look.

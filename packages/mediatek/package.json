@@ -15,6 +15,7 @@
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",
     "./cache": "./src/cache.ts",
+    "./evict": "./src/evict.ts",
     "./write": "./src/write.ts"
   },
   "scripts": {

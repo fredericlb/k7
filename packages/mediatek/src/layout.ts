@@ -31,6 +31,22 @@ export const MORCEAU_KINDS = ["imported", "recorded"] as const;
 /** Samples split by what plays them, which is also what can read them. */
 export const SAMPLE_KINDS = ["audio", "video"] as const;
 
+/**
+ * The library's OWN namespace, declared in `modules/config.yaml`.
+ *
+ * That file is where `@studio/song`'s loader already looks — a `modules_from` root without
+ * one is a hard error — so the declaration lives there rather than being duplicated into
+ * `mediatek.yaml`. What changed is who writes it: `ensureLayout` creates it once, and
+ * `uploadWorkspace` now refuses to send a workspace's copy, because it used to and the last
+ * push therefore decided what every ref in every project was keyed by.
+ *
+ * Not to be confused with the `@mediatek` token in a project's `modules_from:` — that is a
+ * PATH the workspace resolves, this is the prefix a chain names a module BY
+ * (`@mediatek/audio/reverb`). They read alike on purpose: one library, one word for it.
+ */
+export const MODULES_CONFIG = "config.yaml";
+export const DEFAULT_NAMESPACE = "mediatek";
+
 /** The module type folders, the same vocabulary a project's `modules/` uses — the mediatek
  *  is the `_modules` library promoted, so the shape has to match or nothing would resolve. */
 export const MODULE_TYPES = [
@@ -95,7 +111,41 @@ export function ensureLayout(): string {
       `# The studio mediatek. Created automatically; safe to edit.\nversion: ${SCHEMA_VERSION}\n`,
       "utf8",
     );
+
+  // The namespace, once, at creation. Written only when absent — the same discipline as the
+  // marker above, and for a sharper reason: this string is the prefix every ref in every
+  // project is keyed by, so rewriting it would rename modules out from under songs that
+  // name them. See `libraryNamespace`.
+  const modulesConfig = join(root, FAMILY_DIRS.modules, MODULES_CONFIG);
+  if (!existsSync(modulesConfig))
+    writeFileSync(
+      modulesConfig,
+      `# What chains name this library's modules by: @${DEFAULT_NAMESPACE}/<type>/<name>.\n` +
+        `# Changing it renames every module for every project that inherits them.\n` +
+        `namespace: ${DEFAULT_NAMESPACE}\n`,
+      "utf8",
+    );
   return root;
+}
+
+/**
+ * What chains name this library's modules by, or "" when it has never been laid out.
+ *
+ * Read as a plain line rather than parsed, like `schemaVersion` and for the same reason:
+ * this is consulted to describe the folder, sometimes before anything trusts its shape.
+ */
+export function libraryNamespace(): string {
+  try {
+    const m = /^namespace:\s*["']?([\w-]+)["']?\s*$/m.exec(
+      readFileSync(
+        join(mediatekDir(), FAMILY_DIRS.modules, MODULES_CONFIG),
+        "utf8",
+      ),
+    );
+    return m ? m[1] : "";
+  } catch {
+    return "";
+  }
 }
 
 /** The declared schema version, or 0 when there is no readable marker. Read as a plain
