@@ -15,9 +15,9 @@
 #   rust  — `cargo check`/`cargo test` on the tray. Needs NO C++ engine, no Go, and no
 #           Node download: tauri_build only checks that the sidecar files EXIST, so the
 #           job stubs them (verified — empty placeholders satisfy it).
-#   lint  — informational. Biome currently reports 157 errors in apps/lanes; gating on
-#           that would block every PR on a pre-existing backlog. It runs so the number is
-#           visible and can be driven down. Flip `continue-on-error` when it reaches zero.
+#   lint  — informational. Biome reports a pre-existing backlog of warnings here; gating
+#           on it would block every PR on work nobody on the change caused. It runs so the
+#           number is visible and can be driven down. Flip `continue-on-error` at zero.
 #
 # Not included, on purpose: `cargo fmt --check` (pre-existing diffs in build.rs would
 # make it red on arrival, same reasoning as lint) and any job that builds the C++ engine
@@ -34,6 +34,7 @@ on:
       - "apps/lanes/**"
       - "apps/moteur/**"
       - "apps/capot/**"
+      - "packages/**"
       - "package-lock.json"
       - "turbo.json"
       - ".github/workflows/lanes.yml"
@@ -42,6 +43,7 @@ on:
       - "apps/lanes/**"
       - "apps/moteur/**"
       - "apps/capot/**"
+      - "packages/**"
       - "package-lock.json"
       - "turbo.json"
       - ".github/workflows/lanes.yml"
@@ -81,12 +83,12 @@ jobs:
       # vendored Node. The `rust` job below is what covers the tray. `apps/moteur`
       # declares no `build`/`test` script at all, so turbo never tries to compile C++.
       - name: test
-        run: npx turbo run test --filter="./apps/lanes/**" --filter="!./apps/capot"
+        run: npx turbo run test --filter="./apps/lanes/**" --filter="./packages/**" --filter="!./apps/capot"
 
       # `build` is `tsc --noEmit` for every package; for web/frontend it is a real
       # `vite build && tsc --noEmit`, which is a stronger gate and worth the minute.
       - name: typecheck + build
-        run: npx turbo run build --filter="./apps/lanes/**" --filter="!./apps/capot"
+        run: npx turbo run build --filter="./apps/lanes/**" --filter="./packages/**" --filter="!./apps/capot"
 
       # web/backend has only a `typecheck` script — no `build` — so turbo covers it in
       # neither step. Run it directly rather than adding a script to its package.json
@@ -159,4 +161,4 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx biome check apps/lanes
+      - run: npx biome check apps/lanes apps/capot packages

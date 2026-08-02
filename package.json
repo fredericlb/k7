@@ -19,7 +19,6 @@
     "apps/radiok7/*",
     "apps/radiok7/packages/*",
     "apps/lanes",
-    "apps/lanes/packages/*",
     "apps/lanes/web/*",
     "apps/moteur",
     "apps/capot"

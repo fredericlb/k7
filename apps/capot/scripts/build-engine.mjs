@@ -419,13 +419,13 @@ stage(vendorNode(), "node");
 // tauri.conf.json lists both as resources and Tauri ERRORS on a glob matching nothing.
 console.log("\n=== file service bundle ===");
 await bundleTs(
-  join(repo, "apps", "lanes", "packages", "file-service", "src", "server.ts"),
+  join(repo, "packages", "file-service", "src", "server.ts"),
   join(trayDir, "src-tauri", "resources", "file-service.mjs"),
 );
 
 console.log("\n=== supervisor bundle ===");
 await bundleTs(
-  join(repo, "apps", "lanes", "packages", "engine-host", "src", "main.ts"),
+  join(repo, "packages", "engine-host", "src", "main.ts"),
   join(trayDir, "src-tauri", "resources", "engine-host.mjs"),
 );
 
