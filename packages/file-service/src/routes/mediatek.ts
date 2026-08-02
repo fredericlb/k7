@@ -6,9 +6,9 @@
 import { validate, wrap } from "@frediverse/http/route";
 import { markSynced, syncFamily } from "@studio/mediatek/cache";
 import { listFamily, search, summary } from "@studio/mediatek/catalogue";
-import { importFromWorkspace } from "@studio/mediatek/ingest";
+import { uploadWorkspace } from "@studio/mediatek/ingest";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
-import { remoteLibrary } from "@studio/mediatek/remote";
+import { remoteLibrary, remoteWriter } from "@studio/mediatek/remote";
 import { revisions } from "@studio/mediatek/revision";
 import { FAMILIES, type Family } from "@studio/mediatek/types";
 import { Router } from "express";
@@ -83,11 +83,11 @@ mediatekRouter.get(
 );
 
 /**
- * Copy a workspace's `_modules` / `_library` / `_ui` into the library.
+ * Push a workspace's `_modules` / `_library` / `_ui` UP to the hosted library.
  *
- * The one route here that writes. Additive — it never replaces what is already in the
- * library (see @studio/mediatek/docs/ingest.md) — and it answers with exactly what it
- * copied and what it left alone, which is what makes it undoable by hand.
+ * It used to copy them into the local folder. That folder is a CACHE now: anything put
+ * there by hand is absent from the owner's manifest, and the next sync would delete it —
+ * so the same button had to become an upload or stop existing.
  *
  * The workspace is resolved from the AUTHENTICATED user, not from anything the caller
  * sends beyond a name, so this cannot be pointed at somebody else's folder.
@@ -96,7 +96,7 @@ const importBody = z.object({ workspace: z.string().min(1) });
 mediatekRouter.post(
   "/mediatek/import",
   validate(importBody),
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const { workspace } = req.body as z.infer<typeof importBody>;
     let root: string;
     try {
@@ -105,7 +105,21 @@ mediatekRouter.post(
       // assertWorkspaceName refuses anything that isn't one plain path segment.
       return res.status(400).json({ error: (e as Error).message });
     }
-    res.json(importFromWorkspace(root));
+    const base = process.env.MEDIATEK_URL;
+    if (!base)
+      return res
+        .status(503)
+        .json({ error: "no hosted library configured (MEDIATEK_URL)" });
+    try {
+      res.json(
+        await uploadWorkspace(
+          remoteWriter({ base, token: process.env.MEDIATEK_TOKEN }),
+          root,
+        ),
+      );
+    } catch (e) {
+      res.status(502).json({ error: (e as Error).message });
+    }
   }),
 );
 

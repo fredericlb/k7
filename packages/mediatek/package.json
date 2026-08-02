@@ -14,7 +14,8 @@
     "./ingest": "./src/ingest.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",
-    "./cache": "./src/cache.ts"
+    "./cache": "./src/cache.ts",
+    "./write": "./src/write.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

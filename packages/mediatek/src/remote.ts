@@ -73,6 +73,54 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
   };
 }
 
+/**
+ * Where a library's content is PUT. Separate from `LibrarySource` on purpose: a cache
+ * only ever reads, and giving it a port it could write through would make "which side
+ * owns this" a question the type system stops answering.
+ */
+export interface LibrarySink {
+  put(path: string, body: Uint8Array | string): Promise<void>;
+  remove(path: string): Promise<void>;
+}
+
+/** The hosted service as a `LibrarySink`. */
+export function remoteWriter(cfg: RemoteConfig): LibrarySink {
+  const url = (path: string): string =>
+    `${cfg.base.replace(/\/+$/, "")}/api/mediatek${path}`;
+  const auth: Record<string, string> = cfg.token
+    ? { authorization: `Bearer ${cfg.token}` }
+    : {};
+
+  const send = async (
+    method: string,
+    path: string,
+    body?: string | Uint8Array,
+  ) => {
+    const res = await fetch(
+      url(`/file?path=${encodeURIComponent(path)}`),
+      // Octet-stream regardless of what it is: the library files by extension, and a
+      // guessed content type here would be a second, quieter opinion about the same thing.
+      {
+        method,
+        headers: body
+          ? { ...auth, "content-type": "application/octet-stream" }
+          : auth,
+        // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it.
+        body: body as string | undefined,
+      },
+    );
+    if (!res.ok)
+      throw new RemoteError(
+        `mediatek ${method} ${path}: ${res.status} ${res.statusText}`,
+      );
+  };
+
+  return {
+    put: (path, body) => send("PUT", path, body),
+    remove: (path) => send("DELETE", path),
+  };
+}
+
 /** The catalogue as the hosted service reports it — what a surface LISTS, as opposed to
  *  what this machine happens to hold. */
 export async function remoteListing(

@@ -1,54 +1,55 @@
 # ingest.ts — extended notes
 
-## Additive, never replacing
+## It pushes UP now, and it had to
 
-An import copies what is missing and leaves what is there, reporting both.
+This used to copy a workspace's `_modules` / `_library` / `_ui` **into** the local folder,
+additively, never replacing anything.
 
-The library is **shared**: every project that names `@mediatek` inherits from it. Replacing
-a module because someone imported a workspace that happened to contain one of the same
-name would change what all those projects play, from an action whose subject was a
-different workspace entirely — and there would be no author, no diff and no way back,
-since the mediatek is not a git repo.
+That stopped being correct the moment the library moved to a server. The local folder is a
+**cache** of the hosted library: anything sitting in it that the owner's manifest does not
+mention is, by definition, something to delete — so the next sync would quietly remove
+exactly what the import had just copied. The same button had to become an upload or stop
+existing.
 
-Overwriting is a decision someone has to make per module, looking at both. An import has
-no per-module answer to make it with, so it declines to guess and says what it skipped.
+## Why it is no longer additive
 
-## Why file-by-file rather than `cpSync`
+The old rule was "never replace what is already there", because clobbering a shared module
+would change what every project inheriting it plays, with no author and no way back.
 
-`cpSync(src, dest, { recursive: true, force: false })` does the same copying. It reports
-nothing.
+That rule cannot survive the move, and pretending otherwise would cost more than it buys:
+asking the library "do you already have this one?" per file doubles the round trips to
+answer a question the owner is better placed to decide. A PUT replaces.
 
-"What did this actually change" is the whole answer an import owes its caller: it is what
-makes the operation reversible by hand — delete exactly the paths in `copied` and the
-library is as it was — and it is what lets a surface say "9 added, 3 already there"
-instead of "done".
+What protects a shared module now is different, and honest about being different:
+
+- pushing a workspace up is a **deliberate act aimed at a named workspace**, not a
+  side-effect of opening a screen;
+- the library is one place, so "who changed this" has one answer to look for;
+- history, if the library wants any, belongs to the library — not to this function
+  refusing to write.
+
+## A partial push is a real outcome
+
+One file that fails does not roll the rest back, and does not stop the walk. `failed`
+carries what did not go and why, beside `uploaded`. There is nothing to undo: every file
+that landed is a file the library now has, and the caller can retry the rest.
 
 ## The three folders
 
-| workspace | library | why |
-|---|---|---|
-| `_modules/` | `modules/` | the module library, the thing this is mostly for |
-| `_library/` | `library/` | `ir/` and `nam/` assets a module names |
-| `_ui/` | `ui/` | the panels, which travel with the modules they draw |
+| workspace | library |
+|---|---|
+| `_modules/` | `modules/` |
+| `_library/` | `library/` |
+| `_ui/` | `ui/` |
 
-A workspace missing one of them is normal, not an error — most have some and not others —
-so those are reported in `absent` rather than thrown.
+A workspace missing one is normal — most have some and not others — so those are reported
+in `absent` rather than thrown.
 
-`_ui` is filed as part of the `modules` family for revision purposes: a panel is the face
-of a module, and a surface listing modules wants to know when one changed its face.
+## What this still does NOT do
 
-## What this deliberately does NOT do
-
-- **It does not decide the library's namespace.** A workspace's `_modules/config.yaml`
-  declares one, and it is copied like any other file — so **the first workspace imported
-  into an empty library sets the library's namespace**, and every later one has its config
-  skipped as "already there".
-
-  That is the additive rule applied consistently, and it is very probably not what anyone
-  wants: the namespace is what refs are keyed by (`@mine/audio/reverb`), so it should be
-  the library's own choice, declared once in `mediatek.yaml`, not inherited from whichever
-  workspace happened to go first. Deciding it is the next thing this needs; it is called
-  out here rather than papered over because the current behaviour is silent.
-- **It does not remove anything from the workspace.** An import is a copy, so the
-  workspace keeps working exactly as it did. Pointing that workspace's projects at
-  `@mediatek` and deleting their `_modules` is a separate, deliberate act.
+**It does not decide the library's namespace.** A workspace's `_modules/config.yaml` is
+pushed like any other file, so the last workspace uploaded now wins — where before, the
+first one did. Either way it is the wrong thing: the namespace is what refs are keyed by
+(`@mine/audio/reverb`), so it should be the library's own choice, declared once in
+`mediatek.yaml`, not inherited from whichever workspace happened to go through. Still the
+next thing this needs, and still called out rather than papered over.

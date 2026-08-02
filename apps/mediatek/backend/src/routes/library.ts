@@ -7,11 +7,17 @@ import { extname } from "node:path";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
 import { listFamily, search, summary } from "@studio/mediatek/catalogue";
-import { exists, PathEscapesError, safePath } from "@studio/mediatek/layout";
+import {
+  exists,
+  NotWritableError,
+  PathEscapesError,
+  safePath,
+} from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
 import { revisions } from "@studio/mediatek/revision";
 import { FAMILIES, type Family } from "@studio/mediatek/types";
-import { Router } from "express";
+import { putFile, removeFile } from "@studio/mediatek/write";
+import express, { Router } from "express";
 
 export const libraryRouter: Router = Router();
 
@@ -135,5 +141,53 @@ libraryRouter.get(
       abs,
       MIME[extname(abs).toLowerCase()] ?? "application/octet-stream",
     );
+  }),
+);
+
+/** Refusals a caller can fix, told apart from the ones they cannot. */
+function writeError(e: unknown, res: import("express").Response): boolean {
+  if (e instanceof PathEscapesError || e instanceof NotWritableError) {
+    res.status(400).json({ error: (e as Error).message });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Put one file into the library.
+ *
+ * Raw body, one file per request, rather than multipart: the two callers are a module
+ * editor saving YAML and a machine pushing a folder up file by file. Neither wants a form,
+ * and a stream of one file each keeps a 400 MB video from ever being a field in a parse.
+ */
+libraryRouter.put(
+  "/file",
+  express.raw({ type: "*/*", limit: "512mb" }),
+  wrap((req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path required" });
+    try {
+      putFile(rel, req.body as Buffer);
+    } catch (e) {
+      if (writeError(e, res)) return;
+      throw e;
+    }
+    res.json({ ok: true, path: rel });
+  }),
+);
+
+/** Take one out. Absent is success — the caller wanted it gone. */
+libraryRouter.delete(
+  "/file",
+  wrap((req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path required" });
+    try {
+      removeFile(rel);
+    } catch (e) {
+      if (writeError(e, res)) return;
+      throw e;
+    }
+    res.json({ ok: true });
   }),
 );

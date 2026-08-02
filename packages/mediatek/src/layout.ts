@@ -119,6 +119,30 @@ export function toRel(abs: string): string {
 /** Thrown by `safePath` — a caller-fixable 400, never a 500. */
 export class PathEscapesError extends Error {}
 
+/** Thrown by `writablePath` for a path inside the library that is nonetheless not
+ *  somebody's to write. */
+export class NotWritableError extends Error {}
+
+/**
+ * A path a caller may WRITE, or a refusal.
+ *
+ * Inside the root is not enough. Two things are the library's own and not content:
+ * `mediatek.yaml`, which says what this folder IS, and `.cache/`, which is derived —
+ * writing there would let a caller poison an index or forge a cache's bookkeeping.
+ *
+ * Everything else is allowed, including paths in no family: a library that refused
+ * unfamiliar folders could never grow a fourth one.
+ */
+export function writablePath(rel: string): string {
+  const abs = safePath(rel);
+  const parts = relative(mediatekDir(), abs).split(sep);
+  if (parts[0] === MARKER)
+    throw new NotWritableError(`${MARKER} is the library's own, not content`);
+  if (parts.some((p) => p.startsWith(".")))
+    throw new NotWritableError(`${rel}: derived state is not writable`);
+  return abs;
+}
+
 /**
  * A mediatek-relative path as an absolute one, confined to the root.
  *
