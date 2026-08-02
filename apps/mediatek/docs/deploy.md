@@ -1,0 +1,87 @@
+# Deploying the médiathèque
+
+Étape 6 made the library **hosted** — `media.studio.frediver.se` owns the files, and
+`~/.lanes/mediatek` became a cache the moteur reads from. That reversal left a hole nobody
+noticed for three steps: there was no Dockerfile, no nginx entry and no CI job, so nothing
+deployed the thing the whole design now depends on.
+
+This is that. It follows lanes's image closely, because the shape is the same — an SPA and
+a Node backend behind one nginx, on the repo-root base image. Three things differ, and each
+of them is the médiathèque being a library rather than an editor.
+
+## 1. It is stateful. The volume IS the library.
+
+lanes's image deliberately has no volume: its state is a session cookie and an in-memory
+engine list, both fine to lose. Here the container owns everyone's morceaux, samples and
+modules.
+
+`VOLUME ["/library"]` is declared so a `docker run` with no `-v` still gets an anonymous
+volume instead of writing into the container layer, where an upload would survive exactly
+until the next deploy — and would look like it had worked.
+
+`LANES_MEDIATEK=/library` is set in the image, and the backend **refuses to boot without
+it**. That refusal is load-bearing: a missing root would otherwise scan an empty directory
+and serve a perfectly plausible, empty catalogue. A library that has silently lost
+everything looks exactly like a library nobody has filled in yet.
+
+There is **no database**, and that is not a shortcut — `packages/mediatek/docs/index.md`
+argues the filesystem is the index, and being on a server changes nothing about that
+argument. It is also what lets one scanner serve both sides: the server walks its volume,
+the client walks its cache, same `scanFamily`, same `familyRevision`.
+
+Verified: on an empty volume the backend creates its layout (`morceaux/`, `samples/`,
+`modules/`, `ui/`, `library/`, `.cache/`, `mediatek.yaml`) and answers `401` on
+`/api/mediatek` without a session.
+
+## 2. It moves media, so nginx must not buffer
+
+The `/(api|auth)/` location carries three settings lanes's does not:
+
+* **`proxy_buffering off`.** Without it nginx reads the whole upstream response into memory
+  and then a temp file before sending a byte. On a video that means the first frame waits
+  for the last, *and every Range request the player makes pays it again* —
+  `@frediverse/http`'s `streamFile` answers `206` precisely so it does not have to.
+* **`proxy_request_buffering off`**, so an upload streams to disk rather than being spooled
+  whole by nginx first.
+* **`proxy_read_timeout` / `proxy_send_timeout` at 600s.** A large upload over a slow link
+  is a long request doing exactly what it should; the default 60s cuts it off mid-file.
+
+`client_max_body_size 512m` matches the `express.raw` limit on `PUT /api/mediatek/file`. A
+mismatch is the kind of fault that only shows on the big files, because nginx answers `413`
+itself and the backend's own limit — and its error message — never runs.
+
+## 3. No WebSocket location, despite hosting the module builder
+
+The builder does drive an engine over a WebSocket. But it drives a **local** `apps/moteur`
+on the listener's own machine, direct and cross-origin (`probeLocalEngine` on loopback) —
+never through this origin. There is nothing here to upgrade, and a `location /ws` would be
+a promise this service cannot keep.
+
+## The prune closure, checked rather than assumed
+
+`turbo prune mediatek mediatek-backend --docker` computes the workspace subset, so the
+Dockerfile hand-lists nothing. A second, backend-only prune is what the runtime stage
+ships: `node_modules/@studio/*` are symlinks into the workspace, so a package missing from
+the image is a dangling link and a crash on first import.
+
+Both closures were run and inspected. The full one pulls in `commons/packages/ui` — which
+matters more than it looks, because `index.css` `@source`s `packages/ui/src` and **Tailwind
+emits nothing at all for a `@source` path that does not exist**. The app would build
+cleanly and render unstyled. The check that it worked: `dist/assets/*.css` is ~51 KB, not
+~2 KB.
+
+## What is NOT verified here
+
+The image has **never been built**. Docker's daemon runs in WSL on this machine but the
+socket is `root:docker` and this account is not in that group, with `sudo` asking for a
+password — so `docker build` is out of reach from here, and CI is where it will first run.
+
+What *was* verified, being the two assumptions most likely to be wrong:
+
+1. `npm run build --workspace mediatek` really produces `apps/mediatek/dist/index.html`
+   plus a full-sized stylesheet — the path the final stage `COPY`s from.
+2. The backend boots with nothing but `LANES_MEDIATEK` and `PORT`, on an empty directory.
+
+Left for the first real deploy: `SESSION_SECRET` and the `OIDC_*` triple must be set, or
+the service comes up in **dev auth mode with a stub 'Dev User'** — it says so on stderr,
+and on a public origin that line is the difference between a library and a free-for-all.

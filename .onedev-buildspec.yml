@@ -125,3 +125,34 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
+- name: build and publish mediatek image
+  steps:
+  - type: CheckoutStep
+    name: checkout
+    cloneCredential:
+      type: DefaultCredential
+    withLfs: false
+    withSubmodules: true
+    condition: SUCCESSFUL
+    optional: false
+  - type: BuildImageStep
+    name: build and push image
+    buildPath: .
+    dockerfile: apps/mediatek/docker/Dockerfile
+    output:
+      type: RegistryOutput
+      tags: dev.frediver.se/frediverse/studio/mediatek:latest dev.frediver.se/frediverse/studio/mediatek:@build_number@
+    moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: master
+    userMatch: anyone
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 3600
