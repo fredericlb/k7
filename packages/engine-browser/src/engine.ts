@@ -250,6 +250,18 @@ export class EngineClient {
     this.send({ type: "project", doc });
   }
 
+  /**
+   * Forget the loaded project entirely — plugins, edit and diff baseline — so the next one
+   * is built from scratch rather than diffed against it.
+   *
+   * A real protocol verb the engine has always had, missing from this client until a
+   * surface wanted to put a song DOWN: lanes switches projects and re-sends, which happens
+   * to work, but obscura's player ends a round and must leave nothing loaded.
+   */
+  flush(): void {
+    this.send({ type: "flush" });
+  }
+
   getPluginParams(id: string): void {
     this.send({ type: "get-plugin-params", id });
   }

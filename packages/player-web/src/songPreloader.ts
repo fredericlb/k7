@@ -34,6 +34,16 @@ export interface PreloaderState {
   isPlaying: boolean;
   isPaused: boolean;
   failedPaths: string[];
+  /**
+   * Effects the CURRENT engine cannot apply, which the round is being played without.
+   *
+   * Optional, so this preloader — which can do all of them — never sets it and still
+   * satisfies the type. It exists for the moteur-backed player, where two of obscura's nine
+   * sliders have no equivalent. Surfacing it here rather than throwing is deliberate: a
+   * game must not crash mid-round, and a difficulty effect that silently did nothing would
+   * mean the players heard an easier song than the round claimed, with nothing to show it.
+   */
+  unsupported?: string[];
 }
 
 export class SongPreloader {
