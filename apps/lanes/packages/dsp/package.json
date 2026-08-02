@@ -1,0 +1,24 @@
+{
+  "name": "@lanes/dsp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Write a module's DSP in JS and emit the graph the engine runs (see engine/DspGraph.h). A build step, never the audio thread.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./autowah": "./src/autowah.ts"
+  },
+  "scripts": {
+    "build": "tsx src/emit.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

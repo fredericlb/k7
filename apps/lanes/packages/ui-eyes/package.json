@@ -1,0 +1,26 @@
+{
+  "name": "@lanes/ui-eyes",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's eyes — composites a song's video tracks onto its viewport with WebGL, in real time or frame-by-frame to a file. Knows nothing about audio.",
+  "exports": {
+    "./scene": "./src/scene.ts",
+    "./timeline": "./src/timeline.ts",
+    "./clock": "./src/clock.ts",
+    "./compositor": "./src/compositor.ts",
+    "./realtime": "./src/realtime.ts",
+    "./export": "./src/export.ts",
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mediabunny": "^1.50.8"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

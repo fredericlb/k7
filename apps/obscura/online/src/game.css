@@ -1,0 +1,24 @@
+/* The one animation Tailwind + tw-animate-css can't already express: a
+   whole-frame color flash on each verdict, two pulses then fade back to
+   transparent. `--flash-color` is set inline per verdict kind (SoloGame.tsx)
+   using color-mix() over the shared green/amber/destructive tokens, so the
+   palette stays centralized in @frediverse/ui's theme.css.
+   Keyed off React's `key` prop (flashCounter) rather than looped, so
+   back-to-back verdicts of the same kind still re-trigger it. */
+@keyframes verdict-flash {
+  0% {
+    background-color: var(--flash-color);
+  }
+  35% {
+    background-color: transparent;
+  }
+  60% {
+    background-color: var(--flash-color);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.verdict-flash {
+  animation: verdict-flash 700ms ease-out;
+}

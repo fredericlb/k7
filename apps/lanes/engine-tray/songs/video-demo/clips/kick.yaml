@@ -1,0 +1,4 @@
+# An AUDIO clip living in the same clips/ folder — proves the two kinds coexist and
+# are told apart by extension.
+
+source: clips/kick.wav

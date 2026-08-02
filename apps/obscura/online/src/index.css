@@ -1,0 +1,17 @@
+/* Tailwind v4 + the shared @frediverse/ui design tokens — the standard stack
+   every other Frediverse app builds on (calepin, routine, …). game.css holds
+   the handful of rules Tailwind + @frediverse/ui genuinely can't express
+   (the verdict flash keyframe); everything else is Tailwind utilities on the
+   shared tokens, no bespoke terminal skin. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@frediverse/ui/theme.css";
+@import "./game.css";
+
+@source "../../../../packages/ui/src";
+
+html,
+body,
+#root {
+  height: 100%;
+}

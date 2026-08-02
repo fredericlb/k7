@@ -1,0 +1,144 @@
+// ClipContent.tsx — a clip's inner detail, drawn inside its lane block when the
+// timeline is EXPANDED (the header's expand toggle). A MIDI clip shows a mini
+// piano-roll of the notes it already carries; an audio clip shows its waveform,
+// fetched once per clip and cached. Both fill the box the caller gives them (absolute
+// inset-0), so the lane row sizes it and this just paints.
+
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import type { WebClip, WebNote, WebWaveform } from "../types";
+
+export function ClipContent({
+  clip,
+  spanBeats,
+}: {
+  clip: WebClip;
+  // The beats the block spans on screen — notes lay out against this, so the mini-roll lines up with the arrangement.
+  spanBeats: number;
+}) {
+  return clip.type === "midi" ? (
+    <ClipMidi
+      notes={clip.notes}
+      spanBeats={spanBeats}
+      loopStart={clip.loopStart}
+      loopEnd={clip.loopEnd}
+    />
+  ) : (
+    <ClipWaveform clipId={clip.id} />
+  );
+}
+
+// The notes as a mini piano-roll, y scaled to the clip's own note range. A looping clip tiles its window's notes
+// exactly as the engine repeats them, so a short pattern reads as the repeats it plays.
+function ClipMidi({
+  notes,
+  spanBeats,
+  loopStart = 0,
+  loopEnd = 0,
+}: {
+  notes: WebNote[];
+  spanBeats: number;
+  loopStart?: number;
+  loopEnd?: number;
+}) {
+  if (!notes.length || spanBeats <= 0) return null;
+  const loopLen = loopEnd > loopStart ? loopEnd - loopStart : 0;
+  const placed: WebNote[] =
+    loopLen > 0
+      ? (() => {
+          // Notes inside the loop window, re-timed to clip-space and repeated until the span is filled.
+          const win = notes.filter(
+            (n) => n.time >= loopStart && n.time < loopEnd,
+          );
+          const out: WebNote[] = [];
+          for (let k = 0; k * loopLen < spanBeats; k++)
+            for (const n of win)
+              out.push({ ...n, time: n.time - loopStart + k * loopLen });
+          return out;
+        })()
+      : notes;
+  if (!placed.length) return null;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const n of placed) {
+    if (n.key < lo) lo = n.key;
+    if (n.key > hi) hi = n.key;
+  }
+  const rows = hi - lo + 1; // pitch rows to stack
+  return (
+    <div className="absolute inset-0 text-foreground">
+      {placed.map((n, i) => (
+        <div
+          key={i}
+          className="absolute rounded-[1px] bg-current opacity-80"
+          style={{
+            left: `${Math.min(100, (n.time / spanBeats) * 100)}%`,
+            width: `${Math.max(0.8, Math.min(100, (n.duration / spanBeats) * 100))}%`,
+            top: `${((hi - n.key) / rows) * 100}%`,
+            height: `${Math.max(9, 100 / rows)}%`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// One envelope per clip id, kept across re-renders; `null` means tried and failed, so it isn't retried each mount.
+const wfCache = new Map<string, WebWaveform | null>();
+
+function ClipWaveform({ clipId }: { clipId: string }) {
+  const [wf, setWf] = useState<WebWaveform | null>(
+    () => wfCache.get(clipId) ?? null,
+  );
+  useEffect(() => {
+    if (wfCache.has(clipId)) {
+      setWf(wfCache.get(clipId) ?? null);
+      return;
+    }
+    let cancelled = false;
+    // A modest bucket count — the lane block is small, so more would just be thrown away by the polygon's linear stretch.
+    api
+      .waveform(clipId, 160)
+      .then((w) => {
+        wfCache.set(clipId, w);
+        if (!cancelled) setWf(w);
+      })
+      .catch(() => wfCache.set(clipId, null));
+    return () => {
+      cancelled = true;
+    };
+  }, [clipId]);
+
+  const peak = wf?.peak;
+  if (!peak || !peak.length) return null;
+  const n = peak.length;
+  // One filled polygon rather than a rect per bucket — cheap DOM with many clips on screen.
+  const pts: string[] = [];
+  for (let i = 0; i < n; i++) pts.push(`${i},${50 - peak[i] * 48}`);
+  for (let i = n - 1; i >= 0; i--) pts.push(`${i},${50 + peak[i] * 48}`);
+  return (
+    <svg
+      className="absolute inset-0 h-full w-full text-foreground"
+      viewBox={`0 0 ${n} 100`}
+      preserveAspectRatio="none"
+    >
+      <polygon points={pts.join(" ")} className="fill-current opacity-70" />
+      {wf!.transients.map((t, i) => {
+        const x = Math.max(0, Math.min(n, (t / wf!.seconds) * n));
+        return (
+          <line
+            key={i}
+            x1={x}
+            y1={0}
+            x2={x}
+            y2={100}
+            stroke="#facc15" // yellow-400
+            strokeWidth={0.6}
+            strokeDasharray="2 2"
+            strokeOpacity={0.3}
+          />
+        );
+      })}
+    </svg>
+  );
+}

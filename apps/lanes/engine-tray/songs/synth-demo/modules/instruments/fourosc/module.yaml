@@ -1,0 +1,48 @@
+# The Tracktion built-in 4OSC synth. It sits in instruments/, so it's a
+# midi -> audio plugin with a mandatory MIDI input — both derived from the folder.
+# `plugin.type` is the FORMAT: "internal" for a built-in, whose xmlTypeName goes in
+# `name` (an external plugin uses type: "vst3" / "au" / … and name: its real name).
+plugin:
+  type: internal
+  name: 4osc
+# The UI every module that extends this one draws inside its rectangle on the Chains
+# graph. The extending module overrides one widget by restating it under the same id.
+#
+# The ranges are 4OSC's own. A built-in's params are in NATIVE units, not the 0..1
+# an external plugin reports: "Filter Freq" is a 0..135 note-ish scale rather than
+# Hz, and "Level" is dB. They have to be written down here — nothing reports a
+# parameter's bounds at runtime, so an unranged control would be guessing.
+ui:
+  cols: 4
+  rows: 2
+  widgets:
+    title:
+      type: label
+      col: 0
+      row: 0
+      colSpan: 2
+      text: 4OSC
+    cutoff:
+      type: knob
+      col: 0
+      row: 1
+      label: Cutoff
+      bind: Filter Freq
+      min: 0
+      max: 135.076232
+    res:
+      type: knob
+      col: 1
+      row: 1
+      label: Res
+      bind: Filter Resonance
+      min: 0
+      max: 100
+    level:
+      type: slider
+      col: 2
+      row: 1
+      label: Level
+      bind: Level
+      min: -100
+      max: 0

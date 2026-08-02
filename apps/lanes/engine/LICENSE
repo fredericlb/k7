@@ -1,0 +1,10 @@
+lanes is licensed under the GNU General Public License, version 3.
+
+This project links Tracktion Engine, which is available under GPLv3 (or a
+separate commercial license from Tracktion). Distributing lanes under GPLv3
+keeps it compatible with the engine's free license.
+
+Replace this file with the full text of the GPLv3 before publishing:
+  https://www.gnu.org/licenses/gpl-3.0.txt
+
+Copyright (C) 2026 Fred.

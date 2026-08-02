@@ -1,0 +1,15 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "buzzer.connecting": "CONNEXION...",
+  "buzzer.locked": "VÉROUILLÉ",
+  "buzzer.politeness": "Délai de politesse",
+  "buzzer.buzz": "BUZZ!",
+  "buzzer.tapToScore": "APPUIE POUR MARQUER",
+  "buzzer.tapToUnlock": "APPUIE POUR DÉVÉROUILLER",
+  "buzzer.enterYourName": "TON NOM",
+  "buzzer.yourName": "TON NOM",
+  "buzzer.joinGame": "REJOINDRE",
+  "buzzer.joining": "INSCRIPTION…",
+  "buzzer.buzzTooEarly": "TROP TÔT !",
+  "buzzer.waitingForGame": "EN ATTENTE DE LA PARTIE"
+}

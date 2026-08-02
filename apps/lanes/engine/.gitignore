@@ -1,0 +1,10 @@
+# build output
+build/
+cmake-build-*/
+compile_commands.json
+
+# fetched dependencies, if you ever switch FetchContent -> a local _deps dir
+_deps/
+
+*.o
+*.obj

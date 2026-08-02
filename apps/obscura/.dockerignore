@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/tmp
+**/bin
+data/saves
+data/audio
+frontend/
+.git
+.gitignore
+.idea
+.vscode
+*.log
+backend/vue-go-app

@@ -1,0 +1,1170 @@
+// graph.ts — load and inspect a node/track/chain project (`lanes-graph <project>`): clips and sequences are
+// the material, tracks arrange them, modules wrap a plugin or rack, and chains route a track through modules to
+// the OUT sink. Chains are DERIVED from chains.yaml's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
+
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { deriveChains, isParked } from "./chainsGraph";
+import {
+  exportSub,
+  INSTANCE_SEP,
+  isVideoSource,
+  loadChains,
+  loadModuleRefs,
+  loadModules,
+  loadProjectRoot,
+  loadTracks,
+  loadVideoTracks,
+  moduleEmits,
+  withChainModuleRefs,
+} from "./loader";
+import {
+  type ResolvedModule,
+  resolvedUI,
+  resolveModule,
+  resolveModuleMap,
+} from "./moduleResolve";
+import { loadPreferences, type Preferences, resolveInput } from "./preferences";
+import type {
+  LoadedModule,
+  RawClip,
+  RawPlugin,
+  RawProjectRoot,
+  RawRack,
+  RawSequence,
+  RawTrack,
+  RawVideoTrack,
+} from "./rawDoc";
+import { parseDuration, parsePosition } from "./timecode";
+
+// --- model -------------------------------------------------------------------
+
+export interface Placement {
+  ref: string;
+  start: number;
+  // How many passes of the material's window, not how long it sounds: the extent lives with the material now,
+  // and this graph reads track files without opening the clips they name (see PlacementSchema).
+  loop: number;
+  kind: "audio" | "midi" | "missing";
+}
+// A single track holds placements; a group holds member track ids; a strudel track
+// links the pattern its material streams from. The fields of the other kinds are
+// always present but empty, so callers can read any without narrowing first.
+export interface Track {
+  name: string;
+  type: "single" | "group" | "strudel";
+  contentType: "audio" | "sequences"; // single/strudel: what its material is
+  color?: string; // authored display colour (hex, e.g. "#ff5706"); absent when unset
+  mute: boolean;
+  solo: boolean;
+  placements: Placement[]; // single only
+  tracks: string[]; // group only: member track ids
+  strudel?: string; // strudel only: project-relative path to its pattern file
+  // Single tracks only: the render standing in for the track's material and modules while it is frozen. Carried
+  // here because both surfaces that read this model need it — the timeline draws the lane inert, the graph puts a
+  // snowflake on every module the render already contains.
+  frozen?: string;
+}
+// A video lane, as the graph and the timeline need it: what it's called, how it reads,
+// and whether it draws. Its geometry, placements and shapes stay in the compiled
+// ProjectDoc — those belong to the renderer, not to a routing diagram or a track list.
+export interface VideoTrack {
+  name: string;
+  color?: string;
+  kind: "video" | "shape"; // "shape" draws parametric fills, it links no picture
+  mute: boolean; // "mute" == hidden, for a video lane
+}
+
+export interface Step {
+  module: string; // a module instance name
+  in?: string[]; // extra input sources feeding the module's ports past the chain flow
+  enabled?: boolean; // undefined/true == on; false == bypassed
+}
+// A typed input port derived from a module's type folder. `mandatory` ports must be fed.
+export interface InputDef {
+  name: string;
+  type: "audio" | "midi" | "video";
+  mandatory: boolean;
+}
+// A signal destination: a downstream chain / io sink (`to`) and how much of the
+// signal reaches it (`gain`, a 0..1 share; 1 == the whole signal).
+export interface Out {
+  to: string;
+  gain: number;
+}
+export interface Chain {
+  from?: string;
+  use: Step[]; // ordered module instances: from -> use[0] -> … -> out
+  enabled?: boolean; // whole-chain bypass
+  out: Out[];
+}
+// The kinds of widget a module UI can place. `label` draws text; every other kind
+// binds to a param. `meter` is read-only.
+export type WidgetType =
+  | "label"
+  | "knob"
+  | "slider"
+  | "fader"
+  | "number"
+  | "toggle"
+  | "button"
+  | "meter"
+  | "tabs"
+  | "waveform"
+  | "dropdown";
+
+// One widget on a module's grid — see #Widget in the schema above for the contract.
+export interface Widget {
+  type: WidgetType;
+  col: number;
+  row: number;
+  colSpan?: number;
+  rowSpan?: number;
+  label?: string;
+  hidden?: boolean;
+  text?: string; // label only
+  bind?: string; // everything but label/tabs/waveform: the param name
+  min?: number; // knob | slider | number
+  max?: number;
+  step?: number;
+  curve?: "lin" | "log";
+  pages?: Record<string, Record<string, Widget>>; // tabs only: named pages of sub-widgets
+  source?: "input" | "output"; // waveform only: which audio tap to display
+  // dropdown only: a discrete param's named settings…
+  options?: { label: string; value: number }[];
+  // …or the library folder its choices are listed from ("ir"), in which case `bind`
+  // names a field of the MODULE rather than a plugin param. See #Widget.
+  library?: string;
+}
+// A module's UI: widgets on a grid, keyed by a stable id (the override key).
+export interface ModuleUI {
+  cols: number;
+  rows: number;
+  widgets: Record<string, Widget>;
+}
+
+// One rack sound triggered by a MIDI note. In a "samples" rack it names its own
+// `clip`; in a "slice" rack it's a [from, to) window (seconds) into the rack's shared
+// `source`. See #Rack.
+export interface RackSound {
+  note: number; // MIDI note 0..127 the sound maps to
+  clip?: string; // samples: a clips/<id> id (resolved to an absolute path for the engine)
+  from?: number; // slice: window start in the source, seconds
+  to?: number; // slice: window end in the source, seconds
+}
+export type RackType = "samples" | "slice";
+// A rack: how a set of symbols (e.g. "BD", "HH") get their audio. `samples` gives each
+// symbol its own clip; `slice` cuts every symbol out of one `source` clip. A
+// `type: "rack"` module carries one; the engine projects it to a SamplerPlugin.
+export interface Rack {
+  rackType: RackType;
+  source?: string; // slice: the clip id every symbol slices from
+  symbols: Record<string, RackSound>;
+}
+
+// The kind of instrument a module is. `plugin` (the default) instantiates a plugin via
+// `plugin.type`; `rack` is a note->clip sampler carrying a `rack` map. This is the
+// AUTHORED discriminator — distinct from the folder-derived `Module.kind` and from
+// `plugin.type` (the xmlTypeName).
+export type InstrumentType = "plugin" | "rack";
+
+// A module: a plugin (or io, or a rack) plus params, and an optional `extends` naming
+// another module whose defaults it inherits. `kind` + `inputs` are derived from its type
+// folder (see MODULE_TYPES); the rest is authored.
+export interface Module {
+  extends?: string; // the module this inherits from ("type/name" | "@ns/type/name"); "" when none
+  kind: "io" | "plugin"; // from the type folder
+  io?: string; // io modules only: "out" (sink) | "in" (live source)
+  plugin?: RawPlugin; // a plugin definition (plugin.type = xmlTypeName / cache id)
+  type?: InstrumentType; // "plugin" (default) | "rack"
+  params?: Record<string, number>;
+  ui?: ModuleUI;
+  inputs: InputDef[]; // typed input ports from the type folder (empty == unconstrained)
+  // The module's TYPE FOLDER — io | instruments | audio | transformers | midi |
+  // video_effects | video_transitions. The one thing that says what KIND of module
+  // this is; `emits` is derived from it but throws the distinction away (an instrument
+  // and an audio effect both emit audio), so the graph needs the folder itself to pick
+  // an icon. Absent on a module read from a map that didn't record it.
+  category?: string;
+  // What this module EMITS — the signal on the cable leaving it (see moduleEmits).
+  // NOT derivable from `inputs`: an instrument and a midi transformer both take midi,
+  // but one hands back audio and the other midi. Undefined for a sink.
+  emits?: "audio" | "midi" | "video";
+  // The library files this module loads, resolved to ABSOLUTE paths for the engine (or
+  // undefined when the library doesn't hold them, which validate() reports).
+  ir?: string;
+  nam?: string;
+  // …and what the module SAYS, per asset kind: the short library-relative names, which
+  // are what the module editor shows as the current choices. The two disagreeing is how
+  // a dangling reference is spotted.
+  assets?: Record<string, string>;
+  // io: "in" modules only — a live interface input. Which TRACK it feeds is not here:
+  // it is the track of the chain the module sits in. `channel` is as DECLARED (a
+  // preferences label stays a label): this doc describes the song, not the rig it runs
+  // on. nodeProject resolves it to physical channels for the engine.
+  channel?: string | number[];
+  monitor?: "off" | "auto" | "on";
+  // Authored freeform notes and a to-do checklist (see #Module.docs/todos). Carried
+  // through for surfaces (the web Docs panel); no engine meaning. Absent when unset.
+  docs?: string;
+  todos?: string[];
+  // Automation bindings: which curve (by id, from curves/) drives which param on this
+  // module. Carried through for the web graph, which draws each as a curve node
+  // arrowing into the module. No engine meaning yet (the first automation slice is the
+  // model + its picture). Absent when the module automates nothing.
+  automations?: Automation[];
+}
+// One automation binding: a curve id driving a named param (mirrors #Automation).
+export interface Automation {
+  param: string;
+  curve: string;
+}
+
+export interface GraphDoc {
+  project: {
+    name: string;
+    tempo: number;
+    sampleRate: number;
+    timeSignature: string;
+  };
+  chains: Record<string, Chain>;
+  // The tracks the song actually plays. A DISABLED track is absent, and so is any chain
+  // sourced from one (see buildGraph) — the graph shows what runs, matching the timeline
+  // and the compiled doc the engine gets.
+  tracks: Record<string, Track>;
+  // Video tracks (video_tracks/<id>.yaml), kept SEPARATE from `tracks` rather than mixed
+  // in: nearly everything that reads `tracks` is audio logic (groups, placements, the
+  // mixer, chain input typing), and a video lane satisfies none of it. They are here so
+  // the graph and the timeline can show them, and so a chain sourced from one resolves
+  // instead of reading as a dangling reference.
+  videoTracks: Record<string, VideoTrack>;
+  // The ids left out for being disabled. Kept so validate() can tell "you disabled this"
+  // from "this doesn't exist", which read identically once the track is gone from
+  // `tracks` — a group listing a disabled member is fine, a group listing a typo is not.
+  disabledTracks: string[];
+  // Modules keyed by BARE NAME — what chains reference (use / out). The io sink "OUT"
+  // is a module here too.
+  modules: Record<string, Module>;
+  // The same modules keyed by REF ("type/name", "@ns/type/name", bare io name) — the
+  // `extends` vocabulary. Resolved like `modules`: what a consumer reads off either map
+  // is what the module RUNS with, ancestry already folded in (see moduleResolve.ts).
+  moduleRefs: Record<string, Module>;
+  warnings: string[];
+}
+
+// The chains, derived from the file's segments (see chainsGraph.ts). Re-exported under
+// the name every consumer already calls, because what they get back is unchanged: the
+// chains keyed by name. Only where the names and the runs COME FROM has moved.
+export const parseChains = deriveChains;
+
+// Normalize a module's declared input ports (from its type folder). Absent/empty ==
+// unconstrained.
+function normalizeInputs(raw: unknown): InputDef[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as { name?: unknown; type?: unknown; mandatory?: unknown }[]).map(
+    (i): InputDef => ({
+      name: String(i?.name ?? ""),
+      type: i?.type === "midi" ? "midi" : "audio",
+      mandatory: i?.mandatory !== false,
+    }),
+  );
+}
+
+// The signal type a track carries. A declared contentType settles it ("sequences"
+// == midi) — which is every strudel lane, since that arm always has one; otherwise
+// fall back to reading the clips' content: 'midi' if every placement refers to a
+// sequence, 'audio' if every one is a clip; undefined when empty, mixed, or
+// referencing something unresolved (caller then skips the check).
+// A group carries no signal of its own, so it's never a chain source.
+function trackType(
+  track: RawTrack | undefined,
+  clips: Record<string, RawClip>,
+  seqs: Record<string, RawSequence>,
+): "audio" | "midi" | undefined {
+  if (track?.type === "group") return undefined;
+  if (track?.contentType === "sequences") return "midi";
+  if (track?.contentType === "audio") return "audio";
+  const refs = (track?.clips ?? []).map((p) => String(p?.ref ?? ""));
+  if (!refs.length) return undefined;
+  let audio = false;
+  let midi = false;
+  for (const r of refs) {
+    if (seqs?.[r]) midi = true;
+    else if (clips?.[r]) audio = true;
+    else return undefined; // unresolved ref -> can't say
+  }
+  return audio && midi
+    ? undefined
+    : midi
+      ? "midi"
+      : audio
+        ? "audio"
+        : undefined;
+}
+
+// The type a chain-input source id resolves to, or undefined when unknowable
+// (a chain / another module's output — we don't infer types through the graph).
+//
+// A VIDEO track carries picture, so it types as "video" — which is what lets a chain
+// run one through video_effects to VIDEO_OUT and be checked like any other. Without it
+// a video source typed as nothing and the whole video-chain half of the model
+// (video_effects / video_transitions / VIDEO_OUT / VideoPluginDoc) had no way to be
+// reached from a real song.
+function sourceType(
+  id: string,
+  tracks: Record<string, RawTrack>,
+  clips: Record<string, RawClip>,
+  seqs: Record<string, RawSequence>,
+  videoTracks?: Record<string, RawVideoTrack>,
+): "audio" | "midi" | "video" | undefined {
+  if (seqs?.[id]) return "midi";
+  if (clips?.[id])
+    return isVideoSource(String(clips[id]?.source ?? "")) ? "video" : "audio";
+  if (tracks?.[id]) return trackType(tracks[id], clips, seqs);
+  if (videoTracks?.[id]) return "video";
+  return undefined;
+}
+
+// Validate that every chain feeds each module the input ports its type folder
+// declares. Ports are filled in order: the chain flow (the previous step's output,
+// or `from` for the first step, or the summed sends of a routed-into bus) fills the
+// first port; a step's `in:` sources fill the rest. A module that declares no
+// ports is unconstrained and skipped. Returns human-readable errors — callers
+// treat a non-empty result as fatal, so reading a mis-wired project fails.
+export function checkChainInputs(
+  // Already parsed and keyed by resolved name (see parseChains) — not the raw export.
+  parsed: Record<string, Chain>,
+  modules: Record<string, LoadedModule>,
+  tracks: Record<string, RawTrack>,
+  clips: Record<string, RawClip>,
+  seqs: Record<string, RawSequence>,
+  // Video tracks (video_tracks/<id>.yaml). A chain may be sourced from one — that is
+  // what a VIDEO chain is — and it types as "video", so the port check below rejects
+  // feeding picture into an audio module (and vice versa) instead of waving it through.
+  videoTracks: Record<string, RawVideoTrack> = {},
+): string[] {
+  const errs: string[] = [];
+
+  // Chains that receive a signal from upstream routing (another chain's `out`),
+  // so their first module has an incoming flow even without a `from`.
+  const routedInto = new Set<string>();
+  for (const c of Object.values(parsed))
+    for (const o of c.out) routedInto.add(o.to);
+
+  for (const [chainName, c] of Object.entries(parsed)) {
+    if (isParked(c)) continue; // placed, not wired yet — nothing to check the ports of
+    // A group holds no material, so it carries no signal to process — and it is not
+    // a lane the engine plays, so the compiler would drop this chain's plugins on
+    // the floor without a word. Fatal here rather than silent there. (Before strudel
+    // lanes were declarable, wiring a chain to a pattern's group was the obvious
+    // thing to try; it did nothing. Name the lane instead.)
+    if (c.from && tracks?.[c.from]?.type === "group")
+      errs.push(
+        `chain '${chainName}': from '${c.from}' is a group — groups carry no signal; name a member track`,
+      );
+
+    const steps = c.use;
+    steps.forEach((step, idx) => {
+      if (step?.enabled === false) return; // a bypassed step passes signal through untouched
+      const module = modules?.[step?.module];
+      if (!module) return; // a missing module is reported by validate()
+      const inputs = normalizeInputs(module.inputs);
+      if (!inputs.length) return; // opts out of input checking
+
+      // Sources feeding this step, in port order, each with its resolved type (or
+      // undefined when unknowable, then only counted). The flow is a `from` track
+      // for a first step; a prior step's output or a bus's summed sends otherwise.
+      const hasFlow =
+        idx > 0 || (idx === 0 && (!!c.from || routedInto.has(chainName)));
+      const sources: {
+        id: string;
+        type: "audio" | "midi" | "video" | undefined;
+      }[] = [];
+      if (hasFlow)
+        sources.push(
+          idx === 0 && c.from
+            ? {
+                id: String(c.from),
+                type: sourceType(
+                  String(c.from),
+                  tracks,
+                  clips,
+                  seqs,
+                  videoTracks,
+                ),
+              }
+            : { id: "(flow)", type: undefined },
+        );
+      for (const s of Array.isArray(step.in) ? step.in : [])
+        sources.push({
+          id: String(s),
+          type: sourceType(String(s), tracks, clips, seqs, videoTracks),
+        });
+
+      const where = `chain '${chainName}' step ${idx + 1} (module '${step.module}')`;
+      const mandatory = inputs.filter((i) => i.mandatory).length;
+      if (sources.length < mandatory)
+        errs.push(
+          `${where}: feeds ${sources.length} input(s) but ${mandatory} mandatory port(s) required`,
+        );
+      else if (sources.length > inputs.length)
+        errs.push(
+          `${where}: feeds ${sources.length} input(s) but the module has only ${inputs.length} port(s)`,
+        );
+
+      // Positional type check, where the source's type is knowable.
+      inputs.forEach((inp, i) => {
+        const src = sources[i];
+        if (!src || src.type === undefined) return;
+        if (src.type !== inp.type)
+          errs.push(
+            `${where}: port '${inp.name}' expects ${inp.type} but source '${src.id}' is ${src.type}`,
+          );
+      });
+    });
+  }
+  return errs;
+}
+
+// --- assembly (pure; no fs) --------------------------------------------------
+
+// A declared `input`, normalised but NOT resolved: a label stays a label. The schema
+// already rejects anything else, so this only has to survive a hand-edit mid-save.
+function normInput(v: unknown): string | number[] | undefined {
+  if (v == null) return undefined;
+  if (Array.isArray(v)) {
+    const ch = v.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    return ch.length ? ch : undefined;
+  }
+  const s = String(v);
+  return s ? s : undefined;
+}
+
+function normMonitor(v: unknown): "off" | "auto" | "on" | undefined {
+  return v === "off" || v === "auto" || v === "on" ? v : undefined;
+}
+
+// A module's `automations` list, coerced. Each entry needs a non-empty param + curve;
+// anything else is dropped rather than carried as a half-binding. Undefined when the
+// module lists none, so the field stays absent on the model.
+function normAutomations(v: unknown): Automation[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: Automation[] = [];
+  for (const a of v as { param?: unknown; curve?: unknown }[]) {
+    const param = typeof a?.param === "string" ? a.param : "";
+    const curve = typeof a?.curve === "string" ? a.curve : "";
+    if (param && curve) out.push({ param, curve });
+  }
+  return out.length ? out : undefined;
+}
+
+export function buildGraph(
+  root: RawProjectRoot,
+  chainsMap: unknown,
+  tracksMap: Record<string, RawTrack>,
+  clipsMap: Record<string, RawClip>,
+  seqMap: Record<string, RawSequence>,
+  modulesMap: Record<string, LoadedModule>,
+  moduleRefsMap: Record<string, LoadedModule>,
+  videoTracksMap: Record<string, RawVideoTrack> = {},
+): GraphDoc {
+  const ts = String(root?.project?.timeSignature ?? "4/4");
+  const [num, den] = ts.split("/").map((n) => parseInt(n, 10));
+  const pos = (tc: unknown) =>
+    tc != null && tc !== "" ? parsePosition(String(tc), num || 4, den || 4) : 0;
+  const dur = (tc: unknown) =>
+    tc != null && tc !== "" ? parseDuration(String(tc), num || 4, den || 4) : 0;
+
+  // A DISABLED track is ignored everywhere: the engine never sees it (nodeProject
+  // filters it out of the compiled doc) and the timeline draws nothing for it. The graph
+  // follows — it is a picture of what the song actually does, and a lane that plays
+  // nothing routing through a chain that runs nothing is a lie in the shape of a
+  // diagram. So the track is dropped here and every chain SOURCED from it goes with it
+  // (see below); the file stays on disk, ready to be re-enabled.
+  const disabledTracks = new Set(
+    Object.entries(tracksMap)
+      .filter(([, t]) => t?.disabled)
+      .map(([id]) => id),
+  );
+
+  const tracks: Record<string, Track> = {};
+  for (const [id, t] of Object.entries(tracksMap)) {
+    if (disabledTracks.has(id)) continue;
+    const group = t.type === "group";
+    const strudel = t.type === "strudel";
+    tracks[id] = {
+      name: t.name ?? id,
+      type: group ? "group" : strudel ? "strudel" : "single",
+      color: t.color ? String(t.color) : undefined,
+      // A strudel lane's contentType means the same thing as a single's — which
+      // material it carries — so it reads the same way; only its source differs.
+      contentType: t.contentType === "sequences" ? "sequences" : "audio",
+      mute: !!t.mute,
+      solo: !!t.solo,
+      // A group holds no material and a single holds no members: the schema keeps
+      // each kind's fields off the other, so these read as empty rather than absent.
+      // A strudel lane's material is streamed, so it authors no placements either.
+      placements:
+        group || strudel
+          ? []
+          : (t.clips ?? []).map(
+              (p): Placement => ({
+                ref: String(p.ref ?? ""),
+                start: pos(p.start),
+                loop: Math.max(1, Math.floor(Number(p.loop ?? 1)) || 1),
+                kind: clipsMap[String(p.ref)]
+                  ? "audio"
+                  : seqMap[String(p.ref)]
+                    ? "midi"
+                    : "missing",
+              }),
+            ),
+      tracks: group ? (t.tracks ?? []).map(String) : [],
+      strudel: strudel && t.strudel ? String(t.strudel) : undefined,
+      frozen: !group && !strudel && t.frozen ? String(t.frozen) : undefined,
+    };
+  }
+
+  // Chains, minus the ones a disabled track feeds. Only a chain sourced DIRECTLY from
+  // such a track is dropped: a bus is routed into by `out` from several chains, so
+  // disabling one source must not take the shared reverb down with it — and a bus has
+  // no `from` to test anyway. `from` naming a track that doesn't exist at all is a
+  // different thing and still warns (see validate).
+  const chains: Record<string, Chain> = {};
+  for (const [name, chain] of Object.entries(parseChains(chainsMap))) {
+    if (chain.from && disabledTracks.has(chain.from)) continue;
+    chains[name] = chain;
+  }
+
+  // The authored instrument type, if one of the known values (else undefined, so
+  // effectiveType falls back to "plugin").
+  const normType = (v: unknown): InstrumentType | undefined =>
+    v === "rack" || v === "plugin" ? v : undefined;
+  // One module normalizer for both the bare-name map (chain refs) and the ref map
+  // (the `extends` vocabulary). It is handed a RESOLVED module — inheritance is already
+  // settled — so every field here is a straight read. kind/inputs come off the type
+  // folder (added by loadModules / readModuleTree); everything else is authored.
+  const toModule = (b: ResolvedModule): Module => ({
+    extends: b?.extends ? String(b.extends) : undefined,
+    kind: b?.kind === "io" ? "io" : "plugin",
+    io: b?.io ? String(b.io) : undefined,
+    plugin: b?.plugin,
+    type: normType(b?.type),
+    params: b?.params ?? {},
+    ui: resolvedUI(b),
+    inputs: normalizeInputs(b?.inputs),
+    // `category` is the type FOLDER, added by loadModules — the only thing that says
+    // whether a midi-input module gives back audio (an instrument) or midi (a
+    // transformer). Kept AND derived from: the graph draws an icon per folder, which
+    // `emits` alone can't tell apart.
+    category: b?.category ? String(b.category) : undefined,
+    emits: moduleEmits(b?.category, b?.io),
+    // Both halves of every library asset: the absolute paths the engine loads, and the
+    // names they were authored with. validate() needs the pair — a name with no path is
+    // a reference the library doesn't hold.
+    ir: b?.ir,
+    nam: b?.nam,
+    assets: b?.assets,
+    channel: normInput(b?.channel),
+    monitor: normMonitor(b?.monitor),
+    docs: typeof b?.docs === "string" ? b.docs : undefined,
+    todos: Array.isArray(b?.todos)
+      ? b.todos.map(String).filter((s) => s)
+      : undefined,
+    automations: normAutomations(b?.automations),
+  });
+
+  // Video lanes, as the graph/timeline read them. No `disabled` counterpart: a video
+  // track is switched off with `mute` (== hidden), and every one has to be listed in
+  // project.layers, so there is no "left out" state to model.
+  const videoTracks: Record<string, VideoTrack> = {};
+  for (const [id, t] of Object.entries(videoTracksMap ?? {}))
+    videoTracks[id] = {
+      name: String(t?.name ?? id),
+      color: t?.color ? String(t.color) : undefined,
+      kind: t?.kind === "shape" ? "shape" : "video",
+      mute: !!t?.mute,
+    };
+
+  // Resolve ONCE, here: every `extends` chain is folded in before anything reads a
+  // module, so no consumer downstream has to know inheritance exists. The `extends`
+  // vocabulary is the ref map either way — a local module extends a ref, never a name.
+  const refsRaw = moduleRefsMap ?? {};
+  const modules: Record<string, Module> = {};
+  for (const [name, b] of Object.entries(modulesMap ?? {}))
+    modules[name] = toModule(resolveModule(b, refsRaw));
+
+  const moduleRefs: Record<string, Module> = {};
+  for (const [ref, b] of Object.entries(resolveModuleMap(refsRaw)))
+    moduleRefs[ref] = toModule(b);
+
+  const g: GraphDoc = {
+    project: {
+      name: String(root.project?.name ?? "untitled"),
+      tempo: Number(root.project?.tempo ?? 120),
+      sampleRate: Number(root.project?.sampleRate ?? 48000),
+      timeSignature: String(root.project?.timeSignature ?? "4/4"),
+    },
+    chains,
+    tracks,
+    videoTracks,
+    disabledTracks: [...disabledTracks].sort(),
+    modules,
+    moduleRefs,
+    warnings: [],
+  };
+  g.warnings = validate(g);
+  return g;
+}
+
+// Is `id` a sink: an io module the signal ENDS at (like OUT). Chains route to it by
+// name. An io module is a sink unless it declares itself a source — routing a chain to
+// an input is meaningless, so `io: "in"` is excluded here rather than silently accepted
+// as a destination.
+const isSink = (g: GraphDoc, id: string): boolean => {
+  // "OUT" is the built-in main output: nodeProject's isSink() takes the name literally,
+  // so a project needs no modules/io/OUT folder for it to work — and every demo song
+  // relies on that. Requiring the folder here made all four of them warn that the OUT
+  // ending each of their chains "is not a chain or io sink".
+  if (id === "OUT") return true;
+  const m = g.modules[id];
+  return !!m && m.kind === "io" && m.io !== "in";
+};
+// The other io edge: a live interface source (io: "in") — a module carrying its own io.
+export const isInputModule = (_g: GraphDoc, b: Module): boolean =>
+  b.kind === "io" && b.io === "in";
+/**
+ * The " — did you mean …" tail for a name that missed, when the last `/` should have been
+ * the instance separator: `@engine/io/IN/in-2` for `@engine/io/IN:in-2`.
+ *
+ * An instance is a `<name>.yaml` BESIDE a module.yaml, not a folder inside it, so the ref
+ * of one is the module's ref with `:instance` — and the two spellings look identical to
+ * anyone reading the folder on disk. Worth a hint rather than a second guess at the docs:
+ * "is not a module" is true and useless, and the whole difference is one character.
+ */
+function instanceHint(g: GraphDoc, name: string): string {
+  const cut = name.lastIndexOf("/");
+  if (cut < 0) return "";
+  const asInstance = `${name.slice(0, cut)}${INSTANCE_SEP}${name.slice(cut + 1)}`;
+  return g.modules[asInstance] || g.moduleRefs[asInstance]
+    ? ` — did you mean '${asInstance}'? an instance is named with '${INSTANCE_SEP}', not '/'`
+    : "";
+}
+
+const isNode = (g: GraphDoc, id: string): boolean =>
+  !!g.chains[id] || isSink(g, id);
+/** Does this chain carry a live interface input? */
+const carriesInput = (g: GraphDoc, c: Chain): boolean =>
+  c.use.some((s) => {
+    const b = g.modules[s.module];
+    return !!b && isInputModule(g, b);
+  });
+
+/**
+ * The track a chain's live input lands on: the run's own source track when the input is a step ON it, else the
+ * TRACK its run ends at.
+ *
+ * The second form is what `"@engine/io/IN:in-2": [ ge.rythm ]` says, and it is the one that reads correctly —
+ * signal comes FROM an input, INTO a lane. The first is what the old chain-list format could express, where a
+ * chain named its track up front and the input was a node inside it; both still work, because both are still
+ * written.
+ */
+export function inputLandingTrack(
+  c: Chain,
+  isTrack: (id: string) => boolean,
+): string {
+  if (c.from) return c.from;
+  return c.out.map((o) => o.to).find(isTrack) ?? "";
+}
+
+/**
+ * The freeze render a track actually has, absolute — or undefined when it claims none, or claims one that isn't
+ * there any more.
+ *
+ * The missing case is deliberately NOT an error. A render is a generated artifact: it is big, it is regenerable,
+ * and a project is very often cloned without it. Failing the load would be the worse of two bad options by a wide
+ * margin, because the command that clears the attribute needs the project to compile before it can run — refusing
+ * to open a project whose render went missing would lock the user out of the one action that fixes it. So a
+ * missing render simply means the track isn't frozen: it plays live, which is exactly what it did before, and
+ * freezing again writes a fresh render.
+ */
+export function frozenRender(
+  dir: string,
+  t: { frozen?: unknown } | undefined,
+): string | undefined {
+  const rel = typeof t?.frozen === "string" ? t.frozen.trim() : "";
+  if (!rel) return undefined;
+  const abs = resolve(dir, rel);
+  return existsSync(abs) ? abs : undefined;
+}
+
+export function validate(g: GraphDoc): string[] {
+  const w: string[] = [];
+  // Tracks that exist on disk but were left out of `g.tracks` for being disabled. A
+  // lookup miss below means "absent", which covers both — these tell the two apart.
+  const disabled = new Set(g.disabledTracks);
+
+  for (const [name, c] of Object.entries(g.chains)) {
+    // `from` may name a track or ANOTHER chain — never this one. Excluding self isn't
+    // pedantry now that a chain takes its name from its source track: an unnamed chain
+    // is called exactly what its `from` says, so `g.chains[c.from]` finds ITSELF and a
+    // dangling source would look perfectly resolved.
+    // A VIDEO track is a legitimate source too — that is what a video chain is sourced
+    // from (through video_effects, out to VIDEO_OUT). Leaving it out read as a typo.
+    if (
+      c.from &&
+      !g.tracks[c.from] &&
+      !g.videoTracks[c.from] &&
+      !(c.from !== name && g.chains[c.from])
+    )
+      w.push(`chain '${name}': from '${c.from}' is not a track or chain`);
+    for (const s of c.use) {
+      const module = g.modules[s.module];
+      if (!module)
+        w.push(
+          `chain '${name}': step module '${s.module}' is not a module or module instance` +
+            instanceHint(g, s.module),
+        );
+      else if (module.extends && !g.moduleRefs[module.extends])
+        w.push(
+          `chain '${name}': module '${s.module}' extends unknown module '${module.extends}'`,
+        );
+    }
+    for (const o of c.out) {
+      const target = g.modules[o.to];
+      // Routing INTO a live input is meaningless — it is where signal COMES FROM. Checked
+      // ahead of isNode, which now says yes: a module the signal stops at starts a chain
+      // of its own, so an input at the end of a run resolves perfectly and does nothing.
+      if (target && isInputModule(g, target))
+        w.push(
+          `chain '${name}': out '${o.to}' is a live input — signal comes FROM it, not to it`,
+        );
+      // A destination naming a TRACK is where a live input's signal arrives. Nothing else
+      // may land on a lane: a track's material is its clips, so an ordinary module aimed
+      // at one is silently discarded — which is exactly what a warning is for.
+      else if (g.tracks[o.to] || disabled.has(o.to)) {
+        if (!carriesInput(g, c))
+          w.push(
+            `chain '${name}': out '${o.to}' is a track — only a live input's signal lands on a lane`,
+          );
+      } else if (!isNode(g, o.to))
+        w.push(`chain '${name}': out '${o.to}' is not a chain or io sink`);
+      if (o.gain < 0)
+        w.push(`chain '${name}': out '${o.to}' has a negative gain`);
+    }
+    if (!c.out.length && !isParked(c))
+      w.push(`chain '${name}': has no out (dead end)`);
+  }
+
+  for (const [id, t] of Object.entries(g.tracks))
+    for (const p of t.placements)
+      if (p.kind === "missing")
+        w.push(`track '${id}': clip/sequence '${p.ref}' not found`);
+
+  // A module naming a library file the library doesn't hold. The loader resolves each
+  // asset to an absolute path and leaves it undefined when it can't, keeping the
+  // authored name in `assets` — so the two disagreeing IS the report. Silently loading
+  // nothing would sound like a convolver with no cabinet, or an amp that isn't there:
+  // quiet, and unexplained.
+  for (const [name, b] of Object.entries(g.modules))
+    for (const [kind, ref] of Object.entries(b.assets ?? {}))
+      if (!(b as unknown as Record<string, unknown>)[kind])
+        w.push(
+          `module '${name}': ${kind} '${ref}' is not in the project's library (project.libraries_from)`,
+        );
+
+  // Live-input modules. Whether the channel EXISTS is a machine question — see
+  // checkInputLabels(), called from loadGraph — but everything here is answerable
+  // from the song alone.
+  // An input is wired by the RUN it sits in — its source track, or the track the run ends
+  // at — so these go over the chains, not over the modules. See inputLandingTrack.
+  const fedBy = new Map<string, string>();
+  for (const [chainName, c] of Object.entries(g.chains)) {
+    if (isParked(c)) continue; // an input dropped in but not wired yet lands nowhere, by design
+    for (const s of c.use) {
+      const b = g.modules[s.module];
+      if (!b || !isInputModule(g, b)) continue;
+      if (b.channel == null)
+        w.push(`input '${s.module}': no channel — it feeds nothing`);
+      const track = inputLandingTrack(
+        c,
+        (id) => !!g.tracks[id] || disabled.has(id),
+      );
+      if (!track) {
+        w.push(
+          `input '${s.module}': chain '${chainName}' reaches no track — an input's signal has to land on one`,
+        );
+        continue;
+      }
+      const target = g.tracks[track];
+      if (!target)
+        // Disabled reads as absent here, so say which it is: "not found" sends the reader
+        // hunting for a typo in a file that's sitting right there, only switched off.
+        w.push(
+          disabled.has(track)
+            ? `input '${s.module}': track '${track}' is disabled — it records nothing`
+            : `input '${s.module}': track '${track}' not found`,
+        );
+      else if (target.type === "group")
+        w.push(
+          `input '${s.module}': track '${track}' is a group — it holds no material`,
+        );
+      else if (target.type === "strudel")
+        w.push(
+          `input '${s.module}': track '${track}' is a strudel lane — its pattern is the source`,
+        );
+      else if (target.contentType === "sequences")
+        w.push(
+          `input '${s.module}': track '${track}' is a sequences track — an interface input carries audio`,
+        );
+      // The engine assigns ONE input per track: a second would silently replace the
+      // first, so name both rather than let the last one loaded win.
+      const prev = fedBy.get(track);
+      if (prev)
+        w.push(
+          `track '${track}': fed by two inputs ('${prev}', '${s.module}') — only one can win`,
+        );
+      else fedBy.set(track, s.module);
+    }
+  }
+  // `channel` anywhere else is silently ignored, which looks like it took effect.
+  for (const [name, b] of Object.entries(g.modules))
+    if (!isInputModule(g, b) && b.channel != null)
+      w.push(
+        `module '${name}': channel is for an io "in" module, but '${name}' is not one`,
+      );
+
+  // Group membership: a member must exist, must not be the group itself, and must
+  // belong to only one group (the flat model gives each track a single parent).
+  const claimed = new Map<string, string>();
+  for (const [id, t] of Object.entries(g.tracks)) {
+    if (t.type !== "group") continue;
+    for (const m of t.tracks) {
+      if (m === id) w.push(`group '${id}': contains itself`);
+      // A disabled member is deliberate, not a mistake — the group simply has one fewer
+      // track for now. Only a member that exists nowhere is worth a warning.
+      else if (!g.tracks[m] && !disabled.has(m))
+        w.push(`group '${id}': track '${m}' not found`);
+      const owner = claimed.get(m);
+      if (owner) w.push(`track '${m}': in two groups ('${owner}', '${id}')`);
+      else claimed.set(m, id);
+    }
+  }
+
+  // Every source chain (has a track input) should reach a sink.
+  for (const [name, c] of Object.entries(g.chains))
+    if (c.from && !reachesSink(g, name, new Set()))
+      w.push(`chain '${name}': nothing reaches OUT`);
+
+  // Cycle check over chain→chain edges.
+  for (const name of Object.keys(g.chains))
+    if (hasCycle(g, name, new Set(), new Set())) {
+      w.push(`chain '${name}': is part of a cycle`);
+      break;
+    }
+
+  return w;
+}
+
+function reachesSink(g: GraphDoc, name: string, seen: Set<string>): boolean {
+  if (seen.has(name)) return false;
+  seen.add(name);
+  const c = g.chains[name];
+  if (!c) return false;
+  return c.out.some(
+    (o) => isSink(g, o.to) || (g.chains[o.to] && reachesSink(g, o.to, seen)),
+  );
+}
+
+function hasCycle(
+  g: GraphDoc,
+  name: string,
+  stack: Set<string>,
+  done: Set<string>,
+): boolean {
+  if (stack.has(name)) return true;
+  if (done.has(name) || !g.chains[name]) return false;
+  stack.add(name);
+  const cycle = g.chains[name].out.some(
+    (o) => g.chains[o.to] && hasCycle(g, o.to, stack, done),
+  );
+  stack.delete(name);
+  done.add(name);
+  return cycle;
+}
+
+// --- describe (pure) ---------------------------------------------------------
+
+export function describeGraph(g: GraphDoc): string[] {
+  const lines: string[] = [];
+  // Roots are the chains fed by a track (source entries); intermediate plugin
+  // nodes have `from` = another chain and are shown via downstream().
+  const roots = Object.entries(g.chains).filter(
+    ([, c]) => c.from && g.tracks[c.from],
+  );
+
+  // roots + every chain reachable downstream from them (so we don't re-list a
+  // subbranch that already appears inside a root's trace).
+  const reached = new Set<string>();
+  const mark = (name: string) => {
+    if (reached.has(name)) return;
+    reached.add(name);
+    for (const o of g.chains[name]?.out ?? []) if (g.chains[o.to]) mark(o.to);
+  };
+  for (const [name] of roots) mark(name);
+
+  for (const [name, c] of roots) {
+    let head = `${name}: ${trackDesc(g, c.from!)}`;
+    const steps = stepsDesc(g, c);
+    if (steps) head += ` -> ${steps}`;
+    lines.push(head + downstream(g, c.out, new Set([name])));
+  }
+  // subbranch chains not reached from any root
+  for (const [name, c] of Object.entries(g.chains))
+    if (!reached.has(name))
+      lines.push(
+        `${name} (subbranch): ${stepsDesc(g, c) || name}${downstream(g, c.out, new Set([name]))}`,
+      );
+
+  return lines;
+}
+
+// Resolve a user-supplied track reference (id or display name, case-insensitive)
+// to a track id, or undefined if none matches.
+export function resolveTrack(g: GraphDoc, ref: string): string | undefined {
+  if (g.tracks[ref]) return ref;
+  const lc = ref.toLowerCase();
+  for (const [id, t] of Object.entries(g.tracks))
+    if (id.toLowerCase() === lc || t.name.toLowerCase() === lc) return id;
+  return undefined;
+}
+
+// The chains related to one track: the chains it feeds (from === track), each
+// traced downstream through its steps to the sink — a focused graph display.
+export function describeTrackGraph(g: GraphDoc, trackId: string): string[] {
+  const roots = Object.entries(g.chains).filter(([, c]) => c.from === trackId);
+  if (!roots.length) return [`track '${trackId}' feeds no chains`];
+  return roots.map(([name, c]) => {
+    let head = `${name}: ${trackDesc(g, c.from!)}`;
+    const steps = stepsDesc(g, c);
+    if (steps) head += ` -> ${steps}`;
+    return head + downstream(g, c.out, new Set([name]));
+  });
+}
+
+function trackDesc(g: GraphDoc, from: string): string {
+  const t = g.tracks[from];
+  if (!t) return g.chains[from] ? `chain '${from}'` : `track '${from}'(?)`;
+  const clips = t.placements
+    .map((p) => `${p.ref}@${p.start}${p.kind === "missing" ? "(?)" : ""}`)
+    .join(", ");
+  return `${inputDesc(g, from)}track '${from}' [${clips}]`;
+}
+
+// How an io "in" module reads as a node: "in 'guitar'(ch 1) -> ". A live input is a
+// real source in the graph, so it's drawn ahead of the track it feeds rather than
+// hidden as a track attribute. Returns "" when nothing feeds this track.
+function inputDesc(g: GraphDoc, trackId: string): string {
+  const hit = inputsByTrack(g).get(trackId);
+  return hit ? `${nodeDesc(hit[0], hit[1])} -> ` : "";
+}
+
+function nodeDesc(name: string, b: Module): string {
+  const ch =
+    b.channel == null
+      ? "?"
+      : Array.isArray(b.channel)
+        ? b.channel.join("+")
+        : `'${b.channel}'`;
+  // "auto" is the default and says nothing; off/on are deliberate choices.
+  const mon = b.monitor && b.monitor !== "auto" ? ` mon:${b.monitor}` : "";
+  return `in '${name}'(ch ${ch}${mon})`;
+}
+
+// track id -> the [name, module] of the input feeding it, read off the chains: an input
+// lands on the track of the chain it sits in. First one wins; validate() complains about
+// a second.
+function inputsByTrack(g: GraphDoc): Map<string, [string, Module]> {
+  const m = new Map<string, [string, Module]>();
+  for (const c of Object.values(g.chains)) {
+    if (!c.from || m.has(c.from)) continue;
+    for (const s of c.use) {
+      const b = g.modules[s.module];
+      if (!b || !isInputModule(g, b)) continue;
+      m.set(c.from, [s.module, b]);
+      break;
+    }
+  }
+  return m;
+}
+
+// A chain's steps as "module -> module(bypassed) -> …". An io "in" step is left out: it
+// is the chain's SOURCE, already drawn ahead of the track by inputDesc, and printing it
+// again mid-path would read as a second thing in the signal's way.
+function stepsDesc(g: GraphDoc, c: Chain): string {
+  return c.use
+    .filter((s) => !isInputModule(g, g.modules[s.module] ?? ({} as Module)))
+    .map((s) => `${s.module}${s.enabled === false ? "(bypassed)" : ""}`)
+    .join(" -> ");
+}
+
+// A gain suffix shown only when the signal is attenuated (a split/send), e.g.
+// "@30%"; the full-signal case (gain 1) stays bare.
+const gainTag = (gain: number): string =>
+  gain === 1 ? "" : `@${Math.round(gain * 100)}%`;
+
+function downstream(g: GraphDoc, out: Out[], seen: Set<string>): string {
+  if (!out.length) return "";
+  const parts = out.map((o) => {
+    const tag = gainTag(o.gain);
+    if (isSink(g, o.to)) return o.to + tag; // e.g. OUT
+    if (seen.has(o.to)) return `${o.to}${tag}(cycle)`;
+    const c = g.chains[o.to];
+    if (!c) return `${o.to}${tag}(?)`;
+    return `${(stepsDesc(g, c) || o.to) + tag}${downstream(g, c.out, new Set([...seen, o.to]))}`;
+  });
+  return ` -> ${parts.join(" + ")}`;
+}
+
+// --- loader (fs) -------------------------------------------------------------
+
+export function loadGraph(dir: string): GraphDoc {
+  const root = loadProjectRoot(dir, true); // the root file -> project, markers
+  // chains.yaml when there is one — see loadChains. Read once and passed everywhere the
+  // root's own `chains` used to be, so the two formats can't disagree within one load.
+  const rootChains = loadChains(dir, root, true);
+  const tracksMap = loadTracks(dir, true); // enforced: a bad track fails the load
+  const videoTracksMap = loadVideoTracks(dir, true);
+  const clipsMap = exportSub(dir, "clips");
+  const seqMap = exportSub(dir, "sequences");
+
+  // modules/<type>/ keyed by bare name (chain refs); the same modules re-keyed by ref
+  // (the `extends` vocabulary), plus any inherited via project.modules_from.
+  const localModules = loadModules(dir, true); // enforced: a bad module fails the load
+  const moduleRefsMap = loadModuleRefs(dir, root.project?.modules_from ?? []);
+  const parsedChains = parseChains(rootChains);
+  // …and the shared modules the chains name by ref, so a step can use one directly.
+  const modulesMap = withChainModuleRefs(
+    localModules,
+    moduleRefsMap,
+    parsedChains,
+  );
+
+  // Module input wiring is a hard constraint: a mis-wired graph fails to read.
+  const inputErrs = checkChainInputs(
+    parsedChains,
+    modulesMap,
+    tracksMap,
+    clipsMap,
+    seqMap,
+    videoTracksMap,
+  );
+  if (inputErrs.length)
+    throw new Error(
+      `module input wiring invalid:\n  - ${inputErrs.join("\n  - ")}`,
+    );
+
+  const g = buildGraph(
+    root,
+    rootChains ?? {},
+    tracksMap,
+    clipsMap,
+    seqMap,
+    modulesMap,
+    moduleRefsMap,
+    videoTracksMap,
+  );
+  // buildGraph is pure and copied `frozen` straight off the file; only here is there a `dir` to ask whether the
+  // render it names still exists. Cleared when it doesn't, so the picture agrees with what nodeProject compiles —
+  // a lane drawn frozen while the engine plays it live is the one disagreement worth spending a walk to avoid.
+  for (const [id, t] of Object.entries(g.tracks))
+    if (t.frozen && !frozenRender(dir, tracksMap[id])) t.frozen = undefined;
+  g.warnings.push(...checkInputLabels(g));
+  return g;
+}
+
+// Whether each input module's channel label exists on THIS machine. Kept out of
+// validate() (which is pure) because the answer depends on ~/.lanes, not the
+// song: the same project warns here and not on the rig the labels were written for.
+function checkInputLabels(g: GraphDoc): string[] {
+  const w: string[] = [];
+  let prefs: Preferences;
+  try {
+    prefs = loadPreferences();
+  } catch {
+    return w; // unreadable preferences shouldn't fail a load
+  }
+  for (const [name, b] of Object.entries(g.modules)) {
+    if (!isInputModule(g, b) || b.channel == null) continue;
+    const { unknownLabel } = resolveInput(b.channel, prefs);
+    if (!unknownLabel) continue;
+    const known = prefs.channels.in.map((c) => c.label).join(", ");
+    w.push(
+      `input '${name}': channel '${unknownLabel}' is not an input label in ~/.lanes ` +
+        `preferences — ${known ? `have: ${known}` : "none are defined"}`,
+    );
+  }
+  return w;
+}
+
+// --- CLI ---------------------------------------------------------------------
+
+function main(): void {
+  // Positionals: <project> [trackname]. With a trackname, show only the chains
+  // related to that track (a focused graph); otherwise the whole graph.
+  const [projectArg, trackArg] = process.argv
+    .slice(2)
+    .filter((a) => !a.startsWith("-"));
+  if (!projectArg) {
+    console.error("usage: lanes graph <project> [trackname]");
+    process.exit(2);
+  }
+  let g: GraphDoc;
+  try {
+    g = loadGraph(resolve(projectArg));
+  } catch (e) {
+    console.error(`error: ${(e as Error).message}`);
+    process.exit(1);
+  }
+  console.log(
+    `${g.project.name}  (${g.project.tempo} bpm, ${g.project.timeSignature})`,
+  );
+  console.log(
+    `  ${Object.keys(g.chains).length} chains · ${Object.keys(g.tracks).length} tracks · ` +
+      `${Object.keys(g.modules).length} modules`,
+  );
+  console.log("");
+
+  if (trackArg) {
+    const id = resolveTrack(g, trackArg);
+    if (!id) {
+      console.error(
+        `  no track matching '${trackArg}' (tracks: ${Object.keys(g.tracks).join(", ") || "none"})`,
+      );
+      process.exit(1);
+    }
+    console.log(`  chains for track '${id}':`);
+    for (const line of describeTrackGraph(g, id)) console.log("  " + line);
+  } else {
+    for (const line of describeGraph(g)) console.log("  " + line);
+  }
+
+  if (g.warnings.length) {
+    console.log("");
+    console.warn(`  ${g.warnings.length} warning(s):`);
+    for (const w of g.warnings) console.warn(`    ! ${w}`);
+  }
+}
+
+// Run main() only when this FILE is the entry point (`lanes inspect graph`). The
+// `import.meta.url === argv[1]` test alone isn't enough: bundlers rewrite
+// import.meta.url to the bundle's own URL, so when this module is bundled as a library
+// into another entry (the packaged file service) both sides match and the CLI would
+// hijack startup. Requiring our own filename keeps that from happening.
+if (
+  process.argv[1] &&
+  import.meta.url.endsWith("/graph.ts") &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+)
+  main();

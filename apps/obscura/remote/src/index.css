@@ -1,0 +1,8 @@
+/* Tailwind v4 + the shared @frediverse/ui design tokens, then the remote's
+   synthwave styling (ported verbatim; #app → #root patched). */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@frediverse/ui/theme.css";
+@import "./extracted-styles.css";
+
+@source "../../../../packages/ui/src";

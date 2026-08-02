@@ -1,0 +1,816 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vitest -u\` to update after an intended change) 1`] = `
+{
+  "fps": 30,
+  "groups": [],
+  "markers": [],
+  "name": "rack-demo",
+  "recordDir": "<abs>",
+  "sampleRate": 48000,
+  "settings": {
+    "countIn": 4,
+    "metronome": false,
+  },
+  "strudel": false,
+  "tempo": 120,
+  "timeSigDenominator": 4,
+  "timeSigNumerator": 4,
+  "tracks": [
+    {
+      "automation": [],
+      "clips": [
+        {
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "id": "beat",
+          "length": 4,
+          "loopEnd": 0,
+          "loopStart": 0,
+          "name": "beat",
+          "notes": [
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 36,
+              "rel": 1,
+              "time": 0,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 36,
+              "rel": 1,
+              "time": 2,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 38,
+              "rel": 1,
+              "time": 1,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 38,
+              "rel": 1,
+              "time": 3,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 0,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 0.5,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 1,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 1.5,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 2,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 2.5,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 3,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 0.25,
+              "key": 42,
+              "rel": 1,
+              "time": 3.5,
+              "vel": 1,
+            },
+          ],
+          "offset": 0,
+          "source": "",
+          "start": 0,
+          "type": "midi",
+        },
+      ],
+      "color": "",
+      "contentType": "notes",
+      "disabled": false,
+      "generated": false,
+      "group": "",
+      "id": "beat",
+      "inputChannels": [],
+      "inputGain": 0,
+      "monitor": "auto",
+      "mute": false,
+      "name": "beat",
+      "plugins": [
+        {
+          "enabled": true,
+          "id": "beat:kit",
+          "name": "kit",
+          "params": {},
+          "path": "",
+          "presetSave": "",
+          "rack": [
+            {
+              "clip": "<abs>",
+              "length": 0,
+              "note": 36,
+              "start": 0,
+              "symbol": "BD",
+            },
+            {
+              "clip": "<abs>",
+              "length": 0,
+              "note": 38,
+              "start": 0,
+              "symbol": "SN",
+            },
+            {
+              "clip": "<abs>",
+              "length": 0,
+              "note": 42,
+              "start": 0,
+              "symbol": "HH",
+            },
+          ],
+          "role": "instrument",
+          "type": "sampler",
+        },
+      ],
+      "role": "regular",
+      "sends": [],
+      "solo": false,
+    },
+  ],
+  "video": false,
+  "videoTracks": [],
+  "viewport": [
+    0,
+    0,
+  ],
+}
+`;
+
+exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vitest -u\` to update after an intended change) 1`] = `
+{
+  "fps": 30,
+  "groups": [
+    {
+      "color": "",
+      "id": "live",
+      "mute": false,
+      "name": "live",
+      "solo": false,
+    },
+  ],
+  "markers": [],
+  "name": "synth-demo",
+  "recordDir": "<abs>",
+  "sampleRate": 48000,
+  "settings": {
+    "countIn": 4,
+    "metronome": false,
+  },
+  "strudel": true,
+  "tempo": 120,
+  "timeSigDenominator": 4,
+  "timeSigNumerator": 4,
+  "tracks": [
+    {
+      "automation": [],
+      "clips": [],
+      "color": "",
+      "contentType": "audio",
+      "disabled": false,
+      "generated": true,
+      "group": "live",
+      "id": "kit",
+      "inputChannels": [],
+      "inputGain": 0,
+      "monitor": "auto",
+      "mute": false,
+      "name": "kit",
+      "plugins": [],
+      "role": "regular",
+      "sends": [],
+      "solo": false,
+    },
+    {
+      "automation": [
+        {
+          "bipolar": false,
+          "param": "Filter Freq",
+          "pluginId": "melody:synth:lead",
+          "points": [
+            [
+              0,
+              0,
+            ],
+            [
+              4,
+              1,
+            ],
+            [
+              8,
+              1,
+            ],
+            [
+              12,
+              0.2,
+            ],
+          ],
+        },
+        {
+          "bipolar": true,
+          "param": "Osc1 Tune",
+          "pluginId": "melody:synth:lead",
+          "points": [
+            [
+              0,
+              0,
+            ],
+            [
+              0.166667,
+              0.258819,
+            ],
+            [
+              0.333333,
+              0.5,
+            ],
+            [
+              0.5,
+              0.707107,
+            ],
+            [
+              0.666667,
+              0.866025,
+            ],
+            [
+              0.833333,
+              0.965926,
+            ],
+            [
+              1,
+              1,
+            ],
+            [
+              1.166667,
+              0.965926,
+            ],
+            [
+              1.333333,
+              0.866025,
+            ],
+            [
+              1.5,
+              0.707107,
+            ],
+            [
+              1.666667,
+              0.5,
+            ],
+            [
+              1.833333,
+              0.258819,
+            ],
+            [
+              2,
+              0,
+            ],
+            [
+              2.166667,
+              -0.258819,
+            ],
+            [
+              2.333333,
+              -0.5,
+            ],
+            [
+              2.5,
+              -0.707107,
+            ],
+            [
+              2.666667,
+              -0.866025,
+            ],
+            [
+              2.833333,
+              -0.965926,
+            ],
+            [
+              3,
+              -1,
+            ],
+            [
+              3.166667,
+              -0.965926,
+            ],
+            [
+              3.333333,
+              -0.866025,
+            ],
+            [
+              3.5,
+              -0.707107,
+            ],
+            [
+              3.666667,
+              -0.5,
+            ],
+            [
+              3.833333,
+              -0.258819,
+            ],
+            [
+              4,
+              0,
+            ],
+            [
+              4.166667,
+              0.258819,
+            ],
+            [
+              4.333333,
+              0.5,
+            ],
+            [
+              4.5,
+              0.707107,
+            ],
+            [
+              4.666667,
+              0.866025,
+            ],
+            [
+              4.833333,
+              0.965926,
+            ],
+            [
+              5,
+              1,
+            ],
+            [
+              5.166667,
+              0.965926,
+            ],
+            [
+              5.333333,
+              0.866025,
+            ],
+            [
+              5.5,
+              0.707107,
+            ],
+            [
+              5.666667,
+              0.5,
+            ],
+            [
+              5.833333,
+              0.258819,
+            ],
+            [
+              6,
+              0,
+            ],
+            [
+              6.166667,
+              -0.258819,
+            ],
+            [
+              6.333333,
+              -0.5,
+            ],
+            [
+              6.5,
+              -0.707107,
+            ],
+            [
+              6.666667,
+              -0.866025,
+            ],
+            [
+              6.833333,
+              -0.965926,
+            ],
+            [
+              7,
+              -1,
+            ],
+            [
+              7.166667,
+              -0.965926,
+            ],
+            [
+              7.333333,
+              -0.866025,
+            ],
+            [
+              7.5,
+              -0.707107,
+            ],
+            [
+              7.666667,
+              -0.5,
+            ],
+            [
+              7.833333,
+              -0.258819,
+            ],
+            [
+              8,
+              0,
+            ],
+            [
+              8.166667,
+              0.258819,
+            ],
+            [
+              8.333333,
+              0.5,
+            ],
+            [
+              8.5,
+              0.707107,
+            ],
+            [
+              8.666667,
+              0.866025,
+            ],
+            [
+              8.833333,
+              0.965926,
+            ],
+            [
+              9,
+              1,
+            ],
+            [
+              9.166667,
+              0.965926,
+            ],
+            [
+              9.333333,
+              0.866025,
+            ],
+            [
+              9.5,
+              0.707107,
+            ],
+            [
+              9.666667,
+              0.5,
+            ],
+            [
+              9.833333,
+              0.258819,
+            ],
+            [
+              10,
+              0,
+            ],
+            [
+              10.166667,
+              -0.258819,
+            ],
+            [
+              10.333333,
+              -0.5,
+            ],
+            [
+              10.5,
+              -0.707107,
+            ],
+            [
+              10.666667,
+              -0.866025,
+            ],
+            [
+              10.833333,
+              -0.965926,
+            ],
+            [
+              11,
+              -1,
+            ],
+            [
+              11.166667,
+              -0.965926,
+            ],
+            [
+              11.333333,
+              -0.866025,
+            ],
+            [
+              11.5,
+              -0.707107,
+            ],
+            [
+              11.666667,
+              -0.5,
+            ],
+            [
+              11.833333,
+              -0.258819,
+            ],
+            [
+              12,
+              0,
+            ],
+            [
+              12.166667,
+              0.258819,
+            ],
+            [
+              12.333333,
+              0.5,
+            ],
+            [
+              12.5,
+              0.707107,
+            ],
+            [
+              12.666667,
+              0.866025,
+            ],
+            [
+              12.833333,
+              0.965926,
+            ],
+            [
+              13,
+              1,
+            ],
+            [
+              13.166667,
+              0.965926,
+            ],
+            [
+              13.333333,
+              0.866025,
+            ],
+            [
+              13.5,
+              0.707107,
+            ],
+            [
+              13.666667,
+              0.5,
+            ],
+            [
+              13.833333,
+              0.258819,
+            ],
+            [
+              14,
+              0,
+            ],
+            [
+              14.166667,
+              -0.258819,
+            ],
+            [
+              14.333333,
+              -0.5,
+            ],
+            [
+              14.5,
+              -0.707107,
+            ],
+            [
+              14.666667,
+              -0.866025,
+            ],
+            [
+              14.833333,
+              -0.965926,
+            ],
+            [
+              15,
+              -1,
+            ],
+            [
+              15.166667,
+              -0.965926,
+            ],
+            [
+              15.333333,
+              -0.866025,
+            ],
+            [
+              15.5,
+              -0.707107,
+            ],
+            [
+              15.666667,
+              -0.5,
+            ],
+            [
+              15.833333,
+              -0.258819,
+            ],
+            [
+              16,
+              0,
+            ],
+          ],
+        },
+      ],
+      "clips": [
+        {
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "id": "melody",
+          "length": 8,
+          "loopEnd": 0,
+          "loopStart": 0,
+          "name": "melody",
+          "notes": [
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 60,
+              "rel": 1,
+              "time": 0,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 62,
+              "rel": 1,
+              "time": 1,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 64,
+              "rel": 1,
+              "time": 2,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 65,
+              "rel": 1,
+              "time": 3,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 67,
+              "rel": 1,
+              "time": 4,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 69,
+              "rel": 1,
+              "time": 5,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 71,
+              "rel": 1,
+              "time": 6,
+              "vel": 1,
+            },
+            {
+              "channel": 0,
+              "duration": 1,
+              "key": 72,
+              "rel": 1,
+              "time": 7,
+              "vel": 1,
+            },
+          ],
+          "offset": 0,
+          "source": "",
+          "start": 0,
+          "type": "midi",
+        },
+      ],
+      "color": "",
+      "contentType": "notes",
+      "disabled": false,
+      "docs": "The rising C-major scale intro. Placeholder line until the real melody is written.",
+      "generated": false,
+      "group": "",
+      "id": "melody",
+      "inputChannels": [],
+      "inputGain": 0,
+      "monitor": "auto",
+      "mute": false,
+      "name": "melody",
+      "plugins": [
+        {
+          "enabled": true,
+          "id": "melody:synth:lead",
+          "name": "synth:lead",
+          "params": {
+            "Filter Freq": 90,
+          },
+          "path": "",
+          "presetSave": "<abs>",
+          "role": "",
+          "type": "4osc",
+        },
+      ],
+      "role": "regular",
+      "sends": [],
+      "solo": false,
+      "todos": [
+        "Write the actual melody",
+        "Decide whether it doubles the bass",
+      ],
+    },
+    {
+      "automation": [],
+      "clips": [],
+      "color": "",
+      "contentType": "notes",
+      "disabled": false,
+      "generated": true,
+      "group": "live",
+      "id": "pad",
+      "inputChannels": [],
+      "inputGain": 0,
+      "monitor": "auto",
+      "mute": false,
+      "name": "pad",
+      "plugins": [
+        {
+          "enabled": true,
+          "id": "pad:synth:pad",
+          "name": "synth:pad",
+          "params": {
+            "Filter Freq": 40,
+            "Level": -12,
+          },
+          "path": "",
+          "presetSave": "<abs>",
+          "role": "",
+          "type": "4osc",
+        },
+      ],
+      "role": "regular",
+      "sends": [],
+      "solo": false,
+    },
+  ],
+  "video": false,
+  "videoTracks": [],
+  "viewport": [
+    0,
+    0,
+  ],
+}
+`;

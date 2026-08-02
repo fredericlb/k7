@@ -1,0 +1,7 @@
+# Vendored downloads for `npm run engine:build` (the pinned Node used to run the
+# bundled file service inside the app). Re-downloaded on demand.
+.cache/
+
+# Engine-computed waveform sidecars ({audio}.cache) — a derived cache the engine
+# rebuilds on demand from the audio + a content fingerprint. Never committed.
+*.cache

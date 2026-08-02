@@ -1,0 +1,32 @@
+// main.ts — the supervisor's entry point. Spawned BY the menu-bar app and driven over
+// NDJSON on stdio: not a CLI, takes no arguments, reads what it needs from ~/.lanes,
+// and has no standalone mode (a supervisor outliving the tray would be a ghost engine).
+// The import order matters — ipcStdio quarantines stdout as an import side effect.
+
+import "./ipcStdio.ts";
+import { armDevReload, RELOAD_EXIT_CODE } from "./devReload.ts";
+import { startSupervisor } from "./supervisor.ts";
+
+// Dev only: exit when this package's source changes and let the tray relaunch us. The engine survives on its
+// pidfile and the fresh supervisor adopts it, so editing supervisor code costs no audio dropout.
+if (
+  armDevReload(() => {
+    process.stderr.write("[host] source changed — reloading\n");
+    process.exit(RELOAD_EXIT_CODE);
+  })
+) {
+  process.stderr.write("[host] dev reload armed\n");
+}
+
+// Which subsystems this build's supervisor owns, flipped one at a time as the tray's Rust equivalents go.
+void startSupervisor({
+  own: {
+    engine: true,
+    fileService: true,
+    engineQueries: true,
+  },
+}).catch((e) => {
+  // Nothing above us will report this — the tray only sees a process that exited — so say why on stderr.
+  process.stderr.write(`[host] fatal: ${e instanceof Error ? e.stack : e}\n`);
+  process.exit(1);
+});

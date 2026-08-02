@@ -1,0 +1,322 @@
+/* Recorder + waveform + moment/annotation + tag-input styles, extracted from
+   the app. Colours come from CSS variables the host app defines (--surface,
+   --surface-2, --border, --accent, --amber, --green, --muted, --text). */
+
+/* Multi-tag chip input */
+.tag-input {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+.tag-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.tag-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.tag-suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.tag-suggestion.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tag-field.disabled {
+  opacity: 0.5;
+}
+.tag-draft {
+  flex: 1;
+  min-width: 80px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 4px !important;
+  outline: none;
+}
+/* ---- Recorder ------------------------------------------------------------ */
+
+.meter {
+  height: 12px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 16px 0 8px;
+}
+.meter-fill {
+  height: 100%;
+  transition: width 0.08s linear;
+}
+.timer {
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  margin: 6px 0 14px;
+}
+.review-panel {
+  border-color: var(--amber);
+}
+
+/* Hold-to-stop button: a fill sweeps across as the 2s hold progresses. */
+.hold-btn {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+.hold-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.hold-label {
+  position: relative;
+}
+
+/* ---- Waveform + playback ------------------------------------------------- */
+/* .waveform-wrap and the marker pins live in @studio/ui-waveform's stylesheet. */
+
+.waveform-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(139, 92, 246, 0.95);
+  pointer-events: none;
+}
+.playback-controls {
+  margin-top: 10px;
+}
+
+.controls {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.control {
+  flex: 1;
+  min-width: 240px;
+}
+.control label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---- Event & annotation lists -------------------------------------------- */
+
+.event-list,
+.annotation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.marker-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.marker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid rgba(45, 212, 191, 0.9);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+.marker-item input {
+  flex: 1;
+  min-width: 120px;
+}
+.event-item,
+.annotation-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+}
+.event-item {
+  justify-content: space-between;
+}
+.annotation-text {
+  flex: 1;
+  min-width: 120px;
+}
+.link-row {
+  cursor: pointer;
+}
+.link-row:hover {
+  border-color: var(--accent);
+}
+.active-row {
+  border-color: var(--amber);
+  background: rgba(240, 169, 78, 0.1);
+}
+
+/* Validated moments — standalone clips, shown in green */
+.annotation-item.validated {
+  border-color: var(--green);
+  background: rgba(52, 211, 153, 0.1);
+  flex-wrap: wrap;
+}
+.annotation-item.validated .link {
+  color: var(--green);
+}
+/* Extracted-moment waveform player (replaces the native audio element). */
+.moment-player {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.moment-play {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 13px;
+}
+.moment-wave {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  line-height: 0;
+  background: var(--surface-2);
+}
+.moment-time {
+  flex: none;
+}
+
+/* Inline name + tag editing under each moment. Full-width so it drops below
+   the moment's play/validate/delete line. */
+.moment-edit {
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 2px;
+}
+.moment-edit input {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Moment being range-edited — accent outline + the drag/nudge panel. */
+.annotation-item.editing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.moment-range-edit {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+.moment-range-edit p {
+  margin: 0;
+}
+.range-nudge {
+  align-items: center;
+  gap: 6px;
+}
+/* ---- Minimized recording bar --------------------------------------------- */
+
+/* Extra clearance so page content isn't hidden behind the fixed bar. */
+.main-inner.has-rec-bar {
+  padding-bottom: 96px;
+}
+
+.rec-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+.rec-bar:hover {
+  background: var(--surface-2);
+}
+.rec-bar-status {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+}
+.rec-bar-wave {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.rec-bar-wave .waveform-wrap {
+  width: 100%;
+}
+.rec-bar-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rec-bar-open {
+  color: var(--accent);
+}

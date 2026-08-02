@@ -1,0 +1,24 @@
+# A shape track: it draws parametric shape modules straight onto the viewport instead of
+# linking picture. Three modules here — a translucent square, a translucent circle (its
+# x,y is the CENTRE), and a text label. Listed last in project.layers, so they sit ON TOP
+# of the video. `background_color` fills a square/circle; `color` is the text colour.
+kind: shape
+shapes:
+  - type: square
+    x: 448
+    y: 220
+    w: 384
+    h: 280
+    background_color: "#e2b53acc"
+  - type: circle
+    x: 240
+    y: 180
+    r: 120
+    background_color: "#e2564ecc"
+  - type: text
+    content: lanes
+    font: sans-serif
+    font_size: 72
+    x: 40
+    y: 560
+    color: "#ffffff"

@@ -1,0 +1,9 @@
+project:
+  name: synth-demo
+  tempo: 120
+  sampleRate: 48000
+  timeSignature: 4/4
+  modules_from: []
+  video: false
+  layers: []
+markers: {}

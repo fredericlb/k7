@@ -1,0 +1,7 @@
+x: 0
+clips:
+  - { ref: counter, start: 0, length: 4, source_from: 0 }
+  - { ref: bars, start: 4, length: 4, source_from: 2.5 }
+y: 0
+w: 1280
+h: 720

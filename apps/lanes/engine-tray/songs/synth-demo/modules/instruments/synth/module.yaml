@@ -1,0 +1,27 @@
+# A module that extends the 4OSC (instruments/fourosc) with default params. Add a
+# params: {…} here to tweak it, or a synth.vstpreset beside this file for opaque state
+# (a UI edit writes that automatically).
+#
+# A module file is a flat struct of its own attributes, with no `package` clause —
+# that keeps sibling modules in this folder from colliding on `name`.
+#
+# This module also has two INSTANCES — lead.cue and pad.cue in this folder, used by
+# chains.cue as "synth:lead" and "synth:pad". They inherit everything below without
+# declaring anything, so whatever you change here reaches both.
+extends: instruments/fourosc
+# Freeform notes and a checklist for this module — surfaced read-only in the web
+# editor's Docs panel (Context tab when this module is selected, Global tab
+# aggregates the todos). No engine meaning.
+docs: The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.
+todos:
+  - Automate the filter cutoff instead of leaving it static
+  - Try a sub-oscillator an octave down
+# Automation. The hand-drawn `sweep` curve rides the filter cutoff — "Filter Freq"
+# has a widget in the graph, so the curve's arrow lands on it. The bipolar `wobble`
+# LFO detunes osc 1; "Osc1 Tune" has no widget, so its arrow points at the module
+# with the param named instead.
+automations:
+  - param: Filter Freq
+    curve: sweep
+  - param: Osc1 Tune
+    curve: wobble

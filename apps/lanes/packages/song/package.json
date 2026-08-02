@@ -1,0 +1,71 @@
+{
+  "name": "@lanes/song",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's song layer — parses a folder of CUE files, compiles it to a flat ProjectDoc/GraphDoc, and resolves Strudel patterns. Consumed as source.",
+  "exports": {
+    "./loader": "./src/loader.ts",
+    "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
+    "./yaml/moduleSchema": "./src/yaml/moduleSchema.ts",
+    "./yaml/entitySchemas": "./src/yaml/entitySchemas.ts",
+    "./yaml/projectSchema": "./src/yaml/projectSchema.ts",
+    "./yaml/trackSchema": "./src/yaml/trackSchema.ts",
+    "./yaml/chainsSchema": "./src/yaml/chainsSchema.ts",
+    "./yaml/fields": "./src/yaml/fields.ts",
+    "./preferences": "./src/preferences.ts",
+    "./timecode": "./src/timecode.ts",
+    "./materialWindow": "./src/materialWindow.ts",
+    "./projectEdit": "./src/projectEdit.ts",
+    "./curves": "./src/curves.ts",
+    "./moduleFork": "./src/moduleFork.ts",
+    "./uiLibrary": "./src/uiLibrary.ts",
+    "./uiMigrate": "./src/uiMigrate.ts",
+    "./chainsMigrate": "./src/chainsMigrate.ts",
+    "./chainsGraph": "./src/chainsGraph.ts",
+    "./yaml/chainsFile": "./src/yaml/chainsFile.ts",
+    "./yaml/uiFile": "./src/yaml/uiFile.ts",
+    "./presets": "./src/presets.ts",
+    "./trackMix": "./src/trackMix.ts",
+    "./hints": "./src/hints.ts",
+    "./ioPorts": "./src/ioPorts.ts",
+    "./moduleCatalogue": "./src/moduleCatalogue.ts",
+    "./trackKind": "./src/trackKind.ts",
+    "./scaffold": "./src/scaffold.ts",
+    "./sharedFolders": "./src/sharedFolders.ts",
+    "./graph": "./src/graph.ts",
+    "./nodeProject": "./src/nodeProject.ts",
+    "./project": "./src/project.ts",
+    "./strudel": "./src/strudel.ts",
+    "./patternClock": "./src/patternClock.ts",
+    "./testSupport": "./src/testSupport.ts",
+    "./yaml/edit": "./src/yaml/edit.ts",
+    "./yaml/trackFile": "./src/yaml/trackFile.ts",
+    "./yaml/sequenceFile": "./src/yaml/sequenceFile.ts",
+    "./engineCatalogue": "./src/engineCatalogue.ts",
+    "./moduleTypes": "./src/moduleTypes.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@strudel/core": "1.1.0",
+    "@strudel/mini": "1.1.0",
+    "@strudel/transpiler": "1.1.0",
+    "yaml": "^2.5.0",
+    "zod": "^4.4.3",
+    "@lanes/dsp": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

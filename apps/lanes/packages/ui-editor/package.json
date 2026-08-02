@@ -1,0 +1,41 @@
+{
+  "name": "@lanes/ui-editor",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's CodeMirror editor language stack \u2014 the YAML language mode + schema-derived completions + entity links, and the sequence 'tracker' note-grid widget. Consumed as source.",
+  "exports": {
+    "./yaml/language": "./src/yaml/language.ts",
+    "./yaml/entityLinks": "./src/yaml/entityLinks.ts",
+    "./yaml/previewGutter": "./src/yaml/previewGutter.ts",
+    "./yaml/previewTriggers": "./src/yaml/previewTriggers.ts",
+    "./yaml/entityValues": "./src/yaml/entityValues.ts",
+    "./yaml/completions": "./src/yaml/completions.ts",
+    "./yaml/keyPath": "./src/yaml/keyPath.ts",
+    "./tracker/notes": "./src/tracker/notes.ts",
+    "./tracker/plugin": "./src/tracker/plugin.ts",
+    "./lint": "./src/lint.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/lang-yaml": "^6.1.3",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.34.0",
+    "@lezer/highlight": "^1.2.0",
+    "@lanes/web-shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

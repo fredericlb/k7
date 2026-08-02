@@ -1,0 +1,194 @@
+// entitySchemas.ts — the remaining per-entity shapes, in Zod: clips, sequences, curves,
+// video tracks. Each is a FLAT file keyed by its own filename (clips/kick.yaml has no
+// `id:` — the name is the id), which also rules out one file declaring several ids.
+
+import { z } from "zod";
+import { TIMECODE } from "./trackSchema";
+
+/** A stretch map from the DAW a clip was imported from. */
+export const WarpSchema = z
+  .object({
+    algorithm: z.string().min(1),
+    // [timeline beat, source second], monotonic, at least two points.
+    markers: z.array(z.tuple([z.number(), z.number()])).min(2),
+  })
+  .strict();
+
+const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
+
+/**
+ * `from`/`to` window the SOURCE FILE: the clip plays that slice of it and nothing else, wherever it is placed.
+ *
+ * Written EITHER way, and the spelling picks the meaning:
+ *   from: 0.25      a bare number is SECONDS into the file — tempo-independent, so the trim never moves
+ *   from: "2:0"     a timecode is MUSICAL, converted at the project tempo, for material played to the click
+ *
+ * Both, because both are right for different material. A trimmed field recording wants seconds; a take played
+ * to the click wants "drop the first two bars", and every other time field in a track file is a timecode — so
+ * refusing one of them would only be a rule to memorise. A rack slice's window is the same two words.
+ *
+ * Distinct from a placement's `start`, which is musical and says where on the TIMELINE the clip sits. Trimming
+ * the sample is a property of the material; where it lands is a property of the arrangement — and the extent
+ * belongs here too, so a placement has no length of its own to disagree with (see PlacementSchema).
+ */
+const WindowEdge = z.union([
+  z.number().min(0), // seconds
+  z.string().regex(TIMECODE, "expected seconds (0.25) or a timecode like 2:0"),
+]);
+
+export const AudioClipSchema = z
+  .object({
+    source: z.string().min(1),
+    from: WindowEdge.optional(), // default: the file's start
+    to: WindowEdge.optional(), // default: the file's end
+    warp: WarpSchema.optional(),
+  })
+  .strict()
+  // A backwards window would compile to a clip that plays nothing, which reads as a broken file rather than a
+  // bad number — so it is refused here, where the line can be named. Only checked when both are the same kind:
+  // comparing a timecode against seconds needs the tempo, which the schema has no business knowing.
+  .refine(
+    (c) =>
+      typeof c.to !== "number" || typeof c.from !== "number" || c.to > c.from,
+    { message: "'to' must be greater than 'from'", path: ["to"] },
+  );
+
+export const VideoClipSchema = z
+  .object({ source: z.string().regex(VIDEO_SOURCE) })
+  .strict();
+
+// Audio or video, told apart by the source's extension rather than a discriminant field —
+// which is what #Clip does, and what lets a clip file say only `source:`.
+export const ClipSchema = z.union([VideoClipSchema, AudioClipSchema]);
+
+export const NoteSchema = z
+  .object({
+    t: z.number().min(0), // onset, beats (fractional = microtiming)
+    d: z.number().positive(), // duration, beats
+    k: z.number().int().min(0).max(127), // MIDI key
+    v: z.number().min(0).max(1).optional(), // velocity, default 1
+  })
+  .strict();
+
+/**
+ * A sequence's window, the MIDI counterpart of a clip's `from`/`to`: the part of the notes this sequence IS.
+ *
+ * Timecodes only, and positions — `"1:1"` is the sequence's first beat, `"5:1"` its fifth bar. No bare numbers
+ * here, unlike a clip: a clip's number means SECONDS into a file, and the same spelling meaning beats one folder
+ * over is the kind of rule that is only ever learned by getting it wrong.
+ */
+const SeqEdge = z
+  .string()
+  .regex(TIMECODE, "expected a timecode like 5:1 — a position in the sequence");
+
+export const SequenceSchema = z
+  .object({
+    notes: z.array(NoteSchema),
+    from: SeqEdge.optional(), // default: the first note
+    to: SeqEdge.optional(), // default: the end of the last note
+    // A rack module whose symbols name these notes — the tracker relabels by it.
+    use_rack: z.string().min(1).optional(),
+  })
+  .strict();
+
+const Polarity = z.enum(["unipolar", "bipolar"]);
+
+export const LfoCurveSchema = z
+  .object({
+    type: z.literal("lfo"),
+    polarity: Polarity.optional(),
+    shape: z.enum(["sine", "triangle", "saw", "square"]).optional(),
+    frequency: z.number().positive().optional(), // cycles per bar
+    phase: z.number().min(0).max(1).optional(),
+  })
+  .strict();
+
+export const CustomCurveSchema = z
+  .object({
+    type: z.literal("custom"),
+    polarity: Polarity.optional(),
+    points: z
+      .array(
+        z
+          .object({
+            time: z.string().regex(TIMECODE, "expected a timecode like 2:1:1"),
+            value: z.number(),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+
+export const CurveSchema = z.discriminatedUnion("type", [
+  LfoCurveSchema,
+  CustomCurveSchema,
+]);
+
+const Px = z.number();
+
+export const SquareShapeSchema = z
+  .object({
+    type: z.literal("square"),
+    x: Px.optional(),
+    y: Px.optional(),
+    w: z.number().positive(),
+    h: z.number().positive(),
+    background_color: z.string().optional(),
+  })
+  .strict();
+
+export const CircleShapeSchema = z
+  .object({
+    type: z.literal("circle"),
+    x: Px.optional(),
+    y: Px.optional(),
+    r: z.number().positive(),
+    background_color: z.string().optional(),
+  })
+  .strict();
+
+export const TextShapeSchema = z.looseObject({
+  type: z.literal("text"),
+  content: z.string().min(1),
+});
+
+export const ShapeSchema = z.discriminatedUnion("type", [
+  SquareShapeSchema,
+  CircleShapeSchema,
+  TextShapeSchema,
+]);
+
+export const VideoPlacementSchema = z
+  .object({
+    ref: z.string().min(1),
+    start: z.number().min(0).optional(), // seconds on the timeline
+    length: z.number().min(0).optional(), // 0 == to the end of the source
+    source_from: z.number().min(0).optional(),
+  })
+  .strict();
+
+export const VideoTrackSchema = z
+  .object({
+    name: z.string().optional(),
+    color: z.string().optional(),
+    mute: z.boolean().optional(), // "mute" == hidden; no sound on a video lane
+    kind: z.enum(["video", "shape"]).optional(),
+    x: Px.optional(),
+    y: Px.optional(),
+    w: Px.optional(),
+    h: Px.optional(),
+    clips: z.array(VideoPlacementSchema).optional(), // "video" tracks only
+    shapes: z.array(ShapeSchema).optional(), // "shape" tracks only
+  })
+  .strict();
+
+/** The kinds this file covers, by their folder name — what a loader looks up. */
+export const ENTITY_SCHEMAS = {
+  clips: ClipSchema,
+  sequences: SequenceSchema,
+  curves: CurveSchema,
+  video_tracks: VideoTrackSchema,
+} as const;
+
+export type EntityKind = keyof typeof ENTITY_SCHEMAS;

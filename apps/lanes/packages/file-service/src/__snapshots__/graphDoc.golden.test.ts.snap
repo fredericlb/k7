@@ -1,0 +1,233 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\` to update after an intended change) 1`] = `
+{
+  "chains": {
+    "beat": {
+      "from": "beat",
+      "out": [
+        {
+          "gain": 1,
+          "to": "OUT",
+        },
+      ],
+      "use": [
+        {
+          "category": "instruments",
+          "emits": "audio",
+          "hasNativePluginUI": false,
+          "module": "kit",
+          "params": {},
+          "pluginId": "beat:kit",
+          "stub": false,
+        },
+      ],
+    },
+  },
+  "libraryFiles": [],
+  "modules": {
+    "drumrack": {},
+    "kit": {},
+  },
+  "trackColors": {},
+  "trackSignals": {
+    "beat": "midi",
+  },
+  "tracks": [
+    "beat",
+  ],
+  "videoTracks": [],
+  "warnings": [],
+}
+`;
+
+exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u\` to update after an intended change) 1`] = `
+{
+  "chains": {
+    "melody": {
+      "from": "melody",
+      "out": [
+        {
+          "gain": 1,
+          "to": "OUT",
+        },
+      ],
+      "use": [
+        {
+          "automations": [
+            {
+              "curve": "sweep",
+              "param": "Filter Freq",
+            },
+            {
+              "curve": "wobble",
+              "param": "Osc1 Tune",
+            },
+          ],
+          "category": "instruments",
+          "emits": "audio",
+          "hasNativePluginUI": false,
+          "module": "synth:lead",
+          "params": {
+            "Filter Freq": 90,
+          },
+          "pluginId": "melody:synth:lead",
+          "stub": false,
+          "ui": {
+            "cols": 4,
+            "rows": 2,
+            "widgets": {
+              "cutoff": {
+                "bind": "Filter Freq",
+                "col": 0,
+                "label": "Cutoff",
+                "max": 135.076232,
+                "min": 0,
+                "row": 1,
+                "type": "knob",
+              },
+              "level": {
+                "bind": "Level",
+                "col": 2,
+                "label": "Level",
+                "max": 0,
+                "min": -100,
+                "row": 1,
+                "type": "slider",
+              },
+              "res": {
+                "bind": "Filter Resonance",
+                "col": 1,
+                "label": "Res",
+                "max": 100,
+                "min": 0,
+                "row": 1,
+                "type": "knob",
+              },
+              "title": {
+                "col": 0,
+                "colSpan": 2,
+                "row": 0,
+                "text": "4OSC",
+                "type": "label",
+              },
+            },
+          },
+        },
+      ],
+    },
+    "pad": {
+      "from": "pad",
+      "out": [
+        {
+          "gain": 1,
+          "to": "OUT",
+        },
+      ],
+      "use": [
+        {
+          "category": "instruments",
+          "emits": "audio",
+          "hasNativePluginUI": false,
+          "module": "synth:pad",
+          "params": {
+            "Filter Freq": 40,
+            "Level": -12,
+          },
+          "pluginId": "pad:synth:pad",
+          "stub": false,
+          "ui": {
+            "cols": 4,
+            "rows": 2,
+            "widgets": {
+              "cutoff": {
+                "bind": "Filter Freq",
+                "col": 0,
+                "label": "Cutoff",
+                "max": 135.076232,
+                "min": 0,
+                "row": 1,
+                "type": "knob",
+              },
+              "level": {
+                "bind": "Level",
+                "col": 2,
+                "label": "Level",
+                "max": 0,
+                "min": -100,
+                "row": 1,
+                "type": "slider",
+              },
+              "res": {
+                "bind": "Filter Resonance",
+                "col": 1,
+                "label": "Res",
+                "max": 100,
+                "min": 0,
+                "row": 1,
+                "type": "knob",
+              },
+              "title": {
+                "col": 0,
+                "colSpan": 2,
+                "row": 0,
+                "text": "4OSC",
+                "type": "label",
+              },
+            },
+          },
+        },
+      ],
+    },
+  },
+  "curves": {
+    "sweep": {
+      "type": "custom",
+    },
+    "wobble": {
+      "shape": "sine",
+      "type": "lfo",
+    },
+  },
+  "libraryFiles": [],
+  "modules": {
+    "fourosc": {},
+    "synth": {
+      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
+      "todos": [
+        "Automate the filter cutoff instead of leaving it static",
+        "Try a sub-oscillator an octave down",
+      ],
+    },
+    "synth:lead": {
+      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
+      "todos": [
+        "Automate the filter cutoff instead of leaving it static",
+        "Try a sub-oscillator an octave down",
+      ],
+    },
+    "synth:pad": {
+      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
+      "todos": [
+        "Automate the filter cutoff instead of leaving it static",
+        "Try a sub-oscillator an octave down",
+      ],
+    },
+  },
+  "trackColors": {},
+  "trackSignals": {
+    "kit": "audio",
+    "live": "audio",
+    "melody": "midi",
+    "pad": "midi",
+  },
+  "tracks": [
+    "kit",
+    "live",
+    "melody",
+    "pad",
+  ],
+  "videoTracks": [],
+  "warnings": [],
+}
+`;

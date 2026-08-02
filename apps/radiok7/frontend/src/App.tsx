@@ -1,0 +1,657 @@
+import { acquireMicrophone, RecorderView } from "@radiok7/recorder";
+import { useEffect, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import { api } from "./api";
+import { SessionSourceDialog } from "./components/SessionSourceDialog";
+import { MomentDetailContainer } from "./containers/MomentDetailContainer";
+import { PageDetailContainer } from "./containers/PageDetailContainer";
+import { ReleaseDetailContainer } from "./containers/ReleaseDetailContainer";
+import { SessionDetailContainer } from "./containers/SessionDetailContainer";
+import { SongDetailContainer } from "./containers/SongDetailContainer";
+import { fmtStamp } from "./format";
+import { connectRemoteMic } from "./rtc";
+import type {
+  Envelope,
+  HomeTab,
+  Moment,
+  NavKey,
+  Page,
+  Release,
+  Session,
+  Song,
+  SongTab,
+  User,
+} from "./types";
+import { ExercisesView } from "./views/ExercisesView";
+import { GuitarTuner } from "./views/GuitarTuner";
+import { HeaderView } from "./views/HeaderView";
+import { HomeView } from "./views/HomeView";
+import { LoginView } from "./views/LoginView";
+import { PageFormView } from "./views/PageFormView";
+import { RandomChordsExercise } from "./views/RandomChordsExercise";
+import { ReleaseFormView } from "./views/ReleaseFormView";
+import { RemoteMicView } from "./views/RemoteMicView";
+import { SettingsView } from "./views/SettingsView";
+import { SongFormView } from "./views/SongFormView";
+
+// The in-progress recording, kept independent of the route so the user can
+// browse the app while it runs (collapsed to a bottom bar).
+interface RecordingCtx {
+  session: Session;
+  stream: MediaStream;
+  // Seconds already recorded when resuming a saved session; absent for a
+  // brand-new session. Its presence means "append to the existing take".
+  resumeFrom?: number;
+  // The saved recording's envelope, shown as history behind the new take.
+  baseEnvelope?: Envelope;
+  // Present when the stream comes from a remote device — closing it tears down
+  // the WebRTC/signaling connection once the take is saved or discarded.
+  rtc?: { close: () => void };
+}
+
+// The "songbook" nav tab lives at the `/songs` path (entity-plural naming); all
+// other nav keys map to their own name. These helpers keep the two in sync.
+const TAB_TO_PATH: Record<NavKey, string> = {
+  sessions: "sessions",
+  moments: "moments",
+  releases: "releases",
+  pages: "pages",
+  songbook: "songs",
+  exercices: "exercices",
+};
+
+function tabPath(tab: NavKey): string {
+  return `/${TAB_TO_PATH[tab]}`;
+}
+
+// The home list routes, each with the HomeView tab it selects.
+const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
+  { path: "sessions", tab: "sessions" },
+  { path: "moments", tab: "moments" },
+  { path: "releases", tab: "releases" },
+  { path: "pages", tab: "pages" },
+  { path: "songs", tab: "songbook" },
+];
+
+// Derive which nav item is highlighted from the current pathname.
+function navForPath(pathname: string): NavKey {
+  const seg = pathname.split("/")[1] ?? "";
+  if (seg === "releases") return "releases";
+  if (seg === "pages") return "pages";
+  if (seg === "songs") return "songbook";
+  if (seg === "moments") return "moments";
+  if (seg === "exercices") return "exercices";
+  // sessions, record, settings, and everything else fall back to Sessions.
+  return "sessions";
+}
+
+// --- Route wrappers -------------------------------------------------------
+// These read the URL params and forward them to the existing containers, which
+// already re-load when their id prop changes.
+
+function SessionRoute(props: {
+  allTags: string[];
+  onBack: () => void;
+  onChange: () => void;
+  onResume: (session: Session) => Promise<void>;
+}) {
+  const { id } = useParams();
+  const [sp] = useSearchParams();
+  const t = sp.get("t");
+  return (
+    <SessionDetailContainer
+      key={id}
+      sessionId={id!}
+      seekTo={t != null ? Number(t) : undefined}
+      {...props}
+    />
+  );
+}
+
+function ReleaseRoute(props: { onDeleted: () => void }) {
+  const { id } = useParams();
+  return <ReleaseDetailContainer key={id} releaseId={id!} {...props} />;
+}
+
+function PageRoute(props: {
+  allReleases: Release[];
+  onChange: () => void;
+  onDeleted: () => void;
+}) {
+  const { id } = useParams();
+  return <PageDetailContainer key={id} pageId={id!} {...props} />;
+}
+
+function SongRoute(props: { onChange: () => void; onDeleted: () => void }) {
+  const { id } = useParams();
+  const [sp] = useSearchParams();
+  const tab = sp.get("tab") as SongTab | null;
+  return (
+    <SongDetailContainer
+      key={id}
+      songId={id!}
+      initialTab={tab ?? undefined}
+      {...props}
+    />
+  );
+}
+
+function MomentRoute(props: {
+  onBack: () => void;
+  onDeleted: () => void;
+  onOpenSession: (sessionUid: string, seekTo?: number) => void;
+}) {
+  const { id } = useParams();
+  return <MomentDetailContainer key={id} momentId={id!} {...props} />;
+}
+
+export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [moments, setMoments] = useState<Moment[]>([]);
+  const [recording, setRecording] = useState<RecordingCtx | null>(null);
+  // "New session" source chooser (this device's mic vs. a remote device).
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [remoteAvailable, setRemoteAvailable] = useState<boolean | null>(null);
+  const [sourceBusy, setSourceBusy] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+
+  const refresh = () => api.listSessions().then(setSessions);
+  const refreshReleases = () => api.listReleases().then(setReleases);
+  const refreshPages = () => api.listPages().then(setPages);
+  const refreshSongs = () => api.listSongs().then(setSongs);
+  const refreshMoments = () => api.listMoments().then(setMoments);
+  // Session edits (moments added/edited/deleted, or a session removed) affect the
+  // standalone moments list too, so refresh both together.
+  const refreshSessions = () => {
+    refresh();
+    refreshMoments();
+  };
+
+  useEffect(() => {
+    api
+      .getMe()
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  // While the source chooser is open, keep checking whether a remote device is
+  // available so the option enables as soon as one connects (or reconnects).
+  useEffect(() => {
+    if (!sourceOpen) return;
+    let alive = true;
+    const check = () =>
+      api
+        .rtcRemoteStatus()
+        .then((r) => alive && setRemoteAvailable(r.connected))
+        .catch(() => alive && setRemoteAvailable(false));
+    check();
+    const id = setInterval(check, 2000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [sourceOpen]);
+
+  useEffect(() => {
+    if (user) {
+      refresh();
+      refreshReleases();
+      refreshPages();
+      refreshSongs();
+      refreshMoments();
+    }
+  }, [user]);
+
+  const logout = async () => {
+    await api.logout();
+    setUser(null);
+    setSessions([]);
+    setReleases([]);
+    setPages([]);
+    setSongs([]);
+    setMoments([]);
+    setRecording(null);
+    navigate("/sessions");
+  };
+
+  const handleStartSession = async () => {
+    // Only one recording at a time — bring the user back to the active one.
+    if (recording) {
+      navigate("/record");
+      throw new Error("Finish the current recording first.");
+    }
+    // Ask where the audio should come from; the effect above probes for a
+    // remote device (and keeps re-probing) while the chooser is open.
+    setSourceError(null);
+    setRemoteAvailable(null);
+    setSourceOpen(true);
+  };
+
+  // Create the session once we have a stream and jump into the recorder.
+  const beginSession = async (
+    stream: MediaStream,
+    rtc?: { close: () => void },
+  ) => {
+    // Sessions have no name — they're identified by their recording date/time.
+    const s = await api.createSession();
+    await refresh();
+    setRecording({ session: s, stream, rtc });
+    setSourceOpen(false);
+    navigate("/record");
+  };
+
+  const startLocalSession = async () => {
+    setSourceBusy(true);
+    setSourceError(null);
+    try {
+      const stream = await acquireMicrophone();
+      await beginSession(stream);
+    } catch (err) {
+      setSourceError((err as Error).message);
+    } finally {
+      setSourceBusy(false);
+    }
+  };
+
+  const startRemoteSession = async () => {
+    setSourceBusy(true);
+    setSourceError(null);
+    try {
+      const conn = await connectRemoteMic();
+      try {
+        await beginSession(conn.stream, conn);
+      } catch (err) {
+        conn.close(); // session creation failed — don't leak the connection
+        throw err;
+      }
+    } catch (err) {
+      setSourceError((err as Error).message);
+    } finally {
+      setSourceBusy(false);
+    }
+  };
+
+  const handleResumeSession = async (session: Session) => {
+    if (recording) {
+      navigate("/record");
+      alert("Finish the current recording first.");
+      return;
+    }
+    const stream = await acquireMicrophone();
+    // Refetch so the offset reflects the latest saved duration, and grab the
+    // stored envelope to show the existing recording behind the new take.
+    const fresh = await api.getSession(session.id);
+    const baseEnvelope = fresh.hasRecording
+      ? await api.getEnvelope(session.id).catch(() => undefined)
+      : undefined;
+    setRecording({
+      session: fresh,
+      stream,
+      resumeFrom: fresh.duration,
+      baseEnvelope,
+    });
+    navigate("/record");
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    await api.deleteSession(id);
+    // Its moments survive (now session-less), so refresh that list too.
+    await refresh();
+    refreshMoments();
+    if (location.pathname === `/sessions/${id}`) {
+      navigate("/sessions");
+    }
+  };
+
+  const handleCleanSessions = async (ids: string[]) => {
+    for (const id of ids) await api.deleteSession(id);
+    await refresh();
+    refreshMoments();
+  };
+
+  const handleSaveRecording = async (result: {
+    blob: Blob;
+    envelope: import("./types").Envelope;
+    duration: number;
+    gain: number;
+    annotations: Array<{
+      startSec: number;
+      endSec: number;
+      text: string;
+      tags: string[];
+    }>;
+  }) => {
+    if (!recording) return;
+    const { session, resumeFrom } = recording;
+    const updated =
+      resumeFrom != null
+        ? await api.appendRecording(
+            session.id,
+            result.blob,
+            result.envelope,
+            result.duration,
+            result.gain,
+          )
+        : await api.uploadRecording(
+            session.id,
+            result.blob,
+            result.envelope,
+            result.duration,
+            result.gain,
+          );
+    // When appending, the take's annotations are relative to the new segment —
+    // shift them onto the existing timeline.
+    const offset = resumeFrom ?? 0;
+    for (const a of result.annotations) {
+      await api.addAnnotation(session.id, {
+        ...a,
+        startSec: a.startSec + offset,
+        endSec: a.endSec + offset,
+      });
+    }
+    // Pin the seam where the resumed take begins so it's easy to find later.
+    if (resumeFrom != null) {
+      await api
+        .addMarker(session.id, {
+          atSec: offset,
+          comment: `resumed on ${fmtStamp()}`,
+        })
+        .catch(() => {});
+    }
+    await refresh();
+    refreshMoments();
+    recording.rtc?.close();
+    setRecording(null);
+    navigate(`/sessions/${updated.id}`);
+  };
+
+  const allTags = [...new Set(moments.flatMap((m) => m.tags))].sort();
+  const favoriteSongs = songs.filter((s) => s.favorite);
+
+  const openSong = (s: Song, tab?: SongTab) =>
+    navigate(`/songs/${s.id}${tab ? `?tab=${tab}` : ""}`);
+
+  const handleToggleSongFavorite = async (s: Song) => {
+    await api.updateSong(s.id, { favorite: !s.favorite });
+    refreshSongs();
+  };
+
+  if (!authChecked) {
+    return (
+      <div className="login-screen">
+        <p className="muted">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginView loginUrl={api.loginUrl} />;
+  }
+
+  const activeNav = navForPath(location.pathname);
+
+  // The recorder collapses to a fixed bottom bar whenever the user is not on the
+  // full record view (but a take is still running).
+  const recMinimized = recording != null && location.pathname !== "/record";
+
+  return (
+    <div className="app">
+      <HeaderView
+        activeNav={activeNav}
+        favorites={favoriteSongs}
+        onHome={() => navigate("/sessions")}
+        onNav={(tab) => navigate(tabPath(tab))}
+        onStartSession={handleStartSession}
+        onOpenSong={openSong}
+        onOpenSettings={() => navigate("/settings")}
+      />
+
+      <main className="main">
+        <div className={`main-inner${recMinimized ? " has-rec-bar" : ""}`}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/sessions" replace />} />
+
+            {HOME_ROUTES.map(({ path, tab }) => (
+              <Route
+                key={path}
+                path={`/${path}`}
+                element={
+                  <HomeView
+                    sessions={sessions}
+                    releases={releases}
+                    pages={pages}
+                    songs={songs}
+                    moments={moments}
+                    tab={tab}
+                    onOpen={(s) => navigate(`/sessions/${s.id}`)}
+                    onOpenMoment={(m) => navigate(`/moments/${m.id}`)}
+                    onDeleteSession={handleDeleteSession}
+                    onCleanSessions={handleCleanSessions}
+                    onOpenRelease={(r) => navigate(`/releases/${r.id}`)}
+                    onNewRelease={() => navigate("/releases/new")}
+                    onOpenPage={(p) => navigate(`/pages/${p.id}`)}
+                    onNewPage={() => navigate("/pages/new")}
+                    onOpenSong={openSong}
+                    onNewSong={() => navigate("/songs/new")}
+                    onToggleSongFavorite={handleToggleSongFavorite}
+                  />
+                }
+              />
+            ))}
+
+            <Route
+              path="/sessions/:id"
+              element={
+                <SessionRoute
+                  allTags={allTags}
+                  onBack={() => {
+                    refresh();
+                    navigate("/sessions");
+                  }}
+                  onChange={refreshSessions}
+                  onResume={handleResumeSession}
+                />
+              }
+            />
+
+            <Route
+              path="/releases/new"
+              element={
+                <ReleaseFormView
+                  onSave={async (data) => {
+                    const r = await api.createRelease(data);
+                    await refreshReleases();
+                    navigate(`/releases/${r.id}`);
+                    return r;
+                  }}
+                  onCancel={() => navigate("/releases")}
+                />
+              }
+            />
+
+            <Route
+              path="/releases/:id"
+              element={
+                <ReleaseRoute
+                  onDeleted={() => {
+                    refreshReleases();
+                    navigate("/releases");
+                  }}
+                />
+              }
+            />
+
+            <Route
+              path="/pages/new"
+              element={
+                <PageFormView
+                  releases={releases}
+                  onSave={async (data) => {
+                    const p = await api.createPage(data);
+                    await refreshPages();
+                    navigate(`/pages/${p.id}`);
+                    return p;
+                  }}
+                  onCancel={() => navigate("/pages")}
+                />
+              }
+            />
+
+            <Route
+              path="/pages/:id"
+              element={
+                <PageRoute
+                  allReleases={releases}
+                  onChange={refreshPages}
+                  onDeleted={() => {
+                    refreshPages();
+                    navigate("/pages");
+                  }}
+                />
+              }
+            />
+
+            <Route
+              path="/songs/new"
+              element={
+                <SongFormView
+                  onSave={async (data) => {
+                    const s = await api.createSong(data);
+                    await refreshSongs();
+                    navigate(`/songs/${s.id}`);
+                    return s;
+                  }}
+                  onCancel={() => navigate("/songs")}
+                />
+              }
+            />
+
+            <Route
+              path="/songs/:id"
+              element={
+                <SongRoute
+                  onChange={refreshSongs}
+                  onDeleted={() => {
+                    refreshSongs();
+                    navigate("/songs");
+                  }}
+                />
+              }
+            />
+
+            <Route
+              path="/moments/:id"
+              element={
+                <MomentRoute
+                  onBack={() => navigate("/moments")}
+                  onDeleted={() => {
+                    refreshMoments();
+                    navigate("/moments");
+                  }}
+                  onOpenSession={(sessionUid, seekTo) =>
+                    navigate(
+                      `/sessions/${sessionUid}${
+                        seekTo != null ? `?t=${seekTo}` : ""
+                      }`,
+                    )
+                  }
+                />
+              }
+            />
+
+            <Route
+              path="/exercices"
+              element={
+                <ExercisesView onOpen={(id) => navigate(`/exercices/${id}`)} />
+              }
+            />
+
+            <Route
+              path="/exercices/random-chords"
+              element={
+                <RandomChordsExercise onBack={() => navigate("/exercices")} />
+              }
+            />
+
+            <Route
+              path="/exercices/tuner"
+              element={<GuitarTuner onBack={() => navigate("/exercices")} />}
+            />
+
+            <Route path="/remote" element={<RemoteMicView />} />
+
+            <Route
+              path="/settings"
+              element={
+                <SettingsView
+                  user={user}
+                  onLogout={logout}
+                  onBack={() => navigate("/sessions")}
+                />
+              }
+            />
+
+            {/* `/record` renders nothing here — the recorder is mounted below,
+                outside <Routes>, so it survives navigation. With no take in
+                progress there's nothing to show, so fall back to Sessions.
+                Unknown paths fall back to Sessions too. */}
+            <Route
+              path="/record"
+              element={recording ? null : <Navigate to="/sessions" replace />}
+            />
+            <Route path="*" element={<Navigate to="/sessions" replace />} />
+          </Routes>
+
+          {/* The active recorder is rendered once here — at a stable position so
+              it stays mounted (and keeps recording) as the user navigates. It
+              shows full while the path is /record, else as a bottom bar. */}
+          {recording && (
+            <RecorderView
+              key="active-recorder"
+              session={recording.session}
+              stream={recording.stream}
+              allTags={allTags}
+              baseEnvelope={recording.baseEnvelope}
+              minimized={recMinimized}
+              onExpand={() => navigate("/record")}
+              onSave={handleSaveRecording}
+              onDiscard={() => {
+                recording.rtc?.close();
+                setRecording(null);
+                refresh();
+                navigate("/sessions");
+              }}
+            />
+          )}
+        </div>
+      </main>
+
+      <SessionSourceDialog
+        open={sourceOpen}
+        remoteAvailable={remoteAvailable}
+        busy={sourceBusy}
+        error={sourceError}
+        onLocal={startLocalSession}
+        onRemote={startRemoteSession}
+        onClose={() => setSourceOpen(false)}
+      />
+    </div>
+  );
+}

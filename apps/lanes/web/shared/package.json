@@ -1,0 +1,14 @@
+{
+  "name": "@lanes/web-shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "types": "./types.ts",
+  "exports": {
+    ".": "./types.ts"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "zod": "^4.4.3"
+  }
+}

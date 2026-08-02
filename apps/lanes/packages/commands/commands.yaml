@@ -1,0 +1,540 @@
+# commands.yaml — declarative command definitions (see commandSpec.ts).
+#
+# Each entry maps a command STRING (what you type in the web editor's command bar or
+# after `lanes cmd`) to a feature SID (implemented in commands.ts), plus:
+#   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists now —
+#             the web backend dispatches under it too, so every command runs on both;
+#             the field is kept for when a surface needs its own subset again.
+#   with      fixed leading args passed to the handler
+#   args      trailing user args. Each may carry EITHER `complete:` — a named provider
+#             in commandSpec.ts PROVIDERS, whose values come from the live project —
+#             OR `values: [...]`, a closed set fixed by the command itself. An unknown
+#             provider name is reported at load and fails the test suite.
+#             `type:` (timecode | number | note) shape-checks a SINGLE-TOKEN argument
+#             before the handler runs. An argument that swallows the rest of the line
+#             (a message, a param name with spaces, a JSON payload) carries none.
+#             `hint:` one line on what the argument ACCEPTS, shown beside the field in the
+#             palette. Write one wherever the class's own clue is too vague to act on —
+#             a range, a convention, a payload shape (see CLASS_HINT for the defaults).
+
+# --- tracks / project ---
+# The name is OPTIONAL: `track new audio` still works and picks audio-1, audio-2, … but a
+# track's name is its id and its filename, so naming it up front saves a rename later.
+- command: "track new audio"
+  sid: track.new.audio
+  help: "add an audio track (e.g. track new audio gtr) — named audio-N if you don't say"
+  surfaces: [cli]
+  args: [{ name: name, hint: "the track's id, which is its filename — optional" }]
+- command: "track new midi"
+  sid: track.new.midi
+  help: "add a MIDI track, seeded with an empty sequence (e.g. track new midi lead)"
+  surfaces: [cli]
+  args: [{ name: name, hint: "the track's id, which is its filename — optional" }]
+- { command: "project reload",          sid: project.reload,  help: "reload the song from disk and re-send", surfaces: [cli] }
+# Stages all of the project's changes, commits with the given message, and pushes.
+# The message is the whole rest of the line — no quotes needed (e.g. commit fix melody).
+- command: "project commit"
+  sid: project.commit
+  help: "stage all project changes, commit them, and push (e.g. commit fix the melody)"
+  surfaces: [cli]
+  args: [{ name: message, hint: "the commit message — the rest of the line" }]
+# Fast-forward the repo the project lives in from its remote (git pull --ff-only). Fails
+# cleanly (no half-merge) if the branch has diverged or a dirty file would be clobbered.
+- { command: "project pull", sid: project.pull, help: "pull the latest changes from git (fast-forward only)", surfaces: [cli] }
+
+# --- alternatives (try a direction, keep it or drop it) ---
+# An alternative is a git branch you try a version of the song on, with the branch you
+# left remembered (branch.<name>.lanesParent) so `apply` and `cancel` know where to go
+# back to. The vocabulary is deliberately not git's: you are not branching, you are trying
+# another version and either keeping it or dropping it. The header dropdown lists them.
+- command: "project alternative new"
+  sid: project.alt.new
+  help: "start an alternative from here and switch to it (e.g. project alternative new faster)"
+  surfaces: [cli]
+  args: [{ name: name, hint: "the alternative's name — a git branch name" }]
+# Merges the alternative into the branch it came from and lands you there. The
+# alternative is KEPT: a direction worth reading again costs nothing to leave behind.
+# Work in progress is committed first, as `switch` does — the last edits are usually the
+# ones being applied, and refusing only sent you off to make this same commit by hand.
+- { command: "project alternative apply", sid: project.alt.apply, help: "merge this alternative into the branch it came from", surfaces: [cli] }
+# Throws away everything the alternative changed — tracked edits AND untracked files —
+# and returns to its parent. Destructive; that is what "cancel" means here.
+- { command: "project alternative cancel", sid: project.alt.cancel, help: "discard this alternative's changes and go back", surfaces: [cli] }
+# Work in progress is committed under a generated name rather than stashed: a stash is
+# invisible from the branch you left it on, and switching is how you come back to it.
+- command: "project alternative switch"
+  sid: project.alt.switch
+  help: "move to another alternative, committing any work in progress"
+  surfaces: [cli]
+  args: [{ name: name, complete: alternatives }]
+
+# --- mixer ---
+# `track mute|solo` flip a flag; `gain`/`pan` SET a value. The verbs say which they
+# are — these two never took a state to set, so naming them `mute`/`solo` implied one.
+# `transport toggle` no longer shares a first word with these, so the longest-prefix
+# rule that used to be load-bearing here is not any more.
+- command: "track mute"
+  sid: track.mute
+  help: "toggle a track's (or group's) mute"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+- command: "track solo"
+  sid: track.solo
+  help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+# --- recording ---
+# `rec` toggles a track's record ARM. Unlike mute/solo it writes no file: arming is
+# session state, held only by the engine (which is the one long-lived process the
+# CLI and the web share) and gone when it exits. A track with no input can't be
+# armed — there'd be nothing to capture. Armed tracks record when the transport
+# rolls, so there is no separate "record" verb: you arm, then you play.
+# `track freeze` toggles, like mute and solo. Freezing bounces the track through its own
+# modules and plays that render instead — the CPU cost of an amp sim or a big synth goes
+# away, and comes back the moment you unfreeze. Its gain, pan and sends stay live (they are
+# neutralised in the render, so they apply exactly once), but its material and its modules
+# are locked: they are already in the wav. Unfreezing deletes the render.
+- command: "track freeze"
+  sid: track.freeze
+  help: "toggle a track's freeze — bounce it through its modules and play that instead"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+
+- command: "track rec"
+  sid: track.rec
+  help: "toggle a track's record arm (armed tracks record on play)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+
+- command: "track gain"
+  sid: track.gain
+  help: "set a track's gain in dB on its mixer strip (e.g. track gain melody -6)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: dB, type: number, hint: "-60 … +6 dB — 0 is unity, below -60 is silence" },
+    ]
+- command: "track low"
+  sid: track.low
+  help: "set a track's low band on its mixer strip, in dB"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: dB, type: number, hint: "-18 … +18 dB — 0 is flat" },
+    ]
+- command: "track mid"
+  sid: track.mid
+  help: "set a track's mid band on its mixer strip, in dB"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: dB, type: number, hint: "-18 … +18 dB — 0 is flat" },
+    ]
+- command: "track high"
+  sid: track.high
+  help: "set a track's high band on its mixer strip, in dB"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: dB, type: number, hint: "-18 … +18 dB — 0 is flat" },
+    ]
+- command: "track pan"
+  sid: track.pan
+  help: "set a track's pan, -1 (left) .. 1 (right)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: pos, type: number, hint: "-1 left · 0 centre · 1 right" },
+    ]
+# Peak-normalize an audio file in the active project to -1 dBFS. The argument is a
+# project-relative path (e.g. clips/kick.wav). Writes a <name>_norm.<ext> beside the
+# original.
+- command: "clip normalize"
+  sid: clip.normalize
+  help: "peak-normalize a track's clips together, or one audio file, to -1 dBFS (writes _norm copies)"
+  surfaces: [cli]
+  args: [{ name: target, complete: normalizeTargets }]
+
+# --- sequences ---
+- { command: "sequence list",  sid: sequence.list,   help: "list MIDI sequences", surfaces: [cli] }
+# Add a note to a sequence. `note` is a name (C4, F#3) or a MIDI number; `start`/`end`
+# are beats (end − start is the length). The piano roll's left-click-drag runs this.
+- command: "sequence note new"
+  sid: sequence.addNote
+  help: "add one note to a sequence (e.g. sequence note new melody C4 4 6)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "beats from the start of the sequence" },
+      { name: end, type: number, hint: "beats — end − start is the note's length" },
+    ]
+
+# Append a batch of already-timed notes to a sequence — the commit half of the web
+# editor's MIDI recording. `notes` is a JSON array of {t,d,k,v?} in clip-local beats.
+# Programmatic (the recorder builds the payload), so it's on the CLI mostly for parity.
+- command: "sequence note add"
+  sid: sequence.recordNotes
+  help: "append a batch of already-timed notes to a sequence (JSON payload)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: notes, hint: "JSON [{t,d,k,v?}] — beats from the start of the clip" },
+    ]
+
+# --- curves (automation shapes) ---
+# A curve is a normalised function of song time, living in curves/<id>.yaml, which a
+# module's `automation:` then binds to a parameter. Creating one is its own step because
+# the binding names it: you make the curve, then point a parameter at it.
+- command: "curve new"
+  sid: curve.create
+  help: "create an automation curve (e.g. curve new sweep) — an LFO you then edit"
+  surfaces: [cli]
+  args: [{ name: name, hint: "the curve's id — it is the filename, so letters, digits, '_' and '-'" }]
+
+# --- markers (timeline cue points) ---
+# A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
+# the name is the rest of the line, so it may contain spaces. Stored in project.cue's
+# top-level `markers` map. The timeline draws them and offers "add marker" on right-click.
+- command: "marker new"
+  sid: marker.create
+  help: "add a named timeline marker (e.g. marker new 5:1:1 Chorus)"
+  surfaces: [cli]
+  args:
+    [
+      { name: timecode, type: timecode },
+      { name: name, hint: "the marker's name — the rest of the line, spaces allowed" },
+    ]
+- command: "marker delete"
+  sid: marker.delete
+  help: "remove a marker by name (e.g. marker delete Chorus)"
+  surfaces: [cli]
+  args: [{ name: name, complete: markerNames }]
+
+# --- plugins ---
+- { command: "module list vst",        sid: plugin.list,   help: "list cached VST3 plugins", surfaces: [cli], with: ["vst"] }
+- { command: "module list plugins",    sid: plugin.list,   help: "list all cached plugins", surfaces: [cli] }
+- { command: "module rescan plugins",  sid: plugin.rescan, help: "scan installed plugins and refresh the cache", surfaces: [cli] }
+- command: "module open"
+  sid: plugin.open
+  help: "open a plugin's UI window"
+  surfaces: [cli]
+  args: [{ name: module, complete: modules }]
+
+# --- channel labels (global user preferences) ---
+# Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision,
+# not a per-song edit, so it lives only in the CLI (`lanes config --set
+# interface`, brain/src/config.tsx). These labels just annotate that rig, so they
+# stay on every surface.
+- { command: "channel list", sid: channels.list, help: "show the input/output channel labels", surfaces: [cli] }
+- command: "channel clear"
+  sid: channels.clear
+  help: "remove a channel label (e.g. channel clear in 3+4)"
+  surfaces: [cli]
+  args:
+    [
+      { name: dir, values: [in, out] },
+      { name: chans, hint: "one channel or a pair — 3, or 3+4 for a stereo pair" },
+    ]
+- command: "channel set"
+  sid: channels.set
+  help: "label channels (e.g. channel set in 3+4 synth)"
+  surfaces: [cli]
+  args:
+    [
+      { name: dir, values: [in, out] },
+      { name: chans, hint: "one channel or a pair — 3, or 3+4 for a stereo pair" },
+      { name: label, hint: "what to call them — the rest of the line" },
+    ]
+
+# --- modules / graph ---
+# The module's <category>/<name> is chosen, not derived: a module's folder is its own
+# (it's where its .vstpreset lands), and its category folder decides its kind + ports.
+# `module new drums/kick` scaffolds a BARE module — its category autocompletes. Give it
+# a second argument and it INHERITS that module instead: `module new audio/echo
+# @engine/audio/delay/adt` is how the graph's module picker turns a plugin from the
+# catalogue into something a chain can name. Still no inline plugin/rack — write that
+# (or a different `extends`) by editing the file afterwards.
+- command: "module new"
+  sid: module.create
+  help: "create a module (e.g. module new instruments/bass, or module new audio/echo @engine/audio/delay/adt lead to inherit a plugin and instance it)"
+  surfaces: [cli]
+  args:
+    [
+      { name: "category/name", complete: categories },
+      { name: "extends-ref", complete: baseModules },
+      {
+        name: "instance-name",
+        hint: "optional — names an instance of the new module, used in chains as name:instance",
+      },
+    ]
+# Creates an INSTANCE of an existing module: modules/<category>/<name>/<instance>.cue.
+# The file inherits that folder's module.cue automatically (no `extends` to write), so
+# it is scaffolded empty — state only what the instance changes. Chains reference it as
+# "<name>:<instance>", and it gets its own params and its own <instance>.vstpreset.
+# Also on the web file tree: right-click a module folder -> "New instance…".
+- command: "module instance new"
+  sid: module.instance
+  help: "create an instance of a module (e.g. module instance new instruments/synth lead) — used in chains as synth:lead"
+  surfaces: [cli]
+  args:
+    [
+      { name: "category/name", complete: categories },
+      { name: "instance-name", hint: "used in chains as name:instance" },
+    ]
+# Removes a module and every chain step naming it — the two halves of "delete", because a
+# step pointing at a module that no longer exists is a dangling reference the compiler
+# refuses to load. `synth:lead` deletes just that instance file; `synth` deletes the whole
+# folder, instances included (they cannot outlive their parent).
+- command: "module delete"
+  sid: module.delete
+  help: "delete a module (or one instance) and remove it from every chain (e.g. module delete synth:lead)"
+  surfaces: [cli]
+  args: [{ name: "module", complete: modules }]
+# Swaps what a chain step IS while keeping WHERE it sits. Not delete-then-add: that loses
+# the position. The chains are rewritten first, so no instant passes with a chain naming a
+# module that does not exist. Takes the same arguments as `module new` after the name.
+- command: "module replace"
+  sid: module.replace
+  help: "replace a module in place, keeping its position in every chain (e.g. module replace echo audio/wah @engine/audio/filter/auto-wah)"
+  surfaces: [cli]
+  args:
+    [
+      { name: "module", complete: modules },
+      { name: "category/name", complete: categories },
+      { name: "extends-ref", complete: baseModules },
+    ]
+- command: "module clone"
+  sid: module.clone
+  help: "clone a module folder (e.g. module clone instruments/bass bass2)"
+  surfaces: [cli]
+  args:
+    [
+      { name: "category/name", complete: modules },
+      { name: "newName", hint: "the clone's folder name, in the same category" },
+    ]
+# The shared `_modules` holds what someone WROTE — a jsdsp module's source, a rack's
+# sample map. The engine's plugins are not files: its scan is the catalogue, so there is
+# nothing to populate and nothing to keep in step. `module rescan plugins` refreshes it.
+# A module's widget grid lives in the workspace's `_ui/`, not in the module file — so
+# a rebuilt `_modules` never took hand-drawn work with it, and one panel
+# serves every project that inherits the module. This moves the ones still written inline,
+# in this project AND in the shared `_modules` beside it. Re-runnable: a module with no
+# `ui:` left is already migrated and is skipped.
+- command: "ui migrate"
+  sid: ui.migrate
+  help: "move module `ui:` blocks out into the workspace's _ui/ library (safe to re-run)"
+  surfaces: [cli]
+  args: []
+# chains.yaml used to be a LIST of chains, each naming its source, its modules and its
+# sink. It holds SEGMENTS now — who feeds whom — and the chains are derived from them. A
+# project written before that is refused with a message pointing here. Re-runnable: a file
+# already in the new shape is left alone.
+- command: "chains migrate"
+  sid: chains.migrate
+  help: "rewrite a pre-segments chains.yaml (keeps the old file as chains.yaml.bak)"
+  surfaces: [cli]
+  args: []
+# Sets one plugin param on a module instance, writing it to the module's own .cue.
+# `param` is the engine's display name for it ("Filter Freq"), which is what the
+# module UI's widgets bind to — and what `list params` prints.
+# Bypass a module: it keeps its place in the graph and its params, but passes its input
+# straight through — its name joins chains.yaml's `bypassed` list. Bare, it toggles —
+# that's what the graph's bypass button sends.
+# Longest-prefix dispatch keeps this distinct from "module param".
+# Is a live input audible? A module FIELD, not a param — an io module runs no plugin, so
+# there is nothing to send a value to. The graph's IN panel sends this when its `@monitor`
+# dropdown is picked. It may write the workspace's SHARED file, beside the `channel:` that
+# says which input it is: both describe the desk rather than the song.
+- command: "module monitor"
+  sid: module.monitor
+  help: "set whether a live input is audible (off | auto — audible when armed | on)"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: state, values: [off, auto, on] },
+    ]
+- command: "module bypass"
+  sid: module.bypass
+  help: "bypass a module so it passes sound through untouched (bare: toggles)"
+  surfaces: [cli]
+  args: [{ name: module, complete: modules }, { name: state, values: [on, off] }]
+# Point a module at a file held in the project's shared library (project.library_from — a
+# workspace's is "../_library", holding one folder per kind of asset). The module editor's
+# library dropdown runs one of these when you pick a file; `none` clears it. The file is
+# written and the project reloaded: both plugins read their file when they are built, so
+# there is nothing to patch in the running engine.
+#
+# One command per asset rather than `module asset <kind> …`: the kind names the library
+# folder, the module field AND the command, so there is one word to learn per asset. They
+# share a handler — `with:` tells it which field to write.
+- command: "module ir"
+  sid: module.asset
+  help: "load an impulse response from the project's library into a module (e.g. module ir cab ir/marshall-1960a.wav)"
+  surfaces: [cli]
+  with: ["ir"]
+  args:
+    [
+      { name: module, complete: modules },
+      {
+        name: file,
+        complete: libraryFiles,
+        hint: "an impulse response of the project's library — or `none` to clear it",
+      },
+    ]
+- command: "module nam"
+  sid: module.asset
+  help: "load a Neural Amp Modeler model from the project's library into a module (e.g. module nam amp nam/jcm800.nam)"
+  surfaces: [cli]
+  with: ["nam"]
+  args:
+    [
+      { name: module, complete: modules },
+      {
+        name: file,
+        complete: libraryFiles,
+        hint: "a .nam model of the project's library — or `none` to clear it",
+      },
+    ]
+- command: "module param"
+  sid: module.param
+  help: "set a module's plugin param (e.g. module param synth \"Filter Freq\" 69)"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: param, hint: "the engine's name for it — quote it if it has spaces" },
+      { name: value, hint: "a number, in the param's own units" },
+    ]
+- command: "project inspect graph"
+  sid: graph.inspect
+  help: "show the chain(s) for a track (or the whole graph)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+# Moves one placement (a clip/sequence) on a track from its current timecode to a new one.
+# The event is found by its start position; only that placement's `start:` is rewritten.
+# The optional 4th arg moves the placement to ANOTHER track. Refused unless the two
+# hold the same kind of material (both audio, or both notes) — a MIDI placement on an
+# audio lane compiles to a clip the engine can't play. The timeline's clip drag sends
+# this form when a clip is dropped on a different lane.
+- command: "event move"
+  sid: event.move
+  help: "move a clip/sequence to a new timecode, optionally onto another track of the same type"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: newTimecode, type: timecode },
+      {
+        name: toTrack,
+        complete: tracks,
+        hint: "optional — another track, of the same type as this one",
+      },
+    ]
+# Drops one placement from a track, addressed the same way `event move` addresses it.
+# The clip/sequence itself stays in clips/ — a placement is a reference, and the same
+# material may sit on other tracks. Also on the timeline: right-click an event → Remove.
+# Silence ONE event without removing it — a track's mute, at the level of a placement.
+# The event stays in the file, so its position, length and fades survive being switched
+# off and on. `on|off|toggle`; omit and it toggles. The timeline draws a disabled event
+# dimmed, and the engine skips it.
+- command: "event disable"
+  sid: event.disable
+  help: "silence one event without removing it (e.g. event disable drums 2:1:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: state, hint: "on · off · toggle (default) — 'on' means disabled" },
+    ]
+# Re-time an event: a new start AND a new end, in one edit. The end is a POSITION on the
+# timeline, not a duration — it is what you drag, and what you can read off the ruler.
+# The timeline sends this form when an event's edge handle is dragged.
+- command: "event resize"
+  sid: event.resize
+  help: "re-time an event (e.g. event resize drums 2:1:1 2:1:1 4:1:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: newStart, type: timecode },
+      { name: newEnd, type: timecode, hint: "the event's new END position, not its length" },
+    ]
+- command: "event remove"
+  sid: event.remove
+  help: "remove a clip/sequence placement from a track (e.g. event remove drums 2:1:1)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }, { name: timecode, type: timecode }]
+# Inserts a module (block) into a chain's `use` list, between two adjacent steps in its
+# signal flow — the two ends of one arrow in the Chains graph, a source/module/sink name
+# on each side. Clicking an arrow in the graph pre-writes this with the two ends filled
+# in; you supply the module to drop in.
+# The graph's `+`, in one command: create the module and splice it into the chain. Two
+# commands were two HTTP round trips with a full project recompile wasted between them,
+# for the sole reason that the frontend had to learn the new module's name before it could
+# name it in a chain — a name THIS command picks. Takes the arrow first (before, after) so
+# the instance name still lands last, where a person types it. No chain to name: the two
+# ends ARE an edge in chains.yaml, so there is nothing left to disambiguate.
+- command: "module insert"
+  sid: module.insert
+  help: "create a module and insert it into an arrow in one step (e.g. module insert melody OUT audio/wah @engine/audio/filter/auto-wah w1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: before, hint: "the node the arrow LEAVES — the new module goes after it" },
+      { name: after, hint: "the node the arrow ENTERS — the new module goes before it" },
+      { name: "category/name", complete: categories },
+      { name: "extends-ref", complete: baseModules },
+      { name: "instance-name", hint: "optional — used in chains as name:instance" },
+    ]
+# The same, minus the arrow: create the module and put it in the graph wired to NOTHING.
+# `modules: { x: [] }` is a state chains.yaml can hold, and it is what a right-click on
+# empty canvas asks for — put this here, I'll connect it in a moment.
+- command: "module place"
+  sid: module.place
+  help: "create a module and drop it in the graph, wired to nothing (e.g. module place audio/wah @engine/audio/filter/auto-wah w1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: "category/name", complete: categories },
+      { name: "extends-ref", complete: baseModules },
+      { name: "instance-name", hint: "optional — used in chains as name:instance" },
+    ]
+- command: "chain add"
+  sid: chain.addModule
+  help: "insert an existing module between two nodes (e.g. chain add melody synth reverb)"
+  surfaces: [cli]
+  args:
+    [
+      { name: before, hint: "the node the arrow LEAVES — the module goes after it" },
+      { name: after, hint: "the node the arrow ENTERS — the module goes before it" },
+      { name: module, complete: modules },
+    ]
+- command: "project inspect timeline"
+  sid: timeline.inspect
+  help: "show a track's clips (or the whole arrangement)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+
+# --- transport ---
+- { command: "transport play",   sid: transport.play,   help: "start playback", surfaces: [cli] }
+- { command: "transport stop",   sid: transport.stop,   help: "stop playback", surfaces: [cli] }
+- { command: "transport toggle", sid: transport.toggle, help: "toggle playback", surfaces: [cli] }
+- { command: "transport rewind", sid: transport.rewind, help: "rewind to the start", surfaces: [cli] }
+# The click plays during playback: same sound each beat, emphasised on the first beat
+# of every bar. (It used to be `toggle metronome`, which only resolved because dispatch
+# takes the longest prefix and so beat the bare `toggle`. The namespaces removed that
+# hazard entirely: `toggle` is no longer a head word at all.)
+- { command: "transport metronome", sid: transport.metronome, help: "toggle the metronome (click during playback, bar starts emphasised)", surfaces: [cli] }
+

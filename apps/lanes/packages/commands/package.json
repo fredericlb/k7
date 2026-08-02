@@ -1,0 +1,36 @@
+{
+  "name": "@lanes/commands",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's shared command layer — the command specs, CUE edit operations, timeline, mixing and take-recording helpers shared by the TUI, CLI and web. Consumed as source.",
+  "exports": {
+    "./commands": "./src/commands.ts",
+    "./commandSpec": "./src/commandSpec.ts",
+    "./git": "./src/git.ts",
+    "./timeline": "./src/timeline.ts",
+    "./recordTake": "./src/recordTake.ts",
+    "./render": "./src/render.ts",
+    "./waveform": "./src/waveform.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@lanes/engine-client": "*",
+    "@lanes/song": "*",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

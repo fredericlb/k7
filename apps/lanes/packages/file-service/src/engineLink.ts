@@ -1,0 +1,411 @@
+// engineLink.ts — run the brain's command layer and drive the LOCAL C++ engine, dialled
+// once at boot. There is one engine, so the link and the PatternClock are module-level
+// singletons and `currentWs` tracks whose project it's playing (so a take lands right).
+// Several browser tabs share it — last write wins.
+
+import {
+  argClass,
+  argHint,
+  completions,
+  loadCommandSpecs,
+  runCommand,
+} from "@lanes/commands/commandSpec";
+import type { CommandHost, TransportAction } from "@lanes/commands/commands";
+import type { GitEnv } from "@lanes/commands/git";
+import { addTakeToTrack } from "@lanes/commands/recordTake";
+import {
+  type AudioDeviceInfo,
+  EngineClient,
+  type PluginInfo,
+  type RecordedTake,
+} from "@lanes/engine-client/engineClient";
+import { listBaseModules } from "@lanes/song/loader";
+import { PatternClock } from "@lanes/song/patternClock";
+import { loadPreferences } from "@lanes/song/preferences";
+import type { ProjectDoc, TrackDoc } from "@lanes/song/project";
+import { strudelPatterns } from "@lanes/song/strudel";
+import type { CommandInfo } from "@lanes/web-shared";
+import chokidar from "chokidar";
+import { sshCommand } from "./sshKeys.ts";
+import type { Workspace } from "./workspace.ts";
+
+const SURFACE = "cli" as const; // the one surface the shared registry defines
+const NO_PROJECT =
+  "no active project — select a project in the workspace first";
+const NO_ENGINE = "engine offline — is the C++ engine running on this machine?";
+
+let engine: EngineClient | undefined;
+let engineReady = false;
+let selectedEngineUrl: string | undefined;
+let currentWs: Workspace | null = null; // whose project the engine is playing; recorded takes land here
+
+function wireEngine(e: EngineClient): void {
+  e.on("open", () => {
+    engineReady = true;
+    try {
+      const dev = loadPreferences().audioDevice;
+      if (dev) e.setAudioDevice(dev.name, dev.type);
+    } catch {
+      /* no/invalid preferences — keep the system default */
+    }
+  });
+  e.on("close", () => {
+    engineReady = false;
+    setTimeout(() => {
+      if (engine === e) e.connect();
+    }, 1000);
+  });
+  e.on("wserror", () => {});
+  e.on("state", (s: { playing?: boolean; playhead?: number }) =>
+    patternClock.onState(!!s.playing, Number(s.playhead ?? 0)),
+  );
+  e.on("recorded", onRecorded);
+}
+
+// Dial the local engine, once at boot; a repeat with the same url is a no-op.
+export function setSelectedEngine(url: string): void {
+  if (url === selectedEngineUrl && engine) return;
+  selectedEngineUrl = url;
+  if (engine) {
+    try {
+      engine.close();
+    } catch {
+      /* already closed */
+    }
+  }
+  engineReady = false;
+  const e = new EngineClient(url);
+  wireEngine(e);
+  engine = e;
+  e.connect();
+}
+
+function ensureEngine(): EngineClient | undefined {
+  return engine;
+}
+
+let orbitTracks: TrackDoc[] = [];
+export function strudelOrbitTracks(): TrackDoc[] {
+  return orbitTracks;
+}
+const patternClock = new PatternClock(
+  (doc: ProjectDoc) => ensureEngine()?.sendProject(doc),
+  undefined,
+  (tracks) => {
+    orbitTracks = tracks;
+  },
+);
+
+function loadPatternsFor(ws: Workspace, dir: string): void {
+  patternClock.switchTo(dir);
+  patternClock.setBaseProject(ws.cachedProjectDoc(dir));
+  void patternClock.refreshPatterns(strudelPatterns(dir), dir);
+}
+
+function enginePlugins(
+  fire: (c: EngineClient) => void,
+  out: string[],
+  timeoutMs: number,
+  rescan: boolean,
+): Promise<void> {
+  const c = ensureEngine();
+  if (!c || !engineReady) {
+    out.push(NO_ENGINE);
+    return Promise.resolve();
+  }
+  return new Promise((res) => {
+    const t = setTimeout(res, timeoutMs);
+    c.once("plugins", (plugins: PluginInfo[]) => {
+      clearTimeout(t);
+      if (rescan) out.push(`scanned ${plugins.length} plugin(s)`);
+      else if (!plugins.length)
+        out.push("no plugins cached — run: lanes engine scan");
+      else
+        for (const p of plugins)
+          out.push(
+            `  ${p.role === "instrument" ? "[inst]" : p.role === "midiEffect" ? "[midi]" : "     "} ${p.name}  [${p.format}]  ${p.manufacturer}`,
+          );
+      res();
+    });
+    fire(c);
+  });
+}
+
+function safeBaseModules(dir: string): string[] {
+  try {
+    return listBaseModules(dir);
+  } catch {
+    return [];
+  }
+}
+
+function sendActiveProject(ws: Workspace, p: string): void {
+  try {
+    loadPatternsFor(ws, p);
+  } catch {
+    /* malformed project — the timeline/graph endpoints surface the error */
+  }
+}
+
+let strudelWatcher: ReturnType<typeof chokidar.watch> | null = null;
+// Close the strudel watcher and WAIT for the OS to release its handle: on Windows an open one makes the project
+// folder un-renameable (EPERM), so deleteProject awaits this before recycling it.
+async function closeStrudelWatcher(): Promise<void> {
+  if (!strudelWatcher) return;
+  const prev = strudelWatcher;
+  strudelWatcher = null;
+  try {
+    await prev.close();
+  } catch {
+    /* already closing */
+  }
+}
+function watchStrudel(dir: string | null): void {
+  if (strudelWatcher) {
+    void closeStrudelWatcher(); // switching projects: the old handle can close in the background
+  }
+  if (!dir) return;
+  const onChange = (p: string): void => {
+    if (p.endsWith(".strudel"))
+      void patternClock.refreshPatterns(strudelPatterns(dir), dir);
+  };
+  strudelWatcher = chokidar
+    .watch(dir, { ignoreInitial: true })
+    .on("add", onChange)
+    .on("change", onChange)
+    .on("unlink", onChange)
+    .on("error", () => {});
+}
+
+// The project the engine is currently serving.
+let engineProject: string | null = null;
+
+// Point the engine at the active project and send it; switching to a DIFFERENT project flushes it first.
+export function startEngineForActive(ws: Workspace): void {
+  const p = ws.activeProjectPath();
+  if (!p) return;
+  const switching = engineProject !== null && p !== engineProject;
+  engineProject = p;
+  currentWs = ws;
+  watchStrudel(p);
+  if (switching) ensureEngine()?.flush();
+  sendActiveProject(ws, p);
+}
+
+// Recompile from disk and push — the explicit reload an out-of-band edit needs, since write() only invalidates.
+export function reloadActiveProject(ws: Workspace): void {
+  ws.invalidateProjectDoc();
+  startEngineForActive(ws);
+}
+
+// Speculatively load the persisted active project as soon as the workspace is known, so instantiating plugins
+// overlaps the browser's startup. Only while the engine is IDLE: /workspace is polled, and two workspaces
+// re-asserting on a poll would fight over the one shared engine.
+export function prewarmEngineForActive(ws: Workspace): void {
+  if (engineProject !== null) return; // engine already serving a project — leave it to /open
+  startEngineForActive(ws);
+}
+
+// Unload: stop, flush and forget the pointers, so a left workspace neither plays nor catches a recorded take.
+export async function unloadEngine(): Promise<void> {
+  const e = ensureEngine();
+  if (e) {
+    try {
+      e.transport("stop");
+      e.flush();
+    } catch {
+      /* engine offline — nothing to unload */
+    }
+  }
+  engineProject = null;
+  currentWs = null;
+  // Await the watcher close: a caller about to rename or delete must not race the OS releasing the handle.
+  await closeStrudelWatcher();
+}
+
+// Unload ONLY if the engine is serving `projectAbs` — unconditionally would stop a project another tab is driving.
+export async function unloadEngineIfServing(
+  projectAbs: string,
+): Promise<boolean> {
+  if (engineProject !== projectAbs) return false;
+  await unloadEngine();
+  return true;
+}
+
+// Audition a file over [start, start+length) seconds; a no-op when the engine is offline — previews are extras.
+export function enginePreview(
+  file: string,
+  start: number,
+  length: number,
+): void {
+  ensureEngine()?.preview(file, start, length);
+}
+
+function onRecorded(take: RecordedTake): void {
+  const ws = currentWs;
+  const dir = ws?.activeProjectPath();
+  if (!ws || !dir) return;
+  try {
+    const id = addTakeToTrack(dir, ws.cachedProjectDoc(dir), take);
+    ws.invalidateProjectDoc();
+    loadPatternsFor(ws, dir);
+    console.log(`[rec] ${take.track}: added clip ${id}`);
+  } catch (e) {
+    console.error(
+      `[rec] ${take.track}: recorded ${take.file} but could not add it to the track: ${(e as Error).message}`,
+    );
+  }
+}
+
+// Pin git to this user's deploy key — the one the workspace was cloned with — so push/pull authenticate as them.
+// GIT_TERMINAL_PROMPT=0 fails rather than hanging. The global config stays: a commit needs its user.name/email.
+export function webGitEnv(userEmail?: string): GitEnv {
+  return userEmail
+    ? { GIT_SSH_COMMAND: sshCommand(userEmail), GIT_TERMINAL_PROMPT: "0" }
+    : undefined;
+}
+
+function makeHost(
+  ws: Workspace,
+  out: string[],
+  userEmail?: string,
+): CommandHost {
+  const dir = ws.activeProjectPath();
+  const requireDir = (): string => {
+    if (!dir) throw new Error(NO_PROJECT);
+    return dir;
+  };
+  // The module vocabulary reads every module file (~1s), and only `create module` needs it — so it is a memoized
+  // getter, loaded at most once per request and not at all for a mixer move.
+  let baseModuleCache: string[] | undefined;
+  return {
+    songPath: dir ?? "",
+    project: () => ws.cachedProjectDoc(requireDir()),
+    get baseModules(): string[] {
+      return (baseModuleCache ??= dir ? safeBaseModules(dir) : []);
+    },
+    log: (lines) => out.push(...lines),
+    reload: () => {
+      try {
+        ws.invalidateProjectDoc();
+        loadPatternsFor(ws, requireDir());
+      } catch (e) {
+        out.push(`reload error: ${(e as Error).message}`);
+      }
+    },
+    transport: (a: TransportAction) => ensureEngine()?.transport(a),
+    arm: (track) =>
+      new Promise<boolean | undefined>((res) => {
+        const c = ensureEngine();
+        if (!c || !engineReady) {
+          out.push(NO_ENGINE);
+          return res(undefined);
+        }
+        const t = setTimeout(() => {
+          out.push("engine did not answer the arm");
+          res(undefined);
+        }, 2000);
+        const done = (v?: boolean) => {
+          clearTimeout(t);
+          res(v);
+        };
+        c.once("armed", (a: { track: string; armed: boolean }) =>
+          done(a.armed),
+        );
+        c.once("engineError", (m: string) => {
+          out.push(m);
+          done(undefined);
+        });
+        c.arm(track);
+      }),
+    applyProject: (p) => {
+      ws.setCachedProjectDoc(requireDir(), p);
+      patternClock.setBaseProject(p);
+    },
+    sendProject: (p) => patternClock.setBaseProject(p),
+    // Say so when there is nothing to ask: the caller reports "opening…" either way, so silence reads as a dead button.
+    showNativePluginUI: (id) => {
+      const e = ensureEngine();
+      if (!e) out.push(NO_ENGINE);
+      else e.showNativePluginUI(id);
+    },
+    listPlugins: (filter) =>
+      enginePlugins((c) => c.listPlugins(filter), out, 4000, false),
+    rescanPlugins: (force) =>
+      enginePlugins((c) => c.rescanPlugins(force), out, 60000, true),
+    getPlugins: (filter) =>
+      new Promise<PluginInfo[]>((res) => {
+        const c = ensureEngine();
+        if (!c || !engineReady) {
+          res([]);
+          return;
+        }
+        const t = setTimeout(() => res([]), 4000);
+        c.once("plugins", (plugins: PluginInfo[]) => {
+          clearTimeout(t);
+          res(plugins);
+        });
+        c.listPlugins(filter);
+      }),
+    getAudioDevices: () =>
+      new Promise<AudioDeviceInfo[]>((res) => {
+        const c = ensureEngine();
+        if (!c || !engineReady) {
+          res([]);
+          return;
+        }
+        const t = setTimeout(() => res([]), 4000);
+        c.once("audioDevices", (devices: AudioDeviceInfo[]) => {
+          clearTimeout(t);
+          res(devices);
+        });
+        c.listAudioDevices();
+      }),
+    gitEnv: webGitEnv(userEmail),
+    // Whole-repo git runs at the workspace root — a workspace is one cloned repo — so it works with no project open.
+    repoDir: ws.root,
+  };
+}
+
+// Commands that need no active project: the rig preferences, and the whole-repo git ones.
+const GLOBAL_COMMAND = /^(channels|channel|audio|commit|pull)\b/;
+
+export async function runWebCommand(
+  ws: Workspace,
+  line: string,
+  userEmail?: string,
+): Promise<string[]> {
+  const out: string[] = [];
+  if (!ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim()))
+    return [NO_PROJECT];
+  try {
+    await runCommand(line, makeHost(ws, out, userEmail), SURFACE);
+  } catch (e) {
+    out.push(`error: ${(e as Error).message}`);
+  }
+  return out;
+}
+
+export function webCompletions(ws: Workspace, line: string): string[] {
+  try {
+    return completions(line, makeHost(ws, []), SURFACE);
+  } catch {
+    return [];
+  }
+}
+
+export function webCommandList(): CommandInfo[] {
+  return loadCommandSpecs()
+    .filter((c) => c.surfaces.includes(SURFACE))
+    .map((c) => ({
+      command: c.command,
+      help: c.help,
+      // The trailing user args in order, each with the class of thing it names, so the palette can colour its field.
+      args:
+        c.args?.map((a) => ({
+          name: a.name,
+          kind: argClass(a),
+          hint: argHint(a),
+        })) ?? [],
+    }));
+}

@@ -1,0 +1,12 @@
+# A RACK instrument: a note -> audio-clip sampler (type: "rack"), not a plugin. A rack
+# maps a short symbol (BD, SN, HH) to a MIDI note + an audio clip; when the track's MIDI
+# plays that note, the clip fires. A base module may ship default sounds and a module
+# that extends it (see modules/instruments/kit) adds or overrides them per symbol — so
+# the effective rack is the merge of the two. Here the base ships a default kick.
+type: rack
+rack:
+  rack_type: samples
+  symbols:
+    BD:
+      note: 36
+      clip: kick

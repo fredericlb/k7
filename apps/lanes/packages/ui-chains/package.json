@@ -1,0 +1,27 @@
+{
+  "name": "@lanes/ui-chains",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's routing-graph engine \u2014 compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
+  "exports": {
+    "./graph": "./src/graph.ts",
+    "./cables": "./src/cables.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^1.1.8",
+    "@lanes/web-shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

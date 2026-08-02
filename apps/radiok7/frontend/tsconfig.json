@@ -1,0 +1,7 @@
+{
+  "extends": "@frediverse/tsconfig/react.json",
+  "compilerOptions": {
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

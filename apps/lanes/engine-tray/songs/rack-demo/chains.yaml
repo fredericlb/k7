@@ -1,0 +1,10 @@
+# The signal graph, as SEGMENTS: each track and each module says where its signal
+# goes next. The chains are DERIVED by following the arrows — a run breaks where the
+# signal splits, and where two signals meet (which is what a bus is).
+#
+# `bypassed` lists the modules the signal passes through untouched.
+
+tracks:
+  beat: [ kit ]
+modules:
+  kit: [ OUT ]

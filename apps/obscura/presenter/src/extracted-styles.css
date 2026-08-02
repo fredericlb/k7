@@ -1,0 +1,245 @@
+/* Ported verbatim from the presenter's Vue components (#app → #root):
+   App.vue globals, PresenterView.vue gates, Game2D.vue overlay styles,
+   and the shared LoginGate/AuthBadge styling. */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0f0c29;
+}
+
+/* ─── from PresenterView.vue ─── */
+.auth-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f0c29;
+  font-family: "Press Start 2P", cursive;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #00ffff;
+  text-shadow: 0 0 8px #00ffff;
+}
+.auth-denied {
+  color: #ff3366;
+  text-shadow: 0 0 8px #ff3366;
+}
+
+/* ─── from Game2D.vue ─── */
+.game-wrap {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #0f0c29;
+}
+
+.game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.crt-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.04) 0px,
+    rgba(0, 0, 0, 0.04) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.crt-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 52%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 12, 41, 0.88);
+  pointer-events: none;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 420px;
+}
+
+.loading-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: #00ffff;
+  text-shadow: 0 0 12px #00ffff;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.progress-bar-outer {
+  width: 100%;
+  height: 16px;
+  border: 2px solid #ff00ff;
+  background: transparent;
+  box-shadow: 0 0 8px #ff00ff;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #ff00ff;
+  box-shadow: 0 0 10px #ff00ff, inset 0 0 6px rgba(255, 255, 255, 0.3);
+  transition: width 0.15s ease-out;
+}
+
+.loading-detail {
+  font-family: "Press Start 2P", cursive;
+  font-size: 9px;
+  color: #ffff00;
+  text-shadow: 0 0 6px #ffff00;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+.waiting-remote {
+  position: absolute;
+  bottom: 20px;
+  right: 24px;
+  z-index: 30;
+  font-family: "Press Start 2P", cursive;
+  font-size: 10px;
+  color: #00ffff;
+  text-shadow: 0 0 8px #00ffff;
+  letter-spacing: 2px;
+  opacity: 0.8;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* ─── from shared LoginGate.vue ─── */
+.login-gate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a0b2e 50%, #0f0c29 100%);
+  z-index: 9999;
+}
+.login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 36px 28px;
+  border: 2px solid #00ffff;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 24px rgba(0, 255, 255, 0.25);
+}
+/* Splash wordmark: the shared display face, sized up to the ~32px Faster One
+   needs to stay legible. The neon glow is obscura's own and stays. */
+.login-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: #00ffff;
+  text-shadow: 0 0 10px #00ffff;
+}
+.login-msg {
+  font-family: "Press Start 2P", cursive;
+  font-size: 9px;
+  color: #ff4488;
+  text-shadow: 0 0 6px #ff4488;
+  letter-spacing: 1px;
+  text-align: center;
+}
+.login-btn {
+  padding: 14px 28px;
+  font-family: "Press Start 2P", cursive;
+  font-size: 12px;
+  color: #00ff88;
+  background: transparent;
+  border: 2px solid #00ff88;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.35);
+  cursor: pointer;
+  letter-spacing: 4px;
+  border-radius: 6px;
+}
+.login-btn:hover {
+  background: rgba(0, 255, 136, 0.15);
+}
+
+/* ─── from shared AuthBadge.vue ─── */
+.auth-badge {
+  position: fixed;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  font-family: "Press Start 2P", cursive;
+  font-size: 8px;
+  color: #00ffff;
+  letter-spacing: 1px;
+  z-index: 9999;
+}
+.auth-user-icon {
+  width: 11px;
+  height: 11px;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 3px #00ffff);
+}
+.auth-name { text-shadow: 0 0 4px #00ffff; }
+.auth-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  background: transparent;
+  border: 1px solid #ff4488;
+  color: #ff4488;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 0;
+}
+.auth-logout-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.auth-logout:hover { background: rgba(255, 68, 136, 0.15); }

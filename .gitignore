@@ -1,0 +1,34 @@
+node_modules/
+.turbo/
+dist/
+storybook-static/
+
+# `turbo prune` output (the Docker deps stage generates this inside the image)
+out/
+
+# Per-build-machine Docker revision counters written by build-images.sh
+.docker-revision*
+
+# macOS junk (AppleDouble resource forks + Finder metadata)
+._*
+.DS_Store
+
+# TypeScript incremental-build state (tsc -b)
+*.tsbuildinfo
+**/tsconfig.tsbuildinfo
+
+# lanes engine daemon log (written beside a project / the CLI root at runtime)
+.lanes-engine.log
+
+# Real config for every service (see env.example.yaml). Secrets — never commit.
+env.yaml
+
+# Claude Code's workspace: agent settings, granted permissions, scratch
+# worktrees. Local to each machine and regenerated on demand — never committed.
+.claude/
+
+# design-sync tooling artifacts (bundles + captured previews). Generated, large,
+# and not imported by any app code.
+.design-sync/
+.ds-sync/
+ds-bundle/

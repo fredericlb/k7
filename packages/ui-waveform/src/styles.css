@@ -1,0 +1,33 @@
+/* Waveform wrapper + marker pins. Colours come from CSS variables the host app
+   defines (--surface, --border). */
+
+.waveform-wrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0;
+  background: var(--surface);
+}
+/* Interactive marker pin overlaid on the waveform (teal, matching its line). */
+.waveform-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 1px 3px 2px;
+  margin: 0;
+  border: none;
+  background: rgba(45, 212, 191, 0.95);
+  border-radius: 0 0 5px 5px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 3;
+}
+.waveform-marker:hover {
+  background: rgba(45, 212, 191, 1);
+}
+.waveform-marker-flag {
+  filter: grayscale(1) brightness(3);
+}

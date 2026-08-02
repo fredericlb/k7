@@ -1,0 +1,19 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
+  "extends": ["./commons/biome.base.json"],
+  "files": {
+    "includes": [
+      "!commons/**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.turbo",
+      "!**/storybook-static",
+      "!**/package-lock.json",
+      "!**/*.tsbuildinfo",
+      "!**/out",
+      "!**/*.min.js",
+      "!**/*.css",
+      "!apps/lanes/engine"
+    ]
+  }
+}

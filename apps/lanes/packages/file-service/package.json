@@ -1,0 +1,38 @@
+{
+  "name": "@lanes/file-service",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's engine-side file service. Runs on the engine's machine, owns ~/.lanes/root/<userSlug>/<workspace>, and serves workspaces + all file operations to the browser directly (the C++ engine stays file-free). Consumed as source; run under tsx.",
+  "main": "src/server.ts",
+  "bin": {
+    "lanes-file-service": "./src/server.ts"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lanes/song": "*",
+    "@lanes/commands": "*",
+    "@lanes/engine-client": "*",
+    "@lanes/engine-host": "*",
+    "@lanes/translator": "*",
+    "@frediverse/http": "*",
+    "@lanes/web-shared": "*",
+    "chokidar": "^3.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

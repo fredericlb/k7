@@ -1,0 +1,4 @@
+type: single
+contentType: sequences
+clips:
+  - { ref: beat, start: "1:1:1" }

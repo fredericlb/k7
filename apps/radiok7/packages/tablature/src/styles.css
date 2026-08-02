@@ -1,0 +1,88 @@
+/* Tablature (SVG renderer) styles. Colours are pulled from CSS variables the
+   host app defines (--surface-2, --border, --muted, --text, --accent, --amber);
+   the library ships the layout, the app supplies the theme. */
+
+.tab-sheet {
+  width: 100%;
+  min-height: 60vh;
+  margin: 12px 0 0;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+/* Each tab system scrolls horizontally on its own if it's wider than the page. */
+.tab-system {
+  overflow-x: auto;
+  margin: 4px 0;
+}
+.tab-system svg {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 11px;
+}
+.tab-string {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.tab-bar {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.tab-fret {
+  fill: var(--text);
+  font-weight: 600;
+}
+.tab-technique {
+  fill: var(--muted);
+}
+.tab-label {
+  fill: var(--accent);
+  font-weight: 700;
+}
+/* Masks the string line behind a glyph so fret numbers stay legible. */
+.tab-mask {
+  fill: var(--surface-2);
+}
+
+/* Collapsible header (title/tuning/legend before the first tab system). */
+.tab-header {
+  margin-bottom: 8px;
+}
+.tab-header-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tab-header-toggle:hover {
+  color: var(--text);
+}
+.tab-header-body {
+  margin-top: 6px;
+}
+
+.tab-section {
+  margin: 14px 0 4px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.tab-textline {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+.tab-empty {
+  height: 0.7em;
+}

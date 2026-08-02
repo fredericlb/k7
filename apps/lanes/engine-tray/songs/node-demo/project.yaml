@@ -1,0 +1,9 @@
+project:
+  name: node-demo
+  tempo: 120
+  sampleRate: 48000
+  timeSignature: 4/4
+  modules_from: []
+  video: false
+  layers: []
+markers: {}

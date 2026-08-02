@@ -1,0 +1,154 @@
+# lanes CI.
+#
+# Scoped to apps/lanes deliberately. `turbo run test` across the whole repo is 62
+# tasks over eight apps; this is 14. A CI that is red on arrival for reasons nobody on
+# this change caused is a CI people learn to ignore — so it starts narrow and green.
+# Widening it is one filter per job.
+#
+# Three jobs, and only two of them can fail the build:
+#
+#   js    — the 272 vitest tests plus typechecking. The reason this file exists.
+#   rust  — `cargo check`/`cargo test` on the tray. Needs NO C++ engine, no Go, and no
+#           Node download: tauri_build only checks that the sidecar files EXIST, so the
+#           job stubs them (verified — empty placeholders satisfy it).
+#   lint  — informational. Biome currently reports 157 errors in apps/lanes; gating on
+#           that would block every PR on a pre-existing backlog. It runs so the number is
+#           visible and can be driven down. Flip `continue-on-error` when it reaches zero.
+#
+# Not included, on purpose: `cargo fmt --check` (pre-existing diffs in build.rs would
+# make it red on arrival, same reasoning as lint) and any job that builds the C++ engine
+# — that belongs in a release workflow, not on every push.
+
+name: lanes
+
+# The two path lists are duplicated rather than shared with a YAML anchor: GitHub
+# Actions does not support anchors/aliases in workflow files.
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/lanes/**"
+      - "package-lock.json"
+      - "turbo.json"
+      - ".github/workflows/lanes.yml"
+  pull_request:
+    paths:
+      - "apps/lanes/**"
+      - "package-lock.json"
+      - "turbo.json"
+      - ".github/workflows/lanes.yml"
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: lanes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    name: tests + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc # 22 — the line the vendored runtime is on (v22.23.1)
+          cache: npm
+
+      # The whole monorepo, because turbo needs the workspace links to resolve
+      # @lanes/* as source. Cached by setup-node on package-lock.json.
+      - run: npm ci
+
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      # engine-tray is excluded from BOTH turbo steps: it is a workspace, but its
+      # `build` is `tauri build` — a full release bundle needing the C++ engine and a
+      # vendored Node. The `rust` job below is what covers the tray.
+      - name: test
+        run: npx turbo run test --filter="./apps/lanes/**" --filter="!@lanes/engine-tray"
+
+      # `build` is `tsc --noEmit` for every package; for web/frontend it is a real
+      # `vite build && tsc --noEmit`, which is a stronger gate and worth the minute.
+      - name: typecheck + build
+        run: npx turbo run build --filter="./apps/lanes/**" --filter="!@lanes/engine-tray"
+
+      # web/backend has only a `typecheck` script — no `build` — so turbo covers it in
+      # neither step. Run it directly rather than adding a script to its package.json
+      # purely to satisfy CI.
+      - name: typecheck web/backend
+        working-directory: apps/lanes/web/backend
+        run: npx tsc --noEmit
+
+  rust:
+    name: tray (cargo)
+    # windows-latest, not ubuntu: this app ships on Windows, the toolchain it needs is
+    # MSVC (never -gnu), and a Linux runner would additionally need the whole webkit2gtk
+    # apt set for a tray app that draws no web content.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/lanes/engine-tray/src-tauri
+
+      # tauri_build refuses to build when an `externalBin` sidecar is missing, errors on a
+      # `resources` glob that matches nothing, and requires `frontendDist` to exist. All
+      # three checks are existence-only, so empty files satisfy them — which is what lets
+      # this job skip the C++ engine build, the Go sidecar and the ~87 MB Node download.
+      #
+      # Nothing here is executed. The real artifacts are staged by
+      # `node scripts/build-engine.mjs --sidecar-only`, which is what a developer and the
+      # release build run.
+      #
+      # `engine-tray/dist/` is the odd one out: it holds a 4-line placeholder page (the
+      # tray opens no windows) which is GITIGNORED and untracked, so it is absent from
+      # every fresh clone — not just CI. Committing it would let anyone check out the
+      # repo and build the tray; until then, this recreates it.
+      - name: stub the sidecars, resources and frontendDist
+        shell: bash
+        working-directory: apps/lanes/engine-tray
+        run: |
+          set -euo pipefail
+          mkdir -p src-tauri/binaries src-tauri/resources/songs dist
+          for name in lanes-engine node cue lanes-cue; do
+            : > "src-tauri/binaries/${name}-x86_64-pc-windows-msvc.exe"
+          done
+          : > src-tauri/resources/engine-host.mjs
+          : > src-tauri/resources/file-service.mjs
+          [ -f dist/index.html ] || printf '<!doctype html><html><head><title>lanes engine tray</title></head><body></body></html>\n' > dist/index.html
+
+      - name: cargo check
+        working-directory: apps/lanes/engine-tray/src-tauri
+        run: cargo check --all-targets
+
+      - name: cargo test
+        working-directory: apps/lanes/engine-tray/src-tauri
+        run: cargo test
+
+  lint:
+    name: biome (informational)
+    runs-on: ubuntu-latest
+    # See the header: 157 pre-existing errors. This reports, it does not gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx biome check apps/lanes

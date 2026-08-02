@@ -1,0 +1,9 @@
+# Rust build output
+src-tauri/target/
+# Tauri-generated schemas/capabilities cache
+src-tauri/gen/
+# The engine sidecar staged by `npm run engine:build` (a copy of the built engine,
+# named with the host target triple so Tauri bundles it into the app).
+src-tauri/binaries/
+# The file-service bundle produced by `npm run engine:build` (esbuild output).
+src-tauri/resources/

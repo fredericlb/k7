@@ -1,0 +1,10 @@
+{
+  "name": "@lanes/engine-protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "types": "./types.ts",
+  "exports": {
+    ".": "./types.ts"
+  }
+}

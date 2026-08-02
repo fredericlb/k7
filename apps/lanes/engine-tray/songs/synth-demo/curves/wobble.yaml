@@ -1,0 +1,5 @@
+# A one-cycle-per-bar sine swinging -1..1 — a vibrato / auto-pan style modulator.
+
+type: lfo
+polarity: bipolar
+frequency: 1

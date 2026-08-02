@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "test": {},
+    "//#lint": {
+      "outputs": []
+    },
+    "//#storybook": {
+      "cache": false,
+      "persistent": true
+    },
+    "//#build-storybook": {
+      "outputs": ["storybook-static/**"]
+    }
+  },
+  "concurrency": "22"
+}

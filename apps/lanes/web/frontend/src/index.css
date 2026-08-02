@@ -1,0 +1,28 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Shared design tokens (palette + radii) — keeps lanes/web in sync with the
+   other frediverse apps. */
+@import "@frediverse/ui/theme.css";
+
+/* @frediverse/ui is consumed as source OUTSIDE this app tree, so Tailwind v4 must be
+   told to scan it to generate the component utility classes.
+   FIVE levels up, not four: this app nests one deeper than the other frediverse
+   frontends (apps/lanes/web/frontend/src, not apps/<app>/frontend/src). Tailwind
+   ignores a @source path that doesn't exist WITHOUT warning, so getting this wrong
+   silently drops every design-system class that the app's own source doesn't also
+   happen to use — the component still renders, just unstyled. */
+@source "../../../../../packages/ui/src";
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--sh-background);
+    color: var(--sh-foreground);
+  }
+}

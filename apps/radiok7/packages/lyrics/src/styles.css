@@ -1,0 +1,93 @@
+/* Chord sheet (formatted lyrics) styles. Colours come from CSS variables the
+   host app defines (--surface-2, --border, --text, --accent, --accent-soft,
+   --amber); the library ships layout, the app supplies the theme. */
+
+/* Container mirrors a monospace text box, with extra line-height so stacked
+   chord-over-lyric columns have room to breathe. */
+.cs-sheet {
+  width: 100%;
+  min-height: 60vh;
+  margin: 8px 0 0;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 4;
+  overflow: auto;
+}
+
+/* A "chords above lyrics" line keeps its original column alignment. */
+.cs-chordline {
+  white-space: pre;
+  min-height: 1.2em;
+}
+
+/* Section label, e.g. [Chorus] / (Bridge). */
+.cs-section {
+  margin: 14px 0 4px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.cs-section:first-child {
+  margin-top: 0;
+}
+
+/* Chord symbols, in both chord-lines and stacked inline columns. */
+.cs-chord {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Lyric text. */
+.cs-lyric {
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+/* A lyric line that may hold stacked chord columns. */
+.cs-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  min-height: 1.2em;
+}
+
+/* Inline chord: chord stacked directly above the word it lands on. */
+.cs-inline {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.cs-inline .cs-chord {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+/* Blank line between blocks. */
+.cs-empty {
+  height: 0.9em;
+}
+
+/* Clickable chord token in the sheet. */
+.cs-chord-btn {
+  background: none;
+  border: 0;
+  padding: 0 1px;
+  margin: 0;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.cs-chord-btn:hover {
+  background: var(--accent-soft);
+}

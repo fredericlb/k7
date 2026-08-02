@@ -1,0 +1,35 @@
+{
+  "name": "@lanes/engine-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's engine client \u2014 drives the C++ audio engine over the WebSocket protocol and manages the local engine daemon. Consumed as source.",
+  "exports": {
+    "./engineClient": "./src/engineClient.ts",
+    "./engineControl": "./src/engineControl.ts",
+    "./engineDaemon": "./src/engineDaemon.ts",
+    "./engineBinary": "./src/engineBinary.ts",
+    "./pluginCache": "./src/pluginCache.ts",
+    "./paths": "./src/paths.ts",
+    "./processTree": "./src/processTree.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@lanes/engine-protocol": "*",
+    "@lanes/song": "*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2"
+  }
+}

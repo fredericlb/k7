@@ -1,0 +1,61 @@
+# studio's dev sites. Site blocks ONLY — the global options block lives in
+# commons/caddy/global.caddy, because only one may exist per Caddyfile and one
+# Caddy serves both monorepos. `npm run caddy` merges this with phare's.
+
+rec.test {
+	tls internal
+
+	@backend path /api/* /auth/* /rtc*
+	reverse_proxy @backend 127.0.0.1:8787
+
+	reverse_proxy 127.0.0.1:5173
+}
+
+obscura.test {
+	tls internal
+
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy 127.0.0.1:8080
+	}
+	@backend path /auth/* /audio/* /ws*
+	handle @backend {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Path-routed Vite dev servers; each SPA's vite `base` matches its prefix.
+	@buzzer path /buzzer /buzzer/*
+	handle @buzzer {
+		reverse_proxy 127.0.0.1:3004
+	}
+	@remote path /remote /remote/*
+	handle @remote {
+		reverse_proxy 127.0.0.1:3005
+	}
+	@editor path /editor /editor/*
+	handle @editor {
+		reverse_proxy 127.0.0.1:3006
+	}
+	@presenter path /presenter /presenter/*
+	handle @presenter {
+		reverse_proxy 127.0.0.1:3001
+	}
+	@monitor path /monitor /monitor/*
+	handle @monitor {
+		reverse_proxy 127.0.0.1:3002
+	}
+
+	# Catch-all → the online SPA at the apex.
+	handle {
+		reverse_proxy 127.0.0.1:3003
+	}
+}
+
+lanes.test {
+	tls internal
+
+	@backend path /api/* /auth/*
+	reverse_proxy @backend 127.0.0.1:8789
+
+	reverse_proxy 127.0.0.1:5223
+}

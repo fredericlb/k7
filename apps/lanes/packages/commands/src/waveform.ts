@@ -1,0 +1,176 @@
+// waveform.ts — slice a source file's precomputed ENVELOPE to the region a clip plays and
+// derive the bar/beat grid from the project's tempo, so a waveform lines up with the
+// arrangement. The heavy part (decode + downsample) belongs to the C++ engine, which
+// writes a placement-independent `{source}.cache` sidecar; this only reads it.
+
+import type { ClipDoc, ProjectDoc } from "@lanes/song/project";
+
+// The whole-file envelope the engine computes and caches, placement-independent: it describes the FILE, and
+// regionWaveform maps a clip's region onto it. A fixed-density downsample, 0..1.
+export interface FileEnvelope {
+  fingerprint: string; // cheap content fingerprint (see waveformCache.ts) for invalidation
+  sampleRate: number;
+  channels: number;
+  frames: number; // total source frames (per channel)
+  seconds: number; // frames / sampleRate
+  peak: number[]; // per-bucket max |sample|, 0..1
+  rms: number[]; // per-bucket RMS, 0..1 (linear)
+}
+
+// A warp marker in DISPLAY seconds: `orig` where the source point is drawn, `target` where its beat lands — so
+// the pair shows the stretch, and no displacement means no stretch there.
+export interface WarpMark {
+  orig: number; // display seconds — the source point, as the waveform draws it
+  target: number; // display seconds — where that point's beat sits on the grid
+}
+
+export interface RegionWaveform {
+  peak: number[]; // per-bucket max |sample|, 0..1 (best for a filled/terminal waveform)
+  rms: number[]; // per-bucket RMS, 0..1 (linear; feeds @studio/ui-waveform's dB Envelope)
+  sampleRate: number;
+  seconds: number; // duration of the region shown
+  startBeat: number; // the clip's start in the arrangement (beats)
+  clipBeats: number; // how many beats the region spans
+  barBeats: number; // beats per bar
+  tempo: number; // bpm
+  warpMarks: WarpMark[]; // the clip's warp markers, in display seconds (empty == no warp)
+  transients: number[]; // display seconds where transients are detected (grey bars)
+}
+
+// A simple transient detector: bucket indices where the peak envelope jumps above the detection threshold.
+export function detectTransients(peak: number[], sensitivity = 2): number[] {
+  if (peak.length < 3) return [];
+  const diffs: number[] = [];
+  for (let i = 1; i < peak.length; i++) diffs.push(peak[i] - peak[i - 1]);
+  if (!diffs.length) return [];
+  // Mean and stddev of the first-derivative envelope
+  let sum = 0;
+  for (let i = 0; i < diffs.length; i++) sum += diffs[i];
+  const mean = sum / diffs.length;
+  let ssq = 0;
+  for (let i = 0; i < diffs.length; i++) {
+    const d = diffs[i] - mean;
+    ssq += d * d;
+  }
+  const std = Math.sqrt(ssq / diffs.length);
+  const threshold = mean + sensitivity * std;
+  // A positive jump above the threshold, skipping detections within 3 buckets to avoid double-hits on one attack.
+  const result: number[] = [];
+  const MIN_GAP = 3;
+  let lastIdx = -MIN_GAP;
+  for (let i = 0; i < diffs.length; i++) {
+    if (diffs[i] > threshold && i - lastIdx >= MIN_GAP) {
+      result.push(i + 1); // +1: the bucket AFTER the jump is the transient onset
+      lastIdx = i + 1;
+    }
+  }
+  return result;
+}
+
+// Resample the file envelope to the region the clip plays. Placement and tempo live in the project, so they stay
+// here; only the raw samples come from the engine-computed, disk-cached envelope.
+export function regionWaveform(
+  env: FileEnvelope,
+  clip: ClipDoc,
+  project: ProjectDoc,
+  buckets: number,
+): RegionWaveform {
+  const sr = env.sampleRate || 48000;
+  const totalFrames = Math.max(0, env.frames | 0);
+  const fileSeconds = env.seconds || totalFrames / sr;
+  const tempo = project.tempo || 120;
+  // Bars are in quarter-note beats here, so a bar is `numerator * 4/denominator` — 6/8 gives 3, 2/2 gives 4.
+  // An odd-over-8 like 7/8 gives 3.5, which a whole-beat grid can only approximate: a pre-existing model limit.
+  const den = project.timeSigDenominator || 4;
+  const barBeats = Math.max(1, (project.timeSigNumerator || 4) * (4 / den));
+  const offsetSec = Math.max(0, clip.offset || 0);
+  // The display spans the clip's MUSICAL length, so a clip longer than its sample shows trailing silence.
+  const seconds =
+    clip.length > 0
+      ? (clip.length * 60) / tempo
+      : Math.max(0, fileSeconds - offsetSec);
+  const clipBeats = clip.length > 0 ? clip.length : (seconds * tempo) / 60;
+
+  const envN = env.peak.length;
+  const startFrame = Math.min(totalFrames, Math.floor(offsetSec * sr));
+  const audioFrames = Math.max(0, totalFrames - startFrame); // real audio after the in-point
+  const displayFrames = Math.max(1, Math.round(seconds * sr)); // the whole shown span
+  const n = Math.max(1, Math.min(buckets, displayFrames));
+  const peak = new Array<number>(n).fill(0);
+  const rms = new Array<number>(n).fill(0);
+  const per = displayFrames / n;
+  const framesPerEnv = envN > 0 ? totalFrames / envN : 1;
+  for (let b = 0; b < n; b++) {
+    const d0 = Math.floor(b * per);
+    const d1 = Math.min(Math.floor((b + 1) * per), audioFrames); // clamp to real audio; past it stays 0 (silence)
+    if (d1 <= d0 || envN === 0) continue;
+    // The file-frame span this display bucket covers, aggregated over the envelope (peak = max, rms = quadratic mean).
+    const f0 = startFrame + d0;
+    const f1 = startFrame + d1;
+    const e0 = Math.floor(f0 / framesPerEnv);
+    const e1 = Math.max(e0 + 1, Math.min(envN, Math.ceil(f1 / framesPerEnv)));
+    let mx = 0;
+    let sq = 0;
+    let cnt = 0;
+    for (let e = e0; e < e1 && e < envN; e++) {
+      if (env.peak[e] > mx) mx = env.peak[e];
+      sq += env.rms[e] * env.rms[e];
+      cnt++;
+    }
+    peak[b] = mx;
+    rms[b] = cnt ? Math.sqrt(sq / cnt) : 0;
+  }
+  // Warp markers → display seconds: `orig` mirrors how the audio is drawn, `target` where its beat lands.
+  const warpMarks: WarpMark[] = (clip.warp?.markers ?? [])
+    .map(([beat, srcSec]) => ({
+      orig: srcSec - offsetSec,
+      target: (beat * 60) / tempo,
+    }))
+    .filter(
+      (mk) =>
+        Number.isFinite(mk.orig) &&
+        Number.isFinite(mk.target) &&
+        // keep a marker whose original OR target falls inside the shown region
+        ((mk.orig >= -1e-6 && mk.orig <= seconds + 1e-6) ||
+          (mk.target >= -1e-6 && mk.target <= seconds + 1e-6)),
+    );
+
+  // Detect transients on the region's resampled envelope, then map bucket indices to display seconds.
+  const rawBuckets = detectTransients(peak);
+  const transients = rawBuckets.map((b) => (b / n) * seconds);
+
+  return {
+    peak,
+    rms,
+    sampleRate: sr,
+    seconds,
+    startBeat: clip.start,
+    clipBeats,
+    barBeats,
+    tempo,
+    warpMarks,
+    transients,
+  };
+}
+
+export interface GridLine {
+  t: number; // seconds from the region start
+  bar: boolean; // a bar boundary (vs. a plain beat)
+  label?: string; // bar number, on bar boundaries
+}
+
+// Bar/beat gridlines for a region, aligned to the arrangement and positioned in seconds.
+export function beatGrid(w: RegionWaveform): GridLine[] {
+  const lines: GridLine[] = [];
+  const last = w.startBeat + w.clipBeats;
+  for (let B = Math.ceil(w.startBeat - 1e-9); B <= last + 1e-9; B++) {
+    const t = ((B - w.startBeat) * 60) / w.tempo;
+    const bar = ((B % w.barBeats) + w.barBeats) % w.barBeats === 0;
+    lines.push({
+      t,
+      bar,
+      label: bar ? String(Math.floor(B / w.barBeats) + 1) : undefined,
+    });
+  }
+  return lines;
+}

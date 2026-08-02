@@ -1,0 +1,30 @@
+{
+  "name": "@lanes/translator",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "lanes's translator \u2014 parses a .dawproject and emits a lanes song folder (YAML). A library consumed as source; `lanes import` is its caller.",
+  "exports": {
+    "./dawproject": "./src/dawproject.ts",
+    "./emit": "./src/emit.ts",
+    "./params": "./src/params.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@lanes/song": "*",
+    "fast-xml-parser": "^4.4.1",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2"
+  }
+}

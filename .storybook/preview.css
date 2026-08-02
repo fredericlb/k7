@@ -1,0 +1,32 @@
+/* Tailwind v4 entry for studio's Storybook. Mirrors each app's index.css:
+   Tailwind + the shared @frediverse/ui design tokens (from the commons
+   submodule). Because Tailwind v4 only auto-scans the config's own directory,
+   point the scanner at every source tree whose stories render here. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@frediverse/ui/theme.css";
+
+@source "../commons/packages/ui/src";
+@source "../packages/ui-waveform/src";
+@source "../apps/radiok7/packages/lyrics/src";
+@source "../apps/radiok7/packages/recorder/src";
+@source "../apps/radiok7/packages/tablature/src";
+@source "../apps/radiok7/frontend/src";
+@source "../apps/lanes/web/frontend/src";
+
+/* Tailwind's preflight zeroes element margins; radiok7's legacy stylesheet
+   relies on default block flow in a lot of places (mirrors its index.css). */
+@layer base {
+  p {
+    margin-block: 1em;
+  }
+  h1 {
+    margin-block: 0.67em;
+  }
+  h2 {
+    margin-block: 0.83em;
+  }
+  h3 {
+    margin-block: 1em;
+  }
+}

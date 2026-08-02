@@ -1,0 +1,10 @@
+type: single
+contentType: sequences
+clips:
+  - { ref: melody, start: "1:1:1" }
+# Notes + checklist, shown read-only in the web editor's Docs panel when this
+# track is under the timeline caret (and its todos join the Global tab).
+docs: The rising C-major scale intro. Placeholder line until the real melody is written.
+todos:
+  - Write the actual melody
+  - Decide whether it doubles the bass
