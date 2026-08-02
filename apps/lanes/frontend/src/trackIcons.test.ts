@@ -1,8 +1,8 @@
-import { TRACK_PREFIXES } from "@lanes/song/trackKind";
+import { TRACK_PREFIXES } from "@studio/song/trackKind";
 import { describe, expect, it } from "vitest";
 import { trackIcon } from "./trackIcons";
 
-// The prefix table and the ordering it drives are tested in @lanes/song
+// The prefix table and the ordering it drives are tested in @studio/song
 // (trackKind.test.ts). What's left here is the half this file owns: that every prefix
 // has a drawing behind it.
 

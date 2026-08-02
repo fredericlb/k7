@@ -2,7 +2,7 @@
 // EngineClient, wires its callbacks into state, and exposes the stable senders the
 // panes call. Extracted from App.tsx; the behaviour is unchanged.
 
-import type { ParamMeta } from "@lanes/engine-protocol";
+import type { ParamMeta } from "@studio/engine-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { EngineClient } from "../engine";

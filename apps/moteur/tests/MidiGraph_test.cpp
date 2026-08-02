@@ -18,7 +18,7 @@ namespace te = tracktion::engine;
 
 namespace {
 
-// The graph @lanes/dsp emits for the pitch-shift module, verbatim.
+// The graph @studio/dsp emits for the pitch-shift module, verbatim.
 const char* kTransposeGraph = R"({
   "params": [ { "name": "Semitones", "min": -24, "max": 24, "default": 0 } ],
   "nodes":  [ { "type": "transpose", "in": ["Semitones"] } ]

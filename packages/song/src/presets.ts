@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, extname, join, relative } from "node:path";
-import { loadModules, MODULE_TYPES } from "@lanes/song/loader";
+import { loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { parse as parseYaml, stringify } from "yaml";
 import { setModuleParam } from "./projectEdit";
 

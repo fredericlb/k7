@@ -4,8 +4,8 @@
 // Full rationale: docs/corsAndOrigins.md.
 
 import { readFileSync, statSync } from "node:fs";
-import { webOriginsPath } from "@lanes/engine-client/paths";
-import { normaliseBrowserOrigin } from "@lanes/engine-host/webOrigins";
+import { webOriginsPath } from "@studio/engine-client/paths";
+import { normaliseBrowserOrigin } from "@studio/engine-host/webOrigins";
 
 /** Loopback + RFC1918 IPv4, and the loopback names. */
 const PRIVATE_HOST =

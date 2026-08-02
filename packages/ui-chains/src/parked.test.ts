@@ -4,7 +4,7 @@
 // it in, connect it after. The graph is the only place it can be connected FROM, so if it doesn't draw, it is a
 // node the file says exists and the user can neither see nor reach — worse than not creating it at all.
 
-import type { WebGraph } from "@lanes/web-shared";
+import type { WebGraph } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import { buildGraph } from "./graph";
 

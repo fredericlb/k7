@@ -6,7 +6,7 @@
 import { createHash } from "node:crypto";
 import { networkInterfaces, hostname as osHostname } from "node:os";
 
-// Kept structurally in sync with the web backend's EngineAddresses (@lanes/web-shared).
+// Kept structurally in sync with the web backend's EngineAddresses (@studio/web-protocol).
 export interface EngineAddresses {
   loopback: string; // always "127.0.0.1"
   lanIps: string[]; // non-internal IPv4s

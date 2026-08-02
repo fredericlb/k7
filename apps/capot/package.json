@@ -1,9 +1,9 @@
 {
-  "name": "@lanes/engine-tray",
+  "name": "capot",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @lanes/engine-host over the same ~/.lanes + registry contract.",
+  "description": "lanes menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @studio/engine-host over the same ~/.lanes + registry contract.",
   "scripts": {
     "predev": "node scripts/build-engine.mjs --sidecar-only",
     "dev": "tauri dev",

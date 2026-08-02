@@ -1,6 +1,6 @@
 // pluginCache.ts — the engine's plugin SCAN CACHE, re-exported.
 //
-// The reader itself moved to `@lanes/song/engineCatalogue`, because the scan is no
+// The reader itself moved to `@studio/song/engineCatalogue`, because the scan is no
 // longer only a way to say "this plugin is unknown before the engine fails to load it":
 // it IS the module catalogue, replacing the folder of generated wrappers that `module
 // populate` wrote into `_modules`. song has to read it to resolve `@engine/…`, and song
@@ -15,4 +15,4 @@ export {
   scannedPluginKeys,
   scannedPluginNames,
   scannedPlugins,
-} from "@lanes/song/engineCatalogue";
+} from "@studio/song/engineCatalogue";

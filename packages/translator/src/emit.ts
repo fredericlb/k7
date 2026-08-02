@@ -6,9 +6,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, extname, join } from "node:path";
-import { materialWindow } from "@lanes/song/materialWindow";
-import { beatsToDuration, beatsToPosition } from "@lanes/song/timecode";
-import { quoteTimecodes } from "@lanes/song/yaml/trackFile";
+import { materialWindow } from "@studio/song/materialWindow";
+import { beatsToDuration, beatsToPosition } from "@studio/song/timecode";
+import { quoteTimecodes } from "@studio/song/yaml/trackFile";
 import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./dawproject.js";
 

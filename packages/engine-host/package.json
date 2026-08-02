@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/engine-host",
+  "name": "@studio/engine-host",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@lanes/engine-client": "*"
+    "@studio/engine-client": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

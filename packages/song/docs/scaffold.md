@@ -1,8 +1,8 @@
 # scaffold.ts — extended notes
 
 The shared core behind the web command bar's `new project <type> <name>` (the file
-service scaffolds at the workspace root). Lives in `@lanes/song` because the bundled
-sample video the `video` variant copies is a `@lanes/song` asset.
+service scaffolds at the workspace root). Lives in `@studio/song` because the bundled
+sample video the `video` variant copies is a `@studio/song` asset.
 
 A scaffolded project is minimal, valid, and immediately playable: one MIDI track (a
 rising C-major scale) through a built-in 4OSC synth to OUT, plus a live Strudel pattern.

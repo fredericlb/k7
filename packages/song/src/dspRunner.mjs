@@ -1,12 +1,12 @@
 // Run a module's JS/TS DSP source and print the graph it describes, as JSON on stdout.
 //
 // Spawned as a child by readJsDspGraph (nodeProject.ts). It lives HERE, inside the workspace, so that its own
-// `@lanes/dsp` import resolves — a song folder has no node_modules and never will. The module's file is
+// `@studio/dsp` import resolves — a song folder has no node_modules and never will. The module's file is
 // imported by absolute URL and receives the builder as an argument, so it needs to import nothing at runtime:
 // `import type { GraphBuilder }` is erased, and a song stays a song rather than becoming a package.
 
 import { pathToFileURL } from "node:url";
-import { graph } from "@lanes/dsp";
+import { graph } from "@studio/dsp";
 
 const file = process.argv[2];
 if (!file) {

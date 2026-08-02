@@ -107,7 +107,7 @@ describe("the cursor's key path, from the tree", () => {
 
 describe("the completion source", () => {
   // A stand-in for the app's vocabulary (which is derived from the Zod schemas — see
-  // @lanes/song yaml/fields.ts). The editor knows none of these names; that is the
+  // @studio/song yaml/fields.ts). The editor knows none of these names; that is the
   // design, and the reason the tables can be deleted rather than ported.
   const vocab = {
     fieldsAt: (path: string[]) => {

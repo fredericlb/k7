@@ -1,4 +1,4 @@
-// @lanes/dsp — write a module's DSP in JS, emit the graph the engine runs.
+// @studio/dsp — write a module's DSP in JS, emit the graph the engine runs.
 //
 // The JS runs as a BUILD step and produces JSON; it never goes near the audio thread. Throughput was never the
 // obstacle (a JS auto-wah measures 0.1% of a 5.3 ms block) — a GC pause is, and no amount of care removes it.

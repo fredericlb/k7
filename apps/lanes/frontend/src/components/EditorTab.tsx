@@ -6,7 +6,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
-import { parsePosition } from "@lanes/song/timecode";
+import { parsePosition } from "@studio/song/timecode";
 import { FolderTree, Grid3x3, Piano, Save, TriangleAlert } from "lucide-react";
 import {
   useCallback,

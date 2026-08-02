@@ -201,7 +201,7 @@ export function scaffold(dir: string, name: string, video = false): string[] {
   if (video) {
     if (!existsSync(SAMPLE_VIDEO))
       throw new Error(
-        `bundled sample video missing (${SAMPLE_VIDEO}) — the @lanes/song package is incomplete`,
+        `bundled sample video missing (${SAMPLE_VIDEO}) — the @studio/song package is incomplete`,
       );
     mkdirSync(join(dir, "clips"), { recursive: true });
     copyFileSync(SAMPLE_VIDEO, join(dir, "clips/sample.mp4"));

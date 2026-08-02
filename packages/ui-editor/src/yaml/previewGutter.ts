@@ -4,7 +4,7 @@
 
 import { type Extension, RangeSetBuilder } from "@codemirror/state";
 import { EditorView, GutterMarker, gutter } from "@codemirror/view";
-import type { PreviewReq } from "@lanes/web-shared";
+import type { PreviewReq } from "@studio/web-protocol";
 import { previewTriggers } from "./previewTriggers";
 
 // A trigger from the scan: the offset it sits at (resolved to a line later) and the request firing it sends.

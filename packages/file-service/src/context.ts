@@ -4,12 +4,12 @@
 // service isn't wide open on the LAN.
 
 import { readFileSync } from "node:fs";
-import { engineIdPath } from "@lanes/engine-client/paths";
+import { engineIdPath } from "@studio/engine-client/paths";
 import {
   ENGINE_TOKEN_HEADER,
   USER_HEADER,
   WORKSPACE_HEADER,
-} from "@lanes/web-shared";
+} from "@studio/web-protocol";
 import type { RequestHandler } from "express";
 import { getWorkspace, UnknownWorkspaceError } from "./workspaces.ts";
 

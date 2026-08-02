@@ -22,7 +22,7 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
-import type { ParamMeta } from "@lanes/engine-protocol";
+import type { ParamMeta } from "@studio/engine-protocol";
 import {
   ArrowLeft,
   ChevronDown,

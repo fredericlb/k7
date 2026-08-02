@@ -3,7 +3,7 @@
 // the CLI's engine-only log when there's no tray, and to nothing when there's neither.
 
 import { readFileSync, statSync } from "node:fs";
-import { engineLogPath, mergedLogPath } from "@lanes/engine-client/paths";
+import { engineLogPath, mergedLogPath } from "@studio/engine-client/paths";
 
 // Merged first, then the CLI's engine-only log; both names come from the contract module.
 const CANDIDATES = [mergedLogPath(), engineLogPath()];

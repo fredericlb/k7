@@ -3,12 +3,12 @@
 // plugin scan cache); extracted from workspace.ts, where it was the class's largest
 // method with no instance state at all.
 
-import { isPluginScanned } from "@lanes/engine-client/pluginCache";
-import { loadCurves } from "@lanes/song/curves";
-import { inputLandingTrack, loadGraph } from "@lanes/song/graph";
-import { listLibrary, listLibraryKinds } from "@lanes/song/loader";
-import { EXTERNAL_PLUGIN_FORMATS } from "@lanes/song/project";
-import type { WebChainStep, WebGraph } from "@lanes/web-shared";
+import { isPluginScanned } from "@studio/engine-client/pluginCache";
+import { loadCurves } from "@studio/song/curves";
+import { inputLandingTrack, loadGraph } from "@studio/song/graph";
+import { listLibrary, listLibraryKinds } from "@studio/song/loader";
+import { EXTERNAL_PLUGIN_FORMATS } from "@studio/song/project";
+import type { WebChainStep, WebGraph } from "@studio/web-protocol";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
 // was declared here a second time, identically, and docs/loader.md's list of copies to

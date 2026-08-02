@@ -5,7 +5,7 @@
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { createConnection } from "node:net";
-import { killTree } from "@lanes/engine-client/processTree";
+import { killTree } from "@studio/engine-client/processTree";
 import * as bundle from "./bundle.ts";
 import type { EngineIdentity } from "./identity.ts";
 import { line, pump } from "./logbus.ts";

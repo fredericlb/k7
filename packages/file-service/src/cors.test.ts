@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { lanesDir, webOriginsPath } from "@lanes/engine-client/paths";
+import { lanesDir, webOriginsPath } from "@studio/engine-client/paths";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { allowedOrigin } from "./cors.ts";
 

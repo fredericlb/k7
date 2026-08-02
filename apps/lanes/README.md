@@ -42,16 +42,16 @@ lanes/
     engine/    library lanes::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
     server/    app lanes-engine       (WebSocket audio server, main.cpp)
   packages/                  lanes's libraries (consumed as raw TS source):
-    song/                    @lanes/song            — song model + compiler + Strudel patterns
-    commands/                @lanes/commands        — shared command layer, file edits, timeline, mixing
-    engine-client/           @lanes/engine-client   — drives the engine over the WebSocket protocol
-    engine-host/             @lanes/engine-host     — THE supervisor: identity, registry, engine + file-service processes
-    engine-protocol/         @lanes/engine-protocol — the JSON wire shapes shared with the C++ engine
-    file-service/            @lanes/file-service    — serves file ops + compiles projects for the browser
-    ui-chains/               @lanes/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
-    ui-editor/               @lanes/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
-    ui-eyes/                 @lanes/ui-eyes         — WebGL video compositor (song's video tracks → viewport)
-    translator/              @lanes/translator      — DAWproject (.dawproject) → song folder; `lanes import` is its caller
+    song/                    @studio/song            — song model + compiler + Strudel patterns
+    commands/                @studio/commands        — shared command layer, file edits, timeline, mixing
+    engine-client/           @studio/engine-client   — drives the engine over the WebSocket protocol
+    engine-host/             @studio/engine-host     — THE supervisor: identity, registry, engine + file-service processes
+    engine-protocol/         @studio/engine-protocol — the JSON wire shapes shared with the C++ engine
+    file-service/            @studio/file-service    — serves file ops + compiles projects for the browser
+    ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
+    ui-editor/               @studio/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
+    ui-eyes/                 @studio/ui-eyes         — WebGL video compositor (song's video tracks → viewport)
+    translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `lanes import` is its caller
   engine-tray/               the menu-bar view (spawns packages/engine-host, the supervisor)
   web/                       the web editor (frontend / backend / shared) — follows PROJECT_CONVENTIONS.md
 ```

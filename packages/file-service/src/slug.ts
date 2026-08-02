@@ -2,7 +2,7 @@
 // is the OIDC email with every non-alphanumeric char replaced by "_".
 
 import { join } from "node:path";
-import { rootDir } from "@lanes/engine-client/paths";
+import { rootDir } from "@studio/engine-client/paths";
 
 // Re-exported so `./slug` importers keep resolving it; defined in engine-client/paths, the shared spelling.
 export { rootDir };

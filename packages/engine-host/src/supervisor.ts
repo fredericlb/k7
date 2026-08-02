@@ -4,12 +4,12 @@
 // when the bytes changed — which is what keeps an idle app quiet on the wire.
 
 import type { ChildProcess } from "node:child_process";
-import { engineRunning } from "@lanes/engine-client/engineDaemon";
+import { engineRunning } from "@studio/engine-client/engineDaemon";
 import {
   mergedLogPath,
   rootDir,
   webOriginsPath,
-} from "@lanes/engine-client/paths";
+} from "@studio/engine-client/paths";
 import { gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
 import * as engineProcess from "./engineProcess.ts";

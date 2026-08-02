@@ -1,4 +1,4 @@
-// hostcmd.rs — where the supervisor (@lanes/engine-host) lives and how to run it, in
+// hostcmd.rs — where the supervisor (@studio/engine-host) lives and how to run it, in
 // three tiers: $LANES_ENGINE_HOST_CMD, the packaged node + engine-host.mjs, or the repo's
 // tsx on the TypeScript source. Says clearly when the answer is "nothing" — a tray that
 // silently supervises nothing looks exactly like a healthy one. See docs/tray.md.

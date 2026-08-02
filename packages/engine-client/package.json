@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/engine-client",
+  "name": "@studio/engine-client",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -22,8 +22,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@lanes/engine-protocol": "*",
-    "@lanes/song": "*",
+    "@studio/engine-protocol": "*",
+    "@studio/song": "*",
     "ws": "^8.18.0"
   },
   "devDependencies": {

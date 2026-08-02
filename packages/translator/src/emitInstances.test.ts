@@ -1,8 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGraph } from "@lanes/song/graph";
-import { compileNodeProject } from "@lanes/song/nodeProject";
+import { loadGraph } from "@studio/song/graph";
+import { compileNodeProject } from "@studio/song/nodeProject";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { PluginOut, Song, TrackOut } from "./dawproject";
 import { emitFolder } from "./emit";

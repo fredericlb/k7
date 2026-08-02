@@ -5,7 +5,7 @@
 
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { loadModules, splitModuleKey } from "@lanes/song/loader";
+import { loadModules, splitModuleKey } from "@studio/song/loader";
 import { sharedRoots } from "./moduleFork";
 import {
   addNode,

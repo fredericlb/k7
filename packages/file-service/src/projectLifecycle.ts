@@ -5,11 +5,11 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { findEngineBinary } from "@lanes/engine-client/engineBinary";
-import { scaffold } from "@lanes/song/scaffold";
-import { parseDawproject } from "@lanes/translator/dawproject";
-import { emitFolder } from "@lanes/translator/emit";
-import { resolvePluginParams } from "@lanes/translator/params";
+import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import { scaffold } from "@studio/song/scaffold";
+import { parseDawproject } from "@studio/translator/dawproject";
+import { emitFolder } from "@studio/translator/emit";
+import { resolvePluginParams } from "@studio/translator/params";
 
 /** What the lifecycle functions need from their workspace — the path guards. */
 export interface LifecycleHost {
@@ -26,7 +26,7 @@ export interface LifecycleHost {
  * it in the import popin so a lossy import (a dropped clip, an unmatched plugin) is
  * visible rather than silent.
  *
- * The translation is @lanes/translator's — the very code `lanes import` runs;
+ * The translation is @studio/translator's — the very code `lanes import` runs;
  * this only re-roots the output INSIDE the workspace (never `dirname(input)`, which the
  * CLI uses but which here could plant a project inside another). Plugin presets resolve
  * to text params when the engine binary is present, exactly as the CLI does; without it

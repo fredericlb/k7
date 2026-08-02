@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/engine-protocol",
+  "name": "@studio/engine-protocol",
   "version": "0.0.1",
   "private": true,
   "type": "module",

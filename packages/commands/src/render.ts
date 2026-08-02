@@ -19,8 +19,8 @@ import {
   MIXER_PARAMS,
   MIXER_PLUGIN,
   type ProjectDoc,
-} from "@lanes/song/project";
-import { setFileValue } from "@lanes/song/yaml/edit";
+} from "@studio/song/project";
+import { setFileValue } from "@studio/song/yaml/edit";
 
 // The engine's render manifest: the mixdown plus, with `--stems`, one wav per audible track, relative to out.
 export interface RenderManifest {

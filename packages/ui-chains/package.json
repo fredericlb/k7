@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/ui-chains",
+  "name": "@studio/ui-chains",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8",
-    "@lanes/web-shared": "*"
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

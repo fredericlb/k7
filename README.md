@@ -54,7 +54,7 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 ```bash
 cd apps/lanes
 npm run lanes:build:win        # or lanes:build:mac
-npm run build --workspace @lanes/engine-tray
+npm run build --workspace capot
 ```
 
 Their build directories are large (~30 GB combined) and fully gitignored. Both

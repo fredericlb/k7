@@ -8,7 +8,7 @@ placement-independent peak+RMS envelope, and writes it next to the source as
 This module is the Node side: it computes the SAME fingerprint to tell whether a
 sidecar is still valid, spawns the engine to (re)build a missing/stale one, and reads
 the envelope back. The clip-region slicing and the tempo grid stay in
-`@lanes/commands/waveform` — this only produces the `FileEnvelope` those consume.
+`@studio/commands/waveform` — this only produces the `FileEnvelope` those consume.
 
 Sidecars sit next to the audio rather than in a central store, so they travel with the
 file and the engine can write one during an offline decode. They're hidden from the file

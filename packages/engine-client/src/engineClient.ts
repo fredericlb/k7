@@ -1,5 +1,5 @@
 // engineClient.ts — the full engine link: everything in EngineControl plus sendProject,
-// which needs @lanes/song (the compiler + Strudel, ~3 MB). Surfaces that only ask the
+// which needs @studio/song (the compiler + Strudel, ~3 MB). Surfaces that only ask the
 // engine questions import engineControl instead and carry none of it — so a new method
 // belongs there unless it genuinely needs a project doc. This file should stay this short.
 
@@ -7,10 +7,10 @@ import {
   type ProjectDoc,
   withGroupMix,
   withoutVideo,
-} from "@lanes/song/project";
+} from "@studio/song/project";
 import { EngineControl } from "./engineControl";
 
-// Re-exported so `@lanes/engine-client/engineClient` importers keep resolving what they used to get here.
+// Re-exported so `@studio/engine-client/engineClient` importers keep resolving what they used to get here.
 export type {
   AudioDeviceInfo,
   EditPluginInfo,

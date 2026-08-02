@@ -11,7 +11,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { pendingOriginsPath, webOriginsPath } from "@lanes/engine-client/paths";
+import {
+  pendingOriginsPath,
+  webOriginsPath,
+} from "@studio/engine-client/paths";
 import { DEFAULT_STUDIO_URL } from "./registryClient.ts";
 
 export const WEB_ORIGINS_PATH = webOriginsPath();

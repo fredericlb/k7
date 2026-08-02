@@ -3,7 +3,7 @@
 // transforms notes, a waveform processes audio, arrows are the way in or out. Video
 // modules fall back to none rather than borrowing one that would read as audio.
 // Same icon set and reasons as trackIcons.tsx, but keyed by CATEGORY rather than a name prefix.
-import type { WebModuleCategory } from "@lanes/web-shared";
+import type { WebModuleCategory } from "@studio/web-protocol";
 import type { TrackGlyph } from "./trackIcons";
 
 const GLYPHS: Record<string, TrackGlyph> = {

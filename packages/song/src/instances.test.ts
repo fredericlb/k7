@@ -15,7 +15,7 @@ import {
   loadModuleRefs,
   loadModules,
   splitModuleKey,
-} from "@lanes/song/loader";
+} from "@studio/song/loader";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectHints } from "./hints";
 import { compileNodeProject } from "./nodeProject";

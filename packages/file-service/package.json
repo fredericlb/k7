@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/file-service",
+  "name": "@studio/file-service",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,13 +15,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lanes/song": "*",
-    "@lanes/commands": "*",
-    "@lanes/engine-client": "*",
-    "@lanes/engine-host": "*",
-    "@lanes/translator": "*",
+    "@studio/song": "*",
+    "@studio/commands": "*",
+    "@studio/engine-client": "*",
+    "@studio/engine-host": "*",
+    "@studio/translator": "*",
     "@frediverse/http": "*",
-    "@lanes/web-shared": "*",
+    "@studio/web-protocol": "*",
     "chokidar": "^3.6.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",

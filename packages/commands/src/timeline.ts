@@ -9,8 +9,8 @@ import {
   loadProject,
   type ProjectDoc,
   type TrackDoc,
-} from "@lanes/song/project";
-import { beatsToDuration, beatsToPosition } from "@lanes/song/timecode";
+} from "@studio/song/project";
+import { beatsToDuration, beatsToPosition } from "@studio/song/timecode";
 
 // --- describe (pure) ---------------------------------------------------------
 

@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadModules } from "@lanes/song/loader";
+import { loadModules } from "@studio/song/loader";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   applyPresetToModule,

@@ -11,7 +11,7 @@ import type {
   WebModuleUI,
   WebSignal,
   WebWidget,
-} from "@lanes/web-shared";
+} from "@studio/web-protocol";
 
 // Narrow the graph to one track's signal path: the chains it enters, plus everything reachable downstream.
 // Returns a WebGraph, so `buildGraph` takes it unchanged and only the input set differs from the full graph.

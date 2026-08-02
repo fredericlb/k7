@@ -5,6 +5,6 @@
   "license": "ISC",
   "author": "",
   "scripts": {
-    "dev": "turbo run dev --filter=@lanes/web-frontend --filter=@lanes/web-backend --filter=@lanes/file-service --filter=@lanes/engine-host"
+    "dev": "turbo run dev --filter=lanes-frontend --filter=lanes-backend --filter=@studio/file-service --filter=@studio/engine-host"
   }
 }

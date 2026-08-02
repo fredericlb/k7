@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { sshDir } from "@lanes/engine-client/paths";
+import { sshDir } from "@studio/engine-client/paths";
 import { slugify } from "./slug.ts";
 
 const run = promisify(execFile);

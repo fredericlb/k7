@@ -9,13 +9,13 @@ import {
   commitAndPush,
   gitStatus,
   pull,
-} from "@lanes/commands/git";
-import { NEEDS_META } from "@lanes/commands/render";
+} from "@studio/commands/git";
+import { NEEDS_META } from "@studio/commands/render";
 import {
   applyPresetToModule,
   listModulePresets,
   saveModuleAsPreset,
-} from "@lanes/song/presets";
+} from "@studio/song/presets";
 import express, { Router } from "express";
 import { z } from "zod";
 import {

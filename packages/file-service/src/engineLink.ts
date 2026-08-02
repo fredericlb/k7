@@ -9,22 +9,22 @@ import {
   completions,
   loadCommandSpecs,
   runCommand,
-} from "@lanes/commands/commandSpec";
-import type { CommandHost, TransportAction } from "@lanes/commands/commands";
-import type { GitEnv } from "@lanes/commands/git";
-import { addTakeToTrack } from "@lanes/commands/recordTake";
+} from "@studio/commands/commandSpec";
+import type { CommandHost, TransportAction } from "@studio/commands/commands";
+import type { GitEnv } from "@studio/commands/git";
+import { addTakeToTrack } from "@studio/commands/recordTake";
 import {
   type AudioDeviceInfo,
   EngineClient,
   type PluginInfo,
   type RecordedTake,
-} from "@lanes/engine-client/engineClient";
-import { listBaseModules } from "@lanes/song/loader";
-import { PatternClock } from "@lanes/song/patternClock";
-import { loadPreferences } from "@lanes/song/preferences";
-import type { ProjectDoc, TrackDoc } from "@lanes/song/project";
-import { strudelPatterns } from "@lanes/song/strudel";
-import type { CommandInfo } from "@lanes/web-shared";
+} from "@studio/engine-client/engineClient";
+import { listBaseModules } from "@studio/song/loader";
+import { PatternClock } from "@studio/song/patternClock";
+import { loadPreferences } from "@studio/song/preferences";
+import type { ProjectDoc, TrackDoc } from "@studio/song/project";
+import { strudelPatterns } from "@studio/song/strudel";
+import type { CommandInfo } from "@studio/web-protocol";
 import chokidar from "chokidar";
 import { sshCommand } from "./sshKeys.ts";
 import type { Workspace } from "./workspace.ts";

@@ -7,7 +7,7 @@ description = "lanes menu-bar/tray engine supervisor"
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-# This list is short on purpose. The tray is a VIEW over @lanes/engine-host, so
+# This list is short on purpose. The tray is a VIEW over @studio/engine-host, so
 # everything it used to need to BE a supervisor — an HTTP client, a WebSocket client, a
 # hasher, MAC/hostname/IP enumeration, UUIDs, a process-table walker, URL parsing — went
 # with the supervision. Thirteen crates left in one commit, `reqwest` (hyper + rustls +

@@ -15,7 +15,7 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
-import type { Hints } from "@lanes/web-shared";
+import type { Hints } from "@studio/web-protocol";
 import { keyTokens, valueTokens } from "./entityValues";
 
 const joinPath = (base: string, rel: string) => {

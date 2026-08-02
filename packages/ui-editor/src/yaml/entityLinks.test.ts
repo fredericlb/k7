@@ -1,6 +1,6 @@
 import { yaml } from "@codemirror/lang-yaml";
 import { EditorState } from "@codemirror/state";
-import type { Hints } from "@lanes/web-shared";
+import type { Hints } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import { linkTargets } from "./entityLinks";
 import { keyTokens, valueTokens } from "./entityValues";

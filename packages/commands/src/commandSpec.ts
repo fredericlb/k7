@@ -10,8 +10,8 @@ import {
   listLibrary,
   listLibraryKinds,
   MODULE_TYPES,
-} from "@lanes/song/loader";
-import { parsePosition } from "@lanes/song/timecode";
+} from "@studio/song/loader";
+import { parsePosition } from "@studio/song/timecode";
 import { parse as parseYaml } from "yaml";
 import {
   type CommandHost,

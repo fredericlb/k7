@@ -12,8 +12,8 @@ import {
   type EditPluginInfo,
   EngineControl,
   type PluginInfo,
-} from "@lanes/engine-client/engineControl";
-import { extsCachePath } from "@lanes/engine-client/paths";
+} from "@studio/engine-client/engineControl";
+import { extsCachePath } from "@studio/engine-client/paths";
 import type { HostAudioDevice, HostEditPlugin } from "./hostProtocol.ts";
 import { line } from "./logbus.ts";
 

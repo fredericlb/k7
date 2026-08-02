@@ -39,7 +39,7 @@ export interface WorkspaceInfo {
   projects: string[]; // workspace-relative project dirs
 }
 
-// Where the workspace's repo stands vs upstream, for the share badge (mirrors @lanes/commands/git).
+// Where the workspace's repo stands vs upstream, for the share badge (mirrors @studio/commands/git).
 export interface GitStatus {
   tracked: boolean;
   ahead: number;
@@ -47,7 +47,7 @@ export interface GitStatus {
   conflicted: boolean;
 }
 
-// The alternatives (branches) of the workspace repo — mirrors @lanes/commands/git.
+// The alternatives (branches) of the workspace repo — mirrors @studio/commands/git.
 // `parent` is the branch an alternative was started from, "" for one that is not an
 // alternative (the root branch, or a branch made outside lanes).
 export interface Alternatives {
@@ -56,7 +56,7 @@ export interface Alternatives {
   branches: { name: string; parent: string; current: boolean }[];
 }
 
-// Result of POST /git/commit — mirrors @lanes/commands/git's CommitOutcome.
+// Result of POST /git/commit — mirrors @studio/commands/git's CommitOutcome.
 export interface GitCommitResult {
   nothingToCommit: boolean;
   sha?: string;
@@ -65,7 +65,7 @@ export interface GitCommitResult {
   pushError?: string;
 }
 
-// Result of POST /git/pull — mirrors @lanes/commands/git's PullOutcome.
+// Result of POST /git/pull — mirrors @studio/commands/git's PullOutcome.
 export interface GitPullResult {
   upToDate: boolean;
   summary: string;
@@ -121,7 +121,7 @@ export interface Hints {
 }
 
 // One declared port — a module under an io/ folder, the project's own or an inherited one
-// (mirrors @lanes/song/ioPorts). What the I/O panel lists; the LEVELS come from the
+// (mirrors @studio/song/ioPorts). What the I/O panel lists; the LEVELS come from the
 // engine socket, keyed by position in the array this arrives in.
 export interface IoPort {
   ref: string; // how a chain names it ("OUT", "@engine/io/IN:in-1")
@@ -134,7 +134,7 @@ export interface IoPort {
   generic: boolean; // the folder's module.yaml rather than one of its instances
 }
 
-// One entry of the shared `_modules` catalogue (mirrors @lanes/song/moduleCatalogue).
+// One entry of the shared `_modules` catalogue (mirrors @studio/song/moduleCatalogue).
 // What the module builder lists; `path` is workspace-relative, and is the file it opens.
 export interface CatalogueModule {
   ref: string; // how a chain names it ("@engine/audio/delay/tape-delay")

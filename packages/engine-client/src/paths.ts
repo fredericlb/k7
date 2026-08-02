@@ -5,7 +5,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { EXTS_PATH } from "@lanes/song/engineCatalogue";
+import { EXTS_PATH } from "@studio/song/engineCatalogue";
 
 /** `~/.lanes` — the shared state dir. */
 export function lanesDir(): string {
@@ -42,7 +42,7 @@ export function settingsPath(): string {
  *  everything. Contract path — the C++ engine writes and reads this same file (see
  *  engine/engine/PluginScan.cpp `extsCacheFile()`).
  *
- *  The ONE entry defined elsewhere: `@lanes/song` reads this cache as its engine module
+ *  The ONE entry defined elsewhere: `@studio/song` reads this cache as its engine module
  *  catalogue, and song cannot import this package (engine-client depends on song, not the
  *  other way round). So song owns the constant and this delegates — which is the rule this
  *  file states, applied in the only direction the dependency graph allows. */

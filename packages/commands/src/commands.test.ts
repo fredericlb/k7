@@ -3,7 +3,7 @@ import type {
   PluginDoc,
   ProjectDoc,
   TrackDoc,
-} from "@lanes/song/project";
+} from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import { collectPluginModules, collectSequences } from "./commands";
 

@@ -40,7 +40,7 @@ client, the command layer:
                                            │ file reads (in-process, Zod-validated)
                                            ▼
 ┌────────────────┐  WebSocket   ┌────────────────┐
-│ @lanes/     │◄────────────►│    engine/      │
+│ @studio/     │◄────────────►│    engine/      │
 │ engine-client  │  (JSON)      │    (C++)        │
 │ (Node/TS)      │              │  Tracktion +    │
 └────────────────┘              │  IXWebSocket    │
@@ -78,7 +78,7 @@ client, the command layer:
 ### The data flow when a file is edited
 
 1. The user edits a `.yaml` file (via the web editor or CLI).
-2. `@lanes/song` re-compiles the project: the YAML files are read in-process and
+2. `@studio/song` re-compiles the project: the YAML files are read in-process and
    validated (Zod) into a flat `ProjectDoc` JSON.
 3. The compiled `ProjectDoc` is sent to the C++ engine (via `engine-client` or the
    browser's WebSocket).
@@ -124,12 +124,12 @@ The single implementation is what replaced the rule.
 
 - **The engine never parses song files.** It only receives compiled JSON. Swap any
   frontend for another and the engine is unchanged.
-- **Commands are the single source of truth.** `@lanes/commands` owns the SID →
+- **Commands are the single source of truth.** `@studio/commands` owns the SID →
   handler mapping. The CLI and web both dispatch through it. Add a feature there, both
   surfaces get it.
 - **Many browser tabs may drive concurrently.** There is no single-tab lease on the file
   service. Last write wins; tabs reconcile via polling.
-- **Wire shapes live in `@lanes/engine-protocol`.** Both the Node client and the
+- **Wire shapes live in `@studio/engine-protocol`.** Both the Node client and the
   browser client import them. A wire change must also update the C++ engine's
   serialization (verified by running the engine, not by TypeScript).
 - **All JS packages are consumed as source.** No build step. Run via `tsx`. Import via

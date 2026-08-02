@@ -5,10 +5,10 @@
 
 import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
-import type { ProjectDoc } from "@lanes/song/project";
-import { beatsToPosition } from "@lanes/song/timecode";
-import { editTrackStruct } from "@lanes/song/trackMix";
-import { addPlacement } from "@lanes/song/yaml/trackFile";
+import type { ProjectDoc } from "@studio/song/project";
+import { beatsToPosition } from "@studio/song/timecode";
+import { editTrackStruct } from "@studio/song/trackMix";
+import { addPlacement } from "@studio/song/yaml/trackFile";
 
 // A finished take as the engine reports it. Position in SECONDS — it has no tempo map, so converting is ours.
 export interface RecordedTake {

@@ -253,7 +253,7 @@ export interface VideoPluginDoc {
   params: Record<string, number>;
 }
 // A video-mode lane: "video" links picture and places it at (x,y,w,h), "shape" draws
-// parametric shapes. Never reaches the C++ engine (see withoutVideo) — @lanes/ui-eyes
+// parametric shapes. Never reaches the C++ engine (see withoutVideo) — @studio/ui-eyes
 // is the only consumer. Already in project.layers draw order.
 export interface VideoTrackDoc {
   id: string;

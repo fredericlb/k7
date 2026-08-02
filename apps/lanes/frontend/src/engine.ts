@@ -1,7 +1,7 @@
 // engine.ts — the browser WebSocket link to the C++ engine: same protocol as the Node
 // client, native browser WebSocket, transport + live state, auto-reconnecting. The URL is
 // not fixed — the user picks an engine from the registry and its probed ws address is
-// passed in. Wire shapes come from @lanes/engine-protocol and are re-exported here.
+// passed in. Wire shapes come from @studio/engine-protocol and are re-exported here.
 
 import type {
   EngineState,
@@ -9,7 +9,7 @@ import type {
   PluginParams,
   TransportAction,
   WaveformEnvelope,
-} from "@lanes/engine-protocol";
+} from "@studio/engine-protocol";
 import { beginActivity } from "./freezeWatchdog";
 import type { PresetInfo } from "./types";
 
@@ -19,7 +19,7 @@ export type {
   PluginParams,
   TransportAction,
   WaveformEnvelope,
-} from "@lanes/engine-protocol";
+} from "@studio/engine-protocol";
 
 type StateCb = (s: EngineState) => void;
 type ConnCb = (connected: boolean) => void;

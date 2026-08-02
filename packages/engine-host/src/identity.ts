@@ -6,7 +6,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { engineIdPath } from "@lanes/engine-client/paths";
+import { engineIdPath } from "@studio/engine-client/paths";
 
 export const ENGINE_ID_PATH = engineIdPath();
 

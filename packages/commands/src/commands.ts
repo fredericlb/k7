@@ -6,20 +6,20 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, parse, relative } from "node:path";
-import { findEngineBinary } from "@lanes/engine-client/engineBinary";
+import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
   AudioDeviceInfo,
   PluginInfo,
-} from "@lanes/engine-client/engineClient";
-import { migrateChains } from "@lanes/song/chainsMigrate";
-import { createCurveFile } from "@lanes/song/curves";
+} from "@studio/engine-client/engineClient";
+import { migrateChains } from "@studio/song/chainsMigrate";
+import { createCurveFile } from "@studio/song/curves";
 import {
   describeGraph,
   describeTrackGraph,
   loadGraph,
   parseChains,
   resolveTrack,
-} from "@lanes/song/graph";
+} from "@studio/song/graph";
 import {
   cloneModuleFile,
   createModuleFile,
@@ -28,7 +28,7 @@ import {
   listLibrary,
   loadChains,
   loadProjectRoot,
-} from "@lanes/song/loader";
+} from "@studio/song/loader";
 import {
   clearChannelLabel,
   formatAudioDevice,
@@ -36,9 +36,9 @@ import {
   loadPreferences,
   parseChannels,
   setChannelLabel,
-} from "@lanes/song/preferences";
-import type { ClipDoc, ProjectDoc, TrackDoc } from "@lanes/song/project";
-import { trackMixer } from "@lanes/song/project";
+} from "@studio/song/preferences";
+import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
+import { trackMixer } from "@studio/song/project";
 import {
   deleteModule,
   insertChainStep,
@@ -48,12 +48,12 @@ import {
   setModuleBypass,
   setModuleMonitor,
   setModuleParam,
-} from "@lanes/song/projectEdit";
+} from "@studio/song/projectEdit";
 import {
   beatsToDuration,
   beatsToPosition,
   parsePosition,
-} from "@lanes/song/timecode";
+} from "@studio/song/timecode";
 import {
   MAX_GAIN_DB,
   MIN_GAIN_DB,
@@ -65,11 +65,11 @@ import {
   setTrackFields,
   setTrackPlacementDisabled,
   type TrackFields,
-} from "@lanes/song/trackMix";
-import { migrateModuleUis } from "@lanes/song/uiMigrate";
-import type { ChainsFile } from "@lanes/song/yaml/chainsSchema";
-import { setFileValue } from "@lanes/song/yaml/edit";
-import { appendNotes, isPlayableNote } from "@lanes/song/yaml/sequenceFile";
+} from "@studio/song/trackMix";
+import { migrateModuleUis } from "@studio/song/uiMigrate";
+import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
+import { setFileValue } from "@studio/song/yaml/edit";
+import { appendNotes, isPlayableNote } from "@studio/song/yaml/sequenceFile";
 import {
   applyAlternative,
   cancelAlternative,

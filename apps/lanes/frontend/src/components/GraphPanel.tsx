@@ -4,7 +4,7 @@
 // already lays out LR, so don't hand-roll a strip — it would lose the routed sends.
 // The track comes from the caret, so the panel has no selection state of its own.
 
-import { buildGraph, layout, subgraphForTrack } from "@lanes/ui-chains/graph";
+import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import type { MenuCtx } from "../contextMenu";

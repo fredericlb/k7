@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/web-backend",
+  "name": "lanes-backend",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   "dependencies": {
     "@frediverse/oidc": "*",
     "@frediverse/http": "*",
-    "@lanes/web-shared": "*",
+    "@studio/web-protocol": "*",
     "express": "^4.19.2",
     "tsx": "^4.16.0",
     "zod": "^4.4.3"

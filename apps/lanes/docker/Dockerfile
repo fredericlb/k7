@@ -30,14 +30,14 @@ FROM node:22-alpine AS pruner
 WORKDIR /repo
 RUN npm install -g turbo@2
 COPY . .
-RUN turbo prune @lanes/web-frontend @lanes/web-backend --docker
+RUN turbo prune lanes-frontend lanes-backend --docker
 # A SECOND prune, scoped to the backend alone, is what the runtime stage ships:
-# @lanes/web-backend + @lanes/web-shared + @frediverse/oidc and nothing
+# lanes-backend + @studio/web-protocol + @frediverse/oidc and nothing
 # else — no frontend source, and none of the brain/engine packages (the backend
 # stopped importing those when the file service moved out to the engine host).
 # node_modules/@frediverse/* are symlinks into the workspace, so a package
 # missing from the image is a dangling link and a crash on first import.
-RUN turbo prune @lanes/web-backend --docker --out-dir=out-backend
+RUN turbo prune lanes-backend --docker --out-dir=out-backend
 
 # ---- deps: install from the pruned lockfile --------------------------------
 # out/json holds only package.json files + the pruned package-lock.json, so this
@@ -49,14 +49,14 @@ RUN npm ci
 
 # ---- frontend build --------------------------------------------------------
 # `build` is `tsc --noEmit && vite build`, so a type error fails the image — the
-# frontend consumes @lanes/ui-* and @frediverse/ui as raw source, and those
+# frontend consumes @studio/ui-* and @frediverse/ui as raw source, and those
 # come in through the prune closure. @frediverse/ui in particular MUST be
 # present: index.css `@source`s packages/ui/src, and Tailwind silently generates
 # no classes for a @source path that doesn't exist.
 FROM deps AS frontend-build
 WORKDIR /app
 COPY --from=pruner /repo/out/full/ ./
-RUN npm run build --workspace @lanes/web-frontend
+RUN npm run build --workspace lanes-frontend
 
 # ---- backend prod deps -----------------------------------------------------
 # Installed from the BACKEND-ONLY prune, production-only, so the runtime tree
@@ -69,7 +69,7 @@ RUN npm run build --workspace @lanes/web-frontend
 # web/CLAUDE.md), so the interpreter is part of the runtime, and pruning it away
 # would leave the CMD with nothing to execute. Node's own type stripping is not
 # a substitute — it refuses to strip types inside node_modules, and
-# @lanes/web-shared is consumed as .ts source from exactly there.
+# @studio/web-protocol is consumed as .ts source from exactly there.
 FROM node:22-alpine AS backend-deps
 WORKDIR /app
 COPY --from=pruner /repo/out-backend/json/ ./

@@ -3,23 +3,23 @@
 // written down (caught by walking each schema's keys and asking whether any example mentions them).
 // Both read the markdown under lanes/docs/ itself. See ../../docs/docExamples.md.
 
-import { ChainsFileSchema } from "@lanes/song/yaml/chainsSchema";
+import { ChainsFileSchema } from "@studio/song/yaml/chainsSchema";
 import {
   ClipSchema,
   CurveSchema,
   SequenceSchema,
   VideoTrackSchema,
-} from "@lanes/song/yaml/entitySchemas";
+} from "@studio/song/yaml/entitySchemas";
 import {
   ModuleConfigSchema,
   ModuleSchema,
   UiFileSchema,
-} from "@lanes/song/yaml/moduleSchema";
+} from "@studio/song/yaml/moduleSchema";
 import {
   ProjectFileSchema,
   SettingsSchema,
-} from "@lanes/song/yaml/projectSchema";
-import { TrackSchema } from "@lanes/song/yaml/trackSchema";
+} from "@studio/song/yaml/projectSchema";
+import { TrackSchema } from "@studio/song/yaml/trackSchema";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import type { z } from "zod";

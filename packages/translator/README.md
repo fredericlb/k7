@@ -1,9 +1,9 @@
-# @lanes/translator
+# @studio/translator
 
 Converts a [DAWproject](https://github.com/bitwig/dawproject) file into a
 lanes **node project** (all-CUE). Pure offline converter — it never talks to
 the engine or the WebSocket; its only contract is the folder layout / CUE schema
-that `@lanes/song` reads.
+that `@studio/song` reads.
 
 ```
  *.dawproject ──(translator)──► node project ──(lanes graph)
@@ -17,13 +17,13 @@ A **library**, consumed as raw TS source like the other `packages/*` — it has 
 Its API, by subpath export:
 
 ```ts
-import { parseDawproject } from "@lanes/translator/dawproject"; // bytes  -> Song + assets
-import { resolvePluginParams } from "@lanes/translator/params"; // presets -> text params
-import { emitFolder } from "@lanes/translator/emit";            // Song   -> the CUE folder
+import { parseDawproject } from "@studio/translator/dawproject"; // bytes  -> Song + assets
+import { resolvePluginParams } from "@studio/translator/params"; // presets -> text params
+import { emitFolder } from "@studio/translator/emit";            // Song   -> the CUE folder
 ```
 
 `resolvePluginParams` takes the engine binary as an argument — locating it is the
-caller's job (`lanes import` uses `@lanes/engine-client/engineBinary`), so
+caller's job (`lanes import` uses `@studio/engine-client/engineBinary`), so
 this package never has to guess where the repo is.
 
 Produces a self-contained folder (default: `./My Song/` next to the input):

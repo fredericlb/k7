@@ -4,12 +4,12 @@
 // rather than finding the port held by a process nobody owns.
 
 import type { ChildProcess } from "node:child_process";
-import { findEngineBinary } from "@lanes/engine-client/engineBinary";
+import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
   engineRunning,
   ensureEngineDaemon,
   stopEngineDaemon,
-} from "@lanes/engine-client/engineDaemon";
+} from "@studio/engine-client/engineDaemon";
 import type { EngineIdentity } from "./identity.ts";
 import { line, pump } from "./logbus.ts";
 

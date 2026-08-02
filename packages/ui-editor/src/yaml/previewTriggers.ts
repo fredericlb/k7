@@ -4,7 +4,7 @@
 // the one it belongs to may appear later in the document.
 
 import type { EditorState } from "@codemirror/state";
-import type { PreviewReq } from "@lanes/web-shared";
+import type { PreviewReq } from "@studio/web-protocol";
 import { parsedTree } from "./parseTree";
 
 export interface PreviewTrigger {

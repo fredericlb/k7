@@ -3,7 +3,7 @@
 // arrangement. The heavy part (decode + downsample) belongs to the C++ engine, which
 // writes a placement-independent `{source}.cache` sidecar; this only reads it.
 
-import type { ClipDoc, ProjectDoc } from "@lanes/song/project";
+import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 
 // The whole-file envelope the engine computes and caches, placement-independent: it describes the FILE, and
 // regionWaveform maps a clip's region onto it. A fixed-density downsample, 0..1.

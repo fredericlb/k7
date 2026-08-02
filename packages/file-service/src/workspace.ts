@@ -34,11 +34,11 @@ import {
   renderMixdown,
   shareToRadiok7,
   transcode,
-} from "@lanes/commands/render";
-import { findEngineBinary } from "@lanes/engine-client/engineBinary";
-import { scannedPluginNames } from "@lanes/engine-client/pluginCache";
-import { projectHints } from "@lanes/song/hints";
-import { type IoPort, ioPorts } from "@lanes/song/ioPorts";
+} from "@studio/commands/render";
+import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import { scannedPluginNames } from "@studio/engine-client/pluginCache";
+import { projectHints } from "@studio/song/hints";
+import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
   cloneModuleFile,
   createModuleInstance,
@@ -46,37 +46,41 @@ import {
   listBaseModules,
   moduleRefOf,
   notSupportedModules,
-} from "@lanes/song/loader";
+} from "@studio/song/loader";
 import {
   type CatalogueModule,
   moduleCatalogue,
-} from "@lanes/song/moduleCatalogue";
+} from "@studio/song/moduleCatalogue";
 import {
   type ForkedModule,
   forkSharedModule,
   sharedModuleRef,
-} from "@lanes/song/moduleFork";
+} from "@studio/song/moduleFork";
 import {
   formatAudioDevice,
   formatChannels,
   loadPreferences,
   setEditorVim,
-} from "@lanes/song/preferences";
+} from "@studio/song/preferences";
 import type {
   ClipDoc,
   ProjectDoc,
   TrackDoc,
   VideoTrackDoc,
-} from "@lanes/song/project";
-import { loadAudioClipDoc, loadProject, trackMixer } from "@lanes/song/project";
-import { isInSharedModules } from "@lanes/song/sharedFolders";
+} from "@studio/song/project";
+import {
+  loadAudioClipDoc,
+  loadProject,
+  trackMixer,
+} from "@studio/song/project";
+import { isInSharedModules } from "@studio/song/sharedFolders";
 import {
   loadUiLibrary,
   SHARED_UI_PATH,
   uiFileText,
   uiPathFor,
-} from "@lanes/song/uiLibrary";
-import { isProjectFolder } from "@lanes/song/yaml/moduleIO";
+} from "@studio/song/uiLibrary";
+import { isProjectFolder } from "@studio/song/yaml/moduleIO";
 import type {
   FileContent,
   FileNode,
@@ -91,7 +95,7 @@ import type {
   WebVideoTrack,
   WebWaveform,
   WorkspaceInfo,
-} from "@lanes/web-shared";
+} from "@studio/web-protocol";
 import { buildGraphDoc } from "./graphDoc.ts";
 import { createProjectIn, importDawprojectInto } from "./projectLifecycle.ts";
 import {

@@ -5,7 +5,7 @@
 // instead of waiting out the TTL.
 
 import { readFileSync } from "node:fs";
-import { webEndpointPath } from "@lanes/engine-client/paths";
+import { webEndpointPath } from "@studio/engine-client/paths";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 

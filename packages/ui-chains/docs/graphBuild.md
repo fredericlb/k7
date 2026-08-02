@@ -51,7 +51,7 @@ The `@`-prefixed binds are **track intrinsics**, not plugin params: the renderer
 to the mixer commands and reads their live values from the track-controls channel.
 `@volume` is in dB so a linear knob maps straight onto the fader's range, and it stops at
 **+6, not +12** — the engine's track fader clamps there, so a taller knob promised gain it
-could not deliver (see `MAX_GAIN_DB` in `@lanes/song`).
+could not deliver (see `MAX_GAIN_DB` in `@studio/song`).
 
 A **video lane** gets one control. For picture, "mute" means hidden, and there is no solo,
 record arm, gain or pan to offer — a full strip there would be four controls that do

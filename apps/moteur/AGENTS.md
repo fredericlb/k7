@@ -35,8 +35,8 @@ engine/server/
 ### ProjectDoc and ProjectDiff
 
 `ProjectDoc` is the plain data model the song layer sends (tracks, clips, MIDI notes,
-plugins, sends). It must mirror `@lanes/song`'s `ProjectDoc` (TypeScript) and the
-JSON on the wire (`@lanes/engine-protocol`).
+plugins, sends). It must mirror `@studio/song`'s `ProjectDoc` (TypeScript) and the
+JSON on the wire (`@studio/engine-protocol`).
 
 `ProjectDiff` does the smart work: `diff()` the incoming doc against the current one and
 `apply()` the minimal change. `keyOf(...)` identity and `needsFullRebuild()` decide
@@ -103,7 +103,7 @@ needing a live `te::Edit` is covered by CLI smoke-runs instead.
 
 Build it, run it, exercise it. The test binary is the cheapest unit proof; CLI
 smoke-runs (`--list-audio-devices`, `--dump-params`, `--render`) are the integration
-proof. A wire change in `@lanes/engine-protocol` must also update the C++
+proof. A wire change in `@studio/engine-protocol` must also update the C++
 serialization — verified by running the engine, not by TypeScript.
 
 ## The audio device is opened ONCE, explicitly — never by a constructor

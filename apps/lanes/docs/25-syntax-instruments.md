@@ -57,7 +57,7 @@ The file default-exports a function taking a graph builder. It imports nothing a
 
 ```ts
 // modules/audio/wah/wah.ts
-import type { GraphBuilder } from "@lanes/dsp";
+import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {
   const rate = g.param("Rate", { min: 0.05, max: 10, default: 2 });

@@ -3,7 +3,7 @@
 The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust,
 no window.
 
-It is not itself a supervisor. It spawns **`@lanes/engine-host`** (TypeScript) as a
+It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
 child and drives it over NDJSON on stdio: the supervisor owns the `~/.lanes`
 contract and the registry, and — stage by stage — the engine and the file service. The
 tray draws what the supervisor reports and sends clicks back.

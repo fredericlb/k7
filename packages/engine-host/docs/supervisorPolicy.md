@@ -91,7 +91,7 @@ corrects it:
 
 Kept apart from the loop that calls it so the rules are readable and testable without a
 running engine. This is supervisor POLICY (which device this machine should be on), not
-a protocol capability — which is why it lives here and not in `@lanes/engine-client`.
+a protocol capability — which is why it lives here and not in `@studio/engine-client`.
 
 ## `devReload.ts` — restart on source change, in dev only
 

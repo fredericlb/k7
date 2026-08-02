@@ -1,18 +1,18 @@
 // yamlVocabulary.ts — the adapter between the schema-agnostic YAML editor and lanes:
-// it turns a file's path into a kind and asks @lanes/song for that kind's fields and
+// it turns a file's path into a kind and asks @studio/song for that kind's fields and
 // values. Derived rather than tabulated, because hand-kept field lists drift — a derived
 // list cannot be behind its schema.
 
-import type { FileKind } from "@lanes/song/yaml/fields";
-import { fieldsAt, fileKindFor, valuesAt } from "@lanes/song/yaml/fields";
-import type { YamlVocabulary } from "@lanes/ui-editor/yaml/completions";
+import type { FileKind } from "@studio/song/yaml/fields";
+import { fieldsAt, fileKindFor, valuesAt } from "@studio/song/yaml/fields";
+import type { YamlVocabulary } from "@studio/ui-editor/yaml/completions";
 import type { Hints } from "./types";
 
 /**
  * Values a position takes from THIS PROJECT rather than from its schema — a destination
  * names a module, and no enum can hold what the project happens to define.
  *
- * Here and not in @lanes/song's fields.ts on purpose: that file is derived from the Zod
+ * Here and not in @studio/song's fields.ts on purpose: that file is derived from the Zod
  * schemas and has to stay that way, while these come from the hints the server sends.
  */
 function projectValues(

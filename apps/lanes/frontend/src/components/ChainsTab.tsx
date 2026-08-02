@@ -4,8 +4,8 @@
 // send that skips a column doesn't slice through the module between. Shared with GraphPanel.
 
 import { cn } from "@frediverse/ui/lib/utils";
-import type { TrackControlValues } from "@lanes/ui-chains/graph";
-import { buildGraph, layout } from "@lanes/ui-chains/graph";
+import type { TrackControlValues } from "@studio/ui-chains/graph";
+import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";

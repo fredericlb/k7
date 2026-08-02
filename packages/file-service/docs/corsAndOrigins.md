@@ -63,5 +63,5 @@ The tray reads it (`weburi.rs`) and clears an entry when it is allowed or dismis
    an unbounded file or a menu with a thousand rows.
 
 The filter on what can be recorded and the one guarding the allowlist must be the same
-function — and are: `@lanes/engine-host/webOrigins`, where the writer defines it. A
+function — and are: `@studio/engine-host/webOrigins`, where the writer defines it. A
 row in the menu is one click from being allowed, so junk must never reach it.

@@ -3,7 +3,7 @@
 // tab — the clip under the timeline caret, or the sequence open in the editor
 // tab — lifted to the app shell so one panel serves every tab.
 
-import { findNotesArray, parseNotes } from "@lanes/ui-editor/tracker/notes";
+import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";

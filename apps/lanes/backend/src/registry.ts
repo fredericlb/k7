@@ -8,7 +8,7 @@ import {
   ENGINE_ASSIGN_TTL_MS,
   type EngineAddresses,
   type PublicEngine,
-} from "@lanes/web-shared";
+} from "@studio/web-protocol";
 
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;

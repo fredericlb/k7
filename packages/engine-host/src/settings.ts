@@ -5,7 +5,7 @@
 // OS login item is the source of truth for that.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { lanesDir, settingsPath } from "@lanes/engine-client/paths";
+import { lanesDir, settingsPath } from "@studio/engine-client/paths";
 
 export interface Settings {
   /** The registry the user pinned via "Add web UI…". Overrides every other tier. */

@@ -3,7 +3,7 @@
 // live armed set), and the toggle handler the m/s/r keys share with the buttons.
 // Extracted from App.tsx; behaviour unchanged.
 
-import type { TrackControlValues } from "@lanes/ui-chains/graph";
+import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DocTrack } from "./useProjectDoc";
 

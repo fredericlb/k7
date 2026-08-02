@@ -9,7 +9,7 @@ const char* GraphDspPlugin::xmlTypeName = "lanes_dspgraph";
 
 // The Auto Wah, as data — the fallback when a module names no `dsp:`.
 //
-// GENERATED: this is packages/dsp/graphs/autowah.json verbatim, emitted by @lanes/dsp. It is pasted rather
+// GENERATED: this is packages/dsp/graphs/autowah.json verbatim, emitted by @studio/dsp. It is pasted rather
 // than read because the engine parses no files, and autowah.test.ts compares the two so the copy cannot drift.
 // Do not hand-edit — change the JS and re-run its build.
 const char* GraphDspPlugin::defaultGraphJson()

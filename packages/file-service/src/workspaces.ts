@@ -5,7 +5,7 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { WorkspaceSummary } from "@lanes/web-shared";
+import type { WorkspaceSummary } from "@studio/web-protocol";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { slugify, userRoot, workspaceRoot } from "./slug.ts";
 import { publicKey, sshCommand } from "./sshKeys.ts";

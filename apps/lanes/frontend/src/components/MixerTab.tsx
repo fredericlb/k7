@@ -17,7 +17,7 @@ const METER_MIN = -60; // dB at the meter floor
 const METER_MAX = 6; // dB at the top (headroom above unity)
 const GAIN_MIN = -60; // fader floor (dB) — treated as silence
 // Fader ceiling +6 dB, where Tracktion's volume plugin actually stops — a taller fader wrote a bigger number
-// and still played +6. Keep in step with MAX_GAIN_DB in @lanes/song/trackMix, which can't be bundled here.
+// and still played +6. Keep in step with MAX_GAIN_DB in @studio/song/trackMix, which can't be bundled here.
 const GAIN_MAX = 6;
 
 // The strip's numbers come from the track's MIXER MODULE and are already in the units a fader speaks: dB for

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ProjectDoc, TrackDoc } from "@lanes/song/project";
+import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import {
   ARG_CLASSES,

@@ -2,16 +2,16 @@ import { autocompletion } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";
 import { type Extension, Prec } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
-import { type LintItem, lint, refreshLint } from "@lanes/ui-editor/lint";
+import { Vim, vim } from "@replit/codemirror-vim";
+import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
 import {
   mountSeqGrid,
   type SeqGridController,
-} from "@lanes/ui-editor/tracker/plugin";
-import { yamlCompletions } from "@lanes/ui-editor/yaml/completions";
-import { projectEntityLinks } from "@lanes/ui-editor/yaml/entityLinks";
-import { projectLanguage } from "@lanes/ui-editor/yaml/language";
-import { projectPreviewGutter } from "@lanes/ui-editor/yaml/previewGutter";
-import { Vim, vim } from "@replit/codemirror-vim";
+} from "@studio/ui-editor/tracker/plugin";
+import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
+import { projectEntityLinks } from "@studio/ui-editor/yaml/entityLinks";
+import { projectLanguage } from "@studio/ui-editor/yaml/language";
+import { projectPreviewGutter } from "@studio/ui-editor/yaml/previewGutter";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";

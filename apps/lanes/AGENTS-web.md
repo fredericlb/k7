@@ -6,7 +6,7 @@ The **web-based DAW editor**. Three workspace packages:
 |---|---|
 | `web/frontend` | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline (piano roll + arrangement), chains graph (dagre layout + DOM rendering), video compositor. |
 | `web/backend` | Express — **OIDC auth + engine registry only**. Has no file routes. Knows *who you are* and *which engines exist* — never what is on any disk. |
-| `web/shared` | `@lanes/web-shared` — wire types shared between frontend and backend (engine addresses, assignment lease types). |
+| `web/shared` | `@studio/web-protocol` — wire types shared between frontend and backend (engine addresses, assignment lease types). |
 
 Dev ports: **frontend 5223, backend 8789**. Served over TLS at `https://studio.test`
 by the repo-root Caddyfile.
@@ -59,7 +59,7 @@ a pane off screen; nothing unmounts. Two views: `global` (chains graph) and `vid
 ### Commands are the CLI's, verbatim
 
 The command bar calls `/complete` and `/command` on the **file service**, which dispatch
-through `@lanes/commands` — the same SIDs `lanes cmd` runs. Add a feature there,
+through `@studio/commands` — the same SIDs `lanes cmd` runs. Add a feature there,
 not here. Web-local commands are only the shell's own view state (tabs, close, edit
 sequence/clip in `LOCAL_COMMANDS`).
 
@@ -71,7 +71,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 ### Editor
 
-`@uiw/react-codemirror` with YAML language support (`@lanes/ui-editor`)
+`@uiw/react-codemirror` with YAML language support (`@studio/ui-editor`)
 and a hint-driven completion source. Vim mode is on by default (global preference in
 `~/.lanes/preferences.yaml`). `:w` is wired to the tab's `onSave`.
 
@@ -90,7 +90,7 @@ are a stack; the innermost entry describes the view.
 
 ### Video
 
-`@lanes/ui-eyes` — WebGL compositor. One `<video>` per layer (not per clip). The
+`@studio/ui-eyes` — WebGL compositor. One `<video>` per layer (not per clip). The
 `video` view defaults for songs with video tracks (`autoVideoRef`).
 
 ## The backend in detail

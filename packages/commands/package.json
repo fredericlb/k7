@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/commands",
+  "name": "@studio/commands",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -23,8 +23,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@lanes/engine-client": "*",
-    "@lanes/song": "*",
+    "@studio/engine-client": "*",
+    "@studio/song": "*",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

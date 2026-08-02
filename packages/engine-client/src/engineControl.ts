@@ -1,6 +1,6 @@
 // engineControl.ts — the WebSocket link to the C++ engine, minus the project: connect,
 // send a command, emit the reply as an event. Nothing here knows what a song is, and that
-// is the point — importing @lanes/song in this file would silently pull ~3 MB of
+// is the point — importing @studio/song in this file would silently pull ~3 MB of
 // compiler into the supervisor's bundle. Outgoing messages buffer until the socket opens.
 
 import { EventEmitter } from "node:events";
@@ -8,11 +8,11 @@ import type {
   EngineState,
   TransportAction,
   WaveformEnvelope,
-} from "@lanes/engine-protocol";
+} from "@studio/engine-protocol";
 import WebSocket from "ws";
 
-// The wire shapes shared with the browser client live in @lanes/engine-protocol, so the two can't drift.
-export type { EngineState, TransportAction } from "@lanes/engine-protocol";
+// The wire shapes shared with the browser client live in @studio/engine-protocol, so the two can't drift.
+export type { EngineState, TransportAction } from "@studio/engine-protocol";
 
 // A finished take, ready to become a clip. Position in SECONDS: the engine has no tempo map, so the brain converts.
 export interface RecordedTake {

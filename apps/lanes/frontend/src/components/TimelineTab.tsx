@@ -5,8 +5,8 @@
 // component's imperative handle. See docs/timeline.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
-import { beatsToPosition } from "@lanes/song/timecode";
-import { trackLabel } from "@lanes/song/trackKind";
+import { beatsToPosition } from "@studio/song/timecode";
+import { trackLabel } from "@studio/song/trackKind";
 import { labelled, labelStride, subdivideBeats } from "@studio/ui-waveform";
 import {
   Music,

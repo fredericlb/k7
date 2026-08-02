@@ -1,7 +1,7 @@
 # The tray app
 
 `engine-tray` is a tray-only Tauri app with no window. It is the **VIEW** over the
-supervisor (`@lanes/engine-host`), which it spawns as a child and drives over NDJSON on
+supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.lanes` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.
 
@@ -62,7 +62,7 @@ Two halves, and the split is the whole point:
 
 ## The remaining loops (`supervisor.rs`)
 
-The name is a misnomer now — the supervisor is `@lanes/engine-host`. The registry
+The name is a misnomer now — the supervisor is `@studio/engine-host`. The registry
 heartbeat, the refused-origin poll, the crash watch, the file-service watch and all three
 engine-query polls belong to it: it owns those files, those processes, and the one
 connection to the engine.

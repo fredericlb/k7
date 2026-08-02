@@ -3,7 +3,7 @@
 // into), so the two panes must agree on the wire format and it lives here rather than in
 // either. The range travels WITH the name, so the drop target needs no engine knowledge.
 
-import type { ParamMeta } from "@lanes/engine-protocol";
+import type { ParamMeta } from "@studio/engine-protocol";
 
 // A private MIME type, so dragging text, a file or a link over the grid can never bind anything.
 export const PARAM_MIME = "application/x-lanes-param";

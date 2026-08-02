@@ -5,7 +5,7 @@
 
 import { createWriteStream, mkdirSync, type WriteStream } from "node:fs";
 import type { Readable } from "node:stream";
-import { lanesDir, mergedLogPath } from "@lanes/engine-client/paths";
+import { lanesDir, mergedLogPath } from "@studio/engine-client/paths";
 
 let stream: WriteStream | null | undefined;
 

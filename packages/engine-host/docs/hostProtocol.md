@@ -3,7 +3,7 @@
 The tray spawns the host and talks to it over NDJSON on stdio — one JSON object per
 line, host→tray on stdout, tray→host on stdin. `hostProtocol.ts` is the single written
 definition of that format, mirrored BY HAND in Rust
-(`engine-tray/src-tauri/src/host.rs`), the same way `@lanes/engine-protocol` is
+(`engine-tray/src-tauri/src/host.rs`), the same way `@studio/engine-protocol` is
 mirrored in the C++ engine.
 
 ## Three rules, all load-bearing

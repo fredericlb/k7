@@ -1,12 +1,12 @@
 // waveformCache.ts — the Node side of the on-disk waveform cache the ENGINE computes:
 // tell whether a `{source}.cache` sidecar is still valid (same fingerprint), spawn the
 // engine to rebuild a stale one, read the envelope back. Clip-region slicing and the
-// tempo grid stay in @lanes/commands/waveform. Full rationale: docs/waveformCache.md.
+// tempo grid stay in @studio/commands/waveform. Full rationale: docs/waveformCache.md.
 
 import { execFile, spawn } from "node:child_process";
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { promisify } from "node:util";
-import type { FileEnvelope } from "@lanes/commands/waveform";
+import type { FileEnvelope } from "@studio/commands/waveform";
 
 const execFileAsync = promisify(execFile);
 

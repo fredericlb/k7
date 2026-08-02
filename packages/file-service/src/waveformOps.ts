@@ -6,11 +6,11 @@
 
 import { readdirSync, unlinkSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
-import { beatGrid, regionWaveform } from "@lanes/commands/waveform";
-import { findEngineBinary } from "@lanes/engine-client/engineBinary";
-import type { ClipDoc, ProjectDoc } from "@lanes/song/project";
-import { loadAudioClipDoc } from "@lanes/song/project";
-import type { WaveformStatus, WebWaveform } from "@lanes/web-shared";
+import { beatGrid, regionWaveform } from "@studio/commands/waveform";
+import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import type { ClipDoc, ProjectDoc } from "@studio/song/project";
+import { loadAudioClipDoc } from "@studio/song/project";
+import type { WaveformStatus, WebWaveform } from "@studio/web-protocol";
 import {
   CACHE_EXT,
   ensureFileEnvelope,

@@ -1,4 +1,4 @@
-import type { WebGraph, WebWidget } from "@lanes/web-shared";
+import type { WebGraph, WebWidget } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
   buildGraph,

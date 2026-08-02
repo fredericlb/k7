@@ -1,5 +1,5 @@
 // main.rs — the lanes tray app: a windowless Tauri tray that is the VIEW over the
-// supervisor (@lanes/engine-host), spawned as a child and driven over NDJSON on stdio.
+// supervisor (@studio/engine-host), spawned as a child and driven over NDJSON on stdio.
 // The Windows job object is created HERE, before anything is spawned, so a force-killed
 // tray takes the whole stack with it. See docs/tray.md.
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]

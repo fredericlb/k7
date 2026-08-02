@@ -8,14 +8,14 @@ import {
   type ModuleUI,
   UISchema,
   type Widget,
-} from "@lanes/song/yaml/moduleSchema";
+} from "@studio/song/yaml/moduleSchema";
 import { isMap, parseDocument } from "yaml";
 
 export type {
   ModuleUI,
   Widget,
   WidgetType,
-} from "@lanes/song/yaml/moduleSchema";
+} from "@studio/song/yaml/moduleSchema";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 

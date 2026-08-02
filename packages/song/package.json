@@ -1,5 +1,5 @@
 {
-  "name": "@lanes/song",
+  "name": "@studio/song",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -60,7 +60,7 @@
     "@strudel/transpiler": "1.1.0",
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
-    "@lanes/dsp": "*"
+    "@studio/dsp": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

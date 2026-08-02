@@ -11,8 +11,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ProjectDoc } from "@lanes/song/project";
-import { loadProject } from "@lanes/song/project";
+import type { ProjectDoc } from "@studio/song/project";
+import { loadProject } from "@studio/song/project";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addTakeToTrack } from "./recordTake";
 

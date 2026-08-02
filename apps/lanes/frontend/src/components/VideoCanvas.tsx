@@ -4,9 +4,9 @@
 // HOST (not the window) are each a bug already paid for once. eyes knows nothing about the
 // engine — this component owns the EngineClock and feeds it the reported playhead.
 
-import { EngineClock } from "@lanes/ui-eyes/clock";
-import { type LaneDebug, RealtimeDriver } from "@lanes/ui-eyes/realtime";
-import type { VideoScene } from "@lanes/ui-eyes/scene";
+import { EngineClock } from "@studio/ui-eyes/clock";
+import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
+import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef } from "react";
 
 // Letterbox the viewport's aspect in the host: the backing store keeps its pixel size, only CSS size changes.

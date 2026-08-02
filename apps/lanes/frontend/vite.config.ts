@@ -33,13 +33,13 @@ export default defineAppConfig({
   extend: {
     // Compiles messages/<locale>.json into src/paraglide/.
     plugins: [frediverseParaglide()],
-    // @lanes/ui-eyes, /ui-chains and /ui-editor are consumed as raw .ts
+    // @studio/ui-eyes, /ui-chains and /ui-editor are consumed as raw .ts
     // (no build step, like the rest of the brain). Vite usually skips
     // pre-bundling a linked workspace dep, but esbuild's dep scanner can grab
     // these and choke on the .ts extension in their exports maps — exclude them
     // so they're served as source like the rest of the app.
     optimizeDeps: {
-      exclude: ["@lanes/ui-eyes", "@lanes/ui-chains", "@lanes/ui-editor"],
+      exclude: ["@studio/ui-eyes", "@studio/ui-chains", "@studio/ui-editor"],
     },
   },
 });

@@ -14,7 +14,7 @@ import {
   insertFor,
   midByArc,
   smoothPath,
-} from "@lanes/ui-chains/cables";
+} from "@studio/ui-chains/cables";
 import {
   type EdgeInsert,
   type GraphNode,
@@ -24,8 +24,8 @@ import {
   widgetDenorm,
   widgetNorm,
   widgetRect,
-} from "@lanes/ui-chains/graph";
-import type { WebSignal, WebWidget } from "@lanes/web-shared";
+} from "@studio/ui-chains/graph";
+import type { WebSignal, WebWidget } from "@studio/web-protocol";
 import { Snowflake } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MenuCtx } from "../contextMenu";
@@ -399,7 +399,7 @@ function fmtValue(v: number | undefined): string {
 }
 
 // --- edge geometry ------------------------------------------------------------
-// The maths lives in @lanes/ui-chains/cables; here we only pair it with the drawing's per-edge metadata.
+// The maths lives in @studio/ui-chains/cables; here we only pair it with the drawing's per-edge metadata.
 
 interface EdgeGeom extends CableGeom {
   id: string;

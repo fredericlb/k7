@@ -5,8 +5,8 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { pendingOriginsPath } from "@lanes/engine-client/paths";
-import { normaliseBrowserOrigin } from "@lanes/engine-host/webOrigins";
+import { pendingOriginsPath } from "@studio/engine-client/paths";
+import { normaliseBrowserOrigin } from "@studio/engine-host/webOrigins";
 
 const PATH = pendingOriginsPath();
 
