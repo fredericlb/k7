@@ -22,6 +22,7 @@
     "apps/lanes/frontend",
     "apps/lanes/backend",
     "apps/mediatek",
+    "apps/mediatek/backend",
     "apps/moteur",
     "apps/capot"
   ],

@@ -1,15 +1,8 @@
-// api.ts — the two servers this app talks to: the hosted backend (same-origin, for who
-// you are and which engines exist) and the LOCAL file service (cross-origin, for the
-// library itself). Same split as lanes, minus everything to do with a workspace — the
-// mediatek is per machine.
+// api.ts — one server now: the mediatek's own backend, same-origin. The catalogue lives
+// there, so browsing it needs no engine and no local service. The LOCAL cache is what the
+// moteur plays from, and nothing on this screen reads it.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
-import type { PublicEngine } from "@studio/web-protocol";
-import {
-  ENGINE_TOKEN_HEADER,
-  USER_HEADER,
-  WORKSPACE_HEADER,
-} from "@studio/web-protocol";
 
 export interface AuthUser {
   sub?: string;
@@ -17,19 +10,15 @@ export interface AuthUser {
   email?: string;
 }
 
-/** Where the file service is and how to prove we may ask it. */
-export interface ServiceLink {
-  base: string;
-  user: string;
-  token: string;
-}
-
 async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) throw new Error(`${what} ${res.status}`);
   return (await res.json()) as T;
 }
 
-export const backend = {
+const get = async <T>(path: string, what: string): Promise<T> =>
+  json(await fetch(`/api/mediatek${path}`), what);
+
+export const auth = {
   loginUrl: `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
 
   /** The session's user, or null when anonymous. */
@@ -38,71 +27,25 @@ export const backend = {
     if (res.status === 401) return null;
     return (await json<{ user: AuthUser }>(res, "auth/me")).user;
   },
-
-  engines: async (): Promise<PublicEngine[]> =>
-    json(await fetch("/api/engines"), "engines"),
 };
 
-/**
- * The file service's mediatek routes.
- *
- * The workspace header is sent EMPTY on purpose: these routes are mounted before
- * resolveWorkspace and never read it, and sending a made-up workspace name would be a
- * claim about a thing this app has no opinion on.
- */
-export function library(link: ServiceLink) {
-  const headers: Record<string, string> = {
-    [USER_HEADER]: link.user,
-    [WORKSPACE_HEADER]: "",
-    ...(link.token ? { [ENGINE_TOKEN_HEADER]: link.token } : {}),
-  };
-  const get = async <T>(path: string, what: string): Promise<T> =>
-    json(await fetch(`${link.base}${path}`, { headers }), what);
+export const library = {
+  summary: () =>
+    get<{ present: boolean; counts: Record<string, number> }>("", "mediatek"),
 
-  const post = async <T>(
-    path: string,
-    body: unknown,
-    what: string,
-  ): Promise<T> =>
-    json(
-      await fetch(`${link.base}${path}`, {
-        method: "POST",
-        headers: { ...headers, "content-type": "application/json" },
-        body: JSON.stringify(body),
-      }),
-      what,
-    );
+  revisions: () =>
+    get<{ present: boolean; revisions: Record<string, string> }>(
+      "/revision",
+      "revision",
+    ),
 
-  return {
-    /** The user's workspaces — what an import can be pulled from. */
-    workspaces: () =>
-      get<{ workspaces: { name: string }[] }>("/workspaces", "workspaces"),
+  list: (family: string) =>
+    get<{ family: string; rev: string; entries: MediatekEntry[] }>(
+      `/list?family=${encodeURIComponent(family)}`,
+      "list",
+    ),
 
-    /** Copy a workspace's shared folders in. Additive: it never replaces what is here. */
-    importWorkspace: (workspace: string) =>
-      post<{ copied: string[]; skipped: string[]; absent: string[] }>(
-        "/mediatek/import",
-        { workspace },
-        "import",
-      ),
-
-    summary: () =>
-      get<{
-        present: boolean;
-        root: string;
-        counts: Record<string, number>;
-      }>("/mediatek", "mediatek"),
-
-    revisions: () =>
-      get<{ present: boolean; revisions: Record<string, string> }>(
-        "/mediatek/revision",
-        "revision",
-      ),
-
-    list: (family: string) =>
-      get<{ family: string; rev: string; entries: MediatekEntry[] }>(
-        `/mediatek/list?family=${encodeURIComponent(family)}`,
-        "list",
-      ),
-  };
-}
+  /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
+  fileUrl: (path: string) =>
+    `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+};

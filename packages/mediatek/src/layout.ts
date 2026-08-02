@@ -3,7 +3,7 @@
 // for the same reason: a wrong path here does not throw, it reads as an empty library.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { mediatekDir } from "@studio/engine-client/paths";
 import type { Family } from "./types.ts";
 
@@ -114,4 +114,26 @@ export function schemaVersion(): number {
 /** An absolute path as the mediatek-relative POSIX path used for entry ids. */
 export function toRel(abs: string): string {
   return relative(mediatekDir(), abs).split(sep).join("/");
+}
+
+/** Thrown by `safePath` — a caller-fixable 400, never a 500. */
+export class PathEscapesError extends Error {}
+
+/**
+ * A mediatek-relative path as an absolute one, confined to the root.
+ *
+ * The local library never needed this: the file service's own `safePath` confines to the
+ * workspace, which put the mediatek out of reach entirely. A HOSTED mediatek has no such
+ * wall — the path in the request is the only thing between a caller and the disk — so the
+ * check moves here, where both sides can use it.
+ *
+ * Lexical only, deliberately: this runs on every byte served, and the tree it guards is
+ * one the service itself writes. A symlink INTO it is a thing an operator did on purpose.
+ */
+export function safePath(rel: string): string {
+  const root = mediatekDir();
+  const abs = resolve(root, rel);
+  if (abs !== root && !abs.startsWith(root + sep))
+    throw new PathEscapesError(`path escapes the mediatek: ${rel}`);
+  return abs;
 }

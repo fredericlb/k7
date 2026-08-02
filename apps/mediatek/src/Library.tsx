@@ -6,7 +6,7 @@ import { Card } from "@frediverse/ui/card";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Boxes, Disc3, Loader2, Waves } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { library, type ServiceLink } from "./api";
+import { library } from "./api";
 
 const FAMILIES = [
   { id: "morceaux", label: "Morceaux", icon: Disc3 },
@@ -27,95 +27,36 @@ function bytes(n: number | undefined): string {
   return `${(n / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-interface ImportReport {
-  copied: string[];
-  skipped: string[];
-  absent: string[];
-}
-
-/** Pull a workspace's shared folders in. The one thing this app writes, so it names the
- *  workspace it will read rather than acting on an implied one. */
-function ImportControl({
-  api,
-  onDone,
-}: {
-  api: ReturnType<typeof library>;
-  onDone: (r: ImportReport) => void;
-}) {
-  const [names, setNames] = useState<string[] | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void api
-      .workspaces()
-      .then((w) => setNames(w.workspaces.map((x) => x.name)))
-      .catch(() => setNames([]));
-  }, [api]);
-
-  if (!names?.length) return null;
-
-  return (
-    <select
-      className="rounded-md border bg-background px-2 py-1 text-xs"
-      disabled={busy}
-      value=""
-      onChange={(e) => {
-        const ws = e.target.value;
-        if (!ws) return;
-        setBusy(true);
-        void api
-          .importWorkspace(ws)
-          .then(onDone)
-          .finally(() => setBusy(false));
-      }}
-    >
-      <option value="">{busy ? "import…" : "Importer un workspace…"}</option>
-      {names.map((n) => (
-        <option key={n} value={n}>
-          {n}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-export function Library({ link }: { link: ServiceLink }) {
-  const api = useRef(library(link)).current;
+export function Library() {
   const [family, setFamily] = useState<FamilyId>("morceaux");
-  const [root, setRoot] = useState("");
   const [present, setPresent] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [imported, setImported] = useState<ImportReport | null>(null);
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    void api
+    void library
       .summary()
       .then((s) => {
         setPresent(s.present);
-        setRoot(s.root);
         setCounts(s.counts);
       })
       .catch((e: Error) => setError(e.message));
-  }, [api]);
+  }, []);
 
-  const load = useCallback(
-    async (f: FamilyId, rev: string) => {
-      try {
-        const l = await api.list(f);
-        seen.current[f] = rev;
-        setEntries(l.entries);
-        setCounts((c) => ({ ...c, [f]: l.entries.length }));
-        setError(null);
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    },
-    [api],
-  );
+  const load = useCallback(async (f: FamilyId, rev: string) => {
+    try {
+      const l = await library.list(f);
+      seen.current[f] = rev;
+      setEntries(l.entries);
+      setCounts((c) => ({ ...c, [f]: l.entries.length }));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
 
   // One poll drives every family: fetch the token map, and reload the SELECTED family only
   // if its token moved. A family nobody is looking at just updates its count on switch.
@@ -123,7 +64,7 @@ export function Library({ link }: { link: ServiceLink }) {
     let stop = false;
     const tick = async () => {
       try {
-        const { present: p, revisions } = await api.revisions();
+        const { present: p, revisions } = await library.revisions();
         if (stop) return;
         setPresent(p);
         const rev = revisions[family];
@@ -139,32 +80,16 @@ export function Library({ link }: { link: ServiceLink }) {
       stop = true;
       clearInterval(t);
     };
-  }, [api, family, load]);
+  }, [family, load]);
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex items-baseline gap-3 border-b px-6 py-3">
         <span className="text-lg font-semibold tracking-tight">mediatek</span>
-        {root ? (
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            {root}
-          </span>
-        ) : null}
-        <div className="ml-auto">
-          <ImportControl api={api} onDone={setImported} />
-        </div>
+        <span className="text-xs text-muted-foreground">
+          la médiathèque de studio
+        </span>
       </header>
-      {imported ? (
-        // Said, not just done: an import that skipped things looks identical to one that
-        // copied everything, and which it was is the whole answer.
-        <div className="border-b bg-muted/40 px-6 py-2 text-xs text-muted-foreground">
-          {imported.copied.length} ajouté(s), {imported.skipped.length} déjà
-          présent(s)
-          {imported.absent.length
-            ? `, ${imported.absent.join(" et ")} absent(s) du workspace`
-            : null}
-        </div>
-      ) : null}
 
       <div className="flex min-h-0 flex-1">
         <nav className="w-52 shrink-0 border-r p-3">
@@ -193,10 +118,9 @@ export function Library({ link }: { link: ServiceLink }) {
           {error ? (
             <Card className="p-4 text-sm text-destructive">{error}</Card>
           ) : present === false ? (
-            // A real answer, not a failure: nothing has created a library yet.
+            // A real answer, not a failure: the volume is mounted but nothing is in it yet.
             <Card className="p-6 text-sm text-muted-foreground">
-              Aucune médiathèque à <span className="font-mono">{root}</span>.
-              Elle est créée au démarrage du service local.
+              La médiathèque est vide pour l'instant.
             </Card>
           ) : entries === null ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

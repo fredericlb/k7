@@ -11,7 +11,8 @@
     "./scan": "./src/scan.ts",
     "./revision": "./src/revision.ts",
     "./catalogue": "./src/catalogue.ts",
-    "./ingest": "./src/ingest.ts"
+    "./ingest": "./src/ingest.ts",
+    "./manifest": "./src/manifest.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
