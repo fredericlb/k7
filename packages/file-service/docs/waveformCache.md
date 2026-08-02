@@ -16,7 +16,7 @@ tree and gitignored.
 
 ## The content fingerprint
 
-**MUST match `engine/engine/Waveform.cpp` byte for byte.**
+**MUST match `apps/moteur/engine/Waveform.cpp` byte for byte.**
 
 A cheap, cross-language fingerprint: FNV-1a/64 over the file SIZE (8 little-endian
 bytes), then up to `HEAD` bytes from the front and up to `TAIL` bytes from the end.

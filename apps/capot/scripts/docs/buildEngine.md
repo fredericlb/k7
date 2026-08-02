@@ -4,7 +4,7 @@
 `apps/lanes/out/`:
 
 1. the **C++ engine** — CMake, with the preset chosen from the host platform. Delegated to
-   the `lanes:build:*` npm scripts so "how the engine builds" is defined once; Linux has
+   the moteur's own `build:*` npm scripts so "how the engine builds" is defined once; Linux has
    no such script yet and keeps its preset in this file.
 2. the **tray app** — a Tauri release bundle.
 
@@ -73,13 +73,13 @@ plain `cargo check` / `tauri dev` workflow.
 
 Builds a **debug tray app that carries nothing**: the config override empties `externalBin`
 and `resources`, so the Rust finds no bundled engine, node or file service beside itself
-and takes its dev fallbacks — the repo's `engine/build` for the engine, and `tsx` for the
+and takes its dev fallbacks — the repo's `apps/moteur/build` for the engine, and `tsx` for the
 file service. With no bundled file service the tray does not run one at all: it is started
 separately with hot-reload by `npm run dev` (see `fileservice.rs`).
 
 So editing engine or file-service code needs no rebuild of this app. Only `engine:build`
 bundles and runs the file service. Fast to produce, not distributable. Dev mode never
-rebuilds the engine either — it points at whatever is already in `engine/build`, which is
+rebuilds the engine either — it points at whatever is already in `apps/moteur/build`, which is
 what makes the loop fast.
 
 The build number the tray displays is local wall-clock `YYYYMMDD.HHMM`, stamped into the

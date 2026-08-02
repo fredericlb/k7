@@ -1,15 +1,23 @@
-# AGENTS.md — lanes engine
+# AGENTS.md — moteur
 
 A **headless audio server** in C++. Receives a compiled `ProjectDoc` JSON, diffs it
 against the current state, applies the minimal change to a Tracktion Engine edit, plays
 audio, and pushes transport/meter state back over WebSocket. **Never parses song files.**
+
+It is deliberately its own app rather than part of lanes: it serves every audio app in
+the repo. lanes drives it today; mediatek's module previews and platines will drive the
+same binary over the same protocol, and it cannot tell them apart — it only ever sees a
+compiled `ProjectDoc`.
+
+This workspace declares **no `build` or `test` script**, so `turbo run build` can never
+try to compile C++. Use the `build:*` / `test:*` scripts below.
 
 ## Architecture
 
 The engine is split into two layers:
 
 ```
-engine/engine/          library — the audio host (JUCE/Tracktion state lives here)
+engine/                 library — the audio host (JUCE/Tracktion state lives here)
   ProjectDoc.{h,cpp}      data model mirroring the JSON on the wire
   ProjectDiff.{h,cpp}     diff() incoming doc vs current, apply() minimal change
   EngineHost.{h,cpp}      lifecycle spine — the ONLY public header (JUCE-free)
@@ -26,7 +34,7 @@ engine/engine/          library — the audio host (JUCE/Tracktion state lives h
   NormalizeClips.cpp        clip normalisation
   Waveform.cpp              waveform peak data
 
-engine/server/
+server/
   main.cpp               WebSocket server (IXWebSocket) wiring JSON → EngineHost
 ```
 
@@ -71,11 +79,11 @@ state where possible; `.vstpreset` is the fallback for plugins that need opaque 
 
 ## Building
 
-**macOS** — `npm run lanes:build:mac` from the repo root. Drives the `macos-clang`
+**macOS** — `npm run build:mac --workspace moteur`. Drives the `macos-clang`
 preset (Ninja + AppleClang, RelWithDebInfo, native arm64). Needs `brew install cmake
 ninja`. Sanity check: `./build/macos-clang/lanes-engine --list-audio-devices`.
 
-**Windows** — `npm run lanes:build:win`. Needs the MSVC Rust toolchain. The .exe is
+**Windows** — `npm run build:win --workspace moteur`. Needs the MSVC toolchain. The .exe is
 often locked while the engine is running — stop it before rebuilding.
 
 **Linux** — a preset from `CMakePresets.json` (`dev-gcc`, `dev-clang`, `asan`,
@@ -93,7 +101,7 @@ Build gotchas:
 
 ## Tests
 
-`npm run lanes:test:mac` from the repo root. Covers the **JUCE-free data layer
+`npm run test:mac --workspace moteur`. Covers the **JUCE-free data layer
 only** — `tests/ProjectDiff_test.cpp` exercises `diff()`/`needsFullRebuild()` (rename
 not re-add, param drag stays incremental, plugin swap forces rebuild, removals before
 adds, …). Tiny hand-rolled harness (`tests/test_harness.h`, `CHECK`/`RUN`). Anything

@@ -1,4 +1,4 @@
-# AGENTS.md — engine-tray
+# AGENTS.md — capot
 
 The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust,
 no window.
@@ -89,7 +89,7 @@ Needs the MSVC Rust toolchain on Windows, not `-gnu`.
 
 - `npm run dev` (`tauri dev`) — a debug tray app that carries nothing: no vendored
   engine/node, and an empty `resources` list. The Rust finds the engine in the repo's
-  `engine/build/` and the supervisor via `hostcmd.rs`'s dev tier.
+  `apps/moteur/build/` and the supervisor via `hostcmd.rs`'s dev tier.
 - `npm run build` (`tauri build`) — full release bundle. Both run `predev`/`prebuild` =
   `node ../scripts/build-engine.mjs --sidecar-only`, which stages the sidecars **and
   builds both `.mjs` bundles** — Tauri errors on a resource glob matching nothing, so

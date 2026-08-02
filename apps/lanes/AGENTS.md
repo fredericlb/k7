@@ -1,166 +1,146 @@
-# AGENTS.md — lanes root
+# AGENTS.md — lanes
 
 A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web editor
 is your studio.
 
-## The four services
-
-| Service | Language | What it does |
-|---|---|---|
-| `engine/` | C++ | Headless audio server. Receives compiled `ProjectDoc` JSON, diffs it against the current state, applies changes to a Tracktion Engine edit, plays audio, pushes transport/meter state back over WebSocket. Never parses song files. |
-| `engine-tray/` | Rust (Tauri v2) | The menu-bar **view** for the supervisor. Spawns `packages/engine-host/` as a child and drives it over NDJSON on stdio, drawing the snapshots it reports and sending clicks back. Also creates the Windows job object that makes the whole tree die with it. Computes no policy of its own. |
-| `web/` | TypeScript (React + Express) | The web editor. Three sub-packages: `web/frontend` (React + Vite + Tailwind v4), `web/backend` (Express — OIDC auth + engine registry only), `web/shared` (wire types). The browser talks to three servers: the backend (same-origin), the file service (cross-origin, direct), and the engine (WebSocket, direct). |
-| `packages/file-service/` | TypeScript | Runs on the engine's machine. Owns `~/.lanes/root/<user>/<workspace>`, serves every file operation to the browser directly (cross-origin, CORS-gated). Dials the local engine to compile-and-send projects. |
-
-## Shared packages (`packages/`)
-
-These are npm workspace members consumed as **raw TypeScript source** (no build step,
-run via `tsx`). They are the "brain" of the system — the song compiler, the engine
-client, the command layer:
+**This directory is the web editor, and only that.** The engine (`apps/moteur`), the
+tray (`apps/capot`) and the brain packages (`packages/*`, all `@studio/*`) moved out
+when they stopped belonging to lanes alone — the repo-root `AGENTS.md` holds the map of
+the whole audio side. Two workspaces live here:
 
 | Package | Role |
 |---|---|
-| `song/` | The song compiler. Parses a YAML folder in-process (Zod-validated), compiles to `ProjectDoc`/`GraphDoc`, resolves Strudel patterns, handles file edits. |
-| `commands/` | Shared command layer. Every editing capability is a stable SID (`module.create`, `transport.play`, …) with one handler. Same feature fires from the web command bar and `lanes cmd`. |
-| `engine-client/` | Node-side link to the C++ engine. Drives it over WebSocket, manages the engine daemon (`~/.lanes/engine.pid`), finds the built binary. |
-| `engine-host/` | **The** engine supervisor. Owns the `~/.lanes` contract — identity, settings, the advertised addresses, the registry heartbeat, the web-UI allowlist — and the engine and file-service processes. Spawned by `engine-tray/` and driven over stdio; not a standalone CLI. |
-| `engine-protocol/` | Types only — the single source of truth for the JSON wire shapes shared between the Node client, the browser client, and the C++ engine. |
-| `file-service/` | See the services table above. |
-| `translator/` | `.dawproject` → YAML song folder. Parses the ZIP, maps the track model to lanes's node model, writes the output files. |
-| `ui-chains/` | Routing-graph layout engine. Compiles a project graph to dagre geometry. The web app draws the result as DOM nodes + SVG cables. |
-| `ui-editor/` | CodeMirror extensions: the YAML language support, schema-aware completions, entity links, and the sequence tracker note-grid widget. |
-| `ui-eyes/` | WebGL video compositor. Takes a song's video tracks and composites them onto a viewport, in real-time or frame-by-frame to a file. |
+| `frontend` (`lanes-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph, video compositor. |
+| `backend` (`lanes-backend`) | Express — **OIDC auth + engine registry only**. It has no file routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
 
-## How the services talk to each other
+Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://lanes.test`
+by the repo-root Caddyfile.
 
-```
-                           ┌──────────────────────────────────┐
-                           │         YAML song folder          │
-                           └───────────────┬──────────────────┘
-                                           │ file reads (in-process, Zod-validated)
-                                           ▼
-┌────────────────┐  WebSocket   ┌────────────────┐
-│ @studio/     │◄────────────►│    engine/      │
-│ engine-client  │  (JSON)      │    (C++)        │
-│ (Node/TS)      │              │  Tracktion +    │
-└────────────────┘              │  IXWebSocket    │
-     │                                        ▲
-     │ register/deregister                    │ audio out
-     ▼                                        │
-┌────────────────┐  HTTP/registry  ┌──────────┴───────┐
-│ web/backend    │◄───────────────►│  engine-host/    │
-│ (Express)      │  heartbeat     │  (Node/TS)       │
-│ auth + registry│  deregister    │  THE supervisor: │
-└───────┬────────┘                 │  spawns engine + │
-        │                          │  file service    │
-        │                          └────────▲─────────┘
-        │                                   │ NDJSON on stdio
-        │                          ┌────────┴─────────┐
-        │                          │  engine-tray/    │
-        │                          │  (Rust/Tauri)    │
-        ▼                          │  the menu-bar    │
-                                   │  VIEW; owns the  │
-                                   │  job object      │
-                                   └──────────────────┘
-┌────────────────┐  CORS (direct)  ┌──────────────────┐
-│ web/frontend   │◄───────────────►│  file-service/   │
-│ (React/Vite)   │                 │  (Node/Express)  │
-│                │  WebSocket      │  file ops, song  │
-│                │◄───────────────►│  compile, engine  │
-│                │  (direct)       │  link             │
-└────────────────┘                 └──────────────────┘
-        ▲
-        │ same-origin /api + /auth
-        ▼
-   web/backend (auth + engine registry)
-```
+## The browser talks to THREE servers
 
-### The data flow when a file is edited
+| | `backend` | `@studio/file-service` | `apps/moteur` |
+|---|---|---|---|
+| runs on | the hosted machine | the **engine's** machine | the engine's machine |
+| owns | OIDC auth + engine registry | `~/.lanes/root/<user>/<workspace>` — every file op | audio playback |
+| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin, direct** (CORS-gated) | **WebSocket, direct** |
+| auth | session cookie (`lanes.sid`) | `x-lanes-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
-1. The user edits a `.yaml` file (via the web editor or CLI).
-2. `@studio/song` re-compiles the project: the YAML files are read in-process and
-   validated (Zod) into a flat `ProjectDoc` JSON.
-3. The compiled `ProjectDoc` is sent to the C++ engine (via `engine-client` or the
-   browser's WebSocket).
-4. The engine `diff()`s the new doc against the current one, `apply()`s the minimal
-   change to the Tracktion Engine edit, and plays audio.
-5. The engine pushes `state` (playhead, meters) and `applied` (what changed) back.
+**The backend has no file routes and no `store.ts`.** Every file operation lives in
+`packages/file-service/src/workspace.ts`. Don't look for `tree`/`read`/`write`/`fmt`
+here.
 
-### The engine identity and registry contract
+The file service does **not** share the session cookie. Its CORS allowlist
+(`packages/file-service/src/cors.ts`) is the actual security boundary: deny-by-default,
+loopback/private plus the user-trusted origins in `~/.lanes/web-origins.json`.
 
-A unique engine instance is identified by `~/.lanes/engine-id.json` (a persistent id
-+ secret token). The engine echoes both on `whoami`, so a lookalike listener can't
-produce the real token.
+`AuthGate` → `EngineGate` → `WorkspaceGate` → editor. The engine picker is unreachable
+until logged in. Auth falls back to a "Dev User" stub when no `OIDC_*` env is set, but
+login is still mandatory.
 
-**`packages/engine-host/` is the only implementation of this contract.** It mints and
-reads the identity, spawns the C++ engine and the file service, heartbeats to the web
-server's registry (default `https://studio.frediver.se`), and deregisters on shutdown
-rather than waiting out the TTL. `engine-tray/` is its view: it renders what the
-supervisor reports and forwards clicks, and holds no second copy of any of it.
+## Frontend architecture
 
-There used to be two parallel implementations here, and keeping them in step was a
-standing rule. They diverged anyway — different machine fingerprints, one advertising
-link-local addresses the other dropped, one writing the engine log where nothing read it.
-The single implementation is what replaced the rule.
+### Three data paths (`src/api.ts`)
 
-### Auth: two different mechanisms
+1. **Backend** (same-origin `/api/*`) — auth + engine registry only.
+2. **File service** (cross-origin, absolute URL) — everything file-shaped (`/tree`,
+   `/file`, `/hints`, `/command`, the compiled `/project-doc` and `/graph`). Bare
+   paths, no `/api` prefix.
+3. **Engine WebSocket** (`src/engine.ts`) — live transport and meters. Don't route
+   transport through either server.
 
-| Surface | Auth mechanism |
-|---|---|
-| **Browser → web/backend** | OIDC session cookie (`lanes.sid`). Same mechanism as other frediverse apps. Falls back to a "Dev User" stub when no `OIDC_*` env is set. |
-| **Browser → file-service** | Custom headers: `x-lanes-{user,workspace,engine-token}`. No cookie. CORS is the actual security boundary (deny-by-default, loopback/private only + user-trusted origins from `~/.lanes/web-origins.json`). |
-| **Engine-host/tray → web/backend** | Token-based (`/api/registry/heartbeat`, `/api/registry/deregister`). Not browser auth. |
+### Layout: panes, not tabs
 
-### Dev vs packaged builds
+`App.tsx` shows three panes at once — editor (left), timeline (top-right), chains
+(bottom-right). Each pane is **mounted exactly once, in every layout**. `hidden` takes
+a pane off screen; nothing unmounts. Two views: `global` (chains graph) and `video`
+(video compositor). `full` sits on top of a view to fullscreen one pane.
 
-- **Dev (`npm run dev`)**: the tray does NOT spawn the file service — `npm run dev` runs
-  it with hot-reload (`tsx watch`) on port 8770. The tray finds the engine in the repo's
-  `engine/build/` dir. Editing engine or file-service code needs no tray rebuild.
-- **Packaged app**: `scripts/build-engine.mjs` builds the C++ engine, bundles the file
-  service and the engine host into single `.mjs` files (via esbuild), vendors Node, and
-  stages everything as Tauri sidecars/resources. The .app is self-contained.
+### Commands are the CLI's, verbatim
+
+The command bar calls `/complete` and `/command` on the **file service**, which
+dispatch through `@studio/commands` — the same SIDs `lanes cmd` runs. Add a feature
+there, not here. Web-local commands are only the shell's own view state (tabs, close,
+edit sequence/clip in `LOCAL_COMMANDS`).
+
+### Every shortcut names a command (`src/keys.ts`)
+
+Keys are looked up in `KEYS` and the named command runs through `runCommand`. `;`
+focuses the command bar (`@command`). Bindings can be conditional, ordered, and
+interpolate conditions into command names (`f` → `{focus_pane}`).
+
+### Editor, chains, timeline, video
+
+- **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
+  hint-driven completion source. Vim mode is on by default (a global preference in
+  `~/.lanes/preferences.yaml`); `:w` is wired to the tab's `onSave`.
+- **Chains** — dagre (`@studio/ui-chains`) for layout, `DomChains.tsx` for drawing:
+  HTML nodes plus one SVG cable layer. **Never hand-roll layout or edge routing.**
+  dagre owns both; the renderer consumes its numbers. Pan/zoom is one CSS transform on
+  the `.dgx-world` wrapper. This view is destined to be shared with mediatek and
+  platines, which is why the geometry already lives outside the app.
+- **Timeline** — vim-style: `hjkl` movement, `v` for visual selection, `z`/`Shift+z`
+  for the zoom stack, `m`/`s` for mute/solo (which rewrite `tracks/*.yaml`, not a
+  session flag). Selection and zoom are a stack; the innermost entry describes the
+  view. Unlike chains, this one stays lanes-only.
+- **Video** — `@studio/ui-eyes`, a WebGL compositor. One `<video>` per layer, not per
+  clip. The `video` view is the default for songs with video tracks (`autoVideoRef`).
+
+## The backend in detail
+
+Four source files: `server.ts`, `registry.ts`, `routes/registry.ts`, plus types.
+
+- Browser-facing registry routes (`/api/engines`, `/api/engine/*`) require a session.
+- Engine-facing routes (`/api/registry/{heartbeat,deregister}`) stay open — that is the
+  supervisor, authenticated by its own token.
+- The Vite dev server proxies `/api` and `/auth` to the backend.
+- Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
+  a per-engine lease **across users**, not per-workspace across tabs.
+
+## Users and workspaces
+
+Identity is the OIDC email → folder slug → `~/.lanes/root/<slug>/<workspace>`.
+Workspace CRUD via `GET/POST /workspaces`; the active project is remembered
+per-workspace in a `.lanes-active` marker.
+
+Workspaces can be **cloned from SSH git repos** (`POST /workspaces/clone`) with a
+per-user deploy key under `~/.lanes/ssh/<slug>/`. The clone blanks the global git config
+(`GIT_CONFIG_GLOBAL=/dev/null`) so an `url.insteadOf` rewrite can't sidestep the key.
+
+There is **no global session file**. `~/.lanes/session.json` is gone; the workspace is
+the scope.
+
+## Many browsers at once (no lease)
+
+Any number of tabs may drive the same workspace concurrently. Last write wins; each
+tab's polls (`workspace`/`project`/`tree` on 2s/700ms intervals) reconcile the view.
 
 ## Key conventions
 
-- **The engine never parses song files.** It only receives compiled JSON. Swap any
-  frontend for another and the engine is unchanged.
+- **The engine never parses song files.** It only receives compiled JSON. Swap this
+  frontend for another and the engine is unchanged — which is exactly what mediatek and
+  platines will do.
 - **Commands are the single source of truth.** `@studio/commands` owns the SID →
-  handler mapping. The CLI and web both dispatch through it. Add a feature there, both
-  surfaces get it.
-- **Many browser tabs may drive concurrently.** There is no single-tab lease on the file
-  service. Last write wins; tabs reconcile via polling.
-- **Wire shapes live in `@studio/engine-protocol`.** Both the Node client and the
-  browser client import them. A wire change must also update the C++ engine's
-  serialization (verified by running the engine, not by TypeScript).
-- **All JS packages are consumed as source.** No build step. Run via `tsx`. Import via
-  `package.json` `exports` subpaths — bare deep imports fail.
+  handler mapping, and both the CLI and the web dispatch through it.
+- **Wire shapes live in `@studio/engine-protocol`.** A wire change must also update the
+  C++ serialization — verified by running the engine, not by TypeScript.
+- **All JS packages are consumed as source.** No build step, run via `tsx`, imported
+  through `package.json` `exports` subpaths — bare deep imports fail on purpose.
 
-## How comments are written
+## Verify
 
-Two rules, and they hold in every language here — TypeScript, Rust, C++:
+`npm run build` is `vite build && tsc --noEmit` for the frontend; the backend has only
+`tsc --noEmit`, run directly. **There are no tests for the frontend shell** — for UI
+work, run the app and exercise it in the browser.
 
-1. **A file's header comment summarises what the file does in 5 lines or fewer.** When
-   that isn't possible, the full explanation goes in a markdown page beside the code and
-   the header ends by naming it: `See docs/<topic>.md.`
-2. **Inline comments are one-liners.** One sentence. Wrap it to the file's column width
-   when it needs a second line, but never write a paragraph between statements.
+`npm run dev` from here starts the frontend, the backend, the file service and the
+supervisor together.
 
-The prose itself matters — this codebase writes down the *why*, not just the *what*, and
-these rules are about where that prose lives, not about having less of it. Long rationale
-belongs in the zone's `docs/` directory:
+Two silent failure modes live in this directory, both worth knowing before you move a
+file:
 
-| zone | pages live in |
-|---|---|
-| a shared package | `packages/<pkg>/docs/` |
-| the web frontend | `web/frontend/docs/` |
-| the C++ engine | `engine/docs/` |
-| the tray app | `engine-tray/docs/` |
-| the build scripts | `scripts/docs/` |
-
-(These are notes for developers. `lanes/docs/` is different — that is the user-facing
-documentation the app ships and renders at `/docs`.)
-
-**Never** turn a multi-line comment into a one-liner by joining its lines: that produces
-an unreadable 500-character line and can swallow an `eslint-disable-next-line` or a
-`biome-ignore` directive, which silently stops working unless it starts its own comment.
-Condense to a single sentence and move the rest to a doc page.
+- `src/index.css`'s `@source` — Tailwind emits **nothing** for a path that doesn't
+  exist, without warning. The app still builds and the design-system components render
+  unstyled.
+- `src/docs/pages.ts`'s `import.meta.glob` — an empty glob leaves `/docs` blank *and*
+  makes `docs.test.ts` pass vacuously, because its `it()`s iterate an empty list. Check
+  the test **count**, not the exit code.

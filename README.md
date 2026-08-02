@@ -5,12 +5,16 @@ The music and stage apps of the frediverse.
 | app | what it is | dev site |
 |---|---|---|
 | `apps/radiok7` | rehearsal recorder — sessions, takes, tablature, tuner | `rec.test` |
-| `apps/lanes` | text-first DAW: web UI + native C++ audio engine + Tauri tray | `lanes.test` |
+| `apps/lanes` | text-first DAW — the web editor | `lanes.test` |
+| `apps/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
+| `apps/capot` | the Tauri tray that supervises the engine | — |
 | `apps/obscura` | blind-test game — six SPAs behind one origin | `obscura.test` |
 
-`packages/ui-waveform` (`@studio/ui-waveform`) is shared between radiok7's
-recorder and lanes' frontend. Anything shared with the `phare` monorepo lives in
-`commons/` instead.
+`packages/` is studio's shared tier, all `@studio/*` and consumed as raw
+TypeScript source: the song compiler, the command layer, the engine client and
+supervisor, the view engines, the waveform component. The engine and the tray
+serve every audio app, not just lanes — hence their own directories. Anything
+shared with the `phare` monorepo lives in `commons/` instead.
 
 ## Getting started
 
@@ -45,22 +49,22 @@ git add commons && git commit -m "bump commons"
 before the pointer — without it you'd push a pointer to a commit nobody can
 fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
-## lanes' native parts
+## The native parts
 
-`apps/lanes/engine` is a CMake/JUCE/tracktion C++ project and
-`apps/lanes/engine-tray` a Tauri/Rust app. Neither is built by `turbo run build`
-— they have their own commands:
+`apps/moteur` is a CMake/JUCE/Tracktion C++ project and `apps/capot` a
+Tauri/Rust app. Neither is built by `turbo run build` — the moteur deliberately
+declares no `build` script at all, so turbo can never try to compile C++. They
+have their own commands:
 
 ```bash
-cd apps/lanes
-npm run lanes:build:win        # or lanes:build:mac
-npm run build --workspace capot
+npm run build:win --workspace moteur     # or build:mac
+npm run engine:build --workspace capot   # engine + sidecars + the tray bundle
 ```
 
 Their build directories are large (~30 GB combined) and fully gitignored. Both
 bake absolute paths into their caches, so **moving or renaming the repo requires
-wiping `engine/build` and `engine-tray/src-tauri/target`** — otherwise the build
-fails looking for the old path.
+wiping `apps/moteur/build` and `apps/capot/src-tauri/target`** — otherwise the
+build fails looking for the old path.
 
 ## Images
 

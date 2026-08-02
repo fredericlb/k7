@@ -3,11 +3,11 @@
 A **text-based DAW**. Your song is a folder of YAML files; the terminal (or a web
 editor) is your studio.
 
-lanes is a set of processes talking over a WebSocket, living inside the
-`frediverse-apps` monorepo:
+lanes is a set of processes talking over a WebSocket, living inside the `studio`
+monorepo:
 
 ```
- song (YAML folder) ─► packages/ (Node)                 engine/  (C++)
+ song (YAML folder) ─► packages/ (Node)                 moteur   (C++)
                       ├─ parse + validate (Zod)         ┌──────────────────────────┐
                       ├─ resolve clip paths ──project─► │ diff() vs current        │
                       ├─ compile to ProjectDoc (JSON)   │ apply() → Tracktion Edit │
@@ -22,43 +22,49 @@ lanes is a set of processes talking over a WebSocket, living inside the
   folder to a flat `ProjectDoc`/`GraphDoc`, send it as JSON, watch files for live
   reload, and send transport commands. They have no UI of their own — the web
   backend and the CLI consume them as source.
-- **`engine/`** (C++) is a headless audio server. It never parses project files
-  — it receives a compiled project as JSON, keeps the smart `diff()`/`apply()`
-  logic, plays audio, and pushes transport/meter state back.
+- **`apps/moteur`** (C++) is a headless audio server. It never parses project
+  files — it receives a compiled project as JSON, keeps the smart
+  `diff()`/`apply()` logic, plays audio, and pushes transport/meter state back.
 
 The engine has no idea a terminal exists. Swap the web app for a REST service and
 the engine is unchanged — it only speaks the JSON protocol below.
 
-## Packages
+## Where the pieces live
 
-lanes's JS packages are **members of the monorepo's npm workspaces** (consumed
-as raw TypeScript source, run via `tsx` — no build step). The engine is a native
-C++ binary, built separately.
+None of this is under `apps/lanes` any more. The engine, the tray and the brain
+packages serve every audio app in the repo — mediatek and platines are coming —
+so they sit beside lanes rather than inside it. What remains here is the web
+editor: `frontend` and `backend`.
+
+The JS packages are **members of the monorepo's npm workspaces**, consumed as raw
+TypeScript source and run via `tsx` — no build step. The engine is a native C++
+binary, built separately.
 
 ```
-lanes/
-  engine/                    the C++ project (lanes-engine)          — native, not a workspace
-    CMakeLists.txt · CMakePresets.json · docs/design.md
-    engine/    library lanes::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
-    server/    app lanes-engine       (WebSocket audio server, main.cpp)
-  packages/                  lanes's libraries (consumed as raw TS source):
-    song/                    @studio/song            — song model + compiler + Strudel patterns
-    commands/                @studio/commands        — shared command layer, file edits, timeline, mixing
-    engine-client/           @studio/engine-client   — drives the engine over the WebSocket protocol
-    engine-host/             @studio/engine-host     — THE supervisor: identity, registry, engine + file-service processes
-    engine-protocol/         @studio/engine-protocol — the JSON wire shapes shared with the C++ engine
-    file-service/            @studio/file-service    — serves file ops + compiles projects for the browser
-    ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
-    ui-editor/               @studio/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
-    ui-eyes/                 @studio/ui-eyes         — WebGL video compositor (song's video tracks → viewport)
-    translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `lanes import` is its caller
-  engine-tray/               the menu-bar view (spawns packages/engine-host, the supervisor)
-  web/                       the web editor (frontend / backend / shared) — follows PROJECT_CONVENTIONS.md
+apps/moteur/               the C++ project (lanes-engine)          — native, not a workspace
+  CMakeLists.txt · CMakePresets.json · docs/design.md
+  engine/    library lanes::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
+  server/    app lanes-engine       (WebSocket audio server, main.cpp)
+apps/capot/                the menu-bar view (spawns @studio/engine-host, the supervisor)
+apps/lanes/                the web editor — frontend / backend
+packages/                  studio's shared tier (consumed as raw TS source):
+  song/                    @studio/song            — song model + compiler + Strudel patterns
+  commands/                @studio/commands        — shared command layer, file edits, timeline, mixing
+  engine-client/           @studio/engine-client   — drives the engine over the WebSocket protocol
+  engine-host/             @studio/engine-host     — THE supervisor: identity, registry, engine + file-service processes
+  engine-protocol/         @studio/engine-protocol — the JSON wire shapes shared with the C++ engine
+  file-service/            @studio/file-service    — serves file ops + compiles projects for the browser
+  ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
+  ui-editor/               @studio/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
+  ui-eyes/                 @studio/ui-eyes         — WebGL video compositor (song's video tracks → viewport)
+  translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `lanes import` is its caller
+  web-protocol/            @studio/web-protocol    — the browser↔server wire types
 ```
 
-The C++ engine is described in [engine/docs/design.md](engine/docs/design.md)
-(diff-apply strategy and threading rules). Development conventions for future
-Claude Code sessions are in [CLAUDE.md](CLAUDE.md).
+The C++ engine is described in
+[../moteur/docs/design.md](../moteur/docs/design.md) (diff-apply strategy and
+threading rules). Development conventions for future Claude Code sessions are in
+[CLAUDE.md](CLAUDE.md).
 
 ## The song format — a YAML folder
 
@@ -122,7 +128,7 @@ modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.y
   `<name>.vstpreset` (overriding an extended module's) and its rack's audio. The io sink
   is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `lanes cmd new module`
   writes the right shape;
-  `engine-tray/songs/synth-demo/modules/instruments/synth/module.yaml` is the
+  `apps/capot/songs/synth-demo/modules/instruments/synth/module.yaml` is the
   reference, and `.../kit` shows `extends`.
 - **A module can have instances.** Beside `module.yaml`, the folder may hold one
   `<instance>.yaml` per instance — the same flat shape, **inheriting `module.yaml`
@@ -132,7 +138,7 @@ modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.y
   `<instance>.vstpreset`, so tweaking one never touches the generic or a sibling; the
   merge order is *extended base → module.yaml → instance*. `lanes cmd new module-instance
   instruments/synth lead` scaffolds one, and
-  `engine-tray/songs/synth-demo/modules/instruments/synth/` is the worked example — one
+  `apps/capot/songs/synth-demo/modules/instruments/synth/` is the worked example — one
   4OSC module, a `lead` and a `pad` instance, each driving its own chain.
 - A **chain** (in `chains.yaml`) is a signal path, written as a flat list of nodes: a
   **head**, the modules the signal passes through, and the sink it ends at. `chains` is
@@ -165,8 +171,8 @@ Native low-latency audio is built on Windows with MSVC (ASIO/WASAPI) or on macOS
 AppleClang (CoreAudio), from the repo root:
 
 ```sh
-npm run lanes:build:win     # cmake --preset windows-msvc && cmake --build --preset windows-msvc
-npm run lanes:build:mac     # cmake --preset macos-clang  && cmake --build --preset macos-clang
+npm run build:win --workspace moteur   # cmake --preset windows-msvc && cmake --build --preset windows-msvc
+npm run build:mac --workspace moteur   # cmake --preset macos-clang  && cmake --build --preset macos-clang
 ```
 
 The macOS build needs `brew install cmake ninja` (it uses the Ninja generator, not
@@ -177,7 +183,7 @@ Xcode — so the Command Line Tools are enough, no full Xcode.app). It targets m
 ./engine/build/macos-clang/lanes-engine --list-audio-devices   # lists CoreAudio devices, then exits
 ```
 
-On Linux, build with a preset from `engine/CMakePresets.json` (`dev-gcc`,
+On Linux, build with a preset from `apps/moteur/CMakePresets.json` (`dev-gcc`,
 `dev-clang`, `asan`, `release-gcc`); the first configure fetches JUCE + Tracktion
 (hundreds of MB). Requires CMake ≥ 3.24, a C++20 toolchain, and the JUCE Linux
 dev deps (needed even headless):
@@ -232,7 +238,7 @@ JSON over `ws://127.0.0.1:8765` (default). A sample of the message types:
 
 ## Troubleshooting (C++ engine, Linux)
 
-Run from `engine/`, in the order you'll hit them.
+Run from `apps/moteur/`, in the order you'll hit them.
 
 **`git@github.com: Permission denied (publickey)` during the JUCE submodule
 clone** — Tracktion's `.gitmodules` hardcodes the JUCE submodule as an SSH URL.
