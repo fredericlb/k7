@@ -32,6 +32,7 @@ function host(trackIds: string[]): CommandHost {
     disabled: false,
     inputChannels: [],
     monitor: "auto",
+    inputGain: 0,
     clips: [],
     plugins: [],
     sends: [],

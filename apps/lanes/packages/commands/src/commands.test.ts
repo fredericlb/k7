@@ -52,6 +52,7 @@ function track(id: string, over: Partial<TrackDoc> = {}): TrackDoc {
     disabled: false,
     inputChannels: [],
     monitor: "auto",
+    inputGain: 0,
     clips: [],
     plugins: [],
     sends: [],
