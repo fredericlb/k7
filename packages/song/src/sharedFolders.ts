@@ -5,9 +5,17 @@
 // Full rationale: docs/sharedFolders.md.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { isSeq, parseDocument } from "yaml";
 import { entityFileFor } from "./yaml/moduleIO";
+
+/** Where the shared UI library sits, relative to a project — the sibling of `_modules/`.
+ *  Declared HERE with its siblings, not in uiLibrary.ts: this file is what knows where a
+ *  workspace's shared folders are, and `_ui` was the one that had drifted out of it. */
+export const SHARED_UI_PATH = "../_ui";
+
+/** The folder name a UI library lives under, at the workspace root. */
+export const SHARED_UI_DIR = "_ui";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
 export const SHARED_MODULES_PATH = "../_modules";
@@ -36,6 +44,45 @@ function declared(doc: ReturnType<typeof parseDocument>): string[] {
   return list.items
     .map((i) => String((i as { value?: unknown })?.value ?? i))
     .filter(Boolean);
+}
+
+/** `project.modules_from` resolved against the project dir, absolute entries kept as-is —
+ *  the same rule loader.ts applies, so a mediatek root outside the workspace resolves here too. */
+export function moduleLibraryDirs(dir: string): string[] {
+  const path = join(dir, "project.yaml");
+  if (!existsSync(path)) return [];
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(readFileSync(path, "utf8"), { version: "1.2" });
+  } catch {
+    return []; // an unparseable header is the compiler's problem to report, not ours
+  }
+  return declared(doc)
+    .map((p) => (isAbsolute(p) ? p : resolve(dir, p)))
+    .filter((abs) => existsSync(abs));
+}
+
+/**
+ * Every folder that may hold a module PANEL, nearest first.
+ *
+ * A panel lives in the `ui` folder BESIDE the module library it belongs to — `_modules/`
+ * has `_ui/`, the mediatek's `modules/` has `ui/`. Deriving it from `modules_from` rather
+ * than declaring a fourth list is what keeps a panel travelling with the modules it draws:
+ * point a project at a library and its faces come along, with nothing else to write down.
+ *
+ * Both spellings are probed rather than ruled on, so neither layout has to know the other's
+ * naming. Order is PRECEDENCE and the project's own comes first — see loadUiLibrary.
+ */
+export function uiLibraryDirs(dir: string): string[] {
+  const out: string[] = [];
+  const own = join(dir, SHARED_UI_PATH);
+  if (existsSync(own)) out.push(own);
+  for (const lib of moduleLibraryDirs(dir))
+    for (const name of ["_ui", "ui"]) {
+      const abs = join(lib, "..", name);
+      if (existsSync(abs) && !out.includes(abs)) out.push(abs);
+    }
+  return out;
 }
 
 /** Ensure `project.modules_from` lists the shared folder (appended, existing entries kept). Returns true when project.yaml was rewritten. */

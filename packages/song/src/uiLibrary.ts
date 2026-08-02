@@ -1,7 +1,8 @@
-// uiLibrary.ts — a module's panel, kept OUTSIDE the module. `_ui/` sits beside `_modules/` at the workspace
-// root and mirrors its tree; each file is what a module's `ui:` block used to be, plus a `ref:` naming the
-// module it draws. The ref is what's looked up — the path is filing, so a file can be moved or renamed freely.
-// This is what the module editor writes and what the graph reads. Rationale: docs/uiLibrary.md.
+// uiLibrary.ts — a module's panel, kept OUTSIDE the module. A `ui` folder sits beside every module library
+// (`_ui` beside a workspace's `_modules`, `ui` beside the mediatek's `modules`) and mirrors its tree; each
+// file is what a module's `ui:` block used to be, plus a `ref:` naming the module it draws. The ref is what's
+// looked up — the path is filing. Read across every library, written only to the project's own; see
+// sharedFolders.ts `uiLibraryDirs`. Rationale: docs/uiLibrary.md and docs/sharedFolders.md.
 
 import {
   existsSync,
@@ -11,15 +12,14 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, sep } from "node:path";
+import { SHARED_UI_DIR, SHARED_UI_PATH, uiLibraryDirs } from "./sharedFolders";
 import { type ModuleUI, UiFileSchema } from "./yaml/moduleSchema";
 import { parseUiFile } from "./yaml/uiFile";
 
-/** Where the shared UI library sits, relative to a project — the sibling of `_modules/`. */
-export const SHARED_UI_PATH = "../_ui";
-
-/** The folder name a UI library lives under, at the workspace root. */
-export const SHARED_UI_DIR = "_ui";
+// Re-exported so the existing importers keep resolving them; they are DEFINED in
+// sharedFolders.ts, beside `_modules` and `_library`.
+export { SHARED_UI_DIR, SHARED_UI_PATH, uiLibraryDirs };
 
 const EXTS = [".yaml", ".yml"];
 
@@ -37,10 +37,17 @@ export interface UiLibrary {
   issues: string[];
 }
 
-/** The library folder for a project, or null when the workspace has none. */
+/** The project's OWN library folder — where a panel is written — or null when there is none.
+ *  Reading spans more than this (see uiLibraryDirs); writing never does. */
 export function uiLibraryDir(dir: string): string | null {
   const abs = join(dir, SHARED_UI_PATH);
   return existsSync(abs) && statSync(abs).isDirectory() ? abs : null;
+}
+
+/** Is this panel file in a library the project may not write to — a shared one it only reads? */
+function isReadOnlyPanel(dir: string, path: string): boolean {
+  const own = uiLibraryDir(dir);
+  return !own || !(path === own || path.startsWith(own + sep));
 }
 
 /**
@@ -57,48 +64,59 @@ export function uiPathFor(ref: string): string {
   return `${withType}.yaml`;
 }
 
-/** Read every panel in the workspace's `_ui`, keyed by the ref each one declares. */
+/**
+ * Read every panel the project can see, keyed by the ref each one declares.
+ *
+ * More than one library now: the project's own `_ui`, then the `ui` folder beside each
+ * library in `modules_from` — the mediatek's, typically. NEAREST WINS, so a project that
+ * forked a shared module draws its own face rather than the one it was copied from.
+ */
 export function loadUiLibrary(dir: string): UiLibrary {
   const out: UiLibrary = { byRef: {}, issues: [] };
-  const root = uiLibraryDir(dir);
-  if (!root) return out;
+  // Which library each accepted panel came from. A ref found in TWO of them is precedence
+  // working — the fork case — while two in ONE of them is still the mistake it always was.
+  const from: Record<string, string> = {};
 
-  const walk = (abs: string, rel: string): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(abs);
-    } catch {
-      return; // unreadable folder — the rest of the library still loads
-    }
-    for (const name of entries) {
-      if (name.startsWith(".")) continue;
-      const child = join(abs, name);
-      const childRel = rel ? `${rel}/${name}` : name;
-      if (statSync(child).isDirectory()) {
-        walk(child, childRel);
-        continue;
+  for (const root of uiLibraryDirs(dir)) {
+    const label = basename(root);
+    const walk = (abs: string, rel: string): void => {
+      let entries: string[];
+      try {
+        entries = readdirSync(abs);
+      } catch {
+        return; // unreadable folder — the rest of the library still loads
       }
-      if (!EXTS.includes(extname(name).toLowerCase())) continue;
-      const parsed = parseUiFile(readFileSync(child, "utf8"));
-      if (!parsed.value) {
-        out.issues.push(
-          `${SHARED_UI_DIR}/${childRel}: ${parsed.issues[0]?.message ?? "unreadable"}`,
-        );
-        continue;
+      for (const name of entries) {
+        if (name.startsWith(".")) continue;
+        const child = join(abs, name);
+        const childRel = rel ? `${rel}/${name}` : name;
+        if (statSync(child).isDirectory()) {
+          walk(child, childRel);
+          continue;
+        }
+        if (!EXTS.includes(extname(name).toLowerCase())) continue;
+        const parsed = parseUiFile(readFileSync(child, "utf8"));
+        if (!parsed.value) {
+          out.issues.push(
+            `${label}/${childRel}: ${parsed.issues[0]?.message ?? "unreadable"}`,
+          );
+          continue;
+        }
+        const { ref, ...ui } = parsed.value;
+        if (out.byRef[ref]) {
+          // Silent only when the winner came from a NEARER library — that is the point of the order.
+          if (from[ref] === root)
+            out.issues.push(
+              `${label}/${childRel}: '${ref}' already has a panel (${basename(out.byRef[ref].path)})`,
+            );
+          continue;
+        }
+        out.byRef[ref] = { ref, ui, path: child };
+        from[ref] = root;
       }
-      const { ref, ...ui } = parsed.value;
-      // First file wins, and the loser is reported: two panels for one module is a mistake with a silent
-      // failure mode (whichever the filesystem lists first would quietly become the truth).
-      if (out.byRef[ref]) {
-        out.issues.push(
-          `${SHARED_UI_DIR}/${childRel}: '${ref}' already has a panel (${basename(out.byRef[ref].path)})`,
-        );
-        continue;
-      }
-      out.byRef[ref] = { ref, ui, path: child };
-    }
-  };
-  walk(root, "");
+    };
+    walk(root, "");
+  }
   return out;
 }
 
@@ -112,10 +130,14 @@ export function uiFileText(ref: string, ui: ModuleUI, header?: string): string {
 }
 
 /**
- * Write a panel into the library, returning the absolute path it landed in.
+ * Write a panel into the project's OWN library, returning the absolute path it landed in.
  *
- * A ref already in the library keeps its file, wherever the author moved it to. A new ref takes its mirrored
+ * A ref already in that library keeps its file, wherever the author moved it to. A new ref takes its mirrored
  * path, stepping past a file another ref already holds.
+ *
+ * Reading spans every library the project can see; writing never does. A panel found in a
+ * SHARED one — the mediatek's — is read-only, exactly like the module it draws, so editing
+ * it lands a copy here rather than changing what every other project sees.
  */
 export function writeUiFile(
   dir: string,
@@ -125,7 +147,10 @@ export function writeUiFile(
 ): string {
   const root = join(dir, SHARED_UI_PATH);
   const existing = loadUiLibrary(dir).byRef[ref];
-  let path = existing?.path;
+  let path =
+    existing && !isReadOnlyPanel(dir, existing.path)
+      ? existing.path
+      : undefined;
   if (!path) {
     const rel = uiPathFor(ref);
     path = join(root, rel);

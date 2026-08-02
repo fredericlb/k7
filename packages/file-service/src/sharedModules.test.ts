@@ -13,6 +13,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -72,6 +73,38 @@ describe("the shared module library is read-only", () => {
     // The rule is a path SEGMENT, so a song called "my_modules" is an ordinary project.
     mkdirSync(join(root, "my_modules"), { recursive: true });
     expect(() => ws.createFolder("my_modules", "clips")).not.toThrow();
+  });
+});
+
+describe("a module library OUTSIDE the workspace", () => {
+  // The mediatek lives at ~/.lanes/mediatek, beside the workspaces rather than inside one.
+  // It needs no read-only predicate of its own: every file route resolves through safePath,
+  // which confines to the workspace root — so these routes cannot ADDRESS it at all. That
+  // is a stronger guarantee than `_modules` gets, and this pins it rather than assuming it.
+  it("cannot be reached by climbing out of the workspace", async () => {
+    const outside = "../mediatek/modules/audio/reverb/module.yaml";
+    expect(() => ws.write(outside, "plugin: {}\n")).toThrow(/escapes/);
+    await expect(ws.deleteEntry("../mediatek")).rejects.toThrow(/escapes/);
+    expect(() => ws.createFolder("../mediatek/modules", "mine")).toThrow(
+      /escapes/,
+    );
+    expect(() =>
+      ws.uploadFile("../mediatek/library/ir", "x.wav", Buffer.from("x")),
+    ).toThrow(/escapes/);
+  });
+
+  it("cannot be reached through a symlink planted inside the workspace", () => {
+    // The lexical check alone would pass here; safePath's second gate realpaths and
+    // re-checks, which is what makes the confinement hold.
+    const media = mkdtempSync(join(tmpdir(), "td-media-"));
+    mkdirSync(join(media, "modules"), { recursive: true });
+    try {
+      symlinkSync(media, join(root, "link"), "junction");
+    } catch {
+      return; // no permission to create links on this machine — the lexical gate still stands
+    }
+    expect(() => ws.write("link/modules/x.yaml", "a: 1\n")).toThrow(/escapes/);
+    rmSync(media, { recursive: true, force: true });
   });
 });
 

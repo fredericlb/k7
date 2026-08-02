@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { loadModuleRefs, loadModules } from "./loader";
-import { writeLibrary } from "./testSupport";
+import { writeLibrary, writeYaml } from "./testSupport";
 import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
 import { UISchema } from "./yaml/moduleSchema";
@@ -53,6 +53,85 @@ const writeLocalModule = (body: string) =>
     body,
     "utf8",
   );
+
+// A second module library OUTSIDE the workspace, the shape the mediatek has: `modules/`
+// with a namespace config, and its panels in the `ui/` folder beside it.
+function writeMediatek(at: string, namespace = "mediatek"): void {
+  writeYaml(join(at, "modules", "config.yaml"), { namespace });
+  writeYaml(join(at, "modules", "audio", "reverb", "module.yaml"), {
+    plugin: { type: "vst3", name: "Big Reverb" },
+  });
+  mkdirSync(join(at, "ui"), { recursive: true });
+}
+
+const declareMediatek = (at: string): void =>
+  writeFileSync(
+    join(dir, "project.yaml"),
+    `project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - ${join(at, "modules").replace(/\\/g, "/")}\n`,
+    "utf8",
+  );
+
+describe("panels across more than one library", () => {
+  // The mediatek sits outside the workspace, so its panels are reached through
+  // modules_from rather than by walking up — that derivation is what these pin down.
+  let media: string;
+  beforeEach(() => {
+    media = mkdtempSync(join(tmpdir(), "td-media-"));
+    writeMediatek(media);
+    declareMediatek(media);
+  });
+  afterEach(() => rmSync(media, { recursive: true, force: true }));
+
+  it("finds a panel in the ui/ folder beside a declared module library", () => {
+    writeYaml(join(media, "ui", "audio", "reverb.yaml"), {
+      ref: "@mediatek/audio/reverb",
+      ...PANEL,
+    });
+    expect(loadUiLibrary(dir).byRef["@mediatek/audio/reverb"]?.ui).toEqual(
+      PANEL,
+    );
+  });
+
+  it("lets the project's own panel win, without calling it a mistake", () => {
+    // Same ref in both libraries is PRECEDENCE, not a collision: it is what a fork looks
+    // like. Two panels in ONE library stays an issue — covered below.
+    const shared = { ...PANEL, cols: 9 };
+    writeYaml(join(media, "ui", "audio", "reverb.yaml"), {
+      ref: "audio/reverb",
+      ...shared,
+    });
+    writeUiFile(dir, "audio/reverb", PANEL);
+    const lib = loadUiLibrary(dir);
+    expect(lib.byRef["audio/reverb"].ui.cols).toBe(PANEL.cols);
+    expect(lib.issues).toEqual([]);
+  });
+
+  it("still reports two panels for one ref inside a SINGLE library", () => {
+    writeYaml(join(media, "ui", "a.yaml"), { ref: "audio/reverb", ...PANEL });
+    writeYaml(join(media, "ui", "b.yaml"), { ref: "audio/reverb", ...PANEL });
+    expect(loadUiLibrary(dir).issues).toHaveLength(1);
+  });
+
+  it("writes into the PROJECT even when the panel it edits came from the shared library", () => {
+    // The whole read-many/write-one rule: editing a mediatek panel must land a copy here,
+    // not change what every other project sees.
+    writeYaml(join(media, "ui", "audio", "reverb.yaml"), {
+      ref: "audio/reverb",
+      ...PANEL,
+    });
+    const written = writeUiFile(dir, "audio/reverb", { ...PANEL, cols: 3 });
+    expect(written.startsWith(join(root, "_ui"))).toBe(true);
+    expect(written.startsWith(media)).toBe(false);
+    // And the shared one is untouched.
+    expect(
+      (
+        parseYaml(
+          readFileSync(join(media, "ui", "audio", "reverb.yaml"), "utf8"),
+        ) as { cols: number }
+      ).cols,
+    ).toBe(PANEL.cols);
+  });
+});
 
 describe("where a panel files itself", () => {
   it("mirrors the module tree, namespace dropped", () => {
