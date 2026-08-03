@@ -7,24 +7,40 @@ v1 is deliberately small — pick a morceau, the engine plays it — so what it 
 is étape 6 (the médiathèque as a catalogue for a *second* app) and étape 7 (listening to
 what the engine puts out). The chains view, which is étape 5's seam, is not here yet.
 
-## It talks to the MACHINE, not to a server
+## Three endpoints, and only one of them is hosted
 
-platines has no backend, and the reason is the shape of the problem rather than
-minimalism: **the moteur opens file paths.** It cannot fetch a URL. So the thing platines
-needs is not the hosted médiathèque at `media.studio.frediver.se` — it is the *cache* of it
-on this disk, and only the machine's own file service knows where that is.
+**The moteur opens file paths.** It cannot fetch a URL. So the thing platines plays from is
+not the hosted médiathèque at `media.studio.frediver.se` — it is the *cache* of it on a
+disk, and only that machine's own file service knows where that is. That has not changed and
+will not.
 
-Two runtime endpoints, both cross-origin, both on this machine:
+What changed is that platines gained a small backend of its own:
 
 | what | where | how it is found |
 |---|---|---|
-| the cached catalogue + the cache's root | file service, `:8770` | a constant, editable in the panel |
-| playback | the engine, `:8765` | `probeLocalEngine()` |
+| who you are, which engines exist, which one you DJ from | platines' backend, same-origin `/api` | the page it served |
+| the cached catalogue + the cache's root | the CHOSEN engine's file service | `fileBase` from its probe reply |
+| playback | the CHOSEN engine | `wsUrl` from its probe reply |
 
-The engine is probed rather than configured, exactly like mediatek's module preview: a deck
-plays out of the interface in front of you, so "which of my engines" has no question to
-answer. The file service is a setting because its port is the one thing that moves (a second
-service, a remote workspace) and there is no probe for it.
+The backend holds no media and no files. It knows **who you are** and **which engines
+exist**, never what is on any engine's disk — lanes' backend, verbatim, for the same reason.
+
+Two text boxes disappeared with it. The file service's address used to default to
+`http://127.0.0.1:8770` and be editable; the DJ used to type their own identity into a
+second box, which the file service then trusted and nothing checked. Both are now derived:
+the file service sits on the chosen engine's host — only the engine knows which host that
+is — and the identity is the OIDC session's.
+
+### Why the engine is chosen and no longer probed
+
+v1 probed loopback, on the argument that a deck plays out of the interface in front of you.
+That is true of the *interface*, not of the *browser*: a laptop can drive the rig across the
+room. Now the account picks a machine, platines' own registry lists the candidates, and the
+choice is remembered — see `packages/user-prefs/docs/store.md` and
+`packages/engine-registry/docs/shared.md`.
+
+The picker is a gate rather than a panel, unlike the médiathèque's: an editor without an
+engine still edits text, but a deck without one has nothing to do at all.
 
 ## The gap that had to be filled: a morceau is a folder
 
@@ -88,9 +104,11 @@ that rather than a lit button.
 * **One deck.** `DECK` is a single chain name. A second is a second track and a crossfade,
   and neither is in the document yet.
 * **No mixing, no cue, no tempo.** v1 is "choose a song and diffuse it", literally.
-* **No auth beyond the user header.** The file service's CORS allowlist is the real
-  boundary, as it is for lanes; platines sends `x-lanes-user` and nothing else, because the
-  médiathèque routes are mounted before `resolveWorkspace` and need no workspace.
+* **The file service still trusts the header.** platines now proves who you are to its OWN
+  backend, and sends that identity as `x-lanes-user` — but the file service verifies no
+  session, so its CORS allowlist is still the real boundary, as it is for lanes. What the
+  login bought is that the identity is no longer typed by hand; it is not yet a gate on the
+  machine's disk.
 * **Never run end to end.** The 8 tests cover the two things that decide — the path join and
   the document — and the app typechecks and builds. Whether the file service answers
   `/mediatek/list` to this origin, and whether the engine plays what it is sent, has not

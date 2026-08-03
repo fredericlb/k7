@@ -24,6 +24,7 @@
     "apps/mediatek",
     "apps/mediatek/backend",
     "apps/platines",
+    "apps/platines/backend",
     "apps/moteur",
     "apps/capot"
   ],

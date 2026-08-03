@@ -2,10 +2,10 @@
 // preview that connects to the wrong machine looks exactly like one that connects to the
 // right one, until you wonder why you cannot hear it.
 
-import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
-import { chooseEngine } from "./chooseEngine.ts";
+import { chooseEngine } from "./choose.ts";
+import type { RankedEngine } from "./probe.ts";
 
 const engine = (id: string, tier: 1 | 2 | 3): RankedEngine<PublicEngine> =>
   ({

@@ -1,13 +1,15 @@
-// useEngine.ts — the engine on THIS machine, and optionally listening to what it plays.
-// Same probe mediatek's module preview uses: no registry and no picker, because a deck
-// plays out of the interface in front of you. See docs/plumbing.md.
+// useEngine.ts — the engine this ACCOUNT chose, and optionally listening to what it plays.
+// The gate picks it from platines' own registry; this hook only connects. See
+// docs/plumbing.md.
 
 import { EngineClient } from "@studio/engine-browser";
-import { probeLocalEngine } from "@studio/engine-browser/probe";
+import type { RankedEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
-import { SESSIONS } from "@studio/engine-protocol/sessions";
+import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
+import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { currentUser, engines } from "./api";
 
 export type Phase =
   | { k: "looking" }
@@ -27,7 +29,7 @@ export interface Deck {
   listenStats: { depth: number; underruns: number };
 }
 
-export function useEngine(): Deck {
+export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   const [phase, setPhase] = useState<Phase>({ k: "looking" });
   const [playing, setPlaying] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -39,16 +41,22 @@ export function useEngine(): Deck {
     let cancelled = false;
     setPhase({ k: "looking" });
     void (async () => {
-      const found = await probeLocalEngine();
+      // Chosen by the gate, not probed here: the deck plays on the machine the ACCOUNT
+      // picked, which is not always the one the browser is running on.
+      const wsUrl = chosen.wsUrl;
+      if (!wsUrl) return setPhase({ k: "absent" });
       if (cancelled) return;
-      if (!found) return setPhase({ k: "absent" });
-      // Its own session, which is what makes a deck safe to run beside lanes on one engine:
-      // loading a track here no longer replaces whatever song is open there, and the audio
-      // this tab listens to is the deck's master rather than the machine's.
+      const found = chosen;
+      // The lease, as every other surface takes it. A miss is not fatal — it marks the
+      // engine in use, it does not grant the connection.
+      engines.select(found.engine.id, found.token!, found.tier).catch(() => {});
+      // Its own session, per SERVICE and per PERSON: a deck runs safely beside lanes on one
+      // engine — loading a track no longer replaces whatever song is open there — and two
+      // DJs on one machine hold two decks rather than fighting over one.
       const client = new EngineClient(
-        found.wsUrl,
+        wsUrl,
         undefined,
-        SESSIONS.platines,
+        sessionFor(SESSIONS.platines, currentUser()),
       );
       engine.current = client;
       // The engine's own transport is the truth about whether sound is happening — never a
@@ -56,14 +64,14 @@ export function useEngine(): Deck {
       // stopped, and the deck has to show that.
       client.onState((s) => setPlaying(s.playing));
       client.connect();
-      setPhase({ k: "ready", id: found.id });
+      setPhase({ k: "ready", id: found.engine.id });
     })();
     return () => {
       cancelled = true;
       engine.current?.dispose();
       engine.current = null;
     };
-  }, [attempt]);
+  }, [attempt, chosen]);
 
   // Listening is a whole audio pipeline, so it is built on demand and torn down when the
   // toggle goes off rather than sitting idle behind a muted gain.

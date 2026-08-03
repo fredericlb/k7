@@ -1,0 +1,143 @@
+// Gate.tsx — sign in, then pick the machine you DJ from. Two gates and not one: the engine
+// is remembered on the account, so the login has to happen first for there to be an account
+// to remember it on. The decks mount only once both are answered.
+
+import { Button } from "@frediverse/ui/button";
+import { Card } from "@frediverse/ui/card";
+import { chooseEngine } from "@studio/engine-browser/choose";
+import { probeEngines, type RankedEngine } from "@studio/engine-browser/probe";
+import type { PublicEngine } from "@studio/web-protocol";
+import { Loader2, RefreshCw, Server } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { App } from "./App";
+import { auth, engines } from "./api";
+
+type Phase =
+  | { k: "checking" }
+  | { k: "anon" }
+  | { k: "looking" }
+  | { k: "picking"; ranked: RankedEngine<PublicEngine>[] }
+  | { k: "ready"; engine: RankedEngine<PublicEngine> };
+
+/** Tier 1 is this machine, 2 is the LAN, 3 is listed but unreachable from this browser. */
+function where(r: RankedEngine<PublicEngine>): string {
+  if (r.tier === 1) return "cette machine";
+  if (r.tier === 2) return "réseau local";
+  return "hors de portée";
+}
+
+export function Gate() {
+  const [phase, setPhase] = useState<Phase>({ k: "checking" });
+
+  const findEngine = useCallback(async () => {
+    setPhase({ k: "looking" });
+    const [list, prefs] = await Promise.all([
+      engines.list().catch(() => [] as PublicEngine[]),
+      engines.prefs().catch(() => ({}) as { engineId?: string }),
+    ]);
+    const ranked = await probeEngines(list);
+    const choice = chooseEngine(ranked, prefs.engineId);
+    // No engine at all still shows the picker, unlike the médiathèque: an editor without an
+    // engine still edits text, but a deck without one has nothing to do — so the screen that
+    // explains why is the right one to be on.
+    if (!choice.engine) return setPhase({ k: "picking", ranked });
+    setPhase({ k: "ready", engine: choice.engine });
+  }, []);
+
+  const pick = useCallback((r: RankedEngine<PublicEngine>) => {
+    // Remembered before connecting, and the failure is quiet: a save that did not land
+    // costs the choice surviving the session, not the set that is about to start.
+    void engines.savePrefs({ engineId: r.engine.id }).catch(() => {});
+    setPhase({ k: "ready", engine: r });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void auth
+      .me()
+      .then((u) => {
+        if (cancelled) return;
+        if (!u) return setPhase({ k: "anon" });
+        void findEngine();
+      })
+      .catch(() => !cancelled && setPhase({ k: "anon" }));
+    return () => {
+      cancelled = true;
+    };
+  }, [findEngine]);
+
+  if (phase.k === "ready")
+    // Keyed on the engine: switching machines rebuilds the deck rather than reusing a socket
+    // and a cache root that belong to the old one.
+    return <App key={phase.engine.engine.id} engine={phase.engine} />;
+
+  if (phase.k === "checking" || phase.k === "looking")
+    return (
+      <div className="flex h-full items-center justify-center bg-background text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+
+  if (phase.k === "anon")
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Card className="p-6 text-center">
+          <p className="mb-4 text-sm text-muted-foreground">
+            Les platines, c'est votre compte : la machine que vous choisissez y
+            reste associée.
+          </p>
+          <Button onClick={() => (window.location.href = auth.loginUrl)}>
+            Se connecter
+          </Button>
+        </Card>
+      </div>
+    );
+
+  return (
+    <div className="flex h-full items-center justify-center bg-background">
+      <Card className="w-96 p-6">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <Server className="h-4 w-4" />
+          Sur quelle machine jouez-vous&nbsp;?
+        </div>
+        <p className="mb-4 text-xs text-muted-foreground">
+          C'est elle qui tient la carte son et le cache de la médiathèque. Le
+          choix reste sur votre compte.
+        </p>
+        {phase.ranked.length === 0 && (
+          // Not an error: each service holds its own registry, so an engine appears here
+          // only once its capot has been pointed at platines.
+          <p className="mb-4 text-xs text-muted-foreground">
+            Aucun moteur ne s'est annoncé aux platines. Dans le capot :
+            «&nbsp;Add web UI…&nbsp;».
+          </p>
+        )}
+        {phase.ranked.map((r) => (
+          <button
+            key={r.engine.id}
+            type="button"
+            disabled={!r.wsUrl}
+            onClick={() => pick(r)}
+            className={`mb-1 flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm ${
+              r.wsUrl
+                ? "hover:bg-accent/50"
+                : "cursor-not-allowed text-muted-foreground/60"
+            }`}
+          >
+            <span className="flex-1 truncate">{r.engine.hostname}</span>
+            <span className="text-xs text-muted-foreground">{where(r)}</span>
+          </button>
+        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 w-full text-xs"
+          onClick={() => void findEngine()}
+        >
+          <RefreshCw className="mr-1 h-3 w-3" />
+          Rechercher à nouveau
+        </Button>
+      </Card>
+    </div>
+  );
+}

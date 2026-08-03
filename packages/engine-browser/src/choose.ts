@@ -1,9 +1,12 @@
-// chooseEngine.ts — which engine a module preview plays through. The policy alone, with no
-// React and no fetching, because it is the part with a rule worth testing: the account's
-// choice first, an obvious answer second, and the picker only when there IS a question.
+// choose.ts — which engine a service should drive, given what the account remembers. The
+// policy alone, with no React and no fetching: the account's choice first, an obvious
+// answer second, and the picker only when there IS a question.
+//
+// Shared because it is the same question in every service — it was written for the
+// médiathèque's module preview and platines wanted it verbatim the same day.
 
-import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
+import type { RankedEngine } from "./probe.ts";
 
 export interface Choice {
   /** The engine to use, or null when the user has to be asked (or there is none). */

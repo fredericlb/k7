@@ -1,14 +1,14 @@
 import { defineAppConfig } from "@frediverse/vite-config";
 
-// platines has NO backend of its own. It talks to the MACHINE — the file service on :8770
-// for the médiathèque's cached catalogue, the engine on :8765 for playback — both by
-// absolute URL, both cross-origin, both discovered at runtime. Nothing about it is hosted.
+// platines now has a backend, and 8796 is a REAL port: it holds the login, this service's
+// engine registry, and which machine the account DJs from. That port used to be reserved
+// deliberately unused, so a stray `/api` call would fail loudly rather than quietly reach
+// somebody else's service.
 //
-// `backendPort` is required by the shared config and only aims the dev server's `/api`
-// proxy, which nothing here ever calls. It gets a reserved-but-unused port rather than a
-// real one, so a stray `/api` request fails loudly instead of quietly reaching somebody
-// else's service. Making the field optional would mean editing `commons/`, which is shared
-// with phare — the wrong place for something only studio wants.
+// What has NOT changed: the decks still talk to the MACHINE directly — the file service for
+// the médiathèque's cached catalogue, the engine for playback — both by absolute URL, both
+// cross-origin. The backend knows who you are and which engines exist, never what is on any
+// engine's disk.
 export default defineAppConfig({
   dir: import.meta.url,
   // 5223 lanes, 5224 mediatek, so:

@@ -3,13 +3,13 @@
 // what they span. Nothing else — no transport, no meters. See docs/engine.md.
 
 import { EngineClient } from "@studio/engine-browser";
+import { chooseEngine } from "@studio/engine-browser/choose";
 import { probeEngines } from "@studio/engine-browser/probe";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentUser, engines } from "../api";
-import { chooseEngine } from "./chooseEngine";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
 export type EnginePhase =

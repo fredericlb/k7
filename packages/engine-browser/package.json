@@ -10,6 +10,7 @@
     "./store": "./src/engineStore.ts",
     "./params": "./src/params.ts",
     "./probe": "./src/probe.ts",
+    "./choose": "./src/choose.ts",
     "./stream": "./src/streamPlayer.ts",
     "./stream-sink": "./src/streamSink.ts"
   },
@@ -20,7 +21,8 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@studio/engine-protocol": "*"
+    "@studio/engine-protocol": "*",
+    "@studio/web-protocol": "*"
   },
   "peerDependencies": {
     "react": "^19.2.7"

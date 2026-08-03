@@ -4,26 +4,24 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Input } from "@frediverse/ui/input";
+import type { RankedEngine } from "@studio/engine-browser/probe";
 import { readPluginBlock } from "@studio/engine-protocol/build";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import type { PublicEngine } from "@studio/web-protocol";
 import { Disc3, Headphones, Loader2, Play, Plug, Square } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { currentUser } from "./api";
 import { ChainsPanel } from "./chains";
 import { deckDoc, loadAndPlay } from "./deck";
 import { categoryOf, type DeckModule } from "./graph";
-import {
-  loadSettings,
-  playablePath,
-  type Settings,
-  saveSettings,
-  service,
-} from "./service";
+import { type FileLink, fileLink, playablePath, service } from "./service";
 import { useEngine } from "./useEngine";
 
-export function App() {
-  const deck = useEngine();
-  const [settings, setSettings] = useState<Settings>(loadSettings);
+export function App({ engine }: { engine: RankedEngine<PublicEngine> }) {
+  const deck = useEngine(engine);
+  // Derived, never typed and never stored: the file service is on the chosen engine's host,
+  // and the identity is the session's. Both used to be text boxes.
+  const link = useMemo(() => fileLink(engine, currentUser()), [engine]);
   const [root, setRoot] = useState<string | null>(null);
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +29,7 @@ export function App() {
   const [available, setAvailable] = useState<MediatekEntry[]>([]);
   const [modules, setModules] = useState<DeckModule[]>([]);
 
-  const refresh = useCallback(async (s: Settings) => {
+  const refresh = useCallback(async (s: FileLink) => {
     try {
       const sum = await service.summary(s);
       setRoot(sum.root);
@@ -51,8 +49,15 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void refresh(settings);
-  }, [settings, refresh]);
+    // A chosen engine whose host answers on the engine port but not the file port: the
+    // catalogue is unreachable, and saying so beats an empty list that looks like an empty
+    // médiathèque.
+    if (!link)
+      return setError(
+        "le service de fichiers de cette machine ne répond pas — la médiathèque est injoignable",
+      );
+    void refresh(link);
+  }, [link, refresh]);
 
   const start = (e: MediatekEntry) => {
     if (!deck.engine || !root) return;
@@ -84,7 +89,8 @@ export function App() {
    *  the catalogue says where a module is, never what it runs. */
   const addModule = async (e: MediatekEntry) => {
     try {
-      const yaml = await service.moduleFile(settings, `${e.path}/module.yaml`);
+      if (!link) return;
+      const yaml = await service.moduleFile(link, `/module.yaml`);
       reapply([
         ...modules,
         {
@@ -276,39 +282,33 @@ export function App() {
             ) : null}
           </Card>
 
+          {/* Facts now, not fields. Both boxes that used to be here — the service address
+              and the DJ's own identity — are derived: the file service sits on the chosen
+              engine's host, and the identity is the session's. */}
           <Card className="p-4">
-            <div className="mb-2 text-sm font-semibold">Service local</div>
-            <Input
-              className="mb-2 h-8 text-xs"
-              value={settings.service}
-              placeholder="http://127.0.0.1:8770"
-              onChange={(ev) =>
-                setSettings((s) => ({ ...s, service: ev.target.value }))
-              }
-            />
-            <Input
-              className="h-8 text-xs"
-              value={settings.user}
-              placeholder="utilisateur"
-              onChange={(ev) =>
-                setSettings((s) => ({ ...s, user: ev.target.value }))
-              }
-            />
-            <Button
-              size="sm"
-              className="mt-2 w-full"
-              onClick={() => {
-                saveSettings(settings);
-                void refresh(settings);
-              }}
-            >
-              Enregistrer
-            </Button>
+            <div className="mb-2 text-sm font-semibold">Machine</div>
+            <p className="break-all text-xs text-muted-foreground">
+              {engine.engine.hostname}
+              <span className="ml-1 opacity-60">({currentUser() || "—"})</span>
+            </p>
+            {link ? (
+              <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                {link.base}
+              </p>
+            ) : null}
             {root ? (
               <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
                 {root}
               </p>
             ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 w-full text-xs"
+              onClick={() => link && void refresh(link)}
+            >
+              Relire le cache
+            </Button>
           </Card>
         </aside>
       </div>

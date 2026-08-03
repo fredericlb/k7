@@ -1,39 +1,36 @@
-// service.ts — the machine's own file service, which is the only thing that knows where
-// the médiathèque's CACHE sits on this disk. platines needs that because the moteur opens
-// file paths, not URLs. See docs/plumbing.md.
+// service.ts — the CHOSEN machine's file service, the only thing that knows where the
+// médiathèque's cache sits on that disk. platines needs it because the moteur opens file
+// paths, not URLs, and the paths are that machine's. See docs/plumbing.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { USER_HEADER } from "@studio/web-protocol";
 
-/** Where the local service listens, unless told otherwise. Matches its own LANES_FILE_PORT
- *  default — a constant on both sides rather than a discovery handshake this app does not
- *  need, since it only ever talks to the machine it is running on. */
-export const DEFAULT_SERVICE = "http://127.0.0.1:8770";
-
-export interface Settings {
-  service: string;
-  /** The identity the file service files workspaces under. It gates the médiathèque routes
-   *  too, so it is required even though platines never opens a workspace. */
+/**
+ * How to reach ONE machine's file service, as the chosen engine reported it.
+ *
+ * Both halves used to be typed into text boxes: the address defaulted to
+ * `http://127.0.0.1:8770`, and the DJ wrote their own identity into a second box which the
+ * file service then trusted. Now the address comes from the engine's own probe reply — the
+ * file service sits on the same host as the engine, and only the engine knows which host
+ * that is — and the identity comes from the session.
+ */
+export interface FileLink {
+  base: string;
+  /** The signed-in identity. The file service files workspaces under it and gates the
+   *  médiathèque routes on it, so it is required even though platines opens no workspace. */
   user: string;
 }
 
-const KEY = "platines.settings";
-
-export function loadSettings(): Settings {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? "");
-    return { service: String(v.service), user: String(v.user) };
-  } catch {
-    return { service: DEFAULT_SERVICE, user: "" };
-  }
+/** The link for a chosen engine. Null when the probe found no file service on its host. */
+export function fileLink(
+  engine: { fileBase: string | null },
+  user: string,
+): FileLink | null {
+  return engine.fileBase ? { base: engine.fileBase, user } : null;
 }
 
-export function saveSettings(s: Settings): void {
-  localStorage.setItem(KEY, JSON.stringify(s));
-}
-
-async function get<T>(s: Settings, path: string): Promise<T> {
-  const res = await fetch(`${s.service}${path}`, {
+async function get<T>(s: FileLink, path: string): Promise<T> {
+  const res = await fetch(`${s.base}${path}`, {
     headers: { [USER_HEADER]: s.user },
   });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
@@ -49,19 +46,19 @@ export interface CacheSummary {
 }
 
 export const service = {
-  summary: (s: Settings) => get<CacheSummary>(s, "/mediatek"),
+  summary: (s: FileLink) => get<CacheSummary>(s, "/mediatek"),
 
-  morceaux: (s: Settings) =>
+  morceaux: (s: FileLink) =>
     get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=morceaux"),
 
-  modules: (s: Settings) =>
+  modules: (s: FileLink) =>
     get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=modules"),
 
   /** One cached file's text. The deck needs a module's `plugin:` block, and the catalogue
    *  carries where a module IS, never what it runs. */
-  moduleFile: async (s: Settings, path: string): Promise<string> => {
+  moduleFile: async (s: FileLink, path: string): Promise<string> => {
     const res = await fetch(
-      `${s.service}/mediatek/file?path=${encodeURIComponent(path)}`,
+      `${s.base}/mediatek/file?path=${encodeURIComponent(path)}`,
       { headers: { [USER_HEADER]: s.user } },
     );
     if (!res.ok) throw new Error(`module ${res.status}`);

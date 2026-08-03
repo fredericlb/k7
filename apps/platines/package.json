@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The decks: pick a morceau from the médiathèque's local cache and let the moteur play it. Frontend only — it talks to the machine's own file service and its own engine, and hosts nothing.",
+  "description": "The decks: pick a morceau from the médiathèque's cache on the machine you chose, and let its moteur play it. A frontend plus a small backend — auth, the engine registry, and which machine this account DJs from.",
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --noEmit",
