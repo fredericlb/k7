@@ -1,0 +1,43 @@
+// chooseEngine.ts — which engine a module preview plays through. The policy alone, with no
+// React and no fetching, because it is the part with a rule worth testing: the account's
+// choice first, an obvious answer second, and the picker only when there IS a question.
+
+import type { RankedEngine } from "@studio/engine-browser/probe";
+import type { PublicEngine } from "@studio/web-protocol";
+
+export interface Choice {
+  /** The engine to use, or null when the user has to be asked (or there is none). */
+  engine: RankedEngine<PublicEngine> | null;
+  /** True when several were reachable and none was remembered — the only case worth a
+   *  question. A single reachable engine is not a choice, it is the answer. */
+  ambiguous: boolean;
+}
+
+/**
+ * Pick from what the registry offered, given what this account remembers.
+ *
+ * Tier 3 means "listed but not reachable from this browser": the engine is on a network we
+ * are not on. Those are excluded everywhere here — offering one produces a preview that
+ * silently never connects, which reads as a broken editor rather than a wrong network.
+ *
+ * A remembered engine that is unreachable does NOT clear the preference. The usual reason
+ * is being on the wrong network or the machine being off, and forgetting the choice would
+ * mean re-picking every time you work from somewhere else.
+ */
+export function chooseEngine(
+  ranked: RankedEngine<PublicEngine>[],
+  rememberedId: string | undefined,
+): Choice {
+  const reachable = ranked.filter((r) => r.wsUrl && r.token);
+
+  const remembered = rememberedId
+    ? reachable.find((r) => r.engine.id === rememberedId)
+    : undefined;
+  if (remembered) return { engine: remembered, ambiguous: false };
+
+  // Nothing remembered, or it is not here. One reachable engine is not a question — asking
+  // would put a dialog in front of the only possible answer.
+  if (reachable.length === 1) return { engine: reachable[0], ambiguous: false };
+
+  return { engine: null, ambiguous: reachable.length > 1 };
+}

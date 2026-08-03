@@ -1,12 +1,15 @@
-// useModuleEngine.ts — the engine as the module editor needs it: connect to THIS machine's,
-// load one module, and report what its plugin's parameters are called and what they span.
-// Nothing else — no transport, no meters. See docs/engine.md.
+// useModuleEngine.ts — the engine as the module editor needs it: connect to the one this
+// ACCOUNT chose, load one module, and report what its plugin's parameters are called and
+// what they span. Nothing else — no transport, no meters. See docs/engine.md.
 
 import { EngineClient } from "@studio/engine-browser";
-import { probeLocalEngine } from "@studio/engine-browser/probe";
+import { probeEngines } from "@studio/engine-browser/probe";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { SESSIONS } from "@studio/engine-protocol/sessions";
+import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { engines } from "../api";
+import { chooseEngine } from "./chooseEngine";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
 export type EnginePhase =
@@ -34,12 +37,16 @@ export interface ModuleEngine {
 }
 
 /**
- * One engine, found on loopback.
+ * The engine this ACCOUNT auditions modules through.
  *
- * No registry and no picker, unlike lanes: a module preview must play on the machine the
- * module will be used from, so "which of my engines" has no question to answer here. An
- * absent engine is a normal state — the editor still edits text, it just cannot offer a
- * parameter list.
+ * It used to be loopback and nothing else, on the argument that a preview must play on the
+ * machine the module will be used from — so "which of my engines" had no question to
+ * answer. That was true while a person had one machine. Now the médiathèque holds its own
+ * registry, the choice is remembered on the account, and the policy lives in
+ * `chooseEngine` where it can be tested.
+ *
+ * An absent engine is still a normal state: the editor edits text either way, it just
+ * cannot offer a parameter list.
  */
 export function useModuleEngine(): ModuleEngine {
   const [phase, setPhase] = useState<EnginePhase>({ k: "looking" });
@@ -55,14 +62,28 @@ export function useModuleEngine(): ModuleEngine {
     let cancelled = false;
     setPhase({ k: "looking" });
     void (async () => {
-      const found = await probeLocalEngine();
+      // Both at once: a remembered id is only a hint that still has to be probed, so
+      // waiting for one before starting the other would add a round trip to every load.
+      const [list, prefs] = await Promise.all([
+        engines.list().catch(() => [] as PublicEngine[]),
+        engines.prefs().catch(() => ({}) as { engineId?: string }),
+      ]);
       if (cancelled) return;
-      if (!found) return setPhase({ k: "absent" });
+      const ranked = await probeEngines(list);
+      if (cancelled) return;
+      // The picker lives in the médiathèque's header, which this screen REPLACES — so a
+      // choice can never change while the editor is open, and this only has to honour it.
+      const choice = chooseEngine(ranked, prefs.engineId);
+      if (!choice.engine) return setPhase({ k: "absent" });
+      const found = choice.engine;
+      // The lease, exactly as lanes takes it — and a miss is not fatal: it marks the engine
+      // in use, it does not grant the connection, which the browser makes itself.
+      engines.select(found.engine.id, found.token!, found.tier).catch(() => {});
 
       // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
       // engine slot lanes had a song in — auditioning a module unloaded the song.
       const client = new EngineClient(
-        found.wsUrl,
+        found.wsUrl!,
         undefined,
         SESSIONS.mediatek,
       );
@@ -73,7 +94,7 @@ export function useModuleEngine(): ModuleEngine {
       });
       client.onPresets((_module, list) => setPresets(list));
       client.connect();
-      setPhase({ k: "ready", id: found.id });
+      setPhase({ k: "ready", id: found.engine.id });
       // A doc asked for before the socket opened is replayed here rather than lost.
       if (loaded.current) sendPreview(client, ...loaded.current);
     })();

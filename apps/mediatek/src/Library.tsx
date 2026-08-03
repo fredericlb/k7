@@ -8,7 +8,9 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import { Boxes, Disc3, Loader2, Pencil, Waves } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
+import { EnginePicker } from "./engine/EnginePicker";
 import { ModuleParams } from "./engine/ModuleParams";
+import { useEngineChoice } from "./engine/useEngineChoice";
 import { ModuleEditor } from "./ModuleEditor";
 
 const FAMILIES = [
@@ -44,6 +46,9 @@ export function Library() {
   // …and the one being EDITED, which takes over the whole screen. Only the médiathèque is
   // editable, so this is the one place in the repo a module can be written from.
   const [editing, setEditing] = useState<MediatekEntry | null>(null);
+  // No socket of its own — it only lists and remembers. useModuleEngine holds the
+  // connection, and two hooks opening one would be two connections from one tab.
+  const choice = useEngineChoice();
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
@@ -108,6 +113,17 @@ export function Library() {
         <span className="text-xs tabular-nums text-muted-foreground">
           {VERSION}
         </span>
+        {/* The médiathèque's first settings control. Here and not in the editor: the editor
+            REPLACES this screen, so a choice made there could never be seen or changed
+            from the catalogue. */}
+        <div className="ml-auto">
+          <EnginePicker
+            ranked={choice.ranked}
+            chosenId={choice.chosenId}
+            onChoose={choice.choose}
+            onRetry={choice.refresh}
+          />
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">

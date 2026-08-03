@@ -3,7 +3,7 @@
 // moteur plays from, and nothing on this screen reads it.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
-import type { Hints, ModuleUiFile } from "@studio/web-protocol";
+import type { Hints, ModuleUiFile, PublicEngine } from "@studio/web-protocol";
 
 export interface AuthUser {
   sub?: string;
@@ -28,6 +28,39 @@ export const auth = {
     if (res.status === 401) return null;
     return (await json<{ user: AuthUser }>(res, "auth/me")).user;
   },
+};
+
+/**
+ * The engines this service knows about, and what it remembers about you.
+ *
+ * Its OWN registry, not lanes'. Each hosted service holds one — see
+ * packages/engine-registry/docs/shared.md — so an engine appears here only once it has been
+ * pointed at the médiathèque too.
+ */
+export const engines = {
+  list: async () =>
+    json<PublicEngine[]>(await fetch("/api/engines"), "engines"),
+  /** Mark it in use, and verify the token server-side. Same lease lanes takes. */
+  select: async (id: string, token: string, tier: number) =>
+    json<{ ok: true }>(
+      await fetch("/api/engine/select", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, token, tier }),
+      }),
+      "select",
+    ),
+  prefs: async () =>
+    json<{ engineId?: string }>(await fetch("/api/preferences"), "preferences"),
+  savePrefs: async (p: { engineId?: string }) =>
+    json<{ ok: true }>(
+      await fetch("/api/preferences", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(p),
+      }),
+      "preferences",
+    ),
 };
 
 export const library = {
