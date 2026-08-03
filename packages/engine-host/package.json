@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes's engine supervisor \u2014 owns the engine's identity, the ~/.lanes contract, the registry heartbeat and the web-UI allowlist. Spawned by engine-tray (the menu-bar view) and driven over NDJSON on stdio; not a standalone CLI. Consumed as source.",
+  "description": "lanes's engine supervisor \u2014 owns the engine's identity, the ~/.lanes contract, the registry heartbeat and the web-UI allowlist. Spawned by studio-capot (the menu-bar view) and driven over NDJSON on stdio; not a standalone CLI. Consumed as source.",
   "exports": {
     "./identity": "./src/identity.ts",
     "./addresses": "./src/addresses.ts",

@@ -132,12 +132,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p src-tauri/binaries src-tauri/resources/songs dist
-          for name in lanes-engine node; do
+          for name in studio-moteur node; do
             : > "src-tauri/binaries/${name}-x86_64-pc-windows-msvc.exe"
           done
           : > src-tauri/resources/engine-host.mjs
           : > src-tauri/resources/file-service.mjs
-          [ -f dist/index.html ] || printf '<!doctype html><html><head><title>lanes engine tray</title></head><body></body></html>\n' > dist/index.html
+          [ -f dist/index.html ] || printf '<!doctype html><html><head><title>studio-capot</title></head><body></body></html>\n' > dist/index.html
 
       - name: cargo check
         working-directory: apps/capot/src-tauri

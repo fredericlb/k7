@@ -16,14 +16,14 @@ Everything needed to run with no repo and nothing on `PATH`:
 
 | staged as | what |
 |---|---|
-| `externalBin` sidecar | `lanes-engine` — the audio engine |
+| `externalBin` sidecar | `studio-moteur` — the audio engine |
 | `externalBin` sidecar | `node` — runs the bundled JS processes |
 | resource | the file service, bundled to one `.mjs` |
 | resource | the supervisor, bundled to one `.mjs` |
 | resource | the demo songs |
 
 Tauri copies `externalBin` into the bundle beside the tray executable
-(`Contents/MacOS/lanes-engine` on macOS), which is what makes the `.app` self-contained
+(`Contents/MacOS/studio-moteur` on macOS), which is what makes the `.app` self-contained
 — `engine.rs` prefers that copy over the repo's build directory. Tauri resolves a sidecar
 as `<name>-<triple>` **plus** the platform's executable extension, so on Windows the
 `.exe`-suffixed file is the one it looks for and bundles.

@@ -32,9 +32,11 @@ export function webEndpointPath(): string {
 
 /** The supervisor's own settings (registry override, ports, audio picks).
  *
- * Keeps the name `engine-tray.json` even though the tray no longer writes it: renaming
- * it would silently discard every existing user's audio-device pick and registry
- * override. If it is ever renamed that must be its own change, read-old/write-new. */
+ * Keeps the name `engine-tray.json` even though the tray no longer writes it AND is no
+ * longer called that — it is `studio-capot` now. Renaming the FILE would silently discard
+ * every existing user's audio-device pick and registry override, which is a different and
+ * much more expensive change than renaming a binary: it must be its own, read-old/
+ * write-new. Same reasoning as `~/.lanes` itself, and as `.lanes-engine.log` below. */
 export function settingsPath(): string {
   return join(lanesDir(), "engine-tray.json");
 }
@@ -64,8 +66,12 @@ export function pendingOriginsPath(): string {
   return join(lanesDir(), "pending-origins.json");
 }
 
-/** The engine log written when NOT under the supervisor (the CLI path). Kept as a
- *  contract name; the file service falls back to reading it when there is no merged log. */
+/** The engine log written when NOT under the supervisor (the CLI path).
+ *
+ *  Still `.lanes-engine.log` although the binary is `studio-moteur` now: this is a path
+ *  inside `~/.lanes`, and the file service falls back to READING it when there is no
+ *  merged log. Renaming it belongs with the `~/.lanes` move, not with a binary rename —
+ *  otherwise an old log stops being found the moment the new name lands. */
 export function engineLogPath(): string {
   return join(lanesDir(), ".lanes-engine.log");
 }

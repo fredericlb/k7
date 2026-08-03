@@ -548,7 +548,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const engine = findEngineBinary();
     if (!engine) {
       h.log([
-        "normalize failed: lanes-engine binary not found (build the engine)",
+        "normalize failed: studio-moteur binary not found (build the engine)",
       ]);
       return;
     }
@@ -663,7 +663,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const engine = findEngineBinary();
     if (!engine) {
       h.log([
-        "freeze failed: lanes-engine binary not found (build the engine)",
+        "freeze failed: studio-moteur binary not found (build the engine)",
       ]);
       return;
     }

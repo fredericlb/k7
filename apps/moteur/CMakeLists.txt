@@ -210,19 +210,19 @@ endif()
 # The C++ packages (monorepo-style)
 #
 #   engine/  -> lanes::engine  (library: model, diff, Tracktion host)
-#   server/  -> lanes-engine   (app: WebSocket audio server)
+#   server/  -> studio-moteur  (app: WebSocket audio server)
 #
 # The frontend lives in ../brain as a standalone Node app and is NOT built here.
 #
 # Note: Tracktion also declares example/test targets nothing here depends on, so
-# building the `lanes-engine` target never touches them. The build presets
-# pin "targets": ["lanes-engine"] to keep it that way.
+# building the `studio-moteur` target never touches them. The build presets
+# pin "targets": ["studio-moteur"] to keep it that way.
 # -----------------------------------------------------------------------------
 add_subdirectory(engine)
 add_subdirectory(server)
 
 # --- Unit tests (JUCE-free data layer) ----------------------------------------
-# ON by default for local dev; the build presets pin "targets": ["lanes-engine"],
+# ON by default for local dev; the build presets pin "targets": ["studio-moteur"],
 # so the test target isn't built by a normal preset build — build + run it with
 # `npm run test:mac --workspace moteur` (or `ctest`). Off with -DLANES_BUILD_TESTS=OFF.
 option(LANES_BUILD_TESTS "Build the engine unit tests" ON)

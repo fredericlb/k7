@@ -1,5 +1,5 @@
 // hostProtocol.ts — the wire contract between the supervisor and the menu-bar view
-// (engine-tray): NDJSON on stdio, types only, mirrored by hand in Rust (host.rs).
+// (studio-capot): NDJSON on stdio, types only, mirrored by hand in Rust (host.rs).
 // Stdout IS the protocol, frames are snapshots not deltas, and the tray computes no
 // policy of its own. Full rationale: docs/hostProtocol.md.
 

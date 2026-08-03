@@ -51,7 +51,7 @@ fn main() {
             let dark = trayicon::menubar_is_dark();
             let tray = TrayIconBuilder::with_id("main")
                 .icon(trayicon::render(trayicon::IconState::Stopped, dark))
-                .tooltip("lanes engine")
+                .tooltip("studio-moteur")
                 .menu(&mb.menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| tray::on_menu(app, event.id.as_ref()))

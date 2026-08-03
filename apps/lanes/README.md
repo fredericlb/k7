@@ -41,10 +41,10 @@ TypeScript source and run via `tsx` — no build step. The engine is a native C+
 binary, built separately.
 
 ```
-apps/moteur/               the C++ project (lanes-engine)          — native, not a workspace
+apps/moteur/               the C++ project (studio-moteur)          — native, not a workspace
   CMakeLists.txt · CMakePresets.json · docs/design.md
   engine/    library lanes::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
-  server/    app lanes-engine       (WebSocket audio server, main.cpp)
+  server/    app studio-moteur       (WebSocket audio server, main.cpp)
 apps/capot/                the menu-bar view (spawns @studio/engine-host, the supervisor)
 apps/lanes/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
@@ -180,7 +180,7 @@ Xcode — so the Command Line Tools are enough, no full Xcode.app). It targets m
 11.0+ and builds native arm64. Sanity-check the result without starting a server:
 
 ```sh
-./engine/build/macos-clang/lanes-engine --list-audio-devices   # lists CoreAudio devices, then exits
+./engine/build/macos-clang/studio-moteur --list-audio-devices   # lists CoreAudio devices, then exits
 ```
 
 On Linux, build with a preset from `apps/moteur/CMakePresets.json` (`dev-gcc`,
@@ -200,7 +200,7 @@ sudo apt update && sudo apt install -y \
 cd engine
 cmake --preset dev-gcc
 cmake --build --preset dev-gcc -j
-# binary: engine/build/dev-gcc/lanes-engine
+# binary: engine/build/dev-gcc/studio-moteur
 ```
 
 ## Run
@@ -260,7 +260,7 @@ preset (it pins both C and C++ compilers) from a clean build dir:
 
 **`Segmentation fault` linking `EngineInPluginDemo`** — Tracktion example plugins
 whose LV2 helper crashes headless/WSL. The presets pin
-`"targets": ["lanes-engine"]` so a normal preset build skips them; only a plain
+`"targets": ["studio-moteur"]` so a normal preset build skips them; only a plain
 `ninja` / `cmake --build build` (all targets) hits it.
 
 **No sound in WSL2** — point ALSA at WSLg's PulseAudio:

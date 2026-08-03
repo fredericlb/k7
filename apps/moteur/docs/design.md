@@ -1,4 +1,4 @@
-# lanes engine — design notes
+# studio-moteur — design notes
 
 The frontend is a separate **Node** app (`../brain`) talking to this C++ engine
 over a WebSocket; YAML parsing lives in Node. These notes describe the engine.

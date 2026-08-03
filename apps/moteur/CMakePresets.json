@@ -72,11 +72,11 @@
     }
   ],
   "buildPresets": [
-    { "name": "dev-gcc",       "configurePreset": "dev-gcc",       "targets": ["lanes-engine"] },
-    { "name": "dev-clang",     "configurePreset": "dev-clang",     "targets": ["lanes-engine"] },
-    { "name": "asan",          "configurePreset": "asan",          "targets": ["lanes-engine"] },
-    { "name": "release-gcc",   "configurePreset": "release-gcc",   "targets": ["lanes-engine"] },
-    { "name": "windows-msvc",  "configurePreset": "windows-msvc",  "targets": ["lanes-engine"], "configuration": "RelWithDebInfo" },
-    { "name": "macos-clang",   "configurePreset": "macos-clang",   "targets": ["lanes-engine"] }
+    { "name": "dev-gcc",       "configurePreset": "dev-gcc",       "targets": ["studio-moteur"] },
+    { "name": "dev-clang",     "configurePreset": "dev-clang",     "targets": ["studio-moteur"] },
+    { "name": "asan",          "configurePreset": "asan",          "targets": ["studio-moteur"] },
+    { "name": "release-gcc",   "configurePreset": "release-gcc",   "targets": ["studio-moteur"] },
+    { "name": "windows-msvc",  "configurePreset": "windows-msvc",  "targets": ["studio-moteur"], "configuration": "RelWithDebInfo" },
+    { "name": "macos-clang",   "configurePreset": "macos-clang",   "targets": ["studio-moteur"] }
   ]
 }

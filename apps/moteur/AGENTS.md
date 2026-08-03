@@ -81,7 +81,7 @@ state where possible; `.vstpreset` is the fallback for plugins that need opaque 
 
 **macOS** — `npm run build:mac --workspace moteur`. Drives the `macos-clang`
 preset (Ninja + AppleClang, RelWithDebInfo, native arm64). Needs `brew install cmake
-ninja`. Sanity check: `./build/macos-clang/lanes-engine --list-audio-devices`.
+ninja`. Sanity check: `./build/macos-clang/studio-moteur --list-audio-devices`.
 
 **Windows** — `npm run build:win --workspace moteur`. Needs the MSVC toolchain. The .exe is
 often locked while the engine is running — stop it before rebuilding.
@@ -96,7 +96,7 @@ Build gotchas:
 - Tracktion pins JUCE as an SSH submodule — the top-level `CMakeLists.txt` rewrites to
   HTTPS via `GIT_CONFIG_*` env vars.
 - The ASIO SDK is fetched at configure time and is REQUIRED on Windows.
-- Presets pin `"targets": ["lanes-engine"]` — don't switch to all-targets.
+- Presets pin `"targets": ["studio-moteur"]` — don't switch to all-targets.
 - `<windows.h>` must precede `<shellapi.h>` with `NOMINMAX` + `WIN32_LEAN_AND_MEAN`.
 
 ## Tests

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Lanes Engine",
+  "productName": "studio-capot",
   "version": "0.0.1",
   "identifier": "org.parapluie.lanes.engine-tray",
   "build": {
@@ -15,7 +15,7 @@
   "bundle": {
     "active": true,
     "targets": ["app"],
-    "externalBin": ["binaries/lanes-engine", "binaries/node"],
+    "externalBin": ["binaries/studio-moteur", "binaries/node"],
     "resources": [
       "resources/engine-host.mjs",
       "resources/file-service.mjs",

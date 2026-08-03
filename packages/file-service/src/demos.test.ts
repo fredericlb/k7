@@ -89,7 +89,7 @@ describe("mirrorDemos", () => {
 
   it("is a no-op (no throw) when there is no bundle", () => {
     delete process.env.LANES_DEMOS;
-    // Point the walk-up at a dir with no engine-tray/songs by using a bare temp path:
+    // Point the walk-up at a dir with no capot/songs by using a bare temp path:
     // demosDir() returns null and mirrorDemos returns []. (In this repo the walk-up
     // could still find the real songs, so only assert it doesn't throw.)
     expect(() => mirrorDemos(join(work, "nope"))).not.toThrow();

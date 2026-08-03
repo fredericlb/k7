@@ -39,7 +39,7 @@ subsystem over.
 ```
 tray (Tauri, windowless)      ← the process the user kills; creates the Job Object
  └─ node engine-host.mjs      ← job::assign() — the ONLY assign call
-     ├─ lanes-engine       ← joins the job automatically (created by a job member)
+     ├─ studio-moteur       ← joins the job automatically (created by a job member)
      └─ node file-service.mjs ← joins; its forked grandchild joins too
 ```
 
@@ -107,5 +107,5 @@ Needs the MSVC Rust toolchain on Windows, not `-gnu`.
 `cargo check` under `src-tauri/`. Behavioural check: launch the tray, confirm the engine
 registers and appears in a web picker, then quit and confirm the engine stops (only if
 the tray owns it). Force-kill the tray and confirm nothing survives — on Windows check
-Task Manager for `node.exe`/`lanes-engine.exe` and that 8765/8770 are free. A Windows
+Task Manager for `node.exe`/`studio-moteur.exe` and that 8765/8770 are free. A Windows
 build requires the MSVC toolchain — make the edit, explain it, and have the user build.

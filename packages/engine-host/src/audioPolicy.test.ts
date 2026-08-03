@@ -6,7 +6,7 @@ import {
   signature,
 } from "./audioPolicy.ts";
 
-// Ported 1:1 from engine-tray/src-tauri/src/audio.rs, test names kept — they state the
+// Ported 1:1 from apps/capot/src-tauri/src/audio.rs, test names kept — they state the
 // rules more plainly than the code does, and they are the reason the policy is a pure
 // module rather than something inlined in the poll loop.
 

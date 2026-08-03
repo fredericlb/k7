@@ -1,8 +1,8 @@
 [package]
-name = "engine-tray"
+name = "studio-capot"
 version = "0.0.1"
 edition = "2021"
-description = "lanes menu-bar/tray engine supervisor"
+description = "studio menu-bar/tray engine supervisor"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

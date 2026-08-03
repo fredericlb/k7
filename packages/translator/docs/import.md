@@ -21,8 +21,8 @@ A `.vstpreset` is an opaque blob; text params are diffable and live in the chain
 module asks the engine to enumerate a plugin's parameters as `paramID -> value`, so
 `emit.ts` can write chain params instead of a preset:
 
-- **built-ins**: `lanes-engine --dump-params <type>`
-- **externals**: `lanes-engine --dump-params-ext <format> <id> <statefile>`
+- **built-ins**: `studio-moteur --dump-params <type>`
+- **externals**: `studio-moteur --dump-params-ext <format> <id> <statefile>`
   (instantiate the plugin, restore its `.vstpreset`, dump params)
 
 The engine reports whether the params fully reproduce the state ("complete"); only then

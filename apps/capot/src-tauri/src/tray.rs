@@ -86,7 +86,7 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     )?;
     let open_log = MenuItem::with_id(app, "open_log", "Show logs", true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
-    let quit = PredefinedMenuItem::quit(app, Some("Quit lanes Engine"))?;
+    let quit = PredefinedMenuItem::quit(app, Some("Quit studio-capot"))?;
 
     let items: Vec<&dyn IsMenuItem<Wry>> = vec![
         &status, &registry, &plugins, &rescan, &edit_plugins, &audio, &weburi, &sep1,
@@ -527,13 +527,13 @@ pub fn refresh(app: &AppHandle) {
 
     let _ = tray.set_icon(Some(icon));
     let tip = if file_failed {
-        "lanes engine — file service stopped"
+        "studio-moteur — file service stopped"
     } else if running {
-        "lanes engine — running"
+        "studio-moteur — running"
     } else if is_error {
-        "lanes engine — error"
+        "studio-moteur — error"
     } else {
-        "lanes engine — stopped"
+        "studio-moteur — stopped"
     };
     let _ = tray.set_tooltip(Some(tip));
 }
@@ -614,7 +614,7 @@ fn prompt_for_origin() -> Option<String> {
     use std::process::Command;
     // `with icon note` keeps it a normal dialog rather than an alarming alert, seeded with the scheme.
     let script = r#"try
-    set r to display dialog "Add a lanes web UI. Its address is allowed to reach this engine." with title "lanes Engine" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
+    set r to display dialog "Add a lanes web UI. Its address is allowed to reach this engine." with title "studio-capot" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
     return text returned of r
 on error number -128
     return ""
@@ -655,7 +655,7 @@ pub fn notify_modal(title: &str, body: &str) {
     #[cfg(target_os = "macos")]
     {
         let script = format!(
-            "display dialog {} with title \"lanes Engine\" buttons {{\"OK\"}} default button \"OK\" with icon caution",
+            "display dialog {} with title \"studio-capot\" buttons {{\"OK\"}} default button \"OK\" with icon caution",
             applescript_string(&format!("{title}\n\n{body}"))
         );
         let _ = std::process::Command::new("osascript")

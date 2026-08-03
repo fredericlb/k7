@@ -1,4 +1,4 @@
-// lanes-engine — the headless audio server: a thin WebSocket bridge over lanes::engine, speaking JSON.
+// studio-moteur — the headless audio server: a thin WebSocket bridge over lanes::engine, speaking JSON.
 // It parses no files — the Node brain interprets the song and sends it as a resolved ProjectDoc. This file
 // includes NO JUCE/Tracktion headers: all engine threading sits behind EngineHost's post()/onState()/run().
 // The message catalogue is in docs/protocol.md.
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
             else if (input.empty()) input = a;
         }
         if (input.empty() || outDir.empty()) {
-            std::cerr << "usage: lanes-engine --render <doc.json|-> --out <dir> "
+            std::cerr << "usage: studio-moteur --render <doc.json|-> --out <dir> "
                          "[--stems] [--base <dir>]\n";
             return 2;
         }
@@ -369,7 +369,7 @@ int main(int argc, char** argv) {
             else if (input.empty()) input = a;
         }
         if (input.empty() || outFile.empty() || trackId.empty()) {
-            std::cerr << "usage: lanes-engine --freeze <doc.json|-> --track <id> --out <file.wav> "
+            std::cerr << "usage: studio-moteur --freeze <doc.json|-> --track <id> --out <file.wav> "
                          "[--base <dir>]\n";
             return 2;
         }
@@ -1019,7 +1019,7 @@ int main(int argc, char** argv) {
 
     const auto res = server.listen();
     if (!res.first) {
-        std::cerr << "lanes-engine: listen failed: " << res.second << "\n";
+        std::cerr << "studio-moteur: listen failed: " << res.second << "\n";
         return 1;
     }
     server.start();
@@ -1130,7 +1130,7 @@ int main(int argc, char** argv) {
         }
     });
 
-    std::cerr << "lanes-engine listening on ws://" << bindHost << ":" << port
+    std::cerr << "studio-moteur listening on ws://" << bindHost << ":" << port
               << (engineId.empty() ? std::string{}
                                    : " (id " + engineId + ")")
               << "\n";

@@ -1,6 +1,31 @@
 # The tray app
 
-`engine-tray` is a tray-only Tauri app with no window. It is the **VIEW** over the
+## Names, and the three this rename did NOT touch
+
+The binary and the displayed name are `studio-capot`; the engine it supervises is
+`studio-moteur`. That covers the Cargo package, Tauri's `productName`, the tray tooltip,
+the Quit item and the AppleScript dialog titles.
+
+Three names stayed, each for a reason worth more than consistency:
+
+* **`org.parapluie.lanes.engine-tray`**, the bundle identifier. On macOS this is the app's
+  *identity*: changing it makes the OS treat the build as a different application, dropping
+  its microphone and automation (TCC) grants and its login item while leaving the old one
+  registered. It is also what Tauri keys single-instance on, so a mid-flight change means
+  two trays can run at once. Its own migration, not a side effect of a rename.
+* **`~/.lanes/engine-tray.json`**, the supervisor's settings. Renaming the file discards
+  every existing user's audio-device pick and registry override. Read-old/write-new, or
+  not at all.
+* **`~/.lanes/.lanes-engine.log`**, and the `LANES_*` environment variables, and
+  `x-lanes-engine-token`. All part of the `~/.lanes` contract, which the plan keeps as a
+  separate change for the same reason: a partial landing destroys user data.
+
+The pattern: a *build artifact* can be renamed in one commit because the next build
+replaces it. A name the user's disk or the OS remembers cannot.
+
+---
+
+`studio-capot` is a tray-only Tauri app with no window. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.lanes` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.

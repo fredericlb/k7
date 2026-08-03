@@ -73,7 +73,7 @@ function tauriCmd() {
 function findEngineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
-  const names = ["lanes-engine.exe", "lanes-engine"];
+  const names = ["studio-moteur.exe", "studio-moteur"];
   const configs = ["", "Release", "RelWithDebInfo", "Debug"];
   const found = [];
   for (const preset of readdirSync(build))
@@ -334,10 +334,10 @@ function buildDevApp() {
   let got;
   if (win) {
     got = [];
-    const exe = join(debugDir, "engine-tray.exe");
+    const exe = join(debugDir, "studio-capot.exe");
     if (existsSync(exe)) {
-      cpSync(exe, join(OUT_DEV, "engine-tray.exe"));
-      got.push("engine-tray.exe");
+      cpSync(exe, join(OUT_DEV, "studio-capot.exe"));
+      got.push("studio-capot.exe");
     }
   } else {
     got = collectBundles(join(debugDir, "bundle"), OUT_DEV);
@@ -412,7 +412,7 @@ const stage = (src, name) => {
 };
 
 console.log("\n=== sidecars ===");
-stage(engineBin, "lanes-engine");
+stage(engineBin, "studio-moteur");
 stage(vendorNode(), "node");
 
 // The two Node processes the app ships, each bundled to a single .mjs. Built in --sidecar-only too, and must be:

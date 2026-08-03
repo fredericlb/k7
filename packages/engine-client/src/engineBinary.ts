@@ -1,4 +1,4 @@
-// engineBinary.ts — locate the built lanes-engine binary, in three tiers:
+// engineBinary.ts — locate the built studio-moteur binary, in three tiers:
 // $LANES_ENGINE, the copy vendored beside the running executable (a packaged app),
 // then the CMake preset output dirs under apps/moteur/build, newest first. The repo
 // tiers resolve relative to THIS file, so they work wherever the package is linked.
@@ -18,7 +18,7 @@ export function findEngineBinary(): string | null {
   // Beside the running executable: in a packaged app the supervisor IS the vendored node, next to the staged
   // engine, and its import.meta.url points into Resources where the repo walk finds nothing.
   const sidecarDir = dirname(process.execPath);
-  for (const name of ["lanes-engine.exe", "lanes-engine"]) {
+  for (const name of ["studio-moteur.exe", "studio-moteur"]) {
     const p = join(sidecarDir, name);
     try {
       if (statSync(p).isFile()) return p;
@@ -30,7 +30,7 @@ export function findEngineBinary(): string | null {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
 
-  const names = ["lanes-engine.exe", "lanes-engine"];
+  const names = ["studio-moteur.exe", "studio-moteur"];
   const configs = ["", "Release", "RelWithDebInfo", "Debug"];
   const found: string[] = [];
   for (const preset of readdirSync(build)) {

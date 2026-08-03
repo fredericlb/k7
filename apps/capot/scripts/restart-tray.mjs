@@ -16,7 +16,7 @@ const trayDir = dirname(here); //                      apps/capot
 const MERGED = join(homedir(), ".lanes", ".lanes.log"); // truncated by logbus::init on every launch
 const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 const EXE_NAME =
-  process.platform === "win32" ? "engine-tray.exe" : "engine-tray";
+  process.platform === "win32" ? "studio-capot.exe" : "studio-capot";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
