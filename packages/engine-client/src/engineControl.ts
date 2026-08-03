@@ -9,6 +9,11 @@ import type {
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
+import {
+  DEFAULT_SESSION,
+  forSession,
+  type SessionId,
+} from "@studio/engine-protocol/sessions";
 import WebSocket from "ws";
 
 // The wire shapes shared with the browser client live in @studio/engine-protocol, so the two can't drift.
@@ -54,7 +59,16 @@ export class EngineControl extends EventEmitter {
   protected ws?: WebSocket;
   private outbox: string[] = [];
 
-  constructor(protected readonly url: string) {
+  /**
+   * @param session which project on that engine this client drives — see
+   * `@studio/engine-protocol/sessions`. It must match what the app's BROWSER half passes:
+   * here the file service compiles and sends the song, there the frontend drives its
+   * transport, and two spellings would leave the frontend steering an empty project.
+   */
+  constructor(
+    protected readonly url: string,
+    protected readonly session: SessionId = DEFAULT_SESSION,
+  ) {
     super();
   }
 
@@ -76,6 +90,9 @@ export class EngineControl extends EventEmitter {
       } catch {
         return;
       }
+      // Another project's news on a shared socket. Dropped before the switch, so a frame
+      // type that grows a session later is covered without touching its case.
+      if (!forSession(msg, this.session)) return;
       switch (msg.type) {
         case "state":
           this.emit("state", {
@@ -153,8 +170,12 @@ export class EngineControl extends EventEmitter {
     });
   }
 
-  protected send(obj: unknown): void {
-    const s = JSON.stringify(obj);
+  protected send(obj: object): void {
+    // The one choke point every verb goes through, so a command added later is addressed by
+    // construction. Omitted when default: the bytes stay identical to before sessions.
+    const s = JSON.stringify(
+      this.session ? { session: this.session, ...obj } : obj,
+    );
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(s);
     else this.outbox.push(s); // flushed on 'open'
   }

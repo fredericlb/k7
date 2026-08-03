@@ -1,7 +1,7 @@
-// two-sessions.mjs — the proof that two services no longer clobber each other: two
-// projects under different session ids on ONE engine, both applied, both playing. Before
-// this, the second `project` message tore the first one down. Usage:
-//   node apps/moteur/scripts/two-sessions.mjs   (engine on :8833)
+// broadcast-sessions.mjs — the proof that the AUDIO is per session: two projects under two
+// session ids on one engine, two listeners, each hearing only the one it subscribed for.
+// Raw JSON on purpose, so it tests the engine alone; two-sessions.ts covers the clients.
+//   node apps/moteur/scripts/broadcast-sessions.mjs   (engine on :8833)
 
 import WebSocket from "ws";
 const doc = (name, key) => ({ name, tempo:120, sampleRate:48000, timeSigNumerator:4, timeSigDenominator:4,

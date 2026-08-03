@@ -68,7 +68,6 @@ constexpr size_t kBroadcastMaxQueuedBytes = 512 * 1024;
 // Sender thread only, so no synchronisation: it is the one thing that reads or writes it.
 // Sites that belong to no message yet: startup, and the broadcast sender. Named rather
 // than "" so the places still to be addressed by a real session are greppable.
-const std::string kDefaultSession;
 
 uint32_t broadcastSeq = 0;
 
@@ -571,15 +570,24 @@ int main(int argc, char** argv) {
                     // would let a departing listener's alse land after an arriving one's
                     // 	rue and silence a listener that is still there.
                     std::lock_guard<std::mutex> lk(listenersMx);
-                    if (listeners.erase(&ws) > 0) {
+                    if (auto gone = listeners.find(&ws); gone != listeners.end()) {
+                        const std::string sid = gone->second;
+                        listeners.erase(gone);
                         // Said out loud: a listener leaving by closing its tab is the
                         // ordinary way this ends, and without a line the tap coming off is
                         // invisible — you cannot tell "stopped tapping" from "still copying
                         // every block for nobody" from the outside.
-                        std::cerr << "[broadcast] listener gone (" << listeners.size()
-                                  << " listening)\n";
-                        if (listeners.empty())
-                            host.post([&host] { host.enableBroadcast(kDefaultSession, false); });
+                        std::cerr << "[broadcast] listener gone from '" << sid << "' ("
+                                  << listeners.size() << " listening)\n";
+                        // The last ear on THAT session, not on the engine. Counting them all
+                        // had a closing platines tab take the tap off the DEFAULT session —
+                        // silencing a lanes listener still there, and leaving platines' own
+                        // tap copying every block for nobody.
+                        const bool anyLeft =
+                            std::any_of(listeners.begin(), listeners.end(),
+                                        [&](const auto& e) { return e.second == sid; });
+                        if (!anyLeft)
+                            host.post([&host, sid] { host.enableBroadcast(sid, false); });
                     }
                 }
                 bool announced;

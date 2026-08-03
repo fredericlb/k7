@@ -6,6 +6,7 @@ import { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta } from "@studio/engine-protocol";
+import { SESSIONS } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { beginActivity } from "../freezeWatchdog";
@@ -55,7 +56,10 @@ export function useEngineLink(
   useEffect(() => {
     // The client is app-agnostic; the stall breadcrumbs are lanes' own instrumentation, so
     // the shell hands its watchdog in rather than the package importing one.
-    const engine = new EngineClient(engineUrl, beginActivity);
+    // SESSIONS.lanes, not a default: the same engine also hosts mediatek's module previews
+    // and a platines deck, and before sessions the last project sent won. The file service
+    // passes this same id — it compiles and sends the song this transport drives.
+    const engine = new EngineClient(engineUrl, beginActivity, SESSIONS.lanes);
     engineRef.current = engine;
     const offState = engine.onState((s) => {
       store.set(s); // external store — subscribers re-render on the slice they read

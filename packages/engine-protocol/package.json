@@ -9,6 +9,7 @@
     ".": "./types.ts",
     "./project": "./project.ts",
     "./build": "./build.ts",
+    "./sessions": "./sessions.ts",
     "./stream": "./stream.ts"
   },
   "scripts": {

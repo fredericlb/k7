@@ -5,6 +5,7 @@
 import { EngineClient } from "@studio/engine-browser";
 import { probeLocalEngine } from "@studio/engine-browser/probe";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
+import { SESSIONS } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
@@ -58,7 +59,13 @@ export function useModuleEngine(): ModuleEngine {
       if (cancelled) return;
       if (!found) return setPhase({ k: "absent" });
 
-      const client = new EngineClient(found.wsUrl);
+      // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
+      // engine slot lanes had a song in — auditioning a module unloaded the song.
+      const client = new EngineClient(
+        found.wsUrl,
+        undefined,
+        SESSIONS.mediatek,
+      );
       engine.current = client;
       client.onPluginParams(({ params, meta }) => {
         setParamNames(Object.keys(params));

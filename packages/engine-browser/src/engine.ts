@@ -16,6 +16,11 @@ import type {
   WaveformEnvelope,
 } from "@studio/engine-protocol";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
+import {
+  DEFAULT_SESSION,
+  forSession,
+  type SessionId,
+} from "@studio/engine-protocol/sessions";
 
 export type {
   EngineState,
@@ -63,6 +68,7 @@ type StreamCb = (frame: ArrayBuffer) => void;
 // rest is optional anyway, and naming it is what lets the dispatch be a method the freeze watchdog can time.
 interface EngineMessage {
   type?: string;
+  session?: string; // which project the engine is talking about; absent = engine-global
   playing?: boolean;
   playhead?: number;
   levels?: number[];
@@ -106,9 +112,16 @@ export class EngineClient {
   private closed = false;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
 
+  /**
+   * @param session which project on that engine this client drives. One engine hosts
+   * several, so leaving it default puts this client in the same one as every other
+   * client that did — which is the collision sessions exist to end. See
+   * `@studio/engine-protocol/sessions`.
+   */
   constructor(
     private readonly url: string,
     private readonly beginActivity: BeginActivity = noActivity,
+    private readonly session: SessionId = DEFAULT_SESSION,
   ) {}
 
   connect(): void {
@@ -164,6 +177,9 @@ export class EngineClient {
   }
 
   private dispatch(m: EngineMessage): void {
+    // Another project's news, on the socket we share with it. Dropped here rather than per
+    // handler so a frame type that grows a session later is covered by construction.
+    if (!forSession(m, this.session)) return;
     if (m.type === "state")
       this.emitState({
         playing: !!m.playing,
@@ -375,8 +391,13 @@ export class EngineClient {
     return () => this.connCbs.delete(cb);
   }
 
-  private send(o: unknown): void {
-    const s = JSON.stringify(o);
+  private send(o: object): void {
+    // Stamped at the ONE choke point every command already goes through: a verb added later
+    // is addressed by construction, and forgetting it would silently drive someone else's
+    // project. Omitted when default, so the bytes an old client sends stay byte-identical.
+    const s = JSON.stringify(
+      this.session ? { session: this.session, ...o } : o,
+    );
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(s);
     else this.outbox.push(s);
   }

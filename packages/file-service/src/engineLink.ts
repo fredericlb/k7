@@ -19,6 +19,7 @@ import {
   type PluginInfo,
   type RecordedTake,
 } from "@studio/engine-client/engineClient";
+import { SESSIONS } from "@studio/engine-protocol/sessions";
 import { listBaseModules } from "@studio/song/loader";
 import { PatternClock } from "@studio/song/patternClock";
 import { loadPreferences } from "@studio/song/preferences";
@@ -74,7 +75,9 @@ export function setSelectedEngine(url: string): void {
     }
   }
   engineReady = false;
-  const e = new EngineClient(url);
+  // The other half of lanes' session: this side compiles and sends the project, the
+  // browser side drives its transport. Same id or the two steer different projects.
+  const e = new EngineClient(url, SESSIONS.lanes);
   wireEngine(e);
   engine = e;
   e.connect();

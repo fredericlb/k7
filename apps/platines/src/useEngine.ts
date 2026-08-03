@@ -6,6 +6,7 @@ import { EngineClient } from "@studio/engine-browser";
 import { probeLocalEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
+import { SESSIONS } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Phase =
@@ -41,7 +42,14 @@ export function useEngine(): Deck {
       const found = await probeLocalEngine();
       if (cancelled) return;
       if (!found) return setPhase({ k: "absent" });
-      const client = new EngineClient(found.wsUrl);
+      // Its own session, which is what makes a deck safe to run beside lanes on one engine:
+      // loading a track here no longer replaces whatever song is open there, and the audio
+      // this tab listens to is the deck's master rather than the machine's.
+      const client = new EngineClient(
+        found.wsUrl,
+        undefined,
+        SESSIONS.platines,
+      );
       engine.current = client;
       // The engine's own transport is the truth about whether sound is happening — never a
       // flag set hopefully when a play was sent. A file that failed to load leaves it

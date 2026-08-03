@@ -7,6 +7,23 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 `main.cpp` includes **no** JUCE or Tracktion headers: all engine threading sits behind
 `EngineHost`'s `post()` / `onState()` / `run()` API.
 
+## Every message carries a session
+
+`{ "session": "platines", … }` on any message names **which project on this engine** it is
+about. One process hosts several (`docs/multiEdit.md`), so without it the médiathèque's
+module preview and a platines deck would each replace whatever lanes had loaded.
+
+The field is optional and absent means `""`, the default session — so a client that has
+never heard of sessions keeps working exactly as before, which is what let the engine grow
+this before the clients did. The state frame carries the session back; the other replies do
+not, because they are engine-global (the device list, the installed-plugin catalogue).
+
+Sessions are created on first mention and dropped with `{"type":"drop-session"}`. Each has
+its own edit, plugins, meters, watch set and **broadcast tap**: an audio listener hears the
+session it subscribed for, not the machine's master. Client rules — who picks the name, and
+why lanes' two halves must agree on it — are in
+`packages/engine-protocol/docs/sessions.md`.
+
 ## client → server
 
 | message | meaning |
