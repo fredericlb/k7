@@ -18,6 +18,7 @@ add_library(lanes_engine STATIC
     PluginScan.cpp
     EditBuilder.cpp
     OfflineRender.cpp
+    MultiEditTest.cpp
     Waveform.cpp
     WaveformTapPlugin.cpp
     BroadcastTapPlugin.cpp

@@ -422,6 +422,16 @@ std::unique_ptr<tracktion::engine::Engine> makeOfflineEngine();
 int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
                   const std::string& outDir, bool stems);
 
+// THROWAWAY PROBE — play several documents at once on ONE audio device and report whether
+// each one's master actually produced signal. It exists to answer whether N services can
+// share one low-latency device as N Edits rather than as N processes, which is the
+// difference between keeping ASIO and falling back to shared-mode WASAPI. Delete it once
+// the answer is written down; see docs/multiEdit.md. Wired from `--multi-edit-test`.
+int runMultiEditTest(const std::vector<ProjectDoc>& docs,
+                     const std::vector<std::string>& baseDirs, double seconds,
+                     const std::string& deviceName = {},
+                     const std::string& deviceType = {});
+
 // Bounce ONE track through its own plugins, no master — the render a FROZEN track plays in place of computing
 // itself. Prints the written path as a JSON string. Wired from `--freeze <doc.json|-> --track <id> --out <file>`.
 int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::string& trackId,

@@ -336,6 +336,41 @@ int main(int argc, char** argv) {
 
     // Offline render mode: read a ProjectDoc from a file or stdin, bounce it to wav, print a manifest, exit —
     // no server, no port bound.
+    // THROWAWAY PROBE — `--multi-edit-test <doc1.json> <doc2.json> [--seconds N]`. Answers
+    // whether several documents can play at once on ONE device, which decides whether N
+    // services share a low-latency ASIO engine as N Edits or as N processes. Delete with
+    // MultiEditTest.cpp once the answer is written down.
+    if (argc >= 2 && std::string(argv[1]) == "--multi-edit-test") {
+        std::vector<lanes::ProjectDoc> docs;
+        std::vector<std::string> baseDirs;
+        double seconds = 5.0;
+        std::string devName, devType;
+        for (int i = 2; i < argc; ++i) {
+            const std::string a = argv[i];
+            if (a == "--seconds" && i + 1 < argc) { seconds = std::atof(argv[++i]); continue; }
+            if (a == "--device" && i + 1 < argc) { devName = argv[++i]; continue; }
+            if (a == "--device-type" && i + 1 < argc) { devType = argv[++i]; continue; }
+            std::ifstream f(a);
+            if (!f) {
+                std::cerr << "cannot read " << a << "\n";
+                return 2;
+            }
+            std::stringstream ss;
+            ss << f.rdbuf();
+            try {
+                docs.push_back(docFromJson(json::parse(ss.str())));
+                baseDirs.push_back("");
+            } catch (const std::exception& e) {
+                std::cerr << "bad doc " << a << ": " << e.what() << "\n";
+                return 2;
+            }
+        }
+        if (docs.size() < 2) {
+            std::cerr << "usage: studio-moteur --multi-edit-test <doc1.json> <doc2.json> [--seconds N]\n";
+            return 2;
+        }
+        return lanes::runMultiEditTest(docs, baseDirs, seconds, devName, devType);
+    }
     if (argc >= 2 && std::string(argv[1]) == "--render") {
         std::string input, outDir, baseDir;
         bool stems = false;
