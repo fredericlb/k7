@@ -34,21 +34,25 @@ struct ServerBehaviour : te::EngineBehaviour {
     bool autoInitialiseDeviceManager() override { return false; }
 };
 
-struct EngineHost::Impl {
-    // JUCE's message manager must outlive `engine`, so declaring it first constructs it first and destroys it last.
-    // Owning it here is what lets the server stay free of any JUCE include.
-    juce::ScopedJuceInitialiser_GUI juceInit;
-
-    // BEFORE `engine`, so it is destroyed AFTER it — declaration order here is destruction
-    // order reversed, and this one is load-bearing. A live BroadcastTapPlugin on the master
-    // list holds a pointer to this ring and writes into it from the audio thread on every
-    // callback; the device only closes when `engine` dies. Declared after it, the ring
-    // would be freed while those callbacks were still running.
+/**
+ * Everything that belongs to ONE project, and therefore to one service's user.
+ *
+ * The split from Impl is the whole point: what is here can exist N times, what stays in
+ * Impl exists once because the MACHINE has one of it — one audio device, one plugin scan,
+ * one set of input meters. `docs/multiEdit.md` records the measurement that made this
+ * possible: Tracktion's DeviceManager sums several EditPlaybackContexts in one callback, so
+ * N projects share one exclusive ASIO client at its own buffer size, with no latency traded.
+ *
+ * The ring is declared FIRST so it is destroyed LAST within a session: a live
+ * BroadcastTapPlugin on the master list writes into it from the audio thread, and the
+ * plugin dies with `edit`, which is declared after.
+ */
+struct Session {
     BroadcastTap broadcastRing;
 
-    te::Engine engine{"Lanes", nullptr, std::make_unique<ServerBehaviour>()};
     std::unique_ptr<te::Edit> edit;
-    std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
+    ProjectDoc current;     // the diff baseline — what this session's engine state IS
+    std::string baseDir;    // resolves this session's clip/plugin paths
 
     // Plugins in the running edit keyed by PluginDoc id, so a command can address one by name, plus the native
     // editor windows (kept alive but hidden after close, so reopening is instant), keyed the same way. Both clear
@@ -73,13 +77,26 @@ struct EngineHost::Impl {
     te::Plugin::Ptr masterMeter;
     std::unique_ptr<te::LevelMeasurer::Client> masterClient;
 
-    // The network broadcast tap. The RING it writes into is declared at the top of this
-    // struct — deliberately, see there. `broadcastWanted` outlives the plugin: an apply
-    // rebuilds the edit, so the WISH is what survives in order to be reasserted, otherwise
-    // a listener goes silent the moment somebody saves a file, which is the sort of fault
-    // nobody connects to a save.
+    // The network broadcast tap. `broadcastWanted` outlives the plugin: an apply rebuilds
+    // the edit, so the WISH is what survives in order to be reasserted, otherwise a listener
+    // goes silent the moment somebody saves a file, which is the sort of fault nobody
+    // connects to a save.
     te::Plugin::Ptr broadcastPlugin;
     bool broadcastWanted = false;
+
+    // Plugins a client asked to watch, each mapped to the values last reported. The key's presence IS the
+    // subscription and the map is the comparison baseline, so a still plugin costs nothing on the wire.
+    // NOT cleared with the edit, unlike pluginsById: a rebuild swaps the plugin behind an id while the client's
+    // interest is unchanged, so dropping the watch would silently stop a UI that is still open. The baseline is
+    // emptied instead, so the first pump after a rebuild re-reports in full rather than diffing against the old one.
+    std::map<std::string, std::map<std::string, double>> watchedParams;
+
+    // Takes in flight: track id -> the basename prepareTakes() chose, populated at play() and consumed at stop.
+    std::map<std::string, std::string> pendingTakes;
+
+    // Listens for the end of a take. Owned here rather than by the transport, which dies with each Edit: it is
+    // added on every applyFull and removed in teardown, while this object outlives both.
+    std::unique_ptr<te::TransportControl::Listener> recordListener;
 
     void detachLevelMeters() {
         for (size_t i = 0; i < levelMeters.size() && i < levelClients.size(); ++i)
@@ -93,6 +110,50 @@ struct EngineHost::Impl {
         masterMeter = nullptr;
         masterClient.reset();
     }
+
+    te::TransportControl* transport() {
+        return edit ? &edit->getTransport() : nullptr;
+    }
+};
+
+struct EngineHost::Impl {
+    // JUCE's message manager must outlive `engine`, so declaring it first constructs it first and destroys it last.
+    // Owning it here is what lets the server stay free of any JUCE include.
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    te::Engine engine{"Lanes", nullptr, std::make_unique<ServerBehaviour>()};
+    std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
+
+    // The sessions, by id. Declared AFTER `engine` so they are destroyed BEFORE it: every
+    // Edit, plugin and broadcast ring in here is written to from the audio thread, and the
+    // device only stops when `engine` dies.
+    //
+    // `unique_ptr` rather than by value because a Session holds an atomic ring: the map
+    // must be able to grow without moving what the audio thread is writing into.
+    std::map<std::string, std::unique_ptr<Session>> sessions;
+
+    /** The session by that id, created empty if it is new. */
+    Session& session(const std::string& id) {
+        auto& slot = sessions[id];
+        if (!slot) slot = std::make_unique<Session>();
+        return *slot;
+    }
+
+    /** …or nullptr. For readers that must not conjure a session by asking about one. */
+    Session* find(const std::string& id) {
+        auto it = sessions.find(id);
+        return it == sessions.end() ? nullptr : it->second.get();
+    }
+
+    /**
+     * The DEFAULT session — the one every un-addressed call still means.
+     *
+     * It exists so this refactor could land without touching the wire: every caller that
+     * has no session id yet gets this one, and behaviour is unchanged. The protocol grows
+     * a session id next; this is what lets the two steps be separate commits.
+     */
+    static constexpr const char* DEFAULT_SESSION = "";
+    Session& s() { return session(DEFAULT_SESSION); }
 
     // The I/O panel's tuner: a second audio callback on the device manager, reading raw interface inputs. Held
     // here so it outlives every Edit like the input meters do, and registered LAZILY — an engine nobody is
@@ -128,26 +189,14 @@ struct EngineHost::Impl {
     std::function<void(const std::string&, const std::string&)> presetSavedCb;
     std::function<void(const std::string&, const std::string&)> pluginParamsCb;
 
-    // Plugins a client asked to watch, each mapped to the values last reported. The key's presence IS the
-    // subscription and the map is the comparison baseline, so a still plugin costs nothing on the wire.
-    // NOT cleared with the edit, unlike pluginsById: a rebuild swaps the plugin behind an id while the client's
-    // interest is unchanged, so dropping the watch would silently stop a UI that is still open. The baseline is
-    // emptied instead, so the first pump after a rebuild re-reports in full rather than diffing against the old one.
-    std::map<std::string, std::map<std::string, double>> watchedParams;
+    // The live-param and recorded-take sinks stay on Impl: they are the SERVER's, one per
+    // process, and each frame they emit carries the id of whatever it is about.
     std::function<void(const std::string&, const std::vector<std::pair<std::string, double>>&)>
         pluginParamsLiveCb;
-
-    // Takes in flight: track id -> the basename prepareTakes() chose, populated at play() and consumed at stop.
-    std::map<std::string, std::string> pendingTakes;
     std::function<void(const std::string&, const std::string&, double, double)> recordedCb;
 
-    // Listens for the end of a take. Owned here rather than by the transport, which dies with each Edit: it is
-    // added on every applyFull and removed in teardown, while this object outlives both.
-    std::unique_ptr<te::TransportControl::Listener> recordListener;
-
-    te::TransportControl* transport() {
-        return edit ? &edit->getTransport() : nullptr;
-    }
+    // The default session's transport, for the un-addressed callers. See s().
+    te::TransportControl* transport() { return s().transport(); }
 };
 
 }  // namespace lanes

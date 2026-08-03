@@ -1,6 +1,6 @@
 // Recording: live-input wiring, record arming, take naming, and the transport
 // listener that catches a finished take. These stay EngineHost member functions
-// (relocated here) rather than a separate collaborator: they read current_, which
+// (relocated here) rather than a separate collaborator: they read impl_->s().current, which
 // lives on EngineHost, not Impl — a class here would buy nothing but a back-pointer.
 // RecordListener is already a friend of EngineHost (see EngineHost.h).
 
@@ -28,19 +28,19 @@ struct RecordListener : public te::TransportControl::Listener {
 
     void recordingFinished(te::InputDeviceInstance&, te::EditItemID targetID,
                            const juce::ReferenceCountedArray<te::Clip>& clips) override {
-        auto* edit = host.impl_->edit.get();
+        auto* edit = host.impl_->s().edit.get();
         if (edit == nullptr || clips.isEmpty()) return;
 
         // targetID is engine-side and the doc speaks track ids, so map back the way trackById maps forward.
         std::string trackId;
-        for (const auto& t : host.current_.tracks)
-            if (auto* tr = trackById(*edit, t.id, host.current_); tr && tr->itemID == targetID) {
+        for (const auto& t : host.current().tracks)
+            if (auto* tr = trackById(*edit, t.id, host.current()); tr && tr->itemID == targetID) {
                 trackId = t.id;
                 break;
             }
         if (trackId.empty()) return;
 
-        auto take = host.impl_->pendingTakes.find(trackId);
+        auto take = host.impl_->s().pendingTakes.find(trackId);
         for (auto* clip : clips) {
             auto* wave = dynamic_cast<te::WaveAudioClip*>(clip);
             if (wave == nullptr) continue;
@@ -50,7 +50,7 @@ struct RecordListener : public te::TransportControl::Listener {
             const double length = pos.time.getLength().inSeconds();
 
             // Rename within the directory prepareTakes() aimed the device at, so this is a metadata move, never a copy.
-            if (take != host.impl_->pendingTakes.end() && file.existsAsFile()) {
+            if (take != host.impl_->s().pendingTakes.end() && file.existsAsFile()) {
                 auto dest = file.getParentDirectory()
                                 .getChildFile(juce::String(take->second) + file.getFileExtension());
                 if (dest != file && (!dest.existsAsFile() || dest.deleteFile())) {
@@ -68,7 +68,7 @@ struct RecordListener : public te::TransportControl::Listener {
             if (host.impl_->recordedCb)
                 host.impl_->recordedCb(trackId, file.getFullPathName().toStdString(), start, length);
         }
-        if (take != host.impl_->pendingTakes.end()) host.impl_->pendingTakes.erase(take);
+        if (take != host.impl_->s().pendingTakes.end()) host.impl_->s().pendingTakes.erase(take);
     }
 
     EngineHost& host;
@@ -78,8 +78,8 @@ struct RecordListener : public te::TransportControl::Listener {
 // previous listener list with it. A thin wrapper so applyFull(), where RecordListener is incomplete, can create
 // it here where the type is complete.
 void EngineHost::attachRecordListener() {
-    if (!impl_->recordListener) impl_->recordListener = std::make_unique<RecordListener>(*this);
-    if (auto* tc = impl_->transport()) tc->addListener(impl_->recordListener.get());
+    if (!impl_->s().recordListener) impl_->s().recordListener = std::make_unique<RecordListener>(*this);
+    if (auto* tc = impl_->transport()) tc->addListener(impl_->s().recordListener.get());
 }
 
 // Wire one track to its declared input, replacing whatever it had; clearing first makes it idempotent.
@@ -87,15 +87,15 @@ void EngineHost::attachRecordListener() {
 // tracks on one physical input share it and the last applied wins. A real limit of this mapping, not an
 // oversight: per-track monitoring would need one device per track.
 void EngineHost::applyTrackInput(const TrackDoc& t) {
-    if (!impl_->edit) return;
-    auto* track = trackById(*impl_->edit, t.id, current_);
+    if (!impl_->s().edit) return;
+    auto* track = trackById(*impl_->s().edit, t.id, impl_->s().current);
     if (track == nullptr) return;
 
     // Drop any previous assignment for this track, so a changed or removed input never keeps feeding it.
-    impl_->edit->getEditInputDevices().clearAllInputs(*track, nullptr);
+    impl_->s().edit->getEditInputDevices().clearAllInputs(*track, nullptr);
     if (t.inputChannels.empty()) return;
 
-    auto* ctx = impl_->edit->getCurrentPlaybackContext();
+    auto* ctx = impl_->s().edit->getCurrentPlaybackContext();
     if (ctx == nullptr) return;   // no context yet — applyAllTrackInputs runs after one exists
 
     auto* dev = findWaveInput(impl_->engine, t.inputChannels);
@@ -135,10 +135,10 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& trackId,
     // Every refusal names what is actually wrong, because the ways this fails look identical from the UI: no such
     // track, no input in the song, an input this rig doesn't have, or nothing loaded yet.
     const auto refuse = [](std::string why) { return ArmResult{false, false, std::move(why)}; };
-    if (!impl_->edit) return refuse("no project loaded");
+    if (!impl_->s().edit) return refuse("no project loaded");
 
     const TrackDoc* td = nullptr;
-    for (const auto& t : current_.tracks)
+    for (const auto& t : impl_->s().current.tracks)
         if (t.id == trackId) { td = &t; break; }
     // Deliberately NOT the brain's wording: reaching here means the brain found the track and the engine's loaded
     // song disagrees — a skew, not a typo — and the two are easier to tell apart if they don't say the same thing.
@@ -148,7 +148,7 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& trackId,
     if (td->inputChannels.empty())
         return refuse("track \"" + trackId + "\" has no input — nothing to record");
 
-    auto ti = findTrackInput(impl_->edit.get(), impl_->engine, current_, trackId);
+    auto ti = findTrackInput(impl_->s().edit.get(), impl_->engine, impl_->s().current, trackId);
     if (ti.instance == nullptr) {
         // The song declares an input this interface doesn't offer; applyTrackInput already warned, so arming would
         // capture nothing.
@@ -160,7 +160,7 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& trackId,
     const bool want = armed.value_or(!ti.instance->isRecordingEnabled(ti.track->itemID));
     // Refuse here rather than at stop: a take that records fine and then has nowhere to go is worse than never
     // arming. Disarming stays allowed — it can only make things safer.
-    if (want && current_.recordDir.empty())
+    if (want && impl_->s().current.recordDir.empty())
         return refuse("this song has no clips/ directory to record into");
 
     ti.instance->setRecordingEnabled(ti.track->itemID, want);
@@ -170,9 +170,9 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& trackId,
 
 std::vector<std::string> EngineHost::armedTracks() const {
     std::vector<std::string> out;
-    if (!impl_->edit) return out;
-    for (const auto& t : current_.tracks) {
-        auto ti = findTrackInput(impl_->edit.get(), impl_->engine, current_, t.id);
+    if (!impl_->s().edit) return out;
+    for (const auto& t : impl_->s().current.tracks) {
+        auto ti = findTrackInput(impl_->s().edit.get(), impl_->engine, impl_->s().current, t.id);
         if (ti.instance != nullptr && ti.instance->isRecordingEnabled(ti.track->itemID))
             out.push_back(t.id);
     }
@@ -244,7 +244,7 @@ std::vector<EngineHost::InputDeviceInfo> EngineHost::inputDevices() const {
 std::vector<EngineHost::ChannelLevel>
 EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
     std::vector<ChannelLevel> out(channelSets.size());
-    auto* ctx = impl_->edit ? impl_->edit->getCurrentPlaybackContext() : nullptr;
+    auto* ctx = impl_->s().edit ? impl_->s().edit->getCurrentPlaybackContext() : nullptr;
     // Read+clear each (device, index) at most once: two ports on the two halves of one stereo device are
     // different indices and independent, but two asking the SAME index would leave the second reading zero.
     std::map<std::pair<te::InputDevice*, int>, float> seen;
@@ -277,12 +277,12 @@ EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
 // rig lacks. Read for every track so it indexes like trackLevelsDb, even though only armed ones surface it.
 // Reading clears the accumulator, so a device shared by two tracks is polled ONCE and both get that value.
 std::vector<float> EngineHost::inputLevelsDb() const {
-    std::vector<float> out(current_.tracks.size(), -100.0f);
-    if (!impl_->edit) return out;
+    std::vector<float> out(impl_->s().current.tracks.size(), -100.0f);
+    if (!impl_->s().edit) return out;
 
     std::map<te::InputDevice*, float> perDevice;   // read+clear each device at most once
-    for (size_t i = 0; i < current_.tracks.size(); ++i) {
-        const auto& t = current_.tracks[i];
+    for (size_t i = 0; i < impl_->s().current.tracks.size(); ++i) {
+        const auto& t = impl_->s().current.tracks[i];
         if (t.inputChannels.empty()) continue;
         auto* dev = findWaveInput(impl_->engine, t.inputChannels);
         if (dev == nullptr) continue;
@@ -309,10 +309,10 @@ void EngineHost::onRecorded(std::function<void(const std::string&, const std::st
 // omits it — so the mask alone cannot produce the name we want. We use it only to fix the DIRECTORY, so a long
 // take streams straight to its final disk, and rename within that directory when it finishes.
 bool EngineHost::prepareTakes() {
-    impl_->pendingTakes.clear();
+    impl_->s().pendingTakes.clear();
     const auto armed = armedTracks();
     if (armed.empty()) return false;
-    if (current_.recordDir.empty()) {
+    if (impl_->s().current.recordDir.empty()) {
         std::cerr << "[rec] no record directory — refusing to record\n";
         return false;
     }
@@ -324,17 +324,17 @@ bool EngineHost::prepareTakes() {
                                                now.getMinutes(), now.getSeconds());
     for (const auto& id : armed) {
         const TrackDoc* td = nullptr;
-        for (const auto& t : current_.tracks)
+        for (const auto& t : impl_->s().current.tracks)
             if (t.id == id) { td = &t; break; }
         if (td == nullptr) continue;
 
         const auto base = juce::File::createLegalFileName(juce::String(td->name)) + "-" + stamp;
-        impl_->pendingTakes[id] = base.toStdString();
+        impl_->s().pendingTakes[id] = base.toStdString();
 
-        auto ti = findTrackInput(impl_->edit.get(), impl_->engine, current_, id);
+        auto ti = findTrackInput(impl_->s().edit.get(), impl_->engine, impl_->s().current, id);
         if (ti.instance == nullptr) continue;
         if (auto* wave = dynamic_cast<te::WaveInputDevice*>(&ti.instance->getInputDevice()))
-            wave->setFilenameMask(juce::File(current_.recordDir).getChildFile(base).getFullPathName());
+            wave->setFilenameMask(juce::File(impl_->s().current.recordDir).getChildFile(base).getFullPathName());
         std::cerr << "[rec] track '" << id << "' -> " << base << ".wav\n";
     }
     return true;

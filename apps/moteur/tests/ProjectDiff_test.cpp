@@ -105,12 +105,18 @@ void diff_track_rename_is_not_readd() {
     CHECK(!hasKind(d, ChangeKind::TrackRemoved));
 }
 
-// Volume/pan/mute/solo are applied in place via TrackParamsChanged (no rebuild).
+// Mute/solo/input-gain are applied in place via TrackParamsChanged (no rebuild).
+//
+// This test named `volume` until it was noticed that it had not compiled for some time:
+// ProjectDoc.h says "No volume and no pan — a track's level and position are a MIXER MODULE
+// at the end of its chain", and the field went with that change while the test did not. It
+// went unnoticed because the build presets pin `targets: ["studio-moteur"]`, so this target
+// is never built by an ordinary `npm run build:win`. See the note in AGENTS.md.
 void diff_track_params_in_place() {
     ProjectDoc a;
     a.tracks.push_back(mkTrack("t1", "Drums"));
     ProjectDoc b = a;
-    b.tracks[0].volume = 0.5;
+    b.tracks[0].mute = true;
 
     const auto d = diff(a, b);
     CHECK(d.size() == 1);

@@ -76,8 +76,9 @@ public:
     // nothing survives from the previous song. Message-thread only. See docs/engineHost.md.
     void reset();
 
-    // The document currently realised in the engine (source for the next diff).
-    const ProjectDoc& current() const { return current_; }
+    // The document currently realised in the engine (source for the next diff). Reads the
+    // DEFAULT session — see EngineHostImpl.h's s(). Out of line because Session is private.
+    const ProjectDoc& current() const;
 
     // Transport controls (message-thread only).
     void play();
@@ -358,7 +359,7 @@ private:
     void buildLevelMeters();
 
     // Project the doc's metronome flag onto the Edit's click track (enable + emphasise bars). Called by every apply
-    // path after current_ is updated, so the click follows the doc; a no-op with no Edit.
+    // path after the session's `current` is updated, so the click follows the doc; a no-op with no Edit.
     void applyMetronome();
 
     // Point a track at its live input (or clear it) and set the monitor mode. Needs an allocated playback context —
@@ -385,8 +386,8 @@ private:
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    ProjectDoc current_;   // what the engine currently reflects
-    std::string baseDir_;
+    // `current_` and `baseDir_` moved INTO the session (EngineHostImpl.h): they describe a
+    // project, and there are N of those now. What is left here is the machine's.
     bool recordEnabled_ = false;   // global record enable (see setRecordEnabled)
 };
 

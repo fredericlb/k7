@@ -1,6 +1,6 @@
 // PluginEditor.cpp — plugin native-editor windows and per-plugin param/preset persistence. The real
 // collaborator in the split: PluginEditorController owns this and touches ONLY the plugin-related Impl fields,
-// never current_/baseDir_ — so it needs just an Impl&, no friendship. EngineHost's methods here delegate to it.
+// never impl_->s().current/impl_->s().baseDir — so it needs just an Impl&, no friendship. EngineHost's methods here delegate to it.
 
 // The Win32 block must come FIRST, before any JUCE include: shellapi.h and the GDI icon APIs need <windows.h>,
 // which JUCE does not pull into this TU. NOMINMAX keeps std::min/max working; LEAN_AND_MEAN trims the macro
@@ -247,8 +247,8 @@ private:
 // bad id would spam stderr. A wrong name still surfaces — the same edit is persisted and applied through
 // applyPluginParams(), which warns once per apply.
 void PluginEditorController::setParam(const std::string& id, const std::string& name, double value) {
-    auto it = impl_.pluginsById.find(id);
-    if (it == impl_.pluginsById.end() || it->second == nullptr)
+    auto it = impl_.s().pluginsById.find(id);
+    if (it == impl_.s().pluginsById.end() || it->second == nullptr)
         return;
     // pluginParams, not namedParams: a built-in registering nothing is addressed through its ValueTree properties,
     // and a widget dragged on one must move the plugin the same way it moves any other.
@@ -260,17 +260,17 @@ void PluginEditorController::setParam(const std::string& id, const std::string& 
 }
 
 std::vector<std::pair<std::string, double>> PluginEditorController::params(const std::string& id) const {
-    auto it = impl_.pluginsById.find(id);
-    if (it == impl_.pluginsById.end() || it->second == nullptr)
+    auto it = impl_.s().pluginsById.find(id);
+    if (it == impl_.s().pluginsById.end() || it->second == nullptr)
         return {};
     return allParams(*it->second);
 }
 
 void PluginEditorController::watch(const std::string& id, bool on) {
     if (on)
-        impl_.watchedParams.emplace(id, std::map<std::string, double>{});
+        impl_.s().watchedParams.emplace(id, std::map<std::string, double>{});
     else
-        impl_.watchedParams.erase(id);
+        impl_.s().watchedParams.erase(id);
 }
 
 // Sample every watched plugin and report the ones that moved. The comparison is against what was last
@@ -280,9 +280,9 @@ void PluginEditorController::watch(const std::string& id, bool on) {
 void PluginEditorController::pumpWatches() {
     if (!impl_.pluginParamsLiveCb)
         return;
-    for (auto& [id, lastSent] : impl_.watchedParams) {
-        auto it = impl_.pluginsById.find(id);
-        if (it == impl_.pluginsById.end() || it->second == nullptr)
+    for (auto& [id, lastSent] : impl_.s().watchedParams) {
+        auto it = impl_.s().pluginsById.find(id);
+        if (it == impl_.s().pluginsById.end() || it->second == nullptr)
             continue;   // watched but not (yet) in the edit — a rebuild will bring it back
         auto current = allParams(*it->second);
         bool changed = current.size() != lastSent.size();
@@ -304,15 +304,15 @@ void PluginEditorController::pumpWatches() {
 }
 
 void PluginEditorController::show(const std::string& id) {
-    auto it = impl_.pluginsById.find(id);
-    if (it == impl_.pluginsById.end() || it->second == nullptr) {
+    auto it = impl_.s().pluginsById.find(id);
+    if (it == impl_.s().pluginsById.end() || it->second == nullptr) {
         warn("no such plugin in the running edit", id);
         return;
     }
     auto& plugin = *it->second;
 
     // Already created (visible, or hidden after a previous close) — just show it.
-    if (auto w = impl_.pluginWindows.find(id); w != impl_.pluginWindows.end() && w->second) {
+    if (auto w = impl_.s().pluginWindows.find(id); w != impl_.s().pluginWindows.end() && w->second) {
         raiseToFront(*w->second);
         return;
     }
@@ -337,12 +337,12 @@ void PluginEditorController::show(const std::string& id) {
     juce::Image icon;
     if (auto* inst = dynamic_cast<juce::AudioPluginInstance*>(proc)) {
         icon = pluginIconFor(inst->getPluginDescription());
-        inst->getStateInformation(impl_.lastSavedState[id]);
+        inst->getStateInformation(impl_.s().lastSavedState[id]);
     }
     if (!icon.isValid())
         icon = lanesIcon();
     // The autosave/close lambda re-binds through the Impl, which outlives the window — not through this transient.
-    impl_.pluginWindows[id] =
+    impl_.s().pluginWindows[id] =
         std::make_unique<PluginWindow>(plugin.getName(), editor, icon,
                                        [im = &impl_, id] { PluginEditorController(*im).persist(id); });
 }
@@ -351,9 +351,9 @@ void PluginEditorController::show(const std::string& id) {
 // module and drops the .vstpreset), else save the module's own .vstpreset — never an extended module's. A no-op
 // when nothing changed, so the 5s autosave doesn't churn files or trigger reloads while the plugin sits idle.
 void PluginEditorController::persist(const std::string& id) {
-    auto pl = impl_.pluginsById.find(id);
-    auto sp = impl_.presetSaveById.find(id);
-    if (pl == impl_.pluginsById.end() || pl->second == nullptr || sp == impl_.presetSaveById.end())
+    auto pl = impl_.s().pluginsById.find(id);
+    auto sp = impl_.s().presetSaveById.find(id);
+    if (pl == impl_.s().pluginsById.end() || pl->second == nullptr || sp == impl_.s().presetSaveById.end())
         return;
     auto& plugin = *pl->second;
 
@@ -362,13 +362,13 @@ void PluginEditorController::persist(const std::string& id) {
         if (auto* inst = ext->getAudioPluginInstance()) {
             juce::MemoryBlock cur;
             inst->getStateInformation(cur);
-            auto& last = impl_.lastSavedState[id];
+            auto& last = impl_.s().lastSavedState[id];
             if (cur.getSize() > 0 && cur == last)
                 return;
             last = cur;
         }
 
-    if (impl_.edit && paramsCompleteForLive(*impl_.edit, plugin)) {
+    if (impl_.s().edit && paramsCompleteForLive(*impl_.s().edit, plugin)) {
         juce::File(juce::String(sp->second)).deleteFile();   // text params supersede it
         if (impl_.pluginParamsCb)
             impl_.pluginParamsCb(id, paramsJson(plugin).toStdString());
@@ -387,7 +387,7 @@ void PluginEditorController::persist(const std::string& id) {
 std::vector<std::pair<std::string, te::ExternalPlugin*>>
 PluginEditorController::moduleInstances(const std::string& module) const {
     std::vector<std::pair<std::string, te::ExternalPlugin*>> out;
-    for (auto& [id, pl] : impl_.pluginsById) {
+    for (auto& [id, pl] : impl_.s().pluginsById) {
         if (pl == nullptr) continue;
         // The id is "<chain>:<module>" and a module INSTANCE carries a colon of its own, so split on the FIRST colon.
         // rfind() took only the text after the last, which for an instance is its instance name — matching nothing.
@@ -489,7 +489,7 @@ void EngineHost::showNativePluginUI(const std::string& id) {
 // each its own instance — and each gets a row, so the user can open whichever they want.
 std::vector<EngineHost::PluginInstanceInfo> EngineHost::pluginInstanceInfos() const {
     std::vector<PluginInstanceInfo> out;
-    for (const auto& [id, pl] : impl_->pluginsById) {
+    for (const auto& [id, pl] : impl_->s().pluginsById) {
         if (pl == nullptr) continue;
         const bool isExternal = dynamic_cast<te::ExternalPlugin*>(pl.get()) != nullptr;
         out.push_back({id, pl->getName().toStdString(), isExternal});
@@ -507,8 +507,8 @@ std::vector<std::pair<std::string, double>> EngineHost::pluginParams(const std::
 
 std::vector<EngineHost::PluginParamInfo> EngineHost::pluginParamInfos(const std::string& id) const {
     std::vector<PluginParamInfo> out;
-    auto it = impl_->pluginsById.find(id);
-    if (it == impl_->pluginsById.end() || it->second == nullptr)
+    auto it = impl_->s().pluginsById.find(id);
+    if (it == impl_->s().pluginsById.end() || it->second == nullptr)
         return out;
     // Qualified, because unqualified lookup here finds EngineHost::pluginParams rather than the free function.
     // withStates: this is the one-shot query a UI makes before drawing, so it is the only caller that pays for

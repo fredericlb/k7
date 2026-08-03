@@ -101,6 +101,18 @@ Build gotchas:
 
 ## Tests
 
+**The test targets are not built by an ordinary build, and that hid a broken one.** The
+presets pin `"targets": ["studio-moteur"]`, so `lanes_engine_tests` /
+`lanes_midigraph_tests` / `lanes_dspgraph_tests` are only built when named. One of them had
+referenced a `TrackDoc::volume` that was removed when a track's level became a mixer module,
+and nothing reported it for as long as that took. Build them explicitly after touching the
+data layer:
+
+```
+cmake --build build/<preset> --target lanes_engine_tests --config RelWithDebInfo
+ctest --test-dir build/<preset> -C RelWithDebInfo -R 'lanes_' --output-on-failure
+```
+
 `npm run test:mac --workspace moteur`. Covers the **JUCE-free data layer
 only** — `tests/ProjectDiff_test.cpp` exercises `diff()`/`needsFullRebuild()` (rename
 not re-add, param drag stays incremental, plugin swap forces rebuild, removals before
