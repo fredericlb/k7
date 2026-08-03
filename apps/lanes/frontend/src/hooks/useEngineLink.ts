@@ -6,7 +6,7 @@ import { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta } from "@studio/engine-protocol";
-import { SESSIONS } from "@studio/engine-protocol/sessions";
+import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { beginActivity } from "../freezeWatchdog";
@@ -34,6 +34,8 @@ export interface EngineLink {
 
 export function useEngineLink(
   engineUrl: string,
+  /** Who is logged in — the session id's other half. See @studio/engine-protocol/sessions. */
+  userEmail: string,
   store: EngineStore,
   pluginParamsStore: PluginParamsStore,
   onStatus: (s: string) => void,
@@ -56,10 +58,18 @@ export function useEngineLink(
   useEffect(() => {
     // The client is app-agnostic; the stall breadcrumbs are lanes' own instrumentation, so
     // the shell hands its watchdog in rather than the package importing one.
-    // SESSIONS.lanes, not a default: the same engine also hosts mediatek's module previews
-    // and a platines deck, and before sessions the last project sent won. The file service
-    // passes this same id — it compiles and sends the song this transport drives.
-    const engine = new EngineClient(engineUrl, beginActivity, SESSIONS.lanes);
+    // Per SERVICE and per PERSON. The service half stops mediatek's module previews and a
+    // platines deck from overwriting this song; the person half matters now that an engine
+    // is chosen per account, so two people can pick the same machine — and on a bare
+    // "lanes" they would drive one project between them.
+    //
+    // The file service derives the identical id from the workspace's owner slug. Both
+    // spell it through sessionFor, so neither can drift from the other.
+    const engine = new EngineClient(
+      engineUrl,
+      beginActivity,
+      sessionFor(SESSIONS.lanes, userEmail),
+    );
     engineRef.current = engine;
     const offState = engine.onState((s) => {
       store.set(s); // external store — subscribers re-render on the slice they read

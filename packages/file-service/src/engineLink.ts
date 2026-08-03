@@ -3,6 +3,7 @@
 // singletons and `currentWs` tracks whose project it's playing (so a take lands right).
 // Several browser tabs share it — last write wins.
 
+import { relative } from "node:path";
 import {
   argClass,
   argHint,
@@ -27,6 +28,7 @@ import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { strudelPatterns } from "@studio/song/strudel";
 import type { CommandInfo } from "@studio/web-protocol";
 import chokidar from "chokidar";
+import { rootDir } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
 import type { Workspace } from "./workspace.ts";
 
@@ -35,14 +37,38 @@ const NO_PROJECT =
   "no active project — select a project in the workspace first";
 const NO_ENGINE = "engine offline — is the C++ engine running on this machine?";
 
-let engine: EngineClient | undefined;
-let engineReady = false;
+/** One socket per SESSION, all to the same engine. Keyed by session id. */
+interface Link {
+  client: EngineClient;
+  ready: boolean;
+}
+const links = new Map<string, Link>();
 let selectedEngineUrl: string | undefined;
 let currentWs: Workspace | null = null; // whose project the engine is playing; recorded takes land here
 
-function wireEngine(e: EngineClient): void {
+/**
+ * Which session a workspace's project belongs to.
+ *
+ * Derived from the OWNER SLUG in the workspace root — `~/.lanes/root/<slug>/<workspace>` —
+ * because that slug IS `slugify(email)`, the same string the browser half feeds to
+ * `sessionFor`. Two halves, one spelling, without either having to be told.
+ *
+ * A root that is not under the users root (rootIsProject: a bare folder opened directly)
+ * has no owner, and falls back to the bare service id — one machine, one person, which is
+ * exactly the case that shape exists for.
+ */
+export function sessionOf(ws: { root: string } | null): string {
+  if (!ws) return SESSIONS.lanes;
+  const rel = relative(rootDir(), ws.root);
+  const slug = rel.split(/[\\/]/)[0];
+  if (!slug || slug.startsWith("..")) return SESSIONS.lanes;
+  return `${SESSIONS.lanes}:${slug}`;
+}
+
+function wireEngine(session: string, e: EngineClient): void {
   e.on("open", () => {
-    engineReady = true;
+    const l = links.get(session);
+    if (l) l.ready = true;
     try {
       const dev = loadPreferences().audioDevice;
       if (dev) e.setAudioDevice(dev.name, dev.type);
@@ -51,9 +77,10 @@ function wireEngine(e: EngineClient): void {
     }
   });
   e.on("close", () => {
-    engineReady = false;
+    const l = links.get(session);
+    if (l) l.ready = false;
     setTimeout(() => {
-      if (engine === e) e.connect();
+      if (links.get(session)?.client === e) e.connect();
     }, 1000);
   });
   e.on("wserror", () => {});
@@ -63,28 +90,49 @@ function wireEngine(e: EngineClient): void {
   e.on("recorded", onRecorded);
 }
 
-// Dial the local engine, once at boot; a repeat with the same url is a no-op.
+// Dial the local engine; a repeat with the same url is a no-op. The sockets themselves are
+// opened lazily, per session, the first time someone's project needs one.
 export function setSelectedEngine(url: string): void {
-  if (url === selectedEngineUrl && engine) return;
+  if (url === selectedEngineUrl && links.size) return;
   selectedEngineUrl = url;
-  if (engine) {
+  // A different engine invalidates every session's socket, not just the current one.
+  for (const l of links.values()) {
     try {
-      engine.close();
+      l.client.close();
     } catch {
       /* already closed */
     }
   }
-  engineReady = false;
-  // The other half of lanes' session: this side compiles and sends the project, the
-  // browser side drives its transport. Same id or the two steer different projects.
-  const e = new EngineClient(url, SESSIONS.lanes);
-  wireEngine(e);
-  engine = e;
-  e.connect();
+  links.clear();
 }
 
-function ensureEngine(): EngineClient | undefined {
-  return engine;
+/**
+ * The socket for one session, opened on first use.
+ *
+ * ONE SOCKET PER SESSION rather than one socket carrying several. The engine would accept
+ * either — a session is a field on each message — but a socket per session gets each its
+ * own outbox and its own reconnect, and the alternative is a shared queue where one user's
+ * backlog delays another's transport.
+ */
+function ensureEngine(
+  ws: Workspace | null = currentWs,
+): EngineClient | undefined {
+  if (!selectedEngineUrl) return undefined;
+  const session = sessionOf(ws);
+  const existing = links.get(session);
+  if (existing) return existing.client;
+  // The other half of lanes' session: this side compiles and sends the project, the browser
+  // side drives its transport. Same id or the two steer different projects.
+  const client = new EngineClient(selectedEngineUrl, session);
+  links.set(session, { client, ready: false });
+  wireEngine(session, client);
+  client.connect();
+  return client;
+}
+
+/** Whether this session's socket is open. A fresh one is not, and says so. */
+function isReady(ws: Workspace | null = currentWs): boolean {
+  return links.get(sessionOf(ws))?.ready ?? false;
 }
 
 let orbitTracks: TrackDoc[] = [];
@@ -112,7 +160,7 @@ function enginePlugins(
   rescan: boolean,
 ): Promise<void> {
   const c = ensureEngine();
-  if (!c || !engineReady) {
+  if (!c || !isReady()) {
     out.push(NO_ENGINE);
     return Promise.resolve();
   }
@@ -300,7 +348,7 @@ function makeHost(
     arm: (track) =>
       new Promise<boolean | undefined>((res) => {
         const c = ensureEngine();
-        if (!c || !engineReady) {
+        if (!c || !isReady()) {
           out.push(NO_ENGINE);
           return res(undefined);
         }
@@ -339,7 +387,7 @@ function makeHost(
     getPlugins: (filter) =>
       new Promise<PluginInfo[]>((res) => {
         const c = ensureEngine();
-        if (!c || !engineReady) {
+        if (!c || !isReady()) {
           res([]);
           return;
         }
@@ -353,7 +401,7 @@ function makeHost(
     getAudioDevices: () =>
       new Promise<AudioDeviceInfo[]>((res) => {
         const c = ensureEngine();
-        if (!c || !engineReady) {
+        if (!c || !isReady()) {
           res([]);
           return;
         }

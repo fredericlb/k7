@@ -106,10 +106,11 @@ export function allowedOrigin(origin: string | undefined): boolean {
 export function originPolicySummary(): string {
   const explicit = originsFromEnv();
   if (explicit) return `LANES_WEB_ORIGIN=${explicit.join(", ")}`;
-  const reg = registryOrigin();
   const added = originsFromFile();
   const parts = [
-    ...(reg ? [reg] : []),
+    // All of them: the whole point of this line is that a refused origin is diagnosable
+    // from the boot log, and hiding the second registry would hide the likeliest refusal.
+    ...registryOrigins(),
     ...added,
     "loopback + private-network http origins",
   ];

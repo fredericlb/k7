@@ -5,10 +5,10 @@
 import { EngineClient } from "@studio/engine-browser";
 import { probeEngines } from "@studio/engine-browser/probe";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
-import { SESSIONS } from "@studio/engine-protocol/sessions";
+import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { engines } from "../api";
+import { currentUser, engines } from "../api";
 import { chooseEngine } from "./chooseEngine";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
@@ -82,10 +82,13 @@ export function useModuleEngine(): ModuleEngine {
 
       // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
       // engine slot lanes had a song in — auditioning a module unloaded the song.
+      // Per SERVICE and per PERSON: the médiathèque is hosted, so two people can choose the
+      // same machine, and on a bare "mediatek" one of them auditioning a module would tear
+      // down the other's preview mid-listen.
       const client = new EngineClient(
         found.wsUrl!,
         undefined,
-        SESSIONS.mediatek,
+        sessionFor(SESSIONS.mediatek, currentUser()),
       );
       engine.current = client;
       client.onPluginParams(({ params, meta }) => {

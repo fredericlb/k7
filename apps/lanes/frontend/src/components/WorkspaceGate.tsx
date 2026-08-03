@@ -148,6 +148,9 @@ export function WorkspaceGate({
       <App
         key={phase.workspace}
         engineUrl={engine.wsUrl!}
+        // The RAW email, not a slug: sessionFor does the slugging, so this half and the
+        // file service cannot drift on how it is spelled. See engine-protocol/sessions.
+        userEmail={email}
         onQuitWorkspace={quit}
         onChangeEngine={onChangeEngine}
       />

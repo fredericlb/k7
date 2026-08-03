@@ -19,6 +19,16 @@ async function json<T>(res: Response, what: string): Promise<T> {
 const get = async <T>(path: string, what: string): Promise<T> =>
   json(await fetch(`/api/mediatek${path}`), what);
 
+/**
+ * Who is signed in, held at module level for the SESSION id.
+ *
+ * Module state rather than a prop threaded through three components, because this SPA has
+ * exactly one gate and therefore exactly one user for its whole life. It is set once, by
+ * that gate, before anything below it renders.
+ */
+let signedInAs = "";
+export const currentUser = (): string => signedInAs;
+
 export const auth = {
   loginUrl: `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
 
@@ -26,7 +36,10 @@ export const auth = {
   me: async (): Promise<AuthUser | null> => {
     const res = await fetch("/auth/me");
     if (res.status === 401) return null;
-    return (await json<{ user: AuthUser }>(res, "auth/me")).user;
+    const user = (await json<{ user: AuthUser }>(res, "auth/me")).user;
+    // The one place this is learned, so the one place it is recorded.
+    signedInAs = user.email ?? user.sub ?? "";
+    return user;
   },
 };
 

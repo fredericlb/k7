@@ -105,10 +105,14 @@ const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 export default function App({
   engineUrl,
+  userEmail,
   onQuitWorkspace,
   onChangeEngine,
 }: {
   engineUrl: string;
+  /** Who is logged in. Feeds the SESSION id, so two people on one engine hold two
+   *  projects rather than overwriting each other's. */
+  userEmail: string;
   onQuitWorkspace: () => void;
   /** Back to the engine picker — see SettingsMenu. */
   onChangeEngine: () => void;
@@ -198,7 +202,14 @@ export default function App({
     requestPluginParams,
     setPluginParam,
     watchPluginParams,
-  } = useEngineLink(engineUrl, store, pluginParamsStore, setStatus, pushLog);
+  } = useEngineLink(
+    engineUrl,
+    userEmail,
+    store,
+    pluginParamsStore,
+    setStatus,
+    pushLog,
+  );
 
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(

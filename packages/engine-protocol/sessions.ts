@@ -34,6 +34,28 @@ export const SESSIONS = {
 export type SessionId = string;
 
 /**
+ * One session per (service, person): `lanes:fred_parapluie_org`.
+ *
+ * Needed the moment an engine can be CHOSEN per account, because two people can now choose
+ * the same one — and on a service-wide id they would drive the same project, which is
+ * exactly the collision sessions exist to end, moved up a level.
+ *
+ * `who` must be spelled identically by both halves of an app. lanes has two: the browser
+ * drives transport, the file service compiles and sends. Both have the user's email, and
+ * both slug it the same way here — which is why this takes the raw email and does the
+ * slugging itself rather than trusting each caller to.
+ *
+ * Empty `who` gives back the bare service id, so a surface with no user (a deck on the
+ * machine in front of you) is unchanged.
+ */
+export function sessionFor(service: string, who?: string | null): SessionId {
+  if (!who) return service;
+  // The same rule packages/file-service/src/slug.ts uses for a user's directory: not to
+  // match it deliberately, but because an id that survives a filesystem survives a wire.
+  return `${service}:${who.replace(/[^a-zA-Z0-9]/g, "_")}`;
+}
+
+/**
  * Whether a frame carrying `session` is one this client should read.
  *
  * The rule is DISAGREEMENT, not absence: a frame with no session at all passes. Most
