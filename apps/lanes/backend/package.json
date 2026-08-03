@@ -13,6 +13,7 @@
     "@frediverse/oidc": "*",
     "@frediverse/http": "*",
     "@studio/engine-registry": "*",
+    "@studio/user-prefs": "*",
     "@studio/web-protocol": "*",
     "express": "^4.19.2",
     "tsx": "^4.16.0",

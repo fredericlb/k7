@@ -10,6 +10,7 @@ import {
   ExternalLink,
   KeyRound,
   LogOut,
+  Server,
   Settings,
   SlidersHorizontal,
   UserCircle2,
@@ -26,9 +27,13 @@ export type SettingsScreen = "ssh-keys" | "editor" | "io";
 export function SettingsMenu({
   onOpenScreen,
   onQuitWorkspace,
+  onChangeEngine,
 }: {
   onOpenScreen: (s: SettingsScreen) => void;
   onQuitWorkspace: () => void;
+  /** Back to the engine picker. An ACTION and not a screen, like quitting a workspace:
+   *  the choice unwinds a gate above this component, so there is nothing to render here. */
+  onChangeEngine: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -139,6 +144,18 @@ export function SettingsMenu({
             <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
           </a>
           <div className="my-1 border-t border-border" />
+          {/* The engine is remembered on the ACCOUNT now, so this is the one way back to
+              the picker — without it a choice made once could never be undone. */}
+          <button
+            className={item}
+            onClick={() => {
+              onChangeEngine();
+              setOpen(false);
+            }}
+          >
+            <Server className="h-4 w-4 text-muted-foreground" />
+            {m["settings.engine"]()}
+          </button>
           <button
             className={item}
             onClick={() => {

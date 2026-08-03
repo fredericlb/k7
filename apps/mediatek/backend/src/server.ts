@@ -2,11 +2,15 @@
 // and served over HTTP: the same vocabulary the local service speaks, so the machine that
 // caches it asks both sides the same questions. No database — see the package's docs/index.md.
 
+import { join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
 import { apiTokenAuth } from "@frediverse/oidc/api-auth";
 import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
+import { prefsStore } from "@studio/user-prefs";
+import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
+import { z } from "zod";
 import { libraryRouter } from "./routes/library.ts";
 import { mirrorRouter } from "./routes/mirror.ts";
 
@@ -53,6 +57,22 @@ app.use("/api/mirror", requireAuth, mirrorRouter);
 // engine-facing heartbeat stays open because a machine authenticates with its own token.
 app.use(["/api/engines", "/api/engine"], requireAuth);
 app.use("/api", engineRegistryRouter(createRegistry()));
+
+// The engine this user auditions modules through. Same shape as lanes', a different store:
+// a person's médiathèque engine and their lanes engine are two choices, and this service is
+// deployed on its own.
+const prefsSchema = z.object({ engineId: z.string().optional() });
+// On the library volume — the one this service already requires — under a dot-directory, so
+// it never shows up in a family scan. See packages/user-prefs/docs/store.md.
+const PREFS_DIR = process.env.LANES_PREFS_DIR || join(mediatekDir(), ".prefs");
+app.use(
+  "/api",
+  requireAuth,
+  preferencesRouter(
+    prefsStore<z.infer<typeof prefsSchema>>(PREFS_DIR),
+    prefsSchema,
+  ),
+);
 
 /** Mint a token for the signed-in user — what you paste into a machine's settings once.
  *  Session only, deliberately: a token must not be able to mint another. */

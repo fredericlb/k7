@@ -106,9 +106,12 @@ const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 export default function App({
   engineUrl,
   onQuitWorkspace,
+  onChangeEngine,
 }: {
   engineUrl: string;
   onQuitWorkspace: () => void;
+  /** Back to the engine picker — see SettingsMenu. */
+  onChangeEngine: () => void;
 }) {
   // The layout: null is the global view, a pane name is that pane expanded; `focus` is which pane owns the keys.
   const [full, setFull] = useState<Pane | null>(null);
@@ -1036,6 +1039,7 @@ export default function App({
                   <SettingsMenu
                     onOpenScreen={setSettingsScreen}
                     onQuitWorkspace={onQuitWorkspace}
+                    onChangeEngine={onChangeEngine}
                   />
                 </div>
               </MobileMenu>
@@ -1100,6 +1104,7 @@ export default function App({
                 <SettingsMenu
                   onOpenScreen={setSettingsScreen}
                   onQuitWorkspace={onQuitWorkspace}
+                  onChangeEngine={onChangeEngine}
                 />
               </>
             )}

@@ -94,8 +94,15 @@ COPY --from=pruner /repo/out-backend/full/ ./
 COPY --from=frontend-build /app/apps/lanes/frontend/dist /usr/share/nginx/html
 COPY apps/lanes/docker/nginx.conf /etc/nginx/http.d/default.conf
 
-# No VOLUME: the engine registry is in-memory and the user's files live on the
-# engine host, not here.
+# One volume, and only for this: what the service remembers ABOUT a person — today the
+# engine they drive. The registry is still in-memory (an engine re-announces within 5s) and
+# the user's files still live on the engine host, so nothing else here is worth keeping.
+#
+# Losing it costs each user one click, the next time they log in. That is the whole risk
+# budget, and it is why this is a file and not a database — see
+# packages/user-prefs/docs/store.md.
+VOLUME /data
+ENV LANES_PREFS_DIR=/data/prefs
 ENV PORT=8789
 
 WORKDIR /app/apps/lanes/backend

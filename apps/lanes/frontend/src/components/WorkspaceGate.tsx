@@ -31,7 +31,15 @@ type Phase =
   | { k: "error"; message: string; fault?: FileServiceFault }
   | { k: "chosen"; workspace: string };
 
-export function WorkspaceGate({ engine }: { engine: RankedEngine }) {
+export function WorkspaceGate({
+  engine,
+  onChangeEngine,
+}: {
+  engine: RankedEngine;
+  /** Passed straight through to the settings menu: the engine choice belongs to the gate
+   *  ABOVE this one, and a workspace has nothing to say about it. */
+  onChangeEngine: () => void;
+}) {
   const [phase, setPhase] = useState<Phase>({ k: "loading" });
   const [workspaces, setWorkspaces] = useState<
     Awaited<ReturnType<typeof api.listWorkspaces>>["workspaces"]
@@ -141,6 +149,7 @@ export function WorkspaceGate({ engine }: { engine: RankedEngine }) {
         key={phase.workspace}
         engineUrl={engine.wsUrl!}
         onQuitWorkspace={quit}
+        onChangeEngine={onChangeEngine}
       />
     );
 

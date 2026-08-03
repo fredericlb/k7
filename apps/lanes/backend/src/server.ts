@@ -8,7 +8,10 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
 import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
+import { prefsStore } from "@studio/user-prefs";
+import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
+import { z } from "zod";
 
 const PORT = process.env.PORT || 8789;
 const app = express();
@@ -40,6 +43,27 @@ app.use(["/api/engines", "/api/engine"], requireAuth);
 // OUR registry, not the registry: mediatek holds its own, and an engine heartbeats to both.
 // See packages/engine-registry/docs/shared.md for why that is not one central one.
 app.use("/api", engineRegistryRouter(createRegistry()));
+
+/**
+ * What this service remembers about a person. One field so far: the engine they drive.
+ *
+ * `engineId` and not an address: an engine's IP moves between networks while its identity
+ * does not, and the browser re-probes the addresses from the registry on every load anyway.
+ * Storing a URL would pin the user to the network they first logged in from.
+ */
+const prefsSchema = z.object({ engineId: z.string().optional() });
+// Defaults under the home directory so a dev run works with no volume at all; a deploy
+// mounts one and points this at it. See packages/user-prefs/docs/store.md.
+const PREFS_DIR =
+  process.env.LANES_PREFS_DIR || join(homedir(), ".lanes", "prefs", "lanes");
+app.use(
+  "/api",
+  requireAuth,
+  preferencesRouter(
+    prefsStore<z.infer<typeof prefsSchema>>(PREFS_DIR),
+    prefsSchema,
+  ),
+);
 
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;

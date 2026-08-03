@@ -198,6 +198,17 @@ export const api = {
       new Blob([JSON.stringify({ id })], { type: "application/json" }),
     ),
 
+  // --- What this service remembers about YOU (hosted backend, same-origin) ---
+  // NOT `preferences` below, and the two must never be confused: that one is the RIG's
+  // (~/.lanes/preferences.yaml on the engine's machine, shared by everyone who selects it),
+  // this one is the account's, on the hosted volume, and follows you to another browser.
+  //
+  // The engine id and not its address: an engine's IP moves between networks while its
+  // identity does not, and the browser re-probes the addresses on every load anyway.
+  accountPrefs: () => get<{ engineId?: string }>("/api/preferences"),
+  saveAccountPrefs: (p: { engineId?: string }) =>
+    send<{ ok: true }>("PUT", "/api/preferences", p),
+
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
   listWorkspaces: () => fget<WorkspaceList>("/workspaces"),
   createWorkspace: (name: string) =>

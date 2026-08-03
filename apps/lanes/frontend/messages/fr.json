@@ -21,6 +21,7 @@
   "sshKey.title": "Clés SSH",
   "settings.menu": "Paramètres",
   "settings.editor": "Réglages de l'éditeur",
+  "settings.engine": "Moteur",
   "settings.io": "E/S",
   "settings.modules": "Modules",
   "modules.hint": "Les modules partagés de l'espace de travail. Les modifier les change pour tous les projets.",
