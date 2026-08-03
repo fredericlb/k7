@@ -31,7 +31,7 @@ EngineHost::EngineHost() : impl_(std::make_unique<Impl>()) {
     registerBuiltInPlugins(impl_->engine);
 }
 
-const ProjectDoc& EngineHost::current() const { return impl_->s().current; }
+const ProjectDoc& EngineHost::current(const std::string& session) const { return impl_->session(session).current; }
 
 void EngineHost::openAudioDevice() {
     // Open the interface once — it stays open for the engine's lifetime. Playback is silent without it, which is
@@ -57,138 +57,140 @@ EngineHost::~EngineHost() {
         // through goes away. Only ever attached if something asked for a pitch.
         if (impl_->tunerAttached)
             impl_->engine.getDeviceManager().deviceManager.removeAudioCallback(&impl_->tuner);
-        // Take the broadcast tap off the master list before anything else goes away. Belt
-        // and braces — the ring is declared ahead of `engine` so it would outlive the
-        // callbacks anyway — but a tap that is gone cannot write into anything at all.
-        enableBroadcast(false);
-        impl_->s().detachLevelMeters();    // unregister output clients before the edit tears down
+        // EVERY session, because the destructor is nobody's session in particular. Take
+        // each broadcast tap off its master list and unregister its meter clients before
+        // anything they touch goes away — a tap that is gone cannot write into anything.
+        for (const auto& id : impl_->ids()) {
+            enableBroadcast(id, false);
+            impl_->session(id).detachLevelMeters();
+        }
         impl_->detachInputClients();   // and input clients before the devices (their measurers) do
     }
 }
 
-void EngineHost::teardownProjectState() {
+void EngineHost::teardownProjectState(const std::string& session) {
     // Close plugin editors and drop plugin refs BEFORE the old edit is destroyed: the windows own editors pointing
     // at those plugins.
-    impl_->s().pluginWindows.clear();
-    impl_->s().pluginsById.clear();
-    impl_->s().presetSaveById.clear();
-    impl_->s().lastSavedState.clear();
-    impl_->s().detachLevelMeters();   // unregister clients before their measurers die
-    impl_->s().waveformPlugins.clear();  // release taps before the edit dies
+    impl_->session(session).pluginWindows.clear();
+    impl_->session(session).pluginsById.clear();
+    impl_->session(session).presetSaveById.clear();
+    impl_->session(session).lastSavedState.clear();
+    impl_->session(session).detachLevelMeters();   // unregister clients before their measurers die
+    impl_->session(session).waveformPlugins.clear();  // release taps before the edit dies
     // The broadcast PLUGIN goes with them; the ring does not, being EngineHost's. And
     // `broadcastWanted` stays, so buildLevelMeters puts a fresh tap on the new edit and a
     // listener survives an apply.
-    impl_->s().broadcastPlugin = nullptr;
+    impl_->session(session).broadcastPlugin = nullptr;
     // The transport dies with the edit, so drop the listener while there is still something to drop it from.
-    if (impl_->s().recordListener)
-        if (auto* tc = impl_->transport())
-            tc->removeListener(impl_->s().recordListener.get());
-    impl_->s().pendingTakes.clear();
+    if (impl_->session(session).recordListener)
+        if (auto* tc = impl_->transport(session))
+            tc->removeListener(impl_->session(session).recordListener.get());
+    impl_->session(session).pendingTakes.clear();
     // Keep the WATCHES — a client's interest in an id outlives the plugin behind it — but drop their baselines:
     // the values just torn down belonged to the old instance, and diffing against them would hide any parameter
     // that came back different.
-    for (auto& [id, lastSent] : impl_->s().watchedParams)
+    for (auto& [id, lastSent] : impl_->session(session).watchedParams)
         lastSent.clear();
 }
 
-void EngineHost::reset() {
-    stop();                    // halt the transport before the graph under it goes away
-    teardownProjectState();
-    impl_->s().edit.reset();       // destroys the playback context and every plugin in it
-    impl_->s().current = ProjectDoc{};   // empty baseline → the next apply() is a full build
-    impl_->s().baseDir.clear();
+void EngineHost::reset(const std::string& session) {
+    stop(session);                    // halt the transport before the graph under it goes away
+    teardownProjectState(session);
+    impl_->session(session).edit.reset();       // destroys the playback context and every plugin in it
+    impl_->session(session).current = ProjectDoc{};   // empty baseline → the next apply() is a full build
+    impl_->session(session).baseDir.clear();
     std::cerr << "[reset] project state flushed\n";
 }
 
-void EngineHost::applyFull(const ProjectDoc& doc, const std::string& baseDir) {
-    teardownProjectState();
+void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, const std::string& baseDir) {
+    teardownProjectState(session);
     invalidatePluginInfoMemo();   // reload the scan cache once per apply (picking up a rescan), then memoise
                                   // it across this apply's per-plugin lookups
 
     // Time the phases: this is the work the first play waits on — the edit graph, every plugin instantiated,
     // the playback context allocated — printed once per apply, so a slow first play is diagnosable from the log.
     const double t0 = juce::Time::getMillisecondCounterHiRes();
-    impl_->s().edit = te::Edit::createSingleTrackEdit(impl_->engine);
+    impl_->session(session).edit = te::Edit::createSingleTrackEdit(impl_->engine);
     const double t1 = juce::Time::getMillisecondCounterHiRes();
-    populateEdit(impl_->engine, *impl_->s().edit, doc, baseDir, &impl_->s().pluginsById, &impl_->s().presetSaveById);
+    populateEdit(impl_->engine, *impl_->session(session).edit, doc, baseDir, &impl_->session(session).pluginsById, &impl_->session(session).presetSaveById);
     const double t2 = juce::Time::getMillisecondCounterHiRes();
-    impl_->transport()->ensureContextAllocated();
+    impl_->transport(session)->ensureContextAllocated();
     const double t3 = juce::Time::getMillisecondCounterHiRes();
-    buildLevelMeters();           // append a metering plugin + client to each track
+    buildLevelMeters(session);           // append a metering plugin + client to each track
     const double t4 = juce::Time::getMillisecondCounterHiRes();
     std::cerr << "[applyFull] createEdit=" << (t1 - t0) << "ms populate=" << (t2 - t1)
               << "ms ensureContext=" << (t3 - t2) << "ms meters=" << (t4 - t3)
-              << "ms total=" << (t4 - t0) << "ms plugins=" << impl_->s().pluginsById.size() << "\n";
-    impl_->s().current = doc;
-    impl_->s().baseDir = baseDir;
-    // Live inputs last: they need the context ensureContextAllocated() just made, and map ids through `impl_->s().current`.
-    applyAllTrackInputs(doc);
+              << "ms total=" << (t4 - t0) << "ms plugins=" << impl_->session(session).pluginsById.size() << "\n";
+    impl_->session(session).current = doc;
+    impl_->session(session).baseDir = baseDir;
+    // Live inputs last: they need the context ensureContextAllocated() just made, and map ids through `impl_->session(session).current`.
+    applyAllTrackInputs(session, doc);
 
     // Re-attach the record listener to this edit's transport — the previous edit's is gone with its listener list.
     // Defined in Recording.cpp, where the RecordListener type is complete.
-    attachRecordListener();
+    attachRecordListener(session);
 
     // A fresh Edit starts with no click, so re-assert the metronome flag, or every apply would silence it.
-    applyMetronome();
+    applyMetronome(session);
 }
 
 // Append a post-fader LevelMeterPlugin to every audio track and attach the client we poll for VU. Called after
 // a full rebuild; the incremental path leaves existing meters alone, since a track param edit can't disturb them.
-void EngineHost::buildLevelMeters() {
-    impl_->s().detachLevelMeters();
-    if (!impl_->s().edit) return;
-    auto audioTracks = te::getAudioTracks(*impl_->s().edit);
+void EngineHost::buildLevelMeters(const std::string& session) {
+    impl_->session(session).detachLevelMeters();
+    if (!impl_->session(session).edit) return;
+    auto audioTracks = te::getAudioTracks(*impl_->session(session).edit);
     for (int i = 0; i < audioTracks.size(); ++i) {
         auto* track = audioTracks[i];
-        auto meter = impl_->s().edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {});
+        auto meter = impl_->session(session).edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {});
         auto* lm = dynamic_cast<te::LevelMeterPlugin*>(meter.get());
         if (lm == nullptr) continue;
         track->pluginList.insertPlugin(meter, -1, nullptr);   // -1 == append, so it meters the final output
         auto client = std::make_unique<te::LevelMeasurer::Client>();
         lm->measurer.addClient(*client);
-        impl_->s().levelMeters.push_back(meter);
-        impl_->s().levelClients.push_back(std::move(client));
+        impl_->session(session).levelMeters.push_back(meter);
+        impl_->session(session).levelClients.push_back(std::move(client));
     }
 
     // …and one on the master list, which is where the mix leaves for the interface. An output DEVICE carries no
     // measurer in Tracktion, so this plugin is the only place the outgoing level can be read at all.
-    auto master = impl_->s().edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {});
+    auto master = impl_->session(session).edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {});
     if (auto* lm = dynamic_cast<te::LevelMeterPlugin*>(master.get())) {
-        impl_->s().edit->getMasterPluginList().insertPlugin(master, -1, nullptr);
-        impl_->s().masterClient = std::make_unique<te::LevelMeasurer::Client>();
-        lm->measurer.addClient(*impl_->s().masterClient);
-        impl_->s().masterMeter = master;
+        impl_->session(session).edit->getMasterPluginList().insertPlugin(master, -1, nullptr);
+        impl_->session(session).masterClient = std::make_unique<te::LevelMeasurer::Client>();
+        lm->measurer.addClient(*impl_->session(session).masterClient);
+        impl_->session(session).masterMeter = master;
     }
 
     // The broadcast tap goes back on the same list. A rebuild threw away the old edit and
     // every plugin on it, so the WISH is what survived — without this, saving a file
     // silences every listener, which is not a fault anyone would trace back to a save.
-    if (impl_->s().broadcastWanted) {
-        impl_->s().broadcastPlugin = nullptr;
-        enableBroadcast(true);
+    if (impl_->session(session).broadcastWanted) {
+        impl_->session(session).broadcastPlugin = nullptr;
+        enableBroadcast(session, true);
     }
 }
 
-float EngineHost::masterLevelDb() const {
-    if (!impl_->s().masterClient) return -100.0f;
-    auto& client = *impl_->s().masterClient;
+float EngineHost::masterLevelDb(const std::string& session) const {
+    if (!impl_->session(session).masterClient) return -100.0f;
+    auto& client = *impl_->session(session).masterClient;
     const float l = client.getAndClearAudioLevel(0).dB;
     const float r = client.getAndClearAudioLevel(1).dB;
     return std::max(l, r);
 }
 
-ProjectDiff EngineHost::apply(const ProjectDoc& target, const std::string& baseDir) {
-    ProjectDiff d = diff(impl_->s().current, target);
+ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir) {
+    ProjectDiff d = diff(impl_->session(session).current, target);
 
     // No live edit yet, or a change the incremental path can't handle: rebuild.
-    if (!impl_->s().edit || needsFullRebuild(d)) {
-        applyFull(target, baseDir);   // sets impl_->s().current = target
+    if (!impl_->session(session).edit || needsFullRebuild(d)) {
+        applyFull(session, target, baseDir);   // sets impl_->session(session).current = target
         return d;
     }
 
     auto& engine = impl_->engine;
-    auto& edit = *impl_->s().edit;
-    impl_->s().baseDir = baseDir;
+    auto& edit = *impl_->session(session).edit;
+    impl_->session(session).baseDir = baseDir;
 
     for (const auto& c : d) {
         switch (c.kind) {
@@ -207,17 +209,17 @@ ProjectDiff EngineHost::apply(const ProjectDoc& target, const std::string& baseD
                     t->setName(juce::String(c.track->name));
                 break;
             case ChangeKind::TrackRenamed:
-                if (auto* t = trackById(edit, c.trackId, impl_->s().current); t && c.track)
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.track)
                     t->setName(juce::String(c.track->name));
                 break;
             case ChangeKind::TrackParamsChanged:
-                if (auto* t = trackById(edit, c.trackId, impl_->s().current); t && c.track)
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.track)
                     applyTrackParams(*t, *c.track);
                 break;
             case ChangeKind::TrackInputChanged:
                 break;  // deferred to after the loop — see below
             case ChangeKind::ClipAdded:
-                if (auto* t = trackById(edit, c.trackId, impl_->s().current); t && c.clip) {
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
                     if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
                     else insertClip(engine, edit, *t, *c.clip, baseDir);
                 }
@@ -232,7 +234,7 @@ ProjectDiff EngineHost::apply(const ProjectDoc& target, const std::string& baseD
                 // Clips carry their doc id as the Tracktion clip name, so match on that and drop it. Iterating a COPY is
                 // deliberate — removeFromParent() mutates the live list — and this is what lets a live-streamed pattern prune
                 // played clips instead of accumulating them.
-                if (auto* t = trackById(edit, c.trackId, impl_->s().current); t && c.clip) {
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
                     const juce::String name = juce::String(c.clip->name.empty() ? c.clip->id : c.clip->name);
                     auto clips = t->getClips();   // a copy — removeFromParent() mutates the live list
                     for (auto* clip : clips)
@@ -246,7 +248,7 @@ ProjectDiff EngineHost::apply(const ProjectDoc& target, const std::string& baseD
                 // clip->setStart(pos, preserveSync, true); clip->setLength(...)
                 break;
             case ChangeKind::PluginAdded:
-                if (auto* t = trackById(edit, c.trackId, impl_->s().current); t && c.plugin)
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.plugin)
                     addPlugin(edit, *t, *c.plugin, 0);   // incremental add at the front
                 break;
             case ChangeKind::PluginRemoved:
@@ -257,24 +259,24 @@ ProjectDiff EngineHost::apply(const ProjectDoc& target, const std::string& baseD
                 // namedParams() use, so the value round-trips by name. An id absent from the running edit means the plugin
                 // failed to instantiate — a missing VST warns at load, so skip rather than warn again per param.
                 if (c.plugin)
-                    if (auto it = impl_->s().pluginsById.find(c.plugin->id);
-                        it != impl_->s().pluginsById.end() && it->second != nullptr)
+                    if (auto it = impl_->session(session).pluginsById.find(c.plugin->id);
+                        it != impl_->session(session).pluginsById.end() && it->second != nullptr)
                         applyPluginParams(*it->second, {{c.paramName, c.paramValue}});
                 break;
             case ChangeKind::PluginEnabledChanged:
                 // Bypass on the LIVE plugin: it stays in the chain and passes its input through. Same lookup as a param change,
                 // and deliberately not a rebuild — toggling bypass should not restart every other plugin.
                 if (c.plugin)
-                    if (auto it = impl_->s().pluginsById.find(c.plugin->id);
-                        it != impl_->s().pluginsById.end() && it->second != nullptr)
+                    if (auto it = impl_->session(session).pluginsById.find(c.plugin->id);
+                        it != impl_->session(session).pluginsById.end() && it->second != nullptr)
                         it->second->setEnabled(c.enabled);
                 break;
             case ChangeKind::AutomationChanged:
                 // Re-bake the lane onto its target plugin's parameter curve, keyed by the plugin id it carries; one absent from
                 // the running edit is skipped, like a param change.
                 if (c.automation)
-                    if (auto it = impl_->s().pluginsById.find(c.automation->pluginId);
-                        it != impl_->s().pluginsById.end() && it->second != nullptr)
+                    if (auto it = impl_->session(session).pluginsById.find(c.automation->pluginId);
+                        it != impl_->session(session).pluginsById.end() && it->second != nullptr)
                         applyAutomationLane(edit, *it->second, *c.automation);
                 break;
             case ChangeKind::SampleRateChanged:
@@ -286,18 +288,18 @@ ProjectDiff EngineHost::apply(const ProjectDoc& target, const std::string& baseD
     applySoloMute(edit, target);
 
     // The engine now reflects `target` for every implemented change kind, so adopt it as the next diff's baseline.
-    impl_->s().current = target;
-    impl_->s().baseDir = baseDir;
+    impl_->session(session).current = target;
+    impl_->session(session).baseDir = baseDir;
 
     // Re-assert the click from the updated doc. The metronome flag is not a tracked ChangeKind, so a toggle arrives
     // as an otherwise-empty diff — applied unconditionally here, as solo and mute are above.
-    applyMetronome();
+    applyMetronome(session);
 
-    // Inputs go last, once `impl_->s().current` is the new baseline: applyTrackInput maps a track id to its lane THROUGH
-    // impl_->s().current, and a track this diff added exists only in `target` — inside the loop it would find nothing.
+    // Inputs go last, once `impl_->session(session).current` is the new baseline: applyTrackInput maps a track id to its lane THROUGH
+    // impl_->session(session).current, and a track this diff added exists only in `target` — inside the loop it would find nothing.
     for (const auto& c : d)
         if (c.kind == ChangeKind::TrackInputChanged && c.track)
-            applyTrackInput(*c.track);
+            applyTrackInput(session, *c.track);
     return d;
 }
 
@@ -312,41 +314,41 @@ static te::Edit::CountIn countInModeFor(int bars) {
 
 // Play — and record the armed tracks if the GLOBAL enable is on. Arming only marks a track as wanting to
 // record, so a user can leave tracks armed and audition without recording.
-void EngineHost::play() {
-    auto* tc = impl_->transport();
+void EngineHost::play(const std::string& session) {
+    auto* tc = impl_->transport(session);
     if (tc == nullptr) return;
     // A loop always starts from its top, so drop the playhead onto the start; Tracktion wraps back on its own.
     if (tc->looping) tc->setPosition(tc->getLoopRange().getStart());
-    if (recordEnabled_ && prepareTakes()) {
+    if (recordEnabled_ && prepareTakes(session)) {
         // Count-in applies to the record roll only: set it from the project just before recording and clear it on a
         // plain play, so an earlier record's count-in can't linger onto ordinary playback.
-        if (impl_->s().edit) impl_->s().edit->setCountInMode(countInModeFor(impl_->s().current.countIn));
+        if (impl_->session(session).edit) impl_->session(session).edit->setCountInMode(countInModeFor(impl_->session(session).current.countIn));
         tc->record(false);
     } else {
-        if (impl_->s().edit) impl_->s().edit->setCountInMode(te::Edit::CountIn::none);
+        if (impl_->session(session).edit) impl_->session(session).edit->setCountInMode(te::Edit::CountIn::none);
         tc->play(false);
     }
 }
-void EngineHost::setRecordEnabled(bool on) {
+void EngineHost::setRecordEnabled(const std::string& session, bool on) {
     recordEnabled_ = on;
     std::cerr << "[rec] global record " << (on ? "enabled" : "disabled") << '\n';
 }
-bool EngineHost::recordEnabled() const { return recordEnabled_; }
+bool EngineHost::recordEnabled(const std::string& session) const { return recordEnabled_; }
 
-// Project the doc's metronome flag onto the Edit's click track, reading impl_->s().current — the single source of truth,
+// Project the doc's metronome flag onto the Edit's click track, reading impl_->session(session).current — the single source of truth,
 // which every apply path sets first. Emphasise-bars stays on always: the bar's first beat sounding different
 // IS the feature, not a separate toggle.
-void EngineHost::applyMetronome() {
-    if (!impl_->s().edit) return;
-    impl_->s().edit->clickTrackEnabled = impl_->s().current.metronome;
-    impl_->s().edit->clickTrackEmphasiseBars = true;
+void EngineHost::applyMetronome(const std::string& session) {
+    if (!impl_->session(session).edit) return;
+    impl_->session(session).edit->clickTrackEnabled = impl_->session(session).current.metronome;
+    impl_->session(session).edit->clickTrackEmphasiseBars = true;
 }
-void EngineHost::stop() { if (auto* tc = impl_->transport()) tc->stop(false, false); }
-void EngineHost::rewind() { if (auto* tc = impl_->transport()) tc->setPosition(tt::TimePosition()); }
+void EngineHost::stop(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->stop(false, false); }
+void EngineHost::rewind(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->setPosition(tt::TimePosition()); }
 
 // Set the loop region and enable or disable looping; `enabled` false keeps the range, so re-enabling reuses it.
-void EngineHost::setLoop(double startSeconds, double endSeconds, bool enabled) {
-    auto* tc = impl_->transport();
+void EngineHost::setLoop(const std::string& session, double startSeconds, double endSeconds, bool enabled) {
+    auto* tc = impl_->transport(session);
     if (tc == nullptr) return;
     tc->setLoopRange(tt::TimeRange::between(tt::TimePosition::fromSeconds(startSeconds),
                                             tt::TimePosition::fromSeconds(endSeconds)));
@@ -354,18 +356,18 @@ void EngineHost::setLoop(double startSeconds, double endSeconds, bool enabled) {
 }
 
 // Scrub to an absolute position in seconds; Tracktion keeps playing from the new spot if the transport rolls.
-void EngineHost::seek(double seconds) {
-    if (auto* tc = impl_->transport())
+void EngineHost::seek(const std::string& session, double seconds) {
+    if (auto* tc = impl_->transport(session))
         tc->setPosition(tt::TimePosition::fromSeconds(std::max(0.0, seconds)));
 }
 
-bool EngineHost::isPlaying() const {
-    auto* tc = impl_->transport();
+bool EngineHost::isPlaying(const std::string& session) const {
+    auto* tc = impl_->transport(session);
     return tc && tc->isPlaying();
 }
 
-double EngineHost::playheadSeconds() const {
-    auto* tc = impl_->transport();
+double EngineHost::playheadSeconds(const std::string& session) const {
+    auto* tc = impl_->transport(session);
     return tc ? tc->getPosition().inSeconds() : 0.0;
 }
 
@@ -397,10 +399,10 @@ te::SamplerPlugin* ensurePreviewSampler(te::Edit& edit) {
 }
 }  // namespace
 
-void EngineHost::previewSample(const std::string& file, double startSeconds,
+void EngineHost::previewSample(const std::string& session, const std::string& file, double startSeconds,
                                double lengthSeconds) {
-    if (! impl_->s().edit) return;   // nothing loaded — nothing to play through
-    auto& edit = *impl_->s().edit;
+    if (! impl_->session(session).edit) return;   // nothing loaded — nothing to play through
+    auto& edit = *impl_->session(session).edit;
     // SamplerPlugin opens its source through a SourceFileReference, which resolves an absolute path only with this
     // resolver in place. Already set on a built edit; set again defensively.
     edit.filePathResolver = [](const juce::String& s) { return juce::File(s); };
@@ -425,12 +427,12 @@ void EngineHost::previewSample(const std::string& file, double startSeconds,
     });
 }
 
-float EngineHost::trackLevelDb(int trackIndex) const {
+float EngineHost::trackLevelDb(const std::string& session, int trackIndex) const {
     // Peak dB since the last poll, from the track's LevelMeterPlugin client. Reading clears the accumulator, so
     // each poll gives a fresh peak — exactly what a VU meter wants. -100 dB when there is no meter yet.
-    if (trackIndex < 0 || trackIndex >= (int)impl_->s().levelClients.size())
+    if (trackIndex < 0 || trackIndex >= (int)impl_->session(session).levelClients.size())
         return -100.0f;
-    auto& client = *impl_->s().levelClients[static_cast<size_t>(trackIndex)];
+    auto& client = *impl_->session(session).levelClients[static_cast<size_t>(trackIndex)];
     const float l = client.getAndClearAudioLevel(0).dB;
     const float r = client.getAndClearAudioLevel(1).dB;
     return std::max(l, r);
@@ -444,10 +446,10 @@ static std::string moduleNameFromId(const std::string& id) {
     return pos != std::string::npos ? id.substr(pos + 1) : id;
 }
 
-void EngineHost::enableWaveformTap(const std::string& id, const std::string& side) {
+void EngineHost::enableWaveformTap(const std::string& session, const std::string& id, const std::string& side) {
     const std::string key = id + ":" + side;
-    if (impl_->s().waveformPlugins.count(key)) return;  // already active
-    if (!impl_->s().edit) return;
+    if (impl_->session(session).waveformPlugins.count(key)) return;  // already active
+    if (!impl_->session(session).edit) return;
 
     // Find the plugin BY ID, and the track from the plugin — rather than trusting a track
     // index from the client and then matching on the plugin's display name.
@@ -457,13 +459,13 @@ void EngineHost::enableWaveformTap(const std::string& id, const std::string& sid
     // Modeler" — against the MODULE's — "neural-amp-modeler" — so the target was never
     // found and the tap silently went to the end of the chain, metering the track output
     // instead of the module. pluginsById is keyed by exactly the id the client sends.
-    auto found = impl_->s().pluginsById.find(id);
-    if (found == impl_->s().pluginsById.end() || found->second == nullptr) return;
+    auto found = impl_->session(session).pluginsById.find(id);
+    if (found == impl_->session(session).pluginsById.end() || found->second == nullptr) return;
     te::Plugin* target = found->second.get();
 
     te::AudioTrack* track = nullptr;
     int at = -1;
-    for (auto* t : te::getAudioTracks(*impl_->s().edit)) {
+    for (auto* t : te::getAudioTracks(*impl_->session(session).edit)) {
         const int i = t->pluginList.indexOf(target);
         if (i >= 0) {
             track = t;
@@ -477,7 +479,7 @@ void EngineHost::enableWaveformTap(const std::string& id, const std::string& sid
     const int insertIndex = (side == "input") ? at : at + 1;
 
     // Created via the plugin cache, where registerBuiltInPlugins put its type.
-    auto tapPlugin = impl_->s().edit->getPluginCache().createNewPlugin(
+    auto tapPlugin = impl_->session(session).edit->getPluginCache().createNewPlugin(
         lanes::WaveformTapPlugin::xmlTypeName, {});
     if (!tapPlugin) return;
 
@@ -485,34 +487,35 @@ void EngineHost::enableWaveformTap(const std::string& id, const std::string& sid
 
     // The plugin's tap() is the ring buffer the message thread drains; this map owns a
     // reference (keeping it alive), as does the track's pluginList.
-    impl_->s().waveformPlugins[key] = tapPlugin;
+    impl_->session(session).waveformPlugins[key] = tapPlugin;
 }
 
-void EngineHost::disableWaveformTap(const std::string& id, const std::string& side) {
+void EngineHost::disableWaveformTap(const std::string& session, const std::string& id, const std::string& side) {
     const std::string key = id + ":" + side;
-    auto it = impl_->s().waveformPlugins.find(key);
-    if (it == impl_->s().waveformPlugins.end()) return;
+    auto it = impl_->session(session).waveformPlugins.find(key);
+    if (it == impl_->session(session).waveformPlugins.end()) return;
 
     // Remove from the plugin list, dropping the plugin from the chain and releasing the reference.
     if (auto* plugin = it->second.get())
         plugin->deleteFromParent();
-    impl_->s().waveformPlugins.erase(it);
+    impl_->session(session).waveformPlugins.erase(it);
 }
 
-std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& id,
+std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& session,
+                                                       const std::string& id,
                                                        const std::string& side) {
     const std::string key = id + ":" + side;
-    auto it = impl_->s().waveformPlugins.find(key);
-    if (it == impl_->s().waveformPlugins.end()) return {};
+    auto it = impl_->session(session).waveformPlugins.find(key);
+    if (it == impl_->session(session).waveformPlugins.end()) return {};
 
     auto* tapPlugin = dynamic_cast<lanes::WaveformTapPlugin*>(it->second.get());
     if (!tapPlugin) return {};
     return tapPlugin->tap().drain();
 }
 
-std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWaveformTaps() {
+std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWaveformTaps(const std::string& session) {
     std::map<std::string, std::vector<WaveformEnvelope>> result;
-    for (auto& [key, plugin] : impl_->s().waveformPlugins) {
+    for (auto& [key, plugin] : impl_->session(session).waveformPlugins) {
         auto* tapPlugin = dynamic_cast<lanes::WaveformTapPlugin*>(plugin.get());
         if (!tapPlugin) continue;
         auto data = tapPlugin->tap().drain();
@@ -524,46 +527,46 @@ std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWavefor
 
 // --- Audio broadcast ---------------------------------------------------------
 
-void EngineHost::enableBroadcast(bool on) {
-    impl_->s().broadcastWanted = on;
+void EngineHost::enableBroadcast(const std::string& session, bool on) {
+    impl_->session(session).broadcastWanted = on;
     if (!on) {
-        if (auto* p = impl_->s().broadcastPlugin.get()) p->deleteFromParent();
-        impl_->s().broadcastPlugin = nullptr;
+        if (auto* p = impl_->session(session).broadcastPlugin.get()) p->deleteFromParent();
+        impl_->session(session).broadcastPlugin = nullptr;
         return;
     }
-    if (impl_->s().broadcastPlugin != nullptr) return;   // already tapping
-    if (!impl_->s().edit) return;                        // reasserted by buildLevelMeters later
+    if (impl_->session(session).broadcastPlugin != nullptr) return;   // already tapping
+    if (!impl_->session(session).edit) return;                        // reasserted by buildLevelMeters later
 
     // Appended (-1) to the MASTER list, so it sees the mix after everything, exactly like
     // the master level meter it sits beside — that is the signal leaving for the interface.
-    auto tap = impl_->s().edit->getPluginCache().createNewPlugin(
+    auto tap = impl_->session(session).edit->getPluginCache().createNewPlugin(
         lanes::BroadcastTapPlugin::xmlTypeName, {});
     if (!tap) return;
     // Point it at the ring BEFORE it joins the list: once inserted, an audio callback can
     // reach it at any moment, and a plugin with no ring yet would drop those blocks.
     if (auto* bt = dynamic_cast<lanes::BroadcastTapPlugin*>(tap.get()))
-        bt->setTap(&impl_->s().broadcastRing);
-    impl_->s().edit->getMasterPluginList().insertPlugin(tap, -1, nullptr);
-    impl_->s().broadcastPlugin = tap;
+        bt->setTap(&impl_->session(session).broadcastRing);
+    impl_->session(session).edit->getMasterPluginList().insertPlugin(tap, -1, nullptr);
+    impl_->session(session).broadcastPlugin = tap;
 }
 
-bool EngineHost::isBroadcasting() const {
-    return impl_->s().broadcastWanted;
+bool EngineHost::isBroadcasting(const std::string& session) const {
+    return impl_->session(session).broadcastWanted;
 }
 
-EngineHost::BroadcastChunk EngineHost::drainBroadcast(size_t maxFrames) {
+EngineHost::BroadcastChunk EngineHost::drainBroadcast(const std::string& session, size_t maxFrames) {
     // SENDER THREAD. It reads the ring, which EngineHost owns and which outlives every
     // edit — deliberately, so this needs no lock and cannot be caught mid-rebuild.
     BroadcastChunk chunk;
-    const auto d = impl_->s().broadcastRing.drain(chunk.samples, maxFrames);
+    const auto d = impl_->session(session).broadcastRing.drain(chunk.samples, maxFrames);
     chunk.frames = d.frames;
     chunk.lostFrames = d.lostFrames;
-    chunk.sampleRate = impl_->s().broadcastRing.sampleRate();
+    chunk.sampleRate = impl_->session(session).broadcastRing.sampleRate();
     return chunk;
 }
 
-void EngineHost::skipBroadcastToLive() {
-    impl_->s().broadcastRing.skipToLive();
+void EngineHost::skipBroadcastToLive(const std::string& session) {
+    impl_->session(session).broadcastRing.skipToLive();
 }
 
 // --- Server support ----------------------------------------------------------
@@ -576,33 +579,51 @@ public:
         : host_(h), cb_(std::move(cb)) {}
 
     void timerCallback() override {
+        // ONE FRAME PER SESSION. Each carries the id it describes, so main.cpp can send a
+        // session's state only to the connections driving it — a listener that got
+        // everybody's meters would draw somebody else's song.
+        for (const auto& sid : host_.sessionIds()) emit(sid);
+    }
+
+private:
+    void emit(const std::string& session) {
         EngineHost::EngineState s;
-        s.playing = host_.isPlaying();
-        s.playheadSeconds = host_.playheadSeconds();
-        const auto& doc = host_.current();
+        s.session = session;
+        s.playing = host_.isPlaying(session);
+        s.playheadSeconds = host_.playheadSeconds(session);
+        const auto& doc = host_.current(session);
         s.trackLevelsDb.reserve(doc.tracks.size());
         for (int i = 0; i < (int)doc.tracks.size(); ++i)
-            s.trackLevelsDb.push_back(host_.trackLevelDb(i));
+            s.trackLevelsDb.push_back(host_.trackLevelDb(session, i));
         // Live input levels ride the same frame as the output meters — a UI drawing an armed track's input wants both
         // at one rate. A single pass, indexed like trackLevelsDb.
-        s.trackInputLevelsDb = host_.inputLevelsDb();
+        s.trackInputLevelsDb = host_.inputLevelsDb(session);
         // Armed tracks ride the state frame rather than a reply of their own: arming is state, not an event, and this
         // is the channel every surface already watches, so a tab connecting mid-session sees it without asking.
-        s.armedTracks = host_.armedTracks();
-        s.recordEnabled = host_.recordEnabled();
-        s.waveformEnvelopes = host_.drainAllWaveformTaps();
+        s.armedTracks = host_.armedTracks(session);
+        s.recordEnabled = host_.recordEnabled(session);
+        s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
         cb_(s);
         // Watched params ride the same tick rather than their own timer: both are "what is the engine holding", and one
         // timer means a param can never report faster than the meters already sustain. It runs after cb_, so a slow
         // state consumer delays the params rather than the meters.
-        host_.pumpPluginParamWatches();
+        host_.pumpPluginParamWatches(session);
     }
 
-private:
     EngineHost& host_;
     std::function<void(const EngineHost::EngineState&)> cb_;
 };
 }  // namespace
+
+std::vector<std::string> EngineHost::sessionIds() const { return impl_->ids(); }
+
+void EngineHost::dropSession(const std::string& session) {
+    // Tear the project down FIRST, then forget the slot: reset() unregisters meter clients
+    // and takes the taps off, and dropping the map entry alone would free an Edit the audio
+    // thread is still inside.
+    reset(session);
+    impl_->drop(session);
+}
 
 void EngineHost::post(std::function<void()> fn) {
     // callAsync queues onto the JUCE message thread; safe from any thread.

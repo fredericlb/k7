@@ -64,6 +64,10 @@ constexpr int kBroadcastFramesPerPass = 32;
 constexpr size_t kBroadcastMaxQueuedBytes = 512 * 1024;
 
 // Sender thread only, so no synchronisation: it is the one thing that reads or writes it.
+// Sites that belong to no message yet: startup, and the broadcast sender. Named rather
+// than "" so the places still to be addressed by a real session are greppable.
+const std::string kDefaultSession;
+
 uint32_t broadcastSeq = 0;
 
 // Set by a connection thread when the first listener arrives, cleared by the sender, which
@@ -563,7 +567,7 @@ int main(int argc, char** argv) {
                         std::cerr << "[broadcast] listener gone (" << listeners.size()
                                   << " listening)\n";
                         if (listeners.empty())
-                            host.post([&host] { host.enableBroadcast(false); });
+                            host.post([&host] { host.enableBroadcast(kDefaultSession, false); });
                     }
                 }
                 bool announced;
@@ -592,6 +596,11 @@ int main(int argc, char** argv) {
 
             const std::string type = j.value("type", std::string{});
 
+            // WHICH project this message is about. Absent means the default session, so a
+            // client that has never heard of sessions keeps working exactly as before —
+            // which is what lets the engine grow this before the clients do.
+            const std::string session = j.value("session", std::string{});
+
             // The first REAL message — anything but a supervision or probe query — earns this connection its deferred line.
             if (probeQueries.count(type) == 0) {
                 bool firstReal;
@@ -612,7 +621,7 @@ int main(int argc, char** argv) {
                     return;
                 }
                 // Apply on the engine thread; broadcast the resulting changeset.
-                host.post([&host, &broadcast, doc = std::move(doc)]() mutable {
+                host.post([session, &host, &broadcast, doc = std::move(doc)]() mutable {
                     // What we were asked to play. Paired with the [applied] lines and [applyFull]'s timings, the log answers all
                     // three of "what arrived", "what did the engine do", and "why did it take that long".
                     std::cerr << "[project] '" << doc.name << "' " << doc.tempo << "bpm "
@@ -624,7 +633,7 @@ int main(int argc, char** argv) {
                     // then execute every queued click at once. Sent inside the posted lambda, so it marks when the work starts.
                     broadcast(json{{"type", "busy"}, {"busy", true}});
 
-                    const auto changes = host.apply(doc, "");   // paths are absolute
+                    const auto changes = host.apply(session, doc, "");   // paths are absolute
                     json r{{"type", "applied"}, {"changes", json::array()}};
                     std::vector<std::string> described;
                     described.reserve(changes.size());
@@ -665,7 +674,7 @@ int main(int argc, char** argv) {
                     else listeners.erase(&ws);
                     remaining = listeners.size();
                     if (first) firstListenerArrived.store(true, std::memory_order_relaxed);
-                    host.post([&host, want = remaining > 0] { host.enableBroadcast(want); });
+                    host.post([session, &host, want = remaining > 0] { host.enableBroadcast(session, want); });
                 }
                 std::cerr << "[broadcast] " << (on ? "listener added" : "listener removed")
                           << " (" << remaining << " listening)\n";
@@ -673,8 +682,8 @@ int main(int argc, char** argv) {
                 // Forget the project (plugins, edit, diff baseline) so the next one is built from scratch. Sent when the client
                 // switches projects: diffing a new song against the old is meaningless, and the old plugins must not survive.
                 // The engine stays up with its audio device and scan cache.
-                host.post([&host, &broadcast]() {
-                    host.reset();
+                host.post([session, &host, &broadcast]() {
+                    host.reset(session);
                     broadcast(json{{"type", "flushed"}});
                 });
             } else if (type == "transport") {
@@ -683,7 +692,7 @@ int main(int argc, char** argv) {
                 const double loopStart = j.value("start", 0.0);      // seconds; "loop" only
                 const double loopEnd = j.value("end", 0.0);          // seconds; "loop" only
                 const bool loopOn = j.value("enabled", false);       // "loop" only
-                host.post([&host, action, position, loopStart, loopEnd, loopOn] {
+                host.post([session, &host, action, position, loopStart, loopEnd, loopOn] {
                     // Every transport move is a deliberate user action, so one line each is signal — and it tells you whether a
                     // silent playback problem is "the engine never got play" or "it played and you heard nothing". The 20/second
                     // state broadcast stays out of the log, where it would drown everything else.
@@ -693,16 +702,16 @@ int main(int argc, char** argv) {
                         std::cerr << (loopOn ? " on" : " off") << " [" << loopStart
                                   << ", " << loopEnd << "]";
                     if (action == "toggle")
-                        std::cerr << " (" << (host.isPlaying() ? "playing -> stop"
+                        std::cerr << " (" << (host.isPlaying(session) ? "playing -> stop"
                                                               : "stopped -> play") << ")";
                     std::cerr << "\n";
 
-                    if (action == "play") host.play();
-                    else if (action == "stop") host.stop();
-                    else if (action == "toggle") host.isPlaying() ? host.stop() : host.play();
-                    else if (action == "rewind") host.rewind();
-                    else if (action == "seek") host.seek(position);
-                    else if (action == "loop") host.setLoop(loopStart, loopEnd, loopOn);
+                    if (action == "play") host.play(session);
+                    else if (action == "stop") host.stop(session);
+                    else if (action == "toggle") host.isPlaying(session) ? host.stop(session) : host.play(session);
+                    else if (action == "rewind") host.rewind(session);
+                    else if (action == "seek") host.seek(session, position);
+                    else if (action == "loop") host.setLoop(session, loopStart, loopEnd, loopOn);
                 });
             } else if (type == "preview") {
                 // Audition one sample over [start, start+length) seconds; length <= 0 is the whole file. Independent of the
@@ -711,10 +720,10 @@ int main(int argc, char** argv) {
                 const double start = j.value("start", 0.0);
                 const double length = j.value("length", 0.0);
                 if (! file.empty())
-                    host.post([&host, file, start, length] {
+                    host.post([session, &host, file, start, length] {
                         std::cerr << "[preview] " << file << " [" << start << ", "
                                   << length << "]\n";
-                        host.previewSample(file, start, length);
+                        host.previewSample(session, file, start, length);
                     });
             } else if (type == "arm") {
                 // Arm or disarm a track; omitting "armed" toggles. Session state — see EngineHost::setArmed. The reply says
@@ -723,8 +732,8 @@ int main(int argc, char** argv) {
                 std::optional<bool> armed;
                 if (j.contains("armed") && j.at("armed").is_boolean())
                     armed = j.at("armed").get<bool>();
-                host.post([&host, &broadcast, track, armed] {
-                    const auto r = host.setArmed(track, armed);
+                host.post([session, &host, &broadcast, track, armed] {
+                    const auto r = host.setArmed(session, track, armed);
                     if (!r.ok) {
                         std::cerr << "[rec] refused: " << r.error << '\n';
                         broadcast(json{{"type", "error"}, {"message", r.error}});
@@ -738,9 +747,9 @@ int main(int argc, char** argv) {
                 const bool has = j.contains("enabled") && j.at("enabled").is_boolean();
                 const std::optional<bool> want =
                     has ? std::optional<bool>(j.at("enabled").get<bool>()) : std::nullopt;
-                host.post([&host, &broadcast, want] {
-                    const bool on = want.value_or(!host.recordEnabled());
-                    host.setRecordEnabled(on);
+                host.post([session, &host, &broadcast, want] {
+                    const bool on = want.value_or(!host.recordEnabled(session));
+                    host.setRecordEnabled(session, on);
                     broadcast(json{{"type", "record-enabled"}, {"enabled", on}});
                 });
             } else if (type == "list-plugins" || type == "rescan-plugins") {
@@ -807,9 +816,9 @@ int main(int argc, char** argv) {
                 // Snapshot the plugin instances in the loaded edit for the tray's submenu. Reads pluginsById, so it must run on
                 // the message thread, and the reply is broadcast like list-audio-devices — a connection may have closed between
                 // post and send, and broadcast only iterates live clients.
-                host.post([&host, &broadcast] {
+                host.post([session, &host, &broadcast] {
                     json arr = json::array();
-                    for (const auto& p : host.pluginInstanceInfos())
+                    for (const auto& p : host.pluginInstanceInfos(session))
                         arr.push_back({{"id", p.id},
                                        {"name", p.name},
                                        {"hasNativePluginUI", p.hasNativePluginUI}});
@@ -818,9 +827,9 @@ int main(int argc, char** argv) {
             } else if (type == "show-native-plugin-ui") {
                 // Open a plugin's native editor window (external plugins only); the id is the PluginDoc id. Message thread.
                 const std::string id = j.value("id", std::string{});
-                host.post([&host, id] {
+                host.post([session, &host, id] {
                     std::cerr << "[native-plugin-ui] open '" << id << "'\n";
-                    host.showNativePluginUI(id);
+                    host.showNativePluginUI(session, id);
                 });
             } else if (type == "set-plugin-param") {
                 // Set one plugin parameter on the LIVE edit, for a control being dragged: `name` is its display name, `value`
@@ -830,7 +839,7 @@ int main(int argc, char** argv) {
                 const std::string id = j.value("id", std::string{});
                 const std::string name = j.value("name", std::string{});
                 const double value = j.value("value", 0.0);
-                host.post([&host, id, name, value] { host.setPluginParam(id, name, value); });
+                host.post([session, &host, id, name, value] { host.setPluginParam(session, id, name, value); });
             } else if (type == "get-plugin-params") {
                 // Every automatable parameter of a live plugin with its CURRENT value, replied as the same `plugin-params`
                 // message the editor-close path broadcasts — a module's UI asks once per load. The two differ in what they
@@ -838,10 +847,10 @@ int main(int argc, char** argv) {
                 // minimum because "no value was saved" would simply be wrong. `meta` rides alongside with each range and
                 // default, kept a SEPARATE object so a client reading only values stays untouched.
                 const std::string id = j.value("id", std::string{});
-                host.post([&host, &broadcast, id] {
+                host.post([session, &host, &broadcast, id] {
                     json params = json::object();
                     json meta = json::object();
-                    for (const auto& p : host.pluginParamInfos(id)) {
+                    for (const auto& p : host.pluginParamInfos(session, id)) {
                         params[p.name] = p.value;
                         json m{{"min", p.min}, {"max", p.max}};
                         if (p.hasDefault)
@@ -863,9 +872,9 @@ int main(int argc, char** argv) {
                 // The presets a MODULE's external plugin offers — program list plus the .vstpreset files — replied as `presets`
                 // for the module editor's dropdown. `module` is the name; the engine resolves it to a live instance.
                 const std::string module = j.value("module", std::string{});
-                host.post([&host, &broadcast, module] {
+                host.post([session, &host, &broadcast, module] {
                     json arr = json::array();
-                    for (const auto& p : host.listPresets(module))
+                    for (const auto& p : host.listPresets(session, module))
                         arr.push_back({{"name", p.name},
                                        {"source", p.source},
                                        {"index", p.index},
@@ -878,11 +887,11 @@ int main(int argc, char** argv) {
                 const std::string module = j.value("module", std::string{});
                 const int index = j.value("index", -1);
                 const std::string path = j.value("path", std::string{});
-                host.post([&host, module, index, path] {
+                host.post([session, &host, module, index, path] {
                     std::cerr << "[preset] " << module << " <- "
                               << (path.empty() ? ("program " + std::to_string(index)) : path)
                               << "\n";
-                    host.setPreset(module, index, path);
+                    host.setPreset(session, module, index, path);
                 });
             } else if (type == "watch-plugin-params") {
                 // Subscribe or unsubscribe a plugin from the live parameter stream — how a knob turned in the plugin's own
@@ -892,7 +901,7 @@ int main(int argc, char** argv) {
                 const std::string id = j.value("id", std::string{});
                 const bool on = j.value("on", true);
                 if (!id.empty())
-                    host.post([&host, id, on] { host.watchPluginParams(id, on); });
+                    host.post([session, &host, id, on] { host.watchPluginParams(session, id, on); });
             } else if (type == "subscribe-waveform" || type == "unsubscribe-waveform") {
                 // Subscribe or unsubscribe a module's waveform tap: `id` is the PluginDoc id and `side` is input or
                 // output. The tap is a transparent plugin capturing min/max envelopes at 20 Hz.
@@ -908,15 +917,15 @@ int main(int argc, char** argv) {
                 const std::string side = j.value("side", std::string{"output"});
                 const bool subscribe = (type == "subscribe-waveform");
                 if (!wfId.empty())
-                    host.post([&host, wfId, side, subscribe] {
+                    host.post([session, &host, wfId, side, subscribe] {
                         if (subscribe)
-                            host.enableWaveformTap(wfId, side);
+                            host.enableWaveformTap(session, wfId, side);
                         else
-                            host.disableWaveformTap(wfId, side);
+                            host.disableWaveformTap(session, wfId, side);
                     });
             } else if (type == "list-audio-devices") {
                 // Enumerate audio interfaces (message thread — touches JUCE devices).
-                host.post([&host, &broadcast] { broadcast(audioDevicesMsg(host)); });
+                host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
             } else if (type == "io-levels") {
                 // Meter the interface itself: one peak per `channels` entry, plus the master output. Asked for
                 // rather than ridden on the state frame — the I/O panel is the only thing that wants it, it
@@ -928,7 +937,7 @@ int main(int argc, char** argv) {
                     for (const auto& c : s) ch.push_back(c.get<int>());
                     sets.push_back(std::move(ch));
                 }
-                host.post([&host, &broadcast, sets] {
+                host.post([session, &host, &broadcast, sets] {
                     json levels = json::array();
                     json found = json::array();
                     for (const auto& l : host.channelLevelsDb(sets)) {
@@ -956,14 +965,14 @@ int main(int argc, char** argv) {
                                    {"pitches", pitches},
                                    {"clarity", clarity},
                                    {"devices", devices},
-                                   {"master", host.masterLevelDb()}});
+                                   {"master", host.masterLevelDb(session)}});
                 });
             } else if (type == "set-audio-device") {
                 // Open a specific interface, replying with the new device list or an error. `deviceType` is the backend — NOT
                 // "type", which is the message kind.
                 const std::string name = j.value("name", std::string{});
                 const std::string deviceType = j.value("deviceType", std::string{});
-                host.post([&host, &broadcast, name, deviceType] {
+                host.post([session, &host, &broadcast, name, deviceType] {
                     // Switching the interface reopens the audio graph, which is worth a line: a device that opens slowly, or not at
                     // all, shows up as silence rather than an error anywhere else. The failure path already warns.
                     std::cerr << "[device] opening '" << name << "'"
@@ -1087,7 +1096,7 @@ int main(int argc, char** argv) {
             // Honoured HERE because skipping is a move of the read cursor, which belongs to
             // this thread alone.
             if (firstListenerArrived.exchange(false, std::memory_order_relaxed))
-                host.skipBroadcastToLive();
+                host.skipBroadcastToLive(kDefaultSession);
             // Drain everything waiting, not one frame per pass. A fixed ceiling equal to
             // the production rate has NO headroom: any late wake-up adds backlog no later
             // pass can work off, so the ring fills within a second and stays full — a
@@ -1100,11 +1109,11 @@ int main(int argc, char** argv) {
                 {
                     std::lock_guard<std::mutex> lk(listenersMx);
                     if (listeners.empty()) {
-                        host.skipBroadcastToLive();
+                        host.skipBroadcastToLive(kDefaultSession);
                         break;
                     }
                 }
-                auto chunk = host.drainBroadcast(kBroadcastMaxFrames);
+                auto chunk = host.drainBroadcast(kDefaultSession, kBroadcastMaxFrames);
                 if (chunk.frames == 0) break;
 
                 // A rate of 0 means the tap has never been through initialise(). The

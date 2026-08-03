@@ -65,46 +65,46 @@ public:
 
     // Build a fresh Edit from the document and hand it to the engine, keeping a copy as the diff baseline.
     // baseDir resolves clip/plugin paths (empty when they are already absolute).
-    void applyFull(const ProjectDoc& doc, const std::string& baseDir);
+    void applyFull(const std::string& session, const ProjectDoc& doc, const std::string& baseDir);
 
     // Move the engine to `target` by the smallest set of changes: diff, apply incrementally (falling back to a full
     // rebuild when a change demands it), update the baseline, and return the changeset for logging.
-    ProjectDiff apply(const ProjectDoc& target, const std::string& baseDir);
+    ProjectDiff apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir);
 
     // Forget the project entirely — editors, plugins, preset state, the Edit and the diff baseline — leaving the
     // engine idle but alive with its audio device and scan cache. The next apply therefore rebuilds fully, so
     // nothing survives from the previous song. Message-thread only. See docs/engineHost.md.
-    void reset();
+    void reset(const std::string& session);
 
     // The document currently realised in the engine (source for the next diff). Reads the
     // DEFAULT session — see EngineHostImpl.h's s(). Out of line because Session is private.
-    const ProjectDoc& current() const;
+    const ProjectDoc& current(const std::string& session) const;
 
     // Transport controls (message-thread only).
-    void play();
-    void stop();
-    void rewind(); // move the playhead back to the start (beat 0)
+    void play(const std::string& session);
+    void stop(const std::string& session);
+    void rewind(const std::string& session); // move the playhead back to the start (beat 0)
     // Global record enable: play() records armed tracks only while this is on. Session state, message-thread only.
-    void setRecordEnabled(bool on);
-    bool recordEnabled() const;
-    void seek(double seconds); // move the playhead to an absolute position (clamped at 0)
+    void setRecordEnabled(const std::string& session, bool on);
+    bool recordEnabled(const std::string& session) const;
+    void seek(const std::string& session, double seconds); // move the playhead to an absolute position (clamped at 0)
     // Set the transport loop [start, end) in seconds and turn looping on or off; playback wraps engine-side, and
     // play() drops the playhead onto the start first. Message-thread only.
-    void setLoop(double startSeconds, double endSeconds, bool enabled);
-    bool isPlaying() const;
-    double playheadSeconds() const;
+    void setLoop(const std::string& session, double startSeconds, double endSeconds, bool enabled);
+    bool isPlaying(const std::string& session) const;
+    double playheadSeconds(const std::string& session) const;
 
     // Audition `file` over [start, start+length) seconds through a hidden one-shot sampler voice — the same
     // SamplerPlugin a rack uses, so it sounds as it would in the arrangement. length <= 0 plays the natural length.
     // Independent of the transport, so it works while stopped. Message-thread only.
-    void previewSample(const std::string& file, double startSeconds, double lengthSeconds);
+    void previewSample(const std::string& session, const std::string& file, double startSeconds, double lengthSeconds);
 
     // Per-track output level in dB, for meters (-100 == silent).
-    float trackLevelDb(int trackIndex) const;
+    float trackLevelDb(const std::string& session, int trackIndex) const;
 
     // Per-track live INPUT level in dB, one per track in doc order (-100 with no input): the peak since the last
     // poll, the same signal an armed track would capture. Feeds the state frame's trackInputLevelsDb.
-    std::vector<float> inputLevelsDb() const;
+    std::vector<float> inputLevelsDb(const std::string& session) const;
 
     // One metered channel set: its peak, and whether this rig HAS a device carrying those channels at all.
     // `found` exists because without it the two failures are one number: a channel nothing is plugged into and a
@@ -146,7 +146,7 @@ public:
     // Peak dB leaving the master — what an io "out" module puts on the interface. The output DEVICE carries no
     // measurer in Tracktion (only inputs do), so this reads a LevelMeterPlugin appended to the master plugin list
     // by buildLevelMeters. -100 with no edit loaded.
-    float masterLevelDb() const;
+    float masterLevelDb(const std::string& session) const;
 
     // --- Waveform taps (message-thread only; call via post()) ---------------
 
@@ -154,17 +154,18 @@ public:
     // into the chain beside that plugin; a no-op when already enabled for this id and side. The TRACK is derived
     // from the plugin, never passed in — the caller has no reliable track index to give (a chain can be a bus with
     // no track), and one that guessed put the tap on an unrelated lane.
-    void enableWaveformTap(const std::string& id, const std::string& side);
+    void enableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
     // Disable waveform tapping for a module. Removes the tap plugin from the chain.
-    void disableWaveformTap(const std::string& id, const std::string& side);
+    void disableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
     // Drain a module's accumulated envelope points, empty when no tap is active. Thread-safe (lock-free read).
-    std::vector<WaveformEnvelope> waveformData(const std::string& id,
+    std::vector<WaveformEnvelope> waveformData(const std::string& session,
+                                               const std::string& id,
                                                const std::string& side);
 
     // Drain every active tap, keyed "chain:module:side" — called by the state timer for each broadcast.
-    std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps();
+    std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps(const std::string& session);
 
     // --- Audio broadcast (TWO threads — read each method's own note) ---------
     //
@@ -178,8 +179,8 @@ public:
 
     // Put the tap on the master plugin list, or take it off. Idempotent. The tap survives
     // a project apply the way the level meters do — reasserted by buildLevelMeters.
-    void enableBroadcast(bool on);
-    bool isBroadcasting() const;
+    void enableBroadcast(const std::string& session, bool on);
+    bool isBroadcasting(const std::string& session) const;
 
     // What a drain answered with. `lostFrames` is what the writer overwrote before the
     // sender reached it — a real hole, which the sender reports as a sequence jump.
@@ -197,16 +198,16 @@ public:
     // SENDER THREAD ONLY, and exactly one of them: the ring is single-producer/
     // single-consumer, and a second caller would race the read cursor. It needs no lock and
     // no post() precisely because the ring is EngineHost's own and outlives every edit.
-    BroadcastChunk drainBroadcast(size_t maxFrames);
+    BroadcastChunk drainBroadcast(const std::string& session, size_t maxFrames);
 
     // Drop whatever is buffered and resume from live. Same thread as drainBroadcast — the
     // read cursor belongs to it. Called when a listener arrives, so it hears now rather
     // than the third of a second that was already in the ring.
-    void skipBroadcastToLive();
+    void skipBroadcastToLive(const std::string& session);
 
     // Open a plugin's native editor — the window the plugin itself draws, not the module's widget grid. `id` is the
     // PluginDoc id, and only external plugins have one. Message-thread only.
-    void showNativePluginUI(const std::string& id);
+    void showNativePluginUI(const std::string& session, const std::string& id);
 
     // One entry per plugin instance in the loaded edit: its PluginDoc id, display name, and whether
     // showNativePluginUI would open a window (built-ins report false). Feeds the tray's submenu. Message-thread only.
@@ -215,7 +216,7 @@ public:
         std::string name;
         bool hasNativePluginUI;
     };
-    std::vector<PluginInstanceInfo> pluginInstanceInfos() const;
+    std::vector<PluginInstanceInfo> pluginInstanceInfos(const std::string& session) const;
 
     // A selectable preset for an external plugin: an entry in its program list (pick by `index`) or a .vstpreset in
     // the standard folders (pick by `path`). A plain struct — no JUCE in this interface.
@@ -228,22 +229,22 @@ public:
 
     // List the presets a MODULE's live external plugin offers — its program list plus the .vstpreset files for it.
     // Empty when the module has no live external plugin. Message-thread only.
-    std::vector<PresetInfo> listPresets(const std::string& module);
+    std::vector<PresetInfo> listPresets(const std::string& session, const std::string& module);
 
     // Load a preset into EVERY live instance of `module` and persist it to the module's own .vstpreset, so the
     // choice survives a reload. A non-empty `presetPath` picks a file, else `programIndex` picks a program.
-    void setPreset(const std::string& module, int programIndex,
+    void setPreset(const std::string& session, const std::string& module, int programIndex,
                    const std::string& presetPath);
 
     // Set one automatable parameter on a live plugin, in the parameter's native range. Applies to the LIVE plugin
     // only — the caller owns persistence, so the value is lost on the next full rebuild unless it also lands in the
     // project. The live-drag path: called at interactive rates, so it does not log. Message-thread only.
-    void setPluginParam(const std::string& id, const std::string& name, double value);
+    void setPluginParam(const std::string& session, const std::string& id, const std::string& name, double value);
 
     // Every automatable parameter of `id` with its CURRENT value, in parameter order; empty when there is no such
     // plugin. This answers "what is it holding" — including defaults — unlike the broadcast and --dump-params,
     // which carry only what must be SAVED. Also the only way to enumerate a loaded plugin's names.
-    std::vector<std::pair<std::string, double>> pluginParams(const std::string& id) const;
+    std::vector<std::pair<std::string, double>> pluginParams(const std::string& session, const std::string& id) const;
 
     // The same set plus the metadata a control needs: the declared range and the default where there is one.
     // Ranges are in the parameter's OWN units, so a widget must take them as given rather than assume a convention.
@@ -257,13 +258,13 @@ public:
         // with the label rather than being derived from its index — see ParamRef::states.
         std::vector<std::pair<std::string, double>> states;
     };
-    std::vector<PluginParamInfo> pluginParamInfos(const std::string& id) const;
+    std::vector<PluginParamInfo> pluginParamInfos(const std::string& session, const std::string& id) const;
 
     // Start or stop watching a plugin's parameters: while watched, every change is pushed to onPluginParamsLive,
     // which is how a knob turned in the plugin's OWN window reaches a remote UI — the one direction nothing else
     // covers. Per-plugin and off by default (a watch costs a read per tick), and an id with no live plugin is
     // accepted so the interest survives a rebuild. Message-thread only. See docs/engineHost.md.
-    void watchPluginParams(const std::string& id, bool on);
+    void watchPluginParams(const std::string& session, const std::string& id, bool on);
 
     // --- Record arming (message-thread only; call via post()) -------------
 
@@ -277,9 +278,9 @@ public:
     // Arm or disarm a track; an unset `armed` TOGGLES, resolved here against the flag rather than by the caller
     // reading and inverting — which would race the 20/sec broadcast it read from. A track with no live input
     // cannot be armed: it would record silence. The flag is session state Tracktion keeps on an Edit we never save.
-    ArmResult setArmed(const std::string& trackId, std::optional<bool> armed);
+    ArmResult setArmed(const std::string& session, const std::string& trackId, std::optional<bool> armed);
     // The currently armed track ids, in doc order. Read for the state broadcast.
-    std::vector<std::string> armedTracks() const;
+    std::vector<std::string> armedTracks(const std::string& session) const;
 
     // Audio-interface selection (message-thread only). The open output device's name, or "" — which means the
     // engine can neither sound nor KEEP TIME: with no output there is no callback to advance the playhead, so the
@@ -298,6 +299,10 @@ public:
 
     // A snapshot the server pushes to clients.
     struct EngineState {
+        // WHICH session this frame describes. Empty is the default session — what a client
+        // that has not asked for one drives. Carried on every frame because with N sessions
+        // an unlabelled one is a frame nobody can route.
+        std::string session;
         bool playing = false;
         double playheadSeconds = 0.0;
         std::vector<float> trackLevelsDb;   // one per track, -100 == silent
@@ -317,6 +322,12 @@ public:
     };
 
     // Marshal `fn` onto the engine (message) thread — safe from any thread, which is how the network thread mutates.
+    /** The sessions that exist, in id order. The state timer walks this. */
+    std::vector<std::string> sessionIds() const;
+
+    /** Forget a session entirely. What `flush` means once it addresses one project. */
+    void dropSession(const std::string& session);
+
     void post(std::function<void()> fn);
 
     // Invoke `cb` with a fresh snapshot every intervalMs, on the engine thread.
@@ -338,7 +349,7 @@ public:
     // Report any watched plugin whose parameters moved, called by the state timer — so a watch is bounded by the
     // meters' cadence. Sampling rather than listening is what stops a fast drag flooding the socket; the cost is
     // that a change reverted within a tick is never seen, which for a display is the right trade.
-    void pumpPluginParamWatches();
+    void pumpPluginParamWatches(const std::string& session);
 
     // The sink invoked once a take is finished, closed and renamed: track id, absolute .wav path, and position in
     // SECONDS. The engine stops there — the brain turns that into a clip and a placement. Seconds, not beats,
@@ -353,28 +364,28 @@ public:
 private:
     // Drop everything derived from the current project — editors, plugin refs, preset state, meters — in the order
     // that keeps editors from outliving their plugins. Shared by applyFull() and reset(); leaves the Edit alone.
-    void teardownProjectState();
+    void teardownProjectState(const std::string& session);
 
     // Append a per-track LevelMeterPlugin + metering client after a rebuild, so trackLevelDb() has levels to report.
-    void buildLevelMeters();
+    void buildLevelMeters(const std::string& session);
 
     // Project the doc's metronome flag onto the Edit's click track (enable + emphasise bars). Called by every apply
     // path after the session's `current` is updated, so the click follows the doc; a no-op with no Edit.
-    void applyMetronome();
+    void applyMetronome(const std::string& session);
 
     // Point a track at its live input (or clear it) and set the monitor mode. Needs an allocated playback context —
     // the input instances live on it — so it runs AFTER ensureContextAllocated(), never inside populateEdit().
-    void applyTrackInput(const TrackDoc& t);
+    void applyTrackInput(const std::string& session, const TrackDoc& t);
     // Re-apply every track's input, for the full-rebuild path where the whole playback context was just replaced.
-    void applyAllTrackInputs(const ProjectDoc& doc);
+    void applyAllTrackInputs(const std::string& session, const ProjectDoc& doc);
 
     // Name each armed track's take and point the input devices at recordDir_, called from play() the moment before
     // the transport rolls so the filename's timestamp is the take's start. False (and logged) with no recordDir.
-    bool prepareTakes();
+    bool prepareTakes(const std::string& session);
 
     // Create once and attach the record listener to the current edit's transport. Defined in Recording.cpp, where
     // RecordListener is complete; applyFull() calls it after building the edit.
-    void attachRecordListener();
+    void attachRecordListener(const std::string& session);
 
     // Catches the end of a take. It needs the pending take names, the current doc and the edit to turn "target X
     // finished" into "track drums recorded this file", so it is a friend rather than carrying copies of all three.

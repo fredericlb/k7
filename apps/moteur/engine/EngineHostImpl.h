@@ -145,15 +145,17 @@ struct EngineHost::Impl {
         return it == sessions.end() ? nullptr : it->second.get();
     }
 
-    /**
-     * The DEFAULT session — the one every un-addressed call still means.
-     *
-     * It exists so this refactor could land without touching the wire: every caller that
-     * has no session id yet gets this one, and behaviour is unchanged. The protocol grows
-     * a session id next; this is what lets the two steps be separate commits.
-     */
-    static constexpr const char* DEFAULT_SESSION = "";
-    Session& s() { return session(DEFAULT_SESSION); }
+    /** Forget a session entirely — its Edit, plugins, meters and taps. What `flush` means
+     *  once flush is addressed to one project rather than to the engine. */
+    void drop(const std::string& id) { sessions.erase(id); }
+
+    /** Which sessions exist, for the state timer: it emits one frame per session, and a
+     *  session nobody has sent a project to has nothing to report. */
+    std::vector<std::string> ids() const {
+        std::vector<std::string> out;
+        for (const auto& [id, _] : sessions) out.push_back(id);
+        return out;
+    }
 
     // The I/O panel's tuner: a second audio callback on the device manager, reading raw interface inputs. Held
     // here so it outlives every Edit like the input meters do, and registered LAZILY — an engine nobody is
@@ -195,8 +197,8 @@ struct EngineHost::Impl {
         pluginParamsLiveCb;
     std::function<void(const std::string&, const std::string&, double, double)> recordedCb;
 
-    // The default session's transport, for the un-addressed callers. See s().
-    te::TransportControl* transport() { return s().transport(); }
+    // A session's transport, or nullptr when it carries no Edit.
+    te::TransportControl* transport(const std::string& id) { return session(id).transport(); }
 };
 
 }  // namespace lanes
