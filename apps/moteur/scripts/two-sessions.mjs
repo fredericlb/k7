@@ -17,6 +17,20 @@ ws.on("open", () => {
   send(ws, { type:"project", session:"platines", doc: doc("depuis-platines", 64) });
   setTimeout(() => { send(ws,{type:"transport",session:"lanes",action:"play"});
                      send(ws,{type:"transport",session:"platines",action:"play"}); }, 2500);
-  setTimeout(() => { ws.close(); process.exit(0); }, 9000);
+  // Chaque session ecoute la SIENNE, sur sa propre socket.
+  const counts = { lanes: 0, platines: 0 };
+  for (const sid of ["lanes", "platines"]) {
+    const l = new WebSocket("ws://127.0.0.1:8833");
+    l.binaryType = "arraybuffer";
+    l.on("open", () => l.send(JSON.stringify({ type: "broadcast", session: sid, on: true })));
+    l.on("message", (d, bin) => { if (bin) counts[sid]++; });
+  }
+  setTimeout(() => {
+    console.log("trames recues par session :", counts);
+    const ok = counts.lanes > 100 && counts.platines > 100;
+    console.log(ok ? "OK — chaque session recoit son propre flux"
+                   : "ECHEC — une session ne recoit rien");
+    process.exit(ok ? 0 : 1);
+  }, 12000);
 });
 ws.on("error", e => { console.error(e.message); process.exit(1); });
