@@ -1,12 +1,12 @@
 # @studio/translator
 
 Converts a [DAWproject](https://github.com/bitwig/dawproject) file into a
-lanes **node project** (all-CUE). Pure offline converter — it never talks to
+pistes **node project** (all-CUE). Pure offline converter — it never talks to
 the engine or the WebSocket; its only contract is the folder layout / CUE schema
 that `@studio/song` reads.
 
 ```
- *.dawproject ──(translator)──► node project ──(lanes graph)
+ *.dawproject ──(translator)──► node project ──(pistes graph)
 ```
 
 ## Use
@@ -23,7 +23,7 @@ import { emitFolder } from "@studio/translator/emit";            // Song   -> th
 ```
 
 `resolvePluginParams` takes the engine binary as an argument — locating it is the
-caller's job (`lanes import` uses `@studio/engine-client/engineBinary`), so
+caller's job (`pistes import` uses `@studio/engine-client/engineBinary`), so
 this package never has to guess where the repo is.
 
 Produces a self-contained folder (default: `./My Song/` next to the input):

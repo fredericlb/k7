@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes's CodeMirror editor language stack \u2014 the YAML language mode + schema-derived completions + entity links, and the sequence 'tracker' note-grid widget. Consumed as source.",
+  "description": "pistes's CodeMirror editor language stack \u2014 the YAML language mode + schema-derived completions + entity links, and the sequence 'tracker' note-grid widget. Consumed as source.",
   "exports": {
     "./yaml/language": "./src/yaml/language.ts",
     "./yaml/entityLinks": "./src/yaml/entityLinks.ts",
@@ -11,6 +11,7 @@
     "./yaml/previewTriggers": "./src/yaml/previewTriggers.ts",
     "./yaml/entityValues": "./src/yaml/entityValues.ts",
     "./yaml/completions": "./src/yaml/completions.ts",
+    "./yaml/vocabulary": "./src/yaml/vocabulary.ts",
     "./yaml/keyPath": "./src/yaml/keyPath.ts",
     "./tracker/notes": "./src/tracker/notes.ts",
     "./tracker/plugin": "./src/tracker/plugin.ts",
@@ -32,6 +33,7 @@
     "@codemirror/state": "^6.4.0",
     "@codemirror/view": "^6.34.0",
     "@lezer/highlight": "^1.2.0",
+    "@studio/song": "*",
     "@studio/web-protocol": "*"
   },
   "devDependencies": {

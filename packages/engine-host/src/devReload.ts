@@ -37,7 +37,7 @@ export function armDevReload(onReload: () => void): boolean {
   let timer: NodeJS.Timeout | null = null;
   try {
     watch(dir, { recursive: true }, (_event, filename) => {
-      // Only source: an editor swap file or a `.lanes` write under the same tree would reload us for nothing.
+      // Only source: an editor swap file or a `.studio` write under the same tree would reload us for nothing.
       if (filename && !/\.(ts|mts|json)$/.test(filename)) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(onReload, DEBOUNCE_MS);

@@ -1,5 +1,5 @@
-// types.ts — the API contract between lanes/web's backend and frontend.
-// The backend serves the files of one lanes project directory; the frontend
+// types.ts — the API contract between pistes/web's backend and frontend.
+// The backend serves the files of one pistes project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
 // A node in the project file tree: dirs carry `children`, files a `kind` (`binary` is shown, not edited).
@@ -8,7 +8,7 @@ export interface FileNode {
   path: string; // workspace-relative, POSIX separators (e.g. "modules/instruments/synth/module.yaml")
   dir: boolean;
   kind?: "text" | "binary"; // files only
-  project?: boolean; // dirs only — true when the folder is a lanes project (has project.yaml)
+  project?: boolean; // dirs only — true when the folder is a pistes project (has project.yaml)
   children?: FileNode[]; // dirs only
 }
 
@@ -21,11 +21,20 @@ export interface ForkedModule {
   chains: string[]; // the chains repointed at the copy
 }
 
-// A module's panel file in the workspace's `_ui` library — what the module editor's widget grid edits. It may
+// A module's `ui.yaml`, the file beside its `module.yaml` — what the module editor's widget grid edits. It may
 // not exist on disk yet: `path` is then where it WOULD go and `content` a blank grid, so the first save creates
 // it through the ordinary write route.
 export interface ModuleUiFile {
   ref: string; // the module the panel draws, e.g. "@engine/audio/delay/tape-delay"
+  path: string; // workspace-relative
+  content: string;
+  exists: boolean;
+}
+
+// A module's `presets.yaml` — its named settings, the third file of the folder. Same four fields as the panel
+// above and for the same reason: the module may not have a shelf yet, and the first save is what creates it.
+export interface ModulePresetsFile {
+  ref: string; // the module the presets belong to
   path: string; // workspace-relative
   content: string;
   exists: boolean;
@@ -49,7 +58,7 @@ export interface GitStatus {
 
 // The alternatives (branches) of the workspace repo — mirrors @studio/commands/git.
 // `parent` is the branch an alternative was started from, "" for one that is not an
-// alternative (the root branch, or a branch made outside lanes).
+// alternative (the root branch, or a branch made outside pistes).
 export interface Alternatives {
   current: string;
   parent: string;
@@ -95,7 +104,7 @@ export interface Hints {
   // The shared asset library (project.libraries_from), library-relative — a UI's library dropdown lists these.
   libraryFiles: string[];
   paramsByBase: Record<string, string[]>; // base ref -> known param names
-  // …and their ranges, for the bases whose plugin is a built-in lanes defines. A widget bound without one is
+  // …and their ranges, for the bases whose plugin is a built-in pistes defines. A widget bound without one is
   // drawn 0..1, which is simply wrong for a -60..+6 dB fader. The live engine's report wins where it exists.
   paramMetaByBase: Record<
     string,
@@ -111,7 +120,7 @@ export interface Hints {
     }
   >;
   keywords: string[]; // words YAML gives meaning to (true/false/null, …)
-  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.lanes/exts.json).
+  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.studio/exts.json).
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file defining it (module|base|sink|track|clip|sequence|chain).
   paths: Record<string, string>;
@@ -148,7 +157,7 @@ export interface CatalogueModule {
   // is the whole point — its substance is the plugin, and the plugin is the engine's.
   path?: string;
   instances: number; // how many instances sit beside it
-  hasUi: boolean; // it already has a panel in `_ui`
+  hasUi: boolean; // it already has a `ui.yaml` beside it
 }
 
 // User preferences, formatted for display. `vim` is the only one the web writes back; the rest mirror rig config.
@@ -395,8 +404,8 @@ export interface ProjectErrors {
 }
 
 // --- Chains: the routing graph --------------------------------------------------
-// Moved to @studio/graph-model. Three apps draw chains — lanes, mediatek's module
-// builder and platines — and only lanes wants the rest of this file, so the graph
+// Moved to @studio/graph-model. Three apps draw chains — pistes, mediatek's module
+// builder and platines — and only pistes wants the rest of this file, so the graph
 // model is its own package. Import it from there, not through here.
 
 // ── Engine-side file service headers ─────────────────────────────────────────
@@ -404,11 +413,11 @@ export interface ProjectErrors {
 // identity, context and a light gate as headers.
 
 /** The authenticated user's email — the file service slugifies it to pick the root. */
-export const USER_HEADER = "x-lanes-user";
-/** The chosen workspace name under ~/.lanes/root/<slug>/. */
-export const WORKSPACE_HEADER = "x-lanes-workspace";
+export const USER_HEADER = "x-studio-user";
+/** The chosen workspace name under ~/.studio/root/<slug>/. */
+export const WORKSPACE_HEADER = "x-studio-workspace";
 /** The engine's token (from the whoami probe) — the file service's light LAN gate. */
-export const ENGINE_TOKEN_HEADER = "x-lanes-engine-token";
+export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
 
 // ── The engine assignment ────────────────────────────────────────────────────
 // "Assigned" is a LEASE: a closed tab can only say goodbye best-effort, so the truth has to expire on its own.
@@ -432,7 +441,7 @@ export interface EngineAddresses {
   filePort: number; // the engine-side file service's HTTP port (same host set)
 }
 
-/** A workspace under ~/.lanes/root/<slug>/, as the picker lists them. */
+/** A workspace under ~/.studio/root/<slug>/, as the picker lists them. */
 export interface WorkspaceSummary {
   name: string; // the folder name (== the workspace name the user picks)
   projectCount: number; // number of project.yaml folders inside (0 for empty)

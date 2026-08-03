@@ -12,7 +12,7 @@ import { DomChains, type FitToFn } from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import { LANES_ICONS } from "../chainsIcons";
+import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import type { WebGraph } from "../types";
 import { useIsMobile } from "../useIsMobile";
@@ -434,7 +434,7 @@ export function ChainsTab({
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
-            icons={LANES_ICONS}
+            icons={STUDIO_ICONS}
             graph={shown}
             selected={selected}
             activeTracks={activeTracks}

@@ -33,7 +33,7 @@ export function Markdown({ body }: { body: string }) {
         "[&_td]:border-b [&_td]:border-border/40 [&_td]:py-1 [&_td]:pr-3 [&_td]:align-top",
         "[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:italic",
       ].join(" ")}
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: build-time markdown from lanes/docs/, never user input — see the note at the top of this file.
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: build-time markdown from pistes/docs/, never user input — see the note at the top of this file.
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

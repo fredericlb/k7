@@ -90,13 +90,13 @@ export function describeTimeline(p: ProjectDoc): string[] {
 // --- cli ---------------------------------------------------------------------
 
 function main(): void {
-  // Positionals: <project> [trackname] — mirroring `lanes project inspect graph`.
+  // Positionals: <project> [trackname] — mirroring `pistes project inspect graph`.
   const [projectArg, trackArg] = process.argv
     .slice(2)
     .filter((a) => !a.startsWith("-"));
   if (!projectArg) {
     console.error(
-      "usage: lanes project inspect timeline <project> [trackname]",
+      "usage: pistes project inspect timeline <project> [trackname]",
     );
     process.exit(2);
   }

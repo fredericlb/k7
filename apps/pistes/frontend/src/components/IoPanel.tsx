@@ -67,7 +67,7 @@ const NOTE_NAMES = [
   "A♯",
   "B",
 ];
-/** Concert pitch. Hard-coded rather than a setting — nothing else in lanes has a tuning reference yet. */
+/** Concert pitch. Hard-coded rather than a setting — nothing else in pistes has a tuning reference yet. */
 const A4_HZ = 440;
 /** Within this many cents reads as in tune, which is the tolerance a tuner's centre band conventionally means. */
 const IN_TUNE_CENTS = 5;

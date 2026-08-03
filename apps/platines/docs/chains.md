@@ -1,7 +1,7 @@
 # The chains view in platines — and what a second host proved
 
 Étape 5 moved the chains graph into `@studio/ui-chains-react` and inverted its couplings,
-with lanes as the only witness. The plan was explicit that this was not proof:
+with pistes as the only witness. The plan was explicit that this was not proof:
 
 > platines (second consommateur des étapes 5 et 6 : **c'est là qu'on découvre si les
 > coutures étaient réelles**)
@@ -18,8 +18,8 @@ The plan carried this as tension #3, unresolved:
 > ces apps écrivent un dossier de projet jetable — **moche, immédiat**.
 
 It is wrong, and pleasantly so. **`WebGraph` is a wire type, not a compiler output.** Every
-field in it is plain data; nothing in it names a file, a project or a disk. lanes produces
-one from a compiled folder because that is where lanes' truth lives — nothing ever said the
+field in it is plain data; nothing in it names a file, a project or a disk. pistes produces
+one from a compiled folder because that is where pistes' truth lives — nothing ever said the
 compiler was its only producer.
 
 So `deckGraph()` builds one from platines' own state, in the browser, and the *same*
@@ -33,7 +33,7 @@ whether that is the type's fault or the producer's. Here it was the producer's.
 
 `DomChains` needs five things: `icons`, `graph`, `selected`, `onSelect`, `command`.
 `ChainsPanel` is about sixty lines and typechecked on the first attempt — no prop had to be
-added, nothing had to be exported that was not, and no lanes-shaped assumption leaked
+added, nothing had to be exported that was not, and no pistes-shaped assumption leaked
 through. That is the inversion of étape 5a doing its job.
 
 One honest note on `command`: platines has no command bar, and the prop is required. Rather
@@ -44,19 +44,19 @@ that silently does nothing.
 ## 3. `moduleIcons` belonged in the package after all
 
 Étape 5 planned to move `moduleIcons`/`trackIcons` into the graph package and then didn't;
-lanes' `chainsIcons.ts` argued they were "the APP's vocabulary".
+pistes' `chainsIcons.ts` argued they were "the APP's vocabulary".
 
-That argument is **true for `TrackIcon`** — lanes draws the same lanes in its mixer and its
+That argument is **true for `TrackIcon`** — pistes draws the same lanes in its mixer and its
 timeline, so a graph package owning it would have those two importing one — and **false for
 `ModuleIcon`**, which is keyed on `WebModuleCategory`, the graph's own vocabulary, and whose
 only consumer anywhere was that icon table.
 
 platines needing module glyphs and having no mixer is what made the difference visible. So
 `moduleIcons.tsx` moved to `@studio/ui-chains-react/module-icons`; `trackIcons` stayed. Its
-one tie to lanes — the `TrackGlyph` type, two fields — became a local `Glyph`, which is a
+one tie to pistes — the `TrackGlyph` type, two fields — became a local `Glyph`, which is a
 cheaper duplication than the coupling.
 
-platines' own `TrackIcon` is a turntable, because a deck is not a lane: lanes' reads a name
+platines' own `TrackIcon` is a turntable, because a deck is not a lane: pistes' reads a name
 *prefix* to choose between drums and vocals, and platines has no such convention.
 
 ## The graph is not decorative
@@ -90,7 +90,7 @@ callers are unchanged.
 * **No context menu, no edge insert, no canvas insert.** All optional props; platines passes
   none, so a right-click does nothing. Adding a module goes through the dropdown under the
   graph instead, which is honest for a v1 and ugly.
-* **No module parameters.** `pluginParamsStore` and `setPluginParam` are wired in lanes and
+* **No module parameters.** `pluginParamsStore` and `setPluginParam` are wired in pistes and
   not here, so a node's widgets draw nothing. That is the next thing worth doing, and it
   needs the engine's live params — which mediatek's builder already knows how to ask for.
 * **Never run end to end.** 21 tests and a clean typecheck; whether the graph draws what

@@ -15,6 +15,12 @@ It is glue and nothing else: the build is `build-engine.mjs --dev`, the launch i
 `start-engine.mjs`. Both already existed; what was missing was the stop, the ordering and
 the verdict.
 
+Those four steps — `running`, `stopAll`, `buildDevApp`, `launch` — live in
+`trayProcess.mjs`, because the repo's `npm run dev` session drives the same loop from a
+watcher (see [docs/dev.md](../../../../docs/dev.md)). They **throw** where this script
+used to `process.exit`: the one-shot command turns that back into an exit code, and a
+watcher that must outlive a failed build cannot afford either.
+
 ## Why not `tauri dev`
 
 `tauri dev` is the right tool when a human is watching a terminal: it holds the console,
@@ -61,7 +67,7 @@ seconds later. On Unix the same `process.kill` sends SIGTERM, which the signal t
 
 A tray that starts and supervises nothing looks exactly like a healthy one from the
 outside — the failure `hostcmd.rs` is written to shout about. So the script does not
-report success on "the process is still running". It watches `~/.lanes/.lanes.log`, the
+report success on "the process is still running". It watches `~/.studio/.studio.log`, the
 merged log `logbus::init` **truncates on every launch**, and waits for one of the lines
 `host.rs` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
 start supervisor`. Only the first is success; the tail is printed either way.
@@ -71,6 +77,6 @@ records the time just before launching and ignores the file until its mtime move
 
 Before that file exists there is still a window — a Rust panic in `main` — which is why
 `start-engine.mjs` now redirects the tray's own stdout to `.cache/dev/tray.log` instead of
-dropping it. That path is deliberately not under `~/.lanes`: the layout there is a
+dropping it. That path is deliberately not under `~/.studio`: the layout there is a
 contract owned by `packages/engine-host/src/paths.ts`, and a dev script has no business
 adding to it.

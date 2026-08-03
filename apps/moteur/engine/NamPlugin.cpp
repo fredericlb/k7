@@ -5,9 +5,10 @@
 #include <exception>
 #include <filesystem>
 
-namespace lanes {
+namespace studio {
 
-const char* NamPlugin::xmlTypeName = "lanes_nam";
+// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+const char* NamPlugin::xmlTypeName = "studio_nam";
 
 namespace {
 
@@ -69,7 +70,7 @@ std::optional<double> NamPlugin::modelLoudness() const
 
 juce::ValueTree NamPlugin::create()
 {
-    // The ids live in tracktion::engine::IDs — unqualified they resolve to nothing, this namespace being lanes's.
+    // The ids live in tracktion::engine::IDs — unqualified they resolve to nothing, this namespace being pistes's.
     juce::ValueTree v(tracktion::engine::IDs::PLUGIN);
     v.setProperty(tracktion::engine::IDs::type, xmlTypeName, nullptr);
     return v;
@@ -206,4 +207,4 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
             ctx.destBuffer->getWritePointer(ch, start), out, numSamples);
 }
 
-}  // namespace lanes
+}  // namespace studio

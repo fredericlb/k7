@@ -4,6 +4,7 @@
 // The file service base + the identity/workspace/engine-token headers are set by
 // configureFileApi once an engine + workspace are chosen (see WorkspaceGate).
 
+import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   type Alternatives,
   type CatalogueModule,
@@ -17,6 +18,7 @@ import {
   type GitStatus,
   type Hints,
   type IoPort,
+  type ModulePresetsFile,
   type ModuleUiFile,
   type PresetInfo,
   type PreviewReq,
@@ -36,6 +38,11 @@ import {
   type WorkspaceList,
 } from "./types";
 
+// The app is mounted under a path (studio.test/pistes), so every backend path
+// below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed here
+// so the literals keep reading as paths.
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 /**
  * The médiathèque, which is somewhere else entirely.
  *
@@ -46,7 +53,7 @@ import {
  */
 export const MEDIATEK_URL = import.meta.env.PROD
   ? "https://media.studio.frediver.se"
-  : "https://mediatek.test";
+  : "https://studio.test/mediatek";
 
 // ── The hosted backend (same-origin): auth + registry ───────────────────────────
 async function get<T>(path: string): Promise<T> {
@@ -132,10 +139,15 @@ function fileHeaders(extra?: HeadersInit): HeadersInit {
 }
 async function fget<T>(path: string): Promise<T> {
   const res = await fetch(cfg().base + path, { headers: fileHeaders() });
-  if (!res.ok)
-    throw new Error(
+  if (!res.ok) {
+    const e: Error & { status?: number } = new Error(
       (await res.json().catch(() => ({}))).error ?? `GET ${path} failed`,
     );
+    // Carried for the one caller that has to tell "nothing there" from "it went wrong" —
+    // fsend already did this for the upload's 409, and for the same kind of reason.
+    e.status = res.status;
+    throw e;
+  }
   return res.json() as Promise<T>;
 }
 async function fsend<T>(
@@ -178,7 +190,14 @@ export interface AuthUser {
 
 export const api = {
   // --- Auth (hosted backend, same-origin) ---
-  loginUrl: "/auth/login",
+  // A GETTER, not a constant: it must capture where you are when you click, and
+  // `return_to` is the name the OIDC package reads (a `redirect` param is ignored).
+  // Without it login falls back to APP_ROOT — which used to be this app because it
+  // owned the origin, and is now the bare studio.test that belongs to nobody.
+  get loginUrl(): string {
+    const here = window.location.pathname + window.location.search;
+    return `/auth/login?return_to=${encodeURIComponent(here)}`;
+  },
   getMe: async (): Promise<AuthUser | null> => {
     const res = await fetch("/auth/me");
     if (res.status === 401) return null;
@@ -188,26 +207,30 @@ export const api = {
   logout: () => fetch("/auth/logout", { method: "POST" }).then(() => undefined),
 
   // --- Engine registry (hosted backend, same-origin) ---
-  engines: () => get<PublicEngine[]>("/api/engines"),
+  engines: () => get<PublicEngine[]>(`${BASE}/api/engines`),
   selectEngine: (id: string, token: string, tier: number) =>
-    send<{ ok: true }>("POST", "/api/engine/select", { id, token, tier }),
+    send<{ ok: true }>("POST", `${BASE}/api/engine/select`, {
+      id,
+      token,
+      tier,
+    }),
   // The assignment's goodbye, fired on pagehide as a beacon so it survives the tab closing.
   releaseEngine: (id: string) =>
     navigator.sendBeacon(
-      "/api/engine/release",
+      `${BASE}/api/engine/release`,
       new Blob([JSON.stringify({ id })], { type: "application/json" }),
     ),
 
   // --- What this service remembers about YOU (hosted backend, same-origin) ---
   // NOT `preferences` below, and the two must never be confused: that one is the RIG's
-  // (~/.lanes/preferences.yaml on the engine's machine, shared by everyone who selects it),
+  // (~/.studio/preferences.yaml on the engine's machine, shared by everyone who selects it),
   // this one is the account's, on the hosted volume, and follows you to another browser.
   //
   // The engine id and not its address: an engine's IP moves between networks while its
   // identity does not, and the browser re-probes the addresses on every load anyway.
-  accountPrefs: () => get<{ engineId?: string }>("/api/preferences"),
+  accountPrefs: () => get<{ engineId?: string }>(`${BASE}/api/preferences`),
   saveAccountPrefs: (p: { engineId?: string }) =>
-    send<{ ok: true }>("PUT", "/api/preferences", p),
+    send<{ ok: true }>("PUT", `${BASE}/api/preferences`, p),
 
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
   listWorkspaces: () => fget<WorkspaceList>("/workspaces"),
@@ -232,7 +255,7 @@ export const api = {
     fsend<{ project: string; log: string[] }>("POST", "/import-dawproject", {
       path,
     }),
-  // Scaffold a project at the workspace root (the same scaffold `lanes create` runs) and return its path.
+  // Scaffold a project at the workspace root (the same scaffold `pistes create` runs) and return its path.
   createProject: (type: "audio" | "video", name: string) =>
     fsend<{ project: string }>("POST", "/project/create", { type, name }),
   // Delete a project: unload it and move it to _recycle_bin. Reversible, but it can no longer be started.
@@ -269,9 +292,12 @@ export const api = {
       path,
       content,
     }),
-  // The `_ui` panel file a module file's grid edits — existing, or scaffolded at the path it would take.
+  // The `ui.yaml` beside a module file, which its grid edits — existing, or scaffolded at the path it would take.
   moduleUi: (path: string) =>
     fget<ModuleUiFile>(`/module-ui?path=${encodeURIComponent(path)}`),
+  // …and its `presets.yaml`, the module's third file, answered the same way.
+  modulePresets: (path: string) =>
+    fget<ModulePresetsFile>(`/module-presets?path=${encodeURIComponent(path)}`),
   // Make an empty folder `name` inside `dir`. Returns its workspace-relative path.
   createFolder: (dir: string, name: string) =>
     fsend<{ path: string }>("POST", "/folder", { dir, name }),
@@ -373,8 +399,8 @@ export const api = {
       filename: mn ? mn[1] : `mixdown.${format}`,
     };
   },
-  // Publish to radiok7. A song radiok7 doesn't know answers { needsMeta }, and the caller calls again with them.
-  shareRadiok7: (meta?: { artist?: string; title?: string }) =>
+  // Publish to k7. A song k7 doesn't know answers { needsMeta }, and the caller calls again with them.
+  shareK7: (meta?: { artist?: string; title?: string }) =>
     fsend<{
       ok: boolean;
       needsMeta?: boolean;
@@ -383,7 +409,7 @@ export const api = {
       releaseId?: string;
       title?: string;
       stems?: number;
-    }>("POST", "/share/radiok7", meta ?? {}),
+    }>("POST", "/share/k7", meta ?? {}),
   prewarmWaveforms: () =>
     fsend<WaveformStatus>("POST", "/waveforms/prewarm", {}),
   waveformStatus: () => fget<WaveformStatus>("/waveforms/status"),
@@ -393,14 +419,50 @@ export const api = {
   command: (line: string) =>
     fsend<{ output: string[] }>("POST", "/command", { line }),
 
-  // --- user presets (project-local, per module) ---
-  // The user's own presets for a module, discovered in the song — the factory ones ride the WebSocket.
+  // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
+  // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.
   listUserPresets: (ref: string) =>
     fget<{ presets: PresetInfo[] }>(`/presets?ref=${encodeURIComponent(ref)}`),
-  // Snapshot a module's current state as a new named preset in its own preset library.
+  // Snapshot a module's current params as a new named preset on its shelf.
   savePreset: (module: string, name: string) =>
     fsend<{ path: string }>("POST", "/presets/save", { module, name }),
-  // Apply a user preset onto a module; the brain writes it and reloads the project so the engine hears it.
-  applyPreset: (module: string, path: string) =>
-    fsend<{ ok: true }>("POST", "/presets/apply", { module, path }),
+  // Apply one BY NAME; the brain writes its values and reloads the project so the engine hears it.
+  applyPreset: (module: string, name: string) =>
+    fsend<{ ok: true }>("POST", "/presets/apply", { module, name }),
+};
+
+/**
+ * The shared module builder's view of the file service (`@studio/ui-module-builder/store`).
+ *
+ * Four calls, all already above — the adapter is shapes, not behaviour, except for `write`:
+ * a save aimed at the shared `_modules` library is REDIRECTED onto a project copy, and the
+ * builder has to be told, because the file it is editing has just moved (see moduleFork.ts).
+ * A `ui.yaml` is the one thing that saves in place there, so it comes back unredirected.
+ */
+export const moduleStore: ModuleStore = {
+  // Absent is `null`, not a throw — see ModuleStore.read. The file service answers 404 for a
+  // path with nothing at it, and a module the project has yet to write is exactly that.
+  read: async (path) => {
+    try {
+      return (await api.read(path)).content;
+    } catch (e) {
+      if ((e as { status?: number }).status === 404) return null;
+      throw e;
+    }
+  },
+  moduleUi: (path) => api.moduleUi(path),
+  presets: (path) => api.modulePresets(path),
+  hints: () => api.hints(),
+  write: async (path, content) => {
+    const { forked } = await api.write(path, content);
+    if (!forked) return {};
+    return {
+      path: forked.path,
+      note:
+        `${forked.ref} is shared — saved a project copy as ${forked.module}` +
+        (forked.chains.length
+          ? `, and repointed ${forked.chains.join(", ")}`
+          : ""),
+    };
+  },
 };

@@ -1,4 +1,4 @@
-// The lanes engine wire protocol — the payload SHAPES shared by the two WebSocket
+// The pistes engine wire protocol — the payload SHAPES shared by the two WebSocket
 // clients of the C++ engine (the Node one and the browser one), so they can't silently
 // drift. Types only: the message-type strings stay in each client, since every surface
 // implements its own subset and the engine itself is the authority on the full contract.

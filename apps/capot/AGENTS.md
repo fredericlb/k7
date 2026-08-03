@@ -4,7 +4,7 @@ The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, nati
 no window.
 
 It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
-child and drives it over NDJSON on stdio: the supervisor owns the `~/.lanes`
+child and drives it over NDJSON on stdio: the supervisor owns the `~/.studio`
 contract and the registry, and — stage by stage — the engine and the file service. The
 tray draws what the supervisor reports and sends clicks back.
 
@@ -57,7 +57,7 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
 ## Key modules
 
 - **`host.rs`** — spawn + `job::assign`, the read thread, `send`, the relaunch backoff.
-- **`hostcmd.rs`** — where the supervisor lives: `$LANES_ENGINE_HOST_CMD`, else the
+- **`hostcmd.rs`** — where the supervisor lives: `$STUDIO_ENGINE_HOST_CMD`, else the
   vendored `node` + `engine-host.mjs` from resources, else the repo's tsx on the TS
   source. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
   looks identical to a healthy one.

@@ -18,21 +18,21 @@ export const DEFAULT_STUDIO_URL = "https://studio.frediver.se";
  *
  *   1. `configured` — the ones the user pinned with "Add web UI…". A deliberate,
  *      persisted choice beats an ambient one, which is why it goes above the env var.
- *   2. `$LANES_REGISTRY_URL`, comma-separated for more than one.
- *   3. `~/.lanes/web-endpoint.json` `.url`, written by the backend on boot — so a
+ *   2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one.
+ *   3. `~/.studio/web-endpoint.json` `.url`, written by the backend on boot — so a
  *      local dev setup still wins over the hosted default.
  *   4. the hosted studio.
  *
  * A LIST since each hosted service holds its own registry: an engine must be listed in
- * lanes and in the médiathèque to be pickable in both. Deduped, because the same URL
+ * pistes and in the médiathèque to be pickable in both. Deduped, because the same URL
  * arriving twice would mean two heartbeats a tick to one server for nothing.
  */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
   if (configured?.length) return [...new Set(configured)];
-  if (process.env.LANES_REGISTRY_URL)
+  if (process.env.STUDIO_REGISTRY_URL)
     return [
       ...new Set(
-        process.env.LANES_REGISTRY_URL.split(",")
+        process.env.STUDIO_REGISTRY_URL.split(",")
           .map((u) => u.trim())
           .filter((u) => u !== ""),
       ),

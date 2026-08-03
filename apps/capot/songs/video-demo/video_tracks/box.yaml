@@ -16,7 +16,7 @@ shapes:
     r: 120
     background_color: "#e2564ecc"
   - type: text
-    content: lanes
+    content: pistes
     font: sans-serif
     font_size: 72
     x: 40

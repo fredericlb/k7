@@ -30,7 +30,7 @@ used to be a second such renderer; it is the DOM now, and double-mounts harmless
 
 ## The layout (`App.tsx`)
 
-`App` is the lanes web editor itself: the global view — the file editor down the left
+`App` is the pistes web editor itself: the global view — the file editor down the left
 half, the timeline over the chains graph on the right — with the transport controls and
 the pane toggles in the header. It is the wiring and the layout; almost nothing else.
 
@@ -54,7 +54,7 @@ tables decide its size.
 ## The command palette
 
 A double-tap of Shift opens the palette (IntelliJ style). It runs the brain's shared
-commands — the same ones `lanes cmd` runs on the CLI — so the UI adds no command
+commands — the same ones `pistes cmd` runs on the CLI — so the UI adds no command
 vocabulary of its own: pick a command, fill its parameters, Enter runs it. The catalogue
 and the argument completers live in [`../src/palette.ts`](../src/palette.ts).
 

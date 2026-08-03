@@ -20,6 +20,9 @@ import { m } from "../paraglide/messages.js";
 // component is the render layer plus the audio-loading glue that used to sit
 // in the Vue setup block.
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 export function EditorView() {
   const { status: authStatus, error: authError } = useAuth();
   const [store] = useState(() => new EditorStore());
@@ -196,6 +199,7 @@ export function EditorView() {
           </>
         )}
         <span className="spacer" />
+        <span className="build">{VERSION}</span>
         <LocaleSwitcher />
         <AuthBadge />
       </header>

@@ -37,7 +37,7 @@ beforeEach(() => {
   });
   writeFileSync(
     join(proj, "chains.yaml"),
-    'tracks:\n  bs.lead: [ "@engine/audio/delay/tape-delay" ]\nmodules:\n  "@engine/audio/delay/tape-delay": [ OUT ]\n',
+    'tracks:\n  bs.lead: [ "@workspace/audio/delay/tape-delay" ]\nmodules:\n  "@workspace/audio/delay/tape-delay": [ OUT ]\n',
     "utf8",
   );
   ws = new Workspace(root);
@@ -77,7 +77,7 @@ describe("the shared module library is read-only", () => {
 });
 
 describe("a module library OUTSIDE the workspace", () => {
-  // The mediatek lives at ~/.lanes/mediatek, beside the workspaces rather than inside one.
+  // The mediatek lives at ~/.studio/mediatek, beside the workspaces rather than inside one.
   // It needs no read-only predicate of its own: every file route resolves through safePath,
   // which confines to the workspace root — so these routes cannot ADDRESS it at all. That
   // is a stronger guarantee than `_modules` gets, and this pins it rather than assuming it.
@@ -163,7 +163,7 @@ describe("the catalogue the builder lists", () => {
   it("names the shared module and the file the builder opens", () => {
     const entry = ws
       .moduleCatalogue()
-      .find((m) => m.ref === "@engine/audio/delay/tape-delay");
+      .find((m) => m.ref === "@workspace/audio/delay/tape-delay");
     // Workspace-relative, so it goes straight back through read/write — no project to anchor on, since a
     // catalogue sits BESIDE the projects.
     expect(entry?.path).toBe(SHARED);

@@ -10,15 +10,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@frediverse/db-grist": "*",
+    "@frediverse/env": "*",
     "@frediverse/http": "*",
     "@frediverse/oidc": "*",
     "@studio/engine-registry": "*",
     "@studio/mediatek": "*",
     "@studio/user-prefs": "*",
-    "yaml": "^2.5.0",
     "express": "^4.21.2",
     "tsx": "^4.16.0",
+    "yaml": "^2.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

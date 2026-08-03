@@ -15,7 +15,7 @@ import { SshKeyPage } from "./SshKeyPage";
 import { WorkspaceSelect } from "./WorkspaceSelect";
 
 function storageKey(engineId: string): string {
-  return `lanes.workspace.${engineId}`;
+  return `pistes.workspace.${engineId}`;
 }
 function remembered(engineId: string): string | null {
   try {

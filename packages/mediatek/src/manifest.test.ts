@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, PathEscapesError, safePath } from "./layout.ts";
 import { diff, manifest } from "./manifest.ts";
@@ -9,11 +9,11 @@ let root: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "mediatek-mf-"));
-  process.env.LANES_MEDIATEK = root;
+  process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
 afterEach(() => {
-  delete process.env.LANES_MEDIATEK;
+  delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -114,5 +114,16 @@ describe("the path guard", () => {
     expect(() => safePath(join("..", `${join(root, "x")}-other`))).toThrow(
       PathEscapesError,
     );
+  });
+
+  it("does not care how the ROOT was spelled", () => {
+    // THE bug this test exists for. `env.yaml` is hand-written, and a Windows path is as
+    // readily typed with forward slashes; the guard compared the root against a resolved
+    // path as TEXT, so `modules/audio` was reported as escaping a library it was inside.
+    // Creating a folder in `modules` was impossible and the message blamed the caller.
+    process.env.STUDIO_MEDIATEK = root.split(sep).join("/");
+    expect(safePath("modules/audio")).toBe(join(root, "modules", "audio"));
+    // …and a real escape is still refused, whatever the spelling.
+    expect(() => safePath("../secrets")).toThrow(PathEscapesError);
   });
 });

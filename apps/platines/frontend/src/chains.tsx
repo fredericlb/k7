@@ -15,7 +15,7 @@ import { type DeckModule, deckGraph } from "./graph";
  *
  * `ModuleIcon` comes from the graph package — it is keyed on `WebModuleCategory`, the
  * graph's own vocabulary, and moving it there is what a second host made obvious. The track
- * one is platines': a deck is not a lane, and lanes' `TrackIcon` reads a name PREFIX to
+ * one is platines': a deck is not a lane, and pistes' `TrackIcon` reads a name PREFIX to
  * decide between drums and vocals, which is a convention platines does not have.
  */
 const PLATINES_ICONS: ChainsIcons = {
@@ -68,7 +68,7 @@ export function ChainsPanel({
       // the new picture, moving a knob should leave the camera where it was put.
       fitKey={`${modules.length}`}
       onBypassModule={onBypass}
-      // platines has no command bar. The prop is required because lanes' graph is driven by
+      // platines has no command bar. The prop is required because pistes' graph is driven by
       // one and the package will not pretend otherwise — so this says out loud that a node's
       // command menu does nothing here, rather than silently swallowing it.
       command={(line) => {

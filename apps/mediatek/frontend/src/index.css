@@ -9,10 +9,9 @@
    design-system class the app doesn't also happen to use itself.
 
    NOTE the `commons/` segment: @frediverse/ui lives in the submodule, at
-   commons/packages/ui/src — which is what .storybook/preview.css already points at.
-   lanes and radiok7 both say `packages/ui/src`, which resolves to nothing; that is a
-   real bug in those two, not a convention to copy. */
-@source "../../../commons/packages/ui/src";
+   commons/packages/ui/src — which is what .storybook/preview.css also points at. A
+   plain `packages/ui/src` resolves to nothing and is the shape of this bug. */
+@source "../../../../commons/packages/ui/src";
 
 @layer base {
   html,

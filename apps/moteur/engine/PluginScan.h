@@ -10,13 +10,13 @@
 
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // The plugin scan cache parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing the file
 // each time added up on projects with many.
 const std::vector<PluginInfo>& cachedPluginInfos();
 
-// Register the plugins lanes adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
+// Register the plugins pistes adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
 // the two Tracktion ships without registering (the convolver, the AirWindows set).
 //
 // ONE function, called by every path that builds an Engine — the live host, the offline renderer, the param dump.
@@ -29,4 +29,4 @@ void registerBuiltInPlugins(te::Engine& engine);
 // scan rewrites the file.
 void invalidatePluginInfoMemo();
 
-}  // namespace lanes
+}  // namespace studio

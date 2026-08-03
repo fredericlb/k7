@@ -1,5 +1,5 @@
 // sshKeys.ts — per-user SSH keys for cloning git workspaces, one keypair per user slug
-// under ~/.lanes/ssh/<slug>/. They live on the ENGINE's machine because the clone
+// under ~/.studio/ssh/<slug>/. They live on the ENGINE's machine because the clone
 // runs here. The user pastes the PUBLIC half into their git host; the private half
 // never leaves this machine and no route serves it.
 
@@ -38,7 +38,7 @@ export async function generateKey(userEmail: string): Promise<string> {
     "-N",
     "",
     "-C",
-    `lanes-${slug}`,
+    `studio-${slug}`,
     "-f",
     keyPath(slug),
   ]);

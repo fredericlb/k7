@@ -21,6 +21,11 @@ function fakeSink(opts: { failOn?: string } = {}) {
     remove: async (path) => {
       removed.push(path);
     },
+    // Never used by an upload — a workspace push writes files and takes files out, it
+    // does not remove folders. Present because the port says so.
+    removeTree: async (path) => {
+      removed.push(path);
+    },
   };
   return { sink, put, removed };
 }
@@ -79,12 +84,13 @@ describe("pushing a workspace's shared folders up", () => {
   it("maps each workspace folder onto its library name", () => {
     w("_modules/audio/reverb/module.yaml", "plugin: {}\n");
     w("_library/ir/hall.wav", "RIFF");
-    w("_ui/audio/reverb.yaml", "ref: audio/reverb\n");
+    // A module's panel has no folder of its own — it rides up inside the module.
+    w("_modules/audio/reverb/ui.yaml", "cols: 2\nrows: 1\nwidgets: {}\n");
     return uploadWorkspace(fakeSink().sink, ws).then((r) => {
       expect(r.uploaded.sort()).toEqual([
         "library/ir/hall.wav",
         "modules/audio/reverb/module.yaml",
-        "ui/audio/reverb.yaml",
+        "modules/audio/reverb/ui.yaml",
       ]);
       expect(r.failed).toEqual([]);
     });
@@ -109,7 +115,7 @@ describe("pushing a workspace's shared folders up", () => {
   it("reports a folder the workspace hasn't got, rather than failing", async () => {
     w("_modules/a/module.yaml", "plugin: {}\n");
     const r = await uploadWorkspace(fakeSink().sink, ws);
-    expect(r.absent.sort()).toEqual(["_library", "_ui"]);
+    expect(r.absent.sort()).toEqual(["_library"]);
   });
 
   it("carries on past a file that fails, and says which", async () => {

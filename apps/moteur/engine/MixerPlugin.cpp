@@ -1,10 +1,11 @@
 #include "MixerPlugin.h"
 
-namespace lanes {
+namespace studio {
 
 namespace te = tracktion::engine;
 
-const char* MixerPlugin::xmlTypeName = "lanes_mixer";
+// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+const char* MixerPlugin::xmlTypeName = "studio_mixer";
 
 namespace {
 // The strip's ranges, in the units a mixer is read in. Volume stops at +6 dB where Tracktion's fader does — a
@@ -128,4 +129,4 @@ void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     }
 }
 
-}  // namespace lanes
+}  // namespace studio

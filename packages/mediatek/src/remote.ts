@@ -81,6 +81,9 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
 export interface LibrarySink {
   put(path: string, body: Uint8Array | string): Promise<void>;
   remove(path: string): Promise<void>;
+  /** A whole subtree. Its own method for the same reason it is its own route: removing a
+   *  folder must never be something a caller does while meaning to remove one entry. */
+  removeTree(path: string): Promise<void>;
 }
 
 /** The hosted service as a `LibrarySink`. */
@@ -95,9 +98,10 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
     method: string,
     path: string,
     body?: string | Uint8Array,
+    route = "/file",
   ) => {
     const res = await fetch(
-      url(`/file?path=${encodeURIComponent(path)}`),
+      url(`${route}?path=${encodeURIComponent(path)}`),
       // Octet-stream regardless of what it is: the library files by extension, and a
       // guessed content type here would be a second, quieter opinion about the same thing.
       {
@@ -118,7 +122,98 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
   return {
     put: (path, body) => send("PUT", path, body),
     remove: (path) => send("DELETE", path),
+    removeTree: (path) => send("DELETE", path, undefined, "/folder"),
   };
+}
+
+/**
+ * Push one audio file in as a MORCEAU. Like `pushRecording`, the caller sends what it
+ * knows — the three tags, the provenance — and the library builds the path.
+ *
+ * `kind` is what makes this usable by something other than the médiathèque's own button:
+ * k7 publishes a version, which is `recorded` by definition, not `imported`.
+ */
+export async function pushMorceau(
+  cfg: RemoteConfig,
+  opts: {
+    filename: string;
+    bytes: Uint8Array;
+    artist?: string;
+    album?: string;
+    title?: string;
+    kind?: string;
+    source?: string;
+    replace?: boolean;
+  },
+): Promise<{ path: string; master: string; replaced: boolean }> {
+  const q = new URLSearchParams({ filename: opts.filename });
+  for (const k of ["artist", "album", "title", "kind", "source"] as const)
+    if (opts[k]) q.set(k, opts[k] as string);
+  if (opts.replace) q.set("replace", "1");
+  const res = await fetch(
+    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/morceau?${q}`,
+    {
+      method: "POST",
+      headers: {
+        ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
+        "content-type": "application/octet-stream",
+      },
+      body: opts.bytes as unknown as string,
+    },
+  );
+  if (!res.ok)
+    throw new RemoteError(`mediatek morceau: ${res.status} ${res.statusText}`);
+  return (await res.json()) as {
+    path: string;
+    master: string;
+    replaced: boolean;
+  };
+}
+
+/**
+ * Push one capture into the raw zone. The library names the file; the caller does not.
+ *
+ * Separate from `LibrarySink` deliberately: a sink writes to a path it chose, and this is
+ * the opposite arrangement — bytes plus the moment they were captured, from which the
+ * library derives `recordings/<YYYY-MM-DD>/<HH-MM-SS>.<ext>`. `filename` is read for its
+ * EXTENSION only. See docs/recordings.md.
+ */
+export async function pushRecording(
+  cfg: RemoteConfig,
+  opts: {
+    filename: string;
+    bytes: Uint8Array;
+    at?: Date;
+    /** Present == a MOMENT cut out of a session, named as one. See `momentStem`. */
+    durationSec?: number;
+    label?: string;
+  },
+): Promise<{ path: string; day: string; name: string }> {
+  const q = new URLSearchParams({ filename: opts.filename });
+  // Omitted rather than defaulted to now: the server's clock is the better answer when the
+  // caller has none, and it already applies that rule.
+  if (opts.at) q.set("at", opts.at.toISOString());
+  if (opts.durationSec !== undefined)
+    q.set("duration", String(opts.durationSec));
+  if (opts.label) q.set("label", opts.label);
+  const res = await fetch(
+    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/recording?${q}`,
+    {
+      method: "POST",
+      headers: {
+        ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
+        "content-type": "application/octet-stream",
+      },
+      // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it,
+      // and a service typechecked without the DOM lib has no `BodyInit` to name either.
+      body: opts.bytes as unknown as string,
+    },
+  );
+  if (!res.ok)
+    throw new RemoteError(
+      `mediatek recording: ${res.status} ${res.statusText}`,
+    );
+  return (await res.json()) as { path: string; day: string; name: string };
 }
 
 /** The catalogue as the hosted service reports it — what a surface LISTS, as opposed to

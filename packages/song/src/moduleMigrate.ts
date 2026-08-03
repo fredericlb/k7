@@ -349,37 +349,3 @@ export function migrateLibrary(root: string): LibraryMigration {
   }
   return out;
 }
-
-/** `_ui` panels follow the refs: `@engine/audio/amp/nam` -> `@engine/nam`, or `@library/...`. */
-export function migrateUiRefs(
-  uiRoot: string,
-  resolve: (oldRef: string) => string | null,
-): { changed: boolean; rekeyed: string[] } {
-  const out = { changed: false, rekeyed: [] as string[] };
-  if (!existsSync(uiRoot)) return out;
-  const walk = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const abs = join(dir, e.name);
-      if (e.isDirectory()) {
-        walk(abs);
-        continue;
-      }
-      if (!/\.ya?ml$/.test(e.name)) continue;
-      const text = readFileSync(abs, "utf8");
-      const m = /^ref:\s*"?([^"\n]+)"?/m.exec(text);
-      if (!m) continue;
-      const from = m[1].trim();
-      const to = resolve(from);
-      if (!to || to === from) continue;
-      writeFileSync(
-        abs,
-        text.replace(m[0], `ref: ${JSON.stringify(to)}`),
-        "utf8",
-      );
-      out.rekeyed.push(`${from} -> ${to}`);
-      out.changed = true;
-    }
-  };
-  walk(uiRoot);
-  return out;
-}

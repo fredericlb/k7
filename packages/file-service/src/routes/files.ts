@@ -2,7 +2,6 @@
 // resolveWorkspace, so `req.ws` is always a Workspace here. Every former store call
 // is now a method on that workspace; the command layer takes it explicitly.
 
-import { resolve, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import {
   alternatives,
@@ -216,7 +215,7 @@ filesRouter.post(
   }),
 );
 
-// Scaffold a project at the workspace root and return its path — the same scaffold `lanes create` runs.
+// Scaffold a project at the workspace root and return its path — the same scaffold `pistes create` runs.
 const createProjectBody = z.object({
   type: z.enum(["audio", "video"]),
   name: z.string().min(1),
@@ -340,19 +339,17 @@ filesRouter.get(
   }),
 );
 
-// Publish to radiok7: a song radiok7 doesn't know answers { needsMeta }, and the Share menu prompts and POSTs again.
-const radiok7Body = z.object({
+// Publish to k7: a song k7 doesn't know answers { needsMeta }, and the Share menu prompts and POSTs again.
+const k7Body = z.object({
   artist: z.string().optional(),
   title: z.string().optional(),
 });
 filesRouter.post(
-  "/share/radiok7",
-  validate(radiok7Body),
+  "/share/k7",
+  validate(k7Body),
   wrap(async (req, res) => {
     try {
-      const r = await req.ws!.shareRadiok7(
-        req.body as z.infer<typeof radiok7Body>,
-      );
+      const r = await req.ws!.shareK7(req.body as z.infer<typeof k7Body>);
       res.json({ ok: true, ...r });
     } catch (e) {
       const err = e as Error & { defaultTitle?: string };
@@ -480,10 +477,11 @@ filesRouter.post(
   }),
 );
 
-// Apply a user preset, then reload. `path` is confined to the active project, so a crafted body can't escape it.
+// Apply one of a module's own presets, then reload. BY NAME: the shelf is a file in the module's folder now
+// (see presets.ts), so there is no path in the body and nothing for a crafted one to escape.
 const applyPresetBody = z.object({
   module: z.string().min(1),
-  path: z.string().min(1),
+  name: z.string().min(1),
 });
 filesRouter.post(
   "/presets/apply",
@@ -494,14 +492,9 @@ filesRouter.post(
       res.status(400).json({ error: "no active project" });
       return;
     }
-    const { module, path } = req.body as z.infer<typeof applyPresetBody>;
-    const abs = resolve(path);
-    if (abs !== dir && !abs.startsWith(dir + sep)) {
-      res.status(400).json({ error: "preset is outside the project" });
-      return;
-    }
+    const { module, name } = req.body as z.infer<typeof applyPresetBody>;
     try {
-      applyPresetToModule(dir, module, abs);
+      applyPresetToModule(dir, module, name);
       reloadActiveProject(req.ws!);
       res.json({ ok: true });
     } catch (e) {
@@ -653,12 +646,41 @@ filesRouter.post(
   }),
 );
 
-// The `_ui` panel a module file's grid edits — existing or scaffolded, saved through PUT /file like any other.
+// The `ui.yaml` beside a module file, which its grid edits — existing or scaffolded, saved through PUT /file
+// like any other. `path` may name either of the pair, so a click on the panel opens the same builder.
 filesRouter.get(
   "/module-ui",
   wrap((req, res) => {
     try {
       res.json(req.ws!.moduleUi(String(req.query.path ?? "")));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// Give an engine module a folder in the project, so it can carry a panel and presets. POST because it writes:
+// a module file appears and the chains are repointed (see moduleFork.ts).
+const materialiseBody = z.object({ ref: z.string().min(1) });
+filesRouter.post(
+  "/module-materialise",
+  validate(materialiseBody),
+  wrap((req, res) => {
+    const { ref } = req.body as z.infer<typeof materialiseBody>;
+    try {
+      res.json(req.ws!.materialiseModule(ref));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// The `presets.yaml` beside a module file — the module's third file, answered like its panel.
+filesRouter.get(
+  "/module-presets",
+  wrap((req, res) => {
+    try {
+      res.json(req.ws!.modulePresets(String(req.query.path ?? "")));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

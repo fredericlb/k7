@@ -1,4 +1,4 @@
-// studio-moteur — the headless audio server: a thin WebSocket bridge over lanes::engine, speaking JSON.
+// studio-moteur — the headless audio server: a thin WebSocket bridge over studio::engine, speaking JSON.
 // It parses no files — the Node brain interprets the song and sends it as a resolved ProjectDoc. This file
 // includes NO JUCE/Tracktion headers: all engine threading sits behind EngineHost's post()/onState()/run().
 // The message catalogue is in docs/protocol.md.
@@ -29,7 +29,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include <EngineHost.h>   // lanes::engine
+#include <EngineHost.h>   // studio::engine
 #include <ProjectDiff.h>
 
 using json = nlohmann::json;
@@ -96,9 +96,9 @@ void putU32(std::string& out, size_t at, uint32_t v) {
     out[at + 3] = static_cast<char>((v >> 24) & 0xff);
 }
 
-std::string encodeStreamFrame(const lanes::EngineHost::BroadcastChunk& chunk,
+std::string encodeStreamFrame(const studio::EngineHost::BroadcastChunk& chunk,
                               uint32_t seq, double captureMs) {
-    const int channels = lanes::EngineHost::broadcastChannels();
+    const int channels = studio::EngineHost::broadcastChannels();
     const size_t count = chunk.frames * static_cast<size_t>(channels);
     std::string out(kStreamHeaderBytes + count * 4, '\0');
 
@@ -118,8 +118,8 @@ std::string encodeStreamFrame(const lanes::EngineHost::BroadcastChunk& chunk,
     return out;
 }
 
-lanes::ProjectDoc docFromJson(const json& j) {
-    lanes::ProjectDoc doc;
+studio::ProjectDoc docFromJson(const json& j) {
+    studio::ProjectDoc doc;
     doc.name = j.value("name", std::string{"untitled"});
     doc.tempo = j.value("tempo", 120.0);
     doc.sampleRate = j.value("sampleRate", 48000);
@@ -136,7 +136,7 @@ lanes::ProjectDoc docFromJson(const json& j) {
 
     if (j.contains("tracks")) {
         for (const auto& t : j.at("tracks")) {
-            lanes::TrackDoc tr;
+            studio::TrackDoc tr;
             tr.id = t.value("id", std::string{});
             tr.name = t.value("name", tr.id);
             tr.role = t.value("role", std::string{"regular"});
@@ -154,11 +154,11 @@ lanes::ProjectDoc docFromJson(const json& j) {
 
             if (t.contains("clips"))
                 for (const auto& c : t.at("clips")) {
-                    lanes::ClipDoc cl;
+                    studio::ClipDoc cl;
                     cl.id = c.value("id", std::string{});
                     cl.type = c.value("type", std::string{"audio"}) == "midi"
-                                  ? lanes::ClipType::Midi
-                                  : lanes::ClipType::Audio;
+                                  ? studio::ClipType::Midi
+                                  : studio::ClipType::Audio;
                     cl.name = c.value("name", std::string{});
                     cl.source = c.value("source", std::string{});  // absolute path from Node
                     cl.start = c.value("start", 0.0);
@@ -181,7 +181,7 @@ lanes::ProjectDoc docFromJson(const json& j) {
                     }
                     if (c.contains("notes"))
                         for (const auto& n : c.at("notes")) {
-                            lanes::NoteDoc nd;
+                            studio::NoteDoc nd;
                             nd.time = n.value("time", 0.0);
                             nd.duration = n.value("duration", 0.0);
                             nd.key = n.value("key", 0);
@@ -195,7 +195,7 @@ lanes::ProjectDoc docFromJson(const json& j) {
 
             if (t.contains("plugins"))
                 for (const auto& p : t.at("plugins")) {
-                    lanes::PluginDoc pl;
+                    studio::PluginDoc pl;
                     pl.id = p.value("id", std::string{});
                     pl.type = p.value("type", std::string{});
                     pl.name = p.value("name", std::string{});
@@ -213,7 +213,7 @@ lanes::ProjectDoc docFromJson(const json& j) {
                     // into SamplerPlugin sounds in EditBuilder::addPlugin.
                     if (p.contains("rack") && p.at("rack").is_array())
                         for (const auto& e : p.at("rack")) {
-                            lanes::RackEntry re;
+                            studio::RackEntry re;
                             re.symbol = e.value("symbol", std::string{});
                             re.note = e.value("note", 0);
                             re.clip = e.value("clip", std::string{});
@@ -226,7 +226,7 @@ lanes::ProjectDoc docFromJson(const json& j) {
 
             if (t.contains("sends"))
                 for (const auto& s : t.at("sends")) {
-                    lanes::SendDoc sd;
+                    studio::SendDoc sd;
                     sd.to = s.value("to", std::string{});
                     sd.level = s.value("level", 0.0);
                     sd.enabled = s.value("enabled", false);
@@ -235,7 +235,7 @@ lanes::ProjectDoc docFromJson(const json& j) {
 
             if (t.contains("automation"))
                 for (const auto& a : t.at("automation")) {
-                    lanes::AutomationDoc au;
+                    studio::AutomationDoc au;
                     au.param = a.value("param", std::string{});
                     au.pluginId = a.value("pluginId", std::string{});
                     au.bipolar = a.value("bipolar", false);
@@ -252,13 +252,13 @@ lanes::ProjectDoc docFromJson(const json& j) {
 }
 
 // Totals across the doc's tracks, for the one-line [project] summary.
-size_t countClips(const lanes::ProjectDoc& d) {
+size_t countClips(const studio::ProjectDoc& d) {
     size_t n = 0;
     for (const auto& t : d.tracks) n += t.clips.size();
     return n;
 }
 
-size_t countPlugins(const lanes::ProjectDoc& d) {
+size_t countPlugins(const studio::ProjectDoc& d) {
     size_t n = 0;
     for (const auto& t : d.tracks) n += t.plugins.size();
     return n;
@@ -266,7 +266,7 @@ size_t countPlugins(const lanes::ProjectDoc& d) {
 
 // The 'audio-devices' reply, ASIO first. Sent on request AND after a switch, so clients learn the new current
 // device the same way either time. Message-thread only — it enumerates JUCE devices.
-json audioDevicesMsg(lanes::EngineHost& host) {
+json audioDevicesMsg(studio::EngineHost& host) {
     json arr = json::array();
     for (const auto& d : host.listAudioDevices())
         arr.push_back({{"name", d.name},
@@ -278,25 +278,25 @@ json audioDevicesMsg(lanes::EngineHost& host) {
     return json{{"type", "audio-devices"}, {"devices", arr}};
 }
 
-lanes::EngineHost* g_host = nullptr;   // for the signal handler
+studio::EngineHost* g_host = nullptr;   // for the signal handler
 
 // One serialized plugin scan for the whole process: the startup warm-scan and any on-demand list or rescan
 // route through here, so two child-process sweeps can't race the exts.json write. A warm cache short-circuits
 // unless `force`, and a caller arriving mid-scan blocks on the mutex and then finds the cache warm.
-std::vector<lanes::PluginInfo> ensurePluginsScanned(bool force) {
+std::vector<studio::PluginInfo> ensurePluginsScanned(bool force) {
     static std::mutex m;
     std::lock_guard<std::mutex> lock(m);
     if (!force) {
-        auto cached = lanes::loadPluginCache();
+        auto cached = studio::loadPluginCache();
         if (!cached.empty()) return cached;   // another caller already warmed it
     }
-    return lanes::scanInstalledPlugins(force);
+    return studio::scanInstalledPlugins(force);
 }
 
 // Read a ProjectDoc for one of the offline modes: from a file, or from stdin as "-". Accepts either the bare doc
 // or a { "doc": {...} } envelope, since both are things a caller already has to hand. Returns false having said
 // what was wrong on stderr — the caller only has to pick an exit code.
-bool readDocArg(const std::string& input, lanes::ProjectDoc& out) {
+bool readDocArg(const std::string& input, studio::ProjectDoc& out) {
     std::stringstream ss;
     if (input == "-") {
         ss << std::cin.rdbuf();
@@ -330,24 +330,24 @@ int main(int argc, char** argv) {
     // Child-process scan mode: the parent spawns us with `--scan-plugin <format> <id>` to load one plugin in
     // isolation. Runs before any server or engine setup, and exits with no port bound.
     if (argc >= 4 && std::string(argv[1]) == "--scan-plugin")
-        return lanes::runPluginScanChild(argv[2], argv[3]);
+        return studio::runPluginScanChild(argv[2], argv[3]);
 
     // Standalone scan mode: update the plugin cache, print a summary, exit — no server, no port bound.
     if (argc >= 2 && std::string(argv[1]) == "scan") {
         const bool force = (argc >= 3 && std::string(argv[2]) == "--force");
-        return lanes::runPluginScanCli(force);
+        return studio::runPluginScanCli(force);
     }
 
     // Param-dump modes for the translator, printing sentinel-fenced JSON then exiting: `--dump-params <type>` for a
     // built-in, `--dump-params-ext <format> <id> <statefile>` for an external restored from its preset.
     if (argc >= 5 && std::string(argv[1]) == "--dump-params-ext")
-        return lanes::dumpPluginParamsExternal(argv[2], argv[3], argv[4]);
+        return studio::dumpPluginParamsExternal(argv[2], argv[3], argv[4]);
     if (argc >= 3 && std::string(argv[1]) == "--dump-params")
-        return lanes::dumpPluginParams(argv[2]);
+        return studio::dumpPluginParams(argv[2]);
 
     // Audio-interface enumeration: print the devices as fenced JSON and exit, opening no device.
     if (argc >= 2 && std::string(argv[1]) == "--list-audio-devices")
-        return lanes::runAudioDevicesCli();
+        return studio::runAudioDevicesCli();
 
     // Offline render mode: read a ProjectDoc from a file or stdin, bounce it to wav, print a manifest, exit —
     // no server, no port bound.
@@ -356,7 +356,7 @@ int main(int argc, char** argv) {
     // services share a low-latency ASIO engine as N Edits or as N processes. Delete with
     // MultiEditTest.cpp once the answer is written down.
     if (argc >= 2 && std::string(argv[1]) == "--multi-edit-test") {
-        std::vector<lanes::ProjectDoc> docs;
+        std::vector<studio::ProjectDoc> docs;
         std::vector<std::string> baseDirs;
         double seconds = 5.0;
         std::string devName, devType;
@@ -384,7 +384,7 @@ int main(int argc, char** argv) {
             std::cerr << "usage: studio-moteur --multi-edit-test <doc1.json> <doc2.json> [--seconds N]\n";
             return 2;
         }
-        return lanes::runMultiEditTest(docs, baseDirs, seconds, devName, devType);
+        return studio::runMultiEditTest(docs, baseDirs, seconds, devName, devType);
     }
     if (argc >= 2 && std::string(argv[1]) == "--render") {
         std::string input, outDir, baseDir;
@@ -401,9 +401,9 @@ int main(int argc, char** argv) {
                          "[--stems] [--base <dir>]\n";
             return 2;
         }
-        lanes::ProjectDoc doc;
+        studio::ProjectDoc doc;
         if (!readDocArg(input, doc)) return 2;
-        return lanes::renderOffline(doc, baseDir, outDir, stems);
+        return studio::renderOffline(doc, baseDir, outDir, stems);
     }
 
     // Freeze mode: bounce ONE track through its own plugins to a wav, print the path, exit. The `track freeze`
@@ -423,15 +423,15 @@ int main(int argc, char** argv) {
                          "[--base <dir>]\n";
             return 2;
         }
-        lanes::ProjectDoc doc;
+        studio::ProjectDoc doc;
         if (!readDocArg(input, doc)) return 2;
-        return lanes::freezeTrack(doc, baseDir, trackId, outFile);
+        return studio::freezeTrack(doc, baseDir, trackId, outFile);
     }
 
     // Waveform-cache mode: decode the file, write its `{file}.cache` sidecar, exit. The file service invokes this
     // to rebuild a missing or stale cache on demand.
     if (argc >= 3 && std::string(argv[1]) == "--waveform")
-        return lanes::writeWaveformCache(argv[2]);
+        return studio::writeWaveformCache(argv[2]);
 
     // Normalize mode: peak-normalize the given clips with one shared gain (see NormalizeClips.cpp). The (in,out)
     // paths pair up, and the `normalize` command supplies the _norm names.
@@ -440,7 +440,7 @@ int main(int argc, char** argv) {
         std::vector<std::pair<std::string, std::string>> pairs;
         for (int i = 3; i + 1 < argc; i += 2)
             pairs.emplace_back(argv[i], argv[i + 1]);
-        return lanes::normalizeClips(target, pairs);
+        return studio::normalizeClips(target, pairs);
     }
 
     // Batch waveform mode: read audio paths from stdin and write every `{file}.cache` in THIS process, so a song
@@ -459,7 +459,7 @@ int main(int argc, char** argv) {
             first = false;
             if (!line.empty() && line.back() == '\r') line.pop_back();  // tolerate CRLF
             if (line.empty()) continue;
-            const int rc = lanes::writeWaveformCache(line);
+            const int rc = studio::writeWaveformCache(line);
             std::cout << (rc == 0 ? "ok\t" : "err\t") << line << "\n" << std::flush;
         }
         return 0;
@@ -470,8 +470,8 @@ int main(int argc, char** argv) {
     // Engine identity (Phase-1 local trust): the supervisor passes a stable id and secret token by env, which we
     // echo on `whoami` — so a browser can confirm it reached THIS engine and a lookalike, not knowing the token,
     // can't impersonate it. Empty without the supervisor, and an empty id matches no selection.
-    const char* idEnv = std::getenv("LANES_ENGINE_ID");
-    const char* tokEnv = std::getenv("LANES_ENGINE_TOKEN");
+    const char* idEnv = std::getenv("STUDIO_ENGINE_ID");
+    const char* tokEnv = std::getenv("STUDIO_ENGINE_TOKEN");
     const std::string engineId = idEnv ? idEnv : "";
     const std::string engineToken = tokEnv ? tokEnv : "";
 
@@ -490,7 +490,7 @@ int main(int argc, char** argv) {
     // Constructing the host builds the Tracktion engine but no longer opens the audio device — that is queued below
     // so the port can bind first. Opening one can take seconds, and while it did, a probing browser saw a refused
     // connection, indistinguishable from an absent engine.
-    lanes::EngineHost host;
+    studio::EngineHost host;
     g_host = &host;
     const double ctorMs = sinceBoot();
 
@@ -507,12 +507,12 @@ int main(int argc, char** argv) {
         if (host.outputDeviceName().empty())
             std::cerr << "warning: no audio OUTPUT device is open — the transport will "
                          "run but the playhead won't advance and nothing will sound. "
-                         "Pick an output with 'lanes config --set interface'.\n";
+                         "Pick an output with 'pistes config --set interface'.\n";
     });
 
-    // Loopback by default (only same-machine clients reach it); the supervisor sets LANES_ENGINE_HOST=0.0.0.0 so
+    // Loopback by default (only same-machine clients reach it); the supervisor sets STUDIO_ENGINE_HOST=0.0.0.0 so
     // LAN browsers can too. Only the bind interface changes — there is still no auth beyond the whoami token echo.
-    const char* hostEnv = std::getenv("LANES_ENGINE_HOST");
+    const char* hostEnv = std::getenv("STUDIO_ENGINE_HOST");
     const std::string bindHost = (hostEnv && *hostEnv) ? hostEnv : "127.0.0.1";
     ix::WebSocketServer server(port, bindHost);
 
@@ -581,7 +581,7 @@ int main(int argc, char** argv) {
                                   << listeners.size() << " listening)\n";
                         // The last ear on THAT session, not on the engine. Counting them all
                         // had a closing platines tab take the tap off the DEFAULT session —
-                        // silencing a lanes listener still there, and leaving platines' own
+                        // silencing a pistes listener still there, and leaving platines' own
                         // tap copying every block for nobody.
                         const bool anyLeft =
                             std::any_of(listeners.begin(), listeners.end(),
@@ -633,7 +633,7 @@ int main(int argc, char** argv) {
             }
 
             if (type == "project") {
-                lanes::ProjectDoc doc;
+                studio::ProjectDoc doc;
                 try {
                     doc = docFromJson(j.at("doc"));
                 } catch (const std::exception& e) {
@@ -658,7 +658,7 @@ int main(int argc, char** argv) {
                     std::vector<std::string> described;
                     described.reserve(changes.size());
                     for (const auto& c : changes) {
-                        described.push_back(lanes::describe(c));
+                        described.push_back(studio::describe(c));
                         r["changes"].push_back(described.back());
                     }
                     broadcast(r);
@@ -784,7 +784,7 @@ int main(int argc, char** argv) {
                 const bool force = j.value("force", false);
 
                 // IXWebSocket send() is thread-safe, so the scan thread can broadcast too.
-                auto reply = [&broadcast, filter](std::vector<lanes::PluginInfo> plugins) {
+                auto reply = [&broadcast, filter](std::vector<studio::PluginInfo> plugins) {
                     const auto lower = [](std::string s) {
                         for (auto& ch : s) ch = (char)std::tolower((unsigned char)ch);
                         return s;
@@ -813,7 +813,7 @@ int main(int argc, char** argv) {
                               << " — scanning, this can take a while\n";
                     std::thread([reply, force] { reply(ensurePluginsScanned(force)); }).detach();
                 } else {
-                    auto cached = lanes::loadPluginCache();
+                    auto cached = studio::loadPluginCache();
                     // Count the EXTERNALS, not the entries. The built-ins are synthesised in code and joined to
                     // whatever the file held, so `cached` is never empty: a missing or truncated exts.json still
                     // yields ~212 built-ins, sails past an emptiness check, and logs a reassuring "212 from cache"
@@ -821,7 +821,7 @@ int main(int argc, char** argv) {
                     // — five instruments gone from an edit whose log said the cache was fine.
                     const auto externals = std::count_if(
                         cached.begin(), cached.end(),
-                        [](const lanes::PluginInfo& p) { return p.format != "internal"; });
+                        [](const studio::PluginInfo& p) { return p.format != "internal"; });
                     if (externals == 0) {
                         std::cerr << "[plugins] no EXTERNAL plugins cached (" << cached.size()
                                   << " built-in) — scanning once to fill it, this can take a while\n";
@@ -1061,7 +1061,7 @@ int main(int argc, char** argv) {
         });
 
     // Push transport/meter state to all clients ~20x/second.
-    host.onState([&broadcast](const lanes::EngineHost::EngineState& s) {
+    host.onState([&broadcast](const studio::EngineHost::EngineState& s) {
         json wf = json::object();
         for (const auto& [key, envelopes] : s.waveformEnvelopes) {
             json arr = json::array();
@@ -1115,7 +1115,7 @@ int main(int argc, char** argv) {
     // Engine warnings reach the CLIENT, not just stderr. The tray adopts an engine it did
     // not spawn, so its output goes nowhere a user can see — which is how a plugin that
     // refused its model looked exactly like one that worked.
-    lanes::setWarningSink([&broadcast](const lanes::Warning& w) {
+    studio::setWarningSink([&broadcast](const studio::Warning& w) {
         broadcast(json{{"type", "engine-warning"},
                        {"subject", w.subject},
                        {"message", w.message}});
@@ -1258,7 +1258,7 @@ int main(int argc, char** argv) {
     // each plugin loads in a child process, and a cold sweep is the slowest thing the engine does. A no-op when
     // warm, and serialized with the on-demand path so the two can't scan at once.
     std::thread([] {
-        if (lanes::loadPluginCache().empty()) {
+        if (studio::loadPluginCache().empty()) {
             std::cerr << "[plugins] cache cold at startup — warming in the background, "
                          "this can take a while\n";
             ensurePluginsScanned(false);

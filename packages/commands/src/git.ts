@@ -132,14 +132,14 @@ export function gitStatus(dir: string, gitEnv?: GitEnv): GitStatus {
 //
 // An "alternative" is a git branch you try a direction on, with the branch you left
 // remembered so `apply` and `cancel` know where to go back to. Git has no notion of a
-// branch's parent, so it is written to `branch.<name>.lanesParent` — the same
+// branch's parent, so it is written to `branch.<name>.studioParent` — the same
 // per-branch config space `branch.<name>.merge` lives in, so it travels with the repo's
 // config and is invisible to anything that doesn't look for it.
 //
 // The vocabulary is deliberately not git's: you are not "branching", you are trying
 // another version of the song and either keeping it or dropping it.
 
-const PARENT_KEY = (branch: string) => `branch.${branch}.lanesParent`;
+const PARENT_KEY = (branch: string) => `branch.${branch}.studioParent`;
 
 /** The branch checked out in `dir`, or "" when detached / not a repo. */
 export function currentBranch(dir: string, gitEnv?: GitEnv): string {
@@ -221,7 +221,9 @@ export function newAlternative(
 ): string {
   const from = currentBranch(dir, gitEnv);
   if (!from)
-    throw new Error("not on a branch — lanes can't tell where to come back to");
+    throw new Error(
+      "not on a branch — pistes can't tell where to come back to",
+    );
   git(dir, ["switch", "-c", name], gitEnv);
   git(dir, ["config", PARENT_KEY(name), from], gitEnv);
   return from;

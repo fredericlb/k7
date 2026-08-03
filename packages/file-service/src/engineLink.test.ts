@@ -1,4 +1,4 @@
-// The one test that stops lanes' two halves from drifting apart.
+// The one test that stops pistes' two halves from drifting apart.
 //
 // The browser drives transport, this service compiles and sends the song. They address the
 // same project only if they spell its session identically — and a mismatch raises nothing
@@ -24,7 +24,7 @@ describe("sessionOf", () => {
       "a.b+c@example.co.uk",
       "UPPER@Example.COM",
     ])
-      expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.lanes, email));
+      expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.pistes, email));
   });
 
   it("separates two people, and joins one person's workspaces", () => {
@@ -39,7 +39,9 @@ describe("sessionOf", () => {
   // A bare folder opened directly (rootIsProject) has no owner in its path. One machine,
   // one person — the case that shape exists for — so the bare service id is right.
   it("falls back to the bare service id outside the users root", () => {
-    expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.lanes);
-    expect(sessionOf(null)).toBe(SESSIONS.lanes);
+    expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(
+      SESSIONS.pistes,
+    );
+    expect(sessionOf(null)).toBe(SESSIONS.pistes);
   });
 });

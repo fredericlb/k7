@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { mediatekDir } from "@studio/engine-client/paths";
-import type { Family } from "./types.ts";
+import { type Family, RECORDINGS_DIR } from "./types.ts";
 
 export { mediatekDir };
 
@@ -14,9 +14,10 @@ export { mediatekDir };
 export const MARKER = "mediatek.yaml";
 export const SCHEMA_VERSION = 1;
 
-/** Where each family lives, relative to the root. The `library`/`ui` folders below are the
- *  successors of a workspace's `_library`/`_ui`; they are not families of their own — a
- *  module names what it loads out of them. */
+/** Where each family lives, relative to the root. The `library` folder below is the successor
+ *  of a workspace's `_library`; it is not a family of its own — a module names what it loads
+ *  out of it. A module's PANEL has no folder here at all: it is the `ui.yaml` inside the
+ *  module, under `modules/`. */
 export const FAMILY_DIRS: Record<Family, string> = {
   morceaux: "morceaux",
   samples: "samples",
@@ -24,9 +25,22 @@ export const FAMILY_DIRS: Record<Family, string> = {
 };
 
 /** Morceaux are filed by where they came from: `imported` is obscura's material, `recorded`
- *  is what radiok7 and lanes produced here. Provenance, not taste — it decides what may be
+ *  is what k7 and pistes produced here. Provenance, not taste — it decides what may be
  *  re-derived and what is somebody else's master. */
 export const MORCEAU_KINDS = ["imported", "recorded"] as const;
+
+/**
+ * The raw capture zone, `recordings/<YYYY-MM-DD>/<HH-MM-SS>.<ext>`.
+ *
+ * A zone of its own at the root, beside the three families and NOT inside one. It holds no
+ * catalogue entries — a capture is an hour and some bytes, with nothing to title it by — so
+ * it is not a family; and it is not a `morceaux/` kind either, because a kind is scanned,
+ * and a thousand unnamed files would drown three hundred morceaux. See docs/recordings.md.
+ *
+ * Declared in types.ts and re-exported here, where the rest of the shape lives: the browser
+ * needs the same word and cannot import this file.
+ */
+export { RECORDINGS_DIR };
 
 /** Samples split by what plays them, which is also what can read them. */
 export const SAMPLE_KINDS = ["audio", "video"] as const;
@@ -67,9 +81,10 @@ export function libraryDir(): string {
   return join(mediatekDir(), "library");
 }
 
-/** Shared module UI panels, keyed by `ref:` — the successor of a workspace's `_ui`. */
-export function uiDir(): string {
-  return join(mediatekDir(), "ui");
+/** The raw capture zone. Like `libraryDir`, a root folder that is not a family — see
+ *  RECORDINGS_DIR and docs/recordings.md. */
+export function recordingsDir(): string {
+  return join(mediatekDir(), RECORDINGS_DIR);
 }
 
 /** Everything derived and deletable: the index, waveforms, thumbnails. Never a source. */
@@ -95,11 +110,11 @@ export function ensureLayout(): string {
     root,
     ...Object.values(FAMILY_DIRS).map((f) => join(root, f)),
     ...MORCEAU_KINDS.map((k) => join(root, FAMILY_DIRS.morceaux, k)),
+    join(root, RECORDINGS_DIR),
     ...SAMPLE_KINDS.map((k) => join(root, FAMILY_DIRS.samples, k)),
     libraryDir(),
     join(libraryDir(), "ir"),
     join(libraryDir(), "nam"),
-    uiDir(),
     cacheDir(),
   ])
     mkdirSync(d, { recursive: true });
@@ -203,11 +218,18 @@ export function writablePath(rel: string): string {
  *
  * Lexical only, deliberately: this runs on every byte served, and the tree it guards is
  * one the service itself writes. A symlink INTO it is a thing an operator did on purpose.
+ *
+ * Containment is asked of `relative`, not of `startsWith`. They are not the same test:
+ * `startsWith` compares SPELLINGS, so a root written with forward slashes in `env.yaml`
+ * never matched the backslashed path `resolve` produces, and every nested path was reported
+ * as escaping a library it was plainly inside. `relative` normalises both sides and answers
+ * the question actually being asked — is this under that.
  */
 export function safePath(rel: string): string {
   const root = mediatekDir();
   const abs = resolve(root, rel);
-  if (abs !== root && !abs.startsWith(root + sep))
+  const inside = relative(root, abs);
+  if (inside === ".." || inside.startsWith(`..${sep}`))
     throw new PathEscapesError(`path escapes the mediatek: ${rel}`);
   return abs;
 }

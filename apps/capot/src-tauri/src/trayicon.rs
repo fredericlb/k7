@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn dump_icons() {
-        let dir = std::path::Path::new(env!("LANES_ICON_DUMP_DIR"));
+        let dir = std::path::Path::new(env!("STUDIO_ICON_DUMP_DIR"));
         std::fs::create_dir_all(dir).unwrap();
         let states = [
             ("running", IconState::Running),

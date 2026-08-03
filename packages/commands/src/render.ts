@@ -1,7 +1,7 @@
-// render.ts — offline mixdown through the C++ engine, plus the radiok7 publish flow, shared
+// render.ts — offline mixdown through the C++ engine, plus the k7 publish flow, shared
 // so the web and the CLI drive the SAME render the engine does live. The engine writes
 // WAV; mp3/flac are an optional ffmpeg transcode, so a missing ffmpeg only costs the
-// compressed formats. shareToRadiok7 renders a mixdown + stems and uploads a release.
+// compressed formats. shareToK7 renders a mixdown + stems and uploads a release.
 
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -147,60 +147,70 @@ export function transcode(
   }
 }
 
-// --- radiok7 publish ---------------------------------------------------------
+// --- k7 publish ---------------------------------------------------------
 
-export interface Radiok7Config {
+export interface K7Config {
   url: string;
   token: string;
 }
 
-// Read `{ radiok7: { url, token } }` (flat radiok7Url/radiok7Token too) from a JSON file, or {} when absent or malformed.
-function readRadiok7File(path: string): { url?: string; token?: string } {
+/**
+ * Read `{ k7: { url, token } }` (flat `k7Url`/`k7Token` too) from a JSON file, or {} when absent or malformed.
+ *
+ * `radiok7` is still read, and is the one thing the rename could not simply break: this file is the USER's, at
+ * their workspace root, and a key nobody reads any more fails by silently having no credentials — which reads
+ * as "sharing stopped working" rather than "rename your key". The new spelling wins where both are written.
+ */
+function readK7File(path: string): { url?: string; token?: string } {
   if (!existsSync(path)) return {};
+  type Pair = { url?: string; token?: string };
   try {
     const j = JSON.parse(readFileSync(path, "utf8")) as {
-      radiok7?: { url?: string; token?: string };
+      k7?: Pair;
+      k7Url?: string;
+      k7Token?: string;
+      radiok7?: Pair;
       radiok7Url?: string;
       radiok7Token?: string;
     };
     return {
-      url: j.radiok7?.url ?? j.radiok7Url,
-      token: j.radiok7?.token ?? j.radiok7Token,
+      url: j.k7?.url ?? j.k7Url ?? j.radiok7?.url ?? j.radiok7Url,
+      token: j.k7?.token ?? j.k7Token ?? j.radiok7?.token ?? j.radiok7Token,
     };
   } catch {
     return {}; // malformed — other sources can still supply values
   }
 }
 
-// The name of the per-workspace settings file that holds the radiok7 credentials.
+// The name of the per-workspace settings file that holds the k7 credentials.
 export const WORKSPACE_SETTINGS = ".settings.json";
 
-// radiok7 endpoint + token, resolved from .settings.json at the workspace root, then the env, then the legacy
+// k7 endpoint + token, resolved from .settings.json at the workspace root, then the env, then the legacy
 // host-wide config. Returns an error message when either is still missing.
-export function readRadiok7Config(
+export function readK7Config(
   workspaceRoot?: string,
-): Radiok7Config | { error: string } {
+): K7Config | { error: string } {
   const ws = workspaceRoot
-    ? readRadiok7File(join(workspaceRoot, WORKSPACE_SETTINGS))
+    ? readK7File(join(workspaceRoot, WORKSPACE_SETTINGS))
     : {};
-  const host = readRadiok7File(join(homedir(), ".lanes", "config.json"));
-  const url = (ws.url || process.env.RADIOK7_URL || host.url || "").replace(
+  const host = readK7File(join(homedir(), ".studio", "config.json"));
+  const url = (ws.url || process.env.K7_URL || host.url || "").replace(
     /\/+$/,
     "",
   );
-  const token = ws.token || process.env.RADIOK7_TOKEN || host.token || "";
+  const token = ws.token || process.env.K7_TOKEN || host.token || "";
   if (!url)
     return {
-      error: `no radiok7 URL — add { "radiok7": { "url": "…" } } to ${WORKSPACE_SETTINGS} at the workspace root (or set RADIOK7_URL)`,
+      error: `no k7 URL — add { "k7": { "url": "…" } } to ${WORKSPACE_SETTINGS} at the workspace root (or set K7_URL)`,
     };
   if (!token)
     return {
-      error: `no radiok7 token — add { "radiok7": { "token": "…" } } to ${WORKSPACE_SETTINGS} at the workspace root (generate one in radiok7 Settings)`,
+      error: `no k7 token — add { "k7": { "token": "…" } } to ${WORKSPACE_SETTINGS} at the workspace root (generate one in k7 Settings)`,
     };
   return { url, token };
 }
 
-// The song's stable id for radiok7, generating + persisting one into project.yaml if absent.
+// The song's stable id for k7, generating + persisting one into project.yaml if absent.
 function ensureSongUuid(songDir: string, existing?: string): string {
   if (existing) return existing;
   const uuid = randomUUID();
@@ -210,33 +220,33 @@ function ensureSongUuid(songDir: string, existing?: string): string {
   return uuid;
 }
 
-export interface Radiok7Result {
+export interface K7Result {
   created: boolean;
   releaseId: string;
   title: string;
   stems: number;
 }
 
-// Publish to radiok7: render, transcode and upload as a release version. An unknown song throws NEEDS_META so the
+// Publish to k7: render, transcode and upload as a release version. An unknown song throws NEEDS_META so the
 // caller can prompt for artist/title. Needs the built engine; ffmpeg only improves the formats.
 export const NEEDS_META = "NEEDS_META";
 
-export async function shareToRadiok7(
+export async function shareToK7(
   engineBin: string,
   songDir: string,
-  cfg: Radiok7Config,
+  cfg: K7Config,
   opts: { artist?: string; title?: string; noStems?: boolean } = {},
-): Promise<Radiok7Result> {
+): Promise<K7Result> {
   if (!existsSync(join(songDir, "project.yaml")))
     throw new Error(
-      "radiok7 needs a folder project (a directory with project.yaml)",
+      "k7 needs a folder project (a directory with project.yaml)",
     );
 
   const doc = loadProject(songDir);
   const uuid = ensureSongUuid(songDir, doc.uuid);
 
   const auth = { Authorization: `Bearer ${cfg.token}` };
-  // Does radiok7 already know this song? A 404 means it's new and needs artist/title.
+  // Does k7 already know this song? A 404 means it's new and needs artist/title.
   const lookup = await fetch(
     `${cfg.url}/api/releases/by-song/${encodeURIComponent(uuid)}`,
     { headers: auth },
@@ -244,7 +254,7 @@ export async function shareToRadiok7(
   const create = lookup.status === 404;
   if (!create && !lookup.ok)
     throw new Error(
-      `radiok7 lookup failed: ${lookup.status} ${await lookup.text()}`,
+      `k7 lookup failed: ${lookup.status} ${await lookup.text()}`,
     );
   if (create && !opts.artist) {
     const e = new Error(NEEDS_META);

@@ -4,6 +4,11 @@
 
 import type { PublicEngine } from "@studio/web-protocol";
 
+// The app is mounted under a path (studio.test/<service>), so every backend
+// path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
+// here so the literals keep reading as paths.
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export interface AuthUser {
   sub?: string;
   name?: string;
@@ -27,7 +32,9 @@ let signedInAs = "";
 export const currentUser = (): string => signedInAs;
 
 export const auth = {
-  loginUrl: `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+  // `return_to` is the name the OIDC package reads; `redirect` was silently
+  // ignored, which only looked fine while this app owned the origin root.
+  loginUrl: `/auth/login?return_to=${encodeURIComponent(window.location.pathname + window.location.search)}`,
 
   me: async (): Promise<AuthUser | null> => {
     const res = await fetch("/auth/me");
@@ -40,10 +47,10 @@ export const auth = {
 
 export const engines = {
   list: async () =>
-    json<PublicEngine[]>(await fetch("/api/engines"), "engines"),
+    json<PublicEngine[]>(await fetch(`${BASE}/api/engines`), "engines"),
   select: async (id: string, token: string, tier: number) =>
     json<{ ok: true }>(
-      await fetch("/api/engine/select", {
+      await fetch(`${BASE}/api/engine/select`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, token, tier }),
@@ -51,10 +58,13 @@ export const engines = {
       "select",
     ),
   prefs: async () =>
-    json<{ engineId?: string }>(await fetch("/api/preferences"), "preferences"),
+    json<{ engineId?: string }>(
+      await fetch(`${BASE}/api/preferences`),
+      "preferences",
+    ),
   savePrefs: async (p: { engineId?: string }) =>
     json<{ ok: true }>(
-      await fetch("/api/preferences", {
+      await fetch(`${BASE}/api/preferences`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(p),

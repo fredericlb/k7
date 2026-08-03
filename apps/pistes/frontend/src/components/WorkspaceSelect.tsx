@@ -1,5 +1,5 @@
 // WorkspaceSelect.tsx — pick which workspace to open (a folder under the engine's
-// ~/.lanes/root/<you>/). Presentational, like EngineSelect: the gate owns the
+// ~/.studio/root/<you>/). Presentational, like EngineSelect: the gate owns the
 // async, this renders the list + a "new workspace" action + a "clone via SSH" one.
 
 import { Badge } from "@frediverse/ui/badge";

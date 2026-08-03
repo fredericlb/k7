@@ -15,7 +15,7 @@
 
 #include "ProjectDoc.h"
 
-namespace lanes {
+namespace studio {
 
 enum class ChangeKind {
     // Global — some of these force a full rebuild (see needsFullRebuild).
@@ -75,4 +75,4 @@ bool needsFullRebuild(const ProjectDiff&);
 // Human-readable one-liner per change, for the UI log ("~ track drums: gain 0.8").
 std::string describe(const Change&);
 
-}  // namespace lanes
+}  // namespace studio

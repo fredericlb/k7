@@ -137,7 +137,7 @@ These are static and wire up from `main()`:
 | `writeWaveformCache` | `--waveform <audiofile>` — see [cliModes.md](cliModes.md) |
 | `normalizeClips` | see [cliModes.md](cliModes.md) |
 
-The param dumps are lanes's text alternative to an opaque `.vstpreset`: the payload is
+The param dumps are pistes's text alternative to an opaque `.vstpreset`: the payload is
 `{ "params": {paramID: value}, "complete": bool }`, where `complete` means the params fully
 reproduce the plugin state and the preset can be dropped. The translator calls them to
 store chain params on import.

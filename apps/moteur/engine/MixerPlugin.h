@@ -18,7 +18,7 @@
 #include <memory>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 class MixerPlugin : public tracktion::engine::Plugin {
 public:
@@ -67,4 +67,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerPlugin)
 };
 
-}  // namespace lanes
+}  // namespace studio

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 
@@ -182,4 +182,4 @@ int writeWaveformCache(const std::string& audioPath) {
     return 0;
 }
 
-}  // namespace lanes
+}  // namespace studio

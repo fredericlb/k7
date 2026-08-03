@@ -30,5 +30,5 @@ This check is deliberately weak — it looks for the key *anywhere* in an exampl
 schema, not for correct usage — because its job is to fail when a field has no
 documentation at all, which is the failure that actually occurs.
 
-Both checks read the markdown under `lanes/docs/` — the documentation itself, not a copy
+Both checks read the markdown under `pistes/docs/` — the documentation itself, not a copy
 of it.

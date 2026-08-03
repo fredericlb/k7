@@ -4,7 +4,7 @@
 // throw, because a listing that fails entirely is worse than one that is short.
 
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { basename, join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
   familyDir,
@@ -13,6 +13,7 @@ import {
   SAMPLE_KINDS,
   toRel,
 } from "./layout.ts";
+import { isAudio, isVideo } from "./media.ts";
 import type { Family, MediatekEntry } from "./types.ts";
 
 /** The sidecar that makes a folder a morceau and carries its provenance. */
@@ -20,21 +21,10 @@ export const MORCEAU_FILE = "morceau.yaml";
 /** The file that makes a folder a module — the same name a project's `modules/` uses. */
 export const MODULE_FILE = "module.yaml";
 
-const AUDIO_EXT = new Set([
-  ".wav",
-  ".flac",
-  ".aiff",
-  ".aif",
-  ".mp3",
-  ".ogg",
-  ".opus",
-  ".m4a",
-  ".webm",
-]);
-const VIDEO_EXT = new Set([".mp4", ".mov", ".mkv", ".webm", ".avi"]);
-
-const isAudio = (n: string): boolean => AUDIO_EXT.has(extname(n).toLowerCase());
-const isVideo = (n: string): boolean => VIDEO_EXT.has(extname(n).toLowerCase());
+/** Its two siblings: the module's PANEL and its named settings. Neither is the generic, and neither is one
+ *  of its instances — see `@studio/song`'s docs/uiLibrary.md and docs/userPresets.md. */
+export const UI_FILE = "ui.yaml";
+export const PRESETS_FILE = "presets.yaml";
 
 function dirents(abs: string): Dirent[] {
   try {
@@ -128,8 +118,6 @@ function scanMorceaux(): MediatekEntry[] {
             ...(master ? { master: master.name } : {}),
             ...(artist ? { artist } : {}),
             ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
-            // The upstream key of a mirrored entry. Its ABSENCE is what says "mediatek-native".
-            ...(str(meta.grist) ? { grist: str(meta.grist) as string } : {}),
           },
         });
         return; // an entry is a leaf — do not descend into its own files
@@ -175,35 +163,75 @@ function scanSamples(): MediatekEntry[] {
   return out;
 }
 
-/** Modules: `modules/<type>/<name>/`, the same shape a project's `modules/` uses — this
- *  IS a workspace's `_modules` promoted, so a folder that doesn't match resolves nowhere.
- *  One without a `module.yaml` is still listed, flagged, rather than silently dropped. */
+/**
+ * Modules: `modules/<type>/[<category>/]<name>/`, the same shape a project's `modules/` uses —
+ * this IS a workspace's `_modules` promoted, so a folder that doesn't match resolves nowhere.
+ *
+ * TWO depths, mirroring `readModuleTree` rather than guessing at it: a folder with no module
+ * file is a CATEGORY, and the modules sit one level under it (`audio/filter/auto-wah`, the
+ * shape the shared library ships). Listing only the first level filed the category itself as a
+ * module, so opening it looked for a `module.yaml` that was never going to be there — and the
+ * real modules under it were absent from the catalogue entirely.
+ *
+ * A folder with no module file and nothing module-shaped below it is still listed, flagged
+ * `catalogued: false`, rather than silently dropped: it is what a folder you just made looks
+ * like, and one you cannot see is one you cannot drop into.
+ */
 function scanModules(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
   const root = familyDir("modules");
+  const isModuleDir = (abs: string): boolean =>
+    dirents(abs).some((f) => f.isFile() && f.name === MODULE_FILE);
+
+  const push = (abs: string, type: string, sub: string): void => {
+    const files = dirents(abs);
+    out.push({
+      family: "modules",
+      id: toRel(abs),
+      name: sub.split("/").pop() ?? sub,
+      path: toRel(abs),
+      kind: type,
+      mtime: newestUnder(abs),
+      // What is ACTUALLY in the folder, so a tree shows the instances and sidecars rather
+      // than three fixed rows that may have nothing to do with what was dropped in.
+      files: files
+        .filter((f) => f.isFile())
+        .map((f) => f.name)
+        .sort(),
+      meta: {
+        catalogued: files.some((f) => f.isFile() && f.name === MODULE_FILE),
+        // Instances live beside module.yaml as <instance>.yaml — referenced as "<module>:<instance>".
+        // The other two are the module ITSELF, and counting them read as more uses than there are.
+        instances: files.filter(
+          (f) =>
+            f.isFile() &&
+            f.name.endsWith(".yaml") &&
+            f.name !== MODULE_FILE &&
+            f.name !== UI_FILE &&
+            f.name !== PRESETS_FILE,
+        ).length,
+      },
+    });
+  };
+
   for (const type of MODULE_TYPES) {
     const typeDir = join(root, type);
     for (const e of dirents(typeDir)) {
       if (!e.isDirectory()) continue;
       const abs = join(typeDir, e.name);
-      const files = dirents(abs);
-      const hasModule = files.some((f) => f.isFile() && f.name === MODULE_FILE);
-      out.push({
-        family: "modules",
-        id: toRel(abs),
-        name: e.name,
-        path: toRel(abs),
-        kind: type,
-        mtime: newestUnder(abs),
-        meta: {
-          catalogued: hasModule,
-          // Instances live beside module.yaml as <instance>.yaml — referenced as "<module>:<instance>".
-          instances: files.filter(
-            (f) =>
-              f.isFile() && f.name.endsWith(".yaml") && f.name !== MODULE_FILE,
-          ).length,
-        },
-      });
+      if (isModuleDir(abs)) {
+        push(abs, type, e.name);
+        continue;
+      }
+      // No module file: a category, if anything below it is a module. One level only — the
+      // loader files nothing deeper, so neither does this.
+      const leaves = dirents(abs).filter(
+        (d) => d.isDirectory() && isModuleDir(join(abs, d.name)),
+      );
+      if (leaves.length)
+        for (const l of leaves)
+          push(join(abs, l.name), type, `${e.name}/${l.name}`);
+      else push(abs, type, e.name); // neither — a folder somebody just made
     }
   }
   return out;
@@ -219,4 +247,48 @@ export function scanFamily(family: Family): MediatekEntry[] {
         ? scanSamples()
         : scanModules();
   return entries.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * The paths under a family that NO entry accounts for — an empty folder, a loose file.
+ *
+ * A tree draws itself from the entry paths, which works right up to the thing that is not an
+ * entry: the folder `POST /folder` just made ("somewhere to drop into before the first file"),
+ * or a file dropped where no catalogue reaches. Both answered 200 and appeared nowhere, which
+ * reads as the call having done nothing at all.
+ *
+ * An ENTRY's own folder is never descended into. A morceau and a module ARE folders and their
+ * insides are theirs — a module's files travel on the entry (`files`), because a tree drawing
+ * one has to know which of the three canonical names are missing, not merely what is there.
+ */
+export function scanUnlisted(
+  family: Family,
+  entries: MediatekEntry[],
+): string[] {
+  const root = familyDir(family);
+  // An entry's own path, and every folder on the way to one: the first stops the walk, the
+  // second is already drawn. Conflating them would either hide a library or descend into a module.
+  const isEntry = new Set<string>();
+  const onTheWay = new Set<string>();
+  for (const e of entries) {
+    const rel = e.path.split("/").slice(1); // drop the family segment
+    isEntry.add(rel.join("/"));
+    for (let i = 1; i < rel.length; i++)
+      onTheWay.add(rel.slice(0, i).join("/"));
+  }
+  const out: string[] = [];
+  const walk = (abs: string, rel: string): void => {
+    for (const d of dirents(abs)) {
+      const at = rel ? `${rel}/${d.name}` : d.name;
+      if (isEntry.has(at)) continue; // the entry stands for it, insides included
+      if (onTheWay.has(at)) {
+        walk(join(abs, d.name), at); // already drawn, but something below may not be
+        continue;
+      }
+      out.push(at);
+      if (d.isDirectory()) walk(join(abs, d.name), at);
+    }
+  };
+  walk(root, "");
+  return out.sort();
 }

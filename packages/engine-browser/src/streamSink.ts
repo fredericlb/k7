@@ -18,7 +18,7 @@ import type { StreamSink } from "./streamPlayer";
  * The ring is preallocated at construction; `process` only copies.
  */
 const PROCESSOR_SOURCE = `
-class LanesStreamProcessor extends AudioWorkletProcessor {
+class StudioStreamProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     const o = (options && options.processorOptions) || {};
@@ -105,7 +105,7 @@ class LanesStreamProcessor extends AudioWorkletProcessor {
     return true;
   }
 }
-registerProcessor("lanes-stream", LanesStreamProcessor);
+registerProcessor("studio-stream", StudioStreamProcessor);
 `;
 
 export interface SinkStats {
@@ -157,7 +157,7 @@ export async function createWorkletSink(
     URL.revokeObjectURL(url);
   }
 
-  const node = new AudioWorkletNode(ctx, "lanes-stream", {
+  const node = new AudioWorkletNode(ctx, "studio-stream", {
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [opts.channels],

@@ -66,7 +66,7 @@ export interface GraphNode {
   // The library files this module loads, per asset kind — what a library dropdown here shows as its current choice.
   assets?: Record<string, string>;
   stub: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported: boolean; // plugin.type is "not_supported" — lanes can't load it (amber)
+  notSupported: boolean; // plugin.type is "not_supported" — pistes can't load it (amber)
   unknownPlugin: boolean; // plugin.type is an UNKNOWN format — a typo / unimported (red)
   hasNativePluginUI: boolean; // an external plugin with a nativePluginUI the engine can open
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through

@@ -4,8 +4,8 @@ import type { Workspace } from "../workspace.ts";
 declare global {
   namespace Express {
     interface Request {
-      userEmail?: string; // from x-lanes-user (set by resolveUser)
-      ws?: Workspace; // from userEmail + x-lanes-workspace (set by resolveWorkspace)
+      userEmail?: string; // from x-studio-user (set by resolveUser)
+      ws?: Workspace; // from userEmail + x-studio-workspace (set by resolveWorkspace)
     }
   }
 }

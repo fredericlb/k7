@@ -20,8 +20,8 @@ const config: StorybookConfig = {
     "@storybook/addon-mcp",
   ],
   framework: "@storybook/react-vite",
-  // Serve radiok7's public assets (icons, etc.) some stories reference.
-  staticDirs: ["../apps/radiok7/frontend/public"],
+  // Serve k7's public assets (icons, etc.) some stories reference.
+  staticDirs: ["../apps/k7/frontend/public"],
   // Standalone root Vite pipeline — the apps' own vite.config files aren't used
   // here. Add Tailwind v4 so the design tokens (theme.css) and the utility
   // classes used across the stories/components compile.
@@ -29,7 +29,7 @@ const config: StorybookConfig = {
     viteConfig.plugins = viteConfig.plugins ?? [];
     viteConfig.plugins.push(tailwindcss());
 
-    // A component imported by bare specifier (e.g. `@radiok7/lyrics`) resolves
+    // A component imported by bare specifier (e.g. `@k7/lyrics`) resolves
     // via the workspace symlink, so @vitejs/plugin-react skips it and Vite's own
     // esbuild transform handles it — and esbuild defaults to the *classic* JSX
     // runtime, which needs a global `React`. Since these components only import

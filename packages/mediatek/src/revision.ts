@@ -4,8 +4,12 @@
 
 import { type Dirent, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { familyDir } from "./layout.ts";
+import { familyDir, RECORDINGS_DIR, recordingsDir } from "./layout.ts";
 import { FAMILIES, type Family } from "./types.ts";
+
+/** What can carry a token: the three families, plus the raw capture zone — which is not a
+ *  family but moves, and has a surface polling it. See docs/recordings.md. */
+export type RevisionKey = Family | typeof RECORDINGS_DIR;
 
 /** Derived, hidden or per-machine junk: none of it is the library's content. */
 function skip(name: string): boolean {
@@ -53,11 +57,11 @@ function walk(dir: string): { count: number; newest: number } {
  * rather than wait to be noticed. Same two ingredients as file-service's workspace
  * revision, and for the same reason.
  */
-const mutations: Partial<Record<Family, number>> = {};
+const mutations: Partial<Record<RevisionKey, number>> = {};
 
-/** Record that this family was written to. Called by whatever did the writing. */
-export function bumped(family: Family): void {
-  mutations[family] = (mutations[family] ?? 0) + 1;
+/** Record that this family or zone was written to. Called by whatever did the writing. */
+export function bumped(key: RevisionKey): void {
+  mutations[key] = (mutations[key] ?? 0) + 1;
 }
 
 /**
@@ -72,9 +76,20 @@ export function familyRevision(family: Family): string {
   return `${mutations[family] ?? 0}:${count}:${newest}`;
 }
 
-/** Every family's token at once — what a listing is stamped with. */
-export function revisions(): Record<Family, string> {
-  return Object.fromEntries(
-    FAMILIES.map((f) => [f, familyRevision(f)]),
-  ) as Record<Family, string>;
+/** The capture zone's own token. It used to ride on `morceaux`, which cost that family a
+ *  pointless refetch on every capture; a zone at the root answers for itself. */
+export function recordingsRevision(): string {
+  const { count, newest } = walk(recordingsDir());
+  return `${mutations[RECORDINGS_DIR] ?? 0}:${count}:${newest}`;
+}
+
+/** Every token at once — what a listing is stamped with. The zone is in here beside the
+ *  families because one poll drives the whole screen, tabs included. */
+export function revisions(): Record<RevisionKey, string> {
+  return {
+    ...(Object.fromEntries(
+      FAMILIES.map((f) => [f, familyRevision(f)]),
+    ) as Record<Family, string>),
+    [RECORDINGS_DIR]: recordingsRevision(),
+  };
 }

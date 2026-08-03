@@ -128,16 +128,23 @@ export const UISchema = z.object({
 /** A module's whole widget grid — what the visual editor reads and writes. */
 export type ModuleUI = z.infer<typeof UISchema>;
 
-// One file in the workspace's `_ui/` library: a panel, and the ref of the module it draws. The panel lives
-// apart from the module so `module populate` can rebuild `_modules` without touching hand-drawn work, and so
-// one panel can be authored once for a plugin every song reaches for. See uiLibrary.ts.
-export const UiFileSchema = UISchema.extend({
-  // "@engine/audio/delay/tape-delay" for a shared module, "audio/reverb" for a project's own. This is the key
-  // — the file's PATH is only filing, so a panel can be moved or renamed without losing its module.
-  ref: z.string().min(1),
-}).strict();
+// One `ui.yaml`: the panel beside a module's `module.yaml`. Exactly what the `ui:` block was, at the top level
+// and in a file of its own, so the plugin scan can rewrite the module without touching hand-drawn work. It says
+// nothing about WHICH module it draws — the folder it sits in does. See uiLibrary.ts.
+export const UiFileSchema = UISchema.strict();
 
 export type UiFile = z.infer<typeof UiFileSchema>;
+
+// One `presets.yaml`: the module's named settings, beside its `module.yaml` like the panel. A preset IS its
+// values — the key names it, the folder says which module it belongs to, and there is nothing else to record.
+// Numbers only, because that is what a module's `params:` holds and a preset that could not be written there
+// would be one that cannot be applied. See presets.ts.
+export const PresetsFileSchema = z.record(
+  z.string().min(1),
+  z.record(z.string().min(1), z.number()),
+);
+
+export type PresetsFile = z.infer<typeof PresetsFileSchema>;
 
 /** The widget kinds, for a picker that must offer exactly what the schema accepts. */
 export type WidgetType = Widget["type"];

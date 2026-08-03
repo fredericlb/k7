@@ -53,6 +53,13 @@ RUN npm ci
 FROM deps AS frontend-build
 WORKDIR /app
 COPY --from=pruner /repo/out/full/ ./
+# The build stamp "YY.MMDDHHmm" the buildspec also tags this image with, shown in
+# each SPA's chrome. A plain `docker build` leaves it "dev" — only CI claims a
+# version. It is an ENV rather than phare's `RUN VITE_APP_VERSION=… npm run build`
+# prefix precisely because of the && chain below: a command-prefix assignment
+# applies to the FIRST command only, so five of these six would ship "dev".
+ARG APP_VERSION=dev
+ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build --workspace obscura-online \
  && npm run build --workspace obscura-buzzer \
  && npm run build --workspace obscura-remote \

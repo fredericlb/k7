@@ -203,7 +203,7 @@ from 50 ms to 150 ms as a result — the full reasoning is in
 * **Two machines** — the drift figure that actually governs the design. Both figures here
   compare a sound card against a system clock, never two cards against each other.
 * Sustained multi-listener load, and the JSON-broadcast stall described above.
-* A real lanes tab as the listener: it has a React tree and a canvas to schedule around,
+* A real pistes tab as the listener: it has a React tree and a canvas to schedule around,
   so its main thread will be worse than the empty page measured here.
 
 ## What is deliberately absent
@@ -216,7 +216,7 @@ from 50 ms to 150 ms as a result — the full reasoning is in
 * **No authentication of its own.** The stream rides the existing socket and inherits
   exactly what that socket already has, which is the engine token echoed on `whoami` — and
   no more. Worth saying plainly: anyone who can reach the port can listen to the room.
-  Acceptable on loopback and on a trusted LAN, which is where `LANES_ENGINE_HOST` puts it
+  Acceptable on loopback and on a trusted LAN, which is where `STUDIO_ENGINE_HOST` puts it
   today, and **not** acceptable the day this is exposed further.
 * **No multi-device output.** Master plus a headphone cue, which platines will need, is a
   separate chantier from this one and the plan keeps it separate.

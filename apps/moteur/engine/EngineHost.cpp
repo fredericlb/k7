@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // API NOTE — pinned to Tracktion Engine v3.2.0 (see CMakeLists.txt). Model types are tracktion::engine (te),
 // but the core time types (TimePosition/TimeDuration/TimeRange/BeatPosition) are tracktion (tt), NOT under
@@ -375,7 +375,7 @@ double EngineHost::playheadSeconds(const std::string& session) const {
 
 namespace {
 constexpr int kPreviewNote = 72;   // the sampler's default keyNote — plays at native pitch
-const juce::String kPreviewTrackName = "__lanes_preview__";
+const juce::String kPreviewTrackName = "__studio_preview__";
 
 // Find, or lazily create, the hidden sampler that auditions the editor's play buttons. It rides as an extra
 // track at the END of the edit — outside the doc, so the timeline and graph never show it and doc indices are
@@ -480,7 +480,7 @@ void EngineHost::enableWaveformTap(const std::string& session, const std::string
 
     // Created via the plugin cache, where registerBuiltInPlugins put its type.
     auto tapPlugin = impl_->session(session).edit->getPluginCache().createNewPlugin(
-        lanes::WaveformTapPlugin::xmlTypeName, {});
+        studio::WaveformTapPlugin::xmlTypeName, {});
     if (!tapPlugin) return;
 
     track->pluginList.insertPlugin(tapPlugin, insertIndex, nullptr);
@@ -508,7 +508,7 @@ std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& sessio
     auto it = impl_->session(session).waveformPlugins.find(key);
     if (it == impl_->session(session).waveformPlugins.end()) return {};
 
-    auto* tapPlugin = dynamic_cast<lanes::WaveformTapPlugin*>(it->second.get());
+    auto* tapPlugin = dynamic_cast<studio::WaveformTapPlugin*>(it->second.get());
     if (!tapPlugin) return {};
     return tapPlugin->tap().drain();
 }
@@ -516,7 +516,7 @@ std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& sessio
 std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWaveformTaps(const std::string& session) {
     std::map<std::string, std::vector<WaveformEnvelope>> result;
     for (auto& [key, plugin] : impl_->session(session).waveformPlugins) {
-        auto* tapPlugin = dynamic_cast<lanes::WaveformTapPlugin*>(plugin.get());
+        auto* tapPlugin = dynamic_cast<studio::WaveformTapPlugin*>(plugin.get());
         if (!tapPlugin) continue;
         auto data = tapPlugin->tap().drain();
         if (!data.empty())
@@ -540,11 +540,11 @@ void EngineHost::enableBroadcast(const std::string& session, bool on) {
     // Appended (-1) to the MASTER list, so it sees the mix after everything, exactly like
     // the master level meter it sits beside — that is the signal leaving for the interface.
     auto tap = impl_->session(session).edit->getPluginCache().createNewPlugin(
-        lanes::BroadcastTapPlugin::xmlTypeName, {});
+        studio::BroadcastTapPlugin::xmlTypeName, {});
     if (!tap) return;
     // Point it at the ring BEFORE it joins the list: once inserted, an audio callback can
     // reach it at any moment, and a plugin with no ring yet would drop those blocks.
-    if (auto* bt = dynamic_cast<lanes::BroadcastTapPlugin*>(tap.get()))
+    if (auto* bt = dynamic_cast<studio::BroadcastTapPlugin*>(tap.get()))
         bt->setTap(&impl_->session(session).broadcastRing);
     impl_->session(session).edit->getMasterPluginList().insertPlugin(tap, -1, nullptr);
     impl_->session(session).broadcastPlugin = tap;
@@ -669,4 +669,4 @@ void EngineHost::quit() {
     juce::MessageManager::getInstance()->stopDispatchLoop();
 }
 
-}  // namespace lanes
+}  // namespace studio

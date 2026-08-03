@@ -79,6 +79,12 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
+/* Build stamp — dimmer than the clock so the two never compete for the eye. */
+.build {
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 2fr 1fr;

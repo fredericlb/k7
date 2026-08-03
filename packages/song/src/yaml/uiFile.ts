@@ -1,4 +1,4 @@
-// uiFile.ts — reading one `_ui/**.yaml` panel. Same shape as moduleFile.ts's parseModule (Zod, in-process,
+// uiFile.ts — reading one module's `ui.yaml` panel. Same shape as moduleFile.ts's parseModule (Zod, in-process,
 // with the line and column of the offending key), against UiFileSchema instead of ModuleSchema.
 
 import { LineCounter, parseDocument } from "yaml";

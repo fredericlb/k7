@@ -47,7 +47,7 @@
 #include <string>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 /** A parameter the graph declares — the plugin turns each into an AutomatableParameter. */
 struct DspGraphParam {
@@ -151,4 +151,4 @@ private:
     DspGraph() = default;
 };
 
-}  // namespace lanes
+}  // namespace studio

@@ -1,5 +1,5 @@
 // server.ts — platines' backend: OIDC auth, this service's engine registry, and what it
-// remembers about a person. Exactly lanes' shape and for the same reason — it knows WHO you
+// remembers about a person. Exactly pistes' shape and for the same reason — it knows WHO you
 // are and WHICH engines exist, never what is on any engine's disk. The decks still reach
 // the file service and the moteur directly, cross-origin, as they always did.
 
@@ -21,7 +21,10 @@ app.use(express.json({ limit: "1mb" }));
 // replaced the text box a DJ used to type their own identity into — an identity the file
 // service then trusted, and which nothing checked.
 const { requireAuth } = await setupAuth(app, {
-  cookieName: "platines.sid",
+  // The pistes backend owns /auth at the origin root; this one only VERIFIES its
+  // cookie, so it mounts no auth routes. Same name and secret or the check fails.
+  cookieName: "studio.sid",
+  mountRoutes: [],
   service: "platines-backend",
 });
 
@@ -31,11 +34,12 @@ const { requireAuth } = await setupAuth(app, {
 app.use(["/api/engines", "/api/engine", "/api/preferences"], requireAuth);
 app.use("/api", engineRegistryRouter(createRegistry()));
 
-// The deck this account plays through. Same shape as lanes' and the médiathèque's, a
+// The deck this account plays through. Same shape as pistes' and the médiathèque's, a
 // different store: which machine you DJ from is not which machine you write songs on.
 const prefsSchema = z.object({ engineId: z.string().optional() });
 const PREFS_DIR =
-  process.env.LANES_PREFS_DIR || join(homedir(), ".lanes", "prefs", "platines");
+  process.env.STUDIO_PREFS_DIR ||
+  join(homedir(), ".studio", "prefs", "platines");
 app.use(
   "/api",
   preferencesRouter(

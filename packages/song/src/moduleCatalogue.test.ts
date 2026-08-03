@@ -73,9 +73,9 @@ describe("the shared module catalogue", () => {
   it("lists a module at either depth its catalogue allows", () => {
     expect(refs()).toEqual(
       expect.arrayContaining([
-        "@engine/audio/reverb",
-        "@engine/audio/amp/nam",
-        "@engine/io/IN",
+        "@workspace/audio/reverb",
+        "@workspace/audio/amp/nam",
+        "@workspace/io/IN",
       ]),
     );
   });
@@ -83,18 +83,23 @@ describe("the shared module catalogue", () => {
   it("lists the GENERICS only, counting the instances instead", () => {
     // An instance has no face of its own — a `ui:` on one is ignored by the loader — so a
     // builder aimed at it would edit nothing. It is a number on its generic's row, not a row.
-    expect(refs()).not.toContain("@engine/io/IN:in-1");
-    expect(by("@engine/io/IN")?.instances).toBe(2);
+    expect(refs()).not.toContain("@workspace/io/IN:in-1");
+    expect(by("@workspace/io/IN")?.instances).toBe(2);
   });
 
   it("points at the file the builder opens", () => {
-    expect(by("@engine/audio/amp/nam")?.path).toBe(
+    expect(by("@workspace/audio/amp/nam")?.path).toBe(
       join(ws, "_modules", "audio", "amp", "nam", "module.yaml"),
     );
   });
 
   it("leaves the project's OWN modules out — they are not the catalogue", () => {
-    expect(refs().every((r) => r.startsWith("@engine/"))).toBe(true);
+    // Every entry names a level the project INHERITS from. `@project/` is the explicit spelling
+    // of what the project owns, and a bare ref is the same thing written short — neither belongs
+    // in a list of what to reach for.
+    expect(
+      refs().every((r) => r.startsWith("@") && !r.startsWith("@project/")),
+    ).toBe(true);
   });
 
   it("still offers the ENGINE's modules to a project with no shared library", () => {
@@ -106,7 +111,8 @@ describe("the shared module catalogue", () => {
     const refs = moduleCatalogue(solo).map((m) => m.ref);
     expect(refs).toContain("@engine/IN");
     expect(refs).toContain("@engine/OUT");
-    // …and nothing from a library, since there is none.
+    // …and nothing from a library, since there is none. `@engine` is the one level with no
+    // folder behind it, which is exactly why it still answers here.
     expect(refs.every((r) => r.startsWith("@engine/"))).toBe(true);
   });
 });

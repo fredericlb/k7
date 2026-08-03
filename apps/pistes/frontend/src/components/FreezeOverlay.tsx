@@ -1,6 +1,6 @@
 // FreezeOverlay.tsx — the modal wait while a track is being frozen.
 //
-// Deliberately intrusive, which is unusual here: everything else that takes time in lanes reports itself in
+// Deliberately intrusive, which is unusual here: everything else that takes time in pistes reports itself in
 // place (the play button's spinner, a busy engine, a module's warning badge) precisely so the app stays usable.
 // A freeze is the exception. It bounces the track in a separate engine process, which can run for as long as the
 // song is; the transport has just been stopped under the user; and when it lands, a lane's contents and a whole

@@ -1,6 +1,6 @@
-// uiMigrate.ts — move the `ui:` blocks that still live inside module files out into the workspace's `_ui`
-// library. A one-shot, re-runnable: a module with no `ui:` left is already migrated and is skipped, so running
-// it twice does nothing the first run didn't. Rationale: docs/uiLibrary.md.
+// uiMigrate.ts — move the `ui:` blocks that still live inside module files out into a `ui.yaml` beside each
+// one. A one-shot, re-runnable: a module with no `ui:` left is already migrated and is skipped, so running it
+// twice does nothing the first run didn't. Rationale: docs/uiLibrary.md.
 
 import {
   existsSync,
@@ -12,13 +12,14 @@ import {
 import { join, relative, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { MODULE_TYPES, moduleRefOf } from "./loader";
-import { SHARED_UI_PATH, writeUiFile } from "./uiLibrary";
+import { moduleNamespaceOf } from "./sharedFolders";
+import { writeUiFile } from "./uiLibrary";
 import { setModuleValue } from "./yaml/moduleFile";
 import { moduleFileFor } from "./yaml/moduleIO";
 import { type ModuleUI, UISchema } from "./yaml/moduleSchema";
 
 export interface UiMigration {
-  /** Panels written, as `<ref> → _ui/<path>`. */
+  /** Panels written, as `<ref> → <library>/<path>`. */
   moved: string[];
   /** Module files that had no `ui:` to move, or whose panel was already in the library. */
   skipped: string[];
@@ -73,21 +74,9 @@ function candidatesIn(
   return out;
 }
 
-/** The namespace a shared library declares, or null when it isn't one. */
-function namespaceOf(root: string): string | null {
-  const config = moduleFileFor(root, "", "config");
-  if (!config) return null;
-  const value = parseYaml(readFileSync(config.path, "utf8"), {
-    version: "1.2",
-  }) as {
-    namespace?: unknown;
-  } | null;
-  const ns = String(value?.namespace ?? "");
-  return ns || null;
-}
-
 /**
- * Move every inline `ui:` under this project's workspace into `_ui`, and delete it from the module file.
+ * Move every inline `ui:` under this project's workspace into the `ui.yaml` beside its module, and delete it
+ * from the module file.
  *
  * Both halves are covered: the project's own `modules/`, and the shared `_modules/` beside it. The shared one
  * is written to even though the library is read-only through the file service — this is the same kind of
@@ -98,20 +87,21 @@ function namespaceOf(root: string): string | null {
  */
 export function migrateModuleUis(dir: string): UiMigration {
   const out: UiMigration = { moved: [], skipped: [], errors: [] };
-  const uiRoot = join(dir, SHARED_UI_PATH);
 
   const roots: { base: string; ns: string | null; label: string }[] = [
     { base: join(dir, "modules"), ns: null, label: "modules" },
   ];
+  // The workspace's library is `@workspace` because of where it sits. It used to have to declare
+  // that in a config.yaml, and a folder without one was reported here and skipped — a real
+  // migration refusing to run over a real library. There is nothing left to declare, so the
+  // folder existing is the whole condition.
   const shared = join(dir, "..", "_modules");
-  if (existsSync(shared)) {
-    const ns = namespaceOf(shared);
-    if (ns) roots.push({ base: shared, ns, label: "_modules" });
-    else
-      out.errors.push(
-        "_modules has no config.yaml namespace — its panels were left alone",
-      );
-  }
+  if (existsSync(shared))
+    roots.push({
+      base: shared,
+      ns: moduleNamespaceOf(shared),
+      label: "_modules",
+    });
 
   for (const { base, ns, label } of roots) {
     if (!existsSync(base)) continue;
@@ -148,7 +138,7 @@ export function migrateModuleUis(dir: string): UiMigration {
         );
         writeFileSync(c.path, setModuleValue(text, ["ui"], null), "utf8");
         out.moved.push(
-          `${c.ref} → _ui/${relative(uiRoot, written).split(sep).join("/")}`,
+          `${c.ref} → ${label}/${relative(base, written).split(sep).join("/")}`,
         );
       } catch (e) {
         out.errors.push(`${c.label}: ${(e as Error).message}`);

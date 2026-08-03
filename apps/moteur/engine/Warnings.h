@@ -17,7 +17,7 @@
 #include <functional>
 #include <string>
 
-namespace lanes {
+namespace studio {
 
 struct Warning {
     std::string subject;  // what it is about — a plugin id, a clip path, "" when general
@@ -31,4 +31,4 @@ void warn(std::string message, std::string subject = {});
 // design: it is set before any client connects and never changes after.
 void setWarningSink(std::function<void(const Warning&)> sink);
 
-}  // namespace lanes
+}  // namespace studio

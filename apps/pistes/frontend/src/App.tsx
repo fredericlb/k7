@@ -1,4 +1,4 @@
-// App.tsx — the lanes web shell: the global view (editor | timeline over chains), the
+// App.tsx — the pistes web shell: the global view (editor | timeline over chains), the
 // transport header, and the Shift-Shift command palette. A view is a LAYOUT, not a mode —
 // every pane stays mounted and `full`/`focus` only decide size and keys, so no open file,
 // caret or zoom is ever lost. Live engine state goes to an external store, never App state.
@@ -15,9 +15,10 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
+import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Circle, Loader2, Pause, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
+import { api, moduleStore } from "./api";
 import { canonicalizeCommand } from "./commandI18n";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { ChainsTab } from "./components/ChainsTab";
@@ -126,10 +127,21 @@ export default function App({
   const [focusPane, setFocusPane] = useState<Pane>("editor");
   const [panel, setPanel] = useState<Panel | null>(null);
   const [docSel, setDocSel] = useState<DocsSelection>(null);
+  // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
+  // full screen of its own (a code pane, a params list and a widget grid), and the shell's panes are
+  // already three. Nothing under it unmounts, so closing it puts the editor back exactly as it was.
+  const [builder, setBuilder] = useState<{
+    path: string;
+    pane: BuilderPane;
+  } | null>(null);
   // The documentation: an OVERLAY with its own route (/docs), so Back and typing `help` both close it.
+  // Read RAW, before the router mounts, so the prefix the router would strip is
+  // still on it — hence slicing BASE_URL off by hand here and nowhere else.
   const [showHelp, setShowHelp] = useState(() =>
     ["docs", "help"].includes(
-      window.location.pathname.replace(/^\/+|\/+$/g, ""),
+      window.location.pathname
+        .slice(import.meta.env.BASE_URL.length - 1)
+        .replace(/^\/+|\/+$/g, ""),
     ),
   );
   const [panelH, setPanelH] = useState(280);
@@ -165,7 +177,7 @@ export default function App({
   const [settingsScreen, setSettingsScreen] = useState<SettingsScreen | null>(
     null,
   );
-  // Vim mode is a global user preference (~/.lanes/preferences.yaml). Starts ON to match the brain's default.
+  // Vim mode is a global user preference (~/.studio/preferences.yaml). Starts ON to match the brain's default.
   const [vimMode, setVimMode] = useState(true);
   useEffect(() => {
     void api
@@ -427,7 +439,7 @@ export default function App({
     }
   }, []);
 
-  // `new project <audio|video> <name>`: the same scaffold `lanes create` runs, via the file service, then open it.
+  // `new project <audio|video> <name>`: the same scaffold `pistes create` runs, via the file service, then open it.
   const createNewProject = useCallback(
     async (type: "audio" | "video", name: string) => {
       try {
@@ -722,7 +734,15 @@ export default function App({
     }
   }, [paletteOpen]);
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
-    const items = contextMenu(ctx);
+    // A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so:
+    // the namespace is the catalogue's own and nothing on disk declares it. Derived here rather than carried
+    // as a flag through the graph doc, the graph model and the renderer — four files for one menu entry is a
+    // worse trade than one string test at the point of use.
+    const full: MenuCtx =
+      ctx.kind === "module" && ctx.id.startsWith("@engine/")
+        ? { ...ctx, ambient: true }
+        : ctx;
+    const items = contextMenu(full);
     if (items.length) setMenu({ items, x, y });
   }, []);
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
@@ -934,7 +954,7 @@ export default function App({
           {/* left: title + project. flex-1 so the transport, in its own flex-1-flanked
               centre section, sits at the true horizontal middle of the header. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="font-semibold">lanes</span>
+            <span className="font-semibold">pistes</span>
             <span className="text-xs tabular-nums text-muted-foreground">
               {VERSION}
             </span>
@@ -1151,6 +1171,7 @@ export default function App({
                 setStatus={setStatus}
                 onEditTarget={setEditTarget}
                 onOpenItem={setOpenItem}
+                onOpenBuilder={(path, pane) => setBuilder({ path, pane })}
                 diagnostics={diagnostics}
               />
             </div>
@@ -1361,8 +1382,17 @@ export default function App({
             )}
           </div>
 
-          {/* right: the metronome, a separator, then the bottom-panel choices */}
+          {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
+            <span
+              className="whitespace-nowrap font-mono tabular-nums"
+              title={m["transport.tempoSig"]()}
+            >
+              {recInfo.tempo} bpm
+              <span className="mx-1 text-border">·</span>
+              {recInfo.beatsPerBar}/{recInfo.beatUnit}
+            </span>
             <Button
               size="icon-xs"
               variant={metronomeOn ? "default" : "ghost"}
@@ -1563,6 +1593,34 @@ export default function App({
               onSeek={seek}
             />
           </RecordingOverlay>
+        )}
+
+        {/* The shared module builder (@studio/ui-module-builder), over the whole shell. The module's OWN
+            presets come off its shelf through the store and work here; the plugin's FACTORY banks and its
+            live parameter list need an engine, and this overlay holds no engine link, so it offers neither. */}
+        {builder && (
+          <div className="absolute inset-0 z-30 bg-background">
+            <ModuleBuilder
+              store={moduleStore}
+              path={builder.path}
+              kind="module"
+              moduleName={builder.path.split("/").slice(-2)[0] ?? builder.path}
+              paramRef={null}
+              vimMode={vimMode}
+              initialPane={builder.pane}
+              onBack={() => setBuilder(null)}
+              onSaved={bumpReload}
+              setStatus={setStatus}
+              presets={[]}
+              onListPresets={() => {}}
+              onSetPreset={() => {}}
+              // A save into `_modules` forked: follow the copy, or the next save would fork again.
+              onRelocated={(next) => {
+                setBuilder({ path: next, pane: "module" });
+                editorRef.current?.open(next);
+              }}
+            />
+          </div>
         )}
 
         {/* Global toast notifications — positioned bottom-right, above everything */}

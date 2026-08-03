@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Lanes VERSION 0.0.1 LANGUAGES C CXX)
+project(Studio VERSION 0.0.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,7 +34,7 @@ set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 #
 # Fetched but NOT added as a subproject: NAM ships CMake targets that build its test
 # tools and pin an Eigen of their own, and Eigen's CMake installs a whole package. We
-# want neither — just the sources compiled into lanes_engine with OUR flags, which is
+# want neither — just the sources compiled into studio_engine with OUR flags, which is
 # what makes NAM_SAMPLE_FLOAT stick. Pointing SOURCE_SUBDIR at a directory that holds no
 # CMakeLists is the supported way to say "populate, don't build" (the one-argument
 # FetchContent_Populate that used to mean this is deprecated).
@@ -48,7 +48,7 @@ FetchContent_Declare(nam_core
     # NB upstream's own NAM/version.h reads 0.5.3 at this tag; the tag is the truth here.
     GIT_TAG        v0.5.4
     GIT_SHALLOW    ON
-    SOURCE_SUBDIR  lanes-does-not-build-this)
+    SOURCE_SUBDIR  studio-does-not-build-this)
 
 # NAM's linear algebra. Header-only, so nothing is built.
 #
@@ -59,7 +59,7 @@ FetchContent_Declare(nam_core
 FetchContent_Declare(eigen
     GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
     GIT_TAG        87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1
-    SOURCE_SUBDIR  lanes-does-not-build-this)
+    SOURCE_SUBDIR  studio-does-not-build-this)
 
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
 FetchContent_Declare(ixwebsocket
@@ -96,24 +96,24 @@ FetchContent_Declare(tracktion_engine
 
 # --- Steinberg ASIO SDK : low-latency Windows audio (engine) ------------------
 # REQUIRED on Windows: ASIO is how a real interface is driven there (the other
-# backends are the fallbacks), so `lanes config interfaces` lists ASIO first and
+# backends are the fallbacks), so `pistes config interfaces` lists ASIO first and
 # the build refuses to produce an engine that can't see those devices.
 #
 # Steinberg's licence forbids redistributing the SDK, so it isn't vendored here — we
 # fetch it from Steinberg, like every other dependency. The SDK is Steinberg's and
 # subject to their licence agreement (included in the archive). To build offline, or
 # to use a copy you've already accepted the licence for:
-#   cmake --preset windows-msvc -DLANES_ASIO_SDK_DIR=C:/path/to/asiosdk
+#   cmake --preset windows-msvc -DSTUDIO_ASIO_SDK_DIR=C:/path/to/asiosdk
 #
 # Pinned like the other deps: https://www.steinberg.net/asiosdk always redirects to
 # the newest SDK, which would silently change the build under us.
 # ASIO is Windows-only — on Linux/macOS JUCE uses ALSA/JACK/CoreAudio and none of
 # this applies.
-set(LANES_ASIO_SDK_DIR "$ENV{ASIOSDK_DIR}" CACHE PATH
+set(STUDIO_ASIO_SDK_DIR "$ENV{ASIOSDK_DIR}" CACHE PATH
     "Path to an unpacked Steinberg ASIO SDK (default: fetched from Steinberg)")
 
 if(WIN32)
-    if(NOT LANES_ASIO_SDK_DIR)
+    if(NOT STUDIO_ASIO_SDK_DIR)
         # SOURCE_SUBDIR names a directory with no CMakeLists.txt, so MakeAvailable
         # only downloads + extracts and never tries to add_subdirectory the SDK.
         FetchContent_Declare(asiosdk
@@ -121,25 +121,25 @@ if(WIN32)
             URL_HASH SHA256=d5ebf0c20dd2c5f43771fd0c1418f4b361bf52434ee670097cfa6b3a335e2eca
             SOURCE_SUBDIR  no-cmake-here)
         FetchContent_MakeAvailable(asiosdk)
-        set(LANES_ASIO_SDK_DIR "${asiosdk_SOURCE_DIR}")
+        set(STUDIO_ASIO_SDK_DIR "${asiosdk_SOURCE_DIR}")
     endif()
 
     # Find iasiodrv.h wherever the archive put it rather than assuming a layout:
     # the SDK has been repackaged across versions, and a local copy may be unpacked
     # one level deeper.
-    file(GLOB_RECURSE _asio_headers "${LANES_ASIO_SDK_DIR}/iasiodrv.h"
-                                    "${LANES_ASIO_SDK_DIR}/*/iasiodrv.h")
+    file(GLOB_RECURSE _asio_headers "${STUDIO_ASIO_SDK_DIR}/iasiodrv.h"
+                                    "${STUDIO_ASIO_SDK_DIR}/*/iasiodrv.h")
     if(NOT _asio_headers)
         message(FATAL_ERROR
-            "lanes: the Steinberg ASIO SDK is required on Windows but iasiodrv.h was not found under\n"
-            "  ${LANES_ASIO_SDK_DIR}\n"
-            "Either let the build fetch it (unset LANES_ASIO_SDK_DIR and allow network access),\n"
+            "studio: the Steinberg ASIO SDK is required on Windows but iasiodrv.h was not found under\n"
+            "  ${STUDIO_ASIO_SDK_DIR}\n"
+            "Either let the build fetch it (unset STUDIO_ASIO_SDK_DIR and allow network access),\n"
             "or download it from https://www.steinberg.net/asiosdk and point at the unpacked folder:\n"
-            "  cmake --preset windows-msvc -DLANES_ASIO_SDK_DIR=C:/path/to/asiosdk")
+            "  cmake --preset windows-msvc -DSTUDIO_ASIO_SDK_DIR=C:/path/to/asiosdk")
     endif()
     list(GET _asio_headers 0 _asio_header)
-    get_filename_component(LANES_ASIO_INCLUDE_DIR "${_asio_header}" DIRECTORY)
-    message(STATUS "lanes: ASIO enabled (${LANES_ASIO_INCLUDE_DIR})")
+    get_filename_component(STUDIO_ASIO_INCLUDE_DIR "${_asio_header}" DIRECTORY)
+    message(STATUS "studio: ASIO enabled (${STUDIO_ASIO_INCLUDE_DIR})")
 endif()
 
 # --- Plugin hosting formats + ASIO --------------------------------------------
@@ -175,18 +175,18 @@ add_compile_definitions(_USE_MATH_DEFINES)
 # — like the flags above — it has to reach that target, not just our own TU. Same
 # for the SDK's headers, which juce_ASIO_windows.cpp includes.
 if(WIN32)
-    include_directories("${LANES_ASIO_INCLUDE_DIR}")
+    include_directories("${STUDIO_ASIO_INCLUDE_DIR}")
     add_compile_definitions(JUCE_ASIO=1)
 endif()
 
 FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen)
 
 # Where engine/CMakeLists.txt picks the NAM sources and Eigen's headers up from.
-set(LANES_NAM_DIR "${nam_core_SOURCE_DIR}" CACHE INTERNAL "NeuralAmpModelerCore source")
-set(LANES_EIGEN_DIR "${eigen_SOURCE_DIR}" CACHE INTERNAL "Eigen source")
+set(STUDIO_NAM_DIR "${nam_core_SOURCE_DIR}" CACHE INTERNAL "NeuralAmpModelerCore source")
+set(STUDIO_EIGEN_DIR "${eigen_SOURCE_DIR}" CACHE INTERNAL "Eigen source")
 # NAM includes its JSON as <json.hpp>, not <nlohmann/json.hpp>, so it needs the directory
 # the header sits IN — the nlohmann_json target's own interface points one level up.
-set(LANES_JSON_DIR "${nlohmann_json_SOURCE_DIR}/include/nlohmann" CACHE INTERNAL "nlohmann/json.hpp's own directory")
+set(STUDIO_JSON_DIR "${nlohmann_json_SOURCE_DIR}/include/nlohmann" CACHE INTERNAL "nlohmann/json.hpp's own directory")
 
 # --- macOS deployment target: re-assert AFTER Tracktion (order matters) --------
 # Every tracktion examples/*/CMakeLists.txt does, inside if(APPLE):
@@ -209,7 +209,7 @@ endif()
 # -----------------------------------------------------------------------------
 # The C++ packages (monorepo-style)
 #
-#   engine/  -> lanes::engine  (library: model, diff, Tracktion host)
+#   engine/  -> studio::engine  (library: model, diff, Tracktion host)
 #   server/  -> studio-moteur  (app: WebSocket audio server)
 #
 # The frontend lives in ../brain as a standalone Node app and is NOT built here.
@@ -224,9 +224,9 @@ add_subdirectory(server)
 # --- Unit tests (JUCE-free data layer) ----------------------------------------
 # ON by default for local dev; the build presets pin "targets": ["studio-moteur"],
 # so the test target isn't built by a normal preset build — build + run it with
-# `npm run test:mac --workspace moteur` (or `ctest`). Off with -DLANES_BUILD_TESTS=OFF.
-option(LANES_BUILD_TESTS "Build the engine unit tests" ON)
-if(LANES_BUILD_TESTS)
+# `npm run test:mac --workspace moteur` (or `ctest`). Off with -DSTUDIO_BUILD_TESTS=OFF.
+option(STUDIO_BUILD_TESTS "Build the engine unit tests" ON)
+if(STUDIO_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

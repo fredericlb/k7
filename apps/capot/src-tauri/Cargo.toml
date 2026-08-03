@@ -34,7 +34,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"
 # support, so this stays: the format is contract with the web UI's Logs panel, which
 # polls that file by byte offset.
 chrono = { version = "0.4", features = ["clock"] }
-# ~/.lanes resolution. The LAYOUT lives in engine-host's paths.ts; this is only the
+# ~/.studio resolution. The LAYOUT lives in engine-host's paths.ts; this is only the
 # home dir the three remaining paths hang off.
 dirs = "5"
 

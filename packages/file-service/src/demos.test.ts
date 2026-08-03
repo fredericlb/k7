@@ -28,11 +28,11 @@ beforeEach(() => {
   writeFileSync(join(bundle, "demoA", "project.yaml"), "A v1");
   mkdirSync(join(bundle, "demoB"), { recursive: true });
   writeFileSync(join(bundle, "demoB", "project.yaml"), "B v1");
-  process.env.LANES_DEMOS = bundle;
+  process.env.STUDIO_DEMOS = bundle;
 });
 
 afterEach(() => {
-  delete process.env.LANES_DEMOS;
+  delete process.env.STUDIO_DEMOS;
   rmSync(work, { recursive: true, force: true });
 });
 
@@ -88,7 +88,7 @@ describe("mirrorDemos", () => {
   });
 
   it("is a no-op (no throw) when there is no bundle", () => {
-    delete process.env.LANES_DEMOS;
+    delete process.env.STUDIO_DEMOS;
     // Point the walk-up at a dir with no capot/songs by using a bare temp path:
     // demosDir() returns null and mirrorDemos returns []. (In this repo the walk-up
     // could still find the real songs, so only assert it doesn't throw.)

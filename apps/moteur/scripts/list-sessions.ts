@@ -56,15 +56,15 @@ async function main() {
     q.close();
     return process.exit(0);
   }
-  const lanes = new EngineClient(`ws://127.0.0.1:${PORT}`, "lanes");
+  const pistes = new EngineClient(`ws://127.0.0.1:${PORT}`, "pistes");
   const platines = new EngineClient(`ws://127.0.0.1:${PORT}`, "platines");
-  lanes.connect();
+  pistes.connect();
   platines.connect();
   await wait(500);
-  lanes.sendProject(doc("ma-chanson"));
+  pistes.sendProject(doc("ma-chanson"));
   platines.sendProject(doc("le-set"));
   await wait(2500);
-  lanes.transport("play");
+  pistes.transport("play");
   await wait(1500);
 
   // The supervisor's own client, on the DEFAULT session: it drives nothing and asks about
@@ -80,19 +80,19 @@ async function main() {
 
   const problems: string[] = [];
   const ids = (list: typeof before) => (list ?? []).map((s) => s.id).sort();
-  if (ids(before).join() !== "lanes,platines")
-    problems.push(`sessions attendues lanes+platines, vu ${ids(before)}`);
-  const l = before?.find((s) => s.id === "lanes");
-  if (!l?.playing) problems.push("lanes ne joue pas");
+  if (ids(before).join() !== "pistes,platines")
+    problems.push(`sessions attendues pistes+platines, vu ${ids(before)}`);
+  const l = before?.find((s) => s.id === "pistes");
+  if (!l?.playing) problems.push("pistes ne joue pas");
   if (!l?.loaded || l.project !== "ma-chanson" || l.tracks !== 1)
-    problems.push(`le projet de lanes est mal rapporte : ${JSON.stringify(l)}`);
+    problems.push(`le projet de pistes est mal rapporte : ${JSON.stringify(l)}`);
   if (before?.find((s) => s.id === "platines")?.playing)
     problems.push("platines joue alors qu'on ne le lui a pas demande");
-  if (ids(after).join() !== "lanes")
+  if (ids(after).join() !== "pistes")
     problems.push(`drop sans effet : reste ${ids(after)}`);
 
   q.close();
-  lanes.close();
+  pistes.close();
   platines.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);

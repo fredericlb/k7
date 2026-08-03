@@ -8,7 +8,7 @@
 #include <iostream>
 #include <map>
 
-namespace lanes {
+namespace studio {
 
 std::vector<std::pair<juce::String, te::AutomatableParameter*>> namedParams(te::Plugin& plugin) {
     std::vector<std::pair<juce::String, te::AutomatableParameter*>> out;
@@ -34,7 +34,7 @@ namespace {
 // applyToBuffer() consumes the value and advisory only. See docs/builtinParams.md.
 struct StateParam {
     const char* property;  // the ValueTree property the CachedValue is bound to
-    const char* name;      // display name, the key lanes addresses it by
+    const char* name;      // display name, the key pistes addresses it by
     double min, max, def;
 };
 
@@ -302,4 +302,4 @@ std::unordered_map<std::string, double> currentParamValues(te::Plugin& plugin) {
     return m;
 }
 
-}  // namespace lanes
+}  // namespace studio

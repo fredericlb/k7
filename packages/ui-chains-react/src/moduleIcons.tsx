@@ -2,10 +2,10 @@
 // what each node IS before you read its name: a keyboard makes sound, a MIDI plug
 // transforms notes, a waveform processes audio, arrows are the way in or out. Video
 // modules fall back to none rather than borrowing one that would read as audio.
-// Same icon set and reasons as lanes' trackIcons.tsx, but keyed by CATEGORY rather than a
+// Same icon set and reasons as pistes' trackIcons.tsx, but keyed by CATEGORY rather than a
 import type { WebModuleCategory } from "@studio/graph-model";
 
-/** An inline SVG, as a viewBox and a body. Declared here rather than imported from lanes'
+/** An inline SVG, as a viewBox and a body. Declared here rather than imported from pistes'
  *  trackIcons — which is where it started — because that file stayed in the app: its
  *  TrackIcon draws the same lanes in the mixer and the timeline, so a graph package owning
  *  it would have those two importing one. ModuleIcon has no such tie: it is keyed on

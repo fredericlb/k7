@@ -5,7 +5,7 @@
 #include "ProjectDiff.h"
 #include "test_harness.h"
 
-using namespace lanes;
+using namespace studio;
 
 namespace {
 

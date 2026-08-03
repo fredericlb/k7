@@ -95,7 +95,6 @@ export function insertChainStepAfter(
  */
 export function writeLibrary(
   root: string,
-  namespace = "engine",
   modules: Record<string, unknown> = {
     "audio/delay/tape-delay": { plugin: { type: "vst3", name: "Tape Delay" } },
     "instruments/4osc": { plugin: { type: "internal", name: "4OSC" } },
@@ -103,8 +102,8 @@ export function writeLibrary(
     "io/OUT": { io: "out" },
   },
 ): void {
+  // No config.yaml: `_modules` is `@workspace` because of WHERE it is, not because it says so.
   const lib = join(root, "_modules");
-  writeYaml(join(lib, "config.yaml"), { namespace });
   for (const [path, value] of Object.entries(modules))
     writeYaml(join(lib, path, "module.yaml"), value);
 }

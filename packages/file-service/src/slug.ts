@@ -1,4 +1,4 @@
-// slug.ts — the per-user workspace root, ~/.lanes/root/<slug>/<workspace>. The slug
+// slug.ts — the per-user workspace root, ~/.studio/root/<slug>/<workspace>. The slug
 // is the OIDC email with every non-alphanumeric char replaced by "_".
 
 import { join } from "node:path";

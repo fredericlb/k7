@@ -4,15 +4,15 @@ Background for the one-line headers in `engine-host/src`. Each section names its
 
 ## `webOrigins.ts` — the web UIs this engine trusts
 
-A lanes web UI reached over a real hostname (`https://daw.test` behind Caddy, a
+A pistes web UI reached over a real hostname (`https://daw.test` behind Caddy, a
 hosted deployment) is neither loopback nor a private address, so the file service's
 deny-by-default CORS policy cannot admit it on its own (see
 `packages/file-service/src/cors.ts`). This list is how the user says "that one is mine":
 written here, read there, and read on EVERY request, so adding a web UI from the menu
 bar takes effect immediately with nothing restarted.
 
-`~/.lanes/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
-shared `~/.lanes` contract, like `engine-id.json` and `web-endpoint.json`.
+`~/.studio/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
+shared `~/.studio` contract, like `engine-id.json` and `web-endpoint.json`.
 
 Only ORIGINS are stored (`scheme://host[:port]`). A browser's `Origin` header is always
 bare, so a path or query the user pasted would simply never match; it's stripped at the
@@ -98,7 +98,7 @@ a protocol capability — which is why it lives here and not in `@studio/engine-
 The mechanism is deliberately not a mechanism: we EXIT, and the tray's existing relaunch
 loop (`host.rs run_forever`) starts a fresh one. That path is already built, already
 tested, and already correct about the hard part — the engine survives, because it is
-tracked by `~/.lanes/engine.pid` and the new supervisor adopts it. So a reload costs a
+tracked by `~/.studio/engine.pid` and the new supervisor adopts it. So a reload costs a
 few hundred milliseconds and never touches the audio device.
 
 Two things it must NOT do:

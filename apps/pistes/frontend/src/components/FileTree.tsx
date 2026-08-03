@@ -1,9 +1,10 @@
 // The workspace sidebar. The tree itself — expansion, right-click menu, inline
 // prompts, file drops — is @frediverse/ui/file-tree, shared with calepin; this
-// file is only what is lanes's: pinned files, the "open project" button, and
+// file is only what is pistes's: pinned files, the "open project" button, and
 // the module-folder actions.
 
 import {
+  type DroppedFile,
   FileTree as Tree,
   type TreeAction,
   type TreeTarget,
@@ -85,8 +86,9 @@ export function FileTree({
   rootDir: string;
   onOpen: (path: string) => void;
   onOpenProject: (path: string) => void;
-  // Drop local files into `dir` (a workspace-relative folder). EditorTab does the upload.
-  onUpload: (dir: string, files: File[]) => void;
+  // Drop local files into `dir` (a workspace-relative folder), FOLDERS included — each file carries the path
+  // it sat at, because a module is a folder of three. EditorTab does the upload.
+  onUpload: (dir: string, files: DroppedFile[]) => void;
   // Right-click actions on an entry, wired by EditorTab; the menu only appears when both are provided.
   onRename?: (path: string, newName: string) => void;
   // Drag a row onto a folder. Omit and rows aren't draggable at all — the shared tree decides that from this prop.
@@ -100,7 +102,7 @@ export function FileTree({
   onCreateModuleInstance?: (path: string, instance: string) => void;
 }) {
   // Pinned files: client-only state in localStorage per project, re-loaded on a project switch so pins can't cross.
-  const pinKey = `lanes:pins:${projectName || activeProject || "."}`;
+  const pinKey = `pistes:pins:${projectName || activeProject || "."}`;
   const [pins, setPins] = useState<string[]>([]);
   useEffect(() => {
     let list: unknown = [];
@@ -144,13 +146,29 @@ export function FileTree({
   const shownPins = pins.filter((p) => treeFiles.has(p));
 
   // The file PICKER — the same upload as a drag. Worth a second way in: drag-and-drop fails silently when it fails.
+  // Two inputs, because `webkitdirectory` is a property of the INPUT and not of the click: one asks for files,
+  // the other for a folder, and a browser draws them as two different dialogs.
   const pickRef = useRef<HTMLInputElement>(null);
+  const pickDirRef = useRef<HTMLInputElement>(null);
   const pickInto = useRef<string>(rootDir);
-  const pickFiles = (dir: string) => {
+  const pick = (dir: string, input: HTMLInputElement | null) => {
     pickInto.current = dir;
     // Cleared first: picking the SAME files twice fires no `change` otherwise, so the second attempt would look ignored.
-    if (pickRef.current) pickRef.current.value = "";
-    pickRef.current?.click();
+    if (input) input.value = "";
+    input?.click();
+  };
+  const pickFiles = (dir: string) => pick(dir, pickRef.current);
+  const pickFolder = (dir: string) => pick(dir, pickDirRef.current);
+
+  // A pick, in the shape a drop already arrives in. `webkitRelativePath` carries the folder for a directory
+  // pick and is "" otherwise, which is exactly the difference between the two inputs above.
+  const uploadPicked = (input: HTMLInputElement) => {
+    const files = Array.from(input.files ?? []).map((file) => ({
+      path: file.webkitRelativePath || file.name,
+      file,
+    }));
+    if (files.length) onUpload(pickInto.current, files);
+    input.value = ""; // so the same pick can be repeated
   };
 
   const menuEnabled = !!onRename && !!onDelete;
@@ -167,6 +185,12 @@ export function FileTree({
       label: "Upload files…",
       when: (t) => t.dir && !isShared(t.path),
       run: (t) => pickFiles(t.path),
+    },
+    {
+      key: "upload-folder",
+      label: "Upload a folder…",
+      when: (t) => t.dir && !isShared(t.path),
+      run: (t) => pickFolder(t.path),
     },
     {
       key: "new-file",
@@ -300,19 +324,26 @@ export function FileTree({
 
   return (
     <>
-      {/* The picker behind "Upload files…". Hidden rather than styled: it exists to be
-          clicked programmatically, and `multiple` is the whole point — the upload path
-          has always taken a batch, only the drag could produce one. */}
+      {/* The two pickers. Hidden rather than styled: they exist to be clicked programmatically, and
+          `multiple` is the whole point — the upload path has always taken a batch, only the drag could
+          produce one. `webkitRelativePath` is what a folder pick fills in, and it is empty for a plain
+          file pick, so ONE mapping serves both. */}
       <input
         ref={pickRef}
         type="file"
         multiple
         className="hidden"
-        onChange={(e) => {
-          const files = Array.from(e.target.files ?? []);
-          if (files.length) onUpload(pickInto.current, files);
-          e.target.value = ""; // so the same pick can be repeated
-        }}
+        onChange={(e) => uploadPicked(e.target)}
+      />
+      <input
+        ref={pickDirRef}
+        type="file"
+        multiple
+        // @ts-expect-error — the directory picker is prefixed and absent from React's typings.
+        webkitdirectory=""
+        directory=""
+        className="hidden"
+        onChange={(e) => uploadPicked(e.target)}
       />
       <Tree<FileNode>
         nodes={tree}
@@ -325,7 +356,7 @@ export function FileTree({
         acceptsFileDrop={dragHasFiles}
         isDisabled={isBinary}
         onOpen={(node) => onOpen(node.path)}
-        onDropFiles={onUpload}
+        onDropTree={onUpload}
         onMove={onMove}
         icon={(node, open) =>
           node.dir ? (

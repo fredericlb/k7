@@ -57,6 +57,9 @@ const ANSWER_DURATION = 12;
 const PUNISH_AMOUNT = 2000;
 const POLITENESS_KEY = "remote_politeness_enabled";
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 export function RemoteView() {
   const { status: authStatus, error: authError, user: authUser } = useAuth();
   const [, force] = useReducer((x: number) => x + 1, 0);
@@ -1005,6 +1008,7 @@ export function RemoteView() {
           {g.categoryName && (
             <span className="category-label">{g.categoryName}</span>
           )}
+          <span className="build">{VERSION}</span>
         </div>
 
         <div className="tab-bar">

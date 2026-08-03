@@ -2,7 +2,7 @@
 
 ## It pushes UP now, and it had to
 
-This used to copy a workspace's `_modules` / `_library` / `_ui` **into** the local folder,
+This used to copy a workspace's `_modules` / `_library` **into** the local folder,
 additively, never replacing anything.
 
 That stopped being correct the moment the library moved to a server. The local folder is a
@@ -34,13 +34,16 @@ One file that fails does not roll the rest back, and does not stop the walk. `fa
 carries what did not go and why, beside `uploaded`. There is nothing to undo: every file
 that landed is a file the library now has, and the caller can retry the rest.
 
-## The three folders
+## The two folders
 
 | workspace | library |
 |---|---|
 | `_modules/` | `modules/` |
 | `_library/` | `library/` |
-| `_ui/` | `ui/` |
+
+There is no third row for the panels. A module's face is the `ui.yaml` **inside** the
+module's own folder (see `@studio/song`'s `docs/uiLibrary.md`), so it travels up with
+`_modules/` and there is nothing here that has to know it exists.
 
 A workspace missing one is normal — most have some and not others — so those are reported
 in `absent` rather than thrown.

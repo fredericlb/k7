@@ -1,6 +1,6 @@
-# lanes CI.
+# pistes CI.
 #
-# Scoped to the lanes side of the repo deliberately — apps/lanes plus the two native
+# Scoped to the pistes side of the repo deliberately — apps/pistes plus the two native
 # halves it owns, apps/moteur (C++) and apps/capot (the Tauri tray). `turbo run test`
 # across the whole repo is 62 tasks over eight apps; this is 14. A CI that is red on
 # arrival for reasons nobody on this change caused is a CI people learn to ignore — so
@@ -23,7 +23,7 @@
 # make it red on arrival, same reasoning as lint) and any job that builds the C++ engine
 # — that belongs in a release workflow, not on every push.
 
-name: lanes
+name: pistes
 
 # The two path lists are duplicated rather than shared with a YAML anchor: GitHub
 # Actions does not support anchors/aliases in workflow files.
@@ -31,27 +31,27 @@ on:
   push:
     branches: [master]
     paths:
-      - "apps/lanes/**"
+      - "apps/pistes/**"
       - "apps/moteur/**"
       - "apps/capot/**"
       - "packages/**"
       - "package-lock.json"
       - "turbo.json"
-      - ".github/workflows/lanes.yml"
+      - ".github/workflows/pistes.yml"
   pull_request:
     paths:
-      - "apps/lanes/**"
+      - "apps/pistes/**"
       - "apps/moteur/**"
       - "apps/capot/**"
       - "packages/**"
       - "package-lock.json"
       - "turbo.json"
-      - ".github/workflows/lanes.yml"
+      - ".github/workflows/pistes.yml"
   workflow_dispatch:
 
 # A second push to the same branch makes the first run pointless.
 concurrency:
-  group: lanes-${{ github.ref }}
+  group: pistes-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -83,18 +83,18 @@ jobs:
       # vendored Node. The `rust` job below is what covers the tray. `apps/moteur`
       # declares no `build`/`test` script at all, so turbo never tries to compile C++.
       - name: test
-        run: npx turbo run test --filter="./apps/lanes/**" --filter="./packages/**" --filter="!./apps/capot"
+        run: npx turbo run test --filter="./apps/pistes/**" --filter="./packages/**" --filter="!./apps/capot"
 
       # `build` is `tsc --noEmit` for every package; for web/frontend it is a real
       # `vite build && tsc --noEmit`, which is a stronger gate and worth the minute.
       - name: typecheck + build
-        run: npx turbo run build --filter="./apps/lanes/**" --filter="./packages/**" --filter="!./apps/capot"
+        run: npx turbo run build --filter="./apps/pistes/**" --filter="./packages/**" --filter="!./apps/capot"
 
       # the backend has only a `typecheck` script — no `build` — so turbo covers it in
       # neither step. Run it directly rather than adding a script to its package.json
       # purely to satisfy CI.
-      - name: typecheck the lanes backend
-        working-directory: apps/lanes/backend
+      - name: typecheck the pistes backend
+        working-directory: apps/pistes/backend
         run: npx tsc --noEmit
 
   rust:
@@ -161,4 +161,4 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx biome check apps/lanes apps/capot packages
+      - run: npx biome check apps/pistes apps/capot packages

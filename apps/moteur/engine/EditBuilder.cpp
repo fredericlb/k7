@@ -15,7 +15,7 @@
 #include <set>
 #include <string>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 
@@ -159,7 +159,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
         }
     if (info == nullptr) {
         warn("plugin '" + p.name + "' (" + p.type +
-                 ") is not in the cache — run 'lanes engine scan'",
+                 ") is not in the cache — run 'pistes engine scan'",
              p.id);
         return {};
     }
@@ -178,7 +178,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
 
     // Fallback for an older cache with no stored description: introspect the file, which is slower. A forced
     // rescan populates the description and takes this path off the table.
-    std::cerr << "note: plugin '" << p.name << "' has no cached description — run 'lanes engine scan --force' to speed up loading\n";
+    std::cerr << "note: plugin '" << p.name << "' has no cached description — run 'pistes engine scan --force' to speed up loading\n";
     auto& formats = edit.engine.getPluginManager().pluginFormatManager;
     juce::OwnedArray<juce::PluginDescription> descs;
     for (auto* fmt : formats.getFormats())
@@ -398,7 +398,7 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
     // …and the same for a neural amp modeller's .nam model. Loaded HERE, on the message thread while the Edit is
     // built — never from the audio thread, which is why NamPlugin::loadModel says so in as many words.
     if (!p.namFile.empty())
-        if (auto* nam = dynamic_cast<lanes::NamPlugin*>(plugin.get())) {
+        if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get())) {
             juce::String err;
             const juce::File f{juce::String(p.namFile)};
             if (!nam->loadModel(f, err))
@@ -418,7 +418,7 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
     // Normalize with nothing to work from, and the resulting level is whatever the model happens to output.
     // Silent otherwise — a module that turned Normalize off has already said it does not care.
     if (!p.namFile.empty())
-        if (auto* nam = dynamic_cast<lanes::NamPlugin*>(plugin.get()))
+        if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get()))
             if (nam->normalize->getCurrentValue() >= 0.5f && !nam->modelLoudness().has_value()
                 && !nam->modelPath().isEmpty())
                 warn("model declares no loudness - Normalize has nothing to level it to, so its output stays "
@@ -571,4 +571,4 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     applySoloMute(edit, doc);   // resolve mute across the mixer once every track exists
 }
 
-}  // namespace lanes
+}  // namespace studio

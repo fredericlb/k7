@@ -147,7 +147,7 @@ short run and lost one block to the long one, with the ring down to 64 frames. S
 default became 150 ms.
 
 That is the whole shape of the lesson: a cushion is not sized against the network, it is
-sized against the worst stall of the machine playing it back. Expect a real lanes tab, with
+sized against the worst stall of the machine playing it back. Expect a real pistes tab, with
 a React tree and a canvas, to be worse than this one.
 
 **Drift, by contrast, was a non-event** — −0.17 ms/min here, −0.46 ms/min measured from

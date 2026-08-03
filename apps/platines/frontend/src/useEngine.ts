@@ -50,7 +50,7 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
       // The lease, as every other surface takes it. A miss is not fatal — it marks the
       // engine in use, it does not grant the connection.
       engines.select(found.engine.id, found.token!, found.tier).catch(() => {});
-      // Its own session, per SERVICE and per PERSON: a deck runs safely beside lanes on one
+      // Its own session, per SERVICE and per PERSON: a deck runs safely beside pistes on one
       // engine — loading a track no longer replaces whatever song is open there — and two
       // DJs on one machine hold two decks rather than fighting over one.
       const client = new EngineClient(

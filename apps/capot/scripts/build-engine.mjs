@@ -179,7 +179,7 @@ function stageDemos(destDir) {
       return (
         base !== "node_modules" &&
         base !== ".git" &&
-        !base.startsWith(".lanes-")
+        !base.startsWith(".studio-")
       );
     },
   });
@@ -305,7 +305,7 @@ function buildDevApp() {
   console.log("\n=== tray (debug, no vendored payload) ===");
   const tauri = tauriCmd();
   // --config takes a file PATH, not inline JSON: cmd.exe strips the quotes and Tauri chokes. A file is quoting-proof.
-  const cfgPath = join(tmpdir(), "lanes-tray-dev-config.json");
+  const cfgPath = join(tmpdir(), "studio-tray-dev-config.json");
   writeFileSync(
     cfgPath,
     JSON.stringify({
@@ -325,7 +325,7 @@ function buildDevApp() {
       cfgPath,
     ],
     trayDir,
-    { CI: "true", LANES_BUILD: BUILD_NUMBER },
+    { CI: "true", STUDIO_BUILD: BUILD_NUMBER },
     { allowFail: true },
   );
   rmSync(OUT_DEV, { recursive: true, force: true });
@@ -447,7 +447,7 @@ const tauri = tauriCmd();
 // non-fatal — the .app is built first and is still good — so we collect, then exit non-zero below.
 const trayArgs = [...tauri.args, "build"];
 if (process.platform === "win32") {
-  const relCfg = join(tmpdir(), "lanes-tray-release-config.json");
+  const relCfg = join(tmpdir(), "studio-tray-release-config.json");
   writeFileSync(relCfg, JSON.stringify({ bundle: { targets: ["nsis"] } }));
   trayArgs.push("--config", relCfg);
 }
@@ -455,7 +455,7 @@ const trayStatus = run(
   tauri.cmd,
   trayArgs,
   trayDir,
-  { CI: "true", LANES_BUILD: BUILD_NUMBER },
+  { CI: "true", STUDIO_BUILD: BUILD_NUMBER },
   {
     allowFail: true,
   },

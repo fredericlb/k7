@@ -18,6 +18,12 @@ export interface ModuleFile {
 // short one should not find their module silently absent. `.yaml` wins when both exist.
 const EXTS = [".yaml", ".yml"];
 
+/** The two basenames a module folder holds that are NEITHER the generic nor one of its instances: its panel
+ *  (uiLibrary.ts) and its named settings (presets.ts). Named here because this file is what decides which of a
+ *  folder's YAML files is what — and every one of them that is not on this list is one use of the module. */
+export const UI_BASE = "ui";
+export const PRESETS_BASE = "presets";
+
 /**
  * The module file for `base` ("module", or an instance's name) in `folder`, or null when
  * the folder has none. `relDir` is the folder's path relative to the project, for the rel.
@@ -35,9 +41,8 @@ export function moduleFileFor(
 }
 
 /**
- * The INSTANCE files beside a module's generic — every `<instance>.yaml` that isn't
- * `module.yaml` itself. One entry per instance NAME. A `<name>.presets` directory is
- * never picked up (it is a directory).
+ * The INSTANCE files beside a module's generic — every `<instance>.yaml` that is none of the folder's own
+ * three (`module.yaml`, `ui.yaml`, `presets.yaml`). One entry per instance NAME; a directory is never one.
  */
 export function instanceFiles(
   folder: string,
@@ -54,7 +59,9 @@ export function instanceFiles(
     const ext = extname(f).toLowerCase();
     if (!EXTS.includes(ext)) continue;
     const base = basename(f, ext);
-    if (base === "module") continue; // the generic, not an instance
+    // The generic, the panel and the preset shelf are the module ITSELF, not uses of it.
+    if (base === "module" || base === UI_BASE || base === PRESETS_BASE)
+      continue;
     try {
       if (!statSync(join(folder, f)).isFile()) continue;
     } catch {
@@ -129,7 +136,7 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   };
 }
 
-/** Is `dir` a lanes project — does it hold a `project.yaml` (or `.yml`)? */
+/** Is `dir` a pistes project — does it hold a `project.yaml` (or `.yml`)? */
 export function isProjectFolder(dir: string): boolean {
   try {
     return entityFileFor(dir, "", "project") !== null;

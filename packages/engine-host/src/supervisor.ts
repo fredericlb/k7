@@ -1,4 +1,4 @@
-// supervisor.ts — the engine supervisor proper: owns the ~/.lanes contract, keeps the
+// supervisor.ts — the engine supervisor proper: owns the ~/.studio contract, keeps the
 // registry entry live, maintains the web-UI allowlist, and answers the tray's commands.
 // One mutable `state`, slow loops that mutate it, and publish() emitting a snapshot ONLY
 // when the bytes changed — which is what keeps an idle app quiet on the wire.
@@ -519,7 +519,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
    *
    * An add and no longer a replace, which is the whole shape of this change. Each hosted
    * service holds its own registry, so "Add web UI…" for the médiathèque must not evict
-   * lanes — that would silently take the engine out of one picker to put it in another,
+   * pistes — that would silently take the engine out of one picker to put it in another,
    * and the two are not alternatives. Idempotent: adding a URL already listed is a no-op
    * beyond re-announcing.
    */
@@ -620,7 +620,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         }
         clearPending(origin);
         refreshOrigins();
-        // A lanes web UI is single-origin, so adding one also points this engine at it — which is what puts the
+        // A pistes web UI is single-origin, so adding one also points this engine at it — which is what puts the
         // engine in that UI's picker.
         await addRegistryUrl(origin);
         reply(cmd.id, true, origin);

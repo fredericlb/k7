@@ -12,7 +12,7 @@
 // could compile it at all.
 #include <tracktion_engine/tracktion_engine.h>
 
-namespace lanes {
+namespace studio {
 
 class WaveformTapPlugin : public tracktion::engine::Plugin {
 public:
@@ -69,7 +69,7 @@ public:
         }
 
         // For stereo, also push the right channel, interleaved into the same tap — the browser can show L/R as two
-        // lanes or as a mono sum.
+        // pistes or as a mono sum.
         if (ctx.destBuffer->getNumChannels() > 1) {
             const float* data = ctx.destBuffer->getReadPointer(1, startSample);
             for (int i = 0; i < numSamples; ++i)
@@ -92,4 +92,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WaveformTapPlugin)
 };
 
-}  // namespace lanes
+}  // namespace studio

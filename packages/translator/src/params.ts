@@ -15,8 +15,8 @@ import { homedir, tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import type { PluginOut, Song } from "./dawproject.js";
 
-const BEGIN = "LANES_PARAMS_BEGIN";
-const END = "LANES_PARAMS_END";
+const BEGIN = "STUDIO_PARAMS_BEGIN";
+const END = "STUDIO_PARAMS_END";
 
 // Locating the engine is the CALLER's job: this is a library, so it takes the binary rather than guessing where
 // the repo is. A copy of that search used to live here and broke the moment the package moved — don't bring it back.
@@ -25,7 +25,7 @@ const END = "LANES_PARAMS_END";
 type CacheEntry = { format: string; id: string };
 function loadCacheIndex(): Map<string, CacheEntry> {
   const index = new Map<string, CacheEntry>();
-  const file = join(homedir(), ".lanes", "exts.json");
+  const file = join(homedir(), ".studio", "exts.json");
   if (!existsSync(file)) return index;
   try {
     const root = JSON.parse(readFileSync(file, "utf8"));
@@ -95,7 +95,7 @@ function dumpOne(
     if (!entry)
       return {
         ok: false,
-        reason: `not in the plugin cache — run 'lanes engine scan' (looked up by name '${p.name}')`,
+        reason: `not in the plugin cache — run 'pistes engine scan' (looked up by name '${p.name}')`,
       };
     const stateFile = join(tmpDir, `state${extname(p.path) || ".vstpreset"}`);
     writeFileSync(stateFile, stateBytes);
@@ -133,7 +133,7 @@ export function resolvePluginParams(
   const cache = loadCacheIndex();
   const memo = new Map<string, DumpResult>();
   const misses = new Map<string, string>(); // plugin name -> reason (deduped)
-  const tmpDir = mkdtempSync(join(tmpdir(), "lanes-params-"));
+  const tmpDir = mkdtempSync(join(tmpdir(), "studio-params-"));
   let filled = 0;
   try {
     for (const t of song.tracks)

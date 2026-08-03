@@ -8,16 +8,16 @@ the Quit item and the AppleScript dialog titles.
 
 Three names stayed, each for a reason worth more than consistency:
 
-* **`org.parapluie.lanes.engine-tray`**, the bundle identifier. On macOS this is the app's
+* **`org.parapluie.studio.engine-tray`**, the bundle identifier. On macOS this is the app's
   *identity*: changing it makes the OS treat the build as a different application, dropping
   its microphone and automation (TCC) grants and its login item while leaving the old one
   registered. It is also what Tauri keys single-instance on, so a mid-flight change means
   two trays can run at once. Its own migration, not a side effect of a rename.
-* **`~/.lanes/engine-tray.json`**, the supervisor's settings. Renaming the file discards
+* **`~/.studio/engine-tray.json`**, the supervisor's settings. Renaming the file discards
   every existing user's audio-device pick and registry override. Read-old/write-new, or
   not at all.
-* **`~/.lanes/.lanes-engine.log`**, and the `LANES_*` environment variables, and
-  `x-lanes-engine-token`. All part of the `~/.lanes` contract, which the plan keeps as a
+* **`~/.studio/.studio-engine.log`**, and the `STUDIO_*` environment variables, and
+  `x-studio-engine-token`. All part of the `~/.studio` contract, which the plan keeps as a
   separate change for the same reason: a partial landing destroys user data.
 
 The pattern: a *build artifact* can be renamed in one commit because the next build
@@ -27,7 +27,7 @@ replaces it. A name the user's disk or the OS remembers cannot.
 
 `studio-capot` is a tray-only Tauri app with no window. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
-stdio: the supervisor owns the `~/.lanes` contract, the registry, and — stage by stage —
+stdio: the supervisor owns the `~/.studio` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.
 
 Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. What to allow,
@@ -38,12 +38,12 @@ snapshot (`host.rs`), and a click goes back up as a command.
 
 One engine now holds several projects at once, one per app driving it. The status line
 reports the PROCESS (`● Running · id 3f2a91c4 · :8765`), and that read the same whether the
-engine held nothing, held lanes' song, or held a song and a deck and a module preview
+engine held nothing, held pistes' song, or held a song and a deck and a module preview
 together. The submenu is the only place the tray answers *what is my engine doing, and for
 whom*:
 
 ```
-Sessions ▸  lanes · ma-chanson · 4 tracks  ▶  ♫1   ✕
+Sessions ▸  pistes · ma-chanson · 4 tracks  ▶  ♫1   ✕
             platines · le-set · 1 track          ✕
             mediatek · nothing loaded            ✕
 ```
@@ -143,7 +143,7 @@ The tray answers one question — "what do I exec?" — in three tiers, and says
 the answer is "nothing", because a tray that silently supervises nothing looks exactly like
 a healthy one:
 
-1. **`$LANES_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch
+1. **`$STUDIO_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch
    for testing a custom supervisor build.
 2. **Packaged** — the vendored `node` beside our executable, running the esbuild'd
    `engine-host.mjs` from the app's resources. Nothing on PATH, no repo needed.
@@ -171,7 +171,7 @@ that because the pidfile lets the fresh supervisor re-adopt it.
 
 ## The merged log (`logbus.rs`)
 
-`~/.lanes/.lanes.log` is written by the supervisor, which owns the engine and the
+`~/.studio/.studio.log` is written by the supervisor, which owns the engine and the
 file service and pumps both into it. Two jobs are left on the tray side:
 
 1. **Truncate it once, at startup.** The tray's lifetime is what "a session" means, and it

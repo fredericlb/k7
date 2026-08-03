@@ -54,7 +54,7 @@ import {
 /**
  * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
  *
- * lanes' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
+ * pistes' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
  * has no way to produce. Declaring the narrow union here is what lets the component say
  * what it emits instead of importing an app's idea of a menu; a host whose own type is
  * wider accepts a handler for it unchanged.
@@ -69,9 +69,9 @@ export type GraphMenuCtx =
  * The glyphs a node draws itself with, supplied by the host.
  *
  * Injected rather than imported because they are the APP's vocabulary, not the graph's:
- * lanes draws the same track icons in its mixer and its timeline, so they cannot live in
- * a chains package without those two importing one. A second consumer that wants lanes'
- * exact icons can pass lanes' exact icons.
+ * pistes draws the same track icons in its mixer and its timeline, so they cannot live in
+ * a chains package without those two importing one. A second consumer that wants pistes'
+ * exact icons can pass pistes' exact icons.
  */
 export interface ChainsIcons {
   ModuleIcon: (props: {

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes's translator \u2014 parses a .dawproject and emits a lanes song folder (YAML). A library consumed as source; `lanes import` is its caller.",
+  "description": "pistes's translator \u2014 parses a .dawproject and emits a pistes song folder (YAML). A library consumed as source; `pistes import` is its caller.",
   "exports": {
     "./dawproject": "./src/dawproject.ts",
     "./emit": "./src/emit.ts",

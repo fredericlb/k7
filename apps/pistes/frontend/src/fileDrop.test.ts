@@ -1,6 +1,6 @@
+import { PARAM_MIME } from "@studio/ui-module-builder/param-drag";
 import { describe, expect, it } from "vitest";
 import { acceptsFileDrop } from "./fileDrop";
-import { PARAM_MIME } from "./paramDrag";
 
 // This predicate decides whether `dragover` calls preventDefault, and a `dragover` that
 // doesn't is a drop the browser refuses in SILENCE — no handler, no error, no highlight.

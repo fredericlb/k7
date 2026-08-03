@@ -2,7 +2,7 @@
 // goes on the wire. Types only, like the state frames beside it, so the C++ mirror in
 // engine/ProjectDoc.h has one TypeScript counterpart and no more.
 //
-// This is NOT "a lanes song". It is the OUTPUT of a compiler, and any app that can build
+// This is NOT "a pistes song". It is the OUTPUT of a compiler, and any app that can build
 // one can drive the engine — mediatek's module preview is a one-track doc, a platines deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
@@ -119,7 +119,7 @@ export interface TrackDoc {
   mute: boolean;
   solo: boolean;
   disabled: boolean;
-  inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.lanes first, so the engine only ever sees numbers
+  inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.studio first, so the engine only ever sees numbers
   monitor: string; // Tracktion's "off" | "auto" (armed) | "on"; ignored when inputChannels is empty
   inputGain: number; // interface input trim in dB, 0 == unity; ignored when inputChannels is empty
   clips: ClipDoc[];
@@ -204,7 +204,7 @@ export interface VideoTrackDoc {
 }
 
 export interface ProjectDoc {
-  uuid?: string; // stable song id, generated on first `lanes export`; absent until then
+  uuid?: string; // stable song id, generated on first `pistes export`; absent until then
   name: string;
   tempo: number;
   sampleRate: number;

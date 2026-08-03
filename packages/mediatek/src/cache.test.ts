@@ -53,11 +53,11 @@ function fakeOwner(
 let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "mediatek-cache-"));
-  process.env.LANES_MEDIATEK = root;
+  process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
 afterEach(() => {
-  delete process.env.LANES_MEDIATEK;
+  delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
 });
 

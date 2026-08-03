@@ -36,6 +36,7 @@ import type {
   RawTrack,
   RawVideoTrack,
 } from "./rawDoc";
+import { moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
 import { setFileValue } from "./yaml/edit";
@@ -143,14 +144,19 @@ export function libraryDirs(dir: string): string[] {
   } catch {
     return []; // no project header / bad export — no library
   }
-  return from
-    .filter((p) => typeof p === "string" && p)
-    .map(
-      (p) =>
-        resolveMediatekRef(p, "library") ??
-        (isAbsolute(p) ? p : resolve(dir, p)),
-    )
-    .filter((abs) => existsSync(abs));
+  return (
+    from
+      .filter((p) => typeof p === "string" && p)
+      // `resolve` on both branches, absolute included: a root kept verbatim can be spelled with the other
+      // separator, and resolveLibraryFile's containment check compares it against a resolved path as text.
+      .map((p) =>
+        resolve(
+          resolveMediatekRef(p, "library") ??
+            (isAbsolute(p) ? p : resolve(dir, p)),
+        ),
+      )
+      .filter((abs) => existsSync(abs))
+  );
 }
 
 // A module's `ir` as an absolute path kept INSIDE the library — a "../.." reference is refused, not resolved.
@@ -224,7 +230,7 @@ function oneLibrary(lib: string, kind: string): string[] {
       }
       if (!e.isFile()) continue;
       const ext = e.name.slice(e.name.lastIndexOf(".")).toLowerCase();
-      // A known kind offers only its own extensions; an unknown one offers every extension lanes can use.
+      // A known kind offers only its own extensions; an unknown one offers every extension pistes can use.
       if (exts.includes(ext)) out.push(`${rel}/${e.name}`);
     }
   };
@@ -418,7 +424,7 @@ export function loadModules(
         raw.push({ rel: file.rel, module: value });
         const merged = module ? mergeAuthored(module, value) : value;
         // `ui` is taken WHOLE from the generic — an instance's `ui:` has no effect. When
-        // there is no generic the panel comes from `_ui`, keyed by the folder's ref.
+        // there is no generic the panel comes from the folder's own `ui.yaml`.
         if (module) merged.ui = module.ui;
         out[moduleKey(name, instance)] = decorate(merged, instance);
       }
@@ -451,7 +457,7 @@ function localUiRefs(m: LoadedModule): string[] {
 }
 
 /**
- * Overlay the workspace's `_ui` panels onto a module map, by ref.
+ * Overlay the panels found beside the modules onto a module map, by ref.
  *
  * Applied at the SOURCE — here and in readModuleTree — so every consumer (the graph, the engine doc, hints,
  * the web) sees the panel without knowing the library exists. A panel replaces the module's own `ui:` whole,
@@ -689,11 +695,17 @@ export function loadModuleRefs(
   const libDirs = libraryDirs(dir);
 
   // Re-key by ref; INSTANCES are skipped, since one would silently replace its own generic's key.
+  //
+  // TWO keys for one module, and the second is the point: a project's own modules were named bare
+  // (`audio/reverb`) before the levels were spelled out, and every chains.yaml already written says
+  // them that way. `@project/audio/reverb` is the same module under its explicit level — the form
+  // new files are written in — so both resolve and nothing had to be migrated.
   for (const m of Object.values(loadModules(dir))) {
     if (m.instance) continue;
     const ref =
       m.category === "io" ? String(m.file) : `${m.category}/${m.file}`;
     out[ref] = m;
+    out[`@project/${ref}`] = m;
   }
 
   for (const p of modulesFrom) {
@@ -701,20 +713,8 @@ export function loadModuleRefs(
       resolveMediatekRef(p, "modules") ?? (isAbsolute(p) ? p : resolve(dir, p));
     if (!existsSync(ext))
       throw new Error(`modules_from '${p}': folder not found (${ext})`);
-    const config = entityFileFor(ext, "", "config");
-    if (!config)
-      throw new Error(
-        `modules_from '${p}': missing config.yaml with a namespace`,
-      );
-    const ns = String(
-      (
-        parseYaml(readFileSync(config.path, "utf8"), { version: "1.2" }) as {
-          namespace?: unknown;
-        } | null
-      )?.namespace ?? "",
-    );
-    if (!ns)
-      throw new Error(`modules_from '${p}': ${config.rel} has no namespace`);
+    // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
+    const ns = moduleNamespaceOf(ext);
     readModuleTree(
       ext,
       "",
@@ -724,8 +724,8 @@ export function loadModuleRefs(
     );
   }
 
-  // Panels come from the workspace's own `_ui`, keyed by these very refs — so a shared module drawn once is
-  // drawn for every project that inherits it. loadModules already overlaid the local half; this catches the
+  // Panels come from the `ui.yaml` beside each module, keyed by these very refs — so a shared module drawn once
+  // is drawn for every project that inherits it. loadModules already overlaid the local half; this catches the
   // inherited ones, and re-overlaying the locals is a no-op.
   //
   // Minus the INSTANCE: a panel is drawn for a module, and an instance is one use of it. This map keys an

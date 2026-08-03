@@ -70,7 +70,7 @@ export interface Hints {
   keywords: string[]; // words YAML gives meaning to
   // Scanned plugin names grouped by format (lowercased key). E.g. `{ vst3: ["Serum"],
   // au: ["Massive"] }`. Populated by the file service from the engine's scan cache
-  // (~/.lanes/exts.json); the brain's projectHints() returns an empty record.
+  // (~/.studio/exts.json); the brain's projectHints() returns an empty record.
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file that defines the entity, so the
   // editor can turn a known reference into a link. kind ∈ module|base|sink|

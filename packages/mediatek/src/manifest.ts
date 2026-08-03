@@ -45,7 +45,15 @@ function walk(dir: string, out: Manifest): void {
   }
 }
 
-/** Every file in a family, sorted by path so two manifests compare and diff stably. */
+/**
+ * Every file in a FAMILY, sorted by path so two manifests compare and diff stably.
+ *
+ * The raw capture zone has no manifest and therefore never syncs, which is structural
+ * rather than filtered: `recordings/` is a root zone, not a family, so there is no argument
+ * to this function that reaches it. A cache fetches what a manifest lists, and those files
+ * enter no catalogue — mirroring them would fill every machine's disk with bytes no surface
+ * can name or play. See docs/recordings.md.
+ */
 export function manifest(family: Family): Manifest {
   const out: Manifest = [];
   walk(familyDir(family), out);

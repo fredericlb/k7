@@ -2,80 +2,134 @@
 # commons/caddy/global.caddy, because only one may exist per Caddyfile and one
 # Caddy serves both monorepos. `npm run caddy` merges this with phare's.
 
-rec.test {
+
+# The audio side, one origin, one path per service — mirroring the production
+# shape (studio.frediver.se/<service>). Each SPA sets a matching vite `base`.
+#
+# The API handles STRIP the service prefix; the SPA handles do NOT. That
+# asymmetry is the whole trick and is not a style choice:
+#
+#   * the backend must keep seeing `/api/...` as it does today, so the prefix
+#     comes off before it — the same thing the production edge does;
+#   * the dev server must keep seeing the prefix, because vite serves its assets
+#     under `base`. Strip it and every asset request 404s against a server that
+#     is only listening at /<service>/.
+#
+# Ordering is load-bearing too: handle blocks are mutually exclusive and matched
+# top to bottom, so each service's API rule must precede its catch-all.
+studio.test {
 	tls internal
 
-	@backend path /api/* /auth/* /rtc*
-	reverse_proxy @backend 127.0.0.1:8787
-
-	reverse_proxy 127.0.0.1:5173
-}
-
-obscura.test {
-	tls internal
-
-	handle /api/* {
-		uri strip_prefix /api
-		reverse_proxy 127.0.0.1:8080
-	}
-	@backend path /auth/* /audio/* /ws*
-	handle @backend {
-		reverse_proxy 127.0.0.1:8080
+	# Auth is ORIGIN-WIDE, not per service: one origin means one session cookie, so
+	# one backend owns the flow and the others merely verify its cookie. It also
+	# leaves a single redirect_uri to register — redirectUriFor already builds
+	# <origin>/auth/callback with no prefix, which only works if this handle exists.
+	# First, because the service handles below would otherwise swallow nothing here
+	# but order is what guarantees it stays that way.
+	handle /auth/* {
+		reverse_proxy 127.0.0.1:8789
 	}
 
-	# Path-routed Vite dev servers; each SPA's vite `base` matches its prefix.
-	@buzzer path /buzzer /buzzer/*
-	handle @buzzer {
+	@pistes_api path /pistes/api/*
+	handle @pistes_api {
+		uri strip_prefix /pistes
+		reverse_proxy 127.0.0.1:8789
+	}
+	@pistes path /pistes /pistes/*
+	handle @pistes {
+		reverse_proxy 127.0.0.1:5223
+	}
+
+	# The media library, hosted: the catalogue and the bytes both come from its
+	# own backend. The local cache the moteur plays from is not served here.
+	@mediatek_api path /mediatek/api/*
+	handle @mediatek_api {
+		uri strip_prefix /mediatek
+		reverse_proxy 127.0.0.1:8795
+	}
+	@mediatek path /mediatek /mediatek/*
+	handle @mediatek {
+		reverse_proxy 127.0.0.1:5224
+	}
+
+	# The decks. Its backend holds auth, the engine registry and which machine
+	# the account DJs from; the file service and the engine it plays through are
+	# reached directly, cross-origin, so neither is proxied here.
+	@platines_api path /platines/api/*
+	handle @platines_api {
+		uri strip_prefix /platines
+		reverse_proxy 127.0.0.1:8796
+	}
+	@platines path /platines /platines/*
+	handle @platines {
+		reverse_proxy 127.0.0.1:5225
+	}
+
+	# --- obscura: its own login, so its own callback ------------------------
+	# It keeps `bt_session` rather than the shared studio one: a blind-test player
+	# is a GUEST with no account, a kind the studio session does not model. Its
+	# flow therefore runs on its own backend, which is why X-Forwarded-Prefix is
+	# set here — redirectUriFor reads it to name /obscura/auth/callback instead of
+	# the origin root, which belongs to pistes.
+	@obscura_api path /obscura/api/*
+	handle @obscura_api {
+		uri strip_prefix /obscura/api
+		reverse_proxy 127.0.0.1:8080
+	}
+	@obscura_backend path /obscura/auth/* /obscura/audio/* /obscura/ws*
+	handle @obscura_backend {
+		uri strip_prefix /obscura
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Forwarded-Prefix /obscura
+		}
+	}
+	# The five path-routed SPAs, then the apex one. No strip: each vite `base` is
+	# the full public path, so the dev server must see it.
+	@obscura_buzzer path /obscura/buzzer /obscura/buzzer/*
+	handle @obscura_buzzer {
 		reverse_proxy 127.0.0.1:3004
 	}
-	@remote path /remote /remote/*
-	handle @remote {
+	@obscura_remote path /obscura/remote /obscura/remote/*
+	handle @obscura_remote {
 		reverse_proxy 127.0.0.1:3005
 	}
-	@editor path /editor /editor/*
-	handle @editor {
+	@obscura_editor path /obscura/editor /obscura/editor/*
+	handle @obscura_editor {
 		reverse_proxy 127.0.0.1:3006
 	}
-	@presenter path /presenter /presenter/*
-	handle @presenter {
+	@obscura_presenter path /obscura/presenter /obscura/presenter/*
+	handle @obscura_presenter {
 		reverse_proxy 127.0.0.1:3001
 	}
-	@monitor path /monitor /monitor/*
-	handle @monitor {
+	@obscura_monitor path /obscura/monitor /obscura/monitor/*
+	handle @obscura_monitor {
 		reverse_proxy 127.0.0.1:3002
 	}
-
-	# Catch-all → the online SPA at the apex.
-	handle {
+	@obscura path /obscura /obscura/*
+	handle @obscura {
 		reverse_proxy 127.0.0.1:3003
 	}
-}
 
-lanes.test {
-	tls internal
+	# --- k7, served at /k7 ----------------------------------------------
+	# Joins the shared session: a plain OIDC one, no guest kinds, so there is
+	# nothing here that the studio cookie cannot carry. The path was already `/k7`
+	# while the app was still called radiok7; the name caught up with it.
+	@k7_api path /k7/api/* /k7/rtc*
+	handle @k7_api {
+		uri strip_prefix /k7
+		reverse_proxy 127.0.0.1:8787
+	}
+	@k7 path /k7 /k7/*
+	handle @k7 {
+		reverse_proxy 127.0.0.1:5173
+	}
 
-	@backend path /api/* /auth/*
-	reverse_proxy @backend 127.0.0.1:8789
-
-	reverse_proxy 127.0.0.1:5223
-}
-
-# The media library, hosted: the catalogue and the bytes both come from its own
-# backend. The local cache the moteur plays from is not served here.
-mediatek.test {
-	tls internal
-
-	@backend path /api/* /auth/*
-	reverse_proxy @backend 127.0.0.1:8795
-
-	reverse_proxy 127.0.0.1:5224
-}
-
-# The decks. No backend of its own: it reads the machine's file service and its
-# engine directly, both cross-origin, so there is nothing here to reverse-proxy
-# but the dev server.
-platines.test {
-	tls internal
-
-	reverse_proxy 127.0.0.1:5225
+	# The bare origin belongs to no service. It is also where OIDC's APP_ROOT
+	# fallback lands when a login carries no return_to, so leaving it blank turns
+	# that fallback into a dead end. Point it at pistes, the main app.
+	handle {
+		# The `*` matcher is REQUIRED: a bare `/pistes/` would be read as a path
+		# matcher, making 302 the destination and the Location header literally "302".
+		redir * /pistes/ 302
+	}
 }

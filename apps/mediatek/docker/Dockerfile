@@ -5,12 +5,12 @@
 # the repo-root base image (nginx + shared entrypoint + proxy snippet), which
 # must be built first — see .onedev-buildspec.yml.
 #
-# Unlike lanes's image this one is STATEFUL, and that is the whole point: the
+# Unlike pistes's image this one is STATEFUL, and that is the whole point: the
 # library IS the volume. There is no database anywhere — a directory tree is the
 # index (see packages/mediatek/docs/index.md), which is exactly what it also is
 # on the machine that caches it, so one scanner serves both sides.
 #
-#   apps/mediatek           the SPA (catalogue + module builder) -> nginx on :80
+#   apps/mediatek/frontend  the SPA (catalogue + module builder) -> nginx on :80
 #   apps/mediatek/backend   the library over HTTP -> node on :8795, at /api /auth
 #
 # The module BUILDER lives in this SPA, because only the médiathèque is editable
@@ -27,7 +27,7 @@ FROM node:22-alpine AS pruner
 WORKDIR /repo
 RUN npm install -g turbo@2
 COPY . .
-RUN turbo prune mediatek mediatek-backend --docker
+RUN turbo prune mediatek-frontend mediatek-backend --docker
 # A SECOND prune, scoped to the backend alone, is what the runtime stage ships:
 # mediatek-backend + @studio/mediatek + @frediverse/{http,oidc} and nothing else
 # — no frontend source, and none of the engine packages the builder uses in the
@@ -45,7 +45,7 @@ RUN npm ci
 # `build` is `vite build && tsc --noEmit`, so a type error fails the image. The
 # SPA consumes @frediverse/ui and @studio/* as raw source through the prune
 # closure; @frediverse/ui in particular MUST be present, because index.css
-# `@source`s packages/ui/src and Tailwind silently emits NOTHING for a @source
+# `@source`s commons/packages/ui/src and Tailwind silently emits NOTHING for a @source
 # path that does not exist — the app then builds fine and renders unstyled.
 FROM deps AS frontend-build
 WORKDIR /app
@@ -56,7 +56,7 @@ COPY --from=pruner /repo/out/full/ ./
 # alone; see docs/versioning.md for why it is an ENV and not a RUN-line prefix.
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
-RUN npm run build --workspace mediatek
+RUN npm run build --workspace mediatek-frontend
 
 # ---- backend prod deps -----------------------------------------------------
 # Production-only, from the backend-only prune, so the runtime tree carries
@@ -80,7 +80,7 @@ WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY --from=pruner /repo/out-backend/full/ ./
 
-COPY --from=frontend-build /app/apps/mediatek/dist /usr/share/nginx/html
+COPY --from=frontend-build /app/apps/mediatek/frontend/dist /usr/share/nginx/html
 COPY apps/mediatek/docker/nginx.conf /etc/nginx/http.d/default.conf
 
 # The library itself. Declared so a `docker run` with no -v still starts with an
@@ -93,7 +93,7 @@ ENV PORT=8795
 # missing root would otherwise scan an empty directory and serve a plausible,
 # empty catalogue — a library that has silently lost everything looks exactly
 # like a library nobody has filled yet.
-ENV LANES_MEDIATEK=/library
+ENV STUDIO_MEDIATEK=/library
 
 WORKDIR /app/apps/mediatek/backend
 # Invoked by absolute path rather than through npm, so the process the base

@@ -2,7 +2,7 @@
 
 ## Two sides, one library
 
-The hosted service owns the library. `~/.lanes/mediatek` on a musician's machine is a
+The hosted service owns the library. `~/.studio/mediatek` on a musician's machine is a
 **cache** of it, and it exists because the moteur plays from file paths: it cannot open a
 URL, so the bytes have to land on disk whatever the catalogue says.
 

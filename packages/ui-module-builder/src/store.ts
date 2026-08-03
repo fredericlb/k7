@@ -1,0 +1,62 @@
+// store.ts — the five calls the builder needs from whatever is serving the files. This is the
+// ONLY thing the two apps don't share: pistes talks to a file service over workspace-relative
+// paths, the médiathèque to its own backend over library-relative ones. Rationale: docs/store.md.
+
+import type {
+  Hints,
+  ModulePresetsFile,
+  ModuleUiFile,
+} from "@studio/web-protocol";
+
+/** Where a save actually landed. Empty for an ordinary write; see `write`. */
+export interface Written {
+  /** The path the content is in NOW, when that is not the one asked for. */
+  path?: string;
+  /** What to tell the user about the redirection, in the host's own words. */
+  note?: string;
+}
+
+/**
+ * What the builder asks its host for.
+ *
+ * Five calls, all in the host's own path space — the builder never builds a path except by passing back one
+ * it was given. That is what lets the same component sit over a workspace and over a hosted library without
+ * knowing which it is, and it is why the two sidecars are asked for rather than derived here: a sibling
+ * derivation would be right in both spaces today and is exactly the kind of rule that rots.
+ */
+export interface ModuleStore {
+  /**
+   * One file's text, or NULL when there is none there.
+   *
+   * All three of a module's files may be absent — a folder somebody just made is a module with
+   * nothing in it yet, and the médiathèque lists one on purpose so it can be dropped into. So
+   * absence is a state, not an error: the builder opens on an empty buffer and the first save
+   * creates the file, exactly as it already did for the panel and the shelf. Throwing turned
+   * that into "couldn't open … — not found" over a folder that was plainly there.
+   */
+  read(path: string): Promise<string | null>;
+
+  /**
+   * The `ui.yaml` beside a module file — the existing one, or the path it WOULD take plus a
+   * blank grid. `path` may name either file of the pair (see `@studio/song`'s uiLibrary.ts).
+   */
+  moduleUi(path: string): Promise<ModuleUiFile>;
+
+  /**
+   * The `presets.yaml` beside a module file — the module's named settings, answered like the panel above.
+   * Absent is not an error: the shelf is created by the first save.
+   */
+  presets(path: string): Promise<ModulePresetsFile>;
+
+  /** What the code pane completes against. A host with nothing to offer returns empty lists. */
+  hints(): Promise<Hints>;
+
+  /**
+   * Save.
+   *
+   * The return type exists for ONE host: pistes redirects a save aimed at a shared module onto a
+   * project-local copy and repoints the chains at it (see moduleFork.ts), so the file being edited
+   * moves out from under the editor. Reporting it beats the builder discovering it on the next read.
+   */
+  write(path: string, content: string): Promise<Written>;
+}

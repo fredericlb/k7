@@ -33,6 +33,9 @@ function getOrCreateToken(): string {
   return token;
 }
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 export function BuzzerView() {
   const { status: authStatus, error: authError } = useAuth();
   const [, force] = useReducer((x: number) => x + 1, 0);
@@ -577,6 +580,8 @@ export function BuzzerView() {
         <div className="hint">
           {g.playerName && <span>{m["buzzer.tapToScore"]()}</span>}
         </div>
+
+        <span className="build">{VERSION}</span>
 
         {g.needsUnlock ? (
           <div

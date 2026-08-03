@@ -57,10 +57,10 @@ describe("sharedFolders", () => {
     let media: string;
     beforeEach(() => {
       media = mkdtempSync(join(tmpdir(), "td-media-"));
-      process.env.LANES_MEDIATEK = media;
+      process.env.STUDIO_MEDIATEK = media;
     });
     afterEach(() => {
-      delete process.env.LANES_MEDIATEK;
+      delete process.env.STUDIO_MEDIATEK;
       rmSync(media, { recursive: true, force: true });
     });
 
@@ -106,12 +106,13 @@ describe("sharedFolders", () => {
     expect(projectFile()).not.toContain("libraries_from");
   });
 
-  it("requires a config before pointing at _modules", () => {
-    // A folder without one is rejected by loadModuleRefs just as loudly as a missing
-    // folder, so "the directory exists" is not enough to declare it.
+  it("points at _modules on the strength of the folder alone", () => {
+    // It used to need a config.yaml naming the library, because that declaration was where
+    // the namespace came from. A root is `@workspace` for WHERE it sits now, so there is
+    // nothing left for the folder to prove beyond existing.
     mkdirSync(join(ws, "_modules"), { recursive: true });
-    expect(hasSharedModules(project)).toBe(false);
-    expect(ensureSharedModules(project)).toBe(false);
+    expect(hasSharedModules(project)).toBe(true);
+    expect(ensureSharedModules(project)).toBe(true);
   });
 
   it("wires each folder once, and is a no-op thereafter", () => {

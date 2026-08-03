@@ -23,7 +23,7 @@ class Engine;
 class Edit;
 }}  // namespace tracktion::engine
 
-namespace lanes {
+namespace studio {
 
 // A discovered plugin (plain struct — no JUCE in this interface).
 struct PluginInfo {
@@ -420,7 +420,7 @@ private:
     bool recordEnabled_ = false;   // global record enable (see setRecordEnabled)
 };
 
-// --- Plugin discovery (out-of-process, cached in ~/.lanes/exts.json) -------
+// --- Plugin discovery (out-of-process, cached in ~/.studio/exts.json) -------
 //
 // loadPluginCache reads the cached list without scanning; scanInstalledPlugins loads only the new or changed
 // ones, each in a child process, and updates the cache; runPluginScanChild is that child, isolating one plugin
@@ -432,10 +432,10 @@ int runPluginScanCli(bool forceRescan);
 
 // Entry for `--list-audio-devices`: enumerate the interfaces and print sentinel-fenced JSON, ASIO first.
 // Standalone — it builds only a JUCE device manager, opening no device and starting no engine, so
-// `lanes config interfaces` works with nothing running.
+// `pistes config interfaces` works with nothing running.
 int runAudioDevicesCli();
 
-// Enumerate a plugin's automatable parameters as sentinel-fenced JSON — lanes's text alternative to an
+// Enumerate a plugin's automatable parameters as sentinel-fenced JSON — pistes's text alternative to an
 // opaque .vstpreset, where `complete` means the params fully reproduce the state. The translator calls these on
 // import. Wired from `--dump-params` and `--dump-params-ext`. See docs/engineHost.md.
 int dumpPluginParams(const std::string& type);
@@ -476,4 +476,4 @@ int writeWaveformCache(const std::string& audioPath);
 int normalizeClips(double targetPeak,
                    const std::vector<std::pair<std::string, std::string>>& pairs);
 
-}  // namespace lanes
+}  // namespace studio

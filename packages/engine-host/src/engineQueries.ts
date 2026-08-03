@@ -232,7 +232,7 @@ export class EngineQueries {
   /**
    * Ask the engine to re-scan installed plugins.
    *
-   * THE UNLINK IS NOT OPTIONAL. `ensurePluginsScanned` loads `~/.lanes/exts.json`
+   * THE UNLINK IS NOT OPTIONAL. `ensurePluginsScanned` loads `~/.studio/exts.json`
    * when it exists and returns the stale list immediately — so without deleting it
    * first, "Rescan plugins" appears to work and changes nothing. The cache belongs to
    * the engine, not to the client, which is why this can't live in EngineControl.

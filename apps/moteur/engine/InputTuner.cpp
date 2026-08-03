@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 // The band searched, in Hz. Low enough for a 5-string bass's B (31 Hz), high enough for a guitar's 12th-fret
@@ -178,4 +178,4 @@ void InputTuner::audioDeviceAboutToStart(juce::AudioIODevice* device) {
 
 void InputTuner::audioDeviceStopped() {}
 
-}  // namespace lanes
+}  // namespace studio

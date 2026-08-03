@@ -3,9 +3,10 @@
 // restart doesn't re-walk the disk. No database anywhere. See docs/index.md.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { cacheDir, exists, indexPath } from "./layout.ts";
+import { cacheDir, exists, indexPath, RECORDINGS_DIR } from "./layout.ts";
+import { countRecordings } from "./recordings.ts";
 import { familyRevision } from "./revision.ts";
-import { scanFamily } from "./scan.ts";
+import { scanFamily, scanUnlisted } from "./scan.ts";
 import {
   FAMILIES,
   type Family,
@@ -16,6 +17,18 @@ import {
 const memory = new Map<Family, FamilyListing>();
 let warmed = false;
 
+/**
+ * The shape of a persisted listing. **Bump this whenever what the scan PRODUCES changes** —
+ * a new field, a different rule about what counts as an entry.
+ *
+ * The revision token tracks the FILES, not the code: a listing written by an older build
+ * matches a token computed by a newer one, so the cache served yesterday's answer to today's
+ * question. That is how a two-level module tree kept coming back one level deep after the fix
+ * — nothing on disk had changed, so nothing asked for a re-walk. A cache is never
+ * load-bearing here (see docs/index.md), so dropping it on a mismatch costs one walk.
+ */
+const INDEX_VERSION = 2;
+
 /** Pull whatever the last process left behind. Any problem — absent, truncated, written by
  *  an older shape — just means a cold start, so nothing here throws or logs. */
 function warm(): void {
@@ -23,12 +36,19 @@ function warm(): void {
   warmed = true;
   try {
     const raw = JSON.parse(readFileSync(indexPath(), "utf8")) as {
+      version?: number;
       families?: Record<string, FamilyListing>;
     };
+    if (raw.version !== INDEX_VERSION) return; // written by another build — walk instead
     for (const f of FAMILIES) {
       const l = raw.families?.[f];
       if (l && typeof l.rev === "string" && Array.isArray(l.entries))
-        memory.set(f, { family: f, rev: l.rev, entries: l.entries });
+        memory.set(f, {
+          family: f,
+          rev: l.rev,
+          entries: l.entries,
+          unlisted: Array.isArray(l.unlisted) ? l.unlisted : [],
+        });
     }
   } catch {
     /* cold start */
@@ -43,7 +63,11 @@ function persist(): void {
     const families = Object.fromEntries(
       [...memory.entries()].map(([f, l]) => [f, l]),
     );
-    writeFileSync(indexPath(), JSON.stringify({ families }), "utf8");
+    writeFileSync(
+      indexPath(),
+      JSON.stringify({ version: INDEX_VERSION, families }),
+      "utf8",
+    );
   } catch {
     /* cache is an optimisation, never a requirement */
   }
@@ -61,10 +85,12 @@ export function listFamily(family: Family): FamilyListing {
   const rev = familyRevision(family);
   const cached = memory.get(family);
   if (cached && cached.rev === rev) return cached;
+  const entries = scanFamily(family);
   const listing: FamilyListing = {
     family,
     rev,
-    entries: scanFamily(family),
+    entries,
+    unlisted: scanUnlisted(family, entries),
   };
   memory.set(family, listing);
   persist();
@@ -109,21 +135,29 @@ export function search(query: Query = {}): MediatekEntry[] {
   return out;
 }
 
-/** How many of each family, and whether there is a library at all. What a surface shows
- *  before anything is picked — and `present: false` is a real answer, not an error. */
+/**
+ * How many of each family, and whether there is a library at all. What a surface shows
+ * before anything is picked — and `present: false` is a real answer, not an error.
+ *
+ * The capture zone is counted here too, though it is no family: the tab bar shows four
+ * numbers and would otherwise show three plus a zero until someone clicked the fourth.
+ */
 export function summary(): {
   present: boolean;
-  counts: Record<Family, number>;
+  counts: Record<string, number>;
 } {
   if (!exists())
     return {
       present: false,
-      counts: { morceaux: 0, samples: 0, modules: 0 },
+      counts: { morceaux: 0, samples: 0, modules: 0, recordings: 0 },
     };
   const counts = Object.fromEntries(
     FAMILIES.map((f) => [f, listFamily(f).entries.length]),
-  ) as Record<Family, number>;
-  return { present: true, counts };
+  ) as Record<string, number>;
+  return {
+    present: true,
+    counts: { ...counts, [RECORDINGS_DIR]: countRecordings() },
+  };
 }
 
 /** Drop the in-memory index. For tests, and for a root that changed under us. */

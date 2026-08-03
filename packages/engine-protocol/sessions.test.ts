@@ -11,20 +11,20 @@ import {
 
 describe("sessionFor", () => {
   it("is stable for one person and one service", () => {
-    expect(sessionFor(SESSIONS.lanes, "fred@parapluie.org")).toBe(
-      "lanes:fred_parapluie_org",
+    expect(sessionFor(SESSIONS.pistes, "fred@parapluie.org")).toBe(
+      "pistes:fred_parapluie_org",
     );
   });
 
   // The collision this exists to end: two people on the SAME engine must not share a project.
   it("separates two people on one service", () => {
-    expect(sessionFor("lanes", "a@x.org")).not.toBe(
-      sessionFor("lanes", "b@x.org"),
+    expect(sessionFor("pistes", "a@x.org")).not.toBe(
+      sessionFor("pistes", "b@x.org"),
     );
   });
 
   it("separates one person's services", () => {
-    expect(sessionFor("lanes", "a@x.org")).not.toBe(
+    expect(sessionFor("pistes", "a@x.org")).not.toBe(
       sessionFor("mediatek", "a@x.org"),
     );
   });
@@ -38,17 +38,17 @@ describe("sessionFor", () => {
 
 describe("forSession", () => {
   it("reads a frame addressed to it", () => {
-    expect(forSession({ session: "lanes:a" }, "lanes:a")).toBe(true);
+    expect(forSession({ session: "pistes:a" }, "pistes:a")).toBe(true);
   });
 
   it("drops another session's frame", () => {
-    expect(forSession({ session: "lanes:b" }, "lanes:a")).toBe(false);
+    expect(forSession({ session: "pistes:b" }, "pistes:a")).toBe(false);
   });
 
   // DISAGREEMENT, not absence: engine-global replies carry no session, and an engine older
   // than sessions stamps nothing — requiring the field would make a new client deaf.
   it("lets an unstamped frame through", () => {
-    expect(forSession({}, "lanes:a")).toBe(true);
+    expect(forSession({}, "pistes:a")).toBe(true);
     expect(forSession({ session: undefined }, DEFAULT_SESSION)).toBe(true);
   });
 });

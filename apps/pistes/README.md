@@ -1,9 +1,9 @@
-# lanes
+# pistes
 
 A **text-based DAW**. Your song is a folder of YAML files; the terminal (or a web
 editor) is your studio.
 
-lanes is a set of processes talking over a WebSocket, living inside the `studio`
+pistes is a set of processes talking over a WebSocket, living inside the `studio`
 monorepo:
 
 ```
@@ -31,9 +31,9 @@ the engine is unchanged — it only speaks the JSON protocol below.
 
 ## Where the pieces live
 
-None of this is under `apps/lanes` any more. The engine, the tray and the brain
+None of this is under `apps/pistes` any more. The engine, the tray and the brain
 packages serve every audio app in the repo — mediatek and platines are coming —
-so they sit beside lanes rather than inside it. What remains here is the web
+so they sit beside pistes rather than inside it. What remains here is the web
 editor: `frontend` and `backend`.
 
 The JS packages are **members of the monorepo's npm workspaces**, consumed as raw
@@ -43,10 +43,10 @@ binary, built separately.
 ```
 apps/moteur/               the C++ project (studio-moteur)          — native, not a workspace
   CMakeLists.txt · CMakePresets.json · docs/design.md
-  engine/    library lanes::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
+  engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
   server/    app studio-moteur       (WebSocket audio server, main.cpp)
 apps/capot/                the menu-bar view (spawns @studio/engine-host, the supervisor)
-apps/lanes/                the web editor — frontend / backend
+apps/pistes/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
   song/                    @studio/song            — song model + compiler + Strudel patterns
   commands/                @studio/commands        — shared command layer, file edits, timeline, mixing
@@ -57,7 +57,7 @@ packages/                  studio's shared tier (consumed as raw TS source):
   ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
   ui-editor/               @studio/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
   ui-eyes/                 @studio/ui-eyes         — WebGL video compositor (song's video tracks → viewport)
-  translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `lanes import` is its caller
+  translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `pistes import` is its caller
   web-protocol/            @studio/web-protocol    — the browser↔server wire types
 ```
 
@@ -126,7 +126,7 @@ modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.y
   a flat mapping of the module's own attributes (a `plugin`/`io`/`rack`, optional
   `params`/`extends`), with **no `name:`**. The folder also holds the module's own
   `<name>.vstpreset` (overriding an extended module's) and its rack's audio. The io sink
-  is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `lanes cmd new module`
+  is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `pistes cmd new module`
   writes the right shape;
   `apps/capot/songs/synth-demo/modules/instruments/synth/module.yaml` is the
   reference, and `.../kit` shows `extends`.
@@ -136,7 +136,7 @@ modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.y
   one as **`"<name>:<instance>"`**, e.g. `{module: "synth:lead"}`, and both the generic
   and every instance stay usable. Each instance keeps its own params and its own
   `<instance>.vstpreset`, so tweaking one never touches the generic or a sibling; the
-  merge order is *extended base → module.yaml → instance*. `lanes cmd new module-instance
+  merge order is *extended base → module.yaml → instance*. `pistes cmd new module-instance
   instruments/synth lead` scaffolds one, and
   `apps/capot/songs/synth-demo/modules/instruments/synth/` is the worked example — one
   4OSC module, a `lead` and a `pad` instance, each driving its own chain.
@@ -207,12 +207,12 @@ cmake --build --preset dev-gcc -j
 
 The **web editor is the only editing surface** — it connects to the engine via
 WebSocket. (There used to be an Ink terminal UI; it's gone. The command bar,
-the shared command layer, and `lanes cmd` all outlived it.) For a look at a
-project without opening anything, `lanes inspect graph` prints the routing and
-`lanes inspect timeline` prints the tracks and their clips.
+the shared command layer, and `pistes cmd` all outlived it.) For a look at a
+project without opening anything, `pistes inspect graph` prints the routing and
+`pistes inspect timeline` prints the tracks and their clips.
 
 The web editor remembers the **active project** in a session file
-(`~/.lanes/session.json`) so it comes back where you left it. The file service
+(`~/.studio/session.json`) so it comes back where you left it. The file service
 reconnects automatically if the engine restarts and reloads the song whenever a
 file changes on disk. `applied` messages (the exact diff the engine ran) show in
 the UI log, so editing a file and saving shows you precisely what the engine did

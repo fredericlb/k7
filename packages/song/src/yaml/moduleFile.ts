@@ -1,6 +1,6 @@
 // moduleFile.ts — reading and EDITING a module file, as YAML. Paired with
 // moduleSchema.ts. The point isn't parsing, it's WRITING without reflowing the
-// document or dropping comments — lanes edits these constantly and they're in git.
+// document or dropping comments — pistes edits these constantly and they're in git.
 
 import {
   type Document,

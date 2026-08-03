@@ -1,7 +1,7 @@
 // ImportDialog.tsx — the "import this .dawproject?" flow in two phases: the yes/no, then
 // (once `log` arrives) the import log — counts and any warnings the mapper raised — so a
 // lossy import is seen before the project opens. The server runs the same code
-// `lanes import` does; App owns the async and the resulting open.
+// `pistes import` does; App owns the async and the resulting open.
 
 import { Button } from "@frediverse/ui/button";
 import {

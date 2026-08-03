@@ -48,6 +48,9 @@ const PLAYLIST_SCORING: ScoringTarget = {
 };
 const makePlaylistPlayer = () => new PlaylistPlayer();
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 export default function App() {
   const { status: authStatus, error: authError, user: authUser } = useAuth();
   const { path, navigate } = useRoute();
@@ -306,6 +309,9 @@ export default function App() {
       <header className="flex items-center gap-4 border-b border-border px-4 py-2.5">
         <span className="text-sm font-semibold tracking-wide">
           {m["header.title"]()}
+        </span>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {VERSION}
         </span>
         <span className="flex-1" />
         <LocaleSwitcher />

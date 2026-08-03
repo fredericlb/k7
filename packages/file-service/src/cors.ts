@@ -12,7 +12,7 @@ const PRIVATE_HOST =
   /^(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
 
 function originsFromEnv(): string[] | null {
-  const raw = process.env.LANES_WEB_ORIGIN;
+  const raw = process.env.STUDIO_WEB_ORIGIN;
   if (!raw) return null;
   const list = raw
     .split(",")
@@ -61,7 +61,7 @@ function originsFromFile(): string[] {
 // engine registry means every one of them is a browser that reaches this file service, and
 // reading only the first would CORS-refuse the médiathèque with no diagnosis anywhere.
 function registryOrigins(): string[] {
-  const raw = process.env.LANES_REGISTRY_URL;
+  const raw = process.env.STUDIO_REGISTRY_URL;
   if (!raw) return [];
   const out: string[] = [];
   for (const url of raw.split(",")) {
@@ -75,7 +75,7 @@ function registryOrigins(): string[] {
 }
 
 /**
- * Decide whether `origin` may call this service: `LANES_WEB_ORIGIN` alone when set
+ * Decide whether `origin` may call this service: `STUDIO_WEB_ORIGIN` alone when set
  * (a total escape hatch that outranks the tray's list), else the registry's origin +
  * the tray's allowlist + any loopback/private http origin. No Origin header at all is
  * allowed — CORS is browser-only, and refusing curl buys nothing.
@@ -105,7 +105,7 @@ export function allowedOrigin(origin: string | undefined): boolean {
 /** One-line summary of the effective policy, for the startup log. */
 export function originPolicySummary(): string {
   const explicit = originsFromEnv();
-  if (explicit) return `LANES_WEB_ORIGIN=${explicit.join(", ")}`;
+  if (explicit) return `STUDIO_WEB_ORIGIN=${explicit.join(", ")}`;
   const added = originsFromFile();
   const parts = [
     // All of them: the whole point of this line is that a refused origin is diagnosable
@@ -115,5 +115,5 @@ export function originPolicySummary(): string {
     "loopback + private-network http origins",
   ];
   // The added ones are re-read per request, so this line is a snapshot at boot, not the list for the process's life.
-  return `${parts.join(", ")}${added.length ? " (web-origins.json, live)" : ""} (set LANES_WEB_ORIGIN to restrict)`;
+  return `${parts.join(", ")}${added.length ? " (web-origins.json, live)" : ""} (set STUDIO_WEB_ORIGIN to restrict)`;
 }

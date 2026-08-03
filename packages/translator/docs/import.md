@@ -6,11 +6,11 @@ Three modules, in order: `dawproject.ts` reads, `params.ts` enriches, `emit.ts` 
 
 A `.dawproject` is a ZIP of `project.xml` (the song), `metadata.xml`, plus `audio/*` and
 `plugins/*` assets. This module unzips the bytes in memory, parses `project.xml`, and
-projects it onto lanes's song schema — the same shape `project.ts` reads back. It
+projects it onto pistes's song schema — the same shape `project.ts` reads back. It
 performs NO disk I/O: it returns the song object plus every asset entry for the caller
 to write out.
 
-The mapping is deliberately lossy where lanes can't yet represent something (warps /
+The mapping is deliberately lossy where pistes can't yet represent something (warps /
 time-stretch, plugin state, automation): those are dropped, while the structural
 essentials (tracks, params, audio clips, MIDI notes, plugin refs, sends) are carried so
 a later phase can wire them.
@@ -26,8 +26,8 @@ module asks the engine to enumerate a plugin's parameters as `paramID -> value`,
   (instantiate the plugin, restore its `.vstpreset`, dump params)
 
 The engine reports whether the params fully reproduce the state ("complete"); only then
-is the opaque preset dropped. An external plugin is located in the lanes cache
-(`~/.lanes/exts.json`) by name to get its format + identifier, and its state bytes
+is the opaque preset dropped. An external plugin is located in the pistes cache
+(`~/.studio/exts.json`) by name to get its format + identifier, and its state bytes
 (from the archive) are written to a temp file for the engine.
 
 The whole step is a no-op when the engine binary isn't found, so import still works

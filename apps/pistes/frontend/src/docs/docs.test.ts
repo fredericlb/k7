@@ -1,7 +1,7 @@
 // Does the documentation still describe the software? Two failures, both of which have happened: an example
 // goes stale (caught by PARSING every example against the loader's own schema), and a field is added and never
 // written down (caught by walking each schema's keys and asking whether any example mentions them).
-// Both read the markdown under lanes/docs/ itself. See ../../docs/docExamples.md.
+// Both read the markdown under pistes/docs/ itself. See ../../docs/docExamples.md.
 
 import { ChainsFileSchema } from "@studio/song/yaml/chainsSchema";
 import {

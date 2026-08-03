@@ -1,17 +1,17 @@
 # Deploying the médiathèque
 
 Étape 6 made the library **hosted** — `media.studio.frediver.se` owns the files, and
-`~/.lanes/mediatek` became a cache the moteur reads from. That reversal left a hole nobody
+`~/.studio/mediatek` became a cache the moteur reads from. That reversal left a hole nobody
 noticed for three steps: there was no Dockerfile, no nginx entry and no CI job, so nothing
 deployed the thing the whole design now depends on.
 
-This is that. It follows lanes's image closely, because the shape is the same — an SPA and
+This is that. It follows pistes's image closely, because the shape is the same — an SPA and
 a Node backend behind one nginx, on the repo-root base image. Three things differ, and each
 of them is the médiathèque being a library rather than an editor.
 
 ## 1. It is stateful. The volume IS the library.
 
-lanes's image deliberately has no volume: its state is a session cookie and an in-memory
+pistes's image deliberately has no volume: its state is a session cookie and an in-memory
 engine list, both fine to lose. Here the container owns everyone's morceaux, samples and
 modules.
 
@@ -19,7 +19,7 @@ modules.
 volume instead of writing into the container layer, where an upload would survive exactly
 until the next deploy — and would look like it had worked.
 
-`LANES_MEDIATEK=/library` is set in the image, and the backend **refuses to boot without
+`STUDIO_MEDIATEK=/library` is set in the image, and the backend **refuses to boot without
 it**. That refusal is load-bearing: a missing root would otherwise scan an empty directory
 and serve a perfectly plausible, empty catalogue. A library that has silently lost
 everything looks exactly like a library nobody has filled in yet.
@@ -35,7 +35,7 @@ Verified: on an empty volume the backend creates its layout (`morceaux/`, `sampl
 
 ## 2. It moves media, so nginx must not buffer
 
-The `/(api|auth)/` location carries three settings lanes's does not:
+The `/(api|auth)/` location carries three settings pistes's does not:
 
 * **`proxy_buffering off`.** Without it nginx reads the whole upstream response into memory
   and then a temp file before sending a byte. On a video that means the first frame waits
@@ -65,7 +65,7 @@ ships: `node_modules/@studio/*` are symlinks into the workspace, so a package mi
 the image is a dangling link and a crash on first import.
 
 Both closures were run and inspected. The full one pulls in `commons/packages/ui` — which
-matters more than it looks, because `index.css` `@source`s `packages/ui/src` and **Tailwind
+matters more than it looks, because `index.css` `@source`s `commons/packages/ui/src` and **Tailwind
 emits nothing at all for a `@source` path that does not exist**. The app would build
 cleanly and render unstyled. The check that it worked: `dist/assets/*.css` is ~51 KB, not
 ~2 KB.
@@ -78,9 +78,10 @@ password — so `docker build` is out of reach from here, and CI is where it wil
 
 What *was* verified, being the two assumptions most likely to be wrong:
 
-1. `npm run build --workspace mediatek` really produces `apps/mediatek/dist/index.html`
-   plus a full-sized stylesheet — the path the final stage `COPY`s from.
-2. The backend boots with nothing but `LANES_MEDIATEK` and `PORT`, on an empty directory.
+1. `npm run build --workspace mediatek-frontend` really produces
+   `apps/mediatek/frontend/dist/index.html` plus a full-sized stylesheet — the path the
+   final stage `COPY`s from.
+2. The backend boots with nothing but `STUDIO_MEDIATEK` and `PORT`, on an empty directory.
 
 Left for the first real deploy: `SESSION_SECRET` and the `OIDC_*` triple must be set, or
 the service comes up in **dev auth mode with a stub 'Dev User'** — it says so on stderr,

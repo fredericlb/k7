@@ -60,7 +60,7 @@ export function EngineSelect({
             ) : (
               <>
                 No engines found. Start the{" "}
-                <code className="rounded bg-secondary px-1">lanes engine</code>{" "}
+                <code className="rounded bg-secondary px-1">pistes engine</code>{" "}
                 tray app, then Refresh.
               </>
             )}

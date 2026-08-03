@@ -16,12 +16,12 @@ import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
 import { UISchema } from "./yaml/moduleSchema";
 
-// A module's panel lives in the workspace's `_ui`, not in the module file: `module populate` can then rebuild
-// `_modules` without touching hand-drawn work, and one panel serves every project that inherits the module.
+// A module's panel is the `ui.yaml` in its own folder, beside `module.yaml`: the plugin scan can rewrite what a
+// module IS without touching how it is DRAWN, and one panel serves every project that inherits the module.
 //
-// The file's PATH mirrors `_modules` as a filing convenience; the `ref:` inside it is the key. That split is
-// what these tests pin down — plus the migration, which has to move a panel without disturbing the rest of a
-// module file people hand-edit and keep in git.
+// The FOLDER is the key — there is no `ref:` in the file to disagree with it — and every library the project can
+// see is read, nearest first. That is what these tests pin down, plus the migration, which has to move a panel
+// without disturbing the rest of a module file people hand-edit and keep in git.
 
 const PANEL = {
   cols: 2,
@@ -54,19 +54,17 @@ const writeLocalModule = (body: string) =>
     "utf8",
   );
 
-// A second module library OUTSIDE the workspace, the shape the mediatek has: `modules/`
-// with a namespace config, and its panels in the `ui/` folder beside it.
+// A second module library OUTSIDE the workspace, the shape the mediatek has: `modules/` with a namespace config.
 function writeMediatek(at: string, namespace = "mediatek"): void {
   writeYaml(join(at, "modules", "config.yaml"), { namespace });
   writeYaml(join(at, "modules", "audio", "reverb", "module.yaml"), {
     plugin: { type: "vst3", name: "Big Reverb" },
   });
-  mkdirSync(join(at, "ui"), { recursive: true });
 }
 
 // The project names the library by TOKEN, never by path — project.yaml is committed.
 const declareMediatek = (at: string): void => {
-  process.env.LANES_MEDIATEK = at;
+  process.env.STUDIO_MEDIATEK = at;
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - '@mediatek'\n",
@@ -84,7 +82,7 @@ describe("panels across more than one library", () => {
     declareMediatek(media);
   });
   afterEach(() => {
-    delete process.env.LANES_MEDIATEK;
+    delete process.env.STUDIO_MEDIATEK;
     rmSync(media, { recursive: true, force: true });
   });
 
@@ -93,114 +91,107 @@ describe("panels across more than one library", () => {
     // contain, and the module resolves — with no path anywhere in project.yaml.
     const refs = loadModuleRefs(dir, ["../_modules", "@mediatek"]);
     expect(refs["@mediatek/audio/reverb"]).toBeTruthy();
-    expect(refs["@engine/audio/delay/tape-delay"]).toBeTruthy();
+    expect(refs["@workspace/audio/delay/tape-delay"]).toBeTruthy();
   });
 
-  it("finds a panel in the ui/ folder beside a declared module library", () => {
-    writeYaml(join(media, "ui", "audio", "reverb.yaml"), {
-      ref: "@mediatek/audio/reverb",
-      ...PANEL,
-    });
+  it("finds a panel beside a module in a declared library", () => {
+    writeYaml(
+      join(media, "modules", "audio", "reverb", "ui.yaml"),
+      PANEL as unknown as Record<string, unknown>,
+    );
     expect(loadUiLibrary(dir).byRef["@mediatek/audio/reverb"]?.ui).toEqual(
       PANEL,
     );
   });
 
+  it("writes a shared module's panel into the shared module's own folder", () => {
+    // The rule that changed: a panel is drawn for the plugin, so it lands where the plugin is
+    // rather than being copied into every project that plays it.
+    const written = writeUiFile(dir, "@mediatek/audio/reverb", PANEL);
+    expect(written).toBe(join(media, "modules", "audio", "reverb", "ui.yaml"));
+    expect(loadUiLibrary(dir).byRef["@mediatek/audio/reverb"]?.ui).toEqual(
+      PANEL,
+    );
+  });
+
+  it("refuses a namespace no library this project can see declares", () => {
+    // Guessing a root would file the panel under a module that isn't there — a save that
+    // reports success and draws nothing.
+    expect(() => writeUiFile(dir, "@nowhere/audio/reverb", PANEL)).toThrow(
+      /@nowhere/,
+    );
+  });
+
   it("lets the project's own panel win, without calling it a mistake", () => {
-    // Same ref in both libraries is PRECEDENCE, not a collision: it is what a fork looks
-    // like. Two panels in ONE library stays an issue — covered below.
-    const shared = { ...PANEL, cols: 9 };
-    writeYaml(join(media, "ui", "audio", "reverb.yaml"), {
-      ref: "audio/reverb",
-      ...shared,
-    });
+    // The same NAME in two libraries is precedence, not a collision: it is what a fork looks
+    // like. The refs differ, so both are keyed — what matters is which one a local module draws.
+    writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeUiFile(dir, "@mediatek/audio/reverb", { ...PANEL, cols: 9 });
     writeUiFile(dir, "audio/reverb", PANEL);
     const lib = loadUiLibrary(dir);
     expect(lib.byRef["audio/reverb"].ui.cols).toBe(PANEL.cols);
+    expect(lib.byRef["@mediatek/audio/reverb"].ui.cols).toBe(9);
     expect(lib.issues).toEqual([]);
-  });
-
-  it("still reports two panels for one ref inside a SINGLE library", () => {
-    writeYaml(join(media, "ui", "a.yaml"), { ref: "audio/reverb", ...PANEL });
-    writeYaml(join(media, "ui", "b.yaml"), { ref: "audio/reverb", ...PANEL });
-    expect(loadUiLibrary(dir).issues).toHaveLength(1);
-  });
-
-  it("writes into the PROJECT even when the panel it edits came from the shared library", () => {
-    // The whole read-many/write-one rule: editing a mediatek panel must land a copy here,
-    // not change what every other project sees.
-    writeYaml(join(media, "ui", "audio", "reverb.yaml"), {
-      ref: "audio/reverb",
-      ...PANEL,
-    });
-    const written = writeUiFile(dir, "audio/reverb", { ...PANEL, cols: 3 });
-    expect(written.startsWith(join(root, "_ui"))).toBe(true);
-    expect(written.startsWith(media)).toBe(false);
-    // And the shared one is untouched.
-    expect(
-      (
-        parseYaml(
-          readFileSync(join(media, "ui", "audio", "reverb.yaml"), "utf8"),
-        ) as { cols: number }
-      ).cols,
-    ).toBe(PANEL.cols);
+    expect(loadModules(dir).reverb.ui).toEqual(PANEL);
   });
 });
 
 describe("where a panel files itself", () => {
-  it("mirrors the module tree, namespace dropped", () => {
-    expect(uiPathFor("@engine/audio/delay/tape-delay")).toBe(
-      "audio/delay/tape-delay.yaml",
+  it("sits in the module's own folder, namespace dropped", () => {
+    expect(uiPathFor("@workspace/audio/delay/tape-delay")).toBe(
+      "audio/delay/tape-delay/ui.yaml",
     );
-    expect(uiPathFor("audio/reverb")).toBe("audio/reverb.yaml");
-    // An io ref carries no type folder, so it gets one back — otherwise `desk` would land at the library root.
-    expect(uiPathFor("desk")).toBe("io/desk.yaml");
+    expect(uiPathFor("audio/reverb")).toBe("audio/reverb/ui.yaml");
+    // An io ref carries no type folder, so it still gets one back — that rescue is about the
+    // REF's shape, not about the tree the file used to live in.
+    expect(uiPathFor("desk")).toBe("io/desk/ui.yaml");
   });
 
-  it("steps past a file another ref already holds, and keys on the ref regardless", () => {
-    writeUiFile(dir, "@engine/audio/reverb", PANEL);
-    const second = writeUiFile(dir, "audio/reverb", PANEL);
-    expect(second.endsWith("reverb-2.yaml")).toBe(true);
-    const lib = loadUiLibrary(dir);
-    expect(Object.keys(lib.byRef).sort()).toEqual([
-      "@engine/audio/reverb",
+  it("writes a local panel beside its module, and reads it back", () => {
+    const written = writeUiFile(dir, "audio/reverb", PANEL);
+    expect(written).toBe(join(dir, "modules", "audio", "reverb", "ui.yaml"));
+    expect(loadUiLibrary(dir).byRef["audio/reverb"].ui).toEqual(PANEL);
+  });
+
+  it("overwrites the module's existing panel rather than filing a second one", () => {
+    const first = writeUiFile(dir, "audio/reverb", PANEL);
+    const again = writeUiFile(dir, "audio/reverb", { ...PANEL, cols: 3 });
+    expect(again).toBe(first);
+    expect(loadUiLibrary(dir).byRef["audio/reverb"].ui.cols).toBe(3);
+  });
+
+  it("keys two modules of the same name under two libraries separately", () => {
+    writeUiFile(dir, "@workspace/audio/delay/tape-delay", PANEL);
+    writeUiFile(dir, "audio/reverb", PANEL);
+    expect(Object.keys(loadUiLibrary(dir).byRef).sort()).toEqual([
+      "@workspace/audio/delay/tape-delay",
       "audio/reverb",
     ]);
   });
 
-  it("keeps a panel's file where an author moved it", () => {
-    const first = writeUiFile(dir, "audio/reverb", PANEL);
-    const moved = writeUiFile(dir, "audio/reverb", { ...PANEL, cols: 3 });
-    expect(moved).toBe(first);
-    expect(loadUiLibrary(dir).byRef["audio/reverb"].ui.cols).toBe(3);
-  });
-
-  it("reports a second panel for the same ref instead of picking one silently", () => {
-    writeUiFile(dir, "audio/reverb", PANEL);
-    writeFileSync(
-      join(root, "_ui", "audio", "rival.yaml"),
-      'ref: "audio/reverb"\ncols: 1\nrows: 1\nwidgets: {}\n',
-      "utf8",
-    );
-    const lib = loadUiLibrary(dir);
-    expect(lib.issues.join()).toMatch(/already has a panel/);
-    expect(Object.keys(lib.byRef)).toEqual(["audio/reverb"]);
-  });
-
   it("reports an unreadable panel rather than hiding the rest of the library", () => {
     writeUiFile(dir, "audio/reverb", PANEL);
+    mkdirSync(join(dir, "modules", "audio", "broken"), { recursive: true });
     writeFileSync(
-      join(root, "_ui", "audio", "broken.yaml"),
-      "cols: 1\n",
+      join(dir, "modules", "audio", "broken", "ui.yaml"),
+      "cols: nope\n",
       "utf8",
-    ); // no ref
+    );
     const lib = loadUiLibrary(dir);
     expect(lib.issues).toHaveLength(1);
     expect(lib.byRef["audio/reverb"]).toBeTruthy();
   });
+
+  it("is not read as an instance of the module it sits beside", () => {
+    // THE hazard of the move: every `<name>.yaml` in a module folder is one use of the module,
+    // so an unguarded `ui.yaml` would come back as a module called "reverb:ui".
+    writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeUiFile(dir, "audio/reverb", PANEL);
+    expect(Object.keys(loadModules(dir))).toEqual(["reverb"]);
+  });
 });
 
-describe("the loader overlays the library", () => {
+describe("the loader overlays the panels", () => {
   it("gives a project's own module its panel", () => {
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
     writeUiFile(dir, "audio/reverb", PANEL);
@@ -208,32 +199,27 @@ describe("the loader overlays the library", () => {
   });
 
   it("gives a shared module its panel, through the ref map", () => {
-    writeUiFile(dir, "@engine/audio/delay/tape-delay", PANEL);
+    writeUiFile(dir, "@workspace/audio/delay/tape-delay", PANEL);
     const refs = loadModuleRefs(dir, ["../_modules"]);
-    expect(refs["@engine/audio/delay/tape-delay"].ui).toEqual(PANEL);
+    expect(refs["@workspace/audio/delay/tape-delay"].ui).toEqual(PANEL);
   });
 
   it("shows a shared generic's panel on its INHERITED instances", () => {
     // `module populate` files one io/IN instance per interface input, and a chain names
     // one of them — so this is the path a live input actually takes. The ref map keys an
-    // inherited instance "@engine/io/IN:in-2", which no panel answers to, and the lookup
+    // inherited instance "@workspace/io/IN:in-2", which no panel answers to, and the lookup
     // used that key verbatim: the generic's grid reached the generic and nothing else, so
     // every input in the graph drew "No Options" over a panel that was right there.
-    mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "io", "IN", "module.yaml"),
-      "io: in\n",
-    );
     writeFileSync(
       join(root, "_modules", "io", "IN", "in-2.yaml"),
       "channel: [2]\n",
     );
-    writeUiFile(dir, "@engine/io/IN", PANEL);
+    writeUiFile(dir, "@workspace/io/IN", PANEL);
     const refs = loadModuleRefs(dir, ["../_modules"]);
-    expect(refs["@engine/io/IN"].ui).toEqual(PANEL);
-    expect(refs["@engine/io/IN:in-2"].ui).toEqual(PANEL);
+    expect(refs["@workspace/io/IN"].ui).toEqual(PANEL);
+    expect(refs["@workspace/io/IN:in-2"].ui).toEqual(PANEL);
     // …and the instance keeps what makes it one.
-    expect(refs["@engine/io/IN:in-2"].channel).toEqual([2]);
+    expect(refs["@workspace/io/IN:in-2"].channel).toEqual([2]);
   });
 
   it("replaces an inline ui whole rather than merging into it", () => {
@@ -267,7 +253,7 @@ describe("the loader overlays the library", () => {
     expect(loadModules(dir)["reverb:hall"].ui).toEqual(PANEL);
   });
 
-  it("leaves modules alone when the workspace has no library", () => {
+  it("leaves modules alone when nothing has been drawn", () => {
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
     expect(loadModules(dir).reverb.ui).toBeUndefined();
   });
@@ -293,7 +279,7 @@ describe("migrating the panels that are still inline", () => {
     writeLocalModule(INLINE);
     const r = migrateModuleUis(dir);
     expect(r.errors).toEqual([]);
-    expect(r.moved).toEqual(["audio/reverb → _ui/audio/reverb.yaml"]);
+    expect(r.moved).toEqual(["audio/reverb → modules/audio/reverb/ui.yaml"]);
 
     const after = readFileSync(
       join(dir, "modules", "audio", "reverb", "module.yaml"),
@@ -308,7 +294,7 @@ describe("migrating the panels that are still inline", () => {
     expect(loadModules(dir).reverb.ui).toEqual(PANEL); // and the panel still reaches the module
   });
 
-  it("moves a shared module's panel under its namespaced ref", () => {
+  it("moves a shared module's panel into the shared module's folder", () => {
     const shared = join(
       root,
       "_modules",
@@ -323,7 +309,7 @@ describe("migrating the panels that are still inline", () => {
     );
     const r = migrateModuleUis(dir);
     expect(r.moved).toEqual([
-      "@engine/audio/delay/tape-delay → _ui/audio/delay/tape-delay.yaml",
+      "@workspace/audio/delay/tape-delay → _modules/audio/delay/tape-delay/ui.yaml",
     ]);
     expect(readFileSync(shared, "utf8")).not.toMatch(/^ui:/m);
   });
@@ -331,16 +317,12 @@ describe("migrating the panels that are still inline", () => {
   it("is safe to run twice", () => {
     writeLocalModule(INLINE);
     migrateModuleUis(dir);
-    const before = readFileSync(
-      join(root, "_ui", "audio", "reverb.yaml"),
-      "utf8",
-    );
+    const panel = join(dir, "modules", "audio", "reverb", "ui.yaml");
+    const before = readFileSync(panel, "utf8");
     const again = migrateModuleUis(dir);
     expect(again.moved).toEqual([]);
     expect(again.errors).toEqual([]);
-    expect(
-      readFileSync(join(root, "_ui", "audio", "reverb.yaml"), "utf8"),
-    ).toBe(before);
+    expect(readFileSync(panel, "utf8")).toBe(before);
   });
 
   it("reports a ui it cannot move rather than dropping it", () => {
@@ -361,7 +343,9 @@ describe("migrating the panels that are still inline", () => {
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
     const r = migrateModuleUis(dir);
     expect(r.moved).toEqual([]);
-    expect(existsSync(join(root, "_ui"))).toBe(false);
+    expect(existsSync(join(dir, "modules", "audio", "reverb", "ui.yaml"))).toBe(
+      false,
+    );
   });
 });
 
@@ -370,14 +354,8 @@ describe("migrating the panels that are still inline", () => {
 // reads back as NULL, the schema refuses null, and the editor reported the file it had just written as
 // malformed — on exactly the modules that have no panel yet, which is when the grid is wanted.
 describe("a panel file reads back as what was written", () => {
-  const roundTrips = (ui: Parameters<typeof uiFileText>[1]) => {
-    const raw = parseYaml(uiFileText("@engine/io/IN", ui), { version: "1.2" });
-    return UISchema.safeParse({
-      cols: raw.cols,
-      rows: raw.rows,
-      widgets: raw.widgets,
-    }).success;
-  };
+  const roundTrips = (ui: Parameters<typeof uiFileText>[0]) =>
+    UISchema.safeParse(parseYaml(uiFileText(ui), { version: "1.2" })).success;
 
   it("survives with no widgets at all — the scaffold's own shape", () => {
     expect(roundTrips({ cols: 4, rows: 2, widgets: {} })).toBe(true);

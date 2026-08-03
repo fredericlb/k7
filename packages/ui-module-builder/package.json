@@ -1,0 +1,41 @@
+{
+  "name": "@studio/ui-module-builder",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The module builder as React: a module's YAML on the left, its widget grid on the right, both editing the module.yaml / ui.yaml pair. The app supplies a ModuleStore — four calls — and owns the engine link around it.",
+  "types": "./src/ModuleBuilder.tsx",
+  "exports": {
+    ".": "./src/ModuleBuilder.tsx",
+    "./store": "./src/store.ts",
+    "./module-ui": "./src/moduleUi.ts",
+    "./param-drag": "./src/paramDrag.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.34.0",
+    "@frediverse/ui": "*",
+    "@replit/codemirror-vim": "^6.3.0",
+    "@studio/engine-protocol": "*",
+    "@studio/song": "*",
+    "@studio/ui-editor": "*",
+    "@studio/web-protocol": "*",
+    "@uiw/react-codemirror": "^4.23.0",
+    "lucide-react": "^1.24.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

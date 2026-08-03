@@ -29,7 +29,7 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const IN = "@engine/io/IN:in-2";
+const IN = "@workspace/io/IN:in-2";
 const sharedFile = () => join(root, "_modules", "io", "IN", "in-2.yaml");
 const localFile = () => join(dir, "modules", "io", "desk", "module.yaml");
 
@@ -57,7 +57,6 @@ beforeEach(() => {
   writeFileSync(localFile(), "io: in\nchannel: [1]\n", "utf8");
 
   mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });
-  writeFileSync(join(root, "_modules", "config.yaml"), "namespace: engine\n");
   writeFileSync(join(root, "_modules", "io", "IN", "module.yaml"), "io: in\n");
   writeFileSync(
     join(root, "_modules", "io", "IN", "in-2.yaml"),

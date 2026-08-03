@@ -34,29 +34,30 @@ the rest of the file is valid yet.
 `libraries_from` list, so a project written before the multi-library change doesn't
 silently lose its assets.
 
-## Where a panel lives — `_ui/`, and why it isn't a fourth list
+## Where a panel lives — and why there is no list for it
 
-A module's UI panel lives OUTSIDE the module (see uiLibrary.ts). It used to be found at
-one hard-coded place, `../_ui`, which was the one shared folder the list mechanism didn't
-cover — fine while there was exactly one library, wrong the moment a project can also draw
-modules from a mediatek outside the workspace.
+A module's UI panel is the `ui.yaml` in the module's own folder (see uiLibrary.ts). It used
+to be a parallel tree, found at one hard-coded place, `../_ui` — fine while there was
+exactly one library, wrong the moment a project can also draw modules from a mediatek
+outside the workspace, and wrong again once you notice the panel and the module could
+disagree about which module the panel drew.
 
-`uiLibraryDirs()` derives it instead: the project's own `../_ui` first, then the `ui`
-folder BESIDE each library in `modules_from`. A workspace has `_modules/` + `_ui/`; the
-mediatek has `modules/` + `ui/` — the same relationship, so both spellings are probed
-rather than ruled on.
+`modulePanelRoots()` is what is left of that machinery: the project's own `modules/` first,
+then every root `modules_from` names. There is nothing panel-specific about it any more —
+it is the list of module libraries, and the panels are in them.
 
-Deriving beats declaring here. A panel is not an independent asset like an impulse
-response; it is the face of a module, and it should travel with the library that owns
-that module. Point a project at a library and the faces come along, with nothing else to
-write down — and there is no way to end up with modules from one place and panels from
-another because somebody updated one list and not the other.
+Deriving beats declaring here, and putting the file in the folder beats deriving. A panel is
+not an independent asset like an impulse response; it is the face of a module, so it travels
+with the module itself. Point a project at a library and the faces come along, with no way
+to end up with modules from one place and panels from another.
 
-**Order is precedence, and reading is not writing.** `loadUiLibrary` reads every library,
-nearest first, so a project that forked a shared module draws its own face rather than the
-one it was copied from. `writeUiFile` only ever writes into the project's own `_ui`: a
-panel found in a shared library is read-only, exactly like the module it draws.
+**Order is precedence.** `loadUiLibrary` reads every library, nearest first, so a project
+that forked a shared module draws its own face rather than the one it was copied from. What
+is gone is the write-one half of the old rule: `writeUiFile` writes the panel where its
+module is, shared library included. See `docs/uiLibrary.md` for why that exception exists
+and what it costs.
 
-One consequence worth stating: the same ref appearing in two libraries is **precedence
-working**, not a collision, and is silent. Two panels for one ref inside a SINGLE library
-is still the mistake it always was, and is still reported.
+`moduleNamespaceOf()` lives here too, because it is the one fact that separates the two
+kinds of root: a library declaring a namespace in its `config.yaml` keys its modules
+`@<ns>/<type>/<sub>`, and a project's own `modules/` keys them bare. Everything that turns a
+folder into a ref, or a ref back into a folder, turns on that.

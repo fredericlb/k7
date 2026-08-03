@@ -1,5 +1,5 @@
 // Plugin-parameter dump CLIs — see the dumpPluginParams / dumpPluginParamsExternal
-// declarations in EngineHost.h. lanes's text alternative to an opaque .vstpreset:
+// declarations in EngineHost.h. pistes's text alternative to an opaque .vstpreset:
 // enumerate a plugin's automatable parameters and print { params, complete } as
 // sentinel-fenced JSON. `complete` means the params fully reproduce the plugin state
 // (so the preset can be dropped).
@@ -14,13 +14,13 @@
 #include <string>
 #include <unordered_map>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 
 // Sentinels fencing the params JSON, so the translator can find it amid any stdout printed while loading.
-constexpr const char* kParamsBegin = "LANES_PARAMS_BEGIN";
-constexpr const char* kParamsEnd = "LANES_PARAMS_END";
+constexpr const char* kParamsBegin = "STUDIO_PARAMS_BEGIN";
+constexpr const char* kParamsEnd = "STUDIO_PARAMS_END";
 
 // Emit the fenced { params, complete } payload the translator parses: `complete` means the params fully
 // reproduce the plugin state, so the opaque preset is safe to drop.
@@ -116,4 +116,4 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     return 0;
 }
 
-}  // namespace lanes
+}  // namespace studio

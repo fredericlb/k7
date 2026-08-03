@@ -62,7 +62,7 @@ pub struct Session {
     pub listeners: usize,
 }
 
-/// The paths the tray opens directly — sent rather than recomputed, so `~/.lanes` has one definition.
+/// The paths the tray opens directly — sent rather than recomputed, so `~/.studio` has one definition.
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Paths {

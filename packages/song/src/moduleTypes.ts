@@ -3,7 +3,7 @@
 // slug a plugin earns).
 //
 // A leaf on purpose. These tables are the one thing everything about a module derives
-// from — `kind`, `inputs`, `emits`, the ref a `_ui` panel answers to — and they were
+// from — `kind`, `inputs`, `emits`, the ref a `ui.yaml` panel answers to — and they were
 // inside loader.ts, which reads files. Anything wanting to know what `audio/` means had
 // to import the loader, and the engine catalogue (which knows about plugins and nothing
 // about folders) could not import it at all without a cycle. loader.ts re-exports every
@@ -68,6 +68,12 @@ export function categoryForRole(p: {
   return "audio";
 }
 
+/** How a chain names an engine module: `@engine/neural-amp-modeler`. Here rather than in
+ *  engineCatalogue.ts, which reads the scan cache off disk — naming a ref must not cost a
+ *  `node:fs` import, or the médiathèque could not scaffold one from a browser. */
+export const ENGINE_NS = "@engine";
+export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
+
 // --- module instances (see docs/loader.md) --------------------------------------
 export const INSTANCE_SEP = ":";
 
@@ -75,7 +81,7 @@ export const INSTANCE_SEP = ":";
 export const moduleKey = (module: string, instance?: string): string =>
   instance ? `${module}${INSTANCE_SEP}${instance}` : module;
 
-// The ref a PROJECT-LOCAL module answers to — the keying loadModuleRefs uses, and what a `_ui` panel names.
+// The ref a PROJECT-LOCAL module answers to — the keying loadModuleRefs uses, and what a `ui.yaml` panel answers to.
 // An io module carries no type folder in its ref, which is why this isn't just `${type}/${name}`.
 export const moduleRefOf = (type: string, name: string): string =>
   MODULE_TYPES[type]?.kind === "io" ? name : `${type}/${name}`;

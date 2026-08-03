@@ -3,7 +3,7 @@
 // that does NOT is a drop the browser silently refuses, with no error and no handler. That
 // silent failure is exactly why it is worth a test.
 
-import { PARAM_MIME } from "./paramDrag";
+import { PARAM_MIME } from "@studio/ui-module-builder/param-drag";
 
 /** What a DataTransfer says it holds, as the two views a drag event exposes. */
 export interface DragPayload {

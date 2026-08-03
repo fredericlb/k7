@@ -19,7 +19,7 @@ export function deriveChains(raw: unknown): Record<string, Chain> {
   if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
       "chains.yaml: `chains:` is the old chain-list format — chains are now derived " +
-        "from `tracks:`/`modules:` segments. Run `lanes migrate chains <project>`.",
+        "from `tracks:`/`modules:` segments. Run `pistes migrate chains <project>`.",
     );
   const parsed = ChainsFileSchema.safeParse(raw);
   if (!parsed.success)

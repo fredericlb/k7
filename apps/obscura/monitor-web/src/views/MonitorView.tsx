@@ -12,6 +12,9 @@ import { useVirtualBuzzersState } from "../lib/virtualBuzzers";
 // auth gate has passed (authenticated admin), which is when the Vue version
 // called startMonitor().
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 function timeNow(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -100,6 +103,7 @@ export function MonitorView() {
           </span>
           <span className="url">{mon.wsURL || "—"}</span>
           <span className="spacer" />
+          <span className="build">{VERSION}</span>
           <AuthBadge />
           <span className="clock">{clock}</span>
         </header>

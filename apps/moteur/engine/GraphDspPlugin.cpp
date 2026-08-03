@@ -1,11 +1,12 @@
 #include "GraphDspPlugin.h"
 #include "Warnings.h"
 
-namespace lanes {
+namespace studio {
 
 namespace te = tracktion::engine;
 
-const char* GraphDspPlugin::xmlTypeName = "lanes_dspgraph";
+// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+const char* GraphDspPlugin::xmlTypeName = "studio_dspgraph";
 
 // The Auto Wah, as data — the fallback when a module names no `dsp:`.
 //
@@ -258,4 +259,4 @@ void GraphDspPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
                     scratch_.data(), (int)scratch_.size());
 }
 
-}  // namespace lanes
+}  // namespace studio

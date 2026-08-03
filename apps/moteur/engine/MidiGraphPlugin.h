@@ -16,7 +16,7 @@
 #include <memory>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 class MidiGraphPlugin : public tracktion::engine::Plugin {
 public:
@@ -58,4 +58,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MidiGraphPlugin)
 };
 
-}  // namespace lanes
+}  // namespace studio

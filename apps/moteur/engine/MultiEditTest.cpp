@@ -14,7 +14,7 @@
 #include <memory>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 // The server's behaviour: do NOT let Tracktion reopen whatever device it last persisted.
@@ -36,7 +36,7 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
                      const std::vector<std::string>& baseDirs, double seconds,
                      const std::string& deviceName, const std::string& deviceType) {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    te::Engine engine{"Lanes", nullptr, std::make_unique<ProbeBehaviour>()};
+    te::Engine engine{"Studio", nullptr, std::make_unique<ProbeBehaviour>()};
     registerBuiltInPlugins(engine);
 
     auto& dm = engine.getDeviceManager();
@@ -165,4 +165,4 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
     return 1;
 }
 
-}  // namespace lanes
+}  // namespace studio

@@ -1,5 +1,5 @@
 // engineBinary.ts — locate the built studio-moteur binary, in three tiers:
-// $LANES_ENGINE, the copy vendored beside the running executable (a packaged app),
+// $STUDIO_ENGINE, the copy vendored beside the running executable (a packaged app),
 // then the CMake preset output dirs under apps/moteur/build, newest first. The repo
 // tiers resolve relative to THIS file, so they work wherever the package is linked.
 
@@ -12,7 +12,7 @@ const here = dirname(fileURLToPath(import.meta.url)); // packages/engine-client/
 const engineDir = join(here, "..", "..", "..", "apps", "moteur");
 
 export function findEngineBinary(): string | null {
-  const override = process.env.LANES_ENGINE;
+  const override = process.env.STUDIO_ENGINE;
   if (override && existsSync(override)) return override;
 
   // Beside the running executable: in a packaged app the supervisor IS the vendored node, next to the staged

@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // The end of a take: Tracktion has closed the file and made a clip, so we rename the file to what prepareTakes(session)
 // promised and hand the brain the track, path and position. Then we DROP Tracktion's clip — the brain owns what
@@ -353,4 +353,4 @@ bool EngineHost::prepareTakes(const std::string& session) {
     return true;
 }
 
-}  // namespace lanes
+}  // namespace studio

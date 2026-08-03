@@ -1,0 +1,4 @@
+{
+  "extends": "@frediverse/tsconfig/react.json",
+  "include": ["src"]
+}

@@ -1,4 +1,4 @@
-// chainsIcons.ts — the glyphs lanes hands the chains graph. One object, so the two shells
+// chainsIcons.ts — the glyphs pistes hands the chains graph. One object, so the two shells
 // that mount a graph pass the same thing and a third can't invent its own set.
 //
 // TrackIcon lives in the app because it is the APP's vocabulary: it draws the same lanes
@@ -11,4 +11,4 @@ import type { ChainsIcons } from "@studio/ui-chains-react";
 import { ModuleIcon, moduleGlyph } from "@studio/ui-chains-react/module-icons";
 import { TrackIcon } from "./trackIcons";
 
-export const LANES_ICONS: ChainsIcons = { ModuleIcon, moduleGlyph, TrackIcon };
+export const STUDIO_ICONS: ChainsIcons = { ModuleIcon, moduleGlyph, TrackIcon };

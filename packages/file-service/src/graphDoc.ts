@@ -41,7 +41,7 @@ export function buildGraphDoc(dir: string): WebGraph {
         const fmt = plugin?.type ? String(plugin.type).toLowerCase() : "";
         // A stub is a plugin slot with no plugin — not a rack, which legitimately carries a sampler instead.
         const stub = isPlugin && type !== "rack" && !plugin;
-        // A plugin lanes can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
+        // A plugin pistes can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
         const known = fmt === "internal" || EXTERNAL_PLUGIN_FORMATS.has(fmt);
         const notSupported = isPlugin && fmt === "not_supported";
         const unscanned =

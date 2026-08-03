@@ -147,6 +147,21 @@ body,
   animation: pulse 2s ease-in-out infinite;
 }
 
+/* Build stamp, mirroring .waiting-remote into the free bottom-LEFT corner.
+   Same z-index so it clears the CRT overlays; no glow and no pulse, because the
+   audience is looking at this screen and a version number is for us, not them. */
+.build {
+  position: absolute;
+  bottom: 20px;
+  left: 24px;
+  z-index: 30;
+  font-family: "Press Start 2P", cursive;
+  font-size: 8px;
+  color: #4a4a6a;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
 /* ─── from shared LoginGate.vue ─── */
 .login-gate {
   position: fixed;

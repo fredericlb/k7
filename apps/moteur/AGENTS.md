@@ -4,13 +4,18 @@ A **headless audio server** in C++. Receives a compiled `ProjectDoc` JSON, diffs
 against the current state, applies the minimal change to a Tracktion Engine edit, plays
 audio, and pushes transport/meter state back over WebSocket. **Never parses song files.**
 
-It is deliberately its own app rather than part of lanes: it serves every audio app in
-the repo. lanes drives it today; mediatek's module previews and platines will drive the
+It is deliberately its own app rather than part of pistes: it serves every audio app in
+the repo. pistes drives it today; mediatek's module previews and platines will drive the
 same binary over the same protocol, and it cannot tell them apart — it only ever sees a
 compiled `ProjectDoc`.
 
 This workspace declares **no `build` or `test` script**, so `turbo run build` can never
 try to compile C++. Use the `build:*` / `test:*` scripts below.
+
+It does declare `dev`, and that one is not a build: it is `scripts/dev-native.mjs`, the
+repo dev session's native task — watch the sources, rebuild, restart. It restarts the
+**tray** too, because the tray is what holds the running engine open and no relink can
+happen until it lets go. See [docs/dev.md](../../docs/dev.md).
 
 ## Architecture
 
@@ -68,7 +73,7 @@ The audio thread must not block or allocate. Marshal work to the message thread 
 
 Created via the plugin cache (`scanInstalledPlugins` → find by name+format →
 `createNewPlugin(ExternalPlugin::xmlTypeName, desc)`), not the built-in factory. A
-missing plugin must warn, not crash. Plugin scanning is a separate CLI path (`lanes
+missing plugin must warn, not crash. Plugin scanning is a separate CLI path (`pistes
 engine scan`).
 
 ### .vstpreset
@@ -102,15 +107,15 @@ Build gotchas:
 ## Tests
 
 **The test targets are not built by an ordinary build, and that hid a broken one.** The
-presets pin `"targets": ["studio-moteur"]`, so `lanes_engine_tests` /
-`lanes_midigraph_tests` / `lanes_dspgraph_tests` are only built when named. One of them had
+presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` /
+`studio_midigraph_tests` / `studio_dspgraph_tests` are only built when named. One of them had
 referenced a `TrackDoc::volume` that was removed when a track's level became a mixer module,
 and nothing reported it for as long as that took. Build them explicitly after touching the
 data layer:
 
 ```
-cmake --build build/<preset> --target lanes_engine_tests --config RelWithDebInfo
-ctest --test-dir build/<preset> -C RelWithDebInfo -R 'lanes_' --output-on-failure
+cmake --build build/<preset> --target studio_engine_tests --config RelWithDebInfo
+ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 
 `npm run test:mac --workspace moteur`. Covers the **JUCE-free data layer
@@ -129,7 +134,7 @@ serialization — verified by running the engine, not by TypeScript.
 ## The audio device is opened ONCE, explicitly — never by a constructor
 
 `te::Engine`'s constructor restores whatever audio device Tracktion last persisted in
-its **own** `%APPDATA%/Lanes/Settings.xml`, unless the `EngineBehaviour` says not to.
+its **own** `%APPDATA%/Studio/Settings.xml`, unless the `EngineBehaviour` says not to.
 Both engines here say not to (`ServerBehaviour`, `HeadlessBehaviour`). Do not undo that,
 and do not construct a `te::Engine` anywhere without one.
 
@@ -140,9 +145,9 @@ Why it matters, measured the hard way:
   running beside the live engine collides with it. The driver then stays wedged, and
   from that point on every engine start blocks **forever, with no output at all**, which
   reads as "the tray hangs" and sends you hunting anywhere but here.
-* **It was a second source of truth.** `~/.lanes/preferences.yaml` holds the device
+* **It was a second source of truth.** `~/.studio/preferences.yaml` holds the device
   the user chose; `Settings.xml` held a copy Tracktion wrote by itself and replayed
-  first. The hidden one won, before any lanes code ran.
+  first. The hidden one won, before any pistes code ran.
 
 So: offline tools open no device (`makeOfflineEngine`), the server opens one from
 `openAudioDevice()` after the port is bound, and `Settings.xml` is inert state nobody
@@ -174,7 +179,7 @@ three minutes at zero CPU:
       tracktion::DeviceManager::MIDIDeviceList::scanHardwareDevices
       juce::Timer::TimerThread::callTimers
       juce::MessageManager::runDispatchLoopUntil            <- the sampler pump
-      lanes::buildRenderEdit
+      studio::buildRenderEdit
 
 Order matters: the hosted interface must exist **before** anything pumps, or the timer
 has already fired and you are already waiting.
@@ -189,7 +194,7 @@ restarting the process clears it. The render no longer cares either way.
 ### Debugging a hang with no debugger
 
 `watchdogStack()` in `OfflineRender.cpp` prints the stuck thread's symbolised stack after
-N seconds and exits 3. It is gated on `LANES_RENDER_TRACE`, needs the RelWithDebInfo
+N seconds and exits 3. It is gated on `STUDIO_RENDER_TRACE`, needs the RelWithDebInfo
 PDBs, and is how the stack above was obtained — there is no cdb or WinDbg on these
 machines, and `Wait, LpcReply` from `Get-Process` is as far as PowerShell gets you.
 The same env var turns on `trace()`, the coarse progress log; start there, then reach for

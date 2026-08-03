@@ -1,5 +1,5 @@
 // engineCatalogue.ts — the modules the ENGINE provides, read from its plugin scan
-// (`~/.lanes/exts.json`) rather than from files.
+// (`~/.studio/exts.json`) rather than from files.
 //
 // This replaces a folder of generated wrappers. `module populate` used to write one
 // `module.yaml` per scanned plugin, each containing exactly two facts — `plugin.type` and
@@ -11,7 +11,7 @@
 // jsdsp module's source, a rack's sample map — modules that are something on disk.
 //
 // A leaf: nothing here imports beyond the pure vocabulary in moduleTypes.ts, so loader.ts
-// can use it without a cycle. It reads a machine-local file under `~/.lanes`, exactly
+// can use it without a cycle. It reads a machine-local file under `~/.studio`, exactly
 // as preferences.ts already does.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -19,13 +19,15 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   categoryForRole,
+  ENGINE_NS,
+  engineRef,
   MODULE_TYPES,
   slugifyPluginName,
 } from "./moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 
 /** The scan cache. CONTRACT path — the C++ engine writes and reads this same file (PluginScan.cpp `extsCacheFile()`). */
-export const EXTS_PATH = join(homedir(), ".lanes", "exts.json");
+export const EXTS_PATH = join(homedir(), ".studio", "exts.json");
 
 /** One plugin as the engine's scan describes it. `format` is as scanned ("VST3", "internal"). */
 export interface ScannedPlugin {
@@ -118,9 +120,10 @@ export function scannedPluginNames(file = EXTS_PATH): Record<string, string[]> {
   return names;
 }
 
-/** How a chain and a `_ui` panel name an engine module: `@engine/neural-amp-modeler`. */
-export const ENGINE_NS = "@engine";
-export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
+// The ref vocabulary moved to moduleTypes.ts — the leaf with no filesystem — so a BROWSER can name an
+// engine module without pulling this file's `node:fs` in behind it (see engineFace.ts, which does).
+// Re-exported because this is where every existing caller already looks for it.
+export { ENGINE_NS, engineRef };
 
 /**
  * The io modules the engine provides. One IN and one OUT for the whole app — a project

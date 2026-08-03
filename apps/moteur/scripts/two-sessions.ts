@@ -62,41 +62,41 @@ function watch(c: EngineClient): Seen {
 // Wrapped rather than top-level await: apps/moteur declares no `"type": "module"`, so tsx
 // transforms this to CJS and a bare await is a syntax error there.
 async function main() {
-  const lanes = new EngineClient(URL, SESSIONS.lanes);
+  const pistes = new EngineClient(URL, SESSIONS.pistes);
   const platines = new EngineClient(URL, SESSIONS.platines);
-  const onLanes = watch(lanes);
+  const onPistes = watch(pistes);
   const onPlatines = watch(platines);
-  lanes.connect();
+  pistes.connect();
   platines.connect();
 
   await wait(500);
-  lanes.sendProject(doc("depuis-lanes", 45));
+  pistes.sendProject(doc("depuis-pistes", 45));
   platines.sendProject(doc("depuis-platines", 64));
   await wait(3000);
 
   // ONE of them plays. Before sessions the second project tore the first down; before the
   // client half, the silent one saw the playing one's state frames as its own.
-  lanes.transport("play");
+  pistes.transport("play");
   await wait(4000);
 
-  console.log("lanes    :", onLanes);
+  console.log("pistes    :", onPistes);
   console.log("platines :", onPlatines);
 
   const problems: string[] = [];
-  if (!onLanes.playing)
-    problems.push("lanes n'a jamais vu son transport partir");
-  if (onLanes.maxPlayhead < 1)
-    problems.push("la tete de lecture de lanes n'a pas avance");
+  if (!onPistes.playing)
+    problems.push("pistes n'a jamais vu son transport partir");
+  if (onPistes.maxPlayhead < 1)
+    problems.push("la tete de lecture de pistes n'a pas avance");
   if (onPlatines.frames === 0)
     problems.push(
       "platines ne recoit aucune trame d'etat (session filtree a tort)",
     );
   if (onPlatines.playing)
-    problems.push("platines a vu le transport de lanes — les sessions fuient");
+    problems.push("platines a vu le transport de pistes — les sessions fuient");
   if (onPlatines.maxPlayhead > 0.5)
-    problems.push("la tete de lecture de lanes a fuit vers platines");
+    problems.push("la tete de lecture de pistes a fuit vers platines");
 
-  lanes.close();
+  pistes.close();
   platines.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);

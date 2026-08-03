@@ -11,7 +11,7 @@
 
 #include <cmath>
 
-using namespace lanes;
+using namespace studio;
 
 namespace {
 

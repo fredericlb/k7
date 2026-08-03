@@ -11,9 +11,9 @@ import { rootDir, userRoot } from "./slug.ts";
 /** The workspace the demos are put in. */
 export const EXAMPLES_WORKSPACE = "Examples";
 
-/** Where the demo songs live: $LANES_DEMOS when the tray sets it (a packaged app), else walk up to `apps/capot/songs` (this file is bundled at a different depth than it sits in the repo). */
+/** Where the demo songs live: $STUDIO_DEMOS when the tray sets it (a packaged app), else walk up to `apps/capot/songs` (this file is bundled at a different depth than it sits in the repo). */
 export function demosDir(): string | null {
-  const env = process.env.LANES_DEMOS;
+  const env = process.env.STUDIO_DEMOS;
   if (env && existsSync(env)) return env;
 
   let dir = dirname(fileURLToPath(import.meta.url));
@@ -42,7 +42,7 @@ function bundledDemoNames(src: string): string[] {
 const demoCopyFilter = (s: string): boolean => {
   const base = s.split(/[/\\]/).pop() ?? "";
   return (
-    base !== "node_modules" && base !== ".git" && !base.startsWith(".lanes-")
+    base !== "node_modules" && base !== ".git" && !base.startsWith(".studio-")
   );
 };
 

@@ -1,5 +1,5 @@
 // projectLifecycle.ts — creating a project in a workspace: from scratch (the same
-// scaffold `lanes create` runs) or by translating a .dawproject archive. Extracted
+// scaffold `pistes create` runs) or by translating a .dawproject archive. Extracted
 // from workspace.ts; both re-root the output INSIDE the workspace and guard the path
 // through the host's safePath.
 
@@ -26,7 +26,7 @@ export interface LifecycleHost {
  * it in the import popin so a lossy import (a dropped clip, an unmatched plugin) is
  * visible rather than silent.
  *
- * The translation is @studio/translator's — the very code `lanes import` runs;
+ * The translation is @studio/translator's — the very code `pistes import` runs;
  * this only re-roots the output INSIDE the workspace (never `dirname(input)`, which the
  * CLI uses but which here could plant a project inside another). Plugin presets resolve
  * to text params when the engine binary is present, exactly as the CLI does; without it

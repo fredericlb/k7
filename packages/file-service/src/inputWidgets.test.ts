@@ -15,7 +15,7 @@ import { buildGraphDoc } from "./graphDoc";
 let root: string;
 let proj: string;
 
-const IN = "@engine/io/IN:in-2";
+const IN = "@workspace/io/IN:in-2";
 const chains = (text: string) =>
   writeFileSync(join(proj, "chains.yaml"), text, "utf8");
 
@@ -44,7 +44,6 @@ beforeEach(() => {
   });
   // The shared catalogue as `module populate` leaves it: a generic IN, one instance per channel.
   mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });
-  writeFileSync(join(root, "_modules", "config.yaml"), "namespace: engine\n");
   writeFileSync(join(root, "_modules", "io", "IN", "module.yaml"), "io: in\n");
   writeFileSync(
     join(root, "_modules", "io", "IN", "in-2.yaml"),

@@ -1,5 +1,5 @@
 // hostcmd.rs — where the supervisor (@studio/engine-host) lives and how to run it, in
-// three tiers: $LANES_ENGINE_HOST_CMD, the packaged node + engine-host.mjs, or the repo's
+// three tiers: $STUDIO_ENGINE_HOST_CMD, the packaged node + engine-host.mjs, or the repo's
 // tsx on the TypeScript source. Says clearly when the answer is "nothing" — a tray that
 // silently supervises nothing looks exactly like a healthy one. See docs/tray.md.
 
@@ -61,7 +61,7 @@ fn from_repo() -> Option<HostCmd> {
 /// Resolve the supervisor command, or None — a hard failure host.rs turns into "⚠ supervisor not found",
 /// rather than leaving a green icon over an empty stack.
 pub fn resolve() -> Option<HostCmd> {
-    if let Ok(cmd) = std::env::var("LANES_ENGINE_HOST_CMD") {
+    if let Ok(cmd) = std::env::var("STUDIO_ENGINE_HOST_CMD") {
         let p = PathBuf::from(cmd);
         if p.is_file() {
             return Some(HostCmd {

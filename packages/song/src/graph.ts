@@ -1,4 +1,4 @@
-// graph.ts — load and inspect a node/track/chain project (`lanes-graph <project>`): clips and sequences are
+// graph.ts — load and inspect a node/track/chain project (`studio-graph <project>`): clips and sequences are
 // the material, tracks arrange them, modules wrap a plugin or rack, and chains route a track through modules to
 // the OUT sink. Chains are DERIVED from chains.yaml's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
 
@@ -1085,7 +1085,7 @@ export function loadGraph(dir: string): GraphDoc {
 }
 
 // Whether each input module's channel label exists on THIS machine. Kept out of
-// validate() (which is pure) because the answer depends on ~/.lanes, not the
+// validate() (which is pure) because the answer depends on ~/.studio, not the
 // song: the same project warns here and not on the rig the labels were written for.
 function checkInputLabels(g: GraphDoc): string[] {
   const w: string[] = [];
@@ -1101,7 +1101,7 @@ function checkInputLabels(g: GraphDoc): string[] {
     if (!unknownLabel) continue;
     const known = prefs.channels.in.map((c) => c.label).join(", ");
     w.push(
-      `input '${name}': channel '${unknownLabel}' is not an input label in ~/.lanes ` +
+      `input '${name}': channel '${unknownLabel}' is not an input label in ~/.studio ` +
         `preferences — ${known ? `have: ${known}` : "none are defined"}`,
     );
   }
@@ -1117,7 +1117,7 @@ function main(): void {
     .slice(2)
     .filter((a) => !a.startsWith("-"));
   if (!projectArg) {
-    console.error("usage: lanes graph <project> [trackname]");
+    console.error("usage: pistes graph <project> [trackname]");
     process.exit(2);
   }
   let g: GraphDoc;
@@ -1157,7 +1157,7 @@ function main(): void {
   }
 }
 
-// Run main() only when this FILE is the entry point (`lanes inspect graph`). The
+// Run main() only when this FILE is the entry point (`pistes inspect graph`). The
 // `import.meta.url === argv[1]` test alone isn't enough: bundlers rewrite
 // import.meta.url to the bundle's own URL, so when this module is bundled as a library
 // into another entry (the packaged file service) both sides match and the CLI would

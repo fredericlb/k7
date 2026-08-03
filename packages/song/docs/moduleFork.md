@@ -6,7 +6,7 @@ one of its modules by ref (`@library/audio/delay/tape-delay`), and the module it
 
 Only the library forks. An `@engine` module has no file — the engine reports it — so there is nothing to copy
 and nothing to guard: `sharedModuleRef` matches a real path under a `modules_from` root, which an engine ref
-never has.
+never has. It has its own way in, at the bottom of this page.
 
 Which is exactly why nothing may write to it from the web UI. A save into `_modules` while mixing one song
 changes every other song in the workspace, silently, with no author, no diff a musician would ever look at and
@@ -16,10 +16,14 @@ the UI, since the routes are reachable without it.
 Read-only alone would be a dead end, though: a module has to be changeable somewhere. So a save aimed at a
 shared module is not refused — it is redirected.
 
-**Nothing opts out.** There used to be one exception, `editShared`, for the module builder whose whole subject
-*was* the library. The builder lives in the médiathèque now (see `moduleCatalogue.md`) and edits it there, so
-the exception has no caller left and is gone. A workspace's `_modules` is a read-only mirror, and every save
-aimed into it forks — including one that meant it.
+**One thing opts out: `ui.yaml`.** There used to be a general escape hatch, `editShared`, for the module builder
+whose whole subject *was* the library; the builder lives in the médiathèque now (see `moduleCatalogue.md`), so
+that one has no caller left and is gone. What replaced it is far narrower and named in `Workspace.write`: a
+module's **panel**, and nothing else. (Its `presets.yaml` is the same kind of file but stays inside the rule —
+a shelf is per-song taste, where a panel is per-plugin.) A panel is drawn for the plugin, not for the song, so forking a whole
+module to move a knob is precisely the copy nobody wanted — it was reason enough to invent a separate UI tree
+once, and this exception is what makes that tree unnecessary (see `uiLibrary.md`). Everything a module *is*
+stays read-only, and every save aimed into it forks — including one that meant it.
 
 ## What a fork does
 
@@ -61,3 +65,28 @@ says so in the status bar, naming the chains that moved. `FileTree` hides its mu
 
 The file tree is now the fork's ONLY entry point: it is what happens when a module file is opened as a *file*,
 in a song, rather than as a module. Opening it as a module means opening the médiathèque.
+
+## The other way in: a module with no folder at all
+
+`materialiseEngineModule` is the same act aimed at the opposite problem. A **scanned plugin** is a module with
+no files anywhere: `engineCatalogue` synthesises `@engine/<slug>` from the machine's scan cache, and a chain
+can name one with nothing on disk. That is a good arrangement — a plugin's substance is the plugin, and
+copying 273 folders of wrappers into every workspace is what `module populate` used to do and why it went.
+
+It stops working the moment you want to *own* something about the module. A panel and a shelf of presets are
+FILES in a module's folder (`uiLibrary.md`, `userPresets.md`), so a module without one has nowhere to put
+them. **There is no module without a folder**, put another way: an engine ref is a name for a plugin, and a
+module is a folder.
+
+So this is the moment it becomes one:
+
+1. Make `modules/<category>/<slug>/`, stepping past a name the project has taken.
+2. Write a `module.yaml` recording **which plugin** to load — the scan is a discovery aid, not the project's
+   memory of what it uses, and the project must still open on a machine that has never scanned.
+3. Repoint every chain step naming the ref, exactly as a fork does.
+
+Nothing is copied, because there was nothing to copy. It returns the same `ForkedModule`, because it is the
+same answer to "this module isn't yours yet".
+
+Reached as `module own <ref>` — the command, so the CLI and the web share it. In the chains graph a right-click
+on an `@engine/…` block offers it instead of `ui file`, which has no file to open.

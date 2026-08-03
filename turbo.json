@@ -4,7 +4,8 @@
   "tasks": {
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "envMode": "loose"
     },
     "build": {
       "dependsOn": ["^build"],
@@ -22,5 +23,5 @@
       "outputs": ["storybook-static/**"]
     }
   },
-  "concurrency": "22"
+  "concurrency": "30"
 }

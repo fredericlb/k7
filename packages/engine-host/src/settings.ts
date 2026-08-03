@@ -1,17 +1,17 @@
-// settings.ts — the supervisor's persisted settings (`~/.lanes/engine-tray.json`).
+// settings.ts — the supervisor's persisted settings (`~/.studio/engine-tray.json`).
 //
 // Small and hand-editable on purpose: the ports are not exposed anywhere in the UI, so
 // changing one means opening this file. Autostart is deliberately NOT stored here — the
 // OS login item is the source of truth for that.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { lanesDir, settingsPath } from "@studio/engine-client/paths";
+import { settingsPath, studioDir } from "@studio/engine-client/paths";
 
 export interface Settings {
   /** The registries the user pinned via "Add web UI…". Overrides every other tier.
    *
    *  A LIST because each hosted service holds its own registry now — an engine has to be
-   *  listed in lanes AND in the médiathèque to be pickable in both. See
+   *  listed in pistes AND in the médiathèque to be pickable in both. See
    *  packages/engine-registry/docs/shared.md. */
   registryUrls: string[];
   /** The engine's WebSocket port. */
@@ -25,9 +25,9 @@ export interface Settings {
   /** Where to go when `audioDevice` isn't present (or nothing is selected at all).
    *  Typically the built-in output — the point is to never end up on no device. */
   audioFallback: string | null;
-  /** The media library's root. null == `~/.lanes/mediatek`. Here rather than in the UI for
+  /** The media library's root. null == `~/.studio/mediatek`. Here rather than in the UI for
    *  the same reason the ports are: it is set once, on a machine whose media lives on a
-   *  second drive, and never again. Passed down to the file service as $LANES_MEDIATEK. */
+   *  second drive, and never again. Passed down to the file service as $STUDIO_MEDIATEK. */
   mediatekDir: string | null;
   /** The hosted library this machine caches, e.g. https://media.studio.frediver.se.
    *  null == no sync; the local folder is then whatever is in it and nothing else. */
@@ -100,7 +100,7 @@ export function loadSettings(): Settings {
 
 export function saveSettings(s: Settings): void {
   try {
-    mkdirSync(lanesDir(), { recursive: true });
+    mkdirSync(studioDir(), { recursive: true });
     writeFileSync(settingsPath(), `${JSON.stringify(s, null, 2)}\n`, "utf8");
   } catch {
     /* unwritable home — the pick holds for this session and is lost on the next one,

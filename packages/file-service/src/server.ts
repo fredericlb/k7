@@ -1,4 +1,4 @@
-// server.ts — the engine-side file service: owns ~/.lanes/root/<user>/<workspace>
+// server.ts — the engine-side file service: owns ~/.studio/root/<user>/<workspace>
 // and serves every file op to the browser DIRECTLY (cross-origin, hence CORS). Dials
 // the LOCAL C++ engine to compile-and-send; the browser drives transport itself.
 // Spawned by the engine-host supervisor, run under tsx to import the brain's TS.
@@ -6,6 +6,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { validate, wrap } from "@frediverse/http/route";
+import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
 import cors from "cors";
 import express from "express";
@@ -33,8 +34,8 @@ import {
   UnknownWorkspaceError,
 } from "./workspaces.ts";
 
-const FILE_PORT = Number(process.env.LANES_FILE_PORT || 8770);
-const ENGINE_PORT = Number(process.env.LANES_ENGINE_PORT || 8765);
+const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
+const ENGINE_PORT = Number(process.env.STUDIO_ENGINE_PORT || 8765);
 
 const app = express();
 
@@ -139,7 +140,7 @@ app.post(
   }),
 );
 
-// Cloning runs HERE because this machine owns ~/.lanes/root, and the per-user SSH key lives here too.
+// Cloning runs HERE because this machine owns ~/.studio/root, and the per-user SSH key lives here too.
 const cloneBody = z.object({ name: z.string().min(1), uri: z.string().min(1) });
 app.post(
   "/workspaces/clone",
@@ -165,6 +166,15 @@ app.use(mediatekRouter);
 // engine-token gate everything above it is. See docs/render.md.
 app.use(renderRouter);
 
+// What this machine's engine has SCANNED, grouped by format. Per machine like the two above and
+// for the same reason — the scan cache is `~/.studio/exts.json`, which belongs to no workspace and
+// no project. `/hints` has carried the same list for a long time, but only alongside a compiled
+// project, which is a thing the médiathèque does not have and will never have: it edits a library.
+app.get(
+  "/plugins",
+  wrap((_req, res) => res.json({ pluginNames: scannedPluginNames() })),
+);
+
 // The user's SSH key: GET reads, POST generates if absent (idempotent). Only ever the PUBLIC half.
 app.get(
   "/ssh-key",
@@ -181,7 +191,7 @@ app.post(
 app.use(resolveWorkspace, filesRouter);
 
 app.listen(FILE_PORT, "0.0.0.0", () => {
-  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.lanes/root exists
+  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.studio/root exists
   // Same for the media library. Tolerated rather than required: the root is overridable
   // and may point at a drive that isn't mounted, which must not stop the file service —
   // the catalogue then simply reports no library.
@@ -190,7 +200,7 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   } catch (e) {
     console.warn(`   mediatek unavailable: ${(e as Error).message}`);
   }
-  console.log(`📁 lanes file service on http://0.0.0.0:${FILE_PORT}`);
+  console.log(`📁 pistes file service on http://0.0.0.0:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
   // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
   syncAllRepos();

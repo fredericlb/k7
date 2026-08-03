@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // Time is in beats in the file format; the engine adapter converts to seconds and samples via the tempo map.
 using Beats = double;
@@ -144,4 +144,4 @@ struct ProjectDoc {
     std::vector<TrackDoc> tracks;
 };
 
-}  // namespace lanes
+}  // namespace studio

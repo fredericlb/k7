@@ -1,7 +1,7 @@
 {
-  "name": "lanes",
-  "short_name": "lanes",
-  "description": "lanes — a text-first DAW",
+  "name": "pistes",
+  "short_name": "pistes",
+  "description": "pistes — a text-first DAW",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#101114",

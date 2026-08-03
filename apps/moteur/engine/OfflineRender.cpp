@@ -24,14 +24,14 @@
  #include <dbghelp.h>
 #endif
 
-namespace lanes {
+namespace studio {
 
 namespace {
 
-// Progress trace, off unless LANES_RENDER_TRACE is set. An offline bounce that stalls prints NOTHING otherwise
+// Progress trace, off unless STUDIO_RENDER_TRACE is set. An offline bounce that stalls prints NOTHING otherwise
 // — no output at all is indistinguishable from slow, which is exactly the shape that cost a night here.
 void trace(const char* what) {
-    static const bool on = std::getenv("LANES_RENDER_TRACE") != nullptr;
+    static const bool on = std::getenv("STUDIO_RENDER_TRACE") != nullptr;
     if (on) std::cerr << "[render:trace] " << what << std::endl;
 }
 
@@ -39,7 +39,7 @@ void trace(const char* what) {
 // Watchdog: print THIS thread's stack if it is still here in `seconds`. A render that stalls prints nothing and
 // burns no CPU, which is indistinguishable from slow — and there is no debugger on the build machines.
 void watchdogStack(int seconds) {
-    if (std::getenv("LANES_RENDER_TRACE") == nullptr) return;
+    if (std::getenv("STUDIO_RENDER_TRACE") == nullptr) return;
     HANDLE stuck = nullptr;
     DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &stuck,
                     0, FALSE, DUPLICATE_SAME_ACCESS);
@@ -136,7 +136,7 @@ bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger&
     params.useMasterPlugins = useMaster;
     std::atomic<float> progress{0.0f};
     trace("createRenderTask");
-    auto task = te::render_utils::createRenderTask(params, "lanes export", &progress, nullptr);
+    auto task = te::render_utils::createRenderTask(params, "pistes export", &progress, nullptr);
     if (!task) return false;
     trace("runJob loop");
     while (task->runJob() == juce::ThreadPoolJob::jobNeedsRunningAgain) {}
@@ -206,7 +206,7 @@ struct HeadlessBehaviour : te::EngineBehaviour {
 
 // The engine both offline paths use. Constructed the same way in both, because they failed the same way.
 std::unique_ptr<te::Engine> makeOfflineEngine() {
-    auto engine = std::make_unique<te::Engine>("Lanes", nullptr,
+    auto engine = std::make_unique<te::Engine>("Studio", nullptr,
                                                std::make_unique<HeadlessBehaviour>());
 
     // Take the hosted-device route as well, for its ONE side effect: usesHardwareMidiDevices() turns false, so the
@@ -328,4 +328,4 @@ int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::st
     return 0;
 }
 
-}  // namespace lanes
+}  // namespace studio

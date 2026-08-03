@@ -1,15 +1,15 @@
 #include "BroadcastTapPlugin.h"
 
-namespace lanes {
+namespace studio {
 
 const char* BroadcastTapPlugin::xmlTypeName = "broadcastTap";
 
 juce::ValueTree BroadcastTapPlugin::create()
 {
-    // The ids live in tracktion::engine::IDs — unqualified they resolve to nothing, this namespace being lanes's.
+    // The ids live in tracktion::engine::IDs — unqualified they resolve to nothing, this namespace being pistes's.
     juce::ValueTree v(tracktion::engine::IDs::PLUGIN);
     v.setProperty(tracktion::engine::IDs::type, xmlTypeName, nullptr);
     return v;
 }
 
-}  // namespace lanes
+}  // namespace studio

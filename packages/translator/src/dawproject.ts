@@ -1,6 +1,6 @@
-// dawproject.ts — the DAWproject -> lanes song mapper: unzip in memory, parse
-// project.xml, project it onto lanes's song schema. NO disk I/O — it returns the song
-// plus every asset entry for the caller to write. Deliberately lossy where lanes can't
+// dawproject.ts — the DAWproject -> pistes song mapper: unzip in memory, parse
+// project.xml, project it onto pistes's song schema. NO disk I/O — it returns the song
+// plus every asset entry for the caller to write. Deliberately lossy where pistes can't
 // represent something yet (warps, plugin state, automation). See docs/import.md.
 
 import { XMLParser } from "fast-xml-parser";

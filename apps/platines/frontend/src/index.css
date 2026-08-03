@@ -9,10 +9,10 @@
    design-system class the app doesn''t also happen to use itself.
 
    NOTE the `commons/` segment: @frediverse/ui lives in the submodule, at
-   commons/packages/ui/src. lanes and radiok7 both say `packages/ui/src`, which resolves to
+   commons/packages/ui/src. pistes and k7 both say `packages/ui/src`, which resolves to
    nothing; that is a real bug in those two, not a convention to copy. The check that this
    one is right: dist/assets/*.css is tens of kilobytes, not two. */
-@source "../../../commons/packages/ui/src";
+@source "../../../../commons/packages/ui/src";
 
 @layer base {
   html,

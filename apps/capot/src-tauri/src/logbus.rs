@@ -6,7 +6,7 @@ use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::{Mutex, OnceLock};
 
-use crate::paths::{merged_log_path, lanes_dir};
+use crate::paths::{merged_log_path, studio_dir};
 
 /// The append handle every write goes through, behind a Mutex so our own lines can't interleave.
 static LOG: OnceLock<Mutex<Option<std::fs::File>>> = OnceLock::new();
@@ -14,7 +14,7 @@ static LOG: OnceLock<Mutex<Option<std::fs::File>>> = OnceLock::new();
 /// Truncate for a fresh session and open our append handle. Call once, BEFORE spawning the supervisor, which
 /// opens the same file for append and would write into a file we are about to empty.
 pub fn init() {
-    let _ = std::fs::create_dir_all(lanes_dir());
+    let _ = std::fs::create_dir_all(studio_dir());
     let _ = OpenOptions::new()
         .create(true)
         .write(true)

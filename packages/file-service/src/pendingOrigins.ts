@@ -1,5 +1,5 @@
 // pendingOrigins.ts — record origins cors.ts just refused into
-// ~/.lanes/pending-origins.json, so the tray can offer to allow them with a click.
+// ~/.studio/pending-origins.json, so the tray can offer to allow them with a click.
 // Records a QUESTION, never an answer; silent when an operator pinned the origin list;
 // bounded and self-expiring. Full rationale: docs/corsAndOrigins.md.
 
@@ -76,7 +76,7 @@ function flush(now: number): void {
 /** Note that `origin` was refused. On the CORS hot path, hence an in-memory map with a throttled write. */
 export function record(origin: string | undefined): void {
   if (!origin) return;
-  if (process.env.LANES_WEB_ORIGIN) return; // an operator-pinned list isn't up for negotiation
+  if (process.env.STUDIO_WEB_ORIGIN) return; // an operator-pinned list isn't up for negotiation
   // The SAME filter that guards the allowlist — a menu row is one click from being allowed.
   const normalised = normaliseBrowserOrigin(origin);
   if (!normalised) return;

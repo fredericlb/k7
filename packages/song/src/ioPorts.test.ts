@@ -42,7 +42,6 @@ describe("the declared I/O", () => {
     const io = join(ws, "_modules", "io");
     mkdirSync(join(io, "IN"), { recursive: true });
     mkdirSync(join(io, "OUT"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "config.yaml"), "namespace: engine\n");
     writeFileSync(join(io, "IN", "module.yaml"), "io: in\n");
     writeFileSync(join(io, "IN", "in-1.yaml"), "channel: [1]\n");
     writeFileSync(join(io, "IN", "in-2.yaml"), "channel: [1, 2]\n");
@@ -68,10 +67,10 @@ describe("the declared I/O", () => {
     const refs = ioPorts(dir, PREFS).map((p) => p.ref);
     expect(refs).toEqual(
       expect.arrayContaining([
-        "@engine/io/IN",
-        "@engine/io/IN:in-1",
-        "@engine/io/IN:in-2",
-        "@engine/io/OUT",
+        "@workspace/io/IN",
+        "@workspace/io/IN:in-1",
+        "@workspace/io/IN:in-2",
+        "@workspace/io/OUT",
       ]),
     );
   });
@@ -82,9 +81,9 @@ describe("the declared I/O", () => {
   });
 
   it("resolves a channel, whether it is numbers or a preferences label", () => {
-    expect(by("@engine/io/IN:in-1")?.channels).toEqual([1]);
-    expect(by("@engine/io/IN:in-2")?.channels).toEqual([1, 2]);
-    const gtr = by("@engine/io/IN:gtr");
+    expect(by("@workspace/io/IN:in-1")?.channels).toEqual([1]);
+    expect(by("@workspace/io/IN:in-2")?.channels).toEqual([1, 2]);
+    const gtr = by("@workspace/io/IN:gtr");
     expect(gtr?.channels).toEqual([3]); // "guitar" is input 3 on THIS rig
     expect(gtr?.label).toBe("guitar");
   });
@@ -92,21 +91,21 @@ describe("the declared I/O", () => {
   it("says when a label names an input this rig doesn't have", () => {
     // Distinct from "no channel declared": the file DOES say which input it wants, and
     // a silent meter beside it would read as nothing being plugged in.
-    const ghost = by("@engine/io/IN:ghost");
+    const ghost = by("@workspace/io/IN:ghost");
     expect(ghost?.unknownLabel).toBe(true);
     expect(ghost?.channels).toEqual([]);
   });
 
   it("marks the generic, which declares no channel of its own", () => {
-    expect(by("@engine/io/IN")?.generic).toBe(true);
-    expect(by("@engine/io/IN")?.channels).toEqual([]);
-    expect(by("@engine/io/IN:in-1")?.generic).toBe(false);
+    expect(by("@workspace/io/IN")?.generic).toBe(true);
+    expect(by("@workspace/io/IN")?.channels).toEqual([]);
+    expect(by("@workspace/io/IN:in-1")?.generic).toBe(false);
   });
 
   it("carries the namespace and a name worth showing", () => {
-    expect(by("@engine/io/IN:in-1")).toMatchObject({
+    expect(by("@workspace/io/IN:in-1")).toMatchObject({
       name: "IN:in-1",
-      namespace: "engine",
+      namespace: "workspace",
     });
   });
 

@@ -75,7 +75,7 @@ async function bootstrap(): Promise<void> {
 // redirect target is relative. return_to comes back to wherever we are now.
 export function login(): void {
   const back = encodeURIComponent(window.location.href);
-  window.location.assign(`/auth/login?return_to=${back}`);
+  window.location.assign(`/obscura/auth/login?return_to=${back}`);
 }
 
 export async function logout(): Promise<void> {

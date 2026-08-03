@@ -19,8 +19,8 @@ export interface DeckModule {
  * The deck's signal path, as the graph draws it.
  *
  * `WebGraph` is a WIRE type, not a compiler output — every field is plain data and nothing
- * in it names a file. lanes happens to produce one from a compiled project folder because
- * that is where lanes' truth lives; nothing says the compiler is its only producer.
+ * in it names a file. pistes happens to produce one from a compiled project folder because
+ * that is where pistes' truth lives; nothing says the compiler is its only producer.
  *
  * That retires the plan's own tension #3, which read: *"Une chaîne mediatek ou platines sans
  * dossier YAML ne peut pas produire de WebGraph aujourd'hui. Pour la v1 : ces apps écrivent

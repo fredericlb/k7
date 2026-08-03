@@ -1,7 +1,7 @@
 // types.ts — the chains routing graph as the browser receives it (mirrors the essentials
 // of the song compiler's GraphDoc). Types only, so the whole module is erased at runtime.
-// Lives apart from @studio/web-protocol because three apps draw chains — lanes, mediatek's
-// module builder, platines — and only lanes wants auth, workspaces and the registry.
+// Lives apart from @studio/web-protocol because three apps draw chains — pistes, mediatek's
+// module builder, platines — and only pistes wants auth, workspaces and the registry.
 
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")
@@ -69,7 +69,7 @@ export interface WebChainStep {
   // Library files this module loads, by asset kind ("ir", "nam"), library-relative — the dropdown's current choice.
   assets?: Record<string, string>;
   stub?: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported?: boolean; // plugin.type is "not_supported" — lanes can't load it; bypassed
+  notSupported?: boolean; // plugin.type is "not_supported" — pistes can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
   // The UI drawn inside this module's rectangle, already merged (extended module's, overridden per widget id by

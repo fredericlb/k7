@@ -1,5 +1,5 @@
 // ShareMenu.tsx — the share dropdown: render the project through the engine (MP3/WAV
-// download, or publish to radiok7 with per-track stems) and run the shared commit/pull
+// download, or publish to k7 with per-track stems) and run the shared commit/pull
 // commands on the WHOLE workspace repo. The heavy work happens on the engine host; this
 // kicks it off and reports on the status line. The badge shows commits BEHIND, or a
 // warning when the branch has diverged.
@@ -66,36 +66,34 @@ export function ShareMenu({
     }
   };
 
-  const shareRadiok7 = async () => {
+  const shareK7 = async () => {
     setOpen(false);
     setBusy(true);
-    onStatus("publishing to radiok7…");
+    onStatus("publishing to k7…");
     try {
-      let res = await api.shareRadiok7();
-      // A song radiok7 doesn't know yet: ask for artist/title, then publish for real.
+      let res = await api.shareK7();
+      // A song k7 doesn't know yet: ask for artist/title, then publish for real.
       if (res.needsMeta) {
-        const artist = window
-          .prompt("Artist (new radiok7 release):", "")
-          ?.trim();
+        const artist = window.prompt("Artist (new k7 release):", "")?.trim();
         if (!artist) {
-          onStatus("radiok7 publish cancelled");
+          onStatus("k7 publish cancelled");
           return;
         }
         const title =
           window.prompt("Title:", res.defaultTitle || "")?.trim() ||
           res.defaultTitle ||
           "";
-        onStatus("publishing to radiok7…");
-        res = await api.shareRadiok7({ artist, title });
+        onStatus("publishing to k7…");
+        res = await api.shareK7({ artist, title });
       }
       if (res.ok)
         onStatus(
           `${res.created ? "created release" : "added a version"}: ${res.title} ` +
             `(${res.stems ?? 0} stem${res.stems === 1 ? "" : "s"})`,
         );
-      else onStatus("radiok7 publish did not complete");
+      else onStatus("k7 publish did not complete");
     } catch (e) {
-      onStatus(`radiok7 publish failed: ${(e as Error).message}`);
+      onStatus(`k7 publish failed: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -233,10 +231,10 @@ export function ShareMenu({
           <button
             className={item}
             disabled={busy}
-            onClick={() => void shareRadiok7()}
+            onClick={() => void shareK7()}
           >
             <Radio className="h-4 w-4 text-muted-foreground" />
-            Share to radiok7
+            Share to k7
           </button>
         </div>
       )}

@@ -16,7 +16,7 @@
 // convert out and back around every block.
 #include <NAM/dsp.h>
 
-namespace lanes {
+namespace studio {
 
 class NamPlugin : public tracktion::engine::Plugin {
 public:
@@ -114,4 +114,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NamPlugin)
 };
 
-}  // namespace lanes
+}  // namespace studio

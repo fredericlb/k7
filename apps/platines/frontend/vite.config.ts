@@ -11,10 +11,11 @@ import { defineAppConfig } from "@frediverse/vite-config";
 // engine's disk.
 export default defineAppConfig({
   dir: import.meta.url,
-  // 5223 lanes, 5224 mediatek, so:
+  // 5223 pistes, 5224 mediatek, so:
   port: 5225,
   backendPort: 8796,
-  host: "platines.test",
-  // Dev runs under WSL against /mnt/c, where inotify never fires (same as lanes).
+  base: "/platines/",
+  host: "studio.test",
+  // Dev runs under WSL against /mnt/c, where inotify never fires (same as pistes).
   poll: true,
 });

@@ -14,7 +14,7 @@
 #include <mutex>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // Frequency estimate for one channel. `hz` is 0 when nothing confident was found — silence, noise, or a sound
 // with no clear fundamental — which the UI shows as "no note" rather than as a wrong one.
@@ -88,4 +88,4 @@ private:
     std::atomic<double> tapRate_{12000};  // the rate the rings actually hold
 };
 
-}  // namespace lanes
+}  // namespace studio

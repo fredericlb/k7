@@ -1,6 +1,6 @@
 // Unit tests for the MIDI phase of DspGraph — the note transforms a `transformers` module runs.
 //
-// A SEPARATE binary from lanes_engine_tests, which deliberately links no JUCE so it builds in seconds. This
+// A SEPARATE binary from studio_engine_tests, which deliberately links no JUCE so it builds in seconds. This
 // one needs Tracktion's MidiMessageArray, so it pays for the link; keeping the two apart is what stops the fast
 // tests from becoming slow ones.
 //
@@ -13,7 +13,7 @@
 
 #include <string>
 
-using namespace lanes;
+using namespace studio;
 namespace te = tracktion::engine;
 
 namespace {

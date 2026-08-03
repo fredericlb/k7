@@ -35,7 +35,6 @@ describe("shared module folder: category level", () => {
     ws = mkdtempSync(join(tmpdir(), "td-cat-"));
     shared = join(ws, "_modules");
     mkdirSync(shared, { recursive: true });
-    writeFileSync(join(shared, "config.yaml"), "namespace: engine\n", "utf8");
     project = join(ws, "song");
     mkdirSync(project, { recursive: true });
     // Both shapes the writer produces, side by side under one type folder.
@@ -50,9 +49,9 @@ describe("shared module folder: category level", () => {
     // plugins would drown a vocabulary of three.
     const refs = loadModuleRefs(project, ["../_modules"], {});
     expect(Object.keys(refs).sort()).toEqual([
-      "@engine/audio/delay/adt",
-      "@engine/audio/genome",
-      "@engine/instruments/4osc",
+      "@workspace/audio/delay/adt",
+      "@workspace/audio/genome",
+      "@workspace/instruments/4osc",
     ]);
   });
 
@@ -62,13 +61,15 @@ describe("shared module folder: category level", () => {
     // ended and `extends` could name something the writer never files.
     module_(shared, "audio/delay/tape/vintage");
     const refs = loadModuleRefs(project, ["../_modules"]);
-    expect(Object.keys(refs)).not.toContain("@engine/audio/delay/tape/vintage");
+    expect(Object.keys(refs)).not.toContain(
+      "@workspace/audio/delay/tape/vintage",
+    );
     // …and a folder that HAS a module.yaml is read as one, never descended into.
     module_(shared, "audio/comp");
     module_(shared, "audio/comp/inner");
     const again = loadModuleRefs(project, ["../_modules"]);
-    expect(Object.keys(again)).toContain("@engine/audio/comp");
-    expect(Object.keys(again)).not.toContain("@engine/audio/comp/inner");
+    expect(Object.keys(again)).toContain("@workspace/audio/comp");
+    expect(Object.keys(again)).not.toContain("@workspace/audio/comp/inner");
   });
 
   it("still finds the preset beside a categorised module", () => {
@@ -76,7 +77,7 @@ describe("shared module folder: category level", () => {
     // wrong would look for `delay/adt.vstpreset`.
     writeFileSync(join(shared, "audio/delay/adt/adt.vstpreset"), "x", "utf8");
     const refs = loadModuleRefs(project, ["../_modules"]);
-    const preset = refs["@engine/audio/delay/adt"]?.preset;
+    const preset = refs["@workspace/audio/delay/adt"]?.preset;
     expect(preset).toBeTruthy();
     expect(existsSync(preset as string)).toBe(true);
   });

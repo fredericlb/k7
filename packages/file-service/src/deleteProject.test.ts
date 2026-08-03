@@ -25,7 +25,7 @@ beforeEach(() => {
   // A workspace root (no project.yaml of its own) holding one sub-project.
   const proj = join(root, "deltest");
   mkdirSync(proj, { recursive: true });
-  writeFileSync(join(proj, "project.yaml"), "package lanes\n");
+  writeFileSync(join(proj, "project.yaml"), "package pistes\n");
   writeFileSync(join(proj, "beat.strudel"), 's("bd")\n');
   ws = new Workspace(root);
 });

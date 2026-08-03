@@ -1,24 +1,34 @@
-// ModuleEditor.tsx — the host around the moved editor. The page edits text and grid; only
-// a live plugin can say what its parameters are called, what they span and what presets it
-// ships, so this owns the engine link and feeds those in. An absent engine is not an error.
+// ModuleEditor.tsx — the host around the SHARED builder (@studio/ui-module-builder). The
+// builder edits text and grid through the store this hands it; only a live plugin can say what
+// its parameters are called, what they span and what presets it ships, so this owns the engine
+// link and feeds those in. An absent engine is not an error.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Plug, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { library } from "./api";
+import { library, moduleStore } from "./api";
 import { readPluginBlock } from "./engine/preview";
 import { useModuleEngine } from "./engine/useModuleEngine";
-import { ModuleEditorPage } from "./ModuleEditorPage";
+import { ModulePreview } from "./ModulePreview";
 
-// Vim mode used to be a lanes setting; mediatek has no settings screen yet, so it lives on
+// Vim mode used to be a pistes setting; mediatek has no settings screen yet, so it lives on
 // the toggle below and in localStorage. One key, one boolean.
 const VIM_KEY = "mediatek.vim";
 
 export function ModuleEditor({
   entry,
+  pane,
+  engineId,
   onBack,
 }: {
   entry: MediatekEntry;
+  // Which of the module's three files the click pointed at — the builder's code pane opens on it.
+  pane?: BuilderPane;
+  // The engine the account picked. Threaded in rather than read here because the catalogue's
+  // header — picker included — now stays beside this editor, so the choice can change while it
+  // is open and this has to follow it.
+  engineId?: string;
   onBack: () => void;
 }) {
   const {
@@ -29,7 +39,7 @@ export function ModuleEditor({
     preview,
     listPresets,
     setPreset,
-  } = useModuleEngine();
+  } = useModuleEngine(engineId);
   const [status, setStatus] = useState("");
   const [vimMode, setVimMode] = useState(
     () => localStorage.getItem(VIM_KEY) === "1",
@@ -63,12 +73,14 @@ export function ModuleEditor({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1">
-        <ModuleEditorPage
+        <ModuleBuilder
+          store={moduleStore}
           path={path}
           kind="module"
           moduleName={entry.name}
           paramRef={null}
           vimMode={vimMode}
+          initialPane={pane}
           onBack={onBack}
           onSaved={onSaved}
           setStatus={setStatus}
@@ -77,6 +89,16 @@ export function ModuleEditor({
           onSetPreset={setPreset}
           pluginParamNames={paramNames}
           pluginParamMeta={paramMeta}
+          // The builder owns the box under the grid; the graph renderer needs OUR icons, so
+          // what goes in it is supplied from here. See ModulePreview.tsx.
+          renderPreview={({ ui, params }) => (
+            <ModulePreview
+              name={entry.name}
+              path={entry.path}
+              ui={ui}
+              params={params}
+            />
+          )}
         />
       </div>
       <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">

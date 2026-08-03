@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 std::function<void(const Warning&)> g_sink;
@@ -26,4 +26,4 @@ void warn(std::string message, std::string subject) {
         g_sink(Warning{std::move(subject), std::move(message)});
 }
 
-}  // namespace lanes
+}  // namespace studio

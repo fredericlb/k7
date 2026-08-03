@@ -1,6 +1,6 @@
 #pragma once
 
-// Reading and writing a plugin's automatable parameters as text (name -> value) — lanes's alternative to
+// Reading and writing a plugin's automatable parameters as text (name -> value) — pistes's alternative to
 // opaque .vstpreset blobs. INTERNAL header (it includes Tracktion/JUCE), shared by the live edit, the graph
 // builder, the diff-apply path and the param-dump CLI.
 
@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // One addressable parameter of a plugin, however it is actually stored. Most plugins register
 // AutomatableParameters, which a generic walk discovers along with range, default and curve. A few Tracktion
@@ -22,7 +22,7 @@ namespace lanes {
 // Hence the indirection: everything treating a parameter as "a name holding a number" works for both. Automation
 // does not — a curve needs a real AutomatableParameter, so a state param simply cannot be automated.
 struct ParamRef {
-    juce::String name;               // the display name lanes keys everything by
+    juce::String name;               // the display name pistes keys everything by
     std::function<double()> get;
     std::function<void(double)> set;
     std::optional<double> def;       // absent when the plugin publishes no default
@@ -57,7 +57,7 @@ std::vector<std::pair<juce::String, te::AutomatableParameter*>> namedParams(te::
 // Keyed like namedParams(), so a caller can also use it as the plugin's parameter LIST.
 std::vector<std::pair<std::string, double>> allParams(te::Plugin& plugin);
 
-// Set a plugin's automatable parameters from a text map — lanes's replacement for an opaque .vstpreset.
+// Set a plugin's automatable parameters from a text map — pistes's replacement for an opaque .vstpreset.
 // Values are in each parameter's native range; an unknown name is skipped with a warning.
 void applyPluginParams(te::Plugin& plugin, const std::unordered_map<std::string, double>& params);
 
@@ -68,4 +68,4 @@ juce::String paramsJson(te::Plugin& plugin);
 // name -> value (the non-default subset) for re-applying a dumped set in the completeness check.
 std::unordered_map<std::string, double> currentParamValues(te::Plugin& plugin);
 
-}  // namespace lanes
+}  // namespace studio

@@ -221,6 +221,19 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
   letter-spacing: 1px;
 }
 
+/* Build stamp in the one free corner: .hint is centred and .auth-badge owns
+   top/right. pointer-events:none because the BUZZ handler is on the page, not
+   the circle — a span that swallowed taps would be a dead zone in the surface. */
+.build {
+  position: fixed;
+  bottom: 6px;
+  left: 6px;
+  font-size: 8px;
+  color: #4a4a5a;
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+
 .result-message {
   margin-top: 28px;
   font-family: "Press Start 2P", cursive;

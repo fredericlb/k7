@@ -2,15 +2,15 @@
 
 The filesystem layer over ONE workspace root.
 
-This was the lanes backend's former `store.ts`, turned from a single module-level `ROOT` into
+This was the pistes backend's former `store.ts`, turned from a single module-level `ROOT` into
 a per-workspace object: the file service serves many users' workspaces from one process,
 so `root`, the active project, and the compiled/waveform caches all live on a `Workspace`
 instance. The path-traversal guards (`safePath`/`toRel`) were preserved verbatim — they
 just read `this.root`.
 
-The active project is remembered per-workspace in a `.lanes-active` marker file inside
+The active project is remembered per-workspace in a `.studio-active` marker file inside
 the root (a dotfile, so it's hidden from the tree), replacing the old global
-`~/.lanes/session.json`. Global machine preferences stay global (`preferences.yaml`).
+`~/.studio/session.json`. Global machine preferences stay global (`preferences.yaml`).
 
 ## `revision()` — the change token
 

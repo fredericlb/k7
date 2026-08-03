@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The media library: what lives under ~/.lanes/mediatek, how it is scanned, and the change token surfaces poll. A library, not a service — the HTTP routes live in @studio/file-service. Consumed as source.",
+  "description": "The media library: what lives under ~/.studio/mediatek, how it is scanned, and the change token surfaces poll. A library, not a service — the HTTP routes live in @studio/file-service. Consumed as source.",
   "types": "./src/layout.ts",
   "exports": {
     "./layout": "./src/layout.ts",
@@ -11,6 +11,9 @@
     "./scan": "./src/scan.ts",
     "./revision": "./src/revision.ts",
     "./catalogue": "./src/catalogue.ts",
+    "./media": "./src/media.ts",
+    "./morceau": "./src/morceau.ts",
+    "./recordings": "./src/recordings.ts",
     "./ingest": "./src/ingest.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",

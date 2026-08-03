@@ -1,7 +1,7 @@
 # `npm run engine:build`
 
 `build-engine.mjs` builds the native pieces and collects their artifacts into
-`apps/lanes/out/`:
+`apps/pistes/out/`:
 
 1. the **C++ engine** — CMake, with the preset chosen from the host platform. Delegated to
    the moteur's own `build:*` npm scripts so "how the engine builds" is defined once; Linux has
@@ -83,7 +83,7 @@ rebuilds the engine either — it points at whatever is already in `apps/moteur/
 what makes the loop fast.
 
 The build number the tray displays is local wall-clock `YYYYMMDD.HHMM`, stamped into the
-binary via `build.rs` (`LANES_BUILD`), so it records when *this binary* was produced
+binary via `build.rs` (`STUDIO_BUILD`), so it records when *this binary* was produced
 rather than when it happens to run.
 
 ## Platform traps

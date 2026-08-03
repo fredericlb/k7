@@ -1,4 +1,4 @@
-// main.rs — the lanes tray app: a windowless Tauri tray that is the VIEW over the
+// main.rs — the pistes tray app: a windowless Tauri tray that is the VIEW over the
 // supervisor (@studio/engine-host), spawned as a child and driven over NDJSON on stdio.
 // The Windows job object is created HERE, before anything is spawned, so a force-killed
 // tray takes the whole stack with it. See docs/tray.md.

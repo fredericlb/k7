@@ -47,8 +47,14 @@ export interface ModuleEngine {
  *
  * An absent engine is still a normal state: the editor edits text either way, it just
  * cannot offer a parameter list.
+ *
+ * `engineId` is the account's current pick, handed down by whoever draws the picker. It used
+ * to be read here and only here, because the editor REPLACED the screen the picker lives on
+ * and a choice therefore could not move while it was open. The editor sits beside that header
+ * now, so it can — and a socket left on the previous machine would answer for a plugin loaded
+ * somewhere else. Omitted, it falls back to the stored preference exactly as before.
  */
-export function useModuleEngine(): ModuleEngine {
+export function useModuleEngine(engineId?: string): ModuleEngine {
   const [phase, setPhase] = useState<EnginePhase>({ k: "looking" });
   const [paramNames, setParamNames] = useState<string[]>([]);
   const [paramMeta, setParamMeta] = useState<Record<string, ParamMeta>>({});
@@ -71,17 +77,18 @@ export function useModuleEngine(): ModuleEngine {
       if (cancelled) return;
       const ranked = await probeEngines(list);
       if (cancelled) return;
-      // The picker lives in the médiathèque's header, which this screen REPLACES — so a
-      // choice can never change while the editor is open, and this only has to honour it.
-      const choice = chooseEngine(ranked, prefs.engineId);
+      // The caller's pick wins over the stored one: it is the same value, but it arrives
+      // already updated when someone changes it from the header beside this editor, whereas
+      // the fetch above would still be answering with what was saved a moment ago.
+      const choice = chooseEngine(ranked, engineId ?? prefs.engineId);
       if (!choice.engine) return setPhase({ k: "absent" });
       const found = choice.engine;
-      // The lease, exactly as lanes takes it — and a miss is not fatal: it marks the engine
+      // The lease, exactly as pistes takes it — and a miss is not fatal: it marks the engine
       // in use, it does not grant the connection, which the browser makes itself.
       engines.select(found.engine.id, found.token!, found.tier).catch(() => {});
 
       // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
-      // engine slot lanes had a song in — auditioning a module unloaded the song.
+      // engine slot pistes had a song in — auditioning a module unloaded the song.
       // Per SERVICE and per PERSON: the médiathèque is hosted, so two people can choose the
       // same machine, and on a bare "mediatek" one of them auditioning a module would tear
       // down the other's preview mid-listen.
@@ -108,7 +115,7 @@ export function useModuleEngine(): ModuleEngine {
       engine.current?.dispose();
       engine.current = undefined;
     };
-  }, [attempt]);
+  }, [attempt, engineId]);
 
   const preview = useCallback<ModuleEngine["preview"]>(
     (module, plugin, params) => {

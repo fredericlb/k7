@@ -83,7 +83,7 @@ Note `IN:in-1`, with a colon: `in-1.yaml` is an INSTANCE of the `IN` module, not
 Projects written before this change hold a `chains:` list. They are read as an error naming the migration rather than as a schema complaint; run it once per project:
 
 ```bash
-lanes migrate chains <project>
+pistes migrate chains <project>
 ```
 
 It preserves each chain's source, the order of its modules, its sink and its bypasses. Two things change on purpose. A chain's `as:` alias is gone (a chain is called after its track now), which renames the plugin ids under it. And a module the old file used in SEVERAL chains is split into one instance per chain — the list format compiled such a module to one plugin per chain, and a segment file names each module once, so leaving it shared would collapse two instruments into one.

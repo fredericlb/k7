@@ -1,4 +1,4 @@
-// cache.ts — ~/.lanes/mediatek as a MIRROR of the hosted library: what this machine holds,
+// cache.ts — ~/.studio/mediatek as a MIRROR of the hosted library: what this machine holds,
 // what it should fetch, and the manifest it remembers to tell the two apart. Exists because
 // the moteur plays from file paths and cannot open a URL. See docs/sync.md.
 

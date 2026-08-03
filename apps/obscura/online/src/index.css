@@ -8,7 +8,9 @@
 @import "@frediverse/ui/theme.css";
 @import "./game.css";
 
-@source "../../../../packages/ui/src";
+/* @frediverse/ui lives in the commons submodule; Tailwind ignores a missing
+   @source path without warning, and then emits no design-system classes. */
+@source "../../../../commons/packages/ui/src";
 
 html,
 body,

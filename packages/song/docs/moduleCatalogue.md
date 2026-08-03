@@ -11,7 +11,7 @@ the entry point, not a design. And for a module the project inherited, it did no
 went through `hints.paths`, which by construction only holds the project's **own** modules, so a shared one
 came back "couldn't resolve".
 
-So the builder moved — twice. First to lanes' settings panel, and then out of lanes entirely: it lives in
+So the builder moved — twice. First to pistes' settings panel, and then out of pistes entirely: it lives in
 `apps/mediatek` now, where the modules themselves do. The settings entry that used to open it is a link out.
 
 `moduleCatalogue` stays, and is still useful, because it answers a different question: it lists what **this
@@ -38,6 +38,9 @@ Nothing here saves any more. A workspace's `_modules` is read-only without excep
 shared module still forks (`moduleFork.md`), for everybody, which is what read-only does here instead of
 refusing.
 
-Edits happen in the médiathèque, against its own service. The panel is unaffected by any of this: it always
-lived outside the module, keyed by ref (`uiLibrary.md`) — first in the workspace's `_ui`, now in the library's
-`ui/` beside the modules it draws.
+Edits happen in the médiathèque, against its own service. The panel is the one thing that still saves in place:
+it is the `ui.yaml` inside the module's folder (`uiLibrary.md`), and `Workspace.write` lets that one file through
+because drawing a knob must not fork the module.
+
+An ENGINE module has no folder, so it has no panel and cannot be given one — `writeUiFile` refuses rather than
+filing it somewhere arbitrary. `hasUi` is false for every one of those rows.

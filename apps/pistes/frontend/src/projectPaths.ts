@@ -31,6 +31,18 @@ export const isVideoTrackFile = (path: string): boolean =>
 export const isRackModuleFile = (path: string): boolean =>
   /(^|\/)modules\/[^/]+\/[^/]+\/module\.ya?ml$/i.test(norm(path));
 
+/**
+ * A module file the BUILDER opens — `module.yaml`, or either of the two files beside it.
+ *
+ * All three, because the builder edits all three and its routes take any of them (see `@studio/song`'s
+ * uiLibrary.ts and presets.ts). Both trees: a project's `modules/<type>/<name>/` and a shared
+ * `_modules/<type>/[<category>/]<leaf>/`, which is one folder deeper.
+ */
+export const isModuleFile = (path: string): boolean =>
+  /(^|\/)_?modules\/[^/]+\/([^/]+\/)?(module|ui|presets)\.ya?ml$/i.test(
+    norm(path),
+  );
+
 /** A path with forward slashes, whatever the platform handed us. */
 export const norm = (path: string): string => path.replace(/\\/g, "/");
 

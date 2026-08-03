@@ -29,7 +29,7 @@ export interface CatalogueModule {
   path?: string;
   /** How many instances sit beside it (`module populate` files one per interface input). */
   instances: number;
-  /** It already has a panel in the workspace's `_ui`. */
+  /** It already has a `ui.yaml` beside it. */
   hasUi: boolean;
 }
 
@@ -63,6 +63,10 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
   const out: CatalogueModule[] = [];
   for (const [ref, m] of Object.entries(refs)) {
     if (!ref.startsWith("@") || splitModuleKey(ref).instance) continue;
+    // `@project/…` is the explicit spelling of a module the project owns, keyed beside its bare
+    // name so both resolve. It is not a CATALOGUE though — this list is what the project inherits
+    // from elsewhere, and its own modules are already the thing doing the inheriting.
+    if (ref.startsWith("@project/")) continue;
     const [ns, ...rest] = ref.slice(1).split("/");
     const plugin = m.plugin as { name?: unknown } | undefined;
     const root = byNs.get(ns);

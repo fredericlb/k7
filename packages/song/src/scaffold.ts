@@ -1,4 +1,4 @@
-// scaffold.ts — the file map + writer for a new lanes song: a minimal, immediately
+// scaffold.ts — the file map + writer for a new pistes song: a minimal, immediately
 // playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern),
 // `video` adding a viewport + two video tracks on top. Every file is hand-authored, not
 // serialised, because its `#` comments are the one worked example a reader gets.
@@ -65,7 +65,7 @@ export function projectFiles(
       `#\n` +
       `#     io: in\n` +
       `#     channel: [1]        # 1-2 1-based channels, or a label from\n` +
-      `#                         # ~/.lanes/preferences.yaml (channels.in)\n` +
+      `#                         # ~/.studio/preferences.yaml (channels.in)\n` +
       `#     monitor: "on"       # off | auto (audible when armed) | on — quoted,\n` +
       `#                         # because YAML would otherwise read it as true\n`,
 

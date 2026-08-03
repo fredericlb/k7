@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes's shared command layer — the command specs, CUE edit operations, timeline, mixing and take-recording helpers shared by the TUI, CLI and web. Consumed as source.",
+  "description": "pistes's shared command layer — the command specs, CUE edit operations, timeline, mixing and take-recording helpers shared by the TUI, CLI and web. Consumed as source.",
   "exports": {
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",

@@ -2,7 +2,7 @@
 
 ## modules/<type>/<name>/module.yaml
 
-A module — its own folder named for the module (the folder IS the name; there's no `name:`), holding module.yaml: a flat struct with no `package` clause. Its kind + input port come from the type folder (io / instruments / audio / transformers). It carries a plugin (or io, or a rack) inline; the control grid it draws on the graph is a separate file in the workspace's `_ui/` (below). A <name>.vstpreset in the folder overrides state.
+A module — its own folder named for the module (the folder IS the name; there's no `name:`), holding module.yaml: a flat struct with no `package` clause. Its kind + input port come from the type folder (io / instruments / audio / transformers). It carries a plugin (or io, or a rack) inline; the control grid it draws on the graph is a separate file in the same folder, ui.yaml (below). A <name>.vstpreset in the folder overrides state.
 
 ```yaml schema=Module
 # modules/instruments/synth/module.yaml — a midi→audio instrument
@@ -149,16 +149,16 @@ rack:
     HI: { note: 62, from: 0.5, to: 1.0 }
 ```
 
-## _ui/<type>/<sub>.yaml — a module's panel
+## modules/<type>/<name>/ui.yaml — a module's panel
 
-The control grid a module draws on its graph node, in a file of its own at the **workspace root**, beside `_modules/`. `ref:` names the module it draws — `@<namespace>/<type>/<sub>` for a shared one, `<type>/<name>` for a project's own. That ref is the key: the file's path only mirrors `_modules/` so the tree is recognisable, and a panel can be moved or renamed without losing its module.
+The control grid a module draws on its graph node, in a file of its own **beside module.yaml**, in the module's own folder. It says nothing about which module it draws, because the folder already does: move the module and its face moves, copy it and the face is copied. A module folder's other .yaml files are its instances — ui.yaml is the one name that is neither the generic nor an instance.
 
 cols/rows is the layout; each widget sits on a cell and binds a plugin parameter by name. Drag a parameter from the module editor's Parameters pane onto a widget to bind it — the range and the label come with it. knob/slider/fader/number carry min/max; dropdown carries the named settings of a discrete parameter; waveform draws a live tap; label draws fixed text and binds nothing.
 
 `fader` is the mixer strip's control: vertical, with the value read out above it, and it fills whatever height its `rowSpan` gives it — so its throw is something you author rather than a fixed bar. Give it the rows to be worth using (the editor starts it at 3); one cell tall it is only a worse slider. Its drag sweeps the range over its own height, so the cap stays under the pointer. On a track's chain it also carries that track's VU beside the throw — the same signal, span and colours as the Mix panel's meter, because it is the same strip. A chain that is not a track (a bus, a disabled lane) has no one level to show, and the fader simply has no meter.
 
 ```yaml schema=UiFile
-ref: "@engine/instruments/mini_v3"
+# modules/instruments/mini/ui.yaml
 cols: 4
 rows: 2
 widgets:
@@ -169,7 +169,7 @@ widgets:
   w4: { type: fader, col: 3, row: 0, rowSpan: 6, bind: Volume, min: -60, max: 6, label: Vol }
 ```
 
-A panel used to be a `ui:` block inside `module.yaml`. It moved out so a rebuilt `_modules/` never took hand-drawn work with it, and so a plugin every song reaches for is drawn once — which is what lets an `@engine` module, which has no file at all, still have a face. `ui migrate` moves the ones still written inline. An inline `ui:` is still read, and a panel in `_ui` replaces it whole.
+A panel used to be a `ui:` block inside `module.yaml`. It moved into its own file so a rebuilt `_modules/` never takes hand-drawn work with it, and so a plugin every song reaches for is drawn once: a panel is saved where its module is, shared library included, and that is the one edit a shared module accepts without being forked. A plugin the engine merely reports has no folder anywhere, so it has no panel until somebody makes it a module. `ui migrate` moves the blocks still written inline. An inline `ui:` is still read, and a ui.yaml replaces it whole.
 
 ## modules/<type>/<name>/module.yaml — automations:
 
@@ -183,7 +183,7 @@ automations:
 
 ## _modules/config.yaml
 
-A SHARED module library — a folder of modules outside any one song, referenced as @<namespace>/<type>/<category>/<name>. This one file declares the namespace; everything under it is addressable by it. `lanes populate` fills such a folder from the engine's plugin scan, filing each plugin under its declared category.
+A SHARED module library — a folder of modules outside any one song, referenced as @<namespace>/<type>/<category>/<name>. This one file declares the namespace; everything under it is addressable by it. `pistes populate` fills such a folder from the engine's plugin scan, filing each plugin under its declared category.
 
 ```yaml schema=ModuleConfig
 namespace: engine

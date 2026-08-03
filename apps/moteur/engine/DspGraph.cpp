@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 
@@ -476,4 +476,4 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
     tracktion::engine::sanitiseValues(buffer, startSample, numSamples, 3.0f);
 }
 
-}  // namespace lanes
+}  // namespace studio

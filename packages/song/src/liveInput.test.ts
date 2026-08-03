@@ -34,7 +34,7 @@ const SONG = join(
   "songs",
   "synth-demo",
 );
-const IN = "@engine/io/IN:in-1";
+const IN = "@workspace/io/IN:in-1";
 
 describe("a live input, wired by its chain", () => {
   let ws: string;
@@ -64,7 +64,6 @@ describe("a live input, wired by its chain", () => {
     // The shared catalogue as `module populate` leaves it: a generic IN, and one
     // instance per interface input carrying nothing but its channel.
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "config.yaml"), "namespace: engine\n");
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(
       join(ws, "_modules", "io", "IN", "in-1.yaml"),
@@ -197,7 +196,6 @@ describe("an input's monitoring and gain", () => {
     dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "config.yaml"), "namespace: engine\n");
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(
       join(ws, "_modules", "io", "IN", "in-1.yaml"),

@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // The wave input device carrying exactly `channels` (1-based, as the doc states them). Tracktion builds one
 // device per mono channel or stereo pair, so an exact match is the only honest one: asking for [3,4] must not
@@ -31,4 +31,4 @@ struct TrackInput {
 TrackInput findTrackInput(te::Edit* edit, te::Engine& engine, const ProjectDoc& doc,
                           const std::string& trackId);
 
-}  // namespace lanes
+}  // namespace studio

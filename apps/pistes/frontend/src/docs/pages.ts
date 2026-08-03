@@ -1,4 +1,4 @@
-// pages.ts — the documentation, loaded from the markdown in lanes/docs/, so the prose
+// pages.ts — the documentation, loaded from the markdown in pistes/docs/, so the prose
 // lives OUTSIDE the app and reads and diffs like documentation. The filename carries what
 // a page needs to place itself (`NN-part-slug.md`) and its first `# heading` is its
 // title — a manifest would be a second place to forget to update.

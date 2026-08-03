@@ -1,8 +1,7 @@
-// moduleFork.ts — editing a module that isn't yours to edit. A `_modules` library is shared
-// by every project beside it, so it is read-only; a save aimed at one copies the module into
-// the project instead, `<track>_<leaf>_<n>`, and repoints every chain step that named it. A
-// whole folder and not an instance, because an instance's `ui:` has no effect and a module
-// resolves its jsdsp/preset/rack against its own folder. Rationale: docs/moduleFork.md.
+// moduleFork.ts — taking ownership of a module that isn't yours. Two ways in: a `_modules` library is shared
+// by every project beside it, so a save aimed at one copies the whole module folder into the project and
+// repoints every chain step that named it; and a module the ENGINE merely reports has no folder at all, so
+// wanting a face or presets for one materialises it here. Rationale: docs/moduleFork.md.
 
 import {
   cpSync,
@@ -20,9 +19,11 @@ import {
   resolve,
   sep,
 } from "node:path";
-import { parse as parseYaml } from "yaml";
 import { deriveChains } from "./chainsGraph";
+import { engineModules } from "./engineCatalogue";
 import { loadProjectRoot, MODULE_TYPES, moduleRefOf } from "./loader";
+import type { LoadedModule } from "./rawDoc";
+import { moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 import { parseChains, renameNode } from "./yaml/chainsFile";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
@@ -55,17 +56,9 @@ export function sharedRoots(dir: string): { root: string; ns: string }[] {
   }
   const out: { root: string; ns: string }[] = [];
   for (const p of from) {
-    const root = isAbsolute(p) ? p : resolve(dir, p);
-    const config = entityFileFor(root, "", "config");
-    if (!config) continue;
-    const ns = String(
-      (
-        parseYaml(readFileSync(config.path, "utf8"), { version: "1.2" }) as {
-          namespace?: unknown;
-        } | null
-      )?.namespace ?? "",
-    );
-    if (ns) out.push({ root: resolve(root), ns });
+    const root = resolve(isAbsolute(p) ? p : resolve(dir, p));
+    const ns = moduleNamespaceOf(root);
+    if (ns) out.push({ root, ns });
   }
   return out;
 }
@@ -157,8 +150,9 @@ export function forkSharedModule(
   const generic = moduleFileFor(dest, "", "module");
   writeFileSync(generic?.path ?? join(dest, "module.yaml"), content, "utf8");
 
-  // The panel follows the copy. It lives in `_ui` keyed by REF (see uiLibrary.ts), and the copy's ref is a new
-  // one — without this the fork would come up blank, which reads as the edit having destroyed the module's face.
+  // The panel came along in the folder copy — it is a file in it (see uiLibrary.ts). Rewritten anyway, so its
+  // header names the copy instead of the module it was drawn for: a `ui.yaml` whose comment still points at
+  // `@engine/…` reads as the fork having borrowed a face rather than been given one.
   const panel = loadUiLibrary(dir).byRef[ref];
   const localRef = moduleRefOf(type, module); // the ref the LOADER will key the copy by, not the folder name
   if (panel)
@@ -183,6 +177,76 @@ export function forkSharedModule(
     ref,
     module,
     path: `modules/${type}/${module}/${basename(generic?.path ?? "module.yaml")}`,
+    chains,
+  };
+}
+
+/**
+ * Give a module the ENGINE provides a folder of its own, in this project.
+ *
+ * A scanned plugin is a module with no files anywhere: `engineCatalogue` synthesises it from the scan cache, and
+ * a chain can name it as `@engine/<slug>` without anything on disk. That is fine until you want to give it a
+ * face or a shelf of presets, because both are FILES in a module's folder — so this is the moment the module
+ * stops being ambient and becomes something the project owns.
+ *
+ * The same shape as a fork, and deliberately: a folder appears, a `module.yaml` records which plugin to load
+ * (the scan is a discovery aid, not the project's memory of what it uses), and the chains are repointed. What
+ * differs is that nothing is copied — there was nothing to copy.
+ */
+export function materialiseEngineModule(
+  dir: string,
+  ref: string,
+  catalogue: Record<string, LoadedModule> = engineModules(),
+): ForkedModule {
+  const found = catalogue[ref];
+  if (!found)
+    throw new Error(
+      `${ref} is not a module this machine's engine offers — nothing to give a folder to`,
+    );
+  const type = String(found.category ?? "");
+  if (!(type in MODULE_TYPES))
+    throw new Error(`${ref}: unknown module category '${type}'`);
+
+  // Named after the slug the ref already carries, so the folder reads as the plugin it is. A name the project
+  // has taken gets a counter, exactly as a fork does — two engine modules can slug the same.
+  const stem = clean(String(found.file ?? ref.split("/").pop() ?? "module"));
+  const typeDir = join(dir, "modules", type);
+  let module = stem;
+  for (let n = 2; existsSync(join(typeDir, module)); n++)
+    module = `${stem}_${n}`;
+
+  mkdirSync(join(typeDir, module), { recursive: true });
+  const plugin = found.plugin as { type?: unknown; name?: unknown } | undefined;
+  const body = plugin
+    ? `# ${module}: ${ref}, given a folder so it can carry a panel and presets.\n` +
+      `plugin:\n` +
+      `  type: ${JSON.stringify(String(plugin.type ?? ""))}\n` +
+      `  name: ${JSON.stringify(String(plugin.name ?? ""))}\n`
+    : // An io module the engine provides (IN / OUT) has no plugin — its `io:` IS its substance.
+      `# ${module}: ${ref}, given a folder so it can carry a panel and presets.\n` +
+      `io: ${JSON.stringify(String(found.io ?? ""))}\n`;
+  writeFileSync(join(typeDir, module, "module.yaml"), body, "utf8");
+
+  // The panel follows, if the engine module had one drawn under its ref somewhere readable.
+  const panel = loadUiLibrary(dir).byRef[ref];
+  const localRef = moduleRefOf(type, module);
+  if (panel)
+    writeUiFile(dir, localRef, panel.ui, `panel for ${localRef} (was ${ref})`);
+
+  // Repointed AFTER the file exists, same rule as a fork: a chain naming a module with no file won't load.
+  const chainsFile = entityFileFor(dir, "", "chains");
+  let chains: string[] = [];
+  if (chainsFile) {
+    const text = readFileSync(chainsFile.path, "utf8");
+    const r = renameNode(text, ref, module);
+    if (r.text !== text) writeFileSync(chainsFile.path, r.text, "utf8");
+    chains = chainsUsing(r.text, module);
+  }
+
+  return {
+    ref,
+    module,
+    path: `modules/${type}/${module}/module.yaml`,
     chains,
   };
 }

@@ -1,9 +1,8 @@
 {
-  "name": "mediatek",
+  "name": "mediatek-frontend",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The media library: what studio owns, in one place — morceaux, samples and modules — and the module builder, since only the library is editable.",
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --noEmit",
@@ -11,22 +10,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@codemirror/autocomplete": "^6.18.0",
-    "@codemirror/state": "^6.4.0",
-    "@codemirror/view": "^6.34.0",
     "@frediverse/ui": "*",
-    "@replit/codemirror-vim": "^6.3.0",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
+    "@studio/graph-model": "*",
     "@studio/mediatek": "*",
     "@studio/song": "*",
-    "@studio/ui-editor": "*",
+    "@studio/ui-chains": "*",
+    "@studio/ui-chains-react": "*",
+    "@studio/ui-module-builder": "*",
     "@studio/web-protocol": "*",
-    "@uiw/react-codemirror": "^4.23.0",
     "lucide-react": "^1.24.0",
+    "music-metadata": "^11.14.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "yaml": "^2.5.0"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@frediverse/vite-config": "*",

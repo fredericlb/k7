@@ -3,14 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes's engine-side file service. Runs on the engine's machine, owns ~/.lanes/root/<userSlug>/<workspace>, and serves workspaces + all file operations to the browser directly (the C++ engine stays file-free). Consumed as source; run under tsx.",
+  "description": "pistes's engine-side file service. Runs on the engine's machine, owns ~/.studio/root/<userSlug>/<workspace>, and serves workspaces + all file operations to the browser directly (the C++ engine stays file-free). Consumed as source; run under tsx.",
   "main": "src/server.ts",
   "bin": {
-    "lanes-file-service": "./src/server.ts"
+    "studio-file-service": "./src/server.ts"
   },
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
+    "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

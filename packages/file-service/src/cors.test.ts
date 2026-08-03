@@ -9,13 +9,13 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { lanesDir, webOriginsPath } from "@studio/engine-client/paths";
+import { studioDir, webOriginsPath } from "@studio/engine-client/paths";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { allowedOrigin } from "./cors.ts";
 
-const ENV_KEYS = ["LANES_WEB_ORIGIN", "LANES_REGISTRY_URL"] as const;
+const ENV_KEYS = ["STUDIO_WEB_ORIGIN", "STUDIO_REGISTRY_URL"] as const;
 
-// cors.ts reads the REAL contract path (~/.lanes/web-origins.json) — it is shared
+// cors.ts reads the REAL contract path (~/.studio/web-origins.json) — it is shared
 // with the tray, so it can't be redirected without the two disagreeing about where
 // the file lives. These tests therefore write the real file, and must put a
 // developer's own list back exactly as they found it.
@@ -31,7 +31,7 @@ afterAll(() => {
 });
 
 function writeOrigins(origins: unknown): void {
-  mkdirSync(lanesDir(), { recursive: true });
+  mkdirSync(studioDir(), { recursive: true });
   writeFileSync(ORIGINS_PATH, JSON.stringify({ origins }), "utf8");
 }
 
@@ -44,7 +44,7 @@ describe("allowedOrigin — default policy", () => {
   it("refuses a public origin (this is the drive-by we are blocking)", () => {
     expect(allowedOrigin("https://evil.com")).toBe(false);
     expect(allowedOrigin("http://evil.com")).toBe(false);
-    expect(allowedOrigin("https://lanes.example.org")).toBe(false);
+    expect(allowedOrigin("https://pistes.example.org")).toBe(false);
   });
 
   it("allows the dev frontend on either loopback spelling", () => {
@@ -52,10 +52,10 @@ describe("allowedOrigin — default policy", () => {
     expect(allowedOrigin("http://127.0.0.1:5203")).toBe(true);
   });
 
-  it("allows loopback on ANY port, since `lanes --web` picks a free one", () => {
+  it("allows loopback on ANY port, since `pistes --web` picks a free one", () => {
     // The host carries the trust, not the port — so this is deliberate, not an
     // oversight. Asserted so nobody "tightens" it to a fixed port and breaks
-    // `lanes --web`, which chooses its port at launch.
+    // `pistes --web`, which chooses its port at launch.
     expect(allowedOrigin("http://localhost:5999")).toBe(true);
     expect(allowedOrigin("http://127.0.0.1:1234")).toBe(true);
   });
@@ -84,7 +84,7 @@ describe("allowedOrigin — default policy", () => {
   });
 
   it("allows the hosted backend's own origin", () => {
-    process.env.LANES_REGISTRY_URL = "https://daw.example.org/api";
+    process.env.STUDIO_REGISTRY_URL = "https://daw.example.org/api";
     expect(allowedOrigin("https://daw.example.org")).toBe(true);
     expect(allowedOrigin("https://other.example.org")).toBe(false);
   });
@@ -93,7 +93,7 @@ describe("allowedOrigin — default policy", () => {
   // every one of them is a browser that calls this service. Reading only the first would
   // CORS-refuse the médiathèque with nothing logged on either side.
   it("allows EVERY origin in a comma-separated registry list", () => {
-    process.env.LANES_REGISTRY_URL =
+    process.env.STUDIO_REGISTRY_URL =
       "https://daw.example.org/api, https://media.example.org/api";
     expect(allowedOrigin("https://daw.example.org")).toBe(true);
     expect(allowedOrigin("https://media.example.org")).toBe(true);
@@ -101,7 +101,7 @@ describe("allowedOrigin — default policy", () => {
   });
 
   it("survives a malformed origin or registry url without throwing", () => {
-    process.env.LANES_REGISTRY_URL = "not a url";
+    process.env.STUDIO_REGISTRY_URL = "not a url";
     expect(allowedOrigin("also not a url")).toBe(false);
     expect(allowedOrigin("null")).toBe(false);
   });
@@ -109,7 +109,7 @@ describe("allowedOrigin — default policy", () => {
   // One unparseable entry must not cost its neighbours their origin: the list is hand-edited
   // through an env var, and a stray comma would otherwise lock every service out at once.
   it("keeps the good entries when one url in the list is malformed", () => {
-    process.env.LANES_REGISTRY_URL = "not a url,https://media.example.org";
+    process.env.STUDIO_REGISTRY_URL = "not a url,https://media.example.org";
     expect(allowedOrigin("https://media.example.org")).toBe(true);
   });
 });
@@ -155,19 +155,19 @@ describe("allowedOrigin — web UIs added from the tray", () => {
     expect(allowedOrigin("http://localhost:5223")).toBe(true);
   });
 
-  it("is still outranked by LANES_WEB_ORIGIN", () => {
+  it("is still outranked by STUDIO_WEB_ORIGIN", () => {
     // An operator who pinned the origins meant it — the tray's list must not widen
     // a deliberate production lockdown.
     writeOrigins(["https://daw.test"]);
-    process.env.LANES_WEB_ORIGIN = "https://pinned.example.org";
+    process.env.STUDIO_WEB_ORIGIN = "https://pinned.example.org";
     expect(allowedOrigin("https://daw.test")).toBe(false);
     expect(allowedOrigin("https://pinned.example.org")).toBe(true);
   });
 });
 
-describe("allowedOrigin — LANES_WEB_ORIGIN is total", () => {
+describe("allowedOrigin — STUDIO_WEB_ORIGIN is total", () => {
   it("allows exactly the listed origins and nothing else", () => {
-    process.env.LANES_WEB_ORIGIN =
+    process.env.STUDIO_WEB_ORIGIN =
       "https://daw.example.org, https://alt.example.org";
     expect(allowedOrigin("https://daw.example.org")).toBe(true);
     expect(allowedOrigin("https://alt.example.org")).toBe(true);
@@ -177,7 +177,7 @@ describe("allowedOrigin — LANES_WEB_ORIGIN is total", () => {
   it("suppresses the dev and private-network defaults once set", () => {
     // The escape hatch must be total, or locking down prod would silently still
     // admit every LAN origin.
-    process.env.LANES_WEB_ORIGIN = "https://daw.example.org";
+    process.env.STUDIO_WEB_ORIGIN = "https://daw.example.org";
     expect(allowedOrigin("http://localhost:5203")).toBe(false);
     expect(allowedOrigin("http://192.168.1.5:5203")).toBe(false);
   });

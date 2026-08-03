@@ -11,6 +11,19 @@ export interface EngineChoice {
   ranked: RankedEngine<PublicEngine>[];
   /** The remembered id, or undefined before the first load / when nothing is remembered. */
   chosenId: string | undefined;
+  /** The list and the remembered choice have both come back at least once. Distinct from
+   *  "nothing is chosen", which before this was indistinguishable from "we have not looked
+   *  yet" — and a gate that cannot tell the two apart flashes in everybody's face on load. */
+  loaded: boolean;
+  /** The remembered engine, reachable from THIS browser. What anything needing an engine to
+   *  work asks for: a choice pointing at a machine that is off is not one. */
+  ready: boolean;
+  /** The chosen engine's file service — `http://<host>:<filePort>` — or null when there is no
+   *  reachable choice. The engine machine's per-MACHINE facts live behind it: what it has
+   *  scanned, what it can render. Null for a Tier 3 engine, which answered no probe. */
+  fileBase: string | null;
+  /** The chosen engine's token, from its whoami — what the file service's header gate wants. */
+  token: string | null;
   choose: (id: string) => void;
   refresh: () => void;
 }
@@ -18,6 +31,7 @@ export interface EngineChoice {
 export function useEngineChoice(): EngineChoice {
   const [ranked, setRanked] = useState<RankedEngine<PublicEngine>[]>([]);
   const [chosenId, setChosenId] = useState<string | undefined>(undefined);
+  const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -30,7 +44,9 @@ export function useEngineChoice(): EngineChoice {
       if (cancelled) return;
       setChosenId(prefs.engineId);
       const r = await probeEngines(list);
-      if (!cancelled) setRanked(r);
+      if (cancelled) return;
+      setRanked(r);
+      setLoaded(true);
     })();
     return () => {
       cancelled = true;
@@ -48,6 +64,10 @@ export function useEngineChoice(): EngineChoice {
   return {
     ranked,
     chosenId,
+    loaded,
+    ready: ranked.some((r) => r.engine.id === chosenId && !!r.wsUrl),
+    fileBase: ranked.find((r) => r.engine.id === chosenId)?.fileBase ?? null,
+    token: ranked.find((r) => r.engine.id === chosenId)?.token ?? null,
     choose,
     refresh: useCallback(() => setAttempt((n) => n + 1), []),
   };

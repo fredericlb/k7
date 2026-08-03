@@ -6,11 +6,11 @@ import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { LibrarySink } from "./remote.ts";
 
-/** What a workspace calls each folder, and where it lands in the library. */
+/** What a workspace calls each folder, and where it lands in the library. A module's panel is not listed
+ *  because it is not a folder: `ui.yaml` sits inside the module, so `_modules` carries it up. */
 const FOLDERS: { from: string; to: string }[] = [
   { from: "_modules", to: "modules" },
   { from: "_library", to: "library" },
-  { from: "_ui", to: "ui" },
 ];
 
 export interface ImportReport {
@@ -77,7 +77,7 @@ function filesUnder(src: string, toPrefix: string): [string, string][] {
 }
 
 /**
- * Send a workspace's `_modules`, `_library` and `_ui` to the library.
+ * Send a workspace's `_modules` and `_library` to the library.
  *
  * No longer additive, and it cannot be: the library is somewhere else, and asking it "do
  * you already have this?" per file would double the round trips to answer a question the

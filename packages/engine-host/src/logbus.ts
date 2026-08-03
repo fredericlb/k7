@@ -5,14 +5,14 @@
 
 import { createWriteStream, mkdirSync, type WriteStream } from "node:fs";
 import type { Readable } from "node:stream";
-import { lanesDir, mergedLogPath } from "@studio/engine-client/paths";
+import { mergedLogPath, studioDir } from "@studio/engine-client/paths";
 
 let stream: WriteStream | null | undefined;
 
 function out(): WriteStream | null {
   if (stream !== undefined) return stream;
   try {
-    mkdirSync(lanesDir(), { recursive: true });
+    mkdirSync(studioDir(), { recursive: true });
     stream = createWriteStream(mergedLogPath(), { flags: "a" });
     // A log must never take the process down: an unwritable file becomes silence, not an unhandled 'error' event.
     stream.on("error", () => {});

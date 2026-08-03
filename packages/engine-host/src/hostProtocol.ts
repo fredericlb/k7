@@ -49,7 +49,7 @@ export interface HostEditPlugin {
  *
  * This is what makes ONE engine serving several apps legible from the outside. Before it,
  * the tray's status line said "Running · :8833" whether that engine held nothing, held
- * lanes' song, or held a deck and a module preview at once — and the apps had no way to
+ * pistes' song, or held a deck and a module preview at once — and the apps had no way to
  * see each other either.
  */
 export interface HostSession {
@@ -65,7 +65,7 @@ export interface HostSession {
 
 /** The paths the tray still opens directly (Show logs, Open workspaces root, and the
  *  origins file it falls back to when there is no native prompt). Sent rather than
- *  recomputed so `~/.lanes`'s layout has exactly one definition. */
+ *  recomputed so `~/.studio`'s layout has exactly one definition. */
 export interface HostPaths {
   root: string;
   mergedLog: string;

@@ -56,19 +56,19 @@ export function useEngineLink(
   >({});
 
   useEffect(() => {
-    // The client is app-agnostic; the stall breadcrumbs are lanes' own instrumentation, so
+    // The client is app-agnostic; the stall breadcrumbs are pistes' own instrumentation, so
     // the shell hands its watchdog in rather than the package importing one.
     // Per SERVICE and per PERSON. The service half stops mediatek's module previews and a
     // platines deck from overwriting this song; the person half matters now that an engine
     // is chosen per account, so two people can pick the same machine — and on a bare
-    // "lanes" they would drive one project between them.
+    // "pistes" they would drive one project between them.
     //
     // The file service derives the identical id from the workspace's owner slug. Both
     // spell it through sessionFor, so neither can drift from the other.
     const engine = new EngineClient(
       engineUrl,
       beginActivity,
-      sessionFor(SESSIONS.lanes, userEmail),
+      sessionFor(SESSIONS.pistes, userEmail),
     );
     engineRef.current = engine;
     const offState = engine.onState((s) => {

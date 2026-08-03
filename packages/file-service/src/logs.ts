@@ -1,4 +1,4 @@
-// logs.ts — serve the tray's merged engine + file-service log (~/.lanes/.lanes.log)
+// logs.ts — serve the tray's merged engine + file-service log (~/.studio/.studio.log)
 // to the web UI's Logs panel: seed with a tail, then poll by byte offset. Falls back to
 // the CLI's engine-only log when there's no tray, and to nothing when there's neither.
 

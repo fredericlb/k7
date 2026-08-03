@@ -1,7 +1,7 @@
 # commands.yaml — declarative command definitions (see commandSpec.ts).
 #
 # Each entry maps a command STRING (what you type in the web editor's command bar or
-# after `lanes cmd`) to a feature SID (implemented in commands.ts), plus:
+# after `pistes cmd`) to a feature SID (implemented in commands.ts), plus:
 #   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists now —
 #             the web backend dispatches under it too, so every command runs on both;
 #             the field is kept for when a surface needs its own subset again.
@@ -44,7 +44,7 @@
 
 # --- alternatives (try a direction, keep it or drop it) ---
 # An alternative is a git branch you try a version of the song on, with the branch you
-# left remembered (branch.<name>.lanesParent) so `apply` and `cancel` know where to go
+# left remembered (branch.<name>.studioParent) so `apply` and `cancel` know where to go
 # back to. The vocabulary is deliberately not git's: you are not branching, you are trying
 # another version and either keeping it or dropping it. The header dropdown lists them.
 - command: "project alternative new"
@@ -230,7 +230,7 @@
 
 # --- channel labels (global user preferences) ---
 # Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision,
-# not a per-song edit, so it lives only in the CLI (`lanes config --set
+# not a per-song edit, so it lives only in the CLI (`pistes config --set
 # interface`, brain/src/config.tsx). These labels just annotate that rig, so they
 # stay on every surface.
 - { command: "channel list", sid: channels.list, help: "show the input/output channel labels", surfaces: [cli] }
@@ -298,6 +298,16 @@
   help: "delete a module (or one instance) and remove it from every chain (e.g. module delete synth:lead)"
   surfaces: [cli]
   args: [{ name: "module", complete: modules }]
+# Gives a module the ENGINE reports a folder in this project. A scanned plugin has no files
+# anywhere — a chain can name `@engine/nam` and nothing is on disk — and that is fine until
+# you want to draw its panel or give it presets, because both are FILES in a module's folder.
+# So this is the moment it stops being ambient: a folder appears, its module.yaml records
+# which plugin to load, and every chain step naming the ref follows.
+- command: "module own"
+  sid: module.own
+  help: "give an engine module a folder in this project, so it can carry a panel and presets (e.g. module own @engine/nam)"
+  surfaces: [cli]
+  args: [{ name: "ref", complete: baseModules }]
 # Swaps what a chain step IS while keeping WHERE it sits. Not delete-then-add: that loses
 # the position. The chains are rewritten first, so no instant passes with a chain naming a
 # module that does not exist. Takes the same arguments as `module new` after the name.

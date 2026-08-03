@@ -15,7 +15,11 @@ installFreezeWatchdog();
 // The Profiler is here for the freeze watchdog, not for tuning: a stall in a React app is usually a COMMIT, and
 // without this the report can only say how long it lasted. Only commits over the watchdog's threshold are kept.
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
+  // basename, not a plain root: the app is served under studio.test/pistes, and
+  // BASE_URL is the one place that prefix is declared (vite `base`). With it set,
+  // useLocation() reports paths WITHOUT the prefix, so the route mapping in
+  // routes.ts stays written as if the app owned the origin.
+  <BrowserRouter basename={import.meta.env.BASE_URL}>
     <LocaleProvider>
       <AuthGate>
         <Profiler id="app" onRender={reportCommit}>

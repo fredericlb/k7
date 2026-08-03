@@ -10,8 +10,9 @@ import { localizeCommand, localizeCommandLine } from "./commandI18n";
 export type MenuCtx =
   | { kind: "track"; id: string }
   | { kind: "group"; id: string }
-  // A "block" in the graph. `missing` means no file, no plugin and no param — the menu shrinks to what still applies.
-  | { kind: "module"; id: string; missing?: boolean }
+  // A "block" in the graph. `missing` means no file, no plugin and no param — the menu shrinks to what still
+  // applies. `ambient` means the ENGINE provides it and nothing is on disk: it can be given a folder.
+  | { kind: "module"; id: string; missing?: boolean; ambient?: boolean }
   // A placed clip. `track` + `tc` say WHICH placement, the pair `event move`/`event remove` address; both optional.
   | { kind: "clip"; id: string; midi: boolean; track?: string; tc?: string }
   | { kind: "chain"; id: string; track?: string }
@@ -72,7 +73,11 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
       return build([
         { verb: "module open", arg: ctx.id }, // the native plugin UI (external plugins)
         { verb: "module param", arg: ctx.id, needsMore: true },
-        { verb: "ui file", arg: ctx.id }, // open the module's file
+        // A module the engine merely reports has no file to open — `module own` is what gives it one, and
+        // therefore the only way it ever gets a panel or presets. Offered instead of `ui file`, not beside it.
+        ctx.ambient
+          ? { verb: "module own", arg: ctx.id }
+          : { verb: "ui file", arg: ctx.id }, // open the module's file
       ]);
     case "clip":
       // `file` opens the clip that was right-clicked, unlike `edit clip`, which follows the caret. `event remove`/`move`

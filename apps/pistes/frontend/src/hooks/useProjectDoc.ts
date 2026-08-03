@@ -9,6 +9,8 @@ import { api } from "../api";
 export interface RecInfo {
   tempo: number;
   beatsPerBar: number;
+  /** The signature's lower number — carried alongside `beatsPerBar` so the footer can print `4/4`. */
+  beatUnit: number;
   countIn: number;
   names: Record<string, string>;
 }
@@ -51,6 +53,7 @@ export function useProjectDoc(
   const [recInfo, setRecInfo] = useState<RecInfo>({
     tempo: 120,
     beatsPerBar: 4,
+    beatUnit: 4,
     countIn: 0,
     names: {},
   });
@@ -75,6 +78,7 @@ export function useProjectDoc(
         setRecInfo({
           tempo: p.tempo,
           beatsPerBar: p.timeSigNumerator || 4,
+          beatUnit: p.timeSigDenominator || 4,
           countIn: p.countIn,
           names: Object.fromEntries(p.tracks.map((t) => [t.id, t.name])),
         });

@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 struct WaveformEnvelope {
     float min;  // minimum sample in this bucket (range -1..1)
@@ -82,4 +82,4 @@ private:
     int bucketSize_;
 };
 
-}  // namespace lanes
+}  // namespace studio

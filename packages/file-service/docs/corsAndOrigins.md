@@ -9,7 +9,7 @@ so the reasoning is spelled out here rather than trusted to memory.
 The file service is reached DIRECTLY by the browser, cross-origin, and its identity is a
 set of headers the caller writes (Phase-2 local trust — see `context.ts`).
 
-Every gated route requires the custom `x-lanes-*` headers, which are NOT CORS-simple,
+Every gated route requires the custom `x-studio-*` headers, which are NOT CORS-simple,
 so a cross-origin call MUST preflight. A preflight we refuse means the browser never
 issues the real request — so a strict allowlist blocks cross-origin WRITES as well as
 reads. That is what stops a page you happen to visit from driving this service, even
@@ -22,8 +22,8 @@ Deny-by-default is the whole point; keep it that way.
 
 ## The user's own web UIs
 
-`~/.lanes/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
-shared `~/.lanes` contract (the tray's `paths.rs` / `weburi.rs` write it). It exists
+`~/.studio/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
+shared `~/.studio` contract (the tray's `paths.rs` / `weburi.rs` write it). It exists
 because the built-in rules cannot cover a web UI on a real hostname: a reverse proxy in
 front of the SPA is neither loopback nor private, so without this the editor loads and
 then fails every preflight.
@@ -43,7 +43,7 @@ only exists on macOS — or hand-editing `web-origins.json`. Recording the refus
 it around: the browser that was blocked names itself, and the user approves a concrete
 origin from the tray instead of transcribing one.
 
-`~/.lanes/pending-origins.json` joins the shared contract:
+`~/.studio/pending-origins.json` joins the shared contract:
 
 ```json
 {"pending": [{"origin": "https://daw.test", "lastSeen": 1721430000000, "count": 3}]}
@@ -55,7 +55,7 @@ The tray reads it (`weburi.rs`) and clears an entry when it is allowed or dismis
 
 1. **Nothing here grants anything.** It records a *request to be asked* — the only way an
    origin becomes allowed is a human clicking it in the tray.
-2. **When `LANES_WEB_ORIGIN` is set, record NOTHING.** An operator who pinned the
+2. **When `STUDIO_WEB_ORIGIN` is set, record NOTHING.** An operator who pinned the
    origin list meant it; offering a one-click way around that in the menu bar would
    quietly undo the lockdown.
 3. **Bounded and self-expiring.** A hostile page can hammer this endpoint from a thousand

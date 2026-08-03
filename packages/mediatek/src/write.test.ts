@@ -9,11 +9,11 @@ import { putFile, removeFile } from "./write.ts";
 let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "mediatek-w-"));
-  process.env.LANES_MEDIATEK = root;
+  process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
 afterEach(() => {
-  delete process.env.LANES_MEDIATEK;
+  delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -39,11 +39,15 @@ describe("putting a file in", () => {
     expect(familyRevision("modules")).not.toBe(before);
   });
 
-  it("files a panel under the modules it draws", () => {
-    // `ui/` is not a family of its own; a surface listing modules wants to know when one
-    // changed its face.
+  it("moves it for a panel too, which is a file IN the module", () => {
+    // There was a `ui/` tree beside `modules/` once, and a rule here to bump `modules` when
+    // it was written. A panel is `modules/<type>/<name>/ui.yaml` now (see `@studio/song`'s
+    // docs/uiLibrary.md), so it is under the family already and the rule had nothing left
+    // to do. What must still hold is this: changing a module's face moves the token a
+    // surface listing modules is watching.
+    putFile("modules/audio/reverb/module.yaml", "plugin: {}\n");
     const before = familyRevision("modules");
-    putFile("ui/audio/reverb.yaml", "ref: audio/reverb\n");
+    putFile("modules/audio/reverb/ui.yaml", "cols: 2\nrows: 1\nwidgets: {}\n");
     expect(familyRevision("modules")).not.toBe(before);
   });
 });

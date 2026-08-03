@@ -1,6 +1,5 @@
 import {
   cpSync,
-  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -13,8 +12,9 @@ import { loadModules } from "@studio/song/loader";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   applyPresetToModule,
+  hasPresets,
   listModulePresets,
-  modulePresetsDir,
+  modulePresetsFile,
   saveModuleAsPreset,
 } from "./presets";
 import { setModuleParam } from "./projectEdit";
@@ -32,21 +32,25 @@ const SONG = join(
 );
 const REF = "instruments/synth"; // the synth module's own ref
 
-// modulePresetsDir is pure string work — no `cue`, no fs — so it always runs.
-describe("modulePresetsDir", () => {
-  it("maps a local plugin ref to its `.presets` folder beside the module", () => {
-    expect(modulePresetsDir("/song", REF)).toBe(
-      join("/song", "modules", "instruments", "synth", "synth.presets"),
+// A preset is a NAME and the values it sets, and the whole shelf is one file in the module's folder — the
+// third sibling of module.yaml and ui.yaml. What these pin down is that the round trip survives the file
+// (save, list, apply), and that the module folder's own three files are never mistaken for instances of it.
+
+// modulePresetsFile is pure string work — no fs — so it always runs.
+describe("modulePresetsFile", () => {
+  it("maps a local plugin ref to the presets.yaml in its module folder", () => {
+    expect(modulePresetsFile("/song", REF)).toBe(
+      join("/song", "modules", "instruments", "synth", "presets.yaml"),
     );
   });
   it("declines io, inherited, and malformed refs (nowhere local to store them)", () => {
-    expect(modulePresetsDir("/song", "OUT")).toBeNull(); // io sink, bare name
-    expect(modulePresetsDir("/song", "@lib/instruments/x")).toBeNull(); // inherited
-    expect(modulePresetsDir("/song", "io/whatever")).toBeNull(); // io kind
+    expect(modulePresetsFile("/song", "OUT")).toBeNull(); // io sink, bare name
+    expect(modulePresetsFile("/song", "@lib/instruments/x")).toBeNull(); // inherited
+    expect(modulePresetsFile("/song", "io/whatever")).toBeNull(); // io kind
   });
 });
 
-describe("user presets round-trip (synth-demo)", () => {
+describe("presets round-trip (synth-demo)", () => {
   let dir: string;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "td-presets-"));
@@ -54,15 +58,17 @@ describe("user presets round-trip (synth-demo)", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  const shelf = () =>
+    readFileSync(modulePresetsFile(dir, REF) as string, "utf8");
+
   it("saves a module's params as a preset, lists it, and applies it back", () => {
     // Give the module a param to snapshot (the demo's synth rides its base's defaults).
     setModuleParam(dir, "synth", "Filter Freq", 0.42);
+    expect(hasPresets(dir, REF)).toBe(false);
 
     const rel = saveModuleAsPreset(dir, "synth", "warm");
-    expect(rel).toBe(
-      join("modules", "instruments", "synth", "synth.presets", "warm.yaml"),
-    );
-    expect(existsSync(join(dir, rel))).toBe(true);
+    expect(rel).toBe(join("modules", "instruments", "synth", "presets.yaml"));
+    expect(hasPresets(dir, REF)).toBe(true);
 
     const presets = listModulePresets(dir, REF);
     expect(presets.map((p) => ({ name: p.name, source: p.source }))).toEqual([
@@ -71,12 +77,37 @@ describe("user presets round-trip (synth-demo)", () => {
 
     // Move the live value away, then apply the preset and confirm it's restored.
     setModuleParam(dir, "synth", "Filter Freq", 0.9);
-    applyPresetToModule(dir, "synth", presets[0].path);
+    applyPresetToModule(dir, "synth", presets[0].name);
     const mod = loadModules(dir) as Record<
       string,
       { params?: Record<string, number> }
     >;
     expect(mod.synth.params?.["Filter Freq"]).toBeCloseTo(0.42, 6);
+  });
+
+  it("writes one preset per LINE, so adding a second is a one-line diff", () => {
+    setModuleParam(dir, "synth", "Filter Freq", 0.42);
+    saveModuleAsPreset(dir, "synth", "warm");
+    setModuleParam(dir, "synth", "Filter Freq", 0.9);
+    saveModuleAsPreset(dir, "synth", "bright");
+    const lines = shelf().trim().split("\n");
+    expect(lines[0]).toMatch(/^# presets for instruments\/synth$/);
+    // A param name with a space needs no quotes as a YAML key, and quoting it anyway would put noise in
+    // every line of every shelf — the names plugins use are almost all like this.
+    expect(lines[1]).toBe("warm: { Filter Freq: 0.42 }");
+    expect(lines[2]).toBe("bright: { Filter Freq: 0.9 }");
+  });
+
+  it("keeps the presets that were already there when it adds one", () => {
+    setModuleParam(dir, "synth", "Filter Freq", 0.42);
+    saveModuleAsPreset(dir, "synth", "warm");
+    setModuleParam(dir, "synth", "Filter Freq", 0.9);
+    saveModuleAsPreset(dir, "synth", "bright");
+    expect(
+      listModulePresets(dir, REF)
+        .map((p) => p.name)
+        .sort(),
+    ).toEqual(["bright", "warm"]);
   });
 
   it("refuses to overwrite an existing preset and validates the name", () => {
@@ -91,28 +122,37 @@ describe("user presets round-trip (synth-demo)", () => {
   });
 
   it("won't snapshot a module with nothing saved", () => {
-    // The demo's synth has neither params nor a .vstpreset until something is set.
+    // The demo's synth has no params until something is set.
     expect(() => saveModuleAsPreset(dir, "synth", "empty")).toThrow(
-      /no saved params/,
+      /no params to snapshot/,
     );
   });
 
-  it("ignores non-preset files in the folder and reads a hand-authored preset", () => {
+  it("says which preset is missing rather than applying nothing", () => {
+    expect(() => applyPresetToModule(dir, "synth", "nope")).toThrow(
+      /no preset 'nope'/,
+    );
+  });
+
+  it("is not read as an instance of the module it sits beside", () => {
+    // The same hazard `ui.yaml` has: every other `<name>.yaml` in a module folder is one USE of the module,
+    // so an unguarded shelf would come back as a module called "synth:presets".
     setModuleParam(dir, "synth", "Filter Freq", 0.42);
     saveModuleAsPreset(dir, "synth", "warm");
-    // A hand-dropped preset (as if authored by the user) is discovered too.
-    const dropped = join(modulePresetsDir(dir, REF)!, "bright.yaml");
-    writeFileSync(dropped, 'params: {"Filter Freq": 0.8}\n', "utf8");
-    const names = listModulePresets(dir, REF)
-      .map((p) => p.name)
-      .sort();
-    expect(names).toEqual(["bright", "warm"]);
+    expect(Object.keys(loadModules(dir))).not.toContain("synth:presets");
+  });
 
-    applyPresetToModule(dir, "synth", dropped);
-    const mod = loadModules(dir) as Record<
-      string,
-      { params?: Record<string, number> }
-    >;
-    expect(mod.synth.params?.["Filter Freq"]).toBeCloseTo(0.8, 6);
+  it("reads a hand-authored shelf, and ignores one the schema refuses", () => {
+    setModuleParam(dir, "synth", "Filter Freq", 0.42);
+    saveModuleAsPreset(dir, "synth", "warm");
+    applyPresetToModule(dir, "synth", "warm");
+    // A shelf is hand-editable; a broken one costs the presets, not the module.
+    writeFileSync(
+      modulePresetsFile(dir, REF) as string,
+      "warm: not a mapping\n",
+      "utf8",
+    );
+    expect(listModulePresets(dir, REF)).toEqual([]);
+    expect(loadModules(dir).synth).toBeTruthy();
   });
 });

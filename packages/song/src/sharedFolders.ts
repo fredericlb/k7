@@ -7,16 +7,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { isSeq, parseDocument } from "yaml";
-import { MEDIATEK_REF, resolveMediatekRef } from "./mediatekRoot";
+import { MEDIATEK_REF, mediatekRoot, resolveMediatekRef } from "./mediatekRoot";
 import { entityFileFor } from "./yaml/moduleIO";
-
-/** Where the shared UI library sits, relative to a project — the sibling of `_modules/`.
- *  Declared HERE with its siblings, not in uiLibrary.ts: this file is what knows where a
- *  workspace's shared folders are, and `_ui` was the one that had drifted out of it. */
-export const SHARED_UI_PATH = "../_ui";
-
-/** The folder name a UI library lives under, at the workspace root. */
-export const SHARED_UI_DIR = "_ui";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
 export const SHARED_MODULES_PATH = "../_modules";
@@ -31,10 +23,10 @@ export function isInSharedModules(path: string): boolean {
   return path.split(/[\\/]+/).some((seg) => seg === SHARED_MODULES_DIR);
 }
 
-/** Is there a shared module folder beside this project, with a namespace config? */
+/** Is there a shared module folder beside this project? The folder alone answers it now:
+ *  its level is `@workspace` because of where it sits, not because it says so. */
 export function hasSharedModules(dir: string): boolean {
-  const folder = join(dir, SHARED_MODULES_PATH);
-  return !!entityFileFor(folder, "", "config");
+  return existsSync(join(dir, SHARED_MODULES_PATH));
 }
 
 /** The paths `project.modules_from` already lists, as written (no resolution). */
@@ -58,35 +50,68 @@ export function moduleLibraryDirs(dir: string): string[] {
   } catch {
     return []; // an unparseable header is the compiler's problem to report, not ours
   }
-  return declared(doc)
-    .map(
-      (p) =>
-        resolveMediatekRef(p, "modules") ??
-        (isAbsolute(p) ? p : resolve(dir, p)),
-    )
-    .filter((abs) => existsSync(abs));
+  return (
+    declared(doc)
+      // Normalised, absolute entries included — see libraryDirs for the containment check that depends on it.
+      .map((p) =>
+        resolve(
+          resolveMediatekRef(p, "modules") ??
+            (isAbsolute(p) ? p : resolve(dir, p)),
+        ),
+      )
+      .filter((abs) => existsSync(abs))
+  );
 }
 
 /**
- * Every folder that may hold a module PANEL, nearest first.
+ * The four levels a module can live at, outermost first. A ref carries the level as its
+ * `@` prefix — `@engine/audio/nam`, `@mediatek/…`, `@workspace/…`, `@project/…` — and a
+ * BARE ref (`audio/reverb`) is the project level written the short way.
  *
- * A panel lives in the `ui` folder BESIDE the module library it belongs to — `_modules/`
- * has `_ui/`, the mediatek's `modules/` has `ui/`. Deriving it from `modules_from` rather
- * than declaring a fourth list is what keeps a panel travelling with the modules it draws:
- * point a project at a library and its faces come along, with nothing else to write down.
- *
- * Both spellings are probed rather than ruled on, so neither layout has to know the other's
- * naming. Order is PRECEDENCE and the project's own comes first — see loadUiLibrary.
+ * `engine` is the odd one: it names no folder at all. A scanned plugin is synthesised by
+ * `engineCatalogue` from the machine's scan cache, so it is a level without a root.
  */
-export function uiLibraryDirs(dir: string): string[] {
-  const out: string[] = [];
-  const own = join(dir, SHARED_UI_PATH);
-  if (existsSync(own)) out.push(own);
+export const MODULE_NAMESPACES = [
+  "engine",
+  "mediatek",
+  "workspace",
+  "project",
+] as const;
+export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
+
+/**
+ * The namespace a module root answers to, decided by WHERE it is and nothing else.
+ *
+ * It used to be declared, per root, in that root's `config.yaml`. That made the level a
+ * free string an author chose, with two consequences worth stating: a workspace library
+ * could call itself `engine` and collide head-on with the synthesised catalogue (a dozen
+ * fixtures in this repo did exactly that), and nothing tied the name to how deep the
+ * folder actually sat. The levels are structural now — inheritance is what expresses
+ * "the same module, adjusted here" (see docs/moduleNamespaces.md) — so the declaration
+ * had nothing left to decide and is gone.
+ *
+ * Anything that is not the machine's media library is the workspace's own `_modules`:
+ * those are the only two roots `modules_from` can name.
+ */
+export function moduleNamespaceOf(root: string): ModuleNamespace {
+  return resolve(root) === join(mediatekRoot(), "modules")
+    ? "mediatek"
+    : "workspace";
+}
+
+/**
+ * Every module library this project can see, nearest first — its own `modules/`, then the ones
+ * `modules_from` names.
+ *
+ * These are also the roots a PANEL is looked for under, because a panel is the `ui.yaml` in its
+ * module's own folder: there is no separate UI tree to declare, and pointing a project at a library
+ * brings the faces along with nothing else to write down. Order is PRECEDENCE — see loadUiLibrary.
+ */
+export function modulePanelRoots(dir: string): string[] {
+  const own = join(dir, "modules");
+  const out = existsSync(own) ? [own] : [];
   for (const lib of moduleLibraryDirs(dir))
-    for (const name of ["_ui", "ui"]) {
-      const abs = join(lib, "..", name);
-      if (existsSync(abs) && !out.includes(abs)) out.push(abs);
-    }
+    if (!out.includes(lib)) out.push(lib);
   return out;
 }
 

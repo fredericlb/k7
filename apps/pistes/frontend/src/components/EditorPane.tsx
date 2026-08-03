@@ -12,6 +12,7 @@ import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
 import { projectEntityLinks } from "@studio/ui-editor/yaml/entityLinks";
 import { projectLanguage } from "@studio/ui-editor/yaml/language";
 import { projectPreviewGutter } from "@studio/ui-editor/yaml/previewGutter";
+import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -28,7 +29,6 @@ import type {
   WebClip,
   WebProject,
 } from "../types";
-import { schemaVocabulary } from "../yamlVocabulary";
 import { type VideoReader, VideoReadersStrip } from "./VideoReadersStrip";
 import { WaveformView } from "./WaveformView";
 

@@ -4,17 +4,17 @@ The music and stage apps of the frediverse.
 
 | app | what it is | dev site |
 |---|---|---|
-| `apps/radiok7` | rehearsal recorder — sessions, takes, tablature, tuner | `rec.test` |
-| `apps/lanes` | text-first DAW — the web editor | `lanes.test` |
-| `apps/mediatek` | the media library — morceaux, samples, modules | `mediatek.test` |
+| `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `studio.test/k7` |
+| `apps/pistes` | text-first DAW — the web editor | `studio.test/pistes` |
+| `apps/mediatek` | the media library — morceaux, samples, modules | `studio.test/mediatek` |
 | `apps/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `apps/capot` | the Tauri tray that supervises the engine | — |
-| `apps/obscura` | blind-test game — six SPAs behind one origin | `obscura.test` |
+| `apps/obscura` | blind-test game — six SPAs behind one origin | `studio.test/obscura` |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
 supervisor, the view engines, the waveform component. The engine and the tray
-serve every audio app, not just lanes — hence their own directories. Anything
+serve every audio app, not just pistes — hence their own directories. Anything
 shared with the `phare` monorepo lives in `commons/` instead.
 
 ## Getting started
@@ -29,8 +29,13 @@ If you already cloned without it: `git submodule update --init`.
 npm ci
 cp env.example.yaml env.yaml   # then fill in the secrets
 npm run caddy                  # one Caddy serves studio AND phare — see commons/docs/caddy.md
-cd apps/radiok7 && npm run dev
+npm run dev                    # every app, plus the engine and the tray
 ```
+
+`npm run dev` runs the whole studio as one turbo session — every app's frontend and
+backend, plus a task that builds the C++ engine and the Tauri tray, launches the tray,
+and rebuilds+restarts both on save. One app on its own is still `npm run dev` inside its
+directory. See [docs/dev.md](docs/dev.md).
 
 ## The commons submodule
 
@@ -70,7 +75,7 @@ build fails looking for the old path.
 ## Images
 
 ```bash
-npm run images          # all apps, or: npm run images radiok7
+npm run images          # all apps, or: npm run images k7
 npm run check-images    # asserts no workspace package is missing from an image
 ```
 

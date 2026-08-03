@@ -11,15 +11,16 @@ the **why**. Long rationale belongs in the zone's `docs/` directory:
 | zone | pages live in |
 |---|---|
 | a shared package | `packages/<pkg>/docs/` |
-| the lanes frontend | `apps/lanes/frontend/docs/` |
+| the pistes frontend | `apps/pistes/frontend/docs/` |
 | the médiathèque | `apps/mediatek/docs/` |
 | the decks | `apps/platines/docs/` |
 | the C++ engine | `apps/moteur/docs/` |
 | the tray app | `apps/capot/docs/` |
+| the rehearsal recorder | `apps/k7/docs/` |
 | the build scripts | `apps/capot/scripts/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
-(Those are notes for developers. `apps/lanes/docs/` is the exception: it is the
+(Those are notes for developers. `apps/pistes/docs/` is the exception: it is the
 user-facing documentation the app ships and renders at `/docs`.)
 
 **Never** turn a multi-line comment into a one-liner by joining its lines: that
@@ -37,19 +38,20 @@ one app:
 |---|---|---|
 | `apps/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
 | `apps/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
-| `apps/lanes` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — OIDC auth and the engine registry only). Owns the timeline; shares the chains view. |
-| `apps/mediatek` | TypeScript | The media library — morceaux, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so the module builder lives here; it also connects to a local `apps/moteur` to ask a plugin what its parameters are. |
-| `apps/platines` | TypeScript | The decks — the SPA at the root plus `backend/` (OIDC auth, this service's engine registry, and which machine the account DJs from). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `apps/moteur`, because the engine opens file paths and cannot fetch a URL. |
+| `apps/pistes` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — OIDC auth and the engine registry only). Owns the timeline; shares the chains view. |
+| `apps/mediatek` | TypeScript | The media library — morceaux, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which pistes draws too. It also connects to a local `apps/moteur` to ask a plugin what its parameters are. |
+| `apps/platines` | TypeScript | The decks — `frontend/` plus `backend/` (OIDC auth, this service's engine registry, and which machine the account DJs from). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `apps/moteur`, because the engine opens file paths and cannot fetch a URL. |
 | `apps/obscura` | TypeScript | The blind-test game — six SPAs behind one origin. |
-| `apps/radiok7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
+| `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
 
 `packages/` is **studio's own shared tier** — the song compiler, the command
 layer, the engine client and supervisor, the three framework-agnostic view
-engines, and the waveform component. All are `@studio/*` and are consumed as
-**raw TypeScript source**: no build step, imported through `package.json`
-`exports` subpaths, so a bare deep import fails on purpose.
+engines, the waveform component, and the two React views more than one app
+draws: the chains graph and the module builder. All are `@studio/*` and are
+consumed as **raw TypeScript source**: no build step, imported through
+`package.json` `exports` subpaths, so a bare deep import fails on purpose.
 
-They are named `@studio/*` rather than `@lanes/*` because lanes is only one of
+They are named `@studio/*` rather than `@pistes/*` because pistes is only one of
 their consumers: `apps/mediatek` and `apps/platines` both drive them now, and
 obscura's moteur-backed player is behind the seam `@studio/player-web` already
 had.

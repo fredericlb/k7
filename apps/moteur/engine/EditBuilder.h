@@ -10,7 +10,7 @@
 #include <map>
 #include <string>
 
-namespace lanes {
+namespace studio {
 
 // Map the document's track id to the engine track at the same index (null if none).
 te::AudioTrack* trackById(te::Edit& edit, const std::string& id, const ProjectDoc& doc);
@@ -57,4 +57,4 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
                   std::map<std::string, te::Plugin::Ptr>* pluginsOut = nullptr,
                   std::map<std::string, std::string>* presetSaveOut = nullptr);
 
-}  // namespace lanes
+}  // namespace studio

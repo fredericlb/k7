@@ -56,7 +56,7 @@ export async function renderProject(
       "content-type": "application/json",
       // The file service's light LAN gate. Server-to-server there is no Origin header, so
       // CORS allows the call outright — the token is what makes it deliberate.
-      ...(engineToken ? { "x-lanes-engine-token": engineToken } : {}),
+      ...(engineToken ? { "x-studio-engine-token": engineToken } : {}),
     },
     body: JSON.stringify({ doc }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

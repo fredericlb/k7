@@ -235,7 +235,7 @@ export class EngineControl extends EventEmitter {
     this.send({ type: "list-plugins", ...(filter ? { filter } : {}) });
   }
 
-  // Ask for an incremental scan and the fresh list. A genuinely forced rescan must DELETE ~/.lanes/exts.json
+  // Ask for an incremental scan and the fresh list. A genuinely forced rescan must DELETE ~/.studio/exts.json
   // first — that cache is the engine's, which is why the unlink lives in engine-host's engineQueries.
   rescanPlugins(force = false): void {
     this.send({ type: "rescan-plugins", ...(force ? { force: true } : {}) });

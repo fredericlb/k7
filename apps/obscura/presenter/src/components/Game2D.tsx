@@ -25,6 +25,9 @@ import type { GamePhase } from "../types/game";
 
 const SCENE_EXTEND = 0.52;
 
+// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
+const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+
 // UI snapshot — the only state React renders (overlays); everything else is
 // read by the canvas draw loop straight off the mutable game objects.
 interface UIState {
@@ -1146,6 +1149,8 @@ export function Game2D() {
       {waitingForRemote && (
         <div className="waiting-remote">{m["game.waitingForRemote"]()}</div>
       )}
+
+      <div className="build">{VERSION}</div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // workspace.ts — the filesystem layer over ONE workspace root: file ops, the active
 // project, and the compiled/waveform caches, all per-instance because the service
 // serves many users' workspaces from one process. The active project is remembered in
-// a `.lanes-active` dotfile in the root. Full rationale: docs/workspace.md.
+// a `.studio-active` dotfile in the root. Full rationale: docs/workspace.md.
 
 import {
   type Dirent,
@@ -28,15 +28,17 @@ import {
   sep,
 } from "node:path";
 import {
+  type K7Result,
   MP3_CODEC,
-  type Radiok7Result,
-  readRadiok7Config,
+  readK7Config,
   renderMixdown,
-  shareToRadiok7,
+  shareToK7,
   transcode,
 } from "@studio/commands/render";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
+// WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
+import type { WebGraph } from "@studio/graph-model";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
@@ -54,6 +56,7 @@ import {
 import {
   type ForkedModule,
   forkSharedModule,
+  materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
 import {
@@ -74,13 +77,8 @@ import {
   trackMixer,
 } from "@studio/song/project";
 import { isInSharedModules } from "@studio/song/sharedFolders";
-import {
-  loadUiLibrary,
-  SHARED_UI_PATH,
-  uiFileText,
-  uiPathFor,
-} from "@studio/song/uiLibrary";
-import { isProjectFolder } from "@studio/song/yaml/moduleIO";
+import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
+import { isProjectFolder, PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import type {
   FileContent,
   FileNode,
@@ -88,7 +86,6 @@ import type {
   PreviewReq,
   ProjectInfo,
   WaveformStatus,
-  WebGraph,
   WebMixer,
   WebProject,
   WebTrack,
@@ -107,6 +104,9 @@ import {
 
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
 
+/** The module's third file, spelled as it is written. */
+const PRESETS_FILE = `${PRESETS_BASE}.yaml`;
+
 // Turn a compiler error into editor diagnostics; a line with no "<file>: " prefix yields none but still counts.
 function parseCompileError(msg: string): Diagnostic[] {
   const out: Diagnostic[] = [];
@@ -123,7 +123,7 @@ function parseCompileError(msg: string): Diagnostic[] {
   return out;
 }
 
-// A lanes project is any directory with a project file.
+// A pistes project is any directory with a project file.
 export const isProjectDir = (dir: string): boolean => isProjectFolder(dir);
 
 // Files shown in the tree but not editable as text.
@@ -260,7 +260,7 @@ export function setVim(on: boolean): boolean {
 }
 
 // The per-workspace active-project marker; a dotfile, so skip() hides it from the tree.
-const ACTIVE_MARKER = ".lanes-active";
+const ACTIVE_MARKER = ".studio-active";
 
 export class Workspace {
   readonly root: string;
@@ -582,13 +582,14 @@ export class Workspace {
    * and the chains are repointed at it (see moduleFork.ts). `forked` is what the editor needs to follow the
    * file it is now editing; a plain save returns nothing.
    *
-   * There is NO opt-out. There used to be one, for the module builder that edited `_modules` in place; the
-   * builder lives in the médiathèque now, which is the only editable catalogue, so a workspace's `_modules`
-   * is read-only without exception — and the fork is what "read-only" does here instead of refusing.
+   * ONE exception, and only one: a module's `ui.yaml`. A panel is drawn for the plugin, not for the song — every
+   * project that reaches for the same compressor wants the same face — so it is written where the module is, and
+   * forking a whole module to move a knob is precisely the copy nobody wanted. Everything a module IS stays
+   * read-only here: the fork is what "read-only" does instead of refusing. See docs/uiLibrary.md.
    */
   write(rel: string, content: string): { forked?: ForkedModule } {
     const abs = this.safePath(rel);
-    if (isInSharedModules(this.toRel(abs))) {
+    if (isInSharedModules(this.toRel(abs)) && basename(abs) !== UI_FILE) {
       const dir = this.requireActive();
       const forked = forkSharedModule(dir, abs, content);
       this.invalidateProjectDoc();
@@ -604,11 +605,22 @@ export class Workspace {
     return {};
   }
 
-  // Drop a file into `dir` under a safe single-segment name. Binary-safe, and throws EEXIST rather than clobbering.
+  /**
+   * Drop a file into `dir` under `name`. Binary-safe, and throws EEXIST rather than clobbering.
+   *
+   * `name` may carry FOLDERS — `audio/reverb/module.yaml`. It could not, once, and that was fine while a drop
+   * was a flat list of files; a module is a folder of three files now, so "add this module" is a folder drop
+   * and a single segment cannot express it. Every segment is still checked: `..` is the only one that could
+   * escape, and `safePath` below refuses it too. Belt and braces, because this is a public write route.
+   */
   uploadFile(dir: string, name: string, bytes: Buffer): { path: string } {
-    const clean = basename(name).replace(/[\\/]/g, "").trim();
-    if (!clean || clean === "." || clean === "..")
+    const segs = name
+      .split(/[\\/]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!segs.length || segs.some((s) => s === "." || s === ".."))
       throw new Error(`invalid filename: ${name}`);
+    const clean = segs.join("/");
     const base = dir && dir !== "." ? dir.replace(/\/+$/, "") : "";
     const rel = base ? `${base}/${clean}` : clean;
     const abs = this.safePath(rel);
@@ -795,11 +807,12 @@ export class Workspace {
   }
 
   /**
-   * The `_ui` panel file for a module file — the one the module editor's grid actually edits.
+   * The `ui.yaml` panel for a module file — the one the module editor's grid actually edits.
    *
-   * A panel lives apart from its module (see uiLibrary.ts), so the editor needs two files, and the second one
-   * may not exist yet: this answers the path it WOULD take plus a scaffold, so a first save creates it through
-   * the ordinary write route rather than needing one of its own.
+   * The two files are siblings (see uiLibrary.ts), so this is `dirname` and nothing more; `rel` may be either
+   * of them, which is what lets a click on `ui.yaml` open the same builder as a click on `module.yaml`. The
+   * panel may not exist yet: this answers the path it WOULD take plus a scaffold, so a first save creates it
+   * through the ordinary write route rather than needing one of its own.
    */
   moduleUi(rel: string): {
     ref: string;
@@ -812,25 +825,58 @@ export class Workspace {
     const ref = sharedModuleRef(dir, abs)?.ref ?? this.localModuleRef(dir, abs);
     if (!ref) throw new Error(`${this.toRel(abs)} is not a module file`);
 
-    // An existing panel is found by REF, wherever its file was moved to — the path is only filing.
-    const found = loadUiLibrary(dir).byRef[ref];
-    if (found)
-      return {
-        ref,
-        path: this.toRel(found.path),
-        content: readFileSync(found.path, "utf8"),
-        exists: true,
-      };
-    const path = join(dir, SHARED_UI_PATH, uiPathFor(ref));
+    return this.sidecar(abs, ref, UI_FILE, () =>
+      uiFileText({ cols: 4, rows: 2, widgets: {} }, `panel for ${ref}`),
+    );
+  }
+
+  /**
+   * Give a module the ENGINE provides a folder in this project, and repoint the chains at it.
+   *
+   * The one way a module without files gets some. A panel and a shelf are FILES in a module's folder, so
+   * wanting either for a scanned plugin is the moment it stops being ambient — see moduleFork.ts.
+   */
+  materialiseModule(ref: string): ForkedModule {
+    const dir = this.requireActive();
+    const out = materialiseEngineModule(dir, ref);
+    this.invalidateProjectDoc();
+    return { ...out, path: this.toRel(join(dir, out.path)) };
+  }
+
+  /**
+   * The `presets.yaml` for a module file — its named settings (see presets.ts).
+   *
+   * The module's third file, answered exactly like its panel: `rel` may name any of the three, an absent shelf
+   * comes back as the path it would take plus a header, and the first save creates it through the ordinary
+   * write route.
+   */
+  modulePresets(rel: string): {
+    ref: string;
+    path: string;
+    content: string;
+    exists: boolean;
+  } {
+    const abs = this.safePath(rel);
+    const dir = this.requireActive();
+    const ref = sharedModuleRef(dir, abs)?.ref ?? this.localModuleRef(dir, abs);
+    if (!ref) throw new Error(`${this.toRel(abs)} is not a module file`);
+    return this.sidecar(abs, ref, PRESETS_FILE, () => `# presets for ${ref}\n`);
+  }
+
+  // One of the module's own files beside `abs`, or the path it would take plus `scaffold()`.
+  private sidecar(
+    abs: string,
+    ref: string,
+    name: string,
+    scaffold: () => string,
+  ): { ref: string; path: string; content: string; exists: boolean } {
+    const path = join(dirname(abs), name);
+    const exists = existsSync(path);
     return {
       ref,
       path: this.toRel(path),
-      content: uiFileText(
-        ref,
-        { cols: 4, rows: 2, widgets: {} },
-        `panel for ${ref}`,
-      ),
-      exists: false,
+      content: exists ? readFileSync(path, "utf8") : scaffold(),
+      exists,
     };
   }
 
@@ -989,19 +1035,16 @@ export class Workspace {
     }
   }
 
-  // Publish to radiok7. An unknown song throws NEEDS_META, which the route turns into a prompt for artist and title.
-  async shareRadiok7(opts: {
-    artist?: string;
-    title?: string;
-  }): Promise<Radiok7Result> {
+  // Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for artist and title.
+  async shareK7(opts: { artist?: string; title?: string }): Promise<K7Result> {
     const dir = this.requireActive();
     const engine = findEngineBinary();
     if (!engine)
       throw new Error("engine binary not found — cannot render the mixdown");
-    // Credentials sit at the WORKSPACE root — one radiok7 login serves every project in it.
-    const cfg = readRadiok7Config(this.root);
+    // Credentials sit at the WORKSPACE root — one k7 login serves every project in it.
+    const cfg = readK7Config(this.root);
     if ("error" in cfg) throw new Error(cfg.error);
-    return shareToRadiok7(engine, dir, cfg, opts);
+    return shareToK7(engine, dir, cfg, opts);
   }
 
   // Resolve a play-button request to a file + window: an absolute path (guarded), else a clip id, else a media path.

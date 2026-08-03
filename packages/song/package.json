@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes's song layer — parses a folder of CUE files, compiles it to a flat ProjectDoc/GraphDoc, and resolves Strudel patterns. Consumed as source.",
+  "description": "pistes's song layer — parses a folder of CUE files, compiles it to a flat ProjectDoc/GraphDoc, and resolves Strudel patterns. Consumed as source.",
   "exports": {
     "./loader": "./src/loader.ts",
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
@@ -43,6 +43,7 @@
     "./yaml/trackFile": "./src/yaml/trackFile.ts",
     "./yaml/sequenceFile": "./src/yaml/sequenceFile.ts",
     "./engineCatalogue": "./src/engineCatalogue.ts",
+    "./engineFace": "./src/engineFace.ts",
     "./mediatekRoot": "./src/mediatekRoot.ts",
     "./moduleTypes": "./src/moduleTypes.ts"
   },

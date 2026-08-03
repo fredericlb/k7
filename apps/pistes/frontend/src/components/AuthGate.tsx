@@ -46,7 +46,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
       <Card className="flex max-w-sm flex-col items-center gap-4 p-8 text-center">
-        <div className="text-2xl font-semibold tracking-tight">lanes</div>
+        <div className="text-2xl font-semibold tracking-tight">pistes</div>
         <p className="text-sm text-muted-foreground">{m["auth.tagline"]()}</p>
         <Button
           className="mt-2 w-full"

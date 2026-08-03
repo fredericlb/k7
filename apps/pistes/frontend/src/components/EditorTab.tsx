@@ -5,9 +5,17 @@
 // file is exactly what this format was chosen to avoid.
 
 import { Button } from "@frediverse/ui/button";
+import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import { parsePosition } from "@studio/song/timecode";
-import { FolderTree, Grid3x3, Piano, Save, TriangleAlert } from "lucide-react";
+import {
+  FolderTree,
+  Grid3x3,
+  LayoutGrid,
+  Piano,
+  Save,
+  TriangleAlert,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -20,10 +28,12 @@ import { useDiskSync } from "../hooks/useDiskSync";
 import {
   fileStem,
   isClipFile,
+  isModuleFile,
   isRackModuleFile,
   isSeqFile,
   isTrackFile,
   isVideoTrackFile,
+  moduleFileOf,
   readScalarField,
 } from "../projectPaths";
 import type {
@@ -180,6 +190,7 @@ export function EditorTab({
   setStatus,
   onEditTarget,
   onOpenItem,
+  onOpenBuilder,
   diagnostics,
   ref,
 }: {
@@ -198,6 +209,9 @@ export function EditorTab({
   setStatus: (s: string) => void;
   onEditTarget: (t: EditTarget | null) => void; // the open sequence, for the Editor panel
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
+  // Open the shared module builder over the shell, on the MODULE file of the trio — plus which of the three
+  // was clicked, so its code pane opens on the file the click pointed at.
+  onOpenBuilder: (path: string, pane: "module" | "panel" | "presets") => void;
   ref?: React.Ref<EditorHandle>;
 }) {
   const [tree, setTree] = useState<FileNode[]>([]);
@@ -777,15 +791,17 @@ export function EditorTab({
     count: number;
   } | null>(null);
 
+  // `files` carry the path they sat at, so a dropped FOLDER lands as a folder — a module is three files in
+  // one, and a flat list could not say that (see the shared tree's lib/droppedEntries.ts).
   const uploadFiles = useCallback(
-    async (dir: string, files: File[]) => {
+    async (dir: string, files: DroppedFile[]) => {
       if (!files.length) return;
       // Pre-read all ArrayBuffers so total byte count is known upfront.
       const entries = await Promise.all(
-        files.map(async (f) => ({
-          name: f.name,
-          bytes: await f.arrayBuffer(),
-          size: f.size,
+        files.map(async ({ path, file }) => ({
+          name: path,
+          bytes: await file.arrayBuffer(),
+          size: file.size,
         })),
       );
       const totalBytes = entries.reduce((s, e) => s + e.size, 0);
@@ -901,6 +917,29 @@ export function EditorTab({
               Tracker
             </Button>
           </>
+        )}
+        {/* A module is the one file with a second editor worth offering: the builder draws its panel.
+            A BUTTON and not a redirected click — opening `module.yaml` must still open its text, which is
+            the editing path a shared module forks through. */}
+        {file && isModuleFile(file.path) && (
+          <Button
+            size="sm"
+            variant="secondary"
+            title="open this module in the builder — its panel, its presets"
+            onClick={() =>
+              onOpenBuilder(
+                moduleFileOf(file.path),
+                /ui\.ya?ml$/i.test(file.path)
+                  ? "panel"
+                  : /presets\.ya?ml$/i.test(file.path)
+                    ? "presets"
+                    : "module",
+              )
+            }
+          >
+            <LayoutGrid className="mr-1 h-4 w-4" />
+            Builder
+          </Button>
         )}
         <Button size="sm" onClick={save} disabled={!editable || !dirty}>
           <Save className="mr-1 h-4 w-4" />

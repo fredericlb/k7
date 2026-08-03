@@ -1,6 +1,7 @@
 // library.ts — the media library over HTTP: what exists, how stale a listing is, and the
 // bytes themselves. The same vocabulary the LOCAL service serves, deliberately, so a cache
-// can ask either side the same questions. Read-only; writing arrives with the builder.
+// can ask either side the same questions. Writing too — by path for the two callers that
+// legitimately have one, and by TAGS for an upload, which does not. See docs/upload.md.
 
 import { statSync } from "node:fs";
 import { extname } from "node:path";
@@ -9,14 +10,24 @@ import { wrap } from "@frediverse/http/route";
 import { listFamily, search, summary } from "@studio/mediatek/catalogue";
 import {
   exists,
+  MORCEAU_KINDS,
   NotWritableError,
   PathEscapesError,
   safePath,
 } from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
+import { MorceauExistsError, NotAudioError } from "@studio/mediatek/morceau";
+import { addRecording, listRecordings } from "@studio/mediatek/recordings";
 import { revisions } from "@studio/mediatek/revision";
 import { FAMILIES, type Family } from "@studio/mediatek/types";
-import { putFile, removeFile } from "@studio/mediatek/write";
+import {
+  addMorceau,
+  makeFolder,
+  moveEntry,
+  putFile,
+  removeFile,
+  removeTree,
+} from "@studio/mediatek/write";
 import express, { Router } from "express";
 
 export const libraryRouter: Router = Router();
@@ -173,6 +184,190 @@ libraryRouter.put(
       throw e;
     }
     res.json({ ok: true, path: rel });
+  }),
+);
+
+/**
+ * One uploaded audio file as a filed morceau.
+ *
+ * Its own route rather than a PUT /file, because the CALLER DOES NOT CHOOSE THE PATH here:
+ * it sends three tags and the library derives `morceaux/imported/<artiste>/<album>/<titre>/
+ * original.<ext>` from them. That is the whole point — `morceaux/` has a shape, and a
+ * client free to name the folder would be free to name any folder.
+ *
+ * Raw body for the same reason PUT /file uses one: a 400 MB master should never be a field
+ * in a form parse. The tags ride in the query string, where they are short and text.
+ */
+libraryRouter.post(
+  "/morceau",
+  express.raw({ type: "*/*", limit: "512mb" }),
+  wrap((req, res) => {
+    const q = req.query as Record<string, unknown>;
+    const s = (k: string): string =>
+      typeof q[k] === "string" ? (q[k] as string) : "";
+    const filename = s("filename");
+    if (!filename) return res.status(400).json({ error: "filename required" });
+    const bytes = req.body as Buffer;
+    if (!bytes?.length) return res.status(400).json({ error: "empty body" });
+    // The provenance folder. Checked here rather than in the pure naming module, which is
+    // browser-safe and therefore has no access to the layout's list.
+    const kind = s("kind") || undefined;
+    if (kind && !MORCEAU_KINDS.includes(kind as (typeof MORCEAU_KINDS)[number]))
+      return res
+        .status(400)
+        .json({ error: `kind must be one of: ${MORCEAU_KINDS.join(", ")}` });
+    try {
+      const r = addMorceau({
+        filename,
+        bytes,
+        kind,
+        tags: {
+          artist: s("artist"),
+          album: s("album"),
+          title: s("title"),
+          // Who filed it. k7 pushes its published versions through here and says so,
+          // which is what tells a human reading the folder that it is not somebody's drop.
+          source: s("source") || undefined,
+        },
+        replace: s("replace") === "1",
+      });
+      res.json({ ok: true, ...r });
+    } catch (e) {
+      // Already there is a 409 and not a 400: the request is well formed, and the fix is a
+      // decision — replace it or file it elsewhere — not a correction.
+      if (e instanceof MorceauExistsError)
+        return res.status(409).json({ error: e.message, exists: true });
+      if (e instanceof NotAudioError)
+        return res.status(400).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
+  }),
+);
+
+/**
+ * The raw capture zone, day by day. Its own listing because these files enter no
+ * catalogue: `/list?family=morceaux` will never mention one. See docs/recordings.md.
+ */
+libraryRouter.get(
+  "/recordings",
+  wrap((_req, res) => {
+    res.json({ days: listRecordings() });
+  }),
+);
+
+/**
+ * Push one capture in.
+ *
+ * The route the machines use, and the reason the zone exists. It is behind the same
+ * `bearerOrSession` as everything else here, so a headless recorder authenticates with an
+ * API token and needs no cookie jar — see server.ts.
+ *
+ * `at` is the moment it was CAPTURED, ISO, and optional: a recorder posting live has
+ * nothing to say that the server clock does not already know, while a batch pushed the
+ * morning after would otherwise land, whole, under the wrong day.
+ */
+libraryRouter.post(
+  "/recording",
+  express.raw({ type: "*/*", limit: "512mb" }),
+  wrap((req, res) => {
+    const q = req.query as Record<string, unknown>;
+    const s = (k: string): string =>
+      typeof q[k] === "string" ? (q[k] as string) : "";
+    const filename = s("filename");
+    if (!filename) return res.status(400).json({ error: "filename required" });
+    const bytes = req.body as Buffer;
+    if (!bytes?.length) return res.status(400).json({ error: "empty body" });
+    let at: Date | undefined;
+    if (s("at")) {
+      at = new Date(s("at"));
+      // Refused rather than silently falling back to now: a caller that bothered to send a
+      // timestamp cares where the file lands, and today is the one answer it did not mean.
+      if (Number.isNaN(at.getTime()))
+        return res.status(400).json({ error: `at: not a date: ${s("at")}` });
+    }
+    // Present == the caller is pushing a MOMENT, a span cut out of a session, which the
+    // zone names differently: moment-<HH-MM-SS>--<durée>--<nom>.
+    const duration = s("duration") ? Number(s("duration")) : undefined;
+    if (duration !== undefined && !Number.isFinite(duration))
+      return res
+        .status(400)
+        .json({ error: `duration: not a number: ${s("duration")}` });
+    try {
+      res.json({
+        ok: true,
+        ...addRecording({
+          filename,
+          bytes,
+          at,
+          durationSec: duration,
+          label: s("label") || undefined,
+        }),
+      });
+    } catch (e) {
+      if (e instanceof NotAudioError)
+        return res.status(400).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
+  }),
+);
+
+/**
+ * Move or rename, in one syscall, folders included.
+ *
+ * A POST and not a PUT on /file: this carries no bytes, and a folder has none to carry.
+ * The client used to compose it from read + write + delete, which could not touch a folder
+ * at all and left a duplicate whenever the delete failed after the write.
+ */
+libraryRouter.post(
+  "/move",
+  express.json(),
+  wrap((req, res) => {
+    const { from, to } = (req.body ?? {}) as { from?: string; to?: string };
+    if (!from || !to)
+      return res.status(400).json({ error: "from and to required" });
+    try {
+      moveEntry(from, to);
+    } catch (e) {
+      if (writeError(e, res)) return;
+      throw e;
+    }
+    res.json({ ok: true, path: to });
+  }),
+);
+
+/** An empty folder — somewhere to drop into before the first file exists. */
+libraryRouter.post(
+  "/folder",
+  express.json(),
+  wrap((req, res) => {
+    const rel = String((req.body as { path?: string })?.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path required" });
+    try {
+      makeFolder(rel);
+    } catch (e) {
+      if (writeError(e, res)) return;
+      throw e;
+    }
+    res.json({ ok: true, path: rel });
+  }),
+);
+
+/** A whole subtree. Separate from DELETE /file so removing a folder is never something a
+ *  caller can do by accident while meaning to remove one entry. */
+libraryRouter.delete(
+  "/folder",
+  wrap((req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path required" });
+    try {
+      removeTree(rel);
+    } catch (e) {
+      if (writeError(e, res)) return;
+      throw e;
+    }
+    res.json({ ok: true });
   }),
 );
 

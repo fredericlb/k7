@@ -6,7 +6,7 @@ in-memory copy. That is deliberate; the two obvious alternatives are both worse.
 ## The problem it solves
 
 The registry answers one question: *which engines can this browser reach?* Until now only
-lanes asked it, so it lived in lanes' backend. Then mediatek's module preview and platines'
+pistes asked it, so it lived in pistes' backend. Then mediatek's module preview and platines'
 deck started driving engines too — and both had the question hardcoded to `127.0.0.1:8765`
 (`probeLocalEngine`), because there was no registry of theirs to consult.
 
@@ -16,8 +16,8 @@ service, which is the point of this whole line of work.
 
 ## Why not one central registry the others query
 
-Because then lanes-backend is a dependency of mediatek-backend, at request time, for the
-list a user sees on first load. A lanes deploy would take mediatek's engine picker down with
+Because then pistes-backend is a dependency of mediatek-backend, at request time, for the
+list a user sees on first load. A pistes deploy would take mediatek's engine picker down with
 it, and the two are deployed separately on purpose. The registry is 120 lines of `Map` — the
 coupling would cost far more than the duplication.
 
@@ -45,5 +45,5 @@ first one's project.
 
 Sessions removed that danger — two apps on one engine now hold two projects. The flag
 survives as **information** ("someone is on this"), and per-service registries mean it no
-longer even spans services: lanes' registry knows nothing about the mediatek tab holding the
+longer even spans services: pistes' registry knows nothing about the mediatek tab holding the
 same engine. Retiring it is its own decision, not a side effect of this move.

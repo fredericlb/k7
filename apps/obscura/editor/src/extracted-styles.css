@@ -42,6 +42,8 @@ html, body, #root {
   font-size: 12px;
 }
 .topbar .loaded { color: #ccc; font-size: 11px; }
+/* Build stamp — same muted weight as .loaded, tabular so it never jitters. */
+.topbar .build { color: #777; font-size: 10px; font-variant-numeric: tabular-nums; }
 .save-msg { font-size: 11px; padding: 2px 8px; }
 .save-msg.saved { color: #00ff66; }
 .save-msg.error { color: #ff4444; }

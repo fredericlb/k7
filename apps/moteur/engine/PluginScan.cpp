@@ -1,4 +1,4 @@
-// Plugin discovery, out-of-process, cached in ~/.lanes/exts.json — see
+// Plugin discovery, out-of-process, cached in ~/.studio/exts.json — see
 // PluginScan.h and the CLI declarations in EngineHost.h. Each plugin is loaded in a
 // child process (runPluginScanChild), so a crashy plugin only kills its own child.
 
@@ -20,7 +20,7 @@
 #include <thread>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 // The scan cache, parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing the file each time
 // added up on projects with many. Invalidated after a rescan; only the two accessors cross TUs.
@@ -41,12 +41,12 @@ void invalidatePluginInfoMemo() { g_pluginInfoLoaded = false; }
 namespace {
 
 // Sentinels the child fences its JSON with, so the parent can find it amid any stdout a plugin prints.
-constexpr const char* kScanBegin = "LANES_SCAN_BEGIN";
-constexpr const char* kScanEnd = "LANES_SCAN_END";
+constexpr const char* kScanBegin = "STUDIO_SCAN_BEGIN";
+constexpr const char* kScanEnd = "STUDIO_SCAN_END";
 
-// The incremental scan cache lives at ~/.lanes/exts.json.
+// The incremental scan cache lives at ~/.studio/exts.json.
 juce::File extsCacheFile() {
-    auto dir = juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".lanes");
+    auto dir = juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".studio");
     dir.createDirectory();
     return dir.getChildFile("exts.json");
 }
@@ -207,16 +207,16 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Impulse Response", te::ImpulseResponsePlugin::xmlTypeName, "audioEffect", "reverb"),
         // The amp itself rather than its cabinet: a .nam model's non-linear behaviour. Filed under distortion, which is
         // what it does to the signal and where you would look for it.
-        e("Neural Amp Modeler", lanes::NamPlugin::xmlTypeName, "audioEffect", "distortion"),
+        e("Neural Amp Modeler", studio::NamPlugin::xmlTypeName, "audioEffect", "distortion"),
         // DSP described as DATA rather than compiled in — the experiment behind DspGraph.h. Its parameters
         // come from the description, so two graphs are two different-looking plugins of the same type.
-        e("DSP Graph", lanes::GraphDspPlugin::xmlTypeName, "audioEffect", "filter"),
+        e("DSP Graph", studio::GraphDspPlugin::xmlTypeName, "audioEffect", "filter"),
         // The same idea over the note stream. `midiEffect` is not cosmetic: it is what files the module under
         // transformers/ rather than audio/, and what puts it BEFORE the instrument in a chain.
-        e("MIDI Graph", lanes::MidiGraphPlugin::xmlTypeName, "midiEffect", "utility"),
+        e("MIDI Graph", studio::MidiGraphPlugin::xmlTypeName, "midiEffect", "utility"),
         // The channel strip: level, pan and a three-knob tone stack. A track carries none of these itself, so
         // this is where a mix is made — one instance per track, at the end of its chain.
-        e("Mixer", lanes::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
+        e("Mixer", studio::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
     };
 }
 
@@ -241,12 +241,12 @@ std::vector<PluginInfo> airWindowsPlugins() {
 void registerBuiltInPlugins(te::Engine& engine) {
     auto& pm = engine.getPluginManager();
     // Ours.
-    pm.createBuiltInType<lanes::WaveformTapPlugin>();
-    pm.createBuiltInType<lanes::BroadcastTapPlugin>();
-    pm.createBuiltInType<lanes::NamPlugin>();
-    pm.createBuiltInType<lanes::GraphDspPlugin>();
-    pm.createBuiltInType<lanes::MidiGraphPlugin>();
-    pm.createBuiltInType<lanes::MixerPlugin>();
+    pm.createBuiltInType<studio::WaveformTapPlugin>();
+    pm.createBuiltInType<studio::BroadcastTapPlugin>();
+    pm.createBuiltInType<studio::NamPlugin>();
+    pm.createBuiltInType<studio::GraphDspPlugin>();
+    pm.createBuiltInType<studio::MidiGraphPlugin>();
+    pm.createBuiltInType<studio::MixerPlugin>();
     // Tracktion SHIPS these but registers neither, so both were dead weight in the binary until now: the
     // convolver — a cabinet or a space as an audio file the project OWNS — and the 186 AirWindows effects,
     // whose initialiseAirWindows() is defined in PluginManager.cpp and called from nowhere in the module.
@@ -396,4 +396,4 @@ int runPluginScanCli(bool forceRescan) {
     return 0;
 }
 
-}  // namespace lanes
+}  // namespace studio

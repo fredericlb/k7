@@ -1,4 +1,4 @@
-// server.ts — lanes/web backend: auth + the engine registry, and later serving the
+// server.ts — pistes/web backend: auth + the engine registry, and later serving the
 // frontend. File operations moved to the engine-side file service, which the browser
 // reaches directly — so this hosted piece knows WHO you are (OIDC) and WHICH engines exist,
 // never what is on any engine's disk. Runs under tsx to import the brain's TypeScript.
@@ -16,9 +16,9 @@ import { z } from "zod";
 const PORT = process.env.PORT || 8789;
 const app = express();
 
-// Where the engine-host supervisor looks for the registry: `lanes --web` picks a free port, so we drop our
-// real URL here on boot and remove it on shutdown. A hosted deploy sets LANES_REGISTRY_URL instead.
-const WEB_ENDPOINT_PATH = join(homedir(), ".lanes", "web-endpoint.json");
+// Where the engine-host supervisor looks for the registry: `pistes --web` picks a free port, so we drop our
+// real URL here on boot and remove it on shutdown. A hosted deploy sets STUDIO_REGISTRY_URL instead.
+const WEB_ENDPOINT_PATH = join(homedir(), ".studio", "web-endpoint.json");
 function advertiseEndpoint(url: string): void {
   try {
     mkdirSync(dirname(WEB_ENDPOINT_PATH), { recursive: true });
@@ -33,8 +33,11 @@ app.use(express.json({ limit: "8mb" }));
 // Auth: the browser must be logged in before it can list or select engines (shared @frediverse/oidc).
 // With no OIDC_* env it falls back to a dev stub, but a login is still mandatory.
 const { requireAuth } = await setupAuth(app, {
-  cookieName: "lanes.sid",
-  service: "lanes-web-backend",
+  // Shared across every studio service: one origin, one session. This backend
+  // OWNS the flow (Caddy routes /auth/* here); the others verify this cookie and
+  // mount no auth routes of their own. Same SESSION_SECRET, from env.yaml common.
+  cookieName: "studio.sid",
+  service: "pistes-web-backend",
 });
 
 // Browser-facing registry routes need a session. Mounted before the router so the engine-to-backend routes
@@ -55,7 +58,7 @@ const prefsSchema = z.object({ engineId: z.string().optional() });
 // Defaults under the home directory so a dev run works with no volume at all; a deploy
 // mounts one and points this at it. See packages/user-prefs/docs/store.md.
 const PREFS_DIR =
-  process.env.LANES_PREFS_DIR || join(homedir(), ".lanes", "prefs", "lanes");
+  process.env.STUDIO_PREFS_DIR || join(homedir(), ".studio", "prefs", "pistes");
 app.use(
   "/api",
   requireAuth,
@@ -67,7 +70,7 @@ app.use(
 
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
-  console.log(`🎛  lanes-web backend on ${url}  (auth + registry)`);
+  console.log(`🎛  pistes-web backend on ${url}  (auth + registry)`);
   advertiseEndpoint(url); // so the engine tray can find the registry
 });
 

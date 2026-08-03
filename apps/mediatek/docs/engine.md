@@ -9,16 +9,43 @@ to the loaded binary, and it changes when the plugin is updated.
 
 So the module builder needs an engine, and the engine is on *your* machine.
 
-## One engine, on loopback, and no picker
+## Which engine, and where the choice lives
 
-`src/engine/useModuleEngine.ts` probes `127.0.0.1:8765` (`probeLocalEngine`) and connects
-to whatever answers. Deliberately unlike lanes, which has a registry, an engine list and a
-lease: lanes plays a *song*, which can reasonably be driven from another machine, whereas a
-module preview must run where the module will be used. "Which of my engines" has no
-question to answer here.
+It was loopback and nothing else once, on the argument that a preview must play on the
+machine the module will be used from — so "which of my engines" had no question to answer.
+That held while a person had one machine.
 
-An absent engine is a **normal state**, not an error. The editor still edits text; the
-parameter list is simply empty, and the footer says why. Launching the capot fills it in.
+The médiathèque holds its own registry now (`packages/engine-registry/docs/shared.md`: each
+hosted service keeps one, so an engine appears here only once its capot has been pointed at
+the médiathèque). The choice is remembered **on the account**, and the policy lives in
+`chooseEngine` where it can be tested. `useEngineChoice` reads the list and the remembered
+id WITHOUT connecting — drawing a menu must not open a second socket to the engine
+`useModuleEngine` is already holding.
+
+## The Modules section is gated on one
+
+An absent engine used to be a **normal state** everywhere: the editor still edited text, the
+parameter list was simply empty, and the footer said why. That is still true *inside* the
+builder — an engine can drop mid-edit and the text must not become unsavable — but it is no
+longer true at the door.
+
+`Library.tsx` puts an overlay over the Modules section until `useEngineChoice` reports one
+chosen AND reachable from this browser. Not a nag: a module IS what a plugin is, so without
+one the builder edits blind — every binding typed from memory, every range guessed, every
+preset absent. Being told to pick an engine is a better answer than a screen that looks like
+it works.
+
+Two states it deliberately tells apart, because a bare "no engine" hides the second:
+
+- nothing has announced itself — the capot has not been pointed at the médiathèque;
+- something is remembered but does not answer, which means "turn that machine on".
+
+`choice.loaded` is what keeps it from flashing in everybody's face on load: before it, "not
+chosen" and "not looked yet" are the same value. The header stays above the overlay, so the
+other two sections are one click away — the gate is on Modules, not on the app.
+
+The picker's rows are `EngineList`, rendered bare here and inside the header's popover. One
+list, two wrappers: a second rendering of the same choice is a second thing to keep in step.
 
 ## The preview document
 
@@ -41,26 +68,33 @@ needs two scalars, and both spellings used in this repo (indented block, inline 
 covered. Unparseable yields `undefined`, never a throw: a module with no plugin is a real
 thing (an io module) and shows an empty list.
 
-## Why the builder is here at all
+## Why the builder passed through here
 
-It used to be a screen inside lanes, editing the workspace's `_modules` in place through an
+It used to be a screen inside pistes, editing the workspace's `_modules` in place through an
 `editShared` flag on the file service's write route. That worked because a workspace's
 `_modules` was, at the time, where modules lived.
 
 It is not any more. Modules live in the médiathèque, which every project reads through the
-`@mediatek` named root; a workspace's copy is a **read-only mirror**, and the escape hatch
-is gone (see `packages/song/docs/moduleFork.md`). Only the library is editable, so only the
-library can host a builder.
+`@mediatek` named root; a workspace's copy is a **read-only mirror**, and the general escape
+hatch is gone (see `packages/song/docs/moduleFork.md`). So the builder moved here, where the
+catalogue is editable.
 
-What moved: `ModuleEditorPage`, `WidgetGridEditor`, `moduleUi`. What did **not**, and why:
+**It is a package now** — `@studio/ui-module-builder` — and pistes draws the same component
+again, over a store of its own. Moving it here was still the right step: it is where the
+builder was rebuilt around the library's own service, and that rebuild is what made the seam
+obvious enough to name. What this app keeps is the host around it: the engine link, the
+entry it was opened on, and the vim toggle.
 
-* `EditorPane` stayed in lanes. It carries a sequence tracker, waveform views and video
-  readers because lanes edits a song's *material*; a module is a page of YAML.
-  `src/YamlPane.tsx` is the small pane that replaces it here.
-* `paramDrag.ts` and `yamlVocabulary.ts` are **copies**, not moves — lanes still uses its
-  own (`fileDrop.ts` reads the drag MIME, `EditorPane` reads the vocabulary). Each copy
-  carries a header saying so.
-* **User presets** are gone rather than ported. In lanes they were parameters saved into
+What did **not** move into the package, and why:
+
+* `EditorPane` stayed in pistes. It carries a sequence tracker, waveform views and video
+  readers because pistes edits a song's *material*; a module is a page of YAML.
+  `YamlPane.tsx`, in the package, is the small pane that replaces it.
+* `yamlVocabulary.ts` went further out still, to `@studio/ui-editor/yaml/vocabulary`: three
+  editors need the same answers, and what completes where is a *language* concern, not a
+  builder one. `paramDrag.ts` is the package's, exported, because a host's file tree has to
+  recognise the drag to ignore it.
+* **User presets** are gone rather than ported. In pistes they were parameters saved into
   the active *project*, and a library has no project. Here, "save the current parameters"
   is what Save already does — a module file **is** its parameters, so a second place to
   keep them would be a second truth. Factory presets, which come from the plugin, stay.

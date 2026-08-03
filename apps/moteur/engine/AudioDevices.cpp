@@ -15,14 +15,14 @@
 #include <string>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 namespace {
 
 // The same sentinel trick as the plugin scan: JUCE and the audio drivers print to stdout while scanning, so the
 // CLI fences its JSON. Kept in step with the brain's config reader.
-constexpr const char* kDevicesBegin = "LANES_DEVICES_BEGIN";
-constexpr const char* kDevicesEnd = "LANES_DEVICES_END";
+constexpr const char* kDevicesBegin = "STUDIO_DEVICES_BEGIN";
+constexpr const char* kDevicesEnd = "STUDIO_DEVICES_END";
 
 // ASIO first: on Windows it is the low-latency path, and the same interface is usually offered by the other
 // backends too — those are the fallbacks, so they sort below it.
@@ -203,4 +203,4 @@ int runAudioDevicesCli() {
     return 0;
 }
 
-}  // namespace lanes
+}  // namespace studio

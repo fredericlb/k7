@@ -1,6 +1,6 @@
 // useDiskSync — keep the open file in step with what is actually on disk.
 //
-// Every command in lanes rewrites YAML: `module param`, `track gain`, a clip drag, a bypass click. The editor
+// Every command in pistes rewrites YAML: `module param`, `track gain`, a clip drag, a bypass click. The editor
 // read its file once and never again, so the moment you touched anything the buffer was a snapshot of the past —
 // and the next Save wrote it back over whatever had happened since. Silently. That is the bug this exists for,
 // and it is a data-loss one, not a cosmetic one.

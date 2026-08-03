@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "lanes menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @studio/engine-host over the same ~/.lanes + registry contract.",
+  "description": "pistes menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @studio/engine-host over the same ~/.studio + registry contract.",
   "scripts": {
     "predev": "node scripts/build-engine.mjs --sidecar-only",
     "dev": "tauri dev",

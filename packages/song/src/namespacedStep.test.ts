@@ -35,7 +35,7 @@ const SONG = join(
   "songs",
   "synth-demo",
 );
-const REF = "@engine/audio/shared-delay";
+const REF = "@workspace/audio/shared-delay";
 
 describe("a chain step naming an inherited module by ref", () => {
   let ws: string;
@@ -48,7 +48,6 @@ describe("a chain step naming an inherited module by ref", () => {
     mkdirSync(join(ws, "_modules", "audio", "shared-delay"), {
       recursive: true,
     });
-    writeFileSync(join(ws, "_modules", "config.yaml"), "namespace: engine\n");
     writeFileSync(
       join(ws, "_modules", "audio", "shared-delay", "module.yaml"),
       "plugin:\n  type: internal\n  name: delay\n",
@@ -92,17 +91,17 @@ describe("a chain step naming an inherited module by ref", () => {
     // io is offered too — both roles are chain nodes now: an "out" ends a chain, an
     // "in" feeds one. (An inherited INSTANCE is nameable as well, which is the whole
     // point for io/IN: `module populate` files one per physical input.)
-    expect(h.modules).toContain("@engine/io/desk");
-    expect(h.ioSinks).toContain("@engine/io/desk");
+    expect(h.modules).toContain("@workspace/io/desk");
+    expect(h.ioSinks).toContain("@workspace/io/desk");
   });
 
   // The chain's LAST node is its sink, parsed out of the steps — a different lookup, so
   // it needs its own proof that a ref reaches it.
   it("works in the sink position too, not only as a step", () => {
-    replaceChainStep(dir, "OUT", { module: "@engine/io/desk" });
+    replaceChainStep(dir, "OUT", { module: "@workspace/io/desk" });
     const g = loadGraph(dir);
     expect(g.warnings.filter((w) => w.includes("desk"))).toEqual([]);
-    expect(Object.values(g.chains)[0].out[0].to).toBe("@engine/io/desk");
+    expect(Object.values(g.chains)[0].out[0].to).toBe("@workspace/io/desk");
   });
 });
 
@@ -115,7 +114,6 @@ describe("a ref that spells an instance with a slash", () => {
     const dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "config.yaml"), "namespace: engine\n");
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(
       join(ws, "_modules", "io", "IN", "in-2.yaml"),
@@ -132,12 +130,12 @@ describe("a ref that spells an instance with a slash", () => {
     const c = join(dir, "chains.yaml");
     writeFileSync(
       c,
-      `${readFileSync(c, "utf8")}  "@engine/io/IN/in-2": [ melody ]\n`,
+      `${readFileSync(c, "utf8")}  "@workspace/io/IN/in-2": [ melody ]\n`,
     );
     const w = loadGraph(dir).warnings;
-    expect(w.some((x) => x.includes("did you mean '@engine/io/IN:in-2'"))).toBe(
-      true,
-    );
+    expect(
+      w.some((x) => x.includes("did you mean '@workspace/io/IN:in-2'")),
+    ).toBe(true);
     rmSync(ws, { recursive: true, force: true });
   });
 });

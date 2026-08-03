@@ -13,7 +13,7 @@ import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./dawproject.js";
 
 // --- YAML emitters -----------------------------------------------------------
-// The `yaml` package prints; here live the SHAPE decisions, matching what lanes itself writes: a placement,
+// The `yaml` package prints; here live the SHAPE decisions, matching what pistes itself writes: a placement,
 // chain node or note stays on ONE line, and every timecode is QUOTED — bare, `25:1` is a YAML 1.1 sexagesimal.
 
 /**
@@ -92,7 +92,7 @@ function uniquify(base: string, used: Set<string>): string {
 // Plugin names in the local cache, for telling whether an imported plugin exists here; empty ⇒ skip the check.
 function loadCachedPluginNames(): Set<string> {
   const names = new Set<string>();
-  const file = join(homedir(), ".lanes", "exts.json");
+  const file = join(homedir(), ".studio", "exts.json");
   if (!existsSync(file)) return names;
   try {
     const root = JSON.parse(readFileSync(file, "utf8"));
@@ -278,7 +278,7 @@ export interface EmitStats {
   instanceFiles: number;
   modulePresetFiles: number; // <name>.vstpreset files written beside modules
   missingAudio: string[];
-  missingPlugins: string[]; // referenced but not in the lanes cache -> stubbed
+  missingPlugins: string[]; // referenced but not in the pistes cache -> stubbed
   // Tracks given both audio and MIDI: they import as "sequences", and their audio won't load until split by hand.
   mixedTracks: string[];
 }
@@ -603,8 +603,8 @@ export function emitFolder(
     if (!known) {
       missingPlugins.add(b.pluginName);
       note =
-        `MISSING PLUGIN: "${b.pluginName}" (${b.pluginType}) is not in the lanes plugin cache.\n` +
-        `Stub — routing only, does nothing. Install/scan the plugin ('lanes engine scan')\n` +
+        `MISSING PLUGIN: "${b.pluginName}" (${b.pluginType}) is not in the pistes plugin cache.\n` +
+        `Stub — routing only, does nothing. Install/scan the plugin ('pistes engine scan')\n` +
         `and re-import, or set a real plugin.type below.`;
     } else if (!sole) {
       note =

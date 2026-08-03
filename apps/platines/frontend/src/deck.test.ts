@@ -16,16 +16,16 @@ const entry = (over: Partial<MediatekEntry> = {}): MediatekEntry => ({
 
 describe("turning a catalogue entry into something the engine can open", () => {
   it("joins the cache root, the entry's folder and the master file", () => {
-    expect(playablePath("/home/flb/.lanes/mediatek", entry())).toBe(
-      "/home/flb/.lanes/mediatek/morceaux/recorded/song/master.wav",
+    expect(playablePath("/home/flb/.studio/mediatek", entry())).toBe(
+      "/home/flb/.studio/mediatek/morceaux/recorded/song/master.wav",
     );
   });
 
   it("keeps a Windows root's separator instead of normalising it", () => {
     // The service reports a NATIVE root while entry paths are POSIX, and the engine takes
     // either. Picking one shape here would be this app deciding something it does not own.
-    expect(playablePath("C:\\Users\\flb\\.lanes\\mediatek", entry())).toBe(
-      "C:\\Users\\flb\\.lanes\\mediatek\\morceaux/recorded/song\\master.wav",
+    expect(playablePath("C:\\Users\\flb\\.studio\\mediatek", entry())).toBe(
+      "C:\\Users\\flb\\.studio\\mediatek\\morceaux/recorded/song\\master.wav",
     );
   });
 

@@ -16,17 +16,17 @@ export const DEFAULT_SESSION = "";
  * The session each app drives today, one per SERVICE.
  *
  * This is the granularity that closes the collision the engine was single-project for:
- * lanes, mediatek and platines pointed at one engine used to overwrite each other's
+ * pistes, mediatek and platines pointed at one engine used to overwrite each other's
  * project. It is NOT the final granularity — two users on two workspaces still share
- * `lanes` — and per-user ids are their own step (see the plan's M5, "un moteur par
+ * `pistes` — and per-user ids are their own step (see the plan's M5, "un moteur par
  * utilisateur et par service").
  *
- * `lanes` is spelled once and read by two processes: the browser drives transport while
+ * `pistes` is spelled once and read by two processes: the browser drives transport while
  * the file service compiles and sends the project. Give them different ids and the
  * frontend drives an empty session while the song plays in another.
  */
 export const SESSIONS = {
-  lanes: "lanes",
+  pistes: "pistes",
   mediatek: "mediatek",
   platines: "platines",
 } as const;
@@ -34,13 +34,13 @@ export const SESSIONS = {
 export type SessionId = string;
 
 /**
- * One session per (service, person): `lanes:fred_parapluie_org`.
+ * One session per (service, person): `pistes:fred_parapluie_org`.
  *
  * Needed the moment an engine can be CHOSEN per account, because two people can now choose
  * the same one — and on a service-wide id they would drive the same project, which is
  * exactly the collision sessions exist to end, moved up a level.
  *
- * `who` must be spelled identically by both halves of an app. lanes has two: the browser
+ * `who` must be spelled identically by both halves of an app. pistes has two: the browser
  * drives transport, the file service compiles and sends. Both have the user's email, and
  * both slug it the same way here — which is why this takes the raw email and does the
  * slugging itself rather than trusting each caller to.

@@ -1,7 +1,7 @@
 # The layers of a node project
 
 A node project routes sources through a graph. `graph.ts` loads and inspects one
-(`lanes graph <project>`).
+(`pistes graph <project>`).
 
 | layer | what it holds |
 |---|---|

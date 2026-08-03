@@ -10,7 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
-import { forkSharedModule, sharedModuleRef } from "./moduleFork";
+import {
+  forkSharedModule,
+  materialiseEngineModule,
+  sharedModuleRef,
+} from "./moduleFork";
 import { writeLibrary } from "./testSupport";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 import { formatChains } from "./yaml/chainsFile";
@@ -27,7 +31,7 @@ import { formatChains } from "./yaml/chainsFile";
 let root: string; // the workspace: _modules/ beside the project
 let dir: string; // the project
 
-const SHARED = "@engine/audio/delay/tape-delay";
+const SHARED = "@workspace/audio/delay/tape-delay";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-fork-"));
@@ -60,7 +64,7 @@ const EDIT = "plugin:\n  name: Tape Delay\n  type: vst3\nparams:\n  Mix: 0.8\n";
 describe("locating a shared module", () => {
   it("keys a file the way readModuleTree keys the module", () => {
     expect(sharedModuleRef(dir, sharedFile())?.ref).toBe(
-      "@engine/audio/delay/tape-delay",
+      "@workspace/audio/delay/tape-delay",
     );
     // …and one that skips the category folder, which populate writes for uncategorised plugins.
     expect(
@@ -68,7 +72,7 @@ describe("locating a shared module", () => {
         dir,
         join(root, "_modules", "instruments", "4osc", "module.yaml"),
       )?.ref,
-    ).toBe("@engine/instruments/4osc");
+    ).toBe("@workspace/instruments/4osc");
   });
 
   it("is null for a file outside the libraries this project inherits", () => {
@@ -108,7 +112,7 @@ describe("forking on edit", () => {
     const r = forkSharedModule(dir, sharedFile(), EDIT);
     expect(r.chains).toEqual(["bs.lead", "dr.room"]);
     const text = readFileSync(join(dir, "chains.yaml"), "utf8");
-    expect(text).not.toContain("@engine/audio/delay/tape-delay");
+    expect(text).not.toContain("@workspace/audio/delay/tape-delay");
     // Three times: the two tracks that feed it, and its own entry. Missing the key would
     // leave the module unwired; missing a destination would leave a dangling reference.
     expect(text.match(/bs_lead_tape-delay_1/g)).toHaveLength(3);
@@ -178,8 +182,9 @@ describe("forking on edit", () => {
   });
 
   it("carries the shared module's panel over to the copy", () => {
-    // The panel lives in `_ui` keyed by ref, and the copy's ref is a new one — so without this the fork would
-    // come up blank, which reads as the edit having wiped the module's face.
+    // The panel is a file in the module's folder, so the folder copy brings it — and the header it is rewritten
+    // with names the copy. Without either the fork would come up blank, which reads as the edit having wiped
+    // the module's face.
     const panel = {
       cols: 2,
       rows: 1,
@@ -193,13 +198,13 @@ describe("forking on edit", () => {
         },
       },
     };
-    writeUiFile(dir, "@engine/audio/delay/tape-delay", panel);
+    writeUiFile(dir, "@workspace/audio/delay/tape-delay", panel);
     const r = forkSharedModule(dir, sharedFile(), EDIT);
     expect(loadUiLibrary(dir).byRef[`audio/${r.module}`]?.ui).toEqual(panel);
     expect(loadModules(dir, true)[r.module].ui).toEqual(panel);
     // …and the shared panel is untouched, for whoever still uses the shared module.
     expect(
-      loadUiLibrary(dir).byRef["@engine/audio/delay/tape-delay"].ui,
+      loadUiLibrary(dir).byRef["@workspace/audio/delay/tape-delay"].ui,
     ).toEqual(panel);
   });
 
@@ -216,5 +221,84 @@ describe("forking on edit", () => {
     expect(() => forkSharedModule(dir, side, "// edited\n")).toThrow(
       /read-only/,
     );
+  });
+});
+
+// A module the ENGINE reports has no files anywhere — the catalogue is synthesised from the scan cache. That
+// is fine until you want to give it a face or a shelf, because both are files in a module's FOLDER. What
+// materialising has to do: make the folder, record which plugin to load, and take the chains with it.
+describe("giving an engine module a folder", () => {
+  const NAM = "@engine/nam";
+  // The catalogue is ambient — what this machine happens to have scanned — so it is injected, exactly as
+  // loadModuleRefs and createModuleInstance take theirs.
+  const CATALOGUE = {
+    [NAM]: {
+      plugin: { type: "vst3", name: "Neural Amp Modeler" },
+      kind: "plugin",
+      inputs: [],
+      category: "audio",
+      file: "nam",
+    },
+  } as unknown as Parameters<typeof materialiseEngineModule>[2];
+
+  beforeEach(() => {
+    writeFileSync(
+      join(dir, "chains.yaml"),
+      formatChains({
+        tracks: { "gt.lead": [NAM] },
+        modules: { [NAM]: ["OUT"] },
+      }),
+      "utf8",
+    );
+  });
+
+  it("writes a module file that records WHICH plugin, and keys it locally", () => {
+    // The scan is a discovery aid, not the project's memory: opened on a machine that has never scanned, the
+    // project must still know what to load.
+    const r = materialiseEngineModule(dir, NAM, CATALOGUE);
+    expect(r.module).toBe("nam");
+    expect(r.path).toBe("modules/audio/nam/module.yaml");
+    const text = readFileSync(join(dir, r.path), "utf8");
+    expect(text).toContain("Neural Amp Modeler");
+    expect(loadModules(dir).nam?.plugin).toMatchObject({
+      name: "Neural Amp Modeler",
+    });
+  });
+
+  it("repoints the chains, so nothing still names the ref with no folder", () => {
+    const r = materialiseEngineModule(dir, NAM, CATALOGUE);
+    const after = readFileSync(join(dir, "chains.yaml"), "utf8");
+    expect(after).not.toContain(NAM);
+    expect(after).toContain("nam");
+    expect(r.chains).toEqual(["gt.lead"]);
+  });
+
+  it("can then carry a panel, which is the whole point of the folder", () => {
+    materialiseEngineModule(dir, NAM, CATALOGUE);
+    writeUiFile(dir, "audio/nam", {
+      cols: 1,
+      rows: 1,
+      widgets: { g: { type: "knob", col: 0, row: 0, bind: "Gain" } },
+    });
+    expect(existsSync(join(dir, "modules", "audio", "nam", "ui.yaml"))).toBe(
+      true,
+    );
+    expect(loadModules(dir).nam.ui).toBeTruthy();
+  });
+
+  it("steps past a name the project has taken rather than clobbering it", () => {
+    mkdirSync(join(dir, "modules", "audio", "nam"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "audio", "nam", "module.yaml"),
+      "plugin:\n  name: Something Else\n  type: vst3\n",
+      "utf8",
+    );
+    expect(materialiseEngineModule(dir, NAM, CATALOGUE).module).toBe("nam_2");
+  });
+
+  it("refuses a ref the engine doesn't offer, rather than making an empty folder", () => {
+    expect(() =>
+      materialiseEngineModule(dir, "@engine/nope", CATALOGUE),
+    ).toThrow(/not a module this machine's engine offers/);
   });
 });

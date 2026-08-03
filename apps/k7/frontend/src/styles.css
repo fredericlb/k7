@@ -1,0 +1,1284 @@
+:root {
+  --bg: #101114;
+  --surface: #1b1c22;
+  --surface-2: #24252c;
+  --text: #e9e9ee;
+  --muted: #92929e;
+  --border: #2f303a;
+  --accent: #8b5cf6;
+  --accent-hover: #7c3aed;
+  --accent-soft: rgba(139, 92, 246, 0.18);
+  --green: #34d399;
+  --amber: #f0a94e;
+  --red: #f16469;
+  --sidebar-w: 288px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 20px;
+}
+h3 {
+  font-size: 15px;
+  margin: 24px 0 10px;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 12px;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.error {
+  color: var(--red);
+  font-size: 13px;
+}
+
+/* ---- App shell: top header + main ---------------------------------------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* The nav that used to be a left sidebar now lives in a slim sticky header. It
+   never collapses behind a hamburger: on small screens its entries shrink to
+   icons (see the responsive rules at the bottom) so everything stays reachable
+   in one row. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+/* Three tracks so the nav sits dead-centre regardless of how wide the left and
+   right groups are: [left group] [centred nav] [user group]. */
+.topbar-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  min-height: 56px;
+}
+.topbar-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+/* Build stamp beside the mark — quiet enough to ignore, legible when you look. */
+.topbar-build {
+  margin-left: 8px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 36px 80px;
+}
+.main-inner {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+/* The compact header lockup stays on the body face: Faster One's speed-lines
+   detail turns to mush below ~32px. The big login wordmark below opts into it. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  user-select: none;
+}
+.brand:hover {
+  color: var(--accent);
+}
+.brand-icon {
+  height: 1.15em;
+  width: 1.15em;
+  border-radius: 5px;
+  flex: none;
+}
+/* A larger, more prominent mark in the header. */
+.topbar .brand-icon {
+  height: 2em;
+  width: 2em;
+  border-radius: 7px;
+}
+
+/* Icon + label pairing used by every header entry. The label is hidden on
+   small screens, leaving the icon. */
+.nav-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.nav-label {
+  white-space: nowrap;
+}
+
+/* New-session button (its own wrapper so the error can float beneath it). */
+.topbar-new-wrap {
+  position: relative;
+  flex: none;
+}
+.topbar-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.topbar-error {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  white-space: nowrap;
+  background: var(--surface);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  padding: 4px 8px;
+  z-index: 30;
+}
+
+/* Section nav — centred in the middle grid track. */
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.topnav > button,
+.topnav-fav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.topnav > button:hover,
+.topnav-fav-btn:hover {
+  background: var(--surface-2);
+}
+.topnav > button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Favorites: the header trigger for the starred-songs dropdown (the panel
+   itself is a shadcn DropdownMenu now). */
+.topnav-fav-btn .caret {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* Settings gear + New session, aligned to the right edge of the header. */
+.topbar-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.topbar-settings {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  flex: none;
+}
+.topbar-settings:hover {
+  background: var(--surface-2);
+}
+
+/* ---- Buttons ------------------------------------------------------------- */
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--surface-2);
+  transition: background 0.12s, border-color 0.12s, filter 0.12s;
+}
+button:hover:not(:disabled) {
+  background: #2c2d36;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Variant/control styling now lives in the shadcn components
+   (src/components/ui); only the base rule above remains for the bespoke
+   buttons (topnav, calendar cells, chord tokens, waveform markers, …). */
+
+/* ---- Inputs -------------------------------------------------------------- */
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Cards and the segmented tab control are shadcn components now
+   (src/components/ui/card.tsx, tabs.tsx). */
+
+/* One column on narrow screens, two once there's room. Day headers and the
+   empty-state row span the full width so grouping reads clearly. */
+.session-list.home-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px 12px;
+  align-items: start;
+  flex: none;
+  overflow: visible;
+}
+@media (min-width: 700px) {
+  .session-list.home-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.home-list .session-day-header,
+.home-list .home-list-empty {
+  grid-column: 1 / -1;
+}
+.home-list-empty {
+  padding: 6px 10px;
+}
+
+/* ---- Sessions: calendar + day timeline ----------------------------------- */
+
+.sessions-day-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+.day-timeline-wrap {
+  flex: 1;
+  min-width: 260px;
+}
+
+/* Compact month calendar */
+.calendar {
+  flex: none;
+  width: 244px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.calendar-header button {
+  padding: 2px 8px;
+}
+.calendar-title {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendar-dow {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.calendar-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  position: relative;
+}
+.calendar-cell.empty {
+  visibility: hidden;
+}
+button.calendar-cell:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+/* A dot marks days that have sessions. */
+.calendar-cell.has-sessions::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.calendar-cell.today {
+  font-weight: 700;
+  color: var(--accent);
+}
+.calendar-cell.selected,
+button.calendar-cell.selected:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.calendar-cell.selected::after {
+  background: #fff;
+}
+
+/* The selected day's sessions on a vertical timeline. */
+.day-timeline {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.timeline-item {
+  display: grid;
+  grid-template-columns: 50px 16px 1fr;
+  cursor: pointer;
+}
+.timeline-time {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding: 12px 8px 0 0;
+}
+.timeline-spine {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.timeline-spine::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-item:first-child .timeline-spine::before {
+  top: 13px;
+}
+.timeline-item:last-child .timeline-spine::before {
+  bottom: calc(100% - 21px);
+}
+.timeline-dot {
+  position: relative;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  margin-top: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.timeline-card {
+  margin: 4px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.timeline-item:hover .timeline-card {
+  border-color: var(--accent);
+}
+/* Extracted moments get a green dot on their tag timelines. */
+.timeline-item.validated .timeline-dot {
+  background: var(--green);
+}
+/* Two-line date / time label used by the moment (per-tag) timelines. */
+.timeline-time > div {
+  line-height: 1.3;
+}
+
+/* Moments tab: one timeline section per tag. */
+.tag-timeline-group {
+  margin-bottom: 6px;
+}
+.tag-timeline-title {
+  margin: 18px 0 4px;
+}
+
+/* Favorite star toggle (song rows, song detail header). */
+.star-btn {
+  flex: none;
+  background: transparent;
+  padding: 2px 6px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+}
+.star-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--amber);
+}
+.star-btn.on {
+  color: var(--amber);
+}
+.song-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.song-detail-head h2 {
+  margin: 0;
+}
+.song-detail-head .star-btn {
+  font-size: 22px;
+}
+
+.moments-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.moment-filter {
+  gap: 6px;
+}
+
+.session-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-day-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding: 10px 10px 4px;
+}
+.session-day-header:first-child {
+  padding-top: 2px;
+}
+
+.session-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+.session-item:hover {
+  background: var(--surface-2);
+}
+.session-item.active {
+  background: var(--accent-soft);
+}
+.session-item.active .session-name {
+  color: var(--accent);
+}
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.session-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-meta {
+  color: var(--muted);
+  font-size: 11.5px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 1px;
+}
+/* Quick links to a song's Lyrics / Tab / Sheet; disabled when that field is empty. */
+.song-links {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.song-link {
+  padding: 3px 10px;
+  font-size: 11.5px;
+}
+.session-del {
+  opacity: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  background: transparent;
+}
+.session-item:hover .session-del,
+.timeline-item:hover .session-del {
+  opacity: 0.6;
+}
+.session-del:hover {
+  opacity: 1 !important;
+  background: transparent;
+}
+
+/* ---- Badges & tags ------------------------------------------------------- */
+
+/* Badges and tag chips are the shadcn Badge component now
+   (src/components/ui/badge.tsx — variants default/amber/rec/tag). */
+.tag-chips {
+  gap: 8px;
+}
+
+.session-item.validated {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+.session-item.validated .session-name {
+  color: var(--green);
+}
+
+/* ---- Login --------------------------------------------------------------- */
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+/* The login splash is the one place the wordmark gets room to breathe, so it
+   carries the display face. Faster One ships a single 400 weight and its own
+   slant, so it takes neither the .brand weight nor its negative tracking. */
+.login-card .brand {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: normal;
+  cursor: default;
+  margin-bottom: 16px;
+}
+.login-card .brand:hover {
+  color: inherit;
+}
+
+/* ---- Release form -------------------------------------------------------- */
+
+/* Form fields, inputs and checkboxes are shadcn components now
+   (src/components/ui/{field,input,textarea,checkbox}.tsx). */
+.check-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  flex: 1;
+}
+
+/* ---- Songbook ------------------------------------------------------------ */
+
+.song-editor {
+  width: 100%;
+  min-height: 60vh;
+  margin: 12px 0 0;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+}
+
+/* Read-only rendering of a tab: same monospace box, without the editable feel. */
+.song-view {
+  background: var(--surface-2);
+  resize: none;
+}
+
+/* ---- Release stems & CLI token ------------------------------------------ */
+
+.stem-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stem-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+.stem-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.token-field {
+  width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* ---- New-session source chooser & remote mic ---------------------------- */
+
+.source-choices {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.source-choices > * {
+  flex: 1;
+}
+
+.remote-mic {
+  max-width: 520px;
+  margin: 24px auto;
+}
+
+.remote-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+}
+.remote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 180px;
+}
+.remote-field select {
+  width: 100%;
+}
+
+/* ---- Metronome floating widget (song view) ------------------------------ */
+
+.metro-fab,
+.metro-widget {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+}
+
+.metro-fab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  min-width: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+.metro-fab:hover {
+  border-color: var(--accent);
+}
+.metro-fab.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.metro-fab-note {
+  font-size: 20px;
+  line-height: 1;
+}
+.metro-fab-bpm {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.metro-widget {
+  width: 220px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+}
+.metro-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.metro-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.metro-close {
+  border: 0;
+  background: none;
+  color: var(--muted, #888);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.metro-close:hover {
+  color: var(--text);
+}
+.metro-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.metro-dot.beating {
+  background: var(--red);
+  animation-name: metro-flash;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes metro-flash {
+  0% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  40%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+}
+
+.metro-bpm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.metro-bpm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+}
+.metro-bpm-val {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.metro-bpm-unit {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted, #888);
+}
+.metro-slider {
+  width: 100%;
+  margin: 10px 0;
+  accent-color: var(--accent);
+}
+.metro-toggle {
+  width: 100%;
+}
+
+/* ---- Sheet panel (PDF / image files) ------------------------------------ */
+
+.sheet-panel {
+  margin-top: 12px;
+}
+
+.sheet-files {
+  display: flex;
+  flex-direction: column;
+  /* Images are glued together vertically, like the pages of a score. */
+  gap: 0;
+}
+
+/* PDFs keep their titled frame; separate it from any glued images around it. */
+.sheet-file {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.sheet-file:not(:first-child) {
+  margin-top: 16px;
+}
+
+/* Glued image page: the image fills the width, the delete control floats over
+   its top-right corner (no caption). */
+.sheet-image-wrap {
+  position: relative;
+  display: block;
+  font-size: 0; /* kill any inline whitespace under the image */
+}
+
+.sheet-image-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+}
+.sheet-image-del:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.75);
+}
+.sheet-image-del:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sheet-file-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.sheet-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.sheet-pdf {
+  display: block;
+  width: 100%;
+  height: 75vh;
+  border: 0;
+}
+
+.sheet-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---- Chord sheet (formatted lyrics) -------------------------------------- */
+
+/* The ChordSheet renderer and its .cs-* styles now live in the @k7/lyrics
+   package (imported by the component). Only the transpose toolbar below — part
+   of the song-detail view, not the sheet itself — stays here. */
+
+/* Transpose toolbar above the sheet. */
+.cs-transpose {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.cs-transpose-val {
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---- Chords widget (diagrams) -------------------------------------------- */
+
+/* Desktop floating panel docked to the right margin. */
+.chords-panel {
+  position: fixed;
+  top: 72px;
+  right: 0;
+  z-index: 25;
+  width: 272px;
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.chords-panel.collapsed {
+  width: auto;
+}
+/* Wide screens with many chords: widen to fit a third diagram per row. */
+@media (min-width: 1360px) {
+  .chords-panel.three-col {
+    width: 396px;
+  }
+}
+.chords-panel-toggle {
+  flex: 0 0 auto;
+  background: var(--surface-2);
+  border: 0;
+  color: var(--text);
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 10px 0 0 10px;
+  text-align: left;
+}
+.chords-panel-list {
+  overflow: auto;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 8px;
+}
+.chords-panel-item {
+  border-radius: 8px;
+  transition: box-shadow 0.15s;
+}
+.chords-panel-item.selected {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* A single chord card: name, diagram, and alternatives pager. */
+.chord-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+}
+.chord-card-name {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 13px;
+}
+.chord-card-svg {
+  width: 100%;
+  color: var(--text);
+}
+/* react-chords draws with fills/strokes; keep them on-theme. */
+.chord-card-svg svg {
+  width: 100%;
+  height: auto;
+}
+.chord-card-svg text {
+  fill: var(--text);
+}
+.chord-card-empty {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 8px 0;
+}
+.chord-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chord-pager-count {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The mobile chord popin is a shadcn Dialog now (ChordPopin.tsx). */
+
+/* ---- Exercises ----------------------------------------------------------- */
+
+.exercise {
+  max-width: 520px;
+}
+.exercise h2 {
+  margin: 10px 0 4px;
+}
+.exercise-chord-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  margin: 16px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.exercise-chord-name {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.exercise-chord-quality {
+  font-size: 14px;
+}
+.exercise-chord-diagram {
+  width: 220px;
+  margin-top: 8px;
+}
+.exercise-actions {
+  margin-top: 8px;
+}
+.exercise-count {
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* ---- Guitar tuner -------------------------------------------------------- */
+
+.tuner-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 24px 0 10px;
+  min-height: 92px;
+  justify-content: center;
+}
+.tuner-note-name {
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+.tuner-note.in-tune .tuner-note-name {
+  color: var(--green);
+}
+.tuner-note-oct {
+  font-size: 26px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+.tuner-cents {
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tuner-meter {
+  max-width: 420px;
+  margin: 8px auto 0;
+}
+.tuner-meter-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.tuner-meter-bar {
+  position: relative;
+  height: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.tuner-meter-center {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border);
+}
+.tuner-needle {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: left 0.08s ease-out;
+}
+.tuner-needle.in-tune {
+  background: var(--green);
+}
+
+.tuner-strings {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+.tuner-string {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+.tuner-string.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.tuner-freq {
+  text-align: center;
+  margin-top: 12px;
+}
+
+/* The Tablature renderer and its .tab-* styles now live in the @k7/tablature
+   package (imported by the component). */
+
+
+/* ---- Home / empty state -------------------------------------------------- */
+
+.home-empty {
+  color: var(--muted);
+  padding: 40px 0 24px;
+}
+
+/* ---- Responsive ------------------------------------------------------------
+   Touch devices have no hover, so anything gated behind :hover (the delete
+   button on session rows) needs to stay visible without it. On narrow screens
+   the header entries collapse to icons (handled below) rather than hiding
+   behind a hamburger. */
+
+@media (hover: none) {
+  .session-del {
+    opacity: 0.6;
+  }
+}
+
+/* On narrow screens the header entries drop their text labels and show only
+   their icons, so the whole bar stays on one row — no hamburger, no collapse.
+   The favorites dropdown keeps its full text rows (they're the actual content,
+   not an entry). */
+@media (max-width: 760px) {
+  .topbar-inner {
+    gap: 4px;
+    padding: 8px 12px;
+  }
+  .brand-text,
+  .nav-label,
+  .topnav-fav-btn .caret {
+    display: none;
+  }
+  .topnav > button,
+  .topnav-fav-btn,
+  .topbar-new,
+  .topbar-settings {
+    padding: 8px;
+    gap: 0;
+  }
+  .nav-icon {
+    font-size: 17px;
+  }
+  .main {
+    padding: 20px 20px 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 16px 14px 48px;
+  }
+  .timer {
+    font-size: 26px;
+  }
+}

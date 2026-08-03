@@ -23,7 +23,7 @@ What changed is that platines gained a small backend of its own:
 | playback | the CHOSEN engine | `wsUrl` from its probe reply |
 
 The backend holds no media and no files. It knows **who you are** and **which engines
-exist**, never what is on any engine's disk — lanes' backend, verbatim, for the same reason.
+exist**, never what is on any engine's disk — pistes' backend, verbatim, for the same reason.
 
 Two text boxes disappeared with it. The file service's address used to default to
 `http://127.0.0.1:8770` and be editable; the DJ used to type their own identity into a
@@ -105,8 +105,8 @@ that rather than a lit button.
   and neither is in the document yet.
 * **No mixing, no cue, no tempo.** v1 is "choose a song and diffuse it", literally.
 * **The file service still trusts the header.** platines now proves who you are to its OWN
-  backend, and sends that identity as `x-lanes-user` — but the file service verifies no
-  session, so its CORS allowlist is still the real boundary, as it is for lanes. What the
+  backend, and sends that identity as `x-studio-user` — but the file service verifies no
+  session, so its CORS allowlist is still the real boundary, as it is for pistes. What the
   login bought is that the identity is no longer typed by hand; it is not yet a gate on the
   machine's disk.
 * **Never run end to end.** The 8 tests cover the two things that decide — the path join and

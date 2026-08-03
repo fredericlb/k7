@@ -14,18 +14,18 @@ import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
 
-// The root is env-driven ($LANES_MEDIATEK), which is what makes it testable at all: each
-// test gets its own library rather than a shared one under the real ~/.lanes.
+// The root is env-driven ($STUDIO_MEDIATEK), which is what makes it testable at all: each
+// test gets its own library rather than a shared one under the real ~/.studio.
 let root: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "mediatek-"));
-  process.env.LANES_MEDIATEK = root;
+  process.env.STUDIO_MEDIATEK = root;
   reset();
 });
 
 afterEach(() => {
-  delete process.env.LANES_MEDIATEK;
+  delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
   reset();
 });
@@ -43,7 +43,7 @@ describe("the layout", () => {
     // `present: false` is an answer, not an error — a surface shows "nothing here yet".
     expect(summary()).toEqual({
       present: false,
-      counts: { morceaux: 0, samples: 0, modules: 0 },
+      counts: { morceaux: 0, samples: 0, modules: 0, recordings: 0 },
     });
   });
 
@@ -199,9 +199,150 @@ describe("listing and search", () => {
   });
 
   it("counts every family for the summary screen", () => {
+    // Plus the capture zone, which is no family but is a tab — see docs/recordings.md.
     expect(summary()).toEqual({
       present: true,
-      counts: { morceaux: 0, samples: 2, modules: 1 },
+      counts: { morceaux: 0, samples: 2, modules: 1, recordings: 0 },
     });
+  });
+});
+
+// A tree draws itself from the entry paths. That works until the thing on disk is not an
+// entry: the folder `POST /folder` just made, or a file dropped where no catalogue reaches.
+// Both answered 200 and appeared nowhere, which reads as the call having done nothing.
+describe("what the entries cannot stand for", () => {
+  it("reports an empty folder, which no entry can stand for", () => {
+    mkdirSync(join(root, "modules", "audio"), { recursive: true });
+    expect(listFamily("modules").unlisted).toEqual(["audio"]);
+  });
+
+  it("stops reporting it once it holds something", () => {
+    write("modules/audio/reverb/module.yaml", "plugin: {}\n");
+    const l = listFamily("modules");
+    expect(l.entries.map((e) => e.path)).toEqual(["modules/audio/reverb"]);
+    // `audio` is on the way to an entry, so the tree already draws it; saying so twice
+    // would be one more thing to keep in step.
+    expect(l.unlisted).toEqual([]);
+  });
+
+  it("does not descend into an ENTRY's own folder", () => {
+    // A module IS a folder, and its insides are its own — they travel on the entry itself.
+    write("modules/audio/reverb/module.yaml", "plugin: {}\n");
+    mkdirSync(join(root, "modules", "audio", "reverb", "scratch"), {
+      recursive: true,
+    });
+    expect(listFamily("modules").unlisted).toEqual([]);
+  });
+
+  it("reports a loose FILE too, not just a folder", () => {
+    // Dropped where no catalogue reaches: `modules/<type>` lists DIRECTORIES, so a file
+    // sitting beside them was on disk and nowhere on screen.
+    write("modules/audio/stray.yaml", "x\n");
+    expect(listFamily("modules").unlisted).toEqual([
+      "audio",
+      "audio/stray.yaml",
+    ]);
+  });
+
+  it("files a CATEGORY's modules, not the category", () => {
+    // `audio/filter/auto-wah` is the shape the shared library ships (see @studio/song's
+    // docs/uiLibrary.md). Listing only one level filed `filter` itself as a module, so
+    // opening it looked for a module.yaml that was never going to be there — "not found" —
+    // and auto-wah was absent from the catalogue altogether.
+    write("modules/audio/filter/auto-wah/module.yaml", "plugin: {}\n");
+    const l = listFamily("modules");
+    expect(l.entries.map((e) => e.path)).toEqual([
+      "modules/audio/filter/auto-wah",
+    ]);
+    expect(l.entries[0].name).toBe("auto-wah");
+    // …and the category is not reported as a stray either: it is on the way to an entry.
+    expect(l.unlisted).toEqual([]);
+  });
+
+  it("still lists a folder that is neither, so a new one is visible", () => {
+    mkdirSync(join(root, "modules", "audio", "mine"), { recursive: true });
+    const l = listFamily("modules");
+    expect(l.entries.map((e) => e.path)).toEqual(["modules/audio/mine"]);
+    expect(l.entries[0].meta?.catalogued).toBe(false);
+  });
+
+  it("carries a module's OWN files on the entry", () => {
+    // THE bug this pins: the tree drew three fixed rows (module/ui/presets), so a folder
+    // dropped with two files of its own showed neither of them and both canonical names
+    // read "(nouveau)" — which looks exactly like the drop having been flattened.
+    write("modules/audio/reverb/module.yaml", "plugin: {}\n");
+    write("modules/audio/reverb/lead.yaml", "params: {}\n");
+    const m = listFamily("modules").entries[0];
+    expect(m.files).toEqual(["lead.yaml", "module.yaml"]);
+    expect(m.meta?.instances).toBe(1); // the panel and the shelf are not uses of it
+  });
+
+  it("reports a nested empty folder and the one above it", () => {
+    mkdirSync(join(root, "samples", "audio", "packs", "kicks"), {
+      recursive: true,
+    });
+    expect(listFamily("samples").unlisted).toEqual([
+      "audio",
+      "audio/packs",
+      "audio/packs/kicks",
+    ]);
+  });
+});
+
+// The index is a warm start, never a source of truth — but it survived a code change, and
+// the revision token cannot notice one: it tracks the FILES. So a listing written by an
+// older build matched a token computed by a newer one, and the cache answered yesterday's
+// question. That is how a category kept coming back as a module after the scan was fixed.
+describe("the persisted index", () => {
+  beforeEach(() => ensureLayout());
+
+  it("is dropped when it was written by another build", () => {
+    write("modules/audio/filter/auto-wah/module.yaml", "plugin: {}\n");
+    const fresh = listFamily("modules");
+    // What the old build left: the right token, the wrong answer.
+    writeFileSync(
+      join(root, ".cache", "index.json"),
+      JSON.stringify({
+        families: {
+          modules: {
+            family: "modules",
+            rev: fresh.rev,
+            entries: [
+              {
+                family: "modules",
+                id: "x",
+                name: "filter",
+                path: "modules/audio/filter",
+                kind: "audio",
+                mtime: 0,
+              },
+            ],
+            unlisted: [],
+          },
+        },
+      }),
+      "utf8",
+    );
+    reset();
+    // Unversioned, so it is not trusted at all — the walk answers instead.
+    expect(listFamily("modules").entries.map((e) => e.name)).toEqual([
+      "auto-wah",
+    ]);
+  });
+
+  it("still warm-starts from one this build wrote", () => {
+    // The gate must not cost the feature. Persist, then make the DISK disagree without
+    // moving the token: the cached answer coming back is what proves no walk happened.
+    write("modules/audio/reverb/module.yaml", "plugin: {}\n");
+    listFamily("modules"); // persists
+    reset();
+    const raw = JSON.parse(
+      readFileSync(join(root, ".cache", "index.json"), "utf8"),
+    ) as { families: Record<string, { entries: { name: string }[] }> };
+    raw.families.modules.entries[0].name = "from-the-index";
+    writeFileSync(join(root, ".cache", "index.json"), JSON.stringify(raw));
+    expect(listFamily("modules").entries.map((e) => e.name)).toEqual([
+      "from-the-index",
+    ]);
   });
 });

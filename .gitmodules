@@ -1,4 +1,4 @@
 [submodule "commons"]
 	path = commons
-	url = C:/Users/flb/Src/commons
+	url = ../commons.git
 	branch = master

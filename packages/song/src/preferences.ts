@@ -1,4 +1,4 @@
-// preferences.ts — the user's GLOBAL preferences (~/.lanes/preferences.yaml): machine and rig config that
+// preferences.ts — the user's GLOBAL preferences (~/.studio/preferences.yaml): machine and rig config that
 // spans every project, unlike the per-project song files. The default audio interface the engine opens, plus
 // human-readable labels for its channels — labels are for reading only, unrelated to track names.
 
@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
-export const PREFS_PATH = join(homedir(), ".lanes", "preferences.yaml");
+export const PREFS_PATH = join(homedir(), ".studio", "preferences.yaml");
 
 export type ChannelDir = "in" | "out";
 export interface ChannelLabel {

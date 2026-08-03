@@ -9,7 +9,7 @@
 // It carries ranges too, which the learned names never have — a Volume drawn 0..1 because no meta arrived is not
 // a smaller problem than a missing name, it is a knob that writes the wrong number.
 //
-// Kept deliberately small: built-ins whose parameters lanes itself defines. An external plugin's are its own
+// Kept deliberately small: built-ins whose parameters pistes itself defines. An external plugin's are its own
 // and are read from it. Values mirror the constants at the top of engine/engine/MixerPlugin.cpp — change one and
 // change the other; mixerParams.test.ts fails when the NAMES drift, which is the half that silently breaks
 // bindings. See also engine/engine/PluginParams.cpp, which has the C++ twin of this idea for the built-ins that

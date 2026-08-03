@@ -21,7 +21,7 @@ function fail(msg) {
   return 2;
 }
 
-const tmp = mkdtempSync(join(tmpdir(), "lanes-listen-"));
+const tmp = mkdtempSync(join(tmpdir(), "studio-listen-"));
 const cleanup = [];
 const done = (code) => {
   for (const fn of cleanup.reverse()) {

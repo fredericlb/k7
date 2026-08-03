@@ -4,7 +4,7 @@
 #include <map>
 #include <sstream>
 
-namespace lanes {
+namespace studio {
 namespace {
 
 // Identity keys: prefer an explicit id, falling back to something stable-ish so terse files can still diff.
@@ -252,4 +252,4 @@ std::string describe(const Change& c) {
     return s.str();
 }
 
-}  // namespace lanes
+}  // namespace studio

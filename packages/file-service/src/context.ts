@@ -15,7 +15,7 @@ import { getWorkspace, UnknownWorkspaceError } from "./workspaces.ts";
 
 // Prefer the env the supervisor sets, else engine-id.json. We READ, never mint — identity is the supervisor's.
 export function engineToken(): string {
-  if (process.env.LANES_ENGINE_TOKEN) return process.env.LANES_ENGINE_TOKEN;
+  if (process.env.STUDIO_ENGINE_TOKEN) return process.env.STUDIO_ENGINE_TOKEN;
   try {
     const v = JSON.parse(readFileSync(engineIdPath(), "utf8"));
     return typeof v.token === "string" ? v.token : "";

@@ -2,9 +2,9 @@
 //
 //   npx tsx packages/song/scripts/migrateModules.ts <workspace>
 //
-// Rewrites every project's modules, purges the wrappers from `_modules`, renames its
-// namespace to `library`, and re-keys the `_ui` panels. Each project's `chains.yaml` is
-// backed up as `.bak` before its steps are renamed.
+// Rewrites every project's modules, purges the wrappers from `_modules` and renames its
+// namespace to `library`. Each project's `chains.yaml` is backed up as `.bak` before its
+// steps are renamed.
 
 import {
   copyFileSync,
@@ -16,14 +16,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { engineModules, engineRef } from "../src/engineCatalogue";
+import { engineModules } from "../src/engineCatalogue";
 import {
   DEFAULT_INSTANCE,
   migrateLibrary,
   migrateProjectModules,
-  migrateUiRefs,
 } from "../src/moduleMigrate";
-import { slugifyPluginName } from "../src/moduleTypes";
 import { renameNode } from "../src/yaml/chainsFile";
 
 const root = process.argv[2];
@@ -33,41 +31,6 @@ if (!root) {
 }
 const lib = join(root, "_modules");
 const catalogue = engineModules();
-
-// The old catalogue, read BEFORE it is purged: a ref like `@engine/audio/amp/nam` has to
-// become `@engine/<slug>` or `@library/<path>`, and only the file says which.
-const oldRefs = new Map<string, string>();
-const scan = (dir: string, rel: string): void => {
-  if (!existsSync(dir)) return;
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (!e.isDirectory()) continue;
-    const at = rel ? `${rel}/${e.name}` : e.name;
-    const file = join(dir, e.name, "module.yaml");
-    if (!existsSync(file)) {
-      scan(join(dir, e.name), at);
-      continue;
-    }
-    const text = readFileSync(file, "utf8");
-    const name = /^\s*name:\s*"?([^"\n]+)"?/m.exec(text)?.[1]?.trim();
-    const onlyPlugin = !/^(?!plugin:|\s|#)\S/m.test(
-      text.replace(/^#.*$/gm, "").trim(),
-    );
-    // io is the engine's now — one IN and one OUT, no folder anywhere. A panel drawn for
-    // `@engine/io/IN` follows to `@engine/IN`, not into a library that is about to lose
-    // the folder entirely.
-    const io = /^io\/(IN|OUT)$/.exec(at);
-    oldRefs.set(
-      `@engine/${at}`,
-      io
-        ? engineRef(io[1])
-        : onlyPlugin && name
-          ? engineRef(slugifyPluginName(name))
-          : `@library/${at}`,
-    );
-  }
-};
-for (const type of readdirSync(lib, { withFileTypes: true }))
-  if (type.isDirectory()) scan(join(lib, type.name), type.name);
 
 // The shared io instances, read before the folder goes. Each is `channel:` (+ maybe
 // `monitor`/`gain`) and belongs to the song that records through it, not to a library
@@ -149,12 +112,6 @@ for (const name of projects) {
     `${r.changed ? "MIGRÉ   " : "inchangé"} ${name}${lines.length ? `\n${lines.join("\n")}` : ""}`,
   );
 }
-
-const ui = migrateUiRefs(
-  join(root, "_ui"),
-  (from) => oldRefs.get(from) ?? null,
-);
-for (const k of ui.rekeyed) console.log(`  _ui  ${k}`);
 
 // The library goes last, and only after a copy of it exists. 255 folders are about to be
 // deleted, and the command that used to regenerate them (`module populate`) is itself on

@@ -1,5 +1,5 @@
 // engineDaemon.ts — start/stop the shared engine as a background daemon, tracked by
-// ~/.lanes/engine.pid. One engine serves whichever project is active, and
+// ~/.studio/engine.pid. One engine serves whichever project is active, and
 // ensureEngineDaemon() is idempotent, so every surface can "ensure" it without racing. It
 // reports whether THIS call started it, so an owner stops only what it started.
 
@@ -19,7 +19,7 @@ import { killTree } from "./processTree";
 export const ENGINE_PID = enginePidPath();
 
 // The engine's output is redirected into the project folder, so its log sits next to the song.
-export const ENGINE_LOG_NAME = ".lanes-engine.log";
+export const ENGINE_LOG_NAME = ".studio-engine.log";
 export const engineLogPath = (dir: string): string =>
   join(dir, ENGINE_LOG_NAME);
 
@@ -48,7 +48,7 @@ export function engineRunning(): boolean {
 
 export interface EngineDaemonOptions {
   port?: number;
-  // The bind interface (LANES_ENGINE_HOST): loopback by default, "0.0.0.0" from the supervisor for LAN browsers.
+  // The bind interface (STUDIO_ENGINE_HOST): loopback by default, "0.0.0.0" from the supervisor for LAN browsers.
   host?: string;
   logDir?: string;
   // Extra environment for the child — the supervisor passes the engine's identity. Merged over the parent env.
@@ -89,7 +89,7 @@ export function ensureEngineDaemon(
     windowsHide: true,
     env: {
       ...process.env,
-      ...(host ? { LANES_ENGINE_HOST: host } : {}),
+      ...(host ? { STUDIO_ENGINE_HOST: host } : {}),
       ...env,
     },
   });

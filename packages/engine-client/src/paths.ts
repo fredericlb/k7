@@ -1,4 +1,4 @@
-// paths.ts — the single definition of the shared ~/.lanes/ layout, which the C++
+// paths.ts — the single definition of the shared ~/.studio/ layout, which the C++
 // engine, the file service, the supervisor and the web backend all read or write by name.
 // USE THESE, never a hand-joined path: a wrong path doesn't throw, it reads as an empty
 // file, so a second spelling diverges silently.
@@ -8,37 +8,37 @@ import { join } from "node:path";
 import { EXTS_PATH } from "@studio/song/engineCatalogue";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
 
-/** `~/.lanes` — the shared state dir. */
-export function lanesDir(): string {
-  return join(homedir(), ".lanes");
+/** `~/.studio` — the shared state dir. */
+export function studioDir(): string {
+  return join(homedir(), ".studio");
 }
 
 /** The engine's stable local identity, `{ id, token, createdAt }`. */
 export function engineIdPath(): string {
-  return join(lanesDir(), "engine-id.json");
+  return join(studioDir(), "engine-id.json");
 }
 
 /** The running engine's pid. The one-engine-per-machine guard, and what lets a fresh
  *  supervisor re-adopt an engine whose supervisor was force-killed. */
 export function enginePidPath(): string {
-  return join(lanesDir(), "engine.pid");
+  return join(studioDir(), "engine.pid");
 }
 
 /** Written by the web backend on boot; `.url` is the registry a local dev setup should
  *  win with over the hosted default. */
 export function webEndpointPath(): string {
-  return join(lanesDir(), "web-endpoint.json");
+  return join(studioDir(), "web-endpoint.json");
 }
 
 /** The supervisor's own settings (registry override, ports, audio picks).
  *
  * Keeps the name `engine-tray.json` even though the tray no longer writes it AND is no
- * longer called that — it is `studio-capot` now. Renaming the FILE would silently discard
- * every existing user's audio-device pick and registry override, which is a different and
- * much more expensive change than renaming a binary: it must be its own, read-old/
- * write-new. Same reasoning as `~/.lanes` itself, and as `.lanes-engine.log` below. */
+ * longer called that — it is `studio-capot` now. The directory around it moved from
+ * `~/.lanes` to `~/.studio` as a clean break, with no read-old/write-new step: everyone
+ * renames the directory once and every file inside it is found again under its own name.
+ * Renaming this FILE too would break that — the one move would stop being one move. */
 export function settingsPath(): string {
-  return join(lanesDir(), "engine-tray.json");
+  return join(studioDir(), "engine-tray.json");
 }
 
 /** The plugin scan cache. Deleted before a forced rescan so the engine re-discovers
@@ -57,47 +57,47 @@ export function extsCachePath(): string {
  *  read by the file service's CORS policy on EVERY request — which is what makes
  *  adding a web UI take effect with nothing restarted. */
 export function webOriginsPath(): string {
-  return join(lanesDir(), "web-origins.json");
+  return join(studioDir(), "web-origins.json");
 }
 
 /** Origins the file service refused, waiting to be allowed or dismissed. Written by
  *  packages/file-service/src/pendingOrigins.ts. */
 export function pendingOriginsPath(): string {
-  return join(lanesDir(), "pending-origins.json");
+  return join(studioDir(), "pending-origins.json");
 }
 
 /** The engine log written when NOT under the supervisor (the CLI path).
  *
- *  Still `.lanes-engine.log` although the binary is `studio-moteur` now: this is a path
- *  inside `~/.lanes`, and the file service falls back to READING it when there is no
- *  merged log. Renaming it belongs with the `~/.lanes` move, not with a binary rename —
- *  otherwise an old log stops being found the moment the new name lands. */
+ *  Renamed with the directory around it, in the same move, which is the whole reason it
+ *  could be renamed at all: the file service falls back to READING this when there is no
+ *  merged log, so a rename on its own would have made an existing log stop being found.
+ *  Moving both at once means neither is ever looked for under the wrong name. */
 export function engineLogPath(): string {
-  return join(lanesDir(), ".lanes-engine.log");
+  return join(studioDir(), ".studio-engine.log");
 }
 
 /** The old separate file-service log (pre-merge). No longer written; kept as a name. */
 export function fileServiceLogPath(): string {
-  return join(lanesDir(), ".lanes-file-service.log");
+  return join(studioDir(), ".studio-file-service.log");
 }
 
 /** The MERGED log: the engine's and the file service's output, interleaved and tagged.
  *  This is what "Show logs" opens and what the file service serves to the web UI's Logs
  *  panel — one place for everything the engine side says. */
 export function mergedLogPath(): string {
-  return join(lanesDir(), ".lanes.log");
+  return join(studioDir(), ".studio.log");
 }
 
-/** `~/.lanes/root` — the per-user workspaces root the file service owns. */
+/** `~/.studio/root` — the per-user workspaces root the file service owns. */
 export function rootDir(): string {
-  return join(lanesDir(), "root");
+  return join(studioDir(), "root");
 }
 
-/** `~/.lanes/mediatek` — the media library: morceaux, samples and modules.
+/** `~/.studio/mediatek` — the media library: morceaux, samples and modules.
  *
- *  Per MACHINE, not per user, unlike `rootDir()`: it is the one place a lanes song, a
- *  radiok7 release and an obscura track can be the same thing, which a per-user split
- *  would undo. Overridable via `$LANES_MEDIATEK` because it holds audio and video and
+ *  Per MACHINE, not per user, unlike `rootDir()`: it is the one place a pistes song, a
+ *  k7 release and an obscura track can be the same thing, which a per-user split
+ *  would undo. Overridable via `$STUDIO_MEDIATEK` because it holds audio and video and
  *  will not always belong on the system drive — the supervisor passes it down from its
  *  settings, the same way it passes the ports.
  *
@@ -108,8 +108,8 @@ export function mediatekDir(): string {
   return mediatekRoot();
 }
 
-/** Per-workspace SSH keys, `~/.lanes/ssh/<slug>`. Written by the file service so a
+/** Per-workspace SSH keys, `~/.studio/ssh/<slug>`. Written by the file service so a
  *  workspace can talk to a git remote as itself. */
 export function sshDir(slug: string): string {
-  return join(lanesDir(), "ssh", slug);
+  return join(studioDir(), "ssh", slug);
 }

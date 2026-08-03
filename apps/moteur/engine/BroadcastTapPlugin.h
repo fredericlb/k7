@@ -11,7 +11,7 @@
 
 #include <atomic>
 
-namespace lanes {
+namespace studio {
 
 class BroadcastTapPlugin : public tracktion::engine::Plugin {
 public:
@@ -98,4 +98,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BroadcastTapPlugin)
 };
 
-}  // namespace lanes
+}  // namespace studio

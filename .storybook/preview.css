@@ -8,13 +8,13 @@
 
 @source "../commons/packages/ui/src";
 @source "../packages/ui-waveform/src";
-@source "../apps/radiok7/packages/lyrics/src";
-@source "../apps/radiok7/packages/recorder/src";
-@source "../apps/radiok7/packages/tablature/src";
-@source "../apps/radiok7/frontend/src";
-@source "../apps/lanes/frontend/src";
+@source "../apps/k7/packages/lyrics/src";
+@source "../apps/k7/packages/recorder/src";
+@source "../apps/k7/packages/tablature/src";
+@source "../apps/k7/frontend/src";
+@source "../apps/pistes/frontend/src";
 
-/* Tailwind's preflight zeroes element margins; radiok7's legacy stylesheet
+/* Tailwind's preflight zeroes element margins; k7's legacy stylesheet
    relies on default block flow in a lot of places (mirrors its index.css). */
 @layer base {
   p {

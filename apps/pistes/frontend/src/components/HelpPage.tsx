@@ -1,6 +1,6 @@
 // HelpPage.tsx — the documentation at /docs (opened by `help`, bound to `?`), laid out as
 // a DOCUMENT: a table of contents beside one long scrollable body, so ctrl-F reaches all
-// of it. The PROSE lives in lanes/docs/ (see docs/pages.ts); this file is layout plus
+// of it. The PROSE lives in pistes/docs/ (see docs/pages.ts); this file is layout plus
 // the one section that can't be written down — the generated command reference.
 
 import { Button } from "@frediverse/ui/button";

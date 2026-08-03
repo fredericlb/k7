@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The engine registry: engines announce themselves by heartbeat, browsers list what they can reach. One instance per hosted service, so lanes and mediatek each hold their own — see docs/shared.md.",
+  "description": "The engine registry: engines announce themselves by heartbeat, browsers list what they can reach. One instance per hosted service, so pistes and mediatek each hold their own — see docs/shared.md.",
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts"

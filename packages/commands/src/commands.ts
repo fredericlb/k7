@@ -1,6 +1,6 @@
 // commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
-// runs from the web command bar and from `lanes cmd`. Which words invoke a SID lives
+// runs from the web command bar and from `pistes cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
 import { execFileSync } from "node:child_process";
@@ -29,6 +29,7 @@ import {
   loadChains,
   loadProjectRoot,
 } from "@studio/song/loader";
+import { materialiseEngineModule } from "@studio/song/moduleFork";
 import {
   clearChannelLabel,
   formatAudioDevice,
@@ -1073,12 +1074,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // --- channel labels (global user preferences) -------------------------------
-  // The interface in use is shown here but only CHOSEN from the CLI (`lanes config --set interface`).
+  // The interface in use is shown here but only CHOSEN from the CLI (`pistes config --set interface`).
   "channels.list": (_a, h) => {
     const p = loadPreferences();
     const f = formatChannels(p);
     h.log([
-      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: lanes config --set interface)`,
+      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: pistes config --set interface)`,
       `in:  ${f.in || "(none — set with: channel in <ch> <label>)"}`,
       `out: ${f.out || "(none — set with: channel out <ch> <label>)"}`,
     ]);
@@ -1329,7 +1330,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // ui migrate moves the `ui:` blocks still living inside module files out into `_ui/` (see uiMigrate.ts).
+  // ui migrate moves the `ui:` blocks still living inside module files out into a `ui.yaml` beside each (see uiMigrate.ts).
   // Both trees at once — this project's modules and the shared `_modules` beside it — because a panel is keyed
   // by ref, and leaving half of them inline would mean two places to look for the same thing.
   "ui.migrate": async (_a, h) => {
@@ -1462,6 +1463,25 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.reload();
     } catch (e) {
       h.log([`delete module failed: ${(e as Error).message}`]);
+    }
+  },
+
+  // module own <ref> — give an engine module a folder here, and repoint the chains at it (see moduleFork.ts).
+  "module.own": async (a, h) => {
+    const ref = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!ref) {
+      h.log(["usage: module own <@engine/…>"]);
+      return;
+    }
+    try {
+      const r = materialiseEngineModule(h.songPath, ref);
+      h.log([
+        `${r.ref} is now ${r.path}` +
+          (r.chains.length ? `, played by ${r.chains.join(", ")}` : ""),
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`module own failed: ${(e as Error).message}`]);
     }
   },
 

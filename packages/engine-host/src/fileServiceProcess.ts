@@ -74,17 +74,17 @@ export async function ensure(
     windowsHide: true,
     env: {
       ...process.env,
-      LANES_ENGINE_PORT: String(enginePort),
-      LANES_FILE_PORT: String(filePort),
-      LANES_ENGINE_ID: identity.id,
-      LANES_ENGINE_TOKEN: identity.token,
+      STUDIO_ENGINE_PORT: String(enginePort),
+      STUDIO_FILE_PORT: String(filePort),
+      STUDIO_ENGINE_ID: identity.id,
+      STUDIO_ENGINE_TOKEN: identity.token,
       // The file service builds part of its allowlist from this; pass the resolved URL down so the child can't differ.
-      LANES_REGISTRY_URL: registryUrl,
+      STUDIO_REGISTRY_URL: registryUrl,
       // A packaged app has no useful PATH: point the file service at the staged demo songs, or a new workspace opens empty.
-      ...(bundle.demos() ? { LANES_DEMOS: bundle.demos() as string } : {}),
-      // Only when set: unset means the file service falls back to ~/.lanes/mediatek itself,
+      ...(bundle.demos() ? { STUDIO_DEMOS: bundle.demos() as string } : {}),
+      // Only when set: unset means the file service falls back to ~/.studio/mediatek itself,
       // and passing an empty string here would read as "the current directory".
-      ...(mediatekDir ? { LANES_MEDIATEK: mediatekDir } : {}),
+      ...(mediatekDir ? { STUDIO_MEDIATEK: mediatekDir } : {}),
       // Only when configured: with no URL the local folder is simply not a cache of
       // anything, which is a working state and not a broken one.
       ...(mediatek.url ? { MEDIATEK_URL: mediatek.url } : {}),

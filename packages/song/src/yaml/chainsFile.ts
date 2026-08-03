@@ -46,7 +46,7 @@ export function parseChains(text: string): ParsedChains {
           path: "chains",
           message:
             "the old chain-list format — chains are now derived from `tracks:`/`modules:` " +
-            "segments. Run `lanes migrate chains <project>`.",
+            "segments. Run `pistes migrate chains <project>`.",
         },
       ],
     };

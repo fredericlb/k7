@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 int normalizeClips(double targetPeak,
                    const std::vector<std::pair<std::string, std::string>>& pairs) {
@@ -96,4 +96,4 @@ int normalizeClips(double targetPeak,
     return 0;
 }
 
-}  // namespace lanes
+}  // namespace studio

@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 /**
  * The server's engine opens NO device at construction — openAudioDevice() does it, later and on purpose.
@@ -121,7 +121,7 @@ struct EngineHost::Impl {
     // Owning it here is what lets the server stay free of any JUCE include.
     juce::ScopedJuceInitialiser_GUI juceInit;
 
-    te::Engine engine{"Lanes", nullptr, std::make_unique<ServerBehaviour>()};
+    te::Engine engine{"Studio", nullptr, std::make_unique<ServerBehaviour>()};
     std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
 
     // The sessions, by id. Declared AFTER `engine` so they are destroyed BEFORE it: every
@@ -201,4 +201,4 @@ struct EngineHost::Impl {
     te::TransportControl* transport(const std::string& id) { return session(id).transport(); }
 };
 
-}  // namespace lanes
+}  // namespace studio

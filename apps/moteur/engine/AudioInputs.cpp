@@ -4,7 +4,7 @@
 
 #include "EditBuilder.h"   // trackById (via findTrackInput)
 
-namespace lanes {
+namespace studio {
 
 te::WaveInputDevice* findWaveInput(te::Engine& engine,
                                    const std::vector<int>& channels) {
@@ -49,4 +49,4 @@ TrackInput findTrackInput(te::Edit* edit, te::Engine& engine, const ProjectDoc& 
     return {track, instance};
 }
 
-}  // namespace lanes
+}  // namespace studio

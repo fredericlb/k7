@@ -1,19 +1,19 @@
-# AGENTS.md — lanes
+# AGENTS.md — pistes
 
 A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web editor
 is your studio.
 
 **This directory is the web editor, and only that.** The engine (`apps/moteur`), the
 tray (`apps/capot`) and the brain packages (`packages/*`, all `@studio/*`) moved out
-when they stopped belonging to lanes alone — the repo-root `AGENTS.md` holds the map of
+when they stopped belonging to pistes alone — the repo-root `AGENTS.md` holds the map of
 the whole audio side. Two workspaces live here:
 
 | Package | Role |
 |---|---|
-| `frontend` (`lanes-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph, video compositor. |
-| `backend` (`lanes-backend`) | Express — **OIDC auth + engine registry only**. It has no file routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
+| `frontend` (`pistes-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph, video compositor. |
+| `backend` (`pistes-backend`) | Express — **OIDC auth + engine registry only**. It has no file routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
 
-Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://lanes.test`
+Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://studio.test/pistes`
 by the repo-root Caddyfile.
 
 ## The browser talks to THREE servers
@@ -21,9 +21,9 @@ by the repo-root Caddyfile.
 | | `backend` | `@studio/file-service` | `apps/moteur` |
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
-| owns | OIDC auth + engine registry | `~/.lanes/root/<user>/<workspace>` — every file op | audio playback |
+| owns | OIDC auth + engine registry | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
 | reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin, direct** (CORS-gated) | **WebSocket, direct** |
-| auth | session cookie (`lanes.sid`) | `x-lanes-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
+| auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
 **The backend has no file routes and no `store.ts`.** Every file operation lives in
 `packages/file-service/src/workspace.ts`. Don't look for `tree`/`read`/`write`/`fmt`
@@ -31,11 +31,18 @@ here.
 
 The file service does **not** share the session cookie. Its CORS allowlist
 (`packages/file-service/src/cors.ts`) is the actual security boundary: deny-by-default,
-loopback/private plus the user-trusted origins in `~/.lanes/web-origins.json`.
+loopback/private plus the user-trusted origins in `~/.studio/web-origins.json`.
 
 `AuthGate` → `EngineGate` → `WorkspaceGate` → editor. The engine picker is unreachable
 until logged in. Auth falls back to a "Dev User" stub when no `OIDC_*` env is set, but
 login is still mandatory.
+
+**This backend owns `/auth/*` for the WHOLE origin.** Everything is served under one
+host now (`studio.test/<service>`), so there is one session cookie — `studio.sid`, signed
+with the `SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register
+with the IdP. mediatek and platines pass `mountRoutes: []`: they verify that cookie and
+mount no auth routes of their own. The consequence to know: logging out here logs you out
+of all three. API calls stay under each service's prefix; only auth sits at the root.
 
 ## Frontend architecture
 
@@ -58,7 +65,7 @@ a pane off screen; nothing unmounts. Two views: `global` (chains graph) and `vid
 ### Commands are the CLI's, verbatim
 
 The command bar calls `/complete` and `/command` on the **file service**, which
-dispatch through `@studio/commands` — the same SIDs `lanes cmd` runs. Add a feature
+dispatch through `@studio/commands` — the same SIDs `pistes cmd` runs. Add a feature
 there, not here. Web-local commands are only the shell's own view state (tabs, close,
 edit sequence/clip in `LOCAL_COMMANDS`).
 
@@ -72,11 +79,14 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 - **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
-  `~/.lanes/preferences.yaml`); `:w` is wired to the tab's `onSave`.
-- **Modules** — not here. The builder moved to `apps/mediatek`, because only the
-  médiathèque is editable and a workspace's `_modules` is a read-only mirror. The
-  settings entry is a link out (`MEDIATEK_URL` in `src/api.ts`); a module file opened
-  from the file tree still forks into the project, which is the one editing path left.
+  `~/.studio/preferences.yaml`); `:w` is wired to the tab's `onSave`.
+- **Modules** — `@studio/ui-module-builder`, the same component the médiathèque runs,
+  as a full-screen overlay over the shell. It is reached by the **Builder** button on a
+  module file's editor toolbar, not by opening the file: `module.yaml` must still open
+  its text, because that is the path a shared module forks through. `src/api.ts`'s
+  `moduleStore` is the seam — see that package's `docs/store.md`, in particular why a
+  save can come back saying it landed somewhere else. The catalogue itself is still the
+  médiathèque's (`MEDIATEK_URL`); this edits the modules a project can see.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `DomChains.tsx` for drawing:
   HTML nodes plus one SVG cable layer. **Never hand-roll layout or edge routing.**
   dagre owns both; the renderer consumes its numbers. Pan/zoom is one CSS transform on
@@ -85,7 +95,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 - **Timeline** — vim-style: `hjkl` movement, `v` for visual selection, `z`/`Shift+z`
   for the zoom stack, `m`/`s` for mute/solo (which rewrite `tracks/*.yaml`, not a
   session flag). Selection and zoom are a stack; the innermost entry describes the
-  view. Unlike chains, this one stays lanes-only.
+  view. Unlike chains, this one stays pistes-only.
 - **Video** — `@studio/ui-eyes`, a WebGL compositor. One `<video>` per layer, not per
   clip. The `video` view is the default for songs with video tracks (`autoVideoRef`).
 
@@ -102,15 +112,15 @@ Four source files: `server.ts`, `registry.ts`, `routes/registry.ts`, plus types.
 
 ## Users and workspaces
 
-Identity is the OIDC email → folder slug → `~/.lanes/root/<slug>/<workspace>`.
+Identity is the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`.
 Workspace CRUD via `GET/POST /workspaces`; the active project is remembered
-per-workspace in a `.lanes-active` marker.
+per-workspace in a `.studio-active` marker.
 
 Workspaces can be **cloned from SSH git repos** (`POST /workspaces/clone`) with a
-per-user deploy key under `~/.lanes/ssh/<slug>/`. The clone blanks the global git config
+per-user deploy key under `~/.studio/ssh/<slug>/`. The clone blanks the global git config
 (`GIT_CONFIG_GLOBAL=/dev/null`) so an `url.insteadOf` rewrite can't sidestep the key.
 
-There is **no global session file**. `~/.lanes/session.json` is gone; the workspace is
+There is **no global session file**. `~/.studio/session.json` is gone; the workspace is
 the scope.
 
 ## Many browsers at once (no lease)

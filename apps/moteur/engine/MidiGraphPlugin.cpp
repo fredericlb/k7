@@ -1,11 +1,12 @@
 #include "MidiGraphPlugin.h"
 #include "Warnings.h"
 
-namespace lanes {
+namespace studio {
 
 namespace te = tracktion::engine;
 
-const char* MidiGraphPlugin::xmlTypeName = "lanes_midigraph";
+// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+const char* MidiGraphPlugin::xmlTypeName = "studio_midigraph";
 
 // A transpose of zero: the plugin still declares its parameter, so a module that names no `jsdsp:` is a working
 // (if inert) transposer rather than an error. Deliberately hand-written and tiny, unlike GraphDspPlugin's
@@ -103,4 +104,4 @@ void MidiGraphPlugin::applyToBuffer(const te::PluginRenderContext& fc)
     graph_->processMidi(*fc.bufferForMidiMessages, scratch_.data(), (int)scratch_.size());
 }
 
-}  // namespace lanes
+}  // namespace studio

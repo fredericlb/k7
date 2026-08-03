@@ -22,11 +22,14 @@ out/
 *.tsbuildinfo
 **/tsconfig.tsbuildinfo
 
-# lanes engine daemon log (written beside a project / the CLI root at runtime)
-.lanes-engine.log
+# engine daemon log (written beside a project / the CLI root at runtime)
+.studio-engine.log
 
 # Real config for every service (see env.example.yaml). Secrets — never commit.
-env.yaml
+# The glob covers backups and swap files too: `env.yaml.bak` is the same secrets
+# under a name the bare rule missed. `env.example.yaml` is a different name and
+# stays tracked.
+env.yaml*
 
 # Claude Code's workspace: agent settings, granted permissions, scratch
 # worktrees. Local to each machine and regenerated on demand — never committed.

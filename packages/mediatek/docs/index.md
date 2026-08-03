@@ -17,6 +17,27 @@ choice the rest of this repo already made, and reversing it would cost more than
 So: a walk produces the listing, a token says when to walk again, and one JSON file makes
 a restart cheap.
 
+## A listing is entries, and a tree is a filesystem
+
+A tree draws itself from the entry PATHS: `modules/audio/reverb` puts `audio` on screen
+because something is filed under it. That works right up to the thing on disk that is **not
+an entry**, and there are two of those:
+
+- the folder `POST /folder` just made — "somewhere to drop into before the first file";
+- a file dropped where no catalogue reaches (`modules/<type>` lists directories, so a file
+  beside them is nobody's entry).
+
+Both answered 200 and appeared nowhere, which reads as the call having done nothing at all.
+`scanUnlisted` is the missing half: every path no entry accounts for, family-relative,
+beside the entries in the same listing.
+
+An ENTRY's folder is never descended into. A morceau and a module ARE folders and their
+insides are theirs — so a module's own files travel **on the entry**, as `files`. A tree
+drawing one needs both halves of that: what is actually in the folder (instances, a
+`.vstpreset`, a jsdsp source) and which of the three canonical names are missing, so it can
+offer to create them. Drawing the three fixed rows alone meant a folder dropped with two
+files of its own showed neither, and read as having been flattened on the way in.
+
 ## Why the token is per family
 
 `familyRevision()` is computed for `morceaux`, `samples` and `modules` separately.
@@ -52,6 +73,21 @@ maintaining the in-memory listing with `index.json` as the warm start — not a 
 
 That escape hatch is written down here so the decision is a decision, not an assumption
 nobody revisited.
+
+## The index is versioned, because the token cannot see a code change
+
+`INDEX_VERSION` sits in the persisted JSON and an index that does not carry the current one
+is dropped unread.
+
+The revision token tracks the **files**: count, newest mtime, a mutation counter. Nothing
+about it moves when the SCAN changes — so a listing written by an older build matched a
+token computed by a newer one, and the cache went on answering yesterday's question. That
+is exactly what happened when the module scan learned about category folders: nothing on
+disk had changed, so nothing asked for a re-walk, and a category kept coming back as a
+module long after the code was right.
+
+Bump it whenever what the scan PRODUCES changes — a new field, a different rule about what
+counts as an entry. A dropped index costs one walk, which is what the next section is about.
 
 ## The cache is never load-bearing
 

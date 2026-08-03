@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace lanes {
+namespace studio {
 
 class BroadcastTap {
 public:
@@ -114,4 +114,4 @@ private:
     size_t lastRead_ = 0;
 };
 
-}  // namespace lanes
+}  // namespace studio
