@@ -1,7 +1,8 @@
 // list-sessions.ts — the supervisor's view of a running engine, through the SAME EngineQueries
 // the tray uses, so this proves the whole chain up to HostSnapshot rather than just the wire.
 // Creates two sessions, lists them, drops one, lists again.
-//   npx tsx apps/moteur/scripts/list-sessions.ts   (engine on :8833)
+//   npx tsx apps/moteur/scripts/list-sessions.ts            (a throwaway engine on :8833)
+//   npx tsx apps/moteur/scripts/list-sessions.ts 8765 --peek  (LOOK at a live one, change nothing)
 
 import { EngineClient } from "@studio/engine-client/engineClient";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -43,9 +44,20 @@ const doc = (name: string): ProjectDoc =>
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const PORT = Number(process.argv[2] || 8833);
+// Read-only against a REAL engine: it must not send projects or drop anyone's session, which
+// is the difference between a diagnostic and a way to lose the song someone is working on.
+const PEEK = process.argv.includes("--peek");
+
 async function main() {
-  const lanes = new EngineClient("ws://127.0.0.1:8833", "lanes");
-  const platines = new EngineClient("ws://127.0.0.1:8833", "platines");
+  if (PEEK) {
+    const q = new EngineQueries(PORT);
+    console.log("sessions sur :" + PORT, await q.listSessions());
+    q.close();
+    return process.exit(0);
+  }
+  const lanes = new EngineClient(`ws://127.0.0.1:${PORT}`, "lanes");
+  const platines = new EngineClient(`ws://127.0.0.1:${PORT}`, "platines");
   lanes.connect();
   platines.connect();
   await wait(500);
@@ -57,7 +69,7 @@ async function main() {
 
   // The supervisor's own client, on the DEFAULT session: it drives nothing and asks about
   // everyone. That is the whole reason list-sessions carries no session field.
-  const q = new EngineQueries(8833);
+  const q = new EngineQueries(PORT);
   const before = await q.listSessions();
   console.log("vues par le superviseur :", before);
 
