@@ -14,12 +14,12 @@ const ws = new WebSocket("ws://127.0.0.1:8833");
 ws.on("open", () => {
   // DEUX sessions distinctes, chacune son projet, chacune son transport.
   send(ws, { type:"project", session:"pistes",    doc: doc("depuis-pistes", 45) });
-  send(ws, { type:"project", session:"platines", doc: doc("depuis-platines", 64) });
+  send(ws, { type:"project", session:"m9", doc: doc("depuis-m9", 64) });
   setTimeout(() => { send(ws,{type:"transport",session:"pistes",action:"play"});
-                     send(ws,{type:"transport",session:"platines",action:"play"}); }, 2500);
+                     send(ws,{type:"transport",session:"m9",action:"play"}); }, 2500);
   // Chaque session ecoute la SIENNE, sur sa propre socket.
-  const counts = { pistes: 0, platines: 0 };
-  for (const sid of ["pistes", "platines"]) {
+  const counts = { pistes: 0, m9: 0 };
+  for (const sid of ["pistes", "m9"]) {
     const l = new WebSocket("ws://127.0.0.1:8833");
     l.binaryType = "arraybuffer";
     l.on("open", () => l.send(JSON.stringify({ type: "broadcast", session: sid, on: true })));
@@ -27,7 +27,7 @@ ws.on("open", () => {
   }
   setTimeout(() => {
     console.log("trames recues par session :", counts);
-    const ok = counts.pistes > 100 && counts.platines > 100;
+    const ok = counts.pistes > 100 && counts.m9 > 100;
     console.log(ok ? "OK — chaque session recoit son propre flux"
                    : "ECHEC — une session ne recoit rien");
     process.exit(ok ? 0 : 1);

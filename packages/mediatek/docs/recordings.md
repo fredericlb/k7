@@ -12,7 +12,7 @@
 ```
 
 **Pas une quatrième famille.** `Family` est un type que tout le monde consomme — le scan,
-les jetons, le manifeste, platines, le cache. En ajouter une pour quelque chose qui ne
+les jetons, le manifeste, m9, le cache. En ajouter une pour quelque chose qui ne
 produit aucune entrée coûterait un `switch` partout, pour des branches vides.
 
 **Pas un `MORCEAU_KIND`.** Un *kind* est balayé en entrées de catalogue. Une capture n'a ni

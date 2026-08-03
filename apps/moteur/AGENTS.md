@@ -5,7 +5,7 @@ against the current state, applies the minimal change to a Tracktion Engine edit
 audio, and pushes transport/meter state back over WebSocket. **Never parses song files.**
 
 It is deliberately its own app rather than part of pistes: it serves every audio app in
-the repo. pistes drives it today; mediatek's module previews and platines will drive the
+the repo. pistes drives it today; mediatek's module previews and m9 will drive the
 same binary over the same protocol, and it cannot tell them apart — it only ever sees a
 compiled `ProjectDoc`.
 

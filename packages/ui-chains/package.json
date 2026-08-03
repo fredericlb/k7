@@ -6,7 +6,8 @@
   "description": "pistes's routing-graph engine \u2014 compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
   "exports": {
     "./graph": "./src/graph.ts",
-    "./cables": "./src/cables.ts"
+    "./cables": "./src/cables.ts",
+    "./modulePreview": "./src/modulePreview.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

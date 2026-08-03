@@ -28,6 +28,26 @@ typed rather than where the file was.
 only two roots `modules_from` can name — the media library, or the workspace's own — so
 the question has exactly two answers.
 
+## `@mediatek` needs no declaring
+
+The media library's folder is fixed (`~/.studio/mediatek/modules`, or `$STUDIO_MEDIATEK`), so
+a project listing `@mediatek` in `modules_from` stated something the loader already knew. It
+was written by the scaffold and by nothing else, which meant **every project older than that
+line saw the library as a dangling ref** — "extends unknown module '@mediatek/…'" about a
+module sitting right there on disk.
+
+`mediatekModulesRoot()` states the rule once and `moduleLibraryDirs` reads it, so the modules,
+their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the catalogue all agree
+about what a project can reach. A project that still declares `@mediatek` resolves to the same
+folder and is de-duplicated, so nothing had to be rewritten.
+
+`@engine` is the same idea taken one step further: a level with no folder at all. What a
+project *does* still declare is `../_modules` — that one is genuinely per workspace.
+
+What this does NOT do is put the bytes there. The library is hosted; the local folder is a
+cache of it, filled by `packages/file-service/docs/mediatekPull.md` for the modules the open
+songs name.
+
 `@engine` is the odd one and always will be: it names **no folder at all**. A scanned
 plugin is a module the engine merely reports (`engineCatalogue.ts`), which is fine until
 you want to draw it a panel or give it presets, because both are FILES in a module's

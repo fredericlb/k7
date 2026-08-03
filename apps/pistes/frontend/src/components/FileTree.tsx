@@ -11,6 +11,7 @@ import {
 } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import {
+  Boxes,
   File,
   FileAudio,
   Folder,
@@ -27,24 +28,49 @@ import type { FileNode } from "../types";
 const dragHasFiles = (e: React.DragEvent): boolean =>
   acceptsFileDrop(dragPayload(e));
 
-// Check if a path looks like a module folder: [...]/modules/<category>/<name>
-const MODULE_CATEGORIES = new Set([
-  "io",
-  "instruments",
-  "audio",
-  "transformers",
-  "midi",
-  "video_effects",
-  "video_transitions",
-]);
-const isModuleFolder = (path: string): boolean => {
-  const parts = path.split("/");
-  return (
-    parts.length >= 3 &&
-    parts[parts.length - 3] === "modules" &&
-    MODULE_CATEGORIES.has(parts[parts.length - 2])
-  );
-};
+/** The generic module file a module folder is recognised BY, and opened at. */
+const MODULE_FILE = /^module\.ya?ml$/i;
+
+/**
+ * A module is a folder that HOLDS a `module.yaml`, and the tree draws it as one row.
+ *
+ * Recognised by its contents rather than by its path. The shape used to be read off the path
+ * — `…/modules/<category>/<name>` against a hard-coded category list — which missed a shared
+ * library, where a module sits one folder deeper (`_modules/<type>/<category>/<leaf>`), and
+ * would miss any category the list had not been told about. The file is the definition; asking
+ * for it cannot drift from what the loader does.
+ */
+function moduleFileIn(node: FileNode): string | null {
+  if (!node.dir) return null;
+  return node.children?.find((c) => MODULE_FILE.test(c.name))?.name ?? null;
+}
+
+/**
+ * The tree with every module folded into a single row, plus the module file each one opens at.
+ *
+ * The three files a module is are its DEFINITION, not contents to browse — you edit a module,
+ * and the builder is what edits all three. Leaving them as rows offered three ways into one
+ * screen and invited a drop into a folder whose shape the loader decides.
+ */
+function foldModules(nodes: FileNode[]): {
+  tree: FileNode[];
+  modules: Map<string, string>;
+} {
+  const modules = new Map<string, string>();
+  const walk = (ns: FileNode[]): FileNode[] =>
+    ns.map((n) => {
+      const file = moduleFileIn(n);
+      if (file) {
+        modules.set(n.path, file);
+        // `dir` and `children` both dropped: the shared tree decides "leaf" from those alone,
+        // and a leaf is what draws no chevron and reports a click through onOpen.
+        const { dir: _dir, children: _children, ...leaf } = n;
+        return leaf as FileNode;
+      }
+      return n.children ? { ...n, children: walk(n.children) } : n;
+    });
+  return { tree: walk(nodes), modules };
+}
 
 /**
  * Is this path inside the workspace's shared module library?
@@ -67,6 +93,7 @@ export function FileTree({
   projectName,
   rootDir,
   onOpen,
+  onOpenModule,
   onOpenProject,
   onUpload,
   onRename,
@@ -85,6 +112,9 @@ export function FileTree({
   // Where a drop onto empty space lands — the active project, or the workspace root when none is open.
   rootDir: string;
   onOpen: (path: string) => void;
+  /** A module row was clicked — the path is its `module.yaml`, which is what the builder takes.
+   *  Absent and a module simply opens nothing, since its files are no longer rows. */
+  onOpenModule?: (moduleFile: string) => void;
   onOpenProject: (path: string) => void;
   // Drop local files into `dir` (a workspace-relative folder), FOLDERS included — each file carries the path
   // it sat at, because a module is a folder of three. EditorTab does the upload.
@@ -171,9 +201,15 @@ export function FileTree({
     input.value = ""; // so the same pick can be repeated
   };
 
+  // Folded before anything reads it: `modules` is then the only thing that knows a row is a
+  // module, because the node no longer says `dir` and the path never did say it reliably.
+  const { tree: folded, modules } = useMemo(() => foldModules(tree), [tree]);
+  const isModule = (path: string) => modules.has(path);
+
   const menuEnabled = !!onRename && !!onDelete;
+  // `t.dir` is false on a module row now, so the folded set answers instead.
   const isModuleTarget = (t: TreeTarget<FileNode>) =>
-    t.dir && !t.root && isModuleFolder(t.path);
+    !t.root && isModule(t.path);
   // Both "New instance…" and "Clone module…" resolve the module inside the ACTIVE PROJECT, so neither reaches a
   // shared one. Editing a shared module is what copies it into the project (see moduleFork.ts).
   const isLocalModuleTarget = (t: TreeTarget<FileNode>) =>
@@ -275,7 +311,9 @@ export function FileTree({
       label: "Delete",
       danger: true,
       when: (t) => menuEnabled && !t.root && !isShared(t.path),
-      run: (t) => onDelete?.(t.path, t.dir),
+      // A module is a DIRECTORY on disk that the tree draws as a leaf, so `t.dir` alone would
+      // send it down the single-file route and leave the folder behind.
+      run: (t) => onDelete?.(t.path, t.dir || isModule(t.path)),
     },
   ];
 
@@ -346,7 +384,7 @@ export function FileTree({
         onChange={(e) => uploadPicked(e.target)}
       />
       <Tree<FileNode>
-        nodes={tree}
+        nodes={folded}
         activePath={activePath}
         reveal={activeProject}
         rootPath={rootDir}
@@ -355,11 +393,19 @@ export function FileTree({
         actions={actions}
         acceptsFileDrop={dragHasFiles}
         isDisabled={isBinary}
-        onOpen={(node) => onOpen(node.path)}
+        // A module opens the BUILDER, on the panel — the screen that edits all three of its
+        // files. Everything else opens as text, as before.
+        onOpen={(node) => {
+          const file = modules.get(node.path);
+          if (file) onOpenModule?.(`${node.path}/${file}`);
+          else onOpen(node.path);
+        }}
         onDropTree={onUpload}
         onMove={onMove}
         icon={(node, open) =>
-          node.dir ? (
+          isModule(node.path) ? (
+            <Boxes className="h-4 w-4 shrink-0" />
+          ) : node.dir ? (
             open ? (
               <FolderOpen className="h-4 w-4 shrink-0" />
             ) : (

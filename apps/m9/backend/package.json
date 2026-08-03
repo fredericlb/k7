@@ -1,0 +1,27 @@
+{
+  "name": "m9-backend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/server.ts",
+  "description": "Auth, the engine registry and the account's engine choice. No file routes and no media: the decks reach the machine's file service and its moteur directly.",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@frediverse/http": "*",
+    "@frediverse/oidc": "*",
+    "@studio/engine-registry": "*",
+    "@studio/user-prefs": "*",
+    "express": "^4.19.2",
+    "tsx": "^4.16.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2"
+  }
+}

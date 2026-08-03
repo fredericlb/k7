@@ -101,6 +101,25 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
     });
   });
 
+  it("resolves the library ref on a project that declares nothing", () => {
+    // The reason this matters: `modules_from: ['@mediatek']` was only ever written by the
+    // scaffold, so every project older than that line saw the médiathèque as a dangling ref —
+    // "extends unknown module '@mediatek/…'" on a module sitting right there on disk. The
+    // level's folder is fixed, so declaring it stated nothing the loader did not know.
+    writeFileSync(
+      join(dir, "project.yaml"),
+      "project:\n  name: song\n  tempo: 120\n",
+      "utf8",
+    );
+    const all = loadModuleRefs(dir, [], CATALOGUE);
+    expect(all["@mediatek/instruments/serum"]).toBeTruthy();
+    // …and its face comes with it: a module the loader keys but whose panel is only reached
+    // through the declaration would resolve and then draw nothing.
+    expect(
+      loadUiLibrary(dir).byRef["@mediatek/instruments/serum"],
+    ).toBeTruthy();
+  });
+
   it("survives a machine that has never scanned", () => {
     // The catalogue is ambient. With none, the `extends` names nothing — and that must cost the
     // inheritance, not the project: validate() is what reports a dangling ref, not the loader.

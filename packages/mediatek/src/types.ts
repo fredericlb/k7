@@ -1,10 +1,15 @@
 // types.ts — what the mediatek catalogue hands out. Types only, shared by the scan, the
 // HTTP routes and every surface that lists the library.
 
-/** The three things the mediatek holds. Each is scanned, indexed and invalidated ALONE. */
-export type Family = "morceaux" | "samples" | "modules";
+/** The four things the mediatek holds. Each is scanned, indexed and invalidated ALONE. */
+export type Family = "morceaux" | "samples" | "modules" | "chains";
 
-export const FAMILIES: readonly Family[] = ["morceaux", "samples", "modules"];
+export const FAMILIES: readonly Family[] = [
+  "morceaux",
+  "samples",
+  "modules",
+  "chains",
+];
 
 /**
  * The raw capture zone: its folder at the root, its key in the revision map, its key in the

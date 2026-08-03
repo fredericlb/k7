@@ -2,7 +2,7 @@
 
 ## The question
 
-Several services (pistes, mediatek, platines) want an engine each, on one machine. The
+Several services (pistes, mediatek, m9) want an engine each, on one machine. The
 obvious shape is N engine *processes*, and it runs straight into the constraint this repo
 already documents:
 
@@ -11,7 +11,7 @@ already documents:
 > engine start blocks **forever, with no output at all**.
 
 Shared-mode WASAPI is multi-client — two processes on one device was measured working, both
-at realtime, both producing signal. But WASAPI costs latency, and pistes and platines are
+at realtime, both producing signal. But WASAPI costs latency, and pistes and m9 are
 exactly the two that cannot pay it.
 
 So the question became: **can one process hold the ASIO device and host several projects?**

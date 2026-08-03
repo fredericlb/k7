@@ -24,9 +24,9 @@
     "apps/mediatek",
     "apps/mediatek/frontend",
     "apps/mediatek/backend",
-    "apps/platines",
-    "apps/platines/frontend",
-    "apps/platines/backend",
+    "apps/m9",
+    "apps/m9/frontend",
+    "apps/m9/backend",
     "apps/moteur",
     "apps/capot"
   ],

@@ -85,7 +85,7 @@ export const auth = {
   },
 
   /** Ends the session for the WHOLE origin — studio.sid is shared, so this signs
-   *  you out of pistes and platines too. See apps/pistes/AGENTS.md. */
+   *  you out of pistes and m9 too. See apps/pistes/AGENTS.md. */
   logout: async (): Promise<void> => {
     await fetch("/auth/logout", { method: "POST" });
     window.location.reload();
@@ -130,7 +130,8 @@ export const engineMachine = {
 export const engines = {
   list: async () =>
     json<PublicEngine[]>(await fetch(`${BASE}/api/engines`), "engines"),
-  /** Mark it in use, and verify the token server-side. Same lease pistes takes. */
+  /** Take or RENEW the lease, verifying the token server-side. Idempotent by design — the
+   *  holder re-POSTs it every ENGINE_ASSIGN_RENEW_MS, because "in use" expires on its own. */
   select: async (id: string, token: string, tier: number) =>
     json<{ ok: true }>(
       await fetch(`${BASE}/api/engine/select`, {
@@ -139,6 +140,13 @@ export const engines = {
         body: JSON.stringify({ id, token, tier }),
       }),
       "select",
+    ),
+  /** The lease's goodbye, as a BEACON so it survives the tab closing — a fetch there is
+   *  cancelled with the page. Best-effort by nature, which is why the TTL exists behind it. */
+  release: (id: string) =>
+    navigator.sendBeacon(
+      `${BASE}/api/engine/release`,
+      new Blob([JSON.stringify({ id })], { type: "application/json" }),
     ),
   prefs: async () =>
     json<{ engineId?: string }>(

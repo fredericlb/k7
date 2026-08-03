@@ -44,7 +44,7 @@ whom*:
 
 ```
 Sessions ▸  pistes · ma-chanson · 4 tracks  ▶  ♫1   ✕
-            platines · le-set · 1 track          ✕
+            m9 · le-set · 1 track                ✕
             mediatek · nothing loaded            ✕
 ```
 

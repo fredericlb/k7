@@ -31,6 +31,9 @@ const PANEL = {
   },
 };
 
+/** What vitest.config.ts pinned the media root at, captured before any test moves it. */
+const PINNED_MEDIATEK = process.env.STUDIO_MEDIATEK;
+
 let root: string;
 let dir: string;
 
@@ -82,7 +85,9 @@ describe("panels across more than one library", () => {
     declareMediatek(media);
   });
   afterEach(() => {
-    delete process.env.STUDIO_MEDIATEK;
+    // Restored, not deleted: vitest.config.ts pins this at an empty folder for the whole file,
+    // and dropping it here let the developer's own library into the tests further down.
+    process.env.STUDIO_MEDIATEK = PINNED_MEDIATEK;
     rmSync(media, { recursive: true, force: true });
   });
 

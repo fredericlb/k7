@@ -11,7 +11,7 @@ Before sessions, the engine held one project. Everything that reached it applied
 one, so:
 
 - opening a module in the médiathèque's builder replaced the song open in pistes;
-- a platines deck loading a track did the same;
+- an m9 deck loading a track did the same;
 - and the state frames were global, so pistes' transport light lit up when a deck played.
 
 Nothing arbitrated. The last `project` message won, in silence — nothing failed, nothing
@@ -26,7 +26,7 @@ is addressed by construction, and there is no per-call site to forget.
 
 The granularity is one session per **service and per person** — `sessionFor("pistes",
 email)` → `pistes:fred_parapluie_org`. The service half is what stopped pistes, the
-médiathèque and platines from overwriting each other. The person half became necessary the
+médiathèque and m9 from overwriting each other. The person half became necessary the
 moment an engine could be **chosen per account**: two people can now pick the same machine,
 and on a bare `pistes` they would drive one project between them — the same collision, moved
 up a level.

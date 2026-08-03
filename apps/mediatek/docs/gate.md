@@ -25,7 +25,7 @@ two apps would then fight over it every renewal interval. So the gate probes, ta
 address, and claims nothing.
 
 That the lease is coarse enough to make this a real problem is worth writing down: it is
-the first place the registry model shows its age, and it will show it again when platines
+the first place the registry model shows its age, and it will show it again when m9
 arrives.
 
 ## Why the nearest engine is taken without asking

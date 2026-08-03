@@ -405,7 +405,7 @@ export interface ProjectErrors {
 
 // --- Chains: the routing graph --------------------------------------------------
 // Moved to @studio/graph-model. Three apps draw chains — pistes, mediatek's module
-// builder and platines — and only pistes wants the rest of this file, so the graph
+// builder and m9 — and only pistes wants the rest of this file, so the graph
 // model is its own package. Import it from there, not through here.
 
 // ── Engine-side file service headers ─────────────────────────────────────────

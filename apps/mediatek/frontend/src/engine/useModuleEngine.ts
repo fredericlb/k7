@@ -7,7 +7,10 @@ import { chooseEngine } from "@studio/engine-browser/choose";
 import { probeEngines } from "@studio/engine-browser/probe";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
-import type { PublicEngine } from "@studio/web-protocol";
+import {
+  ENGINE_ASSIGN_RENEW_MS,
+  type PublicEngine,
+} from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentUser, engines } from "../api";
 import { modulePreviewDoc, previewPluginId } from "./preview";
@@ -61,6 +64,9 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const engine = useRef<EngineClient | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
+  // Stops the renew loop and says goodbye. Held in a ref because the lease is taken inside an
+  // async body, long after the effect returned its cleanup.
+  const lease = useRef<(() => void) | null>(null);
   // The module currently loaded, so a reconnect can put it back.
   const loaded = useRef<Parameters<ModuleEngine["preview"]> | null>(null);
 
@@ -83,9 +89,10 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       const choice = chooseEngine(ranked, engineId ?? prefs.engineId);
       if (!choice.engine) return setPhase({ k: "absent" });
       const found = choice.engine;
-      // The lease, exactly as pistes takes it — and a miss is not fatal: it marks the engine
-      // in use, it does not grant the connection, which the browser makes itself.
-      engines.select(found.engine.id, found.token!, found.tier).catch(() => {});
+      // The lease, exactly as pistes' EngineGate holds it. A miss is not fatal: it marks the
+      // engine in use, it does not grant the connection, which the browser makes itself.
+      lease.current?.(); // a previous one, if this effect re-ran on a new choice
+      lease.current = holdEngine(found.engine.id, found.token!, found.tier);
 
       // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
       // engine slot pistes had a song in — auditioning a module unloaded the song.
@@ -112,6 +119,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     // and this hook owns the client outright — nobody else holds a reference to it.
     return () => {
       cancelled = true;
+      lease.current?.();
+      lease.current = null;
       engine.current?.dispose();
       engine.current = undefined;
     };
@@ -143,6 +152,32 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     listPresets,
     setPreset,
     retry: () => setAttempt((n) => n + 1),
+  };
+}
+
+/**
+ * Hold the engine ASSIGNED for as long as this tab drives it. Returns the goodbye.
+ *
+ * "Assigned" is a LEASE, not a flag — `assignedSeen` is a timestamp precisely because the
+ * holder is a browser tab and can only say goodbye best-effort. A single `select` therefore
+ * lapses after ENGINE_ASSIGN_TTL_MS: the médiathèque did exactly that, so fifteen seconds
+ * into auditioning a module its engine went back to reading FREE in everyone's picker, this
+ * one included. pistes' EngineGate has always renewed; this is the same loop, and the
+ * constants are shared so the two cannot drift apart.
+ */
+function holdEngine(id: string, token: string, tier: number): () => void {
+  // A miss is fine: the TTL grants grace, and a genuinely gone engine shows up on the socket.
+  const renew = () => {
+    engines.select(id, token, tier).catch(() => {});
+  };
+  renew(); // immediately — a StrictMode remount, whose cleanup released, has to re-claim
+  const timer = setInterval(renew, ENGINE_ASSIGN_RENEW_MS);
+  const bye = () => void engines.release(id);
+  window.addEventListener("pagehide", bye);
+  return () => {
+    clearInterval(timer);
+    window.removeEventListener("pagehide", bye);
+    bye(); // unmounting without pagehide == switching away, so release now
   };
 }
 

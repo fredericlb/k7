@@ -63,15 +63,15 @@ function watch(c: EngineClient): Seen {
 // transforms this to CJS and a bare await is a syntax error there.
 async function main() {
   const pistes = new EngineClient(URL, SESSIONS.pistes);
-  const platines = new EngineClient(URL, SESSIONS.platines);
+  const m9 = new EngineClient(URL, SESSIONS.m9);
   const onPistes = watch(pistes);
-  const onPlatines = watch(platines);
+  const onM9 = watch(m9);
   pistes.connect();
-  platines.connect();
+  m9.connect();
 
   await wait(500);
   pistes.sendProject(doc("depuis-pistes", 45));
-  platines.sendProject(doc("depuis-platines", 64));
+  m9.sendProject(doc("depuis-m9", 64));
   await wait(3000);
 
   // ONE of them plays. Before sessions the second project tore the first down; before the
@@ -80,24 +80,24 @@ async function main() {
   await wait(4000);
 
   console.log("pistes    :", onPistes);
-  console.log("platines :", onPlatines);
+  console.log("m9        :", onM9);
 
   const problems: string[] = [];
   if (!onPistes.playing)
     problems.push("pistes n'a jamais vu son transport partir");
   if (onPistes.maxPlayhead < 1)
     problems.push("la tete de lecture de pistes n'a pas avance");
-  if (onPlatines.frames === 0)
+  if (onM9.frames === 0)
     problems.push(
-      "platines ne recoit aucune trame d'etat (session filtree a tort)",
+      "m9 ne recoit aucune trame d'etat (session filtree a tort)",
     );
-  if (onPlatines.playing)
-    problems.push("platines a vu le transport de pistes — les sessions fuient");
-  if (onPlatines.maxPlayhead > 0.5)
-    problems.push("la tete de lecture de pistes a fuit vers platines");
+  if (onM9.playing)
+    problems.push("m9 a vu le transport de pistes — les sessions fuient");
+  if (onM9.maxPlayhead > 0.5)
+    problems.push("la tete de lecture de pistes a fuit vers m9");
 
   pistes.close();
-  platines.close();
+  m9.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);
     process.exit(1);

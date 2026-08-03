@@ -109,6 +109,41 @@ describe("syncing a family", () => {
     expect(existsSync(join(root, "modules/b.yaml"))).toBe(false);
   });
 
+  it("fetches only what a scope accepts", async () => {
+    // A machine caches the modules its songs reach for, not the whole catalogue.
+    const owner = fakeOwner({
+      "modules/audio/wanted/module.yaml": { body: "w\n", mtime: 1 },
+      "modules/audio/other/module.yaml": { body: "o\n", mtime: 1 },
+    });
+    const r = await syncFamily(owner, "modules", (p) =>
+      p.startsWith("modules/audio/wanted/"),
+    );
+    expect(r.fetched).toEqual(["modules/audio/wanted/module.yaml"]);
+    expect(existsSync(join(root, "modules/audio/other/module.yaml"))).toBe(
+      false,
+    );
+  });
+
+  it("never drops what is merely out of scope", async () => {
+    // The trap the scope has to avoid: narrowing `want` alone makes everything else look
+    // like a file the owner deleted, and the first narrow sync empties the cache.
+    const owner = fakeOwner({
+      "modules/audio/a/module.yaml": { body: "a\n", mtime: 1 },
+      "modules/audio/b/module.yaml": { body: "b\n", mtime: 1 },
+    });
+    await syncFamily(owner, "modules");
+    const r = await syncFamily(owner, "modules", (p) =>
+      p.startsWith("modules/audio/a/"),
+    );
+    expect(r.dropped).toEqual([]);
+    expect(existsSync(join(root, "modules/audio/b/module.yaml"))).toBe(true);
+    // …and it is still REMEMBERED, or the next full sync would fetch it all over again.
+    expect(heldManifest("modules").map((e) => e.path)).toEqual([
+      "modules/audio/a/module.yaml",
+      "modules/audio/b/module.yaml",
+    ]);
+  });
+
   it("leaves no half-written file behind when a download fails", async () => {
     // Downloaded to `.part` and renamed, because the moteur may be reading this tree.
     const owner = fakeOwner(

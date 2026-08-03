@@ -32,7 +32,7 @@ the engine is unchanged — it only speaks the JSON protocol below.
 ## Where the pieces live
 
 None of this is under `apps/pistes` any more. The engine, the tray and the brain
-packages serve every audio app in the repo — mediatek and platines are coming —
+packages serve every audio app in the repo — mediatek and m9 are coming —
 so they sit beside pistes rather than inside it. What remains here is the web
 editor: `frontend` and `backend`.
 

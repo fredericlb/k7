@@ -45,7 +45,7 @@ both bottom panes are the same height and the top two keep the majority.
 
 `ModulePreview.tsx` builds a `WebGraph` by hand — one source, one chain, one module, one
 sink — and runs it through the same `buildGraph → layout → DomChains` pipeline pistes and
-platines run. platines proved that shape works with no project folder behind it (see its
+m9 run. m9 proved that shape works with no project folder behind it (see its
 `docs/chains.md`); this is the second host to need it and the smallest one yet.
 
 It is worth having beside the grid rather than instead of it because **the node is not the

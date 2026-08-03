@@ -3,11 +3,12 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The four things the header offers. `recordings` is a section and not a family — see Library.tsx. */
+/** The five things the header offers. `recordings` is a section and not a family — see Library.tsx. */
 export const SECTION_IDS = [
   "morceaux",
   "samples",
   "modules",
+  "chains",
   "recordings",
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];

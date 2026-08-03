@@ -40,7 +40,7 @@ login is still mandatory.
 **This backend owns `/auth/*` for the WHOLE origin.** Everything is served under one
 host now (`studio.test/<service>`), so there is one session cookie — `studio.sid`, signed
 with the `SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register
-with the IdP. mediatek and platines pass `mountRoutes: []`: they verify that cookie and
+with the IdP. mediatek and m9 pass `mountRoutes: []`: they verify that cookie and
 mount no auth routes of their own. The consequence to know: logging out here logs you out
 of all three. API calls stay under each service's prefix; only auth sits at the root.
 
@@ -91,7 +91,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   HTML nodes plus one SVG cable layer. **Never hand-roll layout or edge routing.**
   dagre owns both; the renderer consumes its numbers. Pan/zoom is one CSS transform on
   the `.dgx-world` wrapper. This view is destined to be shared with mediatek and
-  platines, which is why the geometry already lives outside the app.
+  m9, which is why the geometry already lives outside the app.
 - **Timeline** — vim-style: `hjkl` movement, `v` for visual selection, `z`/`Shift+z`
   for the zoom stack, `m`/`s` for mute/solo (which rewrite `tracks/*.yaml`, not a
   session flag). Selection and zoom are a stack; the innermost entry describes the
@@ -132,7 +132,7 @@ tab's polls (`workspace`/`project`/`tree` on 2s/700ms intervals) reconcile the v
 
 - **The engine never parses song files.** It only receives compiled JSON. Swap this
   frontend for another and the engine is unchanged — which is exactly what mediatek and
-  platines will do.
+  m9 will do.
 - **Commands are the single source of truth.** `@studio/commands` owns the SID →
   handler mapping, and both the CLI and the web dispatch through it.
 - **Wire shapes live in `@studio/engine-protocol`.** A wire change must also update the

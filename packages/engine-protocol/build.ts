@@ -4,7 +4,7 @@
 //
 // It exists because a ProjectDoc has ~15 required fields and a TrackDoc ~17, most of which
 // any given caller does not care about. Hand-written literals of those were already
-// duplicated across two test files; mediatek's module preview and a platines deck would
+// duplicated across two test files; mediatek's module preview and an m9 deck would
 // each have added another.
 
 import type {
@@ -118,7 +118,7 @@ export const EXTERNAL_PLUGIN_FORMATS = new Set([
  * flow map. Unparseable means `undefined`, never a throw — a module with no plugin is a
  * real thing (an io module), and the caller shows it as loading nothing.
  *
- * Third-copy rule: this started in mediatek's module preview, and platines wanting the same
+ * Third-copy rule: this started in mediatek's module preview, and m9 wanting the same
  * two scalars is what moved it here rather than making a second one.
  */
 export function readPluginBlock(

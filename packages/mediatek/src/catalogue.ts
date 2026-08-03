@@ -149,7 +149,12 @@ export function summary(): {
   if (!exists())
     return {
       present: false,
-      counts: { morceaux: 0, samples: 0, modules: 0, recordings: 0 },
+      // Derived from FAMILIES rather than spelled out, so adding one cannot leave the tab bar
+      // one number short before anybody clicks it.
+      counts: {
+        ...Object.fromEntries(FAMILIES.map((f) => [f, 0])),
+        [RECORDINGS_DIR]: 0,
+      },
     };
   const counts = Object.fromEntries(
     FAMILIES.map((f) => [f, listFamily(f).entries.length]),

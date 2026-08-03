@@ -22,6 +22,7 @@ export const FAMILY_DIRS: Record<Family, string> = {
   morceaux: "morceaux",
   samples: "samples",
   modules: "modules",
+  chains: "chains",
 };
 
 /** Morceaux are filed by where they came from: `imported` is obscura's material, `recorded`

@@ -7,6 +7,7 @@ import { loadServiceEnv } from "@frediverse/env";
 import { setupAuth } from "@frediverse/oidc";
 import { apiTokenAuth } from "@frediverse/oidc/api-auth";
 import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
+import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
@@ -87,15 +88,28 @@ app.post("/api/token", requireAuth, (req, res) => {
   res.json({ token: issueApiToken(id) });
 });
 
+let unadvertise: (() => void) | null = null;
+
 app.listen(PORT, () => {
+  const url = `http://localhost:${PORT}`;
   // Created on boot like the local service does, so an empty volume is a working library
   // rather than a 404 until someone uploads.
   try {
-    console.log(`📚 mediatek backend on :${PORT}`);
+    console.log(`📚 mediatek backend on ${url}`);
     console.log(`   library: ${ensureLayout()}`);
   } catch (e) {
     console.error(
       `   library UNAVAILABLE at ${mediatekDir()}: ${(e as Error).message}`,
     );
   }
+  // This service holds its OWN registry, so the supervisor has to be told about it — an engine
+  // heartbeats to every advertised URL, and one it never hears about lists no engines at all.
+  unadvertise = advertiseRegistry("mediatek", url);
 });
+
+const bye = () => {
+  unadvertise?.();
+  process.exit(0);
+};
+process.on("SIGINT", bye);
+process.on("SIGTERM", bye);

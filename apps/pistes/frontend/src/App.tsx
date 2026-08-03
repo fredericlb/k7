@@ -15,10 +15,12 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
+import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Circle, Loader2, Pause, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, moduleStore } from "./api";
+import { STUDIO_ICONS } from "./chainsIcons";
 import { canonicalizeCommand } from "./commandI18n";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { ChainsTab } from "./components/ChainsTab";
@@ -1619,6 +1621,19 @@ export default function App({
                 setBuilder({ path: next, pane: "module" });
                 editorRef.current?.open(next);
               }}
+              // The module drawn as the card it will be in a chain, under the grid that shapes it.
+              // The builder owns the box; the graph needs OUR glyphs and OUR command line, which a
+              // shared package cannot invent — hence a slot rather than an import.
+              renderPreview={({ ui, params }) => (
+                <ModulePreview
+                  icons={STUDIO_ICONS}
+                  command={runCommand}
+                  name={builder.path.split("/").slice(-2)[0] ?? builder.path}
+                  path={builder.path}
+                  ui={ui}
+                  params={params}
+                />
+              )}
             />
           </div>
         )}

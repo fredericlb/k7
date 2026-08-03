@@ -580,8 +580,8 @@ int main(int argc, char** argv) {
                         std::cerr << "[broadcast] listener gone from '" << sid << "' ("
                                   << listeners.size() << " listening)\n";
                         // The last ear on THAT session, not on the engine. Counting them all
-                        // had a closing platines tab take the tap off the DEFAULT session —
-                        // silencing a pistes listener still there, and leaving platines' own
+                        // had a closing m9 tab take the tap off the DEFAULT session —
+                        // silencing a pistes listener still there, and leaving m9's own
                         // tap copying every block for nobody.
                         const bool anyLeft =
                             std::any_of(listeners.begin(), listeners.end(),

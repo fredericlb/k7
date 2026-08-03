@@ -16,7 +16,7 @@ export const DEFAULT_SESSION = "";
  * The session each app drives today, one per SERVICE.
  *
  * This is the granularity that closes the collision the engine was single-project for:
- * pistes, mediatek and platines pointed at one engine used to overwrite each other's
+ * pistes, mediatek and m9 pointed at one engine used to overwrite each other's
  * project. It is NOT the final granularity — two users on two workspaces still share
  * `pistes` — and per-user ids are their own step (see the plan's M5, "un moteur par
  * utilisateur et par service").
@@ -28,7 +28,7 @@ export const DEFAULT_SESSION = "";
 export const SESSIONS = {
   pistes: "pistes",
   mediatek: "mediatek",
-  platines: "platines",
+  m9: "m9",
 } as const;
 
 export type SessionId = string;

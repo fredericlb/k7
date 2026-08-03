@@ -1,9 +1,0 @@
-{
-  "name": "platines",
-  "version": "0.0.1",
-  "private": true,
-  "description": "The decks: pick a morceau from the médiathèque's cache on the machine you chose, and let its moteur play it. A frontend plus a small backend — auth, the engine registry, and which machine this account DJs from.",
-  "scripts": {
-    "dev": "turbo run dev --filter=platines-frontend --filter=platines-backend"
-  }
-}

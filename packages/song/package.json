@@ -45,6 +45,7 @@
     "./engineCatalogue": "./src/engineCatalogue.ts",
     "./engineFace": "./src/engineFace.ts",
     "./mediatekRoot": "./src/mediatekRoot.ts",
+    "./mediatekRefs": "./src/mediatekRefs.ts",
     "./moduleTypes": "./src/moduleTypes.ts"
   },
   "scripts": {

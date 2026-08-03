@@ -1,7 +1,7 @@
 // types.ts — the chains routing graph as the browser receives it (mirrors the essentials
 // of the song compiler's GraphDoc). Types only, so the whole module is erased at runtime.
 // Lives apart from @studio/web-protocol because three apps draw chains — pistes, mediatek's
-// module builder, platines — and only pistes wants auth, workspaces and the registry.
+// module builder, m9 — and only pistes wants auth, workspaces and the registry.
 
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")

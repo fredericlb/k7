@@ -32,7 +32,7 @@ describe("sessionFor", () => {
   // A surface with no user — a deck on the machine in front of you — is unchanged.
   it("gives back the bare service with no user", () => {
     for (const who of [undefined, null, ""])
-      expect(sessionFor("platines", who)).toBe("platines");
+      expect(sessionFor("m9", who)).toBe("m9");
   });
 });
 

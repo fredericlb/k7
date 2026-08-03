@@ -36,7 +36,7 @@ import type {
   RawTrack,
   RawVideoTrack,
 } from "./rawDoc";
-import { moduleNamespaceOf } from "./sharedFolders";
+import { mediatekModulesRoot, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
 import { setFileValue } from "./yaml/edit";
@@ -708,15 +708,25 @@ export function loadModuleRefs(
     out[`@project/${ref}`] = m;
   }
 
+  const roots: string[] = [];
   for (const p of modulesFrom) {
-    const ext =
-      resolveMediatekRef(p, "modules") ?? (isAbsolute(p) ? p : resolve(dir, p));
+    const ext = resolve(
+      resolveMediatekRef(p, "modules") ?? (isAbsolute(p) ? p : resolve(dir, p)),
+    );
     if (!existsSync(ext))
       throw new Error(`modules_from '${p}': folder not found (${ext})`);
+    if (!roots.includes(ext)) roots.push(ext);
+  }
+  // The machine's media library, declared or not — see mediatekModulesRoot. A project that
+  // still names `@mediatek` resolved to this same folder above, so it is added only once.
+  const media = mediatekModulesRoot();
+  if (media && !roots.includes(media)) roots.push(media);
+
+  for (const root of roots) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
-    const ns = moduleNamespaceOf(ext);
+    const ns = moduleNamespaceOf(root);
     readModuleTree(
-      ext,
+      root,
       "",
       (type, name) => `@${ns}/${type}/${name}`,
       out,

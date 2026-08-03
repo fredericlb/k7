@@ -6,7 +6,7 @@ in-memory copy. That is deliberate; the two obvious alternatives are both worse.
 ## The problem it solves
 
 The registry answers one question: *which engines can this browser reach?* Until now only
-pistes asked it, so it lived in pistes' backend. Then mediatek's module preview and platines'
+pistes asked it, so it lived in pistes' backend. Then mediatek's module preview and m9's
 deck started driving engines too — and both had the question hardcoded to `127.0.0.1:8765`
 (`probeLocalEngine`), because there was no registry of theirs to consult.
 

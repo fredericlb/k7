@@ -12,6 +12,17 @@
    own source doesn't also happen to use — the component still renders, just unstyled. */
 @source "../../../../commons/packages/ui/src";
 
+/* studio's OWN shared tier, for exactly the same reason: `packages/*` is consumed as source,
+   outside this app tree, so its classes exist only if scanned. It bites quietly — what a
+   package shares with the app (`flex`, `border-t`) is generated anyway, so only the classes
+   unique to the package are dropped and the component looks almost right. `h-[30%]` on the
+   module builder's bottom panes was the first to actually depend on one. */
+@source "../../../../packages/ui-module-builder/src";
+@source "../../../../packages/ui-chains-react/src";
+@source "../../../../packages/ui-editor/src";
+@source "../../../../packages/ui-eyes/src";
+@source "../../../../packages/ui-waveform/src";
+
 @layer base {
   html,
   body,

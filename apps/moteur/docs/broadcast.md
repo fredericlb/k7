@@ -218,5 +218,5 @@ from 50 ms to 150 ms as a result — the full reasoning is in
   no more. Worth saying plainly: anyone who can reach the port can listen to the room.
   Acceptable on loopback and on a trusted LAN, which is where `STUDIO_ENGINE_HOST` puts it
   today, and **not** acceptable the day this is exposed further.
-* **No multi-device output.** Master plus a headphone cue, which platines will need, is a
+* **No multi-device output.** Master plus a headphone cue, which m9 will need, is a
   separate chantier from this one and the plan keeps it separate.

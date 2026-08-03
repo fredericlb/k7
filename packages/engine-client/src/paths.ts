@@ -25,9 +25,22 @@ export function enginePidPath(): string {
 }
 
 /** Written by the web backend on boot; `.url` is the registry a local dev setup should
- *  win with over the hosted default. */
+ *  win with over the hosted default. Superseded by `webEndpointsDir` — still READ, so an
+ *  older backend, or a file one left behind, keeps working. */
 export function webEndpointPath(): string {
   return join(studioDir(), "web-endpoint.json");
+}
+
+/**
+ * One file per hosted SERVICE, each holding that service's registry URL.
+ *
+ * A directory and not one shared file, because there are three services now and they boot
+ * together under `npm run dev`: a read-modify-write on a single list would lose an entry to
+ * whichever backend wrote last, and losing an entry is exactly the failure this replaces —
+ * an engine listed in one app's picker and missing from another's.
+ */
+export function webEndpointsDir(): string {
+  return join(studioDir(), "web-endpoints");
 }
 
 /** The supervisor's own settings (registry override, ports, audio picks).

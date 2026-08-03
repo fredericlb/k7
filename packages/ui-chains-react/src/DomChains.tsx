@@ -10,7 +10,10 @@ import {
   usePluginParams,
 } from "@studio/engine-browser/params";
 import {
+  EngineStore,
+  EngineStoreProvider,
   useEngineState,
+  useEngineStoreOrNull,
   useInputLevel,
   useTrackLevel,
 } from "@studio/engine-browser/store";
@@ -2208,58 +2211,78 @@ export function DomChains({
   // Thicken cables as the camera pulls back, growing the stroke ~inversely with zoom (capped), so width holds.
   const linkBoost = Math.min(3, Math.max(1, WIDGET_MIN_SCALE / cam.k));
 
+  /**
+   * Where the meters read their levels. The host's store when it drives an engine; an inert one
+   * of our own when it does not.
+   *
+   * PROVIDED here rather than demanded of the host, exactly as `icons` is, and for the same
+   * reason: `InputMeterBar` renders under every TRACK node unconditionally, so a host that drew
+   * a graph without wrapping itself in an EngineStoreProvider crashed at render — which is what
+   * the médiathèque's module preview did, and what m9's deck panel would have done too.
+   * An inert store never updates, so those meters simply read silent, which is the truth.
+   */
+  const ownStore = useRef<EngineStore | null>(null);
+  ownStore.current ??= new EngineStore();
+  const meterStore = useEngineStoreOrNull() ?? ownStore.current;
+
   return (
-    <IconsContext.Provider value={icons}>
-      <div
-        ref={hostRef}
-        className={`dgx${panning ? " panning" : ""}`}
-        onPointerDown={onPointerDown}
-        onWheel={onWheel}
-        onContextMenu={canvasMenu}
-        style={{ cursor: hovered ? "pointer" : undefined }}
-      >
+    <EngineStoreProvider value={meterStore}>
+      <IconsContext.Provider value={icons}>
         <div
-          className="dgx-world"
-          style={{
-            transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.k})`,
-          }}
+          ref={hostRef}
+          className={`dgx${panning ? " panning" : ""}`}
+          onPointerDown={onPointerDown}
+          onWheel={onWheel}
+          onContextMenu={canvasMenu}
+          style={{ cursor: hovered ? "pointer" : undefined }}
         >
-          <svg className="dgx-cables" width={graph.width} height={graph.height}>
-            <Cables
-              signal={model.signal}
-              auto={model.auto}
-              live={live}
-              showLabels={showLabels}
-              boost={linkBoost}
-              hovered={hovered}
-              setHovered={setHovered}
-              onInsert={insert}
-            />
-          </svg>
-          {graph.nodes.map((n) => (
-            <Node
-              key={n.id}
-              n={n}
-              selected={selected}
-              showWidgets={showWidgets}
-              far={far}
-              ch={ch}
-              trackOrder={trackOrder ?? EMPTY_ORDER}
-              onTapNode={tapNode}
-              onContext={contextNode}
-              onOpenPlugin={openPlugin}
-              onBypass={bypassModule}
-              warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
-              onDragStart={beginDrag}
-              onTapWidget={tapWidget}
-              onPickWidget={pickWidget}
-              onPickLibrary={pickLibrary}
-              onWatchWaveform={onWatchWaveform}
-              libraryFiles={libraryFiles}
-            />
-          ))}
+          <div
+            className="dgx-world"
+            style={{
+              transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.k})`,
+            }}
+          >
+            <svg
+              className="dgx-cables"
+              width={graph.width}
+              height={graph.height}
+            >
+              <Cables
+                signal={model.signal}
+                auto={model.auto}
+                live={live}
+                showLabels={showLabels}
+                boost={linkBoost}
+                hovered={hovered}
+                setHovered={setHovered}
+                onInsert={insert}
+              />
+            </svg>
+            {graph.nodes.map((n) => (
+              <Node
+                key={n.id}
+                n={n}
+                selected={selected}
+                showWidgets={showWidgets}
+                far={far}
+                ch={ch}
+                trackOrder={trackOrder ?? EMPTY_ORDER}
+                onTapNode={tapNode}
+                onContext={contextNode}
+                onOpenPlugin={openPlugin}
+                onBypass={bypassModule}
+                warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
+                onDragStart={beginDrag}
+                onTapWidget={tapWidget}
+                onPickWidget={pickWidget}
+                onPickLibrary={pickLibrary}
+                onWatchWaveform={onWatchWaveform}
+                libraryFiles={libraryFiles}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-    </IconsContext.Provider>
+      </IconsContext.Provider>
+    </EngineStoreProvider>
   );
 }

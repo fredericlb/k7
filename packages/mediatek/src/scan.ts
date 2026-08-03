@@ -26,6 +26,12 @@ export const MODULE_FILE = "module.yaml";
 export const UI_FILE = "ui.yaml";
 export const PRESETS_FILE = "presets.yaml";
 
+/** The file that makes a folder a CHAIN — the same name, and the same shape, a pistes project
+ *  uses at its root. See docs/chains.md. */
+export const CHAINS_FILE = "chains.yaml";
+/** Where a chain's instances live, beside its `chains.yaml`. */
+export const INSTANCES_DIR = "instances";
+
 function dirents(abs: string): Dirent[] {
   try {
     return readdirSync(abs, { withFileTypes: true }).filter(
@@ -164,18 +170,20 @@ function scanSamples(): MediatekEntry[] {
 }
 
 /**
- * Modules: `modules/<type>/[<category>/]<name>/`, the same shape a project's `modules/` uses —
- * this IS a workspace's `_modules` promoted, so a folder that doesn't match resolves nowhere.
+ * Modules: any folder under `modules/<type>/` that HOLDS a `module.yaml`, at whatever depth.
  *
- * TWO depths, mirroring `readModuleTree` rather than guessing at it: a folder with no module
- * file is a CATEGORY, and the modules sit one level under it (`audio/filter/auto-wah`, the
- * shape the shared library ships). Listing only the first level filed the category itself as a
- * module, so opening it looked for a `module.yaml` that was never going to be there — and the
- * real modules under it were absent from the catalogue entirely.
+ * The rule is the file and nothing else. This used to read exactly two depths, mirroring the
+ * one-category shape `readModuleTree` accepts — which made the folders between a type and a
+ * module a fixed, invisible grammar: you could not nest a third level, and dragging a module
+ * into one made it vanish from the catalogue. Depth is now the library's business and not the
+ * scan's; a folder is a folder, and a module is a folder with a module file in it.
  *
- * A folder with no module file and nothing module-shaped below it is still listed, flagged
- * `catalogued: false`, rather than silently dropped: it is what a folder you just made looks
- * like, and one you cannot see is one you cannot drop into.
+ * Only modules are listed. A folder holding no module file is a FOLDER, and the catalogue is a
+ * list of modules — it used to carry those too, flagged `catalogued: false`, which put a row in
+ * the middle pane for something nobody authored and counted it in the Modules tab. They still
+ * reach a tree, by the route made for exactly this: `scanUnlisted` reports what no entry accounts
+ * for, so an empty folder is drawn without being catalogued. See its own note on the difference
+ * between a folder that IS an entry and one merely on the way to one.
  */
 function scanModules(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
@@ -214,26 +222,68 @@ function scanModules(): MediatekEntry[] {
     });
   };
 
-  for (const type of MODULE_TYPES) {
-    const typeDir = join(root, type);
-    for (const e of dirents(typeDir)) {
-      if (!e.isDirectory()) continue;
-      const abs = join(typeDir, e.name);
-      if (isModuleDir(abs)) {
-        push(abs, type, e.name);
-        continue;
-      }
-      // No module file: a category, if anything below it is a module. One level only — the
-      // loader files nothing deeper, so neither does this.
-      const leaves = dirents(abs).filter(
-        (d) => d.isDirectory() && isModuleDir(join(abs, d.name)),
-      );
-      if (leaves.length)
-        for (const l of leaves)
-          push(join(abs, l.name), type, `${e.name}/${l.name}`);
-      else push(abs, type, e.name); // neither — a folder somebody just made
-    }
-  }
+  // Walk one folder under a type. A module ends the descent — what is inside one is its own
+  // files and its instances, never more modules.
+  const visit = (abs: string, type: string, sub: string): void => {
+    if (isModuleDir(abs)) return push(abs, type, sub);
+    for (const d of dirents(abs))
+      if (d.isDirectory()) visit(join(abs, d.name), type, `${sub}/${d.name}`);
+  };
+
+  for (const type of MODULE_TYPES)
+    for (const e of dirents(join(root, type)))
+      if (e.isDirectory()) visit(join(root, type, e.name), type, e.name);
+  return out;
+}
+
+/**
+ * Chains: any folder under `chains/` that HOLDS a `chains.yaml`, at whatever depth.
+ *
+ * The same rule modules follow, and the same reason — the file is what makes the folder, so
+ * how deep you file it is your business and not the scan's. A chain is a TEMPLATE: the segments
+ * in that file wire named instances to each other, and the instances themselves are files in
+ * `instances/` beside it. See docs/chains.md.
+ */
+function scanChains(): MediatekEntry[] {
+  const out: MediatekEntry[] = [];
+  const root = familyDir("chains");
+  const isChainDir = (abs: string): boolean =>
+    dirents(abs).some((f) => f.isFile() && f.name === CHAINS_FILE);
+
+  const push = (abs: string, sub: string): void => {
+    const files = dirents(abs);
+    out.push({
+      family: "chains",
+      id: toRel(abs),
+      name: sub.split("/").pop() ?? sub,
+      path: toRel(abs),
+      // No subdivision of its own: a chain is a chain. `kind` is the family's own split, and
+      // chains have none — what they are FOR is decided by whoever reaches for one.
+      kind: "chain",
+      mtime: newestUnder(abs),
+      files: files
+        .filter((f) => f.isFile())
+        .map((f) => f.name)
+        .sort(),
+      meta: {
+        catalogued: true,
+        // The instances the segments can name — the folder beside the file, counted so a
+        // listing says how big a template is without opening it.
+        instances: dirents(join(abs, INSTANCES_DIR)).filter(
+          (f) => f.isFile() && f.name.endsWith(".yaml"),
+        ).length,
+      },
+    });
+  };
+
+  // A chain ends the descent: `instances/` is inside one, and nothing in there is a chain.
+  const visit = (abs: string, sub: string): void => {
+    if (isChainDir(abs)) return push(abs, sub);
+    for (const d of dirents(abs))
+      if (d.isDirectory()) visit(join(abs, d.name), `${sub}/${d.name}`);
+  };
+  for (const e of dirents(root))
+    if (e.isDirectory()) visit(join(root, e.name), e.name);
   return out;
 }
 
@@ -245,7 +295,9 @@ export function scanFamily(family: Family): MediatekEntry[] {
       ? scanMorceaux()
       : family === "samples"
         ? scanSamples()
-        : scanModules();
+        : family === "chains"
+          ? scanChains()
+          : scanModules();
   return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 

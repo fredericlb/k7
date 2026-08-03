@@ -1,6 +1,6 @@
 // index.ts — the engine registry as a mountable pair: a store and the routes over it.
 // Shared because pistes is no longer its only consumer — mediatek must offer the same pick,
-// and platines will. See docs/shared.md.
+// and m9 will. See docs/shared.md.
 
 export {
   createRegistry,

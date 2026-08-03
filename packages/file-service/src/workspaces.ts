@@ -53,6 +53,12 @@ export function getWorkspace(userEmail: string, workspace: string): Workspace {
   return ws;
 }
 
+/** Every workspace currently open, for the machine-wide jobs that have no request to hang off —
+ *  the médiathèque puller, which needs both the songs in use and their compiled-doc caches. */
+export function liveWorkspaces(): Workspace[] {
+  return [...live.values()];
+}
+
 /** Create a workspace folder. Returns false if it was already there. */
 export function createWorkspace(userEmail: string, workspace: string): boolean {
   const root = workspaceRoot(slugify(userEmail), workspace);

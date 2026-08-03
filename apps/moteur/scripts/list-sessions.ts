@@ -57,12 +57,12 @@ async function main() {
     return process.exit(0);
   }
   const pistes = new EngineClient(`ws://127.0.0.1:${PORT}`, "pistes");
-  const platines = new EngineClient(`ws://127.0.0.1:${PORT}`, "platines");
+  const m9 = new EngineClient(`ws://127.0.0.1:${PORT}`, "m9");
   pistes.connect();
-  platines.connect();
+  m9.connect();
   await wait(500);
   pistes.sendProject(doc("ma-chanson"));
-  platines.sendProject(doc("le-set"));
+  m9.sendProject(doc("le-set"));
   await wait(2500);
   pistes.transport("play");
   await wait(1500);
@@ -73,27 +73,27 @@ async function main() {
   const before = await q.listSessions();
   console.log("vues par le superviseur :", before);
 
-  await q.dropSession("platines");
+  await q.dropSession("m9");
   await wait(500);
   const after = await q.listSessions();
-  console.log("apres drop de platines  :", after);
+  console.log("apres drop de m9        :", after);
 
   const problems: string[] = [];
   const ids = (list: typeof before) => (list ?? []).map((s) => s.id).sort();
-  if (ids(before).join() !== "pistes,platines")
-    problems.push(`sessions attendues pistes+platines, vu ${ids(before)}`);
+  if (ids(before).join() !== "pistes,m9")
+    problems.push(`sessions attendues pistes+m9, vu ${ids(before)}`);
   const l = before?.find((s) => s.id === "pistes");
   if (!l?.playing) problems.push("pistes ne joue pas");
   if (!l?.loaded || l.project !== "ma-chanson" || l.tracks !== 1)
     problems.push(`le projet de pistes est mal rapporte : ${JSON.stringify(l)}`);
-  if (before?.find((s) => s.id === "platines")?.playing)
-    problems.push("platines joue alors qu'on ne le lui a pas demande");
+  if (before?.find((s) => s.id === "m9")?.playing)
+    problems.push("m9 joue alors qu'on ne le lui a pas demande");
   if (ids(after).join() !== "pistes")
     problems.push(`drop sans effet : reste ${ids(after)}`);
 
   q.close();
   pistes.close();
-  platines.close();
+  m9.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);
     process.exit(1);

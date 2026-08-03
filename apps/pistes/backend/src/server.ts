@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
 import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
+import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
@@ -18,8 +19,12 @@ const app = express();
 
 // Where the engine-host supervisor looks for the registry: `pistes --web` picks a free port, so we drop our
 // real URL here on boot and remove it on shutdown. A hosted deploy sets STUDIO_REGISTRY_URL instead.
+//
+// The legacy single-URL file is written ALONGSIDE the per-service one, and only by pistes: a tray built
+// before `web-endpoints/` existed reads nothing else, and version skew between an installed tray and a dev
+// backend must not cost this app its engine. Nothing new should write it.
 const WEB_ENDPOINT_PATH = join(homedir(), ".studio", "web-endpoint.json");
-function advertiseEndpoint(url: string): void {
+function advertiseLegacyEndpoint(url: string): void {
   try {
     mkdirSync(dirname(WEB_ENDPOINT_PATH), { recursive: true });
     writeFileSync(WEB_ENDPOINT_PATH, JSON.stringify({ url }) + "\n", "utf8");
@@ -27,6 +32,7 @@ function advertiseEndpoint(url: string): void {
     /* unwritable — the supervisor can still be pointed with --registry */
   }
 }
+let unadvertise: (() => void) | null = null;
 
 app.use(express.json({ limit: "8mb" }));
 
@@ -71,11 +77,13 @@ app.use(
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`🎛  pistes-web backend on ${url}  (auth + registry)`);
-  advertiseEndpoint(url); // so the engine tray can find the registry
+  unadvertise = advertiseRegistry("pistes", url); // so the supervisor heartbeats to us
+  advertiseLegacyEndpoint(url);
 });
 
 // On shutdown, drop our registry endpoint file. (Windows force-kills us, so --web does this cleanup too.)
 const bye = () => {
+  unadvertise?.();
   try {
     rmSync(WEB_ENDPOINT_PATH);
   } catch {

@@ -20,6 +20,7 @@ import {
 import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
 import { setSelectedEngine } from "./engineLink.ts";
+import { startMediatekPuller } from "./mediatekPull.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
@@ -208,4 +209,6 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   console.log(`   cors: ${originPolicySummary()}`);
   // Dial the local engine so file/command ops can compile-and-send the project.
   setSelectedEngine(`ws://127.0.0.1:${ENGINE_PORT}`);
+  // Keep the médiathèque cache in step with the hosted library, for what the open songs name.
+  startMediatekPuller();
 });

@@ -6,10 +6,12 @@
   "description": "The engine registry: engines announce themselves by heartbeat, browsers list what they can reach. One instance per hosted service, so pistes and mediatek each hold their own — see docs/shared.md.",
   "types": "./index.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./advertise": "./advertise.ts"
   },
   "dependencies": {
     "@frediverse/http": "*",
+    "@studio/engine-client": "*",
     "@studio/web-protocol": "*",
     "express": "^4.19.2",
     "zod": "^4.4.3"

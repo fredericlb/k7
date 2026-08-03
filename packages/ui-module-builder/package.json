@@ -9,6 +9,7 @@
     ".": "./src/ModuleBuilder.tsx",
     "./store": "./src/store.ts",
     "./module-ui": "./src/moduleUi.ts",
+    "./yaml-pane": "./src/YamlPane.tsx",
     "./param-drag": "./src/paramDrag.ts"
   },
   "scripts": {

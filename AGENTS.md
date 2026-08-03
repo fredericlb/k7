@@ -13,7 +13,7 @@ the **why**. Long rationale belongs in the zone's `docs/` directory:
 | a shared package | `packages/<pkg>/docs/` |
 | the pistes frontend | `apps/pistes/frontend/docs/` |
 | the médiathèque | `apps/mediatek/docs/` |
-| the decks | `apps/platines/docs/` |
+| the decks | `apps/m9/docs/` |
 | the C++ engine | `apps/moteur/docs/` |
 | the tray app | `apps/capot/docs/` |
 | the rehearsal recorder | `apps/k7/docs/` |
@@ -40,7 +40,7 @@ one app:
 | `apps/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
 | `apps/pistes` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — OIDC auth and the engine registry only). Owns the timeline; shares the chains view. |
 | `apps/mediatek` | TypeScript | The media library — morceaux, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which pistes draws too. It also connects to a local `apps/moteur` to ask a plugin what its parameters are. |
-| `apps/platines` | TypeScript | The decks — `frontend/` plus `backend/` (OIDC auth, this service's engine registry, and which machine the account DJs from). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `apps/moteur`, because the engine opens file paths and cannot fetch a URL. |
+| `apps/m9` | TypeScript | The decks — `frontend/` plus `backend/` (OIDC auth, this service's engine registry, and which machine the account DJs from). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `apps/moteur`, because the engine opens file paths and cannot fetch a URL. |
 | `apps/obscura` | TypeScript | The blind-test game — six SPAs behind one origin. |
 | `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
 
@@ -52,7 +52,7 @@ consumed as **raw TypeScript source**: no build step, imported through
 `package.json` `exports` subpaths, so a bare deep import fails on purpose.
 
 They are named `@studio/*` rather than `@pistes/*` because pistes is only one of
-their consumers: `apps/mediatek` and `apps/platines` both drive them now, and
+their consumers: `apps/mediatek` and `apps/m9` both drive them now, and
 obscura's moteur-backed player is behind the seam `@studio/player-web` already
 had.
 

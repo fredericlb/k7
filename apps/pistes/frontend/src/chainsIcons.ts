@@ -4,7 +4,7 @@
 // TrackIcon lives in the app because it is the APP's vocabulary: it draws the same lanes
 // in the mixer and the timeline, so a chains package owning it would have those two
 // importing one. ModuleIcon does NOT — it is keyed on WebModuleCategory, the graph's own
-// vocabulary, and this file was its only consumer anywhere. platines arriving as a second
+// vocabulary, and this file was its only consumer anywhere. m9 arriving as a second
 // host is what made that visible, so it moved into the graph package.
 
 import type { ChainsIcons } from "@studio/ui-chains-react";

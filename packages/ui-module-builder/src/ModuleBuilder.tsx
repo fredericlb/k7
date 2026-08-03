@@ -58,6 +58,15 @@ import { YamlPane } from "./YamlPane";
  *  pistes has panes of its own and a shared package must not squat the word. */
 export type BuilderPane = "module" | "panel" | "presets";
 
+/** A path's last segment — the tabs are named by their file, so this is what names them. */
+const baseName = (p: string | undefined): string | undefined =>
+  p?.split(/[\\/]/).pop() || undefined;
+
+// What the two sidecars are called before one has been read, so a tab is never blank. The store
+// answers with the path a file WOULD take, so these are only ever seen for the moment before it does.
+const UI_BASENAME = "ui.yaml";
+const PRESETS_BASENAME = "presets.yaml";
+
 // The preset menu's sections in display order, each with the icon for its source: program bank, OS file.
 const PRESET_GROUPS: {
   source: PresetInfo["source"];
@@ -481,34 +490,45 @@ export function ModuleBuilder({
             {/* Three files, one pane. The panel and the presets used to be blocks inside the module file (or
                 nowhere at all); they are files beside it now, so the pane says which one you are typing into. */}
             <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
+              {/* Each tab is named by its FILE, and by nothing else. "panel" and "presets" were
+                  friendlier words for `ui.yaml` and `presets.yaml`, which read as three views of
+                  one thing rather than what they are: three files on disk, each opened, edited
+                  and saved on its own. The name is taken from the real path where there is one,
+                  so a module written as `module.yml` says so. */}
               {(
                 [
-                  ["module", path.split("/").slice(-2).join("/"), dirty, true],
+                  ["module", baseName(path), dirty, true, null],
                   [
                     "panel",
-                    uiFile ? "panel" : "panel (none)",
+                    baseName(uiFile?.path) ?? UI_BASENAME,
                     uiDirty,
                     !!uiFile,
+                    uiFile ? null : "not read yet",
                   ],
                   [
                     "presets",
-                    // A shelf the schema refuses is SAID so, not silently listed as empty: the dropdown
-                    // above it would then be missing presets that are plainly in the file.
-                    presetFile && hasMalformedPresets(presetFile.content)
-                      ? "presets (malformed)"
-                      : presetFile?.exists
-                        ? "presets"
-                        : "presets (none)",
+                    baseName(presetFile?.path) ?? PRESETS_BASENAME,
                     presetsDirty,
                     !!presetFile,
+                    // A shelf the schema refuses is SAID so, not silently listed as empty: the
+                    // dropdown above it would then be missing presets plainly in the file. It is
+                    // the one state that still shows on the tab rather than only in its tooltip.
+                    presetFile && hasMalformedPresets(presetFile.content)
+                      ? "malformed"
+                      : presetFile?.exists
+                        ? null
+                        : "doesn't exist yet — saving creates it",
                   ],
                 ] as const
-              ).map(([id, label, isDirty, ready]) => (
+              ).map(([id, label, isDirty, ready, note]) => (
                 <button
                   key={id}
                   type="button"
                   disabled={!ready}
                   onClick={() => setPane(id)}
+                  // What the name no longer says — absent, unread — lives here rather than in
+                  // the label, so the tab reads as the file it opens.
+                  title={note ? `${label} — ${note}` : label}
                   className={cn(
                     "rounded px-2 py-0.5 text-xs",
                     pane === id
@@ -519,6 +539,9 @@ export function ModuleBuilder({
                 >
                   {label}
                   {isDirty ? " *" : ""}
+                  {note === "malformed" ? (
+                    <span className="ml-1 text-amber-400">!</span>
+                  ) : null}
                 </button>
               ))}
               {sidecar && pane !== "module" && (

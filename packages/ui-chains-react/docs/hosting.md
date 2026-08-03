@@ -30,6 +30,14 @@ edit a graph has one.
 playhead, `params` for the ~20 Hz plugin parameter feed. Both are external stores, so a
 frame re-renders the node that reads it and nothing else.
 
+The engine store is **optional, and the component provides one when you don't** — the same
+arrangement `icons` has, for the same reason. `InputMeterBar` renders under every track node
+unconditionally, so a host that drew a graph without wrapping itself in an
+`EngineStoreProvider` threw `useEngineStore used outside <EngineStoreProvider>` at render.
+That is not a hypothetical: the médiathèque's module preview hit it, and m9's deck panel
+would have. Wrap the graph in your own provider to show live meters; pass nothing and they
+read silent, which is the truth for a host with no engine.
+
 ## What it emits
 
 `onContextMenu(ctx, x, y)` carries a `GraphMenuCtx` — four kinds, the ones a node can be:

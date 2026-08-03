@@ -343,12 +343,12 @@ depuis, ici comme dans k7 et les six SPA d'obscura.
 Ces deux applications consomment `packages/*` sans avoir été la cible du renommage.
 
 ```bash
-npm run dev --workspace platines
+npm run dev --workspace m9
 ```
 
-Platines (**5225**) : lit le cache de la médiathèque par le service de fichiers et joue
-par le moteur. Sa session est `SESSIONS.platines`, ses préférences
-`~/.studio/prefs/platines/`.
+m9 (**5225**) : lit le cache de la médiathèque par le service de fichiers et joue
+par le moteur. Sa session est `SESSIONS.m9`, ses préférences
+`~/.studio/prefs/m9/`.
 
 Obscura : le rendu hors ligne envoie `x-studio-engine-token` en dur
 (`apps/obscura/backend/src/render.ts`) — c'est le seul consommateur des en-têtes hors du

@@ -27,11 +27,13 @@ import {
   Pencil,
   Settings,
   Waves,
+  Workflow,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddMorceau } from "./AddMorceau";
 import { AddRecording } from "./AddRecording";
 import { auth, engineMachine, library } from "./api";
+import { ChainEditor } from "./ChainEditor";
 import { EngineList, EnginePicker } from "./engine/EnginePicker";
 import { ModuleParams } from "./engine/ModuleParams";
 import { useEngineChoice } from "./engine/useEngineChoice";
@@ -51,6 +53,7 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: "morceaux", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
   { id: "modules", label: "Modules", icon: Boxes },
+  { id: "chains", label: "Chaînes", icon: Workflow },
   { id: RECORDINGS_DIR, label: "Recordings", icon: Mic },
 ];
 
@@ -65,33 +68,54 @@ const POLL_MS = 3000;
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 /** The three files a module is: what it does, how it looks, and its named settings (see `@studio/song`'s
- *  docs/uiLibrary.md and docs/userPresets.md). Named here because a click on one opens the BUILDER, on the
- *  pane that file belongs to — they are rows only when they exist, like every other file. */
+ *  docs/uiLibrary.md and docs/userPresets.md). The TREE no longer draws them — a module is one row, and
+ *  the builder edits all three — but the ADDRESS still names one, so a deep link opens the right pane. */
 const MODULE_FILE = "module.yaml";
 const UI_FILE = "ui.yaml";
 const PRESETS_FILE = "presets.yaml";
 
-/** Which pane a click on each of them opens the builder on. */
+/** Which pane the file in the address opens the builder on. */
 const PANE_OF: Record<string, BuilderPane> = {
   [MODULE_FILE]: "module",
   [UI_FILE]: "panel",
   [PRESETS_FILE]: "presets",
 };
 
-/** Is this tree path a MODULE's folder — the thing that holds the three files? Nothing inside one is a
- *  folder: the loader reads `module.yaml`, its two siblings and the instance files beside them, and a
- *  subfolder is inert. So the actions that make a folder are not offered there. */
+/**
+ * Does this entry HOLD a `module.yaml`? That file is what makes a folder a module.
+ *
+ * Being listed under `modules/` is not enough, and the scanner says so out loud: a folder with
+ * no module file is listed anyway, flagged `catalogued: false`, because "it is what a folder you
+ * just made looks like, and one you cannot see is one you cannot drop into" (see scan.ts). Those
+ * are CATEGORIES — `audio/filter` holding `auto-wah` — and a category has to stay a folder you
+ * can open and fill. Reading the entry's family alone folded every one of them into a module.
+ */
+const holdsModuleFile = (e: MediatekEntry): boolean =>
+  e.family === "modules" && !!e.files?.includes(MODULE_FILE);
+
+/** The file that IS a chain, the same way `module.yaml` is a module. */
+const CHAINS_FILE = "chains.yaml";
+const holdsChainsFile = (e: MediatekEntry): boolean =>
+  e.family === "chains" && !!e.files?.includes(CHAINS_FILE);
+
+/** A folder the tree draws as ONE row, whatever it holds: a module or a chain. Both are folders
+ *  on disk whose contents are a definition, not somewhere to browse. */
+const foldsToOneRow = (e: MediatekEntry): boolean =>
+  holdsModuleFile(e) || holdsChainsFile(e);
+
+/**
+ * Is this tree path a MODULE?
+ *
+ * The one entry that is a FOLDER on disk and a LEAF in the tree, so neither `t.dir` nor the
+ * path's shape can answer — only the listing can.
+ */
 const isModuleFolder = (
   entries: MediatekEntry[] | null,
   path: string,
-): boolean => !!path && !!entryAt(entries, path);
-
-/** Is this tree path one of a module's own files, rather than the module itself? */
-function moduleFileAt(path: string): { dir: string; file: string } | null {
-  const cut = path.lastIndexOf("/");
-  const file = path.slice(cut + 1);
-  return cut > 0 && file in PANE_OF ? { dir: path.slice(0, cut), file } : null;
-}
+): boolean => {
+  const e = path ? entryAt(entries, path) : null;
+  return !!e && holdsModuleFile(e);
+};
 
 /** Walk a family-relative folder path into the tree, creating what is missing. Returns the
  *  level INSIDE it, so a caller can keep descending. */
@@ -142,7 +166,6 @@ function treeOf(
   for (const e of entries ?? []) {
     // The family segment leads every path and is what the tabs already name.
     const parts = e.path.split("/").filter(Boolean).slice(1);
-    const isModule = e.family === "modules";
     let level = roots;
     let sofar = "";
     parts.forEach((part, i) => {
@@ -150,22 +173,22 @@ function treeOf(
       const leaf = i === parts.length - 1;
       let node = level.find((n) => n.name === part);
       if (!node) {
-        node =
-          leaf && !isModule
-            ? { name: part, path: sofar }
-            : { name: part, path: sofar, dir: true, children: [] };
+        // A MODULE is a LEAF, folder though it is on disk. Its three files are its definition,
+        // not contents to browse: you edit a module, and the builder is what edits all three.
+        // Leaving it foldable offered a row per file that opened the same screen three ways.
+        //
+        // Everything else keeps the shape it had. In `modules/` that matters: an entry with no
+        // module file is a CATEGORY — or a folder you just made — and folding it would leave
+        // you unable to open it, let alone put a module in it.
+        const folds =
+          leaf &&
+          (!["modules", "chains"].includes(e.family) || foldsToOneRow(e));
+        node = folds
+          ? { name: part, path: sofar }
+          : { name: part, path: sofar, dir: true, children: [] };
         level.push(node);
       }
-      if (!leaf) {
-        level = node.children ??= [];
-        return;
-      }
-      if (!isModule) return;
-      // The files the folder ACTUALLY holds, and nothing else. A row for a file that is not
-      // there is a row that lies about the disk — the builder is where a panel or a shelf
-      // gets created, and it offers both whether or not the tree mentions them.
-      for (const name of e.files ?? [])
-        (node.children ??= []).push({ name, path: `${sofar}/${name}` });
+      if (!leaf) level = node.children ??= [];
     });
   }
   return roots;
@@ -275,11 +298,38 @@ export function Library() {
   const editing = useMemo(() => {
     const dir = moduleOf(file);
     const entry = dir ? entryAt(entries, dir) : null;
-    if (!entry) return null;
+    if (!entry || !holdsModuleFile(entry)) return null;
     return { entry, pane: PANE_OF[fileOf(file) ?? ""] ?? "module" };
+  }, [entries, file]);
+  // The same derivation for a CHAIN. Its own memo rather than a branch inside the one above:
+  // the two editors take different props, and a union that carried both would be read apart
+  // again at every use.
+  const editingChain = useMemo(() => {
+    const dir = moduleOf(file);
+    const entry = dir ? entryAt(entries, dir) : null;
+    return entry && holdsChainsFile(entry) ? entry : null;
   }, [entries, file]);
   /** Open the builder on one of a module's files, or close it. The URL is the only writer. */
   const openFile = useCallback((rel: string | null) => setFile(rel), []);
+  /**
+   * What the tree is opened down to. STICKY, and that is the point: `reveal` re-seeds the whole
+   * expansion whenever its value CHANGES, so letting it fall back to null on closing the editor
+   * would collapse the tree the person had just been browsing. It only ever moves to a new
+   * target.
+   *
+   * It also has to survive the listing arriving late. A deep link names a file before `entries`
+   * has come back, so `editing` is null on the first render and resolves a poll later — the
+   * effect is what carries the reveal across that gap.
+   */
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const target = editing
+    ? relative(editing.entry.path)
+    : picked
+      ? relative(picked.path)
+      : null;
+  useEffect(() => {
+    if (target) setRevealed(target);
+  }, [target]);
   // No socket of its own — it only lists and remembers. useModuleEngine holds the
   // connection, and two hooks opening one would be two connections from one tab.
   const choice = useEngineChoice();
@@ -539,13 +589,30 @@ export function Library() {
                   ? relative(picked.path)
                   : null
             }
-            // A module's own file or its panel opens the BUILDER; anything else just selects.
+            // Open down to it, so a reloaded deep link lands on a tree showing where it is
+            // rather than one collapsed to the root. Sticky — see `revealed`.
+            reveal={revealed}
+            // A MODULE is a row you edit: clicking it opens the builder, on the PANEL, which is
+            // what people come to this screen for and what the "Éditer" button already chose.
+            // Anything else just selects.
             onOpen={(n) => {
-              const f = moduleFileAt(n.path);
-              const entry = entryAt(entries, f ? f.dir : n.path);
+              const entry = entryAt(entries, n.path);
               if (!entry) return;
-              if (f) openFile(`${f.dir}/${f.file}`);
+              if (holdsModuleFile(entry)) openFile(`${n.path}/${UI_FILE}`);
+              // A chain has one file, so the address names it rather than a pane.
+              else if (holdsChainsFile(entry))
+                openFile(`${n.path}/${CHAINS_FILE}`);
               else setPicked(entry);
+            }}
+            // A module and a chain each wear the glyph of their own tab. Without one the row
+            // would read as a plain file, which is the one thing neither is.
+            icon={(n) => {
+              const e = entryAt(entries, n.path);
+              if (e && holdsModuleFile(e))
+                return <Boxes className="h-4 w-4 shrink-0" />;
+              if (e && holdsChainsFile(e))
+                return <Workflow className="h-4 w-4 shrink-0" />;
+              return null;
             }}
             // Absent for morceaux, which is why the header has a button instead: a file
             // dropped here would land where it fell, and that family's shape is deduced
@@ -598,6 +665,9 @@ export function Library() {
                     {
                       key: "new-folder",
                       label: "Nouveau dossier…",
+                      // Anywhere but INSIDE a module: a module holds its own files and its
+                      // instances, never folders. Depth is not this menu's business — the
+                      // scanner finds a module wherever its file is.
                       when: (t) =>
                         (t.dir || t.root) && !isModuleFolder(entries, t.path),
                       prompt: { placeholder: "nom", submit: "Créer" },
@@ -629,9 +699,13 @@ export function Library() {
                       // because it is the engine's own IN/OUT and no scanned plugin is one.
                       key: "engine-face",
                       label: "Nouveau module depuis un greffon…",
+                      // Any folder under a type, at any depth — the module lands where you
+                      // clicked. Never inside a module: a module holds files, not modules.
                       when: (t) =>
                         section === "modules" &&
-                        FACE_CATEGORIES.includes(t.path),
+                        t.dir &&
+                        !isModuleFolder(entries, t.path) &&
+                        FACE_CATEGORIES.includes(t.path.split("/")[0]),
                       prompt: {
                         placeholder:
                           "nom du greffon, tel que le moteur le rapporte",
@@ -670,20 +744,26 @@ export function Library() {
                         }
                         let face: ReturnType<typeof engineFaceModule>;
                         try {
-                          face = engineFaceModule(named ?? value, t.path);
+                          // The CATEGORY is the type folder — it decides the module's ports and
+                          // its kind — while the module lands in the folder that was clicked,
+                          // which may be a category below it.
+                          face = engineFaceModule(
+                            named ?? value,
+                            t.path.split("/")[0],
+                          );
                         } catch (e) {
                           setError((e as Error).message);
                           return;
                         }
+                        const dir = `${t.path}/${face.module}`;
                         void library
-                          .writeFile(`${section}/${face.path}`, face.text)
+                          .writeFile(
+                            `${section}/${dir}/${MODULE_FILE}`,
+                            face.text,
+                          )
                           // Straight into the builder, on the PANEL: drawing the face is the only
                           // reason this module exists — everything it does comes from `extends`.
-                          .then(() =>
-                            openFile(
-                              `${face.path.replace(/\/module\.yaml$/, "")}/${UI_FILE}`,
-                            ),
-                          )
+                          .then(() => openFile(`${dir}/${UI_FILE}`))
                           .then(refresh)
                           .catch((e: Error) => setError(e.message));
                       },
@@ -711,9 +791,12 @@ export function Library() {
                       label: (t) => `Supprimer ${t.name}`,
                       when: (t) => !t.root,
                       danger: true,
+                      // `t.dir` alone is no longer the question: a module is a folder on disk
+                      // that the tree draws as a leaf, so asking the ROW would delete it with
+                      // the single-file route and leave the folder behind.
                       run: (t) =>
                         void (
-                          t.dir
+                          t.dir || isModuleFolder(entries, t.path)
                             ? library.removeTree(`${section}/${t.path}`)
                             : library.remove(`${section}/${t.path}`)
                         )
@@ -735,6 +818,15 @@ export function Library() {
               pane={editing.pane}
               engineId={choice.chosenId}
               onBack={() => openFile(null)}
+            />
+          </main>
+        ) : editingChain ? (
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <ChainEditor
+              entry={editingChain}
+              vimMode={localStorage.getItem("mediatek.vim") === "1"}
+              onBack={() => openFile(null)}
+              onSaved={refresh}
             />
           </main>
         ) : (
@@ -801,7 +893,9 @@ export function Library() {
                     }
                   >
                     <span className="min-w-0 flex-1 truncate">{e.name}</span>
-                    {/* Not filed: found on disk with no sidecar. Worth SAYING rather than hiding. */}
+                    {/* Not filed: found on disk with no sidecar. Worth SAYING rather than hiding.
+                        Never a module now — a folder without a module.yaml is a folder, and the
+                        catalogue holds only modules (see scan.ts). */}
                     {e.meta?.catalogued === false ? (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                         non catalogué

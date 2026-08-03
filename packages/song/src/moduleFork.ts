@@ -23,7 +23,7 @@ import { deriveChains } from "./chainsGraph";
 import { engineModules } from "./engineCatalogue";
 import { loadProjectRoot, MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
-import { moduleNamespaceOf } from "./sharedFolders";
+import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 import { parseChains, renameNode } from "./yaml/chainsFile";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
@@ -45,22 +45,14 @@ const clean = (s: string): string =>
 
 const toPosix = (p: string): string => p.split(sep).join("/");
 
-/** The shared roots this project inherits, absolute, each with the namespace its config declares. */
+/** The shared roots this project inherits, absolute, each under the namespace its LOCATION gives it.
+ *  Read through moduleLibraryDirs so the médiathèque is here too — a module the loader keys and the
+ *  catalogue lists, but that this function did not see, was one the builder refused to open. */
 export function sharedRoots(dir: string): { root: string; ns: string }[] {
-  let from: string[] = [];
-  try {
-    const mf = loadProjectRoot(dir).project?.modules_from;
-    if (Array.isArray(mf)) from = mf.map(String);
-  } catch {
-    return [];
-  }
-  const out: { root: string; ns: string }[] = [];
-  for (const p of from) {
-    const root = resolve(isAbsolute(p) ? p : resolve(dir, p));
-    const ns = moduleNamespaceOf(root);
-    if (ns) out.push({ root, ns });
-  }
-  return out;
+  return moduleLibraryDirs(dir).map((root) => ({
+    root,
+    ns: moduleNamespaceOf(root),
+  }));
 }
 
 /**

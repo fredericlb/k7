@@ -13,6 +13,18 @@
    plain `packages/ui/src` resolves to nothing and is the shape of this bug. */
 @source "../../../../commons/packages/ui/src";
 
+/* studio's OWN shared tier, for exactly the same reason: `packages/*` is consumed as source
+   and lives outside this app tree, so its classes are generated only if scanned.
+
+   This bit silently: the classes a shared component shares with the app — `flex`, `border-t` —
+   are generated anyway, because the APP uses them too. What is dropped is whatever only the
+   package uses, so a component looks almost right. `h-[30%]` on the builder's two bottom panes
+   was the first thing to actually depend on one: the params pane fell back to its content's
+   height and read as roughly correct, and the graph preview under the grid collapsed to nothing
+   at all — no error, no warning, just an invisible panel. */
+@source "../../../../packages/ui-module-builder/src";
+@source "../../../../packages/ui-chains-react/src";
+
 @layer base {
   html,
   body,

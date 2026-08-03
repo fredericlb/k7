@@ -45,6 +45,12 @@ export function useEngineStore(): EngineStore {
   return s;
 }
 
+/** The host's store, or null when there is none — for a component that can PROVIDE one rather
+ *  than demand it. See DomChains, which draws meters for hosts that have no engine at all. */
+export function useEngineStoreOrNull(): EngineStore | null {
+  return useContext(EngineStoreContext);
+}
+
 // Subscribe to a SLICE: re-renders only when the selector's result changes under `isEqual` (pass `arrayEq` for
 // the armed/levels arrays, which arrive fresh each frame). The selection is cached so the reference stays stable.
 export function useStoreState<T>(

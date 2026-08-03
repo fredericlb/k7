@@ -55,13 +55,13 @@ studio.test {
 	# The decks. Its backend holds auth, the engine registry and which machine
 	# the account DJs from; the file service and the engine it plays through are
 	# reached directly, cross-origin, so neither is proxied here.
-	@platines_api path /platines/api/*
-	handle @platines_api {
-		uri strip_prefix /platines
+	@m9_api path /m9/api/*
+	handle @m9_api {
+		uri strip_prefix /m9
 		reverse_proxy 127.0.0.1:8796
 	}
-	@platines path /platines /platines/*
-	handle @platines {
+	@m9 path /m9 /m9/*
+	handle @m9 {
 		reverse_proxy 127.0.0.1:5225
 	}
 

@@ -4,8 +4,9 @@
 // the engine as available, and a deregister on shutdown so it drops immediately
 // instead of waiting out the TTL.
 
-import { readFileSync } from "node:fs";
-import { webEndpointPath } from "@studio/engine-client/paths";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { webEndpointPath, webEndpointsDir } from "@studio/engine-client/paths";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 
@@ -19,8 +20,9 @@ export const DEFAULT_STUDIO_URL = "https://studio.frediver.se";
  *   1. `configured` — the ones the user pinned with "Add web UI…". A deliberate,
  *      persisted choice beats an ambient one, which is why it goes above the env var.
  *   2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one.
- *   3. `~/.studio/web-endpoint.json` `.url`, written by the backend on boot — so a
- *      local dev setup still wins over the hosted default.
+ *   3. what the local backends advertised — `~/.studio/web-endpoints/*.json`, one file per
+ *      service, plus the legacy single `web-endpoint.json` — so a local dev setup still
+ *      wins over the hosted default.
  *   4. the hosted studio.
  *
  * A LIST since each hosted service holds its own registry: an engine must be listed in
@@ -37,13 +39,43 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
           .filter((u) => u !== ""),
       ),
     ];
-  try {
-    const v = JSON.parse(readFileSync(webEndpointPath(), "utf8"));
-    if (v && typeof v.url === "string" && v.url !== "") return [v.url];
-  } catch {
-    /* no endpoint file yet — fall through to the default */
-  }
+  const local = advertisedUrls();
+  if (local.length) return local;
   return [DEFAULT_STUDIO_URL];
+}
+
+/** `.url` out of one endpoint file, or null for anything that isn't one. */
+function urlIn(path: string): string | null {
+  try {
+    const v = JSON.parse(readFileSync(path, "utf8"));
+    return v && typeof v.url === "string" && v.url !== "" ? v.url : null;
+  } catch {
+    return null; // absent, or half-written by a backend booting right now
+  }
+}
+
+/**
+ * Every registry a local backend advertised, deduped.
+ *
+ * The DIRECTORY is the contract; the single `web-endpoint.json` is read too because an older
+ * pistes backend still writes only that one, and a tray shipped before this change reads only
+ * that one. Both are cheap, and the union is what stops a version skew from silently costing
+ * an app its engine.
+ */
+function advertisedUrls(): string[] {
+  const out: string[] = [];
+  try {
+    for (const name of readdirSync(webEndpointsDir()))
+      if (name.endsWith(".json")) {
+        const url = urlIn(join(webEndpointsDir(), name));
+        if (url) out.push(url);
+      }
+  } catch {
+    /* no directory yet — the legacy file may still answer */
+  }
+  const legacy = urlIn(webEndpointPath());
+  if (legacy) out.push(legacy);
+  return [...new Set(out)];
 }
 
 export interface HeartbeatBody extends EnginePresence {

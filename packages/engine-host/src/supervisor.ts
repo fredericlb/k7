@@ -468,6 +468,18 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       publish();
       return;
     }
+    // Re-resolve every tick, because the ambient tiers can MOVE under us: under `npm run dev` the
+    // tray and the three backends start together, so a supervisor that wins the race resolves
+    // before any of them has advertised — and would then announce to the hosted studio forever
+    // while three local registries sat empty. Skipped when the user pinned a list, which is a
+    // deliberate choice and must not be re-derived. Cheap: a readdir of four small files.
+    if (!state.settings.registryUrls?.length) {
+      const found = resolveRegistryUrls(null);
+      if (found.join() !== state.registryUrls.join()) {
+        state.registryUrls = found;
+        line("host", `registries: ${found.join(", ")}`);
+      }
+    }
     const presence = gatherAddresses(
       state.settings.port,
       state.settings.filePort,

@@ -59,18 +59,26 @@ export interface SyncReport {
  *
  * The manifest is written LAST and only reflects what actually landed: a crash mid-sync
  * means the next one re-fetches, which is the safe direction.
+ *
+ * `scope` narrows the sync to the paths it accepts, for a cache that holds what its songs
+ * reach for rather than the whole catalogue. It applies to BOTH sides of the diff, which is
+ * the part that has to be right: scoping `want` alone would make every file outside the
+ * scope look like one the owner had dropped, and the first partial sync would delete the
+ * rest of the library. Everything out of scope keeps its remembered entry untouched.
  */
 export async function syncFamily(
   source: LibrarySource,
   family: Family,
+  scope: (path: string) => boolean = () => true,
 ): Promise<SyncReport> {
   ensureLayout();
-  const want = await source.manifest(family);
-  const have = heldManifest(family);
+  const want = (await source.manifest(family)).filter((e) => scope(e.path));
+  const held = heldManifest(family);
+  const have = held.filter((e) => scope(e.path));
   const { fetch: todo, drop } = diff(have, want);
 
   const report: SyncReport = { family, fetched: [], dropped: [], failed: [] };
-  const landed = new Map(have.map((e) => [e.path, e]));
+  const landed = new Map(held.map((e) => [e.path, e]));
 
   for (const path of drop) {
     try {

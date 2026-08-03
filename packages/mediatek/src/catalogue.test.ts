@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listFamily, reset, search, summary } from "./catalogue.ts";
 import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
-import { scanFamily } from "./scan.ts";
+import { scanFamily, scanUnlisted } from "./scan.ts";
 
 // The root is env-driven ($STUDIO_MEDIATEK), which is what makes it testable at all: each
 // test gets its own library rather than a shared one under the real ~/.studio.
@@ -43,7 +43,13 @@ describe("the layout", () => {
     // `present: false` is an answer, not an error — a surface shows "nothing here yet".
     expect(summary()).toEqual({
       present: false,
-      counts: { morceaux: 0, samples: 0, modules: 0, recordings: 0 },
+      counts: {
+        morceaux: 0,
+        samples: 0,
+        modules: 0,
+        chains: 0,
+        recordings: 0,
+      },
     });
   });
 
@@ -113,21 +119,96 @@ describe("scanning samples and modules", () => {
     ).toHaveLength(1);
   });
 
-  it("lists a module folder, counts its instances, flags one with no module.yaml", () => {
+  it("lists a module folder and counts its instances", () => {
     write(
       "modules/instruments/synth/module.yaml",
       "plugin: {type: internal}\n",
     );
     write("modules/instruments/synth/lead.yaml", "params: {}\n");
     write("modules/instruments/synth/pad.yaml", "params: {}\n");
-    write("modules/audio/halfbaked/readme.md");
+    write("modules/audio/halfbaked/readme.md"); // files, but no module.yaml — a folder
     const byName = Object.fromEntries(
       scanFamily("modules").map((e) => [e.name, e]),
     );
     expect(byName.synth.kind).toBe("instruments");
     expect(byName.synth.meta?.instances).toBe(2);
-    expect(byName.synth.meta?.catalogued).toBe(true);
-    expect(byName.halfbaked.meta?.catalogued).toBe(false);
+    // A folder holding anything BUT a module file is still a folder, not a half-made module.
+    expect(byName.halfbaked).toBeUndefined();
+  });
+
+  it("finds a module at ANY depth — the file is the rule, not the shape", () => {
+    // It used to read exactly two levels, mirroring the one-category shape the compiler accepts.
+    // That made the folders in between a fixed grammar: a third level was invisible, and dragging
+    // a module into one dropped it out of the catalogue. A module is a folder with a module file.
+    write("modules/audio/fuzz/module.yaml", "plugin: {}\n"); //           one deep
+    write("modules/audio/filter/auto-wah/module.yaml", "plugin: {}\n"); // two
+    write("modules/audio/dyn/comp/vintage/module.yaml", "plugin: {}\n"); // three
+    const paths = scanFamily("modules").map((e) => e.path);
+    expect(paths).toContain("modules/audio/fuzz");
+    expect(paths).toContain("modules/audio/filter/auto-wah");
+    expect(paths).toContain("modules/audio/dyn/comp/vintage");
+  });
+
+  it("catalogues MODULES only — a folder is not one, wherever it sits", () => {
+    // Both used to be listed: the folder on the way, and the folder somebody just made. That put
+    // a row in the middle pane for something nobody authored, and counted it in the Modules tab.
+    write("modules/audio/filter/auto-wah/module.yaml", "plugin: {}\n");
+    write("modules/audio/modulation/.keep"); // a folder, made by hand
+    const paths = scanFamily("modules").map((e) => e.path);
+    expect(paths).toEqual(["modules/audio/filter/auto-wah"]);
+  });
+
+  it("still reports those folders, so a tree can draw one", () => {
+    // The route made for it: what no entry accounts for. Without this an empty folder is a
+    // folder you cannot see, and one you cannot see is one you cannot drop into.
+    write("modules/audio/filter/auto-wah/module.yaml", "plugin: {}\n");
+    write("modules/audio/modulation/.keep");
+    const unlisted = scanUnlisted("modules", scanFamily("modules"));
+    expect(unlisted).toContain("audio/modulation");
+    // …but not the folders on the way to a module: the entry's own path already draws them.
+    expect(unlisted).not.toContain("audio/filter");
+  });
+
+  it("stops AT a module — what is inside one is its files, never more modules", () => {
+    write("modules/audio/fuzz/module.yaml", "plugin: {}\n");
+    write("modules/audio/fuzz/nested/module.yaml", "plugin: {}\n");
+    const paths = scanFamily("modules").map((e) => e.path);
+    expect(paths).toContain("modules/audio/fuzz");
+    expect(paths).not.toContain("modules/audio/fuzz/nested");
+  });
+
+  // A chain is a TEMPLATE: segments wiring named instances to each other, with `@in` and `@out`
+  // standing where a project would have a track and a sink. Same rule as a module — the file is
+  // what makes the folder — so the two scans read alike on purpose.
+  it("catalogues a chain by its chains.yaml, at any depth", () => {
+    write(
+      "chains/gtr/chains.yaml",
+      'tracks:\n  "@in": [ eq ]\nmodules:\n  eq: [ "@out" ]\n',
+    );
+    write("chains/live/vocals/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
+    const paths = scanFamily("chains").map((e) => e.path);
+    expect(paths).toEqual(["chains/gtr", "chains/live/vocals"]);
+  });
+
+  it("counts the instances beside the file, not the files in the folder", () => {
+    // How big a template is, without opening it. The instances live in their own folder, so
+    // counting the chain's own files would report the chains.yaml and any notes beside it.
+    write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
+    write("chains/gtr/README.md", "notes");
+    write("chains/gtr/instances/eq.yaml", 'extends: "@mediatek/audio/eq"\n');
+    write(
+      "chains/gtr/instances/comp.yaml",
+      'extends: "@mediatek/audio/comp"\n',
+    );
+    const [chain] = scanFamily("chains");
+    expect(chain.meta?.instances).toBe(2);
+    expect(chain.files).toContain("chains.yaml");
+  });
+
+  it("stops AT a chain — instances/ is inside one, not a chain of its own", () => {
+    write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
+    write("chains/gtr/instances/chains.yaml", "modules: {}\n"); // pathological, but decisive
+    expect(scanFamily("chains").map((e) => e.path)).toEqual(["chains/gtr"]);
   });
 
   it("ignores a folder outside the known module types", () => {
@@ -202,7 +283,7 @@ describe("listing and search", () => {
     // Plus the capture zone, which is no family but is a tab — see docs/recordings.md.
     expect(summary()).toEqual({
       present: true,
-      counts: { morceaux: 0, samples: 2, modules: 1, recordings: 0 },
+      counts: { morceaux: 0, samples: 2, modules: 1, chains: 0, recordings: 0 },
     });
   });
 });
@@ -259,11 +340,14 @@ describe("what the entries cannot stand for", () => {
     expect(l.unlisted).toEqual([]);
   });
 
-  it("still lists a folder that is neither, so a new one is visible", () => {
+  it("reports a folder that is neither as UNLISTED, not as an entry", () => {
+    // It used to arrive as an entry flagged `catalogued: false`, which drew it in the catalogue
+    // pane and counted it in the Modules tab — a row for something nobody authored. It is still
+    // reported, by the route meant for it, so a tree draws it and you can drop into it.
     mkdirSync(join(root, "modules", "audio", "mine"), { recursive: true });
     const l = listFamily("modules");
-    expect(l.entries.map((e) => e.path)).toEqual(["modules/audio/mine"]);
-    expect(l.entries[0].meta?.catalogued).toBe(false);
+    expect(l.entries).toEqual([]);
+    expect(l.unlisted).toContain("audio/mine");
   });
 
   it("carries a module's OWN files on the entry", () => {

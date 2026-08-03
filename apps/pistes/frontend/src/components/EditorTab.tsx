@@ -997,6 +997,12 @@ export function EditorTab({
                 open(path);
                 if (isMobile) setTreeOpen(false);
               }}
+              // A module row opens the BUILDER on its panel — its three files are no longer rows,
+              // and the builder is the one screen that edits all three.
+              onOpenModule={(moduleFile) => {
+                onOpenBuilder(moduleFile, "panel");
+                if (isMobile) setTreeOpen(false);
+              }}
               onOpenProject={onOpenProject}
               onUpload={uploadFiles}
               onRename={renameEntry}

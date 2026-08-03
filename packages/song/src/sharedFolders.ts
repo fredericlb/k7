@@ -39,8 +39,23 @@ function declared(doc: ReturnType<typeof parseDocument>): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The machine's media library, when it has one — the root every project sees WITHOUT
+ * declaring it.
+ *
+ * `@mediatek` names a level whose folder is fixed, so a project listing it in
+ * `modules_from` stated something the loader already knew, and a project written before
+ * the scaffold added that line saw nothing at all. Stated once here; `moduleLibraryDirs`
+ * and `loadModuleRefs` both read it, which is what keeps the modules, their panels and the
+ * catalogue agreeing about what this project can reach. See docs/moduleNamespaces.md.
+ */
+export function mediatekModulesRoot(): string | null {
+  const root = join(mediatekRoot(), "modules");
+  return existsSync(root) ? root : null;
+}
+
 /** `project.modules_from` resolved against the project dir, absolute entries kept as-is —
- *  the same rule loader.ts applies, so a mediatek root outside the workspace resolves here too. */
+ *  the same rule loader.ts applies — followed by the médiathèque, which needs no declaring. */
 export function moduleLibraryDirs(dir: string): string[] {
   const path = join(dir, "project.yaml");
   if (!existsSync(path)) return [];
@@ -50,17 +65,19 @@ export function moduleLibraryDirs(dir: string): string[] {
   } catch {
     return []; // an unparseable header is the compiler's problem to report, not ours
   }
-  return (
-    declared(doc)
-      // Normalised, absolute entries included — see libraryDirs for the containment check that depends on it.
-      .map((p) =>
-        resolve(
-          resolveMediatekRef(p, "modules") ??
-            (isAbsolute(p) ? p : resolve(dir, p)),
-        ),
-      )
-      .filter((abs) => existsSync(abs))
-  );
+  const out = declared(doc)
+    // Normalised, absolute entries included — see libraryDirs for the containment check that depends on it.
+    .map((p) =>
+      resolve(
+        resolveMediatekRef(p, "modules") ??
+          (isAbsolute(p) ? p : resolve(dir, p)),
+      ),
+    )
+    .filter((abs) => existsSync(abs));
+  // LAST, so a workspace folder the project named itself keeps precedence over the ambient one.
+  const media = mediatekModulesRoot();
+  if (media && !out.includes(media)) out.push(media);
+  return out;
 }
 
 /**

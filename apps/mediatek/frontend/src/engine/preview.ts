@@ -12,7 +12,7 @@ import {
 
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 
-// Re-exported, not redefined: it moved to @studio/engine-protocol/build when platines
+// Re-exported, not redefined: it moved to @studio/engine-protocol/build when m9
 // wanted the same two scalars. Kept named here so this module's callers and its tests are
 // unchanged by where it now lives.
 export { readPluginBlock };

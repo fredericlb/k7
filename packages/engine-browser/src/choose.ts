@@ -3,7 +3,7 @@
 // answer second, and the picker only when there IS a question.
 //
 // Shared because it is the same question in every service — it was written for the
-// médiathèque's module preview and platines wanted it verbatim the same day.
+// médiathèque's module preview and m9 wanted it verbatim the same day.
 
 import type { PublicEngine } from "@studio/web-protocol";
 import type { RankedEngine } from "./probe.ts";

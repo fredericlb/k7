@@ -9,9 +9,9 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 
 ## Every message carries a session
 
-`{ "session": "platines", … }` on any message names **which project on this engine** it is
+`{ "session": "m9", … }` on any message names **which project on this engine** it is
 about. One process hosts several (`docs/multiEdit.md`), so without it the médiathèque's
-module preview and a platines deck would each replace whatever pistes had loaded.
+module preview and an m9 deck would each replace whatever pistes had loaded.
 
 The field is optional and absent means `""`, the default session — so a client that has
 never heard of sessions keeps working exactly as before, which is what let the engine grow
@@ -41,7 +41,7 @@ why pistes' two halves must agree on it — are in
 | `{ type: "set-preset", module: "synth", index: 3, path: "" }` | pick a preset |
 | `{ type: "list-edit-plugins" }` | → an `edit-plugins` reply |
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
-| `{ type: "drop-session", session: "platines" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
+| `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
 
