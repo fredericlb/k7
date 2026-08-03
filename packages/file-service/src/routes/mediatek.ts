@@ -23,6 +23,28 @@ import { slugify, workspaceRoot } from "../slug.ts";
 
 export const mediatekRouter: Router = Router();
 
+/** Content types for what a médiathèque cache actually holds. */
+const MIME: Record<string, string> = {
+  wav: "audio/wav",
+  flac: "audio/flac",
+  mp3: "audio/mpeg",
+  ogg: "audio/ogg",
+  m4a: "audio/mp4",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  yaml: "text/yaml; charset=utf-8",
+  yml: "text/yaml; charset=utf-8",
+  json: "application/json",
+  txt: "text/plain; charset=utf-8",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+};
+const mimeFor = (p: string): string =>
+  MIME[p.split(".").pop()?.toLowerCase() ?? ""] ?? "application/octet-stream";
+
 const asFamily = (v: unknown): Family | undefined =>
   FAMILIES.includes(v as Family) ? (v as Family) : undefined;
 
@@ -147,7 +169,12 @@ mediatekRouter.get(
     const rel = String(req.query.path ?? "");
     if (!rel) return res.status(400).json({ error: "path is required" });
     try {
-      return streamFile(req, res, safePath(rel));
+      // The mime is REQUIRED and was missing: streamFile sets it unconditionally, so
+      // `undefined` threw inside res.setHeader and this route answered 500 for every file
+      // it was asked for. A cache serves audio, video, YAML and JSON, so it is guessed
+      // from the extension rather than pinned — and octet-stream is the honest default,
+      // not a lie about the content.
+      return streamFile(req, res, safePath(rel), mimeFor(rel));
     } catch (e) {
       // A path that escapes is the caller's mistake, not ours: 400, never 500.
       if (e instanceof PathEscapesError)

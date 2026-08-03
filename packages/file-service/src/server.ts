@@ -22,6 +22,7 @@ import { setSelectedEngine } from "./engineLink.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
+import { renderRouter } from "./routes/render.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { generateKey, publicKey } from "./sshKeys.ts";
 import {
@@ -158,6 +159,11 @@ app.post(
 // The media library is per MACHINE, so it needs the user (for the gate) but no workspace —
 // registered here for the same reason /workspaces is.
 app.use(mediatekRouter);
+
+// An offline bounce, for a hosted backend that cannot exec anything itself. Per MACHINE
+// too — it is this machine's engine binary and this machine's plugins — and behind the same
+// engine-token gate everything above it is. See docs/render.md.
+app.use(renderRouter);
 
 // The user's SSH key: GET reads, POST generates if absent (idempotent). Only ever the PUBLIC half.
 app.get(
