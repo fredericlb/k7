@@ -56,15 +56,22 @@ function originsFromFile(): string[] {
   return origins;
 }
 
-// The hosted backend's origin — behind a proxy the frontend shares it, covering the deployed case unconfigured.
-function registryOrigin(): string | null {
-  const url = process.env.LANES_REGISTRY_URL;
-  if (!url) return null;
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
+// The hosted backends' origins — behind a proxy each frontend shares its backend's, covering
+// the deployed case unconfigured. PLURAL and comma-separated: every service holding its own
+// engine registry means every one of them is a browser that reaches this file service, and
+// reading only the first would CORS-refuse the médiathèque with no diagnosis anywhere.
+function registryOrigins(): string[] {
+  const raw = process.env.LANES_REGISTRY_URL;
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const url of raw.split(",")) {
+    try {
+      out.push(new URL(url.trim()).origin);
+    } catch {
+      /* one bad URL must not cost the others their origin */
+    }
   }
+  return out;
 }
 
 /**
@@ -79,7 +86,7 @@ export function allowedOrigin(origin: string | undefined): boolean {
   const explicit = originsFromEnv();
   if (explicit) return explicit.includes(origin);
 
-  if (origin === registryOrigin()) return true;
+  if (registryOrigins().includes(origin)) return true;
 
   // Web UIs the user added from the tray. Re-read per call, so one takes effect without restarting this service.
   if (originsFromFile().includes(origin)) return true;

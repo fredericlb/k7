@@ -8,8 +8,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { lanesDir, settingsPath } from "@studio/engine-client/paths";
 
 export interface Settings {
-  /** The registry the user pinned via "Add web UI…". Overrides every other tier. */
-  registryUrl: string | null;
+  /** The registries the user pinned via "Add web UI…". Overrides every other tier.
+   *
+   *  A LIST because each hosted service holds its own registry now — an engine has to be
+   *  listed in lanes AND in the médiathèque to be pickable in both. See
+   *  packages/engine-registry/docs/shared.md. */
+  registryUrls: string[];
   /** The engine's WebSocket port. */
   port: number;
   /** The engine-side file service's HTTP port. */
@@ -34,7 +38,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  registryUrl: null,
+  registryUrls: [],
   port: 8765,
   filePort: 8770,
   audioDevice: null,
@@ -54,6 +58,24 @@ function port(v: unknown, fallback: number): number {
     : fallback;
 }
 
+/**
+ * The registry list, reading the singular `registryUrl` this used to be.
+ *
+ * Migration in the READER and not a rewrite pass: settings.ts already validates every field
+ * alone so one bad key cannot lose the others, and a machine that never opens the menu again
+ * keeps working off its old file forever. The new key wins when both are present.
+ */
+function urls(raw: Record<string, unknown>): string[] {
+  const list = Array.isArray(raw.registryUrls)
+    ? raw.registryUrls.filter(
+        (v): v is string => typeof v === "string" && v !== "",
+      )
+    : [];
+  if (list.length) return [...new Set(list)];
+  const one = str(raw.registryUrl);
+  return one ? [one] : [];
+}
+
 export function loadSettings(): Settings {
   let raw: Record<string, unknown>;
   try {
@@ -65,7 +87,7 @@ export function loadSettings(): Settings {
     return { ...DEFAULT_SETTINGS }; // absent or unreadable — defaults, written on first change
   }
   return {
-    registryUrl: str(raw.registryUrl),
+    registryUrls: urls(raw),
     port: port(raw.port, DEFAULT_SETTINGS.port),
     filePort: port(raw.filePort, DEFAULT_SETTINGS.filePort),
     audioDevice: str(raw.audioDevice),

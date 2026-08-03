@@ -4,6 +4,7 @@
 
 import { setupAuth } from "@frediverse/oidc";
 import { apiTokenAuth } from "@frediverse/oidc/api-auth";
+import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import express from "express";
 import { libraryRouter } from "./routes/library.ts";
@@ -45,6 +46,13 @@ app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
 // a family; a token exists so a headless cache can READ, and widening it to this would let
 // a leaked one repopulate somebody's library from a Grist document they never chose.
 app.use("/api/mirror", requireAuth, mirrorRouter);
+
+// This service's OWN engine registry. Until now a module preview was hardcoded to
+// ws://127.0.0.1:8765, so "which engine" had no question to answer here — and no answer to
+// offer either. Same mounting rule as lanes: the browser routes need a session, the
+// engine-facing heartbeat stays open because a machine authenticates with its own token.
+app.use(["/api/engines", "/api/engine"], requireAuth);
+app.use("/api", engineRegistryRouter(createRegistry()));
 
 /** Mint a token for the signed-in user — what you paste into a machine's settings once.
  *  Session only, deliberately: a token must not be able to mint another. */

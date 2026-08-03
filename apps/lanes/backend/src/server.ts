@@ -7,8 +7,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
+import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
 import express from "express";
-import { registryRouter } from "./routes/registry.ts";
 
 const PORT = process.env.PORT || 8789;
 const app = express();
@@ -37,7 +37,9 @@ const { requireAuth } = await setupAuth(app, {
 // Browser-facing registry routes need a session. Mounted before the router so the engine-to-backend routes
 // (heartbeat, deregister — a machine authed by its own token) stay open.
 app.use(["/api/engines", "/api/engine"], requireAuth);
-app.use("/api", registryRouter);
+// OUR registry, not the registry: mediatek holds its own, and an engine heartbeats to both.
+// See packages/engine-registry/docs/shared.md for why that is not one central one.
+app.use("/api", engineRegistryRouter(createRegistry()));
 
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;

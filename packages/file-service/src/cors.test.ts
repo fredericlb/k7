@@ -89,10 +89,28 @@ describe("allowedOrigin — default policy", () => {
     expect(allowedOrigin("https://other.example.org")).toBe(false);
   });
 
+  // Each hosted service holds its own engine registry, so an engine announces to several and
+  // every one of them is a browser that calls this service. Reading only the first would
+  // CORS-refuse the médiathèque with nothing logged on either side.
+  it("allows EVERY origin in a comma-separated registry list", () => {
+    process.env.LANES_REGISTRY_URL =
+      "https://daw.example.org/api, https://media.example.org/api";
+    expect(allowedOrigin("https://daw.example.org")).toBe(true);
+    expect(allowedOrigin("https://media.example.org")).toBe(true);
+    expect(allowedOrigin("https://other.example.org")).toBe(false);
+  });
+
   it("survives a malformed origin or registry url without throwing", () => {
     process.env.LANES_REGISTRY_URL = "not a url";
     expect(allowedOrigin("also not a url")).toBe(false);
     expect(allowedOrigin("null")).toBe(false);
+  });
+
+  // One unparseable entry must not cost its neighbours their origin: the list is hand-edited
+  // through an env var, and a stray comma would otherwise lock every service out at once.
+  it("keeps the good entries when one url in the list is malformed", () => {
+    process.env.LANES_REGISTRY_URL = "not a url,https://media.example.org";
+    expect(allowedOrigin("https://media.example.org")).toBe(true);
   });
 });
 

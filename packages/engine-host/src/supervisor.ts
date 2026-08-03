@@ -27,7 +27,11 @@ import type {
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
 import { emit, listen } from "./ipcStdio.ts";
 import { line } from "./logbus.ts";
-import { deregister, heartbeat, resolveRegistryUrl } from "./registryClient.ts";
+import {
+  deregister,
+  heartbeat,
+  resolveRegistryUrls,
+} from "./registryClient.ts";
 import { loadSettings, type Settings, saveSettings } from "./settings.ts";
 import {
   addOrigin,
@@ -74,7 +78,7 @@ interface State {
   own: HostOwnership;
   identity: EngineIdentity;
   settings: Settings;
-  registryUrl: string;
+  registryUrls: string[];
   status: EngineRunState;
   error: string | null;
   ownsEngine: boolean;
@@ -127,7 +131,9 @@ function snapshot(s: State): HostSnapshot {
     enginePort: s.settings.port,
     filePort: s.settings.filePort,
     fileServiceFailed: s.fileServiceFailed,
-    registryUrl: s.registryUrl,
+    // Joined for display: the tray draws ONE registry line, and every service the engine
+    // announces to belongs on it — a hidden second registry is a picker you cannot explain.
+    registryUrl: s.registryUrls.join(", "),
     lastHeartbeatOk: s.lastHeartbeatOk,
     pluginCount: s.pluginCount,
     audioDevices: s.audioDevices,
@@ -158,7 +164,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     own: opts.own,
     identity: ensureEngineIdentity(),
     settings,
-    registryUrl: resolveRegistryUrl(settings.registryUrl),
+    registryUrls: resolveRegistryUrls(settings.registryUrls),
     status: "stopped",
     error: null,
     ownsEngine: false,
@@ -225,7 +231,10 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       state.identity,
       state.settings.port,
       state.settings.filePort,
-      state.registryUrl,
+      // ALL of them, comma-joined: the file service builds its CORS allowlist from this,
+      // and every service with a registry is a browser that will call it. Passing the
+      // first alone would refuse the médiathèque with nothing logged anywhere.
+      state.registryUrls.join(","),
       state.settings.mediatekDir,
       {
         url: state.settings.mediatekUrl,
@@ -463,7 +472,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       state.settings.port,
       state.settings.filePort,
     );
-    const ok = await heartbeat(state.registryUrl, state.identity, presence);
+    const ok = await heartbeat(state.registryUrls, state.identity, presence);
     state.lastHeartbeatOk = ok;
     publish();
   };
@@ -504,22 +513,37 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     emit({ t: "result", id, ok, ...(message ? { message } : {}) });
   };
 
-  /** Repoint the registry: persist it, adopt it live, and re-announce so the engine
-   *  appears in the new backend without waiting for the next tick. */
-  const setRegistryUrl = async (url: string): Promise<void> => {
-    const old = state.registryUrl;
-    state.settings.registryUrl = url;
-    state.registryUrl = url;
-    saveSettings(state.settings);
+  /**
+   * ADD a registry: persist it, adopt it live, and announce so the engine appears in that
+   * backend without waiting for the next tick.
+   *
+   * An add and no longer a replace, which is the whole shape of this change. Each hosted
+   * service holds its own registry, so "Add web UI…" for the médiathèque must not evict
+   * lanes — that would silently take the engine out of one picker to put it in another,
+   * and the two are not alternatives. Idempotent: adding a URL already listed is a no-op
+   * beyond re-announcing.
+   */
+  const addRegistryUrl = async (url: string): Promise<void> => {
+    if (!url) return;
+    const known = state.registryUrls.includes(url);
+    if (!known) {
+      state.registryUrls = [...state.registryUrls, url];
+      // Persisted as the explicit list, so the next boot takes tier 1 and not the ambient
+      // env var — the same "a deliberate choice beats an ambient one" resolveRegistryUrls has.
+      state.settings.registryUrls = state.registryUrls;
+      saveSettings(state.settings);
+    }
     publish();
     if (!engineRunning()) return; // nothing announced yet; the next start registers there
-    // Leave no ghost behind in the old registry, then announce to the new one.
-    if (old !== url) await deregister(old, state.identity);
     const presence = gatherAddresses(
       state.settings.port,
       state.settings.filePort,
     );
-    state.lastHeartbeatOk = await heartbeat(url, state.identity, presence);
+    state.lastHeartbeatOk = await heartbeat(
+      state.registryUrls,
+      state.identity,
+      presence,
+    );
     publish();
   };
 
@@ -534,7 +558,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       case "engine.stop":
         stopEngine();
         // Drop out of the picker NOW rather than aging out of the TTL: that immediacy is Stop versus Restart.
-        await deregister(state.registryUrl, state.identity);
+        await deregister(state.registryUrls, state.identity);
         reply(cmd.id, true);
         return;
       case "engine.restart": {
@@ -598,7 +622,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         refreshOrigins();
         // A lanes web UI is single-origin, so adding one also points this engine at it — which is what puts the
         // engine in that UI's picker.
-        await setRegistryUrl(origin);
+        await addRegistryUrl(origin);
         reply(cmd.id, true, origin);
         return;
       }
@@ -626,14 +650,14 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         reply(cmd.id, true);
         return;
       case "registry.set":
-        await setRegistryUrl(arg);
+        await addRegistryUrl(arg);
         reply(cmd.id, true);
         return;
       case "registry.deregister":
         // The Stop menu item: drop out of the picker NOW rather than aging out.
         state.lastHeartbeatOk = false;
         publish();
-        await deregister(state.registryUrl, state.identity);
+        await deregister(state.registryUrls, state.identity);
         reply(cmd.id, true);
         return;
       case "audio.select": {
@@ -715,7 +739,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     engine.close();
     // Deregister FIRST, while the entry still means something — but bounded, or a hung registry hangs the tray's Quit.
     await Promise.race([
-      deregister(state.registryUrl, state.identity),
+      deregister(state.registryUrls, state.identity),
       new Promise((r) => setTimeout(r, DEREGISTER_TIMEOUT_MS)),
     ]);
     // Then tear down, and unlike Stop this does NOT spare an adopted engine: one left listening holds the audio
