@@ -44,6 +44,25 @@ export interface HostEditPlugin {
   hasNativePluginUI: boolean;
 }
 
+/**
+ * One project the engine is holding, for the "Sessions ▸" submenu.
+ *
+ * This is what makes ONE engine serving several apps legible from the outside. Before it,
+ * the tray's status line said "Running · :8833" whether that engine held nothing, held
+ * lanes' song, or held a deck and a module preview at once — and the apps had no way to
+ * see each other either.
+ */
+export interface HostSession {
+  id: string;
+  /** The loaded project's name; "" when the session holds nothing. */
+  project: string;
+  loaded: boolean;
+  playing: boolean;
+  tracks: number;
+  /** Sockets subscribed to this session's audio — someone is LISTENING over the network. */
+  listeners: number;
+}
+
 /** The paths the tray still opens directly (Show logs, Open workspaces root, and the
  *  origins file it falls back to when there is no native prompt). Sent rather than
  *  recomputed so `~/.lanes`'s layout has exactly one definition. */
@@ -89,6 +108,13 @@ export interface HostSnapshot {
   // --- registry -------------------------------------------------------------
   registryUrl: string;
   lastHeartbeatOk: boolean;
+
+  // --- sessions -------------------------------------------------------------
+  /** The projects the engine holds. Empty when nothing has connected to it yet. */
+  sessions: HostSession[];
+  /** What the sessions submenu DRAWS, so a playhead moving does not rebuild it. Same
+   *  device as `audioMenuSig` / `editPluginsSig`; see the note on this interface. */
+  sessionsSig: string;
 
   // --- plugins & audio ------------------------------------------------------
   /** null means "the engine hasn't answered yet" — the spinner, not "none found". */
@@ -143,6 +169,7 @@ export type HostCommandName =
   | "audio.select"
   | "audio.fallback"
   | "plugin.showUI"
+  | "session.drop"
   | "weburi.add"
   | "weburi.remove"
   | "weburi.allow"

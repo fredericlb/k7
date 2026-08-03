@@ -47,6 +47,24 @@ export interface AudioDeviceInfo {
   isDefault: boolean; // its backend's default device
 }
 
+/**
+ * One session the engine is holding — a project, not a connection.
+ *
+ * ENGINE-GLOBAL, unlike everything else here: it is the one question whose answer is about
+ * the OTHER sessions, so it is asked on the default session and never filtered. A
+ * supervisor listing them drives none of them.
+ */
+export interface SessionInfo {
+  id: string;
+  /** The loaded project's name; "" when the session holds nothing yet. */
+  project: string;
+  loaded: boolean;
+  playing: boolean;
+  tracks: number;
+  /** How many sockets are subscribed to this session's audio. */
+  listeners: number;
+}
+
 // One plugin INSTANCE in the loaded edit; the id is the PluginDoc id showNativePluginUI takes.
 export interface EditPluginInfo {
   id: string;
@@ -141,6 +159,12 @@ export class EngineControl extends EventEmitter {
             master: Number(msg.master ?? -100),
           });
           break;
+        case "sessions":
+          this.emit("sessions", (msg.sessions ?? []) as SessionInfo[]);
+          break;
+        case "session-dropped":
+          this.emit("sessionDropped", String(msg.session ?? ""));
+          break;
         case "edit-plugins":
           this.emit("editPlugins", (msg.plugins ?? []) as EditPluginInfo[]);
           break;
@@ -231,6 +255,17 @@ export class EngineControl extends EventEmitter {
   // and per-plugin — each watch costs a read per frame — and the watch set is the engine's, shared by every client.
   watchPluginParams(id: string, on = true): void {
     this.send({ type: "watch-plugin-params", id, on });
+  }
+
+  // Every session this engine holds. Reply arrives as a 'sessions' event (SessionInfo[]).
+  listSessions(): void {
+    this.send({ type: "list-sessions" });
+  }
+
+  // Forget a session outright — its edit, plugins, meters and broadcast tap. The app driving
+  // it is not told; it will simply find an empty project if it sends anything else.
+  dropSession(session: string): void {
+    this.send({ type: "drop-session", session });
   }
 
   // Ask the engine for the available audio interfaces. Reply arrives as an 'audioDevices' event (AudioDeviceInfo[]).

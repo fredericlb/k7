@@ -18,6 +18,9 @@ pub struct Menus {
     // "Native plugin UI ▸" — the loaded project's external plugin instances. Distinct from `plugins` (the global
     // scan count) and from a module's moduleUI, the widget grid built in the web editor and not surfaced here.
     pub edit_plugins: Submenu<Wry>,
+    // "Sessions ▸" — the projects this one engine is holding, one row each. The only place
+    // the tray says anything about WHO is using the engine.
+    pub sessions: Submenu<Wry>,
     pub audio: Submenu<Wry>, // "Audio interface ▸" — rebuilt as devices change
     pub weburi: Submenu<Wry>, // "Web UI ▸" — rebuilt as the allowed origins change
     pub start: MenuItem<Wry>,
@@ -45,6 +48,7 @@ pub struct AppState {
     /// changing something else doesn't tear down and re-add every row of a submenu the user may have open.
     pub drawn_audio_sig: String,
     pub drawn_edit_sig: String,
+    pub drawn_sessions_sig: String,
     pub menus: Option<Menus>,
 }
 

@@ -12,9 +12,14 @@ import {
   type EditPluginInfo,
   EngineControl,
   type PluginInfo,
+  type SessionInfo,
 } from "@studio/engine-client/engineControl";
 import { extsCachePath } from "@studio/engine-client/paths";
-import type { HostAudioDevice, HostEditPlugin } from "./hostProtocol.ts";
+import type {
+  HostAudioDevice,
+  HostEditPlugin,
+  HostSession,
+} from "./hostProtocol.ts";
 import { line } from "./logbus.ts";
 
 // The tray's per-call deadlines, preserved: a plugin list can be thousands of entries and a switch opens hardware.
@@ -22,6 +27,7 @@ const DEVICES_MS = 6000;
 const PLUGINS_MS = 8000;
 const SET_DEVICE_MS = 8000;
 const EDIT_PLUGINS_MS = 6000;
+const SESSIONS_MS = 6000;
 /** How long to wait for the socket to come up before giving up on a call. */
 const CONNECT_MS = 4000;
 
@@ -176,6 +182,41 @@ export class EngineQueries {
         name: e.name ?? "",
         hasNativePluginUI: !!e.hasNativePluginUI,
       }));
+    });
+  }
+
+  /**
+   * The projects this engine is holding — one per app driving it.
+   *
+   * Asked on the DEFAULT session, like every query here, and that is not an oversight: the
+   * supervisor drives no project, and this is the one question whose answer is about the
+   * others. Every other query in this class is engine-global for the same reason.
+   */
+  listSessions(): Promise<HostSession[] | null> {
+    return this.run(async (client) => {
+      const p = EngineQueries.reply<SessionInfo[]>(
+        client,
+        "sessions",
+        SESSIONS_MS,
+      );
+      client.listSessions();
+      return (await p).map((s) => ({
+        id: s.id,
+        project: s.project ?? "",
+        loaded: !!s.loaded,
+        playing: !!s.playing,
+        tracks: Number(s.tracks ?? 0),
+        listeners: Number(s.listeners ?? 0),
+      }));
+    });
+  }
+
+  /** Forget a session. Fire-and-forget: the sessions poll shows it gone within two seconds,
+   *  and waiting for the ack would only make the menu feel slower than the truth. */
+  dropSession(session: string): Promise<unknown> {
+    return this.run(async (client) => {
+      client.dropSession(session);
+      return true;
     });
   }
 

@@ -40,6 +40,8 @@ why lanes' two halves must agree on it — are in
 | `{ type: "list-presets", module: "synth" }` | → a `presets` reply |
 | `{ type: "set-preset", module: "synth", index: 3, path: "" }` | pick a preset |
 | `{ type: "list-edit-plugins" }` | → an `edit-plugins` reply |
+| `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
+| `{ type: "drop-session", session: "platines" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
 
@@ -49,6 +51,8 @@ why lanes' two halves must agree on it — are in
 |---|---|
 | `{ type: "applied", changes: ["tempo -> 124 bpm", …] }` | the diff that ran |
 | `{ type: "flushed" }` | flush completed |
+| `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `main.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
+| `{ type: "session-dropped", session }` | a session was forgotten |
 | `{ type: "state", playing, playhead, levels, inputLevels, waveform }` | the ~20 Hz state frame |
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
 | `{ type: "plugin-params", id, params, meta }` | the state to persist; `meta` only on the get- reply |

@@ -617,6 +617,26 @@ private:
 
 std::vector<std::string> EngineHost::sessionIds() const { return impl_->ids(); }
 
+std::vector<EngineHost::SessionInfo> EngineHost::sessionInfos() const {
+    std::vector<SessionInfo> out;
+    for (const auto& id : impl_->ids()) {
+        // find(), never session(): the latter CREATES, so a listing would conjure the very
+        // sessions it is meant to report on.
+        const auto* s = impl_->find(id);
+        if (!s) continue;
+        SessionInfo info;
+        info.id = id;
+        // `edit` and not the doc's name: ProjectDoc defaults to "untitled", so a session
+        // that exists holding nothing would otherwise read as a project called untitled.
+        info.loaded = s->edit != nullptr;
+        info.project = s->current.name;
+        info.trackCount = static_cast<int>(s->current.tracks.size());
+        info.playing = isPlaying(id);
+        out.push_back(std::move(info));
+    }
+    return out;
+}
+
 void EngineHost::dropSession(const std::string& session) {
     // Tear the project down FIRST, then forget the slot: reset() unregisters meter clients
     // and takes the taps off, and dropping the map entry alone would free an Edit the audio

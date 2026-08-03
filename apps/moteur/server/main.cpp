@@ -531,7 +531,7 @@ int main(int argc, char** argv) {
     // open, so announcing it would print a line per frame.
     static const std::unordered_set<std::string> probeQueries = {
         "whoami", "list-audio-devices", "list-plugins", "list-edit-plugins",
-        "io-levels"};
+        "list-sessions", "io-levels"};
 
     // Which connections have earned their deferred "[client] connected" line, so a disconnect is logged only when
     // the connect was. Mutex-guarded: IXWebSocket runs each connection's callback on its own thread.
@@ -846,6 +846,48 @@ int main(int argc, char** argv) {
                                        {"name", p.name},
                                        {"hasNativePluginUI", p.hasNativePluginUI}});
                     broadcast(json{{"type", "edit-plugins"}, {"plugins", arr}});
+                });
+            } else if (type == "list-sessions") {
+                // Every session this engine holds, for a supervisor that drives none of them.
+                // ENGINE-GLOBAL on purpose — it is the one question whose answer is about the
+                // other sessions, so it carries no `session` field and is not filtered.
+                //
+                // The listener counts come from THIS file rather than the host: who is
+                // subscribed to audio is a property of the sockets, which the engine layer
+                // has never seen. Snapshotted before the post so the lock is not held across
+                // one, matching the discipline the sender thread already follows.
+                std::map<std::string, int> ears;
+                {
+                    std::lock_guard<std::mutex> lk(listenersMx);
+                    for (const auto& [sock, sid] : listeners) {
+                        (void)sock;
+                        ++ears[sid];
+                    }
+                }
+                host.post([&host, &broadcast, ears] {
+                    json arr = json::array();
+                    for (const auto& s : host.sessionInfos()) {
+                        const auto hit = ears.find(s.id);
+                        arr.push_back({{"id", s.id},
+                                       {"project", s.loaded ? s.project : std::string{}},
+                                       {"loaded", s.loaded},
+                                       {"playing", s.playing},
+                                       {"tracks", s.trackCount},
+                                       {"listeners", hit == ears.end() ? 0 : hit->second}});
+                    }
+                    broadcast(json{{"type", "sessions"}, {"sessions", arr}});
+                });
+            } else if (type == "drop-session") {
+                // Forget a session outright — the tray's way of clearing one an app left
+                // behind. Documented since sessions landed and unwired until now, which is
+                // worse than absent: a reader would have believed it worked.
+                //
+                // `session` and not an `id` field, so it addresses a session exactly like
+                // every other message does.
+                host.post([&host, session, &broadcast] {
+                    std::cerr << "[session] dropped '" << session << "'\n";
+                    host.dropSession(session);
+                    broadcast(json{{"type", "session-dropped"}, {"session", session}});
                 });
             } else if (type == "show-native-plugin-ui") {
                 // Open a plugin's native editor window (external plugins only); the id is the PluginDoc id. Message thread.

@@ -62,6 +62,7 @@ fn main() {
                 registry: mb.registry,
                 plugins: mb.plugins,
                 rescan: mb.rescan,
+                sessions: mb.sessions,
                 edit_plugins: mb.edit_plugins,
                 audio: mb.audio,
                 weburi: mb.weburi,
@@ -81,6 +82,7 @@ fn main() {
                 dark_menubar: dark,
                 drawn_audio_sig: String::new(),
                 drawn_edit_sig: String::new(),
+                drawn_sessions_sig: String::new(),
                 menus: Some(menus),
             }));
             app.manage(shared);

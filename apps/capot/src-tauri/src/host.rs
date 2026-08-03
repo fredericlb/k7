@@ -44,6 +44,24 @@ pub struct EditPlugin {
     pub has_native_plugin_ui: bool,
 }
 
+/// One project the engine is holding, for the "Sessions" submenu.
+///
+/// The fact this whole submenu exists to surface: ONE engine now serves several apps, and
+/// the status line said "Running · :8833" whether it held nothing or held a song, a deck
+/// and a module preview at once.
+#[derive(Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Session {
+    pub id: String,
+    /// The loaded project's name; empty when the session holds nothing yet.
+    pub project: String,
+    pub loaded: bool,
+    pub playing: bool,
+    pub tracks: usize,
+    /// Sockets subscribed to this session's audio — someone is LISTENING over the network.
+    pub listeners: usize,
+}
+
 /// The paths the tray opens directly — sent rather than recomputed, so `~/.lanes` has one definition.
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -82,6 +100,10 @@ pub struct Snapshot {
     pub edit_plugins: Vec<EditPlugin>,
     /// The same trick for "Native plugin UI ▸": the ids of the openable plugins.
     pub edit_plugins_sig: String,
+    pub sessions: Vec<Session>,
+    /// The same trick again for "Sessions": what the rows SHOW, so a moving playhead does
+    /// not tear down a submenu the user has open.
+    pub sessions_sig: String,
     pub web_origins: Vec<String>,
     pub web_pending: Vec<String>,
     pub attention: bool,
@@ -111,6 +133,8 @@ impl Default for Snapshot {
             audio_menu_sig: String::new(),
             edit_plugins: Vec::new(),
             edit_plugins_sig: String::new(),
+            sessions: Vec::new(),
+            sessions_sig: String::new(),
             web_origins: Vec::new(),
             web_pending: Vec::new(),
             attention: false,

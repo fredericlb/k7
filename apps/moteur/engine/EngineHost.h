@@ -321,13 +321,31 @@ public:
         std::map<std::string, std::vector<WaveformEnvelope>> waveformEnvelopes;
     };
 
-    // Marshal `fn` onto the engine (message) thread — safe from any thread, which is how the network thread mutates.
     /** The sessions that exist, in id order. The state timer walks this. */
     std::vector<std::string> sessionIds() const;
+
+    /**
+     * What one session is holding — enough for a supervisor to LIST them without driving
+     * any. Deliberately a summary and not a `ProjectDoc`: the tray draws a menu line, and
+     * handing it the document would put a megabyte through the stdio pipe every poll.
+     */
+    struct SessionInfo {
+        std::string id;
+        /** The loaded project's name; meaningless unless `loaded`, since a fresh doc says "untitled". */
+        std::string project;
+        /** Whether a project has been applied at all — a named session can exist holding nothing. */
+        bool loaded = false;
+        bool playing = false;
+        int trackCount = 0;
+    };
+
+    /** A summary of every session, in id order. Message thread: it reads the live edits. */
+    std::vector<SessionInfo> sessionInfos() const;
 
     /** Forget a session entirely. What `flush` means once it addresses one project. */
     void dropSession(const std::string& session);
 
+    // Marshal `fn` onto the engine (message) thread — safe from any thread, which is how the network thread mutates.
     void post(std::function<void()> fn);
 
     // Invoke `cb` with a fresh snapshot every intervalMs, on the engine thread.

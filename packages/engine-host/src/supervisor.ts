@@ -21,6 +21,7 @@ import type {
   HostCommand,
   HostEditPlugin,
   HostOwnership,
+  HostSession,
   HostSnapshot,
 } from "./hostProtocol.ts";
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
@@ -54,6 +55,9 @@ const DEVICES_POLL_MS = 2000;
 /** The loaded project's plugin instances. A user swaps songs at human speed, not
  *  interface-unplug speed. */
 const EDIT_PLUGINS_POLL_MS = 3000;
+/** Which projects the engine holds. An app connecting or a song loading is a human-speed
+ *  event, and the submenu redraws only when the SIGNATURE moves anyway. */
+const SESSIONS_POLL_MS = 2000;
 /** The plugin count once it is known: the scan is expensive and the answer barely
  *  moves. Until it lands we ask at `PLUGINS_POLL_FAST_MS` to keep the spinner honest. */
 const PLUGINS_POLL_MS = 60_000;
@@ -82,6 +86,8 @@ interface State {
   audioMenuSig: string;
   editPlugins: HostEditPlugin[];
   editPluginsSig: string;
+  sessions: HostSession[];
+  sessionsSig: string;
   webOrigins: string[];
   webPending: string[];
   /** mtime+size of pending-origins.json when we last parsed it, so the poll can skip
@@ -130,6 +136,8 @@ function snapshot(s: State): HostSnapshot {
     audioMenuSig: s.audioMenuSig,
     editPlugins: s.editPlugins,
     editPluginsSig: s.editPluginsSig,
+    sessions: s.sessions,
+    sessionsSig: s.sessionsSig,
     webOrigins: s.webOrigins,
     webPending: s.webPending,
     attention: s.webPending.length > 0,
@@ -162,6 +170,8 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     audioMenuSig: "",
     editPlugins: [],
     editPluginsSig: "",
+    sessions: [],
+    sessionsSig: "",
     webOrigins: loadOrigins(),
     webPending: [],
     pendingStamp: "",
@@ -182,6 +192,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   let fileTimer: NodeJS.Timeout | undefined;
   let devicesTimer: NodeJS.Timeout | undefined;
   let editPluginsTimer: NodeJS.Timeout | undefined;
+  let sessionsTimer: NodeJS.Timeout | undefined;
   let pluginsTimer: NodeJS.Timeout | undefined;
 
   let lastFrame = "";
@@ -285,6 +296,8 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     state.pluginCount = null;
     state.editPlugins = [];
     state.editPluginsSig = "";
+    state.sessions = [];
+    state.sessionsSig = "";
     state.audioDevices = [];
     state.audioMenuSig = "";
     state.lastAttempt = null;
@@ -414,6 +427,26 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     if (sig === state.editPluginsSig) return;
     state.editPlugins = plugins;
     state.editPluginsSig = sig;
+    publish();
+  };
+
+  const pollSessions = async (): Promise<void> => {
+    if (state.status !== "running") return;
+    const sessions = await engine.listSessions();
+    if (!sessions) return;
+    // Signature from what the menu SHOWS, and playing/listeners are on the label, so those
+    // do churn it — which is right: they are the two facts that answer "who is using my
+    // interface right now". The playhead is not here, and that is the whole point of a
+    // signature: it moves 20 times a second and would put the snapshot on the wire with it.
+    const sig = sessions
+      .map(
+        (s) =>
+          `${s.id}${s.project}${s.playing ? 1 : 0}${s.tracks}${s.listeners}`,
+      )
+      .join("\n");
+    if (sig === state.sessionsSig) return;
+    state.sessions = sessions;
+    state.sessionsSig = sig;
     publish();
   };
 
@@ -649,6 +682,13 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         await engine.showNativePluginUI(arg);
         reply(cmd.id, true);
         return;
+      case "session.drop":
+        await engine.dropSession(arg);
+        // Poll immediately rather than wait out the interval: the user just clicked the
+        // row, and a menu that still lists it for two seconds reads as a click that missed.
+        await pollSessions();
+        reply(cmd.id, true);
+        return;
       case "shutdown":
         await shutdown();
         return;
@@ -670,6 +710,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     clearInterval(fileTimer);
     clearInterval(devicesTimer);
     clearInterval(editPluginsTimer);
+    clearInterval(sessionsTimer);
     clearTimeout(pluginsTimer);
     engine.close();
     // Deregister FIRST, while the entry still means something — but bounded, or a hung registry hangs the tray's Quit.
@@ -715,6 +756,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       () => void pollEditPlugins(),
       EDIT_PLUGINS_POLL_MS,
     );
+    sessionsTimer = setInterval(() => void pollSessions(), SESSIONS_POLL_MS);
     // Self-rescheduling: ask hard until the scan lands (keeping the spinner honest), then back off to once a minute.
     const schedulePlugins = (): void => {
       const known = state.pluginCount !== null;

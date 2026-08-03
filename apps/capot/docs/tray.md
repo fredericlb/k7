@@ -34,6 +34,34 @@ Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. Wha
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
 snapshot (`host.rs`), and a click goes back up as a command.
 
+## "Sessions ▸" — what the status line could never say
+
+One engine now holds several projects at once, one per app driving it. The status line
+reports the PROCESS (`● Running · id 3f2a91c4 · :8765`), and that read the same whether the
+engine held nothing, held lanes' song, or held a song and a deck and a module preview
+together. The submenu is the only place the tray answers *what is my engine doing, and for
+whom*:
+
+```
+Sessions ▸  lanes · ma-chanson · 4 tracks  ▶  ♫1   ✕
+            platines · le-set · 1 track          ✕
+            mediatek · nothing loaded            ✕
+```
+
+`▶` means that session's transport is rolling; `♫n` means n sockets are subscribed to its
+audio — someone is listening over the network. Both are shown only when true: a column of
+`▶ no · 0 listening` would bury the one session that *is* playing among the ones that are
+not.
+
+Clicking a row **drops** that session — its edit, plugins, meters and broadcast tap. The row
+*is* the drop, and the `✕` says so; there is no other click on a session row it could be
+confused with. The app driving it is not told, and will simply find an empty project.
+
+Gated on `sessionsSig` like the audio and plugin submenus, and for a sharper reason here:
+the playhead moves 20 times a second, so a signature built from the whole snapshot would put
+the frame on the wire — and tear down a submenu the user has open — at frame rate. The
+signature is built from what the rows *show*.
+
 ## Safety rule: never kill someone else's engine
 
 Stop and Restart are enabled **only** when the supervisor OWNS the running engine. An

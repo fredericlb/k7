@@ -19,6 +19,7 @@ pub struct MenuBuild {
     pub registry: MenuItem<Wry>,
     pub plugins: MenuItem<Wry>,
     pub rescan: MenuItem<Wry>,
+    pub sessions: Submenu<Wry>,
     pub edit_plugins: Submenu<Wry>,
     pub audio: Submenu<Wry>,
     pub weburi: Submenu<Wry>,
@@ -39,6 +40,9 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     // The loaded project's external plugin instances; a row opens the plugin's own nativePluginUI window, which is
     // not the module's moduleUI (the widget grid built in the web editor, never seen here).
     let edit_plugins = Submenu::with_id(app, "edit_plugins", "Native plugin UI", false)?;
+    // The projects this ONE engine is holding. Empty + disabled until it reports any; a row
+    // per session, clicking it forgets that session (rebuilt by rebuild_sessions_menu).
+    let sessions = Submenu::with_id(app, "sessions", "Sessions", false)?;
     // Stamped at compile time by build.rs (YYYYMMDD.HHMM, or "dev" for a bare cargo build).
     let build = MenuItem::with_id(
         app,
@@ -89,7 +93,7 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     let quit = PredefinedMenuItem::quit(app, Some("Quit studio-capot"))?;
 
     let items: Vec<&dyn IsMenuItem<Wry>> = vec![
-        &status, &registry, &plugins, &rescan, &edit_plugins, &audio, &weburi, &sep1,
+        &status, &registry, &plugins, &rescan, &sessions, &edit_plugins, &audio, &weburi, &sep1,
         &start, &stop, &restart, &restart_file, &clear_waveform_cache, &sep2, &autostart, &open_root, &open_log,
         &sep3, &build, &quit,
     ];
@@ -101,6 +105,7 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
         registry,
         plugins,
         rescan,
+        sessions,
         edit_plugins,
         audio,
         weburi,
@@ -111,6 +116,81 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
         clear_waveform_cache,
         autostart,
     })
+}
+
+/// Rebuild "Sessions ▸" — one row per project this engine is holding, each row dropping that
+/// session. Cleared wholesale like the others; gated on `sessions_sig` so a moving playhead
+/// never tears down a submenu the user has open.
+///
+/// The label is the whole point of the feature: "lanes · ma-chanson · 4 pistes ▶ · 1 écoute"
+/// is what the status line could never say. Before sessions there was one project and the
+/// tray had nothing to list; now the answer to "what is my engine doing, and for whom" lives
+/// here.
+pub fn rebuild_sessions_menu(app: &AppHandle) {
+    let shared = app.state::<SharedState>();
+    let (submenu, sessions) = {
+        let s = shared.lock().unwrap();
+        let Some(m) = s.menus.as_ref() else {
+            return;
+        };
+        (m.sessions.clone(), s.snapshot.sessions.clone())
+    };
+    while matches!(submenu.remove_at(0), Ok(Some(_))) {}
+
+    if sessions.is_empty() {
+        // Disabled placeholder rather than an empty submenu, for the same reason the plugin
+        // one has it: an empty menu reads as broken, a sentence reads as a fact.
+        if let Ok(item) = MenuItem::with_id(
+            app,
+            "sessions_none",
+            "No app is driving this engine",
+            false,
+            None::<&str>,
+        ) {
+            let _ = submenu.append(&item);
+        }
+    } else {
+        for s in &sessions {
+            // The default session has no name on the wire; it has to have one here, or the
+            // row would read as a session with no id rather than THE unnamed one.
+            let who = if s.id.is_empty() {
+                "(default)".to_string()
+            } else {
+                s.id.clone()
+            };
+            let what = if !s.loaded {
+                " · nothing loaded".to_string()
+            } else {
+                format!(
+                    " · {} · {} track{}",
+                    if s.project.is_empty() { "untitled" } else { &s.project },
+                    s.tracks,
+                    if s.tracks == 1 { "" } else { "s" }
+                )
+            };
+            // Two live facts, and only when true: a row full of "▶ no · 0 listening" would
+            // bury the one session that IS playing among the ones that are not.
+            let live = format!(
+                "{}{}",
+                if s.playing { "  ▶" } else { "" },
+                match s.listeners {
+                    0 => String::new(),
+                    1 => "  ♫1".to_string(),
+                    n => format!("  ♫{n}"),
+                }
+            );
+            if let Ok(item) = MenuItem::with_id(
+                app,
+                format!("session_drop:{}", s.id),
+                format!("{who}{what}{live}   ✕"),
+                true,
+                None::<&str>,
+            ) {
+                let _ = submenu.append(&item);
+            }
+        }
+    }
+    let _ = submenu.set_enabled(true);
 }
 
 /// Rebuild "Native plugin UI ▸" from the project's plugin instances — externals only, built-ins having no
@@ -558,6 +638,12 @@ pub fn on_menu(app: &AppHandle, id: &str) {
         "weburi_add" => add_web_ui(app),
         _ if id.starts_with("dev:") => select_audio_device(app, &id["dev:".len()..]),
         _ if id.starts_with("fb:") => select_audio_fallback(app, &id["fb:".len()..]),
+        // Dropping a session throws away whatever the app driving it had loaded, so the row
+        // IS the drop and its label says so — there is no other click on a session row that
+        // this could be mistaken for.
+        _ if id.starts_with("session_drop:") => {
+            host::send(app, "session.drop", Some(&id["session_drop:".len()..]));
+        }
         _ if id.starts_with("plugin_open:") => {
             open_native_plugin_ui(app, &id["plugin_open:".len()..])
         }
@@ -752,7 +838,7 @@ fn open_root(app: &AppHandle) {
 /// supervisor that crashed and relaunched resyncs us in one message with nothing to replay. Submenus are
 /// rebuilt only when what they display actually moved, since this runs on every reported change.
 pub fn apply_snapshot(app: &AppHandle, snapshot: crate::host::Snapshot) {
-    let (weburi_changed, audio_changed, edit_changed) = {
+    let (weburi_changed, audio_changed, edit_changed, sessions_changed) = {
         let shared = app.state::<SharedState>();
         let mut s = shared.lock().unwrap();
         let weburi_changed = s.snapshot.web_origins != snapshot.web_origins
@@ -767,16 +853,23 @@ pub fn apply_snapshot(app: &AppHandle, snapshot: crate::host::Snapshot) {
         if edit_changed {
             s.drawn_edit_sig = snapshot.edit_plugins_sig.clone();
         }
+        let sessions_changed = s.drawn_sessions_sig != snapshot.sessions_sig;
+        if sessions_changed {
+            s.drawn_sessions_sig = snapshot.sessions_sig.clone();
+        }
         s.snapshot = snapshot;
         // A snapshot arriving IS the supervisor working, so whatever we last complained about is over.
         s.host_error = None;
-        (weburi_changed, audio_changed, edit_changed)
+        (weburi_changed, audio_changed, edit_changed, sessions_changed)
     };
     if audio_changed {
         rebuild_audio_menu(app);
     }
     if edit_changed {
         rebuild_edit_plugins_menu(app);
+    }
+    if sessions_changed {
+        rebuild_sessions_menu(app);
     }
     if weburi_changed {
         rebuild_weburi_menu(app); // ends in refresh()
