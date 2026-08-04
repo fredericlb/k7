@@ -29,7 +29,7 @@ missing, is what moved it here.
 ## What a caller supplies
 
 `holdEngine` takes the two calls rather than making them, because each service reaches **its
-own** backend under its own path prefix — `/l8/api`, `/mediatek/api`, `/m9/api` — and each
+own** backend under its own path prefix — `/l8/api`, `/api` (st0 has none), `/m9/api` — and each
 holds its own registry (see `packages/engine-registry/docs/shared.md`). The loop is the shared
 part; the address is not.
 

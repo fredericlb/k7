@@ -83,7 +83,7 @@ studio.test {
 	# is a GUEST with no account, a kind the studio session does not model. Its
 	# flow therefore runs on its own backend, which is why X-Forwarded-Prefix is
 	# set here — redirectUriFor reads it to name /z0/auth/callback instead of
-	# the origin root, which belongs to l8.
+	# the origin root, which belongs to st0.
 	@z0_api path /z0/api/*
 	handle @z0_api {
 		uri strip_prefix /z0/api

@@ -223,10 +223,13 @@ private:
 // builds a temporary per call and the window's autosave lambda re-binds through the stable Impl.
 class PluginEditorController {
 public:
-    // A controller serves ONE session — the one whose plugins it is addressing. Passed at
-    // construction rather than per call, because every method here reaches for the same one.
+    // A controller serves ONE session — the one whose plugins it is addressing. Resolved once at
+    // construction rather than per call: every method here reaches for the same one, and looking it
+    // up must never CREATE it, since addressing a plugin is a read. `sess_` is null when there is no
+    // such session, and every method below treats that as "no such plugin". Safe for this object's
+    // lifetime because it is a per-call transient on the message thread, which is the only eraser.
     PluginEditorController(EngineHost::Impl& impl, std::string session)
-        : impl_(impl), session_(std::move(session)) {}
+        : impl_(impl), session_(std::move(session)), sess_(impl.find(session_)) {}
 
     void show(const std::string& id);
     void setParam(const std::string& id, const std::string& name, double value);
@@ -245,14 +248,16 @@ private:
 
     EngineHost::Impl& impl_;
     std::string session_;
+    Session* sess_;
 };
 
 // Deliberately silent, unlike applyPluginParams: this is called at interactive rates by a control drag, so a
 // bad id would spam stderr. A wrong name still surfaces — the same edit is persisted and applied through
 // applyPluginParams(), which warns once per apply.
 void PluginEditorController::setParam(const std::string& id, const std::string& name, double value) {
-    auto it = impl_.session(session_).pluginsById.find(id);
-    if (it == impl_.session(session_).pluginsById.end() || it->second == nullptr)
+    if (sess_ == nullptr) return;
+    auto it = sess_->pluginsById.find(id);
+    if (it == sess_->pluginsById.end() || it->second == nullptr)
         return;
     // pluginParams, not namedParams: a built-in registering nothing is addressed through its ValueTree properties,
     // and a widget dragged on one must move the plugin the same way it moves any other.
@@ -264,17 +269,19 @@ void PluginEditorController::setParam(const std::string& id, const std::string& 
 }
 
 std::vector<std::pair<std::string, double>> PluginEditorController::params(const std::string& id) const {
-    auto it = impl_.session(session_).pluginsById.find(id);
-    if (it == impl_.session(session_).pluginsById.end() || it->second == nullptr)
+    if (sess_ == nullptr) return {};
+    auto it = sess_->pluginsById.find(id);
+    if (it == sess_->pluginsById.end() || it->second == nullptr)
         return {};
     return allParams(*it->second);
 }
 
 void PluginEditorController::watch(const std::string& id, bool on) {
+    if (sess_ == nullptr) return;
     if (on)
-        impl_.session(session_).watchedParams.emplace(id, std::map<std::string, double>{});
+        sess_->watchedParams.emplace(id, std::map<std::string, double>{});
     else
-        impl_.session(session_).watchedParams.erase(id);
+        sess_->watchedParams.erase(id);
 }
 
 // Sample every watched plugin and report the ones that moved. The comparison is against what was last
@@ -282,11 +289,11 @@ void PluginEditorController::watch(const std::string& id, bool on) {
 // deliberate: these are read back from the same parameter object, so an untouched one is bit-identical, and a
 // tolerance would only add a threshold below which a slow knob appears frozen.
 void PluginEditorController::pumpWatches() {
-    if (!impl_.pluginParamsLiveCb)
+    if (!impl_.pluginParamsLiveCb || sess_ == nullptr)
         return;
-    for (auto& [id, lastSent] : impl_.session(session_).watchedParams) {
-        auto it = impl_.session(session_).pluginsById.find(id);
-        if (it == impl_.session(session_).pluginsById.end() || it->second == nullptr)
+    for (auto& [id, lastSent] : sess_->watchedParams) {
+        auto it = sess_->pluginsById.find(id);
+        if (it == sess_->pluginsById.end() || it->second == nullptr)
             continue;   // watched but not (yet) in the edit — a rebuild will bring it back
         auto current = allParams(*it->second);
         bool changed = current.size() != lastSent.size();
@@ -303,20 +310,24 @@ void PluginEditorController::pumpWatches() {
         lastSent.clear();
         for (const auto& [name, value] : current)
             lastSent.emplace(name, value);
-        impl_.pluginParamsLiveCb(id, current);
+        impl_.pluginParamsLiveCb(session_, id, current);
     }
 }
 
 void PluginEditorController::show(const std::string& id) {
-    auto it = impl_.session(session_).pluginsById.find(id);
-    if (it == impl_.session(session_).pluginsById.end() || it->second == nullptr) {
+    if (sess_ == nullptr) {
+        warn("no such plugin in the running edit", id);
+        return;
+    }
+    auto it = sess_->pluginsById.find(id);
+    if (it == sess_->pluginsById.end() || it->second == nullptr) {
         warn("no such plugin in the running edit", id);
         return;
     }
     auto& plugin = *it->second;
 
     // Already created (visible, or hidden after a previous close) — just show it.
-    if (auto w = impl_.session(session_).pluginWindows.find(id); w != impl_.session(session_).pluginWindows.end() && w->second) {
+    if (auto w = sess_->pluginWindows.find(id); w != sess_->pluginWindows.end() && w->second) {
         raiseToFront(*w->second);
         return;
     }
@@ -341,12 +352,12 @@ void PluginEditorController::show(const std::string& id) {
     juce::Image icon;
     if (auto* inst = dynamic_cast<juce::AudioPluginInstance*>(proc)) {
         icon = pluginIconFor(inst->getPluginDescription());
-        inst->getStateInformation(impl_.session(session_).lastSavedState[id]);
+        inst->getStateInformation(sess_->lastSavedState[id]);
     }
     if (!icon.isValid())
         icon = studioIcon();
     // The autosave/close lambda re-binds through the Impl, which outlives the window — not through this transient.
-    impl_.session(session_).pluginWindows[id] =
+    sess_->pluginWindows[id] =
         std::make_unique<PluginWindow>(plugin.getName(), editor, icon,
                                        [im = &impl_, id, sid = session_] { PluginEditorController(*im, sid).persist(id); });
 }
@@ -355,9 +366,10 @@ void PluginEditorController::show(const std::string& id) {
 // module and drops the .vstpreset), else save the module's own .vstpreset — never an extended module's. A no-op
 // when nothing changed, so the 5s autosave doesn't churn files or trigger reloads while the plugin sits idle.
 void PluginEditorController::persist(const std::string& id) {
-    auto pl = impl_.session(session_).pluginsById.find(id);
-    auto sp = impl_.session(session_).presetSaveById.find(id);
-    if (pl == impl_.session(session_).pluginsById.end() || pl->second == nullptr || sp == impl_.session(session_).presetSaveById.end())
+    if (sess_ == nullptr) return;
+    auto pl = sess_->pluginsById.find(id);
+    auto sp = sess_->presetSaveById.find(id);
+    if (pl == sess_->pluginsById.end() || pl->second == nullptr || sp == sess_->presetSaveById.end())
         return;
     auto& plugin = *pl->second;
 
@@ -366,23 +378,23 @@ void PluginEditorController::persist(const std::string& id) {
         if (auto* inst = ext->getAudioPluginInstance()) {
             juce::MemoryBlock cur;
             inst->getStateInformation(cur);
-            auto& last = impl_.session(session_).lastSavedState[id];
+            auto& last = sess_->lastSavedState[id];
             if (cur.getSize() > 0 && cur == last)
                 return;
             last = cur;
         }
 
-    if (impl_.session(session_).edit && paramsCompleteForLive(*impl_.session(session_).edit, plugin)) {
+    if (sess_->edit && paramsCompleteForLive(*sess_->edit, plugin)) {
         juce::File(juce::String(sp->second)).deleteFile();   // text params supersede it
         if (impl_.pluginParamsCb)
-            impl_.pluginParamsCb(id, paramsJson(plugin).toStdString());
+            impl_.pluginParamsCb(session_, id, paramsJson(plugin).toStdString());
         return;
     }
 
     const juce::File file{juce::String(sp->second)};
     if (saveVstPreset(plugin, file)) {
         if (impl_.presetSavedCb)
-            impl_.presetSavedCb(id, sp->second);
+            impl_.presetSavedCb(session_, id, sp->second);
     } else {
         warn("could not save preset to " + sp->second, id);
     }
@@ -391,7 +403,8 @@ void PluginEditorController::persist(const std::string& id) {
 std::vector<std::pair<std::string, te::ExternalPlugin*>>
 PluginEditorController::moduleInstances(const std::string& module) const {
     std::vector<std::pair<std::string, te::ExternalPlugin*>> out;
-    for (auto& [id, pl] : impl_.session(session_).pluginsById) {
+    if (sess_ == nullptr) return out;
+    for (auto& [id, pl] : sess_->pluginsById) {
         if (pl == nullptr) continue;
         // The id is "<chain>:<module>" and a module INSTANCE carries a colon of its own, so split on the FIRST colon.
         // rfind() took only the text after the last, which for an instance is its instance name — matching nothing.
@@ -485,6 +498,7 @@ void PluginEditorController::setPreset(const std::string& module, int programInd
 // --- EngineHost delegators ---------------------------------------------------
 
 void EngineHost::showNativePluginUI(const std::string& session, const std::string& id) {
+    WarningScope ws{session};   // "no such plugin", "has no editor" — all about one project
     PluginEditorController(*impl_, session).show(id);
 }
 
@@ -493,7 +507,9 @@ void EngineHost::showNativePluginUI(const std::string& session, const std::strin
 // each its own instance — and each gets a row, so the user can open whichever they want.
 std::vector<EngineHost::PluginInstanceInfo> EngineHost::pluginInstanceInfos(const std::string& session) const {
     std::vector<PluginInstanceInfo> out;
-    for (const auto& [id, pl] : impl_->session(session).pluginsById) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return out;
+    for (const auto& [id, pl] : s->pluginsById) {
         if (pl == nullptr) continue;
         const bool isExternal = dynamic_cast<te::ExternalPlugin*>(pl.get()) != nullptr;
         out.push_back({id, pl->getName().toStdString(), isExternal});
@@ -511,8 +527,10 @@ std::vector<std::pair<std::string, double>> EngineHost::pluginParams(const std::
 
 std::vector<EngineHost::PluginParamInfo> EngineHost::pluginParamInfos(const std::string& session, const std::string& id) const {
     std::vector<PluginParamInfo> out;
-    auto it = impl_->session(session).pluginsById.find(id);
-    if (it == impl_->session(session).pluginsById.end() || it->second == nullptr)
+    auto* s = impl_->find(session);
+    if (s == nullptr) return out;
+    auto it = s->pluginsById.find(id);
+    if (it == s->pluginsById.end() || it->second == nullptr)
         return out;
     // Qualified, because unqualified lookup here finds EngineHost::pluginParams rather than the free function.
     // withStates: this is the one-shot query a UI makes before drawing, so it is the only caller that pays for
@@ -534,14 +552,17 @@ std::vector<EngineHost::PresetInfo> EngineHost::listPresets(const std::string& s
 
 void EngineHost::setPreset(const std::string& session, const std::string& module, int programIndex,
                            const std::string& presetPath) {
+    WarningScope ws{session};
     PluginEditorController(*impl_, session).setPreset(module, programIndex, presetPath);
 }
 
-void EngineHost::onPresetSaved(std::function<void(const std::string&, const std::string&)> cb) {
+void EngineHost::onPresetSaved(
+    std::function<void(const std::string&, const std::string&, const std::string&)> cb) {
     impl_->presetSavedCb = std::move(cb);
 }
 
-void EngineHost::onPluginParams(std::function<void(const std::string&, const std::string&)> cb) {
+void EngineHost::onPluginParams(
+    std::function<void(const std::string&, const std::string&, const std::string&)> cb) {
     impl_->pluginParamsCb = std::move(cb);
 }
 
@@ -550,7 +571,8 @@ void EngineHost::watchPluginParams(const std::string& session, const std::string
 }
 
 void EngineHost::onPluginParamsLive(
-    std::function<void(const std::string&, const std::vector<std::pair<std::string, double>>&)> cb) {
+    std::function<void(const std::string&, const std::string&,
+                       const std::vector<std::pair<std::string, double>>&)> cb) {
     impl_->pluginParamsLiveCb = std::move(cb);
 }
 

@@ -10,6 +10,7 @@
 #include "EngineTypes.h"
 #include "BroadcastTap.h"
 #include "InputTuner.h"
+#include "SessionRegistry.h"
 #include "WaveformTap.h"
 
 #include <functional>
@@ -95,6 +96,11 @@ struct Session {
     te::Plugin::Ptr broadcastPlugin;
     bool broadcastWanted = false;
 
+    // Whether rolling the transport RECORDS, per session for the same reason broadcastWanted is:
+    // it is a wish that outlives the Edit, and it belongs to one project. Global, it meant a deck
+    // arming record lit l8's record light and recorded into l8's take on the same engine.
+    bool recordEnabled = false;
+
     // Plugins a client asked to watch, each mapped to the values last reported. The key's presence IS the
     // subscription and the map is the comparison baseline, so a still plugin costs nothing on the wire.
     // NOT cleared with the edit, unlike pluginsById: a rebuild swaps the plugin behind an id while the client's
@@ -108,6 +114,22 @@ struct Session {
     // Listens for the end of a take. Owned here rather than by the transport, which dies with each Edit: it is
     // added on every applyFull and removed in teardown, while this object outlives both.
     std::unique_ptr<te::TransportControl::Listener> recordListener;
+
+    // When this session was last created or applied to, for reapEmptySessions. Message thread only.
+    double lastTouchedMs = 0.0;
+
+    /**
+     * Whether this session can be forgotten: it HOLDS nothing and has been quiet a while.
+     *
+     * Deliberately not "has no listener" — a browser tab reloads in under a second, and a
+     * refcount would take its loaded project with it. Holding nothing makes the drop invisible
+     * instead: the next message naming it recreates exactly this, so no work can be lost, and a
+     * session with an Edit is never auto-dropped however long its owner is at lunch.
+     */
+    bool reapable(double nowMs, double ttlMs) const {
+        return !edit && !broadcastWanted && !recordEnabled && watchedParams.empty() &&
+               pendingTakes.empty() && (nowMs - lastTouchedMs) > ttlMs;
+    }
 
     void detachLevelMeters() {
         for (size_t i = 0; i < levelMeters.size() && i < levelClients.size(); ++i)
@@ -141,20 +163,20 @@ struct EngineHost::Impl {
     //
     // `unique_ptr` rather than by value because a Session holds an atomic ring: the map
     // must be able to grow without moving what the audio thread is writing into.
-    std::map<std::string, std::unique_ptr<Session>> sessions;
+    SessionRegistry<Session> sessions;
 
-    /** The session by that id, created empty if it is new. */
+    /** The session by that id, CREATED empty if it is new — only for a client declaring it drives
+     *  this project (apply/applyFull, broadcast on, record-enable). Every reader wants find(). */
     Session& session(const std::string& id) {
-        auto& slot = sessions[id];
-        if (!slot) slot = std::make_unique<Session>();
-        return *slot;
+        bool created = false;
+        Session& s = sessions.emplace(id, &created);
+        // Stamped on birth so a session created and not yet applied to is not instantly reapable.
+        if (created) s.lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
+        return s;
     }
 
     /** …or nullptr. For readers that must not conjure a session by asking about one. */
-    Session* find(const std::string& id) {
-        auto it = sessions.find(id);
-        return it == sessions.end() ? nullptr : it->second.get();
-    }
+    Session* find(const std::string& id) { return sessions.find(id); }
 
     /** Forget a session entirely — its Edit, plugins, meters and taps. What `flush` means
      *  once flush is addressed to one project rather than to the engine. */
@@ -162,11 +184,7 @@ struct EngineHost::Impl {
 
     /** Which sessions exist, for the state timer: it emits one frame per session, and a
      *  session nobody has sent a project to has nothing to report. */
-    std::vector<std::string> ids() const {
-        std::vector<std::string> out;
-        for (const auto& [id, _] : sessions) out.push_back(id);
-        return out;
-    }
+    std::vector<std::string> ids() const { return sessions.ids(); }
 
     // The I/O panel's tuner: a second audio callback on the device manager, reading raw interface inputs. Held
     // here so it outlives every Edit like the input meters do, and registered LAZILY — an engine nobody is
@@ -198,18 +216,24 @@ struct EngineHost::Impl {
     }
 
     // Sinks invoked after a plugin editor closes: presetSavedCb when its state went to the module's .vstpreset,
-    // pluginParamsCb when text params fully captured it.
-    std::function<void(const std::string&, const std::string&)> presetSavedCb;
-    std::function<void(const std::string&, const std::string&)> pluginParamsCb;
+    // pluginParamsCb when text params fully captured it. Each leads with the session it happened in.
+    std::function<void(const std::string&, const std::string&, const std::string&)> presetSavedCb;
+    std::function<void(const std::string&, const std::string&, const std::string&)> pluginParamsCb;
 
     // The live-param and recorded-take sinks stay on Impl: they are the SERVER's, one per
-    // process, and each frame they emit carries the id of whatever it is about.
-    std::function<void(const std::string&, const std::vector<std::pair<std::string, double>>&)>
+    // process. They lead with a session for the same reason the two above do — one per process
+    // does not mean one project, and a frame nobody can route is one every client reads.
+    std::function<void(const std::string&, const std::string&,
+                       const std::vector<std::pair<std::string, double>>&)>
         pluginParamsLiveCb;
-    std::function<void(const std::string&, const std::string&, double, double)> recordedCb;
+    std::function<void(const std::string&, const std::string&, const std::string&, double, double)>
+        recordedCb;
 
-    // A session's transport, or nullptr when it carries no Edit.
-    te::TransportControl* transport(const std::string& id) { return session(id).transport(); }
+    // A session's transport, or nullptr when there is no such session or it carries no Edit.
+    te::TransportControl* transport(const std::string& id) {
+        auto* s = find(id);
+        return s ? s->transport() : nullptr;
+    }
 };
 
 }  // namespace studio

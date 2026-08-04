@@ -11,6 +11,15 @@ export const FAMILIES: readonly Family[] = [
   "chains",
 ];
 
+/** Narrow an untrusted query value to a Family, or undefined. Here rather than in each HTTP
+ *  shell: both had their own copy, and a fifth family would have had to find them both. */
+export const asFamily = (v: unknown): Family | undefined =>
+  FAMILIES.includes(v as Family) ? (v as Family) : undefined;
+
+/** What to tell a caller that named something else. The sentence, not the `{error}` wrapper —
+ *  that shape is HTTP's and belongs to the shells. */
+export const FAMILY_ERROR = `family must be one of: ${FAMILIES.join(", ")}`;
+
 /**
  * The raw capture zone: its folder at the root, its key in the revision map, its key in the
  * summary counts, and the id of its tab. One word for all four, deliberately.

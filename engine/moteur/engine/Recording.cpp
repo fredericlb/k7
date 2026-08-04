@@ -69,7 +69,8 @@ struct RecordListener : public te::TransportControl::Listener {
             std::cerr << "[rec] track '" << trackId << "' recorded "
                       << file.getFullPathName() << " (" << start << "s +" << length << "s)\n";
             if (host.impl_->recordedCb)
-                host.impl_->recordedCb(trackId, file.getFullPathName().toStdString(), start, length);
+                host.impl_->recordedCb(session, trackId, file.getFullPathName().toStdString(),
+                                       start, length);
         }
         if (take != host.impl_->session(session).pendingTakes.end()) host.impl_->session(session).pendingTakes.erase(take);
     }
@@ -139,7 +140,9 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& session, const std
     // Every refusal names what is actually wrong, because the ways this fails look identical from the UI: no such
     // track, no input in the song, an input this rig doesn't have, or nothing loaded yet.
     const auto refuse = [](std::string why) { return ArmResult{false, false, std::move(why)}; };
-    if (!impl_->session(session).edit) return refuse("no project loaded");
+    // No such session takes the same branch as a session with no Edit: from the UI they are one fault.
+    auto* s = impl_->find(session);
+    if (s == nullptr || !s->edit) return refuse("no project loaded");
 
     const TrackDoc* td = nullptr;
     for (const auto& t : impl_->session(session).current.tracks)
@@ -174,9 +177,10 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& session, const std
 
 std::vector<std::string> EngineHost::armedTracks(const std::string& session) const {
     std::vector<std::string> out;
-    if (!impl_->session(session).edit) return out;
-    for (const auto& t : impl_->session(session).current.tracks) {
-        auto ti = findTrackInput(impl_->session(session).edit.get(), impl_->engine, impl_->session(session).current, t.id);
+    auto* s = impl_->find(session);
+    if (s == nullptr || !s->edit) return out;
+    for (const auto& t : s->current.tracks) {
+        auto ti = findTrackInput(s->edit.get(), impl_->engine, s->current, t.id);
         if (ti.instance != nullptr && ti.instance->isRecordingEnabled(ti.track->itemID))
             out.push_back(t.id);
     }
@@ -254,8 +258,8 @@ EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
     // same reason inputClients live on Impl and not in a session.
     te::EditPlaybackContext* ctx = nullptr;
     for (const auto& sid : impl_->ids())
-        if (auto& e = impl_->session(sid).edit) {
-            ctx = e->getCurrentPlaybackContext();
+        if (auto* s = impl_->find(sid); s != nullptr && s->edit) {
+            ctx = s->edit->getCurrentPlaybackContext();
             if (ctx != nullptr) break;
         }
     // Read+clear each (device, index) at most once: two ports on the two halves of one stereo device are
@@ -290,12 +294,14 @@ EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
 // rig lacks. Read for every track so it indexes like trackLevelsDb, even though only armed ones surface it.
 // Reading clears the accumulator, so a device shared by two tracks is polled ONCE and both get that value.
 std::vector<float> EngineHost::inputLevelsDb(const std::string& session) const {
-    std::vector<float> out(impl_->session(session).current.tracks.size(), -100.0f);
-    if (!impl_->session(session).edit) return out;
+    auto* s = impl_->find(session);
+    if (s == nullptr) return {};
+    std::vector<float> out(s->current.tracks.size(), -100.0f);
+    if (!s->edit) return out;
 
     std::map<te::InputDevice*, float> perDevice;   // read+clear each device at most once
-    for (size_t i = 0; i < impl_->session(session).current.tracks.size(); ++i) {
-        const auto& t = impl_->session(session).current.tracks[i];
+    for (size_t i = 0; i < s->current.tracks.size(); ++i) {
+        const auto& t = s->current.tracks[i];
         if (t.inputChannels.empty()) continue;
         auto* dev = findWaveInput(impl_->engine, t.inputChannels);
         if (dev == nullptr) continue;
@@ -313,7 +319,7 @@ std::vector<float> EngineHost::inputLevelsDb(const std::string& session) const {
 }
 
 void EngineHost::onRecorded(std::function<void(const std::string&, const std::string&,
-                                               double, double)> cb) {
+                                               const std::string&, double, double)> cb) {
     impl_->recordedCb = std::move(cb);
 }
 

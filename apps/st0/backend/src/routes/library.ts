@@ -4,10 +4,14 @@
 // legitimately have one, and by TAGS for an upload, which does not. See docs/songs.md.
 
 import { statSync } from "node:fs";
-import { extname } from "node:path";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { listFamily, search, summary } from "@studio/mediatek/catalogue";
+import {
+  listFamily,
+  parseQuery,
+  search,
+  summary,
+} from "@studio/mediatek/catalogue";
 import {
   exists,
   NotWritableError,
@@ -15,10 +19,11 @@ import {
   safePath,
 } from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
+import { mimeFor } from "@studio/mediatek/media";
 import { addRecording, listRecordings } from "@studio/mediatek/recordings";
 import { revisions } from "@studio/mediatek/revision";
 import { NotAudioError, SongExistsError } from "@studio/mediatek/song";
-import { FAMILIES, type Family } from "@studio/mediatek/types";
+import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import {
   addSong,
   makeFolder,
@@ -31,31 +36,10 @@ import express, { Router } from "express";
 
 export const libraryRouter: Router = Router();
 
-const asFamily = (v: unknown): Family | undefined =>
-  FAMILIES.includes(v as Family) ? (v as Family) : undefined;
-
-const badFamily = { error: `family must be one of: ${FAMILIES.join(", ")}` };
-
-/** Enough of a content type for a browser to play or download. `<audio>`/`<video>` need the
- *  family right; the rest can be a stream, since nothing here is rendered as a document. */
-const MIME: Record<string, string> = {
-  ".wav": "audio/wav",
-  ".flac": "audio/flac",
-  ".aiff": "audio/aiff",
-  ".aif": "audio/aiff",
-  ".mp3": "audio/mpeg",
-  ".ogg": "audio/ogg",
-  ".opus": "audio/ogg",
-  ".m4a": "audio/mp4",
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-  ".mkv": "video/x-matroska",
-  ".webm": "video/webm",
-  ".yaml": "text/yaml; charset=utf-8",
-  ".yml": "text/yaml; charset=utf-8",
-  ".json": "application/json",
-  ".nam": "application/json",
-};
+// The family guard, the refusal and the content types come from @studio/mediatek: this shell and
+// the file service's both used to carry their own, and the MIME tables drifted until each served
+// as octet-stream what the other could play.
+const badFamily = { error: FAMILY_ERROR };
 
 /** Is there a library on this volume, and how much is in it. */
 libraryRouter.get(
@@ -101,22 +85,12 @@ libraryRouter.get(
   }),
 );
 
+/** Filter across families. What a query MEANS — including why `limit` is clamped — belongs to
+ *  the catalogue, not to either shell over it: see parseQuery. */
 libraryRouter.get(
   "/search",
   wrap((req, res) => {
-    const rawLimit = Number(req.query.limit);
-    const limit =
-      Number.isFinite(rawLimit) && rawLimit > 0
-        ? Math.min(Math.floor(rawLimit), 1000)
-        : undefined;
-    res.json({
-      entries: search({
-        family: asFamily(req.query.family),
-        q: typeof req.query.q === "string" ? req.query.q : undefined,
-        kind: typeof req.query.kind === "string" ? req.query.kind : undefined,
-        limit,
-      }),
-    });
+    res.json({ entries: search(parseQuery(req.query)) });
   }),
 );
 
@@ -145,12 +119,7 @@ libraryRouter.get(
     } catch {
       return res.status(404).json({ error: "not found" });
     }
-    streamFile(
-      req,
-      res,
-      abs,
-      MIME[extname(abs).toLowerCase()] ?? "application/octet-stream",
-    );
+    streamFile(req, res, abs, mimeFor(abs));
   }),
 );
 

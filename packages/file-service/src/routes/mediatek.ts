@@ -1,12 +1,17 @@
 // mediatek.ts — the media library as THIS MACHINE holds it. The library itself is hosted
-// now (see apps/mediatek/backend); what lives here is a cache the moteur plays from, so
+// now (see apps/st0/backend); what lives here is a cache the moteur plays from, so
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
 import { streamFile } from "@frediverse/http";
 import { validate, wrap } from "@frediverse/http/route";
 import { markSynced, syncFamily } from "@studio/mediatek/cache";
-import { listFamily, search, summary } from "@studio/mediatek/catalogue";
+import {
+  listFamily,
+  parseQuery,
+  search,
+  summary,
+} from "@studio/mediatek/catalogue";
 import { uploadWorkspace } from "@studio/mediatek/ingest";
 import {
   exists,
@@ -14,39 +19,15 @@ import {
   PathEscapesError,
   safePath,
 } from "@studio/mediatek/layout";
+import { mimeFor } from "@studio/mediatek/media";
 import { remoteLibrary, remoteWriter } from "@studio/mediatek/remote";
 import { revisions } from "@studio/mediatek/revision";
-import { FAMILIES, type Family } from "@studio/mediatek/types";
+import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { Router } from "express";
 import { z } from "zod";
 import { slugify, workspaceRoot } from "../slug.ts";
 
 export const mediatekRouter: Router = Router();
-
-/** Content types for what a médiathèque cache actually holds. */
-const MIME: Record<string, string> = {
-  wav: "audio/wav",
-  flac: "audio/flac",
-  mp3: "audio/mpeg",
-  ogg: "audio/ogg",
-  m4a: "audio/mp4",
-  mp4: "video/mp4",
-  webm: "video/webm",
-  mov: "video/quicktime",
-  yaml: "text/yaml; charset=utf-8",
-  yml: "text/yaml; charset=utf-8",
-  json: "application/json",
-  txt: "text/plain; charset=utf-8",
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  webp: "image/webp",
-};
-const mimeFor = (p: string): string =>
-  MIME[p.split(".").pop()?.toLowerCase() ?? ""] ?? "application/octet-stream";
-
-const asFamily = (v: unknown): Family | undefined =>
-  FAMILIES.includes(v as Family) ? (v as Family) : undefined;
 
 /** What this machine holds, and where. Not the catalogue — that is the hosted service's
  *  answer; this is the cache's. `present: false` is normal, never a 404. */
@@ -65,10 +46,7 @@ mediatekRouter.post(
   "/mediatek/sync",
   wrap(async (req, res) => {
     const family = asFamily(req.body?.family);
-    if (!family)
-      return res
-        .status(400)
-        .json({ error: `family must be one of: ${FAMILIES.join(", ")}` });
+    if (!family) return res.status(400).json({ error: FAMILY_ERROR });
     const base = process.env.MEDIATEK_URL;
     if (!base)
       return res
@@ -102,10 +80,7 @@ mediatekRouter.get(
   "/mediatek/list",
   wrap((req, res) => {
     const family = asFamily(req.query.family);
-    if (!family)
-      return res
-        .status(400)
-        .json({ error: `family must be one of: ${FAMILIES.join(", ")}` });
+    if (!family) return res.status(400).json({ error: FAMILY_ERROR });
     res.json(listFamily(family));
   }),
 );
@@ -184,24 +159,11 @@ mediatekRouter.get(
   }),
 );
 
-/** Filter across families. `limit` is clamped rather than trusted: this walks an array
- *  in memory, but an unbounded one asked for by a caller is still a caller's decision
- *  about our memory. */
+/** Filter across families. What a query MEANS — including why `limit` is clamped — belongs to
+ *  the catalogue, not to either shell over it: see parseQuery. */
 mediatekRouter.get(
   "/mediatek/search",
   wrap((req, res) => {
-    const rawLimit = Number(req.query.limit);
-    const limit =
-      Number.isFinite(rawLimit) && rawLimit > 0
-        ? Math.min(Math.floor(rawLimit), 1000)
-        : undefined;
-    res.json({
-      entries: search({
-        family: asFamily(req.query.family),
-        q: typeof req.query.q === "string" ? req.query.q : undefined,
-        kind: typeof req.query.kind === "string" ? req.query.kind : undefined,
-        limit,
-      }),
-    });
+    res.json({ entries: search(parseQuery(req.query)) });
   }),
 );

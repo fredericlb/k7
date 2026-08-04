@@ -22,7 +22,8 @@ app.use(express.json({ limit: "1mb" }));
 // replaced the text box a DJ used to type their own identity into — an identity the file
 // service then trusted, and which nothing checked.
 const { requireAuth } = await setupAuth(app, {
-  // The l8 backend owns /auth at the origin root; this one only VERIFIES its
+  // The st0 backend owns /auth at the origin root — it is the service with no path prefix,
+  // which is the only one the registered redirect_uri can reach. This one only VERIFIES its
   // cookie, so it mounts no auth routes. Same name and secret or the check fails.
   cookieName: "studio.sid",
   mountRoutes: [],

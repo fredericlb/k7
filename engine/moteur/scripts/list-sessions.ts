@@ -70,8 +70,17 @@ async function main() {
   // The supervisor's own client, on the DEFAULT session: it drives nothing and asks about
   // everyone. That is the whole reason list-sessions carries no session field.
   const q = new EngineQueries(PORT);
+
+  // Ask everything the tray polls BEFORE listing, because that is the regression: reading used
+  // to create, so these very queries conjured a "" session which then appeared in the tray's own
+  // Sessions submenu — reported by the process that had just invented it.
+  const plugins = await q.listEditPlugins();
+  await q.pluginCount();
+  await q.listAudioDevices();
+
   const before = await q.listSessions();
   console.log("vues par le superviseur :", before);
+  console.log("edit-plugins            :", plugins);
 
   await q.dropSession("m9");
   await wait(500);
@@ -82,6 +91,17 @@ async function main() {
   const ids = (list: typeof before) => (list ?? []).map((s) => s.id).sort();
   if (ids(before).join() !== "l8,m9")
     problems.push(`sessions attendues l8+m9, vu ${ids(before)}`);
+  // EXACTEMENT deux : une session "" ici veut dire que les requetes du superviseur en creent une.
+  if ((before ?? []).some((s) => s.id === ""))
+    problems.push(
+      "une session '' existe — une LECTURE a cree une session (cf. engine/moteur/docs/sessions.md)",
+    );
+  // edit-plugins est global au moteur : il repond pour les DEUX sessions, chacune nommee.
+  const sessionsVues = new Set((plugins ?? []).map((p) => p.session));
+  if (!sessionsVues.has("l8") || !sessionsVues.has("m9"))
+    problems.push(
+      `edit-plugins devrait couvrir l8 et m9, vu ${JSON.stringify([...sessionsVues])}`,
+    );
   const l = before?.find((s) => s.id === "l8");
   if (!l?.playing) problems.push("l8 ne joue pas");
   if (!l?.loaded || l.project !== "ma-chanson" || l.tracks !== 1)

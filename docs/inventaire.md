@@ -1,10 +1,33 @@
 # Inventaire du code mort, dupliqué et construit d'avance
 
-Relevé du 4 août 2026, après le renommage `platines → m9`. **Rien n'a été supprimé** : c'est un
-constat, pas un nettoyage. Chaque entrée porte de quoi trancher.
+Relevé du 4 août 2026, après le renommage `platines → m9`, **révisé le même jour après l'audit de
+cohérence**. Le constat reste un constat : ce qui a été traité depuis est marqué RÉSOLU sur place
+plutôt que retiré, pour que la ligne garde son historique. Chaque entrée porte de quoi trancher.
 
 > **Lisez le §0 avant de supprimer quoi que ce soit.** Un balayage automatique a déjà classé
 > mort un paquet chargé à l'exécution. Le piège se reproduira.
+
+## Traité par l'audit de cohérence — ne pas rechercher
+
+- **Les deux coquilles HTTP de la médiathèque** (`apps/st0/backend/src/routes/library.ts` ↔
+  `packages/file-service/src/routes/mediatek.ts`) : ~35 lignes identiques, et surtout deux
+  tables MIME divergées **dans des formes incompatibles**. Le vocabulaire (familles, extensions,
+  bornes de recherche) vit désormais dans `@studio/mediatek` ; le routage reste délibérément
+  dupliqué, les deux sémantiques de 404 n'étant pas les mêmes. Voir `packages/mediatek/docs/mime.md`.
+- **Le client `engines`** recopié entre st0 et m9 (36 lignes, commentaires compris) →
+  `@studio/engine-browser/registry`.
+- **`chooseEngine` refait à la main dans l8** (`EngineGate.tsx`), qui oubliait le filtre
+  `&& r.token` et le raccourci « un seul moteur joignable » → il appelle le partagé.
+- **`TIER_LABEL` en triple** : déjà résolu avant l'audit, tout le monde passe par `formatLatency`.
+- **Le commentaire orphelin** de `apps/st0/frontend/src/api.ts` (il documentait un objet déplacé
+  30 lignes plus bas) : supprimé.
+
+Reste **non traité, et c'est un choix** : `where()` (`m9/Gate.tsx`, `st0/EnginePicker.tsx`,
+`st0/EngineStatusBar.tsx`) est deux lignes identiques dont le seul foyer naturel serait
+`packages/web-protocol/quality.ts`, à côté de `formatLatency` — mais ce paquet ne contient
+aujourd'hui **aucune chaîne d'interface en français**, et `« hors de portée »` y ferait entrer
+la langue de l'UI dans un paquet de protocole. Deux lignes ne valent pas cette propriété-là.
+Même raisonnement pour `signedInAs` / `currentUser()`.
 
 ---
 
@@ -70,7 +93,7 @@ sous-chemin réellement importé (`file-service/src/{cors,pendingOrigins}.ts`).
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts:128` | remplacé par le registre. Les deux seules mentions restantes sont de la prose, dont `engine-registry/docs/shared.md:11` qui en parle **au passé**. |
 | type `Signal` | `packages/dsp/src/index.ts:48` | marqué `@deprecated`, plus aucun usage. |
 | script `"serve"` | `apps/l8/frontend/package.json:7` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
-| export `AuthUser` | `apps/mediatek/frontend/src/api.ts:22`, `apps/m9/frontend/src/api.ts:12` | exporté, jamais importé. Seul celui de l8 est consommé. |
+| export `AuthUser` | `apps/st0/frontend/src/api.ts:22`, `apps/m9/frontend/src/api.ts:12` | exporté, jamais importé. Seul celui de l8 est consommé. |
 | `evict.ts` | `packages/mediatek/src/` | atteignable seulement par l'export mort `./evict` et son propre test. |
 
 **Outillage à une seule utilisation**, pas mort mais sans point d'entrée :
@@ -116,14 +139,15 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 ### Cosmétique, mais réelle
 
 - **Le libellé de tier**, identique au caractère près, commentaire compris :
-  `apps/m9/frontend/src/Gate.tsx:22` ≡ `apps/mediatek/frontend/src/engine/EnginePicker.tsx:12`.
+  `apps/m9/frontend/src/Gate.tsx:22` ≡ `apps/st0/frontend/src/engine/EnginePicker.tsx:12`.
   l8 a la même table en `TIER_LABEL` (`EngineSelect.tsx:11`), via paraglide — donc c'est
   déjà la troisième. Foyer naturel : à côté de `chooseEngine`.
 - **Le spinner plein écran**, cinq copies du même bloc : `l8/{AuthGate,EngineGate,WorkspaceGate}`,
-  `mediatek/Gate.tsx:33`, `m9/Gate.tsx:76`.
+  `st0/Gate.tsx:33`, `m9/Gate.tsx:76`. Laissé tel quel : cinq blocs de présentation courts, sans
+  risque de dérive silencieuse.
 - **Le stub « pas de barre de commandes »**, trois copies : `m9/chains.tsx:74`,
-  `mediatek/ChainView.tsx:45`, `mediatek/ModulePreview.tsx:63`.
-- **Le type `Phase`**, identique : `mediatek/engine/useModuleEngine.ts:18` ≡ `m9/useEngine.ts:14`.
+  `st0/ChainView.tsx:45`, `st0/ModulePreview.tsx:63`.
+- **Le type `Phase`**, identique : `st0/engine/useModuleEngine.ts:18` ≡ `m9/useEngine.ts:14`.
 - **Le glyphe `piano-16`**, corps SVG identique octet pour octet entre
   `apps/l8/frontend/src/trackIcons.tsx:38` et
   `packages/ui-chains-react/src/moduleIcons.tsx:20`, et son enveloppe `<svg …>` réécrite à la
@@ -137,7 +161,7 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 |---|---|
 | **Un test qui ne tourne jamais.** `emitInstances.test.ts` existe, le paquet n'a aucun script `test`, donc `turbo run test` l'ignore. Seul paquet dans ce cas. | `packages/translator/` |
 | `vitest` lancé sans être déclaré — ne se résout que par hoisting. mediatek et m9 le déclarent. | `apps/l8/frontend/package.json` |
-| Cinq `turbo.json` d'app **strictement identiques** au bloc `tasks.dev` de la racine : ils ne surchargent rien. | `apps/{k7,m9,mediatek,z0,l8}/turbo.json` |
+| Cinq `turbo.json` d'app **strictement identiques** au bloc `tasks.dev` de la racine : ils ne surchargent rien. | `apps/{k7,l8,m9,st0,z0}/turbo.json` |
 | Pas de section `m9-backend` ; le port 8796 est en dur dans le serveur alors que k7 et mediatek déclarent le leur. `STUDIO_PREFS_DIR` n'est documenté nulle part. | `env.example.yaml` |
 | Lus dans le code, absents de l'exemple : `STUDIO_REGISTRY_URL` (18 lectures), `K7_URL`, `K7_TOKEN`. | — |
 | Importé sans être déclaré : `@studio/engine-protocol` par `file-service` et `web-protocol` (qui n'a **aucun** bloc `dependencies`), `yaml` par `translator` et `ui-editor`. | — |
@@ -158,4 +182,4 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 Sans effet, disparaît au prochain build : `engine/capot/src-tauri/resources/file-service.mjs`,
 `src-tauri/target/{debug,release}/resources/file-service.mjs`, et une quarantaine d'entrées
 `.turbo/cache/*-manifest.json`. La vérité de source est
-`packages/engine-protocol/sessions.ts`, qui dit bien `l8 / mediatek / m9`.
+`packages/engine-protocol/sessions.ts`, qui dit bien `l8 / st0 / m9`.

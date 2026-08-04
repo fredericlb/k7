@@ -24,6 +24,7 @@ import type {
   HostSession,
   HostSnapshot,
 } from "./hostProtocol.ts";
+import { SHOW_UI_SEP } from "./hostProtocol.ts";
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
 import { emit, listen } from "./ipcStdio.ts";
 import { line } from "./logbus.ts";
@@ -431,9 +432,11 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     const plugins = await engine.listEditPlugins();
     if (!plugins) return;
     // Signature from the OPENABLE plugin ids, so only an add or a remove churns the submenu.
+    // Session-qualified: the same module id in two projects is two rows, and the signature has to
+    // change when one of them goes.
     const sig = plugins
       .filter((p) => p.hasNativePluginUI)
-      .map((p) => p.id)
+      .map((p) => `${p.session} ${p.id}`)
       .join("\n");
     if (sig === state.editPluginsSig) return;
     state.editPlugins = plugins;
@@ -716,10 +719,18 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         await engine.rescanPlugins();
         reply(cmd.id, true);
         return;
-      case "plugin.showUI":
-        await engine.showNativePluginUI(arg);
+      case "plugin.showUI": {
+        // `<session>${SHOW_UI_SEP}<id>`: a plugin id alone names one row PER SESSION now. A bare id
+        // (an older tray) still works and opens it in the default session, as it always did.
+        const sep = arg.indexOf(SHOW_UI_SEP);
+        const [session, id] =
+          sep === -1
+            ? [undefined, arg]
+            : [arg.slice(0, sep), arg.slice(sep + 1)];
+        await engine.showNativePluginUI(id, session);
         reply(cmd.id, true);
         return;
+      }
       case "session.drop":
         await engine.dropSession(arg);
         // Poll immediately rather than wait out the interval: the user just clicked the

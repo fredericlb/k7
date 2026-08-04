@@ -76,15 +76,21 @@ public:
     // nothing survives from the previous song. Message-thread only. See docs/engineHost.md.
     void reset(const std::string& session);
 
-    // The document currently realised in the engine (source for the next diff). Reads the
-    // DEFAULT session — see EngineHostImpl.h's s(). Out of line because Session is private.
+    // The document currently realised in the engine (source for the next diff). The empty doc
+    // for a session nobody has sent one to — asking never creates it. Out of line because
+    // Session is private.
     const ProjectDoc& current(const std::string& session) const;
 
     // Transport controls (message-thread only).
     void play(const std::string& session);
     void stop(const std::string& session);
     void rewind(const std::string& session); // move the playhead back to the start (beat 0)
-    // Global record enable: play() records armed tracks only while this is on. Session state, message-thread only.
+    // Forget every session that holds nothing and has been quiet for `ttlMs`. Called by the state
+    // timer, not a timer of its own. Returns how many went. See docs/sessions.md for why this is a
+    // TTL on emptiness rather than a refcount of listeners.
+    size_t reapEmptySessions(double ttlMs);
+
+    // This session's record enable: play() records its armed tracks only while this is on. Message-thread only.
     void setRecordEnabled(const std::string& session, bool on);
     bool recordEnabled(const std::string& session) const;
     void seek(const std::string& session, double seconds); // move the playhead to an absolute position (clamped at 0)
@@ -179,8 +185,9 @@ public:
 
     // Put the tap on the master plugin list, or take it off. Idempotent. The tap survives
     // a project apply the way the level meters do — reasserted by buildLevelMeters.
+    // Turning it ON creates the session (a client subscribing is a client driving); turning it
+    // OFF never does — see docs/sessions.md.
     void enableBroadcast(const std::string& session, bool on);
-    bool isBroadcasting(const std::string& session) const;
 
     // What a drain answered with. `lostFrames` is what the writer overwrote before the
     // sender reached it — a real hole, which the sender reports as a sequence jump.
@@ -196,8 +203,9 @@ public:
     // which is the ordinary case between audio callbacks.
     //
     // SENDER THREAD ONLY, and exactly one of them: the ring is single-producer/
-    // single-consumer, and a second caller would race the read cursor. It needs no lock and
-    // no post() precisely because the ring is EngineHost's own and outlives every edit.
+    // single-consumer, and a second caller would race the read cursor. It never post()s — that
+    // would put a second consumer on the ring — but it does take the session registry's lock
+    // for the length of a memcpy, because the map it finds the ring in is written elsewhere.
     BroadcastChunk drainBroadcast(const std::string& session, size_t maxFrames);
 
     // Drop whatever is buffered and resume from live. Same thread as drainBroadcast — the
@@ -323,8 +331,8 @@ public:
         // process — and Tracktion already keeps the flag on an Edit we never save, so this reads that rather than
         // holding a second copy. See docs/engineHost.md.
         std::vector<std::string> armedTracks;
-        // The global record enable. Arming says a track WOULD record; it records only while this is on and the
-        // transport rolls. Session state, like the armed set.
+        // This session's record enable. Arming says a track WOULD record; it records only while this is on and
+        // the transport rolls. Session state, like the armed set.
         bool recordEnabled = false;
         // Per-module waveform envelopes keyed "chain:module:side", each the points drained since the last poll;
         // an empty map when no taps are active.
@@ -363,15 +371,18 @@ public:
 
     // Sinks invoked (message thread) after a plugin's editor closes: onPresetSaved when its state went to the
     // module's .vstpreset (id + path written), onPluginParams when text params fully capture it (id + a JSON
-    // object string). The server forwards both, and the brain persists them onto the module.
-    void onPresetSaved(std::function<void(const std::string& id, const std::string& path)> cb);
-    void onPluginParams(std::function<void(const std::string& id, const std::string& paramsJson)> cb);
+    // object string). The server forwards both, and the brain persists them onto the module. Each leads with the
+    // session whose plugin it was: the frame is about one project, so it has to say which.
+    void onPresetSaved(std::function<void(const std::string& session, const std::string& id,
+                                          const std::string& path)> cb);
+    void onPluginParams(std::function<void(const std::string& session, const std::string& id,
+                                           const std::string& paramsJson)> cb);
 
     // The sink for watchPluginParams: an id and its FULL parameter set whenever any value moved. Deliberately NOT
     // onPluginParams, which means "this is the state to persist" — routing a mid-drag feed there would rewrite the
     // project file tens of times a second. Values, not deltas: a partial update would need merge rules everywhere.
     void onPluginParamsLive(
-        std::function<void(const std::string& id,
+        std::function<void(const std::string& session, const std::string& id,
                            const std::vector<std::pair<std::string, double>>& params)> cb);
 
     // Report any watched plugin whose parameters moved, called by the state timer — so a watch is bounded by the
@@ -382,8 +393,9 @@ public:
     // The sink invoked once a take is finished, closed and renamed: track id, absolute .wav path, and position in
     // SECONDS. The engine stops there — the brain turns that into a clip and a placement. Seconds, not beats,
     // because the tempo map is the brain's to read.
-    void onRecorded(std::function<void(const std::string& trackId, const std::string& file,
-                                       double startSeconds, double lengthSeconds)> cb);
+    void onRecorded(std::function<void(const std::string& session, const std::string& trackId,
+                                       const std::string& file, double startSeconds,
+                                       double lengthSeconds)> cb);
 
     // Run the engine/message loop; blocks until quit(). Call on the main thread.
     void run();
@@ -425,9 +437,8 @@ private:
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    // `current_` and `baseDir_` moved INTO the session (EngineHostImpl.h): they describe a
-    // project, and there are N of those now. What is left here is the machine's.
-    bool recordEnabled_ = false;   // global record enable (see setRecordEnabled)
+    // `current_`, `baseDir_` and `recordEnabled_` moved INTO the session (EngineHostImpl.h):
+    // they describe a project, and there are N of those now. Nothing project-shaped is left here.
 };
 
 // --- Plugin discovery (out-of-process, cached in ~/.studio/exts.json) -------

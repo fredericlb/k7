@@ -222,16 +222,26 @@ pub fn rebuild_edit_plugins_menu(app: &AppHandle) {
             let _ = submenu.append(&item);
         }
     } else {
+        // Which project a row is in only matters when there is more than one to confuse it with.
+        let many = openable
+            .iter()
+            .any(|p| p.session != openable[0].session);
         for p in &openable {
             // The label carries the module name — what the user authored; the full id is only the click payload.
-            let label = if p.name.is_empty() {
+            let name = if p.name.is_empty() {
                 p.id.clone()
             } else {
                 p.name.clone()
             };
+            let label = if many && !p.session.is_empty() {
+                format!("{} · {}", p.session, name)
+            } else {
+                name
+            };
             if let Ok(item) = MenuItem::with_id(
                 app,
-                format!("plugin_open:{}", p.id),
+                // U+001F between the two halves, matching hostProtocol.ts's SHOW_UI_SEP.
+                format!("plugin_open:{}\u{1f}{}", p.session, p.id),
                 label,
                 true,
                 None::<&str>,
@@ -774,9 +784,10 @@ fn select_audio_device(app: &AppHandle, name: &str) {
     host::send(app, "audio.select", Some(name));
 }
 
-/// Open a plugin's native editor from the submenu; the id is the PluginDoc id the row was built from.
-fn open_native_plugin_ui(app: &AppHandle, id: &str) {
-    host::send(app, "plugin.showUI", Some(id));
+/// Open a plugin's native editor from the submenu. The payload is "<session>\u{1f}<id>", built by
+/// rebuild_edit_plugins_menu and forwarded verbatim — the supervisor splits it.
+fn open_native_plugin_ui(app: &AppHandle, payload: &str) {
+    host::send(app, "plugin.showUI", Some(payload));
 }
 
 // Every one of these used to spawn, kill and watch processes here; they are single lines on the pipe now.

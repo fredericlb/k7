@@ -168,7 +168,8 @@ export class EngineQueries {
     });
   }
 
-  /** The plugin INSTANCES in the currently loaded project. Empty when none is loaded. */
+  /** The plugin INSTANCES across EVERY session the engine holds, each naming its own. Engine-global
+   *  on purpose: this client drives no session, so asking per-session would ask about an empty one. */
   listEditPlugins(): Promise<HostEditPlugin[] | null> {
     return this.run(async (client) => {
       const p = EngineQueries.reply<EditPluginInfo[]>(
@@ -178,6 +179,7 @@ export class EngineQueries {
       );
       client.listEditPlugins();
       return (await p).map((e) => ({
+        session: e.session ?? "",
         id: e.id,
         name: e.name ?? "",
         hasNativePluginUI: !!e.hasNativePluginUI,
@@ -222,9 +224,9 @@ export class EngineQueries {
 
   /** Open a plugin's native editor window. Fire-and-forget: the engine acknowledges by
    *  drawing the window, not over the wire. */
-  showNativePluginUI(id: string): Promise<unknown> {
+  showNativePluginUI(id: string, session?: string): Promise<unknown> {
     return this.run(async (client) => {
-      client.showNativePluginUI(id);
+      client.showNativePluginUI(id, session);
       return true;
     });
   }

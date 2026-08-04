@@ -1,8 +1,16 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { FAMILY_ERROR } from "@studio/mediatek/types";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryRouter } from "./library.ts";
@@ -148,5 +156,66 @@ describe("uploading a song", () => {
     // The artist is now the FIRST segment below the family, with no provenance level in
     // between — so this also pins that `songs/` did not quietly grow one back.
     expect(path.split("/")).toHaveLength(4);
+  });
+});
+
+// The read side. `/file` guesses a content type from the extension, and this shell and the file
+// service's used to do it from two different tables — so a cover served from here went out as
+// octet-stream while the cache could send it, and an AIFF the other way round.
+describe("GET /file", () => {
+  const put = (rel: string, body: string) => {
+    const abs = join(root, rel);
+    mkdirSync(join(abs, ".."), { recursive: true });
+    writeFileSync(abs, body);
+    return abs;
+  };
+
+  it("serves a cover as an image, which it could not before", () => {
+    put("songs/a/b/c/cover.jpg", "\xff\xd8\xff");
+    return fetch(`${base}/api/mediatek/file?path=songs/a/b/c/cover.jpg`).then(
+      async (r) => {
+        expect(r.status).toBe(200);
+        expect(r.headers.get("content-type")).toBe("image/jpeg");
+      },
+    );
+  });
+
+  it("serves an amp model as json", async () => {
+    put("library/nam/fender.nam", "{}");
+    const r = await fetch(
+      `${base}/api/mediatek/file?path=library/nam/fender.nam`,
+    );
+    expect(r.headers.get("content-type")).toBe("application/json");
+  });
+
+  // This shell's own 404 ladder, which is NOT the cache's and stays its own: a folder is a
+  // distinct answer from a missing path.
+  it("refuses a directory as not a file", async () => {
+    mkdirSync(join(root, "songs", "adir"), { recursive: true });
+    const r = await fetch(`${base}/api/mediatek/file?path=songs/adir`);
+    expect(r.status).toBe(404);
+    expect(((await r.json()) as { error: string }).error).toBe("not a file");
+  });
+
+  it("answers 400 for a path that escapes the root, never 500", async () => {
+    const r = await fetch(`${base}/api/mediatek/file?path=../../secret`);
+    expect(r.status).toBe(400);
+  });
+});
+
+describe("GET /search and /list", () => {
+  it("clamps a greedy limit rather than refusing it", async () => {
+    const r = await fetch(`${base}/api/mediatek/search?limit=99999`);
+    expect(r.status).toBe(200);
+    expect(
+      Array.isArray(((await r.json()) as { entries: unknown[] }).entries),
+    ).toBe(true);
+  });
+
+  // The refusal both shells now share, so a fifth family cannot leave one of them behind.
+  it("refuses a bogus family with the shared sentence", async () => {
+    const r = await fetch(`${base}/api/mediatek/list?family=bogus`);
+    expect(r.status).toBe(400);
+    expect(((await r.json()) as { error: string }).error).toBe(FAMILY_ERROR);
   });
 });

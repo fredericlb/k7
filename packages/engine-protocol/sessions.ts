@@ -13,13 +13,9 @@
 export const DEFAULT_SESSION = "";
 
 /**
- * The session each app drives today, one per SERVICE.
- *
- * This is the granularity that closes the collision the engine was single-project for:
- * l8, st0 and m9 pointed at one engine used to overwrite each other's
- * project. It is NOT the final granularity — two users on two workspaces still share
- * `l8` — and per-user ids are their own step (see the plan's M5, "un moteur par
- * utilisateur et par service").
+ * The SERVICE half of a session id — the bare id for a surface with no user, and the prefix
+ * `sessionFor` puts a person behind. Per-user ids landed with `sessionFor` below; this is no
+ * longer the whole granularity, only the part that names which app is asking.
  *
  * `l8` is spelled once and read by two processes: the browser drives transport while
  * the file service compiles and sends the project. Give them different ids and the
@@ -56,12 +52,51 @@ export function sessionFor(service: string, who?: string | null): SessionId {
 }
 
 /**
+ * The reply types that are the MACHINE's and so carry no session — a closed set, not a
+ * tendency. Everything else the engine sends about one project is stamped; `forSession`
+ * below is only safe because that is true. See engine/moteur/docs/sessions.md.
+ */
+export const ENGINE_GLOBAL_REPLIES = [
+  "plugins", // the installed catalogue, answered from a scan thread with no session in scope
+  "audio-devices", // one interface per process, and every session must learn a switch
+  "sessions", // the one question whose answer is about the OTHER sessions
+  "edit-plugins", // asked by the supervisor, which drives none; each row names its own session
+  "whoami", // the identity of the process
+] as const;
+
+/**
+ * The reply types that describe ONE project and must be stamped. Unstamped, every client on
+ * the engine reads them: an st0 module audition made l8 flash `busy` and clear its warnings.
+ */
+export const PER_SESSION_REPLIES = [
+  "state",
+  "session-dropped",
+  "busy",
+  "applied",
+  "flushed",
+  "error",
+  "armed",
+  "record-enabled",
+  "plugin-params",
+  "plugin-params-live",
+  "presets",
+  "preset-saved",
+  "io-levels",
+  "recorded",
+  "engine-warning",
+] as const;
+
+/**
  * Whether a frame carrying `session` is one this client should read.
  *
- * The rule is DISAGREEMENT, not absence: a frame with no session at all passes. Most
- * replies are engine-global (the device list, the installed-plugin catalogue), and an
- * engine older than sessions stamps nothing — rejecting those would make this client
- * silently deaf against it rather than merely unsorted.
+ * The rule is DISAGREEMENT, not absence: a frame with no session at all passes. That is safe
+ * for two reasons and neither is "most replies are global" — it is that the engine stamps
+ * every one of PER_SESSION_REPLIES, so the only unstamped frames a current engine sends are
+ * ENGINE_GLOBAL_REPLIES; and that an engine older than sessions stamps nothing, so requiring
+ * the field would make this client silently deaf against it rather than merely unsorted.
+ *
+ * Which means the correctness of this one line lives in engine/moteur/server/main.cpp, in the
+ * choice between its `broadcast` and `broadcastTo` verbs.
  */
 export function forSession(
   frame: { session?: unknown },

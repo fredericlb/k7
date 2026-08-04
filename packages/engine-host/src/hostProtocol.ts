@@ -37,8 +37,19 @@ export interface HostAudioDevice {
   current: boolean;
 }
 
-/** One plugin instance in the loaded edit, for the "Native plugin UI ▸" submenu. */
+/**
+ * What separates the two halves of `plugin.showUI`'s argument, `<session><id>`.
+ *
+ * A wire value shared with the tray (engine/capot/src-tauri/src/tray.rs), so it is declared here
+ * rather than in the supervisor: U+001F is the one byte neither a session id (a service name and
+ * a slugged email) nor a plugin id ("chain:module") can contain.
+ */
+export const SHOW_UI_SEP = "";
+
+/** One plugin instance in a loaded edit, for the "Native plugin UI ▸" submenu. */
 export interface HostEditPlugin {
+  /** Which project it is in. The engine holds N, so a bare id names no particular plugin. */
+  session: string;
   id: string;
   name: string;
   hasNativePluginUI: boolean;

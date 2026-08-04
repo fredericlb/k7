@@ -118,6 +118,20 @@ Every row of chrome is a row the panes do not get. On a phone in landscape the w
 is about 400px tall, so the header and footer are trimmed to what a touch target needs and
 no more.
 
+## The PWA manifest uses RELATIVE urls, deliberately
+
+`public/manifest.webmanifest` has `"start_url": "."` and unprefixed icon `src`s, and neither
+is an oversight. A manifest's URLs resolve against **the manifest's own address**, and Vite does
+not rewrite the contents of a public file the way it rebases `index.html` — so anything written
+`/…` there is origin-absolute and escapes the app.
+
+That was live for a while: the manifest still said `"start_url": "/"` after l8 moved under
+`/l8/`, and the origin root is **st0**. Installing l8 as an app opened the médiathèque.
+
+Relative is also the only form that survives both mounts, which is what settles it — `base` is
+conditional (`/l8/` when hosted, the root under `STUDIO_WEB_PORT` in the native run), so a
+hardcoded `/l8/` would simply break the other one.
+
 ## Where the rest of it went
 
 | piece | file |

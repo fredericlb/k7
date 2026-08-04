@@ -65,8 +65,11 @@ export interface SessionInfo {
   listeners: number;
 }
 
-// One plugin INSTANCE in the loaded edit; the id is the PluginDoc id showNativePluginUI takes.
+// One plugin INSTANCE in a loaded edit; the id is the PluginDoc id showNativePluginUI takes.
 export interface EditPluginInfo {
+  // Which project holds it. The reply is engine-global and covers every session, so the pair
+  // (session, id) is what addresses one instance — an id alone can name several.
+  session?: string;
   id: string;
   name: string;
   // Only an external plugin draws its own window: offering it for a built-in would be offering nothing.
@@ -230,6 +233,16 @@ export class EngineControl extends EventEmitter {
     });
   }
 
+  // Whether rolling THIS session records its armed tracks; omitting `enabled` toggles, and the
+  // ENGINE resolves the toggle so two surfaces can't both read "off". Per session, like `arm` —
+  // it was a process-global for a while, which made a deck's record light l8's as well.
+  setRecordEnabled(enabled?: boolean): void {
+    this.send({
+      type: "record-enable",
+      ...(enabled === undefined ? {} : { enabled }),
+    });
+  }
+
   // Ask for the CACHED plugin list (no scanning); `filter` narrows by format substring. Replies with 'plugins'.
   listPlugins(filter?: string): void {
     this.send({ type: "list-plugins", ...(filter ? { filter } : {}) });
@@ -241,14 +254,21 @@ export class EngineControl extends EventEmitter {
     this.send({ type: "rescan-plugins", ...(force ? { force: true } : {}) });
   }
 
-  // Which plugin INSTANCES the loaded edit holds — what is in the SONG, unlike listPlugins' installed catalogue.
+  // Which plugin INSTANCES the engine's edits hold — what is in the SONGS, unlike listPlugins'
+  // installed catalogue. Engine-global: it answers for every session, each row naming its own.
   listEditPlugins(): void {
     this.send({ type: "list-edit-plugins" });
   }
 
   // Open a plugin's native editor window by PluginDoc id; only external plugins have one.
-  showNativePluginUI(id: string): void {
-    this.send({ type: "show-native-plugin-ui", id });
+  // `session` overrides this client's own, for a supervisor opening a window in a project it
+  // does not drive — the same override dropSession takes.
+  showNativePluginUI(id: string, session?: string): void {
+    this.send({
+      type: "show-native-plugin-ui",
+      id,
+      ...(session === undefined ? {} : { session }),
+    });
   }
 
   // Follow a plugin's params live, which is what makes a knob turned in its OWN window visible here. Off by default

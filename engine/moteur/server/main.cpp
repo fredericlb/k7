@@ -65,6 +65,11 @@ constexpr int kBroadcastFramesPerPass = 32;
 // the sender thread for why.
 constexpr size_t kBroadcastMaxQueuedBytes = 512 * 1024;
 
+// A ceiling on a session id, not a shape: naming a session is what creates it, so the only thing
+// worth refusing is one long enough to be an attack on the map. sessionFor() emits "<service>:<slug
+// of an email>", so real ids are tens of bytes.
+constexpr size_t kMaxSessionIdBytes = 256;
+
 // Sender thread only, so no synchronisation: it is the one thing that reads or writes it.
 // Sites that belong to no message yet: startup, and the broadcast sender. Named rather
 // than "" so the places still to be addressed by a real session are greppable.
@@ -517,10 +522,21 @@ int main(int argc, char** argv) {
     ix::WebSocketServer server(port, bindHost);
 
     // Broadcast a JSON message to every connected client, on the engine thread where send() is safe.
+    // For replies that are the MACHINE's — the device list, the installed-plugin catalogue, the
+    // session list. Everything about one project goes through broadcastTo. See docs/protocol.md.
     auto broadcast = [&server](const json& j) {
         const auto payload = j.dump();
         for (auto& client : server.getClients())
             client->send(payload);
+    };
+
+    // The same, stamped with the project it is about, so a client sharing this port drops what is
+    // not its own (packages/engine-protocol/sessions.ts's forSession). Two verbs rather than a
+    // hand-written {"session", …} per reply: a new reply must CHOOSE one, and the choice is
+    // reviewable in a word — which is the only thing that stops the next one being forgotten.
+    auto broadcastTo = [&broadcast](const std::string& sid, json j) {
+        j["session"] = sid;
+        broadcast(j);
     };
 
     // Read-only queries that short-lived PROBE connections fire and drop: the picker's `whoami`, and the tray's
@@ -546,7 +562,7 @@ int main(int argc, char** argv) {
     std::unordered_map<const ix::WebSocket*, std::string> listeners;
 
     server.setOnClientMessageCallback(
-        [&host, &broadcast, &loggedMx, &loggedConns, &listenersMx, &listeners,
+        [&host, &broadcast, &broadcastTo, &loggedMx, &loggedConns, &listenersMx, &listeners,
          engineId, engineToken](
             std::shared_ptr<ix::ConnectionState> conn,
             ix::WebSocket& ws, const ix::WebSocketMessagePtr& msg) {
@@ -620,6 +636,12 @@ int main(int argc, char** argv) {
             // client that has never heard of sessions keeps working exactly as before —
             // which is what lets the engine grow this before the clients do.
             const std::string session = j.value("session", std::string{});
+            // Naming a session is what creates it, deliberately — so there is no allowlist here,
+            // only a ceiling, so a malformed client cannot grow the map without bound.
+            if (session.size() > kMaxSessionIdBytes) {
+                ws.send(json{{"type", "error"}, {"message", "session id too long"}}.dump());
+                return;
+            }
 
             // The first REAL message — anything but a supervision or probe query — earns this connection its deferred line.
             if (probeQueries.count(type) == 0) {
@@ -641,7 +663,7 @@ int main(int argc, char** argv) {
                     return;
                 }
                 // Apply on the engine thread; broadcast the resulting changeset.
-                host.post([session, &host, &broadcast, doc = std::move(doc)]() mutable {
+                host.post([session, &host, &broadcastTo, doc = std::move(doc)]() mutable {
                     // What we were asked to play. Paired with the [applied] lines and [applyFull]'s timings, the log answers all
                     // three of "what arrived", "what did the engine do", and "why did it take that long".
                     std::cerr << "[project] '" << doc.name << "' " << doc.tempo << "bpm "
@@ -651,7 +673,7 @@ int main(int argc, char** argv) {
                     // Say that the engine is about to go deaf: a first apply builds the edit and instantiates every plugin, seconds
                     // long, on the thread that also reads the transport. Without this a client sees a live engine ignore Play and
                     // then execute every queued click at once. Sent inside the posted lambda, so it marks when the work starts.
-                    broadcast(json{{"type", "busy"}, {"busy", true}});
+                    broadcastTo(session, json{{"type", "busy"}, {"busy", true}});
 
                     const auto changes = host.apply(session, doc, "");   // paths are absolute
                     json r{{"type", "applied"}, {"changes", json::array()}};
@@ -661,7 +683,7 @@ int main(int argc, char** argv) {
                         described.push_back(studio::describe(c));
                         r["changes"].push_back(described.back());
                     }
-                    broadcast(r);
+                    broadcastTo(session, r);
 
                     // The diff the engine ran — its actual decision, previously visible only to whichever client happened to be
                     // listening and never in the log. A no-op re-send says so, so "nothing happened" is distinguishable from
@@ -677,7 +699,7 @@ int main(int argc, char** argv) {
                             std::cerr << "    … and " << (described.size() - kMaxLogged)
                                       << " more\n";
                     }
-                    broadcast(json{{"type", "busy"}, {"busy", false}});
+                    broadcastTo(session, json{{"type", "busy"}, {"busy", false}});
                 });
             } else if (type == "broadcast") {
                 // Subscribe or unsubscribe THIS connection to the master audio stream. The
@@ -705,9 +727,9 @@ int main(int argc, char** argv) {
                 // Forget the project (plugins, edit, diff baseline) so the next one is built from scratch. Sent when the client
                 // switches projects: diffing a new song against the old is meaningless, and the old plugins must not survive.
                 // The engine stays up with its audio device and scan cache.
-                host.post([session, &host, &broadcast]() {
+                host.post([session, &host, &broadcastTo]() {
                     host.reset(session);
-                    broadcast(json{{"type", "flushed"}});
+                    broadcastTo(session, json{{"type", "flushed"}});
                 });
             } else if (type == "transport") {
                 const std::string action = j.value("action", std::string{});
@@ -755,25 +777,25 @@ int main(int argc, char** argv) {
                 std::optional<bool> armed;
                 if (j.contains("armed") && j.at("armed").is_boolean())
                     armed = j.at("armed").get<bool>();
-                host.post([session, &host, &broadcast, track, armed] {
+                host.post([session, &host, &broadcastTo, track, armed] {
                     const auto r = host.setArmed(session, track, armed);
                     if (!r.ok) {
                         std::cerr << "[rec] refused: " << r.error << '\n';
-                        broadcast(json{{"type", "error"}, {"message", r.error}});
+                        broadcastTo(session, json{{"type", "error"}, {"message", r.error}});
                         return;
                     }
-                    broadcast(json{{"type", "armed"}, {"track", track}, {"armed", r.armed}});
+                    broadcastTo(session, json{{"type", "armed"}, {"track", track}, {"armed", r.armed}});
                 });
             } else if (type == "record-enable") {
-                // Global record enable: whether play() records the armed tracks. Omitting "enabled" toggles, and the value is
-                // echoed at once so the record button lights without racing the state frame.
+                // This session's record enable: whether play() records its armed tracks. Omitting "enabled" toggles,
+                // and the value is echoed at once so the record button lights without racing the state frame.
                 const bool has = j.contains("enabled") && j.at("enabled").is_boolean();
                 const std::optional<bool> want =
                     has ? std::optional<bool>(j.at("enabled").get<bool>()) : std::nullopt;
-                host.post([session, &host, &broadcast, want] {
+                host.post([session, &host, &broadcastTo, want] {
                     const bool on = want.value_or(!host.recordEnabled(session));
                     host.setRecordEnabled(session, on);
-                    broadcast(json{{"type", "record-enabled"}, {"enabled", on}});
+                    broadcastTo(session, json{{"type", "record-enabled"}, {"enabled", on}});
                 });
             } else if (type == "list-plugins" || type == "rescan-plugins") {
                 // list-plugins returns the cached list, scanning once if it is cold so it just works the first time;
@@ -836,15 +858,21 @@ int main(int argc, char** argv) {
                     }
                 }
             } else if (type == "list-edit-plugins") {
-                // Snapshot the plugin instances in the loaded edit for the tray's submenu. Reads pluginsById, so it must run on
-                // the message thread, and the reply is broadcast like list-audio-devices — a connection may have closed between
-                // post and send, and broadcast only iterates live clients.
-                host.post([session, &host, &broadcast] {
+                // Snapshot the plugin instances in EVERY session for the tray's submenu, each row naming the
+                // session it is in. ENGINE-GLOBAL like list-sessions, and for the same reason: the asker is the
+                // supervisor, which drives no session, and with N of them there is no "the" loaded edit. Per
+                // session it would ask on the default one and get an empty list now that reading never creates.
+                //
+                // Reads pluginsById, so it must run on the message thread, and the reply is broadcast like
+                // list-audio-devices — a connection may have closed between post and send.
+                host.post([&host, &broadcast] {
                     json arr = json::array();
-                    for (const auto& p : host.pluginInstanceInfos(session))
-                        arr.push_back({{"id", p.id},
-                                       {"name", p.name},
-                                       {"hasNativePluginUI", p.hasNativePluginUI}});
+                    for (const auto& sid : host.sessionIds())
+                        for (const auto& p : host.pluginInstanceInfos(sid))
+                            arr.push_back({{"session", sid},
+                                           {"id", p.id},
+                                           {"name", p.name},
+                                           {"hasNativePluginUI", p.hasNativePluginUI}});
                     broadcast(json{{"type", "edit-plugins"}, {"plugins", arr}});
                 });
             } else if (type == "list-sessions") {
@@ -912,7 +940,7 @@ int main(int argc, char** argv) {
                 // minimum because "no value was saved" would simply be wrong. `meta` rides alongside with each range and
                 // default, kept a SEPARATE object so a client reading only values stays untouched.
                 const std::string id = j.value("id", std::string{});
-                host.post([session, &host, &broadcast, id] {
+                host.post([session, &host, &broadcastTo, id] {
                     json params = json::object();
                     json meta = json::object();
                     for (const auto& p : host.pluginParamInfos(session, id)) {
@@ -928,23 +956,23 @@ int main(int argc, char** argv) {
                         }
                         meta[p.name] = m;
                     }
-                    broadcast(json{{"type", "plugin-params"},
-                                   {"id", id},
-                                   {"params", params},
-                                   {"meta", meta}});
+                    broadcastTo(session, json{{"type", "plugin-params"},
+                                              {"id", id},
+                                              {"params", params},
+                                              {"meta", meta}});
                 });
             } else if (type == "list-presets") {
                 // The presets a MODULE's external plugin offers — program list plus the .vstpreset files — replied as `presets`
                 // for the module editor's dropdown. `module` is the name; the engine resolves it to a live instance.
                 const std::string module = j.value("module", std::string{});
-                host.post([session, &host, &broadcast, module] {
+                host.post([session, &host, &broadcastTo, module] {
                     json arr = json::array();
                     for (const auto& p : host.listPresets(session, module))
                         arr.push_back({{"name", p.name},
                                        {"source", p.source},
                                        {"index", p.index},
                                        {"path", p.path}});
-                    broadcast(json{{"type", "presets"}, {"module", module}, {"presets", arr}});
+                    broadcastTo(session, json{{"type", "presets"}, {"module", module}, {"presets", arr}});
                 });
             } else if (type == "set-preset") {
                 // Load a preset into every live instance of `module` and persist it to the module's .vstpreset (a `path` picks
@@ -1002,7 +1030,7 @@ int main(int argc, char** argv) {
                     for (const auto& c : s) ch.push_back(c.get<int>());
                     sets.push_back(std::move(ch));
                 }
-                host.post([session, &host, &broadcast, sets] {
+                host.post([session, &host, &broadcastTo, sets] {
                     json levels = json::array();
                     json found = json::array();
                     for (const auto& l : host.channelLevelsDb(sets)) {
@@ -1024,29 +1052,33 @@ int main(int argc, char** argv) {
                         pitches.push_back(p.hz);
                         clarity.push_back(p.clarity);
                     }
-                    broadcast(json{{"type", "io-levels"},
-                                   {"inputs", levels},
-                                   {"found", found},
-                                   {"pitches", pitches},
-                                   {"clarity", clarity},
-                                   {"devices", devices},
-                                   {"master", host.masterLevelDb(session)}});
+                    // Stamped because "master" is this session's own output level: unstamped, two I/O
+                    // panels on one engine read each other's meter.
+                    broadcastTo(session, json{{"type", "io-levels"},
+                                              {"inputs", levels},
+                                              {"found", found},
+                                              {"pitches", pitches},
+                                              {"clarity", clarity},
+                                              {"devices", devices},
+                                              {"master", host.masterLevelDb(session)}});
                 });
             } else if (type == "set-audio-device") {
                 // Open a specific interface, replying with the new device list or an error. `deviceType` is the backend — NOT
                 // "type", which is the message kind.
                 const std::string name = j.value("name", std::string{});
                 const std::string deviceType = j.value("deviceType", std::string{});
-                host.post([session, &host, &broadcast, name, deviceType] {
+                host.post([session, &host, &broadcast, &broadcastTo, name, deviceType] {
                     // Switching the interface reopens the audio graph, which is worth a line: a device that opens slowly, or not at
                     // all, shows up as silence rather than an error anywhere else. The failure path already warns.
                     std::cerr << "[device] opening '" << name << "'"
                               << (deviceType.empty() ? std::string{} : " [" + deviceType + "]")
                               << "\n";
+                    // The new device list goes to EVERYONE — one interface per process, so every session
+                    // must learn a switch. The refusal goes only to whoever asked for it.
                     if (host.setAudioDevice(name, deviceType))
                         broadcast(audioDevicesMsg(host));
                     else
-                        broadcast(json{{"type", "error"}, {"message", "audio device not available: " + name}});
+                        broadcastTo(session, json{{"type", "error"}, {"message", "audio device not available: " + name}});
                 });
             } else if (type == "whoami" || type == "hello") {
                 // Identity probe, replied to the ASKING socket only, so a browser measuring candidates doesn't spam every
@@ -1096,9 +1128,9 @@ int main(int argc, char** argv) {
     }, 50);
 
     // A finished take: the file is closed and named, the brain turns it into a clip.
-    host.onRecorded([&broadcast](const std::string& trackId, const std::string& file,
-                                 double start, double length) {
-        broadcast(json{
+    host.onRecorded([&broadcastTo](const std::string& session, const std::string& trackId,
+                                   const std::string& file, double start, double length) {
+        broadcastTo(session, json{
             {"type", "recorded"},
             {"track", trackId},
             {"file", file},
@@ -1109,16 +1141,18 @@ int main(int argc, char** argv) {
 
     // When a plugin's editor closes the engine persists its state to the module — text params when they capture it,
     // else the module's .vstpreset — and notifies clients, whose watcher reloads.
-    host.onPresetSaved([&broadcast](const std::string& id, const std::string& path) {
-        broadcast(json{{"type", "preset-saved"}, {"id", id}, {"path", path}});
+    host.onPresetSaved([&broadcastTo](const std::string& session, const std::string& id,
+                                      const std::string& path) {
+        broadcastTo(session, json{{"type", "preset-saved"}, {"id", id}, {"path", path}});
     });
-    host.onPluginParams([&broadcast](const std::string& id, const std::string& paramsJson) {
+    host.onPluginParams([&broadcastTo](const std::string& session, const std::string& id,
+                                       const std::string& paramsJson) {
         json params = json::object();
         try {
             params = json::parse(paramsJson);
         } catch (const std::exception&) {
         }
-        broadcast(json{{"type", "plugin-params"}, {"id", id}, {"params", params}});
+        broadcastTo(session, json{{"type", "plugin-params"}, {"id", id}, {"params", params}});
     });
     // Watched plugins, whenever a value moves. Its own message type rather than `plugin-params`, which means
     // "persist this": a flag on one shared type would leave every consumer a forgotten check away from rewriting
@@ -1126,18 +1160,21 @@ int main(int argc, char** argv) {
     // Engine warnings reach the CLIENT, not just stderr. The tray adopts an engine it did
     // not spawn, so its output goes nowhere a user can see — which is how a plugin that
     // refused its model looked exactly like one that worked.
-    studio::setWarningSink([&broadcast](const studio::Warning& w) {
-        broadcast(json{{"type", "engine-warning"},
-                       {"subject", w.subject},
-                       {"message", w.message}});
+    // Stamped when a WarningScope named a project (an apply, a preset load); unstamped otherwise —
+    // a device or startup warning belongs to no session, which is the case pass-on-absence covers.
+    studio::setWarningSink([&broadcast, &broadcastTo](const studio::Warning& w) {
+        json msg{{"type", "engine-warning"}, {"subject", w.subject}, {"message", w.message}};
+        if (w.session.empty()) broadcast(msg);
+        else broadcastTo(w.session, msg);
     });
 
     host.onPluginParamsLive(
-        [&broadcast](const std::string& id, const std::vector<std::pair<std::string, double>>& p) {
+        [&broadcastTo](const std::string& session, const std::string& id,
+                       const std::vector<std::pair<std::string, double>>& p) {
             json params = json::object();
             for (const auto& [name, value] : p)
                 params[name] = value;
-            broadcast(json{{"type", "plugin-params-live"}, {"id", id}, {"params", params}});
+            broadcastTo(session, json{{"type", "plugin-params-live"}, {"id", id}, {"params", params}});
         });
 
     const auto res = server.listen();

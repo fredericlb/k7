@@ -278,6 +278,18 @@ export class EngineClient {
     this.send({ type: "flush" });
   }
 
+  /**
+   * Forget a whole SESSION — its edit, plugins, meters and broadcast tap — not just its project.
+   *
+   * `flush` above empties a session and leaves it behind; this removes it. The difference matters
+   * because a session's key space is now (service × person), so an engine on a shared machine
+   * accumulates one entry per person who has ever pointed at it and frees them only when the
+   * process dies. Defaults to this client's own.
+   */
+  dropSession(session: string = this.session): void {
+    this.send({ type: "drop-session", session });
+  }
+
   getPluginParams(id: string): void {
     this.send({ type: "get-plugin-params", id });
   }

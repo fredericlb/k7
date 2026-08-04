@@ -7,6 +7,10 @@
 
 // A live engine state frame — the ~20 Hz meter/transport push.
 export interface EngineState {
+  // WHICH project this frame describes. The engine emits one frame per session it holds, so an
+  // unlabelled one is a frame nobody can route; both clients filter on it before building this.
+  // Optional because an engine older than sessions stamps nothing — see sessions.ts's forSession.
+  session?: string;
   playing: boolean;
   playhead: number; // seconds
   levels: number[]; // per-track OUTPUT dB (post-fader), same index order as the tracks
@@ -15,7 +19,7 @@ export interface EngineState {
   inputLevels: number[];
   // The record-armed track ids: session state the engine owns, so it rides the state frame rather than the doc.
   armed: string[];
-  // The global record enable: armed tracks record only while this is on AND rolling. Session state, like `armed`.
+  // This session's record enable: its armed tracks record only while this is on AND rolling.
   recordEnabled: boolean;
   // Per-module waveform envelopes keyed "chain:module:side", sampled at the state-frame rate; empty with no taps.
   waveform: Record<string, WaveformEnvelope[]>;

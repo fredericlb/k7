@@ -3,6 +3,7 @@
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
 // back on any browser — and is reused whenever it is still reachable.
 
+import { chooseEngine } from "@studio/engine-browser/choose";
 import { holdEngine } from "@studio/engine-browser/lease";
 import { probeEngines } from "@studio/engine-browser/probe";
 import { Loader2 } from "lucide-react";
@@ -74,14 +75,14 @@ export function EngineGate() {
         api.accountPrefs().catch(() => ({}) as { engineId?: string }),
       ]);
       if (cancelled) return;
-      const id = prefs.engineId;
-      const prev = id
-        ? r.find((x) => x.engine.id === id && x.wsUrl)
-        : undefined;
-      if (prev && (await pick(prev))) return;
-      // The remembered engine is off, or on a network we cannot reach from here. The picker
-      // is the honest answer; the preference is left alone, so coming back on the right
-      // network still works without choosing again.
+      // The same policy st0 and m9 run, rather than l8's own reading of it: this used to filter
+      // on `wsUrl` alone, so an engine that answered without a token was offered and then could
+      // not be selected, and a single reachable engine still raised the picker.
+      const { engine } = chooseEngine(r, prefs.engineId);
+      if (engine && (await pick(engine))) return;
+      // Nothing remembered and reachable, or several to choose between. The picker is the honest
+      // answer; the preference is left alone, so coming back on the right network still works
+      // without choosing again.
       if (!cancelled) setPhase({ k: "picking" });
     })();
     return () => {

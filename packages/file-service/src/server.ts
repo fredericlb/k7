@@ -19,7 +19,7 @@ import {
 } from "./context.ts";
 import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
-import { setSelectedEngine } from "./engineLink.ts";
+import { pruneIdleLinks, setSelectedEngine } from "./engineLink.ts";
 import { startMediatekPuller } from "./mediatekPull.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
@@ -211,4 +211,10 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   setSelectedEngine(`ws://127.0.0.1:${ENGINE_PORT}`);
   // Keep the médiathèque cache in step with the hosted library, for what the open songs name.
   startMediatekPuller();
+  // Reap engine sockets nobody has used in minutes. One file service can serve several people,
+  // and an abandoned link re-dials once a second forever — see pruneIdleLinks.
+  setInterval(() => {
+    for (const s of pruneIdleLinks())
+      console.log(`   engine link idle, dropped: ${s}`);
+  }, 60_000).unref();
 });

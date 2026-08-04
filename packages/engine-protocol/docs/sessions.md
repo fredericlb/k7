@@ -51,13 +51,32 @@ same slug, and `packages/file-service/src/engineLink.test.ts` is the one test th
 It is the only thing in the repo that would catch them drifting.
 
 **Filtering incoming frames is on disagreement, not absence.** `forSession()` lets a frame
-with no `session` field through. Most replies are engine-global (the device list, the
-installed-plugin catalogue), and an engine older than sessions stamps nothing at all;
-requiring the field would make a new client silently deaf against an old engine rather
-than merely unsorted. The binary audio frames need no filter — the engine already routes
-those per socket.
+with no `session` field through. The binary audio frames need no filter at all — the engine
+already routes those per socket.
+
+That rule is safe because of something outside this package, and it is worth being exact about
+it. The unstamped replies are a **closed set**, not a tendency: `ENGINE_GLOBAL_REPLIES` in
+`sessions.ts` names all five, `PER_SESSION_REPLIES` names the rest, and `sessions.test.ts` pins
+both. Everything in the second list is stamped by the engine, so against a current engine the
+only frames that arrive unstamped are genuinely the machine's. Against an engine *older* than
+sessions nothing is stamped, and that is the case pass-on-absence exists for — requiring the
+field would make a new client silently deaf rather than merely unsorted.
+
+So the correctness of one line here lives in `engine/moteur/server/main.cpp`, in its choice
+between the `broadcast` and `broadcastTo` verbs. It was not always true: for a while only
+`state` and `session-dropped` were stamped, and an st0 module audition made l8 flash `busy`
+and receive `applied`/`flushed`/`recorded` for a project it did not own.
+
+A capability handshake was considered instead and rejected: it would only help if the engine
+*forgot* to stamp something, and would then make the client deaf on that frame rather than
+merely unsorted — strictly worse, and equally silent.
 
 `DEFAULT_SESSION` is `""`, and the engine reads a missing field as exactly that. So a
 client that has never heard of sessions and one passing the default are the same client,
 byte for byte. Do not give the default a name: every such client would move to a different
 project on the same engine, in silence.
+
+**A session is created by driving it, and asking about one never creates it.** That is the
+engine's rule rather than this package's, but it is what makes the supervisor's polling safe —
+it holds a `DEFAULT_SESSION` client and would otherwise have conjured `""` on every tick. See
+`engine/moteur/docs/sessions.md`, which also covers when an empty session is reaped.

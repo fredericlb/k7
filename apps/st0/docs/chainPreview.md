@@ -60,7 +60,7 @@ engine would eventually try to write into.
 
 ## One session, one sound
 
-The preview goes to `SESSIONS.mediatek`, per service **and** per person — the same session the
+The preview goes to `SESSIONS.st0`, per service **and** per person — the same session the
 module editor auditions through. Playing a variant therefore replaces whatever that session
 held, the one-module preview included. That is deliberate: auditioning two things at once on one
 engine is not something to arrange, it is something to forbid.

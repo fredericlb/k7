@@ -2,6 +2,7 @@
 // there, so browsing it needs no engine and no local service. The LOCAL cache is what the
 // moteur plays from, and nothing on this screen reads it.
 
+import { registryClient } from "@studio/engine-browser/registry";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
@@ -94,13 +95,6 @@ export const auth = {
 };
 
 /**
- * The engines this service knows about, and what it remembers about you.
- *
- * Its OWN registry, not l8'. Each hosted service holds one — see
- * packages/engine-registry/docs/shared.md — so an engine appears here only once it has been
- * pointed at the médiathèque too.
- */
-/**
  * The engine MACHINE's own file service, reached cross-origin and directly — the same seam
  * l8 uses, and the only way to learn a fact about that machine rather than about the
  * library. This app's backend is hosted: it has no scan cache and never will.
@@ -128,42 +122,15 @@ export const engineMachine = {
   },
 };
 
-export const engines = {
-  list: async () =>
-    json<PublicEngine[]>(await fetch(`${BASE}/api/engines`), "engines"),
-  /** Take or RENEW the lease, verifying the token server-side. Idempotent by design — the
-   *  holder re-POSTs it every ENGINE_ASSIGN_RENEW_MS, because "in use" expires on its own. */
-  select: async (id: string, token: string, latencyMs: number) =>
-    json<{ ok: true }>(
-      await fetch(`${BASE}/api/engine/select`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, token, latencyMs }),
-      }),
-      "select",
-    ),
-  /** The lease's goodbye, as a BEACON so it survives the tab closing — a fetch there is
-   *  cancelled with the page. Best-effort by nature, which is why the TTL exists behind it. */
-  release: (id: string) =>
-    navigator.sendBeacon(
-      `${BASE}/api/engine/release`,
-      new Blob([JSON.stringify({ id })], { type: "application/json" }),
-    ),
-  prefs: async () =>
-    json<{ engineId?: string }>(
-      await fetch(`${BASE}/api/preferences`),
-      "preferences",
-    ),
-  savePrefs: async (p: { engineId?: string }) =>
-    json<{ ok: true }>(
-      await fetch(`${BASE}/api/preferences`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(p),
-      }),
-      "preferences",
-    ),
-};
+/**
+ * The engines this service knows about, and what it remembers about you.
+ *
+ * Its OWN registry, not l8's. Each hosted service holds one — see
+ * packages/engine-registry/docs/shared.md — so an engine appears here only once it has been
+ * pointed at the médiathèque too. The five routes are shared with m9, which mounted the same
+ * ones and had copied the same 36 lines.
+ */
+export const engines = registryClient<PublicEngine>(BASE, json);
 
 export const library = {
   summary: () =>

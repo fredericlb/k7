@@ -34,10 +34,14 @@ pub struct AudioDevice {
     pub current: bool,
 }
 
-/// One plugin instance in the loaded project, for the "Native plugin UI ▸" submenu; `id` is what showUI takes.
+/// One plugin instance in one of the engine's projects, for the "Native plugin UI ▸" submenu.
+/// showUI takes `session` and `id` together: the engine holds N projects, and the same module in
+/// two of them is two rows. `default` covers a supervisor older than the field, whose rows are
+/// all the default session.
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EditPlugin {
+    pub session: String,
     pub id: String,
     pub name: String,
     /// False for built-ins: no native editor to open, so no clickable row.

@@ -9,6 +9,7 @@
 #include "NamPlugin.h"          // the neural amp modeller (a .nam model as a plugin)
 #include "BroadcastTapPlugin.h" // the transparent tap plugin for network broadcast
 #include "WaveformTapPlugin.h" // the transparent tap plugin for waveform display
+#include "Warnings.h"          // WarningScope — which project an apply's warnings belong to
 
 #include <algorithm>
 #include <iostream>
@@ -31,7 +32,12 @@ EngineHost::EngineHost() : impl_(std::make_unique<Impl>()) {
     registerBuiltInPlugins(impl_->engine);
 }
 
-const ProjectDoc& EngineHost::current(const std::string& session) const { return impl_->session(session).current; }
+const ProjectDoc& EngineHost::current(const std::string& session) const {
+    // A session nobody has sent a project to holds the empty doc — asking about one must not make it.
+    static const ProjectDoc kEmpty{};
+    auto* s = impl_->find(session);
+    return s ? s->current : kEmpty;
+}
 
 void EngineHost::openAudioDevice() {
     // Open the interface once — it stays open for the engine's lifetime. Playback is silent without it, which is
@@ -65,7 +71,7 @@ EngineHost::~EngineHost() {
         // anything they touch goes away — a tap that is gone cannot write into anything.
         for (const auto& id : impl_->ids()) {
             enableBroadcast(id, false);
-            impl_->session(id).detachLevelMeters();
+            if (auto* s = impl_->find(id)) s->detachLevelMeters();
         }
         impl_->detachInputClients();   // and input clients before the devices (their measurers) do
     }
@@ -106,6 +112,10 @@ void EngineHost::reset(const std::string& session) {
 }
 
 void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, const std::string& baseDir) {
+    // Building a graph is where nearly every warning comes from — a missing plugin, a clip that will
+    // not load — so name the project they are about for as long as the build runs.
+    WarningScope ws{session};
+    impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
     teardownProjectState(session);
     invalidatePluginInfoMemo();   // reload the scan cache once per apply (picking up a rescan), then memoise
                                   // it across this apply's per-plugin lookups
@@ -175,14 +185,17 @@ void EngineHost::buildLevelMeters(const std::string& session) {
 }
 
 float EngineHost::masterLevelDb(const std::string& session) const {
-    if (!impl_->session(session).masterClient) return -100.0f;
-    auto& client = *impl_->session(session).masterClient;
+    auto* s = impl_->find(session);
+    if (s == nullptr || !s->masterClient) return -100.0f;
+    auto& client = *s->masterClient;
     const float l = client.getAndClearAudioLevel(0).dB;
     const float r = client.getAndClearAudioLevel(1).dB;
     return std::max(l, r);
 }
 
 ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir) {
+    WarningScope ws{session};   // same reason as applyFull, for the incremental path
+    impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
     ProjectDiff d = diff(impl_->session(session).current, target);
 
     // No live edit yet, or a change the incremental path can't handle: rebuild.
@@ -315,14 +328,14 @@ static te::Edit::CountIn countInModeFor(int bars) {
     return te::Edit::CountIn::twoBar;
 }
 
-// Play — and record the armed tracks if the GLOBAL enable is on. Arming only marks a track as wanting to
+// Play — and record the armed tracks if THIS SESSION's enable is on. Arming only marks a track as wanting to
 // record, so a user can leave tracks armed and audition without recording.
 void EngineHost::play(const std::string& session) {
     auto* tc = impl_->transport(session);
     if (tc == nullptr) return;
     // A loop always starts from its top, so drop the playhead onto the start; Tracktion wraps back on its own.
     if (tc->looping) tc->setPosition(tc->getLoopRange().getStart());
-    if (recordEnabled_ && prepareTakes(session)) {
+    if (impl_->session(session).recordEnabled && prepareTakes(session)) {
         // Count-in applies to the record roll only: set it from the project just before recording and clear it on a
         // plain play, so an earlier record's count-in can't linger onto ordinary playback.
         if (impl_->session(session).edit) impl_->session(session).edit->setCountInMode(countInModeFor(impl_->session(session).current.countIn));
@@ -332,11 +345,17 @@ void EngineHost::play(const std::string& session) {
         tc->play(false);
     }
 }
+// Creating, unlike the readers around it: a client saying "rolling me records" is declaring it drives
+// this project, the same way subscribing to its audio is.
 void EngineHost::setRecordEnabled(const std::string& session, bool on) {
-    recordEnabled_ = on;
-    std::cerr << "[rec] global record " << (on ? "enabled" : "disabled") << '\n';
+    impl_->session(session).recordEnabled = on;
+    // Named, because two services on one engine are otherwise indistinguishable in the log.
+    std::cerr << "[rec] record " << (on ? "enabled" : "disabled") << " for '" << session << "'\n";
 }
-bool EngineHost::recordEnabled(const std::string& session) const { return recordEnabled_; }
+bool EngineHost::recordEnabled(const std::string& session) const {
+    auto* s = impl_->find(session);
+    return s != nullptr && s->recordEnabled;
+}
 
 // Project the doc's metronome flag onto the Edit's click track, reading impl_->session(session).current — the single source of truth,
 // which every apply path sets first. Emphasise-bars stays on always: the bar's first beat sounding different
@@ -433,9 +452,10 @@ void EngineHost::previewSample(const std::string& session, const std::string& fi
 float EngineHost::trackLevelDb(const std::string& session, int trackIndex) const {
     // Peak dB since the last poll, from the track's LevelMeterPlugin client. Reading clears the accumulator, so
     // each poll gives a fresh peak — exactly what a VU meter wants. -100 dB when there is no meter yet.
-    if (trackIndex < 0 || trackIndex >= (int)impl_->session(session).levelClients.size())
+    auto* s = impl_->find(session);
+    if (s == nullptr || trackIndex < 0 || trackIndex >= (int)s->levelClients.size())
         return -100.0f;
-    auto& client = *impl_->session(session).levelClients[static_cast<size_t>(trackIndex)];
+    auto& client = *s->levelClients[static_cast<size_t>(trackIndex)];
     const float l = client.getAndClearAudioLevel(0).dB;
     const float r = client.getAndClearAudioLevel(1).dB;
     return std::max(l, r);
@@ -507,9 +527,11 @@ void EngineHost::disableWaveformTap(const std::string& session, const std::strin
 std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& session,
                                                        const std::string& id,
                                                        const std::string& side) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return {};
     const std::string key = id + ":" + side;
-    auto it = impl_->session(session).waveformPlugins.find(key);
-    if (it == impl_->session(session).waveformPlugins.end()) return {};
+    auto it = s->waveformPlugins.find(key);
+    if (it == s->waveformPlugins.end()) return {};
 
     auto* tapPlugin = dynamic_cast<studio::WaveformTapPlugin*>(it->second.get());
     if (!tapPlugin) return {};
@@ -518,7 +540,9 @@ std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& sessio
 
 std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWaveformTaps(const std::string& session) {
     std::map<std::string, std::vector<WaveformEnvelope>> result;
-    for (auto& [key, plugin] : impl_->session(session).waveformPlugins) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return result;
+    for (auto& [key, plugin] : s->waveformPlugins) {
         auto* tapPlugin = dynamic_cast<studio::WaveformTapPlugin*>(plugin.get());
         if (!tapPlugin) continue;
         auto data = tapPlugin->tap().drain();
@@ -531,12 +555,17 @@ std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWavefor
 // --- Audio broadcast ---------------------------------------------------------
 
 void EngineHost::enableBroadcast(const std::string& session, bool on) {
-    impl_->session(session).broadcastWanted = on;
+    // Turning it OFF never creates: silencing a session nobody has is already true. Turning it
+    // ON does, because subscribing to a session's audio is a client declaring it drives one.
     if (!on) {
-        if (auto* p = impl_->session(session).broadcastPlugin.get()) p->deleteFromParent();
-        impl_->session(session).broadcastPlugin = nullptr;
+        auto* s = impl_->find(session);
+        if (s == nullptr) return;
+        s->broadcastWanted = false;
+        if (auto* p = s->broadcastPlugin.get()) p->deleteFromParent();
+        s->broadcastPlugin = nullptr;
         return;
     }
+    impl_->session(session).broadcastWanted = true;
     if (impl_->session(session).broadcastPlugin != nullptr) return;   // already tapping
     if (!impl_->session(session).edit) return;                        // reasserted by buildLevelMeters later
 
@@ -553,23 +582,37 @@ void EngineHost::enableBroadcast(const std::string& session, bool on) {
     impl_->session(session).broadcastPlugin = tap;
 }
 
-bool EngineHost::isBroadcasting(const std::string& session) const {
-    return impl_->session(session).broadcastWanted;
-}
-
 EngineHost::BroadcastChunk EngineHost::drainBroadcast(const std::string& session, size_t maxFrames) {
-    // SENDER THREAD. It reads the ring, which EngineHost owns and which outlives every
-    // edit — deliberately, so this needs no lock and cannot be caught mid-rebuild.
+    // SENDER THREAD, so it goes through the registry lock — see docs/sessions.md. The ring itself
+    // needs none (it outlives every edit); finding it in a map the message thread writes does.
+    // No session yet means no frames, which the caller already treats as "nothing to send".
     BroadcastChunk chunk;
-    const auto d = impl_->session(session).broadcastRing.drain(chunk.samples, maxFrames);
-    chunk.frames = d.frames;
-    chunk.lostFrames = d.lostFrames;
-    chunk.sampleRate = impl_->session(session).broadcastRing.sampleRate();
+    impl_->sessions.withSession(session, [&](Session& s) {
+        const auto d = s.broadcastRing.drain(chunk.samples, maxFrames);
+        chunk.frames = d.frames;
+        chunk.lostFrames = d.lostFrames;
+        chunk.sampleRate = s.broadcastRing.sampleRate();
+    });
     return chunk;
 }
 
 void EngineHost::skipBroadcastToLive(const std::string& session) {
-    impl_->session(session).broadcastRing.skipToLive();
+    // SENDER THREAD, like drainBroadcast above.
+    impl_->sessions.withSession(session, [](Session& s) { s.broadcastRing.skipToLive(); });
+}
+
+size_t EngineHost::reapEmptySessions(double ttlMs) {
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    size_t gone = 0;
+    for (const auto& id : impl_->ids()) {
+        auto* s = impl_->find(id);
+        if (s == nullptr || !s->reapable(now, ttlMs)) continue;
+        impl_->drop(id);
+        ++gone;
+    }
+    if (gone > 0)
+        std::cerr << "[sessions] reaped " << gone << " empty session(s)\n";
+    return gone;
 }
 
 // --- Server support ----------------------------------------------------------
@@ -586,9 +629,20 @@ public:
         // session's state only to the connections driving it — a listener that got
         // everybody's meters would draw somebody else's song.
         for (const auto& sid : host_.sessionIds()) emit(sid);
+        // Ride this timer rather than add one: the sweep is cheap and the cadence does not matter.
+        if (++ticks_ >= kTicksPerReap) {
+            ticks_ = 0;
+            host_.reapEmptySessions(kSessionTtlMs);
+        }
     }
 
 private:
+    // Ten minutes untouched, swept once a minute at the 50 ms tick. Both generous: dropping an
+    // empty session is invisible, so the only cost of waiting is a map entry.
+    static constexpr double kSessionTtlMs = 10 * 60 * 1000.0;
+    static constexpr int kTicksPerReap = 1200;
+    int ticks_ = 0;
+
     void emit(const std::string& session) {
         EngineHost::EngineState s;
         s.session = session;

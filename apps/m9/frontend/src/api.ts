@@ -2,6 +2,7 @@
 // one this account DJs from. It holds no media and no files — the decks reach the machine's
 // file service and its moteur directly, cross-origin, as they always have.
 
+import { registryClient } from "@studio/engine-browser/registry";
 import type { PublicEngine } from "@studio/web-protocol";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
@@ -45,40 +46,6 @@ export const auth = {
   },
 };
 
-export const engines = {
-  list: async () =>
-    json<PublicEngine[]>(await fetch(`${BASE}/api/engines`), "engines"),
-  /** Take or RENEW the lease, verifying the token server-side. Idempotent by design — the
-   *  holder re-POSTs it every ENGINE_ASSIGN_RENEW_MS, because "in use" expires on its own. */
-  select: async (id: string, token: string, latencyMs: number) =>
-    json<{ ok: true }>(
-      await fetch(`${BASE}/api/engine/select`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, token, latencyMs }),
-      }),
-      "select",
-    ),
-  /** The lease's goodbye, as a BEACON so it survives the tab closing — a fetch there is
-   *  cancelled with the page. Best-effort by nature, which is why the TTL exists behind it. */
-  release: (id: string) => {
-    navigator.sendBeacon(
-      `${BASE}/api/engine/release`,
-      new Blob([JSON.stringify({ id })], { type: "application/json" }),
-    );
-  },
-  prefs: async () =>
-    json<{ engineId?: string }>(
-      await fetch(`${BASE}/api/preferences`),
-      "preferences",
-    ),
-  savePrefs: async (p: { engineId?: string }) =>
-    json<{ ok: true }>(
-      await fetch(`${BASE}/api/preferences`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(p),
-      }),
-      "preferences",
-    ),
-};
+// The five registry routes every hosted service mounts. Shared rather than spelled here: st0's
+// copy of this was the same 36 lines, comments included.
+export const engines = registryClient<PublicEngine>(BASE, json);

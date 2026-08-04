@@ -1,5 +1,19 @@
 # Recette du renommage `.lanes` → `.studio` / `lanes` → `pistes`
 
+> **HISTORIQUE — les noms de cette page sont périmés de deux renommages.** Elle décrit
+> `lanes → pistes` ; depuis, `pistes → l8`, `mediatek → st0`, `platines → m9`, et le moteur
+> et le capot sont passés sous `engine/`. Donc **aucune commande ni aucun chemin d'ici ne
+> s'exécute tel quel** : `apps/pistes`, `apps/moteur`, `apps/capot`, `SESSIONS.pistes`,
+> `pistes.sid`, `~/.studio/prefs/pistes/`, `npm run dev --workspace pistes` — tous morts.
+>
+> Ce qui reste vivant, et pourquoi la page n'est pas supprimée : **la méthode**. L'ordre imposé
+> des phases, et surtout l'idée que chaque contrôle porte sa *signature d'échec*, sont ce qui a
+> rendu les renommages suivants vérifiables. Pour refaire l'exercice, relire la structure et
+> substituer les noms courants (`AGENTS.md` à la racine tient la carte à jour).
+>
+> Elle n'a **pas** été réécrite aux noms d'aujourd'hui, faute d'avoir pu rejouer les contrôles :
+> une recette de vérification qu'on n'a pas exécutée est pire qu'une recette datée.
+
 Ordre imposé : chaque phase suppose la précédente verte. Une phase qui échoue rend les
 suivantes ininterprétables — le socle est partagé.
 

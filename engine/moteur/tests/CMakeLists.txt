@@ -16,6 +16,14 @@ target_include_directories(studio_engine_tests PRIVATE
 
 add_test(NAME studio_engine_tests COMMAND studio_engine_tests)
 
+# --- Session registry tests ---------------------------------------------------
+# A THIRD fast binary, kept apart only because each test file owns a main(). SessionRegistry.h is
+# header-only and JUCE-free, so this links nothing and shares the "builds in seconds" property.
+add_executable(studio_session_tests SessionRegistry_test.cpp)
+target_include_directories(studio_session_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_session_tests COMMAND studio_session_tests)
+
 # --- MIDI graph tests ---------------------------------------------------------
 # A SECOND binary, because these need Tracktion's MidiMessageArray and so must link the engine — which is exactly
 # what the target above avoids. Keeping them apart preserves the fast tests' "builds in seconds, no audio device"

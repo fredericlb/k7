@@ -8,6 +8,7 @@ import { countRecordings } from "./recordings.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
 import {
+  asFamily,
   FAMILIES,
   type Family,
   type FamilyListing,
@@ -109,6 +110,35 @@ export interface Query {
   /** The family's own subdivision, e.g. "recorded" or "instruments". */
   kind?: string;
   limit?: number;
+}
+
+/** The ceiling on `limit`. Applied when the number arrives from a caller, never inside `search`:
+ *  `search({})` with no limit legitimately returns everything, and clamping in there would
+ *  silently truncate an in-process caller to 1000. */
+export const SEARCH_LIMIT_MAX = 1000;
+
+/**
+ * A `Query` out of untrusted URL parameters.
+ *
+ * `limit` is clamped rather than trusted: this walks an array in memory, but an unbounded one
+ * asked for by a caller is still a caller's decision about our memory. Anything that is not a
+ * positive finite number — absent, zero, negative, a word, an array from a repeated parameter —
+ * becomes undefined, which means "no limit" rather than "limit zero".
+ *
+ * Takes a plain record so express's ParsedQs assigns to it and no HTTP type enters this package.
+ * Both shells parsed this identically, sixteen lines each, comment included.
+ */
+export function parseQuery(q: Record<string, unknown>): Query {
+  const rawLimit = Number(q.limit);
+  return {
+    family: asFamily(q.family),
+    q: typeof q.q === "string" ? q.q : undefined,
+    kind: typeof q.kind === "string" ? q.kind : undefined,
+    limit:
+      Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), SEARCH_LIMIT_MAX)
+        : undefined,
+  };
 }
 
 /**

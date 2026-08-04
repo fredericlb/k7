@@ -22,10 +22,25 @@ namespace studio {
 struct Warning {
     std::string subject;  // what it is about — a plugin id, a clip path, "" when general
     std::string message;
+    std::string session;  // which project it happened in, "" when it belongs to no one
 };
 
 // Report a problem. Always reaches stderr; also reaches the sink when one is set.
 void warn(std::string message, std::string subject = {});
+
+// Names the session that warnings raised on THIS thread belong to, for as long as it is in scope.
+// A scope rather than a parameter because warn() is called from a dozen places that have no session
+// to pass — see docs/sessions.md for which entry points open one and why the rest go unstamped.
+class WarningScope {
+public:
+    explicit WarningScope(std::string session);
+    ~WarningScope();
+    WarningScope(const WarningScope&) = delete;
+    WarningScope& operator=(const WarningScope&) = delete;
+
+private:
+    std::string previous_;
+};
 
 // Install (or clear, with {}) the sink. Called once by the server. Not thread-safe by
 // design: it is set before any client connects and never changes after.

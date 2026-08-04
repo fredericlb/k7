@@ -47,14 +47,36 @@ interface Seen {
   playing: boolean;
   maxPlayhead: number;
   frames: number;
+  /** Whether this client ever saw record-enable ON — it is per session, not per process. */
+  recordEnabled: boolean;
+  /** Replies about ONE project. Unstamped, every client on the engine used to read them all. */
+  applied: number;
+  flushed: number;
 }
 
 function watch(c: EngineClient): Seen {
-  const seen: Seen = { playing: false, maxPlayhead: 0, frames: 0 };
-  c.on("state", (s: { playing: boolean; playhead: number }) => {
-    seen.frames++;
-    if (s.playing) seen.playing = true;
-    seen.maxPlayhead = Math.max(seen.maxPlayhead, s.playhead);
+  const seen: Seen = {
+    playing: false,
+    maxPlayhead: 0,
+    frames: 0,
+    recordEnabled: false,
+    applied: 0,
+    flushed: 0,
+  };
+  c.on(
+    "state",
+    (s: { playing: boolean; playhead: number; recordEnabled?: boolean }) => {
+      seen.frames++;
+      if (s.playing) seen.playing = true;
+      if (s.recordEnabled) seen.recordEnabled = true;
+      seen.maxPlayhead = Math.max(seen.maxPlayhead, s.playhead);
+    },
+  );
+  c.on("applied", () => {
+    seen.applied++;
+  });
+  c.on("flushed", () => {
+    seen.flushed++;
   });
   return seen;
 }
@@ -74,10 +96,19 @@ async function main() {
   m9.sendProject(doc("depuis-m9", 64));
   await wait(3000);
 
+  // Record-enable is SESSION state. It was a process-global for a while, so arming l8 lit m9's
+  // record light and made rolling either one record into both.
+  l8.setRecordEnabled(true);
+  await wait(1000);
+
   // ONE of them plays. Before sessions the second project tore the first down; before the
   // client half, the silent one saw the playing one's state frames as its own.
   l8.transport("play");
   await wait(4000);
+
+  // A flush is about ONE project. Unstamped, m9 read l8's `flushed` as its own.
+  l8.flush();
+  await wait(1000);
 
   console.log("l8    :", onL8);
   console.log("m9        :", onM9);
@@ -95,6 +126,22 @@ async function main() {
     problems.push("m9 a vu le transport de l8 — les sessions fuient");
   if (onM9.maxPlayhead > 0.5)
     problems.push("la tete de lecture de l8 a fuit vers m9");
+  if (!onL8.recordEnabled)
+    problems.push("l8 n'a jamais vu son propre record-enable");
+  if (onM9.recordEnabled)
+    problems.push("m9 a vu le record-enable de l8 — le drapeau est global");
+  if (onL8.applied !== 1)
+    problems.push(`l8 attend 1 'applied', en a vu ${onL8.applied}`);
+  if (onM9.applied !== 1)
+    problems.push(
+      `m9 attend 1 'applied' (le sien), en a vu ${onM9.applied} — reponses non estampillees`,
+    );
+  if (onL8.flushed !== 1)
+    problems.push(`l8 attend 1 'flushed', en a vu ${onL8.flushed}`);
+  if (onM9.flushed !== 0)
+    problems.push(
+      `m9 a recu le 'flushed' de l8 (${onM9.flushed}) — reponses non estampillees`,
+    );
 
   l8.close();
   m9.close();

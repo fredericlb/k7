@@ -41,8 +41,14 @@ const NO_ENGINE = "engine offline — is the C++ engine running on this machine?
 interface Link {
   client: EngineClient;
   ready: boolean;
+  /** When something last asked for it, so an abandoned one can be reaped — see pruneIdleLinks. */
+  lastUsed: number;
 }
 const links = new Map<string, Link>();
+
+/** How long a link may go untouched before it is dropped. Minutes, not seconds: a person reading
+ *  a score between takes is idle, and reconnecting costs a round trip. */
+const LINK_IDLE_MS = 5 * 60_000;
 let selectedEngineUrl: string | undefined;
 let currentWs: Workspace | null = null; // whose project the engine is playing; recorded takes land here
 
@@ -90,20 +96,58 @@ function wireEngine(session: string, e: EngineClient): void {
   e.on("recorded", onRecorded);
 }
 
+/**
+ * Take a link out of the map and close it.
+ *
+ * DELETED BEFORE CLOSED, and that order is the whole function: `wireEngine`'s close handler
+ * re-dials unless the map no longer holds this client, so closing first leaves the outcome
+ * resting on the close event being asynchronous.
+ *
+ * `tellEngine` also drops the SESSION, not just the socket — for when the work is genuinely over.
+ * An idle prune does not: the person may come back, and their project should still be loaded.
+ */
+function dropLink(session: string, { tellEngine = false } = {}): void {
+  const l = links.get(session);
+  if (!l) return;
+  links.delete(session);
+  try {
+    if (tellEngine) l.client.dropSession(session);
+    l.client.close();
+  } catch {
+    /* already closed */
+  }
+}
+
+/**
+ * Close links nothing has used for LINK_IDLE_MS.
+ *
+ * Without this, `links` only ever grew: a second person served by this file service left the
+ * first one's socket open, and `wireEngine`'s close handler re-dials every second forever — so an
+ * abandoned link was not merely a leaked socket but a permanent reconnect loop, and it kept that
+ * session alive on the engine as well.
+ *
+ * Exported for the test, and it takes `now` for the same reason.
+ */
+export function pruneIdleLinks(now: number = Date.now()): string[] {
+  const current = sessionOf(currentWs);
+  const dropped: string[] = [];
+  for (const [session, l] of links) {
+    // Never the workspace being played: it is idle between commands by nature.
+    if (session === current) continue;
+    if (now - l.lastUsed < LINK_IDLE_MS) continue;
+    dropLink(session);
+    dropped.push(session);
+  }
+  return dropped;
+}
+
 // Dial the local engine; a repeat with the same url is a no-op. The sockets themselves are
 // opened lazily, per session, the first time someone's project needs one.
 export function setSelectedEngine(url: string): void {
   if (url === selectedEngineUrl && links.size) return;
   selectedEngineUrl = url;
   // A different engine invalidates every session's socket, not just the current one.
-  for (const l of links.values()) {
-    try {
-      l.client.close();
-    } catch {
-      /* already closed */
-    }
-  }
-  links.clear();
+  for (const session of [...links.keys()]) dropLink(session);
 }
 
 /**
@@ -113,18 +157,24 @@ export function setSelectedEngine(url: string): void {
  * either — a session is a field on each message — but a socket per session gets each its
  * own outbox and its own reconnect, and the alternative is a shared queue where one user's
  * backlog delays another's transport.
+ *
+ * Exported so engineLink.test.ts can populate `links` without standing up a Workspace; every
+ * caller in this file reaches it as the module-private thing it otherwise is.
  */
-function ensureEngine(
+export function ensureEngine(
   ws: Workspace | null = currentWs,
 ): EngineClient | undefined {
   if (!selectedEngineUrl) return undefined;
   const session = sessionOf(ws);
   const existing = links.get(session);
-  if (existing) return existing.client;
+  if (existing) {
+    existing.lastUsed = Date.now(); // every use, so pruneIdleLinks only ever sees the abandoned
+    return existing.client;
+  }
   // The other half of l8' session: this side compiles and sends the project, the browser
   // side drives its transport. Same id or the two steer different projects.
   const client = new EngineClient(selectedEngineUrl, session);
-  links.set(session, { client, ready: false });
+  links.set(session, { client, ready: false, lastUsed: Date.now() });
   wireEngine(session, client);
   client.connect();
   return client;
@@ -259,6 +309,7 @@ export function prewarmEngineForActive(ws: Workspace): void {
 
 // Unload: stop, flush and forget the pointers, so a left workspace neither plays nor catches a recorded take.
 export async function unloadEngine(): Promise<void> {
+  const leaving = sessionOf(currentWs);
   const e = ensureEngine();
   if (e) {
     try {
@@ -270,6 +321,9 @@ export async function unloadEngine(): Promise<void> {
   }
   engineProject = null;
   currentWs = null;
+  // The one place that means "this workspace is DONE", so it is the one that tells the engine to
+  // forget the session rather than merely letting the socket go — an idle prune deliberately does not.
+  dropLink(leaving, { tellEngine: true });
   // Await the watcher close: a caller about to rename or delete must not race the OS releasing the handle.
   await closeStrudelWatcher();
 }

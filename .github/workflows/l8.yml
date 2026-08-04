@@ -123,9 +123,9 @@ jobs:
       # `node scripts/build-engine.mjs --sidecar-only`, which is what a developer and the
       # release build run.
       #
-      # `capot/dist/index.html` is the odd one out: a 4-line placeholder page (the tray
-      # opens no windows). It IS tracked — force-un-ignored in .gitignore — so the guard
-      # below is a no-op on a normal checkout and only covers a stripped one.
+      # `engine/capot/dist/index.html` is the odd one out: a 4-line placeholder page (the
+      # tray opens no windows). It IS tracked — force-un-ignored in .gitignore — so the
+      # guard below is a no-op on a normal checkout and only covers a stripped one.
       - name: stub the sidecars, resources and frontendDist
         shell: bash
         working-directory: engine/capot

@@ -96,7 +96,7 @@ carries it and refusing the key would turn a working project into one that will 
 
 The médiathèque is where a module is authored, so it is where assets are dropped: a module row in
 its tree draws its `assets/` as children, and dropping a file on that row uploads into the folder
-(`apps/mediatek/frontend/src/Library.tsx`, `assetsTarget`). The scan reports them as the entry's
+(`apps/st0/frontend/src/Library.tsx`, `assetsTarget`). The scan reports them as the entry's
 `assets` — its own field, separate from `files`, because `files` is the module's definition and
 these are its material.
 

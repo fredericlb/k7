@@ -23,8 +23,8 @@ export interface LibrarySource {
 }
 
 export interface RemoteConfig {
-  /** The library's fixed address — `https://studio.frediver.se/mediatek` in production, the
-   *  same path under whatever origin serves this studio. Derived by every caller, never typed:
+  /** The library's fixed address — `https://studio.frediver.se` in production, since st0
+   *  answers the origin root. Derived by every caller, never typed:
    *  see `@studio/web-protocol/services` and docs/tokens.md. */
   base: string;
   /** A personal access token — a headless service has no cookie jar. */

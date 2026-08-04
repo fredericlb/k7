@@ -69,7 +69,8 @@ scripts/               Node harnesses that drive a running engine, not build ste
 ```
 
 Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHost.md`,
-`protocol.md` (the wire), `sessions` on the TypeScript side in
+`protocol.md` (the wire), `sessions.md` (this side: who may create one, what the registry's
+lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
 `builtinParams.md`, `namPlugin.md`, `sidechain.md` (a module's second input),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.

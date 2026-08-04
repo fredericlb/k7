@@ -52,7 +52,7 @@ as **raw TypeScript source**: no build step, imported through `package.json`
 | group | packages |
 |---|---|
 | the song | `song` (folder of YAML → `ProjectDoc` + `GraphDoc`), `commands` (one verb list for every surface), `translator` (`.dawproject` import), `dsp` (write a module's DSP in JS) |
-| the engine | `engine-protocol` (the wire, mirrored in C++), `engine-client` (Node), `engine-browser` (browser + React store), `engine-host` (the supervisor — a **program**, not a library), `engine-registry` (which engines exist; each service holds its own copy) |
+| the engine | `engine-protocol` (the wire, mirrored in C++), `engine-client` (Node), `engine-browser` (browser + React store), `engine-host` (the supervisor — a **program**, not a library), `engine-registry` (which engines exist; each service holds its own registry INSTANCE — one shared implementation, `createRegistry()` per service) |
 | the disk | `file-service` (every file operation, on the engine's machine — l8' backend has none), `mediatek` (the media library), `user-prefs` |
 | the views | `ui-chains` + `ui-chains-react` (the chains graph — l8, st0 and m9 all draw it), `ui-editor` (YAML + note grids), `ui-eyes` (WebGL video), `ui-waveform`, `ui-module-builder` (l8 and st0) |
 | the types | `web-protocol`, `graph-model` (split out so drawing a graph doesn't drag in auth) |
@@ -70,7 +70,8 @@ had.
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md),
 and two plan/recipe pages, [module-builder-plan.md](docs/module-builder-plan.md) and
-[rename-test-plan.md](docs/rename-test-plan.md).
+[rename-test-plan.md](docs/rename-test-plan.md) — the latter **historical**, written for
+`lanes → pistes` and two renames stale in its names; its method is what survives.
 [inventaire.md](docs/inventaire.md) is the standing inventory of dead and duplicated code —
 read it before deleting anything that merely *looks* unused.
 

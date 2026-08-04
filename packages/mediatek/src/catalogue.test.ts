@@ -9,7 +9,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listFamily, reset, search, summary } from "./catalogue.ts";
+import {
+  listFamily,
+  parseQuery,
+  reset,
+  SEARCH_LIMIT_MAX,
+  search,
+  summary,
+} from "./catalogue.ts";
 import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
@@ -496,5 +503,43 @@ describe("the persisted index", () => {
     expect(listFamily("modules").entries.map((e) => e.name)).toEqual([
       "from-the-index",
     ]);
+  });
+});
+
+// parseQuery — the two HTTP shells' shared reading of an untrusted query string. It had no test at
+// all while it was duplicated in both of them, clamp included.
+describe("parseQuery", () => {
+  it("keeps a sane limit", () => {
+    expect(parseQuery({ limit: "5" }).limit).toBe(5);
+  });
+
+  it("clamps a greedy one rather than trusting it", () => {
+    expect(parseQuery({ limit: "99999" }).limit).toBe(SEARCH_LIMIT_MAX);
+  });
+
+  it("floors a fractional one", () => {
+    expect(parseQuery({ limit: "7.9" }).limit).toBe(7);
+  });
+
+  // undefined means NO limit, not "limit zero" — search({}) legitimately returns everything.
+  it("gives up on anything that is not a positive number", () => {
+    for (const limit of ["0", "-1", "abc", "", undefined, ["1", "2"]])
+      expect(parseQuery({ limit }).limit).toBeUndefined();
+  });
+
+  it("narrows the family and drops a bogus one", () => {
+    expect(parseQuery({ family: "songs" }).family).toBe("songs");
+    expect(parseQuery({ family: "bogus" }).family).toBeUndefined();
+  });
+
+  // A repeated parameter arrives as an array; it must not become a filter object.
+  it("takes q and kind only as strings", () => {
+    expect(parseQuery({ q: "kick", kind: "recorded" })).toMatchObject({
+      q: "kick",
+      kind: "recorded",
+    });
+    const arrays = parseQuery({ q: ["a", "b"], kind: ["c"] });
+    expect(arrays.q).toBeUndefined();
+    expect(arrays.kind).toBeUndefined();
   });
 });

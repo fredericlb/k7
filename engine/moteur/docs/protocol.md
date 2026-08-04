@@ -15,14 +15,27 @@ module preview and an m9 deck would each replace whatever l8 had loaded.
 
 The field is optional and absent means `""`, the default session — so a client that has
 never heard of sessions keeps working exactly as before, which is what let the engine grow
-this before the clients did. The state frame carries the session back; the other replies do
-not, because they are engine-global (the device list, the installed-plugin catalogue).
+this before the clients did.
 
-Sessions are created on first mention and dropped with `{"type":"drop-session"}`. Each has
-its own edit, plugins, meters, watch set and **broadcast tap**: an audio listener hears the
-session it subscribed for, not the machine's master. Client rules — who picks the name, and
-why l8' two halves must agree on it — are in
-`packages/engine-protocol/docs/sessions.md`.
+**Every reply about one project carries it back**, and only these five do not, because they are
+the machine's rather than a project's: `plugins`, `audio-devices`, `sessions`, `edit-plugins`
+and `whoami`. That is a closed set — it is `ENGINE_GLOBAL_REPLIES` in
+`packages/engine-protocol/sessions.ts`, with `PER_SESSION_REPLIES` beside it, and
+`sessions.test.ts` pins both. It matters that the set is closed: the client's filter passes a
+frame with **no** session at all (so an older engine does not strike it deaf), which is safe
+only for as long as this engine stamps everything else. In `main.cpp` the choice is a verb —
+`broadcast` or `broadcastTo`.
+
+A session is created by a client **driving** one — sending a project, subscribing to its audio,
+enabling record — and never by asking about one: reads go through the non-inserting accessor, so
+a supervisor that polls this engine does not conjure sessions by watching it. They are dropped
+with `{"type":"drop-session"}`, and an EMPTY one is reaped after ten idle minutes. Each has its
+own edit, plugins, meters, watch set, record enable and **broadcast tap**: an audio listener
+hears the session it subscribed for, not the machine's master.
+
+The engine's own half of this — the registry's threading model and the lifecycle rule — is
+`docs/sessions.md`. Client rules, who picks the name, and why l8's two halves must agree on it
+are in `packages/engine-protocol/docs/sessions.md`.
 
 ## client → server
 
@@ -39,7 +52,14 @@ why l8' two halves must agree on it — are in
 | `{ type: "unsubscribe-waveform", id, side }` | drop that tap |
 | `{ type: "list-presets", module: "synth" }` | → a `presets` reply |
 | `{ type: "set-preset", module: "synth", index: 3, path: "" }` | pick a preset |
-| `{ type: "list-edit-plugins" }` | → an `edit-plugins` reply |
+| `{ type: "list-edit-plugins" }` | → an `edit-plugins` reply. Engine-global: it answers for EVERY session, each row naming its own, because a supervisor asking drives none of them |
+| `{ type: "arm", track, armed }` | arm a track for recording → `armed`, or an `error` |
+| `{ type: "record-enable", enabled: true }` | whether rolling this session records → `record-enabled` |
+| `{ type: "get-plugin-params", id }` / `{ type: "set-plugin-param", id, name, value }` | read / move one plugin's values |
+| `{ type: "io-levels", channels: [[1,2]] }` | input meters + tuner, plus THIS session's master level |
+| `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
+| `{ type: "rescan-plugins" }` | re-scan the installed catalogue |
+| `{ type: "whoami" }` | identity probe, answered to the asking socket alone |
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
 | `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |

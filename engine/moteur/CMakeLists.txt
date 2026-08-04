@@ -96,8 +96,8 @@ FetchContent_Declare(tracktion_engine
 
 # --- Steinberg ASIO SDK : low-latency Windows audio (engine) ------------------
 # REQUIRED on Windows: ASIO is how a real interface is driven there (the other
-# backends are the fallbacks), so `pistes config interfaces` lists ASIO first and
-# the build refuses to produce an engine that can't see those devices.
+# backends are the fallbacks), so the build refuses to produce an engine that
+# can't see those devices.
 #
 # Steinberg's licence forbids redistributing the SDK, so it isn't vendored here — we
 # fetch it from Steinberg, like every other dependency. The SDK is Steinberg's and

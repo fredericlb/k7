@@ -21,8 +21,8 @@ only that file.
 
 That also states the tool's boundary plainly: this is for a **checkout**, where one `env.yaml`
 holds every service's secrets. A musician's laptop syncing the hosted médiathèque has no
-`env.yaml`, so its token still has to arrive over the wire — that is what
-`POST /mediatek/api/token` is for, and it is unchanged.
+`env.yaml`, so its token still has to arrive over the wire — that is what `POST /api/token` is
+for, and it is unchanged. (No prefix: st0 answers the origin root — see the URL table below.)
 
 ## What it does, per link
 
@@ -31,16 +31,21 @@ issuing service, the identity the callee will see, and where the caller reads it
 
 | link | signed with | `sub` | written to |
 |---|---|---|---|
-| l8 → mediatek | `mediatek-backend.API_TOKEN_SECRET` | `service:l8` | `~/.studio/engine-tray.json` (`mediatekToken`) |
-| k7 → mediatek | the same secret | `service:k7` | `env.yaml` (`k7-backend.MEDIATEK_TOKEN`) |
+| l8 → st0 | `st0-backend.API_TOKEN_SECRET` | `service:l8` | `~/.studio/engine-tray.json` (`mediatekToken`) |
+| k7 → st0 | the same secret | `service:k7` | `env.yaml` (`k7-backend.MEDIATEK_TOKEN`) |
+
+The env section is `st0-backend`, and that spelling matters: a section name `env.yaml` does not
+recognise falls back to `common` alone, silently, so a wrong one produces a configuration that
+looks like it worked. (`MEDIATEK_TOKEN` and `mediatekToken` keep their names on purpose — they
+name the médiathèque, the concept, which is what st0 serves.)
 
 One secret, because one service verifies both — and a `sub` each, so the library's log says
 which service wrote. A third caller is one more row.
 
 **The secret is generated on first run** when the service has none. Left unset, the médiathèque
-falls back to `${SESSION_SECRET}:mediatek` — which works, and is exactly what nobody should rely
+falls back to `${SESSION_SECRET}:st0` — which works, and is exactly what nobody should rely
 on: rotating the session secret would then log everyone out *and* revoke every machine's sync in
-one move. Restart the médiathèque backend after a secret is written; a token signed with the new
+one move. Restart the st0 backend after a secret is written; a token signed with the new
 one is refused by a process still holding the old.
 
 **The token goes to the tray settings, not to `env.yaml`,** because its consumer is the file
@@ -56,8 +61,18 @@ is the trade the scheme makes, and it is why the secret is per service rather th
 
 ## The URLs are not configuration
 
-`packages/web-protocol/services.ts` holds the one table: `/l8`, `/mediatek`, `/k7`, `/m9`,
-under a single origin — `https://studio.frediver.se/<service>` in production. The Caddyfile
+`packages/web-protocol/services.ts` holds the one table, under a single origin —
+`https://studio.frediver.se/<service>` in production:
+
+| service | path |
+|---|---|
+| `l8` | `/l8` |
+| `st0` | `""` — the médiathèque is the front door, so it answers the ORIGIN itself |
+| `k7` | `/k7` |
+| `m9` | `/m9` |
+
+st0's empty path is a real entry rather than a special case at each call site, and it is why
+`/auth/*` belongs to st0: the registered `redirect_uri` has no prefix either. The Caddyfile
 mirrors what the production edge does, so dev and production differ by the origin and nothing
 else.
 
@@ -70,8 +85,8 @@ So nothing asks for a service's URL any more:
 - the l8 frontend derives it from `window.location.origin`, replacing a build-time branch
   that named a host of its own (`media.studio.frediver.se`, which was never a path on this
   origin);
-- k7's backend **defaults** to `serviceUrl(STUDIO_ORIGIN, "mediatek")`, so a deployment sets
-  nothing.
+- k7's backend **defaults** to `serviceUrl(STUDIO_ORIGIN, "st0")`, so a deployment sets
+  nothing. (`"st0"` is the `StudioService` key; `"mediatek"` is not one and would not typecheck.)
 
 A machine that has a stale `mediatekUrl` in its settings file is unaffected: the field is simply
 not read any more, and can be deleted by hand or left where it is.
@@ -79,7 +94,7 @@ not read any more, and can be deleted by hand or left where it is.
 ### The one exception, and the script writes it
 
 In a **checkout** everything sits behind Caddy's `tls internal`, whose local CA node does not
-trust: a backend fetching `https://studio.test/mediatek` fails with
+trust: a backend fetching `https://studio.test` fails with
 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` while the browser beside it works. So a server-to-server hop
 takes the loopback port instead — `SERVICE_PORTS` in the same table, `localServiceUrl()`.
 
