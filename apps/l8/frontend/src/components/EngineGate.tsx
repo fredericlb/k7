@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
-import { WorkspaceGate } from "./WorkspaceGate";
+import { ProjectGate } from "./ProjectGate";
 
 type Phase =
   | { k: "loading" }
@@ -91,9 +91,9 @@ export function EngineGate() {
   }, [refresh, pick]);
 
   if (phase.k === "chosen")
-    // Hand the chosen engine to the workspace picker; key by wsUrl so switching engines remounts cleanly.
+    // Hand the chosen engine to the project gate; key by wsUrl so switching engines remounts cleanly.
     return (
-      <WorkspaceGate
+      <ProjectGate
         key={phase.engine.wsUrl!}
         engine={phase.engine}
         // Re-probe on the way back: the list behind the picker is minutes old by now, and

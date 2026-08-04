@@ -20,6 +20,7 @@
     "@studio/commands": "*",
     "@studio/engine-client": "*",
     "@studio/engine-host": "*",
+    "@studio/git-repos": "*",
     "@studio/translator": "*",
     "@frediverse/http": "*",
     "@studio/graph-model": "*",

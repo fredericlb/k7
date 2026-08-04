@@ -15,6 +15,7 @@ import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
 import { z } from "zod";
 import { libraryRouter } from "./routes/library.ts";
+import { projectsRouter } from "./routes/projects.ts";
 
 // Dev config from the root env.yaml, layered INTO process.env — not read into a value.
 // Everything downstream resolves the library through `process.env.STUDIO_MEDIATEK`, so a
@@ -51,12 +52,21 @@ const { requireAuth } = await setupAuth(app, {
 // the LOCAL service syncing a cache runs headless beside the engine. Same scheme k7
 // already uses for the l8 CLI — a signed {sub,iat}, no server-side storage, rotate the
 // secret to revoke everything.
-const { issueApiToken, bearerOrSession } = apiTokenAuth(
+const { issueApiToken, verifyApiToken, bearerOrSession } = apiTokenAuth(
   process.env.API_TOKEN_SECRET || `${process.env.SESSION_SECRET ?? ""}:st0`,
 );
 
 // Everything is behind one of the two: a library is somebody's work, not a public bucket.
 app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
+
+// The user's git repositories. Same guard as the library and for the same reason: the browser
+// arrives with a cookie, and the file service — which comes here for the deploy key so it can
+// clone — is headless and carries the bearer. See docs/projects.md.
+app.use(
+  "/api/projects",
+  bearerOrSession(requireAuth),
+  projectsRouter({ verifyApiToken }),
+);
 
 // This service's OWN engine registry. Until now a module preview was hardcoded to
 // ws://127.0.0.1:8765, so "which engine" had no question to answer here — and no answer to

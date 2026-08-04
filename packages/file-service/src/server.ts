@@ -11,6 +11,7 @@ import { ensureLayout } from "@studio/mediatek/layout";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
+import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
   engineToken,
   requireEngineToken,
@@ -26,13 +27,14 @@ import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
-import { generateKey, publicKey } from "./sshKeys.ts";
 import {
-  cloneWorkspace,
+  assertSshGitUri,
   createWorkspace,
   getWorkspace,
   listWorkspaces,
   UnknownWorkspaceError,
+  workspaceForRepo,
+  workspaceNameFor,
 } from "./workspaces.ts";
 
 const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
@@ -141,20 +143,55 @@ app.post(
   }),
 );
 
-// Cloning runs HERE because this machine owns ~/.studio/root, and the per-user SSH key lives here too.
-const cloneBody = z.object({ name: z.string().min(1), uri: z.string().min(1) });
+/**
+ * Which workspace already holds a repository, if any. st0 names a repo by its URI and knows
+ * nothing about this machine's folders, so this is the question l8 asks before deciding
+ * whether anything needs cloning at all.
+ */
+app.get(
+  "/workspaces/by-repo",
+  wrap(async (req, res) => {
+    const uri = String(req.query.uri ?? "");
+    try {
+      res.json({ workspace: await workspaceForRepo(req.userEmail!, uri) });
+    } catch (e) {
+      // The only throw is a uri we refuse to hand git — caller-fixable, so 400.
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// Cloning runs HERE because this machine owns ~/.studio/root, and the deploy key is copied here.
+// It STARTS the clone and answers with a job to poll: a real repository takes tens of seconds,
+// which is longer than a request should be held open. See docs/cloneJobs.md.
+const cloneBody = z.object({
+  uri: z.string().min(1),
+  // Optional: the caller usually has a URI and no opinion about the folder's name.
+  name: z.string().min(1).optional(),
+});
 app.post(
   "/workspaces/clone",
   validate(cloneBody),
-  wrap(async (req, res) => {
+  wrap((req, res) => {
     const { name, uri } = req.body as z.infer<typeof cloneBody>;
     try {
-      await cloneWorkspace(req.userEmail!, name, uri);
+      assertSshGitUri(uri);
+      const workspace = name || workspaceNameFor(req.userEmail!, uri);
+      res.json(startClone(req.userEmail!, workspace, uri));
     } catch (e) {
-      // Everything cloneWorkspace throws is caller-fixable — bad URI, name taken, git's stderr — so 400, not 500.
-      return res.status(400).json({ error: (e as Error).message });
+      // Everything thrown here is caller-fixable — bad URI, no free name — so 400, not 500.
+      res.status(400).json({ error: (e as Error).message });
     }
-    res.json({ ok: true });
+  }),
+);
+
+app.get(
+  "/workspaces/clone/:id",
+  wrap((req, res) => {
+    const job = cloneJob(req.params.id);
+    // 404 rather than a synthetic "done": a job this service has forgotten cannot be waited on.
+    if (!job) return res.status(404).json({ error: "unknown clone job" });
+    res.json(job);
   }),
 );
 
@@ -176,17 +213,9 @@ app.get(
   wrap((_req, res) => res.json({ pluginNames: scannedPluginNames() })),
 );
 
-// The user's SSH key: GET reads, POST generates if absent (idempotent). Only ever the PUBLIC half.
-app.get(
-  "/ssh-key",
-  wrap((req, res) => res.json({ publicKey: publicKey(req.userEmail!) })),
-);
-app.post(
-  "/ssh-key",
-  wrap(async (req, res) => {
-    res.json({ publicKey: await generateKey(req.userEmail!) });
-  }),
-);
+// There is no /ssh-key here any more. st0 owns the studio's git identity — it generates the
+// one deploy key and shows it to you — and this machine fetches a copy when it first needs to
+// clone (sshKeys.ts). See packages/git-repos/docs/keys.md.
 
 // Everything else needs a resolved workspace on req.ws.
 app.use(resolveWorkspace, filesRouter);

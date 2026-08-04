@@ -9,12 +9,17 @@ import type { FamilyListing } from "@studio/mediatek/types";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   ENGINE_TOKEN_HEADER,
+  type FileNode,
   type Hints,
   type ModulePresetsFile,
   type ModuleUiFile,
   type PublicEngine,
+  type RepoStatus,
+  type RepoSummary,
+  type SshKeyInfo,
   USER_HEADER,
 } from "@studio/web-protocol";
+import { serviceUrl } from "@studio/web-protocol/services";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
 // path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
@@ -131,6 +136,65 @@ export const engineMachine = {
  * ones and had copied the same 36 lines.
  */
 export const engines = registryClient<PublicEngine>(BASE, json);
+
+/** `/api/projects` rather than `/api/mediatek`, so it needs its own two verbs. */
+const pget = async <T>(path: string, what: string): Promise<T> =>
+  json(await fetch(`${BASE}/api/projects${path}`), what);
+const psend = async <T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> =>
+  json(
+    await fetch(`${BASE}/api/projects${path}`, {
+      method,
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+    path,
+  );
+
+/**
+ * The user's git repositories — the Projets section.
+ *
+ * NOT the médiathèque: a repository belongs to a person, not to the volume, and this service
+ * never makes a working copy of one. It keeps a bare blobless mirror to answer "what is in
+ * there", and l8 does the actual checkout on the engine's machine. See ../../docs/projects.md.
+ */
+export const projects = {
+  list: () => pget<{ repos: RepoSummary[]; revision: string }>("", "projects"),
+  revision: () => pget<{ revision: string }>("/revision", "revision"),
+  add: (uri: string, label?: string) =>
+    psend<{ repo: RepoSummary }>("POST", "", { uri, label }),
+  remove: (id: string) => psend<{ ok: true }>("DELETE", `/${id}`),
+  refresh: (id: string) => psend<RepoStatus>("POST", `/${id}/refresh`),
+
+  /**
+   * The repository's tree. 202 means "known, but the mirror is still being fetched" — a
+   * state of its own, and neither an error nor an empty repository, so it is returned rather
+   * than thrown.
+   */
+  tree: async (
+    id: string,
+  ): Promise<{ nodes: FileNode[]; projects: string[] } | null> => {
+    const res = await fetch(`${BASE}/api/projects/${id}/tree`);
+    if (res.status === 202) return null;
+    return json(res, "tree");
+  },
+
+  sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
+  generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
+
+  /**
+   * Where l8 opens one of these projects. Derived from the page's own origin rather than
+   * declared: every studio service sits at a fixed path under one origin, so dev and
+   * production differ by that origin and nothing else. See apps/l8/frontend/docs/launch.md.
+   */
+  openIn: (repoUri: string, project: string): string => {
+    const q = new URLSearchParams({ repo: repoUri, project });
+    return `${serviceUrl(window.location.origin, "l8")}/?${q.toString()}`;
+  },
+};
 
 export const library = {
   summary: () =>

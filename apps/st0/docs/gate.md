@@ -2,7 +2,7 @@
 
 ## Why this app has one gate and l8 has three
 
-l8 stacks `AuthGate → EngineGate → WorkspaceGate`. st0 needs the first two ideas and
+l8 stacks `AuthGate → EngineGate → ProjectGate`. st0 needs the first two ideas and
 none of the third:
 
 - **Auth**, because the file service identifies a caller by email (`x-studio-user`) and
@@ -12,6 +12,10 @@ none of the third:
 - **No workspace.** The library is per MACHINE. The routes are mounted before
   `resolveWorkspace` and never read the header — which is why `api.ts` sends it empty
   rather than inventing a name.
+
+Note which way round that third one now runs. l8's gate no longer *picks* anything either:
+this app owns the repositories and opens l8 on one project (see [projects.md](projects.md)),
+so what used to be a workspace picker over there is a section over here.
 
 ## Why it does NOT take the engine lease
 

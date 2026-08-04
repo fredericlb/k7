@@ -454,10 +454,49 @@ export interface WorkspaceList {
   workspaces: WorkspaceSummary[];
 }
 
-/** Reply to GET/POST /ssh-key — the user's public key for cloning git workspaces
- * over SSH (the private half stays on the engine's machine and is never served). */
+/** Reply to GET/POST /api/projects/ssh-key on st0 — the user's PUBLIC deploy key, the one
+ * they paste into their git host. st0 generates the pair and owns the private half; see
+ * packages/git-repos/docs/keys.md. */
 export interface SshKeyInfo {
   publicKey: string | null;
+}
+
+/** Reply to GET /workspaces/by-repo — which workspace already holds a repository, if any. */
+export interface WorkspaceForRepo {
+  workspace: string | null;
+}
+
+/** A `git clone` in flight on the file service. Started by POST /workspaces/clone and polled
+ * at GET /workspaces/clone/:id, because the wait is long enough to be worth showing —
+ * see packages/file-service/docs/cloneJobs.md. */
+export interface CloneJob {
+  id: string;
+  workspace: string; // the folder it is cloning into, chosen from the repository's name
+  done: boolean;
+  failed: boolean;
+  error: string | null;
+  phase: string; // git's own words: "Receiving objects", "Resolving deltas", …
+  percent: number | null; // null while git is doing something it cannot measure
+  lines: string[]; // the tail of git's output, for a failure that needs reading
+}
+
+/** How st0's mirror of one repository is doing. `ready` means there is something to read,
+ *  whether or not a refresh is running on top of it. */
+export interface RepoStatus {
+  fetching: boolean;
+  ready: boolean;
+  error: string | null;
+}
+
+/** One git repository a person has added to st0, as the Projets section lists them. */
+export interface RepoSummary extends RepoStatus {
+  id: string;
+  uri: string;
+  label: string;
+  addedAt: string;
+  branch: string | null;
+  /** null while the mirror has never been read — "unknown" and "none" are different answers. */
+  projectCount: number | null;
 }
 
 /** An engine as the browser sees it — the secret token is never sent to the client. */

@@ -53,7 +53,6 @@ import {
 import { RecordingOverlay } from "./components/RecordingOverlay";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
-import { SshKeyPage } from "./components/SshKeyPage";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { Toaster } from "./components/Toast";
 import { VideoTab } from "./components/VideoTab";
@@ -1598,15 +1597,11 @@ export default function App({
         )}
         {settingsScreen && settingsScreen !== "io" && (
           <div className="absolute inset-0 z-40 bg-background">
-            {settingsScreen === "ssh-keys" ? (
-              <SshKeyPage onBack={() => setSettingsScreen(null)} />
-            ) : (
-              <EditorSettingsPage
-                vimMode={vimMode}
-                onToggleVim={() => void toggleVim()}
-                onBack={() => setSettingsScreen(null)}
-              />
-            )}
+            <EditorSettingsPage
+              vimMode={vimMode}
+              onToggleVim={() => void toggleVim()}
+              onBack={() => setSettingsScreen(null)}
+            />
           </div>
         )}
 

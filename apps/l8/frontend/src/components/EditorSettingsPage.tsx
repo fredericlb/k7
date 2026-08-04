@@ -24,7 +24,7 @@ export function EditorSettingsPage({
             <SlidersHorizontal className="h-5 w-5" /> {m["settings.editor"]()}
           </h1>
           <Button variant="secondary" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4" /> {m["sshKey.back"]()}
+            <ArrowLeft className="h-4 w-4" /> {m["common.back"]()}
           </Button>
         </div>
 

@@ -142,9 +142,10 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
   `apps/m9/frontend/src/Gate.tsx:22` ≡ `apps/st0/frontend/src/engine/EnginePicker.tsx:12`.
   l8 a la même table en `TIER_LABEL` (`EngineSelect.tsx:11`), via paraglide — donc c'est
   déjà la troisième. Foyer naturel : à côté de `chooseEngine`.
-- **Le spinner plein écran**, cinq copies du même bloc : `l8/{AuthGate,EngineGate,WorkspaceGate}`,
+- **Le spinner plein écran**, cinq copies du même bloc : `l8/{AuthGate,EngineGate,ProjectGate}`,
   `st0/Gate.tsx:33`, `m9/Gate.tsx:76`. Laissé tel quel : cinq blocs de présentation courts, sans
-  risque de dérive silencieuse.
+  risque de dérive silencieuse. (`WorkspaceGate` est devenu `ProjectGate` quand st0 a pris les
+  dépôts — voir `apps/st0/docs/projects.md`.)
 - **Le stub « pas de barre de commandes »**, trois copies : `m9/chains.tsx:74`,
   `st0/ChainView.tsx:45`, `st0/ModulePreview.tsx:63`.
 - **Le type `Phase`**, identique : `st0/engine/useModuleEngine.ts:18` ≡ `m9/useEngine.ts:14`.

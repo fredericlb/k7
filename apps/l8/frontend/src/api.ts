@@ -2,7 +2,7 @@
 //   • the hosted backend (same-origin, cookie): auth (/auth/*) + the engine registry.
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
 // The file service base + the identity/workspace/engine-token headers are set by
-// configureFileApi once an engine + workspace are chosen (see WorkspaceGate).
+// configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
@@ -10,6 +10,7 @@ import { serviceUrl } from "@studio/web-protocol/services";
 import {
   type Alternatives,
   type CatalogueModule,
+  type CloneJob,
   type CommandInfo,
   ENGINE_TOKEN_HEADER,
   type FileContent,
@@ -27,7 +28,6 @@ import {
   type ProjectErrors,
   type ProjectInfo,
   type PublicEngine,
-  type SshKeyInfo,
   USER_HEADER,
   type WaveformStatus,
   type WebGraph,
@@ -36,8 +36,8 @@ import {
   type WebTrack,
   type WebWaveform,
   WORKSPACE_HEADER,
+  type WorkspaceForRepo,
   type WorkspaceInfo,
-  type WorkspaceList,
 } from "./types";
 
 // The app is mounted under a path (studio.test/l8), so every backend path
@@ -243,13 +243,16 @@ export const api = {
     send<{ ok: true }>("PUT", `${BASE}/api/preferences`, p),
 
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
-  listWorkspaces: () => fget<WorkspaceList>("/workspaces"),
-  createWorkspace: (name: string) =>
-    fsend<{ ok: true }>("POST", "/workspaces", { name }),
-  cloneWorkspace: (name: string, uri: string) =>
-    fsend<{ ok: true }>("POST", "/workspaces/clone", { name, uri }),
-  sshKey: () => fget<SshKeyInfo>("/ssh-key"),
-  generateSshKey: () => fsend<SshKeyInfo>("POST", "/ssh-key", {}),
+  // A workspace is no longer something you pick here: st0 names a REPOSITORY, and these three
+  // resolve it to a folder on the engine's machine, cloning it if this machine has never seen
+  // it. See launch.ts and packages/file-service/docs/cloneJobs.md.
+  workspaceByRepo: (uri: string) =>
+    fget<WorkspaceForRepo>(
+      `/workspaces/by-repo?uri=${encodeURIComponent(uri)}`,
+    ),
+  startClone: (uri: string) =>
+    fsend<CloneJob>("POST", "/workspaces/clone", { uri }),
+  cloneStatus: (id: string) => fget<CloneJob>(`/workspaces/clone/${id}`),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
   project: () => fget<ProjectInfo>("/project"),
   workspace: () => fget<WorkspaceInfo>("/workspace"),

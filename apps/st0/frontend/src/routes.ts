@@ -3,15 +3,21 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The five things the header offers. `recordings` is a section and not a family — see Library.tsx. */
+/** The six things the header offers. `recordings` and `projects` are sections and not
+ *  families — see Library.tsx. A section id may not collide with a path Caddy claims above
+ *  st0's catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`); see docs/routing.md. */
 export const SECTION_IDS = [
   "songs",
   "samples",
   "modules",
   "chains",
   "recordings",
+  "projects",
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
+
+/** Named, like `RECORDINGS_DIR` is, so the section that is not a family reads as one thing. */
+export const PROJECTS_SECTION = "projects";
 
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);
@@ -25,6 +31,11 @@ export interface RouteState {
    *
    * Section-relative rather than library-relative, so the two halves don't repeat the
    * section: the path in the address reads exactly like the path on disk, once.
+   *
+   * Under `projects` it is not a file but a REPOSITORY id — the section has no builder, and
+   * what the address has to carry is which repository is open. Same slot, because it is the
+   * same question ("what, inside this section, are you looking at") and a second field would
+   * be empty for four of the six sections.
    */
   file: string | null;
 }
@@ -49,8 +60,10 @@ export function fromLocation(pathname: string): RouteState {
   const [head, ...rest] = segs;
   if (!head || !isSection(head))
     return { section: DEFAULT_SECTION, file: null };
-  // Only a module opens a file today; `recordings` and the two media families are listings.
-  const file = head === "modules" && rest.length ? rest.join("/") : null;
+  // Two sections carry something after their name: a module's file, and a repository's id.
+  // The other three are listings, and a path under one of them names nothing.
+  const carries = head === "modules" || head === "projects";
+  const file = carries && rest.length ? rest.join("/") : null;
   return { section: head, file };
 }
 

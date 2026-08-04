@@ -4,6 +4,7 @@ import {
   fromLocation,
   moduleOf,
   type RouteState,
+  SECTION_IDS,
   sameRoute,
   toPath,
 } from "./routes";
@@ -57,9 +58,27 @@ describe("fromLocation", () => {
       st(),
       st({ section: "modules" }),
       st({ section: "recordings" }),
+      st({ section: "projects" }),
       st({ section: "modules", file: "audio/reverb/presets.yaml" }),
+      // Under `projects` the second half is a repository id, not a file — same slot,
+      // different meaning. See routes.ts.
+      st({ section: "projects", file: "3f9a1c2b7e40" }),
     ])
       expect(fromLocation(toPath(s))).toEqual(s);
+  });
+
+  it("opens a repository from the address, so a link to one survives a reload", () => {
+    expect(fromLocation("/projects/3f9a1c2b7e40")).toEqual(
+      st({ section: "projects", file: "3f9a1c2b7e40" }),
+    );
+    expect(fromLocation("/projects")).toEqual(st({ section: "projects" }));
+  });
+
+  it("keeps the new section clear of the paths Caddy claims above st0", () => {
+    // A section named after another service would never reach this app at all — the edge
+    // matches `/l8`, `/m9`, `/k7`, `/z0` and `/dev` first. See docs/routing.md.
+    for (const taken of ["l8", "m9", "k7", "z0", "dev"])
+      expect(SECTION_IDS as readonly string[]).not.toContain(taken);
   });
 });
 

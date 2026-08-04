@@ -65,7 +65,22 @@ which it now does, literally.
 
 **One address is not st0's**, and Caddy claims it above the catch-all: `/l8`, `/m9`, `/k7`,
 `/z0` and `/dev` belong to the other services. A section named after one of those would be
-unreachable — the edge would never hand the request here. The five section ids are safe
-today; that is a constraint on adding a sixth.
+unreachable — the edge would never hand the request here. The six section ids are safe today,
+and `routes.test.ts` now asserts it rather than leaving it to be remembered.
+
+## The second half is not always a file
+
+`projects` is the sixth section and the second one to carry something after its name, but what
+it carries is a **repository id**, not a path inside a folder:
+
+```
+/projects                        the list of repositories
+/projects/3f9a1c2b7e40           …and the tree of the one that is open
+```
+
+It reuses `RouteState.file` deliberately. It is the same question — *what, inside this section,
+are you looking at* — and a field of its own would be null for four of the six sections while
+meaning exactly what this one already means. `fromLocation` keeps the whitelist that made
+`songs/some/thing.yaml` fall back to the bare section; it just has two entries now.
 
 The router sits **outside** the auth gate in `main.tsx`, so a deep link survives signing in.

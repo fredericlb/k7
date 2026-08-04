@@ -8,7 +8,6 @@ import {
   Boxes,
   DoorOpen,
   ExternalLink,
-  KeyRound,
   LogOut,
   Server,
   Settings,
@@ -22,7 +21,7 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
 
 // "io" is the odd one: App renders it as a DIALOG, not a full screen (see IoPanel). It is
 // listed here anyway — it is a settings surface, and a second menu for one entry is worse.
-export type SettingsScreen = "ssh-keys" | "editor" | "io";
+export type SettingsScreen = "editor" | "io";
 
 export function SettingsMenu({
   onOpenScreen,
@@ -99,16 +98,8 @@ export function SettingsMenu({
             </Button>
           </div>
           <div className="my-1 border-t border-border" />
-          <button
-            className={item}
-            onClick={() => {
-              onOpenScreen("ssh-keys");
-              setOpen(false);
-            }}
-          >
-            <KeyRound className="h-4 w-4 text-muted-foreground" />
-            {m["sshKey.title"]()}
-          </button>
+          {/* The SSH key is NOT here any more. It belongs to st0, which owns the repositories
+              and generates the one deploy key — see packages/git-repos/docs/keys.md. */}
           <button
             className={item}
             onClick={() => {

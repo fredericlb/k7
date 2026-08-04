@@ -1,0 +1,24 @@
+{
+  "name": "@studio/git-repos",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A git repository as the studio reads it: the SSH URI vocabulary, the per-user deploy key, and a bare blobless mirror that answers 'what files are in there' without a checkout. See docs/mirror.md and docs/keys.md.",
+  "types": "./src/uri.ts",
+  "exports": {
+    "./uri": "./src/uri.ts",
+    "./keys": "./src/keys.ts",
+    "./mirror": "./src/mirror.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@studio/web-protocol": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "vitest": "^4.1.10",
+    "typescript": "^7.0.2"
+  }
+}

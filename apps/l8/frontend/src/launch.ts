@@ -1,0 +1,73 @@
+// launch.ts — which project this editor was opened on. l8 no longer picks a workspace: st0
+// owns the repositories and links here with `?repo=&project=`, and this reads that ONCE, at
+// import time, before anything can rewrite the address. See docs/launch.md.
+
+/** Remembered per tab, so a reload lands back on the same project rather than at st0. */
+const KEY = "l8.launch";
+
+export interface Launch {
+  /** The SSH git URI, exactly as st0 holds it. */
+  repo: string;
+  /** The project folder inside the repository; "." when the repository IS the project. */
+  project: string;
+}
+
+/** Pure, so the parsing can be tested without a DOM — this repo's suites run in node. */
+export function parseLaunch(search: string): Launch | null {
+  const q = new URLSearchParams(search);
+  const repo = q.get("repo");
+  if (!repo) return null;
+  return { repo, project: q.get("project") || "." };
+}
+
+function remember(l: Launch): void {
+  try {
+    sessionStorage.setItem(KEY, JSON.stringify(l));
+  } catch {
+    /* private mode — this tab still works, a reload just goes back to st0 */
+  }
+}
+
+function remembered(): Launch | null {
+  try {
+    const raw = sessionStorage.getItem(KEY);
+    if (!raw) return null;
+    const l = JSON.parse(raw) as Launch;
+    return l?.repo ? l : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * READ AT IMPORT, and that is the whole point of this module existing.
+ *
+ * `useViewRoute` rewrites the address on every state change (`replace`), and what it writes
+ * comes from `routes.ts`, which knows nothing about these two parameters — so they are gone
+ * within a frame of the first render. Reading them here, before React mounts, is what makes
+ * that harmless.
+ */
+// `globalThis.location`, not `window`, for the reason api.ts gives at MEDIATEK_URL: this
+// module is imported by tests that run in node, where `window` is not defined at all.
+const captured = parseLaunch(globalThis.location?.search ?? "");
+if (captured) remember(captured);
+
+/** Where this editor was pointed, or null — which means "you did not come from st0". */
+export function launchTarget(): Launch | null {
+  return captured ?? remembered();
+}
+
+/** Forget it, for the way back out. */
+export function clearLaunch(): void {
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+/** The address of one project in this repository, for a link out of l8 and back in. */
+export function launchUrl(base: string, repo: string, project: string): string {
+  const q = new URLSearchParams({ repo, project });
+  return `${base.replace(/\/+$/, "")}/l8/?${q.toString()}`;
+}

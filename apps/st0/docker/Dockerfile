@@ -80,6 +80,11 @@ RUN npm ci --omit=dev
 
 # ---- final image -----------------------------------------------------------
 FROM ${BASE_IMAGE} AS runtime
+# git and ssh, for the Projets section: this service mirrors a user's repositories to list
+# what is in them, and generates the deploy key it reads them with. `openssh-client` is what
+# carries BOTH `ssh` (named by GIT_SSH_COMMAND) and `ssh-keygen` — git alone would clone
+# nothing, since every repository here is reached over SSH. See ../../docs/projects.md.
+RUN apk add --no-cache git openssh-client
 WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY --from=pruner /repo/out-backend/full/ ./

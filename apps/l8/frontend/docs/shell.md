@@ -3,9 +3,15 @@
 ## What wraps the editor (`main.tsx`)
 
 The gates, outermost first: **AuthGate** (you must be signed in — hosted backend OIDC),
-**EngineGate** (pick which registered engine to drive), and **WorkspaceGate** (rendered by
-EngineGate: pick a workspace on that engine, then mount the editor). Several tabs may open
-one workspace at once — there is no single-tab lease.
+**EngineGate** (pick which registered engine to drive), and **ProjectGate** (rendered by
+EngineGate: resolve the repository this editor was opened on into a folder on that engine's
+machine — cloning it if it has never been there — then mount the editor). Several tabs may
+open one project at once — there is no single-tab lease.
+
+**ProjectGate picks nothing.** l8 no longer knows what a workspace list is: st0 owns the
+repositories and links here with `?repo=&project=`, and arriving without them sends you back
+there. Read [launch.md](launch.md) before touching any of it — in particular why
+`src/launch.ts` reads the address at *import* time and not in a component.
 
 `LocaleProvider` sits above all of them: switching language remounts its children, so
 nothing that renders a message may live above it.

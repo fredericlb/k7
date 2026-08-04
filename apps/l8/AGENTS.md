@@ -33,7 +33,7 @@ The file service does **not** share the session cookie. Its CORS allowlist
 (`packages/file-service/src/cors.ts`) is the actual security boundary: deny-by-default,
 loopback/private plus the user-trusted origins in `~/.studio/web-origins.json`.
 
-`AuthGate` → `EngineGate` → `WorkspaceGate` → editor. The engine picker is unreachable
+`AuthGate` → `EngineGate` → `ProjectGate` → editor. The engine picker is unreachable
 until logged in. Auth falls back to a "Dev User" stub when no `OIDC_*` env is set, but
 login is still mandatory.
 
@@ -141,18 +141,31 @@ a `registry.ts` here.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.
 
-## Users and workspaces
+## l8 is opened ON a project — it does not pick one
 
-Identity is the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`.
-Workspace CRUD via `GET/POST /workspaces`; the active project is remembered
-per-workspace in a `.studio-active` marker.
+**This app no longer owns workspaces.** st0 owns the repositories (`apps/st0/docs/projects.md`)
+and links here with two parameters:
 
-Workspaces can be **cloned from SSH git repos** (`POST /workspaces/clone`) with a
-per-user deploy key under `~/.studio/ssh/<slug>/`. The clone blanks the global git config
-(`GIT_CONFIG_GLOBAL=/dev/null`) so an `url.insteadOf` rewrite can't sidestep the key.
+```
+/l8/?repo=git%40host%3Ame%2Fsongs.git&project=songs%2Ffirst
+```
 
-There is **no global session file**. `~/.studio/session.json` is gone; the workspace is
-the scope.
+`ProjectGate` resolves that repository to a folder on the chosen engine's machine — asking
+`GET /workspaces/by-repo`, and cloning it with a visible progress bar if that machine has
+never seen it — then opens the project. Arriving with no parameters redirects to st0's
+`/projects`; there is deliberately no fallback picker.
+
+`src/launch.ts` reads those parameters **at import time**, because `useViewRoute` rewrites the
+address from `routes.ts` alone within a frame of the first render and would otherwise drop
+them. Read `frontend/docs/launch.md` before touching it.
+
+Gone from here: `WorkspaceGate`, `WorkspaceSelect`, `SshKeyPage`, and `api.listWorkspaces` /
+`createWorkspace` / `sshKey` / `generateSshKey`. The deploy key is st0's now — one key per
+person, which the file service fetches a copy of (`packages/git-repos/docs/keys.md`).
+
+Identity is still the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`, and the
+active project is still remembered per-workspace in a `.studio-active` marker. What changed is
+who chooses. There is **no global session file**; the workspace is the scope.
 
 ## Many browsers at once (no lease)
 

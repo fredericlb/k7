@@ -5,6 +5,9 @@ import { AuthGate } from "./components/AuthGate";
 import { EngineGate } from "./components/EngineGate";
 import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
+// Imported for its SIDE EFFECT and named here on purpose: it reads `?repo=&project=` at
+// import time, and the router below starts rewriting the address as soon as it mounts.
+import "./launch";
 import "./index.css";
 
 // Report main-thread stalls to the console, so a "random freeze" leaves evidence. Cheap, and console-only.

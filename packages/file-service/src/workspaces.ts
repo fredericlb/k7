@@ -1,14 +1,19 @@
 // workspaces.ts — the live set of Workspace instances, one per (userSlug, workspace),
 // plus listing a user's workspaces for the picker.
 
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import {
+  assertSshGitUri,
+  normalizeGitUri,
+  repoName,
+} from "@studio/git-repos/uri";
 import type { WorkspaceSummary } from "@studio/web-protocol";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { slugify, userRoot, workspaceRoot } from "./slug.ts";
-import { publicKey, sshCommand } from "./sshKeys.ts";
+import { ensureKey, sshCommand } from "./sshKeys.ts";
 import { isProjectDir, Workspace } from "./workspace.ts";
 
 const run = promisify(execFile);
@@ -67,17 +72,26 @@ export function createWorkspace(userEmail: string, workspace: string): boolean {
   return true;
 }
 
-// SSH ONLY: the per-user key carries the privilege, and an https URI would sidestep it and hang on a prompt.
-// Both shapes anchor on an alphanumeric first char, so a URI can never reach git looking like an option.
-const SCP_URI = /^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:[A-Za-z0-9._~/-]+$/; // git@host:path
-const SSH_URL =
-  /^ssh:\/\/([A-Za-z0-9._-]+@)?[A-Za-z0-9._-]+(:\d+)?\/[A-Za-z0-9._~/-]+$/;
+// Re-exported: the rule moved to @studio/git-repos when st0 started needing it too, and
+// callers here should not have to know that.
+export { assertSshGitUri };
 
-export function assertSshGitUri(uri: string): void {
-  if (!SCP_URI.test(uri) && !SSH_URL.test(uri))
-    throw new Error(
-      `not an SSH git URI: ${uri} — use git@host:path or ssh://host/path`,
-    );
+function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    GIT_SSH_COMMAND: sshCommand(userEmail),
+    GIT_TERMINAL_PROMPT: "0", // fail rather than prompt (no terminal to answer)
+    // Load-bearing, not hygiene: a personal `insteadOf` rewrite turns the SSH URI back to https, privilege and all.
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_CONFIG_NOSYSTEM: "1",
+  };
+}
+
+/** What a clone reports as it runs — enough to draw a bar and to say what went wrong. */
+export interface CloneProgress {
+  phase: string;
+  percent: number | null;
+  line: string;
 }
 
 /**
@@ -85,41 +99,152 @@ export function assertSshGitUri(uri: string): void {
  * `createWorkspace`) a workspace comes into existence on request.
  * Throws with git's stderr on failure — that text ("Permission denied (publickey)",
  * "Host key verification failed") is exactly what the user needs to see.
+ *
+ * `onProgress` is what makes the wait visible; see docs/cloneJobs.md.
  */
 export async function cloneWorkspace(
   userEmail: string,
   workspace: string,
   uri: string,
+  onProgress?: (p: CloneProgress) => void,
 ): Promise<void> {
   assertSshGitUri(uri);
   const slug = slugify(userEmail);
   const root = workspaceRoot(slug, workspace); // validates the name
   if (existsSync(root))
     throw new Error(`workspace already exists: ${workspace}`);
-  if (!publicKey(userEmail))
-    throw new Error(
-      "no SSH key yet — generate one on the SSH key page and add it to your git host first",
-    );
+  // Throws NoKeyError with a sentence naming the fix; st0 owns the key, this machine holds a copy.
+  await ensureKey(userEmail);
   mkdirSync(userRoot(slug), { recursive: true });
   try {
-    await run("git", ["clone", "--", uri, root], {
-      env: {
-        ...process.env,
-        GIT_SSH_COMMAND: sshCommand(userEmail),
-        GIT_TERMINAL_PROMPT: "0", // fail rather than prompt (no terminal to answer)
-        // Load-bearing, not hygiene: a personal `insteadOf` rewrite turns the SSH URI back to https, privilege and all.
-        GIT_CONFIG_GLOBAL: "/dev/null",
-        GIT_CONFIG_NOSYSTEM: "1",
-      },
-      timeout: 120_000,
-      maxBuffer: 8 * 1024 * 1024,
-    });
+    await gitClone(uri, root, gitEnvFor(userEmail), onProgress);
   } catch (e) {
     // `root` didn't exist above, so whatever is there is our debris — a half-clone must not survive in the picker.
     rmSync(root, { recursive: true, force: true });
-    const err = e as { stderr?: string; message: string };
-    throw new Error((err.stderr || err.message).trim());
+    throw e;
   }
+  forgetRemotes(slug);
+}
+
+/** `--progress` because git only writes counters when it thinks it has a terminal. */
+function gitClone(
+  uri: string,
+  root: string,
+  env: NodeJS.ProcessEnv,
+  onProgress?: (p: CloneProgress) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", ["clone", "--progress", "--", uri, root], {
+      env,
+    });
+    let tail = "";
+    const stderr: string[] = [];
+    const timer = setTimeout(() => child.kill(), 120_000);
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      // \r as well as \n: git rewrites the counter line in place rather than emitting new ones.
+      const parts = (tail + chunk).split(/\r\n|[\r\n]/);
+      tail = parts.pop() ?? "";
+      for (const line of parts) {
+        const text = line.trim();
+        if (!text) continue;
+        // Kept whole for the error message; git's last words are the useful ones.
+        stderr.push(text);
+        if (stderr.length > 200) stderr.shift();
+        onProgress?.(parse(text));
+      }
+    });
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(
+        (e as { code?: string }).code === "ENOENT"
+          ? new Error(
+              "the 'git' CLI is required — install it from https://git-scm.com",
+            )
+          : e,
+      );
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) return resolve();
+      // git's own words, not ours: "Permission denied (publickey)" is the whole answer.
+      reject(
+        new Error(stderr.join("\n").trim() || `git clone failed (${code})`),
+      );
+    });
+  });
+}
+
+function parse(line: string): CloneProgress {
+  const pct = /(\d+)%/.exec(line);
+  const colon = line.indexOf(":");
+  return {
+    phase: colon > 0 ? line.slice(0, colon).trim() : line,
+    percent: pct ? Number(pct[1]) : null,
+    line,
+  };
+}
+
+// A workspace's remote, by name. Filled lazily and dropped whole when a clone adds one —
+// `git config` per workspace on every lookup would be a subprocess per poll.
+const remotes = new Map<string, string | null>();
+const forgetRemotes = (slug: string) => {
+  for (const k of [...remotes.keys()])
+    if (k.startsWith(`${slug}/`)) remotes.delete(k);
+};
+
+async function remoteOf(slug: string, name: string): Promise<string | null> {
+  const key = `${slug}/${name}`;
+  const cached = remotes.get(key);
+  if (cached !== undefined) return cached;
+  let value: string | null = null;
+  try {
+    const { stdout } = await run(
+      "git",
+      ["config", "--get", "remote.origin.url"],
+      { cwd: workspaceRoot(slug, name), timeout: 10_000 },
+    );
+    value = normalizeGitUri(stdout.trim());
+  } catch {
+    // Not a repository, no origin, or a remote spelling we refuse — all "no repo here".
+    value = null;
+  }
+  remotes.set(key, value);
+  return value;
+}
+
+/**
+ * The workspace already holding this repository, or null.
+ *
+ * This is what stops l8 re-cloning something that is already on disk, and it compares
+ * NORMALIZED uris because the two sides learn the address by different routes: st0 has what
+ * was pasted, this has whatever `git` wrote into `remote.origin.url`.
+ */
+export async function workspaceForRepo(
+  userEmail: string,
+  uri: string,
+): Promise<string | null> {
+  const want = normalizeGitUri(uri);
+  const slug = slugify(userEmail);
+  const dir = userRoot(slug);
+  if (!existsSync(dir)) return null;
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (!e.isDirectory() || e.name.startsWith(".")) continue;
+    if ((await remoteOf(slug, e.name)) === want) return e.name;
+  }
+  return null;
+}
+
+/** A free workspace name for this repository — its own, then `-2`, `-3`… */
+export function workspaceNameFor(userEmail: string, uri: string): string {
+  const slug = slugify(userEmail);
+  const base = repoName(uri) || "repo";
+  if (!existsSync(workspaceRoot(slug, base))) return base;
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${base}-${n}`;
+    if (!existsSync(workspaceRoot(slug, candidate))) return candidate;
+  }
+  throw new Error(`no free workspace name for ${base}`);
 }
 
 // Every workspace folder under the user's root; a first-seen user gets Examples, the one never asked for.

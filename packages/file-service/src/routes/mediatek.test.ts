@@ -105,6 +105,8 @@ describe("GET /mediatek/search", () => {
   it("clamps a greedy limit rather than refusing it", async () => {
     const r = await fetch(`${base}/mediatek/search?limit=99999`);
     expect(r.status).toBe(200);
-    expect(Array.isArray(((await r.json()) as { entries: unknown[] }).entries)).toBe(true);
+    expect(
+      Array.isArray(((await r.json()) as { entries: unknown[] }).entries),
+    ).toBe(true);
   });
 });

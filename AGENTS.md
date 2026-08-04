@@ -19,6 +19,7 @@ the **why**. Long rationale belongs in the zone's `docs/` directory:
 | the rehearsal recorder | `apps/k7/docs/` |
 | the blind-test game | `apps/z0/docs/` |
 | the build scripts | `engine/capot/scripts/docs/` |
+| the git repositories | `packages/git-repos/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
 (Those are notes for developers. `apps/l8/docs/` is the exception: it is the
@@ -39,8 +40,8 @@ one app:
 |---|---|---|
 | `engine/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
 | `engine/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
-| `apps/l8` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies st0's session and mounts no auth routes). Owns the timeline; shares the chains view. |
-| `apps/st0` | TypeScript | The media library — songs, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which l8 draws too. It also connects to a local `engine/moteur` to ask a plugin what its parameters are. It is the **home page**: it has no path prefix, so it answers `studio.test` / `studio.frediver.se` itself — and therefore owns `/auth/*` for the whole origin, since the registered `redirect_uri` has no prefix either. |
+| `apps/l8` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies st0's session and mounts no auth routes). Owns the timeline; shares the chains view. It is **opened on one project** by st0 and picks nothing itself — see `apps/l8/frontend/docs/launch.md`. |
+| `apps/st0` | TypeScript | The media library — songs, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which l8 draws too. It also connects to a local `engine/moteur` to ask a plugin what its parameters are. It is the **home page**: it has no path prefix, so it answers `studio.test` / `studio.frediver.se` itself — and therefore owns `/auth/*` for the whole origin, since the registered `redirect_uri` has no prefix either. It also owns the account's **git repositories** and the one deploy key, and launches l8 on a project (`apps/st0/docs/projects.md`). |
 | `apps/m9` | TypeScript | The decks — `frontend/` plus `backend/` (this service's engine registry, and which machine the account DJs from; auth is st0's, verified here). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `engine/moteur`, because the engine opens file paths and cannot fetch a URL. |
 | `apps/z0` | TypeScript | The blind-test game — six SPAs behind one origin. |
 | `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
@@ -53,7 +54,7 @@ as **raw TypeScript source**: no build step, imported through `package.json`
 |---|---|
 | the song | `song` (folder of YAML → `ProjectDoc` + `GraphDoc`), `commands` (one verb list for every surface), `translator` (`.dawproject` import), `dsp` (write a module's DSP in JS) |
 | the engine | `engine-protocol` (the wire, mirrored in C++), `engine-client` (Node), `engine-browser` (browser + React store), `engine-host` (the supervisor — a **program**, not a library), `engine-registry` (which engines exist; each service holds its own registry INSTANCE — one shared implementation, `createRegistry()` per service) |
-| the disk | `file-service` (every file operation, on the engine's machine — l8' backend has none), `mediatek` (the media library), `user-prefs` |
+| the disk | `file-service` (every file operation, on the engine's machine — l8' backend has none), `mediatek` (the media library), `user-prefs`, `git-repos` (the SSH URI vocabulary, the deploy key, and the bare blobless mirror st0 reads a repository through) |
 | the views | `ui-chains` + `ui-chains-react` (the chains graph — l8, st0 and m9 all draw it), `ui-editor` (YAML + note grids), `ui-eyes` (WebGL video), `ui-waveform`, `ui-module-builder` (l8 and st0) |
 | the types | `web-protocol`, `graph-model` (split out so drawing a graph doesn't drag in auth) |
 | z0 | `player-web` — the blind-test player, with a moteur-backed seam behind it |

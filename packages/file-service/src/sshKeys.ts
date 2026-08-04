@@ -1,61 +1,70 @@
-// sshKeys.ts — per-user SSH keys for cloning git workspaces, one keypair per user slug
-// under ~/.studio/ssh/<slug>/. They live on the ENGINE's machine because the clone
-// runs here. The user pastes the PUBLIC half into their git host; the private half
-// never leaves this machine and no route serves it.
+// sshKeys.ts — the deploy key this machine clones with. It is NOT made here any more: st0
+// owns the studio's git identity and this fetches a copy over the channel the two services
+// already share (MEDIATEK_URL + MEDIATEK_TOKEN). One key per person, one to register with a
+// git host. Why the private half is allowed to travel: packages/git-repos/docs/keys.md.
 
-import { execFile } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { promisify } from "node:util";
 import { sshDir } from "@studio/engine-client/paths";
+import {
+  hasKey,
+  installKey,
+  sshCommand as sshCommandFor,
+} from "@studio/git-repos/keys";
 import { slugify } from "./slug.ts";
 
-const run = promisify(execFile);
-
-function keyPath(slug: string): string {
-  return join(sshDir(slug), "id_ed25519");
+/** Where this machine keeps its copy — unchanged, so an existing key is still found. */
+function dirFor(userEmail: string): string {
+  return sshDir(slugify(userEmail));
 }
 
-/** The user's public key, or null if none was generated yet. */
-export function publicKey(userEmail: string): string | null {
-  try {
-    return readFileSync(keyPath(slugify(userEmail)) + ".pub", "utf8").trim();
-  } catch {
-    return null;
+export class NoKeyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NoKeyError";
   }
 }
 
-/** Generate the user's keypair if absent (idempotent) and return the public key. */
-export async function generateKey(userEmail: string): Promise<string> {
-  const existing = publicKey(userEmail);
-  if (existing) return existing;
-  const slug = slugify(userEmail);
-  mkdirSync(sshDir(slug), { recursive: true });
-  // -N "" = no passphrase: the clone runs unattended. ssh-keygen sets the 600 mode ssh insists on.
-  await run("ssh-keygen", [
-    "-t",
-    "ed25519",
-    "-N",
-    "",
-    "-C",
-    `studio-${slug}`,
-    "-f",
-    keyPath(slug),
-  ]);
-  const pub = publicKey(userEmail);
-  if (!pub) throw new Error("ssh-keygen reported success but wrote no key");
-  return pub;
+/**
+ * Make sure this user's key is on disk, fetching it from st0 if it is not.
+ *
+ * Idempotent and cheap once the key is there — the common case does no network at all. A
+ * fetch failure is reported with the library's own words where it has any, because "no key
+ * yet" and "the hosted library is down" need opposite fixes from the person reading it.
+ */
+export async function ensureKey(userEmail: string): Promise<void> {
+  const dir = dirFor(userEmail);
+  if (hasKey(dir)) return;
+  const base = process.env.MEDIATEK_URL;
+  if (!base)
+    throw new NoKeyError(
+      "no SSH key on this machine and no hosted library configured (MEDIATEK_URL) to ask for one",
+    );
+  const token = process.env.MEDIATEK_TOKEN;
+  if (!token)
+    throw new NoKeyError(
+      "no SSH key on this machine, and no API token (MEDIATEK_TOKEN) to fetch one with — paste a token into this machine's settings",
+    );
+  const res = await fetch(
+    `${base.replace(/\/+$/, "")}/api/projects/ssh-key/private`,
+    { headers: { authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) {
+    const said = await res
+      .json()
+      .then((b) => (b as { error?: string }).error)
+      .catch(() => null);
+    throw new NoKeyError(
+      said || `could not fetch the SSH key: ${res.status} ${res.statusText}`,
+    );
+  }
+  const body = (await res.json()) as {
+    privateKey?: string;
+    publicKey?: string | null;
+  };
+  if (!body.privateKey) throw new NoKeyError("the library returned no key");
+  await installKey(dir, body.privateKey, body.publicKey ?? undefined);
 }
 
 /** The GIT_SSH_COMMAND that pins git to this user's key. */
 export function sshCommand(userEmail: string): string {
-  const slug = slugify(userEmail);
-  // IdentitiesOnly stops an agent offering the human's keys, BatchMode fails instead of prompting, and accept-new
-  // pins the host key into OUR known_hosts. git splits this sh-style even on Windows, hence the forward slashes.
-  const key = keyPath(slug).replaceAll("\\", "/");
-  const hosts = join(sshDir(slug), "known_hosts").replaceAll("\\", "/");
-  return (
-    `ssh -i "${key}" -o IdentitiesOnly=yes -o BatchMode=yes ` +
-    `-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${hosts}"`
-  );
+  return sshCommandFor(dirFor(userEmail));
 }
