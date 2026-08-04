@@ -16,6 +16,7 @@ import {
   parseChains,
 } from "./graph";
 import {
+  type Diagnostic,
   exportSub,
   isVideoSource,
   loadChains,
@@ -51,6 +52,7 @@ import type {
 import {
   EXTERNAL_PLUGIN_FORMATS,
   enginePlugin,
+  JSDSP_TYPE,
   MIXER_PLUGIN,
   parseMarkers,
   parseSettings,
@@ -226,6 +228,24 @@ function placementToClip(
  * place if there is one; failing that the module falls back to the plugin's own default graph and the engine
  * says so. One broken effect must not take a song down.
  */
+/**
+ * `params` as the engine takes them: numbers only.
+ *
+ * A file-valued param (`nam`) is authored in the same map, because to the person editing the
+ * module it IS one of the plugin's controls. It cannot travel as one: the wire's params are
+ * `Record<string, number>`, mirrored in C++ as a float map, and a string there is not a value
+ * the engine could set. It leaves as `namFile` instead, which is what the engine already
+ * expected — so the authored shape changed and the protocol did not.
+ */
+function numericParams(
+  params: Record<string, number | string> | undefined,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(params ?? {}))
+    if (typeof v === "number") out[k] = v;
+  return out;
+}
+
 function readJsDspGraph(source: string): string | undefined {
   if (!existsSync(source)) return undefined;
   const built = source.replace(/\.[tj]sx?$/, "") + ".json";
@@ -368,7 +388,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const clipsMap = clipsRead.values as Record<string, RawClip>;
   const seqMap = exportSub(dir, "sequences");
   const videoTracksMap = loadVideoTracks(dir, true);
-  const moduleRefs = loadModuleRefs(dir, root.project?.modules_from ?? []); // the `extends` vocabulary
+  // Read WITH their issues, for the same reason the clips are: a library module the schema
+  // rejects is dropped from this map, and without its own complaint the only symptom is
+  // "extends unknown module" about a file sitting right there on disk.
+  const refIssues: Diagnostic[] = [];
+  const moduleRefs = loadModuleRefs(dir, undefined, refIssues); // the `extends` vocabulary
   // Plus the shared modules the chains name by ref — a step may use one directly.
   // Resolved here, once: every `extends` is folded in before the compile loop reads a
   // field, which is what lets it read `module.ir` rather than `module.ir ?? base.ir`.
@@ -386,8 +410,16 @@ export function compileNodeProject(dir: string): ProjectDoc {
       // A missing module is NOT fatal: it compiles to nothing, like a bypassed step, and the graph draws a `?`.
       if (!module) continue;
       const ext = String(module.extends ?? "");
-      if (ext && !moduleRefs[ext])
-        refErrs.push(`module '${moduleName}': extends unknown module '${ext}'`);
+      if (ext && !moduleRefs[ext]) {
+        // On disk but unreadable is a different fault from absent, and only the file's own
+        // complaint says which line is wrong — the same distinction the clip check makes.
+        const broke = refIssues.find((i) => i.file.startsWith(`${ext}/`));
+        refErrs.push(
+          broke
+            ? `module '${moduleName}': extends '${ext}', which ${broke.message}`
+            : `module '${moduleName}': extends unknown module '${ext}'`,
+        );
+      }
     }
   for (const [trackId, t] of Object.entries(tracksMap))
     for (const p of Array.isArray(t?.clips) ? t.clips : []) {
@@ -511,6 +543,20 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const ownerOf = (name: string, c: Chain): string =>
     isTrackFed(c) ? String(c.from) : busChains.has(name) ? name : "";
 
+  /**
+   * The TRACK a step's side input comes from, or "" when it resolves to none.
+   *
+   * A step's `in` names NODES — a chain, or the track feeding one (see docs/ports.md) — and the engine routes
+   * a second signal from a LANE, so each is put through the same ownership rule the plugins are: a track-fed
+   * chain contributes to its source track, a bus to its own return track. Anything else (a chain that feeds
+   * neither) has nothing the engine could route from, and compiles to no second input rather than to a lie.
+   */
+  const sideInputTrack = (id: string): string => {
+    const c = chains[id];
+    if (c) return ownerOf(id, c);
+    return tracksMap[id] ? id : "";
+  };
+
   const trackPlugins: Record<string, PluginDoc[]> = {};
   const trackSends: Record<string, SendDoc[]> = {};
   // Collected here, baked into breakpoints below once the song's length (for LFO sampling) is known.
@@ -583,8 +629,19 @@ export function compileNodeProject(dir: string): ProjectDoc {
 
       const plugin = module.plugin;
       // Only a KNOWN format reaches the engine; not_supported/unknown pass through, and the graph flags them.
+      //
+      // `jsdsp` is one of them. It is what an AUTHOR writes for a module whose DSP is the
+      // `jsdsp.ts` beside it, and `enginePlugin` maps it to the built-in graph host two lines
+      // down — but this gate ran first and did not know the word, so every module written in
+      // the new form was dropped from the compiled doc SILENTLY. Nothing warned: a step whose
+      // module compiles to nothing is how a bypass looks. The médiathèque's own modules are
+      // exactly the ones already migrated, so they were the ones that vanished.
       const rawType = String(plugin?.type ?? "").toLowerCase();
-      if (rawType !== "internal" && !EXTERNAL_PLUGIN_FORMATS.has(rawType))
+      if (
+        rawType !== "internal" &&
+        rawType !== JSDSP_TYPE &&
+        !EXTERNAL_PLUGIN_FORMATS.has(rawType)
+      )
         continue;
       const { type, name: pluginName } = enginePlugin(plugin, step.module);
       if (!type) continue; // internal missing its name
@@ -603,8 +660,9 @@ export function compileNodeProject(dir: string): ProjectDoc {
         // external plugin; a built-in falls back to the module name (see enginePlugin).
         name: pluginName,
         path: String(module.preset ?? ""), // resolved preset to load
-        // Library files (an IR, a .nam model), absolute; inherited like the preset, omitted entirely when there is none.
-        ...(module.ir ? { irFile: String(module.ir) } : {}),
+        // The .nam model, absolute — authored as `params: {nam: …}` and resolved against the
+        // module's assets/, but it leaves as its OWN field, because the engine loads it rather
+        // than setting it: `params` on the wire is numeric and stays that way.
         ...(module.nam ? { namFile: String(module.nam) } : {}),
         // The DSP graph, built here and carried inline: the engine parses no files, and this one declares the
         // plugin's parameters, so it has to be in the doc rather than fetched later.
@@ -614,10 +672,19 @@ export function compileNodeProject(dir: string): ProjectDoc {
           const json = readJsDspGraph(String(src));
           return json ? { dspGraph: json } : {};
         })(),
+        // The feeder of the module's SECOND input port, as a lane. Only the first is carried: Tracktion
+        // routes one such source per plugin, so a module declaring a third port can be wired and drawn but
+        // not yet fed — see docs/ports.md, which says where that limit sits and why.
+        ...(() => {
+          const from = (Array.isArray(step.in) ? step.in : [])
+            .map(sideInputTrack)
+            .find((t) => t);
+          return from ? { sidechainFrom: from } : {};
+        })(),
         presetSave,
         role: "",
         enabled: c.enabled !== false && step.enabled !== false,
-        params: module.params ?? {}, // resolved, so this is exactly what the graph shows
+        params: numericParams(module.params), // resolved, so this is exactly what the graph shows
       });
     }
     for (const { to, gain } of outTargets(c)) {

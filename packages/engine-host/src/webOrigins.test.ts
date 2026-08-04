@@ -10,7 +10,7 @@ import {
   seedDefault,
 } from "./webOrigins.ts";
 
-// Ported from apps/capot/src-tauri/src/weburi.rs. These are not formatting tests:
+// Ported from engine/capot/src-tauri/src/weburi.rs. These are not formatting tests:
 // the value `normalise` returns is compared against a browser's `Origin` header to
 // decide whether the file service answers, so every case here is a boundary case.
 

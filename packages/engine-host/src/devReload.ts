@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 /**
  * The exit code that means "I stopped on purpose, start me again now".
  *
- * Mirrored in apps/capot/src-tauri/src/host.rs, which uses it to relaunch WITHOUT the
+ * Mirrored in engine/capot/src-tauri/src/host.rs, which uses it to relaunch WITHOUT the
  * crash backoff — otherwise two quick edits would put a dev on a 4s, then 8s wait. Any
  * value outside Node's own reserved 0–13 range works; this one is arbitrary.
  */

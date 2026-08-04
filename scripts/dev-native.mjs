@@ -12,10 +12,10 @@ import {
   buildDevApp,
   launch,
   stopAll,
-} from "../apps/capot/scripts/trayProcess.mjs";
+} from "../engine/capot/scripts/trayProcess.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
-const engineDir = join(repo, "apps", "moteur");
+const engineDir = join(repo, "engine", "moteur");
 
 // Long enough that a formatter's write burst is one rebuild, short enough to feel like a save.
 const DEBOUNCE_MS = 500;
@@ -50,12 +50,12 @@ const TARGETS = {
   capot: {
     dirs: [
       {
-        path: join(repo, "apps", "capot", "src-tauri", "src"),
+        path: join(repo, "engine", "capot", "src-tauri", "src"),
         recursive: true,
         match: (base) => base.endsWith(".rs"),
       },
       {
-        path: join(repo, "apps", "capot", "src-tauri"),
+        path: join(repo, "engine", "capot", "src-tauri"),
         recursive: false,
         match: (base) =>
           base === "Cargo.toml" ||
@@ -76,7 +76,7 @@ function buildEngine() {
   const script = { win32: "build:win", darwin: "build:mac" }[process.platform];
   if (!script) {
     log(
-      "no engine build script for this platform — leaving apps/moteur/build as it is",
+      "no engine build script for this platform — leaving engine/moteur/build as it is",
     );
     return;
   }
@@ -227,5 +227,5 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
     }
   }
 
-log("watching apps/moteur and apps/capot — save to rebuild and restart");
+log("watching engine/moteur and engine/capot — save to rebuild and restart");
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

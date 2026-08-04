@@ -201,7 +201,7 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   } catch (e) {
     console.warn(`   mediatek unavailable: ${(e as Error).message}`);
   }
-  console.log(`📁 pistes file service on http://0.0.0.0:${FILE_PORT}`);
+  console.log(`📁 l8 file service on http://0.0.0.0:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
   // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
   syncAllRepos();

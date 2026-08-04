@@ -5,7 +5,7 @@ throwaway mockup, not a design** — measure end-to-end latency, the CPU cost on
 thread, and what happens when a listener drops, *before* writing anything definitive.
 
 This page is the browser half of that mockup, and the reasoning behind every number in it.
-The engine half is `apps/moteur/docs/broadcast.md`.
+The engine half is `engine/moteur/docs/broadcast.md`.
 
 ## Why a binary frame on the existing socket
 
@@ -122,7 +122,7 @@ only appears with time.
 
 ## What the measurements actually said
 
-`node apps/moteur/scripts/listen-headless.mjs ws://HOST:PORT [seconds]` bundles *these*
+`node engine/moteur/scripts/listen-headless.mjs ws://HOST:PORT [seconds]` bundles *these*
 modules with esbuild, serves them, and drives headless Chrome over CDP — so the worklet
 below really renders, with nobody in the room. Two runs against a live engine on loopback:
 
@@ -147,7 +147,7 @@ short run and lost one block to the long one, with the ring down to 64 frames. S
 default became 150 ms.
 
 That is the whole shape of the lesson: a cushion is not sized against the network, it is
-sized against the worst stall of the machine playing it back. Expect a real pistes tab, with
+sized against the worst stall of the machine playing it back. Expect a real l8 tab, with
 a React tree and a canvas, to be worse than this one.
 
 **Drift, by contrast, was a non-event** — −0.17 ms/min here, −0.46 ms/min measured from

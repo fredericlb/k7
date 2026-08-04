@@ -60,6 +60,8 @@ interface NodeJson {
   in?: (string | number)[];
   /** Sample-phase nodes only: their SCALAR inputs, kept apart from the audio wires in `in`. */
   k?: (string | number)[];
+  /** `ain` only: which of the module's input PORTS to read. Absent is the first (the chain's flow). */
+  port?: number;
   out?: string;
   mode?: string;
   shape?: string;
@@ -197,9 +199,23 @@ export class GraphBuilder {
     return { name, rate: "audio" };
   }
 
-  /** The incoming audio, as a wire. */
-  input(): Audio {
-    return this.anode("ain", [], []);
+  /**
+   * An incoming signal, as a wire. `port` is an index into the module's OWN input ports (module.yaml's
+   * `inputs:`): 0 is the chain's flow, 1 the first side input, and so on — see packages/song/docs/ports.md.
+   *
+   * It is an index and not a name because the graph and the module file are two documents: the graph is
+   * generated JSON the engine reads with no module in sight, and a name would have to be matched across the
+   * gap by something. Position is what the port list already is (validate() checks its sources positionally),
+   * so the index is the one fact both sides can hold on their own.
+   *
+   * A port nothing feeds reads silence rather than failing: `mandatory: false` says wiring one side and
+   * leaving the other quiet is a legitimate state, and this is what that sounds like.
+   */
+  input(port = 0): Audio {
+    const out = `n${this.counter++}`;
+    // The first port emits no field at all, so every graph written before ports existed is byte-identical.
+    this.json.nodes.push({ type: "ain", ...(port > 0 ? { port } : {}), out });
+    return { name: out, rate: "audio" };
   }
 
   /**

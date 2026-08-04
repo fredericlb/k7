@@ -6,7 +6,7 @@ import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { scaffold } from "./scaffold";
 
-// A new project is the one worked example a reader gets, and the only project pistes
+// A new project is the one worked example a reader gets, and the only project l8
 // writes from scratch — so "does it load and play" is the whole contract. Nothing covered
 // it while the template was CUE, which made rewriting it in YAML riskier than it needed to
 // be: a mistyped field would have surfaced as an unopenable project on someone's machine.

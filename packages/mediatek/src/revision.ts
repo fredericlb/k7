@@ -67,7 +67,7 @@ export function bumped(key: RevisionKey): void {
 /**
  * One family's change token.
  *
- * PER FAMILY, not one for the whole library: importing a morceau must not invalidate the
+ * PER FAMILY, not one for the whole library: importing a song must not invalidate the
  * module list, and the families move at wildly different rates — a sample pack is dropped
  * in once, modules are edited all afternoon.
  */
@@ -76,7 +76,7 @@ export function familyRevision(family: Family): string {
   return `${mutations[family] ?? 0}:${count}:${newest}`;
 }
 
-/** The capture zone's own token. It used to ride on `morceaux`, which cost that family a
+/** The capture zone's own token. It used to ride on the songs family, which cost it a
  *  pointless refetch on every capture; a zone at the root answers for itself. */
 export function recordingsRevision(): string {
   const { count, newest } = walk(recordingsDir());

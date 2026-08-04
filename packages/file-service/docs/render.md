@@ -1,7 +1,7 @@
 # Rendering for a hosted backend
 
 `POST /render` bounces a compiled `ProjectDoc` to audio on this machine and streams the wav
-back. It exists for exactly one caller: obscura's backend, which is hosted in a container
+back. It exists for exactly one caller: z0's backend, which is hosted in a container
 and cannot exec anything itself.
 
 ## Why a process and not a message
@@ -32,7 +32,7 @@ deliberate.
 
 ## The shape of the route
 
-One request, one file, no job id. A render of an obscura clip takes seconds and the caller
+One request, one file, no job id. A render of an z0 clip takes seconds and the caller
 is a server: a polling protocol would be machinery in front of a wait shorter than the poll
 interval. `--stems` is deliberately not offered — N files need a job to hold them, and
 nothing asks for it.
@@ -49,9 +49,9 @@ renders repeatedly, and each attempt costs a song's worth of disk.
 
 Both come back as 422 with the sentence; anything else is 500.
 
-## obscura's side, and why it is the exception
+## z0's side, and why it is the exception
 
-`apps/obscura/backend/src/render.ts` picks the machine from **`OBSCURA_RENDER_ENGINE`**, an
+`apps/z0/backend/src/render.ts` picks the machine from **`Z0_RENDER_ENGINE`**, an
 environment variable holding that machine's file-service base URL.
 
 Configured, not chosen, and not per user. Every other service in studio asks a person which

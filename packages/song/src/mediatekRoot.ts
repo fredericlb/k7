@@ -8,13 +8,14 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 /**
- * What a project writes in `modules_from` / `libraries_from` to mean "the machine's
- * media library".
+ * The level a médiathèque module is named under — `@mediatek/audio/reverb`.
  *
- * A NAME, never a path, because `project.yaml` is committed: an absolute path would break
- * on the next machine, leak a home directory into a shared repo, and give every developer
- * a different diff. It reads like `@engine/…`, and for the same reason — the project says
- * WHICH library it wants and lets the loader find it.
+ * It was also what a project wrote in `modules_from`/`libraries_from` to mean "the machine's
+ * media library". Those lists are gone: the folder is at a fixed location, so a project
+ * declaring it stated something the loader already knew (see sharedFolders.ts). What is left
+ * is the ref PREFIX, which is a name in the song's own vocabulary and not a path — the point
+ * it always was, since `project.yaml` is committed and an absolute path would break on the
+ * next machine.
  */
 export const MEDIATEK_REF = "@mediatek";
 
@@ -35,17 +36,8 @@ export function mediatekRoot(): string {
   );
 }
 
-/**
- * Resolve one `modules_from` / `libraries_from` entry, or null when it isn't the token.
- *
- * `kind` is what the FIELD asked for, which is what makes a bare `@mediatek` unambiguous
- * in both lists: `modules_from` wants the modules, `libraries_from` wants the assets. The
- * project names a library; where its folders sit is not its business.
- */
-export function resolveMediatekRef(
-  p: string,
-  kind: "modules" | "library",
-): string | null {
-  if (p !== MEDIATEK_REF) return null;
+/** One of the library's two halves — `modules/` for what a chain names, `library/` for the
+ *  assets a module loads. Both are found here rather than joined by hand at each call site. */
+export function mediatekDirFor(kind: "modules" | "library"): string {
   return join(mediatekRoot(), kind);
 }

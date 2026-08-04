@@ -3,17 +3,35 @@
 // plugin scan cache); extracted from workspace.ts, where it was the class's largest
 // method with no instance state at all.
 
+import { join } from "node:path";
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
 import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
-import { listLibrary, listLibraryKinds } from "@studio/song/loader";
-import { EXTERNAL_PLUGIN_FORMATS } from "@studio/song/project";
+import { listModuleAssets } from "@studio/song/loader";
+import { EXTERNAL_PLUGIN_FORMATS, JSDSP_TYPE } from "@studio/song/project";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
 // was declared here a second time, identically, and docs/loader.md's list of copies to
 // keep in step did not even mention this one.
 export { EXTERNAL_PLUGIN_FORMATS };
+
+/** A module's own `assets/`, or nothing — for a module with no folder of its own (one the
+ *  engine provides, named by a chain with no local file), there is nothing to list. */
+function assetChoicesFor(
+  dir: string,
+  module: { category?: string; file?: string } | undefined,
+): string[] | undefined {
+  if (!module?.category || !module?.file) return undefined;
+  try {
+    const files = listModuleAssets(
+      join(dir, "modules", String(module.category), String(module.file)),
+    );
+    return files.length ? files : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function buildGraphDoc(dir: string): WebGraph {
   // loadGraph reads chains.yaml exactly as the compile does.
@@ -41,8 +59,16 @@ export function buildGraphDoc(dir: string): WebGraph {
         const fmt = plugin?.type ? String(plugin.type).toLowerCase() : "";
         // A stub is a plugin slot with no plugin — not a rack, which legitimately carries a sampler instead.
         const stub = isPlugin && type !== "rack" && !plugin;
-        // A plugin pistes can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
-        const known = fmt === "internal" || EXTERNAL_PLUGIN_FORMATS.has(fmt);
+        // A plugin l8 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
+        //
+        // `jsdsp` is known: the engine loads its built-in graph host and is handed the graph
+        // (see enginePlugin). Missing here it cost the node BOTH its colour and its values —
+        // red, and no `pluginId`, which is the address the panel asks the engine for a
+        // parameter by. A module that plays perfectly drew as one that could not load.
+        const known =
+          fmt === "internal" ||
+          fmt === JSDSP_TYPE ||
+          EXTERNAL_PLUGIN_FORMATS.has(fmt);
         const notSupported = isPlugin && fmt === "not_supported";
         const unscanned =
           isPlugin &&
@@ -64,8 +90,30 @@ export function buildGraphDoc(dir: string): WebGraph {
           module: s.module,
           // Everything below already reads `undefined` off a missing module; this flag is what lets the graph SAY so.
           missing: module ? undefined : true,
-          // As authored (inherited like params), so a library dropdown can show what's loaded without asking the engine.
+          // Only when there is more than one: a single flow input is what every node already
+          // draws, and sending the list for all of them would put a field on every step to say
+          // what its absence already says.
+          inputs:
+            module && module.inputs.length > 1
+              ? module.inputs.map((i) => ({
+                  name: i.name,
+                  type: i.type,
+                  // Only when false: absent means mandatory on both sides, so the common port
+                  // costs no field. It is what decides whether a socket shows before it is fed.
+                  ...(i.mandatory === false ? { mandatory: false } : {}),
+                }))
+              : undefined,
+          // The outputs, on the same "only when there is more than one" terms.
+          outputs:
+            module && module.outputs.length > 1
+              ? module.outputs.map((o) => ({ name: o.name, type: o.type }))
+              : undefined,
+          // As authored (inherited like params), so an asset dropdown can show what's loaded without asking the engine.
           assets: module?.assets,
+          // …and what it may choose from: the module's OWN assets/, walked. Per module rather
+          // than once for the graph, because there is no shared library any more — the choices
+          // ARE the folder's contents. An unreadable folder is an empty one, never a failure.
+          assetChoices: assetChoicesFor(dir, module),
           // Its type folder — the node's icon. From the module itself, never its base: a kind comes from where IT lives.
           category: module?.category as WebChainStep["category"],
           // What leaves this module — the colour of the cable to the next one.
@@ -133,14 +181,6 @@ export function buildGraphDoc(dir: string): WebGraph {
   }
   return {
     chains,
-    // An unreadable library is an empty one — it must not take the graph down.
-    libraryFiles: (() => {
-      try {
-        return listLibraryKinds(dir).flatMap((k) => listLibrary(dir, k));
-      } catch {
-        return [];
-      }
-    })(),
     tracks: Object.keys(g.tracks),
     videoTracks: Object.keys(g.videoTracks),
     trackColors,

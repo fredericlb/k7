@@ -1,6 +1,6 @@
 // media.ts — which extensions are audio and which are video. One list, because the scan
 // decides what to LIST by it and the upload decides what to ACCEPT by it: a file the upload
-// took and the scan does not recognise is a morceau the library cannot see.
+// took and the scan does not recognise is a song the library cannot see.
 
 const AUDIO_EXT = new Set([
   ".wav",

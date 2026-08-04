@@ -1,0 +1,16 @@
+# Two decks meeting at one module — the shape a single chain cannot express, because a chain
+# carries ONE signal.
+#
+# `deckA` FLOWS into the crossfade: a bare destination is the flow, so the crossfade continues
+# deckA's run as a step. `deckB` names a PORT, `#b`, so it lands on the module's second input
+# without claiming it as its own next step — which is what stops deckB from swallowing the
+# module and leaving its real input unnoticed.
+#
+# There is no chain called `crossfade`: it has one flow feeder, so it is a step inside deckA's
+# run rather than a meeting point. See packages/song/docs/ports.md.
+
+tracks:
+  deckA: [ crossfade ]
+  deckB: [ crossfade#b ]
+modules:
+  crossfade: [ OUT ]

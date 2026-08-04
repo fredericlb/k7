@@ -9,8 +9,8 @@ describe("validate", () => {
     tracks: {},
     videoTracks: {},
     disabledTracks: [],
-    modules: { OUT: { kind: "io", io: "out", inputs: [] } },
-    moduleRefs: { OUT: { kind: "io", io: "out", inputs: [] } },
+    modules: { OUT: { kind: "io", io: "out", inputs: [], outputs: [] } },
+    moduleRefs: { OUT: { kind: "io", io: "out", inputs: [], outputs: [] } },
     warnings: [],
   });
 
@@ -63,7 +63,7 @@ describe("validate", () => {
 // nothing feeding a chain that runs nothing is a diagram-shaped lie.
 describe("disabled tracks (and the chains they feed)", () => {
   const OUT = {
-    OUT: { kind: "io", io: "out", inputs: [] },
+    OUT: { kind: "io", io: "out", inputs: [], outputs: [] },
   } as unknown as Parameters<typeof buildGraph>[5];
   const build = (tracks: Record<string, unknown>, chains: unknown) =>
     buildGraph(

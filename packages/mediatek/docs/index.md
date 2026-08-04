@@ -31,7 +31,7 @@ Both answered 200 and appeared nowhere, which reads as the call having done noth
 `scanUnlisted` is the missing half: every path no entry accounts for, family-relative,
 beside the entries in the same listing.
 
-An ENTRY's folder is never descended into. A morceau and a module ARE folders and their
+An ENTRY's folder is never descended into. A song and a module ARE folders and their
 insides are theirs — so a module's own files travel **on the entry**, as `files`. A tree
 drawing one needs both halves of that: what is actually in the folder (instances, a
 `.vstpreset`, a jsdsp source) and which of the three canonical names are missing, so it can
@@ -40,7 +40,7 @@ files of its own showed neither, and read as having been flattened on the way in
 
 ## Why the token is per family
 
-`familyRevision()` is computed for `morceaux`, `samples` and `modules` separately.
+`familyRevision()` is computed for `songs`, `samples` and `modules` separately.
 
 One token for the whole library would mean importing a track invalidates the module list,
 and the families move at completely different rates — a sample pack is dropped in once and

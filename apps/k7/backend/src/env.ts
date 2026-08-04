@@ -1,4 +1,5 @@
 import { defineEnv, port, z } from "@frediverse/env";
+import { STUDIO_ORIGIN, serviceUrl } from "@studio/web-protocol/services";
 
 const raw = defineEnv(
   {
@@ -8,13 +9,19 @@ const raw = defineEnv(
     GRIST_API_URL: z.string().optional(),
     GRIST_DOC_ID: z.string().optional(),
     GRIST_API_KEY: z.string().optional(),
-    // Where a session's audio LIVES, since it stopped being a Grist attachment. The dev
-    // default reaches the médiathèque's backend DIRECTLY rather than through Caddy: this
-    // is a server-to-server call, and https://studio.test carries Caddy's local CA, which
-    // Node does not trust without being told to. A deployment sets its own.
-    MEDIATEK_URL: z.string().default("http://127.0.0.1:8795"),
-    // Minted by `POST /api/token` on the médiathèque, signed in. Without it the library
-    // refuses the push — its routes are behind a session or a bearer, never open.
+    // Where a session's audio LIVES, since it stopped being a Grist attachment. Defaulted
+    // to the médiathèque's FIXED address — every studio service sits at a known path under
+    // one origin, so there is nothing to choose and a deployment sets nothing.
+    //
+    // A CHECKOUT is the exception, and `npm run tokens` writes it: everything is behind
+    // Caddy's `tls internal` there, whose local CA node does not trust, so this
+    // server-to-server call takes the loopback port instead (verified: fetching
+    // https://studio.test from node fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY, in the
+    // browser beside it works). See docs/tokens.md.
+    MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "st0")),
+    // Written by `npm run tokens` too — signed with the médiathèque's own API_TOKEN_SECRET,
+    // which that script generates. Without it the library refuses the push: its routes are
+    // behind a session or a bearer, never open.
     MEDIATEK_TOKEN: z.string().optional(),
   },
   { service: "k7-backend" },

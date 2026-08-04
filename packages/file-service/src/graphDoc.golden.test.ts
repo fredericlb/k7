@@ -13,7 +13,7 @@ import { buildGraphDoc } from "./graphDoc";
 // scan cache, consulted (isPluginScanned) solely for EXTERNAL formats, and both demos
 // use `plugin.type: internal` or no plugin at all.
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
-const SONGS = join(here, "..", "..", "..", "apps", "capot", "songs");
+const SONGS = join(here, "..", "..", "..", "engine", "capot", "songs");
 
 // Blank absolute paths — machine-specific, so the snapshot holds structure, not this
 // checkout's location. POSIX, Windows drive-letter, and UNC.

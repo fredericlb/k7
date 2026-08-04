@@ -1,7 +1,7 @@
 // types.ts — the chains routing graph as the browser receives it (mirrors the essentials
 // of the song compiler's GraphDoc). Types only, so the whole module is erased at runtime.
-// Lives apart from @studio/web-protocol because three apps draw chains — pistes, mediatek's
-// module builder, m9 — and only pistes wants auth, workspaces and the registry.
+// Lives apart from @studio/web-protocol because three apps draw chains — l8, st0's
+// module builder, m9 — and only l8 wants auth, workspaces and the registry.
 
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")
@@ -66,10 +66,25 @@ export interface WebChainStep {
   // The chain names a module this project doesn't have. Not fatal: the step compiles to nothing and the graph
   // draws the name with a `?`. Bypass is the one thing it takes.
   missing?: boolean;
-  // Library files this module loads, by asset kind ("ir", "nam"), library-relative — the dropdown's current choice.
+  /** The module's INPUT ports, when it has more than the one every module has. Carried so the
+   *  renderer can draw a jack per port and land each cable on the one it names; absent means the
+   *  single flow input, which is every module drawn before ports existed. See ports.md.
+   *
+   *  `mandatory` rides along because it decides how many sockets show before anything is wired:
+   *  a port that must be fed is drawn from the start, an optional one appears as the free jack
+   *  past the last occupied one. Absent == mandatory, matching the module schema. */
+  inputs?: { name: string; type: WebSignal; mandatory?: boolean }[];
+  /** …and its OUTPUT ports, on the same terms — sent only when there is more than one, since one
+   *  is what every module has and what a node with no list draws. All of them are shown at once:
+   *  an output is offered rather than required, so there is nothing to reveal progressively. */
+  outputs?: { name: string; type: WebSignal }[];
+  // The files this module loads, by param name ("nam"), relative to its own assets/ — the dropdown's current choice.
   assets?: Record<string, string>;
+  // …and what it may choose FROM: the module's own assets/, walked. Per module and not per
+  // graph, because there is no shared library any more — the choices are the folder's contents.
+  assetChoices?: string[];
   stub?: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported?: boolean; // plugin.type is "not_supported" — pistes can't load it; bypassed
+  notSupported?: boolean; // plugin.type is "not_supported" — l8 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
   // The UI drawn inside this module's rectangle, already merged (extended module's, overridden per widget id by
@@ -77,7 +92,9 @@ export interface WebChainStep {
   ui?: WebModuleUI;
   // What the module actually runs with (defaults + overrides). A bound param may be ABSENT — the plugin's own
   // default is known only to the engine, so a widget with no value falls back to its authored min.
-  params?: Record<string, number>;
+  // A STRING is a file-valued param (`nam`), drawn as a dropdown over the module's assets/ rather
+  // than a knob; the engine never sees it as a param (see nodeProject's numericParams).
+  params?: Record<string, number | string>;
   // The engine's PluginDoc id (`chain:module`) — what set-plugin-param addresses. Only for a real plugin.
   pluginId?: string;
   // io "in" only: whether the interface signal is audible. A module FIELD, not a param — which is why a widget
@@ -111,10 +128,35 @@ export interface WebModuleMeta {
   docs?: string;
   todos?: string[];
 }
+/**
+ * How a routing graph names a PORT on a node: `crossfade#b`.
+ *
+ * `#` because the other two separators are taken and mean something else — `:` joins a module to
+ * its instance and `/` joins a namespace to a category to a name. A port is a third axis, so it
+ * needed a third character rather than an overload of one of those: `@mediatek/audio/crossfade:live#b`
+ * has to stay readable as three separate facts. See `@studio/song`'s docs/ports.md.
+ *
+ * Here, in the types tier, because BOTH sides need it: the compiler derives chains from these
+ * refs and the renderer draws cables to the jack they name — and the renderer deliberately does
+ * not depend on the compiler.
+ */
+export const PORT_SEP = "#";
+
+/** A ref split into the node it names and the port on it, if any. Only the LAST `#` is the port,
+ *  so every other separator in the ref is left alone. */
+export function splitPort(ref: string): { node: string; port?: string } {
+  const cut = ref.lastIndexOf(PORT_SEP);
+  if (cut <= 0) return { node: ref }; // no separator, or a ref that IS one — not a port
+  const port = ref.slice(cut + 1);
+  return port ? { node: ref.slice(0, cut), port } : { node: ref };
+}
+
+/** …and back. A port-less ref is the node's own name, unchanged — the overwhelming case, and
+ *  what every chains file written so far says. */
+export const portRef = (node: string, port?: string): string =>
+  port ? `${node}${PORT_SEP}${port}` : node;
+
 export interface WebGraph {
-  // The shared asset library, library-relative — what a module UI's library dropdown offers. Carried here because
-  // that is what the node renderer has in hand; the same list is in Hints.
-  libraryFiles?: string[];
   chains: Record<string, WebChain>;
   tracks: string[]; // track ids, for resolving `from`
   // Video track ids. A video lane is a chain source like any other, and one no chain mentions is still drawn.

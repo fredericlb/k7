@@ -8,7 +8,7 @@ a graph came from.
 
 What stays in each app is the **shell**: fetching `/graph`, the reload polling, the chain
 list beside the canvas, the parked camera (a graph unmounts with its pane, so the camera
-has to live above it), and optimistic state like a pending bypass. pistes' `ChainsTab` is
+has to live above it), and optimistic state like a pending bypass. l8' `ChainsTab` is
 ~500 lines of that against 2100 shared here.
 
 There is deliberately no `ChainsShell` yet. Promote one when two apps have written the
@@ -17,7 +17,7 @@ same sidebar — guessing it now would be guessing.
 ## What a host must supply
 
 **`icons` — required, and the compiler enforces it.** The glyphs are the app's vocabulary,
-not the graph's: pistes draws the same track icons in its mixer and its timeline, so they
+not the graph's: l8 draws the same track icons in its mixer and its timeline, so they
 cannot live here without those two importing a chains package. They reach the nested node
 components through a context, but the PROVIDER is not a caller's job — the component takes
 `icons` as a required prop and provides it itself. There is no arrangement in which a host
@@ -41,7 +41,7 @@ read silent, which is the truth for a host with no engine.
 ## What it emits
 
 `onContextMenu(ctx, x, y)` carries a `GraphMenuCtx` — four kinds, the ones a node can be:
-`track`, `module`, `chain`, `sink`. That is the graph's own vocabulary. pistes' `MenuCtx` is
+`track`, `module`, `chain`, `sink`. That is the graph's own vocabulary. l8' `MenuCtx` is
 a superset covering timeline things (markers, clip placements) this cannot produce, and a
 host whose type is wider accepts the handler unchanged.
 

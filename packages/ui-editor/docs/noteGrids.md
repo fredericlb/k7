@@ -35,7 +35,7 @@ Mounted into a standalone pane by `plugin.ts`'s `mountSeqGrid`, filling the whol
 Time runs left→right, pitch top→bottom, one lane per semitone. A left gutter names each
 pitch (the piano keys); a top ruler numbers the bars.
 
-The note area FILLS the pane — pistes, gridlines and notes are positioned in PERCENTAGES
+The note area FILLS the pane — l8, gridlines and notes are positioned in PERCENTAGES
 of it, so it stretches both ways with the pane instead of scrolling a fixed grid. Click
 an empty cell to add a one-step note; click a note to remove it.
 

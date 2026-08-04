@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { extname, join } from "node:path";
-import type { PluginOut, Song } from "./dawproject.js";
+import type { PluginOut, Song } from "./model.js";
 
 const BEGIN = "STUDIO_PARAMS_BEGIN";
 const END = "STUDIO_PARAMS_END";
@@ -95,7 +95,7 @@ function dumpOne(
     if (!entry)
       return {
         ok: false,
-        reason: `not in the plugin cache — run 'pistes engine scan' (looked up by name '${p.name}')`,
+        reason: `not in the plugin cache — run 'l8 engine scan' (looked up by name '${p.name}')`,
       };
     const stateFile = join(tmpDir, `state${extname(p.path) || ".vstpreset"}`);
     writeFileSync(stateFile, stateBytes);

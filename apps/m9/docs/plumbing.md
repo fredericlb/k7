@@ -3,14 +3,14 @@
 The plan's last leaf, and the one it called the real test: *"m9 (second consommateur
 des étapes 5 et 6 : c'est là qu'on découvre si les coutures étaient réelles)"*.
 
-v1 is deliberately small — pick a morceau, the engine plays it — so what it actually tests
+v1 is deliberately small — pick a song, the engine plays it — so what it actually tests
 is étape 6 (the médiathèque as a catalogue for a *second* app) and étape 7 (listening to
 what the engine puts out). The chains view, which is étape 5's seam, is not here yet.
 
 ## Three endpoints, and only one of them is hosted
 
 **The moteur opens file paths.** It cannot fetch a URL. So the thing m9 plays from is
-not the hosted médiathèque at `media.studio.frediver.se` — it is the *cache* of it on a
+not the hosted médiathèque at `studio.frediver.se` (st0) — it is the *cache* of it on a
 disk, and only that machine's own file service knows where that is. That has not changed and
 will not.
 
@@ -23,7 +23,7 @@ What changed is that m9 gained a small backend of its own:
 | playback | the CHOSEN engine | `wsUrl` from its probe reply |
 
 The backend holds no media and no files. It knows **who you are** and **which engines
-exist**, never what is on any engine's disk — pistes' backend, verbatim, for the same reason.
+exist**, never what is on any engine's disk — l8' backend, verbatim, for the same reason.
 
 Two text boxes disappeared with it. The file service's address used to default to
 `http://127.0.0.1:8770` and be editable; the DJ used to type their own identity into a
@@ -42,9 +42,9 @@ choice is remembered — see `packages/user-prefs/docs/store.md` and
 The picker is a gate rather than a panel, unlike the médiathèque's: an editor without an
 engine still edits text, but a deck without one has nothing to do at all.
 
-## The gap that had to be filled: a morceau is a folder
+## The gap that had to be filled: a song is a folder
 
-`MediatekEntry.path` is the **folder** — a morceau is a folder with a `morceau.yaml` beside
+`MediatekEntry.path` is the **folder** — a song is a folder with a `song.yaml` beside
 its audio — so an entry alone was not enough to open anything. The scan already found the
 master file to report its size; it just never said its name.
 
@@ -62,7 +62,7 @@ one shape would be this app deciding something it does not own.
 `@studio/player-web/moteur` builds a one-track document from a path in its first ten lines,
 which is the whole of `deck.ts`. It was tempting.
 
-It implements **obscura's** `Player`: `preloadSong`, `playMulti`, `playDual`,
+It implements **z0's** `Player`: `preloadSong`, `playMulti`, `playDual`,
 `playReversed`, nine effect sliders. Nine tenths of that is a blind test's vocabulary, and a
 deck routed through it would inherit semantics it has to explain away — what `preloadSong`
 means when there is no round, why `playReversed` rejects.
@@ -106,7 +106,7 @@ that rather than a lit button.
 * **No mixing, no cue, no tempo.** v1 is "choose a song and diffuse it", literally.
 * **The file service still trusts the header.** m9 now proves who you are to its OWN
   backend, and sends that identity as `x-studio-user` — but the file service verifies no
-  session, so its CORS allowlist is still the real boundary, as it is for pistes. What the
+  session, so its CORS allowlist is still the real boundary, as it is for l8. What the
   login bought is that the identity is no longer typed by hand; it is not yet a gate on the
   machine's disk.
 * **Never run end to end.** The 8 tests cover the two things that decide — the path join and

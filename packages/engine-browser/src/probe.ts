@@ -1,10 +1,18 @@
-// probe.ts — classify each registered engine into a locality tier by actually reaching it:
-// loopback answers = same machine (Tier 1), a LAN IP answers = same LAN (Tier 2), neither
-// = elsewhere. The probe sends {type:"whoami"} and MATCHES THE ID, so a lookalike listener
-// can't pass as this engine; the reply's token goes to the backend.
+// probe.ts — MEASURE each registered engine by reaching it: the whoami round trip is the
+// network half, the buffer size it reports is the audio half, and their sum is the latency
+// every surface then bands into Q1/Q2/Q3 (see @studio/web-protocol/quality). The probe sends
+// {type:"whoami"} and MATCHES THE ID, so a lookalike listener can't pass as this engine; the
+// reply's token goes to the backend.
+//
+// This replaced a locality TIER — loopback answered, or a LAN address did, or neither. That
+// ranked a gigabit LAN below a laptop whose interface sat at 2048 frames, which is backwards:
+// what a musician can and cannot do on an engine is decided by the milliseconds, not by which
+// cable they arrive over. Unreachable stays its own state, because it is not a slow link.
 
-/** How near an engine is. 1 = this machine, 2 = this LAN, 3 = unreachable from here. */
-export type EngineTier = 1 | 2 | 3;
+import {
+  type EngineLatency,
+  engineLatency,
+} from "@studio/web-protocol/quality";
 
 /**
  * The least an engine must tell us to be probed. Declared structurally rather than
@@ -23,24 +31,46 @@ export interface ProbeTarget {
 
 export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
   engine: E;
-  tier: EngineTier;
-  wsUrl: string | null; // the engine ws address that answered; null for Tier 3
-  fileBase: string | null; // the file service on the SAME host; null for Tier 3
-  token: string | null; // from the whoami reply; null for Tier 3
+  /** What this link costs, measured. Null when nothing answered — unreachable is not a latency. */
+  latency: EngineLatency | null;
+  wsUrl: string | null; // the engine ws address that answered; null when unreachable
+  fileBase: string | null; // the file service on the SAME host; null when unreachable
+  token: string | null; // from the whoami reply; null when unreachable
+}
+
+/** Reachable, and therefore measured. Narrows the four nullable fields in one test. */
+export function isReachable<E extends ProbeTarget>(
+  r: RankedEngine<E>,
+): r is RankedEngine<E> & {
+  latency: EngineLatency;
+  wsUrl: string;
+  fileBase: string;
+  token: string;
+} {
+  return r.latency !== null && r.wsUrl !== null;
 }
 
 const PROBE_TIMEOUT_MS = 1500;
 
-// Try one address. Resolves the engine's token on a matching whoami, else null.
+/** What one address answered: its token, the round trip, and the device it is playing through. */
+interface Reply {
+  token: string;
+  rttMs: number;
+  bufferFrames: number;
+  sampleRate: number;
+}
+
+// Try one address. Resolves the whoami reply on a matching id, else null.
 function probeOne(
   url: string,
   expectId: string,
   timeoutMs = PROBE_TIMEOUT_MS,
-): Promise<string | null> {
+): Promise<Reply | null> {
   return new Promise((resolve) => {
     let ws: WebSocket;
     let done = false;
-    const finish = (token: string | null) => {
+    let sentAt = 0;
+    const finish = (reply: Reply | null) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
@@ -49,7 +79,7 @@ function probeOne(
       } catch {
         /* not open */
       }
-      resolve(token);
+      resolve(reply);
     };
     const timer = setTimeout(() => finish(null), timeoutMs);
     try {
@@ -57,16 +87,31 @@ function probeOne(
     } catch {
       return finish(null); // malformed url / blocked scheme
     }
-    ws.onopen = () => ws.send(JSON.stringify({ type: "whoami" }));
+    ws.onopen = () => {
+      // Timed from the SEND, not from the connect: a WebSocket handshake includes a TCP
+      // open and, over TLS, a negotiation — none of which a frame pays again. What we want
+      // is what one message costs on an established socket, which is what playing uses.
+      sentAt = performance.now();
+      ws.send(JSON.stringify({ type: "whoami" }));
+    };
     ws.onmessage = (ev) => {
       try {
         const m = JSON.parse(String(ev.data)) as {
           type?: string;
           id?: string;
           token?: string;
+          bufferSize?: number;
+          sampleRate?: number;
         };
         if (m.type === "whoami" && m.id === expectId)
-          finish(typeof m.token === "string" ? m.token : "");
+          finish({
+            token: typeof m.token === "string" ? m.token : "",
+            rttMs: performance.now() - sentAt,
+            // Absent from an engine older than this reply, or one whose device has not
+            // opened yet. Zero reads as "not measured" downstream, never as "instant".
+            bufferFrames: Number(m.bufferSize ?? 0),
+            sampleRate: Number(m.sampleRate ?? 0),
+          });
       } catch {
         /* ignore non-JSON frames */
       }
@@ -77,7 +122,6 @@ function probeOne(
 }
 
 interface Candidate {
-  tier: EngineTier;
   host: string; // the host that answered — the file service is on the same host
   url: string;
 }
@@ -85,36 +129,46 @@ interface Candidate {
 function candidatesFor(e: ProbeTarget): Candidate[] {
   const { loopback, lanIps, port } = e.addresses;
   return [
-    { tier: 1, host: loopback, url: `ws://${loopback}:${port}` },
-    ...lanIps.map(
-      (ip): Candidate => ({ tier: 2, host: ip, url: `ws://${ip}:${port}` }),
-    ),
+    { host: loopback, url: `ws://${loopback}:${port}` },
+    ...lanIps.map((ip): Candidate => ({ host: ip, url: `ws://${ip}:${port}` })),
   ];
 }
 
 async function rank<E extends ProbeTarget>(e: E): Promise<RankedEngine<E>> {
-  // Probe every candidate at once and take the lowest tier that answered, paying no serial timeout for misses.
+  // Every address at once, paying no serial timeout for the misses — then the FASTEST that
+  // answered, which is the whole ranking now. Loopback usually wins it; when a LAN address
+  // wins instead, that is a measurement rather than an exception to a rule.
   const results = await Promise.all(
     candidatesFor(e).map(async (c) => ({
       c,
-      token: await probeOne(c.url, e.id),
+      reply: await probeOne(c.url, e.id),
     })),
   );
-  const hits = results.filter((r) => r.token !== null);
-  hits.sort((a, b) => a.c.tier - b.c.tier);
-  if (hits.length) {
-    const best = hits[0];
-    // The file service is on the SAME host that answered, at its advertised port.
-    const fileBase = `http://${best.c.host}:${e.addresses.filePort}`;
+  const hits = results.flatMap((r) =>
+    r.reply ? [{ c: r.c, reply: r.reply }] : [],
+  );
+  hits.sort((a, b) => a.reply.rttMs - b.reply.rttMs);
+  if (!hits.length)
     return {
       engine: e,
-      tier: best.c.tier,
-      wsUrl: best.c.url,
-      fileBase,
-      token: best.token,
+      latency: null,
+      wsUrl: null,
+      fileBase: null,
+      token: null,
     };
-  }
-  return { engine: e, tier: 3, wsUrl: null, fileBase: null, token: null };
+  const best = hits[0];
+  return {
+    engine: e,
+    latency: engineLatency(
+      best.reply.rttMs,
+      best.reply.bufferFrames,
+      best.reply.sampleRate,
+    ),
+    wsUrl: best.c.url,
+    // The file service is on the SAME host that answered, at its advertised port.
+    fileBase: `http://${best.c.host}:${e.addresses.filePort}`,
+    token: best.reply.token,
+  };
 }
 
 /**
@@ -169,10 +223,16 @@ export function probeLocalEngine(
   });
 }
 
-// Rank every engine, closest tier first. Assigned ones are ranked too, so a caller can grey rather than hide.
+// Measure every engine, LOWEST LATENCY first; the unreachable sink to the bottom, since they
+// are not a slow link but no link. Assigned ones are measured too, so a caller can grey rather
+// than hide.
 export async function probeEngines<E extends ProbeTarget>(
   engines: E[],
 ): Promise<RankedEngine<E>[]> {
   const ranked = await Promise.all(engines.map((e) => rank(e)));
-  return ranked.sort((a, b) => a.tier - b.tier);
+  return ranked.sort(
+    (a, b) =>
+      (a.latency?.totalMs ?? Number.POSITIVE_INFINITY) -
+      (b.latency?.totalMs ?? Number.POSITIVE_INFINITY),
+  );
 }

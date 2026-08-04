@@ -12,8 +12,7 @@ import {
   baseModuleRefs,
   exportSub,
   isVideoSource,
-  listLibrary,
-  listLibraryKinds,
+  listModuleAssets,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -44,11 +43,11 @@ export interface Hints {
   sequences: string[];
   chains: string[];
   curves: string[]; // automation curve ids (curves/<id>.yaml) — for pinning a module's automations
-  // The project's shared asset library (project.libraries_from), as library-relative paths
-  // ("ir/marshall-1960a.wav") — one flat list across every kind it holds. What a module
-  // UI's library dropdown offers, and what completes `module ir`. Empty when the project
-  // declares no library.
-  libraryFiles: string[];
+  // What each module's file-valued params may be set to — its own `assets/` walked, as
+  // assets-relative paths ("Two-Rock/Clean.nam"), keyed by the chain `use` ref. What the
+  // panel's dropdown offers and what completes `module nam`. A module with no assets/ is
+  // absent rather than empty.
+  moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names (open — new ones still allowed)
   // …and what those params SPAN, for the bases whose plugin is a built-in we define (see builtinParams.ts). Only
   // a plugin knows its own range, and a widget bound without one is drawn 0..1 — wrong for a -60..+6 dB fader.
@@ -135,14 +134,7 @@ const safe = <T>(f: () => T, dflt: T): T => {
 // The entities of the project at `dir`, sorted. Reference names (modules, sources,
 // targets, base module refs) plus the param names seen per base module.
 export function projectHints(dir: string): Hints {
-  const from = safe(() => {
-    const mf = loadProjectRoot(dir)?.project?.modules_from;
-    return Array.isArray(mf) ? mf.map(String) : [];
-  }, [] as string[]);
-  const moduleRefs = safe(
-    () => loadModuleRefs(dir, from),
-    {} as Record<string, any>,
-  );
+  const moduleRefs = safe(() => loadModuleRefs(dir), {} as Record<string, any>);
   const modules = safe(() => loadModules(dir), {} as Record<string, any>);
   // The completion/link vocabulary is the names the chains DERIVE to — a track's id for
   // a run it feeds, a module's name for a run that starts at it (see chainsGraph.ts).
@@ -284,6 +276,22 @@ export function projectHints(dir: string): Hints {
     .map(([id]) => id)
     .sort();
 
+  // What each module's file-valued params may be set to: the contents of its own `assets/`,
+  // keyed by the chain `use` ref like `racks` below. Per module, because a module carries the
+  // files it loads — there is no project-wide library to list any more.
+  const moduleAssets: Hints["moduleAssets"] = {};
+  for (const [name, m] of Object.entries<any>(modules ?? {})) {
+    if (!m?.category || !m?.file) continue;
+    const files = safe(
+      () =>
+        listModuleAssets(
+          join(dir, "modules", String(m.category), String(m.file)),
+        ),
+      [] as string[],
+    );
+    if (files.length) moduleAssets[name] = files;
+  }
+
   // Rack modules: a `type: rack` module carries a rack. Resolved first, so a module that
   // inherits its flavour, its source or half its symbols reports the whole thing.
   const racks: Hints["racks"] = {};
@@ -321,10 +329,7 @@ export function projectHints(dir: string): Hints {
     sequences: sorted(seqs),
     chains: sorted(chains),
     curves: sorted(curves),
-    libraryFiles: safe(
-      () => listLibraryKinds(dir).flatMap((k) => listLibrary(dir, k)),
-      [] as string[],
-    ),
+    moduleAssets,
     paramsByBase,
     paramMetaByBase,
     racks,

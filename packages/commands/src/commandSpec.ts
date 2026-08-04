@@ -7,8 +7,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  listLibrary,
-  listLibraryKinds,
+  listModuleAssets,
+  loadModules,
   MODULE_TYPES,
 } from "@studio/song/loader";
 import { parsePosition } from "@studio/song/timecode";
@@ -92,9 +92,19 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
       return [];
     }
   },
-  // The whole shared library as library-relative paths, every kind at once (it is small), plus `none` to clear.
-  libraryFiles: (h) => [
-    ...listLibraryKinds(h.songPath).flatMap((k) => listLibrary(h.songPath, k)),
+  // Every module's own assets at once, as assets-relative paths, plus `none` to clear. Not
+  // narrowed to the module being edited: the completion runs before that argument is typed,
+  // and a project's modules carry a handful of files each, not a library's worth.
+  assetFiles: (h) => [
+    ...new Set(
+      Object.values(loadModules(h.songPath)).flatMap((m) =>
+        m?.category && m?.file
+          ? listModuleAssets(
+              join(h.songPath, "modules", String(m.category), String(m.file)),
+            )
+          : [],
+      ),
+    ),
     "none",
   ],
   // Audio files in the active project, walked per completion so new ones appear; hidden dirs are skipped.
@@ -217,7 +227,7 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
-  libraryFiles: "file",
+  assetFiles: "file",
 };
 
 export function argClass(a: ArgSpec): ArgClass {
@@ -237,8 +247,7 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   categories:
     "<category>/<name> — the category decides the module's kind and its ports",
   markerNames: "a marker of this project",
-  libraryFiles:
-    "a file of the project's shared library (project.libraries_from)",
+  assetFiles: "a file the module carries, in its own assets/ folder",
   sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
 };

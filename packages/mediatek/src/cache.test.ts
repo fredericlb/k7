@@ -30,7 +30,7 @@ function fakeOwner(
   return {
     revisions: async () =>
       ({
-        morceaux: "",
+        songs: "",
         samples: "",
         modules: opts.revision ?? "r1",
       }) as Record<Family, string>,

@@ -7,7 +7,7 @@ import type { PreloaderState, SongEntry } from "./songPreloader";
 // structurally — it predates the interface and needs no change.
 //
 // It is the seam a third engine arrives through: an implementation backed by
-// apps/moteur, once the engine can stream to a browser at all.
+// engine/moteur, once the engine can stream to a browser at all.
 
 export interface Player {
   subscribe: (cb: () => void) => () => void;

@@ -72,6 +72,7 @@ export function parseSettings(raw: unknown): SettingsDoc {
 export {
   EXTERNAL_PLUGIN_FORMATS,
   enginePlugin,
+  JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
 
 // Fold each group's mute/solo onto its members on the way to the engine, which resolves
@@ -101,12 +102,12 @@ export function withoutVideo(doc: ProjectDoc): ProjectDoc {
 // Read a single-file source into the { project, tracks } shape. Folder projects
 // are handled earlier (in loadProject); here the only supported file is YAML.
 function readSource(sourcePath: string): AssembledDoc {
-  // A .dawproject is a binary ZIP — catch the mixup with an actionable message, not a parse error on binary bytes.
-  if (sourcePath.endsWith(".dawproject"))
+  // A .dawproject is a binary ZIP and a .als binary gzip — catch the mixup with an actionable message,
+  // not a parse error on binary bytes. Importing is what turns either into a folder project.
+  if (/\.(dawproject|als)$/i.test(sourcePath))
     throw new Error(
-      `'${basename(sourcePath)}' is a .dawproject, not a song file. Convert it first:\n` +
-        `  cd ../translator && npm start -- "${sourcePath}" <outDir>\n` +
-        `then open <outDir> (a folder project) with the brain.`,
+      `'${basename(sourcePath)}' is a foreign project file, not a song file. ` +
+        `Import it first (click it in the file tree), then open the folder it produces.`,
     );
   if (/\.ya?ml$/i.test(sourcePath)) return readYamlSong(sourcePath);
   throw new Error(

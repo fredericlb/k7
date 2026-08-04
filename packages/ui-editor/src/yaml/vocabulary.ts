@@ -3,7 +3,7 @@
 // values. Derived rather than tabulated, because hand-kept field lists drift — a derived
 // list cannot be behind its schema.
 //
-// It lives HERE, and not in an app, because three editors need the same answers: pistes'
+// It lives HERE, and not in an app, because three editors need the same answers: l8'
 // EditorPane, the médiathèque's, and the module builder's. It was copied between two of
 // them, with a comment in each saying its real place was a package. This is that place —
 // and the @studio/song it reaches for is pure Zod introspection, no node in it.

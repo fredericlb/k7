@@ -6,7 +6,7 @@
 apps/k7/backend/data
 apps/k7/backend/.env.example
 apps/k7/frontend/.storybook
-apps/obscura/data
+apps/z0/data
 storybook-static
 .git
 .gitignore

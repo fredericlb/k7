@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "pistes's song layer — parses a folder of CUE files, compiles it to a flat ProjectDoc/GraphDoc, and resolves Strudel patterns. Consumed as source.",
+  "description": "l8's song layer — parses a folder of CUE files, compiles it to a flat ProjectDoc/GraphDoc, and resolves Strudel patterns. Consumed as source.",
   "exports": {
     "./loader": "./src/loader.ts",
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
@@ -64,7 +64,8 @@
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
     "@studio/dsp": "*",
-    "@studio/engine-protocol": "*"
+    "@studio/engine-protocol": "*",
+    "@studio/graph-model": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

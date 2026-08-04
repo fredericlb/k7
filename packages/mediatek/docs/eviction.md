@@ -14,7 +14,7 @@ at once.
 * **`modules`** is the *vocabulary*. Any chain may name any module, and one that is missing
   fails a project to load — not degrades it, fails it. The whole family is a few megabytes
   of YAML and the occasional `.nam`. Evicting from it trades nothing for nothing.
-* **`morceaux`** and **`samples/audio`** are named by particular songs. A miss costs a
+* **`songs`** and **`samples/audio`** are named by particular songs. A miss costs a
   re-fetch before that song plays.
 * **`samples/video`** is what forces the question at all, and is the one place a budget
   earns its complexity.

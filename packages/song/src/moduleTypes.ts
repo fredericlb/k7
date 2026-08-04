@@ -9,12 +9,26 @@
 // about folders) could not import it at all without a cycle. loader.ts re-exports every
 // name below, so no existing importer changes.
 
+/**
+ * The io roles the signal comes FROM. Everything else under `io/` is a sink.
+ *
+ * Two of them, and they differ in where the audio comes from rather than in what they are:
+ * `in` is a live interface channel, `file` reads an audio file (see docs/fileInput.md).
+ * Stated as a list because the graph decides "sink" by ELIMINATION — an io module is a sink
+ * unless it is a source — so a role added without joining this list becomes a silent sink,
+ * and a chain would route INTO the thing meant to feed it.
+ */
+export const IO_SOURCES = ["in", "file"] as const;
+export type IoSource = (typeof IO_SOURCES)[number];
+export const isIoSource = (io: unknown): io is IoSource =>
+  (IO_SOURCES as readonly unknown[]).includes(io);
+
 // What a module of each type EMITS (not its input — see docs/loader.md).
 export const MODULE_EMITS: Record<
   string,
   "audio" | "midi" | "video" | undefined
 > = {
-  io: undefined, // a sink emits nothing; io "in" is audio (see moduleEmits)
+  io: undefined, // a sink emits nothing; an io SOURCE is audio (see moduleEmits)
   instruments: "audio",
   audio: "audio",
   transformers: "midi",
@@ -28,27 +42,69 @@ export function moduleEmits(
   category: string | undefined,
   io?: string,
 ): "audio" | "midi" | "video" | undefined {
-  if (category === "io") return io === "in" ? "audio" : undefined;
+  if (category === "io") return isIoSource(io) ? "audio" : undefined;
   return MODULE_EMITS[category ?? ""];
 }
 
+/** One named port on a module, in or out. `mandatory` is an INPUT's business — an output is
+ *  offered, never required — and defaults to true where it is read (see graph's normalizeInputs). */
+export interface PortDef {
+  name: string;
+  type: "audio" | "midi" | "video";
+  mandatory?: boolean;
+}
+
+/**
+ * What a module of each type has, when it says nothing itself — its DEFAULT ports.
+ *
+ * A module may declare its own (`inputs:` / `outputs:` in module.yaml), and then these are not
+ * consulted at all: the type folder decides what a module IS, and a module that needs two audio
+ * inputs is still an audio effect. Before that was possible the folder was the only source, so
+ * "two inputs" was unsayable — which is what a crossfade needs and could not have.
+ *
+ * `outputs` is new beside `inputs`, and deliberately not derived from `emits`: `emits` says what
+ * KIND of signal leaves (one word, used for cable colour), while a port is a place something can
+ * be wired to. One output is the overwhelming default, and naming it lets the rest be named too.
+ */
 export const MODULE_TYPES: Record<
   string,
   {
     kind: "io" | "plugin";
-    inputs: { name: string; type: "audio" | "midi" | "video" }[];
+    inputs: PortDef[];
+    outputs: PortDef[];
   }
 > = {
-  io: { kind: "io", inputs: [] },
-  instruments: { kind: "plugin", inputs: [{ name: "midi", type: "midi" }] },
-  audio: { kind: "plugin", inputs: [{ name: "in", type: "audio" }] },
-  transformers: { kind: "plugin", inputs: [{ name: "midi", type: "midi" }] },
-  video_effects: { kind: "plugin", inputs: [{ name: "in", type: "video" }] },
+  io: { kind: "io", inputs: [], outputs: [] },
+  instruments: {
+    kind: "plugin",
+    inputs: [{ name: "midi", type: "midi" }],
+    outputs: [{ name: "out", type: "audio" }],
+  },
+  audio: {
+    kind: "plugin",
+    inputs: [{ name: "in", type: "audio" }],
+    outputs: [{ name: "out", type: "audio" }],
+  },
+  transformers: {
+    kind: "plugin",
+    inputs: [{ name: "midi", type: "midi" }],
+    outputs: [{ name: "out", type: "midi" }],
+  },
+  video_effects: {
+    kind: "plugin",
+    inputs: [{ name: "in", type: "video" }],
+    outputs: [{ name: "out", type: "video" }],
+  },
   video_transitions: {
     kind: "plugin",
     inputs: [{ name: "in", type: "video" }],
+    outputs: [{ name: "out", type: "video" }],
   },
-  midi: { kind: "plugin", inputs: [{ name: "midi", type: "midi" }] },
+  midi: {
+    kind: "plugin",
+    inputs: [{ name: "midi", type: "midi" }],
+    outputs: [{ name: "out", type: "midi" }],
+  },
 };
 
 /**
@@ -73,6 +129,27 @@ export function categoryForRole(p: {
  *  `node:fs` import, or the médiathèque could not scaffold one from a browser. */
 export const ENGINE_NS = "@engine";
 export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
+
+/**
+ * The params whose value is a FILE the plugin loads, not a number — named here, beside the
+ * rest of the module vocabulary and free of `node:fs`, because three tiers need the same list:
+ * the loader resolves them against the module's `assets/`, nodeProject lifts them off the wire
+ * (which stays numeric), and the panel draws them as a dropdown of that folder rather than a
+ * knob. A param not in this list is a number, and that is still the overwhelming majority.
+ */
+export const FILE_PARAMS = ["nam"] as const;
+export type FileParam = (typeof FILE_PARAMS)[number];
+export const isFileParam = (name: string): name is FileParam =>
+  (FILE_PARAMS as readonly string[]).includes(name);
+
+// --- ports (see docs/ports.md) --------------------------------------------------
+
+// The port vocabulary lives in @studio/graph-model — a types-only tier with no dependencies,
+// which is the one place BOTH the compiler and the graph renderer can reach. `ui-chains` draws
+// ported edges and deliberately does not depend on this package (see graph-model's own note on
+// why it was split out), so putting `splitPort` here would have meant a second copy there.
+// Re-exported because this is where every module-vocabulary caller already looks.
+export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
 
 // --- module instances (see docs/loader.md) --------------------------------------
 export const INSTANCE_SEP = ":";

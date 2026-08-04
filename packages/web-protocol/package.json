@@ -5,10 +5,16 @@
   "type": "module",
   "types": "./types.ts",
   "exports": {
-    ".": "./types.ts"
+    ".": "./types.ts",
+    "./services": "./services.ts",
+    "./quality": "./quality.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "vitest": "^4.1.10",
     "zod": "^4.4.3"
   }
 }

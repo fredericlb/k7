@@ -10,7 +10,7 @@ la zone `RECORDINGS` de la médiathèque ; la ligne n'en garde que le chemin.
 | durée, gain, enveloppe, tags, marqueurs | Grist | Grist |
 | une séance | pièce jointe `Sessions.Recording` | `recordings/<jour>/<HH-MM-SS>.<ext>` |
 | un moment | pièce jointe `Comments.Clip` | `recordings/<jour>/moment-…` |
-| une version publiée | pièce jointe `Versions.Audio` | `morceaux/recorded/K7/…` |
+| une version publiée | pièce jointe `Versions.Audio` | `songs/K7/…` |
 | ce que la ligne pointe | un `attachmentId` | un chemin (`RecordingPath`, `ClipPath`, `AudioPath`) |
 | le cache disque | inchangé | inchangé |
 | les partitions | pièce jointe `Songs.SheetFiles` | inchangé — ce n'est pas de l'audio |
@@ -33,7 +33,7 @@ deuxième client HTTP : `src/mediatek.ts` est une façade de trente lignes au-de
 celui-là.
 
 `pushRecording` est délibérément séparé de `remoteWriter` : un *writer* écrit au chemin
-qu'il a choisi, tandis qu'une capture envoie des octets **et l'instant**, à charge pour la
+qu'il a choisi, tandis qu'un enregistrement envoie des octets **et l'instant**, à charge pour la
 bibliothèque d'en déduire le chemin.
 
 ## Une séance est UN fichier
@@ -42,7 +42,7 @@ bibliothèque d'en déduire le chemin.
 prolongée — avec une règle unique : si la séance possède déjà un fichier **du bon format**,
 il est réécrit sur place.
 
-Sans ça, prolonger une séance pousserait une seconde capture, et la zone montrerait deux
+Sans ça, prolonger une séance pousserait un second enregistrement, et la zone montrerait deux
 prises là où il n'y a qu'un enregistrement. C'est l'unique endroit où quelque chose nomme
 un chemin de la zone au lieu de le recevoir : le fichier existe déjà et appartient à cette
 séance-là.
@@ -113,13 +113,13 @@ devenu faux. `Comments.ClipPath` remplace la pièce jointe `Clip`.
 
 ## Les versions publiées sont des morceaux
 
-Une version publiée n'est pas une capture : c'est un mixdown que quelqu'un a décidé fini.
-Elle va donc dans **MORCEAUX**, sous l'artiste `K7` :
+Une version publiée n'est pas un enregistrement : c'est un mixdown que quelqu'un a décidé
+fini. Elle va donc dans les **MORCEAUX** (`songs/`), sous l'artiste `K7` :
 
 ```
-morceaux/recorded/K7/<titre de la release>/<nom de la version>/
+songs/K7/<titre de la release>/<nom de la version>/
     original.mp3        ← le mixdown
-    morceau.yaml        ← title, artist: K7, album, source: k7
+    song.yaml           ← title, artist: K7, album, source: k7
     stems/guitare.wav   ← les pistes séparées, quand l'import en apporte
 ```
 
@@ -146,7 +146,7 @@ re-téléchargement d'octets qui n'ont pas changé.
 
 ## Le miroir de la médiathèque a été retiré
 
-`apps/mediatek/backend/src/mirror/k7.ts`, sa route `POST /api/mirror/k7` et sa
+`apps/st0/backend/src/mirror/k7.ts`, sa route `POST /api/mirror/k7` et sa
 page de doc tiraient ces versions depuis Grist, une par une, en les retrouvant par leur clé
 amont. Rien de tout cela n'a plus de sens : k7 **pousse** au moment de la publication, donc
 il n'y a plus rien à tirer. La médiathèque n'a plus de dépendance sur Grist du tout —
@@ -160,15 +160,24 @@ enveloppe — et les fichiers de partition (`Songs.SheetFiles`), qui ne sont pas
 
 ## Configuration
 
-`MEDIATEK_URL` a une valeur par défaut qui vise le backend médiathèque **en direct**
-(`http://127.0.0.1:8795`) et non `https://studio.test/mediatek` : c'est un appel de serveur
-à serveur, et le certificat de Caddy vient d'une autorité locale que Node ne connaît pas
-sans qu'on la lui donne.
+**On ne configure plus rien à la main.** `npm run tokens` écrit les deux lignes ; voir
+`docs/tokens.md` à la racine.
 
-`MEDIATEK_TOKEN` n'a pas de défaut, et sans lui la bibliothèque répond 401 : ses routes
-sont derrière une session ou un jeton, jamais ouvertes. On le frappe une fois, connecté à
-la médiathèque :
+`MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — st0 sert la racine de
+l'origine, donc c'est `https://studio.frediver.se` tout court :
+une origine, un chemin par service, donc un déploiement n'a rien à choisir. Un **checkout** est
+l'exception, et c'est le script qui l'écrit : tout y est derrière le `tls internal` de Caddy, dont
+Node ne connaît pas l'autorité — vérifié, une requête vers `https://studio.test` échoue en
+`UNABLE_TO_GET_ISSUER_CERT_LOCALLY` depuis Node alors qu'elle passe dans le navigateur d'à côté —
+donc cet appel de serveur à serveur prend le port en loopback (`http://127.0.0.1:8795`).
+
+`MEDIATEK_TOKEN` n'a pas de défaut, et sans lui la bibliothèque répond 401 : ses routes sont
+derrière une session ou un jeton, jamais ouvertes. Le script le frappe hors ligne, signé avec
+l'`API_TOKEN_SECRET` de la médiathèque, avec `sub: "service:k7"`.
+
+Une machine sans checkout — un portable qui synchronise la bibliothèque hébergée — n'a pas
+d'`env.yaml` et frappe donc le sien par la route prévue, connecté à la médiathèque :
 
 ```bash
-curl -X POST https://studio.test/mediatek/api/token -b "studio.sid=<votre cookie>"
+curl -X POST https://studio.frediver.se/api/token -b "studio.sid=<votre cookie>"
 ```

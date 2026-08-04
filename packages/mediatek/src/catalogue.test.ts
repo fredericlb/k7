@@ -44,7 +44,7 @@ describe("the layout", () => {
     expect(summary()).toEqual({
       present: false,
       counts: {
-        morceaux: 0,
+        songs: 0,
         samples: 0,
         modules: 0,
         chains: 0,
@@ -66,18 +66,19 @@ describe("the layout", () => {
   });
 });
 
-describe("scanning morceaux", () => {
+describe("scanning songs", () => {
   beforeEach(() => ensureLayout());
 
   it("reads title and artist from the sidecar", () => {
     write(
-      "morceaux/recorded/2026/take-one/morceau.yaml",
+      "songs/2026/take-one/song.yaml",
       "title: Sous la pluie\nartist: K7\n",
     );
-    write("morceaux/recorded/2026/take-one/master.wav", "RIFF");
-    const [e] = scanFamily("morceaux");
+    write("songs/2026/take-one/master.wav", "RIFF");
+    const [e] = scanFamily("songs");
     expect(e.name).toBe("Sous la pluie");
-    expect(e.kind).toBe("recorded");
+    // No subdivision in this family, so no word to put here — see MediatekEntry.kind.
+    expect(e.kind).toBe("");
     expect(e.meta?.artist).toBe("K7");
     expect(e.meta?.catalogued).toBe(true);
     expect(e.bytes).toBe(4);
@@ -85,22 +86,60 @@ describe("scanning morceaux", () => {
 
   it("still lists a folder dropped in by hand, flagged as not filed", () => {
     // The whole point is seeing what you own — an uncatalogued file must not be invisible.
-    write("morceaux/imported/loose/whatever.mp3", "ID3");
-    const [e] = scanFamily("morceaux");
+    write("songs/loose/whatever.mp3", "ID3");
+    const [e] = scanFamily("songs");
     expect(e.name).toBe("loose");
     expect(e.meta?.catalogued).toBe(false);
   });
 
   it("survives an unparseable sidecar rather than losing the entry", () => {
-    write("morceaux/imported/broken/morceau.yaml", "title: [unclosed\n");
-    const [e] = scanFamily("morceaux");
+    write("songs/broken/song.yaml", "title: [unclosed\n");
+    const [e] = scanFamily("songs");
     expect(e.name).toBe("broken"); // falls back to the folder name
   });
 
   it("treats an entry as a leaf and does not descend into it", () => {
-    write("morceaux/recorded/album/morceau.yaml", "title: Album\n");
-    write("morceaux/recorded/album/stems/gtr.wav", "RIFF");
-    expect(scanFamily("morceaux")).toHaveLength(1);
+    write("songs/album/song.yaml", "title: Album\n");
+    write("songs/album/stems/gtr.wav", "RIFF");
+    expect(scanFamily("songs")).toHaveLength(1);
+  });
+});
+
+describe("a song's variants", () => {
+  beforeEach(() => ensureLayout());
+
+  const withVariants = (yaml: string) => {
+    write(`songs/2026/song/song.yaml`, `title: T\n${yaml}`);
+    write("songs/2026/song/original.wav", "RIFF");
+    return scanFamily("songs")[0];
+  };
+
+  it("tells a sibling FILE from a chain by looking in the folder", () => {
+    // The only half the scan can settle on its own, and the direction matters: a name that is
+    // not a file there is read as a CHAIN, never as a missing file. Backwards, a typo'd chain
+    // name would send you hunting through the song's folder.
+    write("songs/2026/song/instrumental.wav", "RIFF");
+    const e = withVariants(
+      "variants:\n  instru: instrumental.wav\n  sans-voix: vocal-strip\n",
+    );
+    expect(e.variants).toEqual([
+      { name: "instru", ref: "instrumental.wav", kind: "file" },
+      { name: "sans-voix", ref: "vocal-strip", kind: "chain" },
+    ]);
+  });
+
+  it("is absent, not empty, when the sidecar declares none", () => {
+    expect(withVariants("").variants).toBeUndefined();
+  });
+
+  it("drops a value that is not a name, rather than inventing one", () => {
+    // `[object Object]` on screen is a row you cannot follow anywhere.
+    const e = withVariants("variants:\n  bad: [a, b]\n  ok: other\n");
+    expect(e.variants).toEqual([{ name: "ok", ref: "other", kind: "chain" }]);
+  });
+
+  it("survives `variants:` written as a list instead of a mapping", () => {
+    expect(withVariants("variants:\n  - a\n  - b\n").variants).toBeUndefined();
   });
 });
 
@@ -134,6 +173,35 @@ describe("scanning samples and modules", () => {
     expect(byName.synth.meta?.instances).toBe(2);
     // A folder holding anything BUT a module file is still a folder, not a half-made module.
     expect(byName.halfbaked).toBeUndefined();
+  });
+
+  it("reports what a module carries in its own assets folder", () => {
+    // What the module LOADS, as opposed to what it IS: a tree draws these as its children and
+    // drops new ones in. Its own field, because `files` is the definition and these are material.
+    write("modules/audio/amp/module.yaml", "plugin: {}\n");
+    write("modules/audio/amp/assets/jcm800.nam", "profile");
+    write("modules/audio/amp/assets/room.wav", "ir");
+    const amp = scanFamily("modules").find((e) => e.name === "amp");
+    expect(amp?.assets).toEqual(["jcm800.nam", "room.wav"]);
+    expect(amp?.files).toEqual(["module.yaml"]); // the folder itself, not what is under it
+  });
+
+  it("keeps an asset from becoming an entry, or a folder to browse", () => {
+    // The descent stops at a module; `assets/` is inside one, so it must reach neither the
+    // catalogue (a sample is not a module) nor `scanUnlisted` (it is already drawn, on its
+    // module) — a row in both places is a file that looks like two different things.
+    write("modules/audio/amp/module.yaml", "plugin: {}\n");
+    write("modules/audio/amp/assets/room.wav", "ir");
+    const entries = scanFamily("modules");
+    expect(entries.map((e) => e.path)).toEqual(["modules/audio/amp"]);
+    expect(
+      scanUnlisted("modules", entries).filter((p) => p.includes("assets")),
+    ).toEqual([]);
+  });
+
+  it("says nothing at all about assets when there are none", () => {
+    write("modules/audio/fuzz/module.yaml", "plugin: {}\n");
+    expect(scanFamily("modules")[0]?.assets).toBeUndefined();
   });
 
   it("finds a module at ANY depth — the file is the rule, not the shape", () => {
@@ -229,15 +297,15 @@ describe("the revision token", () => {
   });
 
   it("does NOT move when another family changes", () => {
-    // The reason the token is per family: importing a morceau must not invalidate modules.
+    // The reason the token is per family: importing a song must not invalidate modules.
     // Each token is only ever compared with its OWN previous value — two families holding
     // one file each produce the same string, and that means nothing.
     write("modules/instruments/synth/module.yaml", "plugin: {}\n");
     const modulesBefore = familyRevision("modules");
-    const morceauxBefore = familyRevision("morceaux");
-    write("morceaux/imported/song/morceau.yaml", "title: T\n");
+    const songsBefore = familyRevision("songs");
+    write("songs/song/song.yaml", "title: T\n");
     expect(familyRevision("modules")).toBe(modulesBefore);
-    expect(familyRevision("morceaux")).not.toBe(morceauxBefore);
+    expect(familyRevision("songs")).not.toBe(songsBefore);
   });
 
   it("ignores the derived cache, which would otherwise invalidate itself", () => {
@@ -283,7 +351,7 @@ describe("listing and search", () => {
     // Plus the capture zone, which is no family but is a tab — see docs/recordings.md.
     expect(summary()).toEqual({
       present: true,
-      counts: { morceaux: 0, samples: 2, modules: 1, chains: 0, recordings: 0 },
+      counts: { songs: 0, samples: 2, modules: 1, chains: 0, recordings: 0 },
     });
   });
 });

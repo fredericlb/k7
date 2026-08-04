@@ -45,6 +45,8 @@ import {
   cloneModuleFile,
   createModuleInstance,
   type Diagnostic,
+  deadProjectFields,
+  libraryModuleIssues,
   listBaseModules,
   moduleRefOf,
   notSupportedModules,
@@ -94,7 +96,7 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import { buildGraphDoc } from "./graphDoc.ts";
-import { createProjectIn, importDawprojectInto } from "./projectLifecycle.ts";
+import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
 import {
   AUDIO_EXT,
   DEFAULT_WF_BUCKETS,
@@ -123,7 +125,7 @@ function parseCompileError(msg: string): Diagnostic[] {
   return out;
 }
 
-// A pistes project is any directory with a project file.
+// A l8 project is any directory with a project file.
 export const isProjectDir = (dir: string): boolean => isProjectFolder(dir);
 
 // Files shown in the tree but not editable as text.
@@ -458,9 +460,9 @@ export class Workspace {
     };
   }
 
-  /** Import a .dawproject archive into a NEW project folder — see projectLifecycle.ts. */
-  importDawproject(rel: string): { project: string; log: string[] } {
-    return importDawprojectInto(this.lifecycleHost(), rel);
+  /** Import a .dawproject or .als into a NEW project folder — see projectLifecycle.ts. */
+  importProject(rel: string): { project: string; log: string[] } {
+    return importProjectInto(this.lifecycleHost(), rel);
   }
 
   /** Scaffold a NEW project folder at the workspace root — see projectLifecycle.ts. */
@@ -960,7 +962,7 @@ export class Workspace {
         videoTracks: [],
         sequences: [],
         chains: [],
-        libraryFiles: [],
+        moduleAssets: {},
         paramsByBase: {},
         paramMetaByBase: {},
         racks: {},
@@ -1151,8 +1153,18 @@ export class Workspace {
     if (!dir) return { errors: [], diagnostics: [] };
     try {
       this.cachedProjectDoc(dir);
-      // Clean — but a "not_supported" plugin is a non-blocking WARNING, so surface it here.
-      return { errors: [], diagnostics: notSupportedModules(dir) };
+      // Clean — but two things are non-blocking WARNINGS, so they surface here or nowhere: a
+      // "not_supported" plugin, and a library module that would not read. The second has no
+      // other symptom at all while nothing names it, which is exactly how it goes unnoticed
+      // until a song that used to play stops.
+      return {
+        errors: [],
+        diagnostics: [
+          ...notSupportedModules(dir),
+          ...libraryModuleIssues(dir),
+          ...deadProjectFields(dir),
+        ],
+      };
     } catch (e) {
       const diagnostics = parseCompileError((e as Error).message);
       const errors = diagnostics.length

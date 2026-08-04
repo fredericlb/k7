@@ -12,6 +12,7 @@ import type {
   WebSignal,
   WebWidget,
 } from "@studio/graph-model";
+import { splitPort } from "@studio/graph-model";
 
 // Narrow the graph to one track's signal path: the chains it enters, plus everything reachable downstream.
 // Returns a WebGraph, so `buildGraph` takes it unchanged and only the input set differs from the full graph.
@@ -66,7 +67,7 @@ export interface GraphNode {
   // The library files this module loads, per asset kind — what a library dropdown here shows as its current choice.
   assets?: Record<string, string>;
   stub: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported: boolean; // plugin.type is "not_supported" — pistes can't load it (amber)
+  notSupported: boolean; // plugin.type is "not_supported" — l8 can't load it (amber)
   unknownPlugin: boolean; // plugin.type is an UNKNOWN format — a typo / unimported (red)
   hasNativePluginUI: boolean; // an external plugin with a nativePluginUI the engine can open
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through
@@ -79,7 +80,18 @@ export interface GraphNode {
   pending?: boolean;
   // The module's merged widget grid and the values it shows; a node with one is SIZED to fit it (see nodeSize).
   ui?: WebModuleUI;
-  params?: Record<string, number>;
+  /** The module's input ports, when it has more than one. What lets the node draw a jack each,
+   *  so a cable naming `#b` can land on `b` rather than on the node's edge. */
+  inputs?: { name: string; type: WebSignal; mandatory?: boolean }[];
+  /** …and its outputs, when it has more than one. */
+  outputs?: { name: string; type: WebSignal }[];
+  /** The sockets to DRAW, already decided — see `jacksFor`. Computed here rather than in the
+   *  renderer because how many a node shows depends on what is wired to it, which is a fact
+   *  about the graph and not about the DOM. */
+  jacks?: { in: Jack[]; out: Jack[] };
+  // A STRING value is a file-valued param (`nam`): drawn as a dropdown over the module's own
+  // assets/ rather than a knob, and never sent to the engine as a param.
+  params?: Record<string, number | string>;
   pluginId?: string; // the engine's PluginDoc id (chain:module), for live param sets
   // io "in" only: whether the interface signal is audible. A module FIELD, not a param, so a widget bound to it
   // needs a target of its own — see DomChains' widgetTarget.
@@ -99,6 +111,57 @@ export interface Pt {
   y: number;
 }
 
+/** One socket on a node's edge. `name` is absent for the single port every module has — there is
+ *  nothing to disambiguate, and calling it "in" would be noise on every node in the song. */
+export interface Jack {
+  name?: string;
+  type: WebSignal;
+  /** Nothing is wired to it. Drawn hollow: an invitation, not a connection. */
+  free: boolean;
+}
+
+/**
+ * The sockets a node shows, from what it declares and what is already plugged into it.
+ *
+ * Inputs REVEAL THEMSELVES: every mandatory port is drawn from the start (a socket that must be
+ * fed is a thing to say up front), and past those exactly one free jack appears beyond the last
+ * occupied one — so a crossfade with one side wired shows the second, and a module with five
+ * optional ports does not present five empty holes to a reader who is using two. Never more than
+ * the module declares, and never fewer than one: every node has somewhere for signal to arrive.
+ *
+ * Outputs do not: all of them show at once. An output is offered, never required, so there is no
+ * progression to disclose — the question "what can I take off this module" wants one answer.
+ */
+export function jacksFor(
+  ports: { name: string; type: WebSignal; mandatory?: boolean }[] | undefined,
+  fed: ReadonlySet<string>,
+  fallback: WebSignal | undefined,
+  grow: boolean,
+): Jack[] {
+  // A module that declares nothing has the one port every module has, typed by what it handles.
+  if (!ports?.length) return [{ type: fallback ?? "audio", free: !fed.size }];
+  const isFed = (p: { name: string }, i: number) =>
+    fed.has(p.name) || (i === 0 && fed.has(""));
+  // Outputs, whose occupancy is a fact about the NODE rather than about each socket: a chains
+  // file can name a port on the source side (`deck#cue: [ phones ]`), but the derivation unions
+  // those destinations onto one node and the edge does not carry which jack it left from. So all
+  // of a module's outputs read the same — connected when anything leaves it, hollow when nothing
+  // does, which is the state worth seeing anyway.
+  if (!grow)
+    return ports.map((p) => ({ name: p.name, type: p.type, free: !fed.size }));
+  const mandatory = ports.filter((p) => p.mandatory !== false).length;
+  // One past the LAST occupied port, not one past the count: a module fed only on `b` still has
+  // to show `a`, or the empty socket the cable came from would vanish from under it.
+  let lastFed = -1;
+  ports.forEach((p, i) => {
+    if (isFed(p, i)) lastFed = i;
+  });
+  const shown = Math.min(ports.length, Math.max(1, mandatory, lastFed + 2));
+  return ports
+    .slice(0, shown)
+    .map((p, i) => ({ name: p.name, type: p.type, free: !isFed(p, i) }));
+}
+
 // An automation edge's payload: a curve feeding a module's param. Undefined on a signal edge, which is how the
 // renderer tells the two apart and draws automations in their own pass.
 export interface EdgeAutomation {
@@ -115,7 +178,62 @@ export interface GraphEdge {
   automation?: EdgeAutomation; // set ⇒ a curve→param link, drawn mauve (see DomChains)
   // What this cable carries, decided by its SOURCE: into an instrument is midi, out of it audio. Undefined ⇒ audio.
   signal?: WebSignal;
+  /** Which INPUT of the target this cable lands on, when the destination named one
+   *  (`crossfade#b`). Undefined ⇒ the flow, which is the target's first input and what every
+   *  cable drawn before ports existed means. See `@studio/song`'s docs/ports.md. */
+  targetPort?: string;
   points: Pt[]; // dagre's routed polyline, absolute graph coords
+}
+
+/**
+ * The centre of one socket, in graph space — where a cable ends.
+ *
+ * The sockets are spread evenly down the node's edge (a third and two thirds for two), matching the `top`
+ * the renderer sets on each plate: one rule, so the cable meets the hole rather than landing near it.
+ */
+export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
+  const count = Math.max(1, (n.jacks?.[side] ?? []).length);
+  const i = Math.min(Math.max(0, index), count - 1);
+  return {
+    x: side === "in" ? n.x - PORT_PLATE / 2 : n.x + n.w + PORT_PLATE / 2,
+    y: n.y + (n.h * (i + 1)) / (count + 1),
+  };
+}
+
+/**
+ * A cable's polyline: dagre's routing with both ends moved onto the SOCKETS they plug into.
+ *
+ * dagre routes to the node's BORDER, which was right while a cable ended in an arrowhead pointing at a card.
+ * A cable ends in a plug, and a plug goes in a hole — so the endpoints are replaced and a short straight lead
+ * is added at each, which is what makes it leave the plate square instead of curving off it at an angle. The
+ * waypoints in between are dagre's, untouched: it is what keeps a send bending around the module it skips.
+ *
+ * The socket a cable arrives at is the one it NAMES (`crossfade#b`), matched against the target's jack list.
+ * On the source side there is nothing to match: the routing model records no source port (see jacksFor), so
+ * every cable leaves the first output.
+ */
+export function cablePath(
+  e: GraphEdge,
+  src: GraphNode | undefined,
+  tgt: GraphNode | undefined,
+): Pt[] {
+  const pts = e.points;
+  if (pts.length < 2) return pts;
+  const mid = pts.slice(1, -1);
+  const from = src ? jackPoint(src, "out", 0) : pts[0];
+  const toIndex = e.targetPort
+    ? (tgt?.jacks?.in.findIndex((j) => j.name === e.targetPort) ?? -1)
+    : 0;
+  const to = tgt
+    ? jackPoint(tgt, "in", toIndex < 0 ? 0 : toIndex)
+    : pts[pts.length - 1];
+  return [
+    from,
+    { x: from.x + PORT_LEAD, y: from.y },
+    ...mid,
+    { x: to.x - PORT_LEAD, y: to.y },
+    to,
+  ];
 }
 
 export interface LaidOutGraph {
@@ -150,6 +268,14 @@ export const NODE_H = 70;
 // hold anything at all: 20px of padding, a 13px kind glyph, the 7px gap, and enough left for a few characters of
 // the name before the ellipse. Only a one-column panel is narrow enough to meet it.
 export const NODE_MIN_W = 72;
+
+// A port's plate — the little step off the card's edge a socket is mounted in. Here rather than in the
+// stylesheet because a cable has to END at the socket, so the drawing and the CSS have to agree on where it
+// is; the renderer interpolates this into the sheet so there is one number and not two.
+export const PORT_PLATE = 13;
+// How far a cable runs straight out of a socket before it starts bending, so it leaves the plate square on
+// the way a real one does. Purely cosmetic, and small enough not to fight dagre's routing.
+export const PORT_LEAD = 16;
 
 // Module-UI grid geometry in graph units, shared with the renderer so hit areas and drawing agree by construction.
 // See docs/graphBuild.md for what UI_HEADER and CELL are sized against.
@@ -263,6 +389,7 @@ interface RawEdge {
   label?: string;
   automation?: EdgeAutomation;
   signal?: WebSignal; // what the cable carries — see GraphEdge.signal
+  targetPort?: string; // which INPUT of the target it lands on — see GraphEdge.targetPort
   weight?: number; // dagre edge weight — higher pulls endpoints closer
 }
 
@@ -355,6 +482,7 @@ export function buildGraph(graph: WebGraph): {
     target: string,
     label?: string,
     signal?: WebSignal,
+    targetPort?: string,
   ) => {
     if (source === target) return; // a chain that feeds itself — skip the degenerate self-loop
     const key = `${source}->${target}`;
@@ -362,10 +490,17 @@ export function buildGraph(graph: WebGraph): {
     if (existing) {
       if (!existing.label && label) existing.label = label;
       if (!existing.signal && signal) existing.signal = signal;
+      if (!existing.targetPort && targetPort) existing.targetPort = targetPort;
       return;
     }
-    edges.set(key, { id: key, source, target, label, signal });
+    edges.set(key, { id: key, source, target, label, signal, targetPort });
   };
+
+  // Every module that appears as a step somewhere. A side input's target is normally one of
+  // these rather than a chain of its own: a single flow feeder keeps it absorbed into that run.
+  const usedModules = new Set<string>();
+  for (const c of Object.values(graph.chains))
+    for (const s of c.use) usedModules.add(s.module);
 
   // What leaves a chain — its last module, or for a pass-through whatever reached it. `seen` guards the follow,
   // since a graph being drawn is often one the user is still fixing and must not hang on a cycle.
@@ -414,6 +549,10 @@ export function buildGraph(graph: WebGraph): {
         hasNativePluginUI: !!s.hasNativePluginUI,
         ui: s.ui,
         params: s.params,
+        // Carried to the node so it can draw a jack per port — see DomChains. Absent for the
+        // single-port majority, which draws the one jack it always did.
+        inputs: s.inputs,
+        outputs: s.outputs,
         pluginId: s.pluginId,
         monitor: s.monitor,
         tap: s.tap,
@@ -511,25 +650,35 @@ export function buildGraph(graph: WebGraph): {
       // says. Checked before isChain, which says yes to the same name: a track-fed chain
       // is called after its track. Only inputs reach here; every other destination is a
       // bus (named after the module it starts at) or a sink.
-      const to = isTrack(o.to)
-        ? trackId(o.to)
-        : isChain(o.to)
-          ? entryId(o.to)
-          : add(sinkId(o.to), {
-              label: o.to,
-              kind: "sink",
-              dim: false,
-              missing: false,
-              stub: false,
-              notSupported: false,
-              unknownPlugin: false,
-              hasNativePluginUI: false,
-            });
+      // A destination may name a PORT (`crossfade#b`) — a side input, feeding something other
+      // than the target's first. The node is what the cable lands on; the port decides WHICH
+      // jack. Split before any of the tests below, or a ported ref matches none of them and
+      // falls through to `sinkId`, inventing a sink node called "crossfade#b".
+      const { node: toNode, port: toPort } = splitPort(o.to);
+      const to = isTrack(toNode)
+        ? trackId(toNode)
+        : isChain(toNode)
+          ? entryId(toNode)
+          : // A module that is a STEP inside someone else's chain — which is what a side input's
+            // target usually is, since one flow feeder keeps it absorbed. It has a node already.
+            usedModules.has(toNode)
+            ? moduleId(toNode)
+            : add(sinkId(toNode), {
+                label: toNode,
+                kind: "sink",
+                dim: false,
+                missing: false,
+                stub: false,
+                notSupported: false,
+                unknownPlugin: false,
+                hasNativePluginUI: false,
+              });
       link(
         exitId(name),
         to,
         o.gain !== 1 ? `${Math.round(o.gain * 100)}%` : undefined,
         exitSignal(name),
+        toPort,
       );
     }
   }
@@ -557,6 +706,51 @@ export function buildGraph(graph: WebGraph): {
       ui, // the same strip a routed lane of its kind carries
       ...nodeSize(ui),
     });
+  }
+
+  // --- sockets --------------------------------------------------------------
+  // Which input ports actually have a cable, per node. A last pass because it needs every edge:
+  // a module is fed from its own chain AND from whatever routes into it from elsewhere, and the
+  // second kind is only known once every chain has been walked. An automation arrow is not a
+  // signal and occupies no jack — a curve drives a knob, it does not plug into the module.
+  const fed = new Map<string, Set<string>>();
+  for (const e of edges.values()) {
+    if (e.automation) continue;
+    const at = fed.get(e.target) ?? new Set<string>();
+    at.add(e.targetPort ?? ""); // "" is the flow — the first port, and what a bare cable means
+    fed.set(e.target, at);
+  }
+  // What LEAVES a node decides its output jack's colour; what its first input takes is not on the
+  // step (a module says what it emits, not what it eats), so an unfed input borrows the cable that
+  // reaches it. Neither is load-bearing: a jack with no signal to claim stays neutral.
+  const arriving = new Map<string, WebSignal>();
+  const leaving = new Map<string, WebSignal | undefined>();
+  for (const e of edges.values()) {
+    if (e.automation) continue;
+    if (e.signal && !arriving.has(e.target)) arriving.set(e.target, e.signal);
+    if (!leaving.has(e.source)) leaving.set(e.source, e.signal);
+  }
+  const OCCUPIED: ReadonlySet<string> = new Set([""]);
+  const NONE: ReadonlySet<string> = new Set();
+  for (const n of nodes.values()) {
+    if (n.kind === "curve") continue; // a curve is a source of automation, not of signal
+    n.jacks = {
+      // A track has no input jack: what arrives on a lane is its clips, and there is no socket
+      // for a reader to look for. A sink is the mirror image — somewhere to arrive, nowhere to leave.
+      in:
+        n.kind === "track"
+          ? []
+          : jacksFor(n.inputs, fed.get(n.id) ?? NONE, arriving.get(n.id), true),
+      out:
+        n.kind === "sink"
+          ? []
+          : jacksFor(
+              n.outputs,
+              leaving.has(n.id) ? OCCUPIED : NONE,
+              leaving.get(n.id),
+              false,
+            ),
+    };
   }
 
   // dagre rank hints: tracks 0, modules 1 + their max position, sinks past the deepest, pass-throughs 1.
@@ -622,6 +816,10 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
     label: e.label,
     automation: e.automation,
     signal: e.signal,
+    // Carried through, and it was not: `targetPort` was set on the raw edge and then dropped
+    // here, so the jack a cable names never reached the renderer at all. Every ported cable
+    // landed on the node's edge like an unported one — the drawing said the port was a detail.
+    targetPort: e.targetPort,
     points: g.edge(e.source, e.target, e.id)?.points ?? [],
   }));
   // dagre reports -Infinity for an empty graph, which `?? 0` never caught and `if (!width)` passed — and framing to

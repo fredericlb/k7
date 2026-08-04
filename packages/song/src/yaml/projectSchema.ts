@@ -16,8 +16,13 @@ export const ProjectSettingsSchema = z
       .string()
       .regex(/^[0-9]+\/[0-9]+$/, "expected a time signature like 4/4")
       .optional(),
-    modules_from: z.array(z.string()).optional(), // folders of modules to inherit, each with a namespace config
-    libraries_from: z.array(z.string()).optional(), // shared asset folders (ir/, nam/) — a list, so a song can borrow from several
+    // DEAD, and still accepted: a project sees the workspace's `_modules`/`_library` and the
+    // médiathèque because of where they are (sharedFolders.ts), so nothing reads these. Kept
+    // in the schema because every song already written carries them and refusing the key
+    // would turn a working project into one that will not open; `deadProjectFields` reports
+    // them as a warning instead, naming the lines to delete.
+    modules_from: z.array(z.string()).optional(),
+    libraries_from: z.array(z.string()).optional(),
     video: z.boolean().optional(),
     viewport: z
       .union([

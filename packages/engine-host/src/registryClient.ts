@@ -7,11 +7,18 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { webEndpointPath, webEndpointsDir } from "@studio/engine-client/paths";
+import {
+  STUDIO_ORIGIN,
+  serviceUrl,
+  studioOrigin,
+} from "@studio/web-protocol/services";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 
-// The hosted studio: the registry an engine announces to when nothing local is configured, and the trusted UI.
-export const DEFAULT_STUDIO_URL = "https://studio.frediver.se";
+// The hosted studio: the registry an engine announces to when nothing local is configured, and
+// the trusted UI. Re-exported from the one table that owns it, so it cannot drift from the
+// service paths derived off it.
+export const DEFAULT_STUDIO_URL = STUDIO_ORIGIN;
 
 /**
  * Where the registries live. Resolution, most explicit first, and the FIRST tier that
@@ -26,7 +33,7 @@ export const DEFAULT_STUDIO_URL = "https://studio.frediver.se";
  *   4. the hosted studio.
  *
  * A LIST since each hosted service holds its own registry: an engine must be listed in
- * pistes and in the médiathèque to be pickable in both. Deduped, because the same URL
+ * l8 and in the médiathèque to be pickable in both. Deduped, because the same URL
  * arriving twice would mean two heartbeats a tick to one server for nothing.
  */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
@@ -44,6 +51,30 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
   return [DEFAULT_STUDIO_URL];
 }
 
+/**
+ * The hosted médiathèque this machine caches, derived rather than configured.
+ *
+ * Every service sits on ONE origin at a FIXED path (`SERVICE_PATHS`), so the registry URLs
+ * already resolved above carry the only thing that varies — `https://studio.test/l8` and
+ * `https://studio.frediver.se/l8` differ by their origin and nothing else. Asking for the
+ * library's URL as well made a second, hand-typed copy of a fact already on disk, which is
+ * exactly how a machine ends up heartbeating to one studio and syncing from another.
+ *
+ * st0's path is `""`, so what comes back here is the bare origin. The `if (origin)` guard is
+ * what keeps that honest: an unparseable registry URL yields `""` from `studioOrigin`, and
+ * returning that would hand the file service an empty `MEDIATEK_URL` it reads as configured.
+ *
+ * The FIRST registry wins: `resolveRegistryUrls` returns one tier's worth of alternatives, and
+ * a machine pinned to several studios caches from the one it announces to first.
+ */
+export function mediatekUrlFor(registryUrls: string[]): string | null {
+  for (const u of registryUrls) {
+    const origin = studioOrigin(u);
+    if (origin) return serviceUrl(origin, "st0");
+  }
+  return null; // nothing resolvable — the local folder is then a cache of nothing, which works
+}
+
 /** `.url` out of one endpoint file, or null for anything that isn't one. */
 function urlIn(path: string): string | null {
   try {
@@ -58,7 +89,7 @@ function urlIn(path: string): string | null {
  * Every registry a local backend advertised, deduped.
  *
  * The DIRECTORY is the contract; the single `web-endpoint.json` is read too because an older
- * pistes backend still writes only that one, and a tray shipped before this change reads only
+ * l8 backend still writes only that one, and a tray shipped before this change reads only
  * that one. Both are cheap, and the union is what stops a version skew from silently costing
  * an app its engine.
  */

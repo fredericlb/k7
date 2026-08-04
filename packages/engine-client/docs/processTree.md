@@ -1,7 +1,7 @@
 # processTree.ts — why killing a child isn't enough
 
 A plain `child.kill()` reaches only the process we hold, which is not enough for either
-of the long-lived processes pistes starts:
+of the long-lived processes l8 starts:
 
 - **The file service** forks helpers, and under `tsx` the process we hold is a launcher
   whose GRANDCHILD is the actual server. Kill the parent alone and the grandchild keeps

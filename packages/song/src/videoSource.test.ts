@@ -26,7 +26,7 @@ const SONG = join(
   "..",
   "..",
   "..",
-  "apps",
+  "engine",
   "capot",
   "songs",
   "video-demo",

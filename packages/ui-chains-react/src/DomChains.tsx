@@ -34,9 +34,11 @@ import {
   smoothPath,
 } from "@studio/ui-chains/cables";
 import {
+  cablePath,
   type EdgeInsert,
   type GraphNode,
   type LaidOutGraph,
+  PORT_PLATE,
   type Pt,
   type TrackControlValues,
   widgetDenorm,
@@ -57,11 +59,27 @@ import {
 /**
  * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
  *
- * pistes' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
+ * l8' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
  * has no way to produce. Declaring the narrow union here is what lets the component say
  * what it emits instead of importing an app's idea of a menu; a host whose own type is
  * wider accepts a handler for it unchanged.
  */
+/**
+ * A play button on the SINK node — for a host that can audition what reaches it.
+ *
+ * On the output and not on the input, because what you want to hear is the signal after
+ * everything in the chain has had it. Opt-in and absent by default: l8 has a transport of
+ * its own and m9 has a deck, so neither wants a second play button inside the graph. The
+ * médiathèque has neither, which is why it needs one here.
+ */
+export interface SinkPlay {
+  playing: boolean;
+  /** No engine, or nothing to play. `title` is what says which. */
+  disabled?: boolean;
+  title?: string;
+  onToggle: () => void;
+}
+
 export type GraphMenuCtx =
   | { kind: "track"; id: string }
   | { kind: "module"; id: string; missing?: boolean }
@@ -72,9 +90,9 @@ export type GraphMenuCtx =
  * The glyphs a node draws itself with, supplied by the host.
  *
  * Injected rather than imported because they are the APP's vocabulary, not the graph's:
- * pistes draws the same track icons in its mixer and its timeline, so they cannot live in
- * a chains package without those two importing one. A second consumer that wants pistes'
- * exact icons can pass pistes' exact icons.
+ * l8 draws the same track icons in its mixer and its timeline, so they cannot live in
+ * a chains package without those two importing one. A second consumer that wants l8'
+ * exact icons can pass l8' exact icons.
  */
 export interface ChainsIcons {
   ModuleIcon: (props: {
@@ -285,11 +303,28 @@ const CSS = `
 .dgx-hd.bbtn { padding-right:26px; }
 .dgx-pbtn i { width:9px; height:1.4px; background:currentColor; box-shadow:0 3px currentColor,0 -3px currentColor; }
 
-.dgx-jack { position:absolute; top:50%; width:11px; height:11px; border-radius:50%;
-  background:radial-gradient(circle at 38% 34%,#34333a,#0c0c10 72%);
-  border:1.5px solid color-mix(in srgb,var(--jc) 60%,#2c2c33); box-shadow:0 0 0 3px rgba(0,0,0,.35); }
-.dgx-jack.in { left:-5.5px; transform:translateY(-50%); }
-.dgx-jack.out { right:-5.5px; transform:translateY(-50%); }
+/* A PORT: a socket in a little plate stepped off the card's edge, the way a mini-jack is panel
+   mounted. The plate is what makes it read as hardware — a bare dot on a border reads as a
+   bullet, and a node with three of them reads as a list. It sits OUTSIDE the card so it never
+   competes with the widget grid, and its flat side is the one against the card.
+   (No backticks anywhere in this block: it is inside a template literal, and one would end it.) */
+.dgx-port { position:absolute; display:grid; place-items:center;
+  width:${PORT_PLATE}px; height:17px; box-sizing:border-box;
+  background:linear-gradient(#2a2930,#141419); border:1px solid var(--line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05); transform:translateY(-50%); }
+.dgx-port.in  { left:-${PORT_PLATE}px;  border-right-width:0; border-radius:4px 0 0 4px; }
+.dgx-port.out { right:-${PORT_PLATE}px; border-left-width:0;  border-radius:0 4px 4px 0; }
+/* …and the barrel, seen end on: a dark bore with a bright ring, coloured by what the port
+   carries so a socket matches the cable that belongs in it. */
+.dgx-port i { width:9px; height:9px; border-radius:50%;
+  background:radial-gradient(circle at 37% 33%,#3b3a43,#08080b 68%);
+  border:1.5px solid color-mix(in srgb,var(--jc) 62%,#2c2c33);
+  box-shadow:inset 0 0 2px 1px rgba(0,0,0,.8); }
+/* FREE — nothing wired to it. An invitation rather than a connection, so the plate recedes and
+   the bore loses its ring: the eye finds the sockets that carry signal first, and the spare one
+   only when it is looking for somewhere to plug in. */
+.dgx-port.free { opacity:.55; }
+.dgx-port.free i { border-color:#2c2c33; background:radial-gradient(circle at 37% 33%,#232228,#0a0a0d 68%); }
 
 /* A widget is absolutely placed at its widgetRect box (node-local), so the drawing and the
    automation-arrow targets agree with graph.ts by construction. */
@@ -358,6 +393,13 @@ const CSS = `
 .dgx-out { position:absolute; top:38px; left:0; right:0; bottom:0; display:grid; place-items:center; }
 .dgx-out b { font:600 20px ui-monospace,monospace; letter-spacing:.04em; color:var(--sand); line-height:1; }
 .dgx-out span { font-size:8.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); }
+/* The audition button. In this stylesheet and not in a host's, because the graph's CSS is
+   INJECTED (see useCss) — a class styled in an app's Tailwind would come out unstyled here. */
+.dgx-play { margin-top:5px; width:22px; height:22px; display:grid; place-items:center;
+  border:1px solid #2c2c33; border-radius:50%; background:#08080b; color:var(--sand);
+  font-size:9px; line-height:1; cursor:pointer; }
+.dgx-play:hover:not(:disabled) { border-color:var(--sand); }
+.dgx-play:disabled { cursor:default; opacity:.35; }
 .dgx-curve { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:9px; padding:8px 10px 9px; box-sizing:border-box; }
 .dgx-cmeta { font:9px ui-monospace,monospace; color:var(--dim); line-height:1.5; }
 .dgx-cmeta b { color:var(--mauve); }
@@ -593,7 +635,6 @@ function TabsWidget({
   onPick,
   onPickLibrary,
   onWatchWaveform,
-  libraryFiles,
 }: {
   n: GraphNode;
   w: WebWidget;
@@ -610,7 +651,6 @@ function TabsWidget({
     side: "input" | "output",
     on: boolean,
   ) => void;
-  libraryFiles?: string[];
 }) {
   const [activePage, setActivePage] = useState<string | null>(null);
   const pages = w.pages ?? {};
@@ -661,7 +701,6 @@ function TabsWidget({
               onPick={onPick}
               onPickLibrary={onPickLibrary}
               onWatchWaveform={onWatchWaveform}
-              libraryFiles={libraryFiles}
               styleOverride={{
                 position: "absolute",
                 left: sr.x - (style.left as number),
@@ -800,7 +839,6 @@ function Widget({
   onPick,
   onPickLibrary,
   onWatchWaveform,
-  libraryFiles,
   styleOverride,
 }: {
   n: GraphNode;
@@ -819,7 +857,6 @@ function Widget({
     side: "input" | "output",
     on: boolean,
   ) => void;
-  libraryFiles?: string[];
   styleOverride?: React.CSSProperties;
 }) {
   const r = widgetRect(w);
@@ -839,7 +876,6 @@ function Widget({
         onPick={onPick}
         onPickLibrary={onPickLibrary}
         onWatchWaveform={onWatchWaveform}
-        libraryFiles={libraryFiles}
       />
     );
   }
@@ -1100,7 +1136,7 @@ function Node({
   onPickWidget,
   onPickLibrary,
   onWatchWaveform,
-  libraryFiles,
+  sinkPlay,
 }: {
   n: GraphNode;
   selected: string | null;
@@ -1128,11 +1164,9 @@ function Node({
     side: "input" | "output",
     on: boolean,
   ) => void;
-  // The project's shared library; a library dropdown lists the slice of it under its own folder.
-  libraryFiles?: string[];
+  sinkPlay?: SinkPlay;
 }) {
   const { ModuleIcon, moduleGlyph, TrackIcon } = useIcons();
-  const jc = n.kind === "curve" ? MAUVE : SAND;
   // The category whose glyph this node wears. A sink has none of its own, but it IS io, so it gets io's arrows.
   const iconCategory =
     n.kind === "sink"
@@ -1379,18 +1413,70 @@ function Node({
         </span>
       )}
 
-      {/* jacks — decorative in/out ports (dagre routes cables to the node borders) */}
-      {n.kind !== "track" && n.kind !== "curve" && (
-        <i className="dgx-jack in" style={{ ["--jc" as string]: jc }} />
+      {/* Ports. Which sockets show is decided in graph.ts (`jacksFor`) — it depends on what is
+          wired to the node, which is a fact about the graph rather than about the DOM. Here we
+          only place them: evenly spaced down the edge, so two ports sit at a third and two
+          thirds and neither collides with the header. */}
+      {/* A curve is not on the signal path — it drives a knob — so it gets one mauve socket and
+          no input: nothing plugs INTO a curve. Kept out of `jacksFor`, which types a jack by the
+          signal it carries and a curve carries none. */}
+      {n.kind === "curve" && (
+        <span
+          className="dgx-port out"
+          style={{ ["--jc" as string]: MAUVE, top: "50%" }}
+        >
+          <i />
+        </span>
       )}
-      {n.kind !== "sink" && (
-        <i className="dgx-jack out" style={{ ["--jc" as string]: jc }} />
-      )}
+      {n.kind !== "curve" &&
+        (["in", "out"] as const).map((side) =>
+          (n.jacks?.[side] ?? []).map((p, i, all) => (
+            <span
+              key={`${side}:${p.name ?? i}`}
+              className={`dgx-port ${side}${p.free ? " free" : ""}`}
+              title={
+                p.name
+                  ? `${p.name} (${p.type})${p.free ? " — free" : ""}`
+                  : undefined
+              }
+              style={{
+                // Coloured by what the port carries, so a socket matches the cable for it.
+                ["--jc" as string]: cableColorFor(p.type),
+                top: `${((i + 1) / (all.length + 1)) * 100}%`,
+              }}
+            >
+              <i />
+            </span>
+          )),
+        )}
 
       {n.kind === "sink" ? (
         <div className="dgx-out">
           <b>OUT</b>
           <span>stereo</span>
+          {/* Auditioning happens at the OUTPUT: what you want to hear is the signal after
+              everything in the chain, so the button belongs where that signal arrives. Only a
+              host that can actually play offers one — l8 and m9 pass nothing. */}
+          {sinkPlay ? (
+            <button
+              type="button"
+              className="dgx-play"
+              disabled={!!sinkPlay.disabled}
+              // The node is selectable and draggable; a click on the button is neither.
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                sinkPlay.onToggle();
+              }}
+              // Says WHY it is dead rather than looking broken — no engine, or nothing to play.
+              title={
+                sinkPlay.title ?? (sinkPlay.playing ? "Arrêter" : "Écouter")
+              }
+              aria-label={sinkPlay.playing ? "Arrêter" : "Écouter"}
+            >
+              {sinkPlay.playing ? "■" : "▶"}
+            </button>
+          ) : null}
         </div>
       ) : n.kind === "curve" ? (
         <div className="dgx-curve">
@@ -1411,7 +1497,6 @@ function Node({
             onPick={onPickWidget}
             onPickLibrary={onPickLibrary}
             onWatchWaveform={onWatchWaveform}
-            libraryFiles={libraryFiles}
           />
         ))
       ) : (
@@ -1507,9 +1592,6 @@ function Cables({
         const pts = g.base;
         if (pts.length < 2) return null;
         const d = smoothPath(pts);
-        const a = pts[pts.length - 2];
-        const b = pts[pts.length - 1];
-        const ang = Math.atan2(b.y - a.y, b.x - a.x);
         const mid =
           showLabels && g.label ? pts[Math.floor(pts.length / 2)] : null;
         // Colour by what the cable CARRIES, live or not — tinting live cables orange made everything look like audio.
@@ -1534,10 +1616,12 @@ function Cables({
               d={d}
               style={{ strokeWidth: 2.2 * boost, stroke: cableColor }}
             />
-            <polygon
-              points={arrowPoints(b, ang, 7.5 * boost)}
-              fill={cableColor}
-            />
+            {/* No arrowhead. A cable ends in a PLUG, and the plug is the socket it disappears
+                into — the node paints over this layer, so the last few pixels are hidden by the
+                plate and the cable reads as seated. An arrow was the right mark while the cable
+                pointed at a card and had nowhere in particular to land. Direction is not lost
+                with it: the graph is laid out left to right, and every socket is on the side its
+                signal uses. */}
             {mid && (
               <text
                 className="dgx-clab"
@@ -1674,7 +1758,7 @@ export function DomChains({
   onSetModuleAsset,
   onLibraryBrowse,
   onWatchWaveform,
-  libraryFiles,
+  sinkPlay,
   pluginParamsStore,
   setPluginParam,
   trackControls,
@@ -1704,9 +1788,9 @@ export function DomChains({
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
-  // Load a library file into a module: `kind` is the asset ("ir", "nam"), `file` library-relative or "none".
+  // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
-  /** Open the library browser for a module's asset field, at viewport coords. */
+  /** Open the asset browser for a module's file-valued param, at viewport coords. */
   onLibraryBrowse?: (
     module: string,
     kind: string,
@@ -1719,8 +1803,8 @@ export function DomChains({
     side: "input" | "output",
     on: boolean,
   ) => void;
-  // The shared asset library, kept beside the laid-out graph rather than inside it: `layout` is geometry.
-  libraryFiles?: string[];
+  /** A play button on the sink. Omit it and there is none — see SinkPlay. */
+  sinkPlay?: SinkPlay;
   pluginParamsStore?: PluginParamsStore;
   setPluginParam?: (id: string, name: string, value: number) => void;
   trackControls?: Record<string, TrackControlValues>;
@@ -1795,7 +1879,12 @@ export function DomChains({
       if (e.points.length < 2) continue;
       signal.push({
         id: e.id,
-        ...buildCableGeom(e.points, WOBBLE_STEP, WOBBLE_MAX_SAMPLES),
+        // Plugged into the SOCKETS rather than aimed at the borders dagre routed to — see cablePath.
+        ...buildCableGeom(
+          cablePath(e, byId.get(e.source), byId.get(e.target)),
+          WOBBLE_STEP,
+          WOBBLE_MAX_SAMPLES,
+        ),
         source: e.source,
         target: e.target,
         label: e.label,
@@ -2277,7 +2366,7 @@ export function DomChains({
                 onPickWidget={pickWidget}
                 onPickLibrary={pickLibrary}
                 onWatchWaveform={onWatchWaveform}
-                libraryFiles={libraryFiles}
+                sinkPlay={sinkPlay}
               />
             ))}
           </div>

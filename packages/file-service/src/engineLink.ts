@@ -58,11 +58,11 @@ let currentWs: Workspace | null = null; // whose project the engine is playing; 
  * exactly the case that shape exists for.
  */
 export function sessionOf(ws: { root: string } | null): string {
-  if (!ws) return SESSIONS.pistes;
+  if (!ws) return SESSIONS.l8;
   const rel = relative(rootDir(), ws.root);
   const slug = rel.split(/[\\/]/)[0];
-  if (!slug || slug.startsWith("..")) return SESSIONS.pistes;
-  return `${SESSIONS.pistes}:${slug}`;
+  if (!slug || slug.startsWith("..")) return SESSIONS.l8;
+  return `${SESSIONS.l8}:${slug}`;
 }
 
 function wireEngine(session: string, e: EngineClient): void {
@@ -121,7 +121,7 @@ function ensureEngine(
   const session = sessionOf(ws);
   const existing = links.get(session);
   if (existing) return existing.client;
-  // The other half of pistes' session: this side compiles and sends the project, the browser
+  // The other half of l8' session: this side compiles and sends the project, the browser
   // side drives its transport. Same id or the two steer different projects.
   const client = new EngineClient(selectedEngineUrl, session);
   links.set(session, { client, ready: false });
@@ -170,7 +170,7 @@ function enginePlugins(
       clearTimeout(t);
       if (rescan) out.push(`scanned ${plugins.length} plugin(s)`);
       else if (!plugins.length)
-        out.push("no plugins cached — run: pistes engine scan");
+        out.push("no plugins cached — run: l8 engine scan");
       else
         for (const p of plugins)
           out.push(

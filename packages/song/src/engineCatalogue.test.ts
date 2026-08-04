@@ -128,17 +128,28 @@ describe("the catalogue of modules", () => {
     expect(m["@engine/arp"].category).toBe("transformers");
   });
 
-  it("offers IN and OUT even with no scan at all", () => {
+  it("offers the io modules even with no scan at all", () => {
     // They are not plugins — the engine provides them, and a project that has never
     // scanned still has to be able to route to its output.
     const m = engineModules(join(dir, "nope.json"));
-    expect(Object.keys(m)).toEqual(["@engine/IN", "@engine/OUT"]);
+    expect(Object.keys(m)).toEqual([
+      "@engine/IN",
+      "@engine/OUT",
+      "@engine/FILE",
+    ]);
     expect(m["@engine/IN"]).toMatchObject({
       io: "in",
       kind: "io",
       category: "io",
     });
     expect(m["@engine/OUT"]).toMatchObject({ io: "out", kind: "io" });
+    // The file source: audio off disk, and a SOURCE like IN rather than a sink. Which file it
+    // reads is an instance's business, and a chain template's instance names none.
+    expect(m["@engine/FILE"]).toMatchObject({
+      io: "file",
+      kind: "io",
+      category: "io",
+    });
   });
 
   it("collapses two scans of one plugin into one module", () => {

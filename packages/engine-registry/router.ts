@@ -6,6 +6,7 @@
 import { validate, wrap } from "@frediverse/http/route";
 import { Router } from "express";
 import { z } from "zod";
+import { engineFilesProxy, issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
 
 const addressesSchema = z.object({
@@ -35,7 +36,10 @@ const deregisterBody = z.object({
 const selectBody = z.object({
   id: z.string().min(1),
   token: z.string().min(1),
-  tier: z.number().optional(), // informational; the browser's probe result
+  // Informational: what the browser MEASURED for this link, ms (round trip + the interface's
+  // two buffers). Kept on the wire for the constraints this will grow — "no take on a Q3
+  // engine" is a question only the server can answer, and only if it was told the number.
+  latencyMs: z.number().optional(),
 });
 
 const releaseBody = z.object({ id: z.string().min(1) });
@@ -74,12 +78,25 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
   );
 
   // The pick list. Token stripped; `sameSourceIp` is a LAN hint (Tier 2) from the heartbeat's source IP.
+  //
+  // Each entry carries a fresh RELAY TICKET. Minted here rather than fetched per engine because
+  // this route is already the authenticated one and already returns every engine — a ticket per
+  // round trip would have been one round trip per engine, before any of them was measured.
   router.get(
     "/engines",
     wrap((req, res) => {
-      res.json(reg.list(req.ip));
+      res.json(
+        reg.list(req.ip).map((e) => ({
+          ...e,
+          proxyTicket: issueEngineTicket(e.id),
+        })),
+      );
     }),
   );
+
+  // The engine machine's file service, relayed. Under `/engine/:id/` so the session middleware
+  // the hosts put in front of `/api/engine` covers it — see proxy.ts.
+  router.use("/engine/:id/files", engineFilesProxy(reg));
 
   router.post(
     "/engine/select",

@@ -35,7 +35,7 @@ you deploy, the one you can `git show`, and the one you can read.
 Phare writes the variable as a command prefix on the `RUN` line. That works there
 because every phare image builds exactly one SPA.
 
-`apps/obscura/docker/Dockerfile` builds **six** in one `&&` chain. A shell command-prefix
+`apps/z0/docker/Dockerfile` builds **six** in one `&&` chain. A shell command-prefix
 assignment applies to the first command only, so `VITE_APP_VERSION=x npm run build -w a
 && npm run build -w b` stamps `a` and silently ships `b` through `f` as `dev`. Nothing
 fails; you just get five wrong images.
@@ -64,7 +64,7 @@ mode — which reads like `VITE_APP_VERSION` should be filtered out of task envi
 and left out of the cache key. It is not, because turbo infers the framework from each
 workspace and adds Vite's `VITE_*` to the env key automatically.
 
-Measured on turbo 2.10.8: `turbo run build --filter=mediatek` with two different values
+Measured on turbo 2.10.8: `turbo run build --filter=st0` with two different values
 produced two different task hashes (`d459578664edb92f` / `04f869a3a312cc63`) and a fresh
 bundle each time, correctly stamped. So the variable both reaches the build and busts
 the cache.
@@ -94,20 +94,20 @@ bundle.
 
 | image | SPA | render site |
 |---|---|---|
-| pistes | `pistes-frontend` | `apps/pistes/frontend/src/App.tsx` — header, after the title |
-| mediatek | `mediatek` | `apps/mediatek/src/Library.tsx` — header, after the subtitle |
+| l8 | `l8-frontend` | `apps/l8/frontend/src/App.tsx` — header, after the title |
+| st0 | `st0` | `apps/st0/frontend/src/Library.tsx` — header, after the subtitle |
 | k7 | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — beside the mark |
-| obscura | `obscura-online` | `src/App.tsx` — header |
-| obscura | `obscura-editor` | `src/views/EditorView.tsx` — `.topbar` |
-| obscura | `obscura-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
-| obscura | `obscura-remote` | `src/views/RemoteView.tsx` — `.status-bar` |
-| obscura | `obscura-buzzer` | `src/views/BuzzerView.tsx` — fixed bottom-left |
-| obscura | `obscura-presenter` | `src/components/Game2D.tsx` — overlay, bottom-left |
+| z0 | `z0-online` | `src/App.tsx` — header |
+| z0 | `z0-editor` | `src/views/EditorView.tsx` — `.topbar` |
+| z0 | `z0-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
+| z0 | `z0-remote` | `src/views/RemoteView.tsx` — `.status-bar` |
+| z0 | `z0-buzzer` | `src/views/BuzzerView.tsx` — fixed bottom-left |
+| z0 | `z0-presenter` | `src/components/Game2D.tsx` — overlay, bottom-left |
 
 Styling follows each app's own idiom — Tailwind utilities where the surrounding chrome
-is Tailwind (pistes, mediatek, obscura-online), a small class in the app's CSS file
+is Tailwind (l8, st0, z0-online), a small class in the app's CSS file
 everywhere else. There is deliberately **no** shared version component: putting it in
-`obscura-shared`'s auth badge would have landed it in six places at once, but that badge
+`z0-shared`'s auth badge would have landed it in six places at once, but that badge
 is an inline topbar item in three apps and a fixed top-right overlay in the other three.
 
 Two placements are constrained by things already on screen, and both constraints are

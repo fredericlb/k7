@@ -4,10 +4,10 @@ import { DECK, deckDoc } from "./deck";
 import { playablePath } from "./service";
 
 const entry = (over: Partial<MediatekEntry> = {}): MediatekEntry => ({
-  family: "morceaux",
-  id: "morceaux/recorded/song",
+  family: "songs",
+  id: "songs/K7/rel/song",
   name: "Song",
-  path: "morceaux/recorded/song",
+  path: "songs/K7/rel/song",
   kind: "recorded",
   mtime: 0,
   meta: { catalogued: true, master: "master.wav" },
@@ -17,7 +17,7 @@ const entry = (over: Partial<MediatekEntry> = {}): MediatekEntry => ({
 describe("turning a catalogue entry into something the engine can open", () => {
   it("joins the cache root, the entry's folder and the master file", () => {
     expect(playablePath("/home/flb/.studio/mediatek", entry())).toBe(
-      "/home/flb/.studio/mediatek/morceaux/recorded/song/master.wav",
+      "/home/flb/.studio/mediatek/songs/K7/rel/song/master.wav",
     );
   });
 
@@ -25,7 +25,7 @@ describe("turning a catalogue entry into something the engine can open", () => {
     // The service reports a NATIVE root while entry paths are POSIX, and the engine takes
     // either. Picking one shape here would be this app deciding something it does not own.
     expect(playablePath("C:\\Users\\flb\\.studio\\mediatek", entry())).toBe(
-      "C:\\Users\\flb\\.studio\\mediatek\\morceaux/recorded/song\\master.wav",
+      "C:\\Users\\flb\\.studio\\mediatek\\songs/K7/rel/song\\master.wav",
     );
   });
 

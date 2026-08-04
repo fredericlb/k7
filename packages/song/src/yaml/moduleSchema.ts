@@ -41,6 +41,22 @@ const SliceRack = z.object({
 });
 export const RackSchema = z.union([SliceRack, SamplesRack]);
 
+/**
+ * One named port a module declares for itself. See docs/ports.md.
+ *
+ * `mandatory` is an INPUT's business — an output is offered, never required — and defaults to
+ * true where it is read, so a port a module bothered to name has to be fed unless it says
+ * otherwise. A crossfade's second input is exactly the case for `mandatory: false`: wiring one
+ * side and leaving the other silent is a legitimate state, not a half-built chain.
+ */
+export const PortSchema = z
+  .object({
+    name: z.string().min(1),
+    type: z.enum(["audio", "midi", "video"]),
+    mandatory: z.boolean().optional(),
+  })
+  .strict();
+
 export const WIDGET_TYPES = [
   "label",
   "knob",
@@ -164,25 +180,47 @@ export const ModuleSchema = z
         name: z.string().optional(),
       })
       .optional(),
-    io: z.enum(["out", "in", "video_out"]).optional(),
+    // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the
+    // graph reads rather than re-listing them.
+    // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the
+    // graph reads rather than re-listing them.
+    io: z.enum(["out", "in", "video_out", "file"]).optional(),
+    // The module's own PORTS, overriding the defaults its type folder gives (MODULE_TYPES).
+    //
+    // Declared here because the folder says what a module IS, not how many wires it takes: a
+    // crossfade is an audio effect like any other and needs two audio inputs, which was
+    // unsayable while the folder was the only source. A module that declares neither keeps its
+    // type's ports, which is every module written so far. See docs/ports.md.
+    inputs: z.array(PortSchema).optional(),
+    outputs: z.array(PortSchema).optional(),
     type: z
       .enum(["plugin", "rack", "video_effect", "video_transition"])
       .optional(), // NOT .default() — the loader applies it (moduleFile.ts) so the file stays as terse as authored
-    params: z.record(z.string(), z.number()).optional(),
+    // A param is a NUMBER, except the few the plugin steers with a file it loads — `nam` names
+    // a .nam model in this module's own `assets/`. It sits in params: because that is what it
+    // is, one of the plugin's controls shown in the panel beside Input and Output; its own
+    // top-level field made it a second kind of thing to find, edit and merge. Only the
+    // file-valued ones are strings (moduleTypes.FILE_PARAMS), and nodeProject lifts them out
+    // before the wire, which stays numeric. See docs/moduleAssets.md.
+    params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
     rack: RackSchema.optional(),
-    // Files from the project's shared asset library, named by their path inside it.
-    ir: z.string().optional(),
-    nam: z.string().optional(),
-    // The module's DSP, written in JS/TS and living IN THIS FOLDER — a bare filename, not a path, because a
-    // module's source belongs to the module the way its .vstpreset does. Compiled to a sibling .json on demand
-    // (see readJsDspGraph); the engine only ever sees the graph. Not a library asset like ir/nam: it is source.
-    jsdsp: z.string().optional(),
+    // NOTE: there is no `jsdsp:` field. A module whose DSP is its own source says so with
+    // `plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement
+    // instead of two that had to agree. See loader.ts's jsDspFileFor.
     // An io "in" module says WHICH interface input it is, and nothing about where the
     // signal goes: the chain it sits in already names the track. (It used to carry a
     // `track:` too, which meant a shared input module — one per physical input, filed in
     // a workspace's _modules by `module populate` — had nowhere to put a binding that is
     // per-project by nature.)
     channel: InputSchema.optional(),
+    // An io "file" module reads an audio FILE instead of an interface channel. Project-relative,
+    // and named `source` for the same reason a clip's audio is: it is the same fact. (`file` was
+    // the obvious spelling and is taken — the loader writes the module's FOLDER name there, so
+    // an authored `file:` was silently overwritten by it.) It may be ABSENT, and that is the
+    // useful case rather than an oversight: a chain template's input names none, because the
+    // template is generic and whoever applies it supplies the audio — a song hands over its
+    // master. See docs/fileInput.md.
+    source: z.string().optional(),
     // Whether you hear the input while it plays. A BOOLEAN is the everyday answer — `monitor: true` is what a
     // person writing this file means — and the three-state spelling stays because "auto" is neither: it means
     // audible only once the track is armed, which is the default and cannot be said with a boolean.

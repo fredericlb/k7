@@ -21,16 +21,25 @@ describe("derived module fields", () => {
       "extends",
       "plugin",
       "io",
+      // A module's OWN ports, overriding its type folder's defaults — what makes "two audio
+      // inputs" sayable at all. See docs/ports.md.
+      "inputs",
+      "outputs",
       "type",
       "params",
       "rack",
-      "ir",
-      "nam",
-      "jsdsp",
+      // `ir` and `nam` sat here, each naming a file in a shared asset library. The library is
+      // gone — a module carries what it loads, in its own `assets/` — and the one that survived
+      // is a `params:` entry, because a .nam model is one of the plugin's controls. So there is
+      // no top-level field left to complete against; see moduleTypes.FILE_PARAMS.
+      // `jsdsp` was here: a filename beside a `plugin: {type: internal, name: DSP Graph}` that
+      // said nothing about it. The TYPE says it now — `plugin: {type: jsdsp}` — and the file is
+      // `jsdsp.ts` in the module's folder, so there is no field left to complete against.
       "channel",
       // `track` sat here until an input's landing place became the chain's business —
       // a shared io/IN module has one instance per physical input and no project to
       // name a track in. See moduleSchema's note on `channel`.
+      "source", // …and the OTHER kind of source: an io "file" reads audio off disk
       "monitor",
       "gain", // the other thing an input does to its signal, beside whether you hear it
       "ui",

@@ -2,8 +2,8 @@
 // goes on the wire. Types only, like the state frames beside it, so the C++ mirror in
 // engine/ProjectDoc.h has one TypeScript counterpart and no more.
 //
-// This is NOT "a pistes song". It is the OUTPUT of a compiler, and any app that can build
-// one can drive the engine — mediatek's module preview is a one-track doc, an m9 deck
+// This is NOT "a l8 song". It is the OUTPUT of a compiler, and any app that can build
+// one can drive the engine — st0's module preview is a one-track doc, an m9 deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
 // PRODUCES them; `./build` has constructors for callers that have no song folder.
@@ -83,6 +83,10 @@ export interface PluginDoc {
   // A DSP-graph module's description, INLINE as JSON rather than a path: the compiler has already read it, and
   // the engine parses no files. Its parameters come from it, so it must reach the plugin's constructor.
   dspGraph?: string;
+  // The TRACK id feeding this module's SECOND input port — what a chains file writes as `crossfade#b`
+  // (see @studio/song docs/ports.md), resolved to the lane the engine can route from. Absent when the
+  // module has one input, or when a declared port is left unwired, which is a legitimate state.
+  sidechainFrom?: string;
   presetSave: string; // absolute path where a UI edit saves THIS module's .vstpreset ('' if n/a)
   role: string; // "instrument" | "audioFX" | "noteFX"
   enabled: boolean;
@@ -204,7 +208,7 @@ export interface VideoTrackDoc {
 }
 
 export interface ProjectDoc {
-  uuid?: string; // stable song id, generated on first `pistes export`; absent until then
+  uuid?: string; // stable song id, generated on first `l8 export`; absent until then
   name: string;
   tempo: number;
   sampleRate: number;

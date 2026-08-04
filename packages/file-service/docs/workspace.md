@@ -2,7 +2,7 @@
 
 The filesystem layer over ONE workspace root.
 
-This was the pistes backend's former `store.ts`, turned from a single module-level `ROOT` into
+This was the l8 backend's former `store.ts`, turned from a single module-level `ROOT` into
 a per-workspace object: the file service serves many users' workspaces from one process,
 so `root`, the active project, and the compiled/waveform caches all live on a `Workspace`
 instance. The path-traversal guards (`safePath`/`toRel`) were preserved verbatim — they

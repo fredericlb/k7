@@ -1,0 +1,8 @@
+type: single
+contentType: audio
+clips:
+  - { ref: kick, start: "1:1:1" }
+  - { ref: kick, start: "1:2:1" }
+  - { ref: kick, start: "1:3:1" }
+  - { ref: kick, start: "1:4:1" }
+docs: The A deck — four on the floor. It FLOWS into the crossfade, so it fills the module's first port.

@@ -57,11 +57,65 @@ A **video lane** gets one control. For picture, "mute" means hidden, and there i
 record arm, gain or pan to offer — a full strip there would be four controls that do
 nothing.
 
+## Ports
+
+A node's sockets are decided here, not in the renderer: how many show depends on what is wired
+to the node, and that is a fact about the graph. `jacksFor` is the whole rule and `buildGraph`
+runs it in a last pass, once every edge exists — a module is fed from its own chain *and* from
+whatever routes into it from elsewhere, and the second kind is only known after every chain has
+been walked.
+
+Inputs **reveal themselves**. Every mandatory port is drawn from the start: a socket that has to
+be fed is a thing to say up front. Past those, exactly one free jack appears beyond the last
+occupied port — so a crossfade with its flow wired offers its second input, and a module with
+four optional ports and one in use does not present three empty holes to someone using one. One
+past the *last occupied* port and not one past the count, or a module fed only on `b` would lose
+the `a` the reader is looking for.
+
+Outputs do not. All of them show at once, because an output is offered rather than required and
+there is no progression to disclose. Their occupancy is also per NODE rather than per socket: a
+chains file can name a port on the source side (`deck#cue: [ phones ]`), but the derivation
+unions those destinations onto one node and the edge does not record which jack it left from. So
+a module's outputs all read the same — connected when anything leaves it, hollow when nothing
+does, which is the state worth seeing anyway.
+
+Three nodes are special and each for its own reason. A **track** has no input jack: what arrives
+on a lane is its clips, and there is no socket to look for. A **sink** is the mirror image. A
+**curve** is off the signal path entirely — it drives a knob rather than plugging in — so it is
+left out of `jacksFor` (which types a jack by the signal it carries, and a curve carries none)
+and the renderer gives it one mauve socket of its own. An **automation** edge occupies no jack
+for the same reason; counted as a feeder it would have revealed the next free socket for nothing.
+
+The **pending** node — the module being created, drawn where it will land — gets no sockets at
+all, because it is not built by `buildGraph`. That is the right answer rather than an oversight:
+it is dashed and spinning because it does not exist yet, and a socket would claim otherwise.
+
+`DomChains.stories.tsx` in the react package draws each of these cases; it is the only way to
+look at them without starting the engine, the tray, the file service and the editor.
+
 ## Cables
 
 A cable carries what its **source** emits: a track's `contentType`, or the upstream module's
 type folder. An instrument takes midi and emits audio, so the cable into it is blue and the
 one out of it orange. A video lane puts picture on the wire whatever `trackSignals` says.
+
+A cable **plugs in**. dagre routes to the node's border, which was the right target while a
+cable ended in an arrowhead pointing at a card; `cablePath` moves both ends onto the sockets
+instead — the one the destination NAMES (`crossfade#b`) on the target side, and the first output
+on the source side, because the routing model records no source port. dagre's waypoints in
+between are untouched, so a send still bends around the module it skips. A short straight lead
+at each end makes the cable leave the plate square instead of curving off it.
+
+There is **no arrowhead** on a signal cable. The plug is the socket it disappears into — the
+nodes paint over the cable layer, so the last few pixels are hidden by the plate and the cable
+reads as seated. Direction is not lost with the head: the layout is left→right and every socket
+is on the side its signal uses. The one arrow left is the **automation** one, and it earns its
+head by not plugging into anything: it leaves the curve's socket like any other cable and then
+lands on a knob in the middle of a card, where a headless line would not say which knob.
+
+The socket's position is one rule in one place: `jackPoint` and the plate's CSS are both driven
+by `PORT_PLATE`, which the renderer interpolates into its stylesheet. Two numbers here would be
+a cable that ends near the hole rather than in it, and nothing would ever say so.
 
 `link()` adds a connection once. The same source→target can be expressed twice (a chain's
 `from` and the upstream chain's `out`), so they collapse, keeping any gain label. Chains

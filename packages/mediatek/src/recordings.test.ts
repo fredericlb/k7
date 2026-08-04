@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout } from "./layout.ts";
 import { manifest } from "./manifest.ts";
-import { NotAudioError } from "./morceau.ts";
 import {
   addRecording,
   dayOf,
@@ -14,6 +13,7 @@ import {
 } from "./recordings.ts";
 import { revisions } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
+import { NotAudioError } from "./song.ts";
 import { putFile } from "./write.ts";
 
 let root: string;
@@ -83,8 +83,8 @@ describe("filing a capture", () => {
   });
 
   it("keeps both when two land on the same second", () => {
-    // Two microphones stopping together is an afternoon, not a conflict — unlike a morceau,
-    // where two uploads deducing one folder mean the same morceau twice.
+    // Two microphones stopping together is an afternoon, not a conflict — unlike a song,
+    // where two uploads deducing one folder mean the same song twice.
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
     const second = addRecording({
       filename: "b.mp3",
@@ -171,26 +171,26 @@ describe("listing the zone", () => {
 describe("what the zone is NOT", () => {
   it("produces no catalogue entry", () => {
     // The whole point of the choice: a firehose of untitled captures would drown the
-    // morceaux listing. The scan visits families, and this is not in one.
+    // songs listing. The scan visits families, and this is not in one.
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
-    expect(scanFamily("morceaux")).toEqual([]);
+    expect(scanFamily("songs")).toEqual([]);
   });
 
   it("stays out of the manifest a cache syncs against", () => {
-    putFile("morceaux/imported/A/B/C/original.mp3", "real");
+    putFile("songs/A/B/C/original.mp3", "real");
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
-    const paths = manifest("morceaux").map((f) => f.path);
-    expect(paths).toContain("morceaux/imported/A/B/C/original.mp3");
+    const paths = manifest("songs").map((f) => f.path);
+    expect(paths).toContain("songs/A/B/C/original.mp3");
     expect(paths.some((p) => p.includes("recordings"))).toBe(false);
   });
 
   it("moves its OWN token and leaves the families' alone", () => {
-    // It used to ride on morceaux, which cost that family a refetch per capture. A zone at
+    // It used to ride on the songs token, which cost that family a refetch per capture. A zone at
     // the root answers for itself, and the poll reads both from the same map.
     const before = revisions();
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
     const after = revisions();
     expect(after.recordings).not.toBe(before.recordings);
-    expect(after.morceaux).toBe(before.morceaux);
+    expect(after.songs).toBe(before.songs);
   });
 });

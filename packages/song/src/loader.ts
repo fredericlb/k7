@@ -8,24 +8,25 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import { engineModules, engineRef } from "./engineCatalogue";
-import { resolveMediatekRef } from "./mediatekRoot";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
 import {
   categoryForRole,
+  FILE_PARAMS,
   INSTANCE_SEP,
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
   moduleKey,
   moduleRefOf,
+  type PortDef,
   slugifyPluginName,
   splitModuleKey,
 } from "./moduleTypes";
@@ -36,7 +37,7 @@ import type {
   RawTrack,
   RawVideoTrack,
 } from "./rawDoc";
-import { mediatekModulesRoot, moduleNamespaceOf } from "./sharedFolders";
+import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
 import { setFileValue } from "./yaml/edit";
@@ -57,6 +58,7 @@ import { parseTrack } from "./yaml/trackFile";
 // where every consumer already looks for it.
 export {
   categoryForRole,
+  FILE_PARAMS,
   INSTANCE_SEP,
   MODULE_EMITS,
   MODULE_TYPES,
@@ -115,76 +117,88 @@ export function resolveRackAudio(
   folderAbs: string,
 ): RawRack | undefined {
   if (!rack || typeof rack !== "object") return rack;
+  // `assets/` first when the file is actually there, so a rack's samples follow the same
+  // convention as `ir`/`nam` — and a shelf laid out the old way, beside module.yaml, still loads.
   const at = (f: unknown) =>
-    typeof f === "string" && f ? (isAbsolute(f) ? f : join(folderAbs, f)) : f;
+    typeof f === "string" && f
+      ? isAbsolute(f)
+        ? f
+        : (resolveModuleAsset(f, folderAbs) ?? join(folderAbs, f))
+      : f;
   const symbols: NonNullable<RawRack["symbols"]> = {};
   for (const [sym, e] of Object.entries(rack.symbols ?? {}))
     symbols[sym] = e && typeof e === "object" ? { ...e, clip: at(e.clip) } : e;
   return { ...rack, source: at(rack.source), symbols };
 }
 
-// --- the asset library (see docs/loader.md) -------------------------------------
+// --- a module's own assets (see docs/moduleAssets.md) ----------------------------
 
-// The module fields naming a library file: the FIELD is the kind, its folder, and the command that sets it.
-export const ASSET_FIELDS = ["ir", "nam"] as const;
-export type AssetField = (typeof ASSET_FIELDS)[number];
-
-/** What each library folder is allowed to hold. Anything else there is not offered. */
-const ASSET_EXT: Record<AssetField, string[]> = {
-  ir: [".wav", ".aiff", ".aif", ".flac"],
-  nam: [".nam"],
-};
-const ALL_ASSET_EXT = [...new Set(Object.values(ASSET_EXT).flat())];
-
-// The project's library folders, absolute and in declaration order; a missing one is dropped, and validate() reports.
-export function libraryDirs(dir: string): string[] {
-  let from: string[] = [];
-  try {
-    from = loadProjectRoot(dir).project?.libraries_from ?? [];
-  } catch {
-    return []; // no project header / bad export — no library
-  }
-  return (
-    from
-      .filter((p) => typeof p === "string" && p)
-      // `resolve` on both branches, absolute included: a root kept verbatim can be spelled with the other
-      // separator, and resolveLibraryFile's containment check compares it against a resolved path as text.
-      .map((p) =>
-        resolve(
-          resolveMediatekRef(p, "library") ??
-            (isAbsolute(p) ? p : resolve(dir, p)),
-        ),
-      )
-      .filter((abs) => existsSync(abs))
-  );
+/**
+ * A module's ports: its OWN when it declares them, else its type folder's defaults.
+ *
+ * One rule, one place. `inputs`/`outputs` used to come straight off MODULE_TYPES at three call
+ * sites, which is exactly the shape a rule drifts in — and it made a module's port count a
+ * property of its FOLDER, so "two audio inputs" could not be said at all. The two lists are
+ * independent: a module may name its inputs and inherit its outputs. See docs/ports.md.
+ */
+function portsOf(
+  value: Record<string, unknown> | null | undefined,
+  meta: (typeof MODULE_TYPES)[keyof typeof MODULE_TYPES],
+): Pick<LoadedModule, "inputs" | "outputs"> {
+  const own = (k: "inputs" | "outputs") => {
+    const v = value?.[k];
+    return Array.isArray(v) && v.length ? (v as PortDef[]) : undefined;
+  };
+  return {
+    inputs: own("inputs") ?? meta.inputs,
+    outputs: own("outputs") ?? meta.outputs,
+  };
 }
 
-// A module's `ir` as an absolute path kept INSIDE the library — a "../.." reference is refused, not resolved.
-export function resolveLibraryFile(
-  ir: unknown,
-  libDirs: string[],
+/** Where a module keeps the files it loads, inside its own folder. */
+export const MODULE_ASSETS_DIR = "assets";
+
+/** What an asset folder holds. One entry, because one param takes a file — see FILE_PARAMS. */
+const ASSET_EXT = [".nam"];
+
+/** A module's own `assets/<ref>`, or undefined. Confined to that folder — a `../..` reference
+ *  is refused rather than resolved, so a module cannot reach outside itself for its sound. */
+export function resolveModuleAsset(
+  ref: unknown,
+  folderAbs: string | undefined,
 ): string | undefined {
-  if (typeof ir !== "string" || !ir) return undefined;
-  if (isAbsolute(ir)) return existsSync(ir) ? ir : undefined;
-  // First library that holds it wins — declaration order is precedence.
-  for (const libDir of libDirs) {
-    const abs = resolve(libDir, ir);
-    const inside = abs === libDir || abs.startsWith(libDir + sep);
-    if (inside && existsSync(abs)) return abs;
-  }
-  return undefined;
+  if (typeof ref !== "string" || !ref || !folderAbs || isAbsolute(ref))
+    return undefined;
+  const root = resolve(folderAbs, MODULE_ASSETS_DIR);
+  const abs = resolve(root, ref);
+  const inside = abs === root || abs.startsWith(root + sep);
+  return inside && existsSync(abs) ? abs : undefined;
 }
 
-// Every asset a module names: `ir`/`nam` become absolute, and `assets` keeps what was AUTHORED, for validate().
+/**
+ * The file-valued params a module names, resolved absolute, plus `assets` keeping what was
+ * AUTHORED for validate() to report against.
+ *
+ * They are read out of `params:`, because that is what they are: a .nam model is one of the
+ * plugin's controls, sitting in the panel beside Input and Output. Its own top-level field made
+ * it a second kind of thing to find, edit and merge — and `params` merges per key, so an
+ * instance overriding just the model is now the same edit as overriding a gain.
+ *
+ * Everything resolves inside the module's OWN folder. A module that carries its amp profile is
+ * self-contained: it travels through a fork, an upload to the médiathèque and a sync onto
+ * another machine with its sound intact, the way its `.vstpreset` and its jsdsp source already
+ * do. There is no shared library to fall through to any more.
+ */
 export function resolveAssets(
   m: Record<string, unknown> | null | undefined,
-  libDirs: string[],
-): Pick<LoadedModule, "ir" | "nam" | "assets"> {
+  folderAbs?: string,
+): Pick<LoadedModule, "nam" | "assets"> {
+  const params = (m?.params ?? {}) as Record<string, unknown>;
   const out: Record<string, string | undefined> = {};
   const assets: Record<string, string> = {};
-  for (const field of ASSET_FIELDS) {
-    const ref = m?.[field];
-    out[field] = resolveLibraryFile(ref, libDirs);
+  for (const field of FILE_PARAMS) {
+    const ref = params[field];
+    out[field] = resolveModuleAsset(ref, folderAbs);
     if (typeof ref === "string" && ref) assets[field] = ref;
   }
   return {
@@ -193,63 +207,39 @@ export function resolveAssets(
   };
 }
 
-/** The files in one of a library's folders ("ir"), as library-relative POSIX paths. */
-export function listLibrary(dir: string, kind: string): string[] {
-  const libs = libraryDirs(dir);
-  if (!libs.length || !/^[A-Za-z0-9_-]+$/.test(kind)) return [];
-  // De-duplicated by the library-relative name — two libraries offering the same name are one choice.
-  const seen = new Set<string>();
-  for (const lib of libs) for (const f of oneLibrary(lib, kind)) seen.add(f);
-  return [...seen].sort();
-}
-
-// One library's files under `kind`, RECURSIVELY, as library-relative POSIX paths
-// ("nam/Two-Rock/Clean.nam"). Nested because that is how these folders actually arrive: a
-// NAM pack is a folder per amp, an IR pack a folder per cabinet then per mic. Flattening
-// them into one list of 300 entries is what made the picker unusable.
-//
-// Depth-capped and symlink-blind (readdirSync does not follow them for isDirectory), so a
-// pathological tree cannot hang a UI request.
-function oneLibrary(lib: string, kind: string): string[] {
+/**
+ * The files a module carries, as `assets/`-relative POSIX paths — what its file-valued params
+ * may be set to, and what the panel's dropdown offers.
+ *
+ * Walked RECURSIVELY and kept nested, because that is how these arrive: a NAM pack is a folder
+ * per amp. Flattening a hundred models into one list is what made the old library picker
+ * unusable. Depth-capped and symlink-blind (readdirSync does not follow them for isDirectory),
+ * so a pathological tree cannot hang a UI request.
+ */
+export function listModuleAssets(folderAbs: string): string[] {
   const MAX_DEPTH = 6;
-  const exts = ASSET_EXT[kind as AssetField] ?? ALL_ASSET_EXT;
   const out: string[] = [];
   const walk = (abs: string, rel: string, depth: number): void => {
     let entries: import("node:fs").Dirent[];
     try {
       entries = readdirSync(abs, { withFileTypes: true });
     } catch {
-      return; // no such folder, or unreadable — an empty list, not an error
+      return; // no assets/ folder, or unreadable — an empty list, not an error
     }
     for (const e of entries) {
       if (e.name.startsWith(".")) continue;
+      const child = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (depth < MAX_DEPTH)
-          walk(join(abs, e.name), `${rel}/${e.name}`, depth + 1);
+        if (depth < MAX_DEPTH) walk(join(abs, e.name), child, depth + 1);
         continue;
       }
       if (!e.isFile()) continue;
       const ext = e.name.slice(e.name.lastIndexOf(".")).toLowerCase();
-      // A known kind offers only its own extensions; an unknown one offers every extension pistes can use.
-      if (exts.includes(ext)) out.push(`${rel}/${e.name}`);
+      if (ASSET_EXT.includes(ext)) out.push(child);
     }
   };
-  walk(join(lib, kind), kind, 0);
+  walk(join(folderAbs, MODULE_ASSETS_DIR), "", 0);
   return out.sort();
-}
-
-/** The kinds a project's library holds ("ir", …) — its subfolders, sorted. */
-export function listLibraryKinds(dir: string): string[] {
-  const seen = new Set<string>();
-  for (const lib of libraryDirs(dir)) {
-    try {
-      for (const e of readdirSync(lib, { withFileTypes: true }))
-        if (e.isDirectory() && !e.name.startsWith(".")) seen.add(e.name);
-    } catch {
-      /* unreadable library — the others still offer theirs */
-    }
-  }
-  return [...seen].sort();
 }
 
 // Read an external `modules_from` tree — only the GENERIC module.yaml, since instances aren't `extends` targets.
@@ -258,7 +248,12 @@ function readModuleTree(
   root: string,
   key: (type: string, name: string) => string,
   out: Record<string, LoadedModule>,
-  libDirs: string[] = [], // the OPENED project's libraries, not `dir`'s (see loadModuleRefs)
+  // Where a module file that would not READ is reported. A library's modules used to be
+  // dropped in silence here, and the shape of that failure is the problem: the ref simply
+  // stops existing, so every symptom downstream describes something else — "extends unknown
+  // module" about a file sitting right there, a catalogue three rows short, a module that
+  // stopped making a sound. The file's own complaint is the answer to all three.
+  issues: Diagnostic[] = [],
 ): void {
   // `relDir` is the folder's PARENT, `leaf` names the preset/IR, `sub` is the ref suffix ("adt" or "delay/adt").
   const readModule = (
@@ -271,7 +266,20 @@ function readModuleTree(
     const folder = join(dir, relDir, leaf);
     const file = moduleFileFor(folder, `${relDir}/${leaf}`, "module");
     if (!file) return;
-    const m = readModuleFile(file).value;
+    const read = readModuleFile(file);
+    if (read.issues.length)
+      issues.push({
+        // Named by its REF, not by a path: the file is outside the project, so a
+        // project-relative path would point at nothing, and the ref is what a chain says.
+        file: `${key(type, sub)}/${basename(file.path)}`,
+        line: 1,
+        col: 1,
+        severity: "warning",
+        // Phrased to read on its own AND inside a sentence, since the ref check quotes it
+        // ("extends 'x', which did not load — …").
+        message: `did not load — ${read.issues.join("; ")}`,
+      });
+    const m = read.value;
     if (!m) return;
     // Seam cast: the value passed the module schema, so it fits LoadedModule's authored half.
     const decorate = (
@@ -285,7 +293,7 @@ function readModuleTree(
           ? resolveRackAudio(value.rack as RawRack, folder)
           : undefined,
         kind: meta.kind,
-        inputs: meta.inputs,
+        ...portsOf(value, meta),
         // The type FOLDER and the module's own folder, as loadModules records them — what
         // says whether a midi-input module gives back audio or midi (see graph's toModule).
         category: type,
@@ -298,11 +306,9 @@ function readModuleTree(
         ].find(existsSync),
         // …and its DSP source, resolved against ITS OWN folder — unlike an asset, which follows the opened song.
         // A shared module carries its source the way it carries its preset: the folder is the module.
-        jsdsp:
-          typeof value.jsdsp === "string" && value.jsdsp.trim()
-            ? join(folder, basename(String(value.jsdsp).trim()))
-            : undefined,
-        ...resolveAssets(value, libDirs), // resolved against the OPENED song's library, even for an inherited module — a borrowed cabinet finds ITS cabinets
+        jsdsp: jsDspFileFor(value, folder),
+        // …and the files its params name, out of its OWN assets/ — a borrowed module brings its own.
+        ...resolveAssets(value, folder),
       }) as LoadedModule;
 
     out[key(type, sub)] = decorate(m);
@@ -354,7 +360,6 @@ export function loadModules(
   const yamlIssues: string[] = []; // held rather than thrown at once, so a load reports every bad file
   const bdir = join(dir, "modules");
   if (!existsSync(bdir)) return out;
-  const libDirs = libraryDirs(dir);
   for (const [type, meta] of Object.entries(MODULE_TYPES)) {
     const abs = join(bdir, type);
     if (!existsSync(abs) || !statSync(abs).isDirectory()) continue;
@@ -400,15 +405,12 @@ export function loadModules(
           file: name, // the module's folder name (modules/<category>/<file>/)
           instance, // undefined for the generic; the <instance>.yaml basename otherwise
           kind: meta.kind, // derived from the type folder, like a base module others `extends`
-          inputs: meta.inputs,
+          ...portsOf(value, meta),
           preset,
-          // The module's own DSP source, resolved against its FOLDER — a bare filename by design, so a module
-          // stays a self-contained directory you can copy, clone or share without rewriting a path inside it.
-          jsdsp:
-            typeof value.jsdsp === "string" && value.jsdsp.trim()
-              ? join(folder, basename(String(value.jsdsp).trim()))
-              : undefined,
-          ...resolveAssets(value, libDirs), // resolved on this copy, same reason as `rack` above
+          // The module's own DSP source, resolved against its FOLDER — see jsDspFileFor.
+          jsdsp: jsDspFileFor(value, folder),
+          // Resolved on this copy, same reason as `rack` above; `folder` is what makes its own assets reachable.
+          ...resolveAssets(value, folder),
         } as LoadedModule;
       };
 
@@ -531,6 +533,59 @@ export interface Diagnostic {
   col: number;
   message: string;
   severity?: "error" | "warning";
+}
+
+/**
+ * The modules of the libraries this project inherits that would not READ.
+ *
+ * A library module that fails its schema is dropped from the ref map — it has to be, the
+ * value is null — and until now that was the end of it. Nothing said so anywhere, and the
+ * failure wears three different disguises depending on who asks next: the compiler reports
+ * "extends unknown module" about a file that is plainly on disk, the builder's catalogue is
+ * quietly short a row, and a song that played yesterday loses a sound. Two real bugs hid
+ * behind exactly that silence, in the same afternoon.
+ *
+ * A WARNING and not an error: a library holds modules this project may never name, and one
+ * of them being unreadable is not this project's failure to compile. It becomes an error the
+ * moment something references it — see nodeProject's ref check, which reads these to say
+ * "failed to load" rather than "unknown".
+ */
+export function libraryModuleIssues(dir: string): Diagnostic[] {
+  const issues: Diagnostic[] = [];
+  loadModuleRefs(dir, undefined, issues);
+  return issues;
+}
+
+/**
+ * Fields a project still declares that nothing reads any more.
+ *
+ * `modules_from` and `libraries_from` listed the shared folders; those are found by location
+ * now, and the list could only ever have named the same two places. The schema still ACCEPTS
+ * them — every song already written carries them, and refusing the key would turn a working
+ * project into one that will not open — so this is what stops "accepted" from meaning
+ * "silently ignored", which is the failure mode this codebase keeps paying for.
+ */
+export function deadProjectFields(dir: string): Diagnostic[] {
+  let project: Record<string, unknown> | undefined;
+  try {
+    project = loadProjectRoot(dir).project as Record<string, unknown>;
+  } catch {
+    return []; // an unreadable header is the compile's error, not this
+  }
+  // Project-RELATIVE, like every other Diagnostic: `rel` comes back rooted ("/project.yaml")
+  // for a file at the top, and the editor matches these against its own tree paths.
+  const file = (
+    entityFileFor(dir, "", "project")?.rel ?? "project.yaml"
+  ).replace(/^\/+/, "");
+  return (["modules_from", "libraries_from"] as const)
+    .filter((k) => project?.[k] !== undefined)
+    .map((k) => ({
+      file,
+      line: 1,
+      col: 1,
+      severity: "warning" as const,
+      message: `\`${k}\` is no longer read — the shared folders are found where they sit (../_modules, ../_library, the médiathèque). This line can be deleted.`,
+    }));
 }
 
 export function notSupportedModules(dir: string): Diagnostic[] {
@@ -680,19 +735,41 @@ export function loadChains(
   return value;
 }
 
+/**
+ * The DSP source of a module, or undefined when it has none.
+ *
+ * The PLUGIN TYPE decides: `plugin.type: jsdsp` means the sound comes from `jsdsp.ts` in this
+ * module's own folder. It used to be a `jsdsp:` field naming the file, beside a
+ * `plugin: {type: internal, name: DSP Graph}` that said nothing about it — two things to keep
+ * in step, and the interesting one was the one nobody read. One statement now says both, and a
+ * module with the type but no file is a module whose source is missing rather than one that
+ * silently loads a graph host with nothing in it.
+ */
+function jsDspFileFor(
+  value: Record<string, unknown>,
+  folder: string,
+): string | undefined {
+  const plugin = value.plugin as { type?: unknown } | undefined;
+  return String(plugin?.type ?? "") === JSDSP_TYPE
+    ? join(folder, JSDSP_FILE)
+    : undefined;
+}
+
 // Every module referenceable by REF — keyed "type/name", "@namespace/type/name", or a bare io name.
 export function loadModuleRefs(
   dir: string,
-  modulesFrom: string[] = [],
   // The ENGINE's own modules — injected so a test can ask for a project's vocabulary and
   // nothing else. It is AMBIENT state: what this machine's engine offers, read from its
   // scan cache. The same reason ioPorts takes its preferences rather than loading them.
   catalogue: Record<string, LoadedModule> = engineModules(),
+  // Where a library module that would not read is reported — see readModuleTree and
+  // libraryModuleIssues. Optional because almost every caller wants the vocabulary and
+  // nothing else; the ones that REPORT pass an array.
+  issues: Diagnostic[] = [],
 ): Record<string, LoadedModule> {
   // The catalogue first, so anything on disk overrides it: a project or a library may
   // define `@engine/x`, and the thing you can edit should win over the thing you cannot.
   const out: Record<string, LoadedModule> = { ...catalogue };
-  const libDirs = libraryDirs(dir);
 
   // Re-key by ref; INSTANCES are skipped, since one would silently replace its own generic's key.
   //
@@ -708,21 +785,10 @@ export function loadModuleRefs(
     out[`@project/${ref}`] = m;
   }
 
-  const roots: string[] = [];
-  for (const p of modulesFrom) {
-    const ext = resolve(
-      resolveMediatekRef(p, "modules") ?? (isAbsolute(p) ? p : resolve(dir, p)),
-    );
-    if (!existsSync(ext))
-      throw new Error(`modules_from '${p}': folder not found (${ext})`);
-    if (!roots.includes(ext)) roots.push(ext);
-  }
-  // The machine's media library, declared or not — see mediatekModulesRoot. A project that
-  // still names `@mediatek` resolved to this same folder above, so it is added only once.
-  const media = mediatekModulesRoot();
-  if (media && !roots.includes(media)) roots.push(media);
-
-  for (const root of roots) {
+  // The shared roots, found by location — the workspace's `_modules` beside the project, then
+  // the médiathèque. Neither is declared, and neither can fail: a folder that is not there is
+  // simply not a root, where a declaration naming it used to take the whole project down.
+  for (const root of moduleLibraryDirs(dir)) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
     const ns = moduleNamespaceOf(root);
     readModuleTree(
@@ -730,7 +796,7 @@ export function loadModuleRefs(
       "",
       (type, name) => `@${ns}/${type}/${name}`,
       out,
-      libDirs,
+      issues,
     );
   }
 
@@ -746,21 +812,11 @@ export function loadModuleRefs(
   return out;
 }
 
-// The ref map for a project — a broken inherited folder falls back to local modules only.
-export function projectModules(dir: string): Record<string, LoadedModule> {
-  let from: string[] = [];
-  try {
-    const mf = loadProjectRoot(dir).project?.modules_from;
-    if (Array.isArray(mf)) from = mf.map(String);
-  } catch {
-    /* no project header / bad export — local modules only */
-  }
-  try {
-    return loadModuleRefs(dir, from);
-  } catch {
-    return loadModuleRefs(dir, []);
-  }
-}
+/** The ref map for a project — its own modules plus every shared root it inherits.
+ *  A thin alias since the roots stopped being declared: there is nothing left to read off the
+ *  header first, and nothing left that can throw. */
+export const projectModules = (dir: string): Record<string, LoadedModule> =>
+  loadModuleRefs(dir);
 
 /**
  * The plugin refs a new module can `extends`, out of a ref map.

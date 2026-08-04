@@ -3,10 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "pistes's translator \u2014 parses a .dawproject and emits a pistes song folder (YAML). A library consumed as source; `pistes import` is its caller.",
+  "description": "l8's translator \u2014 parses another DAW's project (.dawproject, .als) and emits a l8 song folder (YAML). A library consumed as source; the file service is its caller.",
   "exports": {
+    "./ableton": "./src/ableton.ts",
     "./dawproject": "./src/dawproject.ts",
     "./emit": "./src/emit.ts",
+    "./model": "./src/model.ts",
     "./params": "./src/params.ts"
   },
   "scripts": {

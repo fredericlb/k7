@@ -1,171 +1,119 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  ensureMediatekModules,
-  ensureSharedLibrary,
-  ensureSharedModules,
-  hasSharedLibrary,
   hasSharedModules,
+  moduleLibraryDirs,
+  moduleNamespaceOf,
 } from "./sharedFolders";
 
-// A workspace is projects side by side with the shared folders they all point at:
+// A workspace is projects side by side with the shared modules they all draw from:
 //
-//   ws/_modules/   the plugin catalogue (needs a config naming its namespace)
-//   ws/_library/   ir/ and nam/ assets (no config — just folders of files)
+//   ws/_modules/   the shared modules  (@workspace)
 //   ws/song/       a project
 //
-// Neither folder is visible to a project until its project.yaml says so, which is the
-// whole job of this module.
+// There is no shared ASSET folder any more: a file a plugin loads lives in the `assets/` of the
+// module that names it, so the module travels whole (see moduleAssets.test.ts).
+//
+// A project sees the modules because of WHERE they are. `modules_from`/`libraries_from` used to
+// declare them and are gone: the list could only ever name these two places plus the
+// médiathèque, so it decided nothing while giving every project a way to be wrong about it —
+// a project older than the line saw no médiathèque, and a folder deleted from the workspace
+// left a declaration behind that took the whole song down.
 describe("sharedFolders", () => {
   let ws: string;
   let project: string;
-  const projectFile = () => readFileSync(join(project, "project.yaml"), "utf8");
-  const writeProject = (body: string) =>
-    writeFileSync(join(project, "project.yaml"), body, "utf8");
+  let media: string;
 
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-shared-"));
     project = join(ws, "song");
     mkdirSync(project, { recursive: true });
-    writeProject("project:\n  name: song\n");
-  });
-  afterEach(() => rmSync(ws, { recursive: true, force: true }));
-
-  const addModules = (ext = "yaml") => {
-    mkdirSync(join(ws, "_modules"), { recursive: true });
     writeFileSync(
-      join(ws, `_modules/config.${ext}`),
-      "namespace: engine\n",
+      join(project, "project.yaml"),
+      "project:\n  name: song\n",
       "utf8",
     );
-  };
-  const addLibrary = () =>
-    mkdirSync(join(ws, "_library/nam"), { recursive: true });
-
-  describe("the machine's media library", () => {
-    // Named, not located: project.yaml is committed, so the reference has to survive
-    // being read on somebody else's machine.
-    let media: string;
-    beforeEach(() => {
-      media = mkdtempSync(join(tmpdir(), "td-media-"));
-      process.env.STUDIO_MEDIATEK = media;
-    });
-    afterEach(() => {
-      delete process.env.STUDIO_MEDIATEK;
-      rmSync(media, { recursive: true, force: true });
-    });
-
-    it("says nothing when this machine has no library", () => {
-      // Same rule as the workspace folders: the loader THROWS on a modules_from it can't
-      // resolve, so a speculative reference would break a project that worked.
-      expect(ensureMediatekModules(project)).toBe(false);
-      expect(projectFile()).not.toContain("@mediatek");
-    });
-
-    it("writes the token, never the path it resolves to", () => {
-      mkdirSync(join(media, "modules"), { recursive: true });
-      expect(ensureMediatekModules(project)).toBe(true);
-      const text = projectFile();
-      expect(text).toContain("@mediatek");
-      // The give-away that would betray a machine-specific path leaking into git.
-      expect(text).not.toContain(media);
-    });
-
-    it("is idempotent and keeps the workspace's own folder first", () => {
-      addModules();
-      mkdirSync(join(media, "modules"), { recursive: true });
-      ensureSharedModules(project);
-      expect(ensureMediatekModules(project)).toBe(true);
-      expect(ensureMediatekModules(project)).toBe(false);
-      const list = projectFile();
-      // Order is precedence: what sits beside the song beats what is global to the machine.
-      expect(list.indexOf("../_modules")).toBeLessThan(
-        list.indexOf("@mediatek"),
-      );
-    });
+    media = mkdtempSync(join(tmpdir(), "td-media-"));
+    process.env.STUDIO_MEDIATEK = media;
+  });
+  afterEach(() => {
+    delete process.env.STUDIO_MEDIATEK;
+    rmSync(ws, { recursive: true, force: true });
+    rmSync(media, { recursive: true, force: true });
   });
 
-  it("does nothing when the workspace has no shared folders", () => {
-    // The important half: `loadModuleRefs` THROWS on a modules_from path it can't
-    // resolve, so writing one speculatively turns a working project into one that
-    // won't load at all.
+  const addModules = () => mkdirSync(join(ws, "_modules"), { recursive: true });
+  const addMediatek = (kind: "modules" | "library") =>
+    mkdirSync(join(media, kind), { recursive: true });
+
+  it("sees nothing when the folder is not there", () => {
+    // And that is a working state, not a failure: a project with no shared folder has its
+    // own `modules/` and the engine's catalogue, which is a whole song's worth of vocabulary.
     expect(hasSharedModules(project)).toBe(false);
-    expect(hasSharedLibrary(project)).toBe(false);
-    expect(ensureSharedModules(project)).toBe(false);
-    expect(ensureSharedLibrary(project)).toBe(false);
-    expect(projectFile()).not.toContain("modules_from");
-    expect(projectFile()).not.toContain("libraries_from");
+    expect(moduleLibraryDirs(project)).toEqual([]);
   });
 
-  it("points at _modules on the strength of the folder alone", () => {
-    // It used to need a config.yaml naming the library, because that declaration was where
-    // the namespace came from. A root is `@workspace` for WHERE it sits now, so there is
-    // nothing left for the folder to prove beyond existing.
-    mkdirSync(join(ws, "_modules"), { recursive: true });
-    expect(hasSharedModules(project)).toBe(true);
-    expect(ensureSharedModules(project)).toBe(true);
-  });
-
-  it("wires each folder once, and is a no-op thereafter", () => {
+  it("finds the workspace's folder on the strength of the folder alone", () => {
+    // No config, no declaration: a root is `@workspace` for WHERE it sits.
     addModules();
-    addLibrary();
-    expect(ensureSharedModules(project)).toBe(true);
-    expect(ensureSharedLibrary(project)).toBe(true);
-    expect(projectFile()).toContain("modules_from: [ ../_modules ]");
-    expect(projectFile()).toMatch(/libraries_from:[\s\S]*\.\.\/_library/);
-    // Running it twice must not append a second entry or rewrite the file.
-    const after = projectFile();
-    expect(ensureSharedModules(project)).toBe(false);
-    expect(ensureSharedLibrary(project)).toBe(false);
-    expect(projectFile()).toBe(after);
+    expect(moduleLibraryDirs(project)).toEqual([join(ws, "_modules")]);
   });
 
-  it("keeps a modules_from the project already had, adding alongside", () => {
+  it("finds the médiathèque with nothing said anywhere", () => {
+    addMediatek("modules");
+    expect(moduleLibraryDirs(project)).toEqual([join(media, "modules")]);
+  });
+
+  it("puts the workspace's own first — order is precedence", () => {
+    // What sits beside the song beats what is global to the machine. loadUiLibrary reads the
+    // list in this order.
     addModules();
-    writeProject("project:\n  name: song\n  modules_from: [../vendor]\n");
-    expect(ensureSharedModules(project)).toBe(true);
-    expect(projectFile()).toContain("../vendor");
-    expect(projectFile()).toContain("../_modules");
+    addMediatek("modules");
+    expect(moduleLibraryDirs(project)).toEqual([
+      join(ws, "_modules"),
+      join(media, "modules"),
+    ]);
   });
 
-  it("adds the workspace library alongside one the project already chose", () => {
-    // `libraries_from` is a LIST, like modules_from — a project keeps what it named and
-    // gains the workspace's, rather than having to pick one.
-    addLibrary();
-    writeProject("project:\n  name: song\n  libraries_from: [../other]\n");
-    expect(ensureSharedLibrary(project)).toBe(true);
-    expect(projectFile()).toContain("../other");
-    expect(projectFile()).toContain("../_library");
-  });
-
-  it("migrates the pre-list `library_from` into the list", () => {
-    // One string, one library. A project written before the field became a list would
-    // otherwise keep a key nothing reads and silently lose its assets.
-    addLibrary();
-    writeProject("project:\n  name: song\n  library_from: ../other\n");
-    expect(ensureSharedLibrary(project)).toBe(true);
-    const out = projectFile();
-    expect(out).not.toContain("library_from: ../other");
-    expect(out).toContain("libraries_from:");
-    expect(out).toContain("../other"); // carried across, not dropped
-    expect(out).toContain("../_library");
-  });
-
-  it("does nothing without a project file to write into", () => {
+  it("ignores a project header that still declares the old fields", () => {
+    // Every song already written carries them. They are accepted by the schema and read by
+    // nothing — `deadProjectFields` is what says so out loud, rather than leaving it silent.
     addModules();
-    addLibrary();
+    writeFileSync(
+      join(project, "project.yaml"),
+      "project:\n  name: song\n  modules_from: [ ../vendor ]\n  libraries_from: [ ../other ]\n",
+      "utf8",
+    );
+    expect(moduleLibraryDirs(project)).toEqual([join(ws, "_modules")]);
+  });
+
+  it("needs no project file at all to answer", () => {
+    // The folders are found by location, so there is no header to read first — which is what
+    // makes a missing or unparseable one cost the compile and not the vocabulary.
+    addModules();
     rmSync(join(project, "project.yaml"));
-    expect(ensureSharedModules(project)).toBe(false);
-    expect(ensureSharedLibrary(project)).toBe(false);
-    expect(existsSync(join(project, "project.yaml"))).toBe(false);
+    expect(moduleLibraryDirs(project)).toEqual([join(ws, "_modules")]);
+  });
+
+  it("survives a declaration naming a folder that is gone", () => {
+    // The failure this removes: a `_modules` deleted from the workspace left its line behind,
+    // `loadModuleRefs` threw on a root it could not resolve, and the whole song went dark for
+    // one stale line. Now the line is ignored and the médiathèque still answers.
+    addMediatek("modules");
+    writeFileSync(
+      join(project, "project.yaml"),
+      "project:\n  name: song\n  modules_from:\n    - ../_modules\n",
+      "utf8",
+    );
+    expect(moduleLibraryDirs(project)).toEqual([join(media, "modules")]);
+  });
+
+  it("names each root by where it sits", () => {
+    addModules();
+    addMediatek("modules");
+    expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
+    expect(moduleNamespaceOf(join(media, "modules"))).toBe("mediatek");
   });
 });

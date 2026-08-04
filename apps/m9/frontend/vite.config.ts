@@ -11,11 +11,11 @@ import { defineAppConfig } from "@frediverse/vite-config";
 // engine's disk.
 export default defineAppConfig({
   dir: import.meta.url,
-  // 5223 pistes, 5224 mediatek, so:
+  // 5223 l8, 5224 st0, so:
   port: 5225,
   backendPort: 8796,
   base: "/m9/",
   host: "studio.test",
-  // Dev runs under WSL against /mnt/c, where inotify never fires (same as pistes).
+  // Dev runs under WSL against /mnt/c, where inotify never fires (same as l8).
   poll: true,
 });

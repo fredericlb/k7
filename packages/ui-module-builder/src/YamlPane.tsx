@@ -1,6 +1,6 @@
 // YamlPane.tsx — the module's YAML as text, for either file of the pair. Deliberately smaller
-// than pistes' EditorPane: no sequence tracker, no waveform, no video readers. Those exist
-// because pistes edits a SONG's material; a module is a page of YAML.
+// than l8' EditorPane: no sequence tracker, no waveform, no video readers. Those exist
+// because l8 edits a SONG's material; a module is a page of YAML.
 
 import { autocompletion } from "@codemirror/autocomplete";
 import { Prec } from "@codemirror/state";

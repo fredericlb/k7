@@ -48,7 +48,7 @@ export interface EngineRegistry {
 /**
  * A registry instance.
  *
- * A FACTORY rather than the module-level Map this was as pistes' own file. One process still
+ * A FACTORY rather than the module-level Map this was as l8' own file. One process still
  * holds exactly one, so nothing behaves differently today — but module state in a shared
  * package is one instance for every importer that ever appears, and this file now has two
  * services and a test suite ahead of it.

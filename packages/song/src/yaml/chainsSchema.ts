@@ -4,8 +4,27 @@
 
 import { z } from "zod";
 
-/** Where one node's signal goes — module instance names, or an io sink like `OUT`. Empty == unwired. */
-export const DestsSchema = z.array(z.string().min(1));
+/**
+ * Where one node's signal goes — module instance names, or an io sink like `OUT`. Empty == unwired.
+ *
+ * A destination may name a PORT on its target: `crossfade#b` feeds the input called `b`. Bare, it
+ * feeds the FIRST input, which is what every chains file written so far says and what a
+ * one-input module means. See `@studio/song`'s docs/ports.md.
+ *
+ * The port is not validated here — this schema knows nothing about modules, and whether `b`
+ * exists is a question for `validate()`, which has the module map. What IS refused is a ref that
+ * is all separator (`#b`, `x#`): those are typos with no reading, and letting them through would
+ * make the node name empty.
+ */
+export const DestsSchema = z.array(
+  z
+    .string()
+    .min(1)
+    .refine((s) => !s.startsWith("#") && !s.endsWith("#"), {
+      message:
+        "a port ref is `<module>#<port>` — neither half may be empty (see docs/ports.md)",
+    }),
+);
 
 export const ChainsFileSchema = z
   .object({

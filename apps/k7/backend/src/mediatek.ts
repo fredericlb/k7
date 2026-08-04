@@ -3,8 +3,8 @@
 // l'audio. Le client est celui du package, pas un second écrit ici. Voir docs/audio.md.
 
 import {
-  pushMorceau,
   pushRecording,
+  pushSong,
   type RemoteConfig,
   remoteLibrary,
   remoteWriter,
@@ -28,7 +28,7 @@ export function zoneExt(ext: string): string {
 }
 
 /**
- * Envoie une capture ; la médiathèque décide du nom.
+ * Envoie un enregistrement ; la médiathèque décide du nom.
  *
  * `at` est l'heure d'enregistrement de la séance, pas celle de l'envoi : une séance
  * rapatriée le lendemain se rangerait sinon, entière, sous la mauvaise date.
@@ -47,7 +47,7 @@ export async function push(
 }
 
 /**
- * Envoie un MOMENT : le même dossier de jour que les captures, nommé comme un extrait.
+ * Envoie un MOMENT : le même dossier de jour que les enregistrements, nommé comme un extrait.
  *
  * `at` est l'instant où l'extrait a été JOUÉ — le début de la séance plus sa position
  * dedans — et non l'instant où quelqu'un l'a annoté, qui peut être trois jours plus tard.
@@ -71,8 +71,9 @@ export async function pushMoment(
 /**
  * Envoie une VERSION PUBLIÉE dans les morceaux, sous l'artiste `K7`.
  *
- * `recorded` et non `imported` : c'est le studio qui l'a produite, et cette distinction
- * décide de ce qui peut être re-fabriqué et de ce qui est le master de quelqu'un d'autre.
+ * Plus de `kind` : `songs/` ne range plus par provenance, donc une version publiée atterrit
+ * exactement là où atterrit un envoi manuel — `songs/K7/<release>/<version>/`. Ce qui reste
+ * pour dire d'où elle vient, c'est `source: k7`, une ligne du sidecar.
  * `replace` est vrai parce que republier une version est un remplacement voulu — le 409 de
  * la médiathèque protège une personne qui envoie deux fois, pas un service qui republie.
  */
@@ -83,13 +84,12 @@ export async function pushVersion(
 ): Promise<string> {
   // The MASTER's path, not the folder's: it is what a caller has to fetch to play the
   // version, and the folder is one `dirname` away when the stems need it.
-  const { master } = await pushMorceau(cfg(), {
+  const { master } = await pushSong(cfg(), {
     filename: `mixdown.${zoneExt(ext)}`,
     bytes,
     artist: ARTIST,
     album: tags.album,
     title: tags.title,
-    kind: "recorded",
     source: "k7",
     replace: true,
   });
@@ -114,7 +114,7 @@ export async function removeTree(path: string): Promise<void> {
   await remoteWriter(cfg()).removeTree(path);
 }
 
-/** Réécrit une capture EXISTANTE, à son chemin. Une séance qu'on prolonge reste une
+/** Réécrit un enregistrement EXISTANT, à son chemin. Une séance qu'on prolonge reste un
  *  séance : un second fichier laisserait deux prises là où il n'y a qu'un enregistrement. */
 export async function replace(path: string, bytes: Uint8Array): Promise<void> {
   await remoteWriter(cfg()).put(path, bytes);

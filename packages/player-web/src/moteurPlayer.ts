@@ -1,5 +1,5 @@
-// moteurPlayer.ts — the third engine behind the Player seam: obscura's playback driven by
-// apps/moteur instead of by Web Audio. The sound comes out of the ENGINE's interface, not
+// moteurPlayer.ts — the third engine behind the Player seam: z0's playback driven by
+// engine/moteur instead of by Web Audio. The sound comes out of the ENGINE's interface, not
 // the tab's; a browser that also wants to hear it subscribes to the étape-7 broadcast.
 // See docs/moteurPlayer.md for what it cannot do.
 
@@ -15,9 +15,9 @@ const DECKS = ["deck-a", "deck-b"] as const;
 
 export interface MoteurPlayerOptions {
   /**
-   * obscura's song path as an ABSOLUTE FILE PATH on the engine's machine.
+   * z0's song path as an ABSOLUTE FILE PATH on the engine's machine.
    *
-   * Required, and not defaulted, because there is no honest guess: obscura's paths are URLs
+   * Required, and not defaulted, because there is no honest guess: z0's paths are URLs
    * its own backend serves, and the engine opens files. In practice this resolves through
    * the médiathèque's local cache — which is exactly why the plan put this last, needing
    * "un moteur local sur une machine qui n'a aujourd'hui besoin que d'un navigateur".
@@ -155,7 +155,7 @@ export class MoteurPlayer implements Player {
         }),
       );
     }
-    return emptyDoc({ name: "obscura", tracks });
+    return emptyDoc({ name: "z0", tracks });
   }
 
   private async start(

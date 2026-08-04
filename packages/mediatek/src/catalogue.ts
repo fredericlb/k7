@@ -27,7 +27,7 @@ let warmed = false;
  * — nothing on disk had changed, so nothing asked for a re-walk. A cache is never
  * load-bearing here (see docs/index.md), so dropping it on a mismatch costs one walk.
  */
-const INDEX_VERSION = 2;
+const INDEX_VERSION = 4;
 
 /** Pull whatever the last process left behind. Any problem — absent, truncated, written by
  *  an older shape — just means a cold start, so nothing here throws or logs. */

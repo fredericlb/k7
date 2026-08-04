@@ -15,6 +15,8 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
+import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
+import { FILE_PARAMS } from "@studio/song/moduleTypes";
 import type {
   Hints,
   ModulePresetsFile,
@@ -55,8 +57,24 @@ import { WidgetGridEditor } from "./WidgetGridEditor";
 import { YamlPane } from "./YamlPane";
 
 /** Which of the module's three files the code pane is showing. Named for the BUILDER, not just `Pane`:
- *  pistes has panes of its own and a shared package must not squat the word. */
-export type BuilderPane = "module" | "panel" | "presets";
+ *  l8 has panes of its own and a shared package must not squat the word. */
+export type BuilderPane = "module" | "panel" | "presets" | "jsdsp";
+
+/**
+ * The `plugin.type` a module file declares, read off the raw text.
+ *
+ * A regex and not the YAML parser: this runs on every keystroke in the code pane, and the answer
+ * decides whether a tab is drawn. Mid-edit the document routinely does not parse, and a tab that
+ * blinked out on a half-typed line would be worse than one read a shade loosely.
+ */
+export function pluginTypeOf(text: string): string {
+  const block = /^plugin:\s*(?:\n(?:[ \t]+.*\n?)*)/m.exec(text)?.[0] ?? "";
+  return (
+    /^[ \t]+type:\s*["']?([\w-]+)["']?/m.exec(block)?.[1] ??
+    /^plugin:\s*\{[^}]*\btype:\s*["']?([\w-]+)["']?/m.exec(text)?.[1] ??
+    ""
+  );
+}
 
 /** A path's last segment — the tabs are named by their file, so this is what names them. */
 const baseName = (p: string | undefined): string | undefined =>
@@ -118,7 +136,7 @@ export function ModuleBuilder({
   pluginParamNames?: string[];
   // …and what each spans, so a bound widget adopts the real range instead of the placeholder 0..1.
   pluginParamMeta?: Record<string, ParamMeta>;
-  // A save the host redirected — pistes forks a shared module rather than writing into it, so the
+  // A save the host redirected — l8 forks a shared module rather than writing into it, so the
   // file being edited moves. The host reopens; this component does not follow paths on its own.
   onRelocated?: (path: string) => void;
   // What fills the box UNDER the grid — the module drawn as the graph node it will be in a chain.
@@ -144,6 +162,11 @@ export function ModuleBuilder({
   // list, because it is one you type into as readily as you click (see moduleUi.ts).
   const [presetFile, setPresetFile] = useState<ModulePresetsFile | null>(null);
   const [presetsDirty, setPresetsDirty] = useState(false);
+  // …and the fourth, which only a `plugin: {type: jsdsp}` module has: its own DSP source. Not
+  // YAML — the pane below highlights it as such — and fetched only when the module claims one,
+  // so an ordinary module never asks its host for a file that is not there.
+  const [dspFile, setDspFile] = useState<ModulePresetsFile | null>(null);
+  const [dspDirty, setDspDirty] = useState(false);
   // Which file the CODE pane shows. Three files, one pane: what the module IS, how it is drawn, and its named
   // settings. The PANEL opens first — it is what the grid beside it edits, and what people come to this screen
   // for. The other two are a tab away.
@@ -155,10 +178,24 @@ export function ModuleBuilder({
     if (kind === "module") onListPresets(moduleName);
   }, [kind, moduleName, onListPresets]);
 
-  // Which of the two sidecars the pane is on, or null when it is on the module file itself. One expression,
+  // Which of the three sidecars the pane is on, or null when it is on the module file itself. One expression,
   // because three places downstream ask the same question and answering it three times is how they drift.
   const sidecar =
-    pane === "panel" ? uiFile : pane === "presets" ? presetFile : null;
+    pane === "panel"
+      ? uiFile
+      : pane === "presets"
+        ? presetFile
+        : pane === "jsdsp"
+          ? dspFile
+          : null;
+
+  // Does this module's DSP come from its own source? The TYPE says so, and the file is
+  // `jsdsp.ts` beside it — one statement, read straight off the buffer being edited so the tab
+  // appears the moment the type is typed rather than after a save.
+  const isJsDsp = useMemo(
+    () => (content == null ? false : pluginTypeOf(content) === JSDSP_TYPE),
+    [content],
+  );
 
   // The module's OWN presets, off its shelf. A name and the values it sets — nothing else is recorded.
   const shelf = useMemo(
@@ -232,6 +269,21 @@ export function ModuleBuilder({
     };
   }, [path, store]);
 
+  // The DSP source, fetched only once the module says it HAS one. Its own effect rather than a
+  // fourth call in the one above: `isJsDsp` is read off the buffer, so it becomes true the moment
+  // someone types the type — and an ordinary module never asks a host for a file that is not there.
+  useEffect(() => {
+    if (!isJsDsp || !store.jsdsp) return setDspFile(null);
+    let alive = true;
+    void store
+      .jsdsp(path)
+      .then((f) => alive && setDspFile(f))
+      .catch(() => alive && setDspFile(null));
+    return () => {
+      alive = false;
+    };
+  }, [isJsDsp, path, store]);
+
   // A visual edit rewrites the PANEL file; the code pane is controlled by it, so switching to it shows the change.
   const onUiChange = useCallback((next: ModuleUI) => {
     setUi(next);
@@ -263,6 +315,15 @@ export function ModuleBuilder({
     });
   }, []);
 
+  // A code edit in the DSP source: no grid, no dropdown — it is compiled by the loader, not read here.
+  const onDspChange = useCallback((text: string) => {
+    setDspFile((f) => {
+      if (!f || f.content === text) return f;
+      setDspDirty(true);
+      return { ...f, content: text };
+    });
+  }, []);
+
   // A code edit in the MODULE file touches no grid — the panel moved out of it.
   const onCodeChange = useCallback((text: string) => {
     setContent((c) => {
@@ -286,6 +347,15 @@ export function ModuleBuilder({
         onSaved();
         if (!dirty) return;
       }
+      // The DSP source, same rule again: it is a file in the module's folder, so it saves there.
+      if (dspDirty && dspFile) {
+        await store.write(dspFile.path, dspFile.content);
+        setDspDirty(false);
+        setDspFile((f) => (f ? { ...f, exists: true } : f));
+        setStatus(`saved ${dspFile.path}`);
+        onSaved();
+        if (!dirty) return;
+      }
       // The shelf, same rule as the panel: it is the module's own file and saves where the module is.
       if (presetsDirty && presetFile) {
         await store.write(presetFile.path, presetFile.content);
@@ -295,7 +365,7 @@ export function ModuleBuilder({
         onSaved();
         if (!dirty) return;
       }
-      // The module file CAN be redirected: pistes copies a shared module into the project rather
+      // The module file CAN be redirected: l8 copies a shared module into the project rather
       // than writing into the library. The host is told and reopens — following the new path from
       // here would leave the engine link and the title pointing at the module that was not edited.
       const landed = await store.write(path, content);
@@ -334,7 +404,7 @@ export function ModuleBuilder({
   ]);
 
   const params = paramRef ? (hints?.paramsByBase[paramRef] ?? []) : [];
-  // Ranges for a built-in whose params pistes defines (see builtinParams.ts). The engine's live report is
+  // Ranges for a built-in whose params l8 defines (see builtinParams.ts). The engine's live report is
   // better when there is one — it comes from the loaded plugin — so this only fills what that has not.
   const baseMeta = paramRef ? (hints?.paramMetaByBase[paramRef] ?? {}) : {};
 
@@ -505,6 +575,24 @@ export function ModuleBuilder({
                     !!uiFile,
                     uiFile ? null : "not read yet",
                   ],
+                  // Only for a module that HAS one. A tab that is always there and usually dead
+                  // would say every module could have DSP source, which is the opposite of what
+                  // the type means.
+                  ...(isJsDsp
+                    ? ([
+                        [
+                          "jsdsp",
+                          baseName(dspFile?.path) ?? JSDSP_FILE,
+                          dspDirty,
+                          !!dspFile,
+                          dspFile
+                            ? dspFile.exists
+                              ? null
+                              : "doesn't exist yet — saving creates it"
+                            : "this host does not serve it",
+                        ],
+                      ] as const)
+                    : []),
                   [
                     "presets",
                     baseName(presetFile?.path) ?? PRESETS_BASENAME,
@@ -562,7 +650,9 @@ export function ModuleBuilder({
                     ? onPanelChange
                     : pane === "presets"
                       ? onPresetsChange
-                      : onCodeChange
+                      : pane === "jsdsp"
+                        ? onDspChange
+                        : onCodeChange
                 }
                 onSave={() => void save()}
               />
@@ -576,14 +666,10 @@ export function ModuleBuilder({
             <div className="min-h-0 flex-1">
               <WidgetGridEditor
                 ui={ui}
-                // The library FOLDERS, from the flat file list in hints: a dropdown picks a folder and its files are the choices.
-                libraryKinds={[
-                  ...new Set(
-                    (hints?.libraryFiles ?? [])
-                      .map((f) => f.split("/")[0])
-                      .filter(Boolean),
-                  ),
-                ].sort()}
+                // The params that take a FILE rather than a number — a dropdown bound to one
+                // offers the module's own assets/. A fixed list now, not a scan of the project:
+                // the choices belong to the module, so there is nothing project-wide to read.
+                assetParams={[...FILE_PARAMS]}
                 disabled={!parsable}
                 onChange={onUiChange}
               />

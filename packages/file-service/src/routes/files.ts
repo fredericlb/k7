@@ -200,22 +200,23 @@ filesRouter.post(
   }),
 );
 
-// Import a .dawproject into a new project folder and return its path, which the caller then /opens.
+// Import a foreign project (.dawproject, .als) into a new project folder and return its path, which
+// the caller then /opens.
 const importBody = z.object({ path: z.string().min(1) });
 filesRouter.post(
-  "/import-dawproject",
+  "/import-project",
   validate(importBody),
   wrap((req, res) => {
     const { path } = req.body as z.infer<typeof importBody>;
     try {
-      res.json(req.ws!.importDawproject(path));
+      res.json(req.ws!.importProject(path));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
   }),
 );
 
-// Scaffold a project at the workspace root and return its path — the same scaffold `pistes create` runs.
+// Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
   type: z.enum(["audio", "video"]),
   name: z.string().min(1),

@@ -1,0 +1,15 @@
+project:
+  name: video-demo
+  tempo: 120
+  sampleRate: 48000
+  timeSignature: 4/4
+  video: true
+  viewport:
+    - 1280
+    - 720
+    - 30
+  layers:
+    - main
+    - pip
+    - box
+markers: {}

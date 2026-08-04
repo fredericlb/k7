@@ -11,14 +11,14 @@ import { rootDir, userRoot } from "./slug.ts";
 /** The workspace the demos are put in. */
 export const EXAMPLES_WORKSPACE = "Examples";
 
-/** Where the demo songs live: $STUDIO_DEMOS when the tray sets it (a packaged app), else walk up to `apps/capot/songs` (this file is bundled at a different depth than it sits in the repo). */
+/** Where the demo songs live: $STUDIO_DEMOS when the tray sets it (a packaged app), else walk up to `engine/capot/songs` (this file is bundled at a different depth than it sits in the repo). */
 export function demosDir(): string | null {
   const env = process.env.STUDIO_DEMOS;
   if (env && existsSync(env)) return env;
 
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 8; i++) {
-    const candidate = join(dir, "apps", "capot", "songs");
+    const candidate = join(dir, "engine", "capot", "songs");
     if (existsSync(candidate)) return candidate;
     const up = dirname(dir);
     if (up === dir) break;

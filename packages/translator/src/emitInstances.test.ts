@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { loadGraph } from "@studio/song/graph";
 import { compileNodeProject } from "@studio/song/nodeProject";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { PluginOut, Song, TrackOut } from "./dawproject";
 import { emitFolder } from "./emit";
+import type { PluginOut, Song, TrackOut } from "./model";
 
 // A DAWproject routinely puts the same plugin on several tracks with different settings.
 // Those are one instrument set differently, so the import writes ONE module and an

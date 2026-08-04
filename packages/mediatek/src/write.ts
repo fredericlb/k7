@@ -17,15 +17,15 @@ import {
   writablePath,
 } from "./layout.ts";
 import { isAudio } from "./media.ts";
-import {
-  MorceauExistsError,
-  type MorceauTags,
-  masterName,
-  morceauFolder,
-  sidecarFor,
-} from "./morceau.ts";
 import { bumped } from "./revision.ts";
-import { MORCEAU_FILE } from "./scan.ts";
+import { SONG_FILE } from "./scan.ts";
+import {
+  masterName,
+  SongExistsError,
+  type SongTags,
+  sidecarFor,
+  songFolder,
+} from "./song.ts";
 import { FAMILIES, type Family } from "./types.ts";
 
 /** Which family a path belongs to, or null for the shared `library`/`ui` folders and
@@ -98,7 +98,7 @@ export function removeTree(rel: string): void {
   bump(abs);
 }
 
-/** The audio file already sitting in a morceau folder, or null for a folder that has none
+/** The audio file already sitting in a song folder, or null for a folder that has none
  *  — including one that is not there at all, which is the ordinary case. */
 function existingMaster(abs: string): string | null {
   try {
@@ -109,37 +109,39 @@ function existingMaster(abs: string): string | null {
 }
 
 /**
- * File one uploaded audio file as a morceau: the folder, the master, the sidecar.
+ * File one uploaded audio file as a song: the folder, the master, the sidecar.
  *
- * `morceaux/` is the one family nobody edits by hand — its shape is derived from the three
+ * `songs/` is the one family nobody edits by hand — its shape is derived from the three
  * tags, not typed — so this is the way in. The tags are what the caller confirmed, never a
  * path the caller built: a client that could name the folder could name any folder.
+ *
+ * There is no `kind` any more: the folder is `songs/<artist>/<album>/<title>`, full stop.
+ * k7 used to pass `recorded` here to file a published version apart from an upload, and that
+ * distinction now costs nothing to drop — raw capture is the `recordings/` zone, and what
+ * reaches this function is catalogued work whichever surface sent it.
  *
  * The sidecar is written LAST, as the mirror does and for the same reason: a crash then
  * leaves an uncatalogued folder rather than a catalogue entry pointing at nothing.
  */
-export function addMorceau(opts: {
+export function addSong(opts: {
   filename: string;
   bytes: Uint8Array;
-  tags: MorceauTags;
-  /** The provenance folder: `imported` (default) or `recorded`. Validated by the route —
-   *  see MORCEAU_KINDS. */
-  kind?: string;
+  tags: SongTags;
   /** Replace the master already there. Absent, an occupied folder is a refusal — a silent
    *  clobber is the one outcome the person uploading cannot undo. */
   replace?: boolean;
 }): { path: string; master: string; replaced: boolean } {
-  const folder = morceauFolder(opts.tags, opts.kind);
+  const folder = songFolder(opts.tags);
   const name = masterName(opts.filename); // refuses anything the scan won't see as audio
   ensureLayout();
   const already = existingMaster(writablePath(folder));
   if (already && !opts.replace)
-    throw new MorceauExistsError(`${folder} already holds ${already}`);
+    throw new SongExistsError(`${folder} already holds ${already}`);
   putFile(`${folder}/${name}`, opts.bytes);
   // A replacement in another format would otherwise leave two masters, and the scan picks
   // whichever readdir hands it first.
   if (already && already !== name) removeFile(`${folder}/${already}`);
-  putFile(`${folder}/${MORCEAU_FILE}`, sidecarFor(opts.tags));
+  putFile(`${folder}/${SONG_FILE}`, sidecarFor(opts.tags));
   return {
     path: folder,
     master: `${folder}/${name}`,

@@ -1,6 +1,6 @@
 // commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
-// runs from the web command bar and from `pistes cmd`. Which words invoke a SID lives
+// runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
 import { execFileSync } from "node:child_process";
@@ -25,8 +25,10 @@ import {
   createModuleFile,
   createModuleInstance,
   createTrackFile,
-  listLibrary,
+  FILE_PARAMS,
+  listModuleAssets,
   loadChains,
+  loadModules,
   loadProjectRoot,
 } from "@studio/song/loader";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
@@ -1074,12 +1076,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // --- channel labels (global user preferences) -------------------------------
-  // The interface in use is shown here but only CHOSEN from the CLI (`pistes config --set interface`).
+  // The interface in use is shown here but only CHOSEN from the CLI (`l8 config --set interface`).
   "channels.list": (_a, h) => {
     const p = loadPreferences();
     const f = formatChannels(p);
     h.log([
-      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: pistes config --set interface)`,
+      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: l8 config --set interface)`,
       `in:  ${f.in || "(none — set with: channel in <ch> <label>)"}`,
       `out: ${f.out || "(none — set with: channel out <ch> <label>)"}`,
     ]);
@@ -1232,37 +1234,48 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // Point a module at a library file (`none` clears it); `with:` says which asset. Not patchable into the running
-  // engine — both plugins load their file when BUILT — so it writes and reloads. Changing a cabinet isn't a knob drag.
+  // Point a file-valued param at one of the module's own assets (`none` clears it). Not patchable into the running
+  // engine — the plugin loads its file when BUILT — so it writes and reloads. Swapping an amp model isn't a knob drag.
   "module.asset": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(.+)$/.exec(a.trim());
     if (!m) {
       h.log([
-        "usage: module <ir|nam> <module> <file>  (e.g. module ir cab ir/marshall-1960a.wav, or `none` to clear)",
+        `usage: module <${FILE_PARAMS.join("|")}> <module> <file>  (e.g. module nam amp jcm800.nam, or \`none\` to clear)`,
       ]);
       return;
     }
-    const [, kind, module, rawFile] = m;
+    const [, param, module, rawFile] = m;
     const file = rawFile.replace(/^"(.*)"$/s, "$1").trim();
     const clearing = file === "none";
-    // An empty library usually means no `libraries_from` — say that, not "no such file", which misdirects the search.
+    // An empty list means the module has no `assets/` — say that, not "no such file", which
+    // sends you looking through a directory that isn't there. The files live in the module,
+    // so there is one place to look and nothing to declare anywhere.
     if (!clearing) {
-      const have = listLibrary(h.songPath, kind);
+      const found = loadModules(h.songPath)[module];
+      const folder = found?.category
+        ? join(
+            h.songPath,
+            "modules",
+            String(found.category),
+            String(found.file),
+          )
+        : "";
+      const have = folder ? listModuleAssets(folder) : [];
       if (!have.includes(file)) {
         h.log([
           have.length
-            ? `no '${file}' in the library — it has: ${have.join(", ")}`
-            : `the project's library has no '${kind}/' folder (set project.libraries_from, e.g. "../_library")`,
+            ? `no '${file}' in ${module}'s assets — it has: ${have.join(", ")}`
+            : `${module} carries no assets — drop the file in modules/<category>/${found?.file ?? module}/assets/`,
         ]);
         return;
       }
     }
     try {
-      setModuleAsset(h.songPath, module, kind, clearing ? null : file);
-      h.log([`${module}: ${clearing ? `${kind} cleared` : file}`]);
+      setModuleAsset(h.songPath, module, param, clearing ? null : file);
+      h.log([`${module}: ${clearing ? `${param} cleared` : file}`]);
       await h.reload();
     } catch (e) {
-      h.log([`module ${kind} failed: ${(e as Error).message}`]);
+      h.log([`module ${param} failed: ${(e as Error).message}`]);
     }
   },
 

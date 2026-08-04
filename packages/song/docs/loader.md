@@ -56,24 +56,18 @@ One exception: `ui`. A UI describes the PLUGIN's controls, which every instance 
 so it lives in `module.yaml` and is taken from there whole — the web module editor edits
 that file for any instance you pick, and a `ui:` in an instance file has no effect.
 
-## The asset library
+## The files a module loads
 
-A project points at shared folders (`project.libraries_from`; a workspace's is a sibling
-`"../_library"`), each holding a subfolder per kind of asset — `ir/` for impulse
-responses. A module names a file by its path INSIDE a library, so what a module says
-stays short and survives being copied to another workspace: `ir: "ir/marshall.wav"`.
+A module carries them, in an `assets/` folder of its own, and names one in `params:`
+(`params: {nam: jcm800.nam}`). `resolveAssets` resolves those against that folder and
+nowhere else; `listModuleAssets` walks it for the panel's dropdown.
 
-SEVERAL libraries are searched in declaration order, first hit wins — a song usually
-wants its workspace's library AND one of its own, and with a single path the only way to
-have both was to copy files into one of them.
+A path that climbs out of `assets/` is refused rather than resolved, since these come from
+files the editor writes and a shared workspace may not be yours alone.
 
-This replaced discovery-by-convention (an audio file dropped in the module's own
-folder). One cabinet IR is worth sharing across every module that wants it, and a folder
-that held two audio files had no answer at all.
-
-`resolveLibraryFile`: a path that climbs out of the library (`"../../etc/passwd"`) is
-refused rather than resolved, since these come from files the editor writes and a shared
-workspace may not be yours alone.
+There used to be a shared asset LIBRARY here — `_library/ir/`, `_library/nam/`, searched
+nearest-first — and two module fields naming into it. Both are gone: the folder is the
+module, so what it loads travels with it. See `docs/moduleAssets.md` for the whole of it.
 
 ## `loadModules` internals
 

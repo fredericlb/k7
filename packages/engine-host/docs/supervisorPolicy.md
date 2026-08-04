@@ -4,7 +4,7 @@ Background for the one-line headers in `engine-host/src`. Each section names its
 
 ## `webOrigins.ts` — the web UIs this engine trusts
 
-A pistes web UI reached over a real hostname (`https://daw.test` behind Caddy, a
+A l8 web UI reached over a real hostname (`https://daw.test` behind Caddy, a
 hosted deployment) is neither loopback nor a private address, so the file service's
 deny-by-default CORS policy cannot admit it on its own (see
 `packages/file-service/src/cors.ts`). This list is how the user says "that one is mine":

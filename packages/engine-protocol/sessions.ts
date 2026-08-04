@@ -1,7 +1,7 @@
 // sessions.ts — the session identifier: which project inside one engine a message is about.
 // A wire value, so it lives here: two PROCESSES have to spell it the same way or they drive
 // two different projects and each sees the other's engine as empty. See docs/sessions.md
-// here for the client rules, and apps/moteur/docs/protocol.md for the wire.
+// here for the client rules, and engine/moteur/docs/protocol.md for the wire.
 
 /**
  * The default session — what a client that has never heard of sessions drives.
@@ -16,31 +16,31 @@ export const DEFAULT_SESSION = "";
  * The session each app drives today, one per SERVICE.
  *
  * This is the granularity that closes the collision the engine was single-project for:
- * pistes, mediatek and m9 pointed at one engine used to overwrite each other's
+ * l8, st0 and m9 pointed at one engine used to overwrite each other's
  * project. It is NOT the final granularity — two users on two workspaces still share
- * `pistes` — and per-user ids are their own step (see the plan's M5, "un moteur par
+ * `l8` — and per-user ids are their own step (see the plan's M5, "un moteur par
  * utilisateur et par service").
  *
- * `pistes` is spelled once and read by two processes: the browser drives transport while
+ * `l8` is spelled once and read by two processes: the browser drives transport while
  * the file service compiles and sends the project. Give them different ids and the
  * frontend drives an empty session while the song plays in another.
  */
 export const SESSIONS = {
-  pistes: "pistes",
-  mediatek: "mediatek",
+  l8: "l8",
+  st0: "st0",
   m9: "m9",
 } as const;
 
 export type SessionId = string;
 
 /**
- * One session per (service, person): `pistes:fred_parapluie_org`.
+ * One session per (service, person): `l8:fred_parapluie_org`.
  *
  * Needed the moment an engine can be CHOSEN per account, because two people can now choose
  * the same one — and on a service-wide id they would drive the same project, which is
  * exactly the collision sessions exist to end, moved up a level.
  *
- * `who` must be spelled identically by both halves of an app. pistes has two: the browser
+ * `who` must be spelled identically by both halves of an app. l8 has two: the browser
  * drives transport, the file service compiles and sends. Both have the user's email, and
  * both slug it the same way here — which is why this takes the raw email and does the
  * slugging itself rather than trusting each caller to.

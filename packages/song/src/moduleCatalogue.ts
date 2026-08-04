@@ -43,15 +43,9 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
   const roots = sharedRoots(dir);
   const byNs = new Map(roots.map((r) => [r.ns, r.root]));
 
-  let refs: Record<string, LoadedModule>;
-  try {
-    refs = loadModuleRefs(
-      dir,
-      roots.map((r) => r.root),
-    );
-  } catch {
-    return []; // a broken catalogue costs the list, not the settings panel
-  }
+  // The same roots `sharedRoots` just listed — both read `moduleLibraryDirs`, so the list and
+  // the map it is keyed against cannot disagree about what this project inherits.
+  const refs: Record<string, LoadedModule> = loadModuleRefs(dir);
 
   // The instances are counted, not listed — they share their generic's panel and its ref.
   const instances = new Map<string, number>();

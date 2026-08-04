@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Annotation, Envelope, Marker, Release } from "@k7/shared";
-import { segment, sidecarFor } from "@studio/mediatek/morceau";
+import { segment, sidecarFor } from "@studio/mediatek/song";
 import * as grist from "./grist.ts";
 import * as mediatek from "./mediatek.ts";
 
@@ -965,7 +965,7 @@ export async function createRelease(ownerId, fields, firstVersion) {
   return getRelease(uid);
 }
 
-// Find the release for a pistes song id, scoped to its owner so ids from
+// Find the release for a l8 song id, scoped to its owner so ids from
 // different users can't collide. Returns the public release or null.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
@@ -1017,7 +1017,7 @@ function invalidateVersions(releaseUid) {
 
 // A version carries a mixdown ({buffer,mime} — the single playable file) and,
 // optionally, per-track stems ([{buffer,mime,name}]). Web uploads pass no
-// stems; the pistes CLI import passes both.
+// stems; the l8 CLI import passes both.
 export async function addVersion(
   releaseUid,
   { name, isDefault },
@@ -1028,7 +1028,7 @@ export async function addVersion(
   const createdAt = new Date().toISOString();
   const versionName = name || "Version";
 
-  // The published version becomes a MORCEAU: morceaux/recorded/K7/<release>/<version>/.
+  // The published version becomes a SONG: songs/K7/<release>/<version>/.
   // The release is the album level and the version the title, because that is what they
   // are — one song, several mixes, each with its own audio and its own folder.
   const release = await getReleaseRecord(releaseUid);
@@ -1041,7 +1041,7 @@ export async function addVersion(
     },
   );
 
-  // Stems live under the morceau, in `stems/`. A subfolder and not beside the master:
+  // Stems live under the song, in `stems/`. A subfolder and not beside the master:
   // the scan takes the first audio file in the folder for the master and does not descend,
   // so a stem sitting next to it could be picked to play.
   const folder = dirOf(master);
@@ -1093,7 +1093,7 @@ export async function addVersion(
   };
 }
 
-/** Take a published version out of the médiathèque: the whole morceau folder — master,
+/** Take a published version out of the médiathèque: the whole song folder — master,
  *  stems, sidecar — since the folder IS the version. Never fatal, like a moment's clip. */
 async function forgetVersionFolder(v) {
   if (!v?.fields.AudioPath) return;
@@ -1119,7 +1119,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
   const v = versions.find((x) => x.fields.Uid === versionUid);
   if (!v) return null;
   await grist.patchRecord("Versions", v.id, { Name: String(name) });
-  // The morceau's FOLDER keeps its old name, and its sidecar gets the new one — the same
+  // The song's FOLDER keeps its old name, and its sidecar gets the new one — the same
   // rule the médiathèque's own mirror follows. A folder path is an entry id and a cache's
   // manifest key, so churning it would cost every machine a re-download of bytes that did
   // not change; the sidecar is where the displayed title lives anyway.
@@ -1127,7 +1127,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
     const release = await getReleaseRecord(releaseUid);
     await mediatek
       .putFile(
-        `${dirOf(v.fields.AudioPath)}/morceau.yaml`,
+        `${dirOf(v.fields.AudioPath)}/song.yaml`,
         sidecarFor({
           title: String(name),
           artist: mediatek.ARTIST,

@@ -44,7 +44,7 @@ describe("allowedOrigin — default policy", () => {
   it("refuses a public origin (this is the drive-by we are blocking)", () => {
     expect(allowedOrigin("https://evil.com")).toBe(false);
     expect(allowedOrigin("http://evil.com")).toBe(false);
-    expect(allowedOrigin("https://pistes.example.org")).toBe(false);
+    expect(allowedOrigin("https://l8.example.org")).toBe(false);
   });
 
   it("allows the dev frontend on either loopback spelling", () => {
@@ -52,10 +52,10 @@ describe("allowedOrigin — default policy", () => {
     expect(allowedOrigin("http://127.0.0.1:5203")).toBe(true);
   });
 
-  it("allows loopback on ANY port, since `pistes --web` picks a free one", () => {
+  it("allows loopback on ANY port, since `l8 --web` picks a free one", () => {
     // The host carries the trust, not the port — so this is deliberate, not an
     // oversight. Asserted so nobody "tightens" it to a fixed port and breaks
-    // `pistes --web`, which chooses its port at launch.
+    // `l8 --web`, which chooses its port at launch.
     expect(allowedOrigin("http://localhost:5999")).toBe(true);
     expect(allowedOrigin("http://127.0.0.1:1234")).toBe(true);
   });

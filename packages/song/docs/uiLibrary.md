@@ -54,7 +54,7 @@ the file used to live in.
 
 ## Which libraries are read
 
-`modulePanelRoots` (sharedFolders.ts): the project's own `modules/` first, then every root `modules_from` names
+`modulePanelRoots` (sharedFolders.ts): the project's own `modules/` first, then every shared root it inherits
 — `_modules`, the mediatek. **Nearest wins**, so a project that forked a shared module draws its own face rather
 than the one it was copied from. There is no separate list to declare: point a project at a library and the
 faces come along with the modules, because they are in the same folders.

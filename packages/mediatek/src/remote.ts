@@ -23,7 +23,9 @@ export interface LibrarySource {
 }
 
 export interface RemoteConfig {
-  /** e.g. https://media.studio.frediver.se */
+  /** The library's fixed address — `https://studio.frediver.se/mediatek` in production, the
+   *  same path under whatever origin serves this studio. Derived by every caller, never typed:
+   *  see `@studio/web-protocol/services` and docs/tokens.md. */
   base: string;
   /** A personal access token — a headless service has no cookie jar. */
   token?: string;
@@ -127,13 +129,15 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
 }
 
 /**
- * Push one audio file in as a MORCEAU. Like `pushRecording`, the caller sends what it
- * knows — the three tags, the provenance — and the library builds the path.
+ * Push one audio file in as a SONG. Like `pushRecording`, the caller sends what it knows —
+ * the three tags — and the library builds the path.
  *
- * `kind` is what makes this usable by something other than the médiathèque's own button:
- * k7 publishes a version, which is `recorded` by definition, not `imported`.
+ * `source` is the only provenance left, and it is a note rather than a location: it says
+ * `k7` for a published version, `upload` for the médiathèque's own button, `mirror` for one
+ * pulled. There is no `kind`, because `songs/` no longer files by where a master came from
+ * — see `songFolder`.
  */
-export async function pushMorceau(
+export async function pushSong(
   cfg: RemoteConfig,
   opts: {
     filename: string;
@@ -141,17 +145,16 @@ export async function pushMorceau(
     artist?: string;
     album?: string;
     title?: string;
-    kind?: string;
     source?: string;
     replace?: boolean;
   },
 ): Promise<{ path: string; master: string; replaced: boolean }> {
   const q = new URLSearchParams({ filename: opts.filename });
-  for (const k of ["artist", "album", "title", "kind", "source"] as const)
+  for (const k of ["artist", "album", "title", "source"] as const)
     if (opts[k]) q.set(k, opts[k] as string);
   if (opts.replace) q.set("replace", "1");
   const res = await fetch(
-    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/morceau?${q}`,
+    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/song?${q}`,
     {
       method: "POST",
       headers: {
@@ -162,7 +165,7 @@ export async function pushMorceau(
     },
   );
   if (!res.ok)
-    throw new RemoteError(`mediatek morceau: ${res.status} ${res.statusText}`);
+    throw new RemoteError(`mediatek song: ${res.status} ${res.statusText}`);
   return (await res.json()) as {
     path: string;
     master: string;

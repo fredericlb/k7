@@ -15,8 +15,14 @@
 #     under `base`. Strip it and every asset request 404s against a server that
 #     is only listening at /<service>/.
 #
+# st0 is the exception and needs neither half: it has NO prefix. The médiathèque
+# is the studio's home page, so it answers at `/api/*` and at the bare origin,
+# and both of its handles are plain proxies. Nothing else may claim a prefixless
+# path — one origin can only have one root.
+#
 # Ordering is load-bearing too: handle blocks are mutually exclusive and matched
-# top to bottom, so each service's API rule must precede its catch-all.
+# top to bottom, so each service's API rule must precede its catch-all, and st0's
+# root catch-all must come dead last or it swallows every other service.
 studio.test {
 	tls internal
 
@@ -26,30 +32,37 @@ studio.test {
 	# <origin>/auth/callback with no prefix, which only works if this handle exists.
 	# First, because the service handles below would otherwise swallow nothing here
 	# but order is what guarantees it stays that way.
+	#
+	# It points at st0 (8795), the service that OWNS the origin root. That is not a
+	# preference: the prefixless redirect_uri above belongs to whoever has no prefix,
+	# and st0 is the only one. l8 held this while the bare origin merely redirected
+	# to it, and now passes mountRoutes: [] like m9 and k7 always have.
 	handle /auth/* {
-		reverse_proxy 127.0.0.1:8789
+		reverse_proxy 127.0.0.1:8795
 	}
 
-	@pistes_api path /pistes/api/*
-	handle @pistes_api {
-		uri strip_prefix /pistes
+	@l8_api path /l8/api/*
+	handle @l8_api {
+		uri strip_prefix /l8
 		reverse_proxy 127.0.0.1:8789
 	}
-	@pistes path /pistes /pistes/*
-	handle @pistes {
+	@l8 path /l8 /l8/*
+	handle @l8 {
 		reverse_proxy 127.0.0.1:5223
 	}
 
-	# The media library, hosted: the catalogue and the bytes both come from its
-	# own backend. The local cache the moteur plays from is not served here.
-	@mediatek_api path /mediatek/api/*
-	handle @mediatek_api {
-		uri strip_prefix /mediatek
+	# st0 — the media library, hosted, and the studio's HOME PAGE. It has no path of
+	# its own: its API is `/api/*` at the root and its SPA is the catch-all at the
+	# bottom of this block, so the prefix asymmetry the other services need does not
+	# apply and there is nothing to strip. The catalogue and the bytes both come from
+	# its own backend; the local cache the moteur plays from is not served here.
+	#
+	# This rule sits with the other API rules rather than beside its catch-all
+	# because `/api/*` must be matched before the bare `handle` at the bottom — which
+	# is the whole reason that one has to stay last.
+	@st0_api path /api/*
+	handle @st0_api {
 		reverse_proxy 127.0.0.1:8795
-	}
-	@mediatek path /mediatek /mediatek/*
-	handle @mediatek {
-		reverse_proxy 127.0.0.1:5224
 	}
 
 	# The decks. Its backend holds auth, the engine registry and which machine
@@ -65,48 +78,48 @@ studio.test {
 		reverse_proxy 127.0.0.1:5225
 	}
 
-	# --- obscura: its own login, so its own callback ------------------------
+	# --- z0: its own login, so its own callback ------------------------
 	# It keeps `bt_session` rather than the shared studio one: a blind-test player
 	# is a GUEST with no account, a kind the studio session does not model. Its
 	# flow therefore runs on its own backend, which is why X-Forwarded-Prefix is
-	# set here — redirectUriFor reads it to name /obscura/auth/callback instead of
-	# the origin root, which belongs to pistes.
-	@obscura_api path /obscura/api/*
-	handle @obscura_api {
-		uri strip_prefix /obscura/api
+	# set here — redirectUriFor reads it to name /z0/auth/callback instead of
+	# the origin root, which belongs to l8.
+	@z0_api path /z0/api/*
+	handle @z0_api {
+		uri strip_prefix /z0/api
 		reverse_proxy 127.0.0.1:8080
 	}
-	@obscura_backend path /obscura/auth/* /obscura/audio/* /obscura/ws*
-	handle @obscura_backend {
-		uri strip_prefix /obscura
+	@z0_backend path /z0/auth/* /z0/audio/* /z0/ws*
+	handle @z0_backend {
+		uri strip_prefix /z0
 		reverse_proxy 127.0.0.1:8080 {
-			header_up X-Forwarded-Prefix /obscura
+			header_up X-Forwarded-Prefix /z0
 		}
 	}
 	# The five path-routed SPAs, then the apex one. No strip: each vite `base` is
 	# the full public path, so the dev server must see it.
-	@obscura_buzzer path /obscura/buzzer /obscura/buzzer/*
-	handle @obscura_buzzer {
+	@z0_buzzer path /z0/buzzer /z0/buzzer/*
+	handle @z0_buzzer {
 		reverse_proxy 127.0.0.1:3004
 	}
-	@obscura_remote path /obscura/remote /obscura/remote/*
-	handle @obscura_remote {
+	@z0_remote path /z0/remote /z0/remote/*
+	handle @z0_remote {
 		reverse_proxy 127.0.0.1:3005
 	}
-	@obscura_editor path /obscura/editor /obscura/editor/*
-	handle @obscura_editor {
+	@z0_editor path /z0/editor /z0/editor/*
+	handle @z0_editor {
 		reverse_proxy 127.0.0.1:3006
 	}
-	@obscura_presenter path /obscura/presenter /obscura/presenter/*
-	handle @obscura_presenter {
+	@z0_presenter path /z0/presenter /z0/presenter/*
+	handle @z0_presenter {
 		reverse_proxy 127.0.0.1:3001
 	}
-	@obscura_monitor path /obscura/monitor /obscura/monitor/*
-	handle @obscura_monitor {
+	@z0_monitor path /z0/monitor /z0/monitor/*
+	handle @z0_monitor {
 		reverse_proxy 127.0.0.1:3002
 	}
-	@obscura path /obscura /obscura/*
-	handle @obscura {
+	@z0 path /z0 /z0/*
+	handle @z0 {
 		reverse_proxy 127.0.0.1:3003
 	}
 
@@ -124,12 +137,31 @@ studio.test {
 		reverse_proxy 127.0.0.1:5173
 	}
 
-	# The bare origin belongs to no service. It is also where OIDC's APP_ROOT
-	# fallback lands when a login carries no return_to, so leaving it blank turns
-	# that fallback into a dead end. Point it at pistes, the main app.
+	# --- VS Code in the browser, served at /dev -----------------------------
+	# A root turbo task started by `npm run dev` (and alone by `npm run vscode`).
+	# No strip: `code serve-web --server-base-path /dev` already serves under the
+	# prefix, the same asymmetry as the SPAs above.
+	#
+	# UNAUTHENTICATED, on purpose — a dev-only choice for an open-source repo. This
+	# route is a shell on the repo root and this Caddy answers on every interface,
+	# so do not carry the block to anything reachable. scripts/vscode.mjs says how
+	# to put a connection token back.
+	@vscode path /dev /dev/*
+	handle @vscode {
+		reverse_proxy 127.0.0.1:8798
+	}
+
+	# The bare origin IS st0 — the médiathèque is the studio's front door, not a
+	# redirect to somewhere else. This is also where OIDC's APP_ROOT fallback lands
+	# when a login carries no return_to, which now arrives at a real page instead of
+	# being bounced on to l8.
+	#
+	# LAST, and unmatched: `handle` blocks are mutually exclusive and matched top to
+	# bottom, so every prefixed service above claims its own paths first and whatever
+	# is left is st0's. No strip — vite's `base` is "/" here, so there is no prefix
+	# to take off, which is the one case where the asymmetry at the top of this file
+	# has nothing to say.
 	handle {
-		# The `*` matcher is REQUIRED: a bare `/pistes/` would be read as a path
-		# matcher, making 302 the destination and the Location header literally "302".
-		redir * /pistes/ 302
+		reverse_proxy 127.0.0.1:5224
 	}
 }

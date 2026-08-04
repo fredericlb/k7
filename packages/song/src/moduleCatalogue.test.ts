@@ -22,7 +22,7 @@ const SONG = join(
   "..",
   "..",
   "..",
-  "apps",
+  "engine",
   "capot",
   "songs",
   "synth-demo",
@@ -106,7 +106,11 @@ describe("the shared module catalogue", () => {
     // It used to answer nothing here, because the catalogue WAS the shared folder. The
     // engine's own modules are not files, so a project with no `_modules` beside it is not
     // a project with nothing to reach for — and IN and OUT are there even with no scan.
-    const solo = join(ws, "solo");
+    //
+    // In a workspace of its OWN: the shared folders are found by location now, so a project
+    // sitting beside this fixture's `_modules` would see it whatever its header said.
+    const alone = mkdtempSync(join(tmpdir(), "td-cat-solo-"));
+    const solo = join(alone, "song");
     cpSync(SONG, solo, { recursive: true });
     const refs = moduleCatalogue(solo).map((m) => m.ref);
     expect(refs).toContain("@engine/IN");
@@ -114,5 +118,6 @@ describe("the shared module catalogue", () => {
     // …and nothing from a library, since there is none. `@engine` is the one level with no
     // folder behind it, which is exactly why it still answers here.
     expect(refs.every((r) => r.startsWith("@engine/"))).toBe(true);
+    rmSync(alone, { recursive: true, force: true });
   });
 });

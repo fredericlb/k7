@@ -6,7 +6,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { RECORDINGS_DIR, recordingsDir } from "./layout.ts";
 import { extOf, isAudio } from "./media.ts";
-import { NotAudioError, segment } from "./morceau.ts";
+import { NotAudioError, segment } from "./song.ts";
 import { putFile } from "./write.ts";
 
 /** The zone, mediatek-relative. A path and not a directory, because everything that writes
@@ -66,8 +66,8 @@ export interface RecordingDay {
  *
  * A second is not a unique key — two microphones stopping together is an ordinary
  * afternoon, not a conflict to report — so a taken name gains `-2`, `-3`, … rather than
- * failing or overwriting. That is the opposite of `addMorceau`'s 409, and deliberately:
- * there, two uploads deducing one folder means the same morceau twice; here, two files at
+ * failing or overwriting. That is the opposite of `addSong`'s 409, and deliberately:
+ * there, two uploads deducing one folder means the same song twice; here, two files at
  * the same second are two different files.
  */
 export function addRecording(opts: {

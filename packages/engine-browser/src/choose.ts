@@ -19,9 +19,10 @@ export interface Choice {
 /**
  * Pick from what the registry offered, given what this account remembers.
  *
- * Tier 3 means "listed but not reachable from this browser": the engine is on a network we
- * are not on. Those are excluded everywhere here — offering one produces a preview that
- * silently never connects, which reads as a broken editor rather than a wrong network.
+ * UNREACHABLE means "listed but nothing answered from this browser": the engine is on a
+ * network we are not on. Those are excluded everywhere here — offering one produces a preview
+ * that silently never connects, which reads as a broken editor rather than a wrong network.
+ * It is the one state that is not a latency, which is why it survived the tiers.
  *
  * A remembered engine that is unreachable does NOT clear the preference. The usual reason
  * is being on the wrong network or the machine being off, and forgetting the choice would

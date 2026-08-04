@@ -10,7 +10,7 @@ import type { PrefsStore } from "./store.ts";
 /**
  * The routes over one store, validating writes against `schema`.
  *
- * The schema is the HOST's, not this package's: pistes and the médiathèque remember
+ * The schema is the HOST's, not this package's: l8 and the médiathèque remember
  * different things, and a union of every service's fields here would be a shape no service
  * actually has.
  */

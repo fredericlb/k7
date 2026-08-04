@@ -94,7 +94,7 @@ describe("panels across more than one library", () => {
   it("loads a module OUT of the media library, through the @mediatek token", () => {
     // The end of the chain this step exists for: the project names a library it does not
     // contain, and the module resolves — with no path anywhere in project.yaml.
-    const refs = loadModuleRefs(dir, ["../_modules", "@mediatek"]);
+    const refs = loadModuleRefs(dir);
     expect(refs["@mediatek/audio/reverb"]).toBeTruthy();
     expect(refs["@workspace/audio/delay/tape-delay"]).toBeTruthy();
   });
@@ -205,7 +205,7 @@ describe("the loader overlays the panels", () => {
 
   it("gives a shared module its panel, through the ref map", () => {
     writeUiFile(dir, "@workspace/audio/delay/tape-delay", PANEL);
-    const refs = loadModuleRefs(dir, ["../_modules"]);
+    const refs = loadModuleRefs(dir);
     expect(refs["@workspace/audio/delay/tape-delay"].ui).toEqual(PANEL);
   });
 
@@ -220,7 +220,7 @@ describe("the loader overlays the panels", () => {
       "channel: [2]\n",
     );
     writeUiFile(dir, "@workspace/io/IN", PANEL);
-    const refs = loadModuleRefs(dir, ["../_modules"]);
+    const refs = loadModuleRefs(dir);
     expect(refs["@workspace/io/IN"].ui).toEqual(PANEL);
     expect(refs["@workspace/io/IN:in-2"].ui).toEqual(PANEL);
     // …and the instance keeps what makes it one.

@@ -30,6 +30,7 @@ import { line } from "./logbus.ts";
 import {
   deregister,
   heartbeat,
+  mediatekUrlFor,
   resolveRegistryUrls,
 } from "./registryClient.ts";
 import { loadSettings, type Settings, saveSettings } from "./settings.ts";
@@ -237,7 +238,8 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       state.registryUrls.join(","),
       state.settings.mediatekDir,
       {
-        url: state.settings.mediatekUrl,
+        // Derived from the registries, never configured — see mediatekUrlFor.
+        url: mediatekUrlFor(state.registryUrls),
         token: state.settings.mediatekToken,
       },
     );
@@ -531,7 +533,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
    *
    * An add and no longer a replace, which is the whole shape of this change. Each hosted
    * service holds its own registry, so "Add web UI…" for the médiathèque must not evict
-   * pistes — that would silently take the engine out of one picker to put it in another,
+   * l8 — that would silently take the engine out of one picker to put it in another,
    * and the two are not alternatives. Idempotent: adding a URL already listed is a no-op
    * beyond re-announcing.
    */
@@ -632,7 +634,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         }
         clearPending(origin);
         refreshOrigins();
-        // A pistes web UI is single-origin, so adding one also points this engine at it — which is what puts the
+        // A l8 web UI is single-origin, so adding one also points this engine at it — which is what puts the
         // engine in that UI's picker.
         await addRegistryUrl(origin);
         reply(cmd.id, true, origin);

@@ -17,6 +17,18 @@ export const PREVIEW_SOURCE = "in";
 /** The chain the previewed module sits on. Also half its engine address, `<chain>:<module>`. */
 export const PREVIEW_CHAIN = "preview";
 
+/**
+ * The engine address of the previewed plugin — `chain:module`, its own id scheme.
+ *
+ * THE one place it is spelled. Two things build it: the `ProjectDoc` the engine actually
+ * loads (the médiathèque's `engine/preview.ts`) and the graph node drawn below, and they have
+ * to agree or the node names a look-alike rather than the plugin that is loaded. Nothing
+ * would report the disagreement — no type error, no failed request, just a card wired to an
+ * address nobody answers at.
+ */
+export const previewPluginId = (module: string): string =>
+  `${PREVIEW_CHAIN}:${module}`;
+
 /** The module type folders a chain draws an icon for. `midi` is the legacy alias of transformers. */
 const MODULE_TYPES = [
   "io",
@@ -33,7 +45,7 @@ const MODULE_TYPES = [
  *
  * Reads the segment after `modules/` or `_modules/` rather than a fixed index: the same module
  * is named `modules/audio/reverb` by the médiathèque, `_modules/audio/delay/tape-delay/module.yaml`
- * by a shared library, and `LEMO - DANSE/modules/audio/amp/module.yaml` by pistes in a workspace
+ * by a shared library, and `LEMO - DANSE/modules/audio/amp/module.yaml` by l8 in a workspace
  * holding several projects. An index would be right for one of those and wrong for the others.
  *
  * Anything unrecognised draws as audio — a glyph is not worth refusing a preview over.
@@ -85,10 +97,9 @@ export function modulePreviewGraph(
             category: moduleCategoryOf(path),
             emits: "audio",
             enabled: true,
-            // The engine address a preview WOULD have. Nothing reads it back yet — the panel is
-            // read-only — but a node with no pluginId is decorative, and getting it right is what
-            // keeps wiring the live parameter feed in a small change rather than a rework.
-            pluginId: `${PREVIEW_CHAIN}:${module}`,
+            // The REAL engine address, the same one the médiathèque loads the plugin at — so
+            // the node names the thing that is actually loaded rather than a look-alike.
+            pluginId: previewPluginId(module),
             ui: visibleGrid(ui),
             params,
           },

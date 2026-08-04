@@ -11,7 +11,7 @@ export interface Settings {
   /** The registries the user pinned via "Add web UI…". Overrides every other tier.
    *
    *  A LIST because each hosted service holds its own registry now — an engine has to be
-   *  listed in pistes AND in the médiathèque to be pickable in both. See
+   *  listed in l8 AND in the médiathèque to be pickable in both. See
    *  packages/engine-registry/docs/shared.md. */
   registryUrls: string[];
   /** The engine's WebSocket port. */
@@ -29,11 +29,10 @@ export interface Settings {
    *  the same reason the ports are: it is set once, on a machine whose media lives on a
    *  second drive, and never again. Passed down to the file service as $STUDIO_MEDIATEK. */
   mediatekDir: string | null;
-  /** The hosted library this machine caches, e.g. https://media.studio.frediver.se.
-   *  null == no sync; the local folder is then whatever is in it and nothing else. */
-  mediatekUrl: string | null;
-  /** A personal access token for it, minted from the library's own UI and pasted here.
-   *  A headless service has no cookie jar, which is the whole reason the token exists. */
+  /** The token this machine syncs its cache with. A headless service has no cookie jar,
+   *  which is the whole reason the token exists; `scripts/tokens.mjs` writes it (see
+   *  docs/tokens.md). The library's URL is NOT here — st0 serves the studio origin ROOT,
+   *  so it IS `<studio origin>`, which is fixed and never was anything to choose. */
   mediatekToken: string | null;
 }
 
@@ -44,7 +43,6 @@ export const DEFAULT_SETTINGS: Settings = {
   audioDevice: null,
   audioFallback: null,
   mediatekDir: null,
-  mediatekUrl: null,
   mediatekToken: null,
 };
 
@@ -93,7 +91,6 @@ export function loadSettings(): Settings {
     audioDevice: str(raw.audioDevice),
     audioFallback: str(raw.audioFallback),
     mediatekDir: str(raw.mediatekDir),
-    mediatekUrl: str(raw.mediatekUrl),
     mediatekToken: str(raw.mediatekToken),
   };
 }

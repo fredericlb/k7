@@ -46,20 +46,10 @@ function describe(ref: string): { name: string; namespace: string } {
  * labels are a property of the RIG, and a test has no rig.
  */
 export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
-  let from: string[] = [];
-  try {
-    const mf = loadProjectRoot(dir)?.project?.modules_from;
-    if (Array.isArray(mf)) from = mf.map(String);
-  } catch {
-    /* no project header — the project's own io modules still list */
-  }
   type Io = { kind?: string; io?: string; channel?: unknown };
-  let refs: Record<string, Io>;
-  try {
-    refs = loadModuleRefs(dir, from);
-  } catch {
-    refs = loadModuleRefs(dir, []); // a broken inherited folder costs its ports, not the panel
-  }
+  // No try/catch left: the shared roots are found by location now, so a folder that is not
+  // there is simply not a root — where a declaration naming a missing one used to throw.
+  const refs: Record<string, Io> = loadModuleRefs(dir);
   // …plus the project's OWN io modules, which the ref map deliberately leaves out: it
   // skips local instances, and an input IS an instance now. `IN:in-2` — the thing that
   // carries the channel, the monitoring and the trim — lives in the song that records
@@ -77,6 +67,10 @@ export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
   const ports: IoPort[] = [];
   for (const [ref, m] of Object.entries(refs)) {
     if (m?.kind !== "io") continue;
+    // A FILE source is an io module but not a PORT: this panel is the rig — channels, levels,
+    // monitoring — and audio read off disk has none of that. Left in, it would have been
+    // filed as an output (everything that is not `in` is), and drawn with no channels at all.
+    if (m.io === "file") continue;
     const dirn = m.io === "in" ? "in" : "out";
     const authored = m.channel as string | number[] | undefined;
     const r = resolveInput(authored, p);

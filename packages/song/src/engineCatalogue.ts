@@ -134,9 +134,13 @@ export { ENGINE_NS, engineRef };
  * a library shared by every song; the instances belong to the song that records through
  * them.
  */
-const IO_MODULES: Record<string, { io: "in" | "out" }> = {
+const IO_MODULES: Record<string, { io: "in" | "out" | "file" }> = {
   IN: { io: "in" },
   OUT: { io: "out" },
+  // The file source: audio off disk rather than off an interface. One module, like the other
+  // two, and an instance carries WHICH file — or carries none, in a chain template, where the
+  // audio belongs to whatever the template is applied to. See docs/fileInput.md.
+  FILE: { io: "file" },
 };
 
 /**
@@ -169,7 +173,10 @@ export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
     out[ref] = {
       plugin: { type: p.format.toLowerCase(), name: p.name },
       kind: meta.kind,
+      // The type's defaults, and only those: a SCANNED plugin has no file to declare ports in.
+      // What it really offers is the plugin's business, and the engine is what would know.
       inputs: meta.inputs,
+      outputs: meta.outputs,
       category,
       file: slug,
     };

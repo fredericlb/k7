@@ -3,6 +3,7 @@
 // docs/plumbing.md.
 
 import { EngineClient } from "@studio/engine-browser";
+import { holdEngine } from "@studio/engine-browser/lease";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
@@ -38,36 +39,40 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   const engine = useRef<EngineClient | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
     setPhase({ k: "looking" });
-    void (async () => {
-      // Chosen by the gate, not probed here: the deck plays on the machine the ACCOUNT
-      // picked, which is not always the one the browser is running on.
-      const wsUrl = chosen.wsUrl;
-      if (!wsUrl) return setPhase({ k: "absent" });
-      if (cancelled) return;
-      const found = chosen;
-      // The lease, as every other surface takes it. A miss is not fatal — it marks the
-      // engine in use, it does not grant the connection.
-      engines.select(found.engine.id, found.token!, found.tier).catch(() => {});
-      // Its own session, per SERVICE and per PERSON: a deck runs safely beside pistes on one
-      // engine — loading a track no longer replaces whatever song is open there — and two
-      // DJs on one machine hold two decks rather than fighting over one.
-      const client = new EngineClient(
-        wsUrl,
-        undefined,
-        sessionFor(SESSIONS.m9, currentUser()),
-      );
-      engine.current = client;
-      // The engine's own transport is the truth about whether sound is happening — never a
-      // flag set hopefully when a play was sent. A file that failed to load leaves it
-      // stopped, and the deck has to show that.
-      client.onState((s) => setPlaying(s.playing));
-      client.connect();
-      setPhase({ k: "ready", id: found.engine.id });
-    })();
+    // Chosen by the gate, not probed here: the deck plays on the machine the ACCOUNT
+    // picked, which is not always the one the browser is running on.
+    const wsUrl = chosen.wsUrl;
+    if (!wsUrl) {
+      setPhase({ k: "absent" });
+      return;
+    }
+    // The lease, KEPT rather than taken once: "in use" expires on its own, so a single
+    // select lapses mid-set and the machine reads FREE in everyone's picker while this deck
+    // is still playing through it. See @studio/engine-browser/docs/lease.md.
+    const drop = holdEngine(
+      engines,
+      chosen.engine.id,
+      chosen.token!,
+      chosen.latency?.totalMs ?? 0,
+    );
+    // Its own session, per SERVICE and per PERSON: a deck runs safely beside l8 on one
+    // engine — loading a track no longer replaces whatever song is open there — and two
+    // DJs on one machine hold two decks rather than fighting over one.
+    const client = new EngineClient(
+      wsUrl,
+      undefined,
+      sessionFor(SESSIONS.m9, currentUser()),
+    );
+    engine.current = client;
+    // The engine's own transport is the truth about whether sound is happening — never a
+    // flag set hopefully when a play was sent. A file that failed to load leaves it
+    // stopped, and the deck has to show that.
+    client.onState((s) => setPlaying(s.playing));
+    client.connect();
+    setPhase({ k: "ready", id: chosen.engine.id });
     return () => {
-      cancelled = true;
+      drop();
       engine.current?.dispose();
       engine.current = null;
     };

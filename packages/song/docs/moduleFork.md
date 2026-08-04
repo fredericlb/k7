@@ -1,11 +1,11 @@
 # moduleFork — editing a module you don't own
 
 The workspace's `_modules` folder is a library, shared by every project beside it. It holds what someone WROTE
-— jsdsp and racks — and is the vocabulary a project inherits through `project.modules_from`: a chain step names
+— jsdsp and racks — and is the vocabulary a project inherits from the roots beside it: a chain step names
 one of its modules by ref (`@library/audio/delay/tape-delay`), and the module itself lives once, in the library.
 
 Only the library forks. An `@engine` module has no file — the engine reports it — so there is nothing to copy
-and nothing to guard: `sharedModuleRef` matches a real path under a `modules_from` root, which an engine ref
+and nothing to guard: `sharedModuleRef` matches a real path under a shared root, which an engine ref
 never has. It has its own way in, at the bottom of this page.
 
 Which is exactly why nothing may write to it from the web UI. A save into `_modules` while mixing one song
@@ -29,7 +29,7 @@ stays read-only, and every save aimed into it forks — including one that meant
 
 `forkSharedModule(dir, file, content)`:
 
-1. **Identify the module.** `sharedModuleRef` walks the project's `modules_from` roots, finds the one containing
+1. **Identify the module.** `sharedModuleRef` walks the project's shared roots, finds the one containing
    the file, and rebuilds the ref exactly the way `readModuleTree` keys it — `<type>/<leaf>`, or
    `<type>/<category>/<leaf>` one folder deeper. A path it returns a ref for is a path the loader agrees about.
 2. **Name the copy after the track that plays it.** The first chain whose steps name the ref gives the name:

@@ -1,12 +1,12 @@
 # The store — the one thing the two apps don't share
 
 The builder is a whole screen: a code pane over `module.yaml` or `ui.yaml`, the module's
-parameters under it, and the widget grid beside them. All of that is identical in pistes and
+parameters under it, and the widget grid beside them. All of that is identical in l8 and
 in the médiathèque, because it is about a module and neither app's idea of one differs.
 
 What differs is **who is serving the files**.
 
-| | pistes | médiathèque |
+| | l8 | médiathèque |
 |---|---|---|
 | server | `@studio/file-service`, on the engine's machine, cross-origin | its own backend, same-origin |
 | paths | workspace-relative (`modules/audio/reverb/module.yaml`) | library-relative (`modules/audio/reverb/module.yaml`) |
@@ -33,7 +33,7 @@ list a widget's `library` dropdown offers.
 
 ## Why `write` has a return type
 
-Only one host needs it. pistes redirects a save aimed at `_modules` onto a project-local copy
+Only one host needs it. l8 redirects a save aimed at `_modules` onto a project-local copy
 and repoints the chains at it (`@studio/song`'s `docs/moduleFork.md`), so **the file being
 edited moves out from under the editor**. The builder is told, and tells its host through
 `onRelocated`; it does not follow the path itself, because the host also owns the title, the
@@ -47,7 +47,7 @@ the whole `_ui/` tree could be deleted (`@studio/song`'s `docs/uiLibrary.md`).
 
 The engine link. Only a live plugin can say what its parameters are called, what they span and
 what presets it ships, and each app reaches its engine its own way — the médiathèque through
-`useModuleEngine`, pistes through the shell's shared socket. So those arrive as plain props
+`useModuleEngine`, l8 through the shell's shared socket. So those arrive as plain props
 (`pluginParamNames`, `pluginParamMeta`, `presets` and the two callbacks behind the dropdown),
 and a host with no engine passes nothing. The grid, the params list and the file pair work
 without one; they are just less well informed.

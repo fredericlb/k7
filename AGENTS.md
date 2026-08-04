@@ -11,16 +11,17 @@ the **why**. Long rationale belongs in the zone's `docs/` directory:
 | zone | pages live in |
 |---|---|
 | a shared package | `packages/<pkg>/docs/` |
-| the pistes frontend | `apps/pistes/frontend/docs/` |
-| the médiathèque | `apps/mediatek/docs/` |
+| the l8 frontend | `apps/l8/frontend/docs/` |
+| the médiathèque | `apps/st0/docs/` |
 | the decks | `apps/m9/docs/` |
-| the C++ engine | `apps/moteur/docs/` |
-| the tray app | `apps/capot/docs/` |
+| the C++ engine | `engine/moteur/docs/` |
+| the tray app | `engine/capot/docs/` |
 | the rehearsal recorder | `apps/k7/docs/` |
-| the build scripts | `apps/capot/scripts/docs/` |
+| the blind-test game | `apps/z0/docs/` |
+| the build scripts | `engine/capot/scripts/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
-(Those are notes for developers. `apps/pistes/docs/` is the exception: it is the
+(Those are notes for developers. `apps/l8/docs/` is the exception: it is the
 user-facing documentation the app ships and renders at `/docs`.)
 
 **Never** turn a multi-line comment into a one-liner by joining its lines: that
@@ -36,25 +37,42 @@ one app:
 
 | dir | language | what it is |
 |---|---|---|
-| `apps/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
-| `apps/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
-| `apps/pistes` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — OIDC auth and the engine registry only). Owns the timeline; shares the chains view. |
-| `apps/mediatek` | TypeScript | The media library — morceaux, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which pistes draws too. It also connects to a local `apps/moteur` to ask a plugin what its parameters are. |
-| `apps/m9` | TypeScript | The decks — `frontend/` plus `backend/` (OIDC auth, this service's engine registry, and which machine the account DJs from). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `apps/moteur`, because the engine opens file paths and cannot fetch a URL. |
-| `apps/obscura` | TypeScript | The blind-test game — six SPAs behind one origin. |
+| `engine/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
+| `engine/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
+| `apps/l8` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies st0's session and mounts no auth routes). Owns the timeline; shares the chains view. |
+| `apps/st0` | TypeScript | The media library — songs, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which l8 draws too. It also connects to a local `engine/moteur` to ask a plugin what its parameters are. It is the **home page**: it has no path prefix, so it answers `studio.test` / `studio.frediver.se` itself — and therefore owns `/auth/*` for the whole origin, since the registered `redirect_uri` has no prefix either. |
+| `apps/m9` | TypeScript | The decks — `frontend/` plus `backend/` (this service's engine registry, and which machine the account DJs from; auth is st0's, verified here). It reads the médiathèque's **cache** on the chosen machine through that machine's file service, and plays through its `engine/moteur`, because the engine opens file paths and cannot fetch a URL. |
+| `apps/z0` | TypeScript | The blind-test game — six SPAs behind one origin. |
 | `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
 
-`packages/` is **studio's own shared tier** — the song compiler, the command
-layer, the engine client and supervisor, the three framework-agnostic view
-engines, the waveform component, and the two React views more than one app
-draws: the chains graph and the module builder. All are `@studio/*` and are
-consumed as **raw TypeScript source**: no build step, imported through
-`package.json` `exports` subpaths, so a bare deep import fails on purpose.
+`packages/` is **studio's own shared tier**. All are `@studio/*` and are consumed
+as **raw TypeScript source**: no build step, imported through `package.json`
+`exports` subpaths, so a bare deep import fails on purpose.
 
-They are named `@studio/*` rather than `@pistes/*` because pistes is only one of
-their consumers: `apps/mediatek` and `apps/m9` both drive them now, and
-obscura's moteur-backed player is behind the seam `@studio/player-web` already
+| group | packages |
+|---|---|
+| the song | `song` (folder of YAML → `ProjectDoc` + `GraphDoc`), `commands` (one verb list for every surface), `translator` (`.dawproject` import), `dsp` (write a module's DSP in JS) |
+| the engine | `engine-protocol` (the wire, mirrored in C++), `engine-client` (Node), `engine-browser` (browser + React store), `engine-host` (the supervisor — a **program**, not a library), `engine-registry` (which engines exist; each service holds its own copy) |
+| the disk | `file-service` (every file operation, on the engine's machine — l8' backend has none), `mediatek` (the media library), `user-prefs` |
+| the views | `ui-chains` + `ui-chains-react` (the chains graph — l8, st0 and m9 all draw it), `ui-editor` (YAML + note grids), `ui-eyes` (WebGL video), `ui-waveform`, `ui-module-builder` (l8 and st0) |
+| the types | `web-protocol`, `graph-model` (split out so drawing a graph doesn't drag in auth) |
+| z0 | `player-web` — the blind-test player, with a moteur-backed seam behind it |
+
+Two of these are **processes rather than libraries** and are bundled, not imported:
+`file-service` (`bin: studio-file-service`) and `engine-host` (`src/main.ts`). Both are
+esbuilt into the tray by `engine/capot/scripts/build-engine.mjs`.
+
+They are named `@studio/*` rather than `@l8/*` because l8 is only one of
+their consumers: `apps/st0` and `apps/m9` both drive them now, and
+z0's moteur-backed player is behind the seam `@studio/player-web` already
 had.
+
+Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
+[dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md),
+and two plan/recipe pages, [module-builder-plan.md](docs/module-builder-plan.md) and
+[rename-test-plan.md](docs/rename-test-plan.md).
+[inventaire.md](docs/inventaire.md) is the standing inventory of dead and duplicated code —
+read it before deleting anything that merely *looks* unused.
 
 `commons/` is a **git submodule** — the shared base, also used by the `phare`
 monorepo. Editing something under `commons/` means committing in two places:

@@ -115,14 +115,21 @@ export function setModuleMonitor(
   return editModuleValue(dir, module, ["monitor"], value);
 }
 
-// Point a module at a library file (or clear it), LIBRARY-RELATIVE — the short form the module file carries.
+/**
+ * Point a file-valued param at one of the module's own assets (or clear it), ASSETS-RELATIVE —
+ * the short form the module file carries.
+ *
+ * The same path as setModuleParam, because it IS a param: it lands in `params:` beside the
+ * numbers, so an instance overriding just the model is the same edit as overriding a gain.
+ * Clearing takes the key away rather than writing `""`, which would be a value meaning nothing.
+ */
 export function setModuleAsset(
   dir: string,
   module: string,
-  kind: string,
+  param: string,
   file: string | null,
 ): string {
-  return editModuleValue(dir, module, [kind], file);
+  return editModuleValue(dir, module, ["params", param], file);
 }
 
 // --- chains file --------------------------------------------------------------

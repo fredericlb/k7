@@ -48,8 +48,8 @@ export interface CacheSummary {
 export const service = {
   summary: (s: FileLink) => get<CacheSummary>(s, "/mediatek"),
 
-  morceaux: (s: FileLink) =>
-    get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=morceaux"),
+  songs: (s: FileLink) =>
+    get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=songs"),
 
   modules: (s: FileLink) =>
     get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=modules"),
@@ -69,7 +69,7 @@ export const service = {
 /**
  * A catalogue entry as a file the engine can open, or null.
  *
- * Null happens for a real reason and is not a failure to handle quietly: a morceau is a
+ * Null happens for a real reason and is not a failure to handle quietly: a song is a
  * FOLDER, and one that carries a sidecar but no audio yet — a mirror that failed halfway,
  * a folder someone made by hand — has nothing to play. The scan reports the master's
  * filename in `meta.master`; its absence is that state.

@@ -1,0 +1,29 @@
+{
+  "name": "z0-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch --env-file-if-exists=.env --env-file-if-exists=../.env src/server.ts",
+    "start": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=../.env src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@frediverse/db-grist": "*",
+    "@frediverse/env": "*",
+    "@frediverse/http": "*",
+    "@frediverse/oidc": "*",
+    "@studio/web-protocol": "*",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

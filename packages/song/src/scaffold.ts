@@ -1,4 +1,4 @@
-// scaffold.ts — the file map + writer for a new pistes song: a minimal, immediately
+// scaffold.ts — the file map + writer for a new l8 song: a minimal, immediately
 // playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern),
 // `video` adding a viewport + two video tracks on top. Every file is hand-authored, not
 // serialised, because its `#` comments are the one worked example a reader gets.
@@ -8,11 +8,6 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_COUNT_IN } from "./project";
-import {
-  ensureMediatekModules,
-  ensureSharedLibrary,
-  ensureSharedModules,
-} from "./sharedFolders";
 
 const q = (s: string) => JSON.stringify(s);
 
@@ -212,12 +207,9 @@ export function scaffold(dir: string, name: string, video = false): string[] {
     copied.push("clips/sample.mp4");
   }
 
-  // Point at the shared folders that exist — the workspace's own, then the machine's media
-  // library. Each is a no-op when absent (see sharedFolders.ts); the workspace comes first
-  // because order is precedence, and what is beside the song should beat what is global.
-  ensureSharedModules(dir);
-  ensureSharedLibrary(dir);
-  ensureMediatekModules(dir);
-
+  // Nothing to point at the shared folders any more: a project sees the workspace's own and
+  // the machine's media library because of WHERE they are (sharedFolders.ts). The three
+  // `ensure*` calls that used to write those lists into project.yaml wrote down facts the
+  // loader already knew, and left a project wrong whenever one of them moved.
   return [...Object.keys(files), ...copied];
 }

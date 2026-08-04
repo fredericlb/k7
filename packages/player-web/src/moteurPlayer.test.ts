@@ -99,7 +99,7 @@ describe("saying what it cannot do", () => {
     expect(p.getState().unsupported).toEqual(["pitch"]);
   });
 
-  it("covers every slider obscura offers, mapped or refused", () => {
+  it("covers every slider z0 offers, mapped or refused", () => {
     // The guard against a tenth slider arriving upstream and silently doing nothing here.
     const known = new Set([
       ...Object.keys(EFFECT_PLUGINS),
@@ -153,7 +153,7 @@ describe("playing", () => {
   });
 
   it("refuses a song this machine has not cached", async () => {
-    // The engine opens files; it cannot fetch obscura's URL. Sending the path anyway would
+    // The engine opens files; it cannot fetch z0's URL. Sending the path anyway would
     // have it warn once and then play silence, which reads as a working round.
     const [p] = player([]);
     await expect(p.play("absent.wav")).rejects.toThrow(/not cached/);

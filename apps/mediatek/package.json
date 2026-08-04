@@ -1,9 +1,0 @@
-{
-  "name": "mediatek",
-  "version": "0.0.1",
-  "private": true,
-  "description": "The media library: what studio owns, in one place — morceaux, samples and modules — and the module builder, since only the library is editable.",
-  "scripts": {
-    "dev": "turbo run dev --filter=mediatek-frontend --filter=mediatek-backend"
-  }
-}

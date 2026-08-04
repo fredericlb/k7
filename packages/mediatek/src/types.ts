@@ -2,10 +2,10 @@
 // HTTP routes and every surface that lists the library.
 
 /** The four things the mediatek holds. Each is scanned, indexed and invalidated ALONE. */
-export type Family = "morceaux" | "samples" | "modules" | "chains";
+export type Family = "songs" | "samples" | "modules" | "chains";
 
 export const FAMILIES: readonly Family[] = [
-  "morceaux",
+  "songs",
   "samples",
   "modules",
   "chains",
@@ -21,6 +21,31 @@ export const FAMILIES: readonly Family[] = [
  */
 export const RECORDINGS_DIR = "recordings";
 
+/** The file that makes a folder a CHAIN — the same name, and the same shape, a l8 project
+ *  uses at its root. Here rather than in scan.ts for the reason RECORDINGS_DIR is: a browser
+ *  reaching for the word would otherwise pull `node:fs` in with it. scan.ts re-exports it, so
+ *  every existing importer is unchanged. */
+export const CHAINS_FILE = "chains.yaml";
+
+/**
+ * One alternative version of a song, declared in its sidecar. See docs/variants.md.
+ *
+ * Two kinds, and the scan can only tell them apart halfway: a FILE is a sibling of the
+ * master and is confirmed by looking in the folder, a CHAIN is a template in the `chains`
+ * family and is NOT confirmed here. That asymmetry is deliberate — the catalogue invalidates
+ * one family at a time (see catalogue.ts's revision note), so a song whose listing
+ * depended on the chains listing would serve a stale answer every time a chain changed.
+ * `chain` therefore means "not a file beside it, so it names a chain"; whoever holds both
+ * listings says whether that chain exists.
+ */
+export interface SongVariant {
+  /** What the sidecar calls it — the key, and what a surface shows. */
+  name: string;
+  /** What it names, verbatim: a file name, or a chain's path/name. */
+  ref: string;
+  kind: "file" | "chain";
+}
+
 /** One catalogued thing. Deliberately flat and family-agnostic: a listing is a listing,
  *  and the family-specific detail a surface needs is in `kind` and `meta`. */
 export interface MediatekEntry {
@@ -30,12 +55,15 @@ export interface MediatekEntry {
   id: string;
   /** What to show. The title from a sidecar when there is one, else the file/folder name. */
   name: string;
-  /** Mediatek-relative POSIX path — to the folder for a morceau or a module, to the file for a sample. */
+  /** Mediatek-relative POSIX path — to the folder for a song or a module, to the file for a sample. */
   path: string;
-  /** The family's own subdivision: "imported" | "recorded" for morceaux, "audio" | "video"
-   *  for samples, the module type folder ("instruments", "audio", …) for modules. */
+  /** The family's own subdivision: "audio" | "video" for samples, the module type folder
+   *  ("instruments", "audio", …) for modules. **Empty for a song**, which has no subdivision:
+   *  `songs/` is flat below the artist, and the provenance split it used to carry
+   *  (`imported`/`recorded`) is the `recordings/` zone's job. A surface must therefore treat
+   *  "" as "this family does not divide", not as a missing value. */
   kind: string;
-  /** Bytes of the entry's payload — the master for a morceau, the file for a sample. Absent for a module. */
+  /** Bytes of the entry's payload — the master for a song, the file for a sample. Absent for a module. */
   bytes?: number;
   /** Newest mtime under the entry, ms since epoch. What a surface sorts "recent" by. */
   mtime: number;
@@ -45,7 +73,17 @@ export interface MediatekEntry {
    *  disk — and nothing less, because the tree used to draw three fixed rows and whatever had
    *  actually been dropped in vanished. */
   files?: string[];
-  /** Family-specific extras, all optional: artist/title for a morceau, the pack for a
+  /** What the entry's own `assets/` folder holds, by name — the samples, impulse responses and
+   *  amp profiles a MODULE carries itself. Its own field and not part of `files`, because the two
+   *  are different things to a surface: `files` is the module's definition (its instances, its
+   *  panel, its shelf), and these are the material it loads. A tree draws these as the module's
+   *  children and drops new ones in; nothing offers to create one, since they arrive as bytes. */
+  assets?: string[];
+  /** A SONG's alternative versions, as its sidecar declares them. Its own field for the
+   *  same reason `assets` is: `meta` is flat scalars, and these are a list of records. Absent
+   *  when the sidecar declares none, which is the overwhelming majority. See docs/variants.md. */
+  variants?: SongVariant[];
+  /** Family-specific extras, all optional: artist/title for a song, the pack for a
    *  sample, whether a module folder actually carries a module.yaml. */
   meta?: Record<string, string | number | boolean>;
 }

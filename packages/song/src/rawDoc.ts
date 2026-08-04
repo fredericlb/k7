@@ -117,12 +117,16 @@ export interface LoadedModule {
   // -- authored -----------------------------------------------------------------
   extends?: string;
   plugin?: RawPlugin;
-  io?: string; // io modules: "out" | "in" | "video_out"
+  io?: string; // io modules: "out" | "in" | "video_out" | "file" (see moduleTypes.IO_SOURCES)
   type?: string; // instrument type: "plugin" (implied) | "rack"
-  params?: Record<string, number>;
+  // Numbers, except the file-valued ones (moduleTypes.FILE_PARAMS) — see moduleSchema.
+  params?: Record<string, number | string>;
   rack?: RawRack;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   channel?: unknown; // io "in" only
+  // io "file" only — the audio it reads, project-relative. NOT `file`: the loader writes the
+  // module's folder name to that one, and would overwrite an authored value. See moduleSchema.
+  source?: unknown;
   track?: unknown; // io "in" only
   monitor?: unknown; // io "in" only
   gain?: unknown; // io "in" only — interface trim in dB
@@ -131,12 +135,19 @@ export interface LoadedModule {
   automations?: unknown;
   // -- added by the loader ------------------------------------------------------
   kind: "io" | "plugin"; // from the type folder (MODULE_TYPES)
-  inputs: { name: string; type: "audio" | "midi" | "video" }[];
+  // The module's ports: its OWN when it declares them, else its type folder's defaults. Both
+  // resolved by the loader, so nothing downstream has to know which of the two it got.
+  // See docs/ports.md.
+  inputs: {
+    name: string;
+    type: "audio" | "midi" | "video";
+    mandatory?: boolean;
+  }[];
+  outputs?: { name: string; type: "audio" | "midi" | "video" }[];
   preset?: string; // resolved .vstpreset path, if any
-  ir?: string; // resolved library asset paths (undefined when unresolvable)…
-  nam?: string;
+  nam?: string; // a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
   jsdsp?: string; // resolved ABSOLUTE path to the module's JS/TS DSP source, when it declares one
-  assets?: Record<string, string>; // …and the names they were authored with
+  assets?: Record<string, string>; // …and the name it was authored with
   // -- local modules only (loadModules) -----------------------------------------
   name?: string; // the chain `use` key ("<name>" or "<name>:<instance>")
   category?: string; // the type folder (io|instruments|audio|transformers|…)

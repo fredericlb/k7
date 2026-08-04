@@ -1,5 +1,5 @@
 // store.ts — the five calls the builder needs from whatever is serving the files. This is the
-// ONLY thing the two apps don't share: pistes talks to a file service over workspace-relative
+// ONLY thing the two apps don't share: l8 talks to a file service over workspace-relative
 // paths, the médiathèque to its own backend over library-relative ones. Rationale: docs/store.md.
 
 import type {
@@ -48,13 +48,24 @@ export interface ModuleStore {
    */
   presets(path: string): Promise<ModulePresetsFile>;
 
+  /**
+   * The `jsdsp.ts` beside a module file — the module's own DSP source, answered like the two
+   * above: the existing one, or the path it WOULD take and empty text.
+   *
+   * OPTIONAL, and the only optional call here. A host that does not implement it simply shows no
+   * such tab, which is the honest answer for one that cannot serve the file. Asked for rather
+   * than derived, for the same reason the panel and the shelf are: a sibling derivation would be
+   * right in both path spaces today and is exactly the kind of rule that rots.
+   */
+  jsdsp?(path: string): Promise<ModulePresetsFile>;
+
   /** What the code pane completes against. A host with nothing to offer returns empty lists. */
   hints(): Promise<Hints>;
 
   /**
    * Save.
    *
-   * The return type exists for ONE host: pistes redirects a save aimed at a shared module onto a
+   * The return type exists for ONE host: l8 redirects a save aimed at a shared module onto a
    * project-local copy and repoints the chains at it (see moduleFork.ts), so the file being edited
    * moves out from under the editor. Reporting it beats the builder discovering it on the next read.
    */

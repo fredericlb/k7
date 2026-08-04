@@ -19,10 +19,10 @@ export interface DeckModule {
  * The deck's signal path, as the graph draws it.
  *
  * `WebGraph` is a WIRE type, not a compiler output — every field is plain data and nothing
- * in it names a file. pistes happens to produce one from a compiled project folder because
- * that is where pistes' truth lives; nothing says the compiler is its only producer.
+ * in it names a file. l8 happens to produce one from a compiled project folder because
+ * that is where l8' truth lives; nothing says the compiler is its only producer.
  *
- * That retires the plan's own tension #3, which read: *"Une chaîne mediatek ou m9 sans
+ * That retires the plan's own tension #3, which read: *"Une chaîne st0 ou m9 sans
  * dossier YAML ne peut pas produire de WebGraph aujourd'hui. Pour la v1 : ces apps écrivent
  * un dossier de projet jetable — moche, immédiat"*. There is no folder here, jetable or
  * otherwise: m9's state IS the graph, and the same buildGraph → layout → DomChains

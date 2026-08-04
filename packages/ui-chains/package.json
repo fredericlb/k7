@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "pistes's routing-graph engine \u2014 compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
+  "description": "l8's routing-graph engine \u2014 compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
   "exports": {
     "./graph": "./src/graph.ts",
     "./cables": "./src/cables.ts",

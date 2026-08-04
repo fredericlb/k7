@@ -11,6 +11,7 @@
     "./params": "./src/params.ts",
     "./probe": "./src/probe.ts",
     "./choose": "./src/choose.ts",
+    "./lease": "./src/lease.ts",
     "./stream": "./src/streamPlayer.ts",
     "./stream-sink": "./src/streamSink.ts"
   },

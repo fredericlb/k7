@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { autoWah } from "./autowah";
+import { crossfade } from "./crossfade";
 import { echo } from "./echo";
 import { flanger } from "./flanger";
 
@@ -14,6 +15,7 @@ for (const [name, g] of [
   ["autowah", autoWah()],
   ["echo", echo()],
   ["flanger", flanger()],
+  ["crossfade", crossfade()],
 ] as const) {
   const file = join(out, `${name}.json`);
   writeFileSync(file, `${JSON.stringify(g, null, 2)}\n`, "utf8");

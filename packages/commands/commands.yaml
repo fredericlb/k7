@@ -1,7 +1,7 @@
 # commands.yaml — declarative command definitions (see commandSpec.ts).
 #
 # Each entry maps a command STRING (what you type in the web editor's command bar or
-# after `pistes cmd`) to a feature SID (implemented in commands.ts), plus:
+# after `l8 cmd`) to a feature SID (implemented in commands.ts), plus:
 #   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists now —
 #             the web backend dispatches under it too, so every command runs on both;
 #             the field is kept for when a surface needs its own subset again.
@@ -230,7 +230,7 @@
 
 # --- channel labels (global user preferences) ---
 # Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision,
-# not a per-song edit, so it lives only in the CLI (`pistes config --set
+# not a per-song edit, so it lives only in the CLI (`l8 config --set
 # interface`, brain/src/config.tsx). These labels just annotate that rig, so they
 # stay on every surface.
 - { command: "channel list", sid: channels.list, help: "show the input/output channel labels", surfaces: [cli] }
@@ -377,32 +377,17 @@
   help: "bypass a module so it passes sound through untouched (bare: toggles)"
   surfaces: [cli]
   args: [{ name: module, complete: modules }, { name: state, values: [on, off] }]
-# Point a module at a file held in the project's shared library (project.library_from — a
-# workspace's is "../_library", holding one folder per kind of asset). The module editor's
-# library dropdown runs one of these when you pick a file; `none` clears it. The file is
-# written and the project reloaded: both plugins read their file when they are built, so
-# there is nothing to patch in the running engine.
+# Point a file-valued param at one of the module's own assets — a .nam model in
+# modules/<category>/<module>/assets/. The panel's dropdown runs this when you pick a file;
+# `none` clears it. The file is written and the project reloaded: the plugin reads its file
+# when it is built, so there is nothing to patch in the running engine.
 #
-# One command per asset rather than `module asset <kind> …`: the kind names the library
-# folder, the module field AND the command, so there is one word to learn per asset. They
-# share a handler — `with:` tells it which field to write.
-- command: "module ir"
-  sid: module.asset
-  help: "load an impulse response from the project's library into a module (e.g. module ir cab ir/marshall-1960a.wav)"
-  surfaces: [cli]
-  with: ["ir"]
-  args:
-    [
-      { name: module, complete: modules },
-      {
-        name: file,
-        complete: libraryFiles,
-        hint: "an impulse response of the project's library — or `none` to clear it",
-      },
-    ]
+# One command per file-valued param rather than `module asset <param> …`: the param names the
+# command AND the key written, so there is one word to learn. `with:` tells the shared handler
+# which one. `module ir` was the other; impulse responses went with the shared library.
 - command: "module nam"
   sid: module.asset
-  help: "load a Neural Amp Modeler model from the project's library into a module (e.g. module nam amp nam/jcm800.nam)"
+  help: "load a Neural Amp Modeler model the module carries (e.g. module nam amp jcm800.nam)"
   surfaces: [cli]
   with: ["nam"]
   args:
@@ -410,8 +395,8 @@
       { name: module, complete: modules },
       {
         name: file,
-        complete: libraryFiles,
-        hint: "a .nam model of the project's library — or `none` to clear it",
+        complete: assetFiles,
+        hint: "a .nam model in the module's assets/ — or `none` to clear it",
       },
     ]
 - command: "module param"

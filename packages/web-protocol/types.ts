@@ -1,5 +1,5 @@
-// types.ts — the API contract between pistes/web's backend and frontend.
-// The backend serves the files of one pistes project directory; the frontend
+// types.ts — the API contract between l8/web's backend and frontend.
+// The backend serves the files of one l8 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
 // A node in the project file tree: dirs carry `children`, files a `kind` (`binary` is shown, not edited).
@@ -8,7 +8,7 @@ export interface FileNode {
   path: string; // workspace-relative, POSIX separators (e.g. "modules/instruments/synth/module.yaml")
   dir: boolean;
   kind?: "text" | "binary"; // files only
-  project?: boolean; // dirs only — true when the folder is a pistes project (has project.yaml)
+  project?: boolean; // dirs only — true when the folder is a l8 project (has project.yaml)
   children?: FileNode[]; // dirs only
 }
 
@@ -58,7 +58,7 @@ export interface GitStatus {
 
 // The alternatives (branches) of the workspace repo — mirrors @studio/commands/git.
 // `parent` is the branch an alternative was started from, "" for one that is not an
-// alternative (the root branch, or a branch made outside pistes).
+// alternative (the root branch, or a branch made outside l8).
 export interface Alternatives {
   current: string;
   parent: string;
@@ -101,10 +101,11 @@ export interface Hints {
   videoTracks: string[];
   sequences: string[];
   chains: string[];
-  // The shared asset library (project.libraries_from), library-relative — a UI's library dropdown lists these.
-  libraryFiles: string[];
+  // What each module's file-valued params may be set to — its own assets/ walked, keyed by the
+  // chain `use` ref. There is no shared library any more: a module carries what it loads.
+  moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names
-  // …and their ranges, for the bases whose plugin is a built-in pistes defines. A widget bound without one is
+  // …and their ranges, for the bases whose plugin is a built-in l8 defines. A widget bound without one is
   // drawn 0..1, which is simply wrong for a -60..+6 dB fader. The live engine's report wins where it exists.
   paramMetaByBase: Record<
     string,
@@ -404,8 +405,8 @@ export interface ProjectErrors {
 }
 
 // --- Chains: the routing graph --------------------------------------------------
-// Moved to @studio/graph-model. Three apps draw chains — pistes, mediatek's module
-// builder and m9 — and only pistes wants the rest of this file, so the graph
+// Moved to @studio/graph-model. Three apps draw chains — l8, st0's module
+// builder and m9 — and only l8 wants the rest of this file, so the graph
 // model is its own package. Import it from there, not through here.
 
 // ── Engine-side file service headers ─────────────────────────────────────────
@@ -430,13 +431,13 @@ export const ENGINE_ASSIGN_RENEW_MS = 5000;
 export const ENGINE_ASSIGN_TTL_MS = 15000;
 
 // ── The engine registry ──────────────────────────────────────────────────────
-// An engine registers itself (via the supervisor) with these addresses; the browser probes them for a locality
-// tier (see the frontend's engineProbe.ts) and picks from the unassigned ones. See the backend `registry.ts`.
+// An engine registers itself (via the supervisor) with these addresses; the browser MEASURES them
+// (packages/engine-browser/src/probe.ts) and picks from the unassigned ones. See the backend `registry.ts`.
 
-/** The addresses a browser can try to reach an engine at, in tier order. */
+/** Every address a browser may try. All are probed at once; the fastest to answer is the one used. */
 export interface EngineAddresses {
-  loopback: string; // "127.0.0.1" — reachable only from the same machine (Tier 1)
-  lanIps: string[]; // non-internal IPv4s — reachable from the same LAN (Tier 2)
+  loopback: string; // "127.0.0.1" — reachable only from the same machine
+  lanIps: string[]; // non-internal IPv4s — reachable from the same LAN
   port: number; // the engine's WebSocket port (same on every address)
   filePort: number; // the engine-side file service's HTTP port (same host set)
 }
@@ -465,9 +466,10 @@ export interface PublicEngine {
   hostname: string;
   addresses: EngineAddresses;
   assigned: boolean; // already selected by someone; hidden from the pick list
-  // This engine's heartbeat arrived from the browser's own public IP — a LAN hint (Tier 2), not authoritative.
+  // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
 }
 
-/** Locality tier of a reachable engine, lower = closer/faster. */
-export type EngineTier = 1 | 2 | 3;
+// How good a link to an engine is — Q1/Q2/Q3, off a measured latency — lives in ./quality,
+// because the browsers measure it, the surfaces draw it and the backends will constrain on it.
+// It replaced a locality tier, which ranked a gigabit LAN below a laptop running at 2048 frames.

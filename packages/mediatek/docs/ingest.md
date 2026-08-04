@@ -59,7 +59,7 @@ It is now skipped, and reported in `skipped` rather than dropped quietly: "it up
 
 The declaration itself stays in `modules/config.yaml` rather than moving into
 `mediatek.yaml`, which was the earlier idea here. Two reasons it is better where it is:
-that path is where `@studio/song`'s loader already looks — a `modules_from` root without a
+that path is where `@studio/song`'s loader already looks — a shared module root without a
 namespace is a hard error — and duplicating it into the marker would create a second source
 of truth for one string. `ensureLayout` writes it once, at creation, with `mediatek` as the
 default; nothing overwrites it afterwards.

@@ -115,13 +115,14 @@ function nextId(widgets: Record<string, Widget>): string {
 
 export function WidgetGridEditor({
   ui,
-  libraryKinds,
+  assetParams,
   disabled,
   onChange,
 }: {
   ui: ModuleUI;
-  // The asset kinds the shared library holds; empty means the field says so rather than offering nothing.
-  libraryKinds?: string[];
+  // The params that take a FILE rather than a number (moduleTypes.FILE_PARAMS) — a dropdown
+  // bound to one offers the module's own assets/ instead of the param's settings.
+  assetParams?: string[];
   // The `ui:` block wouldn't parse: show the grid read-only so a save can't clobber text we misread.
   disabled?: boolean;
   onChange: (ui: ModuleUI) => void;
@@ -453,7 +454,7 @@ export function WidgetGridEditor({
         <Inspector
           id={selected}
           w={sel}
-          libraryKinds={libraryKinds}
+          assetParams={assetParams}
           disabled={disabled}
           onPatch={(p) => patch(selected, p)}
           onDelete={() => removeWidget(selected)}
@@ -502,14 +503,14 @@ function Stepper({
 function Inspector({
   id,
   w,
-  libraryKinds,
+  assetParams,
   disabled,
   onPatch,
   onDelete,
 }: {
   id: string;
   w: Widget;
-  libraryKinds?: string[];
+  assetParams?: string[];
   disabled?: boolean;
   onPatch: (w: Partial<Widget>) => void;
   onDelete: () => void;
@@ -631,31 +632,28 @@ function Inspector({
         </Field>
 
         {w.type === "dropdown" && (
-          // Where a dropdown's choices come from: empty = the bound param's own settings, else a library folder's files.
-          <Field label="Library">
+          // Where a dropdown's choices come from: empty = the bound param's own settings, else
+          // the module's assets/ — the files a file-valued param can be set to.
+          <Field label="Files">
             <select
               className={FIELD_CLS}
               value={w.library ?? ""}
-              disabled={disabled || !libraryKinds?.length}
+              disabled={disabled || !assetParams?.length}
               onChange={(e) => {
-                const kind = e.target.value;
+                const param = e.target.value;
                 onPatch(
-                  kind
-                    ? // The library names both the folder listed and the module field
-                      // …so choosing a library fills the binding too, and the old param's settings go with the param they belonged to.
-                      { library: kind, bind: kind, options: undefined }
+                  param
+                    ? // The param names both the key written and the files offered, so choosing
+                      // one fills the binding too and the old param's settings go with it.
+                      { library: param, bind: param, options: undefined }
                     : { library: undefined, bind: undefined },
                 );
               }}
             >
-              <option value="">
-                {libraryKinds?.length
-                  ? "(the parameter's settings)"
-                  : "(no library in this project)"}
-              </option>
-              {(libraryKinds ?? []).map((k) => (
-                <option key={k} value={k}>
-                  {k}
+              <option value="">(the parameter's settings)</option>
+              {(assetParams ?? []).map((p) => (
+                <option key={p} value={p}>
+                  {p}
                 </option>
               ))}
             </select>

@@ -65,10 +65,11 @@ ui:
     expect(issues[0].message).toMatch(/carry a range/);
   });
 
-  it("accepts the library dropdown that started all this", () => {
+  it("accepts the asset dropdown that started all this", () => {
     const { issues } = parseModule(
       M(`
-nam: nam/jcm800.nam
+params:
+  nam: jcm800.nam
 ui:
   cols: 4
   rows: 2
@@ -107,7 +108,7 @@ rack:
 
 describe("this app's vocabulary survives YAML", () => {
   it("keeps a timecode a string, not a sexagesimal number", () => {
-    // THE trap. In YAML 1.1 `5:1:1` is 18061 and `on` is `true` — pistes writes both
+    // THE trap. In YAML 1.1 `5:1:1` is 18061 and `on` is `true` — l8 writes both
     // all day (marker timecodes, bypass states). 1.2 is forced in PARSE_OPTIONS; this is
     // what proves it, and what fails the day someone "modernises" that option.
     const { value } = parseModule("docs: 5:1:1\n");
@@ -142,14 +143,13 @@ describe("editing", () => {
   // inline flow maps, and a deliberate key order. Every one of these is a thing the CUE
   // path had to protect by hand (cueText.ts) and a thing a naive parse→stringify loses.
   const AUTHORED = M(`
-# cab: the 4x12 the whole record goes through.
-# Swap the IR, not the module.
-extends: "@engine/audio/reverb/impulse-response"
-
-# the cabinet — see _library/ir
-ir: ir/marshall-1960a.wav
+# amp: the head the whole record goes through.
+# Swap the model, not the module.
+extends: "@engine/audio/amp/neural-amp-modeler"
 
 params:
+  # the amp — see assets/
+  nam: jcm800.nam
   Mix: 1
   Level: 0.8
 
@@ -171,16 +171,18 @@ ui:
       .filter(Boolean);
     // ONE line. That is the whole case for the Document API: a knob drag is a one-line
     // diff in git, not a reflowed file.
-    expect(changed).toEqual(["10:   Level: 0.8 ->   Level: 0.5"]);
+    expect(changed).toEqual(["9:   Level: 0.8 ->   Level: 0.5"]);
   });
 
   it("keeps every comment", () => {
-    const after = setModuleValue(AUTHORED, ["ir"], "ir/vox-ac30.wav");
-    expect(after).toContain("# cab: the 4x12 the whole record goes through.");
-    expect(after).toContain("# Swap the IR, not the module.");
-    expect(after).toContain("# the cabinet — see _library/ir");
-    expect(after).toContain("ir: ir/vox-ac30.wav");
-    expect(after).not.toContain("marshall");
+    // A file-valued param is edited exactly like a numeric one, comment and all — which is
+    // the point of it living in `params:` rather than in a field of its own.
+    const after = setModuleValue(AUTHORED, ["params", "nam"], "twin.nam");
+    expect(after).toContain("# amp: the head the whole record goes through.");
+    expect(after).toContain("# Swap the model, not the module.");
+    expect(after).toContain("# the amp — see assets/");
+    expect(after).toContain("nam: twin.nam");
+    expect(after).not.toContain("jcm800");
   });
 
   it("keeps inline flow maps inline", () => {
@@ -192,10 +194,10 @@ ui:
   });
 
   it("adds and removes a key without reformatting", () => {
-    const added = setModuleValue(AUTHORED, ["nam"], "nam/jcm800.nam");
-    expect(added).toContain("nam: nam/jcm800.nam");
-    expect(added).toContain("# cab: the 4x12 the whole record goes through.");
-    const removed = setModuleValue(added, ["nam"], null);
+    const added = setModuleValue(AUTHORED, ["docs"], "the dirty channel");
+    expect(added).toContain("docs: the dirty channel");
+    expect(added).toContain("# amp: the head the whole record goes through.");
+    const removed = setModuleValue(added, ["docs"], null);
     expect(removed).toBe(AUTHORED);
   });
 

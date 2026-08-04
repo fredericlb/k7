@@ -1,5 +1,5 @@
 // index.ts — the engine registry as a mountable pair: a store and the routes over it.
-// Shared because pistes is no longer its only consumer — mediatek must offer the same pick,
+// Shared because l8 is no longer its only consumer — st0 must offer the same pick,
 // and m9 will. See docs/shared.md.
 
 export {
@@ -9,4 +9,10 @@ export {
   type HeartbeatInput,
   REGISTRY_TTL_MS,
 } from "./registry.ts";
+export {
+  attachEngineProxy,
+  ENGINE_PROXY_PATH,
+  issueEngineTicket,
+  verifyEngineTicket,
+} from "./proxy.ts";
 export { engineRegistryRouter } from "./router.ts";

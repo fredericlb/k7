@@ -7,7 +7,7 @@ A module ref carries its level as an `@` prefix:
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
 | `@mediatek/audio/delay/tape-delay` | the machine's media library (`~/.studio/mediatek/modules`) | the médiathèque |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
-| `@project/audio/reverb` | the project's own `modules/` | pistes |
+| `@project/audio/reverb` | the project's own `modules/` | l8 |
 
 ## The level comes from the LOCATION
 
@@ -24,25 +24,29 @@ catalogue — **a dozen fixtures in this repo did exactly that**, which is why t
 tied the name to how deep the folder actually sat, so the ref told you what someone had
 typed rather than where the file was.
 
-`moduleNamespaceOf(root)` answers from the path now, and the field is gone. There are
-only two roots `modules_from` can name — the media library, or the workspace's own — so
-the question has exactly two answers.
+`moduleNamespaceOf(root)` answers from the path now, and the field is gone. There are only
+two shared roots — the media library, or the workspace's own — so the question has exactly
+two answers.
 
-## `@mediatek` needs no declaring
+## No level is declared. They are all found
 
-The media library's folder is fixed (`~/.studio/mediatek/modules`, or `$STUDIO_MEDIATEK`), so
-a project listing `@mediatek` in `modules_from` stated something the loader already knew. It
-was written by the scaffold and by nothing else, which meant **every project older than that
-line saw the library as a dangling ref** — "extends unknown module '@mediatek/…'" about a
-module sitting right there on disk.
+Every root is at a fixed place, so nothing in `project.yaml` names one:
 
-`mediatekModulesRoot()` states the rule once and `moduleLibraryDirs` reads it, so the modules,
-their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the catalogue all agree
-about what a project can reach. A project that still declares `@mediatek` resolves to the same
-folder and is de-duplicated, so nothing had to be rewritten.
+| level | where |
+|---|---|
+| `@engine` | nowhere — synthesised from the machine's plugin scan |
+| `@mediatek` | `~/.studio/mediatek/modules` (or `$STUDIO_MEDIATEK`) |
+| `@workspace` | `../_modules`, beside the project |
+| `@project` | the project's own `modules/` |
 
-`@engine` is the same idea taken one step further: a level with no folder at all. What a
-project *does* still declare is `../_modules` — that one is genuinely per workspace.
+`moduleLibraryDirs()` states that once (sharedFolders.ts) and everything reads it: the modules,
+their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the builder's catalogue —
+which is what keeps the four from disagreeing about what a project can reach.
+
+`modules_from` used to declare the middle two and is gone; `libraries_from` did the same for
+assets. They could only ever name those places, so they decided nothing while leaving three
+ways to be wrong about them — see docs/sharedFolders.md, which lists the three because each
+one cost a real afternoon.
 
 What this does NOT do is put the bytes there. The library is hosted; the local folder is a
 cache of it, filled by `packages/file-service/docs/mediatekPull.md` for the modules the open

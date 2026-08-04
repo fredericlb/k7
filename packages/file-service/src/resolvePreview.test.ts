@@ -12,7 +12,7 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-preview-"));
-  writeFileSync(join(root, "project.yaml"), "package pistes\n"); // makes root the active project
+  writeFileSync(join(root, "project.yaml"), "package l8\n"); // makes root the active project
   mkdirSync(join(root, "clips"), { recursive: true });
   writeFileSync(join(root, "clips", "kick.wav"), "RIFF"); // presence is enough
   writeFileSync(join(root, "clips", "loop.wav"), "RIFF");

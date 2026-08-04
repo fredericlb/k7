@@ -47,7 +47,7 @@ describe("shared module folder: category level", () => {
   it("keys a categorised module with the category in its ref", () => {
     // No engine catalogue: this asks what the FILES define, and the machine's scanned
     // plugins would drown a vocabulary of three.
-    const refs = loadModuleRefs(project, ["../_modules"], {});
+    const refs = loadModuleRefs(project, {});
     expect(Object.keys(refs).sort()).toEqual([
       "@workspace/audio/delay/adt",
       "@workspace/audio/genome",
@@ -60,14 +60,14 @@ describe("shared module folder: category level", () => {
     // module.yaml two categories deep is NOT a module, or the ref space would be open
     // ended and `extends` could name something the writer never files.
     module_(shared, "audio/delay/tape/vintage");
-    const refs = loadModuleRefs(project, ["../_modules"]);
+    const refs = loadModuleRefs(project);
     expect(Object.keys(refs)).not.toContain(
       "@workspace/audio/delay/tape/vintage",
     );
     // …and a folder that HAS a module.yaml is read as one, never descended into.
     module_(shared, "audio/comp");
     module_(shared, "audio/comp/inner");
-    const again = loadModuleRefs(project, ["../_modules"]);
+    const again = loadModuleRefs(project);
     expect(Object.keys(again)).toContain("@workspace/audio/comp");
     expect(Object.keys(again)).not.toContain("@workspace/audio/comp/inner");
   });
@@ -76,7 +76,7 @@ describe("shared module folder: category level", () => {
     // The preset is named for the module's own FOLDER, not for its ref — getting that
     // wrong would look for `delay/adt.vstpreset`.
     writeFileSync(join(shared, "audio/delay/adt/adt.vstpreset"), "x", "utf8");
-    const refs = loadModuleRefs(project, ["../_modules"]);
+    const refs = loadModuleRefs(project);
     const preset = refs["@workspace/audio/delay/adt"]?.preset;
     expect(preset).toBeTruthy();
     expect(existsSync(preset as string)).toBe(true);

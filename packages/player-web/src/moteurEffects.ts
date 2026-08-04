@@ -1,4 +1,4 @@
-// moteurEffects.ts — obscura's nine effect sliders as engine plugins. Pure: it maps a
+// moteurEffects.ts — z0's nine effect sliders as engine plugins. Pure: it maps a
 // vocabulary onto another and says what it could NOT map, which is the part that matters.
 // See docs/moteurPlayer.md.
 
@@ -35,7 +35,7 @@ export const EFFECT_PLUGINS: Record<string, Mapping> = {
   lowpass: { type: "Lowpass", param: "Lowpass", at: (i) => 1 - i / 100 },
   highpass: { type: "Highpass", param: "Highpass", at: (i) => i / 100 },
   // Tracktion built-ins, whose parameters are the CachedValue properties documented in
-  // apps/moteur/docs/builtinParams.md — they publish no ranges, hence the explicit maths.
+  // engine/moteur/docs/builtinParams.md — they publish no ranges, hence the explicit maths.
   phaser: { type: "phaser", param: "depth", at: (i) => (i / 100) * 10 },
   chorus: { type: "chorus", param: "depthMs", at: (i) => (i / 100) * 20 },
   // Saturation rather than a waveshaper: Density is what AirWindows offers for "drive".
@@ -79,7 +79,7 @@ export interface EffectPlan {
 }
 
 /**
- * Turn obscura's effects map into a plugin chain for `chain`.
+ * Turn z0's effects map into a plugin chain for `chain`.
  *
  * Ordered by the keys of EFFECT_PLUGINS rather than by the caller's object, because object
  * key order is an accident of how the game built the map and a chain's order is audible.

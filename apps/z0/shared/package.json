@@ -1,0 +1,22 @@
+{
+  "name": "z0-shared",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Presentational components and types shared by z0's six frontends. Source-only, like @frediverse/ui — consumers compile it themselves.",
+  "type": "module",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth-badge": "./src/auth-badge.tsx",
+    "./login-gate": "./src/login-gate.tsx",
+    "./session-picker": "./src/session-picker.tsx",
+    "./types": "./src/types.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "dependencies": {
+    "@frediverse/ui": "*"
+  }
+}

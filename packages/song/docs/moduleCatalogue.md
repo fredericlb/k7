@@ -11,8 +11,8 @@ the entry point, not a design. And for a module the project inherited, it did no
 went through `hints.paths`, which by construction only holds the project's **own** modules, so a shared one
 came back "couldn't resolve".
 
-So the builder moved — twice. First to pistes' settings panel, and then out of pistes entirely: it lives in
-`apps/mediatek` now, where the modules themselves do. The settings entry that used to open it is a link out.
+So the builder moved — twice. First to l8' settings panel, and then out of l8 entirely: it lives in
+`apps/st0` now, where the modules themselves do. The settings entry that used to open it is a link out.
 
 `moduleCatalogue` stays, and is still useful, because it answers a different question: it lists what **this
 workspace** can name in a chain, which is what the module picker and the docs panel read. What it no longer

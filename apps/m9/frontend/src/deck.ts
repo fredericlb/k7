@@ -24,7 +24,7 @@ export const DECK = "deck-a";
  * directory is a path the engine would eventually try to write into.
  *
  * Deliberately NOT `MoteurPlayer` from @studio/player-web, which does exactly this in its
- * first ten lines. That class implements obscura's `Player` — preloadSong, playMulti,
+ * first ten lines. That class implements z0's `Player` — preloadSong, playMulti,
  * playDual, playReversed, nine effect sliders — and nine tenths of it is a blind test's
  * vocabulary, not a deck's. Reusing it would mean m9 inheriting semantics it has to
  * explain away. What IS shared is the layer under both: the document constructors in

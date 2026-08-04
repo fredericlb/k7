@@ -33,7 +33,7 @@ const SONG = join(
   "..",
   "..",
   "..",
-  "apps",
+  "engine",
   "capot",
   "songs",
   "synth-demo",
@@ -89,7 +89,7 @@ describe("module instances", () => {
   it("keeps instances out of the `extends` vocabulary, which names FOLDERS", () => {
     // No engine catalogue here: this asks what the project's FILES define, and the
     // machine's scanned plugins would drown a vocabulary of two.
-    const refs = loadModuleRefs(dir, [], {});
+    const refs = loadModuleRefs(dir, {});
     // An instance shares its module's folder, so re-keying it by ref would land on the
     // generic's own key and replace it — every `extends` of the module would then
     // inherit that one instance's overrides.

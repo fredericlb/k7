@@ -5,16 +5,16 @@ The music and stage apps of the frediverse.
 | app | what it is | dev site |
 |---|---|---|
 | `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `studio.test/k7` |
-| `apps/pistes` | text-first DAW — the web editor | `studio.test/pistes` |
-| `apps/mediatek` | the media library — morceaux, samples, modules | `studio.test/mediatek` |
-| `apps/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
-| `apps/capot` | the Tauri tray that supervises the engine | — |
-| `apps/obscura` | blind-test game — six SPAs behind one origin | `studio.test/obscura` |
+| `apps/l8` | text-first DAW — the web editor | `studio.test/l8` |
+| `apps/st0` | the media library — songs, samples, modules; the studio's home page | `studio.test` |
+| `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
+| `engine/capot` | the Tauri tray that supervises the engine | — |
+| `apps/z0` | blind-test game — six SPAs behind one origin | `studio.test/z0` |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
 supervisor, the view engines, the waveform component. The engine and the tray
-serve every audio app, not just pistes — hence their own directories. Anything
+serve every audio app, not just l8 — hence their own directories. Anything
 shared with the `phare` monorepo lives in `commons/` instead.
 
 ## Getting started
@@ -57,7 +57,7 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
 ## The native parts
 
-`apps/moteur` is a CMake/JUCE/Tracktion C++ project and `apps/capot` a
+`engine/moteur` is a CMake/JUCE/Tracktion C++ project and `engine/capot` a
 Tauri/Rust app. Neither is built by `turbo run build` — the moteur deliberately
 declares no `build` script at all, so turbo can never try to compile C++. They
 have their own commands:
@@ -69,7 +69,7 @@ npm run engine:build --workspace capot   # engine + sidecars + the tray bundle
 
 Their build directories are large (~30 GB combined) and fully gitignored. Both
 bake absolute paths into their caches, so **moving or renaming the repo requires
-wiping `apps/moteur/build` and `apps/capot/src-tauri/target`** — otherwise the
+wiping `engine/moteur/build` and `engine/capot/src-tauri/target`** — otherwise the
 build fails looking for the old path.
 
 ## Images

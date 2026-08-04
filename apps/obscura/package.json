@@ -1,9 +1,0 @@
-{
-  "name": "obscura",
-  "private": true,
-  "version": "1.0.0",
-  "description": "The obscura app. A workspace package so the app owns its own turbo config (turbo.json); its services live in the sibling sub-packages.",
-  "scripts": {
-    "dev": "turbo run dev --filter=./*"
-  }
-}

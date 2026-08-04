@@ -3,7 +3,7 @@
 `player.ts` has said this was coming since étape 2:
 
 > It is the seam a third engine arrives through: an implementation backed by
-> `apps/moteur`, once the engine can stream to a browser at all.
+> `engine/moteur`, once the engine can stream to a browser at all.
 
 Étape 7 made that true, so here it is. The interface did not change to accommodate it —
 which is the point of having had a seam.
@@ -14,7 +14,7 @@ This is **not** a replacement for `SongPreloader`. The Web Audio path is simpler
 engine, and has milliseconds of latency where this has a whole process and a cushion. For a
 laptop running a blind test at a table, the browser player remains the right one.
 
-This is for the case the plan describes: obscura on a machine that also has a moteur. Three
+This is for the case the plan describes: z0 on a machine that also has a moteur. Three
 things it buys, and they are the only reasons to pay for it:
 
 * **Real DSP.** `audioEffects.ts` hand-rolls its chain from `BiquadFilter`s and — for the
@@ -27,7 +27,7 @@ things it buys, and they are the only reasons to pay for it:
 
 ## The effect mapping, and the two that do not map
 
-Seven of obscura's nine sliders have an engine equivalent:
+Seven of z0's nine sliders have an engine equivalent:
 
 | slider | engine plugin | why that one |
 |---|---|---|
@@ -42,7 +42,7 @@ Seven of obscura's nine sliders have an engine equivalent:
 The two built-ins take their `xmlTypeName`; the AirWindows ones take the display name
 Tracktion registers (`AirWindowsList.h`). Both vocabularies coexist on the wire — that is
 what `enginePlugin` is about. Their parameter ranges come from
-`apps/moteur/docs/builtinParams.md`, which exists because those plugins publish none.
+`engine/moteur/docs/builtinParams.md`, which exists because those plugins publish none.
 
 **`speed` and `pitch` do not map, and are refused.**
 
@@ -79,7 +79,7 @@ not portable between them, and a game offering both must not pretend it is.
 
 ## Paths: the reason this came last
 
-`resolvePath` is required and has no default. obscura's song paths are URLs its own backend
+`resolvePath` is required and has no default. z0's song paths are URLs its own backend
 serves; the engine opens files. There is no honest guess between the two.
 
 In practice it resolves through the médiathèque's local cache — which is exactly why the
@@ -103,7 +103,7 @@ the engine a path it warns about once and then plays silence for.
 
 ## Not done
 
-* **Nothing wires it in yet.** obscura still constructs `SongPreloader`; choosing between
+* **Nothing wires it in yet.** z0 still constructs `SongPreloader`; choosing between
   the two engines is a decision for the game's own settings, and it needs somewhere to put
   `resolvePath`.
 * **Never run against a real engine.** The 23 tests drive a fake `EngineClient` and check

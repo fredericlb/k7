@@ -106,10 +106,10 @@ export function rootDir(): string {
   return join(studioDir(), "root");
 }
 
-/** `~/.studio/mediatek` — the media library: morceaux, samples and modules.
+/** `~/.studio/mediatek` — the media library: songs, samples and modules.
  *
- *  Per MACHINE, not per user, unlike `rootDir()`: it is the one place a pistes song, a
- *  k7 release and an obscura track can be the same thing, which a per-user split
+ *  Per MACHINE, not per user, unlike `rootDir()`: it is the one place a l8 song, a
+ *  k7 release and an z0 track can be the same thing, which a per-user split
  *  would undo. Overridable via `$STUDIO_MEDIATEK` because it holds audio and video and
  *  will not always belong on the system drive — the supervisor passes it down from its
  *  settings, the same way it passes the ports.

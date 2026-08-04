@@ -4,7 +4,7 @@
 //
 // It exists because a ProjectDoc has ~15 required fields and a TrackDoc ~17, most of which
 // any given caller does not care about. Hand-written literals of those were already
-// duplicated across two test files; mediatek's module preview and an m9 deck would
+// duplicated across two test files; st0's module preview and an m9 deck would
 // each have added another.
 
 import type {
@@ -118,7 +118,7 @@ export const EXTERNAL_PLUGIN_FORMATS = new Set([
  * flow map. Unparseable means `undefined`, never a throw — a module with no plugin is a
  * real thing (an io module), and the caller shows it as loading nothing.
  *
- * Third-copy rule: this started in mediatek's module preview, and m9 wanting the same
+ * Third-copy rule: this started in st0's module preview, and m9 wanting the same
  * two scalars is what moved it here rather than making a second one.
  */
 export function readPluginBlock(
@@ -138,6 +138,15 @@ export function readPluginBlock(
   return type === undefined && name === undefined ? undefined : { type, name };
 }
 
+/** What an author writes for a module whose DSP is the `jsdsp.ts` beside it. */
+export const JSDSP_TYPE = "jsdsp";
+/** …and the built-in the engine actually loads for one: a host for a graph it is handed. */
+export const DSP_GRAPH_PLUGIN = "DSP Graph";
+
+/** The DSP source a `jsdsp` module carries. A fixed NAME, not a path: the type says the file
+ *  is there, and a module stays a folder you can copy without rewriting anything inside it. */
+export const JSDSP_FILE = "jsdsp.ts";
+
 /**
  * Map an authored `plugin: {type, name}` onto the engine's older wire form, where `type`
  * holds either a built-in's xmlTypeName or an external format. `fallback` is the module
@@ -153,6 +162,11 @@ export function enginePlugin(
 ): { type: string; name: string } {
   const type = String(plugin?.type ?? "");
   const name = plugin?.name != null ? String(plugin.name) : "";
+  // A module whose DSP is its own source. `jsdsp` is what the AUTHOR writes — it says where the
+  // sound comes from — and the engine has no such plugin: it loads the built-in graph host and
+  // is handed the compiled graph in the doc. The mapping is here so the author never has to
+  // spell `internal` + `DSP Graph`, which said nothing about the file beside the module.
+  if (type === JSDSP_TYPE) return { type: DSP_GRAPH_PLUGIN, name: fallback };
   if (type === "internal") return { type: name, name: fallback };
   if (EXTERNAL_PLUGIN_FORMATS.has(type.toLowerCase()))
     return { type, name: name || fallback };

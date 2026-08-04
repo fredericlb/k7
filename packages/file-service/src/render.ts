@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MP3_CODEC, transcode } from "@studio/commands/render";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 
 /** How long a bounce may take before it is killed. A three-minute song renders in seconds;
@@ -32,7 +33,7 @@ export class RenderError extends Error {}
  */
 export async function renderProject(
   doc: unknown,
-  opts: { baseDir?: string; stems?: boolean } = {},
+  opts: { baseDir?: string; stems?: boolean; mp3?: boolean } = {},
 ): Promise<RenderResult> {
   const bin = findEngineBinary();
   // Named out loud: a machine with no engine built is a real state, and "render failed"
@@ -57,7 +58,7 @@ async function bounce(
   bin: string,
   dir: string,
   doc: unknown,
-  opts: { baseDir?: string; stems?: boolean },
+  opts: { baseDir?: string; stems?: boolean; mp3?: boolean },
 ): Promise<RenderResult> {
   const args = ["--render", "-", "--out", dir];
   if (opts.stems) args.push("--stems");
@@ -94,5 +95,24 @@ async function bounce(
   // Exit 0 with nothing written is the shape a silent failure takes here — a document whose
   // every track was filtered out, say. It must not read as a successful empty render.
   if (!files.length) throw new RenderError("render wrote no audio");
-  return { files, dir };
+  return { files: opts.mp3 ? asMp3(files) : files, dir };
+}
+
+/**
+ * The same renders as mp3, where ffmpeg can manage it.
+ *
+ * BEST-EFFORT, which is the established rule here (see `@studio/commands/render`, which the
+ * CLI path has used for as long as it has offered formats): the engine writes wav and nothing
+ * else, ffmpeg is not a dependency of this repo, and a machine without it must still be able to
+ * bounce. So a failed transcode costs the FORMAT and never the render — the caller gets the wav
+ * and can see what it got from the extension.
+ *
+ * Turning that into a hard failure would mean a render that works on one machine and 500s on
+ * the next, for a reason nothing in the request could predict.
+ */
+function asMp3(wavs: string[]): string[] {
+  return wavs.map((wav) => {
+    const out = wav.replace(/\.wav$/i, ".mp3");
+    return transcode(wav, out, MP3_CODEC) ? out : wav;
+  });
 }

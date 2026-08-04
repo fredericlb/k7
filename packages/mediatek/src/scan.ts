@@ -6,18 +6,17 @@
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import {
-  familyDir,
-  MODULE_TYPES,
-  MORCEAU_KINDS,
-  SAMPLE_KINDS,
-  toRel,
-} from "./layout.ts";
+import { familyDir, MODULE_TYPES, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
-import type { Family, MediatekEntry } from "./types.ts";
+import {
+  CHAINS_FILE,
+  type Family,
+  type MediatekEntry,
+  type SongVariant,
+} from "./types.ts";
 
-/** The sidecar that makes a folder a morceau and carries its provenance. */
-export const MORCEAU_FILE = "morceau.yaml";
+/** The sidecar that makes a folder a song and carries its provenance. */
+export const SONG_FILE = "song.yaml";
 /** The file that makes a folder a module — the same name a project's `modules/` uses. */
 export const MODULE_FILE = "module.yaml";
 
@@ -26,9 +25,14 @@ export const MODULE_FILE = "module.yaml";
 export const UI_FILE = "ui.yaml";
 export const PRESETS_FILE = "presets.yaml";
 
-/** The file that makes a folder a CHAIN — the same name, and the same shape, a pistes project
- *  uses at its root. See docs/chains.md. */
-export const CHAINS_FILE = "chains.yaml";
+/** Where a module keeps what it LOADS — samples, impulse responses, amp profiles — as opposed to
+ *  what it IS. The same folder `@studio/song`'s loader resolves a module's own `ir`/`nam`/rack
+ *  files out of (MODULE_ASSETS_DIR there), so a module dropped here plays on any machine. */
+export const ASSETS_DIR = "assets";
+
+// The file that makes a folder a CHAIN lives in types.ts — the browser needs the word and this
+// file opens `node:fs`. Re-exported because this is where every existing importer looks.
+export { CHAINS_FILE };
 /** Where a chain's instances live, beside its `chains.yaml`. */
 export const INSTANCES_DIR = "instances";
 
@@ -70,11 +74,11 @@ function newestUnder(abs: string): number {
   return newest;
 }
 
-/** A morceau's sidecar, read for display only. Unparseable is not fatal: the folder is
- *  still a morceau and still worth listing, just under its folder name. */
-function readMorceau(abs: string): Record<string, unknown> {
+/** A song's sidecar, read for display only. Unparseable is not fatal: the folder is
+ *  still a song and still worth listing, just under its folder name. */
+function readSong(abs: string): Record<string, unknown> {
   try {
-    const v = parseYaml(readFileSync(join(abs, MORCEAU_FILE), "utf8"), {
+    const v = parseYaml(readFileSync(join(abs, SONG_FILE), "utf8"), {
       version: "1.2",
     });
     return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
@@ -87,57 +91,90 @@ const str = (v: unknown): string | undefined =>
   typeof v === "string" && v ? v : undefined;
 
 /**
- * Morceaux: a folder under `morceaux/<kind>/` holding a `morceau.yaml`, or — for one
- * dropped in by hand — any audio file. Both are listed, because a library you can't see
- * the contents of is the problem this is here to fix; the sidecar is what turns one into
- * a catalogued thing with provenance.
+ * The `variants:` mapping of a sidecar, classified against what is actually in the folder.
+ *
+ * A value naming a file that IS there is a file variant; anything else names a chain. The
+ * check runs one way only — see SongVariant on why a chain is not verified here — so an
+ * entry that names a chain nobody wrote still reads as a chain, and the surface holding both
+ * listings is what says it is missing. Getting that backwards would file a typo'd chain name
+ * as a missing FILE, which sends you looking in the wrong folder.
+ *
+ * A non-string value is dropped rather than coerced: `variants: {a: [x]}` is a malformed
+ * sidecar, and inventing "[object Object]" as a ref would put an unfollowable row on screen.
  */
-function scanMorceaux(): MediatekEntry[] {
-  const out: MediatekEntry[] = [];
-  const root = familyDir("morceaux");
-  for (const kind of MORCEAU_KINDS) {
-    const kindDir = join(root, kind);
-    const visit = (abs: string): void => {
-      const entries = dirents(abs);
-      const hasSidecar = entries.some(
-        (e) => e.isFile() && e.name === MORCEAU_FILE,
-      );
-      const master = entries.find((e) => e.isFile() && isAudio(e.name));
-      if (hasSidecar || master) {
-        const meta = hasSidecar ? readMorceau(abs) : {};
-        const title = str(meta.title);
-        const artist = str(meta.artist);
-        out.push({
-          family: "morceaux",
-          id: toRel(abs),
-          name: title ?? basename(abs),
-          path: toRel(abs),
-          kind,
-          bytes: master ? sizeOf(join(abs, master.name)) : undefined,
-          mtime: newestUnder(abs),
-          meta: {
-            catalogued: hasSidecar, // false == found on disk, never filed
-            // The playable file's NAME inside the folder. `path` is the folder — a morceau
-            // is a folder with a sidecar — so without this a consumer that has to OPEN the
-            // audio (the moteur, which takes file paths) has nothing to open. Absent when
-            // the folder is catalogued but carries no audio yet.
-            ...(master ? { master: master.name } : {}),
-            ...(artist ? { artist } : {}),
-            ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
-          },
-        });
-        return; // an entry is a leaf — do not descend into its own files
-      }
-      for (const e of entries) if (e.isDirectory()) visit(join(abs, e.name));
-    };
-    visit(kindDir);
+function readVariants(
+  meta: Record<string, unknown>,
+  entries: Dirent[],
+): SongVariant[] {
+  const raw = meta.variants;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const files = new Set(
+    entries.filter((e) => e.isFile()).map((e) => e.name.toLowerCase()),
+  );
+  const out: SongVariant[] = [];
+  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+    const ref = str(value);
+    if (!name || !ref) continue;
+    out.push({
+      name,
+      ref,
+      kind: files.has(ref.toLowerCase()) ? "file" : "chain",
+    });
   }
   return out;
 }
 
+/**
+ * Songs: a folder anywhere under `songs/` holding a `song.yaml`, or — for one dropped in by
+ * hand — any audio file. Both are listed, because a library you can't see the contents of is
+ * the problem this is here to fix; the sidecar is what turns one into a catalogued thing.
+ *
+ * The walk starts at the family root and not at a fixed set of subfolders, because `songs/`
+ * has none: whatever tree the caller built is the tree. `kind` is therefore "" — this family
+ * does not divide, and an entry saying so is honest where a borrowed word would not be.
+ */
+function scanSongs(): MediatekEntry[] {
+  const out: MediatekEntry[] = [];
+  const visit = (abs: string): void => {
+    const entries = dirents(abs);
+    const hasSidecar = entries.some((e) => e.isFile() && e.name === SONG_FILE);
+    const master = entries.find((e) => e.isFile() && isAudio(e.name));
+    if (hasSidecar || master) {
+      const meta = hasSidecar ? readSong(abs) : {};
+      const title = str(meta.title);
+      const artist = str(meta.artist);
+      const variants = readVariants(meta, entries);
+      out.push({
+        family: "songs",
+        id: toRel(abs),
+        name: title ?? basename(abs),
+        path: toRel(abs),
+        kind: "",
+        bytes: master ? sizeOf(join(abs, master.name)) : undefined,
+        mtime: newestUnder(abs),
+        ...(variants.length ? { variants } : {}),
+        meta: {
+          catalogued: hasSidecar, // false == found on disk, never filed
+          // The playable file's NAME inside the folder. `path` is the folder — a song
+          // is a folder with a sidecar — so without this a consumer that has to OPEN the
+          // audio (the moteur, which takes file paths) has nothing to open. Absent when
+          // the folder is catalogued but carries no audio yet.
+          ...(master ? { master: master.name } : {}),
+          ...(artist ? { artist } : {}),
+          ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
+        },
+      });
+      return; // an entry is a leaf — do not descend into its own files
+    }
+    for (const e of entries) if (e.isDirectory()) visit(join(abs, e.name));
+  };
+  visit(familyDir("songs"));
+  return out;
+}
+
 /** Samples: every media FILE under `samples/<kind>/<pack>/…`. The first segment below the
- *  kind is the pack, which is all the grouping a sample gets — it has no provenance to
- *  carry, unlike a morceau. */
+ *  kind is the pack, which is all the grouping a sample gets — it has no title or artist to
+ *  carry, unlike a song. */
 function scanSamples(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
   const root = familyDir("samples");
@@ -193,6 +230,10 @@ function scanModules(): MediatekEntry[] {
 
   const push = (abs: string, type: string, sub: string): void => {
     const files = dirents(abs);
+    const assets = dirents(join(abs, ASSETS_DIR))
+      .filter((f) => f.isFile())
+      .map((f) => f.name)
+      .sort();
     out.push({
       family: "modules",
       id: toRel(abs),
@@ -206,6 +247,10 @@ function scanModules(): MediatekEntry[] {
         .filter((f) => f.isFile())
         .map((f) => f.name)
         .sort(),
+      // …and what it LOADS, one folder down. The only place the scan looks inside an entry, and
+      // what it finds is the entry's own material rather than more catalogue: nothing under
+      // `assets/` is ever an entry of its own, so the descent stops there.
+      ...(assets.length ? { assets } : {}),
       meta: {
         catalogued: files.some((f) => f.isFile() && f.name === MODULE_FILE),
         // Instances live beside module.yaml as <instance>.yaml — referenced as "<module>:<instance>".
@@ -291,8 +336,8 @@ function scanChains(): MediatekEntry[] {
  *  order is not, and a list that reshuffles on every poll is unusable. */
 export function scanFamily(family: Family): MediatekEntry[] {
   const entries =
-    family === "morceaux"
-      ? scanMorceaux()
+    family === "songs"
+      ? scanSongs()
       : family === "samples"
         ? scanSamples()
         : family === "chains"
@@ -309,7 +354,7 @@ export function scanFamily(family: Family): MediatekEntry[] {
  * or a file dropped where no catalogue reaches. Both answered 200 and appeared nowhere, which
  * reads as the call having done nothing at all.
  *
- * An ENTRY's own folder is never descended into. A morceau and a module ARE folders and their
+ * An ENTRY's own folder is never descended into. A song and a module ARE folders and their
  * insides are theirs — a module's files travel on the entry (`files`), because a tree drawing
  * one has to know which of the three canonical names are missing, not merely what is there.
  */

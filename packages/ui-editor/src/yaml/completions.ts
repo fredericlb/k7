@@ -1,6 +1,6 @@
 // completions.ts (yaml) — field-name and value completion, with the cursor's context from
 // the lezer tree (keyPath.ts) and the vocabulary ASKED FOR rather than tabulated: which
-// fields a module.yaml may carry is pistes's business, not an editor's, so the caller
+// fields a module.yaml may carry is l8's business, not an editor's, so the caller
 // passes fieldsAt/valuesAt (derived from the Zod schemas, so they cannot drift).
 
 import type { Completion, CompletionSource } from "@codemirror/autocomplete";

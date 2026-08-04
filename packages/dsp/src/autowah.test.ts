@@ -25,7 +25,7 @@ function engineDefaultGraph(): GraphJson {
       "..",
       "..",
       "..",
-      "apps",
+      "engine",
       "moteur",
       "engine",
       "GraphDspPlugin.cpp",

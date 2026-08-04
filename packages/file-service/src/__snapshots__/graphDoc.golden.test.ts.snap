@@ -24,7 +24,6 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
       ],
     },
   },
-  "libraryFiles": [],
   "modules": {
     "drumrack": {},
     "kit": {},
@@ -189,7 +188,6 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
       "type": "lfo",
     },
   },
-  "libraryFiles": [],
   "modules": {
     "fourosc": {},
     "synth": {

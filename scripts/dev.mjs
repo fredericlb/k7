@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // dev.mjs — `npm run dev`: the whole studio in ONE turbo run, so the session is the same
 // TUI as every other `dev` here — tasks left, logs right. All this adds is the filter
-// list, DERIVED from the workspace so a new app joins by existing, and the backstop that
-// stops the detached tray on the way out. See docs/dev.md.
+// list, DERIVED from the workspace so a new app joins by existing, the browser editor
+// (a root task, which needs naming explicitly), and the backstop that stops the detached
+// tray on the way out. See docs/dev.md.
 
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stopAll } from "../apps/capot/scripts/trayProcess.mjs";
+import { stopAll } from "../engine/capot/scripts/trayProcess.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -58,16 +59,25 @@ const tasks = workspacePackages().filter(
     (!flag("no-native") || !isNative(name)),
 );
 
+// The browser editor is a ROOT task (`//#vscode`), and no package filter can reach the root
+// — hence a second task name and `--filter=//`. Naming the root cannot recurse back into
+// this file: the root's `dev` script is not a turbo task (there is no `//#dev`), so turbo
+// runs only the tasks it has definitions for. Verified with `turbo run dev vscode --dry`.
+const withEditor = !flag("no-vscode");
+const turboArgs = [
+  "run",
+  "dev",
+  ...(withEditor ? ["vscode"] : []),
+  ...tasks.map((t) => `--filter=${t.name}`),
+  ...(withEditor ? ["--filter=//"] : []),
+];
+
 // No --ui: turbo.json's `tui` is the point. stdio inherit hands it the real console.
-const turbo = spawn(
-  "turbo",
-  ["run", "dev", ...tasks.map((t) => `--filter=${t.name}`)],
-  {
-    cwd: repo,
-    stdio: "inherit",
-    shell: process.platform === "win32", // turbo is a .cmd shim here
-  },
-);
+const turbo = spawn("turbo", turboArgs, {
+  cwd: repo,
+  stdio: "inherit",
+  shell: process.platform === "win32", // turbo is a .cmd shim here
+});
 
 let stopping = false;
 async function shutdown(code = 0) {

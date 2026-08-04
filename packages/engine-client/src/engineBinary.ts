@@ -1,6 +1,6 @@
 // engineBinary.ts — locate the built studio-moteur binary, in three tiers:
 // $STUDIO_ENGINE, the copy vendored beside the running executable (a packaged app),
-// then the CMake preset output dirs under apps/moteur/build, newest first. The repo
+// then the CMake preset output dirs under engine/moteur/build, newest first. The repo
 // tiers resolve relative to THIS file, so they work wherever the package is linked.
 
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -8,8 +8,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/engine-client/src
-// src → engine-client → packages → the repo root, then into apps/moteur/.
-const engineDir = join(here, "..", "..", "..", "apps", "moteur");
+// src → engine-client → packages → the repo root, then into engine/moteur/.
+const engineDir = join(here, "..", "..", "..", "engine", "moteur");
 
 export function findEngineBinary(): string | null {
   const override = process.env.STUDIO_ENGINE;

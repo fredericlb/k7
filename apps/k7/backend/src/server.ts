@@ -19,7 +19,7 @@ const app = express();
 app.use(express.json());
 
 const { requireAuth } = await setupAuth(app, {
-  // The shared studio session: one origin, one cookie. The pistes backend owns
+  // The shared studio session: one origin, one cookie. The l8 backend owns
   // /auth/* and mints it; this one only verifies it, so it mounts no auth routes.
   cookieName: "studio.sid",
   mountRoutes: [],

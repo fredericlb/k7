@@ -65,7 +65,7 @@ const SCHEMA: TableSchema = {
     ["ReleaseDate", "Text"],
     ["Description", "Text"],
     ["CanDownload", "Bool"],
-    // Stable id of the originating pistes song (set on CLI import); lets a
+    // Stable id of the originating l8 song (set on CLI import); lets a
     // re-export add a version to the same release instead of creating a new one.
     ["SongUuid", "Text"],
     ["CreatedAt", "Text"],
@@ -74,8 +74,8 @@ const SCHEMA: TableSchema = {
     ["Uid", "Text"],
     ["ReleaseUid", "Text"],
     ["Name", "Text"],
-    // A published version IS a morceau in the médiathèque, under
-    // morceaux/recorded/K7/<release>/<version>/. AudioPath points at its master; the
+    // A published version IS a song in the médiathèque, under
+    // songs/K7/<release>/<version>/. AudioPath points at its master; the
     // stems sit in `stems/` beside it and TrackMeta is the parallel JSON of
     // {id,path,name,mime}, preserving order + original name + type. See docs/audio.md.
     ["AudioPath", "Text"],

@@ -1,4 +1,4 @@
-// App.tsx — m9 v1: the médiathèque's cached morceaux down one side, one deck on the
+// App.tsx — m9 v1: the médiathèque's cached songs down one side, one deck on the
 // other. Pick a song, the engine plays it out of the interface. Nothing else yet — the
 // chains view and a second deck are what this is a foundation for.
 
@@ -8,6 +8,7 @@ import type { RankedEngine } from "@studio/engine-browser/probe";
 import { readPluginBlock } from "@studio/engine-protocol/build";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
+import { formatLatency } from "@studio/web-protocol/quality";
 import { Disc3, Headphones, Loader2, Play, Plug, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { currentUser } from "./api";
@@ -33,7 +34,7 @@ export function App({ engine }: { engine: RankedEngine<PublicEngine> }) {
     try {
       const sum = await service.summary(s);
       setRoot(sum.root);
-      setEntries((await service.morceaux(s)).entries);
+      setEntries((await service.songs(s)).entries);
       // The médiathèque's modules are the deck's vocabulary — the same catalogue, the same
       // cache. Allowed to fail on its own: a deck with no effects still plays.
       try {
@@ -312,6 +313,34 @@ export function App({ engine }: { engine: RankedEngine<PublicEngine> }) {
           </Card>
         </aside>
       </div>
+
+      {/* The status bar. Which machine plays, and how good the link to it is — Q1/Q2/Q3 off
+          a MEASURED latency (see @studio/web-protocol/quality). l8 and the médiathèque
+          show the same line: it describes the session, not this screen. */}
+      <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Plug className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {engine.engine.hostname || engine.engine.id.slice(0, 8)}
+          </span>
+        </span>
+        <span
+          className={`whitespace-nowrap font-mono tabular-nums ${
+            engine.latency?.quality === "Q1"
+              ? "text-emerald-500"
+              : engine.latency?.quality === "Q3"
+                ? "text-amber-500"
+                : ""
+          }`}
+          title={
+            engine.latency
+              ? `${Math.round(engine.latency.networkMs)} ms de réseau + ${Math.round(engine.latency.audioMs)} ms d'interface audio`
+              : "ce moteur n'a dit ni sa latence ni ce que son interface coûte"
+          }
+        >
+          {engine.latency ? formatLatency(engine.latency) : "latence inconnue"}
+        </span>
+      </footer>
     </div>
   );
 }

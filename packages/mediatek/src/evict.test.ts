@@ -132,8 +132,8 @@ describe("what the policy does and does not touch", () => {
     // The default for `modules` is exactly this: a chain can name any of them, so a
     // missing one fails a project to load. Absent from the policy means never evicted.
     cached([{ path: "samples/audio/a.wav", bytes: 999, fetchedSec: 1 }]);
-    const reports = evict({ morceaux: 0 });
-    expect(reports.map((r) => r.family)).toEqual(["morceaux"]);
+    const reports = evict({ songs: 0 });
+    expect(reports.map((r) => r.family)).toEqual(["songs"]);
     expect(has("samples/audio/a.wav")).toBe(true);
   });
 
@@ -157,6 +157,6 @@ describe("reporting a family's size", () => {
   });
 
   it("is zero for a family never synced", () => {
-    expect(familyBytes("morceaux")).toBe(0);
+    expect(familyBytes("songs")).toBe(0);
   });
 });

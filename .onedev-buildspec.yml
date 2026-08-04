@@ -84,7 +84,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-- name: build and publish obscura image
+- name: build and publish z0 image
   steps:
   - type: CheckoutStep
     name: checkout
@@ -117,10 +117,10 @@ jobs:
   - type: BuildImageStep
     name: build and push image
     buildPath: .
-    dockerfile: apps/obscura/docker/Dockerfile
+    dockerfile: apps/z0/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/obscura:latest dev.frediver.se/frediverse/studio/obscura:@commit_hash@ dev.frediver.se/frediverse/studio/obscura:@build_version@
+      tags: dev.frediver.se/frediverse/studio/z0:latest dev.frediver.se/frediverse/studio/z0:@commit_hash@ dev.frediver.se/frediverse/studio/z0:@build_version@
     moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
     condition: SUCCESSFUL
     optional: false
@@ -135,7 +135,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-- name: build and publish pistes image
+- name: build and publish l8 image
   steps:
   - type: CheckoutStep
     name: checkout
@@ -168,10 +168,10 @@ jobs:
   - type: BuildImageStep
     name: build and push image
     buildPath: .
-    dockerfile: apps/pistes/docker/Dockerfile
+    dockerfile: apps/l8/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/pistes:latest dev.frediver.se/frediverse/studio/pistes:@commit_hash@ dev.frediver.se/frediverse/studio/pistes:@build_version@
+      tags: dev.frediver.se/frediverse/studio/l8:latest dev.frediver.se/frediverse/studio/l8:@commit_hash@ dev.frediver.se/frediverse/studio/l8:@build_version@
     moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
     condition: SUCCESSFUL
     optional: false
@@ -186,7 +186,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-- name: build and publish mediatek image
+- name: build and publish st0 image
   steps:
   - type: CheckoutStep
     name: checkout
@@ -219,10 +219,10 @@ jobs:
   - type: BuildImageStep
     name: build and push image
     buildPath: .
-    dockerfile: apps/mediatek/docker/Dockerfile
+    dockerfile: apps/st0/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/mediatek:latest dev.frediver.se/frediverse/studio/mediatek:@commit_hash@ dev.frediver.se/frediverse/studio/mediatek:@build_version@
+      tags: dev.frediver.se/frediverse/studio/st0:latest dev.frediver.se/frediverse/studio/st0:@commit_hash@ dev.frediver.se/frediverse/studio/st0:@build_version@
     moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
     condition: SUCCESSFUL
     optional: false

@@ -13,7 +13,7 @@ import { loadProject } from "./project";
 // structure the engine ever receives, and the one thing synth-demo cannot show. The
 // other two shipped demos have no `modules/` at all.
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONGS = join(here, "..", "..", "..", "apps", "capot", "songs");
+const SONGS = join(here, "..", "..", "..", "engine", "capot", "songs");
 
 // Blank absolute paths (resolved clip sources, .vstpreset paths, recordDir) — those
 // are machine-specific, so the snapshot captures structure and logic, not this

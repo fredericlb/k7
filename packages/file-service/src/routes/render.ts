@@ -2,7 +2,7 @@
 // back. Mounted BEFORE resolveWorkspace, like the médiathèque cache: a render is a property
 // of the MACHINE (its engine binary, its plugins), not of anyone's workspace.
 //
-// The one caller is obscura's backend, which is hosted and cannot exec anything itself.
+// The one caller is z0's backend, which is hosted and cannot exec anything itself.
 
 import { rmSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
@@ -36,10 +36,21 @@ renderRouter.post(
       out = await renderProject(doc, {
         baseDir:
           typeof req.body?.baseDir === "string" ? req.body.baseDir : undefined,
+        mp3: req.body?.format === "mp3",
       });
       // Streamed, not read into memory: a render is a wav, and a long one is hundreds of
       // megabytes the hosted caller wants as a body rather than as a base64 field.
-      streamFile(req, res, out.files[0], "audio/wav");
+      //
+      // The type follows what was actually WRITTEN, not what was asked for: `mp3` is
+      // best-effort (see renderProject's asMp3), so a machine with no ffmpeg answers a wav and
+      // has to say so, or the caller files it under the wrong extension.
+      const file = out.files[0];
+      streamFile(
+        req,
+        res,
+        file,
+        file.toLowerCase().endsWith(".mp3") ? "audio/mpeg" : "audio/wav",
+      );
     } catch (e) {
       // A RenderError is a diagnosis — no binary, a bad document, a timeout — and saying
       // which is the whole value: from the caller's side every failure looks identical.

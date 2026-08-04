@@ -5,6 +5,7 @@
 // DomChains.tsx so it is testable on its own.
 
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
+import { jackPoint } from "./graph";
 
 // graph.ts's trackId() prefix — liveness seeds from the track nodes.
 export const TRACK_NODE_PREFIX = "trk:";
@@ -242,7 +243,10 @@ export function autoTarget(
   if (!src || !tgt || !a) return null;
   return {
     id: edge.id,
-    from: { x: src.x + src.w, y: src.y + src.h / 2 },
+    // Out of the curve's own socket, like every other cable. It KEEPS its arrowhead, unlike a
+    // signal cable: it does not plug into anything — it lands on a knob in the middle of a card,
+    // and a headless line pointing into a widget grid says nothing about which knob it means.
+    from: jackPoint(src, "out", 0),
     to: a.widget
       ? { x: tgt.x + a.widget.x, y: tgt.y + a.widget.y }
       : { x: tgt.x, y: tgt.y + tgt.h / 2 },

@@ -7,6 +7,7 @@ import { Card } from "@frediverse/ui/card";
 import { chooseEngine } from "@studio/engine-browser/choose";
 import { probeEngines, type RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
+import { formatLatency } from "@studio/web-protocol/quality";
 import { Loader2, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { App } from "./App";
@@ -19,11 +20,10 @@ type Phase =
   | { k: "picking"; ranked: RankedEngine<PublicEngine>[] }
   | { k: "ready"; engine: RankedEngine<PublicEngine> };
 
-/** Tier 1 is this machine, 2 is the LAN, 3 is listed but unreachable from this browser. */
+/** How good the link is, measured: the round trip plus what its interface costs. Null when
+ *  nothing answered — listed by the registry, out of reach from this browser. */
 function where(r: RankedEngine<PublicEngine>): string {
-  if (r.tier === 1) return "cette machine";
-  if (r.tier === 2) return "réseau local";
-  return "hors de portée";
+  return r.latency ? formatLatency(r.latency) : "hors de portée";
 }
 
 export function Gate() {

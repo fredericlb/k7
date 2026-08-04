@@ -12,7 +12,7 @@
 @source "../apps/k7/packages/recorder/src";
 @source "../apps/k7/packages/tablature/src";
 @source "../apps/k7/frontend/src";
-@source "../apps/pistes/frontend/src";
+@source "../apps/l8/frontend/src";
 
 /* Tailwind's preflight zeroes element margins; k7's legacy stylesheet
    relies on default block flow in a lot of places (mirrors its index.css). */

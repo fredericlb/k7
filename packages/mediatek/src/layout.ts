@@ -19,24 +19,24 @@ export const SCHEMA_VERSION = 1;
  *  out of it. A module's PANEL has no folder here at all: it is the `ui.yaml` inside the
  *  module, under `modules/`. */
 export const FAMILY_DIRS: Record<Family, string> = {
-  morceaux: "morceaux",
+  songs: "songs",
   samples: "samples",
   modules: "modules",
   chains: "chains",
 };
 
-/** Morceaux are filed by where they came from: `imported` is obscura's material, `recorded`
- *  is what k7 and pistes produced here. Provenance, not taste — it decides what may be
- *  re-derived and what is somebody else's master. */
-export const MORCEAU_KINDS = ["imported", "recorded"] as const;
+// There is deliberately no SONG_KINDS beside SAMPLE_KINDS below: `songs/` has no
+// subdivision. Full rationale in docs/songs.md — in short, the provenance split it used to
+// carry (`imported`/`recorded`) separated the wrong thing, and `recordings/` already
+// separates the right one.
 
 /**
  * The raw capture zone, `recordings/<YYYY-MM-DD>/<HH-MM-SS>.<ext>`.
  *
  * A zone of its own at the root, beside the three families and NOT inside one. It holds no
  * catalogue entries — a capture is an hour and some bytes, with nothing to title it by — so
- * it is not a family; and it is not a `morceaux/` kind either, because a kind is scanned,
- * and a thousand unnamed files would drown three hundred morceaux. See docs/recordings.md.
+ * it is not a family; and it is not a folder under `songs/` either, because that is scanned,
+ * and a thousand unnamed files would drown three hundred songs. See docs/recordings.md.
  *
  * Declared in types.ts and re-exported here, where the rest of the shape lives: the browser
  * needs the same word and cannot import this file.
@@ -107,10 +107,11 @@ export function exists(): boolean {
  *  marker is left exactly as it is, so a hand-edited one is never overwritten. */
 export function ensureLayout(): string {
   const root = mediatekDir();
+  // The families themselves, and the two zones. Nothing INSIDE `songs/` — it has no
+  // subdivision to pre-create, unlike `samples/`, whose two kinds decide what plays a file.
   for (const d of [
     root,
     ...Object.values(FAMILY_DIRS).map((f) => join(root, f)),
-    ...MORCEAU_KINDS.map((k) => join(root, FAMILY_DIRS.morceaux, k)),
     join(root, RECORDINGS_DIR),
     ...SAMPLE_KINDS.map((k) => join(root, FAMILY_DIRS.samples, k)),
     libraryDir(),
@@ -130,7 +131,7 @@ export function ensureLayout(): string {
 
   // The namespace, once, at creation. Written only when absent — the same discipline as the
   // marker above, and for a sharper reason: this string is the prefix every ref in every
-  // project is keyed by, so rewriting it would rename modules out from under songs that
+  // project is keyed by, so rewriting it would rename modules out from under the songs that
   // name them. See `libraryNamespace`.
   const modulesConfig = join(root, FAMILY_DIRS.modules, MODULES_CONFIG);
   if (!existsSync(modulesConfig))

@@ -144,28 +144,25 @@ describe("resolveModule", () => {
   });
 
   it("keeps an inherited asset the loader wrote as undefined on the child", () => {
-    // THE fix. Decoration writes `ir`/`nam`/`jsdsp`/`preset` on every module, at
-    // undefined when it declares none, so a plain spread had the child erase its
-    // parent's — which is why five call sites had grown a `?? base?.x` for each.
+    // THE fix. Decoration writes `nam`/`jsdsp`/`preset` on every module, at undefined when it
+    // declares none, so a plain spread had the child erase its parent's — which is why five
+    // call sites had grown a `?? base?.x` for each.
     const byRef = {
-      "@library/cab": mod({
-        ir: "/lib/ir/4x12.wav",
-        nam: "/lib/nam/amp.nam",
-        preset: "/lib/p.vstpreset",
-        assets: { ir: "4x12.wav" },
+      "@mediatek/audio/amp": mod({
+        nam: "/mods/amp/assets/jcm800.nam",
+        preset: "/mods/amp/p.vstpreset",
+        assets: { nam: "jcm800.nam" },
       }),
     };
     const child = mod({
-      extends: "@library/cab",
-      ir: undefined,
+      extends: "@mediatek/audio/amp",
       nam: undefined,
       preset: undefined,
     });
     const m = resolveModule(child, byRef);
-    expect(m.ir).toBe("/lib/ir/4x12.wav");
-    expect(m.nam).toBe("/lib/nam/amp.nam");
-    expect(m.preset).toBe("/lib/p.vstpreset");
-    expect(m.assets).toEqual({ ir: "4x12.wav" });
+    expect(m.nam).toBe("/mods/amp/assets/jcm800.nam");
+    expect(m.preset).toBe("/mods/amp/p.vstpreset");
+    expect(m.assets).toEqual({ nam: "jcm800.nam" });
   });
 
   it("never inherits what says WHERE the module lives", () => {
