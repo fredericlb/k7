@@ -6,6 +6,9 @@
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")
   gain: number; // 0..1 share (1 == whole signal)
+  // Which OUTPUT of the source this edge left from, when the chains file keyed one
+  // (`sep#vocals: [ reverb ]`). Absent on a module with the single output most have.
+  fromPort?: string;
 }
 // One widget on a module's UI grid — the wire copy of the brain's Widget; `hidden` is resolved away by the merge.
 export interface WebWidget {

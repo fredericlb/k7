@@ -142,7 +142,13 @@ export function buildGraphDoc(dir: string): WebGraph {
         };
       }),
       enabled: c.enabled,
-      out: c.out.map((o) => ({ to: o.to, gain: o.gain })),
+      // `fromPort` only when there is one: a module with the single output most have says
+      // nothing, and the wire stays what it was for every chain drawn before.
+      out: c.out.map((o) => ({
+        to: o.to,
+        gain: o.gain,
+        ...(o.fromPort ? { fromPort: o.fromPort } : {}),
+      })),
     };
 
   /**

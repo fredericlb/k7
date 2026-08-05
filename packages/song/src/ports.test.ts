@@ -128,6 +128,31 @@ describe("wiring a named port", () => {
     });
     expect(derived.deck.out.map((o) => o.to).sort()).toEqual(["OUT", "phones"]);
     expect(Object.keys(derived).sort()).toEqual(["deck", "phones"]);
+    // …but the union costs the module's identity only, not the cable's origin: this used to be
+    // the place the source jack was forgotten, and the two edges read the same.
+    expect(derived.deck.out.find((o) => o.to === "phones")?.fromPort).toBe("cue");
+    expect(derived.deck.out.find((o) => o.to === "OUT")?.fromPort).toBeUndefined();
+  });
+
+  it("ends the run at a module that splits across its own outputs", () => {
+    // A separator keyed once per stem is FOUR keys of one destination each. Counting the
+    // out-degree per key would call every edge an only child and absorb all four targets into
+    // one run through a module that in fact splits.
+    const derived = deriveChains({
+      modules: {
+        "sep#drums": ["gate"],
+        "sep#vocals": ["reverb"],
+        gate: ["OUT"],
+        reverb: ["OUT"],
+      },
+    });
+    expect(derived.sep.use.map((s) => s.module)).toEqual(["sep"]);
+    expect(derived.sep.out.map((o) => [o.fromPort, o.to]).sort()).toEqual([
+      ["drums", "gate"],
+      ["vocals", "reverb"],
+    ]);
+    // Each target starts a chain of its own rather than being swallowed by sep's run.
+    expect(Object.keys(derived).sort()).toEqual(["gate", "reverb", "sep"]);
   });
 });
 
