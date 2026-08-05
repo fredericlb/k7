@@ -44,8 +44,11 @@ export async function ensureKey(userEmail: string): Promise<void> {
     throw new NoKeyError(
       "no SSH key on this machine, and no API token (MEDIATEK_TOKEN) to fetch one with — paste a token into this machine's settings",
     );
+  // Named, because the token a machine holds is a SERVICE's and has no key of its own. The
+  // email is what this service knows a person by; st0 files them under their OIDC subject and
+  // bridges the two. See apps/st0/docs/sshKeyForService.md.
   const res = await fetch(
-    `${base.replace(/\/+$/, "")}/api/projects/ssh-key/private`,
+    `${base.replace(/\/+$/, "")}/api/projects/ssh-key/private?user=${encodeURIComponent(userEmail)}`,
     { headers: { authorization: `Bearer ${token}` } },
   );
   if (!res.ok) {

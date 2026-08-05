@@ -10,6 +10,7 @@ import type { RepoProject } from "@studio/git-repos/mirror";
 import { assertSshGitUri } from "@studio/git-repos/uri";
 import type { Request } from "express";
 import express, { Router } from "express";
+import { rememberIdentity, subFor } from "../projects/identities.ts";
 import {
   ensure,
   forget,
@@ -33,6 +34,16 @@ function subOf(req: Request): string | null {
   return u?.sub ?? u?.email ?? null;
 }
 
+/** The email beside it, when the IdP sent one — what the file service knows a person by. */
+function emailOf(req: Request): string | null {
+  return (req as { user?: { email?: string } }).user?.email ?? null;
+}
+
+/** What `scripts/tokens.mjs` prefixes a machine-to-service token's subject with. A literal and
+ *  not an import: that script is plain node and cannot read TypeScript, so the two agree by
+ *  this comment and by the test below it. */
+const SERVICE_SUB_PREFIX = "service:";
+
 export function projectsRouter(opts: {
   /** Used by the private-key route alone, to insist on a bearer where a cookie would do. */
   verifyApiToken: (token: string) => string | null;
@@ -40,8 +51,11 @@ export function projectsRouter(opts: {
   const router: Router = Router();
 
   router.use((req, res, next) => {
-    if (!subOf(req))
-      return res.status(401).json({ error: "no user on the session" });
+    const sub = subOf(req);
+    if (!sub) return res.status(401).json({ error: "no user on the session" });
+    // The one place both spellings of a person are in hand at once. Recorded here rather than
+    // at login because this service mints no session — it verifies one st0 already issued.
+    rememberIdentity(sub, emailOf(req));
     next();
   });
 
@@ -77,18 +91,39 @@ export function projectsRouter(opts: {
    *
    * Bearer only — deliberately not `bearerOrSession`. A session cookie is sent by a browser
    * on any navigation, so accepting one here would make this reachable by pointing a logged-in
-   * tab at the URL. A bearer is only ever attached on purpose, and the token's subject IS the
-   * owner, so there is no cross-user request to reject. See packages/git-repos/docs/keys.md.
+   * tab at the URL. A bearer is only ever attached on purpose.
+   *
+   * WHOSE key, then. An ACCOUNT token answers that by itself: its subject is the owner and no
+   * `user` is accepted, so a person's own token can never reach for somebody else's. A SERVICE
+   * token — which is what a machine actually holds (`scripts/tokens.mjs`) — has no key of its
+   * own, so it must NAME the person, and any name it gives is honoured. That is the accepted
+   * cost of one credential per machine rather than one per person: whoever holds a machine's
+   * token can ask for anyone's key. See ../../docs/sshKeyForService.md.
    */
   router.get(
     "/ssh-key/private",
     wrap((req, res) => {
       const m = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || "");
-      const owner = m ? opts.verifyApiToken(m[1].trim()) : null;
-      if (!owner)
+      const bearer = m ? opts.verifyApiToken(m[1].trim()) : null;
+      if (!bearer)
         return res
           .status(401)
           .json({ error: "this route takes an API token, not a session" });
+      const asked = typeof req.query.user === "string" ? req.query.user : "";
+      const service = bearer.startsWith(SERVICE_SUB_PREFIX);
+      if (service && !asked)
+        return res.status(400).json({
+          error: "a service token must say whose key it is asking for (?user=)",
+        });
+      // An account token naming someone else is refused rather than ignored: silently handing
+      // back your own key for a request that asked for another's would read as success.
+      if (!service && asked && subFor(asked) !== bearer)
+        return res
+          .status(403)
+          .json({ error: "an account token can only ask for its own key" });
+      // `subFor` because the two halves spell a person differently — the file service knows
+      // the email the browser sent it, this side files everything under the OIDC subject.
+      const owner = service ? subFor(asked) : bearer;
       const dir = keyDirFor(owner);
       const key = privateKey(dir);
       if (!key)
