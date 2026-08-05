@@ -208,7 +208,8 @@ pour le mode normal — ce sont les valeurs que les joueurs lisent déjà, incha
 
 `effects` remplace les neuf colonnes `fx_*` par une table dont seules les entrées non
 nulles sont écrites : `{ speed: 5, overdrive: 5 }`. Elles ne servent qu'à 31 morceaux sur
-279.
+279. Les neuf effets existent maintenant comme modules de la médiathèque — ce qui est fidèle,
+ce qui est approché et pourquoi : [effects.md](effects.md).
 
 **Piste** — `song` (adresse médiathèque) **ou** `file` (chemin relatif au dossier du
 projet) **ou** `youtube`, plus `start`, `end`, et `artist` / `title` en dérogation quand
