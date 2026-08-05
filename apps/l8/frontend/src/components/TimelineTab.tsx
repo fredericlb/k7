@@ -8,7 +8,12 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { beatsToPosition } from "@studio/song/timecode";
 import { trackLabel } from "@studio/song/trackKind";
-import { labelled, labelStride, subdivideBeats } from "@studio/ui-waveform";
+import {
+  labelled,
+  labelMinPx,
+  labelStride,
+  subdivideBeats,
+} from "@studio/ui-waveform";
 import {
   Music,
   Repeat,
@@ -966,9 +971,33 @@ export function TimelineTab({
   const bars: number[] = [];
   for (let b = Math.ceil(beatLo / unit - 1e-9) * unit; b <= lastBeat; b += unit)
     bars.push(b);
+  // A tick's weight and its number: a bar keeps its own, a beat inside one is numbered
+  // within the bar (5.2, 5.3…), and anything finer is a line with no number at all.
+  const tickAt = (b: number) => {
+    const bar = Math.abs(b / barBeats - Math.round(b / barBeats)) < 1e-6;
+    const onBeat = Math.abs(b - Math.round(b)) < 1e-6;
+    return {
+      bar,
+      onBeat,
+      label: bar
+        ? String(Math.round(b / barBeats) + 1)
+        : onBeat
+          ? `${Math.floor(b / barBeats) + 1}.${Math.round(b % barBeats) + 1}`
+          : "",
+    };
+  };
+  // The widest number this ruler CAN print — the last bar's, carrying a beat once beats are
+  // drawn. Taken from the ruler's END rather than the bars on screen: on those, panning past
+  // bar 10 and again past bar 100 would re-thin every label under the cursor.
+  const lastBarNo = Math.floor(Math.max(lastBeat, 0) / barBeats) + 1;
+  const widestLabel =
+    unit < barBeats
+      ? `${lastBarNo}.${Math.round(barBeats)}`
+      : String(lastBarNo);
   // How many COLUMNS per printed number: 1 while they fit, then 2, 4, 8… as the zoom
-  // closes. Measured on the drawn unit, which is what a column now is.
-  const barStride = labelStride(unit * ppb);
+  // closes. Measured on the drawn unit, which is what a column now is, against the room the
+  // widest label actually needs — see @studio/ui-waveform's docs/ticks.md.
+  const barStride = labelStride(unit * ppb, labelMinPx(widestLabel));
   const playBeat = (state.playhead * proj.tempo) / 60;
   const playVisible = playBeat >= beatLo && playBeat <= lastBeat;
 
@@ -1169,18 +1198,9 @@ export function TimelineTab({
                 // visible index, scrolling would change which ticks survive the stride and
                 // the numbers would flicker as you pan.
                 const tickIndex = Math.round(b / unit);
-                const bar =
-                  Math.abs(b / barBeats - Math.round(b / barBeats)) < 1e-6;
-                const onBeat = Math.abs(b - Math.round(b)) < 1e-6;
-                const barIndex = Math.round(b / barBeats);
-                // A bar keeps its number; a beat inside one is numbered within the bar
-                // (5.2, 5.3…), which is what makes a subdivided ruler locatable. Below
-                // the beat, lines only — a 16th's number is noise at any zoom.
-                const label = bar
-                  ? String(barIndex + 1)
-                  : onBeat
-                    ? `${Math.floor(b / barBeats) + 1}.${Math.round(b % barBeats) + 1}`
-                    : "";
+                // Numbering a subdivided ruler is what makes it locatable; below the beat
+                // it is lines only, since a 16th's number is noise at any zoom (tickAt).
+                const { bar, onBeat, label } = tickAt(b);
                 return (
                   <div
                     key={b}

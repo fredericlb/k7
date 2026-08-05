@@ -1,21 +1,39 @@
-// ticks.ts — how many gridlines to LABEL when they get too close together.
-//
-// A time ruler keeps drawing its lines as you zoom out, but the numbers on them stop
-// being readable long before the lines do: at 6px apart "17" and "18" overlap into a
-// smear. Thinning is by halving — label every 2nd, then every 4th, every 8th — because
-// the labels that survive are then always the round ones (bars 1, 5, 9… not 1, 4, 7),
-// which is what makes a ruler scannable.
-//
-// Lives here rather than in either caller because the waveform's ruler and the timeline's
-// have to agree: they sit one above the other in the clip editor, and two different
-// thinning rules would put a label on one and not the other at the same zoom.
+// ticks.ts — how many gridlines to LABEL when they get too close together, and which
+// unit a ruler draws. Thinning is by halving, so the labels that survive are the round
+// ones (bars 1, 5, 9… not 1, 4, 7), which is what makes a ruler scannable. It lives here
+// rather than in either caller because the waveform's ruler and the timeline's have to
+// agree — see docs/ticks.md for why, and for where the widths come from.
 
-/** The minimum gap, in px, between two labels before they read as one smear. */
+/** The floor under any label spacing — what a single-character label needs. */
 export const MIN_LABEL_PX = 10;
+
+/** Advance of one character at the 12px monospace the timeline's ruler labels in. */
+export const MONO_CHAR_PX = 7.2;
+
+/** Clear space between one label's last character and the next label's first. */
+export const LABEL_GAP_PX = 8;
+
+/**
+ * How far apart two gridlines must be for `widest` to fit between them: the label's own
+ * width plus a gap. Pass the WIDEST label the ruler can print, not the widest currently on
+ * screen, or panning across bar 10 or bar 100 would re-thin the whole ruler under you.
+ *
+ * Estimated from the character count rather than measured. Both rulers label in digits and
+ * dots, which are single-advance in a monospace, so the count IS the width — and the
+ * timeline draws DOM, where measuring means a layout per frame. The 12px monospace is the
+ * wider of the two rulers' fonts, so the waveform's 10px sans is covered by the same
+ * number, which is what keeps the two agreeing when stacked. See docs/ticks.md.
+ */
+export function labelMinPx(widest: string, charPx = MONO_CHAR_PX): number {
+  return Math.max(MIN_LABEL_PX, widest.length * charPx + LABEL_GAP_PX);
+}
 
 /**
  * Label every Nth gridline, N a power of two, so that labels are at least `minPx` apart.
  * `spacingPx` is the distance between ADJACENT gridlines.
+ *
+ * `minPx` defaults to the floor, which only suits a one-character label — every caller
+ * with real labels passes `labelMinPx(widest)`, because "129" needs three times that.
  *
  * Returns 1 when they already fit. Non-finite or non-positive spacing (a zero-width pane
  * mid-layout, a degenerate zoom) yields 1 as well: the caller draws what it has rather

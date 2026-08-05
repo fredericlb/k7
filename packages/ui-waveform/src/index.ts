@@ -4,10 +4,13 @@
 // wrapper/marker styles.
 
 export {
+  LABEL_GAP_PX,
   labelled,
+  labelMinPx,
   labelStride,
   MAX_COLUMN_PX,
   MIN_LABEL_PX,
+  MONO_CHAR_PX,
   subdivideBeats,
 } from "./ticks";
 export type {
