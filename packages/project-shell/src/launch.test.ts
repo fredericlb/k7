@@ -116,6 +116,25 @@ describe("launchUrl", () => {
     );
   });
 
+  // z0 is seven SPAs behind one prefix, and only one of them opens a project — so its address
+  // carries the SPA too (PROJECT_MOUNTS). This is the pair that would silently 404 if the two
+  // ends ever disagreed about that segment.
+  it("sends a z0 session to the editor, not to the game's apex", () => {
+    expect(
+      launchUrl("https://studio.test", "lemo_mante", "session-2304.z0", "z0"),
+    ).toBe("https://studio.test/z0/editor-v2/lemo_mante/session-2304.z0");
+  });
+
+  it("round-trips a z0 session through the editor's own base", () => {
+    const url = new URL(
+      launchUrl("https://studio.test", "lemo_mante", "a/party.z0", "z0"),
+    );
+    expect(parseLaunch(url.pathname, "z0", "/z0/editor-v2/")).toEqual({
+      repo: "lemo_mante",
+      project: "a/party.z0",
+    });
+  });
+
   it("keeps only the origin, whatever URL it is handed", () => {
     expect(
       launchUrl("https://studio.test/projects/abc", "band", "a.l8", "l8"),

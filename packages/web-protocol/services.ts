@@ -14,12 +14,18 @@
  * `st0` is deliberately `""`: the médiathèque is the studio's front door, so it answers at
  * the ORIGIN itself and `serviceUrl(origin, "st0")` is the origin. An empty path is a real
  * entry here rather than a special case at each call site — every caller already concatenates.
+ *
+ * This table says WHERE a service answers, and nothing about whose session it carries. `z0` is
+ * the case that makes the distinction worth stating: the game runs its own login on its own
+ * `/z0/auth/callback` and does not share st0's cookie — but its path is as fixed as the
+ * others', and it holds a surface that opens a project, which needs an address st0 can write.
  */
 export const SERVICE_PATHS = {
   l8: "/l8",
   st0: "",
   k7: "/k7",
   m9: "/m9",
+  z0: "/z0",
 } as const;
 
 export type StudioService = keyof typeof SERVICE_PATHS;
@@ -41,6 +47,7 @@ export const SERVICE_PORTS: Record<StudioService, number> = {
   st0: 8795,
   k7: 8787,
   m9: 8796,
+  z0: 8080,
 };
 
 /** Where a service answers on the machine it runs on. See SERVICE_PORTS for when to prefer it. */

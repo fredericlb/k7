@@ -115,6 +115,13 @@ studio.test {
 	handle @z0_remote {
 		reverse_proxy 127.0.0.1:3005
 	}
+	# editor-v2 BEFORE editor: handle blocks match top to bottom, and `/z0/editor/*` would
+	# not swallow `/z0/editor-v2` anyway (the segment differs), but keeping the more specific
+	# one first is what makes that safe to read. When v2 takes over, this pair becomes one.
+	@z0_editor_v2 path /z0/editor-v2 /z0/editor-v2/*
+	handle @z0_editor_v2 {
+		reverse_proxy 127.0.0.1:3007
+	}
 	@z0_editor path /z0/editor /z0/editor/*
 	handle @z0_editor {
 		reverse_proxy 127.0.0.1:3006

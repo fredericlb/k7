@@ -11,6 +11,7 @@
     "apps/z0/backend",
     "apps/z0/buzzer",
     "apps/z0/editor",
+    "apps/z0/editor-v2",
     "apps/z0/monitor-web",
     "apps/z0/online",
     "apps/z0/presenter",

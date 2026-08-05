@@ -26,10 +26,10 @@ const OTHER_APPS: {
     hint: "l'enregistreur de répétitions — sessions, prises, tablature",
     icon: Mic,
   },
-  // z0 is NOT in SERVICE_PATHS on purpose: it has its own login and its own /z0/auth/callback,
-  // so it is not one of the services that share st0's session. Its path is still fixed.
+  // z0 runs its own login on its own /z0/auth/callback, so it is not one of the services that
+  // share st0's session — but its PATH is as fixed as the others', which is what the table says.
   {
-    href: "/z0/",
+    href: `${SERVICE_PATHS.z0}/`,
     label: "z0",
     hint: "le blind-test — l'accueil du jeu",
     icon: Gamepad2,

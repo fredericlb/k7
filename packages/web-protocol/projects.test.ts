@@ -5,6 +5,7 @@ describe("projectApp", () => {
   it("reads the suffix", () => {
     expect(projectApp("mysong.l8")).toBe("l8");
     expect(projectApp("myset.m9")).toBe("m9");
+    expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
   it("is null for a folder claiming no app", () => {
@@ -15,12 +16,12 @@ describe("projectApp", () => {
   it("refuses a bare suffix — `.l8` is a dotfolder, not a nameless project", () => {
     expect(projectApp(".l8")).toBe(null);
     expect(projectApp(".m9")).toBe(null);
+    expect(projectApp(".z0")).toBe(null);
   });
 
   it("does not match another service's name", () => {
-    // k7 and z0 own no projects; a folder named for one is just a folder.
+    // k7 owns no projects; a folder named for it is just a folder.
     expect(projectApp("show.k7")).toBe(null);
-    expect(projectApp("game.z0")).toBe(null);
   });
 
   it("is case-sensitive, like the folder names it reads", () => {

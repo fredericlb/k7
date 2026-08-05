@@ -1,14 +1,14 @@
 # AGENTS.md — z0
 
 The **blind-test game**: a presenter runs a session on a screen, players buzz in from their
-phones, and an editor builds the rounds. Six single-page apps and one backend, all behind one
+phones, and an editor builds the rounds. Seven single-page apps and one backend, all behind one
 origin.
 
 It is the odd one out in this repo, and knowing why saves you looking for things that are not
 here. z0 is a **game**, not a studio tool: it has its own login, its own session cookie,
 its own database, and it touches `engine/moteur` at exactly one point — an offline render.
 
-## The six SPAs and the backend
+## The seven SPAs and the backend
 
 | workspace | port | served at | what it is |
 |---|---|---|---|
@@ -17,7 +17,8 @@ its own database, and it touches `engine/moteur` at exactly one point — an off
 | `monitor-web` | 3002 | `/z0/monitor` | the operator's view of a running session |
 | `buzzer` | 3004 | `/z0/buzzer` | the player's phone |
 | `remote` | 3005 | `/z0/remote` | the presenter's own remote |
-| `editor` | 3006 | `/z0/editor` | building rounds and questions |
+| `editor` | 3006 | `/z0/editor` | building rounds and questions, out of Grist |
+| `editor-v2` | 3007 | `/z0/editor-v2` | the same job over a `.z0` project — see [docs/editor-v2.md](docs/editor-v2.md) |
 | `backend` | 8080 | `/z0/api`, `/z0/auth`, `/z0/ws` | Express + WebSocket |
 
 `shared/` (`z0-shared`) holds the presentational components and types the six frontends
@@ -38,6 +39,13 @@ origin root, which belongs to l8.
 
 **Its own state, in Grist and SQLite.** `backend/src/db.ts` and `backend/src/grist/`. Nothing
 here is a song folder; do not reach for `@studio/song`.
+
+**…except `editor-v2`, which is not a game surface at all.** It opens a `.z0` project out of a
+git repository, so it signs in with the STUDIO session, asks st0 which repositories exist and
+reads files through the machine's file service — the same three steps l8 and m9 take, through
+the same `@studio/project-shell`. It never talks to z0's backend. That is the one place where
+"z0 has its own everything" stops being true, and [docs/editor-v2.md](docs/editor-v2.md) says
+why it has to.
 
 **One engine, owned by the BACKEND.** `backend/src/render.ts` is the single exception to the
 per-account engine story the rest of the repo tells: z0 renders offline and never plays,
