@@ -16,13 +16,16 @@ deliberately does not have.
 
 ## The two things to understand first
 
-**1. m9 picks no workspace.** st0 owns the repositories and links here with
-`?repo=&project=`. `ProjectShell` mounts `@studio/project-shell`'s gate — the same one l8
-mounts — which resolves that repository to a folder on the chosen machine, cloning it with a
-visible progress bar if that machine has never seen it, then opens the project. Arriving with
-no parameters redirects to st0's `/projects`. See
-[packages/project-shell/docs/launch.md](../../packages/project-shell/docs/launch.md), in particular why the two
-parameters are read at *import* time.
+**1. m9 picks no workspace.** st0 owns the repositories and links here with an ADDRESS —
+`/m9/<repo>/<set.m9>`, the repository by its short name. `ProjectShell` mounts
+`@studio/project-shell`'s gate — the same one l8 mounts — which asks st0 for the git URI
+behind that name, resolves it to a folder on the chosen machine, cloning it with a visible
+progress bar if that machine has never seen it, then opens the project. Arriving with no
+project in the address redirects to st0's `/projects`. That prefix is the router's `basename`
+(`projectBasename` in `main.tsx`), so `routes.ts` writes only below it and nothing is
+remembered anywhere. A `.m9` set nested inside a `.l8` song addresses fine —
+`/m9/band/winter.l8/live.m9` — because each app reads its own suffix. See
+[packages/project-shell/docs/launch.md](../../packages/project-shell/docs/launch.md).
 
 **2. The moteur opens file paths. It cannot fetch a URL.** That is still why Mix plays the
 médiathèque's **cache on the engine's own disk**, reached through that machine's file service,

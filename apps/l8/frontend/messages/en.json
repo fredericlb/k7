@@ -11,6 +11,8 @@
   "engines.noLatency": "latency unknown",
   "project.cloning": "Fetching {workspace} onto this machine…",
   "project.backToProjects": "Back to Projects",
+  "project.missingTitle": "That project isn't in the repository",
+  "project.missingBody": "The repository is here, but this project isn't: it was most likely renamed or removed since the media library last read the repository. Go back to Projects and open it again.",
   "settings.menu": "Settings",
   "settings.editor": "Editor settings",
   "settings.engine": "Engine",

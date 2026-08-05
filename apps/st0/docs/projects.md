@@ -75,17 +75,22 @@ dossiers qui ne sont pas des projets.
 2. La liste affiche chaque dépôt avec **ses projets en retrait dessous** ; un clic sur l'un
    d'eux part directement dans son application. Le nom du dépôt, lui, ouvre l'arborescence,
    où les dossiers-projets sont marqués de la même façon.
-3. Dans les deux cas on arrive à `/<app>/?repo=<uri>&project=<dossier>`.
-4. L'application demande au file service `GET /workspaces/by-repo?uri=` : cette machine
+3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — une ADRESSE, et le dépôt
+   par son **nom court**, pas par son URI : une barre d'adresse se copie et se colle, et une
+   URI SSH y traîne une machine, un port et un utilisateur.
+4. L'application nous redemande l'URI derrière ce nom (`GET /api/projects/by-name/:name`).
+   Nous seuls la connaissons. Deux dépôts qui répondent au même nom court font un 409 plutôt
+   qu'un choix silencieux.
+5. Puis elle demande au file service `GET /workspaces/by-repo?uri=` : cette machine
    connaît-elle ce dépôt ?
-5. Sinon, elle le clone, **avec la progression de git à l'écran**
+6. Sinon, elle le clone, **avec la progression de git à l'écran**
    ([cloneJobs.md](../../../packages/file-service/docs/cloneJobs.md)), puis ouvre le projet.
 
-Les étapes 4 et 5 sont `@studio/project-shell`, montée à l'identique par les deux applications :
+Les étapes 4 à 6 sont `@studio/project-shell`, montée à l'identique par les deux applications :
 une divergence là serait un clone en double ou un 404. Chacune ne connaît que ça — le projet sur
 lequel elle a été lancée. Voir
-[packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md), notamment pourquoi les
-deux paramètres sont lus à l'import du module et pas dans un composant, et
+[packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md), notamment pourquoi
+l'adresse est un chemin et non des paramètres — ce qui supprime le `sessionStorage` d'avant — et
 [apps/m9/docs/views.md](../../m9/docs/views.md) pour ce que m9 fait d'un projet.
 
 ## Pourquoi la comparaison des URI est normalisée

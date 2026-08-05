@@ -24,6 +24,7 @@ import { serviceUrl } from "@studio/web-protocol/services";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
 import type { St0Prefs } from "./prefs";
+import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
 // path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
@@ -266,13 +267,15 @@ export const projects = {
   /**
    * Where a project opens — l8 or m9, whichever its folder name claims. Derived from the
    * page's own origin rather than declared: every studio service sits at a fixed path under
-   * one origin, so dev and production differ by that origin and nothing else. Both apps read
-   * the same two parameters; see packages/project-shell/docs/launch.md.
+   * one origin, so dev and production differ by that origin and nothing else.
+   *
+   * A PATH, `/l8/<repo>/<project>`, and the repository by its short NAME. The editor asks us
+   * back for the URI (`/api/projects/by-name/:name`), which keeps a host, a port and a user
+   * out of an address bar that gets bookmarked and pasted.
+   * See packages/project-shell/docs/launch.md.
    */
-  openIn: (repoUri: string, project: string, app: ProjectApp): string => {
-    const q = new URLSearchParams({ repo: repoUri, project });
-    return `${serviceUrl(window.location.origin, app)}/?${q.toString()}`;
-  },
+  openIn: (repoName: string, project: string, app: ProjectApp): string =>
+    launchUrl(window.location.origin, repoName, project, app),
 };
 
 export const library = {

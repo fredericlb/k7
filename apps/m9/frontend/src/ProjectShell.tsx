@@ -15,6 +15,9 @@ export function ProjectShell({
   return (
     <ProjectGate
       engine={engine}
+      app="m9"
+      // The same two the router's basename is built from, in main.tsx.
+      base={import.meta.env.BASE_URL}
       strings={{
         cloning: (workspace) =>
           `Récupération de ${workspace} sur cette machine…`,
@@ -28,6 +31,9 @@ export function ProjectShell({
           `Le service de fichiers tourne, mais il a refusé l'origine de cette page (${origin}). Autorisez-la depuis le capot : « Web UI ▸ ${origin} », puis réessayez.`,
         bothBody:
           "Le service de fichiers du moteur n'a pas répondu. Il est peut-être arrêté, ou l'origine de cette page n'est peut-être pas autorisée à l'appeler.",
+        missingTitle: "Ce projet n'est pas dans le dépôt",
+        missingBody:
+          "Le dépôt est bien là, mais pas ce projet : il a sans doute été renommé ou supprimé depuis la dernière lecture du dépôt par la médiathèque. Retournez aux projets et rouvrez-le.",
       }}
     >
       {({ project, quit }) => (

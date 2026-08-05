@@ -19,6 +19,10 @@ export function ProjectGate({
   return (
     <Shared
       engine={engine}
+      app="l8"
+      // The same two the router's basename is built from, in main.tsx — this reads the target
+      // out of the address rather than being handed it, so both sides agree by construction.
+      base={import.meta.env.BASE_URL}
       strings={{
         cloning: (workspace) => m["project.cloning"]({ workspace }),
         back: m["project.backToProjects"](),
@@ -28,6 +32,8 @@ export function ProjectGate({
         blockedTitle: m["filesGate.blockedTitle"](),
         blockedBody: (origin) => m["filesGate.blockedBody"]({ origin }),
         bothBody: m["filesGate.body"](),
+        missingTitle: m["project.missingTitle"](),
+        missingBody: m["project.missingBody"](),
       }}
     >
       {({ workspace, project, userEmail, quit }) => (

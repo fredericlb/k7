@@ -3,15 +3,29 @@
 // render the app. Neither l8 nor m9 picks anything here: st0 owns the repositories, and
 // arriving with no target sends you back there. See docs/launch.md.
 
-import { FolderGit2, Loader2, ServerCrash, ShieldAlert } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import type { ProjectApp } from "@studio/web-protocol/projects";
+import {
+  FolderGit2,
+  FolderSearch,
+  Loader2,
+  ServerCrash,
+  ShieldAlert,
+} from "lucide-react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   configureFileApi,
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
-import { clearLaunch, launchTarget, projectsUrl } from "./launch.ts";
+import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
+import { repoByName } from "./repoLookup.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
 const POLL_MS = 400;
@@ -20,6 +34,9 @@ type Phase =
   | { k: "resolving" }
   | { k: "cloning"; workspace: string; phase: string; percent: number | null }
   | { k: "error"; message: string; fault?: FileServiceFault; lines?: string[] }
+  // The project itself is the problem — the machine answered, and said it has no such folder.
+  // Its own screen, because the only useful action is to go and pick again. See docs/launch.md.
+  | { k: "missing"; message: string }
   | { k: "open"; workspace: string; project: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -40,15 +57,25 @@ export interface ProjectGateStrings {
   blockedBody: (origin: string) => string;
   bothBody: string;
   retry: string;
+  /** The project named is not in the workspace — a wording apart, because nothing is broken. */
+  missingTitle: string;
+  missingBody: string;
 }
 
 export function ProjectGate({
   engine,
+  app,
+  base,
   strings,
   children,
   onQuit,
 }: {
   engine: GateEngine;
+  /** Which app this is — it decides the suffix that ends the project in the address. */
+  app: ProjectApp;
+  /** Where this app is mounted, as vite's `import.meta.env.BASE_URL` gives it (`/l8/`). The
+   *  package cannot read another package's build constant, so the app hands it over. */
+  base: string;
   /** Each app owns its own wording (l8 has paraglide, m9 is French in place). */
   strings: ProjectGateStrings;
   /** Rendered once the project is open — the app itself. */
@@ -65,7 +92,16 @@ export function ProjectGate({
   const [email, setEmail] = useState("");
   // Bumped by Retry to re-run the setup effect below.
   const [attempt, setAttempt] = useState(0);
-  const target = launchTarget();
+  // From `window.location`, not `useLocation()`: the router's basename is this very prefix, so
+  // what the hook reports has the repo and project already stripped off it.
+  //
+  // Once per mount, and that matters twice: it is a fresh object every call, which as an
+  // effect dependency below would re-resolve the workspace forever; and the prefix cannot
+  // change without a navigation that remounts this anyway.
+  const target = useMemo(
+    () => parseLaunch(window.location.pathname, app, base),
+    [app, base],
+  );
 
   const configure = useCallback(
     (userEmail: string, workspace: string) => {
@@ -79,18 +115,18 @@ export function ProjectGate({
     [engine.fileBase, engine.token],
   );
 
-  /** Leave: let the app go first, forget the target, and go back to where projects live. */
+  /** Leave: let the app go first, then go back to where projects live. Nothing to forget —
+   *  the target was the address, and we are about to leave it. */
   const quit = useCallback(() => {
     onQuit?.();
     void projectApi.unloadEngine().catch(() => {
       /* engine/file service gone — leaving is still right */
     });
-    clearLaunch();
     window.location.href = projectsUrl(window.location.href);
   }, [onQuit]);
 
-  // No target at all: this tab was opened by hand or the session was cleared. st0 is where a
-  // project is chosen, so go there rather than inventing a picker this app does not own.
+  // No target at all: `/l8/` on its own, or a hand-typed address. st0 is where a project is
+  // chosen, so go there rather than inventing a picker this app does not own.
   useEffect(() => {
     if (!target) window.location.replace(projectsUrl(window.location.href));
   }, [target]);
@@ -98,7 +134,7 @@ export function ProjectGate({
   useEffect(() => {
     if (!target) return;
     let cancelled = false;
-    const { repo, project } = target;
+    const { repo: repoName, project } = target;
     void (async () => {
       // Catch: an unhandled rejection here leaves `phase` on "resolving" FOREVER — a spinner
       // with no explanation.
@@ -112,6 +148,24 @@ export function ProjectGate({
         if (cancelled) return;
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
+
+        // The address carries a NAME; git needs a URI, and st0 is what holds the pairing.
+        // First, because everything below is about a repository we cannot yet name to git.
+        let repo: string;
+        try {
+          repo = (await repoByName(repoName)).uri;
+        } catch (e) {
+          if (cancelled) return;
+          // st0 answered "no such name" / "two of them" — a target problem, not a fault, and
+          // the same screen as a project that is not in the repository.
+          const status = (e as { status?: number }).status;
+          if (status === 404 || status === 409) {
+            setPhase({ k: "missing", message: (e as Error).message });
+            return;
+          }
+          throw e;
+        }
+        if (cancelled) return;
 
         let workspace = (await projectApi.workspaceByRepo(repo)).workspace;
         if (cancelled) return;
@@ -150,7 +204,20 @@ export function ProjectGate({
         }
 
         configure(userEmail, workspace);
-        await projectApi.open(project);
+        try {
+          await projectApi.open(project);
+        } catch (e) {
+          if (cancelled) return;
+          // A refusal, not a fault: the service answered, and what it said is the whole story.
+          // Probing it would ask whether it is reachable — it plainly is — and then show the
+          // answer under the CORS banner, which is what made this look like l8's fault.
+          const status = (e as { status?: number }).status;
+          if (status === 400 || status === 404) {
+            setPhase({ k: "missing", message: (e as Error).message });
+            return;
+          }
+          throw e; // anything else (a transport failure, a 500) is diagnosed below
+        }
         if (cancelled) return;
         setPhase({ k: "open", workspace, project });
       } catch (e) {
@@ -203,6 +270,30 @@ export function ProjectGate({
               }
             />
           </div>
+        </div>
+      </div>
+    );
+
+  // The repository is fine and the machine is fine; this project is not in it. Going back to
+  // pick again is the only move, so it is the primary button — and Retry is not offered at
+  // all, since re-running the same target can only fail the same way.
+  if (phase.k === "missing")
+    return (
+      <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <FolderSearch className="h-10 w-10 text-amber-500" />
+          <h1 className="text-lg font-semibold">{strings.missingTitle}</h1>
+          <p className="text-sm text-muted-foreground">{strings.missingBody}</p>
+          <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-left text-xs">
+            {phase.message}
+          </code>
+          <button
+            type="button"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+            onClick={quit}
+          >
+            {strings.back}
+          </button>
         </div>
       </div>
     );

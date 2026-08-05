@@ -70,6 +70,20 @@ export function findRepo(sub: string, id: string): RepoRecord | null {
   return listRepos(sub).find((r) => r.id === id) ?? null;
 }
 
+/** The short name in a project's address — the last path segment, no `.git`. See RepoSummary. */
+export const nameOf = (r: RepoRecord): string => repoName(r.uri);
+
+/**
+ * Every repository answering to a short name — plural on purpose.
+ *
+ * Two hosts can both carry a `songs.git`, and the name is all the address has. Resolving to
+ * the first match would silently open the wrong repository, so the caller is handed the tie
+ * and refuses it. Nothing prevents the collision; this makes it visible.
+ */
+export function findReposByName(sub: string, name: string): RepoRecord[] {
+  return listRepos(sub).filter((r) => nameOf(r) === name);
+}
+
 /**
  * Writes THROW, unlike the preferences store this borrows its naming from. Losing a
  * preference costs you a setting you can set again; losing a repository you just added is a

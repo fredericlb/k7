@@ -11,6 +11,8 @@
   "engines.noLatency": "latence inconnue",
   "project.cloning": "Récupération de {workspace} sur cette machine…",
   "project.backToProjects": "Retour aux projets",
+  "project.missingTitle": "Ce projet n'est pas dans le dépôt",
+  "project.missingBody": "Le dépôt est bien là, mais pas ce projet : il a sans doute été renommé ou supprimé depuis la dernière lecture du dépôt par la médiathèque. Retournez aux projets et rouvrez-le.",
   "settings.menu": "Paramètres",
   "settings.editor": "Réglages de l'éditeur",
   "settings.engine": "Moteur",

@@ -540,10 +540,32 @@ export interface RepoProject {
   app: ProjectApp;
 }
 
+/**
+ * A repository named by its short name — st0's answer to "what is behind `/l8/<name>/…`".
+ *
+ * The one thing an editor needs before it can resolve a workspace, and the reason the URI is
+ * not in the address bar in the first place.
+ */
+export interface RepoRef {
+  id: string;
+  name: string;
+  uri: string;
+}
+
 /** One git repository a person has added to st0, as the Projets section lists them. */
 export interface RepoSummary extends RepoStatus {
   id: string;
   uri: string;
+  /**
+   * The repository's SHORT name — its last path segment without `.git`, which is also what
+   * the clone is called on the engine's machine.
+   *
+   * This is the half of a project's address that a person can read, and it is what st0 puts
+   * in the link: `/l8/<name>/<project>`. Derived from `uri` rather than stored, so the two
+   * cannot drift; the URI itself never reaches the address bar, because it carries a host, a
+   * port and a user, none of which belong in a bookmark.
+   */
+  name: string;
   label: string;
   addedAt: string;
   branch: string | null;
