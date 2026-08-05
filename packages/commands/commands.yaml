@@ -151,14 +151,37 @@
       { name: track, complete: tracks },
       { name: pos, type: number, hint: "-1 left · 0 centre · 1 right" },
     ]
-# Peak-normalize an audio file in the active project to -1 dBFS. The argument is a
-# project-relative path (e.g. clips/kick.wav). Writes a <name>_norm.<ext> beside the
-# original.
-- command: "clip normalize"
-  sid: clip.normalize
-  help: "peak-normalize a track's clips together, or one audio file, to -1 dBFS (writes _norm copies)"
+# --- bouncing material through a chain ---
+# Run material through a chain and KEEP the result: the render lands beside the original as
+# <name>_<chain>.wav and the clip files are pointed at it, so every placement plays the treated
+# material where it already sat. A bounce IN PLACE — the arrangement does not move and the
+# original file is left on disk.
+#
+# The chain is one of the project's (its name, `project inspect graph` lists them) or one the
+# médiathèque holds, named under its own token: `@mediatek/blindtest/vocal-strip`. Both are
+# offered; a project chain is never shadowed by a library one sharing its name.
+#
+# Two commands rather than one taking either, because the noun is the promise: `track process`
+# treats every file the track's clips play, `clip process` treats one clip's file (and so every
+# placement of it, on every track). Each refuses the other's argument and says which to run —
+# one command reading both made its first word decorative.
+#
+# Not `track freeze`, which is reversible and leaves the material alone: this rewrites what the
+# clips play. See packages/commands/docs/processChain.md.
+- command: "track process"
+  sid: track.process
+  help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @mediatek/amp-room)"
   surfaces: [cli]
-  args: [{ name: target, complete: normalizeTargets }]
+  args: [{ name: track, complete: tracks }, { name: chain, complete: chains }]
+- command: "clip process"
+  sid: clip.process
+  help: "bounce one clip's file through a chain and keep the result (e.g. clip process riff @mediatek/amp-room)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: chain, complete: chains },
+    ]
 
 # --- sequences ---
 - { command: "sequence list",  sid: sequence.list,   help: "list MIDI sequences", surfaces: [cli] }

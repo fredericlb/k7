@@ -3,9 +3,11 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The six things the header offers. `recordings` and `projects` are sections and not
- *  families — see Library.tsx. A section id may not collide with a path Caddy claims above
- *  st0's catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`); see docs/routing.md. */
+/** The six things the header offers, plus `engine` — the cog's engine-status page, a
+ *  section with no tab. `recordings` and `projects` are sections and not families — see
+ *  Library.tsx. A section id may not collide with a path Caddy claims above st0's
+ *  catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see
+ *  docs/routing.md. */
 export const SECTION_IDS = [
   "songs",
   "samples",
@@ -13,6 +15,7 @@ export const SECTION_IDS = [
   "chains",
   "recordings",
   "projects",
+  "engine",
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 

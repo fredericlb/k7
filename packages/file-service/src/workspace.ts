@@ -97,6 +97,13 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { buildGraphDoc } from "./graphDoc.ts";
+import {
+  type FileChange,
+  type HistoryPeek,
+  type HistoryState,
+  isHistoryDir,
+  ProjectHistory,
+} from "./history.ts";
 import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
 import {
   AUDIO_EXT,
@@ -172,6 +179,7 @@ const skip = (name: string): boolean =>
   name.startsWith(".") ||
   name === "node_modules" ||
   name === RECYCLE_DIR ||
+  isHistoryDir(name) || // the undo/redo journal, never listed or diffed
   name.endsWith(".cache"); // engine-written waveform sidecars ({source}.cache)
 
 // Rename, retrying briefly while Windows releases a lingering handle; a non-transient error still throws.
@@ -277,6 +285,60 @@ export function setVim(on: boolean): boolean {
 // The per-workspace active-project marker; a dotfile, so skip() hides it from the tree.
 const ACTIVE_MARKER = ".studio-active";
 
+// Text files that differ between two snapshots — a null side means the file was absent then.
+function diffText(
+  before: Map<string, string>,
+  after: Map<string, string>,
+): FileChange[] {
+  const changes: FileChange[] = [];
+  for (const path of new Set([...before.keys(), ...after.keys()])) {
+    const b = before.get(path);
+    const a = after.get(path);
+    if (b !== a) changes.push({ path, before: b ?? null, after: a ?? null });
+  }
+  return changes;
+}
+
+// Binary files that were created or overwritten. A newly created file is caught by presence
+// (absent before, present after) and undone by deleting it. An overwrite is caught by the
+// pre-image the mutation captured via snapshot() — bytes are compared directly, so a same-size
+// overwrite (which size+mtime can miss on a coarse-mtime filesystem) still registers. A binary
+// that existed and changed but was never snapshotted can't be restored, so it is left out
+// rather than wrongly deleted on undo.
+function diffBin(
+  base: string, // the workspace root, since paths are root-relative
+  before: Map<string, string>,
+  after: Map<string, string>,
+  pre: Map<string, Buffer>,
+): { path: string; before: Buffer | null; after: Buffer | null }[] {
+  const blobs: { path: string; before: Buffer | null; after: Buffer | null }[] =
+    [];
+  const readBytes = (path: string): Buffer | null => {
+    try {
+      return readFileSync(join(base, path));
+    } catch {
+      return null;
+    }
+  };
+  for (const path of new Set([
+    ...before.keys(),
+    ...after.keys(),
+    ...pre.keys(),
+  ])) {
+    const existedBefore = before.has(path);
+    const afterBytes = after.has(path) ? readBytes(path) : null;
+    if (!existedBefore) {
+      if (afterBytes) blobs.push({ path, before: null, after: afterBytes }); // created
+      continue;
+    }
+    const preBytes = pre.get(path);
+    if (!preBytes) continue; // existed but no pre-image — nothing to restore to
+    if (afterBytes === null || !preBytes.equals(afterBytes))
+      blobs.push({ path, before: preBytes, after: afterBytes });
+  }
+  return blobs;
+}
+
 export class Workspace {
   readonly root: string;
   /** `root` with symlinks resolved — what safePath compares against. */
@@ -284,6 +346,7 @@ export class Workspace {
   readonly rootIsProject: boolean;
   private activeProject: string | null;
   private docCache: { dir: string; doc: ProjectDoc } | null = null;
+  private historyCache: { dir: string; h: ProjectHistory } | null = null;
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
   private readonly wf: WaveformOps;
@@ -536,6 +599,142 @@ export class Workspace {
     };
     walk(dir);
     return { rev: `${this.mutations}:${count}:${newest}` };
+  }
+
+  // --- undo/redo journal -----------------------------------------------------
+  // One ProjectHistory per active project, cached so the on-disk journal is read once.
+  private history(dir: string): ProjectHistory {
+    if (this.historyCache?.dir !== dir)
+      this.historyCache = { dir, h: new ProjectHistory(dir, this.root) };
+    return this.historyCache.h;
+  }
+
+  /**
+   * Run a project mutation and journal what it changed, so Ctrl+Z can undo it.
+   *
+   * The diff is taken by snapshotting the project's text files (small YAML) before and
+   * after and comparing — so it catches an edit however it was written, whether the editor
+   * PUT it or a command rewrote it. Binary files (a process bounce) are handled by the
+   * `snapshot(abs)` callback the mutation calls before overwriting one: it stashes the
+   * pre-image bytes, and the after-image is read from disk once the mutation returns.
+   */
+  async recordChange<T>(
+    label: string,
+    mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
+  ): Promise<T> {
+    const dir = this.activeProject;
+    if (!dir) return mutate(() => {}); // no project, no journal
+    const textBefore = this.snapshotText(dir);
+    const binBefore = this.snapshotBinMeta(dir);
+    const pre = new Map<string, Buffer>(); // rel -> pre-image bytes of a binary about to be overwritten
+    const snapshot = (abs: string): void => {
+      try {
+        const rel = this.toRel(abs);
+        if (!pre.has(rel) && existsSync(abs) && statSync(abs).isFile())
+          pre.set(rel, readFileSync(abs));
+      } catch {
+        /* best effort — a missed pre-image just means that one file can't be undone */
+      }
+    };
+    const result = await mutate(snapshot);
+    try {
+      const changes = diffText(textBefore, this.snapshotText(dir));
+      const blobs = diffBin(
+        this.root,
+        binBefore,
+        this.snapshotBinMeta(dir),
+        pre,
+      );
+      if (changes.length || blobs.length)
+        this.history(dir).push({ label, changes, blobs });
+    } catch {
+      /* journaling must never break a good write */
+    }
+    return result;
+  }
+
+  // Every text file's content, keyed by workspace-relative path — the before/after images a diff compares.
+  private snapshotText(dir: string): Map<string, string> {
+    const out = new Map<string, string>();
+    const walk = (abs: string): void => {
+      let entries: Dirent[];
+      try {
+        entries = readdirSync(abs, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        if (skip(e.name)) continue;
+        const p = join(abs, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (!isBinary(e.name)) {
+          try {
+            out.set(this.toRel(p), readFileSync(p, "utf8"));
+          } catch {
+            /* unreadable — treated as absent */
+          }
+        }
+      }
+    };
+    walk(dir);
+    return out;
+  }
+
+  // Size+mtime of every binary file — enough to tell created/overwritten from untouched.
+  private snapshotBinMeta(dir: string): Map<string, string> {
+    const out = new Map<string, string>();
+    const walk = (abs: string): void => {
+      let entries: Dirent[];
+      try {
+        entries = readdirSync(abs, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        if (skip(e.name)) continue;
+        const p = join(abs, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (isBinary(e.name)) {
+          try {
+            const s = statSync(p);
+            out.set(this.toRel(p), `${s.size}:${s.mtimeMs}`);
+          } catch {
+            /* raced away */
+          }
+        }
+      }
+    };
+    walk(dir);
+    return out;
+  }
+
+  /** Undo the most recent journalled change on the active project. */
+  undoHistory(): HistoryPeek | null {
+    const dir = this.activeProject;
+    if (!dir) return null;
+    const r = this.history(dir).undo();
+    if (r) this.invalidateProjectDoc();
+    return r;
+  }
+  /** Redo the change undo just reverted. */
+  redoHistory(): HistoryPeek | null {
+    const dir = this.activeProject;
+    if (!dir) return null;
+    const r = this.history(dir).redo();
+    if (r) this.invalidateProjectDoc();
+    return r;
+  }
+  peekUndo(): HistoryPeek | null {
+    const dir = this.activeProject;
+    return dir ? this.history(dir).peekUndo() : null;
+  }
+  peekRedo(): HistoryPeek | null {
+    const dir = this.activeProject;
+    return dir ? this.history(dir).peekRedo() : null;
+  }
+  historyState(): HistoryState {
+    const dir = this.activeProject;
+    return dir ? this.history(dir).state() : { canUndo: false, canRedo: false };
   }
 
   // --- tree / text I/O -------------------------------------------------------

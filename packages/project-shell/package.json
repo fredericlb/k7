@@ -9,7 +9,9 @@
     "./launch": "./src/launch.ts",
     "./fileApi": "./src/fileApi.ts",
     "./project": "./src/project.ts",
-    "./gate": "./src/ProjectGate.tsx"
+    "./gate": "./src/ProjectGate.tsx",
+    "./toast": "./src/toast.tsx",
+    "./undo": "./src/undo.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

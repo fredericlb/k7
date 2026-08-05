@@ -90,6 +90,28 @@ export interface FileContent {
   content: string; // empty when binary
 }
 
+// --- undo/redo journal ---------------------------------------------------------
+// What one undo/redo step touched (or would touch) — enough to toast and to navigate the editor.
+export interface HistoryPeek {
+  kind: "text" | "process"; // "process" restores a bounced audio file — confirm before undoing
+  label: string;
+  files: string[]; // workspace-relative paths the step reverts
+}
+export interface HistoryState {
+  canUndo: boolean;
+  canRedo: boolean;
+  nextUndo?: HistoryPeek;
+  nextRedo?: HistoryPeek;
+}
+// The POST /undo | /redo reply: applied, refused pending confirmation, or nothing to do.
+export interface UndoResult {
+  applied?: boolean;
+  needsConfirm?: boolean;
+  kind?: "text" | "process";
+  label?: string;
+  files?: string[];
+}
+
 // Autocompletion source — the project's real entities; empty arrays when it is malformed, so the editor degrades.
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can extend ("type/name", "@ns/type/name")

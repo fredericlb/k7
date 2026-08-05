@@ -4,9 +4,12 @@
 // Saving does NOT format: the writers emit canonical YAML, and reflowing a hand-edited
 // file is exactly what this format was chosen to avoid.
 
+import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
+import type { EditorView } from "@codemirror/view";
 import { Button } from "@frediverse/ui/button";
 import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
+import { showToast } from "@studio/project-shell/toast";
 import { parsePosition } from "@studio/song/timecode";
 import {
   FolderTree,
@@ -21,6 +24,7 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { api } from "../api";
@@ -55,14 +59,21 @@ import { EditorPane, type SeqView } from "./EditorPane";
 import type { EditTarget } from "./EditorPanel";
 import { FileTree } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
-import { showToast } from "./Toast";
 import { UploadProgress } from "./UploadProgress";
 import type { VideoReader } from "./VideoReadersStrip";
 
 // The handle the shell reaches the editor through: `open` opens a file, `files` is what `file` completes against.
+// The `local*` methods expose the live CodeMirror buffer so the shell can arbitrate Ctrl+Z between the
+// editor's own keystroke history and the project-wide undo journal — see App.tsx's onKey.
 export interface EditorHandle {
   open: (path: string) => void;
   files: () => string[];
+  currentFile: () => string | null;
+  editorFocused: () => boolean;
+  localUndoDepth: () => number;
+  localRedoDepth: () => number;
+  localUndo: () => boolean;
+  localRedo: () => boolean;
 }
 
 // Flatten the tree to openable text paths — binaries can't be shown, which also drops .dawproject archives.
@@ -220,6 +231,8 @@ export function EditorTab({
   const [treeOpen, setTreeOpen] = useState(false);
   const [hints, setHints] = useState<Hints>(EMPTY_HINTS);
   const [file, setFile] = useState<FileContent | null>(null);
+  // The live CodeMirror view, forwarded by EditorPane — read for the Ctrl+Z arbitration below.
+  const cmViewRef = useRef<EditorView | null>(null);
   const [dirty, setDirty] = useState(false);
   // How inline notes are shown — text, piano roll, or tracker. Per-tab; clicking the active view drops back to text.
   const [seqView, setSeqView] = useState<SeqView>("none");
@@ -700,8 +713,16 @@ export function EditorTab({
         const prefix = `${activeProject.replace(/\\/g, "/").replace(/\/+$/, "")}/`;
         return all.filter((p) => p.replace(/\\/g, "/").startsWith(prefix));
       },
+      currentFile: () => file?.path ?? null,
+      editorFocused: () => !!cmViewRef.current?.hasFocus,
+      localUndoDepth: () =>
+        cmViewRef.current ? undoDepth(cmViewRef.current.state) : 0,
+      localRedoDepth: () =>
+        cmViewRef.current ? redoDepth(cmViewRef.current.state) : 0,
+      localUndo: () => (cmViewRef.current ? undo(cmViewRef.current) : false),
+      localRedo: () => (cmViewRef.current ? redo(cmViewRef.current) : false),
     }),
-    [open, tree, activeProject],
+    [open, tree, activeProject, file?.path],
   );
 
   // Set From / Set To surgically rewrite the placement's field in the OPEN buffer; the author saves.
@@ -1026,6 +1047,9 @@ export function EditorTab({
         <main className="min-w-0 flex-1 overflow-hidden">
           <EditorPane
             file={file}
+            onEditorView={(v) => {
+              cmViewRef.current = v;
+            }}
             hints={hints}
             vimMode={vimMode}
             seqView={seqView}

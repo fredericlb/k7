@@ -40,11 +40,50 @@ export type {
 export type BeginActivity = (name: string) => () => void;
 const noActivity: BeginActivity = () => () => {};
 
+// The control-query shapes, mirroring engineControl.ts in @studio/engine-client — which a
+// browser cannot import (it opens `ws`). Both restate the same wire, which engine-protocol
+// does not carry yet; if a third copy ever appears, move them there instead.
+/** One session the engine holds — a project, not a connection. Engine-global. */
+export interface EngineSessionInfo {
+  id: string;
+  project: string;
+  loaded: boolean;
+  playing: boolean;
+  tracks: number;
+  listeners: number;
+}
+export interface EngineAudioDevice {
+  name: string;
+  type: string; // the driver backend offering it ("ASIO", "Windows Audio", …)
+  inputs: number;
+  outputs: number;
+  current: boolean;
+  isDefault: boolean;
+}
+/** One plugin the engine's scan knows about — the installed catalogue, not an instance. */
+export interface EnginePluginInfo {
+  name: string;
+  format: string;
+  manufacturer: string;
+  id: string;
+}
+// One plugin INSTANCE in a loaded edit; (session, id) addresses it — an id alone can name several.
+export interface EngineEditPlugin {
+  session?: string;
+  id: string;
+  name: string;
+  hasNativePluginUI: boolean;
+}
+
 type StateCb = (s: EngineState) => void;
 type ConnCb = (connected: boolean) => void;
 type ParamsCb = (p: PluginParams) => void;
 type PresetsCb = (module: string, presets: PresetInfo[]) => void;
 type BusyCb = (busy: boolean) => void;
+type SessionsCb = (sessions: EngineSessionInfo[]) => void;
+type DevicesCb = (devices: EngineAudioDevice[]) => void;
+type PluginListCb = (plugins: EnginePluginInfo[]) => void;
+type EditPluginsCb = (plugins: EngineEditPlugin[]) => void;
 /** An engine-side problem: `subject` is what it is about (a plugin id), "" when general. */
 export interface EngineWarning {
   subject: string;
@@ -88,6 +127,9 @@ interface EngineMessage {
   master?: number; // …and the level leaving the master
   pitches?: number[]; // …the tuner's Hz per input (0 = no confident note)
   clarity?: number[]; // …and how periodic each window was
+  sessions?: EngineSessionInfo[]; // the 'sessions' reply
+  devices?: EngineAudioDevice[]; // the 'audio-devices' reply
+  plugins?: unknown[]; // 'plugins' (catalogue) AND 'edit-plugins' (instances) both use this field
 }
 
 export class EngineClient {
@@ -101,6 +143,10 @@ export class EngineClient {
   private busyCbs = new Set<BusyCb>();
   private warningCbs = new Set<WarningCb>();
   private ioLevelsCbs = new Set<IoLevelsCb>();
+  private sessionsCbs = new Set<SessionsCb>();
+  private devicesCbs = new Set<DevicesCb>();
+  private pluginListCbs = new Set<PluginListCb>();
+  private editPluginsCbs = new Set<EditPluginsCb>();
   // Raw audio frames, handed on undecoded: this client's job is to route bytes, and
   // @studio/engine-browser/stream is what knows how to read them.
   private streamCbs = new Set<StreamCb>();
@@ -210,6 +256,16 @@ export class EngineClient {
           pitches: (m.pitches ?? []) as number[],
           clarity: (m.clarity ?? []) as number[],
         });
+    else if (m.type === "sessions")
+      for (const cb of this.sessionsCbs) cb(m.sessions ?? []);
+    else if (m.type === "audio-devices")
+      for (const cb of this.devicesCbs) cb(m.devices ?? []);
+    else if (m.type === "plugins")
+      for (const cb of this.pluginListCbs)
+        cb((m.plugins ?? []) as EnginePluginInfo[]);
+    else if (m.type === "edit-plugins")
+      for (const cb of this.editPluginsCbs)
+        cb((m.plugins ?? []) as EngineEditPlugin[]);
     else if (m.type === "engine-warning" || m.type === "error")
       for (const cb of this.warningCbs)
         cb({ subject: m.subject ?? "", message: m.message ?? "" });
@@ -246,8 +302,15 @@ export class EngineClient {
       enabled,
     });
   }
-  showNativePluginUI(id: string): void {
-    this.send({ type: "show-native-plugin-ui", id });
+  // `session` overrides this client's own — a status surface opening a window in a project
+  // it does not drive, the same override the Node client and dropSession take. The spread
+  // wins over the stamp in send() because it comes after it.
+  showNativePluginUI(id: string, session?: string): void {
+    this.send({
+      type: "show-native-plugin-ui",
+      id,
+      ...(session === undefined ? {} : { session }),
+    });
   }
   // Ask a plugin's current values: the project records only OVERRIDDEN params, and defaults live in the engine.
   /**
@@ -288,6 +351,37 @@ export class EngineClient {
    */
   dropSession(session: string = this.session): void {
     this.send({ type: "drop-session", session });
+  }
+
+  // Every session this engine holds. Reply arrives on onSessions. Engine-global.
+  listSessions(): void {
+    this.send({ type: "list-sessions" });
+  }
+  // The available audio interfaces. Reply arrives on onAudioDevices.
+  listAudioDevices(): void {
+    this.send({ type: "list-audio-devices" });
+  }
+  // Open a specific interface. Without `type` the engine takes the first backend offering
+  // that name — a coin toss. The engine answers a set with the same audio-devices frame.
+  setAudioDevice(name: string, type?: string): void {
+    this.send({
+      type: "set-audio-device",
+      name,
+      ...(type ? { deviceType: type } : {}),
+    });
+  }
+  // The CACHED plugin catalogue (no scanning). Reply arrives on onPlugins.
+  listPlugins(): void {
+    this.send({ type: "list-plugins" });
+  }
+  // An INCREMENTAL rescan — the engine's exts.json cache is on its machine, so the full
+  // rescan (cache deleted first) stays with the supervisor. See engine-host/engineQueries.
+  rescanPlugins(): void {
+    this.send({ type: "rescan-plugins", force: true });
+  }
+  // The plugin instances across every session, each row naming its own. Reply on onEditPlugins.
+  listEditPlugins(): void {
+    this.send({ type: "list-edit-plugins" });
   }
 
   getPluginParams(id: string): void {
@@ -383,6 +477,23 @@ export class EngineClient {
   onIoLevels(cb: IoLevelsCb): () => void {
     this.ioLevelsCbs.add(cb);
     return () => this.ioLevelsCbs.delete(cb);
+  }
+
+  onSessions(cb: SessionsCb): () => void {
+    this.sessionsCbs.add(cb);
+    return () => this.sessionsCbs.delete(cb);
+  }
+  onAudioDevices(cb: DevicesCb): () => void {
+    this.devicesCbs.add(cb);
+    return () => this.devicesCbs.delete(cb);
+  }
+  onPlugins(cb: PluginListCb): () => void {
+    this.pluginListCbs.add(cb);
+    return () => this.pluginListCbs.delete(cb);
+  }
+  onEditPlugins(cb: EditPluginsCb): () => void {
+    this.editPluginsCbs.add(cb);
+    return () => this.editPluginsCbs.delete(cb);
   }
 
   onPluginParams(cb: ParamsCb): () => void {

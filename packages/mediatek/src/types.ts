@@ -36,6 +36,11 @@ export const RECORDINGS_DIR = "recordings";
  *  every existing importer is unchanged. */
 export const CHAINS_FILE = "chains.yaml";
 
+/** Where a chain keeps the instances its segments name, beside its `chains.yaml`. Here for the
+ *  same reason CHAINS_FILE is: the médiathèque's chain pane and l8's `clip process` both name
+ *  this folder, and only one of the two may open `node:fs`. */
+export const INSTANCES_DIR = "instances";
+
 /**
  * One alternative version of a song, declared in its sidecar. See docs/variants.md.
  *

@@ -62,15 +62,19 @@ tempo seeds `song.yaml` — see `packages/file-service/src/routes/mediatek.ts` a
 A **file variant** is a file in the folder, so it is analysed the same way and by the same
 route: it is a path in the library, and nothing about it is special.
 
-A **chain variant** is not, because there is no file to analyse yet.
+A **chain variant** is analysed when its **treatment finishes**. "Traiter" in `SongVariants.tsx`
+bounces each chain variant offline on the chosen machine — `--render`, which opens no audio
+device, so it runs while something is playing — and writes the result beside the master as
+`<variante>.mp3` (or `.wav`: the extension follows what came back, because a wav filed as
+`.mp3` is a file that lies about itself). The analysis runs on that produced file, immediately
+after it lands.
 
-## What is not here
+The tempo it finds does **not** overwrite the song's. `setSongBpm` refuses an existing key, and
+`bpm` in the sidecar describes the morceau — not one treatment of it.
 
-Rendering. Nothing produces a chain variant's audio — it is a declaration of how the song
-should be treated and a picture of that treatment, not a bounce. The engine seam for it is the
-piece `@studio/song`'s `docs/fileInput.md` describes as still to write.
+Renders are sequential on purpose: each bounce spawns an engine on that machine, and firing one
+per variant would have them fight for the same CPU and the same plugin scan.
 
-That is the hook the analysis pass is waiting on: once a bounce exists and lands in the song's
-folder, it is a file in the library like any other, and `POST /mediatek/analyse` on it is the
-whole of what "compute it once the treatment is done" means. Nothing else has to be invented
-for that half — the route already takes a path.
+> **This page used to say rendering did not exist.** It was written before `SongVariants.tsx`
+> grew `process()`, and stayed stale long enough to be believed twice. If you are here because
+> something told you a chain variant produces no audio, read that function instead.

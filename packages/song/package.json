@@ -30,6 +30,7 @@
     "./hints": "./src/hints.ts",
     "./ioPorts": "./src/ioPorts.ts",
     "./moduleCatalogue": "./src/moduleCatalogue.ts",
+    "./moduleResolve": "./src/moduleResolve.ts",
     "./trackKind": "./src/trackKind.ts",
     "./scaffold": "./src/scaffold.ts",
     "./sharedFolders": "./src/sharedFolders.ts",

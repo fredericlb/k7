@@ -11,7 +11,7 @@ import {
 } from "@studio/mediatek/types";
 import { AudioLines, Loader2, Workflow } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { currentUser, library } from "./api";
+import { currentUser, engineMachine, library } from "./api";
 import { ChainView } from "./ChainView";
 import { chainSteps, INSTANCES_DIR } from "./chainGraph";
 import {
@@ -53,11 +53,15 @@ function findChain(
 export function SongVariants({
   entry,
   engineId,
+  engineToken,
 }: {
   entry: MediatekEntry;
   /** The account's chosen engine, handed down by whoever draws the picker — same prop the
    *  module editor takes, so a choice made in the header reaches this pane too. */
   engineId?: string;
+  /** That engine's token, for the routes its file service gates. The bounce itself does not
+   *  send one; analysing what came back does. */
+  engineToken?: string | null;
 }) {
   const variants = entry.variants ?? [];
   const chainRefs = variants.filter((v) => v.kind === "chain");
@@ -132,13 +136,15 @@ export function SongVariants({
   useEffect(() => {
     if (!engine.fileBase) return setRoot(null);
     let alive = true;
-    void cacheRoot(engine.fileBase, currentUser()).then((r) => {
+    void cacheRoot(engine.fileBase, currentUser(), engineToken).then((r) => {
       if (alive) setRoot(r);
     });
     return () => {
       alive = false;
     };
-  }, [engine.fileBase]);
+    // The token is in here too: it arrives with the engine probe, so the first run can have
+    // none and would otherwise settle on the 401's `null` and never look again.
+  }, [engine.fileBase, engineToken]);
 
   // Stop when this pane goes away, or the sound outlives the screen that started it.
   useEffect(() => () => engine.stop(), [engine.stop]);
@@ -213,6 +219,7 @@ export function SongVariants({
           engine.fileBase,
           currentUser(),
           chainPreviewDoc(path, `${entry.name} · ${c.variant.name}`, steps),
+          engineToken,
         );
         // The extension follows what came BACK, not what was asked for: with no ffmpeg on that
         // machine the bounce is a wav, and a wav filed as `.mp3` is a file that lies about
@@ -223,6 +230,17 @@ export function SongVariants({
             type: out.mp3 ? "audio/mpeg" : "audio/wav",
           }),
         ]);
+        // …and the treatment is finished, so this is the moment its waveform, its onsets and
+        // its tempo get computed — the same pass an uploaded file gets, on a file that was
+        // produced rather than sent. Best effort: the render is the thing that was asked for,
+        // and a cache that failed to build is rebuilt by the first surface that wants it.
+        //
+        // The tempo it finds does NOT overwrite the song's: `setSongBpm` refuses an existing
+        // key, and the sidecar's `bpm` describes the morceau, not one treatment of it.
+        if (engineToken)
+          await engineMachine
+            .analyse(engine.fileBase, engineToken, `${entry.path}/${name}`)
+            .catch(() => {});
         setDone((d) => [...d, name]);
       } catch (e) {
         // Per variant, and the loop continues: one chain naming a plugin this machine has not
@@ -231,7 +249,7 @@ export function SongVariants({
       }
     }
     setProcessing(false);
-  }, [chains, engine.fileBase, entry, root]);
+  }, [chains, engine.fileBase, engineToken, entry, root]);
 
   // AFTER the hooks: an early return above them would change how many run between renders,
   // which React forbids — and a song with no variants is exactly when it would have fired.

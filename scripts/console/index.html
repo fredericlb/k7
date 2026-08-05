@@ -1,0 +1,299 @@
+<!doctype html>
+<!-- The console's one page: an xterm.js view over the shared PTY tabs served by
+     server.mjs beside it, which also defines the message protocol. Touch devices
+     get a helper-key row (Esc/Tab/Ctrl/arrows) and the layout follows the visual
+     viewport so the soft keyboard does not cover the terminal. -->
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>studio — console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <!-- Absolute: at /console (no trailing slash) a relative href resolves to the
+         origin root, which is st0's catch-all answering HTML. -->
+    <link rel="stylesheet" href="/console/xterm.css" />
+    <style>
+      html,
+      body {
+        height: 100dvh;
+        margin: 0;
+        background: #101014;
+        color: #d6d6dd;
+        font: 13px system-ui, sans-serif;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 8px;
+        background: #17171d;
+        flex-wrap: wrap;
+      }
+      #tabs {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        max-width: 50vw;
+      }
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .tab.active {
+        background: #3a3a5c;
+        border-color: #5a5a8c;
+      }
+      .tab .led {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #e5484d;
+      }
+      .tab.on .led {
+        background: #4cc38a;
+      }
+      #dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #666;
+      }
+      #dot.on {
+        background: #4cc38a;
+      }
+      #dot.off {
+        background: #e5484d;
+      }
+      #state {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      button,
+      select {
+        background: #26262e;
+        color: inherit;
+        border: 1px solid #3a3a44;
+        border-radius: 4px;
+        padding: 3px 10px;
+        cursor: pointer;
+        touch-action: manipulation;
+        font: inherit;
+      }
+      button:hover {
+        background: #30303a;
+      }
+      #keys {
+        display: none;
+        gap: 4px;
+        padding: 4px 8px;
+        background: #17171d;
+        border-top: 1px solid #26262e;
+        overflow-x: auto;
+      }
+      #keys button {
+        padding: 5px 12px;
+        font-family: monospace;
+        white-space: nowrap;
+      }
+      #keys button.armed {
+        background: #3a3a5c;
+        border-color: #5a5a8c;
+      }
+      @media (pointer: coarse) {
+        #keys {
+          display: flex;
+        }
+      }
+      @media (max-width: 600px) {
+        header {
+          gap: 5px;
+        }
+        button {
+          padding: 3px 7px;
+        }
+        #tabs {
+          max-width: 70vw;
+        }
+      }
+      #term {
+        flex: 1;
+        min-height: 0;
+        padding: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div id="tabs"></div>
+      <select id="shell" title="Shell du prochain onglet" hidden></select>
+      <button id="new" type="button" title="Nouvel onglet">+</button>
+      <span id="dot"></span><span id="state">connexion…</span>
+      <span style="flex: 1"></span>
+      <button id="restart" type="button">Relancer</button>
+      <button id="stop" type="button">Arrêter</button>
+      <button id="start" type="button" hidden>Démarrer</button>
+      <button id="close" type="button" title="Fermer l'onglet">×</button>
+    </header>
+    <div id="term"></div>
+    <div id="keys">
+      <button type="button" data-seq="&#27;">Esc</button>
+      <button type="button" data-seq="&#9;">Tab</button>
+      <button type="button" id="ctrl">Ctrl</button>
+      <button type="button" data-seq="&#3;">^C</button>
+      <button type="button" data-seq="&#27;[A">↑</button>
+      <button type="button" data-seq="&#27;[B">↓</button>
+      <button type="button" data-seq="&#27;[D">←</button>
+      <button type="button" data-seq="&#27;[C">→</button>
+    </div>
+    <script src="/console/xterm.js"></script>
+    <script src="/console/addon-fit.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const term = new Terminal({
+        fontSize: 13,
+        scrollback: 5000,
+        theme: { background: "#101014" },
+      });
+      const fit = new FitAddon.FitAddon();
+      term.loadAddon(fit);
+      term.open($("term"));
+      fit.fit();
+
+      let ws = null;
+      let tabs = [];
+      let current = null;
+      let ctrlNext = false;
+      const send = (o) => {
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify(o));
+      };
+
+      // A sticky Ctrl for soft keyboards: arms once, turns the next typed letter
+      // into its control character, then disarms.
+      term.onData((d) => {
+        if (ctrlNext && d.length === 1) {
+          const c = d.toUpperCase().charCodeAt(0);
+          if (c >= 63 && c < 96) d = String.fromCharCode(c === 63 ? 127 : c - 64);
+          armCtrl(false);
+        }
+        send({ t: "in", id: current, d });
+      });
+
+      const sendSize = () =>
+        send({ t: "resize", id: current, cols: term.cols, rows: term.rows });
+      new ResizeObserver(() => {
+        fit.fit();
+        sendSize();
+      }).observe($("term"));
+
+      // Follow the visual viewport so the soft keyboard shrinks the page instead
+      // of covering the terminal (100dvh ignores the keyboard on iOS/Android).
+      if (window.visualViewport)
+        window.visualViewport.addEventListener("resize", () => {
+          document.body.style.height = `${window.visualViewport.height}px`;
+        });
+
+      const armCtrl = (on) => {
+        ctrlNext = on;
+        $("ctrl").classList.toggle("armed", on);
+      };
+      for (const b of document.querySelectorAll("#keys button"))
+        b.addEventListener("pointerdown", (e) => {
+          e.preventDefault(); // keep the terminal focused, keep the keyboard open
+          if (b.id === "ctrl") armCtrl(!ctrlNext);
+          else send({ t: "in", id: current, d: b.dataset.seq });
+        });
+
+      const SHELL_LABELS = { powershell: "ps", bash: "bash", wsl: "wsl" };
+      const shellLabel = (s) => SHELL_LABELS[s] ?? s;
+      const renderTabs = () => {
+        const bar = $("tabs");
+        bar.replaceChildren();
+        for (const t of tabs) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = `tab${t.running ? " on" : ""}${t.id === current ? " active" : ""}`;
+          const led = document.createElement("span");
+          led.className = "led";
+          b.append(led, `${t.id}·${shellLabel(t.shell)}`);
+          b.onclick = () => attach(t.id);
+          bar.append(b);
+        }
+        const cur = tabs.find((t) => t.id === current);
+        if (cur) {
+          $("dot").className = cur.running ? "on" : "off";
+          $("state").textContent = cur.running
+            ? `${cur.cmd ?? ""} — actif (pid ${cur.pid})`
+            : `arrêté${cur.exit === null ? "" : ` (code ${cur.exit})`}`;
+          $("stop").hidden = !cur.running;
+          $("restart").hidden = !cur.running;
+          $("start").hidden = cur.running;
+        }
+      };
+      const renderShells = (shells, def) => {
+        const sel = $("shell");
+        if (sel.options.length === shells.length) return;
+        sel.replaceChildren();
+        for (const s of shells) {
+          const o = document.createElement("option");
+          o.value = s;
+          o.textContent = shellLabel(s);
+          sel.append(o);
+        }
+        sel.value = def;
+        sel.hidden = shells.length < 2;
+      };
+
+      const attach = (id) => {
+        current = id;
+        send({ t: "attach", id });
+        renderTabs();
+        sendSize();
+        term.focus();
+      };
+
+      function connect() {
+        const base = location.pathname.replace(/\/$/, "");
+        const proto = location.protocol === "https:" ? "wss://" : "ws://";
+        ws = new WebSocket(`${proto}${location.host}${base}/ws`);
+        ws.onmessage = (e) => {
+          const m = JSON.parse(e.data);
+          if (m.t === "out") {
+            if (m.id === current) term.write(m.d);
+          } else if (m.t === "clear") {
+            if (m.id === current) term.reset();
+          } else if (m.t === "tabs") {
+            tabs = m.tabs;
+            renderShells(m.shells, m.def);
+            if (!tabs.some((t) => t.id === current)) attach(tabs[0].id);
+            else renderTabs();
+          } else if (m.t === "created") {
+            attach(m.id);
+          }
+        };
+        ws.onclose = () => {
+          $("dot").className = "";
+          $("state").textContent = "service injoignable — reconnexion…";
+          setTimeout(connect, 2000);
+        };
+      }
+      connect();
+
+      $("new").onclick = () => send({ t: "new", shell: $("shell").value });
+      $("close").onclick = () => {
+        const cur = tabs.find((t) => t.id === current);
+        const what = cur?.running ? `l'onglet ${current} (shell actif, pid ${cur.pid})` : `l'onglet ${current}`;
+        if (confirm(`Fermer ${what} ?`)) send({ t: "close", id: current });
+      };
+      $("restart").onclick = () => send({ t: "restart", id: current });
+      $("stop").onclick = () => send({ t: "stop", id: current });
+      $("start").onclick = () => send({ t: "start", id: current });
+    </script>
+  </body>
+</html>

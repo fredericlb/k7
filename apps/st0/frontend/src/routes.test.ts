@@ -71,6 +71,8 @@ describe("fromLocation", () => {
       // Under `projects` the second half is a repository id, not a file — same slot,
       // different meaning. See routes.ts.
       st({ section: "projects", file: "3f9a1c2b7e40" }),
+      // The cog's engine-status page: a section with no tab, and no file to carry.
+      st({ section: "engine" }),
     ])
       expect(fromLocation(toPath(s))).toEqual(s);
   });
@@ -84,8 +86,17 @@ describe("fromLocation", () => {
 
   it("keeps the new section clear of the paths Caddy claims above st0", () => {
     // A section named after another service would never reach this app at all — the edge
-    // matches `/l8`, `/m9`, `/k7`, `/z0` and `/dev` first. See docs/routing.md.
-    for (const taken of ["l8", "m9", "k7", "z0", "dev"])
+    // matches `/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console` and `/dev-status` first.
+    // See docs/routing.md.
+    for (const taken of [
+      "l8",
+      "m9",
+      "k7",
+      "z0",
+      "dev",
+      "console",
+      "dev-status",
+    ])
       expect(SECTION_IDS as readonly string[]).not.toContain(taken);
   });
 });

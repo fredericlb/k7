@@ -108,6 +108,7 @@ sous-chemin réellement importé (`file-service/src/{cors,pendingOrigins}.ts`).
 | script `"serve"` | `apps/l8/frontend/package.json:7` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
 | export `AuthUser` | `apps/st0/frontend/src/api.ts:22`, `apps/m9/frontend/src/api.ts:12` | exporté, jamais importé. Seul celui de l8 est consommé. |
 | `evict.ts` | `packages/mediatek/src/` | atteignable seulement par l'export mort `./evict` et son propre test. |
+| mode CLI `--normalize` | `engine/moteur/engine/NormalizeClips.cpp`, documenté dans `engine/moteur/docs/cliModes.md` | **Depuis le 5 août 2026** : son unique appelant était la commande `clip normalize` de l8, remplacée par `track process` / `clip process` (voir `packages/commands/docs/processChain.md`). Le mode est laissé en place — il est autonome, testé par un smoke-run, et « normaliser un lot de clips avec un gain commun » reste une chose que le moteur seul sait faire. À supprimer seulement si personne ne le rebranche : la question est *qui appelle*, pas *est-ce que ça marche*. |
 
 **Outillage à une seule utilisation**, pas mort mais sans point d'entrée :
 `packages/song/scripts/{migrateModules,migrateChains,projectFingerprint}.ts` ne sont câblés à

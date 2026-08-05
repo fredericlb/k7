@@ -264,6 +264,37 @@ filesRouter.post(
   }),
 );
 
+// --- undo/redo journal ---------------------------------------------------------
+// Peek without applying, so the client can enable Ctrl+Z/Y and label its toast.
+filesRouter.get(
+  "/history",
+  wrap((req, res) => res.json(req.ws!.historyState())),
+);
+// A process undo restores a bounced audio file, so the client confirms it first: without
+// `confirm`, a process step reports `needsConfirm` and is NOT applied; a text step applies.
+const undoBody = z.object({ confirm: z.boolean().optional() });
+for (const dir of ["undo", "redo"] as const) {
+  filesRouter.post(
+    `/${dir}`,
+    validate(undoBody),
+    wrap((req, res) => {
+      const { confirm } = req.body as z.infer<typeof undoBody>;
+      const next = dir === "undo" ? req.ws!.peekUndo() : req.ws!.peekRedo();
+      if (!next) {
+        res.json({ applied: false });
+        return;
+      }
+      if (next.kind === "process" && !confirm) {
+        res.json({ needsConfirm: true, ...next });
+        return;
+      }
+      const done =
+        dir === "undo" ? req.ws!.undoHistory() : req.ws!.redoHistory();
+      res.json(done ? { applied: true, ...done } : { applied: false });
+    }),
+  );
+}
+
 // Where the repo stands vs upstream, polled by the share badge: a bounded best-effort fetch, then ahead/behind.
 filesRouter.get(
   "/git/status",
@@ -617,12 +648,16 @@ const writeBody = z.object({
 filesRouter.put(
   "/file",
   validate(writeBody),
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const { path, content } = req.body as z.infer<typeof writeBody>;
     try {
       // `forked` is set when the target was a shared module: the save landed on a project-local copy, and the
       // editor has to follow it — the file it had open is unchanged and still read-only.
-      res.json({ ok: true, ...req.ws!.write(path, content) });
+      // recordChange journals the change (the file itself, or the forked copy + repointed chains) for Ctrl+Z.
+      const r = await req.ws!.recordChange(`édition ${path}`, () =>
+        req.ws!.write(path, content),
+      );
+      res.json({ ok: true, ...r });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

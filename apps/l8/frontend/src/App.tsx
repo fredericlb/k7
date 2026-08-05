@@ -6,6 +6,14 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@frediverse/ui/dialog";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { cn } from "@frediverse/ui/lib/utils";
 import { PluginParamsStore } from "@studio/engine-browser/params";
@@ -15,6 +23,8 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
+import { showToast, Toaster } from "@studio/project-shell/toast";
+import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import {
@@ -54,7 +64,6 @@ import { RecordingOverlay } from "./components/RecordingOverlay";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
-import { Toaster } from "./components/Toast";
 import { VideoTab } from "./components/VideoTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
@@ -195,6 +204,30 @@ export default function App({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const timelineRef = useRef<TimelineHandle>(null);
   const editorRef = useRef<EditorHandle>(null);
+
+  // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
+  const [undoConfirm, setUndoConfirm] = useState<{
+    files: string[];
+    label: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const confirmProcess = useCallback(
+    (files: string[], label: string) =>
+      new Promise<boolean>((resolve) =>
+        setUndoConfirm({ files, label, resolve }),
+      ),
+    [],
+  );
+  const historyDeps = useMemo<HistoryDeps>(
+    () => ({
+      openFile: (p) => editorRef.current?.open(p),
+      notify: (message, variant) => showToast({ message, variant }),
+      confirmProcess,
+      currentFile: () => editorRef.current?.currentFile() ?? null,
+      onApplied: bumpReload,
+    }),
+    [confirmProcess, bumpReload],
+  );
   // Live plugin params go to an EXTERNAL store: at ~20 Hz a top-level setState would re-render the app each frame.
   const pluginParamsStore = useRef(new PluginParamsStore()).current;
   // The backend command catalogue (canonical name + trailing param names), for the step-by-step palette. Fetched once.
@@ -931,6 +964,48 @@ export default function App({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [conditions, runCommand, settingsScreen]);
+
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
+  // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor
+  // still has keystroke history to spend, that wins and we drive it directly; once it's spent
+  // (or focus is elsewhere) the same key walks the journal instead. See project-shell/undo.ts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (settingsScreen || undoConfirm) return; // don't stack a second confirm
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      const isRedo = key === "y" || (key === "z" && e.shiftKey);
+      const h = editorRef.current;
+      if (h?.editorFocused()) {
+        // Spend the buffer's own keystroke history first; once it's empty, fall through to
+        // the project journal (the arbitration the user chose).
+        const depth = isRedo ? h.localRedoDepth() : h.localUndoDepth();
+        if (depth > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isRedo) h.localRedo();
+          else h.localUndo();
+          return;
+        }
+      } else {
+        // A plain input (command bar, a rename field) keeps its own native text undo.
+        const t = e.target as HTMLElement | null;
+        if (
+          t &&
+          (t.tagName === "INPUT" ||
+            t.tagName === "TEXTAREA" ||
+            t.isContentEditable)
+        )
+          return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      void (isRedo ? runRedo(historyDeps) : runUndo(historyDeps));
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [historyDeps, settingsScreen, undoConfirm]);
 
   // The global view has no mobile form, so entering mobile lands on the timeline — the pane that says what a song is.
   useEffect(() => {
@@ -1669,6 +1744,47 @@ export default function App({
             />
           </div>
         )}
+
+        {/* Confirm before undoing a process step — it restores a bounced audio file. */}
+        <Dialog
+          open={!!undoConfirm}
+          onOpenChange={(o) => {
+            if (!o && undoConfirm) {
+              undoConfirm.resolve(false);
+              setUndoConfirm(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Annuler le process ?</DialogTitle>
+              <DialogDescription>
+                {undoConfirm
+                  ? `${undoConfirm.files.join(", ") || undoConfirm.label} — le fichier bouncé sera restauré à son état précédent.`
+                  : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  undoConfirm?.resolve(false);
+                  setUndoConfirm(null);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  undoConfirm?.resolve(true);
+                  setUndoConfirm(null);
+                }}
+              >
+                Confirmer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Global toast notifications — positioned bottom-right, above everything */}
         <Toaster />

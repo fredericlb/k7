@@ -4,6 +4,7 @@
 
 import { autocompletion } from "@codemirror/autocomplete";
 import type { Extension } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
 import { projectLanguage } from "@studio/ui-editor/yaml/language";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
@@ -17,12 +18,18 @@ export function EditView({
   path,
   hints,
   onSaved,
+  onEditorView,
+  reloadKey,
 }: {
   /** The open file, project-relative, or null when nothing is open. */
   path: string | null;
   /** The project's vocabulary, for completions. Null until it has arrived. */
   hints: Hints | null;
   onSaved: () => void;
+  /** Hand the live CodeMirror view up, for the shell's Ctrl+Z arbitration. */
+  onEditorView?: (view: EditorView | null) => void;
+  /** Bumped by the shell after an undo/redo so the open file is re-read from disk. */
+  reloadKey?: number;
 }) {
   const [text, setText] = useState("");
   // What was last read or written. Dirty is `text !== saved`, derived rather than a flag that
@@ -50,7 +57,8 @@ export function EditView({
     return () => {
       cancelled = true;
     };
-  }, [path]);
+    // reloadKey forces a re-read after an undo/redo touched the open file (path didn't change).
+  }, [path, reloadKey]);
 
   const save = useCallback(() => {
     if (!path) return;
@@ -124,6 +132,7 @@ export function EditView({
           height="100%"
           extensions={extensions}
           onChange={setText}
+          onCreateEditor={(view) => onEditorView?.(view)}
           // Ctrl/Cmd+S saves, the one binding worth having before a command bar exists.
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "s") {

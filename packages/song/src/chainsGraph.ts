@@ -4,7 +4,14 @@
 
 import type { Chain, Out, Step } from "./graph";
 import { splitPort } from "./moduleTypes";
+import { parseChains } from "./yaml/chainsFile";
 import { type ChainsFile, ChainsFileSchema } from "./yaml/chainsSchema";
+
+/** The source a chain TEMPLATE starts at — a track's place, without a track. A template is
+ *  what the médiathèque holds: segments with no song around them. */
+export const CHAIN_IN = "@in";
+/** …and where it ends, standing where a song's `OUT` sink does. */
+export const CHAIN_OUT = "@out";
 
 /**
  * The chains a segment file describes, keyed by name — a track-fed run is called after its track, a run the
@@ -186,4 +193,38 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
  */
 export function isParked(c: Chain): boolean {
   return !c.from && c.use.length === 1 && !c.out.length;
+}
+
+/**
+ * The modules a segments file puts the signal through, in order, deduplicated.
+ *
+ * What a PLAYER needs and a drawing does not: the graph shows the segments as they branch,
+ * while playing or bouncing one is a single track carrying a plugin per step. Derived from the
+ * same parse the drawing uses, so the chain that is seen and the chain that is heard cannot be
+ * two different chains — which is why it lives here, beside the derivation, rather than in
+ * whichever surface plays it. The médiathèque draws a variant with it; l8's `track process` and
+ * `clip process` bounce one with it.
+ *
+ * `@in` and `@out` are dropped: they are the ends, not treatments. Unreadable text is an empty
+ * list rather than a throw — the pane showing the file is what reports why.
+ */
+export function chainSteps(text: string): string[] {
+  const parsed = parseChains(text);
+  if (!parsed.value) return [];
+  let derived: Record<string, Chain>;
+  try {
+    derived = chainsOf(parsed.value);
+  } catch {
+    return []; // a shape the derivation refuses — nothing to play
+  }
+  const out: string[] = [];
+  for (const c of Object.values(derived))
+    for (const s of c.use)
+      if (
+        s.module !== CHAIN_IN &&
+        s.module !== CHAIN_OUT &&
+        !out.includes(s.module)
+      )
+        out.push(s.module);
+  return out;
 }

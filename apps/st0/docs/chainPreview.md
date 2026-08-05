@@ -55,6 +55,12 @@ The steps come from `chainSteps()`, which parses the same text the drawing parse
 you see and the chain you hear cannot drift apart. `@in` and `@out` are dropped: they are the
 ends, not treatments.
 
+It lives in `@studio/song`'s `chainsGraph.ts` now, beside the derivation itself, and
+`chainGraph.ts` re-exports it. It moved when l8 grew `track process` / `clip process`, which
+bounce one of these templates from Node onto a track or a clip
+(`packages/commands/docs/processChain.md`): a second reader of the same files had to read them
+the same way, and the ends had to keep one spelling.
+
 `recordDir` stays empty — a preview plays and never records, and a made-up directory is one the
 engine would eventually try to write into.
 

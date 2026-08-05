@@ -2,9 +2,22 @@
 // and the repository's git in the header. Which view is showing is URL state (routes.ts), so a
 // link to one survives a reload. See ../../docs/views.md.
 
+import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
+import type { EditorView } from "@codemirror/view";
+import { Button } from "@frediverse/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@frediverse/ui/dialog";
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { WebGraph } from "@studio/graph-model";
+import { showToast, Toaster } from "@studio/project-shell/toast";
+import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 import type {
   FileNode,
   GitStatus,
@@ -22,7 +35,7 @@ import {
   SlidersHorizontal,
   Workflow,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { DEFAULT_VIEW, type RouteState, type ViewId } from "./routes";
 import { useViewRoute } from "./useViewRoute";
@@ -57,6 +70,32 @@ export function Studio({
       setView(next.view);
       setFile(next.file);
     }, []),
+  );
+
+  // Undo/redo wiring. The live editor view (for Ctrl+Z arbitration), a re-read token so an
+  // undo of the OPEN file shows through, and the confirm gate for a process step.
+  const cmViewRef = useRef<EditorView | null>(null);
+  const [editReload, setEditReload] = useState(0);
+  const [undoConfirm, setUndoConfirm] = useState<{
+    files: string[];
+    label: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const historyDeps = useMemo<HistoryDeps>(
+    () => ({
+      openFile: (p) => {
+        setView("edit");
+        setFile(p);
+      },
+      notify: (message, variant) => showToast({ message, variant }),
+      confirmProcess: (files, label) =>
+        new Promise<boolean>((resolve) =>
+          setUndoConfirm({ files, label, resolve }),
+        ),
+      currentFile: () => file,
+      onApplied: () => setEditReload((k) => k + 1),
+    }),
+    [file],
   );
 
   const [tree, setTree] = useState<FileNode[]>([]);
@@ -115,6 +154,45 @@ export function Studio({
     const t = setInterval(ask, 10 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured so it runs
+  // before CodeMirror's keymap: while the focused editor has keystroke history it wins, then
+  // the same key walks the journal. m9 has no command bar, so this is its only global shortcut.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (undoConfirm) return; // don't stack a second confirm
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      const isRedo = key === "y" || (key === "z" && e.shiftKey);
+      const v = cmViewRef.current;
+      if (view === "edit" && v?.hasFocus) {
+        // Spend the buffer's own history first; once empty, fall through to the journal.
+        const depth = isRedo ? redoDepth(v.state) : undoDepth(v.state);
+        if (depth > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isRedo) redo(v);
+          else undo(v);
+          return;
+        }
+      } else {
+        const t = e.target as HTMLElement | null;
+        if (
+          t &&
+          (t.tagName === "INPUT" ||
+            t.tagName === "TEXTAREA" ||
+            t.isContentEditable)
+        )
+          return; // a plain input keeps native undo
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      void (isRedo ? runRedo(historyDeps) : runUndo(historyDeps));
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [historyDeps, view, undoConfirm]);
 
   // The tree is shown from the PROJECT down, not the whole workspace: this app was opened on
   // one project and showing its siblings would offer to edit something it has not opened.
@@ -220,7 +298,15 @@ export function Studio({
 
         {view === "mix" && <MixView engine={engine} />}
         {view === "edit" && (
-          <EditView path={file} hints={hints} onSaved={() => void reload()} />
+          <EditView
+            path={file}
+            hints={hints}
+            onSaved={() => void reload()}
+            onEditorView={(v) => {
+              cmViewRef.current = v;
+            }}
+            reloadKey={editReload}
+          />
         )}
         {view === "graph" && <GraphView graph={graph} />}
       </div>
@@ -248,6 +334,50 @@ export function Studio({
         </span>
         {!rev && <Loader2 className="h-3 w-3 animate-spin" />}
       </footer>
+
+      {/* Confirm before undoing a process step — it restores a bounced audio file. */}
+      <Dialog
+        open={!!undoConfirm}
+        onOpenChange={(o) => {
+          if (!o && undoConfirm) {
+            undoConfirm.resolve(false);
+            setUndoConfirm(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Annuler le process ?</DialogTitle>
+            <DialogDescription>
+              {undoConfirm
+                ? `${undoConfirm.files.join(", ") || undoConfirm.label} — le fichier bouncé sera restauré à son état précédent.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                undoConfirm?.resolve(false);
+                setUndoConfirm(null);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                undoConfirm?.resolve(true);
+                setUndoConfirm(null);
+              }}
+            >
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Toasts naming the file an undo/redo reverted. */}
+      <Toaster />
     </div>
   );
 }

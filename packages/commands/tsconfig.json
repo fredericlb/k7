@@ -3,6 +3,9 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // @studio/mediatek writes its own relative imports with a `.ts` extension, and this
+    // package consumes it as source — the same flag the file service carries for it.
+    "allowImportingTsExtensions": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

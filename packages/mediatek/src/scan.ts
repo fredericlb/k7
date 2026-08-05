@@ -11,6 +11,7 @@ import { isAudio, isVideo } from "./media.ts";
 import {
   CHAINS_FILE,
   type Family,
+  INSTANCES_DIR,
   type MediatekEntry,
   type SongVariant,
 } from "./types.ts";
@@ -30,11 +31,9 @@ export const PRESETS_FILE = "presets.yaml";
  *  files out of (MODULE_ASSETS_DIR there), so a module dropped here plays on any machine. */
 export const ASSETS_DIR = "assets";
 
-// The file that makes a folder a CHAIN lives in types.ts — the browser needs the word and this
-// file opens `node:fs`. Re-exported because this is where every existing importer looks.
-export { CHAINS_FILE };
-/** Where a chain's instances live, beside its `chains.yaml`. */
-export const INSTANCES_DIR = "instances";
+// A chain's two names live in types.ts — the browser needs both words and this file opens
+// `node:fs`. Re-exported because this is where every existing importer looks.
+export { CHAINS_FILE, INSTANCES_DIR };
 
 function dirents(abs: string): Dirent[] {
   try {

@@ -57,8 +57,15 @@ and levels — and a file source has neither. Left in, it would have been filed 
 
 ## What is not wired yet
 
-Playback. The role, the field, the catalogue entry, the graph's treatment of it and the drawing
-are here; nothing compiles a FILE module into a `ProjectDoc` for the engine yet. In a song,
-audio reaches the engine as a clip on a track, and making a file input compile to that is the
-piece still to write — deliberately not guessed at here, because the médiathèque's use of it is
-a drawing and the shape a song wants may differ.
+Playback **from a song**. The role, the field, the catalogue entry, the graph's treatment of it
+and the drawing are here; nothing compiles a FILE module into a `ProjectDoc` from a song's own
+YAML. In a song, audio reaches the engine as a clip on a track, and making a file input compile
+to that is the piece still to write — deliberately not guessed at here, because the shape a song
+wants may differ.
+
+The **médiathèque** does not wait on it, and this page used to imply otherwise.
+`chainPreviewDoc` (`apps/st0/frontend/src/engine/chainPreview.ts`) already builds that document
+by hand — the song's master as the clip, the chain's steps as the track's plugins — which is
+what both auditioning a chain and bouncing a variant run on. See
+`packages/mediatek/docs/variants.md`. What is missing is the *authored* path: a `modules/io/FILE`
+instance in a project folder compiling to the same thing.

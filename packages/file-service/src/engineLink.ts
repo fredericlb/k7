@@ -374,6 +374,7 @@ function makeHost(
   ws: Workspace,
   out: string[],
   userEmail?: string,
+  snapshot?: (absPath: string) => void,
 ): CommandHost {
   const dir = ws.activeProjectPath();
   const requireDir = (): string => {
@@ -469,6 +470,8 @@ function makeHost(
     gitEnv: webGitEnv(userEmail),
     // Whole-repo git runs at the workspace root — a workspace is one cloned repo — so it works with no project open.
     repoDir: ws.root,
+    // A process backs up each render here before overwriting it, feeding the recordChange journal.
+    snapshot,
   };
 }
 
@@ -483,11 +486,14 @@ export async function runWebCommand(
   const out: string[] = [];
   if (!ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim()))
     return [NO_PROJECT];
-  try {
-    await runCommand(line, makeHost(ws, out, userEmail), SURFACE);
-  } catch (e) {
-    out.push(`error: ${(e as Error).message}`);
-  }
+  // Journal whatever files the command changes, so Ctrl+Z can undo it (a no-op when nothing changed).
+  await ws.recordChange(line, async (snapshot) => {
+    try {
+      await runCommand(line, makeHost(ws, out, userEmail, snapshot), SURFACE);
+    } catch (e) {
+      out.push(`error: ${(e as Error).message}`);
+    }
+  });
   return out;
 }
 

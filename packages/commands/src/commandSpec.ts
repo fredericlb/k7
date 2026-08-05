@@ -20,6 +20,7 @@ import {
   SID_HANDLERS,
 } from "./commands";
 import { alternatives } from "./git";
+import { chainNames } from "./processChain";
 
 // The surfaces a command can appear on. Only one remains — the web backend dispatches under "cli" too — but it
 // stays a type so a future surface needing its own subset has somewhere to hook in.
@@ -76,12 +77,24 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
   },
   // Marker names for `marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
   markerNames: (h) => h.project().markers.map((m) => m.name),
-  // `normalize` takes a track OR an audio file, so both are offered, tracks first. Clip ids were offered once and
-  // never worked — the handler resolves a track or a PATH, and offering what a command rejects is worse than nothing.
-  normalizeTargets: (h) => [
-    ...h.project().tracks.map((t) => t.id),
+  // What `clip process` accepts: the audio clips this project places, then its audio files —
+  // for material no clip file has claimed yet. Tracks are deliberately absent, and the handler
+  // refuses one by name: `track process` is the command for those. Clip ids were dropped from a
+  // list like this once, back when the command reading it resolved only a track or a path, and
+  // the rule that did it stands unchanged — never offer what the command would reject.
+  clipTargets: (h) => [
+    ...new Set(
+      h
+        .project()
+        .tracks.flatMap((t) => t.clips)
+        .filter((c) => c.type === "audio" && c.source)
+        .map((c) => c.id),
+    ),
     ...PROVIDERS.audioFiles(h),
   ],
+  // The chains a bounce can run: this project's, then the médiathèque's under `@mediatek/`.
+  // Both in one list because the command takes either — see processChain.ts.
+  chains: (h) => chainNames(h.project()),
   // Sequence FILE ids, read off disk: a sequence's file id can differ from the midi-clip name collectSequences reports.
   sequenceFiles: (h) => {
     try {
@@ -219,8 +232,12 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // A named thing picked from a closed list — the same shape the palette renders for any
   // other choice. Not "file": an alternative is a branch, and nothing on disk.
   alternatives: "choice",
-  // A normalize target is a track OR a file; the list leads with tracks, so the field reads as a track field.
-  normalizeTargets: "track",
+  // A clip id and an audio path are both material, and the palette colours material as a file —
+  // the same answer `sequenceFiles` gets, whose ids are likewise entities rather than paths.
+  clipTargets: "file",
+  // A chain is a named thing picked from a closed list, like an alternative — it is neither a
+  // module nor anything on disk the `file` class would colour.
+  chains: "choice",
   modules: "module",
   baseModules: "module",
   categories: "module",
@@ -240,7 +257,10 @@ export function argClass(a: ArgSpec): ArgClass {
 const PROVIDER_HINT: Record<ProviderName, string> = {
   alternatives: "an existing alternative — the one you are on is not offered",
   tracks: "a track of this project",
-  normalizeTargets: "a track (all its clips together), or one audio file",
+  clipTargets:
+    "a clip of this project, or one audio file (e.g. clips/kick.wav)",
+  chains:
+    "a chain of this project, or one the médiathèque holds (@mediatek/<path>)",
   modules: "a module of this project",
   baseModules:
     "the module to inherit from — the engine's catalogue and this project's",

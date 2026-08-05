@@ -23,6 +23,7 @@ import { engineFaceModule, FACE_CATEGORIES } from "@studio/song/engineFace";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import type { RepoSummary } from "@studio/web-protocol";
 import {
+  Activity,
   Boxes,
   Disc3,
   FolderGit2,
@@ -41,6 +42,7 @@ import { AddSong } from "./AddSong";
 import { auth, engineMachine, library, projects } from "./api";
 import { ChainEditor } from "./ChainEditor";
 import { EngineStatusBar } from "./EngineStatusBar";
+import { EnginePage } from "./engine/EnginePage";
 import { EngineList, EnginePicker } from "./engine/EnginePicker";
 import { ModuleParams } from "./engine/ModuleParams";
 import { useEngineChoice } from "./engine/useEngineChoice";
@@ -80,7 +82,7 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
 /** The four that ARE families — the only ids `/list` and `/manifest` accept. */
 type FamilyId = Exclude<
   SectionId,
-  typeof RECORDINGS_DIR | typeof PROJECTS_SECTION
+  typeof RECORDINGS_DIR | typeof PROJECTS_SECTION | "engine"
 >;
 
 /** Poll interval for the revision map. Cheap on the server (a walk per family, only when
@@ -291,6 +293,9 @@ export function Library() {
   // The repositories go further: not on the volume at all, so no tree down the side either —
   // the section draws its own screen edge to edge.
   const isProjects = section === PROJECTS_SECTION;
+  // The cog's engine-status page — a section with no tab, no tree and no library poll:
+  // everything it shows comes from the engine's own socket. See engine/EnginePage.tsx.
+  const isEngine = section === "engine";
   // Whether the TREE may write. Two sections say no, for two different reasons: `songs/`
   // has a shape deduced from tags — a folder made by hand there is not a badly filed
   // song, it is an invisible one — and a capture is named by the clock, so a renamed one
@@ -492,7 +497,7 @@ export function Library() {
   // count on switch. The zone is in that map beside the families, so there is still exactly
   // one poll for everything the volume holds.
   useEffect(() => {
-    if (isProjects) return; // not on the volume — its own poll is below
+    if (isProjects || isEngine) return; // not on the volume — nothing of theirs to poll here
     let stop = false;
     const tick = async () => {
       try {
@@ -512,7 +517,7 @@ export function Library() {
       stop = true;
       clearInterval(t);
     };
-  }, [isProjects, isZone, load, loadZone, section]);
+  }, [isEngine, isProjects, isZone, load, loadZone, section]);
 
   // The repositories' poll, separate because they come from a DIFFERENT service. Folding them
   // into the loop above would make every library tick depend on `/api/projects` answering,
@@ -598,6 +603,16 @@ export function Library() {
                 onRetry={choice.refresh}
               />
             </div>
+            {/* The page behind the picker: the tray's engine options, in the browser. */}
+            <DropdownMenuItem
+              onSelect={() => {
+                setSection("engine");
+                setPicked(null);
+              }}
+            >
+              <Activity className="mr-2 h-4 w-4" />
+              État du moteur
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void auth.logout()}>
               <LogOut className="mr-2 h-4 w-4" />
               Se déconnecter
@@ -606,9 +621,15 @@ export function Library() {
         </DropdownMenu>
       </header>
 
-      {/* The repositories draw the whole row themselves: there is no library tree to put
-          down the side, because nothing here is on the volume. */}
-      {isProjects ? (
+      {/* The engine page draws edge to edge for the same reason the repositories do:
+          nothing it shows is on the volume. */}
+      {isEngine ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+          <EnginePage choice={choice} />
+        </div>
+      ) : /* The repositories draw the whole row themselves: there is no library tree to put
+          down the side, because nothing here is on the volume. */
+      isProjects ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <ProjectsSection
             repos={repos}
@@ -1093,7 +1114,11 @@ export function Library() {
               <div className="mb-3 min-w-0 truncate text-sm font-semibold">
                 {picked.name}
               </div>
-              <SongVariants entry={picked} engineId={choice.chosenId} />
+              <SongVariants
+                entry={picked}
+                engineId={choice.chosenId}
+                engineToken={choice.token}
+              />
             </aside>
           ) : null}
         </div>

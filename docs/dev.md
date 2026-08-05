@@ -93,6 +93,23 @@ that is otherwise fine. The case worth knowing: a killed `serve-web` leaves a ch
 the socket, so the port can be busy with nothing useful behind it. The message says as
 much, and `Get-NetTCPConnection -LocalPort 8798` finds the process tree to stop.
 
+The busy-port-is-success rule is also what lets the **`studio-vscode` logon task** own
+this same editor when the remote layer is installed (see below): whichever of the two
+starts first serves, and the other says so and goes green.
+
+## Working remotely — Tilt, `/console` and the logon tasks
+
+An editor that is a task inside `npm run dev` dies with it, which remotely means losing
+the only door at the exact moment you need it. `npm run remote:install` inverts that:
+four Windows logon tasks bring up Caddy, the editor, the **dev session under Tilt**
+(each server its own restartable resource, web UI at **https://studio.test:10351**
+— or **/dev-status**, which redirects there —
+`Tiltfile` derived from the same workspace rules as this file's filter list) and a
+**shared shell** at **https://studio.test/console**. While `studio-tilt` runs, do
+**not** also run `npm run dev` in a terminal: the session already exists, and a second
+would fight it for every port. The whole design — and why ttyd was rejected — is in
+[remote.md](remote.md).
+
 ## The native task — `scripts/dev-native.mjs`
 
 It is `engine/moteur`'s `dev` script, which is what gives it a pane in the TUI beside the

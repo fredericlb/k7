@@ -1,7 +1,7 @@
 import { autocompletion } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";
 import { type Extension, Prec } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
+import { type EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
 import {
@@ -56,6 +56,7 @@ export function EditorPane({
   onVideoSetFrom,
   onVideoSetTo,
   onCloseVideoReaders,
+  onEditorView,
 }: {
   file: FileContent | null;
   hints: Hints;
@@ -91,6 +92,8 @@ export function EditorPane({
   onVideoSetFrom?: (ref: string, t: number) => void;
   onVideoSetTo?: (ref: string, t: number) => void;
   onCloseVideoReaders?: () => void;
+  // Hand the live CodeMirror view up, so the shell can ask it for its focus/undo depth (Ctrl+Z arbitration).
+  onEditorView?: (view: EditorView | null) => void;
 }) {
   // Keep Ctrl/Cmd-S pointed at the latest onSave without rebuilding the extensions on every keystroke.
   const saveRef = useRef(onSave);
@@ -238,6 +241,7 @@ export function EditorPane({
       basicSetup={{ foldGutter: false, autocompletion: false }}
       extensions={extensions}
       onChange={onChange}
+      onCreateEditor={(view) => onEditorView?.(view)}
     />
   );
 

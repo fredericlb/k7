@@ -3,9 +3,8 @@
 // runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, parse, relative } from "node:path";
+import { join, relative } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
   AudioDeviceInfo,
@@ -84,6 +83,7 @@ import {
   pull,
   switchAlternative,
 } from "./git";
+import { processWithChain, type Scope } from "./processChain";
 import { freezeTrackRender } from "./render";
 import { describeTimeline, describeTrack } from "./timeline";
 
@@ -121,6 +121,9 @@ export interface CommandHost {
   gitEnv?: GitEnv;
   // Where the whole-repo git commands run — the workspace ROOT on the web, since a workspace is one cloned repo.
   repoDir?: string;
+  // Back up a file the command is about to overwrite (an absolute path), so undo can restore it.
+  // The web host wires this to its edit journal; the CLI leaves it undefined and simply overwrites.
+  snapshot?(absPath: string): void;
 }
 
 export type SidHandler = (
@@ -525,6 +528,44 @@ const eqBand = (a: string, h: CommandHost, verb: string, param: string) =>
     (db) => `${verb} ${db > 0 ? "+" : ""}${db.toFixed(1)} dB`,
   );
 
+/**
+ * `track process` / `clip process`: bounce material through a chain and keep the result.
+ *
+ * One implementation, two commands, because the only thing that differs is what the first
+ * argument may name — and that difference is worth a command each, since it is the promise the
+ * noun makes. See processChain.ts and docs/processChain.md.
+ */
+async function processCommand(
+  arg: string,
+  h: CommandHost,
+  scope: Scope,
+): Promise<void> {
+  // The target is ONE token and the chain is the rest, so a médiathèque path keeps its slashes
+  // without needing quotes. Both are required — a bounce with no chain would be a copy.
+  const [target, ...rest] = arg.trim().split(/\s+/).filter(Boolean);
+  const chain = rest.join(" ");
+  if (!target || !chain) {
+    h.log([
+      `usage: ${scope} process <${scope}${scope === "clip" ? "|path" : ""}> <chain>  ` +
+        "(a chain of this project, or @mediatek/<path>)",
+    ]);
+    return;
+  }
+  const { lines, changed } = processWithChain(
+    h.songPath,
+    h.project(),
+    target,
+    chain,
+    scope,
+    // Back up each render before it's overwritten, so the web host's journal can undo the bounce.
+    (abs) => h.snapshot?.(abs),
+  );
+  h.log(lines);
+  // Only when something landed: the clip files changed under the compiler, and nothing else
+  // would tell it. A run that wrote nothing has nothing to re-read.
+  if (changed) await h.reload();
+}
+
 // --- SID registry ------------------------------------------------------------
 
 export const SID_HANDLERS: Record<string, SidHandler> = {
@@ -535,76 +576,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "track.new.audio": async (a, h) => newTrack(a, h, "audio"),
   "track.new.midi": async (a, h) => newTrack(a, h, "midi"),
 
-  // Peak-normalize one project-relative audio file to -1 dBFS, writing <name>_norm beside it; re-running is idempotent.
-  "clip.normalize": async (arg, h) => {
-    const rel = arg.trim().replace(/\\/g, "/");
-    if (!rel) {
-      h.log([
-        "usage: clip normalize <track|path>  (a track, or a project-relative audio file)",
-      ]);
-      return;
-    }
-
-    // A TRACK normalises all its clips TOGETHER against the loudest peak, so they keep their balance — one by one
-    // would flatten exactly the dynamics between takes that make a track sound played rather than assembled.
-    const track = h
-      .project()
-      .tracks.find((t) => t.id === rel || t.name === rel);
-    const sources = track
-      ? [
-          ...new Set(
-            track.clips
-              .filter((c) => c.type === "audio" && c.source)
-              .map((c) => c.source),
-          ),
-        ]
-      : [join(h.songPath, rel)];
-    if (track && !sources.length) {
-      h.log([`'${track.id}' has no audio clips to normalize`]);
-      return;
-    }
-    const missing = sources.filter((s) => !existsSync(s));
-    if (missing.length) {
-      h.log([
-        track
-          ? `missing source(s) on '${track.id}': ${missing.map((m) => relative(h.songPath, m).replace(/\\/g, "/")).join(", ")}`
-          : `file not found: ${rel}`,
-      ]);
-      return;
-    }
-
-    const outFor = (s: string) => {
-      const p = parse(s);
-      return join(p.dir, `${p.name.replace(/_norm$/, "")}_norm${p.ext}`);
-    };
-
-    const engine = findEngineBinary();
-    if (!engine) {
-      h.log([
-        "normalize failed: studio-moteur binary not found (build the engine)",
-      ]);
-      return;
-    }
-    // Target peak for -1 dBFS.
-    const target = 10 ** (-1 / 20); // ≈ 0.8913
-    // Every (in,out) pair in ONE invocation — that is what makes the gain shared.
-    const pairs = sources.flatMap((s) => [s, outFor(s)]);
-    try {
-      execFileSync(engine, ["--normalize", String(target), ...pairs], {
-        encoding: "utf8",
-      });
-    } catch (e) {
-      h.log([`normalize failed: ${(e as Error).message.split("\n")[0]}`]);
-      return;
-    }
-    const show = (s: string) => relative(h.songPath, s).replace(/\\/g, "/");
-    h.log([
-      track
-        ? `normalized ${sources.length} clip(s) on '${track.id}' with one shared gain (-1 dBFS): ${sources.map((s) => show(outFor(s))).join(", ")}`
-        : `normalized ${rel} → ${show(outFor(sources[0]))} (-1 dBFS)`,
-    ]);
-    await h.reload();
-  },
+  // Bounce material through a chain and keep the result: the render lands beside the source and the
+  // clip files are pointed at it. The mechanism (and the reasoning) is processChain.ts; the two
+  // commands differ only in what their first argument may name, which is what `scope` carries.
+  "track.process": (a, h) => processCommand(a, h, "track"),
+  "clip.process": (a, h) => processCommand(a, h, "clip"),
 
   // --- mixer (shared: TUI + CLI/web) — persisted to the track's file ----------
   "track.mute": (a, h) =>

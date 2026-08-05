@@ -135,6 +135,37 @@ export const engineMachine = {
     return json(res, "analyse");
   },
 
+  /** Wipe that machine's waveform cache — the tray's « Clear waveform cache », the same
+   *  file-service route the supervisor calls. Returns how many entries were removed. */
+  clearWaveforms: async (fileBase: string, token: string): Promise<number> => {
+    const res = await fetch(`${fileBase}/waveforms/clear`, {
+      method: "POST",
+      headers: {
+        [USER_HEADER]: currentUser(),
+        [ENGINE_TOKEN_HEADER]: token,
+      },
+    });
+    const { removed } = await json<{ removed: number }>(res, "waveforms");
+    return removed ?? 0;
+  },
+
+  /** The tail of that machine's merged log (engine + supervisor + file service) — what the
+   *  tray's « Show logs » opens, minus the text editor. */
+  logs: async (
+    fileBase: string,
+    token: string,
+    tail = 300,
+  ): Promise<string[]> => {
+    const res = await fetch(`${fileBase}/logs?tail=${tail}`, {
+      headers: {
+        [USER_HEADER]: currentUser(),
+        [ENGINE_TOKEN_HEADER]: token,
+      },
+    });
+    const { lines } = await json<{ lines: string[] }>(res, "logs");
+    return lines ?? [];
+  },
+
   /** What this machine's engine has scanned, grouped by lowercased format. */
   plugins: async (
     fileBase: string,

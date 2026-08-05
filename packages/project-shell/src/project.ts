@@ -16,11 +16,13 @@ import type {
   GitPullResult,
   GitStatus,
   Hints,
+  HistoryState,
   IoPort,
   ModulePresetsFile,
   ModuleUiFile,
   ProjectErrors,
   ProjectInfo,
+  UndoResult,
   WebPreferences,
   WebProject,
   WorkspaceForRepo,
@@ -103,6 +105,13 @@ export const projectApi = {
     fget<string[]>(`/complete?line=${encodeURIComponent(line)}`),
   command: (line: string) =>
     fsend<{ output: string[] }>("POST", "/command", { line }),
+
+  // --- The project-wide undo/redo journal, driven by Ctrl+Z / Ctrl+Y ------------
+  // `confirm` applies a process step (restoring a bounced file); without it, a process step
+  // comes back `needsConfirm` for the client to gate. historyState() enables the shortcuts.
+  historyState: () => fget<HistoryState>("/history"),
+  undo: (confirm?: boolean) => fsend<UndoResult>("POST", "/undo", { confirm }),
+  redo: (confirm?: boolean) => fsend<UndoResult>("POST", "/redo", { confirm }),
 
   // --- This machine's preferences, and the merged engine + file-service log -----
   preferences: () => fget<WebPreferences>("/preferences"),

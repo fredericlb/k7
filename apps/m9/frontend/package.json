@@ -12,6 +12,7 @@
   "dependencies": {
     "@frediverse/ui": "*",
     "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/commands": "^6.10.4",
     "@codemirror/state": "^6.4.0",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",

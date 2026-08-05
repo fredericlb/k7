@@ -4,16 +4,20 @@
 // See docs/chains.md.
 
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
-import { deriveChains } from "@studio/song/chainsGraph";
+import { INSTANCES_DIR } from "@studio/mediatek/types";
+import {
+  CHAIN_IN,
+  CHAIN_OUT,
+  chainSteps,
+  deriveChains,
+} from "@studio/song/chainsGraph";
 import { parseChains } from "@studio/song/yaml/chainsFile";
 
-/** Where a chain keeps the instances its segments name. */
-export const INSTANCES_DIR = "instances";
-
-/** The source every chain template starts at — a track's place, without a track. */
-export const CHAIN_IN = "@in";
-/** …and where it ends. A sink's place, drawn like `OUT` is in a song. */
-export const CHAIN_OUT = "@out";
+// The three names this file used to declare itself. The ends of a template and the folder its
+// instances live in are the médiathèque's and the song layer's vocabulary, not this app's —
+// l8's `track process` / `clip process` read the same chains from Node and must not read them
+// by another name.
+export { CHAIN_IN, CHAIN_OUT, chainSteps, INSTANCES_DIR };
 
 /** What `deriveChains` hands back, keyed by chain name. Narrowed here so this file states the
  *  shape it consumes rather than importing a type that carries a project's worth of fields. */
@@ -21,37 +25,6 @@ interface DerivedChain {
   from?: string;
   use: { module: string; enabled?: boolean }[];
   out: { to: string; gain: number }[];
-}
-
-/**
- * The modules the template puts the signal through, in order, deduplicated.
- *
- * What a PLAYER needs and the drawing does not: the graph shows the segments as they branch,
- * while an audition is one track carrying a plugin per step. Derived from the same parse as the
- * drawing, so the chain that is seen and the chain that is heard cannot be two different chains
- * — which is why this lives here and not in the component that plays.
- *
- * `@in` and `@out` are dropped: they are the ends, not treatments.
- */
-export function chainSteps(text: string): string[] {
-  const parsed = parseChains(text);
-  if (!parsed.value) return [];
-  let derived: Record<string, DerivedChain>;
-  try {
-    derived = deriveChains(parsed.value) as Record<string, DerivedChain>;
-  } catch {
-    return []; // a shape the schema refuses — nothing to play, and the text pane reports it
-  }
-  const out: string[] = [];
-  for (const c of Object.values(derived))
-    for (const s of c.use)
-      if (
-        s.module !== CHAIN_IN &&
-        s.module !== CHAIN_OUT &&
-        !out.includes(s.module)
-      )
-        out.push(s.module);
-  return out;
 }
 
 /**

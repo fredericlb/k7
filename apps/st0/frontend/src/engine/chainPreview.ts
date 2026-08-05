@@ -12,7 +12,7 @@ import {
 } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { USER_HEADER } from "@studio/web-protocol";
+import { ENGINE_TOKEN_HEADER, USER_HEADER } from "@studio/web-protocol";
 
 /** The chain a preview lives on. One name, so the engine's diff sees a track it already has
  *  rather than a new one on every play. */
@@ -26,6 +26,31 @@ export interface PreviewStep {
 }
 
 /**
+ * The headers the engine's file service gates on.
+ *
+ * Both of them, and the token is not optional in practice: everything past `requireEngineToken`
+ * (context.ts) is refused without it as soon as one is configured — which the supervisor always
+ * does on a real machine. These two routes used to send the user alone, so they worked on a bare
+ * dev run and answered 401 everywhere else. `cacheRoot` swallows that into `null`, which the UI
+ * words as "cette machine n'a pas de cache de la médiathèque" — true-sounding, and wrong, which
+ * is how it stayed hidden.
+ *
+ * Omitted when there is no token to send, because a machine with none configured gates on
+ * nothing and adding an empty header would fail a comparison that currently passes.
+ */
+function engineHeaders(
+  user: string,
+  token?: string | null,
+  extra?: Record<string, string>,
+): Record<string, string> {
+  return {
+    ...extra,
+    [USER_HEADER]: user,
+    ...(token ? { [ENGINE_TOKEN_HEADER]: token } : {}),
+  };
+}
+
+/**
  * The cache's absolute root on the engine's machine, and the song in it.
  *
  * Two different disks are in play and conflating them is the whole trap: the médiathèque this
@@ -36,10 +61,11 @@ export interface PreviewStep {
 export async function cacheRoot(
   fileBase: string,
   user: string,
+  token?: string | null,
 ): Promise<string | null> {
   try {
     const res = await fetch(`${fileBase}/mediatek`, {
-      headers: { [USER_HEADER]: user },
+      headers: engineHeaders(user, token),
     });
     if (!res.ok) return null;
     const { present, root } = (await res.json()) as {
@@ -103,10 +129,13 @@ export async function bounce(
   fileBase: string,
   user: string,
   doc: ProjectDoc,
+  token?: string | null,
 ): Promise<Bounced> {
   const res = await fetch(`${fileBase}/render`, {
     method: "POST",
-    headers: { "content-type": "application/json", [USER_HEADER]: user },
+    headers: engineHeaders(user, token, {
+      "content-type": "application/json",
+    }),
     body: JSON.stringify({ doc, format: "mp3" }),
   });
   if (!res.ok) {

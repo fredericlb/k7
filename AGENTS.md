@@ -89,3 +89,16 @@ git add commons && git commit -m "bump commons"
 commons first. Never edit `commons/` for something only studio needs — put it in
 `packages/` instead: that is the line between "shared with phare" and "shared
 inside studio".
+
+# Developing on Windows
+
+**Windows only** — on macOS and Linux everything is simpler: edit and build in the
+same world, run `npm run dev`, and none of the following applies.
+
+On the Windows dev machine the worlds are split: **editing** (claude, nvim…) lives
+in WSL — the default shell of the `/console` tabs — while **every build and every
+dev server belongs to Tilt** on the Windows side (`tilt up`, one resource per
+server, UI at https://studio.test:10351). So never build by hand there: save (or
+`tilt trigger <resource>`), wait for Tilt to finish, then read
+`tilt get uiresources` / `tilt logs <resource>` to see if something is wrong. The
+tray is not used in dev: the engine is self-sufficient. See docs/remote.md.

@@ -26,6 +26,15 @@
 studio.test {
 	tls internal
 
+	# No HTTP/3 advertisement, PROVEN necessary: a browser on another LAN machine
+	# upgrades to QUIC and its WebSockets fail (console, Tilt, vscode terminals)
+	# while plain pages sail through — "page ok, ws injoignable". Same page in a
+	# private window (no cached Alt-Svc mapping) works. A browser that saw the old
+	# header may cling to h3 for up to its 30-day ma= — a full browser restart
+	# clears it. Local to this site block on purpose: the global options live in
+	# commons, and phare has no LAN WebSocket surface to protect.
+	header -Alt-Svc
+
 	# Auth is ORIGIN-WIDE, not per service: one origin means one session cookie, so
 	# one backend owns the flow and the others merely verify its cookie. It also
 	# leaves a single redirect_uri to register — redirectUriFor already builds
@@ -151,6 +160,28 @@ studio.test {
 		reverse_proxy 127.0.0.1:8798
 	}
 
+	# --- The shared shell, served at /console -------------------------------
+	# scripts/console/server.mjs — ONE PowerShell in a ConPTY the service owns (a
+	# logon task installed by scripts/remote.mjs), so it survives its viewers and
+	# every browser types into the SAME terminal. The Tilt UI (:10351 below) has
+	# no stdin; this is its terminal-shaped companion. No strip: the server serves
+	# under the prefix, same asymmetry as the SPAs. UNAUTHENTICATED like /dev, for
+	# the same stated reasons and with the same warning. See docs/remote.md.
+	@console path /console /console/*
+	handle @console {
+		reverse_proxy 127.0.0.1:8797
+	}
+
+	# --- /dev-status → the Tilt UI ------------------------------------------
+	# A REDIRECT, not a proxy: Tilt's SPA loads /static/* absolute and `tilt up`
+	# has no base-path flag (checked: only --host/--port), so it cannot join the
+	# path-per-service scheme. This just gives its port site below a memorable
+	# name on the origin.
+	@devstatus path /dev-status /dev-status/*
+	handle @devstatus {
+		redir * https://studio.test:10351/
+	}
+
 	# The bare origin IS st0 — the médiathèque is the studio's front door, not a
 	# redirect to somewhere else. This is also where OIDC's APP_ROOT fallback lands
 	# when a login carries no return_to, which now arrives at a real page instead of
@@ -164,4 +195,15 @@ studio.test {
 	handle {
 		reverse_proxy 127.0.0.1:5224
 	}
+}
+
+# The Tilt UI — the dev session's control panel (per-task logs, status and restart;
+# started by the studio-tilt logon task, scripts/remote.mjs). Its SPA assumes it is
+# served at the root, so it cannot join the path-per-service scheme above: it gets a
+# PORT on the same hostname instead — no new DNS name to resolve, same internal CA.
+# Same no-auth stance as /dev and /console.
+studio.test:10351 {
+	tls internal
+	header -Alt-Svc
+	reverse_proxy 127.0.0.1:10350
 }

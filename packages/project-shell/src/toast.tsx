@@ -1,10 +1,12 @@
-// Toast.tsx — lightweight auto-dismissing notifications. No external library.
-// Render a <Toaster> once in App; call `showToast({ message, variant })` from anywhere.
-// Stacks vertically, auto-dismisses after `duration` ms.
+// toast.tsx — lightweight auto-dismissing notifications, shared by l8 and m9. No external
+// library. Render <Toaster/> once at the app root; call `showToast({ message, variant })`
+// from anywhere. Stacks bottom-right, auto-dismisses after `duration` ms.
 
-import { cn } from "@frediverse/ui/lib/utils";
 import { CheckCircle2, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+
+const cx = (...parts: (string | false | undefined)[]): string =>
+  parts.filter(Boolean).join(" ");
 
 export interface ToastItem {
   id: number;
@@ -73,14 +75,15 @@ function Toast({
 
   return (
     <div
-      className={cn(
+      className={cx(
         "pointer-events-auto flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-lg",
         "animate-in slide-in-from-right-4 fade-in duration-200",
       )}
     >
-      <Icon className={cn("h-4 w-4 shrink-0", iconCls)} />
+      <Icon className={cx("h-4 w-4 shrink-0", iconCls)} />
       <span className="min-w-0 text-foreground">{item.message}</span>
       <button
+        type="button"
         onClick={onDismiss}
         className="ml-1 shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
       >
