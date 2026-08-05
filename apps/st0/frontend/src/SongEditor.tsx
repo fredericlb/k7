@@ -9,6 +9,8 @@ import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, Disc3, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library } from "./api";
+import { useModuleEngine } from "./engine/useModuleEngine";
+import type { PlaybackTarget } from "./playback/targets";
 import { SongPlayer } from "./SongPlayer";
 import { SongVariants } from "./SongVariants";
 
@@ -30,6 +32,7 @@ export function SongEditor({
   fileBase,
   engineId,
   engineToken,
+  playbackTarget,
   onBack,
   onSaved,
 }: {
@@ -40,9 +43,25 @@ export function SongEditor({
   /** …and the engine itself, which is what auditions a chain variant. */
   engineId?: string;
   engineToken?: string | null;
+  /** Where the account wants sound to come out. See ../docs/playbackTarget.md. */
+  playbackTarget: PlaybackTarget;
   onBack: () => void;
   onSaved: () => void;
 }) {
+  /**
+   * ONE socket for this screen, held here and handed to both panes.
+   *
+   * It used to be opened inside `SongVariants`, which was correct while that pane was the only
+   * thing here that made the moteur play. The player can now ask for the same engine, and two
+   * hooks would be two connections to one machine from one tab — the very thing
+   * `useEngineChoice` exists not to do. The pane above the variants and the pane below share a
+   * transport anyway: one engine, one session, one thing playing at a time.
+   */
+  const engine = useModuleEngine(engineId);
+  // …and stopping it when the screen goes is this component's job for the same reason: the
+  // transport belongs to the editor, not to whichever pane last used it. Leaving is the one
+  // gesture that must not leave a song playing on a machine in another room.
+  useEffect(() => () => engine.stop(), [engine.stop]);
   // Two STRINGS, and that is the point: the listing is re-polled every three seconds, so
   // `entry` is a fresh object on every tick. An effect that depended on it would reload the
   // file — and throw away whatever had been typed into it — three times a minute.
@@ -146,13 +165,15 @@ export function SongEditor({
               entry={entry}
               fileBase={fileBase}
               engineToken={engineToken}
+              target={playbackTarget}
+              engine={engine}
             />
           </div>
           {entry.variants?.length ? (
             <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">
               <SongVariants
                 entry={entry}
-                engineId={engineId}
+                engine={engine}
                 engineToken={engineToken}
               />
             </div>

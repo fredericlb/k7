@@ -1,6 +1,6 @@
-// useModuleEngine.ts — the engine as the module editor needs it: connect to the one this
-// ACCOUNT chose, load one module, and report what its plugin's parameters are called and
-// what they span. Nothing else — no transport, no meters. See docs/engine.md.
+// useModuleEngine.ts — the ONE socket to the engine this account chose: it loads a module and
+// answers for its plugin's parameters, and it carries the transport for anything the moteur
+// plays (a chain variant, a master). No meters. See docs/engine.md, docs/playbackTarget.md.
 
 import { EngineClient } from "@studio/engine-browser";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
@@ -17,6 +17,13 @@ export type EnginePhase =
 
 export interface ModuleEngine {
   phase: EnginePhase;
+  /** Whether the engine says it is playing, and where its playhead is (seconds).
+   *
+   *  From the engine's own state push, never from a hopeful local flag set on click: the
+   *  transport is on another machine, so "did it start" and "where is it" are answers only
+   *  that machine has. m9's useEngine reads the same frame for the same reason. */
+  playing: boolean;
+  playhead: number;
   /** The chosen machine's file service, as its own probe reported it — null when none answered.
    *  The médiathèque is hosted and the moteur opens PATHS, so anything that plays audio has to
    *  find it on that machine's disk. See m9's docs/plumbing.md, which walks the same route. */
@@ -43,6 +50,9 @@ export interface ModuleEngine {
    */
   play: (doc: ProjectDoc) => void;
   stop: () => void;
+  /** Scrub to an absolute position, in seconds. Its own verb rather than a re-send of the
+   *  document: the engine keeps playing across a seek, and a document would restart it. */
+  seek: (seconds: number) => void;
   retry: () => void;
 }
 
@@ -70,6 +80,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   const [paramNames, setParamNames] = useState<string[]>([]);
   const [paramMeta, setParamMeta] = useState<Record<string, ParamMeta>>({});
   const [presets, setPresets] = useState<PresetInfo[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
   const engine = useRef<EngineClient | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
   // Stops the renew loop and says goodbye. Held in a ref because the lease is taken inside an
@@ -111,6 +123,14 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
         if (meta) setParamMeta(meta);
       });
       client.onPresets((_module, list) => setPresets(list));
+      // The transport, as the engine reports it. Subscribed always and not only while
+      // something plays: a session can already be running when this tab connects — the same
+      // person left it playing in another one — and a pane that assumed silence would draw a
+      // Play button over a song that is audible.
+      client.onState((s) => {
+        setPlaying(s.playing);
+        setPlayhead(s.playhead);
+      });
       client.connect();
       setPhase({ k: "ready", id: found.engine.id });
       // A doc asked for before the socket opened is replayed here rather than lost.
@@ -156,9 +176,19 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
 
   const stop = useCallback(() => engine.current?.transport("stop"), []);
 
+  // Moved locally as well as sent: the state frame is ~20 Hz, so a playhead that only ever
+  // came back from the engine would lag a drag on the waveform by up to 50 ms — long enough
+  // to read as the cursor snapping back before it catches up.
+  const seek = useCallback((seconds: number) => {
+    engine.current?.seek(seconds);
+    setPlayhead(Math.max(0, seconds));
+  }, []);
+
   return {
     phase,
     fileBase,
+    playing,
+    playhead,
     paramNames,
     paramMeta,
     presets,
@@ -167,6 +197,7 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     setPreset,
     play,
     stop,
+    seek,
     retry: () => setAttempt((n) => n + 1),
   };
 }

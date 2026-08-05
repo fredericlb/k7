@@ -22,7 +22,7 @@ import {
   playablePath,
   stepPlugin,
 } from "./engine/chainPreview";
-import { useModuleEngine } from "./engine/useModuleEngine";
+import type { ModuleEngine } from "./engine/useModuleEngine";
 
 /** One chain variant, resolved: the entry it names and the text of its `chains.yaml`. */
 interface ResolvedChain {
@@ -52,13 +52,14 @@ function findChain(
 
 export function SongVariants({
   entry,
-  engineId,
+  engine,
   engineToken,
 }: {
   entry: MediatekEntry;
-  /** The account's chosen engine, handed down by whoever draws the picker — same prop the
-   *  module editor takes, so a choice made in the header reaches this pane too. */
-  engineId?: string;
+  /** The screen's engine, opened once by SongEditor and shared with the player above. It used
+   *  to be this pane's own `useModuleEngine(engineId)`; the player can need the same machine
+   *  now, and two hooks would be two connections to it from one tab. */
+  engine: ModuleEngine;
   /** That engine's token, for the routes its file service gates. The bounce itself does not
    *  send one; analysing what came back does. */
   engineToken?: string | null;
@@ -127,7 +128,10 @@ export function SongVariants({
   // The engine plays; this browser does not. The moteur opens PATHS on its own machine, so
   // what is auditioned is the copy in that machine's médiathèque cache — never the hosted
   // bytes this pane is listing. See docs/chainPreview.md.
-  const engine = useModuleEngine(engineId);
+  //
+  // And unlike the master above it, that is not a preference: a variant IS a chain of plugins,
+  // and only a moteur runs those. The playback destination therefore does not reach this pane
+  // — see docs/playbackTarget.md, "what the choice does not cover".
   const [playing, setPlaying] = useState<string | null>(null);
   // The cache's absolute root on the chosen machine. Null means there is nothing to play
   // FROM — no file service answered, or that machine holds no cache.
@@ -146,8 +150,9 @@ export function SongVariants({
     // none and would otherwise settle on the 401's `null` and never look again.
   }, [engine.fileBase, engineToken]);
 
-  // Stop when this pane goes away, or the sound outlives the screen that started it.
-  useEffect(() => () => engine.stop(), [engine.stop]);
+  // Stopping when the SCREEN goes away is SongEditor's now, since the engine is its. This pane
+  // can disappear on its own — a sidecar edited down to no variants — and the transport it may
+  // be holding is the shared one, so stopping it here would silence the master too.
 
   const toggle = useCallback(
     async (c: ResolvedChain) => {

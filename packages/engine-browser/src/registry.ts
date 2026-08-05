@@ -3,13 +3,31 @@
 // service mounts the same five routes (@studio/engine-registry), so they are spelled once here
 // rather than per app — st0's and m9's copies had already drifted in their return types.
 
-/** What a service answers on `/api/engines`. Structural, so no app has to import a shape. */
-export interface RegistryClient<E> {
+/**
+ * What one account has this service remember. `engineId` is the only field EVERY service keeps
+ * — it is what the registry itself is for — and a host adds its own by widening `P` below.
+ */
+export interface EnginePrefs {
+  engineId?: string;
+}
+
+/**
+ * What a service answers on `/api/engines`. Structural, so no app has to import a shape.
+ *
+ * `P` is that service's preference shape. It is a parameter rather than a fixed
+ * `{engineId?}` because the schema belongs to the HOST (`packages/user-prefs/docs/store.md`)
+ * and a union of every service's fields would be a shape no service actually has: st0
+ * remembers where playback happens, l8 does not. Defaulted, so an app that keeps nothing
+ * else says nothing.
+ */
+export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
   list(): Promise<E[]>;
   select(id: string, token: string, latencyMs: number): Promise<{ ok: true }>;
   release(id: string): boolean;
-  prefs(): Promise<{ engineId?: string }>;
-  savePrefs(p: { engineId?: string }): Promise<{ ok: true }>;
+  prefs(): Promise<P>;
+  /** WHOLESALE — the router replaces, it does not merge, so a caller holding one field would
+   *  clear the others. Send the whole object; st0's `prefs.ts` is what does the merging. */
+  savePrefs(p: P): Promise<{ ok: true }>;
 }
 
 /** Read a JSON body, or throw with `what` in the message. Passed in because each app already
@@ -23,10 +41,10 @@ export type ReadJson = <T>(res: Response, what: string) => Promise<T>;
  * SERVICE the browser loaded, never to another one, because each holds its own registry (see
  * @studio/engine-registry's docs/shared.md).
  */
-export function registryClient<E>(
+export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   base: string,
   json: ReadJson,
-): RegistryClient<E> {
+): RegistryClient<E, P> {
   return {
     list: async () => json<E[]>(await fetch(`${base}/api/engines`), "engines"),
 
@@ -51,10 +69,7 @@ export function registryClient<E>(
       ),
 
     prefs: async () =>
-      json<{ engineId?: string }>(
-        await fetch(`${base}/api/preferences`),
-        "preferences",
-      ),
+      json<P>(await fetch(`${base}/api/preferences`), "preferences"),
 
     savePrefs: async (p) =>
       json<{ ok: true }>(

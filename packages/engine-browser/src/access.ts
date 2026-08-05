@@ -6,6 +6,7 @@ import { chooseEngine } from "./choose.ts";
 import { holdEngine } from "./lease.ts";
 import { type ProbeTarget, probeEngines, type RankedEngine } from "./probe.ts";
 import {
+  type EnginePrefs,
   type ReadJson,
   type RegistryClient,
   registryClient,
@@ -23,7 +24,10 @@ export interface EngineLookup<E extends ProbeTarget> {
   ambiguous: boolean;
 }
 
-export interface EngineAccess<E extends ProbeTarget> extends RegistryClient<E> {
+export interface EngineAccess<
+  E extends ProbeTarget,
+  P extends EnginePrefs = EnginePrefs,
+> extends RegistryClient<E, P> {
   /** Measure every engine in the list, through this service's relay when the direct link is
    *  refused. Curried on `base`, which is the whole point of this file. */
   probe(engines: E[]): Promise<RankedEngine<E>[]>;
@@ -53,11 +57,11 @@ export interface EngineAccess<E extends ProbeTarget> extends RegistryClient<E> {
  * months every app did, because `probeEngines` had no second argument to forget yet. Once it
  * is a constructor argument there is nothing left to keep in step.
  */
-export function engineAccess<E extends ProbeTarget>(
-  base: string,
-  json: ReadJson,
-): EngineAccess<E> {
-  const reg = registryClient<E>(base, json);
+export function engineAccess<
+  E extends ProbeTarget,
+  P extends EnginePrefs = EnginePrefs,
+>(base: string, json: ReadJson): EngineAccess<E, P> {
+  const reg = registryClient<E, P>(base, json);
   const probe = (engines: E[]) => probeEngines(engines, base);
 
   return {
@@ -68,7 +72,7 @@ export function engineAccess<E extends ProbeTarget>(
       // for one before starting the other would add a round trip to every load.
       const [list, prefs] = await Promise.all([
         reg.list().catch(() => [] as E[]),
-        reg.prefs().catch(() => ({}) as { engineId?: string }),
+        reg.prefs().catch(() => ({}) as P),
       ]);
       const ranked = await probe(list);
       const rememberedId = preferId ?? prefs.engineId;

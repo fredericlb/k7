@@ -83,7 +83,14 @@ app.use("/api", engineRegistryRouter(registry));
 // The engine this user auditions modules through. Same shape as l8', a different store:
 // a person's médiathèque engine and their l8 engine are two choices, and this service is
 // deployed on its own.
-const prefsSchema = z.object({ engineId: z.string().optional() });
+// `playbackTarget` is where the person's audio comes out. A plain string and not an enum on
+// purpose: the list of destinations is the front-end's vocabulary (frontend/src/playback/
+// targets.ts), and narrowing an unknown one is `asPlaybackTarget`'s job — so adding a
+// destination is one entry there rather than an entry there AND a redeployed backend.
+const prefsSchema = z.object({
+  engineId: z.string().optional(),
+  playbackTarget: z.string().optional(),
+});
 // On the library volume — the one this service already requires — under a dot-directory, so
 // it never shows up in a family scan. See packages/user-prefs/docs/store.md.
 const PREFS_DIR = process.env.STUDIO_PREFS_DIR || join(mediatekDir(), ".prefs");

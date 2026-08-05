@@ -55,6 +55,8 @@ import { EngineList, EnginePicker } from "./engine/EnginePicker";
 import { ModuleParams } from "./engine/ModuleParams";
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { ModuleEditor } from "./ModuleEditor";
+import { PlaybackPicker } from "./playback/PlaybackPicker";
+import { usePlaybackTarget } from "./playback/usePlaybackTarget";
 import { ProjectsSection } from "./projects/ProjectsSection";
 import {
   DEFAULT_SECTION,
@@ -464,6 +466,10 @@ export function Library() {
   // No socket of its own — it only lists and remembers. useModuleEngine holds the
   // connection, and two hooks opening one would be two connections from one tab.
   const choice = useEngineChoice();
+  // Where sound comes out. Held here, beside the engine pick, because both belong to the
+  // account and both are drawn in this header — and because the editors below need it: a
+  // destination that could only be read where it is drawn would not reach the player.
+  const playback = usePlaybackTarget();
   // What the chosen MACHINE has scanned, flattened across formats — the vocabulary for
   // "give this plugin a face". It comes from that machine's file service, not from this
   // app's backend, which is hosted and has no scan cache of its own. Empty is "cannot
@@ -755,6 +761,15 @@ export function Library() {
             {VERSION}
           </span>
         </div>
+        {/* Where sound comes out, beside the cog rather than inside it: it is changed while
+            listening — you hear it on the wrong machine and reach for it — whereas the cog
+            holds things you set once. Its own button so it is one click, and its icon says
+            the current answer without opening anything. */}
+        <PlaybackPicker
+          target={playback.target}
+          engineReady={choice.ready}
+          onChoose={playback.choose}
+        />
         {/* One cog for the two things that belong to the person rather than the library:
             which engine auditions a module, and signing out. One place, and it stays
             reachable while the editor is open — which is why the pick is threaded into it
@@ -1213,6 +1228,7 @@ export function Library() {
                 fileBase={choice.fileBase}
                 engineId={choice.chosenId}
                 engineToken={choice.token}
+                playbackTarget={playback.target}
                 onBack={() => openFile(null)}
                 onSaved={refresh}
               />

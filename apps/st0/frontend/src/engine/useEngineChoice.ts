@@ -7,6 +7,7 @@ import type { PublicEngine } from "@studio/web-protocol";
 import type { EngineLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
 import { engines } from "../api";
+import { patchPrefs } from "../prefs";
 
 export interface EngineChoice {
   ranked: RankedEngine<PublicEngine>[];
@@ -61,8 +62,11 @@ export function useEngineChoice(): EngineChoice {
     // Optimistic, then persisted: the tick moves under the cursor rather than after a round
     // trip. A failed save is not surfaced — see packages/user-prefs/docs/store.md for why
     // that failure is deliberately quiet — but the choice still holds for this session.
+    //
+    // Through `patchPrefs` and never `savePrefs`: the route REPLACES the document, so a PUT
+    // of `{engineId}` alone would clear the playback destination beside it.
     setChosenId(id);
-    void engines.savePrefs({ engineId: id }).catch(() => {});
+    void patchPrefs({ engineId: id });
   }, []);
 
   return {
