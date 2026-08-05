@@ -778,19 +778,6 @@ export function Library() {
           {/* Chaque section que l'arbre ne sait pas écrire a son bouton ici : les morceaux
             parce que leur arborescence est déduite des tags, les enregistrements parce qu'un
             enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md. */}
-        <div className="ml-auto flex items-center gap-3">
-          {section === "songs" ? (
-            <AddSong onDone={refresh} engine={choice} />
-          ) : null}
-          {isZone ? <AddRecording onDone={refresh} onError={setError} /> : null}
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {VERSION}
-          </span>
-        </div>
-        {/* The way out to the studio's other apps. First of the three icon buttons because
-            it is the only one that LEAVES: the two beside it change how this page behaves. */}
-        <OtherApps />
-        {/* Where sound comes out, beside the cog rather than inside it: it is changed while
           <div className="ml-auto flex items-center gap-3">
             {section === "songs" ? (
               <AddSong onDone={refresh} engine={choice} />
@@ -802,6 +789,9 @@ export function Library() {
               {VERSION}
             </span>
           </div>
+          {/* The way out to the studio's other apps. First of the three icon buttons because
+            it is the only one that LEAVES: the two beside it change how this page behaves. */}
+          <OtherApps />
           {/* Where sound comes out, beside the cog rather than inside it: it is changed while
             listening — you hear it on the wrong machine and reach for it — whereas the cog
             holds things you set once. Its own button so it is one click, and its icon says
@@ -920,242 +910,6 @@ export function Library() {
               )}
             {/* The zone being explored, as a tree: /songs, /samples or /modules. Same
             component l8 uses for a workspace, fed from the entry paths. */}
-          <aside className="w-60 shrink-0 overflow-auto border-r p-2">
-            <input
-              ref={pickRef}
-              type="file"
-              multiple
-              // @ts-expect-error — the directory picker is prefixed and absent from React's typings.
-              webkitdirectory=""
-              directory=""
-              className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []).map((file) => ({
-                  path: file.webkitRelativePath || file.name,
-                  file,
-                }));
-                const dir = pickInto.current;
-                e.target.value = "";
-                if (files.length)
-                  void library
-                    .uploadTree(dir ? `${section}/${dir}` : section, files)
-                    .then(refresh)
-                    .catch((err: Error) => setError(err.message));
-              }}
-            />
-            {/* …and the one the variant menu opens. Its own input and not the folder picker's:
-                that one names a directory, and a variant is one audio file. */}
-            <input
-              ref={variantRef}
-              type="file"
-              accept={AUDIO_ACCEPT}
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []);
-                const song = variantInto.current;
-                e.target.value = "";
-                if (files.length) void addVariants(song, files);
-              }}
-            />
-            <FileTree
-              nodes={tree}
-              // The family IS the root: rootPath is what a drop onto empty space and the
-              // background menu target, and every node path below is relative to it.
-              rootPath=""
-              rootLabel={section.toUpperCase()}
-              // The entry being edited outranks the merely selected one: it is what the middle
-              // of the screen is showing, and the tree is now beside it rather than replaced.
-              // Same value `revealed` follows, so the marked row and the opened branch agree.
-              activePath={target}
-              // Open down to it, so a reloaded deep link lands on a tree showing where it is
-              // rather than one collapsed to the root. Sticky — see `revealed`.
-              reveal={revealed}
-              // A MODULE is a row you edit: clicking it opens the builder, on the PANEL, which is
-              // what people come to this screen for and what the "Éditer" button already chose.
-              // Anything else just selects.
-              // A module is a folder row you OPEN: its chevron unfolds the assets, its name opens
-              // the builder. Without this the click would only fold it, and the one gesture this
-              // screen exists for would need a second one to reach.
-              opensOnName={(n) =>
-                isModuleFolder(entries, n.path) || isSongFolder(entries, n.path)
-              }
-              onOpen={(n) => {
-                // A VARIANT row opens its SONG: it is a line of that sidecar, and the editor
-                // showing the sidecar is where it can be renamed, re-pointed or removed.
-                const v = variantAt(entries, n.path);
-                if (v) return openFile(`${relative(v.song.path)}/${SONG_FILE}`);
-                const entry = entryAt(entries, n.path);
-                if (!entry) return;
-                if (holdsModuleFile(entry)) openFile(`${n.path}/${UI_FILE}`);
-                // A chain has one file, so the address names it rather than a pane.
-                else if (holdsChainsFile(entry))
-                  openFile(`${n.path}/${CHAINS_FILE}`);
-                // …and a song names its sidecar, which is the left half of what opens.
-                else if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
-                else setPicked(entry);
-              }}
-              // A module, a chain and a song each wear the glyph of their own tab. Without one
-              // the row would read as a plain file, which is the one thing none of them is.
-              // A variant wears the two SongVariants draws, for the same reason it draws them:
-              // a sibling file and a chain are different things to go looking for.
-              icon={(n) => {
-                const v = variantAt(entries, n.path);
-                if (v)
-                  return v.variant.kind === "file" ? (
-                    <AudioLines className="h-4 w-4 shrink-0" />
-                  ) : (
-                    <Workflow className="h-4 w-4 shrink-0" />
-                  );
-                const e = entryAt(entries, n.path);
-                if (e && holdsModuleFile(e))
-                  return <Boxes className="h-4 w-4 shrink-0" />;
-                if (e && holdsChainsFile(e))
-                  return <Workflow className="h-4 w-4 shrink-0" />;
-                if (e && isSong(e))
-                  return <Disc3 className="h-4 w-4 shrink-0" />;
-                return null;
-              }}
-              // Absent for songs, which is why the header has a button instead: a file
-              // dropped here would land where it fell, and that family's shape is deduced
-              // from tags rather than chosen. Undefined and not a no-op — the shared tree
-              // reads these props to decide whether a row is even a drop target.
-              // onDropTree and not onDropFiles: a module IS a folder, so dropping one has to
-              // arrive as a folder. `dataTransfer.files` cannot carry that — see the shared
-              // tree's lib/droppedEntries.ts for why, and for the two traps it works around.
-              // A drop ONTO a module is a drop into what it carries: the module folder itself holds
-              // its definition, and a sample landing beside module.yaml is neither an instance nor a
-              // panel — it is material, and `assets/` is where the loader looks for it.
-              // A drop in SONGS is a variant, and only onto the morceau itself: the rows above
-              // it are an artist and an album, which are deduced from tags and hold nothing.
-              // The shared tree decides whether a row is a target from this prop alone — it
-              // has no per-row test — so those rows do highlight, and this says why nothing
-              // landed instead of swallowing the drop.
-              onDropTree={
-                editable
-                  ? (dir, files) =>
-                      void library
-                        .uploadTree(assetsTarget(dir), files)
-                        .then(refresh)
-                        .catch((e: Error) => setError(e.message))
-                  : section === "songs"
-                    ? (dir, files) =>
-                        void (isSongFolder(entries, dir)
-                          ? addVariants(
-                              dir,
-                              files.map((f) => f.file),
-                            )
-                          : setError(
-                              "Un fichier n'entre dans les morceaux que comme variante de l'un d'eux : déposez-le sur le morceau.",
-                            ))
-                    : undefined
-              }
-              // Present, so rows are draggable — the shared tree decides that from this prop
-              // alone. Folders included: `moveEntry` renames a directory as readily as a file,
-              // and a folder is a real row now rather than a shared prefix across entry paths.
-              onMove={
-                editable
-                  ? (from, toDir) =>
-                      void library
-                        .move(
-                          `${section}/${from}`,
-                          // Through the same mapping a drop goes through: dragging a sample onto a
-                          // module has to mean what dropping one there means.
-                          `${assetsTarget(toDir)}/${from.split("/").pop()}`,
-                        )
-                        .then(refresh)
-                        .catch((e: Error) => setError(e.message))
-                  : undefined
-              }
-              cancelLabel="Annuler"
-              // Every target needs at least one action that passes its `when`, or the menu
-              // does not open AT ALL — the shared tree returns early rather than showing an
-              // empty one. Folders and the root would otherwise have none, since the two
-              // below are file-only. The zone and the repositories lean on that same early
-              // return: no menu opens at all there.
-              //
-              // SONGS get one action and only one — see `songActions`. That family's tree
-              // still cannot write, which is what `editable` says and why the branch is not
-              // simply `editable ? all : none`.
-              actions={
-                !editable
-                  ? songActions
-                  : [
-                      {
-                        key: "upload-folder",
-                        label: "Téléverser un dossier…",
-                        when: (t) =>
-                          (t.dir || t.root) && !isModuleFolder(entries, t.path),
-                        run: (t) => pickFolder(t.path),
-                      },
-                      {
-                        key: "new-folder",
-                        label: "Nouveau dossier…",
-                        // Anywhere but INSIDE a module: a module holds its own files and its
-                        // instances, never folders. Depth is not this menu's business — the
-                        // scanner finds a module wherever its file is.
-                        when: (t) =>
-                          (t.dir || t.root) && !isModuleFolder(entries, t.path),
-                        prompt: { placeholder: "nom", submit: "Créer" },
-                        run: (t, value) =>
-                          void library
-                            .newFolder(
-                              `${section}/${t.path ? `${t.path}/` : ""}${value}`,
-                            )
-                            .then(refresh)
-                            .catch((e: Error) => setError(e.message)),
-                      },
-                      {
-                        key: "new-file",
-                        label: "Nouveau fichier…",
-                        // Not inside a MODULE, folder though its row now is: the tree draws a
-                        // module's assets and nothing else, so a file created beside module.yaml
-                        // would answer 200 and appear nowhere. The builder makes those.
-                        when: (t) =>
-                          (t.dir || t.root) && !isModuleFolder(entries, t.path),
-                        prompt: { placeholder: "nom.yaml", submit: "Créer" },
-                        run: (t, value) =>
-                          void library
-                            .writeFile(
-                              `${section}/${t.path ? `${t.path}/` : ""}${value}`,
-                              "",
-                            )
-                            .then(refresh)
-                            .catch((e: Error) => setError(e.message)),
-                      },
-                      {
-                        // Only on a CATEGORY folder, which is what makes the category chosen by where
-                        // you clicked rather than by a second prompt — and `io` never offers it,
-                        // because it is the engine's own IN/OUT and no scanned plugin is one.
-                        key: "engine-face",
-                        label: "Nouveau module depuis un greffon…",
-                        // Any folder under a type, at any depth — the module lands where you
-                        // clicked. Never inside a module: a module holds files, not modules.
-                        when: (t) =>
-                          section === "modules" &&
-                          t.dir &&
-                          !isModuleFolder(entries, t.path) &&
-                          FACE_CATEGORIES.includes(t.path.split("/")[0]),
-                        prompt: {
-                          placeholder:
-                            "nom du greffon, tel que le moteur le rapporte",
-                          submit: "Créer",
-                          // Re-evaluated on every keystroke, which is what turns a blind field
-                          // into a picker without a list widget: the machine's scan IS the
-                          // vocabulary, so matching against it is the difference between naming
-                          // a plugin and guessing at one.
-                          hint: (_t, value) => {
-                            if (!plugins.length)
-                              return "cette machine n'a rapporté aucun greffon scanné";
-                            const q = value.trim().toLowerCase();
-                            if (!q) return `${plugins.length} greffons scannés`;
-                            const hits = plugins.filter((p) =>
-                              p.toLowerCase().includes(q),
-                            );
-                            return hits.length
-                              ? hits.slice(0, 4).join(" · ")
-                              : "aucun greffon de ce nom";
-                          },
             <aside className="w-60 shrink-0 overflow-auto border-r p-2">
               <input
                 ref={pickRef}
@@ -1181,6 +935,21 @@ export function Library() {
                       .catch((err: Error) => setError(err.message));
                 }}
               />
+              {/* …and the one the variant menu opens. Its own input and not the folder picker's:
+                  that one names a directory, and a variant is one audio file. */}
+              <input
+                ref={variantRef}
+                type="file"
+                accept={AUDIO_ACCEPT}
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  const song = variantInto.current;
+                  e.target.value = "";
+                  if (files.length) void addVariants(song, files);
+                }}
+              />
               <FileTree
                 nodes={tree}
                 // The family IS the root: rootPath is what a drop onto empty space and the
@@ -1200,8 +969,16 @@ export function Library() {
                 // A module is a folder row you OPEN: its chevron unfolds the assets, its name opens
                 // the builder. Without this the click would only fold it, and the one gesture this
                 // screen exists for would need a second one to reach.
-                opensOnName={(n) => isModuleFolder(entries, n.path)}
+                opensOnName={(n) =>
+                  isModuleFolder(entries, n.path) ||
+                  isSongFolder(entries, n.path)
+                }
                 onOpen={(n) => {
+                  // A VARIANT row opens its SONG: it is a line of that sidecar, and the editor
+                  // showing the sidecar is where it can be renamed, re-pointed or removed.
+                  const v = variantAt(entries, n.path);
+                  if (v)
+                    return openFile(`${relative(v.song.path)}/${SONG_FILE}`);
                   const entry = entryAt(entries, n.path);
                   if (!entry) return;
                   if (holdsModuleFile(entry)) openFile(`${n.path}/${UI_FILE}`);
@@ -1214,7 +991,16 @@ export function Library() {
                 }}
                 // A module, a chain and a song each wear the glyph of their own tab. Without one
                 // the row would read as a plain file, which is the one thing none of them is.
+                // A variant wears the two SongVariants draws, for the same reason it draws them:
+                // a sibling file and a chain are different things to go looking for.
                 icon={(n) => {
+                  const v = variantAt(entries, n.path);
+                  if (v)
+                    return v.variant.kind === "file" ? (
+                      <AudioLines className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <Workflow className="h-4 w-4 shrink-0" />
+                    );
                   const e = entryAt(entries, n.path);
                   if (e && holdsModuleFile(e))
                     return <Boxes className="h-4 w-4 shrink-0" />;
@@ -1234,6 +1020,11 @@ export function Library() {
                 // A drop ONTO a module is a drop into what it carries: the module folder itself holds
                 // its definition, and a sample landing beside module.yaml is neither an instance nor a
                 // panel — it is material, and `assets/` is where the loader looks for it.
+                // A drop in SONGS is a variant, and only onto the morceau itself: the rows above
+                // it are an artist and an album, which are deduced from tags and hold nothing.
+                // The shared tree decides whether a row is a target from this prop alone — it
+                // has no per-row test — so those rows do highlight, and this says why nothing
+                // landed instead of swallowing the drop.
                 onDropTree={
                   editable
                     ? (dir, files) =>
@@ -1241,7 +1032,17 @@ export function Library() {
                           .uploadTree(assetsTarget(dir), files)
                           .then(refresh)
                           .catch((e: Error) => setError(e.message))
-                    : undefined
+                    : section === "songs"
+                      ? (dir, files) =>
+                          void (isSongFolder(entries, dir)
+                            ? addVariants(
+                                dir,
+                                files.map((f) => f.file),
+                              )
+                            : setError(
+                                "Un fichier n'entre dans les morceaux que comme variante de l'un d'eux : déposez-le sur le morceau.",
+                              ))
+                      : undefined
                 }
                 // Present, so rows are draggable — the shared tree decides that from this prop
                 // alone. Folders included: `moveEntry` renames a directory as readily as a file,
