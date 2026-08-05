@@ -16,7 +16,8 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { sortNodes } from "../treeOrder";
 
 function Row({
   node,
@@ -106,9 +107,20 @@ export function RepoTree({
   onRefresh: () => void;
   onOpenProject: (path: string, app: ProjectApp) => void;
 }) {
+  // L'ordre de lecture, à tous les niveaux : le miroir répond dans celui de l'arbre git.
+  const rows = useMemo(() => (nodes ? sortNodes(nodes) : null), [nodes]);
   // Les dossiers dépliés au départ : ceux qu'il faut traverser pour voir un projet seraient
-  // le bon calcul ; le premier niveau suffit et ne dépend pas du chargement.
+  // le bon calcul ; le premier niveau suffit, et un dépôt qui s'ouvre tout replié cache
+  // derrière un clic la seule chose qu'on vient y chercher.
   const [open, setOpen] = useState<Set<string>>(new Set());
+  // Une seule fois par dépôt, à l'arrivée de l'arbre : ensuite les plis sont ceux de la
+  // personne, y compris ceux qu'elle a refermés — un rafraîchissement ne les rouvre pas.
+  const seeded = useRef<string | null>(null);
+  useEffect(() => {
+    if (!rows || seeded.current === repo.id) return;
+    seeded.current = repo.id;
+    setOpen(new Set(rows.filter((n) => n.dir).map((n) => n.path)));
+  }, [rows, repo.id]);
   const toggle = (path: string) =>
     setOpen((s) => {
       const next = new Set(s);
@@ -141,17 +153,17 @@ export function RepoTree({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto py-2">
-        {nodes === null ? (
+        {rows === null ? (
           <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Récupération du dépôt…
           </div>
-        ) : nodes.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
             Ce dépôt est vide.
           </div>
         ) : (
-          nodes.map((n) => (
+          rows.map((n) => (
             <Row
               key={n.path}
               node={n}
