@@ -2,7 +2,7 @@
   "name": "st0",
   "version": "0.0.1",
   "private": true,
-  "description": "The media library: what studio owns, in one place — songs, samples and modules — and the module builder, since only the library is editable. Serves the studio origin root.",
+  "description": "The media library: what studio owns, in one place — songs, samples, modules, chains and playlists — and the module builder, since only the library is editable. Serves the studio origin root.",
   "scripts": {
     "dev": "turbo run dev --filter=st0-frontend --filter=st0-backend"
   }

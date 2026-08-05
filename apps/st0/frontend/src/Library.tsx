@@ -1,5 +1,5 @@
-// Library.tsx — the catalogue: four sections as header tabs (three families and the raw
-// capture zone), the current one's files as a tree down the side, its contents in the
+// Library.tsx — the catalogue: the sections as header tabs (the families, the repositories and
+// the raw capture zone), the current one's files as a tree down the side, its contents in the
 // middle. Refetches a section only when ITS token moved, which is the whole reason the
 // service hands out one per section. The chrome follows l8 — same shell, same tree.
 
@@ -18,6 +18,7 @@ import {
   type TreeNode,
 } from "@frediverse/ui/file-tree";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
+import { PLAYLIST_EXT, playlistStub } from "@studio/mediatek/playlist";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import {
   CHAINS_FILE,
@@ -35,6 +36,7 @@ import {
   Boxes,
   Disc3,
   FolderGit2,
+  ListMusic,
   Loader2,
   LogOut,
   type LucideIcon,
@@ -56,6 +58,7 @@ import { ModuleParams } from "./engine/ModuleParams";
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { ModuleEditor } from "./ModuleEditor";
 import { OtherApps } from "./OtherApps";
+import { PlaylistEditor } from "./PlaylistEditor";
 import { MiniPlayer } from "./playback/MiniPlayer";
 import { PlaybackPicker } from "./playback/PlaybackPicker";
 import { PlaybackProvider } from "./playback/PlaybackProvider";
@@ -73,7 +76,7 @@ import { sortNodes } from "./treeOrder";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /**
- * The header's tabs: the repositories, then the four families and the raw capture zone.
+ * The header's tabs: the repositories, then the five families and the raw capture zone.
  *
  * PROJECTS leads because it is what the app OPENS on (`DEFAULT_SECTION` in routes.ts), and a
  * tab strip whose first tab is not the landing screen reads as a mistake. It is also the
@@ -92,10 +95,11 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: "samples", label: "Samples", icon: Waves },
   { id: "modules", label: "Modules", icon: Boxes },
   { id: "chains", label: "Chaînes", icon: Workflow },
+  { id: "playlists", label: "Playlists", icon: ListMusic },
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
 ];
 
-/** The four that ARE families — the only ids `/list` and `/manifest` accept. */
+/** The five that ARE families — the only ids `/list` and `/manifest` accept. */
 type FamilyId = Exclude<
   SectionId,
   typeof RECORDINGS_DIR | typeof PROJECTS_SECTION | "engine"
@@ -143,6 +147,12 @@ const holdsChainsFile = (e: MediatekEntry): boolean =>
  *  what the scan stopped at, so every entry in the family is one — sidecar or not. A folder
  *  with no `song.yaml` is `catalogued: false`, which is a song nobody filed, not a category. */
 const isSong = (e: MediatekEntry): boolean => e.family === "songs";
+
+/** Is this entry a PLAYLIST? The family answers, as it does for a song — but the entry is the
+ *  FILE here rather than the folder around it, which is why nothing below pairs it with a
+ *  canonical name the way `SONG_FILE` and `CHAINS_FILE` are paired. See
+ *  packages/mediatek/docs/playlists.md. */
+const isPlaylist = (e: MediatekEntry): boolean => e.family === "playlists";
 
 /**
  * What `revealed` starts on, so a section opens SHOWING its first level instead of collapsed
@@ -444,9 +454,17 @@ export function Library() {
     const entry = dir ? entryAt(entries, dir) : null;
     return entry && isSong(entry) ? entry : null;
   }, [entries, file]);
-  /** Whichever of the three is open. What the tree marks active and opens down to, and what
+  // …and for a PLAYLIST, which is the one that does NOT go through `folderOf`: its file IS the
+  // entry, so the address's second half is already the path to look up. Same shape of memo, one
+  // level less of path. See packages/mediatek/docs/playlists.md.
+  const editingPlaylist = useMemo(() => {
+    const entry = file ? entryAt(entries, file) : null;
+    return entry && isPlaylist(entry) ? entry : null;
+  }, [entries, file]);
+  /** Whichever of the four is open. What the tree marks active and opens down to, and what
    *  the middle of the screen is showing — three questions with one answer. */
-  const opened = editing?.entry ?? editingChain ?? editingSong;
+  const opened =
+    editing?.entry ?? editingChain ?? editingSong ?? editingPlaylist;
   /**
    * Where a drop lands, family-relative — `assets/` when the row it fell on is a MODULE.
    *
@@ -987,6 +1005,9 @@ export function Library() {
                     openFile(`${n.path}/${CHAINS_FILE}`);
                   // …and a song names its sidecar, which is the left half of what opens.
                   else if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
+                  // A playlist names NOTHING extra: the row already is the file, so the path
+                  // the tree hands over is the whole of the address.
+                  else if (isPlaylist(entry)) openFile(n.path);
                   else setPicked(entry);
                 }}
                 // A module, a chain and a song each wear the glyph of their own tab. Without one
@@ -1008,6 +1029,8 @@ export function Library() {
                     return <Workflow className="h-4 w-4 shrink-0" />;
                   if (e && isSong(e))
                     return <Disc3 className="h-4 w-4 shrink-0" />;
+                  if (e && isPlaylist(e))
+                    return <ListMusic className="h-4 w-4 shrink-0" />;
                   return null;
                 }}
                 // Absent for songs, which is why the header has a button instead: a file
@@ -1100,6 +1123,35 @@ export function Library() {
                               )
                               .then(refresh)
                               .catch((e: Error) => setError(e.message)),
+                        },
+                        {
+                          key: "new-playlist",
+                          label: "Nouvelle playlist…",
+                          // Its own action beside the generic "Nouveau fichier…", which would
+                          // create an EMPTY one: the right-hand pane is drawn from the text, so
+                          // a blank file opens on a parse failure for a playlist nobody has had
+                          // a chance to get wrong yet. This writes the stub instead.
+                          when: (t) =>
+                            section === "playlists" && (t.dir || t.root),
+                          prompt: { placeholder: "nom", submit: "Créer" },
+                          run: (t, value) => {
+                            // The extension is what makes the file a playlist (there is no
+                            // marker inside one), so it is added rather than demanded.
+                            const name = /\.ya?ml$/i.test(value)
+                              ? value
+                              : `${value}${PLAYLIST_EXT}`;
+                            const rel = `${t.path ? `${t.path}/` : ""}${name}`;
+                            void library
+                              .writeFile(
+                                `${section}/${rel}`,
+                                playlistStub(value.replace(/\.ya?ml$/i, "")),
+                              )
+                              // Straight into it: an empty playlist exists to be filled, and
+                              // the screen that fills it is one click away otherwise.
+                              .then(() => openFile(rel))
+                              .then(refresh)
+                              .catch((e: Error) => setError(e.message));
+                          },
                         },
                         {
                           key: "new-file",
@@ -1271,6 +1323,17 @@ export function Library() {
                   onSaved={refresh}
                 />
               </main>
+            ) : editingPlaylist ? (
+              <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <PlaylistEditor
+                  entry={editingPlaylist}
+                  vimMode={localStorage.getItem("st0.vim") === "1"}
+                  playbackTarget={playback.target}
+                  engineToken={choice.token}
+                  onBack={() => openFile(null)}
+                  onSaved={refresh}
+                />
+              </main>
             ) : (
               <main className="min-w-0 flex-1 overflow-auto p-6">
                 {error ? (
@@ -1337,7 +1400,11 @@ export function Library() {
                         onClick={() =>
                           isSong(e)
                             ? openFile(`${relative(e.path)}/${SONG_FILE}`)
-                            : setPicked((p) => (p?.id === e.id ? null : e))
+                            : // A playlist opens for the same reason, and names nothing extra:
+                              // the entry IS the file.
+                              isPlaylist(e)
+                              ? openFile(relative(e.path))
+                              : setPicked((p) => (p?.id === e.id ? null : e))
                         }
                       >
                         <span className="min-w-0 flex-1 truncate">
@@ -1354,6 +1421,14 @@ export function Library() {
                         {e.meta?.artist ? (
                           <span className="text-xs text-muted-foreground">
                             {String(e.meta.artist)}
+                          </span>
+                        ) : null}
+                        {/* How long a playlist is — the one fact about one worth having before
+                            opening it, the way `pack` is for a sample. Its `kind` is empty, so
+                            the column on the right says nothing about this family. */}
+                        {isPlaylist(e) ? (
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {Number(e.meta?.items ?? 0)} morceaux
                           </span>
                         ) : null}
                         {e.meta?.pack ? (

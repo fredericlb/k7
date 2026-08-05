@@ -53,7 +53,8 @@ files of its own showed neither, and read as having been flattened on the way in
 
 ## Why the token is per family
 
-`familyRevision()` is computed for `songs`, `samples` and `modules` separately.
+`familyRevision()` is computed for each family separately — `songs`, `samples`, `modules`,
+`chains` and `playlists`.
 
 One token for the whole library would mean importing a track invalidates the module list,
 and the families move at completely different rates — a sample pack is dropped in once and

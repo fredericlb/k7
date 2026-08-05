@@ -6,7 +6,7 @@ The music and stage apps of the frediverse.
 |---|---|---|
 | `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `studio.test/k7` |
 | `apps/l8` | text-first DAW — the web editor | `studio.test/l8` |
-| `apps/st0` | the media library — songs, samples, modules; the studio's home page | `studio.test` |
+| `apps/st0` | the media library — songs, samples, modules, chains, playlists; the studio's home page | `studio.test` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/capot` | the Tauri tray that supervises the engine | — |
 | `apps/z0` | blind-test game — six SPAs behind one origin | `studio.test/z0` |

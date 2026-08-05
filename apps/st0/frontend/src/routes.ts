@@ -3,7 +3,7 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The six things the header offers, plus `engine` — the cog's engine-status page, a
+/** The seven things the header offers, plus `engine` — the cog's engine-status page, a
  *  section with no tab. `recordings` and `projects` are sections and not families — see
  *  Library.tsx. A section id may not collide with a path Caddy claims above st0's
  *  catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see
@@ -13,6 +13,7 @@ export const SECTION_IDS = [
   "samples",
   "modules",
   "chains",
+  "playlists",
   "recordings",
   "projects",
   "engine",
@@ -31,7 +32,13 @@ export const PROJECTS_SECTION = "projects";
  * editor a tick later — the loop useLibraryRoute exists to avoid, entered through the one door
  * it does not guard, a URL the app writes and cannot read. `songs` now opens one too.
  */
-const CARRIES: readonly string[] = ["songs", "modules", "chains", "projects"];
+const CARRIES: readonly string[] = [
+  "songs",
+  "modules",
+  "chains",
+  "playlists",
+  "projects",
+];
 
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);
@@ -49,10 +56,14 @@ export interface RouteState {
    * A song names its sidecar the way a chain names its `chains.yaml`: the folder IS the entry,
    * so the address ends at the file the left half of the screen is editing.
    *
+   * A PLAYLIST is the one that needs no such pairing: its file IS the entry (see
+   * packages/mediatek/docs/playlists.md), so the whole of this string is the entry's path and
+   * `folderOf` has nothing to take off it. Same slot, same question, one level less of it.
+   *
    * Under `projects` it is not a file but a REPOSITORY id — the section has no builder, and
    * what the address has to carry is which repository is open. Same slot, because it is the
    * same question ("what, inside this section, are you looking at") and a second field would
-   * be empty for four of the six sections.
+   * be empty for most of the sections.
    */
   file: string | null;
 }

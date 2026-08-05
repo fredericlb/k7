@@ -52,6 +52,15 @@ export interface Playback {
   /** Why nothing is coming out, when the browser is the one playing and the master would not
    *  load. Empty otherwise. The engine's own complaints are on `useEngine().warning`. */
   error: string;
+  /**
+   * Bumped each time what was loaded reached its end BY ITSELF. A counter and not a boolean:
+   * what a reader wants is the event, and a flag would have to be cleared by whoever saw it.
+   *
+   * It exists for the playlist pane, which is the only thing here that has a next. Nothing
+   * else has to care — `now` is deliberately not cleared, since "what did I just listen to"
+   * outlives the last sample.
+   */
+  ended: number;
   /** Silence it and forget it. The bar's close button, and the only thing that clears `now`:
    *  a song that ENDS stays, because "what did I just listen to" outlives the last sample. */
   close: () => void;
@@ -105,6 +114,17 @@ export function PlaybackProvider({
   const [browserAt, setBrowserAt] = useState(0);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState("");
+  const [ended, setEnded] = useState(0);
+  /**
+   * That the transport is about to stop because WE asked it to.
+   *
+   * Only the engine branch needs it. The browser has `onEnded`, which fires for the end of a
+   * song and for nothing else; the engine has one bit — `playing` — which goes false when the
+   * machine reaches the end AND when it is told to stop, and a queue must only advance on the
+   * first. Set by every deliberate transition below, cleared by the effect that reads it.
+   */
+  const weStopped = useRef(false);
+  const wasPlaying = useRef(false);
   // The document the engine holds for US, so its playhead can be told apart from another
   // surface's. Null means "the engine is not playing our song", whatever else it is doing.
   const [loadedEnginePath, setLoadedEnginePath] = useState<string | null>(null);
@@ -136,11 +156,25 @@ export function PlaybackProvider({
   const playing = viaEngine ? ours && engine.playing : browserPlaying;
   const position = viaEngine ? engineAt : browserAt;
 
+  // The engine reaching the end of what it was given. Inferred, because the machine reports a
+  // transport and not an event — see `weStopped` for the one case that has to be told apart.
+  useEffect(() => {
+    if (!viaEngine) return;
+    const playingNow = ours && engine.playing;
+    if (wasPlaying.current && !playingNow && !weStopped.current)
+      setEnded((n) => n + 1);
+    wasPlaying.current = playingNow;
+    weStopped.current = false;
+  }, [viaEngine, ours, engine.playing]);
+
   const start = useCallback<Playback["start"]>(
     (what, from = 0) => {
       setNow(what);
       setDuration(0);
       setError("");
+      // Whatever the transport does in the next moment, it does because of this call — so it
+      // is not the end of a song, even when it looks exactly like one.
+      weStopped.current = true;
       if (what.target === "engine") {
         if (!what.enginePath) return;
         audioRef.current?.pause();
@@ -179,6 +213,7 @@ export function PlaybackProvider({
 
   const toggle = useCallback(() => {
     if (!now) return;
+    weStopped.current = true; // asked for, either way — see the ref
     if (viaEngine) {
       if (ours && engine.playing) return engine.stop();
       if (!now.enginePath) return;
@@ -214,6 +249,7 @@ export function PlaybackProvider({
   );
 
   const close = useCallback(() => {
+    weStopped.current = true;
     audioRef.current?.pause();
     if (ours) engine.stop();
     setNow(null);
@@ -230,12 +266,24 @@ export function PlaybackProvider({
       position,
       duration,
       error,
+      ended,
       start,
       toggle,
       seek,
       close,
     }),
-    [now, playing, position, duration, error, start, toggle, seek, close],
+    [
+      now,
+      playing,
+      position,
+      duration,
+      error,
+      ended,
+      start,
+      toggle,
+      seek,
+      close,
+    ],
   );
 
   return (
@@ -252,7 +300,12 @@ export function PlaybackProvider({
             preload="metadata"
             onPlay={() => setBrowserPlaying(true)}
             onPause={() => setBrowserPlaying(false)}
-            onEnded={() => setBrowserPlaying(false)}
+            // The exact signal, on this side: it fires for a song reaching its end and for
+            // nothing else, which is why only the engine branch has to infer one.
+            onEnded={() => {
+              setBrowserPlaying(false);
+              setEnded((n) => n + 1);
+            }}
             onLoadedMetadata={(e) => {
               setDuration(e.currentTarget.duration);
               // Whatever `start` asked for, now that there is something to ask it of.

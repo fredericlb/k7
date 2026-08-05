@@ -1,14 +1,15 @@
 // types.ts — what the mediatek catalogue hands out. Types only, shared by the scan, the
 // HTTP routes and every surface that lists the library.
 
-/** The four things the mediatek holds. Each is scanned, indexed and invalidated ALONE. */
-export type Family = "songs" | "samples" | "modules" | "chains";
+/** The five things the mediatek holds. Each is scanned, indexed and invalidated ALONE. */
+export type Family = "songs" | "samples" | "modules" | "chains" | "playlists";
 
 export const FAMILIES: readonly Family[] = [
   "songs",
   "samples",
   "modules",
   "chains",
+  "playlists",
 ];
 
 /** Narrow an untrusted query value to a Family, or undefined. Here rather than in each HTTP
@@ -45,6 +46,9 @@ export const INSTANCES_DIR = "instances";
  *  variants. Here for the same reason CHAINS_FILE is: st0 opens one in an editor, and a
  *  browser reaching for the name must not pull `node:fs` in with it. scan.ts re-exports it. */
 export const SONG_FILE = "song.yaml";
+
+// A PLAYLIST has no such marker: it IS its file, not a folder around one, so the rule is the
+// extension and it lives in playlist.ts beside the parser. See docs/playlists.md.
 
 /**
  * One alternative version of a song, declared in its sidecar. See docs/variants.md.

@@ -23,6 +23,7 @@ export const FAMILY_DIRS: Record<Family, string> = {
   samples: "samples",
   modules: "modules",
   chains: "chains",
+  playlists: "playlists",
 };
 
 // There is deliberately no SONG_KINDS beside SAMPLE_KINDS below: `songs/` has no
