@@ -143,7 +143,11 @@ export function projectsRouter(opts: {
       const sub = subOf(req)!;
       const repos = await Promise.all(
         listRepos(sub).map(async (r) => {
-          const st = status(sub, r.id);
+          // Refreshed here too, not only in /tree: this list carries the projects the section
+          // LINKS to, so a mirror nobody fetched hands out a folder the clone no longer has,
+          // and l8 opens on a project that is not there. Detached and freshness-gated, so it
+          // costs this request nothing; `bump()` is what brings the new list to the poll.
+          const st = ensure(sub, r.id, r.uri);
           // A mirror that is not ready yet reports null rather than 0 — "unknown" and "none" differ.
           let projects: RepoProject[] | null = null;
           let branch: string | null = null;

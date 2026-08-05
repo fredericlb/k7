@@ -144,9 +144,19 @@ function parseCompileError(msg: string): Diagnostic[] {
  * `isProjectFolder` (a `project.yaml` exists) is still the COMPILER's question, and
  * `@studio/song` still asks it: a `.l8` folder with no project file opens and then fails to
  * compile, with the loader's own error saying so.
+ *
+ * It must EXIST, though — the name rule on its own answers "yes" for a folder that is not
+ * there, and st0 names one out of a mirror that can be a fetch behind this machine's clone.
+ * See docs/activeProject.md.
  */
-export const isProjectDir = (dir: string): boolean =>
-  projectApp(basename(dir)) !== null;
+export const isProjectDir = (dir: string): boolean => {
+  if (projectApp(basename(dir)) === null) return false;
+  try {
+    return statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 // Files shown in the tree but not editable as text.
 const BINARY_EXT = new Set([
@@ -470,6 +480,13 @@ export class Workspace {
     const abs = this.safePath(rel);
     if (this.isRecycled(abs))
       throw new Error(`project is in the recycle bin: ${rel}`);
+    // Said apart from the name rule below because it is the one that actually happens, and the
+    // one with a fix: st0 links here out of a mirror that can be behind this machine's clone.
+    if (!existsSync(abs))
+      throw new Error(
+        `no project '${rel}' in this workspace — it may have been renamed or removed since ` +
+          `the médiathèque last read the repository; refresh it there and open it again`,
+      );
     if (!isProjectDir(abs))
       throw new Error(
         `not a project (the folder must end in .l8 or .m9): ${rel}`,
@@ -765,8 +782,21 @@ export class Workspace {
           };
     });
   }
+  /**
+   * The file tree an editor draws: the ACTIVE PROJECT's own files, not the workspace's.
+   *
+   * A workspace is one git clone, and a clone holds whatever else the repository holds —
+   * other songs, a `_modules` library, mixdowns, an `orig/` full of foreign sessions. l8 and
+   * m9 are opened ON one project and pick nothing themselves, so showing all of that is
+   * showing the repository rather than the song. See docs/activeProject.md.
+   *
+   * Paths stay workspace-relative, because that is what every other route takes: only the
+   * ROOT of the walk moves, and `/file`, `/rename`, `/move` are unchanged. With no active
+   * project (nothing opened yet) it is the workspace, which is also what a lone-project
+   * workspace gives, its root being the project.
+   */
   tree(): FileNode[] {
-    return this.walk(this.root);
+    return this.walk(this.activeProject ?? this.root);
   }
 
   workspaceInfo(): WorkspaceInfo {
@@ -778,7 +808,9 @@ export class Workspace {
           if (n.children) collect(n.children);
         }
     };
-    collect(this.tree());
+    // From the ROOT, not `tree()`: this lists every project the workspace holds, and the
+    // tree now shows only the open one.
+    collect(this.walk(this.root));
     if (this.rootIsProject) projects.unshift(".");
     return {
       root: this.root,

@@ -12,6 +12,10 @@ The active project is remembered per-workspace in a `.studio-active` marker file
 the root (a dotfile, so it's hidden from the tree), replacing the old global
 `~/.studio/session.json`. Global machine preferences stay global (`preferences.yaml`).
 
+It is also what `tree()` walks, and what `setActiveProject` has to be strict about now that
+st0 names a project out of a mirror this machine's clone may be ahead of — both in
+[activeProject.md](activeProject.md).
+
 ## `revision()` — the change token
 
 A cheap token that CHANGES whenever the active project's sources do, so a client can poll
