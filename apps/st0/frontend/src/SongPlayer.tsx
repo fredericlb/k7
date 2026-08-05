@@ -299,6 +299,11 @@ export function SongPlayer({
       // `chainPreviewDoc`'s degenerate case rather than a second document builder.
       setStatus(`envoyé au moteur : ${enginePath}`);
       setSent(true);
+      // A clean edit for a document this session has not held. An apply is a diff, and a diff
+      // cannot remove a plugin the engine's stored document never mentioned — a module left on
+      // that track keeps eating the master, silently. Only when the document CHANGES: a pause
+      // and a resume must not rebuild the edit under the transport. See docs/playbackTarget.md.
+      if (!ours) engine.reset();
       setLoadedPath(enginePath);
       // Where to start, said rather than left to the engine — which resumes from a playhead
       // this pane did not put there. `engineAt` is 0 for a song not started yet.

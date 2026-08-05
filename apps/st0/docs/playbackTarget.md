@@ -105,6 +105,40 @@ position belongs to the document just applied, and asking for it after `play` wo
 as a jump. `SongVariants` passes `0` — a variant is auditioned from the top; the player passes
 where the waveform was scrubbed to, which is `0` for a song not started yet.
 
+### A clean edit, because an apply is a diff
+
+The first real "no sound" was none of the above. Measured against the running moteur, the st0
+session held this:
+
+```
+sessions      → { id: "st0:fred_parapluie_org", playing: true, project: "preview: <a song>" }
+edit-plugins  → [ "preview:crossfade / DSP Graph" ]
+state         → levels: [-100]        ← the track's output. Silence, while rolling.
+```
+
+The song's document was applied — the project name is the song's — and a **module** audition's
+plugin was still on the track. The master ran through a `crossfade` graph nobody had asked for
+and came out at -100 dB. The transport reported `playing: true` throughout.
+
+Sending a document with `plugins: []` did **not** remove it. `drop-session` did, and the
+identical document then played at -25.8 dB.
+
+The reason is structural: an apply is a **diff**, and a diff can only remove what the engine's
+stored document says is there. An edit that holds a plugin that document does not mention is
+therefore unreachable — `needsFullRebuild` never fires, nothing rebuilds, and the plugin stays
+for the life of the session. Since a session is keyed by service and person rather than by what
+is loaded, "the life of the session" means until the engine process exits.
+
+So a document this session has not held is preceded by `reset()` — `dropSession`, which throws
+the edit away so the next apply builds one from nothing. Only when the document CHANGES: a
+pause and a resume must not rebuild the edit under the transport.
+
+**What is not established**: how the edit came to hold a plugin its document did not. Auditioning
+a module and then playing a master, on a fresh session, removes the plugin correctly — that was
+tried and it works. So this is a state the engine can reach and cannot leave, reached by a path
+not yet identified. `reset()` makes st0 immune to it rather than fixing it, and the engine-side
+inconsistency is still worth hunting.
+
 ### The playhead is only ours while our document is loaded
 
 For the same reason, the player does not read `engine.playhead` unconditionally. That session

@@ -69,6 +69,19 @@ export interface ModuleEngine {
    * perfectly true. That is a failure with no symptom other than no sound.
    */
   play: (doc: ProjectDoc, fromSeconds?: number) => void;
+  /**
+   * Throw this session's edit away, so the next document builds one from nothing.
+   *
+   * Needed because an apply is a DIFF, and a diff can only remove what the engine's stored
+   * document says is there. An edit can hold a plugin that document does not mention — a
+   * module audition left one behind, measured on this machine — and then no document will
+   * ever remove it: the diff sees no change, so nothing rebuilds. What plays afterwards runs
+   * through a module nobody asked for, which for a `crossfade` is -100 dB. Silence, from a
+   * transport reporting that it is rolling.
+   *
+   * The session comes back on the next apply — it is created by a client driving it.
+   */
+  reset: () => void;
   stop: () => void;
   /** Scrub to an absolute position, in seconds. Its own verb rather than a re-send of the
    *  document: the engine keeps playing across a seek, and a document would restart it. */
@@ -210,6 +223,13 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
 
   const stop = useCallback(() => engine.current?.transport("stop"), []);
 
+  const reset = useCallback(() => {
+    engine.current?.dropSession();
+    // The module this hook had loaded went with the edit. Forgetting it here keeps a later
+    // reconnect from replaying it over whatever took its place.
+    loaded.current = null;
+  }, []);
+
   // Moved locally as well as sent: the state frame is ~20 Hz, so a playhead that only ever
   // came back from the engine would lag a drag on the waveform by up to 50 ms — long enough
   // to read as the cursor snapping back before it catches up.
@@ -233,6 +253,7 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     play,
     stop,
     seek,
+    reset,
     retry: () => setAttempt((n) => n + 1),
   };
 }
