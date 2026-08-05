@@ -147,21 +147,25 @@ a `registry.ts` here.
 ## l8 is opened ON a project — it does not pick one
 
 **This app no longer owns workspaces.** st0 owns the repositories (`apps/st0/docs/projects.md`)
-and links here with two parameters:
+and links here with an ADDRESS — the repository by its short name, then the project folder:
 
 ```
-/l8/?repo=git%40host%3Ame%2Fsongs.git&project=songs%2Ffirst
+/l8/songs/first.l8
+/l8/band/albums/winter.l8/timeline      …with the app's own route following it
 ```
 
-`ProjectGate` resolves that repository to a folder on the chosen engine's machine — asking
-`GET /workspaces/by-repo`, and cloning it with a visible progress bar if that machine has
-never seen it — then opens the project. Arriving with no parameters redirects to st0's
+`ProjectGate` asks st0 for the git URI behind that name
+(`GET /api/projects/by-name/:name`), resolves it to a folder on the chosen engine's machine —
+`GET /workspaces/by-repo`, cloning it with a visible progress bar if that machine has never
+seen it — then opens the project. Arriving with no project in the address redirects to st0's
 `/projects`; there is deliberately no fallback picker.
 
-`@studio/project-shell/launch` reads those parameters **at import time** — `main.tsx` imports
-it for that side effect alone — because `useViewRoute` rewrites the address from `routes.ts`
-alone within a frame of the first render and would otherwise drop them. Read
-`packages/project-shell/docs/launch.md` before touching it.
+**The project is the router's `basename`** (`projectBasename` in `main.tsx`), which is why
+there is no storage anywhere near it: React Router only writes below its basename, so
+`routes.ts` cannot rewrite the project away, and a reload or a pasted link simply re-reads the
+address. It used to be `?repo=&project=` held in `sessionStorage`, and a tab handed a project
+that did not exist could never get out of it. Read
+`packages/project-shell/docs/launch.md` before touching any of this.
 
 The gate itself is that package's too, and m9 mounts the same one; `components/ProjectGate.tsx`
 is a wrapper holding this app's wording and what to render once the project is open.

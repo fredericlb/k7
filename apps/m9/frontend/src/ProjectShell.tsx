@@ -15,6 +15,9 @@ export function ProjectShell({
   return (
     <ProjectGate
       engine={engine}
+      app="m9"
+      // The same two the router's basename is built from, in main.tsx.
+      base={import.meta.env.BASE_URL}
       strings={{
         cloning: (workspace) =>
           `Récupération de ${workspace} sur cette machine…`,

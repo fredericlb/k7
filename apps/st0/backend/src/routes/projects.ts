@@ -22,8 +22,10 @@ import {
 import {
   addRepo,
   findRepo,
+  findReposByName,
   keyDirFor,
   listRepos,
+  nameOf,
   removeRepo,
   revision,
 } from "../projects/store.ts";
@@ -161,10 +163,44 @@ export function projectsRouter(opts: {
             }
           // The projects themselves, not just how many: the listing draws them under their
           // repository and links straight into l8/m9, so opening one costs no second request.
-          return { ...r, ...st, branch, projects };
+          return { ...r, name: nameOf(r), ...st, branch, projects };
         }),
       );
       res.json({ repos, revision: revision(sub) });
+    }),
+  );
+
+  /**
+   * The URI behind a short name — what l8 and m9 ask on the way in.
+   *
+   * A project's address is `/l8/<name>/<project>`, so an editor arrives holding a name and
+   * nothing else. It must not hold the URI: that carries a host, a port and a user, and an
+   * address bar is copied, bookmarked and pasted into chat. st0 owns the repositories, so st0
+   * is what turns the readable half back into the thing git is given.
+   *
+   * Registered before `/:id/*`: `by-name` is not a repository id (those are hashes), but the
+   * reader should not have to know that to be sure.
+   */
+  router.get(
+    "/by-name/:name",
+    wrap((req, res) => {
+      const sub = subOf(req)!;
+      const matches = findReposByName(sub, req.params.name);
+      if (!matches.length)
+        return res.status(404).json({
+          error: `no repository called '${req.params.name}' — add it in the médiathèque's Projets section, or open the project from there`,
+        });
+      // Ambiguous is not "pick one": see findReposByName.
+      if (matches.length > 1)
+        return res.status(409).json({
+          error: `'${req.params.name}' names ${matches.length} repositories here (${matches
+            .map((r) => r.uri)
+            .join(
+              ", ",
+            )}) — open the project from the médiathèque's Projets section`,
+        });
+      const repo = matches[0];
+      res.json({ id: repo.id, name: nameOf(repo), uri: repo.uri });
     }),
   );
 

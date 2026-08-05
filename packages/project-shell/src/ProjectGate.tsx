@@ -3,6 +3,7 @@
 // render the app. Neither l8 nor m9 picks anything here: st0 owns the repositories, and
 // arriving with no target sends you back there. See docs/launch.md.
 
+import type { ProjectApp } from "@studio/web-protocol/projects";
 import {
   FolderGit2,
   FolderSearch,
@@ -10,19 +11,21 @@ import {
   ServerCrash,
   ShieldAlert,
 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   configureFileApi,
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
-import {
-  clearLaunch,
-  launchTarget,
-  projectsUrl,
-  rememberLaunch,
-} from "./launch.ts";
+import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
+import { repoByName } from "./repoLookup.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
 const POLL_MS = 400;
@@ -61,11 +64,18 @@ export interface ProjectGateStrings {
 
 export function ProjectGate({
   engine,
+  app,
+  base,
   strings,
   children,
   onQuit,
 }: {
   engine: GateEngine;
+  /** Which app this is — it decides the suffix that ends the project in the address. */
+  app: ProjectApp;
+  /** Where this app is mounted, as vite's `import.meta.env.BASE_URL` gives it (`/l8/`). The
+   *  package cannot read another package's build constant, so the app hands it over. */
+  base: string;
   /** Each app owns its own wording (l8 has paraglide, m9 is French in place). */
   strings: ProjectGateStrings;
   /** Rendered once the project is open — the app itself. */
@@ -82,7 +92,16 @@ export function ProjectGate({
   const [email, setEmail] = useState("");
   // Bumped by Retry to re-run the setup effect below.
   const [attempt, setAttempt] = useState(0);
-  const target = launchTarget();
+  // From `window.location`, not `useLocation()`: the router's basename is this very prefix, so
+  // what the hook reports has the repo and project already stripped off it.
+  //
+  // Once per mount, and that matters twice: it is a fresh object every call, which as an
+  // effect dependency below would re-resolve the workspace forever; and the prefix cannot
+  // change without a navigation that remounts this anyway.
+  const target = useMemo(
+    () => parseLaunch(window.location.pathname, app, base),
+    [app, base],
+  );
 
   const configure = useCallback(
     (userEmail: string, workspace: string) => {
@@ -96,18 +115,18 @@ export function ProjectGate({
     [engine.fileBase, engine.token],
   );
 
-  /** Leave: let the app go first, forget the target, and go back to where projects live. */
+  /** Leave: let the app go first, then go back to where projects live. Nothing to forget —
+   *  the target was the address, and we are about to leave it. */
   const quit = useCallback(() => {
     onQuit?.();
     void projectApi.unloadEngine().catch(() => {
       /* engine/file service gone — leaving is still right */
     });
-    clearLaunch();
     window.location.href = projectsUrl(window.location.href);
   }, [onQuit]);
 
-  // No target at all: this tab was opened by hand or the session was cleared. st0 is where a
-  // project is chosen, so go there rather than inventing a picker this app does not own.
+  // No target at all: `/l8/` on its own, or a hand-typed address. st0 is where a project is
+  // chosen, so go there rather than inventing a picker this app does not own.
   useEffect(() => {
     if (!target) window.location.replace(projectsUrl(window.location.href));
   }, [target]);
@@ -115,7 +134,7 @@ export function ProjectGate({
   useEffect(() => {
     if (!target) return;
     let cancelled = false;
-    const { repo, project } = target;
+    const { repo: repoName, project } = target;
     void (async () => {
       // Catch: an unhandled rejection here leaves `phase` on "resolving" FOREVER — a spinner
       // with no explanation.
@@ -129,6 +148,24 @@ export function ProjectGate({
         if (cancelled) return;
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
+
+        // The address carries a NAME; git needs a URI, and st0 is what holds the pairing.
+        // First, because everything below is about a repository we cannot yet name to git.
+        let repo: string;
+        try {
+          repo = (await repoByName(repoName)).uri;
+        } catch (e) {
+          if (cancelled) return;
+          // st0 answered "no such name" / "two of them" — a target problem, not a fault, and
+          // the same screen as a project that is not in the repository.
+          const status = (e as { status?: number }).status;
+          if (status === 404 || status === 409) {
+            setPhase({ k: "missing", message: (e as Error).message });
+            return;
+          }
+          throw e;
+        }
+        if (cancelled) return;
 
         let workspace = (await projectApi.workspaceByRepo(repo)).workspace;
         if (cancelled) return;
@@ -182,9 +219,6 @@ export function ProjectGate({
           throw e; // anything else (a transport failure, a 500) is diagnosed below
         }
         if (cancelled) return;
-        // Remembered HERE, once it has actually opened, so a reload comes back to a project
-        // that works and never replays one that does not. See launch.ts's rememberLaunch.
-        rememberLaunch(target);
         setPhase({ k: "open", workspace, project });
       } catch (e) {
         if (cancelled) return;

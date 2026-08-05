@@ -105,7 +105,7 @@ export function ProjectsSection({
         onBack={() => onOpen(null)}
         onRefresh={() => refresh(repo)}
         onOpenProject={(path, app) => {
-          window.location.href = api.openIn(repo.uri, path, app);
+          window.location.href = api.openIn(repo.name, path, app);
         }}
       />
     );
@@ -120,7 +120,7 @@ export function ProjectsSection({
         onOpen={(r) => onOpen(r.id)}
         // Même départ que depuis l'arborescence : l'adresse de l'application, pas une vue d'ici.
         onOpenProject={(r, p) => {
-          window.location.href = api.openIn(r.uri, p.path, p.app);
+          window.location.href = api.openIn(r.name, p.path, p.app);
         }}
         onRemove={remove}
         onRefresh={refresh}

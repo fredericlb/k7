@@ -112,3 +112,51 @@ describe("paths", () => {
     expect(keyDirFor("../../etc/passwd")).not.toContain("..");
   });
 });
+
+// The name in `/l8/<repo>/<project>` — the half of a project's address a person reads, and
+// the one thing an editor arrives holding. See packages/project-shell/docs/launch.md.
+describe("finding a repository by its short name", () => {
+  it("names a repository by its last path segment, without .git", async () => {
+    const { addRepo, nameOf } = await load();
+    const { repo } = addRepo(
+      "sub-1",
+      "ssh://git@host:6611/music/lemo_mante.git",
+    );
+    expect(nameOf(repo)).toBe("lemo_mante");
+  });
+
+  it("agrees across the two spellings of one repository", async () => {
+    const { nameOf } = await load();
+    const at = { id: "", uri: "git@h:me/songs.git", label: "", addedAt: "" };
+    const ssh = { id: "", uri: "ssh://git@h/me/songs", label: "", addedAt: "" };
+    expect(nameOf(at)).toBe(nameOf(ssh));
+  });
+
+  it("resolves the name an address carries", async () => {
+    const { addRepo, findReposByName } = await load();
+    addRepo("sub-1", "git@h:me/songs.git");
+    expect(findReposByName("sub-1", "songs").map((r) => r.uri)).toEqual([
+      "git@h:me/songs.git",
+    ]);
+  });
+
+  it("finds nothing for a name nobody has added", async () => {
+    const { addRepo, findReposByName } = await load();
+    addRepo("sub-1", "git@h:me/songs.git");
+    expect(findReposByName("sub-1", "sets")).toEqual([]);
+  });
+
+  it("is per user — one person's repository is not another's address", async () => {
+    const { addRepo, findReposByName } = await load();
+    addRepo("sub-1", "git@h:me/songs.git");
+    expect(findReposByName("sub-2", "songs")).toEqual([]);
+  });
+
+  it("returns BOTH when two hosts carry the same name, so the caller can refuse", async () => {
+    // The route answers 409 rather than opening whichever came first: see findReposByName.
+    const { addRepo, findReposByName } = await load();
+    addRepo("sub-1", "git@one:me/songs.git");
+    addRepo("sub-1", "git@two:me/songs.git");
+    expect(findReposByName("sub-1", "songs")).toHaveLength(2);
+  });
+});

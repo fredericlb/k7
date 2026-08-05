@@ -9,12 +9,14 @@ machine — cloning it if it has never been there — then mount the editor). Se
 open one project at once — there is no single-tab lease.
 
 **ProjectGate picks nothing.** l8 no longer knows what a workspace list is: st0 owns the
-repositories and links here with `?repo=&project=`, and arriving without them sends you back
-there. The gate is `@studio/project-shell`'s — m9 mounts the same one — and
-`components/ProjectGate.tsx` only supplies this app's wording. Read
+repositories and links here with an address — `/l8/<repo>/<project>` — and arriving without a
+project in it sends you back there. That prefix is the router's `basename`, so the app's own
+routes are written below it and cannot rewrite it away. The gate is
+`@studio/project-shell`'s — m9 mounts the same one — and `components/ProjectGate.tsx` only
+supplies this app's wording. Read
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md)
-before touching any of it, in particular why the address is read at *import* time and not in
-a component.
+before touching any of it, in particular why the address is a path and the repository is named
+rather than spelled out.
 
 `LocaleProvider` sits above all of them: switching language remounts its children, so
 nothing that renders a message may live above it.

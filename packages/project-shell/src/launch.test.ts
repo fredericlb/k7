@@ -1,81 +1,154 @@
-// The pure halves of launch.ts. The capture-at-import itself is three lines and needs a DOM
-// this repo's suites deliberately do not have (nothing here mounts a component); it is
-// verified in the browser instead — see docs/launch.md for what to check.
+// The address a project is opened at. All of it is pure now — the launch used to be read
+// once at import and kept in sessionStorage, and this suite could only cover the parsing
+// around it; the path IS the state, so the round trip st0 → l8 is testable end to end.
 
 import { describe, expect, it } from "vitest";
-import { launchUrl, parseLaunch, projectsUrl } from "./launch";
+import { launchUrl, parseLaunch, projectBasename, projectsUrl } from "./launch";
+
+const L8 = "/l8/";
 
 describe("parseLaunch", () => {
-  it("is null when nothing points here", () => {
-    expect(parseLaunch("")).toBe(null);
-    expect(parseLaunch("?panel=mixer")).toBe(null);
+  it("is null when the address names no project", () => {
+    expect(parseLaunch("/l8/", "l8", L8)).toBe(null);
+    expect(parseLaunch("/l8", "l8", L8)).toBe(null);
   });
 
-  it("reads repo and project out of the address", () => {
-    expect(
-      parseLaunch(
-        "?repo=git%40github.com%3Ame%2Fsongs.git&project=songs%2Ffirst",
-      ),
-    ).toEqual({
-      repo: "git@github.com:me/songs.git",
-      project: "songs/first",
+  it("is null for an address outside this app's mount", () => {
+    // /m9's address is not l8's to read, and neither is a stray path on the origin.
+    expect(parseLaunch("/m9/songs/a.m9", "l8", L8)).toBe(null);
+    expect(parseLaunch("/projects", "l8", L8)).toBe(null);
+  });
+
+  it("reads the repository and the project out of the path", () => {
+    expect(parseLaunch("/l8/songs/first.l8", "l8", L8)).toEqual({
+      repo: "songs",
+      project: "first.l8",
     });
   });
 
-  it("treats a repo with no project as the repository itself", () => {
-    expect(parseLaunch("?repo=git%40h%3Ame%2Fr.git")?.project).toBe(".");
-    // An empty one means the same thing, and must not become a path of "".
-    expect(parseLaunch("?repo=git%40h%3Ame%2Fr.git&project=")?.project).toBe(
-      ".",
-    );
+  it("keeps a project that sits at a depth", () => {
+    expect(parseLaunch("/l8/band/albums/winter.l8", "l8", L8)).toEqual({
+      repo: "band",
+      project: "albums/winter.l8",
+    });
   });
 
-  it("ignores the router's own parameters sitting beside it", () => {
-    expect(parseLaunch("?panel=mixer&repo=git%40h%3Ar&project=a")).toEqual({
-      repo: "git@h:r",
-      project: "a",
+  it("stops the project at the suffix, so the app's own route can follow", () => {
+    // This is what makes the basename work: /timeline belongs to routes.ts, not to the path.
+    expect(parseLaunch("/l8/band/winter.l8/timeline", "l8", L8)).toEqual({
+      repo: "band",
+      project: "winter.l8",
+    });
+    expect(
+      parseLaunch("/l8/band/winter.l8/edit/tracks/a.yaml", "l8", L8),
+    ).toEqual({ repo: "band", project: "winter.l8" });
+  });
+
+  it("reads each app's OWN suffix, so a nested set belongs to m9", () => {
+    // A .m9 inside a .l8 is a real arrangement — see git-repos/src/mirror.ts.
+    const path = "/m9/band/winter.l8/live.m9";
+    expect(parseLaunch(path, "m9", "/m9/")).toEqual({
+      repo: "band",
+      project: "winter.l8/live.m9",
+    });
+  });
+
+  it("treats a repository with no project folder as the project itself", () => {
+    expect(parseLaunch("/l8/lonely", "l8", L8)).toEqual({
+      repo: "lonely",
+      project: ".",
+    });
+    // …and the app's route still follows it, because a view never ends in .l8.
+    expect(parseLaunch("/l8/lonely/timeline", "l8", L8)).toEqual({
+      repo: "lonely",
+      project: ".",
+    });
+  });
+
+  it("unescapes what the link escaped", () => {
+    expect(parseLaunch("/l8/my%20band/a%20song.l8", "l8", L8)).toEqual({
+      repo: "my band",
+      project: "a song.l8",
+    });
+  });
+
+  it("works when the app is served from a bare origin (the dev port mode)", () => {
+    expect(parseLaunch("/band/winter.l8", "l8", "/")).toEqual({
+      repo: "band",
+      project: "winter.l8",
     });
   });
 });
 
+describe("projectBasename", () => {
+  it("is the mount plus the project, so the router writes only below it", () => {
+    expect(projectBasename("/l8/band/winter.l8/timeline", "l8", L8)).toBe(
+      "/l8/band/winter.l8",
+    );
+  });
+
+  it("re-escapes what it round-trips", () => {
+    expect(projectBasename("/l8/my%20band/a%20song.l8", "l8", L8)).toBe(
+      "/l8/my%20band/a%20song.l8",
+    );
+  });
+
+  it("falls back to the mount when the address names no project", () => {
+    // The app still mounts; its gate is what sends you to st0.
+    expect(projectBasename("/l8/", "l8", L8)).toBe(L8);
+  });
+
+  it("stops at the repository when that IS the project", () => {
+    expect(projectBasename("/l8/lonely/timeline", "l8", L8)).toBe("/l8/lonely");
+  });
+});
+
 describe("launchUrl", () => {
-  it("names one project in one repository, escaped", () => {
-    expect(
-      launchUrl(
-        "https://studio.test",
-        "git@github.com:me/songs.git",
-        "a/b.l8",
-        "l8",
-      ),
-    ).toBe(
-      "https://studio.test/l8/?repo=git%40github.com%3Ame%2Fsongs.git&project=a%2Fb.l8",
+  it("names one project in one repository, as a path", () => {
+    expect(launchUrl("https://studio.test", "songs", "a/b.l8", "l8")).toBe(
+      "https://studio.test/l8/songs/a/b.l8",
     );
   });
 
   it("sends an m9 project to m9", () => {
-    expect(
-      launchUrl("https://studio.test", "git@h:r", "set.m9", "m9"),
-    ).toContain("studio.test/m9/?");
+    expect(launchUrl("https://studio.test", "band", "live.m9", "m9")).toBe(
+      "https://studio.test/m9/band/live.m9",
+    );
   });
 
   it("keeps only the origin, whatever URL it is handed", () => {
     expect(
-      launchUrl("https://studio.test/projects/abc", "git@h:r", ".", "l8"),
-    ).toContain("studio.test/l8/?");
+      launchUrl("https://studio.test/projects/abc", "band", "a.l8", "l8"),
+    ).toBe("https://studio.test/l8/band/a.l8");
   });
 
-  // The round trip is the property that matters: st0 writes these, l8 and m9 read them back.
+  it("escapes a name a path could not otherwise carry", () => {
+    expect(launchUrl("https://studio.test", "my band", "a song.l8", "l8")).toBe(
+      "https://studio.test/l8/my%20band/a%20song.l8",
+    );
+  });
+
+  // The property that matters: st0 writes these, l8 and m9 read them back.
   it("round-trips through parseLaunch", () => {
-    const repo = "ssh://git@host:2222/deep/path/repo.git";
+    const repo = "lemo mante";
     const project = "songs/a b/c.l8";
     const url = new URL(launchUrl("https://studio.test", repo, project, "l8"));
-    expect(parseLaunch(url.search)).toEqual({ repo, project });
+    expect(parseLaunch(url.pathname, "l8", L8)).toEqual({ repo, project });
+  });
+
+  it("round-trips a repository that is itself the project", () => {
+    const url = new URL(launchUrl("https://studio.test", "solo", ".", "l8"));
+    expect(url.pathname).toBe("/l8/solo");
+    expect(parseLaunch(url.pathname, "l8", L8)).toEqual({
+      repo: "solo",
+      project: ".",
+    });
   });
 });
 
 describe("projectsUrl", () => {
   it("is st0's Projets section, which answers the origin root", () => {
-    expect(projectsUrl("https://studio.test/l8/")).toBe(
+    expect(projectsUrl("https://studio.test/l8/band/a.l8")).toBe(
       "https://studio.test/projects",
     );
   });
