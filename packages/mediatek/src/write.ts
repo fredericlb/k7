@@ -3,6 +3,7 @@
 // count, same tick) is exactly the case the counter exists for. See docs/index.md.
 
 import {
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -10,7 +11,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, relative, sep } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
+import { parse as parseYaml } from "yaml";
 import {
   ensureLayout,
   mediatekDir,
@@ -26,6 +28,9 @@ import {
   type SongTags,
   sidecarFor,
   songFolder,
+  VariantRefusedError,
+  variantFile,
+  variantName,
 } from "./song.ts";
 import { FAMILIES, type Family } from "./types.ts";
 
@@ -109,6 +114,12 @@ function existingMaster(abs: string): string | null {
   }
 }
 
+/** Is this folder ALREADY a song? The scan's own test, asked of one folder: a sidecar, or
+ *  failing that any audio — an uncatalogued morceau is still a morceau (see scan.ts). */
+function isSongFolder(abs: string): boolean {
+  return existsSync(join(abs, SONG_FILE)) || existingMaster(abs) !== null;
+}
+
 /**
  * File one uploaded audio file as a song: the folder, the master, the sidecar.
  *
@@ -148,6 +159,144 @@ export function addSong(opts: {
     master: `${folder}/${name}`,
     replaced: Boolean(already),
   };
+}
+
+/**
+ * The `variants:` a sidecar already declares, as the scan would read them.
+ *
+ * `null` is NOT "none": it means the key is there and is not a mapping — a list, a scalar —
+ * which the scan ignores and this cannot complete. Adding a mapping line under a list would
+ * make the whole file unparseable, and an unparseable sidecar costs the song its title.
+ */
+function declaredVariants(text: string): Record<string, string> | null {
+  let raw: unknown;
+  try {
+    const doc = parseYaml(text, { version: "1.2" }) as Record<
+      string,
+      unknown
+    > | null;
+    raw = doc && typeof doc === "object" ? doc.variants : undefined;
+  } catch {
+    return {}; // unparseable already: nothing is declared, and the insert below is text-level
+  }
+  if (raw === undefined || raw === null) return {};
+  if (typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, string> = {};
+  // Same tolerance readVariants has: a non-string value is dropped, not coerced.
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>))
+    if (typeof v === "string" && v) out[k] = v;
+  return out;
+}
+
+/** A name no other variant of this song is using — `instrumental`, then `instrumental 2`. */
+function freeName(wanted: string, taken: Set<string>): string {
+  if (!taken.has(wanted)) return wanted;
+  for (let n = 2; ; n++)
+    if (!taken.has(`${wanted} ${n}`)) return `${wanted} ${n}`;
+}
+
+/**
+ * The sidecar text with one more variant line in it.
+ *
+ * Read with the parser, written as TEXT — the same split `setSongBpm` makes, for the same
+ * reason: the header comments say how the tree is derived, and a round trip through the
+ * serialiser would drop them. Both the key and the ref are quoted, as `sidecarFor` quotes
+ * every string a person supplied: a variant called `no` or `12:30` is otherwise a boolean
+ * and a sexagesimal.
+ *
+ * `null` for a block this cannot append a LINE to — one written inline, `variants: {a: b}`.
+ * The parser reads that as a perfectly good mapping, so only the text can tell, and a line
+ * pushed under it would make the whole file unparseable.
+ */
+function withVariant(text: string, name: string, ref: string): string | null {
+  const line = `  ${JSON.stringify(name)}: ${JSON.stringify(ref)}`;
+  const head = !text || text.endsWith("\n") ? text : `${text}\n`;
+  const lines = head.split("\n");
+  const at = lines.findIndex((l) => /^variants\s*:/.test(l));
+  if (at >= 0) {
+    const rest = lines[at].replace(/^variants\s*:/, "").trim();
+    if (rest && !rest.startsWith("#")) return null;
+  }
+  // No block yet — open one at the end. A sidecar that does not exist at all becomes one,
+  // which is the only way the variant is ever seen: the scan reads variants from this file
+  // and from nowhere else.
+  if (at < 0)
+    return `${head || `# ${SONG_FILE} — voir packages/mediatek/docs/variants.md\n`}variants:\n${line}\n`;
+  // At the END of the block, not straight under its header: the order in the file is the
+  // order they were added, and a surface listing them shows the newest last rather than
+  // reshuffling what was there. A blank line does not close the block; an unindented one does.
+  let end = at;
+  for (let i = at + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (!/^\s/.test(lines[i])) break;
+    end = i;
+  }
+  lines.splice(end + 1, 0, line);
+  return lines.join("\n");
+}
+
+/**
+ * Add an uploaded audio file to an existing song as one of its VARIANTS: the bytes beside the
+ * master, and the line in the sidecar that makes them one. Answers what it wrote.
+ *
+ * The caller names the FOLDER here, unlike `addSong` which derives one from three tags. That
+ * is not a hole in the same rule: the rule is that nobody invents a place in `songs/`, and
+ * this one has to already exist and already be a song — a folder holding neither master nor
+ * sidecar is refused rather than filled. See docs/variants.md.
+ *
+ * Re-sending a file already declared replaces its BYTES and touches nothing else: the sidecar
+ * line is the same line, and a second one pointing at the same ref would draw the variant
+ * twice.
+ */
+export function addSongVariant(opts: {
+  /** The song's own folder, mediatek-relative — `songs/<artiste>/<album>/<titre>`. */
+  folder: string;
+  filename: string;
+  bytes: Uint8Array;
+  /** What the sidecar will call it. Absent, the file's own stem. */
+  name?: string;
+}): { path: string; ref: string; name: string; declared: boolean } {
+  const folder = opts.folder.replace(/\/+$/, "");
+  const ref = variantFile(opts.filename); // refuses anything the scan won't see as audio
+  ensureLayout();
+  const abs = writablePath(folder);
+  // It has to BE a song already. `songs/` is the one family whose shape is derived rather
+  // than typed, and a drop that created `songs/whatever/` would be exactly the hand-made
+  // folder at the wrong level that docs/songs.md refuses.
+  if (familyOf(folder) !== "songs" || !isSongFolder(abs))
+    throw new VariantRefusedError(`${folder} n'est pas un morceau`);
+  const sidecar = writablePath(`${folder}/${SONG_FILE}`);
+  let text: string;
+  try {
+    text = readFileSync(sidecar, "utf8");
+  } catch {
+    text = ""; // an uncatalogued folder: the first variant is what files it
+  }
+  const declared = declaredVariants(text);
+  // Already declared, under whatever name it was given: only the bytes are new.
+  const already =
+    declared &&
+    Object.entries(declared).find(
+      ([, r]) => r.toLowerCase() === ref.toLowerCase(),
+    );
+  const name = already
+    ? already[0]
+    : freeName(
+        opts.name || variantName(opts.filename),
+        new Set(Object.keys(declared ?? {})),
+      );
+  // The whole edit is computed BEFORE a byte lands: a sidecar this cannot complete is a
+  // refusal, and a refusal must not leave an audio file nothing points at behind it.
+  const next = already ? null : declared && withVariant(text, name, ref);
+  if (!already && !next)
+    throw new VariantRefusedError(
+      `${folder}/${SONG_FILE} déclare « variants: » sous une forme que ceci ne sait pas compléter — corrigez-la dans l'éditeur`,
+    );
+  putFile(`${folder}/${ref}`, opts.bytes);
+  // The sidecar LAST, as addSong writes it last: a crash then leaves an audio file nothing
+  // points at, rather than a line pointing at bytes that never landed.
+  if (next) putFile(`${folder}/${SONG_FILE}`, next);
+  return { path: `${folder}/${ref}`, ref, name, declared: !already };
 }
 
 /**

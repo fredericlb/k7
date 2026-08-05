@@ -159,6 +159,63 @@ describe("uploading a song", () => {
   });
 });
 
+describe("uploading a variant", () => {
+  const variant = (
+    q: Record<string, string>,
+    body: string,
+  ): Promise<Response> =>
+    fetch(`${base}/api/mediatek/variant?${new URLSearchParams(q)}`, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body,
+    });
+  const song = "songs/Miles Davis/Kind of Blue/So What";
+
+  it("lands beside the master and comes back in the song's listing", async () => {
+    await post(tags, "ID3");
+    const res = await variant(
+      { path: song, filename: "instrumental.wav" },
+      "RIFF",
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      path: `${song}/instrumental.wav`,
+      ref: "instrumental.wav",
+      name: "instrumental",
+      declared: true,
+    });
+    expect(readFileSync(join(folder(), "instrumental.wav"), "utf8")).toBe(
+      "RIFF",
+    );
+    // What the tree draws its children from — the listing, not the folder.
+    const listed = (await (
+      await fetch(`${base}/api/mediatek/list?family=songs`)
+    ).json()) as { entries: { variants?: unknown[] }[] };
+    expect(listed.entries[0].variants).toEqual([
+      { name: "instrumental", ref: "instrumental.wav", kind: "file" },
+    ]);
+  });
+
+  it("refuses a folder that is not a song, and what is not audio", async () => {
+    await post(tags, "ID3");
+    // The album above it: a real folder, and not a morceau. Nobody invents a place in songs/.
+    expect(
+      (
+        await variant(
+          { path: "songs/Miles Davis/Kind of Blue", filename: "x.wav" },
+          "RIFF",
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (await variant({ path: song, filename: "cover.jpg" }, "x")).status,
+    ).toBe(400);
+    expect((await variant({ path: song, filename: "x.wav" }, "")).status).toBe(
+      400,
+    );
+  });
+});
+
 // The read side. `/file` guesses a content type from the extension, and this shell and the file
 // service's used to do it from two different tables — so a cover served from here went out as
 // octet-stream while the cache could send it, and an AIFF the other way round.

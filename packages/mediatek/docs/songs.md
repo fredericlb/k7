@@ -7,8 +7,8 @@ s'appelle un **morceau**, et l'onglet s'appelle « Morceaux » à l'écran.
 ## `songs/` ne s'édite pas à la main
 
 Les deux autres familles se laissent manipuler comme un dossier : l'arbre de la
-médiathèque y crée, renomme, déplace, supprime. `songs/` ne fait que **supprimer** — sa
-forme est une règle, pas une convention :
+médiathèque y crée, renomme, déplace, supprime. `songs/` ne fait que **supprimer un
+morceau** et **en garnir un** — sa forme est une règle, pas une convention :
 
 ```
 songs/<artiste>/<album>/<titre>/original.<ext>
@@ -31,11 +31,23 @@ dossier part en entier, avec son master et son sidecar, et il ne reste rien à m
 C'était pourtant la seule opération qui obligeait à quitter l'application pour aller sur le
 volume, ce qui est cher payé pour un import raté.
 
-Le menu contextuel de la famille n'a donc qu'une entrée, « Supprimer », et elle n'apparaît
-que sur la ligne qui **est** un morceau : au-dessus se trouvent l'artiste et l'album, qui
-sont des segments déduits des tags et non des dossiers que quelqu'un a faits — les
-supprimer emporterait tout ce qu'il y a dessous. Sur ces lignes-là aucun menu ne s'ouvre du
-tout, le menu du navigateur reprend la main (voir `commons/packages/ui/docs/file-tree.md`).
+### …et ajouter une variante ne pose rien non plus
+
+L'autre entrée du menu, « Ajouter une variante… », écrit **dans** un morceau qui existe
+déjà : un fichier audio à côté du master, et la ligne de `song.yaml` qui le déclare. Le
+même geste marche en déposant le fichier sur la ligne du morceau. Rien de tout cela ne
+choisit un chemin — le dossier est celui sur lequel on a cliqué, le nom du fichier est
+déduit de ce qui est envoyé — donc la règle du dessus tient toujours. Voir
+[variants.md](variants.md).
+
+### Ces deux entrées, et seulement sur la bonne ligne
+
+Le menu contextuel de la famille n'a donc que ces deux entrées, et aucune n'apparaît
+ailleurs que sur la ligne qui **est** un morceau : au-dessus se trouvent l'artiste et
+l'album, qui sont des segments déduits des tags et non des dossiers que quelqu'un a faits —
+les supprimer emporterait tout ce qu'il y a dessous, et une variante d'un album ne veut
+rien dire. Sur ces lignes-là aucun menu ne s'ouvre du tout, le menu du navigateur reprend
+la main (voir `commons/packages/ui/docs/file-tree.md`).
 
 Ce qui est verrouillé est l'**arborescence**, pas le contenu : `song.yaml` s'édite comme
 n'importe quel YAML, dans l'écran scindé que st0 ouvre en cliquant un morceau (voir
