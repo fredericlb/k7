@@ -5,16 +5,18 @@
 // between this device (the recorder) and the device at /remote (the mic). Once
 // connected, the resulting MediaStream is handed to the normal recorder, so the
 // waveform / highlights / upload pipeline is identical to a local mic.
-import { api } from "./api";
+import { api, BASE } from "./api";
 
 export function rtcSocketUrl(
   role: "recorder" | "remote",
   ticket: string,
 ): string {
   // Single-origin: the backend is always on this same host, so the signaling
-  // socket is too.
+  // socket is too. It carries the service prefix like every other backend call —
+  // the edge only routes /k7/rtc* here and strips the prefix before the server,
+  // which is why the handler upstream still matches a bare /rtc.
   const ws = window.location.origin.replace(/^http/, "ws"); // http→ws, https→wss
-  return `${ws}/rtc?role=${role}&ticket=${encodeURIComponent(ticket)}`;
+  return `${ws}${BASE}/rtc?role=${role}&ticket=${encodeURIComponent(ticket)}`;
 }
 
 // A public STUN server is enough for same-network devices (and many NATs);

@@ -6,10 +6,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { BASE } from "../api";
+
+// What to TYPE on the phone, so it carries the service prefix — a bare /remote
+// is the médiathèque's, not ours.
+const REMOTE_PATH = `${BASE}/remote`;
 
 interface Props {
   open: boolean;
-  // Whether a device is connected at /remote; null while still checking.
+  // Whether a device is connected at the remote-mic page; null while checking.
   remoteAvailable: boolean | null;
   busy: boolean;
   error: string | null;
@@ -19,7 +24,7 @@ interface Props {
 }
 
 // Asked when starting a new session: record from this device's microphone, or
-// from the device connected at /remote.
+// from the device connected at the remote-mic page.
 export function SessionSourceDialog({
   open,
   remoteAvailable,
@@ -51,8 +56,8 @@ export function SessionSourceDialog({
             onClick={onRemote}
             title={
               remoteAvailable === false
-                ? "No device is connected at /remote"
-                : "Use the microphone of the device connected at /remote"
+                ? `No device is connected at ${REMOTE_PATH}`
+                : `Use the microphone of the device connected at ${REMOTE_PATH}`
             }
           >
             📡 Remote device
@@ -64,7 +69,7 @@ export function SessionSourceDialog({
             ? "Checking for a remote device…"
             : remoteAvailable
               ? "A remote device is connected and ready."
-              : "No remote device connected. Open /remote on another device (signed in as you) to use its microphone."}
+              : `No remote device connected. Open ${REMOTE_PATH} on another device (signed in as you) to use its microphone.`}
         </p>
       </DialogContent>
     </Dialog>

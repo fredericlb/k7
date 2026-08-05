@@ -12,13 +12,18 @@ import type {
   User,
 } from "./types";
 
-// Single-origin: the SPA is served at / and the backend at /api on the same
+// Single-origin: the SPA is served at /k7 and the backend at /k7/api on the same
 // host (nginx proxies it in the image, Vite proxies it in dev), so paths stay
 // relative — there is no API origin to configure.
 // The API moved under the service prefix; AUTH did not. studio.test is one origin
-// and the l8 backend owns /auth/* at its root for every service, so those two
-// calls below use a bare fetch rather than this client.
-const client = createApiClient({ basePath: "/k7" });
+// and st0 owns /auth/* at its root for every service, so those calls below use a
+// bare fetch rather than this client.
+// BASE_URL is vite's `base`; it ends in a slash, trimmed here so every path below
+// can start with one. Derived rather than spelled out again: the prefix is declared
+// in vite.config.ts and nowhere else.
+export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const client = createApiClient({ basePath: BASE });
 
 // All API calls send the session cookie (createApiClient defaults to
 // credentials: "include").
@@ -31,7 +36,14 @@ const json = async (res: Response) => {
 
 export const api = {
   // --- Auth ---
-  loginUrl: `/auth/login`,
+  // A GETTER, not a constant: it must capture where you are when you click.
+  // `return_to` is the name the OIDC package reads (a `redirect` param is ignored).
+  // Without it login falls back to APP_ROOT — the bare studio.test, which belongs
+  // to st0 — so signing into k7 dropped you in the médiathèque.
+  get loginUrl(): string {
+    const here = window.location.pathname + window.location.search;
+    return `/auth/login?return_to=${encodeURIComponent(here)}`;
+  },
 
   getMe: async (): Promise<User | null> => {
     const res = await fetch("/auth/me");

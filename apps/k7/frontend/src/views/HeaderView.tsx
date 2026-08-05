@@ -62,7 +62,12 @@ export function HeaderView({
       <div className="topbar-inner">
         <div className="topbar-left">
           <div className="brand" onClick={onHome} title="Home">
-            <img className="brand-icon" src="/icon-192.png" alt="" />
+            {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
+            <img
+              className="brand-icon"
+              src={`${import.meta.env.BASE_URL}icon-192.png`}
+              alt=""
+            />
             <span className="brand-text">
               f<span style={{ color: "var(--red)" }}>·</span>rec
             </span>

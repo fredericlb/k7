@@ -11,8 +11,13 @@ export function LoginView({ loginUrl }: Props) {
     <div className="login-screen">
       <Card className="login-card">
         <div className="brand">
-          <img className="brand-icon" src="/icon-192.png" alt="" />f
-          <span style={{ color: "var(--red)" }}>·</span>rec
+          {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
+          <img
+            className="brand-icon"
+            src={`${import.meta.env.BASE_URL}icon-192.png`}
+            alt=""
+          />
+          f<span style={{ color: "var(--red)" }}>·</span>rec
         </div>
         <p className="muted">
           Record long sessions, auto-detect the loud moments, tag the good bits.
