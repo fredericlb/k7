@@ -6,7 +6,11 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
-import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
+import {
+  attachEngineProxy,
+  createRegistry,
+  engineRegistryRouter,
+} from "@studio/engine-registry";
 import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
@@ -34,7 +38,8 @@ const { requireAuth } = await setupAuth(app, {
 // authenticating with its own token. Its OWN registry — see
 // packages/engine-registry/docs/shared.md for why each service holds one.
 app.use(["/api/engines", "/api/engine", "/api/preferences"], requireAuth);
-app.use("/api", engineRegistryRouter(createRegistry()));
+const registry = createRegistry();
+app.use("/api", engineRegistryRouter(registry));
 
 // The deck this account plays through. Same shape as l8' and the médiathèque's, a
 // different store: which machine you DJ from is not which machine you write songs on.
@@ -51,13 +56,19 @@ app.use(
 
 let unadvertise: (() => void) | null = null;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`🎚  m9 backend on ${url}  (auth + registry)`);
   // This service holds its OWN registry, so the supervisor has to be told about it — an engine
   // heartbeats to every advertised URL, and one it never hears about lists no engines at all.
   unadvertise = advertiseRegistry("m9", url);
 });
+
+// The engine, relayed through this origin. Attached to the SERVER, not mounted as a route: a
+// WebSocket upgrade never reaches Express's middleware chain. It is what makes an engine on
+// another machine reachable at all — this page is HTTPS, and an HTTPS page may not open a
+// `ws://` to a LAN address. See packages/engine-registry/docs/proxy.md.
+attachEngineProxy(server, registry);
 
 const bye = () => {
   unadvertise?.();

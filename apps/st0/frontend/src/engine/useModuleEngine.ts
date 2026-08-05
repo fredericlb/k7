@@ -11,7 +11,7 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { currentUser, engines } from "../api";
+import { BASE, currentUser, engines } from "../api";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
 export type EnginePhase =
@@ -93,7 +93,7 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
         engines.prefs().catch(() => ({}) as { engineId?: string }),
       ]);
       if (cancelled) return;
-      const ranked = await probeEngines(list);
+      const ranked = await probeEngines(list, BASE);
       if (cancelled) return;
       // The caller's pick wins over the stored one: it is the same value, but it arrives
       // already updated when someone changes it from the header beside this editor, whereas

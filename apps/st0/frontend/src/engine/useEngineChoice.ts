@@ -6,7 +6,7 @@ import { probeEngines, type RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { EngineLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
-import { engines } from "../api";
+import { BASE, engines } from "../api";
 
 export interface EngineChoice {
   ranked: RankedEngine<PublicEngine>[];
@@ -48,7 +48,7 @@ export function useEngineChoice(): EngineChoice {
       ]);
       if (cancelled) return;
       setChosenId(prefs.engineId);
-      const r = await probeEngines(list);
+      const r = await probeEngines(list, BASE);
       if (cancelled) return;
       setRanked(r);
       setLoaded(true);

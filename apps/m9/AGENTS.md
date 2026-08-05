@@ -31,7 +31,7 @@ rather than the hosted library st0 serves. Three servers, and only one is same-o
 | | m9's backend | the machine's file service | the machine's moteur |
 |---|---|---|---|
 | holds | who you are, which engines exist, which one you work from | the project's files, AND the cached catalogue | playback |
-| reached | same-origin `/api` | cross-origin, absolute URL | WebSocket, direct |
+| reached | same-origin `/api` | cross-origin, absolute URL | WebSocket — direct when the browser may, else relayed through this origin |
 
 See `docs/plumbing.md` for the whole path, and `docs/chains.md` for what hosting the shared
 chains view proved about its seams.

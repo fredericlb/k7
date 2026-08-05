@@ -8,7 +8,7 @@ import { holdEngine } from "@studio/engine-browser/lease";
 import { probeEngines } from "@studio/engine-browser/probe";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api";
+import { api, BASE } from "../api";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
 import { ProjectGate } from "./ProjectGate";
@@ -26,7 +26,7 @@ export function EngineGate() {
   const refresh = useCallback(async (): Promise<RankedEngine[]> => {
     setBusy(true);
     try {
-      const r = await probeEngines(await api.engines());
+      const r = await probeEngines(await api.engines(), BASE);
       setRanked(r);
       return r;
     } finally {

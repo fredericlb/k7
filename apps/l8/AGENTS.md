@@ -22,7 +22,7 @@ by the repo-root Caddyfile.
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
 | owns | the engine registry (auth is st0's) | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
-| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin, direct** (CORS-gated) | **WebSocket, direct** |
+| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin, direct** (CORS-gated) | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
 **The backend has no file routes and no `store.ts`.** Every file operation lives in
