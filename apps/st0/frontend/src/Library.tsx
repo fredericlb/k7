@@ -12,7 +12,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
+import {
+  FileTree,
+  type TreeAction,
+  type TreeNode,
+} from "@frediverse/ui/file-tree";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import {
   CHAINS_FILE,
@@ -155,6 +159,17 @@ const isModuleFolder = (
 const holdsChain = (entries: MediatekEntry[] | null, path: string): boolean => {
   const e = path ? entryAt(entries, path) : null;
   return !!e && holdsChainsFile(e);
+};
+
+/** …and for a SONG, which is a folder on disk and a leaf in the tree like a chain, and the
+ *  ONLY row of that family a menu may act on: everything above it is an artist or an album,
+ *  a segment the scan deduced from tags rather than a thing anyone made. */
+const isSongFolder = (
+  entries: MediatekEntry[] | null,
+  path: string,
+): boolean => {
+  const e = path ? entryAt(entries, path) : null;
+  return !!e && isSong(e);
 };
 
 /** Walk a family-relative folder path into the tree, creating what is missing. Returns the
@@ -455,6 +470,50 @@ export function Library() {
     seen.current[section] = "";
     setError(null);
   }, [section]);
+
+  /**
+   * The whole right-click menu the SONGS family gets: remove that morceau, and nothing else.
+   *
+   * `editable` is false there and stays false — creating, renaming and moving in `songs/` are
+   * what the tags decide, and a folder made by hand at the wrong level is an invisible song
+   * (see packages/mediatek/docs/songs.md). Deleting does not touch that shape, and it was the
+   * one thing you previously had to leave the app to do.
+   *
+   * `when` accepts a row only when the listing calls it a song, so the artist and the album
+   * above it are not offered — one click there would take every morceau underneath. The tree
+   * opens no menu at all when nothing passes, which is how those rows keep the browser's own.
+   *
+   * Empty for the other two non-editable sections: the capture zone has no entries to match,
+   * and the repositories draw no tree.
+   */
+  const songActions = useMemo<TreeAction<TreeNode>[]>(
+    () =>
+      section !== "songs"
+        ? []
+        : [
+            {
+              key: "delete-song",
+              // Named, and named as a folder: what goes is the master and its sidecar, not
+              // just the row. There is no confirmation, as everywhere else in this menu.
+              label: (t) => `Supprimer ${t.name}`,
+              when: (t) => isSongFolder(entries, t.path),
+              danger: true,
+              // A song is a folder on disk though a leaf in the tree — the single-file route
+              // would leave the folder, and with it a song the scan still finds.
+              run: (t) =>
+                void library
+                  .removeTree(`${section}/${t.path}`)
+                  .then(() => {
+                    // Close the editor when it is showing what just went. It would empty
+                    // itself once the poll lands, but on an address naming a deleted file.
+                    if (folderOf(file) === t.path) openFile(null);
+                    refresh();
+                  })
+                  .catch((e: Error) => setError(e.message)),
+            },
+          ],
+    [entries, file, openFile, refresh, section],
+  );
 
   useEffect(() => {
     void library
@@ -814,11 +873,15 @@ export function Library() {
               // Every target needs at least one action that passes its `when`, or the menu
               // does not open AT ALL — the shared tree returns early rather than showing an
               // empty one. Folders and the root would otherwise have none, since the two
-              // below are file-only. Empty for songs, which uses that same early return:
-              // no menu opens at all on that family.
+              // below are file-only. The zone and the repositories lean on that same early
+              // return: no menu opens at all there.
+              //
+              // SONGS get one action and only one — see `songActions`. That family's tree
+              // still cannot write, which is what `editable` says and why the branch is not
+              // simply `editable ? all : none`.
               actions={
                 !editable
-                  ? []
+                  ? songActions
                   : [
                       {
                         key: "upload-folder",

@@ -7,8 +7,8 @@ s'appelle un **morceau**, et l'onglet s'appelle « Morceaux » à l'écran.
 ## `songs/` ne s'édite pas à la main
 
 Les deux autres familles se laissent manipuler comme un dossier : l'arbre de la
-médiathèque y crée, renomme, déplace, supprime. `songs/` non — sa forme est une
-règle, pas une convention :
+médiathèque y crée, renomme, déplace, supprime. `songs/` ne fait que **supprimer** — sa
+forme est une règle, pas une convention :
 
 ```
 songs/<artiste>/<album>/<titre>/original.<ext>
@@ -22,6 +22,20 @@ invisible, ou pire, il avale les dossiers en dessous de lui.
 
 D'où le bouton, et d'où le fait qu'il soit la **seule** façon d'entrer dans cette
 famille : on envoie trois champs, la bibliothèque construit le chemin.
+
+### Sortir, en revanche, se fait au clic droit
+
+Ce qui est interdit à l'arbre, c'est de **poser** quelque chose là où les tags n'ont rien
+demandé : créer, renommer, déplacer. Retirer un morceau ne dit rien sur la forme — le
+dossier part en entier, avec son master et son sidecar, et il ne reste rien à mal ranger.
+C'était pourtant la seule opération qui obligeait à quitter l'application pour aller sur le
+volume, ce qui est cher payé pour un import raté.
+
+Le menu contextuel de la famille n'a donc qu'une entrée, « Supprimer », et elle n'apparaît
+que sur la ligne qui **est** un morceau : au-dessus se trouvent l'artiste et l'album, qui
+sont des segments déduits des tags et non des dossiers que quelqu'un a faits — les
+supprimer emporterait tout ce qu'il y a dessous. Sur ces lignes-là aucun menu ne s'ouvre du
+tout, le menu du navigateur reprend la main (voir `commons/packages/ui/docs/file-tree.md`).
 
 Ce qui est verrouillé est l'**arborescence**, pas le contenu : `song.yaml` s'édite comme
 n'importe quel YAML, dans l'écran scindé que st0 ouvre en cliquant un morceau (voir
