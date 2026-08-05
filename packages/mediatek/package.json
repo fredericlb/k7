@@ -13,6 +13,7 @@
     "./catalogue": "./src/catalogue.ts",
     "./media": "./src/media.ts",
     "./song": "./src/song.ts",
+    "./playlist": "./src/playlist.ts",
     "./recordings": "./src/recordings.ts",
     "./ingest": "./src/ingest.ts",
     "./manifest": "./src/manifest.ts",

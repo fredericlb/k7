@@ -55,6 +55,7 @@ describe("the layout", () => {
         samples: 0,
         modules: 0,
         chains: 0,
+        playlists: 0,
         recordings: 0,
       },
     });
@@ -354,11 +355,41 @@ describe("listing and search", () => {
     expect(search({ q: "nothing-matches" })).toEqual([]);
   });
 
+  it("lists a playlist as the FILE, not as a folder around one", () => {
+    ensureLayout();
+    write(
+      "playlists/live/ete.yaml",
+      "title: Été 2026\nitems:\n  - AC-DC/Back in Black/Hells Bells\n",
+    );
+    const [p] = scanFamily("playlists");
+    // The entry's path is the file itself — the one family besides samples where that is so,
+    // because there is nothing beside a playlist to keep. See scanPlaylists.
+    expect(p.path).toBe("playlists/live/ete.yaml");
+    expect(p.name).toBe("Été 2026"); // the title, not the file name
+    expect(p.meta).toMatchObject({ catalogued: true, items: 1 });
+  });
+
+  it("still lists a playlist whose YAML is broken, so you can click it and fix it", () => {
+    ensureLayout();
+    write("playlists/cassee.yaml", "items: [\n");
+    const [p] = scanFamily("playlists");
+    // `catalogued: false` is the same word an unfiled song folder gets: it is on the disk.
+    expect(p.name).toBe("cassee");
+    expect(p.meta).toMatchObject({ catalogued: false, items: 0 });
+  });
+
   it("counts every family for the summary screen", () => {
     // Plus the capture zone, which is no family but is a tab — see docs/recordings.md.
     expect(summary()).toEqual({
       present: true,
-      counts: { songs: 0, samples: 2, modules: 1, chains: 0, recordings: 0 },
+      counts: {
+        songs: 0,
+        samples: 2,
+        modules: 1,
+        chains: 0,
+        playlists: 0,
+        recordings: 0,
+      },
     });
   });
 });

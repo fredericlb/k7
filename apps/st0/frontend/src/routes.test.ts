@@ -98,6 +98,18 @@ describe("fromLocation", () => {
     );
   });
 
+  it("opens a playlist, whose file is the whole of the second half", () => {
+    // One segment where a song has four: the file IS the entry, so there is no folder in
+    // front of it. `folderOf` therefore answers null here, and nothing asks it to.
+    expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(
+      st({ section: "playlists", file: "ete-2026.yaml" }),
+    );
+    expect(fromLocation("/playlists/live/repet.yaml")).toEqual(
+      st({ section: "playlists", file: "live/repet.yaml" }),
+    );
+    expect(folderOf("ete-2026.yaml")).toBeNull();
+  });
+
   it("round-trips every screen it can produce", () => {
     for (const s of [
       st(),
@@ -108,6 +120,10 @@ describe("fromLocation", () => {
       st({ section: "modules", file: "audio/reverb/presets.yaml" }),
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
       st({ section: "chains", file: "blindtest/sans-voix/chains.yaml" }),
+      // A playlist's file IS its entry, so the second half is one segment shorter than the
+      // three above — no folder to pair it with. See packages/mediatek/docs/playlists.md.
+      st({ section: "playlists", file: "ete-2026.yaml" }),
+      st({ section: "playlists", file: "live/repet du jeudi.yaml" }),
       // Under `projects` the second half is a repository id, not a file — same slot,
       // different meaning. See routes.ts.
       st({ section: "projects", file: "3f9a1c2b7e40" }),

@@ -65,7 +65,7 @@ which it now does, literally.
 
 **One address is not st0's**, and Caddy claims it above the catch-all: `/l8`, `/m9`, `/k7`,
 `/z0` and `/dev` belong to the other services. A section named after one of those would be
-unreachable — the edge would never hand the request here. The six section ids are safe today,
+unreachable — the edge would never hand the request here. The section ids are safe today,
 and `routes.test.ts` now asserts it rather than leaving it to be remembered.
 
 ## The second half is not always a file
@@ -79,7 +79,7 @@ and `routes.test.ts` now asserts it rather than leaving it to be remembered.
 ```
 
 It reuses `RouteState.file` deliberately. It is the same question — *what, inside this section,
-are you looking at* — and a field of its own would be null for four of the six sections while
+are you looking at* — and a field of its own would be null for most of the sections while
 meaning exactly what this one already means.
 
 ## The whitelist is a list, and it was short by one
@@ -92,8 +92,16 @@ two `head === …` tests, and it is now `CARRIES`:
 songs      …/song.yaml      the sidecar, on the left of the split screen
 modules    …/ui.yaml        one of the builder's three panes
 chains     …/chains.yaml    the template, beside the graph it draws
+playlists  live/ete.yaml    the file ITSELF — there is no folder in front of it
 projects   3f9a1c2b7e40     a repository id, not a path
 ```
+
+`playlists` is worth a second look: every other row above it names a file INSIDE an entry's
+folder, so `folderOf` takes the last segment off to find the entry. A playlist has no folder
+— the file is the entry (`packages/mediatek/docs/playlists.md`) — so the whole second half is
+already the path to look up, and `folderOf` would answer null for one at the top level.
+`Library.tsx` therefore derives `editingPlaylist` from `file` directly rather than from
+`folderOf(file)`. Same slot, same question, one level less of it.
 
 `chains` had to be added, not merely `songs`, and it is worth saying why: the chain editor
 already pushed `/chains/x/chains.yaml`, and `fromLocation` read that back as the bare section.
