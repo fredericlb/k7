@@ -187,6 +187,49 @@ function stageDemos(destDir) {
   console.log(`  ${names.length} demo(s): ${names.join(", ")}`);
 }
 
+/**
+ * Copy one installed package into `resources/node_modules/`, so a bundle that had to leave it
+ * external can still resolve it.
+ *
+ * "with no node_modules beside it" was true of every bundle here until a NATIVE dependency
+ * arrived. esbuild cannot inline a `.node` — it is a binary — so the only two options are to
+ * refuse the dependency (which is the call `packages/mediatek/docs/index.md` makes for sqlite)
+ * or to put the package on disk where Node's ordinary resolution finds it. `file-service.mjs`
+ * lives in `resources/`, so `resources/node_modules/<name>` is exactly one lookup away.
+ *
+ * `prune` drops the platform trees this build will never load — ONNX Runtime ships a copy of
+ * its shared library per platform, and carrying all of them would multiply the bundle for
+ * nothing. Missing is FATAL, following vendorNode: a resource that silently failed to stage
+ * produces an app that looks built and dies on first use.
+ */
+function stageNodeModule(name, destRoot, prune) {
+  const src = join(repo, "node_modules", name);
+  if (!existsSync(src)) {
+    console.error(
+      `error: ${name} is not installed at ${src} — run \`npm install\` at the repo root.`,
+    );
+    process.exit(1);
+  }
+  const dest = join(destRoot, name);
+  rmSync(dest, { recursive: true, force: true });
+  cpSync(src, dest, {
+    recursive: true,
+    dereference: true, // a workspace install may symlink; the bundle needs the bytes
+    filter: (p) => !prune?.(relative(src, p)),
+  });
+  console.log(`  ${name}: ${src}\n     → ${dest}`);
+}
+
+// The platform tree ONNX Runtime will actually load, e.g. `bin/napi-v3/win32/x64`.
+const ORT_KEEP = join("bin", "napi-v3", process.platform, process.arch);
+
+/** Everything under `bin/napi-v3/` that is not this host's — see stageNodeModule's `prune`. */
+function pruneOtherPlatforms(rel) {
+  const parts = rel.split(/[\\/]/);
+  if (parts[0] !== "bin" || parts.length < 4) return false; // not deep enough to judge yet
+  return !rel.startsWith(ORT_KEEP);
+}
+
 // Bundle one TypeScript entry into a single .mjs the vendored `node` runs with no node_modules beside it.
 async function bundleTs(entry, outFile) {
   // esbuild's JS API, not its CLI: run() goes through cmd.exe on Windows, which splits --banner:js=... on spaces.
@@ -207,8 +250,15 @@ async function bundleTs(entry, outFile) {
     platform: "node",
     format: "esm",
     target: "node22",
-    // fsevents is an optional native module chokidar falls back from; it can't be bundled and must not fail us.
-    external: ["fsevents"],
+    // Native modules, which esbuild cannot bundle — a `.node` is a binary, not source.
+    //
+    // The two are external for OPPOSITE reasons, and the difference is what makes the second
+    // one work. `fsevents` is optional: chokidar probes for it and falls back to polling, so a
+    // require that throws costs nothing. `onnxruntime-node` has no fallback — external alone
+    // would just move the failure to runtime, since the bundle is a lone .mjs with no
+    // node_modules beside it. It is external AND staged (stageNodeModule below), which is the
+    // half that was missing from the argument packages/mediatek/docs/index.md makes about sqlite.
+    external: ["fsevents", "onnxruntime-node"],
     // ESM output has no `require`, but the CommonJS deps here call it — without this the bundle dies at runtime.
     banner: {
       js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);",
@@ -428,6 +478,15 @@ await bundleTs(
   join(repo, "packages", "engine-host", "src", "main.ts"),
   join(trayDir, "src-tauri", "resources", "engine-host.mjs"),
 );
+
+// …and the one dependency neither bundle could swallow. `onnxruntime-common` comes too: it is
+// what onnxruntime-node itself requires, and an external package's own imports resolve from
+// where IT sits, not from the bundle.
+console.log("\n=== native node modules ===");
+const resourceModules = join(trayDir, "src-tauri", "resources", "node_modules");
+mkdirSync(resourceModules, { recursive: true });
+stageNodeModule("onnxruntime-node", resourceModules, pruneOtherPlatforms);
+stageNodeModule("onnxruntime-common", resourceModules);
 
 // The demo songs. A new workspace is seeded from these, and an installed .app has no repo to copy them from.
 console.log("\n=== demo songs ===");
