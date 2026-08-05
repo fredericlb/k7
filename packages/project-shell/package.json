@@ -1,0 +1,32 @@
+{
+  "name": "@studio/project-shell",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "What every app that opens a project needs before it can draw anything: the launch parameters st0 sends, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. l8 and m9 both mount it.",
+  "types": "./src/launch.ts",
+  "exports": {
+    "./launch": "./src/launch.ts",
+    "./fileApi": "./src/fileApi.ts",
+    "./project": "./src/project.ts",
+    "./gate": "./src/ProjectGate.tsx"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@studio/graph-model": "*",
+    "@studio/web-protocol": "*",
+    "lucide-react": "^1.24.0"
+  },
+  "devDependencies": {
+    "@frediverse/tsconfig": "*",
+    "@types/react": "^19.2.17",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

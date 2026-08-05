@@ -241,7 +241,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
         {
           "bipolar": false,
           "param": "Filter Freq",
-          "pluginId": "melody:synth:lead",
+          "pluginId": "melody:lead",
           "points": [
             [
               0,
@@ -264,7 +264,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
         {
           "bipolar": true,
           "param": "Osc1 Tune",
-          "pluginId": "melody:synth:lead",
+          "pluginId": "melody:lead",
           "points": [
             [
               0,
@@ -753,8 +753,8 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "plugins": [
         {
           "enabled": true,
-          "id": "melody:synth:lead",
-          "name": "synth:lead",
+          "id": "melody:lead",
+          "name": "lead",
           "params": {
             "Filter Freq": 90,
           },
@@ -789,8 +789,8 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "plugins": [
         {
           "enabled": true,
-          "id": "pad:synth:pad",
-          "name": "synth:pad",
+          "id": "pad:pad",
+          "name": "pad",
           "params": {
             "Filter Freq": 40,
             "Level": -12,

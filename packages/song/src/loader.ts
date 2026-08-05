@@ -359,7 +359,6 @@ export function loadModules(
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
   const yamlIssues: string[] = []; // held rather than thrown at once, so a load reports every bad file
   const bdir = join(dir, "modules");
-  if (!existsSync(bdir)) return out;
   for (const [type, meta] of Object.entries(MODULE_TYPES)) {
     const abs = join(bdir, type);
     if (!existsSync(abs) || !statSync(abs).isDirectory()) continue;
@@ -367,10 +366,8 @@ export function loadModules(
       const folder = join(abs, name);
       if (!statSync(folder).isDirectory()) continue;
       const relDir = `modules/${type}/${name}`;
-      // A folder with NO module.yaml holds instances that stand alone. That is how a
-      // project uses a module the engine provides: the folder names it, each file in it
-      // is one use, and there is no local generic to write — `kind`, `inputs` and the
-      // category come from the type folder above, and the instance carries the rest.
+      // A module folder is its `module.yaml` and nothing else now. Uses of a module are
+      // files in the project's flat `instances/` — see the pass below and docs/instances.md.
       const generic = moduleFileFor(folder, relDir, "module");
       let module: Record<string, unknown> | null = null;
       if (generic) {
@@ -415,23 +412,9 @@ export function loadModules(
       };
 
       if (module) out[name] = decorate(module);
-
-      // Instances beside module.yaml, merged under the generic (vetted AS AUTHORED first — see docs/loader.md).
-      // With no generic there is nothing to merge under: the instance IS the module.
-      for (const { instance, file } of instanceFiles(folder, relDir)) {
-        const iread = readModuleFile(file);
-        yamlIssues.push(...iread.issues);
-        const value = iread.value;
-        if (!value || typeof value !== "object") continue;
-        raw.push({ rel: file.rel, module: value });
-        const merged = module ? mergeAuthored(module, value) : value;
-        // `ui` is taken WHOLE from the generic — an instance's `ui:` has no effect. When
-        // there is no generic the panel comes from the folder's own `ui.yaml`.
-        if (module) merged.ui = module.ui;
-        out[moduleKey(name, instance)] = decorate(merged, instance);
-      }
     }
   }
+  loadInstances(dir, out, raw, yamlIssues);
   if (validate) {
     if (yamlIssues.length)
       // callers already treat "invalid module(s)" as fatal and show it
@@ -440,6 +423,66 @@ export function loadModules(
   }
   applyUiLibrary(dir, out, (m) => localUiRefs(m));
   return out;
+}
+
+/** The project's uses of modules: `instances/<name>.yaml`, flat, filename IS the name. */
+export const INSTANCES_DIR = "instances";
+
+/**
+ * Load `instances/` into `out`, keyed by the bare filename — the name a chain writes.
+ *
+ * FLAT, and that is the point: an instance no longer mirrors the tree of what it uses, so a
+ * project's uses are one folder you can read at a glance instead of leaves scattered under
+ * `modules/<type>/<name>/`. The file is a module file — the same schema as `module.yaml`,
+ * which is what lets an instance be self-contained.
+ *
+ * The loader deliberately does NOT decorate these with `category`, `kind` or `inputs`. A flat
+ * folder has no type folder to read them off, so they arrive from whatever the instance
+ * `extends`, through resolveModule — leaving them absent here is what lets that inheritance
+ * happen (see moduleResolve's OWN_ONLY). An instance that extends nothing has no ports, and
+ * `validate` is what says so.
+ *
+ * `preset`, `jsdsp` and `assets/` resolve against `instances/` itself: what belongs to a use
+ * of a module sits beside that use.
+ */
+function loadInstances(
+  dir: string,
+  out: Record<string, LoadedModule>,
+  raw: { rel: string; module: Record<string, unknown> }[],
+  yamlIssues: string[],
+): void {
+  const folder = join(dir, INSTANCES_DIR);
+  if (!existsSync(folder) || !statSync(folder).isDirectory()) return;
+  for (const { id: instance, file } of entityFiles(folder, INSTANCES_DIR)) {
+    const read = readModuleFile(file);
+    yamlIssues.push(...read.issues);
+    const value = read.value;
+    if (!value || typeof value !== "object") continue;
+    // A module folder and an instance file cannot both answer to one name: a chain naming it
+    // would be ambiguous, and silently letting one win is how a project plays the wrong thing.
+    if (instance in out) {
+      yamlIssues.push(
+        `${file.rel}: '${instance}' is already a module in this project — an instance cannot take its name`,
+      );
+      continue;
+    }
+    raw.push({ rel: file.rel, module: value });
+    const preset = join(folder, `${instance}.vstpreset`);
+    out[instance] = {
+      ...value,
+      // The FILE names it, exactly as it does for a track or a clip — never a `name:` field.
+      name: instance,
+      instance,
+      file: instance,
+      home: INSTANCES_DIR, // where its .vstpreset is saved — see nodeProject's presetSave
+      rack: value.rack
+        ? resolveRackAudio(value.rack as RawRack, folder)
+        : undefined,
+      ...(existsSync(preset) ? { preset } : {}),
+      jsdsp: jsDspFileFor(value, folder),
+      ...resolveAssets(value, folder),
+    } as LoadedModule;
+  }
 }
 
 /**
@@ -453,9 +496,22 @@ export function loadModules(
  * level further out.
  */
 function localUiRefs(m: LoadedModule): string[] {
-  const own = moduleRefOf(String(m.category), String(m.file));
   const from = typeof m.extends === "string" ? m.extends : "";
-  return from ? [own, from] : [own, engineRef(String(m.file))];
+  // A project's own module answers to two refs — bare and "@project/…" — and an instance may
+  // have been written with either. Both are tried, so a panel drawn once is found either way.
+  const spellings = from
+    ? from.startsWith("@project/")
+      ? [from, from.slice("@project/".length)]
+      : [from, `@project/${from}`]
+    : [];
+  // An instance has no type folder, so it has no ref of its own to be filed under: its panel
+  // is the panel of what it uses. Without this it asked for "undefined/<name>" and got nothing.
+  if (!m.category)
+    return spellings.length ? spellings : [engineRef(String(m.file))];
+  const own = moduleRefOf(String(m.category), String(m.file));
+  return spellings.length
+    ? [own, ...spellings]
+    : [own, engineRef(String(m.file))];
 }
 
 /**
@@ -991,7 +1047,16 @@ export function createModuleFile(
   return rel;
 }
 
-// Create an INSTANCE, scaffolded empty — it inherits the module.yaml beside it automatically.
+/**
+ * Create one USE of a module: `instances/<instance>.yaml`.
+ *
+ * FLAT, whatever it is a use of. `category`/`module` say WHAT is being instantiated, not where
+ * the file lands — an instance no longer mirrors the tree of the thing it uses, so the two are
+ * now separate questions. A local module is named with `extends`; a module the engine provides
+ * is inlined as `plugin:`, because the scan is a discovery aid and not the project's memory of
+ * what it uses. Either way the file is a module file, so anything a `module.yaml` may say, an
+ * instance may say too. See docs/instances.md.
+ */
 export function createModuleInstance(
   dir: string,
   category: string,
@@ -1010,43 +1075,42 @@ export function createModuleInstance(
     throw new Error(
       `invalid instance name '${instance}' — letters, digits, '_' and '-' only`,
     );
-  // "module" is reserved — it would collide with the generic it inherits from.
-  if (instance === "module")
-    throw new Error(
-      "'module' is reserved — the module file IS the generic every instance inherits",
-    );
   const local = moduleFileFor(
     join(dir, "modules", category, module),
     `modules/${category}/${module}`,
     "module",
   );
-  // With no local generic the folder names a module the ENGINE provides, and the instance
-  // has to stand on its own — so it records WHICH plugin. Without that, a project opened on
-  // a machine that has never scanned would not know what to load: the scan is a discovery
-  // aid, not the project's memory of what it uses.
   const fromEngine = local ? undefined : catalogue[engineRef(module)];
   if (!local && !fromEngine)
     throw new Error(
       `module '${category}/${module}' is neither in this project nor one the engine offers — ` +
         `create it first, or name one of the engine's`,
     );
-  const rel = `modules/${category}/${module}/${instance}.yaml`;
+  // The name is the KEY a chain writes, so it has to be free across the whole project, not
+  // merely within a folder — a module already answering to it would be shadowed.
+  if (instance in loadModules(dir))
+    throw new Error(
+      `'${instance}' already names a module or instance in this project`,
+    );
+  const rel = `${INSTANCES_DIR}/${instance}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
-  const key = moduleKey(module, instance);
   const plugin = fromEngine?.plugin;
+  // The explicit level, which is the form new files are written in — see loadModuleRefs.
+  const ref = `@project/${moduleRefOf(category, module)}`;
   const body = local
-    ? `# ${key}: an instance of module "${category}/${module}".\n` +
-      `# It inherits everything in module.yaml — state only what THIS instance changes, e.g.\n` +
+    ? `# ${instance}: one use of module "${category}/${module}".\n` +
+      `# It inherits everything that module says — state only what THIS use changes, e.g.\n` +
       `#   params:\n` +
-      `#     Filter Freq: 69\n`
-    : `# ${key}: one use of "${module}", a module the engine provides.\n` +
+      `#     Filter Freq: 69\n` +
+      `extends: ${JSON.stringify(ref)}\n`
+    : `# ${instance}: one use of "${module}", a module the engine provides.\n` +
       `# The plugin is named here so the project says what it uses, whatever this machine\n` +
       `# has scanned. Add params: to set it.\n` +
       `plugin:\n` +
       `  type: ${JSON.stringify(String(plugin?.type ?? ""))}\n` +
       `  name: ${JSON.stringify(String(plugin?.name ?? ""))}\n`;
-  mkdirSync(join(dir, "modules", category, module), { recursive: true });
+  mkdirSync(join(dir, INSTANCES_DIR), { recursive: true });
   writeFileSync(join(dir, rel), body, "utf8");
   return rel;
 }

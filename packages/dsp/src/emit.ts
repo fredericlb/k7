@@ -8,6 +8,7 @@ import { autoWah } from "./autowah";
 import { crossfade } from "./crossfade";
 import { echo } from "./echo";
 import { flanger } from "./flanger";
+import { normalize } from "./normalize";
 
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "graphs");
 mkdirSync(out, { recursive: true });
@@ -16,6 +17,7 @@ for (const [name, g] of [
   ["echo", echo()],
   ["flanger", flanger()],
   ["crossfade", crossfade()],
+  ["normalize", normalize()],
 ] as const) {
   const file = join(out, `${name}.json`);
   writeFileSync(file, `${JSON.stringify(g, null, 2)}\n`, "utf8");

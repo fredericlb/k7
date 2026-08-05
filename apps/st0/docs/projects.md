@@ -1,4 +1,4 @@
-# Projets — les dépôts git appartiennent à la médiathèque
+﻿# Projets — les dépôts git appartiennent à la médiathèque
 
 La médiathèque est la porte d'entrée du studio : c'est là qu'on voit ses morceaux, ses
 samples, ses modules. Ses **dépôts git** y ont maintenant leur place aussi, dans une sixième
@@ -9,7 +9,15 @@ Avant, ce niveau appartenait à l8 : `WorkspaceGate` listait les dossiers sous
 côté. C'était mal rangé — l8 n'est qu'un consommateur parmi d'autres, et « quels dépôts
 possède cette personne » est une question de l'accueil, pas de l'éditeur.
 
+C'est aussi la **section d'accueil** : `DEFAULT_SECTION` vaut `projects`. La médiathèque est la
+porte d'entrée du studio, et la première chose qu'on veut à une porte d'entrée, c'est son
+propre travail. Le catalogue est ce dont un projet *se sert* — il est à un onglet, pas devant.
+
 ## La règle qui tient tout
+
+**Le suffixe du dossier nomme l'application.** `mysong.l8` s'ouvre dans l8, `myset.m9` dans
+m9 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle entière. Un dossier sans
+suffixe n'est pas un projet, même s'il contient un `project.yaml`.
 
 **st0 ne fait jamais de copie de travail.** Il tient un miroir *bare* et *sans blobs* de
 chaque dépôt, uniquement pour répondre « qu'est-ce qu'il y a dedans ». La copie qu'on édite,
@@ -17,30 +25,50 @@ qu'on joue et qu'on committe vit sur la machine du moteur, et c'est le file serv
 fait. Le pourquoi et le comment sont dans
 [packages/git-repos/docs/mirror.md](../../../packages/git-repos/docs/mirror.md).
 
-Ça marche parce que détecter un projet l8, c'est constater qu'un dossier contient un
-`project.yaml` — `isProjectFolder` vérifie que le fichier **existe** et ne l'ouvre jamais
-(`packages/song/src/yaml/moduleIO.ts:140`). C'est une question sur l'ensemble des chemins, et
+Les deux tiennent ensemble : un nom de dossier est une question sur l'ensemble des chemins, et
 l'ensemble des chemins est exactement ce qu'est un arbre git. Aucun contenu de fichier n'est
-nécessaire, donc aucun n'est téléchargé.
+nécessaire, donc aucun n'est téléchargé. Une règle qui aurait dû **ouvrir** un fichier ne
+pourrait pas tourner ici du tout.
+
+`project.yaml` n'a pas disparu pour autant — il reste ce qui rend un projet **compilable**, et
+`@studio/song` pose toujours cette question-là, sur une vraie copie de travail. Un `.l8` sans
+`project.yaml` est donc listé, ouvrable, et échoue à la compilation une fois ouvert, avec le
+message de l8. C'est le bon ordre : st0 ne peut pas savoir, et c'est précisément ce qui permet
+à m9 d'ouvrir un projet qui n'est pas un morceau l8 complet.
+
+**Le file service applique la même règle** (`isProjectDir`, `workspace.ts`), donc ce que la
+médiathèque liste et ce que l'arbre de l8 marque ne peuvent pas diverger. Une seule règle, aux
+deux bouts.
+
+> **Migration.** Un dossier de projet sans suffixe n'est plus un projet — ni ici, ni dans l8.
+> Les cinq démos de `engine/capot/songs/` ont été renommées (`synth-demo.l8`, …) et sont donc
+> des projets comme les autres ; leur champ `name:` reste sans suffixe, c'est leur libellé et
+> non leur dossier. Un dépôt doit maintenant contenir **au moins un dossier suffixé** : un
+> dépôt qui *est* lui-même un projet ne se liste pas, puisque sa racine n'a pas de nom dans
+> l'arbre.
 
 L'arbre rendu est du `FileNode` — **le même type** que celui que sert le file service, avec le
-même drapeau `project?: boolean` sur les dossiers. Les deux arbres du dépôt dessinent donc les
-mêmes lignes, et « ce dossier est-il un projet » ne s'écrit qu'une fois.
+même drapeau `project?: boolean` sur les dossiers, plus `app` qui dit laquelle des deux
+applications l'ouvre. Les deux arbres du dépôt dessinent donc les mêmes lignes.
 
 ## Le trajet complet
 
 1. Dans **Projets**, on colle une URI SSH. st0 génère la clé de déploiement si elle n'existe
    pas encore, enregistre le dépôt et lance le miroir en tâche de fond.
-2. La section affiche l'arborescence, les dossiers-projets marqués.
-3. « Ouvrir dans l8 » mène à `/l8/?repo=<uri>&project=<dossier>`.
-4. l8 demande au file service `GET /workspaces/by-repo?uri=` : cette machine connaît-elle ce
-   dépôt ?
+2. La section affiche l'arborescence, les dossiers-projets marqués de l'application qui les
+   ouvre.
+3. « Ouvrir dans l8 » (ou m9) mène à `/<app>/?repo=<uri>&project=<dossier>`.
+4. L'application demande au file service `GET /workspaces/by-repo?uri=` : cette machine
+   connaît-elle ce dépôt ?
 5. Sinon, elle le clone, **avec la progression de git à l'écran**
    ([cloneJobs.md](../../../packages/file-service/docs/cloneJobs.md)), puis ouvre le projet.
 
-l8 ne connaît que ça : le projet sur lequel il a été lancé. Voir
-[apps/l8/frontend/docs/launch.md](../../l8/frontend/docs/launch.md), notamment pourquoi les
-deux paramètres sont lus à l'import du module et pas dans un composant.
+Les étapes 4 et 5 sont `@studio/project-shell`, montée à l'identique par les deux applications :
+une divergence là serait un clone en double ou un 404. Chacune ne connaît que ça — le projet sur
+lequel elle a été lancée. Voir
+[packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md), notamment pourquoi les
+deux paramètres sont lus à l'import du module et pas dans un composant, et
+[apps/m9/docs/views.md](../../m9/docs/views.md) pour ce que m9 fait d'un projet.
 
 ## Pourquoi la comparaison des URI est normalisée
 

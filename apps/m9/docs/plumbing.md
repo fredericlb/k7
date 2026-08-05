@@ -1,5 +1,11 @@
 # How m9 is wired
 
+> **This page describes the MIX view.** m9 has since become l8 without the timeline: it opens
+> on a `*.m9` project and shows three views, of which Mix is the decks this describes. The
+> project half — the file service, the tree, the editor, the graph — is
+> [views.md](views.md) and [the project shell](../../../packages/project-shell/docs/launch.md).
+> Everything below is still true of Mix, and the reason it is still true is the first heading.
+
 The plan's last leaf, and the one it called the real test: *"m9 (second consommateur
 des étapes 5 et 6 : c'est là qu'on découvre si les coutures étaient réelles)"*.
 

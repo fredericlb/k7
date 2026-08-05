@@ -570,7 +570,9 @@ export function Library() {
             parce que leur arborescence est déduite des tags, les enregistrements parce qu'un
             enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md. */}
         <div className="ml-auto flex items-center gap-3">
-          {section === "songs" ? <AddSong onDone={refresh} /> : null}
+          {section === "songs" ? (
+            <AddSong onDone={refresh} engine={choice} />
+          ) : null}
           {isZone ? <AddRecording onDone={refresh} onError={setError} /> : null}
           <span className="text-xs tabular-nums text-muted-foreground">
             {VERSION}

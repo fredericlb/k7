@@ -1,4 +1,4 @@
-// api.ts — one server now: st0's own backend, same-origin. The catalogue lives
+﻿// api.ts — one server now: st0's own backend, same-origin. The catalogue lives
 // there, so browsing it needs no engine and no local service. The LOCAL cache is what the
 // moteur plays from, and nothing on this screen reads it.
 
@@ -19,6 +19,7 @@ import {
   type SshKeyInfo,
   USER_HEADER,
 } from "@studio/web-protocol";
+import type { ProjectApp } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
@@ -109,6 +110,31 @@ export const auth = {
  * caller treats an empty list as "cannot say" and not as "no plugins".
  */
 export const engineMachine = {
+  /**
+   * Ask that machine to analyse a library file: waveform envelope, transient onsets, tempo.
+   *
+   * THIS service cannot: it has no engine, and the engine is what decodes audio. So the
+   * machine downloads the file from here, runs its engine, pushes the `.cache` sidecar back
+   * beside the audio, and seeds `song.yaml` with the tempo it found. See
+   * packages/file-service/src/routes/mediatek.ts.
+   */
+  analyse: async (
+    fileBase: string,
+    token: string,
+    path: string,
+  ): Promise<{ bpm: number; bpmSet: boolean; transients: number }> => {
+    const res = await fetch(`${fileBase}/mediatek/analyse`, {
+      method: "POST",
+      headers: {
+        [USER_HEADER]: currentUser(),
+        [ENGINE_TOKEN_HEADER]: token,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ path }),
+    });
+    return json(res, "analyse");
+  },
+
   /** What this machine's engine has scanned, grouped by lowercased format. */
   plugins: async (
     fileBase: string,
@@ -176,7 +202,10 @@ export const projects = {
    */
   tree: async (
     id: string,
-  ): Promise<{ nodes: FileNode[]; projects: string[] } | null> => {
+  ): Promise<{
+    nodes: FileNode[];
+    projects: { path: string; app: ProjectApp }[];
+  } | null> => {
     const res = await fetch(`${BASE}/api/projects/${id}/tree`);
     if (res.status === 202) return null;
     return json(res, "tree");
@@ -186,13 +215,14 @@ export const projects = {
   generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
 
   /**
-   * Where l8 opens one of these projects. Derived from the page's own origin rather than
-   * declared: every studio service sits at a fixed path under one origin, so dev and
-   * production differ by that origin and nothing else. See apps/l8/frontend/docs/launch.md.
+   * Where a project opens — l8 or m9, whichever its folder name claims. Derived from the
+   * page's own origin rather than declared: every studio service sits at a fixed path under
+   * one origin, so dev and production differ by that origin and nothing else. Both apps read
+   * the same two parameters; see packages/project-shell/docs/launch.md.
    */
-  openIn: (repoUri: string, project: string): string => {
+  openIn: (repoUri: string, project: string, app: ProjectApp): string => {
     const q = new URLSearchParams({ repo: repoUri, project });
-    return `${serviceUrl(window.location.origin, "l8")}/?${q.toString()}`;
+    return `${serviceUrl(window.location.origin, app)}/?${q.toString()}`;
   },
 };
 

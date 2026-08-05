@@ -3,8 +3,10 @@
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
+import { readFileSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { validate, wrap } from "@frediverse/http/route";
+import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { markSynced, syncFamily } from "@studio/mediatek/cache";
 import {
   listFamily,
@@ -20,14 +22,113 @@ import {
   safePath,
 } from "@studio/mediatek/layout";
 import { mimeFor } from "@studio/mediatek/media";
-import { remoteLibrary, remoteWriter } from "@studio/mediatek/remote";
+import {
+  pushSongBpm,
+  remoteLibrary,
+  remoteWriter,
+} from "@studio/mediatek/remote";
 import { revisions } from "@studio/mediatek/revision";
 import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { Router } from "express";
 import { z } from "zod";
 import { slugify, workspaceRoot } from "../slug.ts";
+import {
+  CACHE_EXT,
+  cachePath,
+  ensureFileEnvelope,
+  invalidateEnvelope,
+} from "../waveformCache.ts";
 
 export const mediatekRouter: Router = Router();
+
+/**
+ * Analyse one file of the hosted library: waveform envelope, transient onsets, tempo.
+ *
+ * This exists because **st0 cannot decode audio**. It is a Node + nginx container with no
+ * engine, and the engine is what owns decoding — so the hosted library holds the bytes and
+ * this machine, which has an engine, does the work and hands the result back.
+ *
+ * The round trip is: download into the local cache (where the moteur would play it from
+ * anyway), run the engine, push the `{file}.cache` sidecar up beside the audio, and report
+ * the tempo so the caller can seed `song.yaml` with it. The next machine to want this file
+ * then finds a sidecar already there.
+ *
+ * `path` names a file in the LIBRARY, never a local one: `safePath` confines it, and the
+ * download source is configuration rather than a parameter — the same rule `/mediatek/sync`
+ * states, so a browser cannot point this machine's downloader somewhere else.
+ */
+const analyseBody = z.object({ path: z.string().min(1) });
+mediatekRouter.post(
+  "/mediatek/analyse",
+  validate(analyseBody),
+  wrap(async (req, res) => {
+    const { path } = req.body as z.infer<typeof analyseBody>;
+    const base = process.env.MEDIATEK_URL;
+    if (!base)
+      return res
+        .status(503)
+        .json({ error: "no hosted library configured (MEDIATEK_URL)" });
+    const engineBin = findEngineBinary();
+    if (!engineBin)
+      return res.status(503).json({
+        error: "no engine on this machine — nothing here can decode audio",
+      });
+
+    let dest: string;
+    try {
+      dest = safePath(path);
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      throw e;
+    }
+
+    const token = process.env.MEDIATEK_TOKEN;
+    try {
+      // Always re-fetched rather than trusted: the caller asks for this right after an upload,
+      // and a cache entry from a previous version of the same path would be analysed instead.
+      await remoteLibrary({ base, token }).download(path, dest);
+    } catch (e) {
+      return res.status(502).json({ error: (e as Error).message });
+    }
+    // The bytes changed under it; the memo is keyed on mtime but the fingerprint is the truth.
+    invalidateEnvelope(dest);
+
+    const env = await ensureFileEnvelope(dest, engineBin);
+    try {
+      // Beside the audio, in the library, so nobody computes it twice. Written as bytes through
+      // the ordinary file route — the sidecar is just a file to the hosted service.
+      await remoteWriter({ base, token }).put(
+        `${path}${CACHE_EXT}`,
+        readFileSync(cachePath(dest)),
+      );
+    } catch (e) {
+      // The analysis is still good and the tempo still worth reporting: say what failed rather
+      // than throwing away work the caller asked for.
+      return res.status(502).json({
+        error: `analysed, but could not store the cache: ${(e as Error).message}`,
+        bpm: env.bpm,
+      });
+    }
+    // …and the tempo, which only a folder holding a sidecar can carry. Best effort and
+    // reported: a song whose bpm somebody already set answers `set: false`, which is not a
+    // failure, and a library that refuses the write must not lose the cache we just stored.
+    let bpmSet = false;
+    const folder = path.split("/").slice(0, -1).join("/");
+    if (env.bpm > 0 && folder)
+      try {
+        bpmSet = (await pushSongBpm({ base, token }, folder, env.bpm)).set;
+      } catch {
+        /* reported as `bpmSet: false` — the analysis itself stands */
+      }
+    res.json({
+      bpm: env.bpm,
+      bpmSet,
+      transients: env.transients.length,
+      seconds: env.seconds,
+    });
+  }),
+);
 
 /** What this machine holds, and where. Not the catalogue — that is the hosted service's
  *  answer; this is the cache's. `present: false` is normal, never a 404. */

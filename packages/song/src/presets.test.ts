@@ -28,7 +28,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 const REF = "instruments/synth"; // the synth module's own ref
 

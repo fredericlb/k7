@@ -4,6 +4,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import type { FileNode, RepoSummary } from "@studio/web-protocol";
+import type { ProjectApp } from "@studio/web-protocol/projects";
 import {
   ArrowLeft,
   ChevronDown,
@@ -28,7 +29,7 @@ function Row({
   depth: number;
   open: Set<string>;
   onToggle: (path: string) => void;
-  onOpenProject: (path: string) => void;
+  onOpenProject: (path: string, app: ProjectApp) => void;
 }) {
   const isOpen = open.has(node.path);
   const pad = { paddingLeft: `${depth * 14 + 8}px` };
@@ -64,14 +65,15 @@ function Row({
             {node.name}
           </span>
         </button>
-        {/* La seule action de tout l'écran : un projet s'ouvre dans l8, pas ici. */}
-        {node.project && (
+        {/* La seule action de tout l'écran : un projet s'ouvre dans SON application, pas ici.
+            C'est le suffixe du dossier qui la nomme — voir packages/web-protocol/projects.ts. */}
+        {node.app && (
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => onOpenProject(node.path)}
+            onClick={() => onOpenProject(node.path, node.app!)}
           >
-            <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans l8
+            <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
           </Button>
         )}
       </div>
@@ -93,7 +95,6 @@ function Row({
 export function RepoTree({
   repo,
   nodes,
-  rootIsProject,
   onBack,
   onRefresh,
   onOpenProject,
@@ -101,10 +102,9 @@ export function RepoTree({
   repo: RepoSummary;
   /** null tant que le miroir n'a rien à lire — ce n'est pas un dépôt vide. */
   nodes: FileNode[] | null;
-  rootIsProject: boolean;
   onBack: () => void;
   onRefresh: () => void;
-  onOpenProject: (path: string) => void;
+  onOpenProject: (path: string, app: ProjectApp) => void;
 }) {
   // Les dossiers dépliés au départ : ceux qu'il faut traverser pour voir un projet seraient
   // le bon calcul ; le premier niveau suffit et ne dépend pas du chargement.
@@ -127,11 +127,6 @@ export function RepoTree({
           {repo.uri}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {rootIsProject && (
-            <Button size="sm" onClick={() => onOpenProject(".")}>
-              <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans l8
-            </Button>
-          )}
           <Button
             variant="secondary"
             size="sm"

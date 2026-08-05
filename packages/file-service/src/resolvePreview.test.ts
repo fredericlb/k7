@@ -7,19 +7,23 @@ import { Workspace } from "./workspace.ts";
 // resolvePreview turns a gutter-button request into an absolute file + window. The
 // source/slice paths fall back to plain path resolution when the project doc can't be
 // read, so a minimal (non-compiling) project fixture exercises them without a full song.
+let base: string;
 let root: string;
 let ws: Workspace;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "td-preview-"));
-  writeFileSync(join(root, "project.yaml"), "package l8\n"); // makes root the active project
+  base = mkdtempSync(join(tmpdir(), "td-preview-"));
+  // The workspace root IS the project here, so its own folder has to carry the suffix —
+  // that is what makes a folder a project now, not the file inside it.
+  root = join(base, "song.l8");
   mkdirSync(join(root, "clips"), { recursive: true });
+  writeFileSync(join(root, "project.yaml"), "package l8\n");
   writeFileSync(join(root, "clips", "kick.wav"), "RIFF"); // presence is enough
   writeFileSync(join(root, "clips", "loop.wav"), "RIFF");
   ws = new Workspace(root);
 });
 
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => rmSync(base, { recursive: true, force: true }));
 
 describe("Workspace.resolvePreview", () => {
   it("a source path resolves to the whole file", () => {

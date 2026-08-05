@@ -187,6 +187,8 @@ export interface Module {
   // Numbers, except the file-valued ones (moduleTypes.FILE_PARAMS), which name a file in the
   // module's assets/ — see moduleSchema. The wire stays numeric (nodeProject.numericParams).
   params?: Record<string, number | string>;
+  // Only usable on an input that is already a FILE — see docs/coldModules.md and isColdModule.
+  cold?: boolean;
   ui?: ModuleUI;
   inputs: InputDef[]; // typed input ports from the type folder (empty == unconstrained)
   // …and its output ports. Carried beside `emits` rather than derived from it: `emits` is one
@@ -582,6 +584,8 @@ export function buildGraph(
     plugin: b?.plugin,
     type: normType(b?.type),
     params: b?.params ?? {},
+    // Inherited like `plugin`, so a use of a cold module is cold and nothing has to restate it.
+    cold: b?.cold === true ? true : undefined,
     ui: resolvedUI(b),
     inputs: normalizeInputs(b?.inputs),
     outputs: normalizeOutputs(b?.outputs),
@@ -729,6 +733,58 @@ const carriesInput = (g: GraphDoc, c: Chain): boolean =>
     const b = g.modules[s.module];
     return !!b && isInputModule(g, b);
   });
+
+/** …and the other source: does its signal come off DISK (an `io: file` step)? */
+export const carriesFileInput = (g: GraphDoc, c: Chain): boolean =>
+  c.use.some((s) => {
+    const b = g.modules[s.module];
+    return !!b && isFileInputModule(b);
+  });
+
+/** A module that only works on material already on disk. See docs/coldModules.md. */
+export const isColdModule = (b: Module | undefined): boolean =>
+  b?.cold === true;
+
+/**
+ * Why `module` may not be added after `at`, or null when it may.
+ *
+ * THE one place the cold rule is decided. Every surface that can add a module to a chain calls
+ * this — the commands, and whatever the chain views wire to them — because a rule enforced in
+ * two places is a rule that will be enforced differently in one of them.
+ *
+ * The rule: a cold module's chain must draw its signal from a FILE. Not merely "not live" — a
+ * file specifically, since that is the only source whose whole length is knowable before
+ * playback. `at` is the node it is being placed after; the chain is the run that hosts it.
+ *
+ * Takes the MODULE rather than its name because the commands ask before creating anything: the
+ * coldness is a fact about the thing being placed (or about what it extends), knowable while
+ * nothing has been written yet, which is what lets a refusal leave no folder behind.
+ *
+ * Placing a module wired to NOTHING (`at` undefined) is allowed: there is no input yet to be
+ * wrong about, and the refusal comes when it is wired to something. Refusing earlier would mean
+ * refusing to write a module you are about to give a file to.
+ */
+export function coldPlacementError(
+  g: GraphDoc,
+  module: Module | undefined,
+  name: string,
+  at: string | undefined,
+): string | null {
+  if (!isColdModule(module)) return null;
+  if (at === undefined) return null;
+  const { node } = splitPort(at);
+  const hostName = g.chains[node] ? node : chainHosting(g, node);
+  const chain = hostName ? g.chains[hostName] : undefined;
+  if (chain && carriesFileInput(g, chain)) return null;
+  return (
+    `'${name}' is a COLD module: it has to know the whole of its input before it can produce any ` +
+    `of it, so it only works on audio already on disk. ` +
+    (chain
+      ? `The chain at '${at}' has no file input (io: file) — a live input has no "whole" yet. ` +
+        `Use it in a médiathèque chain over a song, or give this chain a file source.`
+      : `'${at}' is not part of a chain drawing from a file.`)
+  );
+}
 
 /**
  * The track a chain's live input lands on: the run's own source track when the input is a step ON it, else the

@@ -60,6 +60,7 @@ export function fileFingerprint(source: string): string {
 // --- sidecar read + (re)generation -------------------------------------------------
 
 interface CacheFile {
+  v?: number;
   fingerprint?: string;
   sampleRate?: number;
   channels?: number;
@@ -67,12 +68,28 @@ interface CacheFile {
   seconds?: number;
   peak?: number[];
   rms?: number[];
+  transients?: number[];
+  sensitivity?: number;
+  bpm?: number;
 }
+
+/** The default transient threshold — mirrors `kDefaultTransientSensitivity` in EngineHost.h. */
+export const DEFAULT_TRANSIENT_SENSITIVITY = 2;
+
+/**
+ * The oldest sidecar shape still usable. v2 added `transients` + `sensitivity`, v3 added `bpm`.
+ *
+ * Gating on this is load-bearing, not tidiness: an older sidecar carries a MATCHING fingerprint — the audio has
+ * not changed — so every freshness check would pass and the file would never get whatever the bump added.
+ * Raise it with every field added on the engine side, or the field silently never arrives.
+ */
+const MIN_CACHE_VERSION = 3;
 
 function readSidecar(source: string): FileEnvelope | null {
   try {
     const c = JSON.parse(readFileSync(cachePath(source), "utf8")) as CacheFile;
     if (
+      (c.v ?? 1) >= MIN_CACHE_VERSION &&
       typeof c.fingerprint === "string" &&
       Array.isArray(c.peak) &&
       Array.isArray(c.rms)
@@ -85,11 +102,30 @@ function readSidecar(source: string): FileEnvelope | null {
         seconds: c.seconds ?? 0,
         peak: c.peak,
         rms: c.rms,
+        transients: c.transients ?? [],
+        sensitivity: c.sensitivity ?? DEFAULT_TRANSIENT_SENSITIVITY,
+        // 0 is the engine's "no tempo found", and it stays 0 rather than becoming a guess.
+        bpm: c.bpm ?? 0,
       };
   } catch {
     /* missing / unreadable / malformed — treat as no cache */
   }
   return null;
+}
+
+/**
+ * The sensitivity a source's sidecar was last built with, or null when there is no readable one.
+ *
+ * Read even from a sidecar whose fingerprint has gone STALE, which is the whole point: rebuilding the envelope of
+ * a re-recorded take must not silently reset a threshold somebody tuned for it.
+ */
+export function storedSensitivity(source: string): number | null {
+  try {
+    const c = JSON.parse(readFileSync(cachePath(source), "utf8")) as CacheFile;
+    return typeof c.sensitivity === "number" ? c.sensitivity : null;
+  } catch {
+    return null;
+  }
 }
 
 // So a burst for one source doesn't re-read the sidecar: mtime is the cheap gate, the fingerprint stays the truth.
@@ -99,18 +135,29 @@ interface Memo {
 }
 const memo = new Map<string, Memo>();
 
-// A fresh envelope: the memo, a matching sidecar, else the engine decodes it. Throws with no binary — no JS decoder.
+/**
+ * A fresh envelope: the memo, a matching sidecar, else the engine decodes it. Throws with no binary — no JS decoder.
+ *
+ * `sensitivity` asks for the transient threshold. Omitted, whatever the sidecar already carries is kept — that is
+ * what makes the setting per-source and sticky. Given and different, the envelope is rebuilt: the onsets live in
+ * the same file as the peaks, so changing one means writing both.
+ */
 export async function ensureFileEnvelope(
   source: string,
   engineBin: string | null,
+  sensitivity?: number,
 ): Promise<FileEnvelope> {
   const mtimeMs = statSync(source).mtimeMs; // throws ENOENT for a missing source
+  const wanted = sensitivity ?? storedSensitivity(source);
+  const usable = (e: FileEnvelope): boolean =>
+    sensitivity === undefined || e.sensitivity === sensitivity;
+
   const hit = memo.get(source);
-  if (hit && hit.mtimeMs === mtimeMs) return hit.env;
+  if (hit && hit.mtimeMs === mtimeMs && usable(hit.env)) return hit.env;
 
   const fp = fileFingerprint(source);
   const cached = readSidecar(source);
-  if (cached && cached.fingerprint === fp) {
+  if (cached && cached.fingerprint === fp && usable(cached)) {
     memo.set(source, { mtimeMs, env: cached });
     return cached;
   }
@@ -120,9 +167,13 @@ export async function ensureFileEnvelope(
       "engine binary not found — cannot compute the waveform cache",
     );
   // The engine writes `{source}.cache` itself; we just read it back.
-  await execFileAsync(engineBin, ["--waveform", source], {
-    maxBuffer: 1 << 20,
-  });
+  await execFileAsync(
+    engineBin,
+    wanted == null
+      ? ["--waveform", source]
+      : ["--waveform", source, String(wanted)],
+    { maxBuffer: 1 << 20 },
+  );
   const fresh = readSidecar(source);
   if (!fresh) throw new Error("engine did not produce a waveform cache");
   memo.set(source, { mtimeMs, env: fresh });
@@ -201,7 +252,18 @@ export function runWaveformBatch(
       resolve();
     });
     child.stdin.on("error", () => {}); // a dead child racing our write — surfaced via close/error
-    child.stdin.write(sources.join("\n") + "\n");
+    // `<path>` or `<path>\t<sensitivity>`: a file whose previous sidecar carried a tuned threshold is rebuilt
+    // with it, so a prewarm never quietly resets one. The default is left to the engine.
+    child.stdin.write(
+      sources
+        .map((s) => {
+          const sens = storedSensitivity(s);
+          return sens == null || sens === DEFAULT_TRANSIENT_SENSITIVITY
+            ? s
+            : `${s}\t${sens}`;
+        })
+        .join("\n") + "\n",
+    );
     child.stdin.end();
   });
 }

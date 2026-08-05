@@ -21,6 +21,7 @@
     "@replit/codemirror-vim": "^6.3.0",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
+    "@studio/project-shell": "*",
     "@studio/graph-model": "*",
     "@studio/song": "*",
     "@studio/ui-chains": "*",

@@ -219,6 +219,32 @@ export async function pushRecording(
   return (await res.json()) as { path: string; day: string; name: string };
 }
 
+/**
+ * Tell the library a song's detected tempo, for it to seed `song.yaml` with.
+ *
+ * One way only, and from the machine that did the analysing: the hosted service has no engine
+ * and cannot decode audio, so this is how a number it could not compute reaches it. It never
+ * overwrites an edited value — `set: false` is the ordinary answer for a song somebody has
+ * already corrected. See apps/st0/docs/… and packages/file-service/docs/waveformCache.md.
+ */
+export async function pushSongBpm(
+  cfg: RemoteConfig,
+  folder: string,
+  bpm: number,
+): Promise<{ set: boolean }> {
+  const res = await fetch(`${cfg.base.replace(/\/+$/, "")}/api/mediatek/bpm`, {
+    method: "POST",
+    headers: {
+      ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ path: folder, bpm }),
+  });
+  if (!res.ok)
+    throw new RemoteError(`mediatek bpm: ${res.status} ${res.statusText}`);
+  return (await res.json()) as { set: boolean };
+}
+
 /** The catalogue as the hosted service reports it — what a surface LISTS, as opposed to
  *  what this machine happens to hold. */
 export async function remoteListing(

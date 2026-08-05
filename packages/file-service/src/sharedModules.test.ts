@@ -30,7 +30,7 @@ const SHARED = "_modules/audio/delay/tape-delay/module.yaml";
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-shared-"));
   writeLibrary(root);
-  const proj = join(root, "song");
+  const proj = join(root, "song.l8");
   mkdirSync(join(proj, "modules"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), {
     project: { name: "song", modules_from: ["../_modules"] },
@@ -41,7 +41,7 @@ beforeEach(() => {
     "utf8",
   );
   ws = new Workspace(root);
-  ws.setActiveProject("song");
+  ws.setActiveProject("song.l8");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -51,7 +51,7 @@ describe("the shared module library is read-only", () => {
     await expect(ws.renameEntry(SHARED, "other.yaml")).rejects.toThrow(
       /read-only/,
     );
-    await expect(ws.moveEntry(SHARED, "song")).rejects.toThrow(/read-only/);
+    await expect(ws.moveEntry(SHARED, "song.l8")).rejects.toThrow(/read-only/);
     await expect(ws.deleteEntry("_modules/audio")).rejects.toThrow(/read-only/);
     expect(() => ws.createFolder("_modules/audio", "mine")).toThrow(
       /read-only/,
@@ -60,9 +60,9 @@ describe("the shared module library is read-only", () => {
       ws.uploadFile("_modules/audio", "ir.wav", Buffer.from("x")),
     ).toThrow(/read-only/);
     // …and refuses to move something INTO it, which is a write to the library just the same.
-    await expect(ws.moveEntry("song/chains.yaml", "_modules")).rejects.toThrow(
-      /read-only/,
-    );
+    await expect(
+      ws.moveEntry("song.l8/chains.yaml", "_modules"),
+    ).rejects.toThrow(/read-only/);
   });
 
   it("says which folder and what to do instead", async () => {
@@ -120,7 +120,7 @@ describe("saving a shared module forks it into the project", () => {
     expect(forked?.chains).toEqual(["bs.lead"]);
     // Workspace-relative, because that is the path space the editor and the file tree speak.
     expect(forked?.path).toBe(
-      "song/modules/audio/bs_lead_tape-delay_1/module.yaml",
+      "song.l8/modules/audio/bs_lead_tape-delay_1/module.yaml",
     );
     expect(readFileSync(join(root, forked!.path), "utf8")).toBe(EDIT);
   });
@@ -140,8 +140,8 @@ describe("saving a shared module forks it into the project", () => {
   });
 
   it("answers nothing extra for an ordinary save", () => {
-    expect(ws.write("song/notes.md", "hello")).toEqual({});
-    expect(existsSync(join(root, "song", "notes.md"))).toBe(true);
+    expect(ws.write("song.l8/notes.md", "hello")).toEqual({});
+    expect(existsSync(join(root, "song.l8", "notes.md"))).toBe(true);
   });
 });
 
@@ -176,12 +176,12 @@ describe("the catalogue the builder lists", () => {
     // The engine's own modules have no files — that is the point — so what a project with
     // no `_modules` beside it lacks is anything to OPEN, not anything to reach for.
     const solo = mkdtempSync(join(tmpdir(), "td-solo-"));
-    mkdirSync(join(solo, "song"), { recursive: true });
-    writeYaml(join(solo, "song", "project.yaml"), {
+    mkdirSync(join(solo, "song.l8"), { recursive: true });
+    writeYaml(join(solo, "song.l8", "project.yaml"), {
       project: { name: "song" },
     });
     const w = new Workspace(solo);
-    w.setActiveProject("song");
+    w.setActiveProject("song.l8");
     const cat = w.moduleCatalogue();
     expect(cat.every((m) => m.path === undefined)).toBe(true);
     expect(cat.map((m) => m.ref)).toContain("@engine/OUT");

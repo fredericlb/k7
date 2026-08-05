@@ -54,17 +54,17 @@ let cache: string;
 let ws: string;
 let song: string;
 
-/** A project whose own module extends one of the library's. */
+/** A project that USES one of the library's modules — an instance extending it. */
 function project(extendsRef: string): string {
   const dir = join(ws, "song");
-  mkdirSync(join(dir, "modules", "audio", "wah"), { recursive: true });
+  mkdirSync(join(dir, "instances"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: song\n  tempo: 120\n",
     "utf8",
   );
   writeFileSync(
-    join(dir, "modules", "audio", "wah", "default.yaml"),
+    join(dir, "instances", "wah.yaml"),
     `extends: "${extendsRef}"\n`,
     "utf8",
   );

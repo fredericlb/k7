@@ -25,7 +25,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 let root: string;
@@ -34,10 +34,10 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-reopen-"));
-  proj = join(root, "song");
+  proj = join(root, "song.l8");
   cpSync(SONG, proj, { recursive: true });
   ws = new Workspace(root);
-  ws.setActiveProject("song");
+  ws.setActiveProject("song.l8");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -79,7 +79,7 @@ describe("a project changed underneath the Workspace", () => {
     // the project is the signal — which is what the browser does on /open, and why a reopen
     // fixes a project that looks wrong.
     setColor("#123456");
-    ws.setActiveProject("song");
+    ws.setActiveProject("song.l8");
     expect(colour()).toBe("#123456");
   });
 

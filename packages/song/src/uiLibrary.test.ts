@@ -247,15 +247,18 @@ describe("the loader overlays the panels", () => {
     expect(Object.keys(ui.widgets)).toEqual(["mix"]); // no trace of the module's own grid
   });
 
-  it("shows a generic's panel on its instances too", () => {
+  it("shows a module's panel on the instances that use it", () => {
+    // A panel is drawn for the MODULE, and every use of it gets that panel — an instance has
+    // no ref of its own to be filed under, so it is looked up by what it extends.
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    mkdirSync(join(dir, "instances"), { recursive: true });
     writeFileSync(
-      join(dir, "modules", "audio", "reverb", "hall.yaml"),
-      "params:\n  Mix: 0.9\n",
+      join(dir, "instances", "hall.yaml"),
+      'extends: "@project/audio/reverb"\nparams:\n  Mix: 0.9\n',
       "utf8",
     );
     writeUiFile(dir, "audio/reverb", PANEL);
-    expect(loadModules(dir)["reverb:hall"].ui).toEqual(PANEL);
+    expect(loadModules(dir).hall.ui).toEqual(PANEL);
   });
 
   it("leaves modules alone when nothing has been drawn", () => {

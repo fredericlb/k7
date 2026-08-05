@@ -9,4 +9,4 @@ Everything else reads these rather than the files. That is the boundary that kee
 
 Inside, `yaml/` holds one Zod schema per entity kind, and those schemas are the contract: they validate on load, and the editor's completions are derived from the same definitions, so what the editor offers and what the loader accepts cannot drift.
 
-It also resolves **module inheritance** (`extends`), **instances** (`module:instance`), and Strudel patterns.
+It also resolves **module inheritance** (`extends`), **instances** (a file in the project's flat `instances/`, named by its filename and reaching its module through `extends` like anything else), and Strudel patterns.

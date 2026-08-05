@@ -25,7 +25,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 describe("the shared module catalogue", () => {

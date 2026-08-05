@@ -74,11 +74,10 @@ describe("module place", () => {
 
   it("places an INSTANCE when one is named", async () => {
     // The picker always asks for an instance name, so this is the common path, not the edge.
+    // The file lands in the project's flat instances/, and the chain names it by that alone.
     await runCommand("module place audio/wah w1", host(), "cli");
-    expect(existsSync(join(dir, "modules", "audio", "wah", "w1.yaml"))).toBe(
-      true,
-    );
-    expect(chains()).toContain("wah:w1: []");
+    expect(existsSync(join(dir, "instances", "w1.yaml"))).toBe(true);
+    expect(chains()).toContain("w1: []");
   });
 
   it("reads a lone optional by its SHAPE, not its position", async () => {
@@ -87,10 +86,8 @@ describe("module place", () => {
     // an instance name — the alternative was "module 'amp' already exists, drop the
     // extends-ref" about a ref they never wrote.
     await runCommand("module place audio/amp lead", host(), "cli");
-    expect(existsSync(join(dir, "modules", "audio", "amp", "lead.yaml"))).toBe(
-      true,
-    );
-    expect(chains()).toContain("amp:lead: []");
+    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(chains()).toContain("lead: []");
     // The generic keeps its own wiring: placing an instance is not a rewire of its parent.
     expect(chains()).toContain("gtr: [ amp ]");
   });
@@ -128,11 +125,9 @@ describe("module insert", () => {
     // The same slot as `module place`, and the same picker feeds it: for a module the
     // project already has, what the user types after the target is an instance name.
     await runCommand("module insert gtr amp audio/amp lead", host(), "cli");
-    expect(existsSync(join(dir, "modules", "audio", "amp", "lead.yaml"))).toBe(
-      true,
-    );
-    expect(chains()).toContain("gtr: [ amp:lead ]");
-    expect(chains()).toContain("amp:lead: [ amp ]");
+    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(chains()).toContain("gtr: [ lead ]");
+    expect(chains()).toContain("lead: [ amp ]");
   });
 
   it("creates nothing when the two ends aren't an arrow", async () => {
@@ -142,5 +137,61 @@ describe("module insert", () => {
     expect(logs.join(" ")).toMatch(/does not feed 'OUT'/);
     expect(existsSync(join(dir, "modules", "audio", "gate"))).toBe(false);
     expect(chains()).toBe(before);
+  });
+});
+
+// A COLD module only works on audio already on disk. The refusal has to come BEFORE the module
+// is created, or a rejected drop leaves a folder behind — the same rule the arrow check follows.
+describe("a cold module", () => {
+  const cold = () => {
+    mkdirSync(join(dir, "modules", "audio", "squash"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "audio", "squash", "module.yaml"),
+      "cold: true\nplugin:\n  type: jsdsp\n  name: Normalize\n",
+      "utf8",
+    );
+  };
+
+  it("is refused over a chain with no file input, and writes NOTHING", async () => {
+    cold();
+    const before = chains();
+    await runCommand("module insert gtr amp audio/squash s1", host(), "cli");
+    expect(logs.join(" ")).toContain("COLD");
+    expect(chains()).toBe(before);
+    // The instance was never scaffolded: a refusal that half-succeeds is the failure this guards.
+    expect(existsSync(join(dir, "instances", "s1.yaml"))).toBe(false);
+  });
+
+  it("goes in once the chain draws from a file", async () => {
+    cold();
+    mkdirSync(join(dir, "modules", "io", "FILE"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "io", "FILE", "module.yaml"),
+      "io: file\n",
+      "utf8",
+    );
+    mkdirSync(join(dir, "instances"), { recursive: true });
+    writeFileSync(
+      join(dir, "instances", "take.yaml"),
+      'extends: "@project/FILE"\nsource: "clips/x.wav"\n',
+      "utf8",
+    );
+    writeFileSync(
+      join(dir, "chains.yaml"),
+      "tracks:\n  gtr: [ take ]\nmodules:\n  take: [ amp ]\n  amp: [ OUT ]\n",
+      "utf8",
+    );
+    await runCommand("module insert take amp audio/squash s1", host(), "cli");
+    expect(logs.join(" ")).not.toContain("COLD");
+    expect(chains()).toContain("s1");
+    expect(existsSync(join(dir, "instances", "s1.yaml"))).toBe(true);
+  });
+
+  it("may still be PLACED wired to nothing", async () => {
+    // No input yet to be wrong about; the refusal comes when it is wired.
+    cold();
+    await runCommand("module place audio/squash s1", host(), "cli");
+    expect(logs.join(" ")).not.toContain("COLD");
+    expect(chains()).toContain("s1: []");
   });
 });

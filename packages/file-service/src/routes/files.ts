@@ -549,8 +549,15 @@ filesRouter.get(
     );
     // `whole=1` asks for the source's full duration rather than the placement's span — what a clips/*.yaml shows.
     const whole = req.query.whole === "1" || req.query.whole === "true";
+    // `sensitivity` re-detects the source's transients at that threshold and REMEMBERS it, because it is written
+    // into the sidecar. Absent, the source keeps whichever it was last built with. Bounded: 0 makes every bucket
+    // an onset, and a large value makes none, so neither end is a useful thing to ask for.
+    const raw = Number(req.query.sensitivity);
+    const sensitivity = Number.isFinite(raw)
+      ? Math.max(0.25, Math.min(8, raw))
+      : undefined;
     try {
-      res.json(await req.ws!.waveform(clip, buckets, whole));
+      res.json(await req.ws!.waveform(clip, buckets, whole, sensitivity));
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : 400;
       res.status(code).json({ error: (e as Error).message });

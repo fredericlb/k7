@@ -95,9 +95,7 @@ function main(): void {
     .slice(2)
     .filter((a) => !a.startsWith("-"));
   if (!projectArg) {
-    console.error(
-      "usage: l8 project inspect timeline <project> [trackname]",
-    );
+    console.error("usage: l8 project inspect timeline <project> [trackname]");
     process.exit(2);
   }
   let p: ProjectDoc;

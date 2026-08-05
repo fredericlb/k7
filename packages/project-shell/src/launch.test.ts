@@ -3,7 +3,7 @@
 // verified in the browser instead — see docs/launch.md for what to check.
 
 import { describe, expect, it } from "vitest";
-import { launchUrl, parseLaunch } from "./launch";
+import { launchUrl, parseLaunch, projectsUrl } from "./launch";
 
 describe("parseLaunch", () => {
   it("is null when nothing points here", () => {
@@ -41,23 +41,42 @@ describe("parseLaunch", () => {
 describe("launchUrl", () => {
   it("names one project in one repository, escaped", () => {
     expect(
-      launchUrl("https://studio.test", "git@github.com:me/songs.git", "a/b"),
+      launchUrl(
+        "https://studio.test",
+        "git@github.com:me/songs.git",
+        "a/b.l8",
+        "l8",
+      ),
     ).toBe(
-      "https://studio.test/l8/?repo=git%40github.com%3Ame%2Fsongs.git&project=a%2Fb",
+      "https://studio.test/l8/?repo=git%40github.com%3Ame%2Fsongs.git&project=a%2Fb.l8",
     );
   });
 
-  it("does not double the slash when the origin carries one", () => {
-    expect(launchUrl("https://studio.test/", "git@h:r", ".")).toContain(
-      "studio.test/l8/?",
-    );
+  it("sends an m9 project to m9", () => {
+    expect(
+      launchUrl("https://studio.test", "git@h:r", "set.m9", "m9"),
+    ).toContain("studio.test/m9/?");
   });
 
-  // The round trip is the property that matters: st0 writes these, l8 reads them back.
+  it("keeps only the origin, whatever URL it is handed", () => {
+    expect(
+      launchUrl("https://studio.test/projects/abc", "git@h:r", ".", "l8"),
+    ).toContain("studio.test/l8/?");
+  });
+
+  // The round trip is the property that matters: st0 writes these, l8 and m9 read them back.
   it("round-trips through parseLaunch", () => {
     const repo = "ssh://git@host:2222/deep/path/repo.git";
-    const project = "songs/a b/c";
-    const url = new URL(launchUrl("https://studio.test", repo, project));
+    const project = "songs/a b/c.l8";
+    const url = new URL(launchUrl("https://studio.test", repo, project, "l8"));
     expect(parseLaunch(url.search)).toEqual({ repo, project });
+  });
+});
+
+describe("projectsUrl", () => {
+  it("is st0's Projets section, which answers the origin root", () => {
+    expect(projectsUrl("https://studio.test/l8/")).toBe(
+      "https://studio.test/projects",
+    );
   });
 });

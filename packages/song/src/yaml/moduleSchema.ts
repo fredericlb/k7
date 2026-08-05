@@ -204,6 +204,14 @@ export const ModuleSchema = z
     // before the wire, which stays numeric. See docs/moduleAssets.md.
     params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
     rack: RackSchema.optional(),
+    // A COLD module: one that only works on material already on disk, because it has to know the
+    // whole of its input before it can produce any of it. Normalisation is the plain case — the
+    // gain depends on the loudest sample, which may be the last one. Not "expensive": a cold
+    // module run live would not be slow, it would be wrong, since the answer does not exist yet.
+    //
+    // A property of the MODULE, so it is inherited by every use of it (deliberately not in
+    // moduleResolve's OWN_ONLY — an instance of a cold module is cold). See docs/coldModules.md.
+    cold: z.boolean().optional(),
     // NOTE: there is no `jsdsp:` field. A module whose DSP is its own source says so with
     // `plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement
     // instead of two that had to agree. See loader.ts's jsDspFileFor.

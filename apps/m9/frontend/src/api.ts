@@ -1,8 +1,10 @@
-// api.ts — m9's own backend, same-origin: who you are, which engines exist, and which
-// one this account DJs from. It holds no media and no files — the decks reach the machine's
-// file service and its moteur directly, cross-origin, as they always have.
+// api.ts — two destinations. m9's own backend, same-origin: who you are, which engines exist,
+// and which one this account works from. And the chosen machine's file service, cross-origin,
+// which holds the project — that half is @studio/project-shell's, shared with l8 so a route
+// name cannot drift between them.
 
 import { registryClient } from "@studio/engine-browser/registry";
+import { projectApi } from "@studio/project-shell/project";
 import type { PublicEngine } from "@studio/web-protocol";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
@@ -49,3 +51,10 @@ export const auth = {
 // The five registry routes every hosted service mounts. Shared rather than spelled here: st0's
 // copy of this was the same 36 lines, comments included.
 export const engines = registryClient<PublicEngine>(BASE, json);
+
+/**
+ * The open project, on the engine's machine. Every route here is the shared one — m9 adds
+ * none of its own, which is the point: this app is l8 without the timeline, not a second
+ * dialect of the same file service.
+ */
+export const api = projectApi;

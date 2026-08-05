@@ -42,6 +42,22 @@ export function writeModule(
 }
 
 /**
+ * Write one USE of a module: `instances/<name>.yaml`, flat, whatever it is a use of.
+ *
+ * The file names it — `name` is the key a chain writes — and it takes the same fields a
+ * module file does. Which module it uses is `extends`, in `value`, and nothing else.
+ */
+export function writeInstance(
+  dir: string,
+  name: string,
+  value: unknown,
+): string {
+  const path = join(dir, "instances", `${name}.yaml`);
+  writeYaml(path, value);
+  return path;
+}
+
+/**
  * The first node in chains.yaml whose name starts with `prefix` — a `modules:` key, else a destination (which is
  * how a sink like OUT is named). Throws when there is none, so a fixture edit aimed at a step that has moved
  * fails loudly rather than passing silently.

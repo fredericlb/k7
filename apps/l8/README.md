@@ -128,18 +128,19 @@ modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.y
   `<name>.vstpreset` (overriding an extended module's) and its rack's audio. The io sink
   is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `l8 cmd new module`
   writes the right shape;
-  `engine/capot/songs/synth-demo/modules/instruments/synth/module.yaml` is the
+  `engine/capot/songs/synth-demo.l8/modules/instruments/synth/module.yaml` is the
   reference, and `.../kit` shows `extends`.
-- **A module can have instances.** Beside `module.yaml`, the folder may hold one
-  `<instance>.yaml` per instance — the same flat shape, **inheriting `module.yaml`
-  automatically** (the folder is the parent; there is no `extends` to write). A chain uses
-  one as **`"<name>:<instance>"`**, e.g. `{module: "synth:lead"}`, and both the generic
-  and every instance stay usable. Each instance keeps its own params and its own
-  `<instance>.vstpreset`, so tweaking one never touches the generic or a sibling; the
-  merge order is *extended base → module.yaml → instance*. `l8 cmd new module-instance
-  instruments/synth lead` scaffolds one, and
-  `engine/capot/songs/synth-demo/modules/instruments/synth/` is the worked example — one
-  4OSC module, a `lead` and a `pad` instance, each driving its own chain.
+- **A project's USES of a module are instances**, in a flat `instances/` folder at the
+  project root. The **filename names the instance** — a chain says **`{module: "lead"}`**,
+  not the module it came from — and the file says which module it uses with `extends:`.
+  Same flat shape as `module.yaml`; state only what this use changes. Each keeps its own
+  params and its own `instances/<name>.vstpreset`, so tweaking one never touches the module
+  or another use; the merge order is *extended base → the module → the instance*. The folder
+  is flat on purpose: an instance does not mirror the folders of what it uses, so using a
+  médiathèque module needs no local folder for it. `l8 cmd new module-instance
+  instruments/synth lead` scaffolds one, and `engine/capot/songs/synth-demo.l8/instances/`
+  is the worked example — one 4OSC module, a `lead` and a `pad`, each driving its own chain.
+  See `packages/song/docs/instances.md`.
 - A **chain** (in `chains.yaml`) is a signal path, written as a flat list of nodes: a
   **head**, the modules the signal passes through, and the sink it ends at. `chains` is
   a **list**, not a map — a chain needn't be named.

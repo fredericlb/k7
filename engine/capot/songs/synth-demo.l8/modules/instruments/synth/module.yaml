@@ -5,9 +5,10 @@
 # A module file is a flat struct of its own attributes, with no `package` clause —
 # that keeps sibling modules in this folder from colliding on `name`.
 #
-# This module also has two INSTANCES — lead.cue and pad.cue in this folder, used by
-# chains.cue as "synth:lead" and "synth:pad". They inherit everything below without
-# declaring anything, so whatever you change here reaches both.
+# Two INSTANCES use this module — instances/lead.yaml and instances/pad.yaml, which
+# chains.yaml names "lead" and "pad". They live in the project's flat instances/ folder
+# rather than beside this file, and reach it through `extends`; whatever you change here
+# reaches both.
 extends: instruments/fourosc
 # Freeform notes and a checklist for this module — surfaced read-only in the web
 # editor's Docs panel (Context tab when this module is selected, Global tab

@@ -11,16 +11,22 @@
   },
   "dependencies": {
     "@frediverse/ui": "*",
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/state": "^6.4.0",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",
+    "@studio/project-shell": "*",
     "@studio/ui-chains": "*",
     "@studio/ui-chains-react": "*",
+    "@studio/ui-editor": "*",
     "@studio/web-protocol": "*",
+    "@uiw/react-codemirror": "^4.23.0",
     "lucide-react": "^1.24.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@frediverse/vite-config": "*",

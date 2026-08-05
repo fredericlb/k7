@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SECTION,
   fileOf,
   fromLocation,
   moduleOf,
@@ -15,14 +16,18 @@ import { stateForLocation, urlForState } from "./useLibraryRoute";
 // URL, the URL writing the app — and a sequence is the only way to catch it.
 
 const st = (p: Partial<RouteState> = {}): RouteState => ({
-  section: "songs",
+  section: DEFAULT_SECTION,
   file: null,
   ...p,
 });
+/** The section you land on with nothing to go on. Named here so the round-trips below read
+ *  as "wherever the default is" rather than baking it in twice. */
+const songs = (p: Partial<RouteState> = {}): RouteState =>
+  st({ section: "songs", ...p });
 
 describe("toPath", () => {
   it("names the section, and the open file when there is one", () => {
-    expect(toPath(st())).toBe("/songs");
+    expect(toPath(songs())).toBe("/songs");
     expect(toPath(st({ section: "modules" }))).toBe("/modules");
     expect(
       toPath(st({ section: "modules", file: "audio/reverb/ui.yaml" })),
@@ -42,20 +47,23 @@ describe("fromLocation", () => {
     ).toBe("audio/filter/auto-wah/module.yaml");
   });
 
-  it("lands somewhere usable rather than 404ing inside the app", () => {
-    // The URL bar is user-editable, and a typo should not be a dead screen.
+  it("lands on the default section rather than 404ing inside the app", () => {
+    // The URL bar is user-editable, and a typo should not be a dead screen. The bare origin
+    // is the studio's front door, and what it opens on is your own repositories.
     expect(fromLocation("/")).toEqual(st());
+    expect(fromLocation("/")).toEqual(st({ section: "projects" }));
     expect(fromLocation("/nope/deep/path")).toEqual(st());
   });
 
   it("drops a file under a section that cannot open one", () => {
     // `songs` is a listing; a path under it names nothing the app can show.
-    expect(fromLocation("/songs/some/thing.yaml")).toEqual(st());
+    expect(fromLocation("/songs/some/thing.yaml")).toEqual(songs());
   });
 
   it("round-trips every screen it can produce", () => {
     for (const s of [
       st(),
+      songs(),
       st({ section: "modules" }),
       st({ section: "recordings" }),
       st({ section: "projects" }),
@@ -97,11 +105,11 @@ describe("splitting an open file", () => {
 describe("keeping the two in step", () => {
   it("writes the URL when the APP moved the screen", () => {
     const next = st({ section: "modules" });
-    expect(urlForState(next, st(), "/songs")).toBe("/modules");
+    expect(urlForState(next, songs(), "/songs")).toBe("/modules");
   });
 
   it("writes nothing when the screen did not change", () => {
-    expect(urlForState(st(), st(), "/songs")).toBeNull();
+    expect(urlForState(songs(), songs(), "/songs")).toBeNull();
   });
 
   it("writes nothing when the URL already says so — the deep-link case", () => {
@@ -109,19 +117,19 @@ describe("keeping the two in step", () => {
     // which looks exactly like the app having moved away from the address. It hasn't.
     const arriving = st({ section: "modules", file: "audio/reverb/ui.yaml" });
     expect(
-      urlForState(arriving, st(), "/modules/audio/reverb/ui.yaml"),
+      urlForState(arriving, songs(), "/modules/audio/reverb/ui.yaml"),
     ).toBeNull();
   });
 
   it("applies a location the state does not already show, and only then", () => {
-    expect(stateForLocation("/modules", st())).toEqual(
+    expect(stateForLocation("/modules", songs())).toEqual(
       st({ section: "modules" }),
     );
-    expect(stateForLocation("/songs", st())).toBeNull();
+    expect(stateForLocation("/songs", songs())).toBeNull();
   });
 
   it("settles: a move writes the URL, and reading it back changes nothing", () => {
-    const before = st();
+    const before = songs();
     const after = st({ section: "modules", file: "audio/reverb/ui.yaml" });
     const url = urlForState(after, before, toPath(before));
     expect(url).toBe("/modules/audio/reverb/ui.yaml");

@@ -107,7 +107,7 @@ describe("jacksFor", () => {
 
 describe("the sockets a built graph puts on its nodes", () => {
   // deckA flows into the crossfade; deckB lands on its `b` port. The song this draws is
-  // engine/capot/songs/crossfade-demo.
+  // engine/capot/songs/crossfade-demo.l8.
   const wired: WebGraph = {
     chains: {
       deckA: {

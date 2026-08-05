@@ -65,13 +65,17 @@ describe("the file input", () => {
     // It is `source:` and not `file:` because the loader already writes the module's FOLDER
     // name to `file` — an authored one was overwritten by the decoration, silently, which is
     // what this assertion caught the first time it ran.
-    // The GENERIC names none — that is the template shape. An instance beside it carries the
-    // file, exactly as an io/IN instance carries its channel.
+    // The MODULE names none — that is the template shape. A use of it carries the file, exactly
+    // as an io/IN instance carries its channel. The use is a file in `instances/` now, so it
+    // reaches the module through `extends` rather than by sitting beside it.
     file("modules/io/FILE/module.yaml", "io: file\n");
-    file("modules/io/FILE/take.yaml", 'source: "clips/original.wav"\n');
+    file(
+      "instances/take.yaml",
+      'extends: "@project/FILE"\nsource: "clips/original.wav"\n',
+    );
     const g = loadGraph(dir);
     expect(g.modules.FILE?.source).toBeUndefined();
-    expect(g.modules["FILE:take"]?.source).toBe("clips/original.wav");
+    expect(g.modules.take?.source).toBe("clips/original.wav");
   });
 
   it("is not somewhere a chain can route TO", () => {

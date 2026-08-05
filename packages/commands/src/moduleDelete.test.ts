@@ -61,10 +61,12 @@ function song(): string {
       "utf8",
     );
   }
-  // An instance beside its generic, so the two deletion scopes can be told apart.
+  // One USE of `amp`, in the flat instances/ folder, so the two deletion scopes can be told
+  // apart: deleting it takes one FILE, deleting `amp` takes a whole module folder.
+  mkdirSync(join(d, "instances"), { recursive: true });
   writeFileSync(
-    join(d, "modules", "audio", "amp", "lead.yaml"),
-    "params:\n  Depth: 3\n",
+    join(d, "instances", "lead.yaml"),
+    'extends: "@project/audio/amp"\nparams:\n  Depth: 3\n',
     "utf8",
   );
   return d;
@@ -89,15 +91,18 @@ describe("module delete", () => {
     });
   });
 
-  it("deletes ONE instance and leaves its generic alone", async () => {
-    await runCommand("module delete amp:lead", host(), "cli");
-    expect(existsSync(join(modDir("amp"), "lead.yaml"))).toBe(false);
+  it("deletes ONE instance file and leaves the module it uses alone", async () => {
+    await runCommand("module delete lead", host(), "cli");
+    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(false);
     expect(existsSync(join(modDir("amp"), "module.yaml"))).toBe(true);
-    // The generic is still wired up: deleting an instance must not unwire its parent.
+    // The instances FOLDER survives: it is shared by every use in the project, so deleting one
+    // must never take it — the failure that would be, on a real song, is everything at once.
+    expect(existsSync(join(dir, "instances"))).toBe(true);
+    // …and the module is still wired up: deleting a use must not unwire what it used.
     expect(chains()).toContain("gtr: [ amp ]");
   });
 
-  it("takes the generic's instances with it — they cannot outlive their folder", async () => {
+  it("takes a module's own folder whole", async () => {
     await runCommand("module delete amp", host(), "cli");
     expect(existsSync(modDir("amp"))).toBe(false);
   });

@@ -1,0 +1,99 @@
+// `bpm` is detected once and edited afterwards. What this pins is the refusal: re-analysing a
+// song must never undo a correction, because the engine's estimate is a starting point that
+// halves an octave on fast material (packages/file-service/docs/waveformCache.md).
+
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { listFamily } from "./catalogue.ts";
+import { ensureLayout } from "./layout.ts";
+import { setSongBpm } from "./write.ts";
+
+let root: string;
+const FOLDER = "songs/Miles/Kind of Blue/So What";
+
+const sidecar = (body: string) => {
+  const abs = join(root, ...FOLDER.split("/"));
+  writeFileSync(join(abs, "song.yaml"), body, "utf8");
+};
+const read = () =>
+  readFileSync(join(root, ...FOLDER.split("/"), "song.yaml"), "utf8");
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), "mt-bpm-"));
+  process.env.STUDIO_MEDIATEK = root;
+  ensureLayout();
+  // A folder with a master and a sidecar — a catalogued song.
+  const abs = join(root, ...FOLDER.split("/"));
+  writeFileSync(join(root, "mediatek.yaml"), "version: 1\n");
+  mkdirSync(abs, { recursive: true });
+  writeFileSync(join(abs, "original.wav"), "RIFF");
+  sidecar('title: "So What"\nartist: "Miles"\n');
+});
+afterEach(() => {
+  delete process.env.STUDIO_MEDIATEK;
+  rmSync(root, { recursive: true, force: true });
+});
+
+describe("setSongBpm", () => {
+  it("adds the tempo to a sidecar that has none", () => {
+    expect(setSongBpm(FOLDER, 128.5)).toBe(true);
+    expect(read()).toContain("bpm: 128.5");
+  });
+
+  it("REFUSES to overwrite one that is already there, whatever its value", () => {
+    sidecar('title: "So What"\nbpm: 87\n');
+    expect(setSongBpm(FOLDER, 174)).toBe(false);
+    expect(read()).toContain("bpm: 87");
+    expect(read()).not.toContain("174");
+  });
+
+  it("keeps the comments the sidecar carries", () => {
+    // A YAML round trip would drop them, and they are what say the tree is derived.
+    sidecar("# l'arborescence est déduite de ces champs\ntitle: T\n");
+    setSongBpm(FOLDER, 120);
+    expect(read()).toContain("# l'arborescence est déduite");
+  });
+
+  it("writes nothing for the engine's 'no tempo found'", () => {
+    // 0 in the file would read as a claim; the absence is the honest state.
+    expect(setSongBpm(FOLDER, 0)).toBe(false);
+    expect(read()).not.toContain("bpm");
+  });
+
+  it("writes nothing for a folder with no sidecar — it does not catalogue one", () => {
+    expect(setSongBpm("songs/Nobody/No Album/No Song", 120)).toBe(false);
+  });
+
+  it("survives a sidecar with no trailing newline", () => {
+    sidecar("title: T");
+    expect(setSongBpm(FOLDER, 90)).toBe(true);
+    expect(read()).toBe("title: T\nbpm: 90\n");
+  });
+});
+
+describe("the catalogue surfaces it", () => {
+  it("reports a written tempo on the entry", () => {
+    setSongBpm(FOLDER, 128);
+    const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
+    expect(e?.meta?.bpm).toBe(128);
+  });
+
+  it("reads a quoted one too, since a person may write either", () => {
+    sidecar('title: T\nbpm: "92"\n');
+    const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
+    expect(e?.meta?.bpm).toBe(92);
+  });
+
+  it("carries no bpm at all when the sidecar has none", () => {
+    const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
+    expect(e?.meta?.bpm).toBeUndefined();
+  });
+});

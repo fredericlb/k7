@@ -7,6 +7,7 @@
   "exports": {
     ".": "./types.ts",
     "./services": "./services.ts",
+    "./projects": "./projects.ts",
     "./quality": "./quality.ts"
   },
   "scripts": {

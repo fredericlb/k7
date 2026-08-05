@@ -27,7 +27,11 @@ export const ENGINE_PROXY_PATH = "/api/engine";
 const WS_ROUTE = /^\/api\/engine\/([^/]+)\/ws$/;
 
 const b64url = (buf: Buffer): string =>
-  buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  buf
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
 const sign = (payload: string): string =>
   b64url(createHmac("sha256", SECRET).update(payload).digest());
@@ -49,7 +53,10 @@ export function verifyEngineTicket(ticket: string): string | null {
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
     const { id, exp } = JSON.parse(
-      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString(),
+      Buffer.from(
+        payload.replace(/-/g, "+").replace(/_/g, "/"),
+        "base64",
+      ).toString(),
     );
     if (!id || typeof exp !== "number" || exp < Date.now()) return null;
     return String(id);
@@ -107,10 +114,12 @@ function pipe(client: WebSocket, upstream: WebSocket): void {
     }
   };
   client.on("message", (d, isBinary) => {
-    if (upstream.readyState === WebSocket.OPEN) upstream.send(d, { binary: isBinary });
+    if (upstream.readyState === WebSocket.OPEN)
+      upstream.send(d, { binary: isBinary });
   });
   upstream.on("message", (d, isBinary) => {
-    if (client.readyState === WebSocket.OPEN) client.send(d, { binary: isBinary });
+    if (client.readyState === WebSocket.OPEN)
+      client.send(d, { binary: isBinary });
   });
   client.on("close", () => shut(upstream));
   upstream.on("close", () => shut(client));
@@ -206,7 +215,10 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
           port: engine.addresses.filePort,
           path,
           method: req.method,
-          headers: { ...req.headers, host: `${host}:${engine.addresses.filePort}` },
+          headers: {
+            ...req.headers,
+            host: `${host}:${engine.addresses.filePort}`,
+          },
           timeout: DIAL_TIMEOUT_MS,
         },
         (upRes) => {

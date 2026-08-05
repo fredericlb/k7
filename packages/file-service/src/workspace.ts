@@ -80,7 +80,7 @@ import {
 } from "@studio/song/project";
 import { isInSharedModules } from "@studio/song/sharedFolders";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
-import { isProjectFolder, PRESETS_BASE } from "@studio/song/yaml/moduleIO";
+import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import type {
   FileContent,
   FileNode,
@@ -95,6 +95,7 @@ import type {
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
+import { projectApp } from "@studio/web-protocol/projects";
 import { buildGraphDoc } from "./graphDoc.ts";
 import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
 import {
@@ -125,8 +126,20 @@ function parseCompileError(msg: string): Diagnostic[] {
   return out;
 }
 
-// A l8 project is any directory with a project file.
-export const isProjectDir = (dir: string): boolean => isProjectFolder(dir);
+/**
+ * A project is any directory whose NAME claims an app — `mysong.l8`, `myset.m9`.
+ *
+ * The name, not a `project.yaml` inside, because st0 has to answer the same question from a
+ * bare blobless mirror it has never checked out, where no file can be opened. One rule on both
+ * sides, so what the médiathèque lists and what this tree marks cannot disagree. See
+ * packages/web-protocol/projects.ts and apps/st0/docs/projects.md.
+ *
+ * `isProjectFolder` (a `project.yaml` exists) is still the COMPILER's question, and
+ * `@studio/song` still asks it: a `.l8` folder with no project file opens and then fails to
+ * compile, with the loader's own error saying so.
+ */
+export const isProjectDir = (dir: string): boolean =>
+  projectApp(basename(dir)) !== null;
 
 // Files shown in the tree but not editable as text.
 const BINARY_EXT = new Set([
@@ -395,7 +408,9 @@ export class Workspace {
     if (this.isRecycled(abs))
       throw new Error(`project is in the recycle bin: ${rel}`);
     if (!isProjectDir(abs))
-      throw new Error(`not a project (no project.yaml): ${rel}`);
+      throw new Error(
+        `not a project (the folder must end in .l8 or .m9): ${rel}`,
+      );
     this.activeProject = abs;
     this.writeActiveMarker(abs);
     this.invalidateProjectDoc();
@@ -424,7 +439,9 @@ export class Workspace {
     if (this.isRecycled(abs))
       throw new Error(`already in the recycle bin: ${rel}`);
     if (!isProjectDir(abs))
-      throw new Error(`not a project (no project.yaml): ${rel}`);
+      throw new Error(
+        `not a project (the folder must end in .l8 or .m9): ${rel}`,
+      );
 
     const wasActive = this.activeProject === abs;
     // Release every handle inside the folder before renaming (Windows EPERM): the prewarm, the engine and the watcher.
@@ -795,7 +812,12 @@ export class Workspace {
     return { path: newPath };
   }
 
-  // Add an INSTANCE to a module (it inherits the folder's generic automatically); same path handling as cloneModule.
+  /**
+   * Add one USE of a module. `rel` names the module being used — its folder or any file in it,
+   * same path handling as cloneModule — but the file lands in the project's flat `instances/`,
+   * so what comes back is NOT under `rel`. Callers that reveal the new path in a tree must read
+   * the returned path rather than assume it sits beside what was clicked.
+   */
   createModuleInstance(rel: string, instance: string): { path: string } {
     const abs = this.safePath(rel);
     let modDir = abs;
@@ -980,8 +1002,9 @@ export class Workspace {
     clipId: string,
     buckets: number = DEFAULT_WF_BUCKETS,
     whole = false,
+    sensitivity?: number,
   ): Promise<WebWaveform> {
-    return this.wf.waveform(clipId, buckets, whole);
+    return this.wf.waveform(clipId, buckets, whole, sensitivity);
   }
 
   // --- export / share -------------------------------------------------------

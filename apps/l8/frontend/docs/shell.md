@@ -10,8 +10,11 @@ open one project at once — there is no single-tab lease.
 
 **ProjectGate picks nothing.** l8 no longer knows what a workspace list is: st0 owns the
 repositories and links here with `?repo=&project=`, and arriving without them sends you back
-there. Read [launch.md](launch.md) before touching any of it — in particular why
-`src/launch.ts` reads the address at *import* time and not in a component.
+there. The gate is `@studio/project-shell`'s — m9 mounts the same one — and
+`components/ProjectGate.tsx` only supplies this app's wording. Read
+[packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md)
+before touching any of it, in particular why the address is read at *import* time and not in
+a component.
 
 `LocaleProvider` sits above all of them: switching language remounts its children, so
 nothing that renders a message may live above it.
@@ -102,11 +105,12 @@ state in `App`:
   insert is dropped. With no hints there is nothing to show, so it falls back to pre-writing
   the command with the two ends and letting the bar's completion take over.
 
-  Either way the chain will name `module:instance`, so an *instance* is what is really being
-  created — and its name is the one thing only the user can supply, which is why both paths
-  stop at the bar. From a namespace it takes one command: a chain cannot name `@engine/…`
-  (`use` takes a local module), so it creates the local module that inherits it *and* the
-  instance, with the module name pre-filled and the instance name left to you.
+  Either way the chain will name the *instance*, so an instance is what is really being
+  created — and since a chain now names it by its FILENAME alone, that name is the one thing
+  only the user can supply, which is why both paths stop at the bar. From a namespace it
+  takes one command: a chain cannot name `@engine/…` (`use` takes a local module), so it
+  creates the local module that inherits it *and* the instance, with the module name
+  pre-filled and the instance name left to you.
 
 - **`rec <track>`** (the `r` key). An instrument track arms for MIDI capture in the browser;
   an audio track falls through to the backend, which arms it in the engine. Same key, routed

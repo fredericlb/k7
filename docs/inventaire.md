@@ -51,6 +51,19 @@ C'est aussi l'API d'auteur publiée aux utilisateurs
 **Pourquoi le scan s'est trompé :** il ne lisait que `.ts`/`.tsx`. Le seul consommateur est un
 `.mjs`. Tout inventaire de ce dépôt doit inclure `.mjs` et les processus fils.
 
+### `detectTransients` n'est appelé par personne, et doit le rester
+
+`packages/commands/src/waveform.ts` exporte `detectTransients`, que plus aucun code de
+production n'appelle : la détection tourne désormais dans le moteur, en C++
+(`engine/moteur/engine/Waveform.cpp`), pendant qu'il sous-échantillonne déjà l'audio, et le
+résultat est écrit dans le sidecar `{source}.cache`.
+
+La version TypeScript reste la **spécification exécutable** que le C++ recopie, et
+`waveform.test.ts` est le contrat qui tient les deux ensemble. Exactement l'arrangement de
+`fileFingerprint`, qui porte le même commentaire « MUST match » depuis toujours — à la
+différence près que celui-là a encore un appelant, et que celui-ci n'en a plus. Un balayage
+qui ne regarde que les importateurs le classera mort ; il ne l'est pas.
+
 ### Deux paquets sont des programmes, pas des bibliothèques
 
 `@studio/file-service` (`bin: studio-file-service`) et `@studio/engine-host` (`src/main.ts`)

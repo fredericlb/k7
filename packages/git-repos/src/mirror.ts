@@ -1,13 +1,14 @@
 // mirror.ts — a bare, blobless copy of a repository, kept so a hosted service can answer
 // "what files are in there" without ever making a working copy. Trees and commits only: a
-// l8 project is detected by the PRESENCE of a `project.yaml` path, never by its content,
-// which is exactly what lets this skip the blobs. See docs/mirror.md.
+// project is detected by the NAME of a folder (`.l8`, `.m9`) and never by any file's
+// content, which is exactly what lets this skip the blobs. See docs/mirror.md.
 
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { promisify } from "node:util";
 import type { FileNode } from "@studio/web-protocol";
+import { type ProjectApp, projectApp } from "@studio/web-protocol/projects";
 import { gitEnv } from "./keys.ts";
 import { assertSshGitUri } from "./uri.ts";
 
@@ -133,15 +134,28 @@ export async function listFiles(
   return out.split("\0").filter(Boolean);
 }
 
-const PROJECT_FILE = /^project\.ya?ml$/;
-
-/** The directories holding a project file, repository-relative; `""` is the repository root. */
-export function projectDirs(files: string[]): Set<string> {
-  const out = new Set<string>();
+/**
+ * The project directories in a repository, mapped to the app that opens each.
+ *
+ * By the folder's NAME — `mysong.l8`, `myset.m9` — and at any depth. A directory exists here
+ * only because a file inside it does, which is git's own rule: it tracks no empty folders, so
+ * a project with nothing in it is not a project anyone has lost.
+ *
+ * Every suffixed folder is reported, including one nested inside another. That is deliberate:
+ * a `.m9` set living inside a `.l8` song's folder is a real arrangement, and picking an
+ * outermost winner would hide the inner one with nothing on screen to say so.
+ */
+export function projectDirs(files: string[]): Map<string, ProjectApp> {
+  const out = new Map<string, ProjectApp>();
   for (const f of files) {
-    const cut = f.lastIndexOf("/");
-    const base = cut < 0 ? f : f.slice(cut + 1);
-    if (PROJECT_FILE.test(base)) out.add(cut < 0 ? "" : f.slice(0, cut));
+    const segs = f.split("/");
+    // The file's own name is not a folder — stop before it.
+    let path = "";
+    for (let i = 0; i < segs.length - 1; i++) {
+      path = path ? `${path}/${segs[i]}` : segs[i];
+      const app = projectApp(segs[i]);
+      if (app) out.set(path, app);
+    }
   }
   return out;
 }
@@ -159,7 +173,10 @@ const BINARY_EXT =
  * The file list as the nested shape every tree in this repo draws — the file service's
  * `FileNode`, so st0's Projets section and l8's own tree agree on what a row is.
  */
-export function buildTree(files: string[], projects: Set<string>): FileNode[] {
+export function buildTree(
+  files: string[],
+  projects: Map<string, ProjectApp>,
+): FileNode[] {
   const root: FileNode = { name: "", path: "", dir: true, children: [] };
   const dirs = new Map<string, FileNode>([["", root]]);
 
@@ -171,11 +188,13 @@ export function buildTree(files: string[], projects: Set<string>): FileNode[] {
     if (skip(name)) return null;
     const parent = dirNode(cut < 0 ? "" : path.slice(0, cut));
     if (!parent) return null;
+    const app = projects.get(path);
     const node: FileNode = {
       name,
       path,
       dir: true,
-      project: projects.has(path) || undefined,
+      project: app ? true : undefined,
+      app,
       children: [],
     };
     parent.children!.push(node);
@@ -208,11 +227,21 @@ export function buildTree(files: string[], projects: Set<string>): FileNode[] {
   return sort(root.children!);
 }
 
+/** One project in a repository: where it is, and which app opens it. */
+export interface RepoProject {
+  path: string;
+  app: ProjectApp;
+}
+
 /** Everything a caller wants from one mirror: the tree, and where the projects are. */
 export async function readRepo(
   dir: string,
   keyDir: string,
-): Promise<{ nodes: FileNode[]; projects: string[]; branch: string | null }> {
+): Promise<{
+  nodes: FileNode[];
+  projects: RepoProject[];
+  branch: string | null;
+}> {
   const [files, branch] = await Promise.all([
     listFiles(dir, keyDir),
     defaultBranch(dir, keyDir),
@@ -220,8 +249,9 @@ export async function readRepo(
   const projects = projectDirs(files);
   return {
     nodes: buildTree(files, projects),
-    // "." for the root, the spelling `WorkspaceInfo.projects` already uses for a repo that IS a project.
-    projects: [...projects].map((p) => p || ".").sort(),
+    projects: [...projects]
+      .map(([path, app]) => ({ path, app }))
+      .sort((a, b) => a.path.localeCompare(b.path)),
     branch,
   };
 }

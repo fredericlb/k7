@@ -15,6 +15,9 @@ export interface FileEnvelope {
   seconds: number; // frames / sampleRate
   peak: number[]; // per-bucket max |sample|, 0..1
   rms: number[]; // per-bucket RMS, 0..1 (linear)
+  transients: number[]; // onsets in FILE seconds, detected by the engine at this file's own resolution
+  sensitivity: number; // the threshold those onsets were found with — per source, and sticky (docs/waveformCache.md)
+  bpm: number; // the engine's tempo estimate, or 0 for "none found". A starting point, not an authority.
 }
 
 // A warp marker in DISPLAY seconds: `orig` where the source point is drawn, `target` where its beat lands — so
@@ -37,7 +40,16 @@ export interface RegionWaveform {
   transients: number[]; // display seconds where transients are detected (grey bars)
 }
 
-// A simple transient detector: bucket indices where the peak envelope jumps above the detection threshold.
+/**
+ * A simple transient detector: bucket indices where the peak envelope jumps above the threshold.
+ *
+ * THE REFERENCE IMPLEMENTATION, and mirrored byte-for-byte in `engine/moteur/engine/Waveform.cpp`, which is what
+ * actually runs — the engine already has the decoded audio, so it detects while it is downsampling and writes the
+ * result into the sidecar. Nothing in production calls this any more; it stays because it is the written spec,
+ * and `waveform.test.ts` is the contract both sides are held to. The same arrangement `fileFingerprint` has.
+ *
+ * Changing it means changing both, and bumping the sidecar version so existing caches rebuild.
+ */
 export function detectTransients(peak: number[], sensitivity = 2): number[] {
   if (peak.length < 3) return [];
   const diffs: number[] = [];
@@ -135,9 +147,15 @@ export function regionWaveform(
           (mk.target >= -1e-6 && mk.target <= seconds + 1e-6)),
     );
 
-  // Detect transients on the region's resampled envelope, then map bucket indices to display seconds.
-  const rawBuckets = detectTransients(peak);
-  const transients = rawBuckets.map((b) => (b / n) * seconds);
+  // Transients are NOT detected here any more: they are computed once per FILE, by the engine, and cached in the
+  // sidecar (see waveformCache.ts). This only maps them onto the shown region — the same shift `orig` gets above,
+  // and the same linear file↔display mapping the envelope resampling uses, warp included.
+  //
+  // Detecting per region was subtly wrong as well as repeated: a short clip resamples the envelope UP, so the
+  // detector ran on interpolated detail the file never had, and the same audio drawn at two sizes disagreed.
+  const transients = env.transients
+    .map((t) => t - offsetSec)
+    .filter((t) => t >= -1e-6 && t <= seconds + 1e-6);
 
   return {
     peak,

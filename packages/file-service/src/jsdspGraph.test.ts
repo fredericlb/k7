@@ -22,7 +22,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 let dir: string;
@@ -42,7 +42,7 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 const lead = () =>
-  buildGraphDoc(dir).chains.melody?.use.find((s) => s.module === "synth:lead");
+  buildGraphDoc(dir).chains.melody?.use.find((s) => s.module === "lead");
 
 describe("a jsdsp module in the graph", () => {
   it("is not flagged as a plugin the engine cannot load", () => {
@@ -54,7 +54,7 @@ describe("a jsdsp module in the graph", () => {
   it("carries the pluginId its panel reads values by", () => {
     // Without this the widgets draw their labels and no values, which is what the red node
     // looked like from the outside: a module that plays, with an empty face.
-    expect(lead()?.pluginId).toBe("melody:synth:lead");
+    expect(lead()?.pluginId).toBe("melody:lead");
   });
 
   it("offers no NATIVE editor, since the graph host has no window", () => {

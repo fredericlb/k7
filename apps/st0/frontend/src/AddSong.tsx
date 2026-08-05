@@ -22,7 +22,7 @@ import {
 } from "@studio/mediatek/song";
 import { Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
-import { library, SongExists } from "./api";
+import { engineMachine, library, SongExists } from "./api";
 
 /** Les tags du fichier, ou ce que son nom en laisse deviner. Un fichier illisible n'est pas
  *  une erreur : c'est un formulaire à remplir à la main, ce que le dialogue permet déjà. */
@@ -43,7 +43,15 @@ async function readTags(file: File): Promise<SongTags> {
   }
 }
 
-export function AddSong({ onDone }: { onDone: () => void }) {
+export function AddSong({
+  onDone,
+  engine,
+}: {
+  onDone: () => void;
+  /** The chosen machine, for the analysis pass. Null when none is reachable — the upload
+   *  still lands, and the analysis is simply deferred (see `send`). */
+  engine: { fileBase: string | null; token: string | null };
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [tags, setTags] = useState<SongTags>({});
@@ -75,7 +83,7 @@ export function AddSong({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await library.addSong(
+      const added = await library.addSong(
         file,
         {
           artist: tags.artist ?? "",
@@ -86,6 +94,18 @@ export function AddSong({ onDone }: { onDone: () => void }) {
       );
       close();
       onDone();
+      // The waveform cache, the onsets and the tempo, computed on the machine that has an
+      // engine — this app cannot decode audio. Fired AFTER closing, and never awaited: it
+      // decodes a whole file, and holding the dialogue open for it would make an upload feel
+      // as slow as an analysis. With no reachable machine nothing happens here, and the first
+      // surface that needs the cache computes it then.
+      if (engine.fileBase && engine.token)
+        void engineMachine
+          .analyse(engine.fileBase, engine.token, added.master)
+          .then(onDone)
+          .catch(() => {
+            /* the song is filed either way; the cache is a derived thing */
+          });
     } catch (e) {
       if (e instanceof SongExists) setOccupied(true);
       else setError((e as Error).message);

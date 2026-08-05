@@ -28,13 +28,27 @@ partial clone with this filter downloads commits and **trees** — the directory
 and no file contents at all. A repository with a gigabyte of stems costs a few megabytes
 here.
 
-It works because of what project detection actually is. A l8 project is *a directory holding
-a `project.yaml`*: `packages/song/src/yaml/moduleIO.ts:140` checks that the file **exists**
-and never opens it. Detection is therefore a question about the set of paths, and the set of
-paths is exactly what a tree is. Nothing here ever needs a blob.
+It works because of what project detection actually is: **a folder's name**. `mysong.l8` opens
+in l8, `myset.m9` opens in m9, and `packages/web-protocol/projects.ts` is the whole rule.
+Detection is therefore a question about the set of paths, and the set of paths is exactly what
+a tree is. Nothing here ever needs a blob.
 
-If the section ever wants to show something from inside a file — a song's title, say — that
-property is gone and this decision has to be re-made rather than quietly patched with a
+That is also why the suffix, and not the `project.yaml` inside: a rule that opened a file
+could not run here at all. The two questions are different and both still exist —
+
+- **who opens this** → the suffix. Answered here from a tree, and by the file service
+  (`isProjectDir`) from a disk. One rule, both ends, so a folder cannot be a project in one
+  place and not the other.
+- **can the engine be given it** → a `project.yaml`, answered by `@studio/song` on a real
+  checkout, where the file can actually be read.
+
+A `.l8` folder with no `project.yaml` is therefore listed and openable, and fails to compile
+once open, with l8's own error saying so. That is the honest order: st0 cannot know, and
+pretending otherwise would mean fetching blobs for every folder in every repository. It is
+also what lets m9 open a `.m9` folder that is chains and local modules rather than a song.
+
+If the section ever wants to show something from inside a file — a song's title, say — this
+property is gone and the decision has to be re-made rather than quietly patched with a
 `git cat-file`, which would fetch a blob on demand over the network, one round trip per file.
 
 **A server that cannot do partial clone** refuses `--filter` outright, so `ensureMirror`

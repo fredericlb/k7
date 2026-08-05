@@ -6,6 +6,7 @@
 
 import { wrap } from "@frediverse/http/route";
 import { generateKey, privateKey, publicKey } from "@studio/git-repos/keys";
+import type { RepoProject } from "@studio/git-repos/mirror";
 import { assertSshGitUri } from "@studio/git-repos/uri";
 import type { Request } from "express";
 import express, { Router } from "express";
@@ -109,7 +110,7 @@ export function projectsRouter(opts: {
         listRepos(sub).map(async (r) => {
           const st = status(sub, r.id);
           // A mirror that is not ready yet reports null rather than 0 — "unknown" and "none" differ.
-          let projects: string[] | null = null;
+          let projects: RepoProject[] | null = null;
           let branch: string | null = null;
           if (st.ready)
             try {

@@ -5,8 +5,8 @@
 # `bypassed` lists the modules the signal passes through untouched.
 
 tracks:
-  melody: [ synth:lead ]
-  pad: [ synth:pad ]
+  melody: [ lead ]
+  pad: [ pad ]
 modules:
-  synth:lead: [ OUT ]
-  synth:pad: [ OUT ]
+  lead: [ OUT ]
+  pad: [ OUT ]

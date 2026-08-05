@@ -26,7 +26,6 @@ export function ProjectsSection({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<FileNode[] | null>(null);
-  const [rootIsProject, setRootIsProject] = useState(false);
   const repo = repos.find((r) => r.id === openId) ?? null;
 
   const add = useCallback(
@@ -84,7 +83,6 @@ export function ProjectsSection({
             return;
           }
           setNodes(r.nodes);
-          setRootIsProject(r.projects.includes("."));
         })
         .catch((e: Error) => {
           if (!stop) setError(e.message);
@@ -104,11 +102,10 @@ export function ProjectsSection({
       <RepoTree
         repo={repo}
         nodes={nodes}
-        rootIsProject={rootIsProject}
         onBack={() => onOpen(null)}
         onRefresh={() => refresh(repo)}
-        onOpenProject={(path) => {
-          window.location.href = api.openIn(repo.uri, path);
+        onOpenProject={(path, app) => {
+          window.location.href = api.openIn(repo.uri, path, app);
         }}
       />
     );

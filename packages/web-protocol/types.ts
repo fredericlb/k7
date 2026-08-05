@@ -2,13 +2,16 @@
 // The backend serves the files of one l8 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
+import type { ProjectApp } from "./projects.ts";
+
 // A node in the project file tree: dirs carry `children`, files a `kind` (`binary` is shown, not edited).
 export interface FileNode {
   name: string; // basename
   path: string; // workspace-relative, POSIX separators (e.g. "modules/instruments/synth/module.yaml")
   dir: boolean;
   kind?: "text" | "binary"; // files only
-  project?: boolean; // dirs only — true when the folder is a l8 project (has project.yaml)
+  project?: boolean; // dirs only — the folder is a project someone can open
+  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.l8`/`.m9` suffix
   children?: FileNode[]; // dirs only
 }
 

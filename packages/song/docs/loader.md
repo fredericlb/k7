@@ -35,26 +35,18 @@ since both io roles share this one entry.
 
 ## Module instances
 
-A module's folder holds a fixed `module.yaml` (the GENERIC module, referenced in chains
-by the folder's name) and, optionally, one `<instance>.yaml` per INSTANCE — a specific
-variant that inherits from `module.yaml` automatically. There is no `extends` to write;
-the folder IS the parent. Chains reference an instance as `"<module>:<instance>"`:
+A module's folder holds one `module.yaml` and nothing else that is a module. A project's
+USES of modules are files in a flat `instances/` folder at its root, where the filename is
+the instance name and chains say that alone:
 
 ```
-modules/instruments/synth/module.yaml   ->  "synth"       (the generic)
-modules/instruments/synth/lead.yaml     ->  "synth:lead"  (an instance)
-modules/instruments/synth/pad.yaml      ->  "synth:pad"
+modules/instruments/synth/module.yaml   ->  "synth"   (the module)
+instances/lead.yaml                     ->  "lead"    (one use of it)
+instances/pad.yaml                      ->  "pad"     (another)
 ```
 
-An instance file is the same flat struct as `module.yaml` and is vetted the same way; it
-normally states only what it CHANGES (a param, a rack symbol). It is merged UNDER the
-generic with `mergeAuthored` — the same per-key merge an `extends` uses, and the reason
-that merge has ONE definition (see moduleResolve.md) — so the effective module is:
-extended base → `module.yaml` → instance.
-
-One exception: `ui`. A UI describes the PLUGIN's controls, which every instance shares,
-so it lives in `module.yaml` and is taken from there whole — the web module editor edits
-that file for any instance you pick, and a `ui:` in an instance file has no effect.
+The full page is **`docs/instances.md`** — where the type comes from now that there is no
+type folder, what lives beside an instance, and why the folder is flat.
 
 ## The files a module loads
 
@@ -74,14 +66,15 @@ module, so what it loads travels with it. See `docs/moduleAssets.md` for the who
 - **`raw`** tracks every module AS AUTHORED (pre-decoration) so `validatePlugins` checks
   what was actually written, not the loader's resolved copy.
 - **`decorate`** adds the loader's fields (kind/inputs from the type folder, resolved
-  preset/asset paths) to both the generic and each instance. The persisted plugin state
-  is named after what it IS — `<name>.vstpreset` for the generic, `<instance>.vstpreset`
-  for an instance — so a UI edit on one instance never overwrites the generic's blob or
-  a sibling's; an instance with no blob of its own falls back to the generic's.
-- **Instance merge**: each `<instance>.yaml` is vetted AS AUTHORED (the merged struct
-  would re-report the generic's own problems on every instance), then merged under the
-  generic. The generic's `ui` is taken WHOLE onto the merged result — a `ui:` in an
-  instance file would otherwise half-merge into a grid the editor can't reach.
+  preset/asset paths) to a module. The persisted plugin state is `<name>.vstpreset` beside
+  its `module.yaml`.
+- **`loadInstances`** is the separate pass over `instances/`, and it deliberately decorates
+  LESS: no `kind`, `inputs` or `category`, because a flat folder has no type folder to read
+  them off. Leaving them absent is what lets them arrive from what the instance `extends`
+  (see moduleResolve.md's `OWN_ONLY`). It sets `home` — the instance's own folder — since
+  `instances/lead.vstpreset` no longer follows from a category and a module name.
+- **Name collisions** are reported, not resolved: a module and an instance answering to one
+  name would make a chain step ambiguous, so the module wins and the instance is an issue.
 - **`validate`** defaults to `false` because the generator itself reads modules to BUILD
   the schema overlay (schemaGen/hints); validating there would make a project's modules
   unloadable whenever their own schema was stale, with no way back. The load paths that

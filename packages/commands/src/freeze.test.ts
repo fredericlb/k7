@@ -162,7 +162,7 @@ describe("a frozen track, compiled", () => {
     // for the bounce so it applies exactly once, on playback.
     writeFileSync(
       join(dir, "chains.yaml"),
-      "tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ mixer:gtr ]\n  mixer:gtr: [ OUT ]\n",
+      "tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ gtrStrip ]\n  gtrStrip: [ OUT ]\n",
       "utf8",
     );
     mkdirSync(join(dir, "modules", "audio", "mixer"), { recursive: true });
@@ -171,9 +171,11 @@ describe("a frozen track, compiled", () => {
       "plugin:\n  type: internal\n  name: Mixer\n",
       "utf8",
     );
+    // The track's own strip: one use of the mixer, in the project's flat instances/.
+    mkdirSync(join(dir, "instances"), { recursive: true });
     writeFileSync(
-      join(dir, "modules", "audio", "mixer", "gtr.yaml"),
-      "params: { Volume: -6, Pan: -0.5, Low: 0, Mid: 0, High: 0 }\n",
+      join(dir, "instances", "gtrStrip.yaml"),
+      'extends: "@project/audio/mixer"\nparams: { Volume: -6, Pan: -0.5, Low: 0, Mid: 0, High: 0 }\n',
       "utf8",
     );
     wav(join(dir, "tracks", "gtr.wav"));

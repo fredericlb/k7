@@ -66,11 +66,11 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
           "category": "instruments",
           "emits": "audio",
           "hasNativePluginUI": false,
-          "module": "synth:lead",
+          "module": "lead",
           "params": {
             "Filter Freq": 90,
           },
-          "pluginId": "melody:synth:lead",
+          "pluginId": "melody:lead",
           "stub": false,
           "ui": {
             "cols": 4,
@@ -128,12 +128,12 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
           "category": "instruments",
           "emits": "audio",
           "hasNativePluginUI": false,
-          "module": "synth:pad",
+          "module": "pad",
           "params": {
             "Filter Freq": 40,
             "Level": -12,
           },
-          "pluginId": "pad:synth:pad",
+          "pluginId": "pad:pad",
           "stub": false,
           "ui": {
             "cols": 4,
@@ -190,21 +190,21 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
   },
   "modules": {
     "fourosc": {},
+    "lead": {
+      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
+      "todos": [
+        "Automate the filter cutoff instead of leaving it static",
+        "Try a sub-oscillator an octave down",
+      ],
+    },
+    "pad": {
+      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
+      "todos": [
+        "Automate the filter cutoff instead of leaving it static",
+        "Try a sub-oscillator an octave down",
+      ],
+    },
     "synth": {
-      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
-      "todos": [
-        "Automate the filter cutoff instead of leaving it static",
-        "Try a sub-oscillator an octave down",
-      ],
-    },
-    "synth:lead": {
-      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
-      "todos": [
-        "Automate the filter cutoff instead of leaving it static",
-        "Try a sub-oscillator an octave down",
-      ],
-    },
-    "synth:pad": {
       "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
       "todos": [
         "Automate the filter cutoff instead of leaving it static",

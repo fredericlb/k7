@@ -1,6 +1,7 @@
-// Gate.tsx — sign in, then pick the machine you DJ from. Two gates and not one: the engine
-// is remembered on the account, so the login has to happen first for there to be an account
-// to remember it on. The decks mount only once both are answered.
+// Gate.tsx — sign in, then pick the machine you work on. Two gates and not one: the engine is
+// remembered on the account, so the login has to happen first for there to be an account to
+// remember it on. A THIRD gate follows (ProjectShell): st0 names the repository, and it has to
+// be on that machine before anything opens.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
@@ -10,8 +11,8 @@ import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { Loader2, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { App } from "./App";
 import { auth, engines } from "./api";
+import { ProjectShell } from "./ProjectShell";
 
 type Phase =
   | { k: "checking" }
@@ -67,9 +68,9 @@ export function Gate() {
   }, [findEngine]);
 
   if (phase.k === "ready")
-    // Keyed on the engine: switching machines rebuilds the deck rather than reusing a socket
-    // and a cache root that belong to the old one.
-    return <App key={phase.engine.engine.id} engine={phase.engine} />;
+    // Keyed on the engine: switching machines rebuilds everything rather than reusing a
+    // socket, a workspace and a cache root that belong to the old one.
+    return <ProjectShell key={phase.engine.engine.id} engine={phase.engine} />;
 
   if (phase.k === "checking" || phase.k === "looking")
     return (

@@ -73,14 +73,17 @@ export function projectFiles(
       `  type: internal\n` +
       `  name: 4osc\n`,
 
-    // Two instances of "synth", one per lane: each is its own 4OSC with its own state.
-    // Everything they play is inherited from module.yaml — an instance overrides, it doesn't restate.
-    "modules/instruments/synth/melody.yaml":
-      `# "synth:melody" — the melody track's own 4OSC. Add \`params:\` to change this one\n` +
-      `# alone; everything else comes from module.yaml beside it.\n`,
-    "modules/instruments/synth/pad.yaml":
-      `# "synth:pad" — the pattern's Pad lane gets its own 4OSC, so tweaking one lane's\n` +
-      `# sound leaves the other's alone.\n`,
+    // Two USES of "synth", one per lane: each is its own 4OSC with its own state. They live in
+    // the project's FLAT instances/ folder — the file names the instance, and `extends` is the
+    // only place the module it uses is written down. An instance overrides, it doesn't restate.
+    "instances/melody.yaml":
+      `# "melody" — the melody track's own 4OSC. Add \`params:\` to change this one alone;\n` +
+      `# everything else comes from the module it extends.\n` +
+      `extends: "@project/instruments/synth"\n`,
+    "instances/pad.yaml":
+      `# "pad" — the pattern's Pad lane gets its own 4OSC, so tweaking one lane's sound\n` +
+      `# leaves the other's alone.\n` +
+      `extends: "@project/instruments/synth"\n`,
 
     // The graph: who feeds whom. Both lanes run their own synth instance out to OUT.
     "chains.yaml":
@@ -88,17 +91,17 @@ export function projectFiles(
       `# goes next. The chains are DERIVED by following the arrows — a run breaks where\n` +
       `# the signal splits, and where two signals meet (which is what a bus is).\n` +
       `#\n` +
-      `# The two lanes use two INSTANCES of "synth" (synth/melody.yaml, synth/pad.yaml).\n` +
-      `# A module is named once here, so one name means one plugin: pointing both lanes\n` +
-      `# at "synth" would sum them into a single instrument instead.\n` +
+      `# The two lanes use two INSTANCES of "synth" (instances/melody.yaml, instances/pad.yaml),\n` +
+      `# named here by their filename alone. A module is named once here, so one name means one\n` +
+      `# plugin: pointing both lanes at "synth" would sum them into a single instrument instead.\n` +
       `#\n` +
       `# \`bypassed: [ … ]\` lists the modules the signal passes through untouched.\n` +
       `tracks:\n` +
-      `  melody: [ synth:melody ]\n` +
-      `  pad: [ synth:pad ]\n` +
+      `  melody: [ melody ]\n` +
+      `  pad: [ pad ]\n` +
       `modules:\n` +
-      `  synth:melody: [ OUT ]\n` +
-      `  synth:pad: [ OUT ]\n`,
+      `  melody: [ OUT ]\n` +
+      `  pad: [ OUT ]\n`,
 
     // The arrangement: one 2-bar MIDI sequence. The FILENAME names the track; timecodes are QUOTED, or YAML reads them.
     "tracks/melody.yaml":

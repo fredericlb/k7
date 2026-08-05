@@ -14,6 +14,7 @@ import type {
 import { migrateChains } from "@studio/song/chainsMigrate";
 import { createCurveFile } from "@studio/song/curves";
 import {
+  coldPlacementError,
   describeGraph,
   describeTrackGraph,
   loadGraph,
@@ -30,6 +31,7 @@ import {
   loadChains,
   loadModules,
   loadProjectRoot,
+  moduleRefOf,
 } from "@studio/song/loader";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
 import {
@@ -235,6 +237,32 @@ function splitOptionals(rest: (string | undefined)[]): {
 }
 
 /**
+ * The cold refusal for a `module insert`, asked BEFORE anything is written.
+ *
+ * The module being placed may not exist yet, so this asks what it WILL BE: the project module
+ * `<category>/<name>` if it is already there, else the ref it is about to extend — which is
+ * where the coldness comes from in the case that matters, a use of the médiathèque's normalise.
+ * Either way the answer is on disk now, which is what lets a refusal leave nothing behind.
+ */
+function coldInsertError(
+  songPath: string,
+  target: string,
+  rest: (string | undefined)[],
+  before: string,
+): string | null {
+  const segs = target.split("/");
+  if (segs.length !== 2 || !segs[0] || !segs[1]) return null; // makeModule reports the shape
+  const g = loadGraph(songPath);
+  const ref = moduleRefOf(segs[0], segs[1]);
+  const { extendsRef } = splitOptionals(rest);
+  const module =
+    g.moduleRefs[ref] ??
+    g.moduleRefs[`@project/${ref}`] ??
+    (extendsRef ? g.moduleRefs[extendsRef] : undefined);
+  return coldPlacementError(g, module, target, before);
+}
+
+/**
  * Create the module a `+` picked and hand back the name chains.yaml should use, or the message to show instead.
  *
  * The picker offers two kinds of thing and this handles both: something from the CATALOGUE (no local folder yet
@@ -264,7 +292,9 @@ function makeModule(
       ? null
       : createModuleFile(songPath, category, name, extendsRef);
     if (instance) createModuleInstance(songPath, category, name, instance);
-    return { ref: instance ? `${name}:${instance}` : name, rel };
+    // An instance is named by its FILE alone now — `instances/<instance>.yaml` — so the chain
+    // says that and nothing about the module it uses.
+    return { ref: instance ? instance : name, rel };
   } catch (e) {
     return { error: `${(e as Error).message} — nothing was changed` };
   }
@@ -1419,7 +1449,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       if (instance) {
         const irel = createModuleInstance(h.songPath, category, name, instance);
         log.push(
-          `created ${irel} — use it in a chain as {module: "${name}:${instance}"}`,
+          `created ${irel} — use it in a chain as {module: "${instance}"}`,
         );
       }
       h.log(log);
@@ -1429,8 +1459,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // module instance new — an `<instance>` file in an existing module folder, which it inherits automatically, so it
-  // is scaffolded EMPTY and states only what it changes. Chains name it "<name>:<instance>".
+  // module instance new — one USE of an existing module, as `instances/<instance>.yaml`. It names what it uses with
+  // `extends` and states only what it changes; chains name it by its FILENAME alone.
   "module.instance": async (a, h) => {
     const usage =
       "usage: module instance new <category>/<name> <instance-name>";
@@ -1448,9 +1478,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const [category, module] = segs;
     try {
       const rel = createModuleInstance(h.songPath, category, module, instance);
-      h.log([
-        `created ${rel} — use it in a chain as {module: "${module}:${instance}"}`,
-      ]);
+      h.log([`created ${rel} — use it in a chain as {module: "${instance}"}`]);
       await h.reload();
     } catch (e) {
       h.log([`module instance new failed: ${(e as Error).message}`]);
@@ -1628,6 +1656,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
 
+    // …and the cold rule, for the same reason and in the same place: a module that cannot go here
+    // must not leave a folder behind. Asked of what is being placed BEFORE it exists — the
+    // coldness is a fact about the module or about what it extends, both readable now.
+    try {
+      const cold = coldInsertError(h.songPath, target, rest, before);
+      if (cold) {
+        h.log([cold]);
+        return;
+      }
+    } catch (e) {
+      h.log([`module insert: ${(e as Error).message}`]);
+      return;
+    }
+
     // The module FIRST: a chain naming something that does not exist is a project that will not load, so the
     // file has to be there before the reference is written.
     const made = makeModule(h.songPath, target, ...rest);
@@ -1719,6 +1761,17 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([
         `no module "${block}" in this project (modules: ${Object.keys(g.modules).join(", ") || "none"})`,
       ]);
+      return;
+    }
+    // A COLD module only works on audio already on disk — refused before the file is touched.
+    const cold = coldPlacementError(
+      g,
+      g.modules[block] ?? g.moduleRefs[block],
+      block,
+      before,
+    );
+    if (cold) {
+      h.log([cold]);
       return;
     }
     try {

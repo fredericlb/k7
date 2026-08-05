@@ -29,7 +29,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 let ws: string;
@@ -117,7 +117,7 @@ describe("…and when a module DOES name it", () => {
     );
     sharedModule("audio/broken", BAD);
     writeFileSync(
-      join(song, "modules", "instruments", "synth", "lead.yaml"),
+      join(song, "instances", "lead.yaml"),
       'extends: "@workspace/audio/broken"\n',
       "utf8",
     );

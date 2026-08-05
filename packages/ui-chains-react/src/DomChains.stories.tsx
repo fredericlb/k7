@@ -97,7 +97,7 @@ export const SecondInputOffered: Story = {
   },
 };
 
-/** …and wired, which is engine/capot/songs/crossfade-demo: the cable naming `#b` lands on `b`. */
+/** …and wired, which is engine/capot/songs/crossfade-demo.l8: the cable naming `#b` lands on `b`. */
 export const BothInputsWired: Story = {
   args: {
     graph: {

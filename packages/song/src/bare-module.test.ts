@@ -34,7 +34,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 // The fixture's instrument step is found by the PREFIX "synth", not matched literally: the
@@ -64,7 +64,7 @@ describe("bare (extends-less) modules", () => {
 
   it("compiles a chain that uses a bare (extends-less) module — routing only, no plugin", () => {
     createModuleFile(dir, "instruments", "bare"); // just a name, no extends
-    insertChainStepAfter(dir, "synth", { module: "bare" });
+    insertChainStepAfter(dir, "lead", { module: "bare" });
     const doc = compileNodeProject(dir); // used to throw: base '' not found
     const melody = doc.tracks.find((t) => t.id === "melody");
     expect(melody).toBeTruthy();
@@ -79,7 +79,7 @@ describe("bare (extends-less) modules", () => {
       type: "rack",
       rack: { symbols: { BD: { note: 36, clip: "kick.wav" } } },
     });
-    replaceChainStep(dir, "synth", { module: "kit" });
+    replaceChainStep(dir, "lead", { module: "kit" });
     const doc = compileNodeProject(dir);
     const melody = doc.tracks.find((t) => t.id === "melody");
     const kit = melody!.plugins.find((p) => p.id.endsWith(":kit"));

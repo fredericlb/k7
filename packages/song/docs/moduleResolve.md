@@ -1,11 +1,13 @@
 # moduleResolve — one answer to "what does this module run with?"
 
-A module inherits twice, and both are the same merge:
+A module inherits from the module it `extends` — `@library/audio/amp/marshall`, and whatever
+*that* extends, with no depth limit.
 
-- from the module it `extends` (`@library/audio/amp/marshall`, and whatever *that*
-  extends — the chain has no depth limit);
-- from the generic an instance sits under (`neural-amp-modeler:lead` under
-  `neural-amp-modeler/module.yaml`).
+That used to be two things: the `extends` chain, and the generic an instance sat under. A
+project's instances are files in a flat `instances/` folder now and name what they use with
+`extends` like anything else, so there is one mechanism instead of two (see
+`docs/instances.md`). The shared library still files instances under a module, and those
+merge the old way.
 
 That merge used to exist in **five** places: `mergeModule` in loader.ts, four `effective*`
 helpers in graph.ts, and three inline copies (graphDoc.ts, nodeProject.ts, patternClock.ts,
@@ -42,13 +44,19 @@ slice source. Pinned by a test.
 
 ## What is never inherited
 
-`kind`, `inputs`, `category`, `name`, `file`, `instance` — `OWN_ONLY`.
+`kind`, `inputs`, `category`, `name`, `file`, `instance`, `home` — `OWN_ONLY`.
 
 These say WHERE the module lives, not what it does. A module filed under `audio/` that
 extends an instrument is still an effect: its icon comes from its own folder, its typed
 input ports from its own type, its chain key from its own file. Before, this held by
 accident — an absent key and a key set to `undefined` merged differently — and would have
 broken the moment decoration touched one of them.
+
+**"Never" means "when it has them", and the difference is load-bearing.** The rule is that
+the child wins if the KEY IS PRESENT. An instance in the project's flat `instances/` has no
+type folder to read `kind`, `inputs` or `category` off, so the loader leaves them absent and
+they arrive from what it extends. That is the whole of how a flat folder can work — there is
+no instance-shaped case anywhere in this file.
 
 ## Where resolution happens
 

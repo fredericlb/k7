@@ -1,13 +1,14 @@
-# synth:pad — a second INSTANCE of the same "synth" module (see lead.cue).
+# pad — a second use of the same "synth" module (see lead.yaml beside this file).
 #
 # Two instances of one module are two separate chain steps with separate state: their
-# params are merged independently over module.cue, and each saves its own opaque plugin
+# params are merged independently over the module, and each saves its own opaque plugin
 # blob (pad.vstpreset here, lead.vstpreset next door), so tweaking one never touches the
-# other or the generic they share.
+# other or the module they share.
+extends: "@project/instruments/synth"
 params:
   Filter Freq: 40 # darker than the lead…
   Level: -12 # …and sitting further back
 # Params merge per key, but a LIST is a scalar to the merge: restating `automations`
 # replaces the inherited one outright. An empty list is how an instance opts out of the
-# filter sweep + detune LFO module.cue automates — the pad wants to sit still.
+# filter sweep + detune LFO the module automates — the pad wants to sit still.
 automations: []

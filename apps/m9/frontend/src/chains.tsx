@@ -18,7 +18,7 @@ import { type DeckModule, deckGraph } from "./graph";
  * one is m9's: a deck is not a lane, and l8' `TrackIcon` reads a name PREFIX to
  * decide between drums and vocals, which is a convention m9 does not have.
  */
-const M9_ICONS: ChainsIcons = {
+export const M9_ICONS: ChainsIcons = {
   ModuleIcon,
   moduleGlyph,
   TrackIcon: ({ className, style }) => (

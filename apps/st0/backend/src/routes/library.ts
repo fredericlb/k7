@@ -31,6 +31,7 @@ import {
   putFile,
   removeFile,
   removeTree,
+  setSongBpm,
 } from "@studio/mediatek/write";
 import express, { Router } from "express";
 
@@ -204,6 +205,35 @@ libraryRouter.post(
         return res.status(409).json({ error: e.message, exists: true });
       if (e instanceof NotAudioError)
         return res.status(400).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
+  }),
+);
+
+/**
+ * Seed a song's detected tempo. Sent by the machine that analysed it, never by a browser
+ * typing a number — that is an edit of `song.yaml`, which the file routes already do.
+ *
+ * This service cannot detect a tempo itself: it has no engine, and the engine is what decodes
+ * audio. The machine holding one downloads the master, analyses it, pushes the waveform cache
+ * back, and calls this with what it found. See packages/file-service/src/routes/mediatek.ts.
+ *
+ * An existing `bpm:` always wins — `setSongBpm` refuses to overwrite — so re-analysing a song
+ * never undoes a correction. `set: false` says so rather than pretending it wrote.
+ */
+libraryRouter.post(
+  "/bpm",
+  express.json(),
+  wrap((req, res) => {
+    const path = String(req.body?.path ?? "");
+    const bpm = Number(req.body?.bpm);
+    if (!path) return res.status(400).json({ error: "path required" });
+    if (!Number.isFinite(bpm) || bpm <= 0)
+      return res.status(400).json({ error: "bpm must be a positive number" });
+    try {
+      res.json({ set: setSongBpm(path, bpm) });
+    } catch (e) {
       if (writeError(e, res)) return;
       throw e;
     }

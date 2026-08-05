@@ -113,6 +113,8 @@ export class WaveformOps {
     clipId: string,
     buckets: number = DEFAULT_WF_BUCKETS,
     whole = false,
+    /** The transient threshold to detect at. Omitted, the source keeps whichever it was last built with. */
+    sensitivity?: number,
   ): Promise<WebWaveform> {
     const dir = this.host.requireActive();
     const p = this.host.cachedProjectDoc(dir);
@@ -122,7 +124,11 @@ export class WaveformOps {
       const fileAbs = resolve(clipId);
       if (!this.host.withinRoot(fileAbs))
         throw new Error(`audio path is outside the workspace`);
-      const env = await ensureFileEnvelope(fileAbs, findEngineBinary());
+      const env = await ensureFileEnvelope(
+        fileAbs,
+        findEngineBinary(),
+        sensitivity,
+      );
       const whole: ClipDoc = {
         id: clipId,
         type: "audio",
@@ -149,9 +155,15 @@ export class WaveformOps {
     if (clip.type !== "audio")
       throw new Error(`'${clipId}' is not an audio clip`);
     // The engine decodes any format and refreshes the sidecar; we slice the returned envelope to the region.
-    const env = await ensureFileEnvelope(clip.source, findEngineBinary());
+    const env = await ensureFileEnvelope(
+      clip.source,
+      findEngineBinary(),
+      sensitivity,
+    );
     const key = this.wfKey(`${clipId}${whole ? "::whole" : ""}`, buckets);
-    const sig = wfSig(env.fingerprint, clip, p, buckets);
+    // The sensitivity rides in the signature: re-detecting changes the onsets and nothing else, and a memo keyed
+    // only on the fingerprint would keep serving the previous threshold's answer.
+    const sig = `${wfSig(env.fingerprint, clip, p, buckets)}|${env.sensitivity}`;
     const cached = this.wfCache.get(key);
     if (cached && cached.sig === sig) return cached.data;
     const data = buildWaveform(env, clip, p, buckets);

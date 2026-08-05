@@ -488,9 +488,15 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
 int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::string& trackId,
                 const std::string& outFile);
 
-// Decode an audio file and write a placement-independent peak+RMS envelope plus a content fingerprint beside it
-// as `{audioPath}.cache`. The fingerprint MUST match waveformCache.ts on the Node side. See docs/cliModes.md.
-int writeWaveformCache(const std::string& audioPath);
+// The transient detector's default threshold, in standard deviations above the mean jump. Mirrors
+// detectTransients' default in packages/commands/src/waveform.ts.
+constexpr double kDefaultTransientSensitivity = 2.0;
+
+// Decode an audio file and write a placement-independent peak+RMS envelope, its detected transient onsets, and a
+// content fingerprint beside it as `{audioPath}.cache`. BOTH the fingerprint and the transient detector MUST match
+// waveformCache.ts / @studio/commands/waveform.ts on the Node side. See docs/cliModes.md.
+int writeWaveformCache(const std::string& audioPath,
+                       double transientSensitivity = kDefaultTransientSensitivity);
 
 // Peak-normalize a set of clips with ONE shared gain, preserving each source's format, and print a JSON
 // manifest. Drives the `normalize` command. See docs/cliModes.md.

@@ -5,6 +5,7 @@
 import {
   mkdirSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -147,6 +148,38 @@ export function addSong(opts: {
     master: `${folder}/${name}`,
     replaced: Boolean(already),
   };
+}
+
+/**
+ * Seed a song's detected tempo into its sidecar. Answers whether it wrote.
+ *
+ * NEVER overwrites: `bpm` is a field a person edits, and a detected value is only ever a
+ * starting point (the engine's estimate halves an octave on fast material — see
+ * packages/file-service/docs/waveformCache.md). Re-analysing a song must not undo a
+ * correction, so an existing key — whatever its value — wins.
+ *
+ * A `bpm` of 0 is the engine's "no tempo found" and writes nothing: an explicit zero in the
+ * file would read as a claim, and the absence is the honest state.
+ */
+export function setSongBpm(folder: string, bpm: number): boolean {
+  if (!(bpm > 0)) return false;
+  const abs = writablePath(`${folder}/${SONG_FILE}`);
+  let text: string;
+  try {
+    text = readFileSync(abs, "utf8");
+  } catch {
+    return false; // no sidecar: the folder is not catalogued, and this does not catalogue it
+  }
+  // A line-level check, not a YAML parse-and-rewrite: the sidecar carries comments that say
+  // how the tree is derived, and a round trip through the parser would drop them.
+  if (/^\s*bpm\s*:/m.test(text)) return false;
+  writeFileSync(
+    abs,
+    `${text.endsWith("\n") ? text : `${text}\n`}bpm: ${bpm}\n`,
+    "utf8",
+  );
+  bump(abs);
+  return true;
 }
 
 /** Rev the family or zone a path belongs to, so the next poll refetches its listing. */

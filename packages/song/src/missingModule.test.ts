@@ -32,13 +32,13 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 // Point the fixture's instrument step at a module that doesn't exist, keeping everything
 // else — so what changes in the result is only ever this.
 const useGhostStep = (dir: string): void =>
-  replaceChainStep(dir, "synth", { module: "ghost" });
+  replaceChainStep(dir, "lead", { module: "ghost" });
 
 describe("a chain step naming a missing module", () => {
   let dir: string;
@@ -59,7 +59,7 @@ describe("a chain step naming a missing module", () => {
   it("leaves the rest of the chain running", () => {
     // The point of not failing: a dangling step costs you that one node, not the song.
     // Here it sits BESIDE a real instrument, which must still compile into the track.
-    insertChainStepAfter(dir, "synth", { module: "ghost" });
+    insertChainStepAfter(dir, "lead", { module: "ghost" });
 
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",

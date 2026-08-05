@@ -3,16 +3,16 @@
 // and m9 will. See docs/shared.md.
 
 export {
+  attachEngineProxy,
+  ENGINE_PROXY_PATH,
+  issueEngineTicket,
+  verifyEngineTicket,
+} from "./proxy.ts";
+export {
   createRegistry,
   type EngineEntry,
   type EngineRegistry,
   type HeartbeatInput,
   REGISTRY_TTL_MS,
 } from "./registry.ts";
-export {
-  attachEngineProxy,
-  ENGINE_PROXY_PATH,
-  issueEngineTicket,
-  verifyEngineTicket,
-} from "./proxy.ts";
 export { engineRegistryRouter } from "./router.ts";

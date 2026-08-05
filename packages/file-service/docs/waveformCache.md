@@ -2,8 +2,9 @@
 
 The on-disk waveform cache is computed BY THE ENGINE. The C++ side decodes an audio
 file once (any format JUCE reads — wav/aiff/flac/ogg/…), downsamples it to a
-placement-independent peak+RMS envelope, and writes it next to the source as
-`{source}.cache` (JSON), stamped with a cheap content fingerprint.
+placement-independent peak+RMS envelope, **detects its transient onsets**, and writes all
+of it next to the source as `{source}.cache` (JSON), stamped with a cheap content
+fingerprint.
 
 This module is the Node side: it computes the SAME fingerprint to tell whether a
 sidecar is still valid, spawns the engine to (re)build a missing/stale one, and reads
@@ -29,6 +30,85 @@ bytes), then up to `HEAD` bytes from the front and up to `TAIL` bytes from the e
   bytes, so the hash still agrees.
 
 String form: `"<size>-<hex16>"`.
+
+## Transients live here too, and that moved them
+
+They used to be detected in `@studio/commands/waveform`, per CLIP REGION, on the envelope
+freshly resampled to that region. Two things were wrong with it and one was not a
+performance problem:
+
+- a short clip resamples the file envelope **up**, so the detector ran on interpolated
+  detail the file never had;
+- the same audio drawn at two sizes — the timeline clip and the slice editor's whole-source
+  view — therefore disagreed about where its onsets were.
+
+Detecting once, on the file's own envelope at its native resolution, fixes both. The engine
+does it while it is already downsampling, so it costs nothing extra, and
+`regionWaveform` now only shifts them by the clip's in-point and drops the ones outside the
+shown span — exactly what it already did for warp markers.
+
+Stored in FILE SECONDS rather than bucket indices: a consumer maps them onto whatever region
+it draws, and seconds survive a change of bucket density that indices would not.
+
+### The detector MUST match too
+
+`detectTransients` in `@studio/commands/waveform` is the **reference implementation**, and
+`Waveform.cpp` mirrors it. Nothing in production calls the TypeScript one any more — it stays
+as the written spec, and `waveform.test.ts` is the contract both are held to. Same
+arrangement as the fingerprint above. Change one, change the other, and bump the version.
+
+### Sensitivity is per source, and sticky
+
+The threshold (standard deviations above the mean jump, default **2**) is written INTO the
+sidecar beside the onsets it produced. Asking for a different one re-detects and rewrites, so
+every other view of that audio agrees from then on; asking for none keeps whatever is there.
+
+Two consequences worth knowing:
+
+- **`--waveform-batch` takes a per-line sensitivity** (`<path>\t<sensitivity>`), and the Node
+  side sends each file the threshold its previous sidecar carried. Without that, rebuilding a
+  re-recorded take's envelope would silently reset a threshold somebody tuned.
+- **Clearing the waveform cache resets it to the default.** This is a cache, and that is what
+  a cache means. If the setting ever needs to outlive one, it has to move into the project —
+  at which point it stops being derived, and that is a different decision from this one.
+
+## The tempo
+
+The engine also estimates a **bpm** while it is decoding, and writes it into the sidecar. It is
+what st0 seeds a song's `song.yaml` with; the person edits it afterwards, and nothing
+overwrites an edited value.
+
+**0 means "no tempo found"** — silence, one sustained note, free time — and is never a guess.
+
+Method: a half-wave-rectified first difference of the envelope, autocorrelated over 60–200 bpm,
+weighted by a Gaussian in log2-tempo centred on 120 (Ellis's prior), then parabolically
+interpolated around the winning lag.
+
+Two details that were measured rather than assumed, on synthetic click tracks:
+
+- **The tempo envelope is not the stored one.** `peak` is capped at 8192 buckets, so a
+  five-minute track lands at ~27 Hz and a beat is a dozen samples wide. Tempo needs uniform
+  time resolution, so the decode loop fills a *second* envelope at a fixed hop (~187 Hz at
+  48k). With it, a five-minute 128 bpm track reads 127.89.
+- **The prior is a preference, not a fold.** Hard-folding into an 80–160 window reported 174 as
+  87 and 75 as 150 — it broke both cases it was meant to help. With no weighting at all, raw
+  autocorrelation reported 140 as 70, because for a periodic signal the double lag correlates
+  about as well.
+
+Measured, after the prior: 120→119.8, 90→90.0, 140→140.3, 128 (5 min)→127.9, 75→75.0,
+silence→0. **174 still reads 87**, one octave down: at that distance the prior favours 87, and
+no autocorrelation can tell a genre apart. That is a known limit of this class of detector, and
+it is acceptable only because the value is a starting point somebody edits.
+
+## The version gate
+
+The sidecar carries `"v"`. v2 added `transients` and `sensitivity`, v3 added `bpm`, and
+`readSidecar` **requires the current version**.
+
+That gate is load-bearing rather than tidy: an older sidecar has a perfectly matching
+fingerprint — the audio has not changed — so without it every freshness check would pass and
+the file would never get the new field at all. Raise it with every field the engine starts
+writing. `waveformCacheVersion.test.ts` pins it.
 
 ## Caching layers
 

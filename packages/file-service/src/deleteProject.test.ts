@@ -23,7 +23,7 @@ let ws: Workspace;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-del-"));
   // A workspace root (no project.yaml of its own) holding one sub-project.
-  const proj = join(root, "deltest");
+  const proj = join(root, "deltest.l8");
   mkdirSync(proj, { recursive: true });
   writeFileSync(join(proj, "project.yaml"), "package l8\n");
   writeFileSync(join(proj, "beat.strudel"), 's("bd")\n');
@@ -34,11 +34,11 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("Workspace.deleteProject", () => {
   it("deletes a project whose folder a file watcher is holding open", async () => {
-    const proj = join(root, "deltest");
+    const proj = join(root, "deltest.l8");
     const watcher = chokidar.watch(proj, { ignoreInitial: true });
     await once(watcher, "ready"); // the OS directory handle is now actually open
 
-    const { recycled } = await ws.deleteProject("deltest", () => {
+    const { recycled } = await ws.deleteProject("deltest.l8", () => {
       void watcher.close(); // fire-and-forget: the rename retry must cover the lingering handle
     });
 

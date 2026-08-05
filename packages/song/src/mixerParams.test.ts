@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BUILTIN_PLUGIN_PARAMS } from "./builtinParams";
 import { projectHints } from "./hints";
 import { MIXER_PARAMS, MIXER_PLUGIN } from "./project";
-import { writeModule, writeYaml } from "./testSupport";
+import { writeInstance, writeModule, writeYaml } from "./testSupport";
 
 let dir: string;
 
@@ -61,9 +61,12 @@ describe("a built-in's params are known without a project having authored one", 
 
 describe("an instance counts as much as an extender", () => {
   it("picks up a param authored only on one strip", () => {
-    // `mixer:vox` is `mixer` with its own values, exactly as an `extends:` module is. Leaving instances out made
-    // every param on every strip of a real song invisible to the builder.
-    writeModule(dir, "audio", "mixer", { params: { Drive: 3 } }, "vox");
+    // An instance IS an extender now — `vox` extends `audio/mixer` and gives it its own values.
+    // Leaving instances out made every param on every strip of a real song invisible to the builder.
+    writeInstance(dir, "vox", {
+      extends: "@project/audio/mixer",
+      params: { Drive: 3 },
+    });
     expect(projectHints(dir).paramsByBase["audio/mixer"]).toContain("Drive");
   });
 });

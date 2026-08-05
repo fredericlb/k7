@@ -1,0 +1,51 @@
+// GraphView.tsx — the open project's chains, drawn. The same pipeline as l8's Chains tab
+// (compiled GraphDoc -> buildGraph -> dagre -> DomChains) and the same renderer: never
+// hand-roll layout or edge routing, the package owns both. See ../../docs/views.md.
+
+import type { WebGraph } from "@studio/graph-model";
+import { buildGraph, layout } from "@studio/ui-chains/graph";
+import { DomChains } from "@studio/ui-chains-react";
+import { Loader2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { M9_ICONS } from "../chains";
+
+export function GraphView({ graph }: { graph: WebGraph | null }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  // The camera lives OUTSIDE the graph, because the graph unmounts with its view and a camera
+  // that reset on every remount would fight the person using it.
+  const cam = useRef<{ x: number; y: number; k: number } | null>(null);
+
+  const laid = useMemo(() => {
+    if (!graph) return null;
+    const { nodes, edges } = buildGraph(graph);
+    return layout(nodes, edges);
+  }, [graph]);
+
+  if (!laid)
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> compilation du projet…
+      </div>
+    );
+
+  return (
+    <div className="min-h-0 flex-1">
+      <DomChains
+        icons={M9_ICONS}
+        graph={laid}
+        selected={selected}
+        onSelect={setSelected}
+        camStore={cam}
+        // Re-frame when the SHAPE changes, not on every redraw: adding a module should fit the
+        // new picture, moving a knob should leave the camera where it was put.
+        fitKey={`${laid.nodes.length}`}
+        // m9 has no command bar. The prop is required because l8's graph is driven by one and
+        // the package will not pretend otherwise — so this says out loud that a node's command
+        // menu does nothing here, rather than silently swallowing it. See docs/chains.md.
+        command={(line) => {
+          console.warn(`m9 has no command bar; ignored: ${line}`);
+        }}
+      />
+    </div>
+  );
+}

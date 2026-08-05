@@ -435,8 +435,11 @@ int main(int argc, char** argv) {
 
     // Waveform-cache mode: decode the file, write its `{file}.cache` sidecar, exit. The file service invokes this
     // to rebuild a missing or stale cache on demand.
+    // The optional third argument is the transient detector's sensitivity (stddevs above the mean jump); omitted,
+    // the built-in default applies. It is per SOURCE and lands in the sidecar, so a later read gets it back.
     if (argc >= 3 && std::string(argv[1]) == "--waveform")
-        return studio::writeWaveformCache(argv[2]);
+        return studio::writeWaveformCache(
+            argv[2], argc >= 4 ? std::atof(argv[3]) : studio::kDefaultTransientSensitivity);
 
     // Normalize mode: peak-normalize the given clips with one shared gain (see NormalizeClips.cpp). The (in,out)
     // paths pair up, and the `normalize` command supplies the _norm names.
@@ -464,8 +467,16 @@ int main(int argc, char** argv) {
             first = false;
             if (!line.empty() && line.back() == '\r') line.pop_back();  // tolerate CRLF
             if (line.empty()) continue;
-            const int rc = studio::writeWaveformCache(line);
-            std::cout << (rc == 0 ? "ok\t" : "err\t") << line << "\n" << std::flush;
+            // `<path>` or `<path>\t<sensitivity>`. The caller sends the sensitivity a file's PREVIOUS sidecar
+            // carried, so rebuilding a stale envelope does not silently reset a threshold somebody tuned.
+            std::string path = line;
+            double sensitivity = studio::kDefaultTransientSensitivity;
+            if (const auto tab = line.find('\t'); tab != std::string::npos) {
+                path = line.substr(0, tab);
+                sensitivity = std::atof(line.c_str() + tab + 1);
+            }
+            const int rc = studio::writeWaveformCache(path, sensitivity);
+            std::cout << (rc == 0 ? "ok\t" : "err\t") << path << "\n" << std::flush;
         }
         return 0;
     }

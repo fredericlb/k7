@@ -1,0 +1,21 @@
+# Normalisation — bring the loudest sample of a recording to `Target`.
+#
+# `cold: true` is the load-bearing line. A cold module only works on audio already on disk,
+# because it has to know the WHOLE of its input before it can produce any of it: the gain
+# depends on the peak, and the peak may be the last sample. Adding this to a chain whose
+# signal comes from a live input is refused — see @studio/song's docs/coldModules.md.
+#
+# `plugin: {type: jsdsp}` says the sound comes from the `jsdsp.ts` beside this file, which is
+# @studio/dsp's `normalize()` written out: a module is a FOLDER you can copy, so it carries its
+# own source rather than pointing at a library. packages/dsp/src/normalize.test.ts pins the shape.
+cold: true
+plugin: { type: jsdsp, name: Normalize }
+params:
+  # 1 dB of headroom, the usual answer for a master.
+  Target: -1
+  # The measured peak of the input, in dBFS, written by the cold pass. 0 until it has run —
+  # which makes the module attenuate rather than boost, the harmless direction to be wrong in.
+  Peak: 0
+docs: >-
+  Peak normalisation. Measures the loudest sample of the whole file and applies the gain that
+  puts it at Target. Only works on a file input: live, there is nothing to measure yet.

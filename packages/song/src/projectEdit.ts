@@ -33,16 +33,23 @@ export function editModuleFile(
   return path;
 }
 
-// Where a module's file is — `module.yaml`, or an instance's own file beside it.
+// Where a module's file is — `module.yaml`, or an instance's own file in the flat `instances/`.
 function moduleFileOf(
   dir: string,
   module: string,
 ): { folder: string; path: string } {
   const modules = loadModules(dir) as Record<
     string,
-    { category?: string; file?: string; instance?: string }
+    { category?: string; file?: string; instance?: string; home?: string }
   >;
   const b = modules[module];
+  // An instance carries its own folder, and has no category to rebuild one from.
+  if (b?.home) {
+    const folder = join(dir, b.home);
+    const found = moduleFileFor(folder, b.home, module);
+    if (!found) throw new Error(`module "${module}" has no file in ${b.home}`);
+    return { folder, path: found.path };
+  }
   if (!b?.category || !b?.file) {
     const shared = sharedModuleFileOf(dir, module);
     if (shared) return shared;
@@ -174,8 +181,11 @@ export function deleteModule(
   key: string,
 ): { removed: string; rewired: string[] } {
   const { folder, path } = moduleFileOf(dir, key);
-  const isInstance = key.includes(":");
-  // An instance is one file; a generic takes its folder, and everything in it.
+  // An instance is one FILE in the shared `instances/` folder — removing that folder would take
+  // every other use of every other module with it. A module still takes its own folder whole.
+  const isInstance = !!(loadModules(dir) as Record<string, { home?: string }>)[
+    key
+  ]?.home;
   if (isInstance) rmSync(path, { force: true });
   else rmSync(folder, { recursive: true, force: true });
   const removed = relative(dir, isInstance ? path : folder)

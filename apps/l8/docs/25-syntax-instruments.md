@@ -106,6 +106,21 @@ A chain carries one signal, so the second input has to arrive from somewhere els
 
 On the graph each port is a socket on the node's edge. Mandatory ones are drawn from the start; past those, one free socket appears beyond the last one you have wired, so a module offers its next input without presenting a row of empty holes.
 
+## modules/<type>/<name>/module.yaml — a COLD module
+
+`cold: true` says the module only works on audio **already on disk**. Not "expensive": a cold module run live would not be slow, it would be *wrong*, because the answer does not exist yet. Normalisation is the plain case — the gain depends on the loudest sample, and the loudest sample may be the last one, so nothing can be produced until the whole input has been read.
+
+Adding one to a chain whose signal does not come from a file input (`io: file`) is refused, with a message saying so, before anything is written. That is why they belong in the médiathèque's chain templates, which run over a song's master file, rather than in a live project chain.
+
+```yaml schema=Module
+# modules/audio/normalize/module.yaml — bring the peak to Target
+cold: true
+plugin: { type: jsdsp, name: Normalize }
+params:
+  Target: -1   # dBFS, 1 dB of headroom
+  Peak: 0      # measured by the cold pass; 0 until it has run, so the module only attenuates
+```
+
 ## modules/<type>/<name>/module.yaml — extends another module
 
 A module can inherit from another with `extends: "type/name"` (or "@ns/type/name" for one it inherits — from the médiathèque, or the workspace's `_modules`). It gets the base's plugin/params/ui/rack, overriding per key. Several modules can extend one base.
@@ -117,28 +132,32 @@ params:
   Filter Freq: 69   # override just this one
 ```
 
-## modules/<type>/<name>/<instance>.yaml — an instance of a module
+## instances/<name>.yaml — one use of a module
 
-Beside module.yaml, a module's folder can hold one file per INSTANCE — the same flat shape, inheriting module.yaml automatically (the folder is the parent; there's no `extends` to write). A chain uses one as "<name>:<instance>", and the generic stays usable too. Each instance keeps its own params and its own <instance>.vstpreset, so tweaking one leaves the generic and its siblings alone. Merge order: extended base → module.yaml → instance. To add one: right-click the module's folder in the file tree → "New instance…", or run `module instance new instruments/synth lead`.
+A project's USES of its modules live in a flat `instances/` folder at its root, and the FILENAME names the instance: a chain says `lead`, not the module it came from. The file is the same flat shape as module.yaml, says which module it uses with `extends:`, and states only what it changes. Each instance keeps its own params and its own `instances/<name>.vstpreset`, so tweaking one leaves the module and every other use alone. Merge order: extended base → the module → the instance. To add one: right-click a module in the file tree → "New instance…", or run `module instance new instruments/synth lead`.
 
-```yaml exempt="shows several files at once (the generic, two instances, the chain that uses them) - not one document"
-# modules/instruments/synth/lead.yaml — state only what this instance changes
+The folder is flat on purpose — an instance does not mirror the folders of the thing it uses, so a use of a médiathèque module needs no local folder for it.
+
+```yaml exempt="shows several files at once (two instances and the chain that uses them) - not one document"
+# instances/lead.yaml — state only what this use changes
+extends: "@project/instruments/synth"
 params:
   Filter Freq: 90
 
-# modules/instruments/synth/pad.yaml
+# instances/pad.yaml
+extends: "@project/instruments/synth"
 params:
   Filter Freq: 40
 
-# chains.yaml — the generic and both instances are separate nodes. Pointing both
+# chains.yaml — the module and both uses are separate nodes. Pointing both
 # tracks at the bare `synth` would NOT give each its own: a module is named once,
 # so one name is one plugin, and the two lanes would sum into it.
 tracks:
-  melody: [ synth:lead ]
-  pad: [ synth:pad ]
+  melody: [ lead ]
+  pad: [ pad ]
 modules:
-  synth:lead: [ OUT ]
-  synth:pad: [ OUT ]
+  lead: [ OUT ]
+  pad: [ OUT ]
 ```
 
 ## modules/instruments/<name>/module.yaml — rack (drum kit)

@@ -27,7 +27,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "node-demo",
+  "node-demo.l8",
 );
 
 let dir: string;

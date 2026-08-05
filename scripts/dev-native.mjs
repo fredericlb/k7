@@ -88,6 +88,23 @@ function buildEngine() {
   });
   if (r.status !== 0)
     throw new Error(`the engine build failed (exit ${r.status})`);
+
+  // A build reporting SUCCESS without replacing the image is the failure this guards, and it
+  // is the expensive one: MSBuild prints `studio-moteur.vcxproj -> …exe` and exits 0 when a
+  // running engine holds the file, so the session goes on running the code you just changed
+  // away from. It cost an evening once.
+  //
+  // The test is "is the binary at least as new as its sources", NOT "did it change": a
+  // watcher event can fire with nothing actually edited (Windows reports odd names for
+  // changes under the build tree), and a no-op build is then the CORRECT outcome. Demanding a
+  // change made that harmless case a hard failure that left the tray stopped — worse than the
+  // bug being guarded. Measured, not assumed: it fired on the very first spurious event.
+  const after = engineBinary();
+  if (after && statSync(after).mtimeMs < newestSource("moteur"))
+    throw new Error(
+      `the engine build reported success but ${basename(after)} is still older than its ` +
+        "sources — something is holding it open (a surviving engine? see stopAll)",
+    );
 }
 
 // ── is the engine binary older than the sources it came from? ────────────────

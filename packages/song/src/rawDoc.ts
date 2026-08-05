@@ -122,6 +122,9 @@ export interface LoadedModule {
   // Numbers, except the file-valued ones (moduleTypes.FILE_PARAMS) — see moduleSchema.
   params?: Record<string, number | string>;
   rack?: RawRack;
+  // Only usable on material already on disk — it needs the WHOLE input before it can produce
+  // any of it. Inherited like `plugin`, so a use of a cold module is cold. See docs/coldModules.md.
+  cold?: boolean;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   channel?: unknown; // io "in" only
   // io "file" only — the audio it reads, project-relative. NOT `file`: the loader writes the
@@ -153,6 +156,9 @@ export interface LoadedModule {
   category?: string; // the type folder (io|instruments|audio|transformers|…)
   file?: string; // the module's folder name
   instance?: string; // undefined for the generic
+  // The folder this module's own files live in, PROJECT-RELATIVE. Set for a flat instance,
+  // whose location is `instances/` and therefore cannot be rebuilt out of category + file.
+  home?: string;
 }
 
 /** One note of an assembled clip (long-form keys; folder.ts expands {t,d,k,v}). */

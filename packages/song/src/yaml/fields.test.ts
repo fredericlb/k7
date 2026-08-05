@@ -28,6 +28,9 @@ describe("derived module fields", () => {
       "type",
       "params",
       "rack",
+      // A COLD module works only on audio already on disk — it needs the whole of its input
+      // before it can produce any of it. See docs/coldModules.md.
+      "cold",
       // `ir` and `nam` sat here, each naming a file in a shared asset library. The library is
       // gone — a module carries what it loads, in its own `assets/` — and the one that survived
       // is a `params:` entry, because a .nam model is one of the plugin's controls. So there is

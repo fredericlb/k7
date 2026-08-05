@@ -23,7 +23,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 let dir: string;
@@ -59,20 +59,20 @@ describe("a jsdsp module", () => {
   it("reaches the engine at all", () => {
     // The regression in one assertion: it used to contribute nothing, like a missing module.
     asJsDsp(false);
-    expect(plugins().some((p) => p.id.endsWith(":synth:lead"))).toBe(true);
+    expect(plugins().some((p) => p.id.endsWith(":lead"))).toBe(true);
   });
 
   it("arrives as the engine's graph host, not as the word the author wrote", () => {
     // The engine has no `jsdsp` plugin: it loads the built-in host and is handed the graph.
     asJsDsp(false);
-    const p = plugins().find((x) => x.id.endsWith(":synth:lead"));
+    const p = plugins().find((x) => x.id.endsWith(":lead"));
     expect(p?.type).toBe("DSP Graph");
-    expect(p?.name).toBe("synth:lead"); // the module names it — a built-in has no scan entry
+    expect(p?.name).toBe("lead"); // the module names it — a built-in has no scan entry
   });
 
   it("carries its compiled graph inline, since the engine parses no files", () => {
     asJsDsp(true);
-    const p = plugins().find((x) => x.id.endsWith(":synth:lead"));
+    const p = plugins().find((x) => x.id.endsWith(":lead"));
     expect(p?.dspGraph).toContain("Cutoff");
   });
 
@@ -81,7 +81,7 @@ describe("a jsdsp module", () => {
     // known yet. That must cost the parameters, not the node — otherwise a module would come
     // and go from the song depending on whether its graph had been built.
     asJsDsp(false);
-    const p = plugins().find((x) => x.id.endsWith(":synth:lead"));
+    const p = plugins().find((x) => x.id.endsWith(":lead"));
     expect(p?.type).toBe("DSP Graph");
     expect(JSON.parse(p?.dspGraph ?? "null")).toEqual({}); // an empty graph, not a missing node
   });

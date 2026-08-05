@@ -646,13 +646,17 @@ export function compileNodeProject(dir: string): ProjectDoc {
       const { type, name: pluginName } = enginePlugin(plugin, step.module);
       if (!type) continue; // internal missing its name
       // Named by what this step IS, so an instance saves beside its own file and never overwrites a sibling's state.
-      const presetSave = join(
-        dir,
-        "modules",
-        String(module.category),
-        String(module.file ?? step.module),
-        `${String(module.instance ?? module.file ?? step.module)}.vstpreset`,
-      );
+      // A flat instance carries its own folder (`home`): its path is `instances/`, which no longer follows from
+      // the category and folder of the module it uses.
+      const presetSave = module.home
+        ? join(dir, String(module.home), `${String(module.instance)}.vstpreset`)
+        : join(
+            dir,
+            "modules",
+            String(module.category),
+            String(module.file ?? step.module),
+            `${String(module.instance ?? module.file ?? step.module)}.vstpreset`,
+          );
       (trackPlugins[owner] ??= []).push({
         id: `${name}:${step.module}`,
         type, // engine wire form: built-in xmlTypeName (e.g. "4osc") or external format ("vst3")

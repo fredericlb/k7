@@ -24,7 +24,7 @@ const chains = (...steps: string[]) =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-gcache-"));
-  proj = join(root, "song");
+  proj = join(root, "song.l8");
   mkdirSync(join(proj, "tracks"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(join(proj, "chains.yaml"), chains("amp"), "utf8");
@@ -38,7 +38,7 @@ beforeEach(() => {
       plugin: { type: "internal", name: "Chorus" },
     });
   ws = new Workspace(root);
-  ws.setActiveProject("song");
+  ws.setActiveProject("song.l8");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -55,7 +55,7 @@ describe("the graph memo", () => {
 
   it("rebuilds after a write through the service", () => {
     expect(steps()).toEqual(["amp"]);
-    ws.write("song/chains.yaml", chains("amp", "cab"));
+    ws.write("song.l8/chains.yaml", chains("amp", "cab"));
     expect(steps()).toEqual(["amp", "cab"]);
   });
 

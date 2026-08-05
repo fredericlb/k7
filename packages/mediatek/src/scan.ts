@@ -90,6 +90,13 @@ function readSong(abs: string): Record<string, unknown> {
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v ? v : undefined;
 
+// A hand-edited `bpm: 128` is a number; `bpm: "128"` is what somebody quoting it writes. Both
+// are meant, and neither NaN nor 0 is — 0 is the engine's "none found" and never reaches here.
+const num = (v: unknown): number | undefined => {
+  const n = typeof v === "string" ? Number(v) : v;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
+};
+
 /**
  * The `variants:` mapping of a sidecar, classified against what is actually in the folder.
  *
@@ -161,6 +168,10 @@ function scanSongs(): MediatekEntry[] {
           // the folder is catalogued but carries no audio yet.
           ...(master ? { master: master.name } : {}),
           ...(artist ? { artist } : {}),
+          // Detected at upload and then EDITABLE — see setSongBpm. Surfaced because a surface
+          // that lines a song up to a grid needs it, and re-reading the sidecar would be a
+          // second source of truth.
+          ...(num(meta.bpm) ? { bpm: num(meta.bpm) as number } : {}),
           ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
         },
       });

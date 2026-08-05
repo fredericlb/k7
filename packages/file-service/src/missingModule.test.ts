@@ -28,7 +28,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 let root: string;
@@ -37,17 +37,17 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-ghost-"));
-  proj = join(root, "song");
+  proj = join(root, "song.l8");
   cpSync(SONG, proj, { recursive: true });
   // The demo's chains end at "OUT" but the song ships no modules/io/OUT, so give it the
   // real sink — otherwise every chain here is missing its sink as well as its instrument,
   // and the test couldn't tell the two apart.
   writeModule(proj, "io", "OUT", { io: "out" });
   // Point the instrument step at a module that isn't there.
-  replaceChainStep(proj, "synth", { module: "ghost" });
+  replaceChainStep(proj, "lead", { module: "ghost" });
 
   ws = new Workspace(root);
-  ws.setActiveProject("song");
+  ws.setActiveProject("song.l8");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));

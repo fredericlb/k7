@@ -16,6 +16,9 @@ export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 export const EXE_NAME =
   process.platform === "win32" ? "studio-capot.exe" : "studio-capot";
+/** The engine. Stopped here too — see stopAll for why the tray's job object is not enough. */
+export const ENGINE_EXE_NAME =
+  process.platform === "win32" ? "studio-moteur.exe" : "studio-moteur";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -40,15 +43,11 @@ function capture(cmd, argv) {
   return r.status === 0 && r.stdout ? r.stdout : "";
 }
 
-/**
- * Every tray process, whatever build it came from — `out/dev`, `target/`, an installed
- * bundle. Deliberately not just ours: they share one identifier, so single-instance would
- * turn our launch into a silent no-op while a stranger keeps the menu bar.
- */
-export function running() {
+/** Every process with this image name, and where it was run from. */
+function processesNamed(exe) {
   if (process.platform === "win32") {
     // -EncodedCommand, not -Command: the query is full of quotes and would not survive two levels of escaping.
-    const q = `Get-CimInstance Win32_Process -Filter "Name='${EXE_NAME}'" | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }`;
+    const q = `Get-CimInstance Win32_Process -Filter "Name='${exe}'" | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }`;
     const encoded = Buffer.from(q, "utf16le").toString("base64");
     return capture("powershell", [
       "-NoProfile",
@@ -59,14 +58,26 @@ export function running() {
       .split(/\r?\n/)
       .flatMap((l) => {
         const [pid, path] = l.trim().split("|");
-        return pid ? [{ pid: Number(pid), path: path || EXE_NAME }] : [];
+        return pid ? [{ pid: Number(pid), path: path || exe }] : [];
       });
   }
-  return capture("pgrep", ["-x", EXE_NAME]) // -x: the process NAME, so a shell tailing the log is not a tray
+  return capture("pgrep", ["-x", exe]) // -x: the process NAME, so a shell tailing the log is not one
     .split("\n")
-    .flatMap((l) =>
-      l.trim() ? [{ pid: Number(l.trim()), path: EXE_NAME }] : [],
-    );
+    .flatMap((l) => (l.trim() ? [{ pid: Number(l.trim()), path: exe }] : []));
+}
+
+/**
+ * Every tray process, whatever build it came from — `out/dev`, `target/`, an installed
+ * bundle. Deliberately not just ours: they share one identifier, so single-instance would
+ * turn our launch into a silent no-op while a stranger keeps the menu bar.
+ */
+export function running() {
+  return processesNamed(EXE_NAME);
+}
+
+/** Every engine process, whoever started it — and the same reasoning applies. See stopAll. */
+export function runningEngines() {
+  return processesNamed(ENGINE_EXE_NAME);
 }
 
 async function until(ok, ms, what) {
@@ -77,20 +88,60 @@ async function until(ok, ms, what) {
   throw new StepError(what);
 }
 
-/** Stop every running tray and wait for them to be gone. Returns how many there were. */
+/**
+ * Stop every running tray AND every engine, and wait for both to be gone. Returns how many
+ * trays there were.
+ *
+ * The engine half is not belt-and-braces, and this used to be tray-only. Two ways an engine
+ * outlives the tray that is supposed to take it down:
+ *
+ *  1. **The job object teardown is asynchronous.** Killing the tray returns as soon as the
+ *     tray is gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray
+ *     let a build start while the engine was still up.
+ *  2. **An ADOPTED engine is in no job at all.** Job membership is inherited at creation, so
+ *     an engine started by an earlier tray and adopted by this one (`engineProcess.ts`:
+ *     *"It is NOT ours — Stop must leave it alone"*) belongs to the DEAD tray's job. Nothing
+ *     takes it down. `devReload.ts` makes that routine in dev: every edit under
+ *     `packages/engine-host/src` restarts the supervisor and has the engine adopted.
+ *
+ * Either way the survivor keeps `studio-moteur.exe` open for execute, and the next relink
+ * cannot replace the image — silently, which is what makes it expensive. See docs/dev.md.
+ *
+ * Every engine, whoever started it, for the same reason `running()` lists every tray: a
+ * survivor silently wins, and here it wins by making your build a no-op.
+ */
 export async function stopAll() {
   const found = running();
-  if (!found.length) return 0;
   for (const { pid, path } of found)
     console.log(`▸ stopping tray (pid ${pid}) ${path}`);
-  // A hard terminate on Windows: the tray is windowless, so there is no close to send it. Safe by design — the
-  // job object created in main.rs takes the supervisor, the engine and the file service down with it.
+  // A hard terminate on Windows: the tray is windowless, so there is no close to send it. The job object
+  // created in main.rs is what takes the supervisor and the file service with it.
   for (const { pid } of found) {
     try {
       process.kill(pid);
     } catch {} // already gone between the scan and here
   }
-  await until(() => running().length === 0, 10_000, "the tray would not exit");
+  if (found.length)
+    await until(
+      () => running().length === 0,
+      10_000,
+      "the tray would not exit",
+    );
+
+  const engines = runningEngines();
+  for (const { pid, path } of engines)
+    console.log(`▸ stopping engine (pid ${pid}) ${path}`);
+  for (const { pid } of engines) {
+    try {
+      process.kill(pid);
+    } catch {} // the job object may have got there first
+  }
+  if (engines.length)
+    await until(
+      () => runningEngines().length === 0,
+      10_000,
+      "the engine would not exit — it is holding its own binary open",
+    );
   return found.length;
 }
 

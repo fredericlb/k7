@@ -51,8 +51,26 @@ Applied to a song it becomes **concrete**: the source is that song's master, so 
 says which file goes through the chain. That is the `io: file` input at this level — a source
 whose audio is a file rather than an interface channel. See `@studio/song`'s `docs/fileInput.md`.
 
+## Analysis, and when it runs
+
+A song's master is analysed **at upload**: st0 receives the bytes, then asks the chosen
+machine to compute the waveform envelope, the transient onsets and the tempo, because st0 has
+no engine and cannot decode audio. The `.cache` sidecar is pushed back beside the audio and the
+tempo seeds `song.yaml` — see `packages/file-service/src/routes/mediatek.ts` and
+`packages/file-service/docs/waveformCache.md`.
+
+A **file variant** is a file in the folder, so it is analysed the same way and by the same
+route: it is a path in the library, and nothing about it is special.
+
+A **chain variant** is not, because there is no file to analyse yet.
+
 ## What is not here
 
-Rendering. Nothing produces the variant's audio yet — a chain variant is a declaration of how the
-song should be treated and a picture of that treatment, not a bounce. The engine seam for it
-is the piece `docs/fileInput.md` describes as still to write.
+Rendering. Nothing produces a chain variant's audio — it is a declaration of how the song
+should be treated and a picture of that treatment, not a bounce. The engine seam for it is the
+piece `@studio/song`'s `docs/fileInput.md` describes as still to write.
+
+That is the hook the analysis pass is waiting on: once a bounce exists and lands in the song's
+folder, it is a file in the library like any other, and `POST /mediatek/analyse` on it is the
+whole of what "compute it once the treatment is done" means. Nothing else has to be invented
+for that half — the route already takes a path.

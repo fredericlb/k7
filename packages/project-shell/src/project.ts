@@ -1,0 +1,115 @@
+// project.ts — the file-service routes every project app needs: resolving a repository to a
+// workspace on this machine, the tree and the files in it, the compiled views the engine and
+// the graph are drawn from, and the repository's git. l8 spreads this into its own client and
+// adds what only it has (timeline, waveforms, video); m9 uses it as it stands.
+
+import type { WebGraph } from "@studio/graph-model";
+import type {
+  Alternatives,
+  CatalogueModule,
+  CloneJob,
+  CommandInfo,
+  FileContent,
+  FileNode,
+  ForkedModule,
+  GitCommitResult,
+  GitPullResult,
+  GitStatus,
+  Hints,
+  IoPort,
+  ModulePresetsFile,
+  ModuleUiFile,
+  ProjectErrors,
+  ProjectInfo,
+  WebPreferences,
+  WebProject,
+  WorkspaceForRepo,
+  WorkspaceInfo,
+} from "@studio/web-protocol";
+import { fget, fsend } from "./fileApi.ts";
+
+export const projectApi = {
+  // --- Resolving what st0 named -------------------------------------------------
+  // st0 knows a REPOSITORY; this machine knows folders. These three bridge that, cloning
+  // when it has never seen one. See packages/file-service/docs/cloneJobs.md.
+  workspaceByRepo: (uri: string) =>
+    fget<WorkspaceForRepo>(
+      `/workspaces/by-repo?uri=${encodeURIComponent(uri)}`,
+    ),
+  startClone: (uri: string) =>
+    fsend<CloneJob>("POST", "/workspaces/clone", { uri }),
+  cloneStatus: (id: string) => fget<CloneJob>(`/workspaces/clone/${id}`),
+
+  // --- The open project ---------------------------------------------------------
+  workspace: () => fget<WorkspaceInfo>("/workspace"),
+  project: () => fget<ProjectInfo>("/project"),
+  open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
+  unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
+
+  // --- Derived views. A cheap token changes when the sources do; poll it, not these. ---
+  revision: () => fget<{ rev: string }>("/revision"),
+  projectDoc: () => fget<WebProject>("/project-doc"),
+  graph: () => fget<WebGraph>("/graph"),
+  projectErrors: () => fget<ProjectErrors>("/project-errors"),
+
+  // --- The tree and the files in it ---------------------------------------------
+  tree: () => fget<FileNode[]>("/tree"),
+  read: (path: string) =>
+    fget<FileContent>(`/file?path=${encodeURIComponent(path)}`),
+  // Saving a file in the shared `_modules` library doesn't write there: it copies the module
+  // into the project and repoints the chains at the copy, and `forked` says where the edit
+  // actually landed. There is no opt-out — the catalogue is edited in the médiathèque.
+  write: (path: string, content: string) =>
+    fsend<{ ok: true; forked?: ForkedModule }>("PUT", "/file", {
+      path,
+      content,
+    }),
+  fmt: (path: string) => fsend<FileContent>("POST", "/fmt", { path }),
+  createFolder: (dir: string, name: string) =>
+    fsend<{ path: string }>("POST", "/folder", { dir, name }),
+  renameFile: (path: string, name: string) =>
+    fsend<{ path: string }>("POST", "/rename", { path, name }),
+  moveFile: (path: string, toDir: string) =>
+    fsend<{ path: string }>("POST", "/move", { path, toDir }),
+  // Recycled, not erased — reversible, but no longer listed or startable.
+  deleteFile: (path: string) =>
+    fsend<{ recycled: string }>("POST", "/entry/delete", { path }),
+
+  // --- Modules, as a project sees them ------------------------------------------
+  hints: () => fget<Hints>("/hints"),
+  baseModules: () => fget<string[]>("/base-modules"),
+  ioPorts: () => fget<IoPort[]>("/io-ports"),
+  moduleCatalogue: () => fget<CatalogueModule[]>("/module-catalogue"),
+  moduleUi: (path: string) =>
+    fget<ModuleUiFile>(`/module-ui?path=${encodeURIComponent(path)}`),
+  modulePresets: (path: string) =>
+    fget<ModulePresetsFile>(`/module-presets?path=${encodeURIComponent(path)}`),
+  cloneModule: (path: string, newName: string) =>
+    fsend<{ path: string }>("POST", "/module/clone", { path, newName }),
+  createModuleInstance: (path: string, instance: string) =>
+    fsend<{ path: string }>("POST", "/module/instance", { path, instance }),
+
+  // --- The repository's git. A workspace IS one clone, so none of this needs a project. ---
+  // gitStatus fetches, so callers poll it rarely (l8 uses ten minutes).
+  gitStatus: () => fget<GitStatus>("/git/status"),
+  alternatives: () => fget<Alternatives>("/git/alternatives"),
+  gitCommit: (message: string) =>
+    fsend<GitCommitResult>("POST", "/git/commit", { message }),
+  gitPull: () => fsend<GitPullResult>("POST", "/git/pull", {}),
+
+  // --- The CLI's own verbs, which the command bar dispatches through ------------
+  commands: () => fget<CommandInfo[]>("/commands"),
+  complete: (line: string) =>
+    fget<string[]>(`/complete?line=${encodeURIComponent(line)}`),
+  command: (line: string) =>
+    fsend<{ output: string[] }>("POST", "/command", { line }),
+
+  // --- This machine's preferences, and the merged engine + file-service log -----
+  preferences: () => fget<WebPreferences>("/preferences"),
+  setVim: (vim: boolean) =>
+    fsend<{ vim: boolean }>("PUT", "/preferences/vim", { vim }),
+  logs: (offset?: number, tail = 300) =>
+    fget<{ offset: number; lines: string[] }>(
+      offset != null ? `/logs?offset=${offset}` : `/logs?tail=${tail}`,
+    ),
+};

@@ -40,8 +40,15 @@ export interface RouteState {
   file: string | null;
 }
 
-/** Where the app opens with no address to go on. */
-export const DEFAULT_SECTION: SectionId = "songs";
+/**
+ * Where the app opens with no address to go on.
+ *
+ * Projets, not Morceaux: the médiathèque is the studio's front door, and the first thing you
+ * want at a front door is your own work. The catalogue is what a project DRAWS ON, so it is
+ * one tab away rather than in the way. Note the consequence for `fromLocation` — an unknown
+ * address now lands on the repositories too.
+ */
+export const DEFAULT_SECTION: SectionId = PROJECTS_SECTION;
 
 /** The path for a screen. */
 export function toPath(s: RouteState): string {

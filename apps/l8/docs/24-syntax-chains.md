@@ -32,7 +32,9 @@ A destination is a module of this project, or an io sink like `OUT`. A key under
 A module name is one of three things:
 
 - `synth` — a module of this project, by the name of its folder under `modules/`.
-- `synth:lead` — one of its instances, the `lead.yaml` sitting beside its `module.yaml`.
+- `lead` — one USE of a module, by the name of its file in `instances/`. An instance is
+  `instances/lead.yaml`, and it says which module it uses with `extends:` — the folder is
+  flat, so where the file sits tells you nothing and does not have to.
 - `"@engine/audio/amp/nam"` — an INHERITED module, by its ref: the level it lives at (`@engine`, `@mediatek`, `@workspace`), then the path to it inside that level. Nothing declares those levels — they are the machine's plugin scan, the médiathèque, and the `_modules` beside the song. It arrives merged through its own `extends`, so it behaves exactly like a local one.
 
 A ref must be QUOTED, as a key and as a destination alike. YAML reserves `@` as the first character of a plain scalar, and an unquoted one stops the file parsing — which is why picking one from the editor's completion list brings its quotes with it.
@@ -46,15 +48,15 @@ modules:
 
 ## One module, two voices
 
-A module named once is ONE plugin. Pointing two tracks at the same name does not give each its own copy — it makes that module a bus fed by both, which is right for a shared reverb and wrong for an instrument. When each lane needs its own, give the module an instance per lane:
+A module named once is ONE plugin. Pointing two tracks at the same name does not give each its own copy — it makes that module a bus fed by both, which is right for a shared reverb and wrong for an instrument. When each lane needs its own, give the module an instance per lane — `instances/lead.yaml` and `instances/pad.yaml`, each extending `synth`:
 
 ```yaml schema=ChainsFile
 tracks:
-  melody: [ synth:lead ]
-  pad: [ synth:pad ]
+  melody: [ lead ]
+  pad: [ pad ]
 modules:
-  synth:lead: [ OUT ]
-  synth:pad: [ OUT ]
+  lead: [ OUT ]
+  pad: [ OUT ]
 ```
 
 ## Live inputs

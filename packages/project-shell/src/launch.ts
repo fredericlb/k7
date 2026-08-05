@@ -1,9 +1,12 @@
-// launch.ts — which project this editor was opened on. l8 no longer picks a workspace: st0
-// owns the repositories and links here with `?repo=&project=`, and this reads that ONCE, at
-// import time, before anything can rewrite the address. See docs/launch.md.
+// launch.ts — which project this editor was opened on. Neither l8 nor m9 picks a workspace:
+// st0 owns the repositories and links to them with `?repo=&project=`, and this reads that
+// ONCE, at import time, before any router can rewrite the address. See docs/launch.md.
+
+import type { ProjectApp } from "@studio/web-protocol/projects";
+import { serviceUrl } from "@studio/web-protocol/services";
 
 /** Remembered per tab, so a reload lands back on the same project rather than at st0. */
-const KEY = "l8.launch";
+const KEY = "studio.launch";
 
 export interface Launch {
   /** The SSH git URI, exactly as st0 holds it. */
@@ -66,8 +69,23 @@ export function clearLaunch(): void {
   }
 }
 
-/** The address of one project in this repository, for a link out of l8 and back in. */
-export function launchUrl(base: string, repo: string, project: string): string {
+/**
+ * Where a project opens — l8 or m9, whichever its folder name claims.
+ *
+ * `origin` may be any URL on the studio origin; `serviceUrl` keeps only the origin, so a
+ * caller can pass `window.location.href` without stripping anything first.
+ */
+export function launchUrl(
+  origin: string,
+  repo: string,
+  project: string,
+  app: ProjectApp,
+): string {
   const q = new URLSearchParams({ repo, project });
-  return `${base.replace(/\/+$/, "")}/l8/?${q.toString()}`;
+  return `${serviceUrl(origin, app)}/?${q.toString()}`;
+}
+
+/** Where projects are chosen: st0's Projets section, which is also its home page. */
+export function projectsUrl(origin: string): string {
+  return `${serviceUrl(origin, "st0")}/projects`;
 }

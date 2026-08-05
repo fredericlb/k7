@@ -16,7 +16,13 @@ let media: string;
 function projectModule(rel: string, body: string): void {
   const at = join(dir, "modules", rel);
   mkdirSync(at, { recursive: true });
-  writeFileSync(join(at, "default.yaml"), body, "utf8");
+  writeFileSync(join(at, "module.yaml"), body, "utf8");
+}
+
+/** One USE of a module, in the project's flat `instances/`. */
+function projectInstance(name: string, body: string): void {
+  mkdirSync(join(dir, "instances"), { recursive: true });
+  writeFileSync(join(dir, "instances", `${name}.yaml`), body, "utf8");
 }
 
 beforeEach(() => {
@@ -40,6 +46,14 @@ afterEach(() => {
 describe("the médiathèque modules a project names", () => {
   it("finds the ones its own modules extend", () => {
     projectModule("audio/wah", 'extends: "@mediatek/audio/filter/auto-wah"\n');
+    expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/filter/auto-wah"]);
+  });
+
+  it("finds the ones an INSTANCE extends — the ordinary way to use one", () => {
+    // A use of a library module is a file in `instances/` now, and it reaches the library
+    // through `extends` like anything else. Missing it here would mean the machine never
+    // cached the module its own song plays.
+    projectInstance("gtr", 'extends: "@mediatek/audio/filter/auto-wah"\n');
     expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/filter/auto-wah"]);
   });
 

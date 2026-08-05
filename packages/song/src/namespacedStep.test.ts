@@ -33,7 +33,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 const REF = "@workspace/audio/shared-delay";
 
@@ -67,7 +67,7 @@ describe("a chain step naming an inherited module by ref", () => {
         "modules_from: [ ../_modules ]",
       ),
     );
-    insertChainStepAfter(dir, "synth:lead", { module: REF });
+    insertChainStepAfter(dir, "lead", { module: REF });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -87,7 +87,7 @@ describe("a chain step naming an inherited module by ref", () => {
   it("is offered as a completion, alongside the project's own modules", () => {
     const h = projectHints(dir);
     expect(h.modules).toContain(REF);
-    expect(h.modules).toContain("synth:lead"); // the local names are still there
+    expect(h.modules).toContain("lead"); // the local names are still there
     // io is offered too — both roles are chain nodes now: an "out" ends a chain, an
     // "in" feeds one. (An inherited INSTANCE is nameable as well, which is the whole
     // point for io/IN: `module populate` files one per physical input.)

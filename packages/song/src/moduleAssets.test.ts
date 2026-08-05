@@ -17,7 +17,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
-import { listModuleAssets, loadModules } from "./loader";
+import { listModuleAssets, loadModuleRefs, loadModules } from "./loader";
+import { resolveModuleMap } from "./moduleResolve";
 import { compileNodeProject } from "./nodeProject";
 import { setModuleAsset } from "./projectEdit";
 import { insertChainStepAfter, writeModule } from "./testSupport";
@@ -31,7 +32,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo",
+  "synth-demo.l8",
 );
 
 let ws: string;
@@ -110,7 +111,7 @@ describe("a file-valued param", () => {
       "{}",
       "utf8",
     );
-    insertChainStepAfter(proj, "synth", { module: "amp" });
+    insertChainStepAfter(proj, "lead", { module: "amp" });
 
     const melody = compileNodeProject(proj).tracks.find(
       (t) => t.id === "melody",
@@ -132,25 +133,33 @@ describe("a file-valued param", () => {
       plugin: { type: "internal", name: "Neural Amp Modeler" },
       params: { nam: "does-not-exist.nam" },
     });
-    insertChainStepAfter(proj, "synth", { module: "amp" });
+    insertChainStepAfter(proj, "lead", { module: "amp" });
     const w = loadGraph(proj).warnings;
     expect(w.some((m) => m.includes("does-not-exist.nam"))).toBe(true);
   });
 
-  it("lets an instance carry its own model", () => {
+  it("lets an instance carry its own model, out of its OWN assets folder", () => {
     // Two amps sharing one module, each with its own profile — and because it is a param, the
-    // override merges per key, so the instance keeps the generic's other settings.
+    // override merges per key, so the instance keeps the module's other settings.
+    //
+    // The instance's model sits in `instances/assets/`, not in the module's: what belongs to
+    // one use of a module lives beside that use, which is what lets `instances/` stay flat.
     file(
       "modules/audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "jcm800.nam"\n  Input: -5\n',
     );
-    file("modules/audio/amp/clean.yaml", 'params:\n  nam: "twin.nam"\n');
     file("modules/audio/amp/assets/jcm800.nam");
-    file("modules/audio/amp/assets/twin.nam");
+    file(
+      "instances/clean.yaml",
+      'extends: "@project/audio/amp"\nparams:\n  nam: "twin.nam"\n',
+    );
+    file("instances/assets/twin.nam");
     const mods = loadModules(dir);
     expect(mods.amp.assets?.nam).toBe("jcm800.nam");
-    expect(mods["amp:clean"].assets?.nam).toBe("twin.nam");
-    expect(mods["amp:clean"].params?.Input).toBe(-5);
+    expect(mods.clean.assets?.nam).toBe("twin.nam");
+    // …and what it did NOT restate comes down through extends.
+    const resolved = resolveModuleMap(mods, loadModuleRefs(dir, {}));
+    expect(resolved.clean.params?.Input).toBe(-5);
   });
 
   it("writes a pick into the module's own file, and clears it again", () => {

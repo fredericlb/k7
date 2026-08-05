@@ -25,11 +25,17 @@ declare const RESOLVED: unique symbol;
 export type ResolvedModule = LoadedModule & { readonly [RESOLVED]: true };
 
 /**
- * Fields a module always owns, never inherits.
+ * Fields a module owns rather than inherits — WHEN IT HAS THEM.
  *
- * They come from WHERE IT LIVES, not from what it extends: `kind` and `inputs` off its
- * type folder, `category` off the folder that draws its icon, `file`/`instance`/`name` off
- * the file itself. A module in `audio/` that extends an instrument is still an effect.
+ * They come from where it lives: `kind` and `inputs` off its type folder, `category` off the
+ * folder that draws its icon, `file`/`instance`/`name` off the file itself. A module in
+ * `audio/` that extends an instrument is still an effect.
+ *
+ * "When it has them" is load-bearing, and the loop below says it: the child's value wins only
+ * if the KEY IS PRESENT. An instance in the project's flat `instances/` has no type folder to
+ * read `kind`, `inputs` or `category` off, so the loader leaves them absent and they arrive
+ * from whatever it extends — which is the whole reason an instance no longer has to be filed
+ * under the module it uses. See docs/instances.md.
  */
 const OWN_ONLY = [
   "kind",
@@ -38,6 +44,7 @@ const OWN_ONLY = [
   "name",
   "file",
   "instance",
+  "home",
 ] as const;
 
 /** Every key of `o` whose value is not undefined — the shape a spread should carry. */

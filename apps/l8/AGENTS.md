@@ -1,4 +1,4 @@
-# AGENTS.md — l8
+﻿# AGENTS.md — l8
 
 A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web editor
 is your studio.
@@ -155,9 +155,13 @@ and links here with two parameters:
 never seen it — then opens the project. Arriving with no parameters redirects to st0's
 `/projects`; there is deliberately no fallback picker.
 
-`src/launch.ts` reads those parameters **at import time**, because `useViewRoute` rewrites the
-address from `routes.ts` alone within a frame of the first render and would otherwise drop
-them. Read `frontend/docs/launch.md` before touching it.
+`@studio/project-shell/launch` reads those parameters **at import time** — `main.tsx` imports
+it for that side effect alone — because `useViewRoute` rewrites the address from `routes.ts`
+alone within a frame of the first render and would otherwise drop them. Read
+`packages/project-shell/docs/launch.md` before touching it.
+
+The gate itself is that package's too, and m9 mounts the same one; `components/ProjectGate.tsx`
+is a wrapper holding this app's wording and what to render once the project is open.
 
 Gone from here: `WorkspaceGate`, `WorkspaceSelect`, `SshKeyPage`, and `api.listWorkspaces` /
 `createWorkspace` / `sshKey` / `generateSshKey`. The deploy key is st0's now — one key per

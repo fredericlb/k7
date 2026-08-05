@@ -187,8 +187,9 @@ export function projectHints(dir: string): Hints {
   // built-in nobody has authored a param on yet — the mixer, on the day it shipped — has an empty bind list and
   // no panel can be built for it. `paramMetaByBase` carries the ranges alongside, and only the plugin knows those.
   //
-  // Instances count as well as extenders. A module used as `mixer:vox` is `mixer` with its own values, exactly as
-  // an extender is; leaving them out meant every param on every strip in a real song was invisible here.
+  // Instances count, and they arrive as ORDINARY extenders: one use of `mixer` is a file in
+  // `instances/` that extends it. Leaving them out meant every param on every strip in a real
+  // song was invisible here.
   const paramsByBase: Record<string, string[]> = {};
   const paramMetaByBase: Record<string, Record<string, ParamRange>> = {};
   for (const ref of baseRefs) {
@@ -203,16 +204,13 @@ export function projectHints(dir: string): Hints {
       }
       paramMetaByBase[ref] = meta;
     }
-    // A local base is keyed "<category>/<file>" here but named by its bare file elsewhere, which is how an
-    // instance names it (`mixer:vox`). Match on both so the local and inherited spellings behave the same.
-    const localName = base?.file ? String(base.file) : null;
-    for (const b of Object.values<any>(modules)) {
-      const isExtender = b?.extends === ref;
-      const isInstance =
-        b?.instance != null && localName != null && b?.file === localName;
-      if (isExtender || isInstance)
+    // An instance no longer needs a case of its own: it names what it uses with `extends`, like
+    // any other extender. Both spellings of a local ref count — a project's own module answers to
+    // the bare "<category>/<file>" and to "@project/<category>/<file>", and new files write the
+    // second (see loadModuleRefs).
+    for (const b of Object.values<any>(modules))
+      if (b?.extends === ref || b?.extends === `@project/${ref}`)
         for (const k of Object.keys(b?.params ?? {})) keys.add(k);
-    }
     if (keys.size) paramsByBase[ref] = [...keys].sort();
   }
 
@@ -230,17 +228,14 @@ export function projectHints(dir: string): Hints {
       }
     }
   };
-  // Each module is its own folder holding a fixed generic file, plus one per instance.
-  // "module:" keys by the chain `use` ref — the bare name for the generic,
-  // "<name>:<instance>" for an instance, each pointing at its OWN file; "base:" keys by
-  // "type/name" (an `extends` ref, always the generic).
+  // "module:" keys by the chain `use` ref, pointing at the file that IS that thing: a module
+  // is `modules/<type>/<name>/module.yaml`, an instance is `instances/<name>.yaml`. An
+  // instance carries its own folder in `home` precisely because it is no longer under the
+  // module it uses. "base:" keys by "type/name" — an `extends` ref, always a module.
   for (const [key, b] of Object.entries<any>(modules))
-    if (b?.category)
-      addPath(
-        "module",
-        key,
-        `modules/${b.category}/${b.file ?? key}/${b.instance ?? "module"}`,
-      );
+    if (b?.home) addPath("module", key, `${b.home}/${key}`);
+    else if (b?.category)
+      addPath("module", key, `modules/${b.category}/${b.file ?? key}/module`);
   for (const ref of baseRefs)
     if (!ref.startsWith("@")) {
       const [t, n] = ref.split("/");

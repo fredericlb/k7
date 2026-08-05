@@ -1,5 +1,6 @@
-// Waveform.cpp — `--waveform <file>`: decode an audio file into a placement-independent peak+RMS envelope and
-// cache it as `{file}.cache`, stamped with a fingerprint the file service recomputes byte-for-byte.
+// Waveform.cpp — `--waveform <file> [<sensitivity>]`: decode an audio file into a placement-independent
+// peak+RMS envelope, detect its transient onsets and estimate its tempo, and cache all of it as
+// `{file}.cache`, stamped with a fingerprint the file service recomputes byte-for-byte.
 // Region slicing and the bar/beat grid stay in Node. See docs/cliModes.md.
 
 #include "EngineHost.h"
@@ -84,9 +85,133 @@ void appendFixed(std::string& out, float v) {
     out += b;
 }
 
+// --- transient detection (MUST match detectTransients in @studio/commands/waveform.ts) ---------
+// Bucket indices where the peak envelope JUMPS: mean + sensitivity*stddev of the first derivative. It runs here,
+// on the file's own envelope at its native resolution, rather than per clip region on a resampled one — the same
+// audio then reads the same onsets wherever it is drawn, and a region cannot invent detail the envelope lacks.
+// See docs/cliModes.md.
+constexpr int kMinTransientGap = 3;  // buckets, so one attack is not counted twice
+
+std::vector<std::size_t> detectTransients(const std::vector<float>& peak, double sensitivity) {
+    if (peak.size() < 3) return {};
+    std::vector<double> diffs;
+    diffs.reserve(peak.size() - 1);
+    for (std::size_t i = 1; i < peak.size(); ++i)
+        diffs.push_back(static_cast<double>(peak[i]) - static_cast<double>(peak[i - 1]));
+    if (diffs.empty()) return {};
+
+    double sum = 0.0;
+    for (const double d : diffs) sum += d;
+    const double mean = sum / static_cast<double>(diffs.size());
+    double ssq = 0.0;
+    for (const double d : diffs) ssq += (d - mean) * (d - mean);
+    const double std = std::sqrt(ssq / static_cast<double>(diffs.size()));
+    const double threshold = mean + sensitivity * std;
+
+    std::vector<std::size_t> result;
+    std::int64_t lastIdx = -kMinTransientGap;
+    for (std::size_t i = 0; i < diffs.size(); ++i) {
+        const std::int64_t idx = static_cast<std::int64_t>(i);
+        if (diffs[i] > threshold && idx - lastIdx >= kMinTransientGap) {
+            result.push_back(i + 1);  // +1: the bucket AFTER the jump is the transient onset
+            lastIdx = idx + 1;
+        }
+    }
+    return result;
+}
+
+// --- tempo -------------------------------------------------------------------------------------
+// The musical range a detected tempo is allowed to land in.
+constexpr double kMinBpm = 60.0;
+constexpr double kMaxBpm = 200.0;
+// A tempo PRIOR, not a fold: correlation is weighted by a Gaussian in log2-tempo centred here, so a
+// musically ordinary tempo beats its own half or double unless the audio really insists. This is Ellis's
+// weighting, and it is what an autocorrelation needs to stop reporting half-time — measured below.
+constexpr double kPriorCentreBpm = 120.0;
+constexpr double kPriorOctaves = 1.0;  // sigma, in octaves
+
+/**
+ * Tempo from an onset-strength envelope, by autocorrelation.
+ *
+ * `onset` is half-wave-rectified first difference at a FIXED rate (see the decode loop), not the stored
+ * `peak` envelope: that one is capped at kMaxBuckets, so a five-minute track would land at ~27 Hz and a
+ * beat would be a dozen samples wide — far too coarse to place a tempo. Detection needs uniform time
+ * resolution, which is a different requirement from drawing.
+ *
+ * Returns 0 when nothing correlates — silence, one sustained note, free time. A zero is written as "no
+ * tempo", never as a guess, because a wrong bpm in a sidecar is worse than an absent one: it is the
+ * number every later grid trusts.
+ */
+double detectBpm(const std::vector<float>& onset, double rate) {
+    if (onset.size() < 16 || rate <= 0.0) return 0.0;
+
+    // Mean-remove, so a loud passage does not simply correlate with itself.
+    double mean = 0.0;
+    for (const float v : onset) mean += v;
+    mean /= static_cast<double>(onset.size());
+    std::vector<double> x(onset.size());
+    for (std::size_t i = 0; i < onset.size(); ++i) x[i] = static_cast<double>(onset[i]) - mean;
+
+    const std::int64_t minLag = static_cast<std::int64_t>(std::floor(rate * 60.0 / kMaxBpm));
+    const std::int64_t maxLag = static_cast<std::int64_t>(std::ceil(rate * 60.0 / kMinBpm));
+    if (minLag < 1 || maxLag <= minLag || static_cast<std::size_t>(maxLag) >= x.size()) return 0.0;
+
+    // Normalised by the overlap, or a short lag wins for having more terms to add up.
+    const auto corr = [&](std::int64_t lag) {
+        double sum = 0.0;
+        const std::size_t n = x.size() - static_cast<std::size_t>(lag);
+        for (std::size_t i = 0; i < n; ++i) sum += x[i] * x[i + static_cast<std::size_t>(lag)];
+        return sum / static_cast<double>(n);
+    };
+    const auto prior = [&](std::int64_t lag) {
+        const double bpm = 60.0 * rate / static_cast<double>(lag);
+        const double oct = std::log2(bpm / kPriorCentreBpm) / kPriorOctaves;
+        return std::exp(-0.5 * oct * oct);
+    };
+
+    double best = 0.0;
+    std::int64_t bestLag = 0;
+    for (std::int64_t lag = minLag; lag <= maxLag; ++lag) {
+        const double score = corr(lag) * prior(lag);
+        if (score > best) {
+            best = score;
+            bestLag = lag;
+        }
+    }
+    if (bestLag <= 0 || best <= 0.0) return 0.0;
+
+    // Parabolic interpolation around the winning lag: at 187 Hz a whole-sample lag is ~1 bpm at 120,
+    // and a tempo that reads 119 when it is 120 makes every derived grid drift.
+    double lagF = static_cast<double>(bestLag);
+    if (bestLag > minLag && bestLag < maxLag) {
+        const double ym1 = corr(bestLag - 1) * prior(bestLag - 1);
+        const double y0 = best;
+        const double yp1 = corr(bestLag + 1) * prior(bestLag + 1);
+        const double denom = ym1 - 2.0 * y0 + yp1;
+        if (std::fabs(denom) > 1e-12) {
+            const double shift = 0.5 * (ym1 - yp1) / denom;
+            if (std::fabs(shift) <= 1.0) lagF += shift;
+        }
+    }
+
+    const double bpm = 60.0 * rate / lagF;
+    if (bpm < kMinBpm || bpm > kMaxBpm) return 0.0;
+    // A PRIOR and not a fold, and the difference was measured. Hard-folding into a "tempo people tap"
+    // window (80–160) reported 174 as 87 and 75 as 150 — it broke both cases it was meant to help. With no
+    // weighting at all, raw autocorrelation reported 140 as 70: for a periodic signal the double lag
+    // correlates about as well, since every second beat lands on it.
+    //
+    // The prior settles that by preference rather than by decree, and a tempo far from 120 can still win
+    // if the audio insists. What it does NOT fix is the far end: 174 still reads 87, because at one octave
+    // out the prior favours 87 and nothing in an autocorrelation can tell a genre apart. That is a known
+    // limit of this class of detector, and it is acceptable here only because the number is a STARTING
+    // POINT the person edits in song.yaml.
+    return std::round(bpm * 100.0) / 100.0;
+}
+
 }  // namespace
 
-int writeWaveformCache(const std::string& audioPath) {
+int writeWaveformCache(const std::string& audioPath, double transientSensitivity) {
     const juce::File file{juce::String(audioPath)};
     if (!file.existsAsFile()) {
         std::cerr << "[waveform] no such file: " << audioPath << "\n";
@@ -117,6 +242,14 @@ int writeWaveformCache(const std::string& audioPath) {
         ? static_cast<double>(frames) / static_cast<double>(buckets)
         : 1.0;
 
+    // A SECOND envelope, at a fixed hop and therefore a fixed rate, for tempo alone. The one above is
+    // capped at kMaxBuckets so a long file coarsens — right for drawing, useless for finding a beat,
+    // where a five-minute track would land at ~27 Hz. This one stays at sampleRate/kFramesPerBucket
+    // whatever the length: ~187 Hz at 48k, about 220 KB of float for a five-minute track.
+    const std::int64_t tempoHops = frames > 0 ? (frames + kFramesPerBucket - 1) / kFramesPerBucket : 0;
+    std::vector<float> tempoEnv(static_cast<std::size_t>(std::max<std::int64_t>(tempoHops, 0)), 0.0f);
+    const double tempoRate = sampleRate / static_cast<double>(kFramesPerBucket);
+
     juce::AudioBuffer<float> block(std::max(channels, 1), kReadBlock);
     std::int64_t pos = 0;
     while (pos < frames) {
@@ -132,15 +265,30 @@ int writeWaveformCache(const std::string& audioPath) {
             if (a > peak[static_cast<std::size_t>(b)]) peak[static_cast<std::size_t>(b)] = a;
             sumSq[static_cast<std::size_t>(b)] += static_cast<double>(v) * v;
             ++count[static_cast<std::size_t>(b)];
+
+            const std::int64_t h = (pos + i) / kFramesPerBucket;
+            if (h >= 0 && h < static_cast<std::int64_t>(tempoEnv.size()) &&
+                a > tempoEnv[static_cast<std::size_t>(h)])
+                tempoEnv[static_cast<std::size_t>(h)] = a;
         }
         pos += n;
     }
+
+    // Half-wave-rectified first difference: a beat is where energy RISES. Keeping the raw envelope would
+    // correlate a sustained note with itself and report its length as the tempo.
+    for (std::size_t i = tempoEnv.size(); i-- > 1;)
+        tempoEnv[i] = std::max(0.0f, tempoEnv[i] - tempoEnv[i - 1]);
+    if (!tempoEnv.empty()) tempoEnv[0] = 0.0f;
+    const double bpm = detectBpm(tempoEnv, tempoRate);
 
     // Build the JSON sidecar by hand — arrays of thousands of floats, and no reason to pull a JSON library into
     // the engine library, which otherwise keeps none.
     std::string out;
     out.reserve(static_cast<std::size_t>(buckets) * 14 + 256);
-    out += "{\"v\":1,\"fingerprint\":\"";
+    // v2 added `transients` + `sensitivity`, v3 added `bpm`. The Node side REQUIRES the current version
+    // (waveformCache.ts): an older sidecar has a matching fingerprint and would otherwise read as fresh
+    // forever, missing whatever the bump added.
+    out += "{\"v\":3,\"fingerprint\":\"";
     out += fileFingerprint(audioPath);
     out += "\",\"sampleRate\":";
     out += std::to_string(static_cast<long long>(std::llround(sampleRate)));
@@ -164,6 +312,32 @@ int writeWaveformCache(const std::string& audioPath) {
             ? static_cast<float>(std::sqrt(sumSq[b] / static_cast<double>(count[b])))
             : 0.0f;
         appendFixed(out, rms);
+    }
+    // 0 means "no tempo found" — silence, one sustained note, free time. Never a guess: this is the number
+    // every later grid would trust.
+    out += "],\"bpm\":";
+    char bpmBuf[32];
+    std::snprintf(bpmBuf, sizeof(bpmBuf), "%.2f", bpm);
+    out += bpmBuf;
+    out += ",\"sensitivity\":";
+    char sens[32];
+    std::snprintf(sens, sizeof(sens), "%.4f", transientSensitivity);
+    out += sens;
+    // Onsets in FILE seconds, not bucket indices: a consumer maps them onto whatever region it draws, and
+    // seconds survive a change of bucket density that indices would not.
+    out += ",\"transients\":[";
+    {
+        const std::vector<std::size_t> onsets = detectTransients(peak, transientSensitivity);
+        const double fileSeconds = sampleRate > 0 ? frames / sampleRate : 0.0;
+        for (std::size_t i = 0; i < onsets.size(); ++i) {
+            if (i) out += ',';
+            const double t = peak.empty()
+                ? 0.0
+                : (static_cast<double>(onsets[i]) / static_cast<double>(peak.size())) * fileSeconds;
+            char tb[32];
+            std::snprintf(tb, sizeof(tb), "%.6f", t);
+            out += tb;
+        }
     }
     out += "]}";
 
