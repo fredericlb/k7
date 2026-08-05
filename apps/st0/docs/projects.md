@@ -104,10 +104,15 @@ service en récupère une copie par le canal que les deux services partagent dé
 (`MEDIATEK_URL` + `MEDIATEK_TOKEN`). **Une seule clé de déploiement à enregistrer chez
 l'hébergeur git**, au lieu de deux.
 
-Ce que ça coûte et ce qui l'encadre — route en bearer seul, sujet du jeton devant être le
-propriétaire, `no-store`, jamais journalisée — est dans
-[packages/git-repos/docs/keys.md](../../../packages/git-repos/docs/keys.md). C'est un
+Ce que ça coûte et ce qui l'encadre — route en bearer seul, `no-store`, jamais journalisée —
+est dans [packages/git-repos/docs/keys.md](../../../packages/git-repos/docs/keys.md). C'est un
 compromis assumé, pas un oubli : le lire avant de le « corriger ».
+
+**Pour qui** la machine demande est une question à part, et c'est celle qui a coûté le plus :
+le jeton qu'une machine détient est celui d'un service, qui n'a pas de clé, tandis que la clé
+est classée sous le sujet OIDC de la personne. La route accepte donc qu'un jeton de service
+nomme quelqu'un, et st0 tient l'annuaire `email → sujet` qui relie les deux orthographes —
+[sshKeyForService.md](sshKeyForService.md).
 
 ## Où vivent les choses
 

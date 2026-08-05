@@ -39,18 +39,11 @@ C'est la même adresse que `packages/git-repos/docs/keys.md` donne pour le dev
 superviseur le lit avant de le passer. Le lire directement ne fait que retirer un
 intermédiaire absent.
 
-## Ce que ce repli ne règle pas
+## Et le sujet du token
 
-`packages/git-repos/docs/keys.md` demande que **le sujet du token SOIT le propriétaire de la
-clé** : « `MEDIATEK_TOKEN` représente un compte, donc une machine ne peut tirer que la clé de
-son propre utilisateur. C'est vérifié, pas supposé. » La route `/api/projects/ssh-key/private`
-cherche bien la clé dans le dossier du sujet du token.
+Savoir où demander ne dit pas encore **pour qui**. Le token qu'une machine détient est celui
+d'un service (`sub: "service:l8"`), qui n'a pas de clé à lui, alors que la clé est classée
+sous le sujet OIDC de la personne. `sshKeys.ts` nomme donc l'utilisateur dans la requête —
+l'email, la seule orthographe que ce service connaisse — et st0 fait le pont vers le sujet.
 
-Or `scripts/tokens.mjs` frappe ce token avec `sub: "service:l8"`, et
-`packages/engine-host/src/tokensScript.test.ts` épingle cette valeur. Une identité de service
-n'a pas de clé : la route répond alors `404 no SSH key yet`, y compris quand la clé de la
-personne existe.
-
-Les deux moitiés du dépôt ne sont donc pas d'accord sur ce que ce token représente, et le
-trancher est une décision d'identité — pas un détail de plomberie. Tant qu'elle n'est pas
-prise, ce repli amène la requête jusqu'à st0 ; il ne lui donne pas le bon sujet.
+C'est une décision d'identité, avec son prix : `apps/st0/docs/sshKeyForService.md`.
