@@ -137,10 +137,22 @@ export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
  * (which stays numeric), and the panel draws them as a dropdown of that folder rather than a
  * knob. A param not in this list is a number, and that is still the overwhelming majority.
  */
-export const FILE_PARAMS = ["nam"] as const;
+export const FILE_PARAMS = ["nam", "onnx"] as const;
 export type FileParam = (typeof FILE_PARAMS)[number];
 export const isFileParam = (name: string): name is FileParam =>
   (FILE_PARAMS as readonly string[]).includes(name);
+
+/**
+ * `plugin: { type: offline }` — a module with NO engine plugin, whose outputs are produced
+ * onto disk by a pass before the render.
+ *
+ * It lives here and not in `@studio/engine-protocol/build` beside `JSDSP_TYPE` because it is
+ * the one plugin type that never reaches the wire: there is nothing for the engine to load.
+ * That is also why it must be a WORD — the compiler's gate drops any type it does not know,
+ * silently, and a module dropped for being unknown is indistinguishable from one dropped for
+ * being offline. See docs/coldModules.md.
+ */
+export const OFFLINE_TYPE = "offline";
 
 // --- ports (see docs/ports.md) --------------------------------------------------
 

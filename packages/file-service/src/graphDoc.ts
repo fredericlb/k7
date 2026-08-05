@@ -9,7 +9,11 @@ import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
 import { listModuleAssets } from "@studio/song/loader";
-import { EXTERNAL_PLUGIN_FORMATS, JSDSP_TYPE } from "@studio/song/project";
+import {
+  EXTERNAL_PLUGIN_FORMATS,
+  JSDSP_TYPE,
+  OFFLINE_TYPE,
+} from "@studio/song/project";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
 // was declared here a second time, identically, and docs/loader.md's list of copies to
@@ -65,9 +69,13 @@ export function buildGraphDoc(dir: string): WebGraph {
         // (see enginePlugin). Missing here it cost the node BOTH its colour and its values —
         // red, and no `pluginId`, which is the address the panel asks the engine for a
         // parameter by. A module that plays perfectly drew as one that could not load.
+        // `offline` is known for the same reason `jsdsp` is: the compiler recognises it, so a
+        // node drawn red — the colour for "the engine cannot load this" — would be a lie about a
+        // module that is working exactly as written. It loads nothing BY DESIGN.
         const known =
           fmt === "internal" ||
           fmt === JSDSP_TYPE ||
+          fmt === OFFLINE_TYPE ||
           EXTERNAL_PLUGIN_FORMATS.has(fmt);
         const notSupported = isPlugin && fmt === "not_supported";
         const unscanned =

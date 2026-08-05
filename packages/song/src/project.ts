@@ -74,6 +74,8 @@ export {
   enginePlugin,
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
+// …and the one plugin type that is NOT on the wire, so it stays in song's own vocabulary.
+export { OFFLINE_TYPE } from "./moduleTypes";
 
 // Fold each group's mute/solo onto its members on the way to the engine, which resolves
 // both per audio track and knows nothing about groups. OR, not override — see

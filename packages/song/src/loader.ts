@@ -16,6 +16,7 @@ import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import { engineModules, engineRef } from "./engineCatalogue";
+import { modelsRoot } from "./modelCache";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
 import {
   categoryForRole,
@@ -158,21 +159,36 @@ function portsOf(
 /** Where a module keeps the files it loads, inside its own folder. */
 export const MODULE_ASSETS_DIR = "assets";
 
-/** What an asset folder holds. One entry, because one param takes a file — see FILE_PARAMS. */
-const ASSET_EXT = [".nam"];
+/** What an asset folder holds — one extension per file-valued param, see FILE_PARAMS. */
+const ASSET_EXT = [".nam", ".onnx"];
 
-/** A module's own `assets/<ref>`, or undefined. Confined to that folder — a `../..` reference
- *  is refused rather than resolved, so a module cannot reach outside itself for its sound. */
+/**
+ * A module's own `assets/<ref>`, or undefined. Confined to that folder — a `../..` reference
+ * is refused rather than resolved, so a module cannot reach outside itself for its sound.
+ *
+ * Falling back to the machine's model cache is the ONE exception, and it is not a hole in that
+ * rule: the ref is still a plain name under `assets/`, still refused if it climbs out, and the
+ * cache is only consulted for the name that survived the check. What it buys is a model too big
+ * to travel — `moduleAssets.md` argues a module carries its material so it survives a fork, and
+ * that argument inverts past a few hundred megabytes, where `forkSharedModule`'s recursive copy
+ * would duplicate the file per fork, per médiathèque upload and per machine synced to.
+ */
 export function resolveModuleAsset(
   ref: unknown,
   folderAbs: string | undefined,
 ): string | undefined {
-  if (typeof ref !== "string" || !ref || !folderAbs || isAbsolute(ref))
-    return undefined;
-  const root = resolve(folderAbs, MODULE_ASSETS_DIR);
-  const abs = resolve(root, ref);
-  const inside = abs === root || abs.startsWith(root + sep);
-  return inside && existsSync(abs) ? abs : undefined;
+  if (typeof ref !== "string" || !ref || isAbsolute(ref)) return undefined;
+  if (folderAbs) {
+    const root = resolve(folderAbs, MODULE_ASSETS_DIR);
+    const abs = resolve(root, ref);
+    const inside = abs === root || abs.startsWith(root + sep);
+    if (!inside) return undefined; // an escaping ref is refused, never redirected to the cache
+    if (existsSync(abs)) return abs;
+  }
+  const cacheRoot = modelsRoot();
+  const cached = resolve(cacheRoot, ref);
+  const inCache = cached === cacheRoot || cached.startsWith(cacheRoot + sep);
+  return inCache && existsSync(cached) ? cached : undefined;
 }
 
 /**

@@ -54,6 +54,7 @@ import {
   enginePlugin,
   JSDSP_TYPE,
   MIXER_PLUGIN,
+  OFFLINE_TYPE,
   parseMarkers,
   parseSettings,
 } from "./project";
@@ -637,6 +638,13 @@ export function compileNodeProject(dir: string): ProjectDoc {
       // module compiles to nothing is how a bypass looks. The médiathèque's own modules are
       // exactly the ones already migrated, so they were the ones that vanished.
       const rawType = String(plugin?.type ?? "").toLowerCase();
+      // `offline` is the third word this gate knows, and it is skipped on PURPOSE rather than
+      // by falling through the branch below. A module that says it is offline has no engine
+      // plugin at all: a pass produces its outputs onto disk before the render, which is how a
+      // stem separator — one input, four audio files — is expressible at all in a model where a
+      // chain step is a serial insert on one track. Saying it here rather than letting it drop
+      // is the whole lesson of the paragraph above. See docs/coldModules.md.
+      if (rawType === OFFLINE_TYPE) continue;
       if (
         rawType !== "internal" &&
         rawType !== JSDSP_TYPE &&
