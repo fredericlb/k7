@@ -86,9 +86,12 @@ export function makeCompleteArg(files: () => string[]) {
     partial: string,
   ): Promise<string[]> => {
     const canonical = canonicalizeCommand(command);
-    // `new project`'s first arg is a fixed audio|video choice the backend knows nothing about, so offer it here.
+    // `new project`'s first arg is a fixed choice the backend knows nothing about, so offer it
+    // here. `m9` is a SET — two decks and a crossfade — and lands as a `.m9` folder that this
+    // app cannot open; it is offered anyway because the workspace is one clone and l8 is where
+    // the command bar is.
     if (canonical === "new project" && priorArgs.length === 0)
-      return ["audio", "video"].filter((t) =>
+      return ["audio", "video", "m9"].filter((t) =>
         t.startsWith(partial.toLowerCase()),
       );
     if (canonical === "file" && priorArgs.length === 0) {

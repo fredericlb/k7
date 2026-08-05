@@ -78,6 +78,7 @@ import {
   loadProject,
   trackMixer,
 } from "@studio/song/project";
+import { projectTypeIssues } from "@studio/song/projectType";
 import { isInSharedModules } from "@studio/song/sharedFolders";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
@@ -563,7 +564,10 @@ export class Workspace {
   }
 
   /** Scaffold a NEW project folder at the workspace root — see projectLifecycle.ts. */
-  createProject(type: "audio" | "video", rawName: string): { project: string } {
+  createProject(
+    type: "audio" | "video" | "m9",
+    rawName: string,
+  ): { project: string } {
     return createProjectIn(this.lifecycleHost(), type, rawName);
   }
 
@@ -1417,6 +1421,10 @@ export class Workspace {
           ...notSupportedModules(dir),
           ...libraryModuleIssues(dir),
           ...deadProjectFields(dir),
+          // A folder named `.m9` that declares `type: l8`, or the reverse. It compiles
+          // either way — the two signals feed different readers — which is exactly why it
+          // has to be said out loud rather than left for the day someone trusts the file.
+          ...projectTypeIssues(dir),
         ],
       };
     } catch (e) {

@@ -7,11 +7,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scaffold } from "@studio/song/scaffold";
+import { scaffoldM9 } from "@studio/song/scaffoldM9";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";
 import type { Translation } from "@studio/translator/model";
 import { resolvePluginParams } from "@studio/translator/params";
+import { PROJECT_SUFFIXES, projectLabel } from "@studio/web-protocol/projects";
 
 /** What the lifecycle functions need from their workspace — the path guards. */
 export interface LifecycleHost {
@@ -124,25 +126,35 @@ export function importProjectInto(
 /**
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
  * relative path. This is the web command bar's `new project <type> <name>`. `type` is
- * "audio" (the default variant) or "video" (adds picture: a viewport, the bundled
- * sample clip, and two video tracks).
+ * "audio" (the default variant), "video" (adds picture: a viewport, the bundled
+ * sample clip, and two video tracks), or "m9" (a SET: two decks, a crossfade, an empty
+ * set list — a different file map, written by @studio/song/scaffoldM9).
  *
  * The name is sanitised to a single top-level segment (no separators, no leading dot
  * that would hide it) so it always lands directly under the root. Refuses to write over
  * an existing non-empty folder — same contract as the CLI — rather than silently
  * uniquify, so the project lands at exactly the name the user typed or not at all.
+ *
+ * An m9 set gets `.m9` appended when the name lacks it. Not cosmetic and not a default a
+ * caller may skip: the folder's SUFFIX is what makes st0 offer it to m9 at all
+ * (@studio/web-protocol/projects), so a set without one is a set nothing can open.
  */
 export function createProjectIn(
   host: LifecycleHost,
-  type: "audio" | "video",
+  type: "audio" | "video" | "m9",
   rawName: string,
 ): { project: string } {
-  const name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
+  let name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
+  if (type === "m9" && !name.endsWith(PROJECT_SUFFIXES.m9))
+    name += PROJECT_SUFFIXES.m9;
   const abs = host.safePath(name);
   if (abs === host.root) throw new Error("project name required");
   if (existsSync(abs) && readdirSync(abs).length)
     throw new Error(`"${name}" already exists and is not empty`);
-  scaffold(abs, name, type === "video");
+  // The label the project CALLS itself drops the suffix — `winter.m9` is the folder,
+  // "winter" is the set. projectLabel is the one place that rule is stated.
+  if (type === "m9") scaffoldM9(abs, projectLabel(name));
+  else scaffold(abs, name, type === "video");
   return { project: host.toRel(abs) };
 }

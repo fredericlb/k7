@@ -7,6 +7,7 @@ import {
   loadChains,
   loadModules,
   loadProjectRoot,
+  loadSongs,
   projectModules,
 } from "./loader";
 import { MEDIATEK_REF } from "./mediatekRoot";
@@ -77,6 +78,29 @@ export function mediatekRefs(dir: string): string[] {
   }
 
   return [...out].sort();
+}
+
+/**
+ * Every médiathèque SONG this project names — an m9 set's list, and empty for an l8 song.
+ *
+ * A thin wrapper over `loadSongs`, and here rather than left to callers because this file is
+ * where "what does this project reach for" is answered, and a cache sync has exactly one
+ * question to ask. The two halves stay SEPARATE functions returning separate vocabularies
+ * (`modules/…` against `songs/…`): a module ref omits its family and a song ref carries one,
+ * so a single merged list would need to be taken apart again by whoever fetches it.
+ *
+ * This is what the file is FOR. A set names forty songs; the machine that plays them opens
+ * file paths, so all forty must be on its disk before the gig, and the venue has no wifi.
+ * Read off the YAML before anything resolves it, for the reason the modules above are: a ref
+ * that resolves to nothing is precisely the one worth fetching.
+ */
+export function mediatekSongRefs(dir: string): string[] {
+  try {
+    return loadSongs(dir);
+  } catch {
+    /* an unreadable set list costs the songs, never the modules */
+    return [];
+  }
 }
 
 /**

@@ -47,6 +47,11 @@
     "./engineFace": "./src/engineFace.ts",
     "./mediatekRoot": "./src/mediatekRoot.ts",
     "./mediatekRefs": "./src/mediatekRefs.ts",
+    "./songRef": "./src/songRef.ts",
+    "./yaml/songsFile": "./src/yaml/songsFile.ts",
+    "./yaml/songsSchema": "./src/yaml/songsSchema.ts",
+    "./projectType": "./src/projectType.ts",
+    "./scaffoldM9": "./src/scaffoldM9.ts",
     "./moduleTypes": "./src/moduleTypes.ts"
   },
   "scripts": {
@@ -66,7 +71,8 @@
     "zod": "^4.4.3",
     "@studio/dsp": "*",
     "@studio/engine-protocol": "*",
-    "@studio/graph-model": "*"
+    "@studio/graph-model": "*",
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

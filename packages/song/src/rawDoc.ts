@@ -249,6 +249,8 @@ export interface RawProjectRoot {
     libraries_from?: string[];
     [key: string]: unknown;
   };
+  /** The dialect the folder declares — "l8" or "m9". A root sibling; see projectSchema.ts. */
+  type?: string;
   trackOrder?: string[];
   markers?: unknown;
   chains?: unknown;

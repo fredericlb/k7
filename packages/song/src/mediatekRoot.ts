@@ -16,8 +16,11 @@ import { join, resolve } from "node:path";
  * is the ref PREFIX, which is a name in the song's own vocabulary and not a path — the point
  * it always was, since `project.yaml` is committed and an absolute path would break on the
  * next machine.
+ *
+ * DEFINED in songRef.ts, a leaf with no imports, and re-exported here: this file opens
+ * `node:os`, and a browser drawing a set list needs the token and not the layout.
  */
-export const MEDIATEK_REF = "@mediatek";
+export { MEDIATEK_REF } from "./songRef";
 
 /**
  * `~/.studio/mediatek`, or `$STUDIO_MEDIATEK` when the user moved it off the system drive

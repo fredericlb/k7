@@ -1,0 +1,94 @@
+import { describe, expect, it } from "vitest";
+import { songIdOf, songPathPrefix, songRefOf } from "../songRef";
+import { parseSongs, songIds, songRefs } from "./songsFile";
+
+// songs.yaml is the only file an m9 set has that l8 has no counterpart for, and the only
+// place the médiathèque is named from a project. What is pinned here is the REF — the shape,
+// and that it survives a round trip to a cache path — because everything downstream (the
+// sync's scope, the set list on screen) is a string comparison against it.
+
+describe("a song ref", () => {
+  it("is `@mediatek/` plus the médiathèque id, verbatim", () => {
+    const id = "songs/lemo/mante/danse";
+    expect(songRefOf(id)).toBe("@mediatek/songs/lemo/mante/danse");
+    expect(songIdOf(songRefOf(id))).toBe(id);
+  });
+
+  it("becomes the FOLDER a sync fetches, trailing slash and all", () => {
+    // A song is its folder: the master, its variants and song.yaml. A sync that fetched only
+    // the sidecar would land a catalogued folder with nothing to play.
+    expect(songPathPrefix("@mediatek/songs/lemo/mante/danse")).toBe(
+      "songs/lemo/mante/danse/",
+    );
+  });
+
+  it("is not a module ref, and does not answer for one", () => {
+    // The two vocabularies differ by a segment — a module ref omits its family — and they are
+    // read by different files. Pinned so a future merge of the two is a deliberate act.
+    expect(songIdOf("@mediatek/audio/reverb")).toBe(null);
+    expect(songIdOf("songs/lemo/mante/danse")).toBe(null);
+    expect(songIdOf("@mediatek/songs")).toBe(null);
+    expect(songIdOf("@mediatek/songs/")).toBe(null);
+  });
+});
+
+describe("songs.yaml", () => {
+  const parse = (text: string) => parseSongs(text);
+
+  it("reads a set list", () => {
+    const { value, issues } = parse(
+      'songs:\n  - "@mediatek/songs/a/b/c"\n  - "@mediatek/songs/d/e/f"\n',
+    );
+    expect(issues).toEqual([]);
+    expect(songRefs(value)).toEqual([
+      "@mediatek/songs/a/b/c",
+      "@mediatek/songs/d/e/f",
+    ]);
+    expect(songIds(value)).toEqual(["songs/a/b/c", "songs/d/e/f"]);
+  });
+
+  it("is UNORDERED: the file's line order is not the running order", () => {
+    const { value } = parse(
+      'songs:\n  - "@mediatek/songs/z/z/z"\n  - "@mediatek/songs/a/a/a"\n',
+    );
+    // Sorted here rather than in each surface, so two screens cannot draw one set two ways.
+    expect(songRefs(value)).toEqual([
+      "@mediatek/songs/a/a/a",
+      "@mediatek/songs/z/z/z",
+    ]);
+  });
+
+  it("drops a duplicate instead of refusing the file", () => {
+    // Two people merging their halves of a set list should not have to resolve that by hand.
+    const { value, issues } = parse(
+      'songs:\n  - "@mediatek/songs/a/b/c"\n  - "@mediatek/songs/a/b/c"\n',
+    );
+    expect(issues).toEqual([]);
+    expect(songRefs(value)).toEqual(["@mediatek/songs/a/b/c"]);
+  });
+
+  it("is empty, not broken, when the set has no songs yet", () => {
+    expect(songRefs(parse("songs: []\n").value)).toEqual([]);
+    expect(songRefs(parse("").value)).toEqual([]);
+  });
+
+  it("names a bare list as the mistake it is", () => {
+    const { value, issues } = parse('- "@mediatek/songs/a/b/c"\n');
+    expect(value).toBe(null);
+    expect(issues[0].message).toContain("`songs:` key");
+  });
+
+  it("refuses a path where a ref belongs", () => {
+    // The médiathèque's own layout is not a project's vocabulary: a path would break on the
+    // next machine, which is the whole reason refs exist.
+    const { value, issues } = parse("songs:\n  - songs/a/b/c\n");
+    expect(value).toBe(null);
+    expect(issues[0].message).toContain("@mediatek/songs");
+  });
+
+  it("refuses an unknown key rather than ignoring it", () => {
+    const { value, issues } = parse("songs: []\nplaylists: []\n");
+    expect(value).toBe(null);
+    expect(issues.length).toBe(1);
+  });
+});

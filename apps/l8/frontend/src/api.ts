@@ -127,7 +127,7 @@ export const api = {
       path,
     }),
   // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its path.
-  createProject: (type: "audio" | "video", name: string) =>
+  createProject: (type: "audio" | "video" | "m9", name: string) =>
     fsend<{ project: string }>("POST", "/project/create", { type, name }),
   // Delete a project: unload it and move it to _recycle_bin. Reversible, but it can no longer be started.
   deleteProject: (path: string) =>

@@ -190,14 +190,23 @@ export function projectFiles(
   };
 }
 
-export function scaffold(dir: string, name: string, video = false): string[] {
-  const files = projectFiles(name, video);
-  const write = (rel: string, content: string): void => {
+/** Write a project's file map under `dir`, making the folders it implies. Shared with the m9
+ *  scaffold, which writes a different map the same way. */
+export function writeProjectFiles(
+  dir: string,
+  files: Record<string, string>,
+): string[] {
+  for (const [rel, content] of Object.entries(files)) {
     const path = join(dir, rel);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, content, "utf8");
-  };
-  for (const [rel, content] of Object.entries(files)) write(rel, content);
+  }
+  return Object.keys(files);
+}
+
+export function scaffold(dir: string, name: string, video = false): string[] {
+  const files = projectFiles(name, video);
+  writeProjectFiles(dir, files);
 
   const copied: string[] = []; // the bundled sample video is binary, so it's copied separately from the text-file map above
   if (video) {

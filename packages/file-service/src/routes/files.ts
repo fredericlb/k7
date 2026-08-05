@@ -218,7 +218,9 @@ filesRouter.post(
 
 // Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
-  type: z.enum(["audio", "video"]),
+  // "m9" is a different KIND of project, not a variant of the song scaffold — a set folder,
+  // whose name gets `.m9` appended so st0 offers it to m9. See projectLifecycle.ts.
+  type: z.enum(["audio", "video", "m9"]),
   name: z.string().min(1),
 });
 filesRouter.post(
