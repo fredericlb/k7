@@ -179,8 +179,12 @@ export function SongVariants({
           }
         }),
       );
+      // From the top, said explicitly: the engine resumes from wherever its playhead was left,
+      // and this session's is whatever the last document put through it ended on — which for a
+      // longer song is past the end of this one, and rolls in silence.
       engine.play(
         chainPreviewDoc(path, `${entry.name} · ${c.variant.name}`, steps),
+        0,
       );
       setPlaying(c.variant.name);
     },

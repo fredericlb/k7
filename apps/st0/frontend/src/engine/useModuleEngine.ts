@@ -2,7 +2,7 @@
 // answers for its plugin's parameters, and it carries the transport for anything the moteur
 // plays (a chain variant, a master). No meters. See docs/engine.md, docs/playbackTarget.md.
 
-import { EngineClient } from "@studio/engine-browser";
+import { EngineClient, type EngineWarning } from "@studio/engine-browser";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
@@ -24,6 +24,17 @@ export interface ModuleEngine {
    *  that machine has. m9's useEngine reads the same frame for the same reason. */
   playing: boolean;
   playhead: number;
+  /**
+   * The last thing the engine complained about, or null.
+   *
+   * It was being thrown away, and that is expensive precisely here: a document naming a file
+   * the engine cannot open — absent, or in a format that build has no reader for — raises
+   * `clip source not found/invalid: <path>` and then plays SILENCE. Silence is the one
+   * failure a transport cannot report by itself, so the only account of it is this channel.
+   *
+   * Cleared when a new document is sent, so what is shown is about what is playing now.
+   */
+  warning: EngineWarning | null;
   /** The chosen machine's file service, as its own probe reported it — null when none answered.
    *  The médiathèque is hosted and the moteur opens PATHS, so anything that plays audio has to
    *  find it on that machine's disk. See m9's docs/plumbing.md, which walks the same route. */
@@ -48,7 +59,16 @@ export interface ModuleEngine {
    * is per service and per person (see below), and auditioning two things at once on one engine
    * is not a thing to arrange, it is a thing to forbid.
    */
-  play: (doc: ProjectDoc) => void;
+  /**
+   * `fromSeconds` says where to start, and leaving it out is almost always wrong.
+   *
+   * `EngineHost::play` repositions the playhead only when the transport is LOOPING; otherwise
+   * it resumes from wherever it was. A session outlives the documents put through it — it is
+   * keyed by service and person, not by what is loaded — so the playhead can sit well past
+   * the end of the clip just sent, and the transport then rolls in silence with `playing`
+   * perfectly true. That is a failure with no symptom other than no sound.
+   */
+  play: (doc: ProjectDoc, fromSeconds?: number) => void;
   stop: () => void;
   /** Scrub to an absolute position, in seconds. Its own verb rather than a re-send of the
    *  document: the engine keeps playing across a seek, and a document would restart it. */
@@ -82,6 +102,7 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
+  const [warning, setWarning] = useState<EngineWarning | null>(null);
   const engine = useRef<EngineClient | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
   // Stops the renew loop and says goodbye. Held in a ref because the lease is taken inside an
@@ -131,6 +152,9 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
         setPlaying(s.playing);
         setPlayhead(s.playhead);
       });
+      // Kept rather than dropped: this is how the engine says a clip could not be opened, and
+      // what it says next is silence. See `warning` above.
+      client.onWarning(setWarning);
       client.connect();
       setPhase({ k: "ready", id: found.engine.id });
       // A doc asked for before the socket opened is replayed here rather than lost.
@@ -167,10 +191,20 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   // The document first, THEN the verb. A transport verb sent first plays whatever the engine
   // still had loaded — here, the last module preview — which is a second of the wrong sound
   // before the right one. m9's loadAndPlay orders it the same way, for the same reason.
-  const play = useCallback<ModuleEngine["play"]>((doc) => {
+  const play = useCallback<ModuleEngine["play"]>((doc, fromSeconds) => {
     const client = engine.current;
     if (!client) return;
+    // Whatever it complained about last was about the previous document. Cleared here rather
+    // than on stop, so a complaint raised BY this send survives to be read.
+    setWarning(null);
     client.sendProject(doc);
+    // Between the document and the verb: the position belongs to the document just applied,
+    // and asking for it after `play` would be heard as a jump. See `play` in the interface
+    // for why leaving it to the engine plays silence.
+    if (fromSeconds !== undefined) {
+      client.seek(fromSeconds);
+      setPlayhead(Math.max(0, fromSeconds));
+    }
     client.transport("play");
   }, []);
 
@@ -189,6 +223,7 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     fileBase,
     playing,
     playhead,
+    warning,
     paramNames,
     paramMeta,
     presets,

@@ -240,14 +240,54 @@ export function SongPlayer({
     };
   }, [viaEngine, engine.stop, path]);
 
+  /**
+   * What this pane put into the engine, and where it is in it.
+   *
+   * The engine's playhead only means something for the document actually loaded there, and
+   * that session is shared with everything else st0 auditions — a module preview, a chain
+   * variant. Reading `engine.playhead` unconditionally would draw another document's position
+   * on this song's waveform, and, worse, would hand that position back as the point to resume
+   * from. `loadedPath` is what makes "ours" a question with an answer.
+   */
+  const [loadedPath, setLoadedPath] = useState<string | null>(null);
+  const ours = viaEngine && loadedPath !== null && loadedPath === enginePath;
+  // Where we are in the song, engine-side: what the engine reports while it is playing OUR
+  // document, and what we last asked for the rest of the time (including before the first
+  // play, so the waveform can be scrubbed before anything rolls).
+  const [engineAt, setEngineAt] = useState(0);
+  useEffect(() => {
+    if (ours && engine.playing) setEngineAt(engine.playhead);
+  }, [ours, engine.playing, engine.playhead]);
+
+  // A different song is a different document: neither the position nor "we loaded it" carries.
+  // `path` is the TRIGGER and not a value the body reads, which is why it looks unnecessary.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useEffect(() => {
+    setLoadedPath(null);
+    setEngineAt(0);
+  }, [path]);
+
   // One transport over two implementations. Everything below the header reads these two
   // values and never asks which side of the wire is playing.
-  const playing = viaEngine ? engine.playing : browserPlaying;
-  const current = viaEngine ? engine.playhead : browserAt;
+  const playing = viaEngine ? ours && engine.playing : browserPlaying;
+  const current = viaEngine ? engineAt : browserAt;
+
+  /**
+   * A document was sent and nothing has rolled yet.
+   *
+   * Worth a state of its own because the failure it covers is SILENCE: the engine takes a
+   * document naming a file it cannot open, says so once on the warning channel, and then
+   * plays nothing. Without this the screen is identical to a transport that simply has not
+   * been asked — a Play button, no sound, and no account of either.
+   */
+  const [sent, setSent] = useState(false);
+  useEffect(() => {
+    if (ours && engine.playing) setSent(false);
+  }, [ours, engine.playing]);
 
   const toggle = useCallback(() => {
     if (viaEngine) {
-      if (engine.playing) return engine.stop();
+      if (ours && engine.playing) return engine.stop();
       // Still asking that machine. Said as a wait rather than as one of the two refusals
       // below, either of which would be a guess at this point.
       if (root === undefined || cached === null)
@@ -257,23 +297,35 @@ export function SongPlayer({
       // The document, then the verb — a transport verb sent first plays whatever the engine
       // still held. No steps: a master is the audio itself, so the chain is empty and this is
       // `chainPreviewDoc`'s degenerate case rather than a second document builder.
-      engine.play(chainPreviewDoc(enginePath, entry.name, []));
+      setStatus(`envoyé au moteur : ${enginePath}`);
+      setSent(true);
+      setLoadedPath(enginePath);
+      // Where to start, said rather than left to the engine — which resumes from a playhead
+      // this pane did not put there. `engineAt` is 0 for a song not started yet.
+      engine.play(chainPreviewDoc(enginePath, entry.name, []), engineAt);
       return;
     }
     const el = audioRef.current;
     if (!el) return;
     if (el.paused) void el.play().catch((e: Error) => setStatus(e.message));
     else el.pause();
-  }, [viaEngine, engine, enginePath, root, cached, entry.name]);
+  }, [viaEngine, engine, enginePath, root, cached, engineAt, ours, entry.name]);
 
   const seek = useCallback(
     (sec: number) => {
-      if (viaEngine) return engine.seek(sec);
+      if (viaEngine) {
+        // Remembered whether or not the engine holds this song yet: scrubbing before pressing
+        // play is how you start somewhere other than the top, and the position is then what
+        // the next `play` is told to start from.
+        setEngineAt(sec);
+        if (ours) engine.seek(sec);
+        return;
+      }
       const el = audioRef.current;
       if (el) el.currentTime = sec;
       setBrowserAt(sec);
     },
-    [viaEngine, engine],
+    [viaEngine, ours, engine],
   );
 
   // The waveform fills whatever height is left, so a tall pane is not a 160px strip over a void.
@@ -310,6 +362,24 @@ export function SongPlayer({
     : root === null
       ? ENGINE_NO_CACHE
       : ENGINE_NOT_HERE;
+
+  /**
+   * What the footer says, most specific first.
+   *
+   * The engine's own complaint outranks everything: it is the only account there is of a
+   * document that was accepted and made no sound, and it names the file it could not open.
+   * `sent` comes next — asked, and nothing rolling — which is the same failure seen from this
+   * side before the machine has said anything.
+   */
+  const engineSaid =
+    viaEngine && engine.warning
+      ? `le moteur : ${engine.warning.message}`
+      : viaEngine && sent
+        ? "envoyé, mais le moteur n'a rien démarré — voir le journal de la machine"
+        : "";
+  // `status` only when there IS a shape: without one it is already the big message in the
+  // middle of the pane, and saying it twice reads as two different problems.
+  const footer = engineSaid || blockedWhy || (shape ? status : "");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -419,8 +489,8 @@ export function SongPlayer({
         {shape?.transients.length ? (
           <span className="tabular-nums">{shape.transients.length} onsets</span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-right">
-          {blockedWhy || (shape ? status : "")}
+        <span className="min-w-0 flex-1 truncate text-right" title={footer}>
+          {footer}
         </span>
       </footer>
     </div>
