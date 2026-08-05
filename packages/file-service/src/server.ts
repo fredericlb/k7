@@ -26,6 +26,7 @@ import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
+import { separateRouter } from "./routes/separate.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import {
   assertSshGitUri,
@@ -203,6 +204,11 @@ app.use(mediatekRouter);
 // too — it is this machine's engine binary and this machine's plugins — and behind the same
 // engine-token gate everything above it is. See docs/render.md.
 app.use(renderRouter);
+
+// Stem separation, per machine for the same reasons and then some — it is this machine's model
+// and this machine's GPU. Unlike a render it is started and polled, because it takes minutes
+// and produces four files. See docs/stemSplit.md.
+app.use(separateRouter);
 
 // What this machine's engine has SCANNED, grouped by format. Per machine like the two above and
 // for the same reason — the scan cache is `~/.studio/exts.json`, which belongs to no workspace and
