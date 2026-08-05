@@ -120,12 +120,9 @@ export function projectsRouter(opts: {
             } catch {
               /* raced with an eviction — the status is the honest answer */
             }
-          return {
-            ...r,
-            ...st,
-            branch,
-            projectCount: projects?.length ?? null,
-          };
+          // The projects themselves, not just how many: the listing draws them under their
+          // repository and links straight into l8/m9, so opening one costs no second request.
+          return { ...r, ...st, branch, projects };
         }),
       );
       res.json({ repos, revision: revision(sub) });

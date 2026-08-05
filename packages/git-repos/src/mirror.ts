@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { promisify } from "node:util";
-import type { FileNode } from "@studio/web-protocol";
+import type { FileNode, RepoProject } from "@studio/web-protocol";
 import { type ProjectApp, projectApp } from "@studio/web-protocol/projects";
 import { gitEnv } from "./keys.ts";
 import { assertSshGitUri } from "./uri.ts";
@@ -227,11 +227,9 @@ export function buildTree(
   return sort(root.children!);
 }
 
-/** One project in a repository: where it is, and which app opens it. */
-export interface RepoProject {
-  path: string;
-  app: ProjectApp;
-}
+/** Where a project is and which app opens it — defined with the wire types, since the
+ *  listing sends it to the browser, and re-exported here for this module's own callers. */
+export type { RepoProject };
 
 /** Everything a caller wants from one mirror: the tree, and where the projects are. */
 export async function readRepo(

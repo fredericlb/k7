@@ -491,6 +491,13 @@ export interface RepoStatus {
   error: string | null;
 }
 
+/** One project inside a repository: where it is, and which app opens it. The folder's NAME
+ *  decides the app — see ./projects.ts. */
+export interface RepoProject {
+  path: string;
+  app: ProjectApp;
+}
+
 /** One git repository a person has added to st0, as the Projets section lists them. */
 export interface RepoSummary extends RepoStatus {
   id: string;
@@ -498,8 +505,15 @@ export interface RepoSummary extends RepoStatus {
   label: string;
   addedAt: string;
   branch: string | null;
-  /** null while the mirror has never been read — "unknown" and "none" are different answers. */
-  projectCount: number | null;
+  /**
+   * The projects the mirror found, so the listing can draw them under their repository and
+   * link straight into l8/m9 — the tree is for looking around, not for the common case.
+   *
+   * null while the mirror has never been read: "unknown" and "none" are different answers,
+   * and `[]` on an unfetched repository would claim it holds no project. The count is
+   * `projects.length`, which is why there is no separate field for it.
+   */
+  projects: RepoProject[] | null;
 }
 
 /** An engine as the browser sees it — the secret token is never sent to the client. */
