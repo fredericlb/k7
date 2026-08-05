@@ -9,6 +9,7 @@ import {
   installKey,
   sshCommand as sshCommandFor,
 } from "@studio/git-repos/keys";
+import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { slugify } from "./slug.ts";
 
 /** Where this machine keeps its copy — unchanged, so an existing key is still found. */
@@ -33,12 +34,12 @@ export class NoKeyError extends Error {
 export async function ensureKey(userEmail: string): Promise<void> {
   const dir = dirFor(userEmail);
   if (hasKey(dir)) return;
-  const base = process.env.MEDIATEK_URL;
+  const base = mediatekBase();
   if (!base)
     throw new NoKeyError(
       "no SSH key on this machine and no hosted library configured (MEDIATEK_URL) to ask for one",
     );
-  const token = process.env.MEDIATEK_TOKEN;
+  const token = mediatekToken();
   if (!token)
     throw new NoKeyError(
       "no SSH key on this machine, and no API token (MEDIATEK_TOKEN) to fetch one with — paste a token into this machine's settings",

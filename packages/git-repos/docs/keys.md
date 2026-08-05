@@ -26,7 +26,8 @@ What guards it:
 - the route is **bearer only** — a session cookie is not accepted, so no page in any browser
   can ever be navigated into fetching it, and no CSRF shape applies;
 - the token's subject must **be** the key's owner. `MEDIATEK_TOKEN` represents one account,
-  so a machine can only ever pull its own user's key. This is checked, not assumed;
+  so a machine can only ever pull its own user's key. This is checked, not assumed — and see
+  **« Le token que la machine a vraiment »** below, because what is minted today is not that;
 - `Cache-Control: no-store`, and the value is never logged on either side;
 - in production the hop is HTTPS. In dev both processes are on one machine and it is
   `http://localhost:8795`.
@@ -35,6 +36,36 @@ What is accepted: a hosted service holds a credential that reaches your git host
 lands on every machine you run an engine on. Revoking is one action — delete the key at the
 git host, then `POST /api/projects/ssh-key` for a fresh one — but it is an action you have to
 take, and the old copies stay on disk until they are overwritten.
+
+## Le token que la machine a vraiment
+
+Le paragraphe ci-dessus décrit une intention que le dépôt ne tient pas encore, et les deux
+moitiés ne sont pas d'accord :
+
+| | ce que ça dit | où |
+|---|---|---|
+| la route | le sujet du token EST le propriétaire ; la clé est cherchée dans son dossier | `apps/st0/backend/src/routes/projects.ts` (`/ssh-key/private`) |
+| ce qui est frappé | `sub: "service:l8"` — une identité de service | `scripts/tokens.mjs`, épinglé par `packages/engine-host/src/tokensScript.test.ts` |
+
+Une identité de service n'a pas de clé, donc la route répond `404 no SSH key yet — open
+Projets…` **même quand la clé de la personne existe**, ce qui envoie régénérer une clé qui est
+déjà là. Rien ne mint aujourd'hui un token de compte pour cette machine : st0 a bien
+`POST /api/token` derrière la session, mais aucune interface ne l'appelle et aucun réglage du
+capot ne reçoit ce qu'on y collerait — le message « paste a token into this machine's
+settings » de `sshKeys.ts` décrit un geste qui n'a pas encore d'endroit où se faire.
+
+Deux sorties, et elles ne coûtent pas la même chose :
+
+- **Le token de la machine devient un token de COMPTE.** C'est ce que cette page décrit, et
+  ça rend au passage la synchro du cache celle de la personne plutôt que celle d'un service.
+  Demande de quoi le frapper et le coller, et casse le test qui épingle `service:l8`.
+- **La route accepte un token de SERVICE plus l'utilisateur visé.** Une seule valeur à gérer,
+  mais elle rend le porteur du token machine capable de demander la clé de n'importe qui —
+  exactement ce que le « bearer only » ci-dessus refusait.
+
+Tant que ce n'est pas tranché, `ensureKey` échoue à la dernière étape et non à la première :
+`packages/file-service/docs/mediatekLink.md` a réglé le fait qu'il ne trouvait même pas où
+demander.
 
 ## A machine that already had one keeps it
 
