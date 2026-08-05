@@ -143,6 +143,12 @@ songs:
 Deux lignes `Tracks` par morceau disparaissent au profit d'un mot : la piste de révélation
 *est* le master de la même adresse. Même chose pour `8bit` et `handmade`.
 
+Le mot `variant:` porte **deux axes sur une seule ligne**, et c'est voulu : une version
+enregistrée (`stems`, `8bit`, `handmade` — un fichier à côté du master) ou un traitement
+(`deformees` — une chaîne que la médiathèque tient). Les deux répondent à la même question,
+« quelle version de ce morceau joue-t-on », et le sidecar sait laquelle des deux il a. Une
+catégorie ne peut pas demander les deux à la fois, et la migration l'a vérifié.
+
 **La règle de résolution est « la version demandée si elle existe, sinon le master ».** Elle
 n'est pas un repli poli, c'est ce que fait déjà le chargeur Grist : un morceau dont la
 catégorie réclame `8bit` alors qu'aucune piste de ce type n'existe se joue tel quel, sans
@@ -197,18 +203,21 @@ plusieurs pistes ouvre une liste. C'est la seule règle de forme à retenir.
 
 **Entrée d'ordre** — `cat` + `songs` (plage), ou `pause` (+ message).
 
-**Catégorie** — `name` (affiché), `mode`, `variant` (ex-`trackType`), `notice`,
-`illustration`, `liveOnly`, `songs`.
+**Catégorie** — `name` (affiché), `mode`, `variant`, `notice`, `illustration`, `liveOnly`,
+`songs`.
 
 `mode` vaut `one`, `free`, `slow`, `fusion`, `reversed`, `mystery`, `multi`, ou est absent
 pour le mode normal — ce sont les valeurs que les joueurs lisent déjà, inchangées.
 
 **Morceau** — `song` **ou** `tracks`, plus `label`, `answer`, `status`
-(`valid` | `to_replace` | absent), `liveOnly`, `effects`.
+(`valid` | `to_replace` | absent), `liveOnly`, `speed`.
 
-`effects` remplace les neuf colonnes `fx_*` par une table dont seules les entrées non
-nulles sont écrites : `{ speed: 5, overdrive: 5 }`. Elles ne servent qu'à 31 morceaux sur
-279.
+Les neuf colonnes `fx_*` de Grist ont disparu, et pas au profit d'un champ : **les
+traitements sont partis avec l'audio**, dans la médiathèque, sous forme de chaînes que le
+sidecar de chaque morceau nomme comme variantes. La catégorie dit le nom une fois
+(`variant: deformees`) et chaque morceau le résout vers sa propre chaîne, avec ses propres
+valeurs. Reste ici `speed`, qui n'est pas un traitement mais une vitesse de lecture : aucune
+chaîne n'a d'horloge. Tout est détaillé dans [effects.md](effects.md).
 
 **Piste** — `song` (adresse médiathèque) **ou** `file` (chemin relatif au dossier du
 projet) **ou** `youtube`, plus `start`, `end`, et `artist` / `title` en dérogation quand
