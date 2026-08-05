@@ -19,12 +19,10 @@ import {
   type SshKeyInfo,
   USER_HEADER,
 } from "@studio/web-protocol";
-import type { ProjectApp } from "@studio/web-protocol/projects";
-import { serviceUrl } from "@studio/web-protocol/services";
+import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
 import type { St0Prefs } from "./prefs";
-import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
 // path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
