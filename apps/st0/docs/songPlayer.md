@@ -110,17 +110,31 @@ voir `packages/mediatek/docs/sync.md`, « `terminated` ne dit rien ». La même 
 dans le journal de la machine qui a essayé, qui est l'endroit où l'on regarde quand un
 navigateur situé trois sauts plus loin dit que l'analyse a échoué.
 
-## Le transport est à nous
+## Le transport est à nous, mais il n'est plus ici
 
-Pas de `controls` sur l'élément `<audio>`. La forme d'onde **est** la barre de défilement
-(`onSeek` écrit `currentTime`), et deux barres de défilement se contredisent dès qu'on
-tire l'une des deux. Le bouton et l'horloge du bandeau sont donc les seuls contrôles, et
-la tête de lecture suit un `requestAnimationFrame` plutôt que `timeupdate`, qui tombe
-quatre fois par seconde et se lit, sur un canvas de cette largeur, comme un sursaut.
+Pas de `controls` : la forme d'onde **est** la barre de défilement, et deux barres de
+défilement se contredisent dès qu'on tire l'une des deux. Le bouton et l'horloge du
+bandeau restent donc les seuls contrôles de ce panneau.
 
-Cette boucle est propre à la lecture **ici**. Quand c'est le moteur qui joue, la position
-arrive dans sa trame d'état à ~20 Hz : `onSeek` devient `engine.seek`, et il n'y a rien à
-animer de ce côté-ci.
+Ce qu'ils commandent, en revanche, n'est plus à lui. `playback.toggle()` et
+`playback.seek()` quand la version ouverte est celle qui joue ; `playback.start()` sinon,
+qui est la seule façon d'en charger une. L'élément `<audio>`, la boucle
+`requestAnimationFrame` qui suit la tête de lecture — `timeupdate` tombe quatre fois par
+seconde et se lit comme un sursaut — et le partage entre les deux destinations vivent
+maintenant dans `PlaybackProvider` : voir [miniPlayer.md](miniPlayer.md).
+
+Ce panneau garde ce que lui seul sait : où en est le curseur **avant** que cette version
+soit celle qui joue. On clique dans la forme d'onde d'un morceau à l'arrêt, puis on presse
+lecture, et ça part de là — `cursor` est ce point, et il est passé à `start`.
+
+### La version voyage avec
+
+Le moteur ne tient qu'une session, partagée avec tout ce que st0 auditionne par ailleurs.
+Trois versions d'un morceau envoyées sous le nom du morceau y seraient trois lignes qu'on
+ne peut pas distinguer. `NowPlaying.version` porte donc le nom de l'onglet — absent pour
+le master, dont le document est le morceau — et le provider en compose
+`« morceau · version »`. La barre du bas l'affiche pour la même raison : elle est sous un
+écran dont la bande d'onglets peut désigner tout autre chose.
 
 ## Un onglet par version
 
@@ -152,9 +166,13 @@ Deux conséquences qui valent d'être dites :
 
 - **L'analyse est par fichier**, pas par morceau : `attempted` retient un chemin, donc chaque
   version est analysée au plus une fois et revenir sur une version déjà dessinée ne coûte rien.
-- **Changer d'onglet arrête le son.** Le nettoyage du transport tient à `path`, qui bouge
-  maintenant aussi quand on change de version — ce qui est la bonne réponse : sinon le moteur
-  continuerait de jouer un fichier que la bande ne désigne plus.
+- **Changer d'onglet n'arrête pas le son**, et c'est voulu. Le panneau ne possède plus le
+  transport : ce qui joue continue, et l'onglet ouvert redevient simplement un onglet qu'on
+  regarde. `isCurrent` compare `path` à ce que le provider tient, donc la bande passe au repos
+  et l'horloge repart du curseur — pendant que la barre du bas, elle, continue de nommer la
+  version qui joue. C'était l'inverse tant que ce panneau tenait l'élément `<audio>` : il
+  fallait alors couper en partant, sous peine de laisser le moteur sur un fichier que plus
+  rien ne désignait.
 
 Un morceau sans variante n'a pas de bande du tout : un onglet unique est un contrôle qui ne
 sert à rien.

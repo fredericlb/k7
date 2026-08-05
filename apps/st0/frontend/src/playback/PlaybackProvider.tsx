@@ -21,9 +21,15 @@ import type { PlaybackTarget } from "./targets";
 /** What is loaded, wherever it plays. */
 export interface NowPlaying {
   entry: MediatekEntry;
-  /** The master's médiathèque-relative path — the identity of what is loaded, and the `<audio>`
+  /** The médiathèque-relative path of the version that is loaded — the master, or whichever
+   *  one the player's strip points at. The identity of what is loaded, and the `<audio>`
    *  source. Two songs can share a name; they cannot share this. */
   path: string;
+  /** The version's own name, when it is not the master — the sidecar's key, which is what the
+   *  player's tabs are labelled with. The engine's session is shared with everything else st0
+   *  auditions, so three documents named after one song would be indistinguishable in its log.
+   *  Absent for the master, whose document is the song. */
+  version?: string;
   /** Where it is ACTUALLY playing — the caller resolves the fallback, since it is the caller
    *  that knows whether an engine answered. */
   target: PlaybackTarget;
@@ -50,6 +56,11 @@ export interface Playback {
    *  a song that ENDS stays, because "what did I just listen to" outlives the last sample. */
   close: () => void;
 }
+
+/** What the engine calls what we sent it. The version is IN the name because that session is
+ *  shared: two versions of one song under one name are two lines nobody can tell apart. */
+const docNameOf = (n: NowPlaying) =>
+  n.version ? `${n.entry.name} · ${n.version}` : n.entry.name;
 
 const EngineContext = createContext<ModuleEngine | null>(null);
 const PlaybackContext = createContext<Playback | null>(null);
@@ -140,7 +151,7 @@ export function PlaybackProvider({
         setLoadedEnginePath(what.enginePath);
         setEngineAt(from);
         engine.play(
-          chainPreviewDoc(what.enginePath, what.entry.name, []),
+          chainPreviewDoc(what.enginePath, docNameOf(what), []),
           from,
         );
         return;
@@ -176,7 +187,7 @@ export function PlaybackProvider({
       if (loadedEnginePath !== now.enginePath) engine.reset();
       setLoadedEnginePath(now.enginePath);
       setEngineAt(from);
-      engine.play(chainPreviewDoc(now.enginePath, now.entry.name, []), from);
+      engine.play(chainPreviewDoc(now.enginePath, docNameOf(now), []), from);
       return;
     }
     const el = audioRef.current;

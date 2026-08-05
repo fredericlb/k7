@@ -1,7 +1,8 @@
 // SongPlayer.tsx — the right half of a song's screen: one tab per version — the master, then
-// what the sidecar declares — each played and scrubbed on the shared waveform. WHERE it plays is
-// the account's choice — this browser, or the moteur on the chosen machine — behind one
-// transport. See ../docs/songPlayer.md and ../docs/playbackTarget.md.
+// what the sidecar declares — each drawn and scrubbed on the shared waveform. It OWNS no
+// transport: what plays is the app's (PlaybackProvider), so a version outlives this pane and
+// the bar at the bottom shows the same one thing. See ../docs/songPlayer.md,
+// ../docs/playbackTarget.md and ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
@@ -16,7 +17,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { currentUser, engineMachine } from "./api";
+import { currentUser, engineMachine, library } from "./api";
 import {
   cachedOnMachine,
   cacheRoot,
@@ -124,22 +125,12 @@ export function SongPlayer({
   const file =
     take?.kind === "chain" ? (rendered ?? null) : (take?.file ?? null);
   const path = file ? `${entry.path}/${file}` : null;
-  // What the engine calls the document. The version is IN the name — the moteur's session is
-  // shared with everything else st0 auditions, and three documents named after one song would
-  // be indistinguishable in its log. Same shape SongVariants uses for a chain it auditions.
-  const docName =
-    take?.kind === "master" ? entry.name : `${entry.name} · ${take?.name}`;
 
   const [shape, setShape] = useState<SongShape | null>(null);
   // Distinguished from "no shape yet": the pane says which of the two it is, because the
   // answers differ — one is a wait, the other is a machine that has to be turned on.
   const [analysing, setAnalysing] = useState(false);
   const [status, setStatus] = useState("");
-  const [browserPlaying, setBrowserPlaying] = useState(false);
-  const [browserAt, setBrowserAt] = useState(0);
-  // The audio element's own duration, which arrives before any analysis and covers the case
-  // where none ever does — a song still plays without a waveform.
-  const [duration, setDuration] = useState(0);
   // The file this pane has already asked to have analysed — the master, or whichever version is
   // on screen. One attempt per file, so a moving engine choice cannot start the job twice; the
   // button below is what asks for another.
@@ -185,10 +176,9 @@ export function SongPlayer({
   useEffect(() => {
     // Cleared BEFORE the guard: switching to a tab with no file at all must not leave the
     // previous version's shape on screen, where its tempo and its onsets would read as this
-    // one's. Same for the element's duration, which nothing else resets.
+    // one's.
     setShape(null);
     setStatus("");
-    setDuration(0);
     if (!path) return;
     let alive = true;
     const stop = new AbortController();
@@ -279,116 +269,59 @@ export function SongPlayer({
     };
   }, [viaEngine, engine.fileBase, engineToken, path]);
 
-  // Follow the playhead smoothly while playing HERE — `timeupdate` fires ~4×/s, which reads as
-  // a playhead that stutters across a canvas this wide. The engine's own frame arrives at
-  // ~20 Hz and needs no such loop, which is why this one is on the browser branch only.
-  useEffect(() => {
-    if (viaEngine || !browserPlaying) return;
-    let raf = 0;
-    const loop = () => {
-      if (audioRef.current) setBrowserAt(audioRef.current.currentTime);
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [viaEngine, browserPlaying]);
+  // The two readings of one transport: this pane's, and the bar's. Identical while this
+  // version is the one playing, and at rest otherwise.
+  const playing = isCurrent && playback.playing;
+  const current = isCurrent ? playback.position : cursor;
 
   /**
-   * Leaving one destination silences it.
+   * Start this version, or work the transport it is already on.
    *
-   * Changing the menu while something plays used to be impossible because there was one
-   * destination; now the old one has to be told, or the song keeps going on a machine whose
-   * transport this pane has stopped drawing.
-   *
-   * `path` is in here for the same reason in the other axis: the browser's `<audio>` stops on
-   * its own when its `src` changes, the engine does not — it holds a document naming a file,
-   * and nothing about opening another song would tell it to let go.
+   * The pane holds nothing: what plays belongs to the app, so pressing play here is handing
+   * the provider a version to load. The three engine checks stay because they are the only
+   * account of a click that would otherwise do nothing — `engineBlocked` greys the button for
+   * the two settled refusals, and the first of these covers the moment before it is settled.
    */
-  // `path` is a TRIGGER and not a value the body reads, which is why it looks unnecessary:
-  // what has to run on a song change is the CLEANUP, and a cleanup only runs when something
-  // in the list moves. Same shape as the analysis effect's `retry` above.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      if (viaEngine) engine.stop();
-    };
-  }, [viaEngine, engine.stop, path]);
-
-  /**
-   * What this pane put into the engine, and where it is in it.
-   *
-   * The engine's playhead only means something for the document actually loaded there, and
-   * that session is shared with everything else st0 auditions — a module preview, a chain
-   * variant. Reading `engine.playhead` unconditionally would draw another document's position
-   * on this song's waveform, and, worse, would hand that position back as the point to resume
-   * from. `loadedPath` is what makes "ours" a question with an answer.
-   */
-  const [loadedPath, setLoadedPath] = useState<string | null>(null);
-  const ours = viaEngine && loadedPath !== null && loadedPath === enginePath;
-  // Where we are in the song, engine-side: what the engine reports while it is playing OUR
-  // document, and what we last asked for the rest of the time (including before the first
-  // play, so the waveform can be scrubbed before anything rolls).
-  const [engineAt, setEngineAt] = useState(0);
-  useEffect(() => {
-    if (ours && engine.playing) setEngineAt(engine.playhead);
-  }, [ours, engine.playing, engine.playhead]);
-
-  // A different file is a different document — another song, or another version of this one:
-  // neither position nor "we loaded it" carries. Both playheads, because a tab switch leaves
-  // whichever side was not playing showing a time that belonged to the other version.
-  // `path` is the TRIGGER and not a value the body reads, which is why it looks unnecessary.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  useEffect(() => {
-    setLoadedPath(null);
-    setEngineAt(0);
-    setBrowserAt(0);
-  }, [path]);
-
-  // One transport over two implementations. Everything below the header reads these two
-  // values and never asks which side of the wire is playing.
-  const playing = viaEngine ? ours && engine.playing : browserPlaying;
-  const current = viaEngine ? engineAt : browserAt;
-
-  /**
-   * A document was sent and nothing has rolled yet.
-   *
-   * Worth a state of its own because the failure it covers is SILENCE: the engine takes a
-   * document naming a file it cannot open, says so once on the warning channel, and then
-   * plays nothing. Without this the screen is identical to a transport that simply has not
-   * been asked — a Play button, no sound, and no account of either.
-   */
-  const [sent, setSent] = useState(false);
-  useEffect(() => {
-    if (ours && engine.playing) setSent(false);
-  }, [ours, engine.playing]);
-
   const toggle = useCallback(() => {
+    if (!path) return;
+    if (isCurrent) return playback.toggle();
     if (viaEngine) {
-      if (ours && engine.playing) return engine.stop();
       // Still asking that machine. Said as a wait rather than as one of the two refusals
       // below, either of which would be a guess at this point.
       if (root === undefined || cached === null)
         return setStatus("on demande à cette machine si elle a ce morceau…");
       if (!enginePath) return setStatus(ENGINE_NO_CACHE);
       if (!cached) return setStatus(ENGINE_NOT_HERE);
-      // The document, then the verb — a transport verb sent first plays whatever the engine
-      // still held. No steps whichever tab is open: a rendered variant is audio like the master
-      // is, its treatment already printed into the file, so the chain stays empty and this is
-      // `chainPreviewDoc`'s degenerate case rather than a second document builder.
       setStatus(`envoyé au moteur : ${enginePath}`);
-      setSent(true);
-      setLoadedPath(enginePath);
-      // Where to start, said rather than left to the engine — which resumes from a playhead
-      // this pane did not put there. `engineAt` is 0 for a song not started yet.
-      engine.play(chainPreviewDoc(enginePath, docName, []), engineAt);
-      return;
     }
-    const el = audioRef.current;
-    if (!el) return;
-    if (el.paused) void el.play().catch((e: Error) => setStatus(e.message));
-    else el.pause();
-  }, [viaEngine, engine, enginePath, root, cached, engineAt, ours, docName]);
+    // From the cursor, which is where the waveform was last scrubbed to — so clicking into a
+    // song and pressing play starts where the eye already is.
+    playback.start(
+      {
+        entry,
+        path,
+        target: actual,
+        enginePath: viaEngine ? enginePath : null,
+        // The master's document is the song itself; every other tab names its version, which
+        // is what keeps two of them apart in the engine's shared session.
+        version: take?.kind === "master" ? undefined : take?.name,
+      },
+      cursor,
+    );
+  }, [
+    path,
+    isCurrent,
+    playback,
+    entry,
+    actual,
+    viaEngine,
+    enginePath,
+    root,
+    cached,
+    cursor,
+    take?.kind,
+    take?.name,
+  ]);
 
   const seek = useCallback(
     (sec: number) => {
@@ -463,28 +396,6 @@ export function SongPlayer({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Ours, not `controls`: the waveform IS the scrubber, and two of them disagree the
-          moment one is dragged. Mounted whichever destination is chosen — it is what reports
-          the duration for a song with no `.cache` yet, and switching back must not reload.
-          Always mounted, `src` absent when the open tab has no file: unmounting it is what a
-          conditional would do, and a media element detached mid-play goes on playing in the
-          browsers that keep it alive — sound from a version the strip no longer points at, with
-          nothing left on screen to stop it. No `src` attribute at all asks for nothing; an
-          EMPTY one would ask this origin for the page itself. */}
-      <audio
-        ref={audioRef}
-        src={path ? library.fileUrl(path) : undefined}
-        preload="metadata"
-        onPlay={() => setBrowserPlaying(true)}
-        onPause={() => setBrowserPlaying(false)}
-        onEnded={() => setBrowserPlaying(false)}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onTimeUpdate={(e) => {
-          if (!browserPlaying) setBrowserAt(e.currentTarget.currentTime);
-        }}
-        onError={() => setStatus("lecture impossible")}
-      />
-
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2">
         <Button
           size="sm"

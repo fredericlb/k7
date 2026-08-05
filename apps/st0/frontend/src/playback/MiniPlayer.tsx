@@ -27,7 +27,7 @@ export function MiniPlayer() {
     usePlayback();
   if (!now) return null;
 
-  const { entry, target } = now;
+  const { entry, target, version } = now;
   const artist =
     typeof entry.meta?.artist === "string" ? entry.meta.artist : "";
   // The entry's folder, not the master's file path: the master is the last segment of `path`.
@@ -58,6 +58,13 @@ export function MiniPlayer() {
           <span className="min-w-0 truncate text-sm font-medium">
             {entry.name}
           </span>
+          {/* Which version, when it is not the master — the bar sits under a screen whose
+              strip may point somewhere else entirely, and "the song" is then two files. */}
+          {version ? (
+            <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {version}
+            </span>
+          ) : null}
           {/* Artist and album on one line, each only when there is one — a placeholder dash
               for an unfiled song is noise where the title already says everything known. */}
           {artist ? (
