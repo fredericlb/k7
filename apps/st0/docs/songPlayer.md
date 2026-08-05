@@ -9,8 +9,9 @@ gauche, et le reste de la largeur se coupe en deux.
 
 ```
 ┌────────┬─────────────────────┬─────────────────────┐
-│ arbre  │ song.yaml           │ lecteur + forme     │
-│        │ (YamlPane)          │ d'onde              │
+│ arbre  │ song.yaml           │ transport           │
+│        │ (YamlPane)          │ Original · inst · … │
+│        │                     │ forme d'onde        │
 │        │                     ├─────────────────────┤
 │        │                     │ variantes (si le    │
 │        │                     │ sidecar en déclare) │
@@ -84,10 +85,11 @@ Une analyse, ce sont des minutes de la machine de quelqu'un d'autre : elle tél�
 master et fait tourner le moteur dessus. Deux garde-fous, donc, et ils ne sont pas
 décoratifs :
 
-- **`attempted`** retient le master déjà demandé. Le choix du moteur arrive de façon
-  asynchrone, donc `fileBase` et `engineToken` bougent légitimement sous le panneau ; sans ce
-  verrou, chaque mouvement relançait le travail.
-- **un `AbortController`** coupe la requête quand on change de morceau ou qu'on ferme
+- **`attempted`** retient le fichier déjà demandé — le master, ou la version ouverte dans la
+  bande d'onglets. Le choix du moteur arrive de façon asynchrone, donc `fileBase` et
+  `engineToken` bougent légitimement sous le panneau ; sans ce verrou, chaque mouvement
+  relançait le travail.
+- **un `AbortController`** coupe la requête quand on change de version, de morceau, ou qu'on ferme
   l'éditeur. Cela n'arrête pas le travail sur la machine d'en face — rien ne propage
   l'annulation jusque-là — mais cela cesse de tenir une requête ouverte pendant des minutes
   pour une réponse dont personne ne veut plus.
@@ -119,6 +121,43 @@ quatre fois par seconde et se lit, sur un canvas de cette largeur, comme un surs
 Cette boucle est propre à la lecture **ici**. Quand c'est le moteur qui joue, la position
 arrive dans sa trame d'état à ~20 Hz : `onSeek` devient `engine.seek`, et il n'y a rien à
 animer de ce côté-ci.
+
+## Un onglet par version
+
+Sous le transport, une bande d'onglets : **Original**, puis chaque variante que le sidecar
+déclare, dans l'ordre du sidecar. L'onglet ouvert décide de *tout* ce qui est en dessous — le
+fichier joué, la forme d'onde dessinée, l'analyse demandée, le chemin envoyé au moteur — parce
+que c'est une seule question posée d'une seule façon : « à quoi ressemble cette version ». Le
+panneau ne dessinait que le master, et une variante était un nom dans une liste dont on
+n'entendait rien sans passer par le graphe de la chaîne, en dessous.
+
+`songTakes.ts` tient la forme, hors composant et donc testable : une version, c'est un nom, un
+genre et le fichier qu'elle est.
+
+| genre | son audio |
+|---|---|
+| `master` | `meta.master`, l'enregistrement du morceau lui-même |
+| `file` | `ref`, un fichier du dossier — c'est ce qui en fait une variante *fichier* |
+| `chain` | le **rendu**, s'il existe : un traitement n'est pas de l'audio |
+
+Une variante chaîne est donc la seule qui puisse n'avoir rien à montrer. Son rendu n'est ni
+dans le catalogue — une entrée de morceau ne porte pas de liste de fichiers, le scan s'arrête
+au dossier — ni dans le sidecar, qui nomme toujours la chaîne : `« Process »` écrit
+`<variante>.mp3` **à côté** du master, ou `.wav` sur une machine sans ffmpeg. Le panneau
+demande donc les deux noms à la médiathèque, un octet chacun (`library.exists`, le même
+`Range: bytes=0-0` que `cachedOnMachine` utilise en face). Tant qu'aucun n'existe, l'onglet dit
+quel bouton presser plutôt que de rester vide.
+
+Deux conséquences qui valent d'être dites :
+
+- **L'analyse est par fichier**, pas par morceau : `attempted` retient un chemin, donc chaque
+  version est analysée au plus une fois et revenir sur une version déjà dessinée ne coûte rien.
+- **Changer d'onglet arrête le son.** Le nettoyage du transport tient à `path`, qui bouge
+  maintenant aussi quand on change de version — ce qui est la bonne réponse : sinon le moteur
+  continuerait de jouer un fichier que la bande ne désigne plus.
+
+Un morceau sans variante n'a pas de bande du tout : un onglet unique est un contrôle qui ne
+sert à rien.
 
 ## Les variantes ont changé de place
 
