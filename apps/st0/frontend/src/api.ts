@@ -496,6 +496,34 @@ export const library = {
     return json(res, "song");
   },
 
+  /**
+   * One audio file as a VARIANT of a song that is already there — the bytes beside the
+   * master, and the line in `song.yaml` that makes them one.
+   *
+   * Its own route rather than an `upload` into the folder, which is what the chain renderer
+   * does: that one writes bytes the sidecar ALREADY names, and this one is what puts the name
+   * there. Dropping a file in without it declares nothing, and the scan reads a song's
+   * versions from the sidecar and from nowhere else.
+   */
+  addVariant: async (
+    folder: string,
+    file: File,
+  ): Promise<{
+    path: string;
+    ref: string;
+    name: string;
+    declared: boolean;
+  }> => {
+    const q = new URLSearchParams({ path: folder, filename: file.name });
+    const res = await fetch(`${BASE}/api/mediatek/variant?${q}`, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: file,
+    });
+    if (!res.ok) throw await failed(res, `${file.name}:`);
+    return json(res, "variant");
+  },
+
   remove: async (path: string): Promise<void> => {
     const res = await fetch(
       `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,

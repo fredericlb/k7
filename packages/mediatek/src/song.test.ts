@@ -17,8 +17,10 @@ import {
   segment,
   songFolder,
   tagsFromFilename,
+  VariantRefusedError,
 } from "./song.ts";
-import { addSong } from "./write.ts";
+import { SONG_FILE } from "./types.ts";
+import { addSong, addSongVariant, putFile } from "./write.ts";
 
 describe("the deduced tree", () => {
   it("is artiste/album/titre, directly under songs", () => {
@@ -193,5 +195,151 @@ describe("filing an upload", () => {
   it("leaves nothing half-written", () => {
     addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
     expect(readdirSync(folder()).some((n) => n.endsWith(".part"))).toBe(false);
+  });
+});
+
+describe("adding a variant to a song", () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "mediatek-var-"));
+    process.env.STUDIO_MEDIATEK = root;
+    ensureLayout();
+  });
+  afterEach(() => {
+    delete process.env.STUDIO_MEDIATEK;
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  const tags = {
+    artist: "Miles Davis",
+    album: "Kind of Blue",
+    title: "So What",
+  };
+  const rel = "songs/Miles Davis/Kind of Blue/So What";
+  const folder = () => join(root, rel);
+  const sidecar = () => readFileSync(join(folder(), SONG_FILE), "utf8");
+  const song = () =>
+    addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
+  const add = (filename: string, body = "RIFF") =>
+    addSongVariant({ folder: rel, filename, bytes: Buffer.from(body) });
+
+  it("writes the file beside the master and names it in the sidecar", () => {
+    song();
+    const r = add("instrumental.wav");
+    expect(r).toMatchObject({
+      path: `${rel}/instrumental.wav`,
+      ref: "instrumental.wav",
+      name: "instrumental",
+      declared: true,
+    });
+    expect(readFileSync(join(folder(), "instrumental.wav"), "utf8")).toBe(
+      "RIFF",
+    );
+    // …and the scan reads it back as a FILE variant, which is the whole point: it decides
+    // that by looking for `ref` among the folder's files, so the two must agree exactly.
+    expect(scanFamily("songs")[0].variants).toEqual([
+      { name: "instrumental", ref: "instrumental.wav", kind: "file" },
+    ]);
+  });
+
+  it("keeps the comments the sidecar was written with", () => {
+    // The reason this edits text instead of round-tripping the parser: those two lines say
+    // how the tree is derived, and a serialiser would drop them.
+    song();
+    add("instrumental.wav");
+    expect(sidecar()).toContain("# Voir packages/mediatek/docs/songs.md.");
+    expect(sidecar()).toContain('title: "So What"');
+  });
+
+  it("puts a second one under the same block", () => {
+    song();
+    add("instrumental.wav");
+    add("a cappella.flac");
+    expect(scanFamily("songs")[0].variants).toEqual([
+      { name: "instrumental", ref: "instrumental.wav", kind: "file" },
+      { name: "a cappella", ref: "a cappella.flac", kind: "file" },
+    ]);
+    // One block, not two: a second `variants:` key would shadow the first.
+    expect(sidecar().match(/^variants:/gm)).toHaveLength(1);
+  });
+
+  it("re-sending the same file replaces its bytes and declares nothing twice", () => {
+    song();
+    add("instrumental.wav", "first");
+    const again = add("instrumental.wav", "second");
+    expect(again.declared).toBe(false);
+    expect(readFileSync(join(folder(), "instrumental.wav"), "utf8")).toBe(
+      "second",
+    );
+    expect(scanFamily("songs")[0].variants).toHaveLength(1);
+  });
+
+  it("finds a free name rather than shadowing one", () => {
+    // Two files with the same stem in different formats: the refs differ, so both are real
+    // variants, but the sidecar is a MAPPING and the second key would replace the first.
+    song();
+    add("instrumental.wav");
+    expect(add("instrumental.mp3").name).toBe("instrumental 2");
+    expect(scanFamily("songs")[0].variants).toHaveLength(2);
+  });
+
+  it("files one into a folder nobody catalogued, sidecar and all", () => {
+    // A song dropped on the volume by hand: audio, no sidecar. Adding a version is the
+    // moment it gets one — there is nowhere else a variant can be declared.
+    putFile("songs/loose/whatever/original.mp3", "ID3");
+    const r = addSongVariant({
+      folder: "songs/loose/whatever",
+      filename: "instrumental.wav",
+      bytes: Buffer.from("RIFF"),
+    });
+    expect(r.declared).toBe(true);
+    expect(scanFamily("songs")[0].variants).toEqual([
+      { name: "instrumental", ref: "instrumental.wav", kind: "file" },
+    ]);
+  });
+
+  it("refuses a folder that is not a song", () => {
+    // Nobody invents a place in `songs/`: the shape is derived from tags, and a drop that
+    // created one would be the hand-made folder at the wrong level docs/songs.md refuses.
+    expect(() =>
+      addSongVariant({
+        folder: "songs/Miles Davis",
+        filename: "x.wav",
+        bytes: Buffer.from("RIFF"),
+      }),
+    ).toThrow(VariantRefusedError);
+    expect(() =>
+      addSongVariant({
+        folder: "samples/kicks",
+        filename: "x.wav",
+        bytes: Buffer.from("RIFF"),
+      }),
+    ).toThrow(VariantRefusedError);
+  });
+
+  it("refuses a sidecar whose variants: is not a mapping, rather than breaking it", () => {
+    // Inserting a `  "a": "b"` line under a LIST makes the whole file unparseable — and an
+    // unparseable sidecar costs the song its title everywhere.
+    song();
+    putFile(`${rel}/${SONG_FILE}`, "title: So What\nvariants:\n  - a\n  - b\n");
+    expect(() => add("instrumental.wav")).toThrow(VariantRefusedError);
+    expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
+  });
+
+  it("refuses a block written inline, which only the text can tell", () => {
+    // `variants: {instru: a.wav}` parses as a perfectly good mapping, so the check above
+    // passes it — and a line pushed under it would break the file just the same.
+    song();
+    putFile(
+      `${rel}/${SONG_FILE}`,
+      "title: So What\nvariants: {instru: a.wav}\n",
+    );
+    expect(() => add("instrumental.wav")).toThrow(VariantRefusedError);
+    expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
+  });
+
+  it("refuses what the scan would not see as audio", () => {
+    song();
+    expect(() => add("notes.txt")).toThrow(NotAudioError);
   });
 });

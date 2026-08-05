@@ -21,6 +21,11 @@ export class NotAudioError extends Error {}
  *  is to confirm the replacement, not to retry the same request. */
 export class SongExistsError extends Error {}
 
+/** Thrown when a variant cannot be filed where it was aimed: the folder is not a song, or
+ *  its sidecar already spells `variants:` as something that is not a mapping. Both are the
+ *  caller's to fix — a different target, or a hand-edit in the sidecar — so both are 400s. */
+export class VariantRefusedError extends Error {}
+
 export interface SongTags {
   artist?: string;
   album?: string;
@@ -77,6 +82,33 @@ export function masterName(filename: string): string {
   if (!isAudio(filename))
     throw new NotAudioError(`${filename}: not an audio file`);
   return `${MASTER_STEM}${extOf(filename)}`;
+}
+
+/**
+ * The name the sidecar files an uploaded variant under — the file's own stem, made nameable.
+ *
+ * Its stem and not a fixed word: somebody who named a file `instrumental.wav` has already
+ * said what this version is, and asking again in a dialogue would only be a chance to type it
+ * differently. Run through `segment` like a tag, because this becomes a YAML key AND half of
+ * the file name beside it. See docs/variants.md.
+ */
+export function variantName(filename: string): string {
+  const ext = extOf(filename);
+  return segment(filename.slice(0, filename.length - ext.length), "variante");
+}
+
+/**
+ * …and the file it lands in, beside the master.
+ *
+ * NOT `original.<ext>`: the master's name is fixed because a consumer holding only the folder
+ * has to find the audio without a listing, while a variant is found through the `ref` its
+ * sidecar line carries. Keeping the uploaded stem is what makes that line readable — and the
+ * scan matches `ref` against the folder's file names, so the two must agree exactly.
+ */
+export function variantFile(filename: string): string {
+  if (!isAudio(filename))
+    throw new NotAudioError(`${filename}: not an audio file`);
+  return `${variantName(filename)}${extOf(filename)}`;
 }
 
 /** The sidecar. `source` is what tells a human reading the folder where it came from, the

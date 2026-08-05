@@ -17,18 +17,21 @@ import {
   type TreeAction,
   type TreeNode,
 } from "@frediverse/ui/file-tree";
+import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import {
   CHAINS_FILE,
   type MediatekEntry,
   RECORDINGS_DIR,
   SONG_FILE,
+  type SongVariant,
 } from "@studio/mediatek/types";
 import { engineFaceModule, FACE_CATEGORIES } from "@studio/song/engineFace";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import type { RepoSummary } from "@studio/web-protocol";
 import {
   Activity,
+  AudioLines,
   Boxes,
   Disc3,
   FolderGit2,
@@ -172,6 +175,25 @@ const isSongFolder = (
   return !!e && isSong(e);
 };
 
+/**
+ * The VARIANT a tree row stands for, and the song it belongs to — or null for every other row.
+ *
+ * A variant row's path is its song's plus the name the sidecar files it under (see treeOf), so
+ * this cuts at the last slash and asks the listing whether what is left is a song. Nothing else
+ * in the tree has that shape: a song is a leaf-shaped folder, so it has no other children.
+ */
+const variantAt = (
+  entries: MediatekEntry[] | null,
+  path: string,
+): { song: MediatekEntry; variant: SongVariant } | null => {
+  const cut = path.lastIndexOf("/");
+  if (cut < 0) return null;
+  const song = entryAt(entries, path.slice(0, cut));
+  if (!song || !isSong(song)) return null;
+  const variant = song.variants?.find((v) => v.name === path.slice(cut + 1));
+  return variant ? { song, variant } : null;
+};
+
 /** Walk a family-relative folder path into the tree, creating what is missing. Returns the
  *  level INSIDE it, so a caller can keep descending. */
 function folderAt(roots: TreeNode[], rel: string): TreeNode[] {
@@ -237,9 +259,13 @@ function treeOf(
         // Everything else keeps the shape it had. In `modules/` that matters: an entry with no
         // module file is a CATEGORY — or a folder you just made — and folding it would leave
         // you unable to open it, let alone put a module in it.
+        // A SONG is the third of that kind, and folds for neither reason: it holds its
+        // variants, and a file dropped on it becomes one — which needs a row that is a drop
+        // target, and the shared tree only makes folders into those.
         const folds =
           leaf &&
-          (!["modules", "chains"].includes(e.family) || holdsChainsFile(e));
+          (!["modules", "chains", "songs"].includes(e.family) ||
+            holdsChainsFile(e));
         node = folds
           ? { name: part, path: sofar }
           : { name: part, path: sofar, dir: true, children: [] };
@@ -250,6 +276,16 @@ function treeOf(
           node.children = (e.assets ?? []).map((name) => ({
             name,
             path: `${sofar}/${ASSETS_DIR}/${name}`,
+          }));
+        // A song's children: the versions its sidecar declares. Named by that sidecar and NOT
+        // by a file, because half of them are not files — a chain variant names a template in
+        // another family — so the name is the one thing every variant has and the only one
+        // that is unique within a song. The path is therefore an identity, the way the
+        // synthesised root's is, and nothing addresses it as a file. See variantAt.
+        else if (leaf && isSong(e))
+          node.children = (e.variants ?? []).map((v) => ({
+            name: v.name,
+            path: `${sofar}/${v.name}`,
           }));
       }
       if (!leaf) level = node.children ??= [];
@@ -471,17 +507,69 @@ export function Library() {
     setError(null);
   }, [section]);
 
+  // The variant PICKER, beside the drop — the same pairing the folder picker has above, and
+  // for the same reason: a drag that lands on the wrong row fails silently, so the menu says
+  // out loud which song it is adding to.
+  const variantRef = useRef<HTMLInputElement>(null);
+  const variantInto = useRef<string>("");
+  const pickVariant = useCallback((song: string) => {
+    variantInto.current = song;
+    if (variantRef.current) variantRef.current.value = ""; // else the same file twice fires no `change`
+    variantRef.current?.click();
+  }, []);
+
   /**
-   * The whole right-click menu the SONGS family gets: remove that morceau, and nothing else.
+   * Audio files filed as VERSIONS of a song — dropped on its row, or picked from its menu.
+   *
+   * One request each, because each one writes a line in the sidecar and the second must read
+   * the first's: sending them at once would have two writers deciding independently that
+   * `instrumental` was free. The refusals are collected rather than thrown, so a folder
+   * holding one PDF still files its four takes.
+   */
+  const addVariants = useCallback(
+    async (songPath: string, files: File[]) => {
+      const refused: string[] = [];
+      const added: string[] = [];
+      for (const file of files) {
+        if (!isAudio(file.name)) {
+          refused.push(`${file.name} n'est pas un fichier audio`);
+          continue;
+        }
+        try {
+          added.push(
+            (await library.addVariant(`songs/${songPath}`, file)).path,
+          );
+        } catch (e) {
+          refused.push((e as Error).message);
+        }
+      }
+      // Before the errors below: it clears the message, and what it clears must be the OLD one.
+      refresh();
+      if (refused.length) setError(refused.join(" · "));
+      // The waveform, the onsets and the tempo, on the machine that has an engine — a file
+      // variant is a file in the library and nothing about it is special (docs/variants.md).
+      // Never awaited, and best effort: the version is filed either way.
+      if (choice.fileBase && choice.token)
+        for (const path of added)
+          void engineMachine
+            .analyse(choice.fileBase, choice.token, path)
+            .catch(() => {});
+    },
+    [choice.fileBase, choice.token, refresh],
+  );
+
+  /**
+   * The right-click menu the SONGS family gets: add a version, or remove the morceau.
    *
    * `editable` is false there and stays false — creating, renaming and moving in `songs/` are
    * what the tags decide, and a folder made by hand at the wrong level is an invisible song
-   * (see packages/mediatek/docs/songs.md). Deleting does not touch that shape, and it was the
-   * one thing you previously had to leave the app to do.
+   * (see packages/mediatek/docs/songs.md). Neither of these touches that shape: one writes
+   * INSIDE a song that already exists, the other takes a whole one away.
    *
    * `when` accepts a row only when the listing calls it a song, so the artist and the album
-   * above it are not offered — one click there would take every morceau underneath. The tree
-   * opens no menu at all when nothing passes, which is how those rows keep the browser's own.
+   * above it are offered neither — a variant of an album is not a thing, and one click there
+   * would delete every morceau underneath. The tree opens no menu at all when nothing passes,
+   * which is how those rows keep the browser's own.
    *
    * Empty for the other two non-editable sections: the capture zone has no entries to match,
    * and the repositories draw no tree.
@@ -491,6 +579,14 @@ export function Library() {
       section !== "songs"
         ? []
         : [
+            {
+              key: "add-variant",
+              // The same gesture as the drop onto this row, said in words — a drag is not
+              // discoverable, and this is the family whose tree refuses every other write.
+              label: "Ajouter une variante…",
+              when: (t) => isSongFolder(entries, t.path),
+              run: (t) => pickVariant(t.path),
+            },
             {
               key: "delete-song",
               // Named, and named as a folder: what goes is the master and its sidecar, not
@@ -512,7 +608,7 @@ export function Library() {
                   .catch((e: Error) => setError(e.message)),
             },
           ],
-    [entries, file, openFile, refresh, section],
+    [entries, file, openFile, pickVariant, refresh, section],
   );
 
   useEffect(() => {
@@ -790,6 +886,21 @@ export function Library() {
                     .catch((err: Error) => setError(err.message));
               }}
             />
+            {/* …and the one the variant menu opens. Its own input and not the folder picker's:
+                that one names a directory, and a variant is one audio file. */}
+            <input
+              ref={variantRef}
+              type="file"
+              accept={AUDIO_ACCEPT}
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                const song = variantInto.current;
+                e.target.value = "";
+                if (files.length) void addVariants(song, files);
+              }}
+            />
             <FileTree
               nodes={tree}
               // The family IS the root: rootPath is what a drop onto empty space and the
@@ -809,8 +920,14 @@ export function Library() {
               // A module is a folder row you OPEN: its chevron unfolds the assets, its name opens
               // the builder. Without this the click would only fold it, and the one gesture this
               // screen exists for would need a second one to reach.
-              opensOnName={(n) => isModuleFolder(entries, n.path)}
+              opensOnName={(n) =>
+                isModuleFolder(entries, n.path) || isSongFolder(entries, n.path)
+              }
               onOpen={(n) => {
+                // A VARIANT row opens its SONG: it is a line of that sidecar, and the editor
+                // showing the sidecar is where it can be renamed, re-pointed or removed.
+                const v = variantAt(entries, n.path);
+                if (v) return openFile(`${relative(v.song.path)}/${SONG_FILE}`);
                 const entry = entryAt(entries, n.path);
                 if (!entry) return;
                 if (holdsModuleFile(entry)) openFile(`${n.path}/${UI_FILE}`);
@@ -823,7 +940,16 @@ export function Library() {
               }}
               // A module, a chain and a song each wear the glyph of their own tab. Without one
               // the row would read as a plain file, which is the one thing none of them is.
+              // A variant wears the two SongVariants draws, for the same reason it draws them:
+              // a sibling file and a chain are different things to go looking for.
               icon={(n) => {
+                const v = variantAt(entries, n.path);
+                if (v)
+                  return v.variant.kind === "file" ? (
+                    <AudioLines className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <Workflow className="h-4 w-4 shrink-0" />
+                  );
                 const e = entryAt(entries, n.path);
                 if (e && holdsModuleFile(e))
                   return <Boxes className="h-4 w-4 shrink-0" />;
@@ -843,6 +969,11 @@ export function Library() {
               // A drop ONTO a module is a drop into what it carries: the module folder itself holds
               // its definition, and a sample landing beside module.yaml is neither an instance nor a
               // panel — it is material, and `assets/` is where the loader looks for it.
+              // A drop in SONGS is a variant, and only onto the morceau itself: the rows above
+              // it are an artist and an album, which are deduced from tags and hold nothing.
+              // The shared tree decides whether a row is a target from this prop alone — it
+              // has no per-row test — so those rows do highlight, and this says why nothing
+              // landed instead of swallowing the drop.
               onDropTree={
                 editable
                   ? (dir, files) =>
@@ -850,7 +981,17 @@ export function Library() {
                         .uploadTree(assetsTarget(dir), files)
                         .then(refresh)
                         .catch((e: Error) => setError(e.message))
-                  : undefined
+                  : section === "songs"
+                    ? (dir, files) =>
+                        void (isSongFolder(entries, dir)
+                          ? addVariants(
+                              dir,
+                              files.map((f) => f.file),
+                            )
+                          : setError(
+                              "Un fichier n'entre dans les morceaux que comme variante de l'un d'eux : déposez-le sur le morceau.",
+                            ))
+                    : undefined
               }
               // Present, so rows are draggable — the shared tree decides that from this prop
               // alone. Folders included: `moveEntry` renames a directory as readily as a file,

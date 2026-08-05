@@ -22,10 +22,15 @@ import { manifest } from "@studio/mediatek/manifest";
 import { mimeFor } from "@studio/mediatek/media";
 import { addRecording, listRecordings } from "@studio/mediatek/recordings";
 import { revisions } from "@studio/mediatek/revision";
-import { NotAudioError, SongExistsError } from "@studio/mediatek/song";
+import {
+  NotAudioError,
+  SongExistsError,
+  VariantRefusedError,
+} from "@studio/mediatek/song";
 import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import {
   addSong,
+  addSongVariant,
   makeFolder,
   moveEntry,
   putFile,
@@ -204,6 +209,50 @@ libraryRouter.post(
       if (e instanceof SongExistsError)
         return res.status(409).json({ error: e.message, exists: true });
       if (e instanceof NotAudioError)
+        return res.status(400).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
+  }),
+);
+
+/**
+ * One uploaded audio file as a VARIANT of a song that already exists.
+ *
+ * The caller names the folder here, where `POST /song` refuses to let it name anything: the
+ * rule is that nobody invents a place in `songs/`, and this one has to be a song already —
+ * `addSongVariant` refuses a folder holding neither master nor sidecar. What it cannot name
+ * is the FILE, which is derived from the upload's own stem, so a `ref` and the bytes beside
+ * it can never disagree. See packages/mediatek/docs/variants.md.
+ */
+libraryRouter.post(
+  "/variant",
+  express.raw({ type: "*/*", limit: "512mb" }),
+  wrap((req, res) => {
+    const q = req.query as Record<string, unknown>;
+    const s = (k: string): string =>
+      typeof q[k] === "string" ? (q[k] as string) : "";
+    const path = s("path");
+    const filename = s("filename");
+    if (!path) return res.status(400).json({ error: "path required" });
+    if (!filename) return res.status(400).json({ error: "filename required" });
+    const bytes = req.body as Buffer;
+    if (!bytes?.length) return res.status(400).json({ error: "empty body" });
+    try {
+      res.json({
+        ok: true,
+        ...addSongVariant({
+          folder: path,
+          filename,
+          bytes,
+          // Absent, the file's own stem names it — which is what the médiathèque sends.
+          name: s("name") || undefined,
+        }),
+      });
+    } catch (e) {
+      // Both refusals are the caller's to fix: aim at a song, or repair a sidecar whose
+      // `variants:` is not a mapping. Neither is a retry of the same request.
+      if (e instanceof VariantRefusedError || e instanceof NotAudioError)
         return res.status(400).json({ error: e.message });
       if (writeError(e, res)) return;
       throw e;
