@@ -1,3 +1,8 @@
+/* The RECOVERY screen, not the way in: k7 has no sign-in page of its own, and an
+   anonymous tab leaves for st0's /auth/login on its own (see auth.ts). This is
+   what is left when that trip came back with no session — a dead end otherwise,
+   since bouncing again would only loop. */
+
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
@@ -20,7 +25,8 @@ export function LoginView({ loginUrl }: Props) {
           f<span style={{ color: "var(--red)" }}>·</span>rec
         </div>
         <p className="muted">
-          Record long sessions, auto-detect the loud moments, tag the good bits.
+          Sign-in did not come back with a session. If it keeps failing, the
+          médiathèque (which signs everyone in) may be down.
         </p>
         <Button
           className="mt-3 w-full"
@@ -29,7 +35,7 @@ export function LoginView({ loginUrl }: Props) {
           }}
         >
           <FrediverseMark size="sm" />
-          Sign in
+          Try again
         </Button>
       </Card>
     </div>
