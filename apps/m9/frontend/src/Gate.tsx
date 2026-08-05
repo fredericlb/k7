@@ -5,13 +5,12 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { chooseEngine } from "@studio/engine-browser/choose";
-import { probeEngines, type RankedEngine } from "@studio/engine-browser/probe";
+import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { Loader2, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { auth, BASE, engines } from "./api";
+import { auth, engines } from "./api";
 import { ProjectShell } from "./ProjectShell";
 
 type Phase =
@@ -32,17 +31,12 @@ export function Gate() {
 
   const findEngine = useCallback(async () => {
     setPhase({ k: "looking" });
-    const [list, prefs] = await Promise.all([
-      engines.list().catch(() => [] as PublicEngine[]),
-      engines.prefs().catch(() => ({}) as { engineId?: string }),
-    ]);
-    const ranked = await probeEngines(list, BASE);
-    const choice = chooseEngine(ranked, prefs.engineId);
+    const { ranked, chosen } = await engines.find();
     // No engine at all still shows the picker, unlike the médiathèque: an editor without an
     // engine still edits text, but a deck without one has nothing to do — so the screen that
     // explains why is the right one to be on.
-    if (!choice.engine) return setPhase({ k: "picking", ranked });
-    setPhase({ k: "ready", engine: choice.engine });
+    if (!chosen) return setPhase({ k: "picking", ranked });
+    setPhase({ k: "ready", engine: chosen });
   }, []);
 
   const pick = useCallback((r: RankedEngine<PublicEngine>) => {

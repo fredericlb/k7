@@ -15,7 +15,12 @@ plutôt que retiré, pour que la ligne garde son historique. Chaque entrée port
   bornes de recherche) vit désormais dans `@studio/mediatek` ; le routage reste délibérément
   dupliqué, les deux sémantiques de 404 n'étant pas les mêmes. Voir `packages/mediatek/docs/mime.md`.
 - **Le client `engines`** recopié entre st0 et m9 (36 lignes, commentaires compris) →
-  `@studio/engine-browser/registry`.
+  `@studio/engine-browser/registry`. **l8 ne l'avait pas suivi** et gardait sa propre copie des
+  cinq routes dans `api.ts` ; il passe par `@studio/engine-browser/access` comme les deux
+  autres, et ses `get`/`send` same-origin sont partis avec (le registre en était le seul
+  appelant). Voir `packages/engine-browser/docs/access.md`.
+- **La séquence « lister → préférence → sonder → choisir »**, écrite trois fois (l8
+  `EngineGate`, m9 `Gate`, st0 `useEngineChoice` + `useModuleEngine`) → `engines.find()`.
 - **`chooseEngine` refait à la main dans l8** (`EngineGate.tsx`), qui oubliait le filtre
   `&& r.token` et le raccourci « un seul moteur joignable » → il appelle le partagé.
 - **`TIER_LABEL` en triple** : déjà résolu avant l'audit, tout le monde passe par `formatLatency`.
@@ -103,7 +108,7 @@ sous-chemin réellement importé (`file-service/src/{cors,pendingOrigins}.ts`).
 | quoi | où | note |
 |---|---|---|
 | `__hints_tmp.ts` | `packages/song/src/` | script de debug ad hoc (`process.argv[2]`, des `console.log`). Aucun importateur, aucune référence. Le nom `__…_tmp` dit qu'il ne devait pas survivre. |
-| `probeLocalEngine` | `packages/engine-browser/src/probe.ts:128` | remplacé par le registre. Les deux seules mentions restantes sont de la prose, dont `engine-registry/docs/shared.md:11` qui en parle **au passé**. |
+| `probeLocalEngine` | `packages/engine-browser/src/probe.ts:216` | remplacé par le registre. Il ne reste que de la prose, qui en parle **au passé** (`engine-registry/docs/shared.md:11`) — `apps/st0/docs/deploy.md` le donnait encore au présent et a été corrigé le 5 août 2026. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
 | type `Signal` | `packages/dsp/src/index.ts:48` | marqué `@deprecated`, plus aucun usage. |
 | script `"serve"` | `apps/l8/frontend/package.json:7` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
 | export `AuthUser` | `apps/st0/frontend/src/api.ts:22`, `apps/m9/frontend/src/api.ts:12` | exporté, jamais importé. Seul celui de l8 est consommé. |

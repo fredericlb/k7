@@ -7,6 +7,7 @@
   "types": "./src/engine.ts",
   "exports": {
     ".": "./src/engine.ts",
+    "./access": "./src/access.ts",
     "./store": "./src/engineStore.ts",
     "./params": "./src/params.ts",
     "./probe": "./src/probe.ts",

@@ -4,6 +4,7 @@
 // The file service base + the identity/workspace/engine-token headers are set by
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
+import { engineAccess } from "@studio/engine-browser/access";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
@@ -45,30 +46,27 @@ export const MEDIATEK_URL = serviceUrl(
 );
 
 // ── The hosted backend (same-origin): auth + registry ───────────────────────────
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+// The registry's own five routes are `engines` below and are not spelled here; auth is three
+// bare fetches. This app's own `get`/`send` went with them — the registry was their only
+// caller once the workspace routes moved to the file service.
+
+/** The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors. */
+async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok)
     throw new Error(
-      (await res.json().catch(() => ({}))).error ?? `GET ${path} failed`,
+      ((await res.json().catch(() => ({}))) as { error?: string }).error ??
+        `${what} ${res.status}`,
     );
   return res.json() as Promise<T>;
 }
-async function send<T>(
-  method: string,
-  path: string,
-  body: unknown,
-): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok)
-    throw new Error(
-      (await res.json().catch(() => ({}))).error ?? `${method} ${path} failed`,
-    );
-  return res.json() as Promise<T>;
-}
+
+/**
+ * Everything this browser does to reach an engine: the registry's five routes, the probe, the
+ * choice and the lease — bound to `/l8` once. This app spelled the five routes out by hand
+ * while st0 and m9 already shared them, which is precisely the drift
+ * `@studio/engine-browser/registry` was extracted to stop. See that package's docs/access.md.
+ */
+export const engines = engineAccess<PublicEngine>(BASE, json);
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────
 // The transport and the routes m9 shares now live in @studio/project-shell — a workspace is
@@ -111,30 +109,12 @@ export const api = {
   logout: () => fetch("/auth/logout", { method: "POST" }).then(() => undefined),
 
   // --- Engine registry (hosted backend, same-origin) ---
-  engines: () => get<PublicEngine[]>(`${BASE}/api/engines`),
-  selectEngine: (id: string, token: string, latencyMs: number) =>
-    send<{ ok: true }>("POST", `${BASE}/api/engine/select`, {
-      id,
-      token,
-      latencyMs,
-    }),
-  // The assignment's goodbye, fired on pagehide as a beacon so it survives the tab closing.
-  releaseEngine: (id: string) =>
-    navigator.sendBeacon(
-      `${BASE}/api/engine/release`,
-      new Blob([JSON.stringify({ id })], { type: "application/json" }),
-    ),
-
-  // --- What this service remembers about YOU (hosted backend, same-origin) ---
-  // NOT `preferences` below, and the two must never be confused: that one is the RIG's
-  // (~/.studio/preferences.yaml on the engine's machine, shared by everyone who selects it),
-  // this one is the account's, on the hosted volume, and follows you to another browser.
-  //
-  // The engine id and not its address: an engine's IP moves between networks while its
-  // identity does not, and the browser re-probes the addresses on every load anyway.
-  accountPrefs: () => get<{ engineId?: string }>(`${BASE}/api/preferences`),
-  saveAccountPrefs: (p: { engineId?: string }) =>
-    send<{ ok: true }>("PUT", `${BASE}/api/preferences`, p),
+  // The five routes are `engines` above, shared. What this service remembers about YOU is
+  // among them (`prefs`/`savePrefs`) and must never be confused with `preferences` below:
+  // that one is the RIG's (~/.studio/preferences.yaml on the engine's machine, shared by
+  // everyone who selects it), this one is the account's, on the hosted volume, and follows
+  // you to another browser. It stores the engine ID and not its address — an engine's IP
+  // moves between networks while its identity does not, and the browser re-probes on load.
 
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
   // The shared half — resolving st0's repository to a folder here, the tree, the files, the

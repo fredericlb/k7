@@ -87,6 +87,38 @@ Le `fileBase` voyage avec l'adresse qui a répondu, et c'est important : un sock
 côté d'un `http://` direct vers le service de fichiers, ce serait le mur une seconde fois,
 sur l'autre moitié.
 
+## Le corps qu'un parseur a déjà pris
+
+`engineFilesProxy` est une route Express, donc elle hérite de tout ce que le service a monté
+devant elle — et les trois montent `express.json()` pour l'application entière, avant le
+routeur. Quand le relais est atteint, le flux de la requête est **déjà à sa fin** : un
+`req.pipe(up)` appelle `end()` immédiatement et l'amont reçoit le `content-length` d'origine
+avec zéro octet derrière.
+
+Le service de fichiers attend alors des octets qui ne viendront jamais, le `timeout` du dial
+tombe au bout de 1500 ms, l'adresse suivante fait pareil, et le relais répond
+`502 engine file service unreachable` — un message qui accuse le réseau alors que le relais
+s'est saboté lui-même. Les `GET` passaient, donc le moteur se choisissait, se mesurait et se
+connectait ; c'est le premier `POST /open` qui échouait, et `diagnoseFileService` traduisait ça
+en « origine bloquée, autorisez-la dans le capot ». Trois écrans de diagnostic, aucun ne
+nommant la cause.
+
+Le relais **rejoue** donc ce que le parseur a pris (`replayBody`) plutôt que de supposer un flux
+intact, et recalcule le `content-length` : les octets re-sérialisés ne sont pas les octets
+reçus. Il pouvait aussi bien s'écrire « ne montez pas de parseur devant » — mais une règle
+d'ordre de montage que trois backends doivent respecter est exactement ce qui vient de casser,
+et rien ne l'aurait rattrapée. `proxy.test.ts` monte `express.json()` devant le relais, comme
+eux.
+
+Deux conséquences de bord, dans le même geste :
+
+- Un corps **flué** (`application/octet-stream`, le seul que `express.json` ne touche pas) ne
+  peut pas être rejoué sur l'adresse suivante : le flux est dépensé. Ce cas répond 502 au lieu
+  de réessayer en silence avec un corps vide.
+- Le `timeout` de 1500 ms est celui du **dial**, pas du téléchargement. C'est une inactivité de
+  socket, donc le laisser courir détruisait un export de mixdown ou un `/media` lent en plein
+  vol ; il est désarmé dès que la réponse commence.
+
 ## Le premier message est mis en attente
 
 Le navigateur envoie `whoami` à l'instant où le socket s'ouvre — or à cet instant le socket

@@ -2,7 +2,7 @@
 // there, so browsing it needs no engine and no local service. The LOCAL cache is what the
 // moteur plays from, and nothing on this screen reads it.
 
-import { registryClient } from "@studio/engine-browser/registry";
+import { engineAccess } from "@studio/engine-browser/access";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
@@ -190,10 +190,13 @@ export const engineMachine = {
  *
  * Its OWN registry, not l8's. Each hosted service holds one — see
  * packages/engine-registry/docs/shared.md — so an engine appears here only once it has been
- * pointed at the médiathèque too. The five routes are shared with m9, which mounted the same
- * ones and had copied the same 36 lines.
+ * pointed at the médiathèque too.
+ *
+ * The five routes, the probe, the policy and the lease all come from
+ * @studio/engine-browser/access, bound to this service's prefix — "" here, since the
+ * médiathèque answers the origin root. See that package's docs/access.md.
  */
-export const engines = registryClient<PublicEngine>(BASE, json);
+export const engines = engineAccess<PublicEngine>(BASE, json);
 
 /** `/api/projects` rather than `/api/mediatek`, so it needs its own two verbs. */
 const pget = async <T>(path: string, what: string): Promise<T> =>

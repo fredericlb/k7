@@ -20,6 +20,11 @@ export default defineAppConfig({
   // dev server started second simply died.
   port,
   backendPort,
+  // The engine relay. `/api` is proxied already, but only a declared wsPath gets `ws: true`,
+  // and without it an `upgrade` dies here — invisible behind Caddy, which routes /l8/api
+  // straight to the backend, and fatal under `l8 --web` where this server is visited direct.
+  // See packages/engine-registry/docs/proxy.md.
+  wsPaths: ["/api/engine"],
   // No /auth here, matching m9: the shared OIDC flow lives on st0's backend now, and
   // Caddy's origin-wide `handle /auth/*` claims those paths before this dev server ever
   // sees them. Proxying them to :8789 would only forward to a backend that mounts no

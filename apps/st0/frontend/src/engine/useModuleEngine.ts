@@ -3,15 +3,11 @@
 // what they span. Nothing else — no transport, no meters. See docs/engine.md.
 
 import { EngineClient } from "@studio/engine-browser";
-import { chooseEngine } from "@studio/engine-browser/choose";
-import { holdEngine } from "@studio/engine-browser/lease";
-import { probeEngines } from "@studio/engine-browser/probe";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
-import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BASE, currentUser, engines } from "../api";
+import { currentUser, engines } from "../api";
 import { modulePreviewDoc, previewPluginId } from "./preview";
 
 export type EnginePhase =
@@ -86,31 +82,18 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     let cancelled = false;
     setPhase({ k: "looking" });
     void (async () => {
-      // Both at once: a remembered id is only a hint that still has to be probed, so
-      // waiting for one before starting the other would add a round trip to every load.
-      const [list, prefs] = await Promise.all([
-        engines.list().catch(() => [] as PublicEngine[]),
-        engines.prefs().catch(() => ({}) as { engineId?: string }),
-      ]);
-      if (cancelled) return;
-      const ranked = await probeEngines(list, BASE);
-      if (cancelled) return;
       // The caller's pick wins over the stored one: it is the same value, but it arrives
       // already updated when someone changes it from the header beside this editor, whereas
-      // the fetch above would still be answering with what was saved a moment ago.
-      const choice = chooseEngine(ranked, engineId ?? prefs.engineId);
-      if (!choice.engine) return setPhase({ k: "absent" });
-      const found = choice.engine;
+      // the fetch inside would still be answering with what was saved a moment ago.
+      const { chosen } = await engines.find(engineId);
+      if (cancelled) return;
+      if (!chosen) return setPhase({ k: "absent" });
+      const found = chosen;
       setFileBase(found.fileBase ?? null);
       // The lease, exactly as l8' EngineGate holds it. A miss is not fatal: it marks the
       // engine in use, it does not grant the connection, which the browser makes itself.
       lease.current?.(); // a previous one, if this effect re-ran on a new choice
-      lease.current = holdEngine(
-        engines,
-        found.engine.id,
-        found.token!,
-        found.latency?.totalMs ?? 0,
-      );
+      lease.current = engines.hold(found);
 
       // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
       // engine slot l8 had a song in — auditioning a module unloaded the song.

@@ -2,11 +2,11 @@
 // picker needs the list and the current pick; opening a second socket to draw a menu would
 // mean two connections to the same engine from one tab. useModuleEngine holds the socket.
 
-import { probeEngines, type RankedEngine } from "@studio/engine-browser/probe";
+import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { EngineLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
-import { BASE, engines } from "../api";
+import { engines } from "../api";
 
 export interface EngineChoice {
   ranked: RankedEngine<PublicEngine>[];
@@ -42,14 +42,13 @@ export function useEngineChoice(): EngineChoice {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [list, prefs] = await Promise.all([
-        engines.list().catch(() => [] as PublicEngine[]),
-        engines.prefs().catch(() => ({}) as { engineId?: string }),
-      ]);
+      // The list, the preference and the measurement in one call. The POLICY it also applies
+      // is ignored here on purpose: this hook draws a picker, so it shows what the account
+      // remembered even when that engine did not answer — `ready` below is what says whether
+      // it can be driven.
+      const { ranked: r, rememberedId } = await engines.find();
       if (cancelled) return;
-      setChosenId(prefs.engineId);
-      const r = await probeEngines(list, BASE);
-      if (cancelled) return;
+      setChosenId(rememberedId);
       setRanked(r);
       setLoaded(true);
     })();

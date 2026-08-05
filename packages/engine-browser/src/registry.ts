@@ -14,7 +14,7 @@ export interface RegistryClient<E> {
 
 /** Read a JSON body, or throw with `what` in the message. Passed in because each app already
  *  has one, wired to its own error reporting — this module does not impose a second. */
-type ReadJson = <T>(res: Response, what: string) => Promise<T>;
+export type ReadJson = <T>(res: Response, what: string) => Promise<T>;
 
 /**
  * The five routes, against one service's `base`.
