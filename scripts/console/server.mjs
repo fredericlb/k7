@@ -21,6 +21,7 @@ const PORT = 8797; // free: the Caddyfile claims 3001-3006, 5173, 5223-5225, 808
 const BASE = "/console";
 const SCROLLBACK_CAP = 1 << 20; // ~1 MiB of raw PTY output per tab, enough for a post-mortem
 const MAX_TABS = 12; // a runaway "+" should not fork-bomb the machine
+const MAX_NAME = 24; // a tab label the bar can still show
 // Git Bash is wherever Git is (machine- or user-level install), so it is derived
 // from the git.exe on PATH rather than guessed at fixed paths. NOT `where bash`:
 // System32\bash.exe is WSL's, and WindowsApps' is a Store alias.
@@ -97,6 +98,7 @@ const tabsMsg = () => ({
   tabs: [...sessions.values()].map((s) => ({
     id: s.id,
     shell: s.shell,
+    name: s.name,
     cmd: SHELLS[s.shell].display,
     running: s.child !== null,
     pid: s.child?.pid ?? null,
@@ -182,6 +184,7 @@ function createSession(shell = DEFAULT_SHELL) {
   const s = {
     id: String(nextId++),
     shell,
+    name: null, // what the user called this tab; the page falls back to id·shell
     child: null,
     lastExit: null,
     restartPending: false,
@@ -274,7 +277,15 @@ wss.on("connection", (ws) => {
     else if (m.t === "start") start(s);
     else if (m.t === "stop") stop(s);
     else if (m.t === "close") closeSession(s);
-    else if (m.t === "restart") {
+    else if (m.t === "rename") {
+      // The name lives with the session, so it survives a restart and every viewer
+      // sees it; an empty one falls back to id·shell.
+      s.name =
+        String(m.name ?? "")
+          .trim()
+          .slice(0, MAX_NAME) || null;
+      broadcastTabs();
+    } else if (m.t === "restart") {
       if (s.child) {
         s.restartPending = true;
         stop(s);
