@@ -7,7 +7,11 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
-import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
+import {
+  attachEngineProxy,
+  createRegistry,
+  engineRegistryRouter,
+} from "@studio/engine-registry";
 import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
@@ -58,7 +62,8 @@ const { requireAuth } = await setupAuth(app, {
 app.use(["/api/engines", "/api/engine"], requireAuth);
 // OUR registry, not the registry: st0 holds its own, and an engine heartbeats to both.
 // See packages/engine-registry/docs/shared.md for why that is not one central one.
-app.use("/api", engineRegistryRouter(createRegistry()));
+const registry = createRegistry();
+app.use("/api", engineRegistryRouter(registry));
 
 /**
  * What this service remembers about a person. One field so far: the engine they drive.
@@ -81,13 +86,19 @@ app.use(
   ),
 );
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   // "verifies auth", not "auth": st0 mints the session, this only checks it.
   console.log(`🎛  l8-web backend on ${url}  (registry; verifies auth)`);
   unadvertise = advertiseRegistry("l8", url); // so the supervisor heartbeats to us
   advertiseLegacyEndpoint(url);
 });
+
+// The engine, relayed through this origin. Attached to the SERVER, not mounted as a route: a
+// WebSocket upgrade never reaches Express's middleware chain. It is what makes an engine on
+// another machine reachable at all — this page is HTTPS, and an HTTPS page may not open a
+// `ws://` to a LAN address. See packages/engine-registry/docs/proxy.md.
+attachEngineProxy(server, registry);
 
 // On shutdown, drop our registry endpoint file. (Windows force-kills us, so --web does this cleanup too.)
 const bye = () => {

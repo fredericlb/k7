@@ -1,4 +1,5 @@
-// probe.ts — MEASURE each registered engine by reaching it: the whoami round trip is the
+// probe.ts — MEASURE each registered engine by reaching it, direct or through the web
+// origin's relay: the whoami round trip is the
 // network half, the buffer size it reports is the audio half, and their sum is the latency
 // every surface then bands into Q1/Q2/Q3 (see @studio/web-protocol/quality). The probe sends
 // {type:"whoami"} and MATCHES THE ID, so a lookalike listener can't pass as this engine; the
@@ -27,6 +28,8 @@ export interface ProbeTarget {
     port: number;
     filePort: number;
   };
+  /** Minted per engine by `/engines`. Absent simply means no relay candidate is offered. */
+  proxyTicket?: string;
 }
 
 export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
@@ -122,24 +125,54 @@ function probeOne(
 }
 
 interface Candidate {
-  host: string; // the host that answered — the file service is on the same host
-  url: string;
+  url: string; // the WebSocket to try
+  fileBase: string; // the file service that goes WITH it — the same host, or the same relay
 }
 
-function candidatesFor(e: ProbeTarget): Candidate[] {
-  const { loopback, lanIps, port } = e.addresses;
+/**
+ * Every way this browser might reach one engine: loopback, each LAN address, then the RELAY
+ * through the web origin.
+ *
+ * The relay is not a fallback for a broken network. The first two are `ws://`, and a page
+ * served over HTTPS may not open one to anything but the loopback — so on any machine other
+ * than the engine's, the LAN candidates are refused by the browser before a packet leaves,
+ * however healthy the engine is. Measured on a LAN where the port was provably open from the
+ * remote machine's own shell. It is also what makes macOS's local-network permission and a
+ * closed inbound port stop mattering: nothing dials a LAN address any more.
+ *
+ * Last in the list, but the order is only documentation — `rank` races them and keeps the
+ * FASTEST, so a direct link wins wherever it is allowed, and the extra hop loses on its own.
+ */
+function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
+  const { loopback, lanIps, port, filePort } = e.addresses;
+  const direct = [loopback, ...lanIps].map(
+    (host): Candidate => ({
+      url: `ws://${host}:${port}`,
+      fileBase: `http://${host}:${filePort}`,
+    }),
+  );
+  if (!e.proxyTicket) return direct;
+  // Same origin as the page, so it inherits its scheme: an HTTPS page relays over `wss:`.
+  const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+  const path = `${relayBase}/api/engine/${encodeURIComponent(e.id)}`;
   return [
-    { host: loopback, url: `ws://${loopback}:${port}` },
-    ...lanIps.map((ip): Candidate => ({ host: ip, url: `ws://${ip}:${port}` })),
+    ...direct,
+    {
+      url: `${scheme}//${location.host}${path}/ws?ticket=${encodeURIComponent(e.proxyTicket)}`,
+      fileBase: `${location.origin}${path}/files`,
+    },
   ];
 }
 
-async function rank<E extends ProbeTarget>(e: E): Promise<RankedEngine<E>> {
+async function rank<E extends ProbeTarget>(
+  e: E,
+  relayBase: string,
+): Promise<RankedEngine<E>> {
   // Every address at once, paying no serial timeout for the misses — then the FASTEST that
   // answered, which is the whole ranking now. Loopback usually wins it; when a LAN address
   // wins instead, that is a measurement rather than an exception to a rule.
   const results = await Promise.all(
-    candidatesFor(e).map(async (c) => ({
+    candidatesFor(e, relayBase).map(async (c) => ({
       c,
       reply: await probeOne(c.url, e.id),
     })),
@@ -165,8 +198,9 @@ async function rank<E extends ProbeTarget>(e: E): Promise<RankedEngine<E>> {
       best.reply.sampleRate,
     ),
     wsUrl: best.c.url,
-    // The file service is on the SAME host that answered, at its advertised port.
-    fileBase: `http://${best.c.host}:${e.addresses.filePort}`,
+    // Whatever goes with the address that answered: the same host, or the same relay. The two
+    // must not be mixed — a relayed socket beside a direct `http://` would be the wall again.
+    fileBase: best.c.fileBase,
     token: best.reply.token,
   };
 }
@@ -228,8 +262,11 @@ export function probeLocalEngine(
 // than hide.
 export async function probeEngines<E extends ProbeTarget>(
   engines: E[],
+  /** The calling app's own origin prefix — "" for st0, "/l8", "/m9" — under which its relay
+   *  answers. Passed rather than derived, exactly as `registryClient` takes its `base`. */
+  relayBase: string,
 ): Promise<RankedEngine<E>[]> {
-  const ranked = await Promise.all(engines.map((e) => rank(e)));
+  const ranked = await Promise.all(engines.map((e) => rank(e, relayBase)));
   return ranked.sort(
     (a, b) =>
       (a.latency?.totalMs ?? Number.POSITIVE_INFINITY) -

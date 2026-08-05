@@ -11,7 +11,7 @@ import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { Loader2, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { auth, engines } from "./api";
+import { auth, BASE, engines } from "./api";
 import { ProjectShell } from "./ProjectShell";
 
 type Phase =
@@ -36,7 +36,7 @@ export function Gate() {
       engines.list().catch(() => [] as PublicEngine[]),
       engines.prefs().catch(() => ({}) as { engineId?: string }),
     ]);
-    const ranked = await probeEngines(list);
+    const ranked = await probeEngines(list, BASE);
     const choice = chooseEngine(ranked, prefs.engineId);
     // No engine at all still shows the picker, unlike the médiathèque: an editor without an
     // engine still edits text, but a deck without one has nothing to do — so the screen that

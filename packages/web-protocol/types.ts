@@ -566,6 +566,14 @@ export interface PublicEngine {
   assigned: boolean; // already selected by someone; hidden from the pick list
   // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
+  /**
+   * A short-lived pass for the relay at `<base>/api/engine/<id>/ws`, which is how a browser
+   * reaches an engine it may not dial directly (an HTTPS page and a `ws://` LAN address).
+   *
+   * Optional because the REGISTRY does not mint it — the `/engines` route does, being the
+   * authenticated one. See packages/engine-registry/proxy.ts.
+   */
+  proxyTicket?: string;
 }
 
 // How good a link to an engine is — Q1/Q2/Q3, off a measured latency — lives in ./quality,

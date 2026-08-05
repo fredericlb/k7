@@ -7,7 +7,11 @@ import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
 import { setupAuth } from "@frediverse/oidc";
 import { apiTokenAuth } from "@frediverse/oidc/api-auth";
-import { createRegistry, engineRegistryRouter } from "@studio/engine-registry";
+import {
+  attachEngineProxy,
+  createRegistry,
+  engineRegistryRouter,
+} from "@studio/engine-registry";
 import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import { prefsStore } from "@studio/user-prefs";
@@ -73,7 +77,8 @@ app.use(
 // offer either. Same mounting rule as l8: the browser routes need a session, the
 // engine-facing heartbeat stays open because a machine authenticates with its own token.
 app.use(["/api/engines", "/api/engine"], requireAuth);
-app.use("/api", engineRegistryRouter(createRegistry()));
+const registry = createRegistry();
+app.use("/api", engineRegistryRouter(registry));
 
 // The engine this user auditions modules through. Same shape as l8', a different store:
 // a person's médiathèque engine and their l8 engine are two choices, and this service is
@@ -102,7 +107,7 @@ app.post("/api/token", requireAuth, (req, res) => {
 
 let unadvertise: (() => void) | null = null;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   // Created on boot like the local service does, so an empty volume is a working library
   // rather than a 404 until someone uploads.
@@ -118,6 +123,12 @@ app.listen(PORT, () => {
   // heartbeats to every advertised URL, and one it never hears about lists no engines at all.
   unadvertise = advertiseRegistry("st0", url);
 });
+
+// The engine, relayed through this origin. Attached to the SERVER, not mounted as a route: a
+// WebSocket upgrade never reaches Express's middleware chain. It is what makes an engine on
+// another machine reachable at all — this page is HTTPS, and an HTTPS page may not open a
+// `ws://` to a LAN address. See packages/engine-registry/docs/proxy.md.
+attachEngineProxy(server, registry);
 
 const bye = () => {
   unadvertise?.();

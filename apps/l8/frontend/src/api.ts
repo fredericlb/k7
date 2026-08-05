@@ -21,7 +21,8 @@ import type {
 // The app is mounted under a path (studio.test/l8), so every backend path
 // below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed here
 // so the literals keep reading as paths.
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+// Exported because the engine probe needs it too: the relay answers under this same prefix.
+export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /**
  * The médiathèque — st0, which is another service on the SAME origin, and now the one
