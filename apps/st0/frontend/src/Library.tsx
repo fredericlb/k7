@@ -55,6 +55,7 @@ import { EngineList, EnginePicker } from "./engine/EnginePicker";
 import { ModuleParams } from "./engine/ModuleParams";
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { ModuleEditor } from "./ModuleEditor";
+import { OtherApps } from "./OtherApps";
 import { PlaybackPicker } from "./playback/PlaybackPicker";
 import { usePlaybackTarget } from "./playback/usePlaybackTarget";
 import { ProjectsSection } from "./projects/ProjectsSection";
@@ -761,6 +762,9 @@ export function Library() {
             {VERSION}
           </span>
         </div>
+        {/* The way out to the studio's other apps. First of the three icon buttons because
+            it is the only one that LEAVES: the two beside it change how this page behaves. */}
+        <OtherApps />
         {/* Where sound comes out, beside the cog rather than inside it: it is changed while
             listening — you hear it on the wrong machine and reach for it — whereas the cog
             holds things you set once. Its own button so it is one click, and its icon says
