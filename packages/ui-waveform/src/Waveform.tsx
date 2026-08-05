@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { labelled, labelStride, MAX_COLUMN_PX } from "./ticks";
+import { labelled, labelMinPx, labelStride, MAX_COLUMN_PX } from "./ticks";
 import type {
   Annotation,
   DetectedEvent,
@@ -346,7 +346,13 @@ export function Waveform({
       texts.length > 1
         ? timeToX(texts[1].t) - timeToX(texts[0].t)
         : Number.POSITIVE_INFINITY;
-    const stride = labelStride(gap);
+    // Against the widest number this ruler prints, not a flat minimum: "128.4" needs four
+    // times the room "7" does, and the two smear together long before the lines do.
+    const widest = texts.reduce(
+      (w, t) => (t.text.length > w.length ? t.text : w),
+      "",
+    );
+    const stride = labelStride(gap, labelMinPx(widest));
     texts.forEach((tx, i) => {
       if (labelled(i, stride)) ctx.fillText(tx.text, timeToX(tx.t) + 2, 2);
     });
