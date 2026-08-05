@@ -41,6 +41,11 @@ export const CHAINS_FILE = "chains.yaml";
  *  this folder, and only one of the two may open `node:fs`. */
 export const INSTANCES_DIR = "instances";
 
+/** The sidecar that makes a folder a SONG and carries its title, its provenance and its
+ *  variants. Here for the same reason CHAINS_FILE is: st0 opens one in an editor, and a
+ *  browser reaching for the name must not pull `node:fs` in with it. scan.ts re-exports it. */
+export const SONG_FILE = "song.yaml";
+
 /**
  * One alternative version of a song, declared in its sidecar. See docs/variants.md.
  *

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SECTION,
   fileOf,
+  folderOf,
   fromLocation,
-  moduleOf,
   type RouteState,
   SECTION_IDS,
   sameRoute,
@@ -56,8 +56,46 @@ describe("fromLocation", () => {
   });
 
   it("drops a file under a section that cannot open one", () => {
-    // `songs` is a listing; a path under it names nothing the app can show.
-    expect(fromLocation("/songs/some/thing.yaml")).toEqual(songs());
+    // `samples` and `recordings` are listings; a path under one names nothing the app can show.
+    expect(fromLocation("/samples/kicks/909.wav")).toEqual(
+      st({ section: "samples" }),
+    );
+    expect(fromLocation("/recordings/2026-08-05/take.wav")).toEqual(
+      st({ section: "recordings" }),
+    );
+  });
+
+  it("survives a song folder named like a song", () => {
+    // The tags become path segments through `segment()`, which keeps spaces, parentheses and
+    // `&` — all legal in a folder name and all things the browser encodes on its way into the
+    // URL bar. Read back raw, "Back%20in%20Black" matches no entry and the screen opens on
+    // nothing, so the two directions have to encode and decode symmetrically.
+    const s = songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" });
+    expect(toPath(s)).toBe(
+      "/songs/AC-DC/Back%20in%20Black/Hells%20Bells/song.yaml",
+    );
+    expect(fromLocation(toPath(s))).toEqual(s);
+    // …and the shapes that are not spaces: an ampersand, and a title in parentheses.
+    for (const file of [
+      "Simon & Garfunkel/Bookends/America/song.yaml",
+      "Nirvana/Unplugged/The Man Who Sold The World (Live)/song.yaml",
+    ])
+      expect(fromLocation(toPath(songs({ file })))).toEqual(songs({ file }));
+    // A hand-typed escape that decodes to nothing valid is left as it stands rather than
+    // throwing: it names no entry, which is exactly what a typo in the URL bar should do.
+    expect(fromLocation("/songs/%zz/song.yaml").file).toBe("%zz/song.yaml");
+  });
+
+  it("opens a song and a chain from the address, like a module", () => {
+    // The regression this guards is not the deep link but the LOOP: a section that opens an
+    // editor and cannot read its own address writes a URL, reads back the bare section, and
+    // shuts the editor a tick later. `chains` did exactly that until `songs` joined it.
+    expect(
+      fromLocation("/songs/AC-DC/Back in Black/Hells Bells/song.yaml"),
+    ).toEqual(songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }));
+    expect(fromLocation("/chains/blindtest/sans-voix/chains.yaml")).toEqual(
+      st({ section: "chains", file: "blindtest/sans-voix/chains.yaml" }),
+    );
   });
 
   it("round-trips every screen it can produce", () => {
@@ -68,6 +106,8 @@ describe("fromLocation", () => {
       st({ section: "recordings" }),
       st({ section: "projects" }),
       st({ section: "modules", file: "audio/reverb/presets.yaml" }),
+      songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
+      st({ section: "chains", file: "blindtest/sans-voix/chains.yaml" }),
       // Under `projects` the second half is a repository id, not a file — same slot,
       // different meaning. See routes.ts.
       st({ section: "projects", file: "3f9a1c2b7e40" }),
@@ -102,12 +142,16 @@ describe("fromLocation", () => {
 });
 
 describe("splitting an open file", () => {
-  it("gives the module's folder and the file's own name", () => {
-    expect(moduleOf("audio/reverb/ui.yaml")).toBe("audio/reverb");
+  it("gives the entry's folder and the file's own name", () => {
+    expect(folderOf("audio/reverb/ui.yaml")).toBe("audio/reverb");
     expect(fileOf("audio/reverb/ui.yaml")).toBe("ui.yaml");
-    // A bare name has no module to belong to — nothing opens.
-    expect(moduleOf("ui.yaml")).toBeNull();
-    expect(moduleOf(null)).toBeNull();
+    // A song's three tags are just more path, the way a module's category is.
+    expect(folderOf("AC-DC/Back in Black/Hells Bells/song.yaml")).toBe(
+      "AC-DC/Back in Black/Hells Bells",
+    );
+    // A bare name has no entry to belong to — nothing opens.
+    expect(folderOf("ui.yaml")).toBeNull();
+    expect(folderOf(null)).toBeNull();
   });
 });
 

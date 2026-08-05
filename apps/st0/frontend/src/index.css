@@ -24,6 +24,16 @@
    at all — no error, no warning, just an invisible panel. */
 @source "../../../../packages/ui-module-builder/src";
 @source "../../../../packages/ui-chains-react/src";
+@source "../../../../packages/ui-waveform/src";
+
+/* @studio/ui-waveform's own stylesheet (imported in main.tsx) colours its wrapper from
+   --surface and --border, which is what k7 — its first host — happens to call them. The shared
+   palette prefixes everything `--sh-` on purpose, so the two are bound here rather than
+   hardcoded there: a package that named one palette could not follow another. */
+:root {
+  --surface: var(--sh-card);
+  --border: var(--sh-border);
+}
 
 @layer base {
   html,

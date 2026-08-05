@@ -22,6 +22,17 @@ export type SectionId = (typeof SECTION_IDS)[number];
 /** Named, like `RECORDINGS_DIR` is, so the section that is not a family reads as one thing. */
 export const PROJECTS_SECTION = "projects";
 
+/**
+ * The sections whose address carries a second half — everything else is a listing, and a path
+ * under one of those names nothing.
+ *
+ * A LIST rather than four `head === …` tests, because it stopped being two: `chains` opened an
+ * editor and pushed `/chains/x/chains.yaml`, which read back as the bare section and shut the
+ * editor a tick later — the loop useLibraryRoute exists to avoid, entered through the one door
+ * it does not guard, a URL the app writes and cannot read. `songs` now opens one too.
+ */
+const CARRIES: readonly string[] = ["songs", "modules", "chains", "projects"];
+
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);
 
@@ -34,6 +45,9 @@ export interface RouteState {
    *
    * Section-relative rather than library-relative, so the two halves don't repeat the
    * section: the path in the address reads exactly like the path on disk, once.
+   *
+   * A song names its sidecar the way a chain names its `chains.yaml`: the folder IS the entry,
+   * so the address ends at the file the left half of the screen is editing.
    *
    * Under `projects` it is not a file but a REPOSITORY id — the section has no builder, and
    * what the address has to carry is which repository is open. Same slot, because it is the
@@ -53,9 +67,34 @@ export interface RouteState {
  */
 export const DEFAULT_SECTION: SectionId = PROJECTS_SECTION;
 
+/**
+ * Percent-encoding, per segment.
+ *
+ * Songs are the reason. A module is a slug and survived a raw path, but a song folder is
+ * `segment()`'d from tags and legitimately holds spaces, `&` and parentheses — "Back in Black".
+ * The browser encodes those on its way into the URL bar, so `location.pathname` comes back
+ * `Back%20in%20Black`, which matches no entry. Encode on the way out, decode on the way in, and
+ * the two directions stay inverses — which is the whole contract this file is tested against.
+ *
+ * Per segment and not over the whole string: `encodeURI` leaves `#` and `?` alone, and a title
+ * carrying either would cut the address in half.
+ */
+const encodePath = (rel: string): string =>
+  rel.split("/").map(encodeURIComponent).join("/");
+
+/** …and back. A hand-typed `%zz` throws rather than decoding; the raw segment is the best
+ *  remaining guess, and it simply matches no entry, which is what a typo should do. */
+const decodeSegment = (seg: string): string => {
+  try {
+    return decodeURIComponent(seg);
+  } catch {
+    return seg;
+  }
+};
+
 /** The path for a screen. */
 export function toPath(s: RouteState): string {
-  return s.file ? `/${s.section}/${s.file}` : `/${s.section}`;
+  return s.file ? `/${s.section}/${encodePath(s.file)}` : `/${s.section}`;
 }
 
 /**
@@ -70,10 +109,10 @@ export function fromLocation(pathname: string): RouteState {
   const [head, ...rest] = segs;
   if (!head || !isSection(head))
     return { section: DEFAULT_SECTION, file: null };
-  // Two sections carry something after their name: a module's file, and a repository's id.
-  // The other three are listings, and a path under one of them names nothing.
-  const carries = head === "modules" || head === "projects";
-  const file = carries && rest.length ? rest.join("/") : null;
+  const file =
+    CARRIES.includes(head) && rest.length
+      ? rest.map(decodeSegment).join("/")
+      : null;
   return { section: head, file };
 }
 
@@ -81,9 +120,10 @@ export function fromLocation(pathname: string): RouteState {
 export const sameRoute = (a: RouteState, b: RouteState): boolean =>
   a.section === b.section && a.file === b.file;
 
-/** The module folder a route's file sits in, section-relative, or null. `audio/reverb/ui.yaml`
- *  -> `audio/reverb`, which is the path a tree row and an entry are keyed by. */
-export function moduleOf(file: string | null): string | null {
+/** The ENTRY folder a route's file sits in, section-relative, or null. `audio/reverb/ui.yaml`
+ *  -> `audio/reverb`, which is the path a tree row and an entry are keyed by. Named for the
+ *  folder and not for the module: a chain and a song are addressed the same way. */
+export function folderOf(file: string | null): string | null {
   if (!file) return null;
   const cut = file.lastIndexOf("/");
   return cut > 0 ? file.slice(0, cut) : null;

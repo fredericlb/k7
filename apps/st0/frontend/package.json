@@ -19,6 +19,7 @@
     "@studio/ui-chains": "*",
     "@studio/ui-chains-react": "*",
     "@studio/ui-module-builder": "*",
+    "@studio/ui-waveform": "*",
     "@studio/web-protocol": "*",
     "lucide-react": "^1.24.0",
     "music-metadata": "^11.14.0",

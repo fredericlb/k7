@@ -70,8 +70,8 @@ and `routes.test.ts` now asserts it rather than leaving it to be remembered.
 
 ## The second half is not always a file
 
-`projects` is the sixth section and the second one to carry something after its name, but what
-it carries is a **repository id**, not a path inside a folder:
+`projects` carries something after its name like the three below it, but what it carries is a
+**repository id**, not a path inside a folder:
 
 ```
 /projects                        the list of repositories
@@ -80,7 +80,31 @@ it carries is a **repository id**, not a path inside a folder:
 
 It reuses `RouteState.file` deliberately. It is the same question — *what, inside this section,
 are you looking at* — and a field of its own would be null for four of the six sections while
-meaning exactly what this one already means. `fromLocation` keeps the whitelist that made
-`songs/some/thing.yaml` fall back to the bare section; it just has two entries now.
+meaning exactly what this one already means.
+
+## The whitelist is a list, and it was short by one
+
+`fromLocation` drops the second half under a section that cannot open anything: the URL bar is
+user-editable, and `/samples/kicks/909.wav` names nothing this app can show. That whitelist was
+two `head === …` tests, and it is now `CARRIES`:
+
+```
+songs      …/song.yaml      the sidecar, on the left of the split screen
+modules    …/ui.yaml        one of the builder's three panes
+chains     …/chains.yaml    the template, beside the graph it draws
+projects   3f9a1c2b7e40     a repository id, not a path
+```
+
+`chains` had to be added, not merely `songs`, and it is worth saying why: the chain editor
+already pushed `/chains/x/chains.yaml`, and `fromLocation` read that back as the bare section.
+The URL→state effect then applied `file: null` and shut the editor a tick after it opened.
+
+That is the loop `useLibraryRoute` exists to prevent, arriving through the one door its two
+guards cannot watch — **an address the app writes and cannot read**. Both guards compare a
+state to a location, so both agree, correctly, that there is nothing to do; the disagreement is
+between `toPath` and `fromLocation`, one function earlier. Hence the round-trip case in
+`routes.test.ts`, which walks every screen through `fromLocation(toPath(s))`: a section that
+opens something and is missing from `CARRIES` fails there, at the point where the two
+directions stop being inverses.
 
 The router sits **outside** the auth gate in `main.tsx`, so a deep link survives signing in.

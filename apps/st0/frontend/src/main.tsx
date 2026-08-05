@@ -2,6 +2,9 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Gate } from "./Gate";
 import "./index.css";
+// The waveform's own wrapper/marker rules. A plain stylesheet, not Tailwind, so `@source`
+// above cannot produce it — it has to be imported like any other CSS file.
+import "@studio/ui-waveform/styles.css";
 
 // No StrictMode, matching l8: its double-mount would fire the engine probe twice on
 // every load, and the probe opens real WebSockets.

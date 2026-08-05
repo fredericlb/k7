@@ -18,6 +18,7 @@ import {
   CHAINS_FILE,
   type MediatekEntry,
   RECORDINGS_DIR,
+  SONG_FILE,
 } from "@studio/mediatek/types";
 import { engineFaceModule, FACE_CATEGORIES } from "@studio/song/engineFace";
 import type { BuilderPane } from "@studio/ui-module-builder";
@@ -51,11 +52,11 @@ import { ProjectsSection } from "./projects/ProjectsSection";
 import {
   DEFAULT_SECTION,
   fileOf,
-  moduleOf,
+  folderOf,
   PROJECTS_SECTION,
   type SectionId,
 } from "./routes";
-import { SongVariants } from "./SongVariants";
+import { SongEditor } from "./SongEditor";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /**
@@ -124,6 +125,11 @@ const holdsModuleFile = (e: MediatekEntry): boolean =>
  *  restated: it moved into types.ts (which opens no `node:fs`) so the browser could have it. */
 const holdsChainsFile = (e: MediatekEntry): boolean =>
   e.family === "chains" && !!e.files?.includes(CHAINS_FILE);
+
+/** Is this entry a SONG? The family alone answers, unlike the two above: a song folder is
+ *  what the scan stopped at, so every entry in the family is one — sidecar or not. A folder
+ *  with no `song.yaml` is `catalogued: false`, which is a song nobody filed, not a category. */
+const isSong = (e: MediatekEntry): boolean => e.family === "songs";
 
 /** Where a module keeps what it LOADS — samples, IRs, amp profiles — as opposed to what it IS.
  *  The same folder `@studio/song` resolves a module's own assets out of, so a file dropped here
@@ -347,7 +353,7 @@ export function Library() {
   // replayed once the entries land. Here it simply resolves the moment they do, and `null`
   // covers both "nothing open" and "not loaded yet" — the catalogue shows through until then.
   const editing = useMemo(() => {
-    const dir = moduleOf(file);
+    const dir = folderOf(file);
     const entry = dir ? entryAt(entries, dir) : null;
     if (!entry || !holdsModuleFile(entry)) return null;
     return { entry, pane: PANE_OF[fileOf(file) ?? ""] ?? "module" };
@@ -356,10 +362,19 @@ export function Library() {
   // the two editors take different props, and a union that carried both would be read apart
   // again at every use.
   const editingChain = useMemo(() => {
-    const dir = moduleOf(file);
+    const dir = folderOf(file);
     const entry = dir ? entryAt(entries, dir) : null;
     return entry && holdsChainsFile(entry) ? entry : null;
   }, [entries, file]);
+  // …and for a SONG, whose address names its sidecar the same way. Third memo, same reason.
+  const editingSong = useMemo(() => {
+    const dir = folderOf(file);
+    const entry = dir ? entryAt(entries, dir) : null;
+    return entry && isSong(entry) ? entry : null;
+  }, [entries, file]);
+  /** Whichever of the three is open. What the tree marks active and opens down to, and what
+   *  the middle of the screen is showing — three questions with one answer. */
+  const opened = editing?.entry ?? editingChain ?? editingSong;
   /**
    * Where a drop lands, family-relative — `assets/` when the row it fell on is a MODULE.
    *
@@ -387,8 +402,8 @@ export function Library() {
    * effect is what carries the reveal across that gap.
    */
   const [revealed, setRevealed] = useState<string | null>(null);
-  const target = editing
-    ? relative(editing.entry.path)
+  const target = opened
+    ? relative(opened.path)
     : picked
       ? relative(picked.path)
       : null;
@@ -722,15 +737,10 @@ export function Library() {
               // background menu target, and every node path below is relative to it.
               rootPath=""
               rootLabel={section.toUpperCase()}
-              // The module being edited outranks the merely selected one: it is what the middle
+              // The entry being edited outranks the merely selected one: it is what the middle
               // of the screen is showing, and the tree is now beside it rather than replaced.
-              activePath={
-                editing
-                  ? relative(editing.entry.path)
-                  : picked
-                    ? relative(picked.path)
-                    : null
-              }
+              // Same value `revealed` follows, so the marked row and the opened branch agree.
+              activePath={target}
               // Open down to it, so a reloaded deep link lands on a tree showing where it is
               // rather than one collapsed to the root. Sticky — see `revealed`.
               reveal={revealed}
@@ -748,16 +758,20 @@ export function Library() {
                 // A chain has one file, so the address names it rather than a pane.
                 else if (holdsChainsFile(entry))
                   openFile(`${n.path}/${CHAINS_FILE}`);
+                // …and a song names its sidecar, which is the left half of what opens.
+                else if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
                 else setPicked(entry);
               }}
-              // A module and a chain each wear the glyph of their own tab. Without one the row
-              // would read as a plain file, which is the one thing neither is.
+              // A module, a chain and a song each wear the glyph of their own tab. Without one
+              // the row would read as a plain file, which is the one thing none of them is.
               icon={(n) => {
                 const e = entryAt(entries, n.path);
                 if (e && holdsModuleFile(e))
                   return <Boxes className="h-4 w-4 shrink-0" />;
                 if (e && holdsChainsFile(e))
                   return <Workflow className="h-4 w-4 shrink-0" />;
+                if (e && isSong(e))
+                  return <Disc3 className="h-4 w-4 shrink-0" />;
                 return null;
               }}
               // Absent for songs, which is why the header has a button instead: a file
@@ -987,6 +1001,18 @@ export function Library() {
                 onSaved={refresh}
               />
             </main>
+          ) : editingSong ? (
+            <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <SongEditor
+                entry={editingSong}
+                vimMode={localStorage.getItem("st0.vim") === "1"}
+                fileBase={choice.fileBase}
+                engineId={choice.chosenId}
+                engineToken={choice.token}
+                onBack={() => openFile(null)}
+                onSaved={refresh}
+              />
+            </main>
           ) : (
             <main className="min-w-0 flex-1 overflow-auto p-6">
               {error ? (
@@ -1046,8 +1072,14 @@ export function Library() {
                     <li
                       key={e.id}
                       className="flex items-baseline gap-3 rounded-md px-3 py-2 hover:bg-accent/40"
+                      // A song OPENS, the way its tree row does — the middle list and the tree
+                      // are the same rows twice, and a click that meant two things depending on
+                      // which copy you hit is the one thing they must not do. Everything else
+                      // still just selects, which is what the panes beside this read.
                       onClick={() =>
-                        setPicked((p) => (p?.id === e.id ? null : e))
+                        isSong(e)
+                          ? openFile(`${relative(e.path)}/${SONG_FILE}`)
+                          : setPicked((p) => (p?.id === e.id ? null : e))
                       }
                     >
                       <span className="min-w-0 flex-1 truncate">{e.name}</span>
@@ -1107,22 +1139,10 @@ export function Library() {
             </aside>
           ) : null}
 
-          {/* …and for a song that declares variants. Wider than the modules pane because it
-            DRAWS: a chain variant is a graph, and a graph in a 24rem column is unreadable. A
-            song with no variants gets no pane at all — SongVariants renders nothing, so
-            the column would be an empty border. */}
-          {!editing && section === "songs" && picked?.variants?.length ? (
-            <aside className="w-[28rem] shrink-0 overflow-auto border-l p-4">
-              <div className="mb-3 min-w-0 truncate text-sm font-semibold">
-                {picked.name}
-              </div>
-              <SongVariants
-                entry={picked}
-                engineId={choice.chosenId}
-                engineToken={choice.token}
-              />
-            </aside>
-          ) : null}
+          {/* A song's variants used to be a fourth column here, shown only while nothing was
+            open. Clicking a song now OPENS it, so that condition could never be met again —
+            they moved under the player in SongEditor, which is where they belonged anyway:
+            the master and its alternative versions are the same question. */}
         </div>
       )}
 

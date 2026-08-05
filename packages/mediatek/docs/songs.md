@@ -23,6 +23,11 @@ invisible, ou pire, il avale les dossiers en dessous de lui.
 D'où le bouton, et d'où le fait qu'il soit la **seule** façon d'entrer dans cette
 famille : on envoie trois champs, la bibliothèque construit le chemin.
 
+Ce qui est verrouillé est l'**arborescence**, pas le contenu : `song.yaml` s'édite comme
+n'importe quel YAML, dans l'écran scindé que st0 ouvre en cliquant un morceau (voir
+`apps/st0/docs/songPlayer.md`). Le sidecar est la vérité — le titre affiché, le tempo, les
+variantes — et le dossier n'est qu'une adresse ; corriger l'un ne déplace donc rien.
+
 ## Pas de niveau de provenance — trois segments, jamais quatre
 
 L'arborescence a porté un quatrième niveau, tout en haut : `imported/` pour le master de

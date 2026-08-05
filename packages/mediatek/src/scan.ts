@@ -13,11 +13,10 @@ import {
   type Family,
   INSTANCES_DIR,
   type MediatekEntry,
+  SONG_FILE,
   type SongVariant,
 } from "./types.ts";
 
-/** The sidecar that makes a folder a song and carries its provenance. */
-export const SONG_FILE = "song.yaml";
 /** The file that makes a folder a module — the same name a project's `modules/` uses. */
 export const MODULE_FILE = "module.yaml";
 
@@ -31,9 +30,9 @@ export const PRESETS_FILE = "presets.yaml";
  *  files out of (MODULE_ASSETS_DIR there), so a module dropped here plays on any machine. */
 export const ASSETS_DIR = "assets";
 
-// A chain's two names live in types.ts — the browser needs both words and this file opens
-// `node:fs`. Re-exported because this is where every existing importer looks.
-export { CHAINS_FILE, INSTANCES_DIR };
+// A chain's two names and a song's sidecar live in types.ts — the browser needs all three
+// words and this file opens `node:fs`. Re-exported because this is where every importer looks.
+export { CHAINS_FILE, INSTANCES_DIR, SONG_FILE };
 
 function dirents(abs: string): Dirent[] {
   try {
