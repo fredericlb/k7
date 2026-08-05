@@ -59,6 +59,18 @@ sur `library.fileUrl(master)` n'a besoin de personne, et la route sert du Range,
 déplacement dans le fichier marche aussi. Ce qui manque alors est le dessin, pas le son —
 ce qui est exactement l'ordre d'importance.
 
+C'est aussi pourquoi le moteur reste tenu quelle que soit la destination de lecture : c'est
+lui qui **analyse** le master, et la forme d'onde en a besoin même quand c'est ce navigateur
+qui joue.
+
+## Où le son sort n'est plus décidé ici
+
+Ce panneau jouait dans le navigateur, point. C'est devenu un choix du compte — ici, ou par le
+moteur de la machine choisie — derrière **un seul transport** : tout ce qui est sous le
+bandeau lit `playing`/`current` et ne demande jamais de quel côté du fil ça joue.
+Voir [playbackTarget.md](playbackTarget.md), qui explique le menu, le repli quand la machine
+ne répond pas, et pourquoi une racine de cache n'est pas une copie.
+
 ### Une fois, et annulable
 
 Une analyse, ce sont des minutes de la machine de quelqu'un d'autre : elle télécharge le
@@ -96,6 +108,10 @@ Pas de `controls` sur l'élément `<audio>`. La forme d'onde **est** la barre de
 tire l'une des deux. Le bouton et l'horloge du bandeau sont donc les seuls contrôles, et
 la tête de lecture suit un `requestAnimationFrame` plutôt que `timeupdate`, qui tombe
 quatre fois par seconde et se lit, sur un canvas de cette largeur, comme un sursaut.
+
+Cette boucle est propre à la lecture **ici**. Quand c'est le moteur qui joue, la position
+arrive dans sa trame d'état à ~20 Hz : `onSeek` devient `engine.seek`, et il n'y a rien à
+animer de ce côté-ci.
 
 ## Les variantes ont changé de place
 

@@ -22,6 +22,10 @@ the médiathèque). The choice is remembered **on the account**, and the policy 
 id WITHOUT connecting — drawing a menu must not open a second socket to the engine
 `useModuleEngine` is already holding.
 
+That rule is why a song's screen opens **one** socket, in `SongEditor`, and hands it to both
+the player and the variants: since the master can now be played by the moteur too, two panes
+would otherwise hold two connections to one machine. See [playbackTarget.md](playbackTarget.md).
+
 ## The Modules section is gated on one
 
 An absent engine used to be a **normal state** everywhere: the editor still edited text, the

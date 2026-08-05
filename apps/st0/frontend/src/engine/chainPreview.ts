@@ -81,6 +81,36 @@ export async function cacheRoot(
 }
 
 /**
+ * Whether that machine's cache actually HOLDS a file, without downloading it.
+ *
+ * A cache root is not a copy. Only `modules` are pulled automatically (see
+ * `packages/file-service/src/mediatekPull.ts`), so a song is on a given machine because
+ * something put it there — a mirror, a k7 publish, an analysis — and on a fresh machine it
+ * simply is not. The engine would then open nothing and play silence, which is the one
+ * failure a transport cannot report: there is no error, just no sound.
+ *
+ * `Range: bytes=0-0` asks for a single byte, so this costs a request and not a master. A
+ * refusal of any kind reads as ABSENT — the caller's next move is the same either way, and
+ * treating an unreachable machine as "present" would put the silence back.
+ */
+export async function cachedOnMachine(
+  fileBase: string,
+  user: string,
+  path: string,
+  token?: string | null,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${fileBase}/mediatek/file?path=${encodeURIComponent(path)}`,
+      { headers: engineHeaders(user, token, { range: "bytes=0-0" }) },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * A catalogue entry as a file the engine can open, or null.
  *
  * Null is a real state and not an error to swallow: a song is a FOLDER, and one carrying a

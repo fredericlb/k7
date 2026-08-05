@@ -21,6 +21,9 @@ import {
 } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
+// Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
+// bundle: the preference SHAPE belongs beside the code that merges it.
+import type { St0Prefs } from "./prefs";
 
 // The app is mounted under a path (studio.test/<service>), so every backend
 // path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
@@ -202,8 +205,12 @@ export const engineMachine = {
  * The five routes, the probe, the policy and the lease all come from
  * @studio/engine-browser/access, bound to this service's prefix — "" here, since the
  * médiathèque answers the origin root. See that package's docs/access.md.
+ *
+ * Typed on `St0Prefs` because this service remembers more than an engine id — the preference
+ * document is the host's, not the registry's. Nothing here should call `savePrefs` directly:
+ * the route replaces wholesale, so `prefs.ts` owns the merge.
  */
-export const engines = engineAccess<PublicEngine>(BASE, json);
+export const engines = engineAccess<PublicEngine, St0Prefs>(BASE, json);
 
 /** `/api/projects` rather than `/api/mediatek`, so it needs its own two verbs. */
 const pget = async <T>(path: string, what: string): Promise<T> =>
