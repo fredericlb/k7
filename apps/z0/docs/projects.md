@@ -1,9 +1,10 @@
-# Les projets de z0 — proposition
+# Les projets de z0
 
-Une session de blindtest est aujourd'hui un sous-arbre de lignes Grist. Cette page propose
-de la ranger comme l8 range un morceau : **un dossier de YAML**, versionné, ouvert sur un
-projet. Elle est écrite à partir des trois sessions réelles du document Grist
-`wBLP4e1P71vAW3T5zzfQtH` — les chiffres cités viennent de là, pas d'une supposition.
+Une session de blindtest est aujourd'hui un sous-arbre de lignes Grist. Cette page dit
+comment elle se range désormais comme l8 range un morceau : **un dossier de YAML**,
+versionné, ouvert sur un projet. La forme est déduite des trois sessions réelles du document
+Grist `wBLP4e1P71vAW3T5zzfQtH` — les chiffres cités viennent de là, pas d'une supposition —
+et les trois sessions ont été migrées (voir « Ce qui a été migré », en bas).
 
 ## Ce que disent les sessions existantes
 
@@ -101,6 +102,11 @@ Grist est mécanique : `start = n-1`, `end = m`.
 Une pause est `- pause:` — la valeur, si elle est là, est le message affiché à l'écran
 (`- pause: Entracte`).
 
+**Le mot de passe invité est en clair**, et c'est un choix : il voyage avec la session, une
+session sans lui n'ouvre à personne, et un fichier local à côté serait celui que personne ne
+pense à copier. C'est un mot de passe de soirée, pas un secret — mais il est en clair dans un
+dépôt git, ce qui veut dire que le changer c'est un commit.
+
 ### `categories/<slug>.yaml`
 
 Le cas courant, une piste par morceau :
@@ -125,17 +131,23 @@ Une catégorie à variante — c'est là que le gain est le plus visible :
 name: Stems
 variant: stems          # ce qui est JOUÉ ; le master est ce qui est RÉVÉLÉ
 songs:
-  - song: songs/Zaz/Paris/Je veux
+  - song: songs/Zaz/Album inconnu/Je veux
     start: 24.78
     end: 212.6
     status: valid
-  - song: songs/Britney Spears/In the Zone/Toxic
+  - song: songs/Britney Spears/Album inconnu/Toxic
     start: 14.57
     end: 196.79
 ```
 
 Deux lignes `Tracks` par morceau disparaissent au profit d'un mot : la piste de révélation
 *est* le master de la même adresse. Même chose pour `8bit` et `handmade`.
+
+**La règle de résolution est « la version demandée si elle existe, sinon le master ».** Elle
+n'est pas un repli poli, c'est ce que fait déjà le chargeur Grist : un morceau dont la
+catégorie réclame `8bit` alors qu'aucune piste de ce type n'existe se joue tel quel, sans
+audio de révélation distinct. Treize entrées sont dans ce cas, toutes des reprises dont
+personne n'a jamais rangé l'original à côté — leur `original.mp3` **est** la reprise.
 
 Une catégorie à plusieurs pistes par morceau — `fusion` (deux extraits, un jeu de mots) et
 `multi` (cinq extraits joués ensemble) :
@@ -149,24 +161,31 @@ songs:
   - label: The Senti-Nelly Furtado
     status: valid
     tracks:
-      - song: songs/Nelly Furtado/Whoa Nelly!/I'm like a bird
+      - song: songs/Nelly Furtado/Album inconnu/I'm like a bird
         start: 54.68
-      - song: songs/Séries/Génériques/The Sentinel
+      - song: songs/Artiste inconnu/Album inconnu/The Sentinel
         start: 8.14
 ```
+
+Le générique de série n'a pas d'artiste dans Grist, et personne ne lui en a inventé un : il
+est filé sous `Artiste inconnu`, ce qui est vrai et se corrige d'un renommage. Onze pistes
+sont dans ce cas, toutes des génériques des catégories `fusion`.
 
 ```yaml
 name: Assourdissant
 mode: multi
 songs:
   - tracks:
-      - { song: songs/REM/Out of Time/Losing my religion, start: 17.1 }
-      - { song: songs/The Supermen Lovers/The Player/Starlight }
-      - { song: songs/Daft Punk/Homework/Around the world, start: 24.9 }
+      - song: songs/REM/Album inconnu/Losing my religion
+        start: 17.1
+      - song: songs/The Supermen Lovers/Album inconnu/Starlight
+      - song: songs/Daft Punk/Album inconnu/Around the world
+        start: 24.9
   - effects: { overdrive: 5 }
     tracks:
-      - { song: songs/Stardust/Music sounds better with you/Music sounds better with you }
-      - { song: songs/Alizée/Gourmandises/Lolita, start: 81.45 }
+      - song: songs/Stardust/Album inconnu/Music sounds better with you
+      - song: songs/Alizee/Album inconnu/Lolita
+        start: 81.45
 ```
 
 `song:` et `tracks:` sont exclusifs : un morceau à une piste s'écrit à plat, un morceau à
@@ -211,21 +230,42 @@ d'artiste — les génériques de série des catégories `fusion`.
   que le réconciliateur distingue une ligne existante d'une nouvelle
   (`editor/handlers.ts`). Le nom de fichier étant l'identifiant, tout cela tombe.
 
-## Les décisions restées ouvertes
+## Ce qui a été migré
 
-1. **Le mot de passe invité dans un fichier versionné.** Il voyage avec la session, ce qui
-   est le comportement voulu, mais il finit en clair dans le dépôt. Une seule session sur
-   trois en a un. Proposition : le laisser dans `session.yaml` et l'assumer — c'est un mot
-   de passe de soirée, pas un secret — plutôt qu'inventer un fichier local que personne ne
-   pense à copier.
-2. **L'import des 1,35 Go.** Les MP3 sont nommés `Artiste - Titre.mp3` et portent leurs
-   tags : `ingest` de la médiathèque sait les classer. Les variantes (`stems`, `8bit`,
-   `handmade`) doivent en revanche être rangées à la main dans le `song.yaml` du morceau
-   qu'elles doublent — 39 fichiers.
-3. **Où vivent les dossiers `.z0`.** Le chemin l8 (dépôt git, résolution par
-   `project-shell`, ouverture depuis st0) s'applique tel quel ; reste à dire si z0 ouvre
-   *une* session à la fois comme l8, ou si le présentateur choisit dans une liste comme
-   aujourd'hui.
+Les trois sessions Grist ont été écrites sous cette forme, et leurs 1,35 Go d'audio versés
+dans la médiathèque :
 
-Rien de tout cela n'est écrit dans le code : cette page est une proposition, et le
-chargeur Grist (`backend/src/grist/`) est intact.
+| | |
+|---|---|
+| `session-2304.z0` | 15 catégories, 24 manches, mot de passe invité `blue` |
+| `session-beta-2.z0` | 19 catégories, 20 manches |
+| `offboarding-bedrock.z0` | 4 catégories, 4 manches |
+| médiathèque | **279 morceaux** filés, **26 variantes** (`stems`, `8bit`, `handmade`) |
+
+L'import est passé par `addSong` / `addSongVariant` de `@studio/mediatek` — le code que st0
+appelle lui-même — et non par un écrivain maison : la forme du dossier et le sidecar sont
+donc exactement ceux que la médiathèque écrit. `songs/A-Ha/Album inconnu/Take on me/` tient
+maintenant `original.mp3`, `8bit.mp3` et `handmade.mp3` sous un seul `song.yaml`, ce qui est
+la démonstration que le modèle tient.
+
+Le contrôle qui compte : les 38 fichiers de catégorie se relisent, chaque `cat:` de chaque
+ordre trouve son fichier, chaque plage `songs:` correspond à la tranche Grist, et **chacune
+des 304 adresses citées existe sur le volume avec un master**.
+
+### Les trois verrues, dans l'ordre d'urgence
+
+1. **`Album inconnu` partout.** Les MP3 sont des rips ré-encodés qui ne portent aucun tag
+   ID3 — pas d'album à en tirer, et Grist n'en a jamais eu. La médiathèque range donc tout
+   sous son propre libellé de trou, qui est fait pour ça et se renomme. Deux morceaux
+   portent `Album inconnu (2)` parce que deux enregistrements différents revendiquaient
+   artiste et titre identiques : « Larusso — Tu m'oublieras » (un rip et un clip) et
+   « OST — Star Trek » (le générique et une version à la bouche).
+2. **Treize `original.mp3` qui sont des reprises**, décrit plus haut. Poser le vrai original
+   à côté et la reprise redevient une variante — c'est une opération par morceau, sans
+   toucher au YAML.
+3. **`.z0` n'est pas encore un suffixe de projet.** `packages/web-protocol/projects.ts` dit
+   `l8` et `m9`, et écrit noir sur blanc que « k7 et z0 ne possèdent pas de projets ». Les
+   dossiers sont donc dans le dépôt et invisibles dans la liste de st0 tant que z0 n'y est
+   pas ajouté — un `ProjectApp` de plus, et le routage vers `/z0` qui va avec.
+
+Le chargeur Grist (`backend/src/grist/`) est intact : rien ne lit encore ces YAML.
