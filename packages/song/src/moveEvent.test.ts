@@ -37,8 +37,8 @@ describe("moveTrackPlacement", () => {
 type: single
 contentType: audio
 clips:
-  - { ref: kick, start: "1:1:1", length: "1:0:0" }
-  - { ref: snare, start: "2:1:1", length: "1:0:0", loop: ["1:0:0", "2:0:0"] }
+  - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
+  - { ref: snare, start: "2:1:1", fadeIn: "0:1", loop: 2, disabled: true }
 `;
     const dir = trackDir(before);
     const moved = moveTrackPlacement(
@@ -51,13 +51,12 @@ clips:
     );
     expect(moved).toBe(true);
     const after = read(dir);
-    // The snare moved; its length and loop travelled with it, on one line as before.
-    // The nested `loop` list comes back in the writer's canonical flow spacing — the
-    // placement's own line is rewritten, so whatever spacing it had inside is normalised.
-    // Same trade chainsFile.ts makes: one canonical form, or the first edit re-spaces the
+    // The snare moved; its fade, its pass count and its disabled flag travelled with it, on
+    // one line as before. A move rewrites the placement's own line and nothing else — the
+    // same trade chainsFile.ts makes: one canonical form, or the first edit re-spaces the
     // whole file instead of one line.
     expect(after).toContain(
-      '- { ref: snare, start: "3:1:1", length: "1:0:0", loop: [ "1:0:0", "2:0:0" ] }',
+      '- { ref: snare, start: "3:1:1", fadeIn: "0:1", loop: 2, disabled: true }',
     );
     // Exactly one line differs — the comment, the kick and the field order all survive.
     expect(

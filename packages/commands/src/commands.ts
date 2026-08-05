@@ -344,6 +344,7 @@ function resolveEvent(
   hit: ProjectDoc["tracks"][number]["clips"][number];
   num: number;
   den: number;
+  tempo: number; // a resize converts beats into the seconds a clip's window is written in
 } | null {
   const p = h.project();
   const track = p.tracks.find((t) => t.id === trackArg || t.name === trackArg);
@@ -367,7 +368,7 @@ function resolveEvent(
     h.log([`no event on '${track.id}' at ${atTc}`]);
     return null;
   }
-  return { track, atBeats, hit, num, den };
+  return { track, atBeats, hit, num, den, tempo: p.tempo };
 }
 
 // `track new <kind> [name]`. Falls back to the next free <kind>-N when unnamed.
@@ -838,7 +839,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const [, trackArg, atTc, startTc, endTc] = m;
     const found = resolveEvent(h, trackArg, atTc);
     if (!found) return;
-    const { track, atBeats, hit, num, den } = found;
+    const { track, atBeats, hit, num, den, tempo } = found;
     let startBeats: number;
     let endBeats: number;
     try {
@@ -855,21 +856,28 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     try {
-      const lengthTc = beatsToDuration(endBeats - startBeats, num, den);
-      if (
-        !resizeTrackPlacement(
-          h.songPath,
-          track.id,
-          atBeats,
-          num,
-          den,
-          startTc,
-          lengthTc,
-        )
-      )
-        return h.log([`no event on '${track.id}' at ${atTc}`]);
+      const done = resizeTrackPlacement(
+        h.songPath,
+        track.id,
+        atBeats,
+        num,
+        den,
+        startBeats,
+        endBeats,
+        tempo,
+      );
+      if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+      const span = beatsToDuration(endBeats - startBeats, num, den);
       h.log([
-        `${track.id}: ${hit.name || hit.id} -> ${startTc}..${endTc} (${lengthTc})`,
+        `${track.id}: ${hit.name || hit.id} -> ${startTc}..${endTc} (${span})` +
+          (done.loops > 1 ? ` × ${done.loops}` : ""),
+        // The window is the MATERIAL's, so this edit reaches every placement of it. Said out
+        // loud rather than left to be discovered: nothing else in the song announces itself
+        // changing under you. See @studio/song's docs/clipResize.md.
+        `  ${done.material} windowed` +
+          (done.sharedWith
+            ? ` — also resizes ${done.sharedWith} other placement(s) of '${done.ref}'`
+            : ""),
       ]);
       await h.reload();
     } catch (e) {

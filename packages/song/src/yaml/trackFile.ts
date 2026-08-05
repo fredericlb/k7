@@ -186,6 +186,30 @@ export function placementAt(
   return doc.getIn(["clips", index], false) as Record<string, unknown> | null;
 }
 
+/**
+ * Every placement in `text`, as PLAIN VALUES.
+ *
+ * Distinct from `placementAt`, which hands back the document node so a placement can be
+ * carried into another file whole — read `ref` off that and you get a Scalar, not a string.
+ *
+ * Read here rather than through `loadTracks` because an edit must not require a file the
+ * SCHEMA accepts: a track missing its `type`, or carrying one bad field, still has placements
+ * you can point at, and refusing to resize one because something else in the file is wrong
+ * would be a worse failure than the one being reported.
+ */
+export function placementValues(text: string): Record<string, unknown>[] {
+  const doc = parseDocument(text, OPTS);
+  const clips = doc.getIn(["clips"]);
+  if (!isSeq(clips)) return [];
+  return clips.items.map(
+    (it) =>
+      ((it as { toJSON?: () => unknown })?.toJSON?.() ?? {}) as Record<
+        string,
+        unknown
+      >,
+  );
+}
+
 /** Drop the placement at `index`. */
 export function removePlacementAt(text: string, index: number): string {
   const doc = parseDocument(text, OPTS);
