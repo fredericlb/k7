@@ -89,6 +89,9 @@ mediatekRouter.post(
       // and a cache entry from a previous version of the same path would be analysed instead.
       await remoteLibrary({ base, token }).download(path, dest);
     } catch (e) {
+      // Logged HERE as well as answered: this is the machine that actually tried, and its log
+      // is where somebody looks when a browser three hops away says the analysis failed.
+      console.error(`analyse: could not fetch ${path}:`, (e as Error).message);
       return res.status(502).json({ error: (e as Error).message });
     }
     // The bytes changed under it; the memo is keyed on mtime but the fingerprint is the truth.

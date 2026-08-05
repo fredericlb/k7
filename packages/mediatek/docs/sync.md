@@ -56,3 +56,44 @@ One thing from that page belongs here too, because it is really a fact about *th
 eviction has to rewrite the remembered manifest. Deleting bytes without forgetting them
 leaves a cache that believes it still holds a file for ever — `diff()` compares against the
 memory, not the disk, which is the whole point of the section above.
+
+## Un téléchargement passe par `.part`
+
+`download()` écrit sous `<dest>.part` et renomme à la fin. La destination, c'est le cache
+médiathèque de la machine — exactement les fichiers que les platines ouvrent et que le moteur
+décode — et un master tronqué qui s'y installe est pire qu'un master absent : rien ne dit
+qu'il est court, il se joue jusqu'à ce qu'il s'arrête. Le renommage est atomique sur un même
+système de fichiers, donc ce qui apparaît sous le vrai nom est toujours arrivé entier ; un
+échec ne laisse rien du tout.
+
+## `terminated` ne dit rien, et c'est le format qui est en cause
+
+`fetch` rapporte une panne de transport en deux mots — `fetch failed` ou `terminated` — et
+range la vraie raison dans `cause`. Un appel qui se contente de `e.message` remonte donc un
+mot qui peut désigner six choses, et c'est ce qui est arrivé : « analyse impossible :
+terminated », dans un navigateur, à propos d'un téléchargement entre deux serveurs.
+
+`why()` aplatit la chaîne des `cause` dans le message, parce que le message est le seul champ
+qui survit au trajet retour à travers HTTP jusqu'à un navigateur. On lit maintenant :
+
+```
+mediatek GET https://studio.test/api/mediatek/file songs/…/original.flac:
+  terminated ← other side closed (UND_ERR_SOCKET)
+```
+
+L'adresse en fait partie délibérément : `MEDIATEK_URL` est **déduite** et non configurée
+(voir `mediatekUrlFor` dans `@studio/engine-host`), donc « quelle médiathèque a-t-elle
+seulement essayée » est la moitié de la réponse chaque fois que la réponse est « la mauvaise ».
+
+Ce que disent les causes les plus courantes :
+
+| cause | ce qui s'est passé |
+|---|---|
+| `other side closed (UND_ERR_SOCKET)` | l'hôte a fermé avant la fin du corps annoncé — souvent un service redémarré en plein téléchargement, ce qu'un `tilt` fait à chaque sauvegarde |
+| `unable to verify the first certificate` | le `tls internal` de Caddy sur un checkout : node ne connaît pas cette autorité |
+| `ECONNREFUSED` | personne n'écoute à cette adresse |
+| `UND_ERR_BODY_TIMEOUT` | le corps a cessé d'arriver sans que la connexion tombe |
+
+Il n'y a **pas** de réessai : un téléchargement de master est long, et réessayer en silence
+transformerait une cause visible en une attente deux fois plus longue. Le `.part` rend
+pourtant un réessai sûr, si l'usage le demande un jour.

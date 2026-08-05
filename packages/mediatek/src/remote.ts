@@ -2,7 +2,7 @@
 // the PORT the sync is written against: `LibrarySource` is what a cache needs, so a test
 // supplies one without a server and the sync never knows the difference.
 
-import { createWriteStream, mkdirSync } from "node:fs";
+import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -33,6 +33,28 @@ export interface RemoteConfig {
 
 export class RemoteError extends Error {}
 
+/**
+ * Everything an `Error` knows, including what it is WRAPPING.
+ *
+ * `fetch` reports a transport failure as `TypeError: fetch failed` or `TypeError: terminated`
+ * and puts the actual reason — a refused connection, an untrusted certificate, a body that
+ * stopped arriving — in `cause`. Those two words are all that reaches a caller otherwise, and
+ * they name nothing: `terminated` was a real bug report, and it could have been any of six
+ * things. So the chain is flattened into the message, which is the only field that survives
+ * the trip back through HTTP and into a browser.
+ */
+function why(e: unknown): string {
+  const parts: string[] = [];
+  let cur: unknown = e;
+  // Bounded: `cause` is caller-supplied and nothing forbids a cycle.
+  for (let i = 0; cur instanceof Error && i < 5; i++) {
+    const code = (cur as { code?: string }).code;
+    parts.push(code ? `${cur.message} (${code})` : cur.message);
+    cur = cur.cause;
+  }
+  return parts.join(" ← ") || String(e);
+}
+
 /** The hosted service as a `LibrarySource`. */
 export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
   const url = (path: string): string =>
@@ -42,7 +64,14 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
     : {};
 
   const get = async (path: string): Promise<Response> => {
-    const res = await fetch(url(path), { headers });
+    let res: Response;
+    try {
+      res = await fetch(url(path), { headers });
+    } catch (e) {
+      // The ADDRESS, not just the path: this one is derived rather than typed, so "which
+      // library did it even try" is half the answer whenever it is the wrong one.
+      throw new RemoteError(`mediatek GET ${url(path)}: ${why(e)}`);
+    }
     if (!res.ok)
       throw new RemoteError(
         `mediatek ${path}: ${res.status} ${res.statusText}`,
@@ -65,12 +94,32 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
         ).json()) as { files: Manifest }
       ).files,
 
+    /**
+     * One file onto the disk, through a TEMPORARY name.
+     *
+     * A download that breaks halfway used to leave its bytes at `dest` — and `dest` is this
+     * machine's médiathèque cache, the very files the decks open and the engine decodes. A
+     * truncated master there is worse than no master at all: nothing says it is short, so it
+     * plays until it stops. The rename is atomic on one filesystem, so what appears under the
+     * real name has always arrived whole.
+     */
     async download(path, dest) {
       const res = await get(`/file?path=${encodeURIComponent(path)}`);
       if (!res.body) throw new RemoteError(`mediatek ${path}: empty response`);
       mkdirSync(dirname(dest), { recursive: true });
-      // Streamed to disk: a video must never be held whole in memory on the way through.
-      await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
+      const part = `${dest}.part`;
+      try {
+        // Streamed to disk: a video must never be held whole in memory on the way through.
+        await pipeline(Readable.fromWeb(res.body), createWriteStream(part));
+        renameSync(part, dest);
+      } catch (e) {
+        rmSync(part, { force: true }); // never leave half a file to be mistaken for a whole one
+        // `terminated` on its own says only "the body stopped"; the cause says whether that was
+        // the far end closing, a timeout, or a certificate nobody trusts.
+        throw new RemoteError(
+          `mediatek GET ${url(`/file`)} ${path}: ${why(e)}`,
+        );
+      }
     },
   };
 }
@@ -102,19 +151,27 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
     body?: string | Uint8Array,
     route = "/file",
   ) => {
-    const res = await fetch(
-      url(`${route}?path=${encodeURIComponent(path)}`),
-      // Octet-stream regardless of what it is: the library files by extension, and a
-      // guessed content type here would be a second, quieter opinion about the same thing.
-      {
-        method,
-        headers: body
-          ? { ...auth, "content-type": "application/octet-stream" }
-          : auth,
-        // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it.
-        body: body as string | undefined,
-      },
-    );
+    const at = url(`${route}?path=${encodeURIComponent(path)}`);
+    let res: Response;
+    try {
+      res = await fetch(
+        at,
+        // Octet-stream regardless of what it is: the library files by extension, and a
+        // guessed content type here would be a second, quieter opinion about the same thing.
+        {
+          method,
+          headers: body
+            ? { ...auth, "content-type": "application/octet-stream" }
+            : auth,
+          // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it.
+          body: body as string | undefined,
+        },
+      );
+    } catch (e) {
+      // Same reason the reader says the address: a write that cannot reach the library is
+      // most often pointed at the wrong one.
+      throw new RemoteError(`mediatek ${method} ${at}: ${why(e)}`);
+    }
     if (!res.ok)
       throw new RemoteError(
         `mediatek ${method} ${path}: ${res.status} ${res.statusText}`,
