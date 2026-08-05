@@ -7,11 +7,11 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import { Loader2, Plug, PlugZap } from "lucide-react";
 import { useEffect } from "react";
 import { library } from "../api";
+import { useEngine } from "../playback/PlaybackProvider";
 import { readPluginBlock } from "./preview";
-import { useModuleEngine } from "./useModuleEngine";
 
 export function ModuleParams({ entry }: { entry: MediatekEntry }) {
-  const { phase, paramNames, paramMeta, preview, retry } = useModuleEngine();
+  const { phase, paramNames, paramMeta, preview, retry } = useEngine();
 
   useEffect(() => {
     if (phase.k !== "ready") return;

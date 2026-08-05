@@ -17,6 +17,18 @@ export type EnginePhase =
 
 export interface ModuleEngine {
   phase: EnginePhase;
+  /**
+   * The socket itself, for a screen whose questions are the MACHINE's rather than a project's
+   * — the device list, the session list, the installed catalogue.
+   *
+   * Exposed rather than wrapped verb by verb because that screen (EnginePage) asks a dozen
+   * of them and drives no document; what it must not do is open a second connection, which is
+   * exactly what it did before there was one socket to borrow. Null until one exists.
+   */
+  client: EngineClient | null;
+  /** Whether that socket is OPEN. `phase: ready` only says one was made and told to connect;
+   *  a screen that queries on connect needs the difference. */
+  connected: boolean;
   /** Whether the engine says it is playing, and where its playhead is (seconds).
    *
    *  From the engine's own state push, never from a hopeful local flag set on click: the
@@ -116,6 +128,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [warning, setWarning] = useState<EngineWarning | null>(null);
+  const [client, setClient] = useState<EngineClient | null>(null);
+  const [connected, setConnected] = useState(false);
   const engine = useRef<EngineClient | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
   // Stops the renew loop and says goodbye. Held in a ref because the lease is taken inside an
@@ -168,6 +182,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       // Kept rather than dropped: this is how the engine says a clip could not be opened, and
       // what it says next is silence. See `warning` above.
       client.onWarning(setWarning);
+      client.onConnected(setConnected);
+      setClient(client);
       client.connect();
       setPhase({ k: "ready", id: found.engine.id });
       // A doc asked for before the socket opened is replayed here rather than lost.
@@ -181,6 +197,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       lease.current = null;
       engine.current?.dispose();
       engine.current = undefined;
+      setClient(null);
+      setConnected(false);
     };
   }, [attempt, engineId]);
 
@@ -240,6 +258,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
 
   return {
     phase,
+    client,
+    connected,
     fileBase,
     playing,
     playhead,

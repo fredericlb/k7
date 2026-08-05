@@ -6,13 +6,11 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import {
-  type EngineAudioDevice,
-  EngineClient,
-  type EngineEditPlugin,
-  type EngineSessionInfo,
+import type {
+  EngineAudioDevice,
+  EngineEditPlugin,
+  EngineSessionInfo,
 } from "@studio/engine-browser";
-import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { formatLatency } from "@studio/web-protocol/quality";
 import {
   AppWindow,
@@ -23,8 +21,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { currentUser, engineMachine } from "../api";
+import { useEffect, useState } from "react";
+import { engineMachine } from "../api";
+import { useEngine } from "../playback/PlaybackProvider";
 import { EngineList } from "./EnginePicker";
 import type { EngineChoice } from "./useEngineChoice";
 
@@ -35,7 +34,6 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
   const chosen = choice.ranked.find((r) => r.engine.id === choice.chosenId);
   const wsUrl = chosen?.wsUrl ?? null;
 
-  const [connected, setConnected] = useState(false);
   const [sessions, setSessions] = useState<EngineSessionInfo[]>([]);
   const [devices, setDevices] = useState<EngineAudioDevice[]>([]);
   const [editPlugins, setEditPlugins] = useState<EngineEditPlugin[]>([]);
@@ -44,38 +42,32 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
   const [pluginCount, setPluginCount] = useState<number | null>(null);
   const [maintenance, setMaintenance] = useState<string | null>(null);
   const [logLines, setLogLines] = useState<string[] | null>(null);
-  const clientRef = useRef<EngineClient | null>(null);
+  // The APP's socket, borrowed. This page used to build one of its own, which held while the
+  // section replaced every other screen — it does not any more: a song keeps playing while you
+  // look at this page, and its transport is on the connection below. Two clients on one
+  // session is the thing that arrangement exists to prevent.
+  const engine = useEngine();
+  const client = engine.client;
+  const connected = engine.connected;
 
-  // One socket, owned by this page. The one-socket-per-tab rule holds because this
-  // section replaces the module editor on screen — useModuleEngine is not mounted here.
   useEffect(() => {
-    setConnected(false);
     setSessions([]);
     setDevices([]);
     setEditPlugins([]);
     setPluginCount(null);
-    if (!wsUrl) return;
-    const client = new EngineClient(
-      wsUrl,
-      undefined,
-      sessionFor(SESSIONS.st0, currentUser()),
-    );
-    clientRef.current = client;
+    if (!client || !connected) return;
     const offs = [
-      client.onConnected((ok) => {
-        setConnected(ok);
-        if (!ok) return;
-        client.listSessions();
-        client.listAudioDevices();
-        client.listEditPlugins();
-        client.listPlugins();
-      }),
       client.onSessions(setSessions),
       client.onAudioDevices(setDevices),
       client.onEditPlugins(setEditPlugins),
       client.onPlugins((list) => setPluginCount(list.length)),
     ];
-    client.connect();
+    // Asked on mount rather than from `onConnected`: the socket is usually open long before
+    // this page is looked at, and that callback does not replay the state it already has.
+    client.listSessions();
+    client.listAudioDevices();
+    client.listEditPlugins();
+    client.listPlugins();
     const poll = setInterval(() => {
       client.listSessions();
       client.listEditPlugins();
@@ -83,15 +75,13 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
     return () => {
       for (const off of offs) off();
       clearInterval(poll);
-      client.dispose();
-      clientRef.current = null;
     };
-  }, [wsUrl]);
+  }, [client, connected]);
 
   const rescan = () => {
     setPluginCount(null); // the spinner, until the fresh list lands
-    clientRef.current?.rescanPlugins();
-    clientRef.current?.listPlugins();
+    client?.rescanPlugins();
+    client?.listPlugins();
   };
 
   const clearWaveforms = () => {
@@ -182,7 +172,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
                   variant="ghost"
                   size="icon"
                   title="Oublier cette session"
-                  onClick={() => clientRef.current?.dropSession(s.id)}
+                  onClick={() => client?.dropSession(s.id)}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -205,9 +195,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent/50"
-                  onClick={() =>
-                    clientRef.current?.setAudioDevice(d.name, d.type)
-                  }
+                  onClick={() => client?.setAudioDevice(d.name, d.type)}
                 >
                   <Check
                     className={`h-3.5 w-3.5 ${d.current ? "" : "invisible"}`}
@@ -284,7 +272,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    clientRef.current?.showNativePluginUI(p.id, p.session ?? "")
+                    client?.showNativePluginUI(p.id, p.session ?? "")
                   }
                 >
                   <AppWindow className="mr-2 h-3.5 w-3.5" />

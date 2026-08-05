@@ -22,9 +22,10 @@ the médiathèque). The choice is remembered **on the account**, and the policy 
 id WITHOUT connecting — drawing a menu must not open a second socket to the engine
 `useModuleEngine` is already holding.
 
-That rule is why a song's screen opens **one** socket, in `SongEditor`, and hands it to both
-the player and the variants: since the master can now be played by the moteur too, two panes
-would otherwise hold two connections to one machine. See [playbackTarget.md](playbackTarget.md).
+That rule is now enforced in one place: `PlaybackProvider` opens the tab's **only** socket and
+hands it out through `useEngine()`. It had to move above the screens once a song could keep
+playing after you leave the one that started it — see [miniPlayer.md](miniPlayer.md) for what
+that changed, and [playbackTarget.md](playbackTarget.md) for the transport itself.
 
 ## The Modules section is gated on one
 
