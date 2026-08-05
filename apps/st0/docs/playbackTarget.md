@@ -88,6 +88,43 @@ one master — and the two ways it can fail are kept apart, because the answers 
 button greys out for the moment every song spends waiting, which reads as a fault rather than
 as a wait.
 
+### Say where to start, always
+
+`EngineHost::play` repositions the playhead only when the transport is **looping**; otherwise
+it resumes from wherever it was left. And a session outlives the documents put through it — it
+is keyed by service and person, not by what is loaded — so the playhead sitting there belongs
+to whatever this account last auditioned on that machine: a module preview, a chain variant, a
+longer song.
+
+Send a master and press play with no position, and the transport rolls from a point past the
+end of the clip. `playing` is true, the playhead advances, the meters move, and there is **no
+sound** — a failure whose only symptom is the absence of one.
+
+So `play(doc, fromSeconds)` takes the position, between the document and the verb: the
+position belongs to the document just applied, and asking for it after `play` would be heard
+as a jump. `SongVariants` passes `0` — a variant is auditioned from the top; the player passes
+where the waveform was scrubbed to, which is `0` for a song not started yet.
+
+### The playhead is only ours while our document is loaded
+
+For the same reason, the player does not read `engine.playhead` unconditionally. That session
+is shared with everything else st0 auditions, so an unqualified read would draw another
+document's position on this song's waveform — and, worse, hand it back as the point to resume
+from, which is the bug above with extra steps. `loadedPath` is what makes "is this ours" a
+question with an answer.
+
+### What the engine says is kept
+
+`onWarning` was not subscribed to, and that is expensive exactly here: a document naming a file
+the engine cannot open raises `clip source not found/invalid: <path>` and then plays silence.
+The engine *does* account for itself; st0 was throwing the account away. It is now the first
+thing the player's footer says, above every locally-derived message, because it is the only
+one that comes from the machine actually holding the file.
+
+Beside it, `sent` — a document went and nothing has rolled — covers the same failure seen from
+this side before the machine has said anything. Without it the screen is identical to a
+transport nobody asked to start.
+
 ## One socket per screen
 
 `SongEditor` opens `useModuleEngine` **once** and hands it to both panes. It used to live
