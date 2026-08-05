@@ -59,24 +59,26 @@ import { SongVariants } from "./SongVariants";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /**
- * The header's tabs: the four families, plus the raw capture zone and the repositories.
+ * The header's tabs: the repositories, then the four families and the raw capture zone.
  *
- * RECORDINGS is a section and NOT a family — it is a folder at the library root, it holds
- * no catalogue entries, and it has no listing to ask `/list` for. It sits here because the
- * screen is organised by what you are looking at, and what you are looking at is a fifth
- * thing. See packages/mediatek/docs/recordings.md.
- *
- * PROJECTS is further out still: it is not on the volume at all. A repository belongs to a
+ * PROJECTS leads because it is what the app OPENS on (`DEFAULT_SECTION` in routes.ts), and a
+ * tab strip whose first tab is not the landing screen reads as a mistake. It is also the
+ * section furthest from the volume: it is not on it at all — a repository belongs to a
  * person, this service never makes a working copy of one, and its listing comes from
  * `/api/projects` rather than from the catalogue. See ../../docs/projects.md.
+ *
+ * RECORDINGS is a section and NOT a family either — it is a folder at the library root, it
+ * holds no catalogue entries, and it has no listing to ask `/list` for. It sits here because
+ * the screen is organised by what you are looking at, and what you are looking at is a fifth
+ * thing. See packages/mediatek/docs/recordings.md.
  */
 const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
+  { id: PROJECTS_SECTION, label: "Projets", icon: FolderGit2 },
   { id: "songs", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
   { id: "modules", label: "Modules", icon: Boxes },
   { id: "chains", label: "Chaînes", icon: Workflow },
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
-  { id: PROJECTS_SECTION, label: "Projets", icon: FolderGit2 },
 ];
 
 /** The four that ARE families — the only ids `/list` and `/manifest` accept. */

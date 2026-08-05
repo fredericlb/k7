@@ -118,6 +118,10 @@ export function ProjectsSection({
         error={error}
         onAdd={add}
         onOpen={(r) => onOpen(r.id)}
+        // Même départ que depuis l'arborescence : l'adresse de l'application, pas une vue d'ici.
+        onOpenProject={(r, p) => {
+          window.location.href = api.openIn(r.uri, p.path, p.app);
+        }}
         onRemove={remove}
         onRefresh={refresh}
       />

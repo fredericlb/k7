@@ -51,13 +51,31 @@ L'arbre rendu est du `FileNode` — **le même type** que celui que sert le file
 même drapeau `project?: boolean` sur les dossiers, plus `app` qui dit laquelle des deux
 applications l'ouvre. Les deux arbres du dépôt dessinent donc les mêmes lignes.
 
+## L'arborescence n'est pas le chemin normal
+
+Ce qu'on vient chercher ici, c'est un projet — pas un dépôt. `GET /api/projects` renvoie donc
+`projects: RepoProject[] | null` sur chaque dépôt, et la liste les dessine **en retrait sous le
+leur**, chacun menant droit à son application. Le miroir avait déjà calculé cette liste pour en
+compter les éléments ; ne renvoyer que le nombre obligeait à un second aller-retour, puis à un
+dépliage d'arbre, pour arriver là où on allait de toute façon. Il n'y a pas de champ
+`projectCount` à côté : c'est `projects.length`, et deux sources pour un même chiffre finissent
+toujours par diverger.
+
+`null` reste distinct de `[]` — « miroir jamais lu » n'est pas « aucun projet », et afficher un
+dépôt sans projet alors qu'il n'a pas encore été récupéré serait un mensonge qui se corrige tout
+seul dix secondes plus tard, donc que personne ne signalerait.
+
+L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
+dossiers qui ne sont pas des projets.
+
 ## Le trajet complet
 
 1. Dans **Projets**, on colle une URI SSH. st0 génère la clé de déploiement si elle n'existe
    pas encore, enregistre le dépôt et lance le miroir en tâche de fond.
-2. La section affiche l'arborescence, les dossiers-projets marqués de l'application qui les
-   ouvre.
-3. « Ouvrir dans l8 » (ou m9) mène à `/<app>/?repo=<uri>&project=<dossier>`.
+2. La liste affiche chaque dépôt avec **ses projets en retrait dessous** ; un clic sur l'un
+   d'eux part directement dans son application. Le nom du dépôt, lui, ouvre l'arborescence,
+   où les dossiers-projets sont marqués de la même façon.
+3. Dans les deux cas on arrive à `/<app>/?repo=<uri>&project=<dossier>`.
 4. L'application demande au file service `GET /workspaces/by-repo?uri=` : cette machine
    connaît-elle ce dépôt ?
 5. Sinon, elle le clone, **avec la progression de git à l'écran**
