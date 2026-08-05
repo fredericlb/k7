@@ -9,8 +9,8 @@ import { Plug, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library, moduleStore } from "./api";
 import { readPluginBlock } from "./engine/preview";
-import { useModuleEngine } from "./engine/useModuleEngine";
 import { ModulePreview } from "./ModulePreview";
+import { useEngine } from "./playback/PlaybackProvider";
 
 // Vim mode used to be a l8 setting; st0 has no settings screen yet, so it lives on
 // the toggle below and in localStorage. One key, one boolean.
@@ -19,18 +19,16 @@ const VIM_KEY = "st0.vim";
 export function ModuleEditor({
   entry,
   pane,
-  engineId,
   onBack,
 }: {
   entry: MediatekEntry;
   // Which of the module's three files the click pointed at — the builder's code pane opens on it.
   pane?: BuilderPane;
-  // The engine the account picked. Threaded in rather than read here because the catalogue's
-  // header — picker included — now stays beside this editor, so the choice can change while it
-  // is open and this has to follow it.
-  engineId?: string;
   onBack: () => void;
 }) {
+  // The app's engine, which follows the header's picker on its own — this used to take the
+  // chosen id as a prop and open a socket of its own, and a song that keeps playing while you
+  // edit a module makes that a second client on one session.
   const {
     phase,
     paramNames,
@@ -39,7 +37,7 @@ export function ModuleEditor({
     preview,
     listPresets,
     setPreset,
-  } = useModuleEngine(engineId);
+  } = useEngine();
   const [status, setStatus] = useState("");
   const [vimMode, setVimMode] = useState(
     () => localStorage.getItem(VIM_KEY) === "1",

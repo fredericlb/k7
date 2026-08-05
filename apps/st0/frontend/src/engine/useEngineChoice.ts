@@ -1,6 +1,6 @@
 // useEngineChoice.ts — the account's engine choice, WITHOUT connecting to one. The header's
 // picker needs the list and the current pick; opening a second socket to draw a menu would
-// mean two connections to the same engine from one tab. useModuleEngine holds the socket.
+// mean two connections to the same engine from one tab. PlaybackProvider holds the socket.
 
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";

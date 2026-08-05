@@ -23,6 +23,7 @@ import {
   stepPlugin,
 } from "./engine/chainPreview";
 import type { ModuleEngine } from "./engine/useModuleEngine";
+import { usePlayback } from "./playback/PlaybackProvider";
 
 /** One chain variant, resolved: the entry it names and the text of its `chains.yaml`. */
 interface ResolvedChain {
@@ -56,14 +57,15 @@ export function SongVariants({
   engineToken,
 }: {
   entry: MediatekEntry;
-  /** The screen's engine, opened once by SongEditor and shared with the player above. It used
-   *  to be this pane's own `useModuleEngine(engineId)`; the player can need the same machine
-   *  now, and two hooks would be two connections to it from one tab. */
+  /** The app's engine, handed down by SongEditor. It used to be this pane's own
+   *  `useModuleEngine(engineId)`; a song that keeps playing while you browse moved the socket
+   *  above every screen, and two hooks would be two clients on one session. */
   engine: ModuleEngine;
   /** That engine's token, for the routes its file service gates. The bounce itself does not
    *  send one; analysing what came back does. */
   engineToken?: string | null;
 }) {
+  const playback = usePlayback();
   const variants = entry.variants ?? [];
   const chainRefs = variants.filter((v) => v.kind === "chain");
   const [chains, setChains] = useState<ResolvedChain[] | null>(null);
@@ -179,6 +181,10 @@ export function SongVariants({
           }
         }),
       );
+      // One engine session plays one thing, so auditioning a variant TAKES the transport from
+      // whatever the bar was following. Said out loud rather than left to drift: the bar would
+      // otherwise go on reporting a master that stopped being what is audible.
+      playback.close();
       // A clean edit first: an apply is a diff, so a plugin the engine's stored document does
       // not mention — a module audition's leftover — survives every document and treats this
       // variant's audio on its way out. See ../docs/playbackTarget.md.
@@ -192,7 +198,7 @@ export function SongVariants({
       );
       setPlaying(c.variant.name);
     },
-    [engine, entry, playing, root],
+    [engine, playback, entry, playing, root],
   );
 
   // --- processing ------------------------------------------------------------------

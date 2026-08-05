@@ -9,7 +9,7 @@ import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, Disc3, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library } from "./api";
-import { useModuleEngine } from "./engine/useModuleEngine";
+import { useEngine } from "./playback/PlaybackProvider";
 import type { PlaybackTarget } from "./playback/targets";
 import { SongPlayer } from "./SongPlayer";
 import { SongVariants } from "./SongVariants";
@@ -30,7 +30,6 @@ export function SongEditor({
   entry,
   vimMode,
   fileBase,
-  engineId,
   engineToken,
   playbackTarget,
   onBack,
@@ -38,10 +37,9 @@ export function SongEditor({
 }: {
   entry: MediatekEntry;
   vimMode: boolean;
-  /** The chosen machine's file service — the player needs it to have the master analysed. */
+  /** The chosen machine's file service — the player needs it to have the master analysed.
+   *  WHICH engine is no longer a prop: the app holds one and this screen asks for it. */
   fileBase?: string | null;
-  /** …and the engine itself, which is what auditions a chain variant. */
-  engineId?: string;
   engineToken?: string | null;
   /** Where the account wants sound to come out. See ../docs/playbackTarget.md. */
   playbackTarget: PlaybackTarget;
@@ -49,19 +47,14 @@ export function SongEditor({
   onSaved: () => void;
 }) {
   /**
-   * ONE socket for this screen, held here and handed to both panes.
+   * The app's engine, not this screen's.
    *
-   * It used to be opened inside `SongVariants`, which was correct while that pane was the only
-   * thing here that made the moteur play. The player can now ask for the same engine, and two
-   * hooks would be two connections to one machine from one tab — the very thing
-   * `useEngineChoice` exists not to do. The pane above the variants and the pane below share a
-   * transport anyway: one engine, one session, one thing playing at a time.
+   * It was opened here while a song could only be heard from this pane. It cannot be any more:
+   * a song keeps playing after you leave, so its transport has to outlive the screen that
+   * started it — and stopping on the way out, which used to live here, would silence exactly
+   * the thing the bar at the bottom exists to keep. `PlaybackProvider` holds both now.
    */
-  const engine = useModuleEngine(engineId);
-  // …and stopping it when the screen goes is this component's job for the same reason: the
-  // transport belongs to the editor, not to whichever pane last used it. Leaving is the one
-  // gesture that must not leave a song playing on a machine in another room.
-  useEffect(() => () => engine.stop(), [engine.stop]);
+  const engine = useEngine();
   // Two STRINGS, and that is the point: the listing is re-polled every three seconds, so
   // `entry` is a fresh object on every tick. An effect that depended on it would reload the
   // file — and throw away whatever had been typed into it — three times a minute.
@@ -166,7 +159,6 @@ export function SongEditor({
               fileBase={fileBase}
               engineToken={engineToken}
               target={playbackTarget}
-              engine={engine}
             />
           </div>
           {entry.variants?.length ? (

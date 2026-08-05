@@ -1,20 +1,20 @@
-// SongPlayer.tsx — the right half of a song's screen: its master played, and scrubbed on the
-// shared waveform. WHERE it plays is the account's choice — this browser, or the moteur on the
-// chosen machine — behind one transport. See ../docs/songPlayer.md and ../docs/playbackTarget.md.
+// SongPlayer.tsx — the right half of a song's screen: its master scrubbed on the shared
+// waveform. It OWNS no transport: what plays is the app's (PlaybackProvider), so a song
+// outlives this pane and the bar at the bottom shows the same one thing.
+// See ../docs/songPlayer.md, ../docs/playbackTarget.md and ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
 import { AudioLines, Loader2, Pause, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { currentUser, engineMachine, library } from "./api";
+import { currentUser, engineMachine } from "./api";
 import {
   cachedOnMachine,
   cacheRoot,
-  chainPreviewDoc,
   playablePath,
 } from "./engine/chainPreview";
-import type { ModuleEngine } from "./engine/useModuleEngine";
+import { useEngine, usePlayback } from "./playback/PlaybackProvider";
 import {
   effectiveTarget,
   type PlaybackTarget,
@@ -43,7 +43,6 @@ export function SongPlayer({
   fileBase,
   engineToken,
   target,
-  engine,
 }: {
   entry: MediatekEntry;
   /** The chosen machine's file service, for the analysis this pane may have to ask for. Its
@@ -52,44 +51,42 @@ export function SongPlayer({
   engineToken?: string | null;
   /** Where the account wants sound to come out. */
   target: PlaybackTarget;
-  /** The screen's engine, opened once by SongEditor. Held whatever the destination is: it is
-   *  what ANALYSES the master, which the waveform needs even when this browser is the one
-   *  playing. */
-  engine: ModuleEngine;
 }) {
+  const engine = useEngine();
+  const playback = usePlayback();
+
   // `meta` is deliberately loose (a listing is family-agnostic), so the master is narrowed here.
   // Absent means the folder holds a sidecar and no audio, which the scan allows on purpose.
   const master = entry.meta?.master ? String(entry.meta.master) : null;
   const path = master ? `${entry.path}/${master}` : null;
 
-  const audioRef = useRef<HTMLAudioElement>(null);
   const [shape, setShape] = useState<SongShape | null>(null);
   // Distinguished from "no shape yet": the pane says which of the two it is, because the
   // answers differ — one is a wait, the other is a machine that has to be turned on.
   const [analysing, setAnalysing] = useState(false);
   const [status, setStatus] = useState("");
-  const [browserPlaying, setBrowserPlaying] = useState(false);
-  const [browserAt, setBrowserAt] = useState(0);
-  // The audio element's own duration, which arrives before any analysis and covers the case
-  // where none ever does — a song still plays without a waveform.
-  const [duration, setDuration] = useState(0);
   // The master this pane has already asked to have analysed. One attempt per song, so a moving
   // engine choice cannot start the job twice; the button below is what asks for another.
   const attempted = useRef<string | null>(null);
   const [retry, setRetry] = useState(0);
 
   /**
-   * Which destination is actually in play.
+   * Whether the song on this screen is the song that is playing.
    *
-   * A remembered "le moteur" pointing at a machine that is off falls back to this browser
-   * rather than to silence — the bytes are on the hosted library either way. The footer says
-   * so when it happens: sound coming out of the wrong machine unannounced is worse than the
-   * fallback itself.
+   * They part company the moment a bar at the bottom exists: you start one song and open
+   * another, and this pane must then show a transport at rest rather than borrow the other's
+   * position. `path` is the identity — two songs can share a name.
    */
+  const isCurrent = !!path && playback.now?.path === path;
+  // Where the waveform's cursor sits before this song is the one playing. Pressing play starts
+  // from here, which is what makes clicking into a song and hitting play do the obvious thing.
+  const [cursor, setCursor] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the song changing
+  useEffect(() => setCursor(0), [path]);
+
   const engineReady = engine.phase.k === "ready";
   const actual = effectiveTarget(target, engineReady);
   const viaEngine = actual === "engine";
-  const fellBack = actual !== target;
 
   /**
    * The shape, and the analysis that produces one when it is missing.
@@ -100,13 +97,10 @@ export function SongPlayer({
    *
    * ASKED ONCE, and cancelled when you leave. An analysis is minutes of somebody else's machine
    * — it downloads the master and runs the engine over it — so it must not be re-fired because
-   * this effect re-ran, and it must not outlive the pane that wanted it. `attempted` is what
-   * makes the first true: the engine choice arrives asynchronously, so `fileBase`/`engineToken`
-   * legitimately move under us, and without it every move would start the job again.
+   * this effect re-ran, and it must not outlive the pane that wanted it.
    */
   // `retry` is a TRIGGER, not a value this reads: the button clears `attempted` and bumps it,
-  // which is the only thing that can ask for a second analysis. Removing it would make the
-  // button do nothing at all.
+  // which is the only thing that can ask for a second analysis.
   // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   useEffect(() => {
     if (!path) return;
@@ -146,18 +140,15 @@ export function SongPlayer({
   }, [path, fileBase, engineToken, retry]);
 
   /**
-   * The master as a path on the ENGINE's machine, when that is where it will play.
+   * The master as a path on the ENGINE's machine, when that is where it would play.
    *
    * Two disks, and conflating them is the whole trap: the médiathèque this browser talks to is
-   * hosted, while the moteur opens paths on its own. So the engine branch plays the copy in
-   * that machine's cache — the same route SongVariants takes for a chain, and m9 for a deck.
-   *
-   * Only looked up when it is needed. The cache root costs a request to another machine, and
-   * the browser branch has no use for it.
+   * hosted, while the moteur opens paths on its own. Resolved HERE rather than in the provider
+   * because this is the screen that knows about caches; the provider is handed the answer.
    */
   // `undefined` is "not looked yet" and `null` is "that machine keeps no cache" — two states a
-  // single nullable would merge, and merging them greys the Play button out for the moment
-  // every song spends waiting for the answer, which reads as a fault rather than as a wait.
+  // single nullable would merge, greying the Play button out for the moment every song spends
+  // waiting for the answer, which reads as a fault rather than as a wait.
   const [root, setRoot] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (!viaEngine || !engine.fileBase) return setRoot(undefined);
@@ -181,11 +172,8 @@ export function SongPlayer({
    * …and whether that machine actually has the bytes.
    *
    * A path is not a file. Songs are never pulled automatically, so a machine can hold a
-   * médiathèque cache — a root, a manifest, every module — and not this song. Asked BEFORE
-   * the click, because the engine's answer to an unopenable clip is silence, and a transport
-   * that rolls over nothing is indistinguishable from a broken one.
-   *
-   * `null` is "not asked yet / not applicable", distinct from `false`.
+   * médiathèque cache — a root, a manifest, every module — and not this song. Asked BEFORE the
+   * click, because the engine's answer to an unopenable clip is silence.
    */
   const [cached, setCached] = useState<boolean | null>(null);
   useEffect(() => {
@@ -204,133 +192,31 @@ export function SongPlayer({
     };
   }, [viaEngine, engine.fileBase, engineToken, path]);
 
-  // Follow the playhead smoothly while playing HERE — `timeupdate` fires ~4×/s, which reads as
-  // a playhead that stutters across a canvas this wide. The engine's own frame arrives at
-  // ~20 Hz and needs no such loop, which is why this one is on the browser branch only.
-  useEffect(() => {
-    if (viaEngine || !browserPlaying) return;
-    let raf = 0;
-    const loop = () => {
-      if (audioRef.current) setBrowserAt(audioRef.current.currentTime);
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [viaEngine, browserPlaying]);
-
-  /**
-   * Leaving one destination silences it.
-   *
-   * Changing the menu while something plays used to be impossible because there was one
-   * destination; now the old one has to be told, or the song keeps going on a machine whose
-   * transport this pane has stopped drawing.
-   *
-   * `path` is in here for the same reason in the other axis: the browser's `<audio>` stops on
-   * its own when its `src` changes, the engine does not — it holds a document naming a file,
-   * and nothing about opening another song would tell it to let go.
-   */
-  // `path` is a TRIGGER and not a value the body reads, which is why it looks unnecessary:
-  // what has to run on a song change is the CLEANUP, and a cleanup only runs when something
-  // in the list moves. Same shape as the analysis effect's `retry` above.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      if (viaEngine) engine.stop();
-    };
-  }, [viaEngine, engine.stop, path]);
-
-  /**
-   * What this pane put into the engine, and where it is in it.
-   *
-   * The engine's playhead only means something for the document actually loaded there, and
-   * that session is shared with everything else st0 auditions — a module preview, a chain
-   * variant. Reading `engine.playhead` unconditionally would draw another document's position
-   * on this song's waveform, and, worse, would hand that position back as the point to resume
-   * from. `loadedPath` is what makes "ours" a question with an answer.
-   */
-  const [loadedPath, setLoadedPath] = useState<string | null>(null);
-  const ours = viaEngine && loadedPath !== null && loadedPath === enginePath;
-  // Where we are in the song, engine-side: what the engine reports while it is playing OUR
-  // document, and what we last asked for the rest of the time (including before the first
-  // play, so the waveform can be scrubbed before anything rolls).
-  const [engineAt, setEngineAt] = useState(0);
-  useEffect(() => {
-    if (ours && engine.playing) setEngineAt(engine.playhead);
-  }, [ours, engine.playing, engine.playhead]);
-
-  // A different song is a different document: neither the position nor "we loaded it" carries.
-  // `path` is the TRIGGER and not a value the body reads, which is why it looks unnecessary.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  useEffect(() => {
-    setLoadedPath(null);
-    setEngineAt(0);
-  }, [path]);
-
-  // One transport over two implementations. Everything below the header reads these two
-  // values and never asks which side of the wire is playing.
-  const playing = viaEngine ? ours && engine.playing : browserPlaying;
-  const current = viaEngine ? engineAt : browserAt;
-
-  /**
-   * A document was sent and nothing has rolled yet.
-   *
-   * Worth a state of its own because the failure it covers is SILENCE: the engine takes a
-   * document naming a file it cannot open, says so once on the warning channel, and then
-   * plays nothing. Without this the screen is identical to a transport that simply has not
-   * been asked — a Play button, no sound, and no account of either.
-   */
-  const [sent, setSent] = useState(false);
-  useEffect(() => {
-    if (ours && engine.playing) setSent(false);
-  }, [ours, engine.playing]);
+  // The two readings of one transport: this pane's, and the bar's. Identical while this song
+  // is the one playing, and at rest otherwise.
+  const playing = isCurrent && playback.playing;
+  const current = isCurrent ? playback.position : cursor;
 
   const toggle = useCallback(() => {
-    if (viaEngine) {
-      if (ours && engine.playing) return engine.stop();
-      // Still asking that machine. Said as a wait rather than as one of the two refusals
-      // below, either of which would be a guess at this point.
-      if (root === undefined || cached === null)
-        return setStatus("on demande à cette machine si elle a ce morceau…");
-      if (!enginePath) return setStatus(ENGINE_NO_CACHE);
-      if (!cached) return setStatus(ENGINE_NOT_HERE);
-      // The document, then the verb — a transport verb sent first plays whatever the engine
-      // still held. No steps: a master is the audio itself, so the chain is empty and this is
-      // `chainPreviewDoc`'s degenerate case rather than a second document builder.
-      setStatus(`envoyé au moteur : ${enginePath}`);
-      setSent(true);
-      // A clean edit for a document this session has not held. An apply is a diff, and a diff
-      // cannot remove a plugin the engine's stored document never mentioned — a module left on
-      // that track keeps eating the master, silently. Only when the document CHANGES: a pause
-      // and a resume must not rebuild the edit under the transport. See docs/playbackTarget.md.
-      if (!ours) engine.reset();
-      setLoadedPath(enginePath);
-      // Where to start, said rather than left to the engine — which resumes from a playhead
-      // this pane did not put there. `engineAt` is 0 for a song not started yet.
-      engine.play(chainPreviewDoc(enginePath, entry.name, []), engineAt);
-      return;
-    }
-    const el = audioRef.current;
-    if (!el) return;
-    if (el.paused) void el.play().catch((e: Error) => setStatus(e.message));
-    else el.pause();
-  }, [viaEngine, engine, enginePath, root, cached, engineAt, ours, entry.name]);
+    if (!path) return;
+    if (isCurrent) return playback.toggle();
+    playback.start(
+      {
+        entry,
+        path,
+        target: actual,
+        enginePath: viaEngine ? enginePath : null,
+      },
+      cursor,
+    );
+  }, [path, isCurrent, playback, entry, actual, viaEngine, enginePath, cursor]);
 
   const seek = useCallback(
     (sec: number) => {
-      if (viaEngine) {
-        // Remembered whether or not the engine holds this song yet: scrubbing before pressing
-        // play is how you start somewhere other than the top, and the position is then what
-        // the next `play` is told to start from.
-        setEngineAt(sec);
-        if (ours) engine.seek(sec);
-        return;
-      }
-      const el = audioRef.current;
-      if (el) el.currentTime = sec;
-      setBrowserAt(sec);
+      if (isCurrent) return playback.seek(sec);
+      setCursor(Math.max(0, sec));
     },
-    [viaEngine, ours, engine],
+    [isCurrent, playback],
   );
 
   // The waveform fills whatever height is left, so a tall pane is not a 160px strip over a void.
@@ -353,14 +239,14 @@ export function SongPlayer({
       </div>
     );
 
-  // The sidecar's duration when there is one — it comes from the decode and is the truth;
-  // the element's own is what covers the wait, and a format it can play but not measure.
-  const total = shape?.duration || duration;
+  // The sidecar's duration when there is one — it comes from the decode and is the truth; the
+  // element's own, which only exists for what is playing, is what covers the wait.
+  const total = shape?.duration || (isCurrent ? playback.duration : 0);
   const where = playbackTargetInfo(actual);
   const WhereIcon = where.icon;
+  const fellBack = actual !== target;
   // Nothing on that machine to open — said on the button rather than after a click that would
-  // look like it did nothing. Only while it is settled: `cached === null` is "still asking",
-  // and a button that greys out for a moment on every song reads as a fault.
+  // look like it did nothing. Only while it is settled: `cached === null` is "still asking".
   const engineBlocked = viaEngine && (root === null || cached === false);
   const blockedWhy = !engineBlocked
     ? ""
@@ -373,38 +259,17 @@ export function SongPlayer({
    *
    * The engine's own complaint outranks everything: it is the only account there is of a
    * document that was accepted and made no sound, and it names the file it could not open.
-   * `sent` comes next — asked, and nothing rolling — which is the same failure seen from this
-   * side before the machine has said anything.
    */
   const engineSaid =
-    viaEngine && engine.warning
+    isCurrent && viaEngine && engine.warning
       ? `le moteur : ${engine.warning.message}`
-      : viaEngine && sent
-        ? "envoyé, mais le moteur n'a rien démarré — voir le journal de la machine"
-        : "";
+      : "";
   // `status` only when there IS a shape: without one it is already the big message in the
   // middle of the pane, and saying it twice reads as two different problems.
   const footer = engineSaid || blockedWhy || (shape ? status : "");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Ours, not `controls`: the waveform IS the scrubber, and two of them disagree the
-          moment one is dragged. Mounted whichever destination is chosen — it is what reports
-          the duration for a song with no `.cache` yet, and switching back must not reload. */}
-      <audio
-        ref={audioRef}
-        src={library.fileUrl(path)}
-        preload="metadata"
-        onPlay={() => setBrowserPlaying(true)}
-        onPause={() => setBrowserPlaying(false)}
-        onEnded={() => setBrowserPlaying(false)}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onTimeUpdate={(e) => {
-          if (!browserPlaying) setBrowserAt(e.currentTarget.currentTime);
-        }}
-        onError={() => setStatus("lecture impossible")}
-      />
-
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2">
         <Button
           size="sm"

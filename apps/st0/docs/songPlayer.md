@@ -63,6 +63,13 @@ C'est aussi pourquoi le moteur reste tenu quelle que soit la destination de lect
 lui qui **analyse** le master, et la forme d'onde en a besoin même quand c'est ce navigateur
 qui joue.
 
+## Ce panneau ne possède plus le transport
+
+Il tenait l'élément `<audio>` et l'éditeur coupait le moteur en partant — donc quitter l'écran
+coupait le son. Une barre en bas ne peut pas vivre avec ça : la lecture est remontée **au-dessus
+des écrans** (`PlaybackProvider`), et ce qui reste ici en est une *vue*. Le morceau ouvert n'est
+d'ailleurs pas forcément celui qui joue. Voir [miniPlayer.md](miniPlayer.md).
+
 ## Où le son sort n'est plus décidé ici
 
 Ce panneau jouait dans le navigateur, point. C'est devenu un choix du compte — ici, ou par le
