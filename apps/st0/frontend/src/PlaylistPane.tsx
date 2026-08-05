@@ -150,6 +150,8 @@ export function PlaylistPane({
   /** Which line THIS pane started. Null when it started nothing, or when something else took
    *  the transport over — `mine` below is what checks the second. */
   const [current, setCurrent] = useState<number | null>(null);
+  /** What the footer says about a click that did not start anything. Cleared by the next one. */
+  const [notice, setNotice] = useState("");
   const at = current === null ? null : rows[current];
   const mine =
     !!at?.song &&
@@ -166,6 +168,12 @@ export function PlaylistPane({
    */
   const startAt = useCallback(
     async (from: number) => {
+      setNotice("");
+      // Still asking that machine whether it keeps a cache at all. Said as a WAIT rather than
+      // as one of the two refusals below, either of which would be a guess at this point —
+      // and said at all, because a click that does nothing reads as a broken button.
+      if (viaEngine && root === undefined)
+        return setNotice("on demande à cette machine où est son cache…");
       for (let i = from; i < rows.length; i++) {
         const r = rows[i];
         if (!r.song) continue;
@@ -176,7 +184,7 @@ export function PlaylistPane({
         // Nothing to open on that machine. Not skipped — that is a fault of the DESTINATION
         // and not of the line, and walking the whole playlist because one machine has no cache
         // would look like the playlist being broken.
-        if (viaEngine && !enginePath) return;
+        if (viaEngine && !enginePath) return setNotice(NO_CACHE);
         setCurrent(i);
         playback.start({
           entry: r.song,
@@ -354,6 +362,7 @@ export function PlaylistPane({
         <ListMusic className="h-3.5 w-3.5" />
         <span className="min-w-0 flex-1 truncate">
           {playback.error ||
+            notice ||
             (mine && at?.song
               ? `en cours : ${itemLabel(at)}`
               : "les lignes se jouent d'affilée ; la barre du bas suit ce qui sort")}
