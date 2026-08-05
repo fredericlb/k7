@@ -121,7 +121,11 @@ export const api = {
     return f(`/api/sessions/${id}/events?${params}`).then(json);
   },
 
-  recordingUrl: (id: string) => `/api/sessions/${id}/recording`,
+  // The *Url helpers below are the exception to `f()`: they are handed to an
+  // <audio src>, an <img src> or a download link, so the browser fetches them
+  // directly and nothing is there to prepend the service prefix. Spell BASE out
+  // in every one of them — a bare /api/… is st0's, and the media 404s.
+  recordingUrl: (id: string) => `${BASE}/api/sessions/${id}/recording`,
 
   addAnnotation: (
     id: string,
@@ -155,7 +159,7 @@ export const api = {
     }).then(json),
 
   momentClipUrl: (id: string, annId: string) =>
-    `/api/sessions/${id}/annotations/${annId}/clip`,
+    `${BASE}/api/sessions/${id}/annotations/${annId}/clip`,
 
   // --- Markers (single-timestamp pins) ---
   addMarker: (
@@ -193,7 +197,7 @@ export const api = {
   deleteMoment: (id: string): Promise<null> =>
     f(`/api/moments/${id}`, { method: "DELETE" }).then(json),
 
-  momentPageClipUrl: (id: string) => `/api/moments/${id}/clip`,
+  momentPageClipUrl: (id: string) => `${BASE}/api/moments/${id}/clip`,
 
   addMomentMarker: (
     momentId: string,
@@ -277,11 +281,11 @@ export const api = {
     }).then(json),
 
   versionAudioUrl: (id: string, versionId: string) =>
-    `/api/releases/${id}/versions/${versionId}/audio`,
+    `${BASE}/api/releases/${id}/versions/${versionId}/audio`,
 
   // One stem of a multitrack version (download / stream).
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
-    `/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
+    `${BASE}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
 
   // Mint a personal access token for the l8 CLI (Settings UI).
   getApiToken: (): Promise<{ token: string }> => f("/api/token").then(json),
@@ -360,5 +364,5 @@ export const api = {
     f(`/api/songs/${id}/sheets/${fileId}`, { method: "DELETE" }).then(json),
 
   sheetFileUrl: (id: string, fileId: string) =>
-    `/api/songs/${id}/sheets/${fileId}`,
+    `${BASE}/api/songs/${id}/sheets/${fileId}`,
 };
