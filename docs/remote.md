@@ -78,9 +78,13 @@ scrollback per tab is replayed to a joining client, then a one-row resize jiggle
 repaints the screen. *Arrêter* writes `\x03` first and only hard-kills after 8 s; a
 dead shell stays on screen with its exit code until someone presses *Relancer*;
 closing a tab (×, confirmed) kills its shell for real. Twelve tabs at most — a
-runaway “+” should not fork-bomb the machine. Each new tab picks its flavor from
-the shells the server detected at startup — PowerShell, Git Bash, WSL — via the
-selector beside “+” (hidden when there is only one); all of them start in the repo
+runaway “+” should not fork-bomb the machine. **Clicking the tab one is already on
+renames it** — a mouse reads that as a double-click, a phone gets the same gesture
+without a long-press; the name (24 chars, blank restores `id·shell`) lives with the
+session, so it survives a *Relancer* and every viewer sees it. Each new tab picks
+its flavor from the shells the server detected at startup — PowerShell, Git Bash,
+WSL — via the selector beside “+”, on the right of the bar just before the transport
+buttons (hidden when there is only one); all of them start in the repo
 (wsl sees it as `/mnt/…`, and a wsl with no distro prints its own error). **WSL is
 the default** when present: editing (claude, nvim) lives there, while builds stay
 on the Windows side under Tilt.

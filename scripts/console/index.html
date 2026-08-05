@@ -132,10 +132,10 @@
   <body>
     <header>
       <div id="tabs"></div>
-      <select id="shell" title="Shell du prochain onglet" hidden></select>
-      <button id="new" type="button" title="Nouvel onglet">+</button>
       <span id="dot"></span><span id="state">connexion…</span>
       <span style="flex: 1"></span>
+      <select id="shell" title="Shell du prochain onglet" hidden></select>
+      <button id="new" type="button" title="Nouvel onglet">+</button>
       <button id="restart" type="button">Relancer</button>
       <button id="stop" type="button">Arrêter</button>
       <button id="start" type="button" hidden>Démarrer</button>
@@ -212,6 +212,17 @@
 
       const SHELL_LABELS = { powershell: "ps", bash: "bash", wsl: "wsl" };
       const shellLabel = (s) => SHELL_LABELS[s] ?? s;
+      const tabLabel = (t) => t.name || `${t.id}·${shellLabel(t.shell)}`;
+      // Clicking the tab one is already on renames it — so on a mouse it reads as a
+      // double-click, and a touch device gets the same gesture without a long-press.
+      const rename = (tab) => {
+        const name = prompt(
+          `Nom de l'onglet ${tab.id}·${shellLabel(tab.shell)} (vide : nom par défaut) :`,
+          tab.name ?? "",
+        );
+        if (name !== null) send({ t: "rename", id: tab.id, name });
+        term.focus();
+      };
       const renderTabs = () => {
         const bar = $("tabs");
         bar.replaceChildren();
@@ -219,10 +230,11 @@
           const b = document.createElement("button");
           b.type = "button";
           b.className = `tab${t.running ? " on" : ""}${t.id === current ? " active" : ""}`;
+          b.title = `${t.id}·${shellLabel(t.shell)} — recliquer pour renommer`;
           const led = document.createElement("span");
           led.className = "led";
-          b.append(led, `${t.id}·${shellLabel(t.shell)}`);
-          b.onclick = () => attach(t.id);
+          b.append(led, tabLabel(t));
+          b.onclick = () => (t.id === current ? rename(t) : attach(t.id));
           bar.append(b);
         }
         const cur = tabs.find((t) => t.id === current);
@@ -288,7 +300,8 @@
       $("new").onclick = () => send({ t: "new", shell: $("shell").value });
       $("close").onclick = () => {
         const cur = tabs.find((t) => t.id === current);
-        const what = cur?.running ? `l'onglet ${current} (shell actif, pid ${cur.pid})` : `l'onglet ${current}`;
+        const label = cur ? tabLabel(cur) : current;
+        const what = cur?.running ? `l'onglet ${label} (shell actif, pid ${cur.pid})` : `l'onglet ${label}`;
         if (confirm(`Fermer ${what} ?`)) send({ t: "close", id: current });
       };
       $("restart").onclick = () => send({ t: "restart", id: current });
