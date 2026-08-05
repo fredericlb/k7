@@ -52,6 +52,18 @@ need no interop shimming. Two things this needs:
   `Dynamic require of "path" is not supported`.
 - **`fsevents` marked external.** An optional native module chokidar probes for and falls
   back from. It cannot be bundled and must not fail the build.
+- **`onnxruntime-node` marked external *and staged*.** The other native module, and the
+  contrast is the point: `fsevents` survives being external because a require that throws
+  costs chokidar nothing. This one has no fallback, so external alone would only move the
+  failure from build time to first use. `stageNodeModule` copies the package (and
+  `onnxruntime-common`, which it requires) into `resources/node_modules/`, where the
+  `.mjs` in `resources/` resolves it by ordinary Node lookup. Only the host's own
+  `bin/napi-v3/<platform>/<arch>` tree is copied — ONNX Runtime ships one shared library
+  per platform and the rest would be dead weight.
+
+  **macOS is not covered.** `makeDmg` signs nothing, and a third-party `libonnxruntime.dylib`
+  inside a `.app` is a notarisation problem this repo has never solved. Windows and Linux
+  bundles carry it correctly; a macOS bundle needs signing work that does not exist yet.
 
 esbuild is driven through its **JS API, not its CLI**: `run()` goes through `cmd.exe` on
 Windows, which splits the spaces inside `--banner:js=...` into separate arguments, and

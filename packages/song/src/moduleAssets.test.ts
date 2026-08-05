@@ -221,3 +221,58 @@ describe("a rack's samples", () => {
     expect(rack?.symbols?.sd?.clip).toBe(beside);
   });
 });
+
+// A neural model is named exactly like an amp profile, and resolves the same way — except that
+// 166 MB does not travel through a fork, so the module DECLARES it and the machine holds the
+// bytes. See docs/moduleAssets.md's note on the model cache.
+describe("a model too big to carry", () => {
+  let models: string;
+
+  beforeEach(() => {
+    models = mkdtempSync(join(tmpdir(), "td-models-"));
+    process.env.STUDIO_MODELS = models;
+  });
+  afterEach(() => {
+    process.env.STUDIO_MODELS = undefined;
+    rmSync(models, { recursive: true, force: true });
+  });
+
+  const amp = () =>
+    file(
+      "modules/audio/sep/module.yaml",
+      "cold: true\nplugin: {type: offline, name: Stem Split}\n" +
+        "params: {onnx: htdemucs.onnx}\n",
+    );
+
+  it("falls back to the machine's cache when the module carries none", () => {
+    amp();
+    writeFileSync(join(models, "htdemucs.onnx"), "weights", "utf8");
+    expect(loadModules(dir)["sep"]?.onnx).toBe(join(models, "htdemucs.onnx"));
+  });
+
+  it("prefers the module's own copy when there is one", () => {
+    amp();
+    const own = file("modules/audio/sep/assets/htdemucs.onnx");
+    writeFileSync(join(models, "htdemucs.onnx"), "weights", "utf8");
+    expect(loadModules(dir)["sep"]?.onnx).toBe(own);
+  });
+
+  it("resolves to nothing when neither has it, and keeps the authored name", () => {
+    amp();
+    const m = loadModules(dir)["sep"];
+    // The disagreement between the two is how validate() reports a dangling ref.
+    expect(m?.onnx).toBeUndefined();
+    expect(m?.assets?.onnx).toBe("htdemucs.onnx");
+  });
+
+  it("refuses a ref that climbs out, rather than redirecting it to the cache", () => {
+    // The cache must not become a way to launder an escaping ref: the containment check comes
+    // first and REFUSES, it does not fall through.
+    file(
+      "modules/audio/sep/module.yaml",
+      "plugin: {type: offline}\nparams: {onnx: ../../../secret.onnx}\n",
+    );
+    writeFileSync(join(models, "secret.onnx"), "weights", "utf8");
+    expect(loadModules(dir)["sep"]?.onnx).toBeUndefined();
+  });
+});

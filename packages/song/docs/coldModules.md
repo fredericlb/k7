@@ -80,13 +80,32 @@ A ready module folder is `packages/dsp/modules/normalize/` — `module.yaml` plu
 that mirrors the library graph, the same arrangement the crossfade demo uses. Copy it into a
 médiathèque `modules/audio/`.
 
+## Cold modules come in two shapes
+
+The normaliser **measures**: the pass reads the file and writes a number back into a param
+(`Peak`), and the module's own graph then applies it. That is one shape, and it was the only
+one this page described.
+
+A stem separator is the other. It does not produce a number for a graph to use — it produces
+**four audio files**, and it has to, because a chain step compiles to a serial insert on one
+Tracktion track and there is no fan-out in `ProjectDoc` at all. So it says
+`plugin: { type: offline }`: no engine plugin, and a pass writes its outputs before the render.
+See `@studio/file-service`'s `docs/stemSplit.md`.
+
+Both are cold for the same reason and obey the same rule — the input has to be knowable in
+full — which is why one word still covers them. What differs is what the pass hands back.
+
 ## What is NOT wired yet
 
-**The cold pass itself.** Nothing measures a file's peak and writes it into `Peak` — the flag,
-the rule, the refusal, the graph and the module are here; the analysis that would make a
-normaliser actually normalise is not. Two pieces are missing and neither is guessed at here:
-`io: file` playback (this package's `docs/fileInput.md` records the same gap) and a pass that
-runs before the render and feeds measured values back into a module's params.
+**The measuring pass.** Nothing reads a file's peak and writes it into `Peak`: the flag, the
+rule, the refusal, the graph and the module are here; the analysis that would make a normaliser
+actually normalise is not. `io: file` playback is the other half of the same gap (this package's
+`docs/fileInput.md` records it).
 
-Until then a cold module compiles and applies its default gain. That is why the `Peak` default
-attenuates rather than boosts: the un-measured state has to be harmless.
+Until then a cold module of that shape compiles and applies its default gain. That is why the
+`Peak` default attenuates rather than boosts: the un-measured state has to be harmless.
+
+**The producing pass** is further along: `@studio/commands`' `coldPass.ts` decides which steps
+are offline and refuses early, and `@studio/file-service` runs the model. What is left is the
+call site — `mediatekChain` is where an offline module must be diverted rather than pushed onto
+the plugin list.

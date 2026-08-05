@@ -149,6 +149,7 @@ export interface LoadedModule {
   outputs?: { name: string; type: "audio" | "midi" | "video" }[];
   preset?: string; // resolved .vstpreset path, if any
   nam?: string; // a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
+  onnx?: string; // …the same, for the neural model an offline module runs (see docs/moduleAssets.md)
   jsdsp?: string; // resolved ABSOLUTE path to the module's JS/TS DSP source, when it declares one
   assets?: Record<string, string>; // …and the name it was authored with
   // -- local modules only (loadModules) -----------------------------------------

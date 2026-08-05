@@ -11,6 +11,19 @@ choice the rest of this repo already made, and reversing it would cost more than
   Tauri sidecar.** The file service is bundled to a single `.mjs` run by a vendored Node
   (`scripts/build-engine.mjs`). A `.node` binary in that closure is exactly the class of
   problem that packaging avoids.
+
+  That last sentence is now half true, and saying so is cheaper than letting a reader
+  discover it. `onnxruntime-node` arrived for stem separation and the packaging DID grow a
+  way to carry a native module: marked `external`, then staged into
+  `resources/node_modules/` where Node's ordinary resolution finds it
+  (`stageNodeModule`). So the mechanism exists.
+
+  It does not change the answer here, for a reason that has nothing to do with packaging.
+  A separator earns a 166 MB model and a per-platform shared library because there is no
+  other way to do the thing at all; an index earns nothing, because a walk plus a change
+  token already produces it (below). The cost is now payable, and still not worth paying.
+  What the mechanism does not solve is macOS: nothing in this repo signs a third-party
+  `.dylib`, so a notarised `.app` carrying one is still unsolved.
 - Every derived thing here is already a cache behind a change token. `workspace.ts`'s
   `revision()` is the same shape: a walk producing count + newest mtime.
 

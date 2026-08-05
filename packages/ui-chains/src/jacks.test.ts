@@ -96,8 +96,16 @@ describe("jacksFor", () => {
       { name: "main", type: AUDIO },
       { name: "cue", type: AUDIO },
     ];
+    // A cable naming no port is the FIRST output, so `cue` stays free. This used to read
+    // `free: false` on both: occupancy was one bit for the whole node, because the edge did not
+    // carry which jack it left from. It does now, and a spare output can be seen to be spare.
     expect(jacksFor(outs, fed(""), AUDIO, false)).toEqual([
       { name: "main", type: AUDIO, free: false },
+      { name: "cue", type: AUDIO, free: true },
+    ]);
+    // A cable that names one occupies that one, and only it.
+    expect(jacksFor(outs, fed("cue"), AUDIO, false)).toEqual([
+      { name: "main", type: AUDIO, free: true },
       { name: "cue", type: AUDIO, free: false },
     ]);
     // …and with nothing leaving the module, they read as unplugged rather than as connected.

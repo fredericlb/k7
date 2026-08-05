@@ -505,6 +505,26 @@ export interface CloneJob {
   lines: string[]; // the tail of git's output, for a failure that needs reading
 }
 
+/**
+ * How a stem separation is doing. The same shape as CloneJob — start, poll, 404 when swept —
+ * with one field it has no use for.
+ *
+ * A clone's product is a DIRECTORY, named by `workspace`, so there is nothing to list. A
+ * separation's product is four files, and the caller needs their paths: they are what it came
+ * for, and they are not derivable from the request (the stems' names come from the model).
+ */
+export interface SeparateJob {
+  id: string;
+  source: string; // the mix being split, absolute on the engine's machine
+  done: boolean;
+  failed: boolean;
+  error: string | null;
+  phase: string; // "decoding" | "loading model" | "separating" | "writing" | "done" | "failed"
+  percent: number | null; // null while doing something with no measurable end
+  lines: string[]; // notes worth reading — which execution provider won, and why a run failed
+  files: string[]; // the stems written, absolute. Empty until `done`.
+}
+
 /** How st0's mirror of one repository is doing. `ready` means there is something to read,
  *  whether or not a refresh is running on top of it. */
 export interface RepoStatus {

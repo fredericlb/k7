@@ -12,6 +12,11 @@ import { type ChainsFile, ChainsFileSchema } from "./yaml/chainsSchema";
 export const CHAIN_IN = "@in";
 /** …and where it ends, standing where a song's `OUT` sink does. */
 export const CHAIN_OUT = "@out";
+/** One edge as the derivation walks it: where it lands, and which output it left from. */
+interface Dest {
+  to: string;
+  fromPort?: string;
+}
 
 /**
  * The chains a segment file describes, keyed by name — a track-fed run is called after its track, a run the
@@ -51,10 +56,17 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
   // A module may be keyed with a port on the source side too (`deck#cue: [...]`), so its
   // destinations are the UNION of every key naming it. Keying on the raw string would have
   // split one module into two nodes that never met.
-  const dests = (n: string): string[] => {
-    const out: string[] = [];
-    for (const [key, ds] of Object.entries(modules))
-      if (nodeOf(key) === n) out.push(...ds);
+  //
+  // The key's port is kept on each edge as `fromPort`: the union decides the module's IDENTITY,
+  // it does not have to cost which jack the cable left from. A module with several outputs — a
+  // stem separator — is unsayable without it. See docs/ports.md.
+  const dests = (n: string): Dest[] => {
+    const out: Dest[] = [];
+    for (const [key, ds] of Object.entries(modules)) {
+      const { node, port } = splitPort(key);
+      if (node !== n) continue;
+      for (const to of ds) out.push(port ? { to, fromPort: port } : { to });
+    }
     return out;
   };
   // …and the module names this file mentions, each once, in first-seen order.
@@ -82,8 +94,14 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
   // unnoticed.
   for (const ds of Object.values(tracks))
     for (const d of ds) if (!splitPort(d).port) edge(d, ds.length);
-  for (const ds of Object.values(modules))
-    for (const d of ds) if (!splitPort(d).port) edge(d, ds.length);
+  // The out-degree is the NODE's, not the key's. A module keyed once is the same either way,
+  // but one split across its outputs (`sep#drums:` and `sep#bass:`, a key apiece) has two
+  // lists of one — and per-key counting would call each edge an only child, absorbing both
+  // targets into a single run through a module that in fact splits.
+  for (const [key, ds] of Object.entries(modules)) {
+    const deg = dests(nodeOf(key)).length;
+    for (const d of ds) if (!splitPort(d).port) edge(d, deg);
+  }
 
   // What feeds each module through a NAMED port, in the order the file lists it. These are the
   // wires past the chain flow — a chain carries one signal, and a second input has to arrive
@@ -125,28 +143,36 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
       ...(bypassed.has(module) ? { enabled: false } : {}),
     };
   };
-  // A destination keeps its port: `to` is what the chain routes to, and which input it lands on
-  // is part of that. Downstream reads the node with splitPort where it needs the bare name.
-  const outs = (names: string[]): Out[] => names.map((to) => ({ to, gain: 1 }));
+  // A destination keeps BOTH ports: `to` carries which input it lands on (downstream reads the
+  // bare name with splitPort), `fromPort` which output it left from. They are separate fields
+  // because they are separate facts — the target's jack is part of the address, the source's is
+  // part of the source.
+  const outs = (ds: Dest[]): Out[] =>
+    ds.map((d) => ({
+      to: d.to,
+      gain: 1,
+      ...(d.fromPort ? { fromPort: d.fromPort } : {}),
+    }));
 
   // Modules already inside a chain. Absorption alone decides which run claims a module —
   // except in a cycle, where nothing is a root and this is what stops the walk.
   const placed = new Set<string>();
-  const follow = (start: string[]): { use: Step[]; out: Out[] } => {
+  const follow = (start: Dest[]): { use: Step[]; out: Out[] } => {
     const use: Step[] = [];
     let at = start;
     // The walk steps on NODES; a port only ever decorates the edge that got here. A single
     // destination carrying one is not followed at all — `absorbed` reads the flow feeders, and
-    // a side input contributes none.
+    // a side input contributes none. `fromPort` never gates the walk either: it says where the
+    // edge came from, and a module with one output that names it is still a plain run.
     while (
       at.length === 1 &&
-      !splitPort(at[0]).port &&
-      absorbed(at[0]) &&
-      !placed.has(at[0])
+      !splitPort(at[0].to).port &&
+      absorbed(at[0].to) &&
+      !placed.has(at[0].to)
     ) {
-      placed.add(at[0]);
-      use.push(step(at[0]));
-      at = dests(at[0]);
+      placed.add(at[0].to);
+      use.push(step(at[0].to));
+      at = dests(at[0].to);
     }
     return { use, out: outs(at) };
   };
@@ -164,7 +190,8 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
   // A track's chain: the track feeds it, and the run picks up from its destinations.
   for (const [track, ds] of Object.entries(tracks)) {
     if (!ds.length) continue; // feeds nothing — the same as not being listed
-    add(track, { from: track, ...follow(ds) });
+    // A track has no output ports to leave from, so its edges carry no `fromPort`.
+    add(track, { from: track, ...follow(ds.map((to) => ({ to }))) });
   }
   // Then every module that starts a run of its own: a bus (several things feed it), the
   // far side of a split, or a node nothing feeds at all.

@@ -93,11 +93,14 @@ export interface OutputDef {
   name: string;
   type: "audio" | "midi" | "video";
 }
-// A signal destination: a downstream chain / io sink (`to`) and how much of the
-// signal reaches it (`gain`, a 0..1 share; 1 == the whole signal).
+// A signal destination: a downstream chain / io sink (`to`), how much of the
+// signal reaches it (`gain`, a 0..1 share; 1 == the whole signal), and which of the
+// source's outputs it left from (`fromPort`, absent on a module with the usual single
+// output). See docs/ports.md.
 export interface Out {
   to: string;
   gain: number;
+  fromPort?: string;
 }
 export interface Chain {
   from?: string;
@@ -881,6 +884,19 @@ export function validate(g: GraphDoc): string[] {
         w.push(`chain '${name}': out '${o.to}' is not a chain or io sink`);
       if (o.gain < 0)
         w.push(`chain '${name}': out '${o.to}' has a negative gain`);
+      // …and which output it LEFT from. Asked here because it was asked nowhere: a wrong
+      // destination port throws in checkChainInputs, while `sep#vocls` used to route silently
+      // — the derivation dropped the typo and the cable landed on the module's first jack.
+      // The source is the run's last module; a track has no jacks to name.
+      if (o.fromPort) {
+        const src = c.use.length ? c.use[c.use.length - 1].module : c.from;
+        const srcModule = src ? g.modules[src] : undefined;
+        if (srcModule && !srcModule.outputs.some((p) => p.name === o.fromPort))
+          w.push(
+            `chain '${name}': out '${o.to}' leaves '${src}' through '${o.fromPort}', which is ` +
+              `not one of its outputs (${srcModule.outputs.map((p) => p.name).join(", ") || "none"})`,
+          );
+      }
     }
     if (!c.out.length && !isParked(c))
       w.push(`chain '${name}': has no out (dead end)`);

@@ -37,6 +37,12 @@ is a server: a polling protocol would be machinery in front of a wait shorter th
 interval. `--stems` is deliberately not offered — N files need a job to hold them, and
 nothing asks for it.
 
+Something asks now, and it is not this route: stem **separation** wanted exactly that, and
+got its own — `POST /separate`, start-then-poll, see [stemSplit.md](stemSplit.md). The
+sentence above still holds for a render, and the reason is the reason it was written: those
+are per-TRACK bounces of a document a caller already has, seconds apart from the one file
+it wanted. Nothing about that changed because a different route grew a job registry.
+
 The temp directory is removed on **every** path including the failures: a wedged machine
 renders repeatedly, and each attempt costs a song's worth of disk.
 
