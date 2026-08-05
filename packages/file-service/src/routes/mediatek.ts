@@ -31,6 +31,7 @@ import { revisions } from "@studio/mediatek/revision";
 import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { Router } from "express";
 import { z } from "zod";
+import { mediatekBase, mediatekToken } from "../mediatekLink.ts";
 import { slugify, workspaceRoot } from "../slug.ts";
 import {
   CACHE_EXT,
@@ -63,7 +64,7 @@ mediatekRouter.post(
   validate(analyseBody),
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof analyseBody>;
-    const base = process.env.MEDIATEK_URL;
+    const base = mediatekBase();
     if (!base)
       return res
         .status(503)
@@ -83,7 +84,7 @@ mediatekRouter.post(
       throw e;
     }
 
-    const token = process.env.MEDIATEK_TOKEN;
+    const token = mediatekToken() ?? undefined;
     try {
       // Always re-fetched rather than trusted: the caller asks for this right after an upload,
       // and a cache entry from a previous version of the same path would be analysed instead.
@@ -148,12 +149,12 @@ mediatekRouter.post(
   wrap(async (req, res) => {
     const family = asFamily(req.body?.family);
     if (!family) return res.status(400).json({ error: FAMILY_ERROR });
-    const base = process.env.MEDIATEK_URL;
+    const base = mediatekBase();
     if (!base)
       return res
         .status(503)
         .json({ error: "no hosted library configured (MEDIATEK_URL)" });
-    const source = remoteLibrary({ base, token: process.env.MEDIATEK_TOKEN });
+    const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
     try {
       const report = await syncFamily(source, family);
       // Only a clean sync counts as caught up — otherwise the missing files are never retried.
@@ -209,7 +210,7 @@ mediatekRouter.post(
       // assertWorkspaceName refuses anything that isn't one plain path segment.
       return res.status(400).json({ error: (e as Error).message });
     }
-    const base = process.env.MEDIATEK_URL;
+    const base = mediatekBase();
     if (!base)
       return res
         .status(503)
@@ -217,7 +218,7 @@ mediatekRouter.post(
     try {
       res.json(
         await uploadWorkspace(
-          remoteWriter({ base, token: process.env.MEDIATEK_TOKEN }),
+          remoteWriter({ base, token: mediatekToken() ?? undefined }),
           root,
         ),
       );

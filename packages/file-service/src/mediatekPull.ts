@@ -5,6 +5,7 @@
 import { syncFamily } from "@studio/mediatek/cache";
 import { remoteLibrary } from "@studio/mediatek/remote";
 import { mediatekPathPrefix, mediatekRefs } from "@studio/song/mediatekRefs";
+import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { liveWorkspaces } from "./workspaces.ts";
 
 /** How often the owner's change token is asked for. Cheap on the server — a walk it already
@@ -46,7 +47,7 @@ function scope(): string[] {
  * file service.
  */
 export async function pullOnce(): Promise<void> {
-  const base = process.env.MEDIATEK_URL;
+  const base = mediatekBase();
   if (!base || running) return;
   const prefixes = scope();
   // Nothing open names the library: no fetch, and no token recorded either, or the first song
@@ -55,7 +56,7 @@ export async function pullOnce(): Promise<void> {
 
   running = true;
   try {
-    const source = remoteLibrary({ base, token: process.env.MEDIATEK_TOKEN });
+    const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
     const revision = (await source.revisions()).modules ?? "";
     const signature = prefixes.join("|");
     // Two reasons to sync, and the scope is the one a change token cannot see: a song that
@@ -93,7 +94,7 @@ export async function pullOnce(): Promise<void> {
 /** Start the loop. A no-op with no hosted library configured — the local folder is then not a
  *  cache of anything, which is a working state (see fileServiceProcess.ts). */
 export function startMediatekPuller(): void {
-  if (timer || !process.env.MEDIATEK_URL) return;
+  if (timer || !mediatekBase()) return;
   setTimeout(() => void pullOnce(), FIRST_MS).unref();
   timer = setInterval(() => void pullOnce(), EVERY_MS);
   timer.unref();

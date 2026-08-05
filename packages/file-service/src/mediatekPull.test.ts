@@ -52,6 +52,8 @@ const { pullOnce, stopMediatekPuller } = await import("./mediatekPull.ts");
 
 let cache: string;
 let ws: string;
+let home: string;
+let realHome: { HOME?: string; USERPROFILE?: string };
 let song: string;
 
 /** A project that USES one of the library's modules — an instance extending it. */
@@ -74,6 +76,13 @@ function project(extendsRef: string): string {
 beforeEach(() => {
   cache = mkdtempSync(join(tmpdir(), "fs-pull-cache-"));
   ws = mkdtempSync(join(tmpdir(), "fs-pull-ws-"));
+  // A scratch HOME, because "no library configured" now also means "none advertised on this
+  // machine" — and the developer running these tests has one advertised. Both variables:
+  // `homedir()` reads one or the other. See mediatekLink.ts.
+  home = mkdtempSync(join(tmpdir(), "fs-pull-home-"));
+  realHome = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
   process.env.STUDIO_MEDIATEK = cache;
   process.env.MEDIATEK_URL = "http://library.test";
   library = {
@@ -90,8 +99,12 @@ afterEach(() => {
   stopMediatekPuller();
   delete process.env.STUDIO_MEDIATEK;
   delete process.env.MEDIATEK_URL;
+  for (const [k, v] of Object.entries(realHome))
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
   rmSync(cache, { recursive: true, force: true });
   rmSync(ws, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
 });
 
 const cached = (rel: string) => existsSync(join(cache, rel));
