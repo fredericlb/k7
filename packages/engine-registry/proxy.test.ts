@@ -22,10 +22,15 @@ let seen: Seen[];
 let app: Server;
 let registry: EngineRegistry;
 let base: string;
+/** How long the stand-in takes to answer. The engine's machine is legitimately silent while it
+ *  works — an analysis downloads a master and decodes it — and the relay must not read that
+ *  silence as a dead host. Set per test; reset to "instantly" by `startUpstream`. */
+let thinkMs = 0;
 
 /** A stand-in file service: records what arrived and echoes it back. */
 function startUpstream(): Promise<number> {
   seen = [];
+  thinkMs = 0;
   return new Promise((resolve) => {
     upstream = createServer((req, res) => {
       let body = "";
@@ -39,8 +44,12 @@ function startUpstream(): Promise<number> {
           body,
           contentLength: req.headers["content-length"],
         });
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ got: body }));
+        // Nothing is written until the think time is up — which is what a real slow route does,
+        // and what the relay used to destroy.
+        setTimeout(() => {
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ got: body }));
+        }, thinkMs);
       });
     });
     upstream.listen(0, "127.0.0.1", () =>
@@ -129,6 +138,26 @@ describe("engineFilesProxy", () => {
     expect(res.status).toBe(200);
     expect(JSON.parse(seen[0].body)).toEqual({ line: "save" });
   });
+
+  it("waits on a route that thinks for longer than the dial bound", async () => {
+    // The regression: `timeout` on an http.request is a socket IDLE timeout, and it was only
+    // dropped once the answer STARTED. So it bounded the upstream's thinking time at 1.5 s —
+    // and `POST /mediatek/analyse` says nothing while it downloads a master and runs the
+    // engine over it. Every song analysed through the relay died here, was retried on the
+    // next address, died again, and answered 502, leaving the work running on the far side.
+    thinkMs = 2200; // comfortably past DIAL_TIMEOUT_MS, without making the suite slow
+    const res = await fetch(`${base}/api/engine/e1/files/mediatek/analyse`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: "songs/a/b/c/original.flac" }),
+    });
+    expect(res.status).toBe(200);
+    // Once, not once per address: a slow host must not read as an unreachable one.
+    expect(seen).toHaveLength(1);
+    expect(JSON.parse(seen[0].body)).toEqual({
+      path: "songs/a/b/c/original.flac",
+    });
+  }, 10_000);
 
   it("answers 404 for an engine the registry does not hold", async () => {
     const res = await fetch(`${base}/api/engine/nope/files/tree`);

@@ -105,6 +105,45 @@ app.post("/api/token", requireAuth, (req, res) => {
   res.json({ token: issueApiToken(id) });
 });
 
+/**
+ * The last word on an error, and the reason this service has one at all: a caller that HANGS UP.
+ *
+ * Three routes here read a body up to 512 MB (`PUT /file`, `POST /song`, `POST /recording`), and
+ * a body that stops arriving is an everyday event — a cancelled upload, a closed tab, a socket
+ * the engine relay gave up on. `raw-body` reports it as a `BadRequestError: request aborted`,
+ * and it is thrown INSIDE the parser, where `wrap`'s try/catch cannot see it. Without a handler
+ * of our own it reached Express's default one, which prints nine lines of stack and names
+ * neither the method nor the path — a normal disconnect dressed as a crash, and undiagnosable.
+ *
+ * So: one line, and it says WHICH request. Nothing is written back — the socket is already gone,
+ * and `res.headersSent` is the honest test for that.
+ *
+ * Four arguments, `_next` included and unused: that shape is how Express tells an error handler
+ * from an ordinary middleware. Dropping it silently turns this into one that never runs.
+ */
+app.use(
+  (
+    err: Error & { type?: string; code?: string; status?: number },
+    req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    // A disconnect, and nothing else: `entity.too.large` deliberately is NOT one — that caller
+    // is still there and wants its 413, which `err.status` already carries.
+    const gone =
+      err.type === "request.aborted" ||
+      err.code === "ECONNABORTED" ||
+      err.code === "ECONNRESET";
+    if (gone)
+      console.warn(`↯ ${req.method} ${req.originalUrl}: ${err.message}`);
+    else console.error(`✗ ${req.method} ${req.originalUrl}:`, err);
+    if (res.headersSent) return void res.end();
+    res
+      .status(err.status ?? 500)
+      .json({ error: err.message || "server error" });
+  },
+);
+
 let unadvertise: (() => void) | null = null;
 
 const server = app.listen(PORT, () => {
