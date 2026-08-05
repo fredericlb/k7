@@ -23,7 +23,17 @@ export function parseLaunch(search: string): Launch | null {
   return { repo, project: q.get("project") || "." };
 }
 
-function remember(l: Launch): void {
+/**
+ * Remember this tab's target — called by the gate once the project has actually OPENED, and
+ * deliberately not at import.
+ *
+ * Remembering on arrival meant remembering a target that turns out not to work: st0 names a
+ * project out of a mirror that can be behind the machine's clone, and a tab that had been
+ * handed a folder the clone does not have replayed it on every reload and every Retry, with
+ * no way back except the one button on the error screen. What is worth surviving a refresh is
+ * a project you were WORKING on, and that is exactly what this now stores.
+ */
+export function rememberLaunch(l: Launch): void {
   try {
     sessionStorage.setItem(KEY, JSON.stringify(l));
   } catch {
@@ -53,7 +63,6 @@ function remembered(): Launch | null {
 // `globalThis.location`, not `window`, for the reason api.ts gives at MEDIATEK_URL: this
 // module is imported by tests that run in node, where `window` is not defined at all.
 const captured = parseLaunch(globalThis.location?.search ?? "");
-if (captured) remember(captured);
 
 /** Where this editor was pointed, or null — which means "you did not come from st0". */
 export function launchTarget(): Launch | null {

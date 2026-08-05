@@ -3,14 +3,25 @@
 // render the app. Neither l8 nor m9 picks anything here: st0 owns the repositories, and
 // arriving with no target sends you back there. See docs/launch.md.
 
-import { FolderGit2, Loader2, ServerCrash, ShieldAlert } from "lucide-react";
+import {
+  FolderGit2,
+  FolderSearch,
+  Loader2,
+  ServerCrash,
+  ShieldAlert,
+} from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   configureFileApi,
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
-import { clearLaunch, launchTarget, projectsUrl } from "./launch.ts";
+import {
+  clearLaunch,
+  launchTarget,
+  projectsUrl,
+  rememberLaunch,
+} from "./launch.ts";
 import { projectApi } from "./project.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
@@ -20,6 +31,9 @@ type Phase =
   | { k: "resolving" }
   | { k: "cloning"; workspace: string; phase: string; percent: number | null }
   | { k: "error"; message: string; fault?: FileServiceFault; lines?: string[] }
+  // The project itself is the problem — the machine answered, and said it has no such folder.
+  // Its own screen, because the only useful action is to go and pick again. See docs/launch.md.
+  | { k: "missing"; message: string }
   | { k: "open"; workspace: string; project: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -40,6 +54,9 @@ export interface ProjectGateStrings {
   blockedBody: (origin: string) => string;
   bothBody: string;
   retry: string;
+  /** The project named is not in the workspace — a wording apart, because nothing is broken. */
+  missingTitle: string;
+  missingBody: string;
 }
 
 export function ProjectGate({
@@ -150,8 +167,24 @@ export function ProjectGate({
         }
 
         configure(userEmail, workspace);
-        await projectApi.open(project);
+        try {
+          await projectApi.open(project);
+        } catch (e) {
+          if (cancelled) return;
+          // A refusal, not a fault: the service answered, and what it said is the whole story.
+          // Probing it would ask whether it is reachable — it plainly is — and then show the
+          // answer under the CORS banner, which is what made this look like l8's fault.
+          const status = (e as { status?: number }).status;
+          if (status === 400 || status === 404) {
+            setPhase({ k: "missing", message: (e as Error).message });
+            return;
+          }
+          throw e; // anything else (a transport failure, a 500) is diagnosed below
+        }
         if (cancelled) return;
+        // Remembered HERE, once it has actually opened, so a reload comes back to a project
+        // that works and never replays one that does not. See launch.ts's rememberLaunch.
+        rememberLaunch(target);
         setPhase({ k: "open", workspace, project });
       } catch (e) {
         if (cancelled) return;
@@ -203,6 +236,30 @@ export function ProjectGate({
               }
             />
           </div>
+        </div>
+      </div>
+    );
+
+  // The repository is fine and the machine is fine; this project is not in it. Going back to
+  // pick again is the only move, so it is the primary button — and Retry is not offered at
+  // all, since re-running the same target can only fail the same way.
+  if (phase.k === "missing")
+    return (
+      <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <FolderSearch className="h-10 w-10 text-amber-500" />
+          <h1 className="text-lg font-semibold">{strings.missingTitle}</h1>
+          <p className="text-sm text-muted-foreground">{strings.missingBody}</p>
+          <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-left text-xs">
+            {phase.message}
+          </code>
+          <button
+            type="button"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+            onClick={quit}
+          >
+            {strings.back}
+          </button>
         </div>
       </div>
     );

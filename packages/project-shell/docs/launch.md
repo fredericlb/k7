@@ -38,6 +38,13 @@ It is also remembered in `sessionStorage`, for the same frame of reference: a re
 on whatever the router last wrote, with no parameters at all, and without the memory every
 refresh would bounce you back to st0.
 
+**Remembered once it has OPENED, not on arrival** (`rememberLaunch`, called by the gate).
+Storing it at import meant storing a target that might not work, and st0 names a project out
+of a mirror that can be behind the machine's clone — so a tab handed a folder the clone does
+not have replayed it on every reload and every Retry, permanently. What deserves to survive a
+refresh is a project you were working on. The cost is that a reload *during* the clone goes
+back to st0, which is the honest answer: nothing had been opened.
+
 ## What the gate does with it
 
 1. `GET /workspaces/by-repo?uri=` — does this machine already have this repository? The
@@ -49,6 +56,13 @@ refresh would bounce you back to st0.
    `packages/file-service/docs/cloneJobs.md`.
 3. `configureFileApi` with the workspace it resolved, then `POST /open` on the project.
 4. Render the app, through the `children` callback.
+
+A `POST /open` that comes back **400 or 404** is not a fault and is not diagnosed as one. The
+machine answered; it simply has no such folder. Running the reachability probe on it produced
+the worst screen in the app — "this page isn't allowed to reach the engine", a CORS story,
+with the real message in a code block underneath — because the probe reaches a service that is
+plainly up and therefore always reports `blocked`. It now gets its own screen, whose only
+button goes back to st0: retrying the same target can only fail the same way.
 
 Arriving with **no** target at all — a hand-typed URL, a cleared session — redirects to st0's
 `/projects`. There is deliberately no fallback picker in either app: a second way to choose a
@@ -74,4 +88,8 @@ escaping only. These are the ones a green test run says nothing about:
 - **reload** → still the same project, not st0;
 - open a repository this machine has never seen → a progress bar with git's phases, then the
   app; do it again → no clone at all, straight in;
-- open a `.m9` folder and a `.l8` folder from the same repository → two apps, one clone.
+- open a `.m9` folder and a `.l8` folder from the same repository → two apps, one clone;
+- open a project, then rename its folder on the machine and **reload** → the "not in the
+  repository" screen, not the CORS one, and its button lands you back on st0's Projets;
+- from there, open the project under its new name → straight in, with no trace of the old
+  target left in the tab.

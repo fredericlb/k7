@@ -28,6 +28,8 @@ export function ProjectGate({
         blockedTitle: m["filesGate.blockedTitle"](),
         blockedBody: (origin) => m["filesGate.blockedBody"]({ origin }),
         bothBody: m["filesGate.body"](),
+        missingTitle: m["project.missingTitle"](),
+        missingBody: m["project.missingBody"](),
       }}
     >
       {({ workspace, project, userEmail, quit }) => (
