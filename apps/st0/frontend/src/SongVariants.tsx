@@ -179,6 +179,10 @@ export function SongVariants({
           }
         }),
       );
+      // A clean edit first: an apply is a diff, so a plugin the engine's stored document does
+      // not mention — a module audition's leftover — survives every document and treats this
+      // variant's audio on its way out. See ../docs/playbackTarget.md.
+      engine.reset();
       // From the top, said explicitly: the engine resumes from wherever its playhead was left,
       // and this session's is whatever the last document put through it ended on — which for a
       // longer song is past the end of this one, and rolls in silence.
