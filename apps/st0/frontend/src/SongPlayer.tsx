@@ -1,11 +1,20 @@
-// SongPlayer.tsx — the right half of a song's screen: its master played, and scrubbed on the
-// shared waveform. WHERE it plays is the account's choice — this browser, or the moteur on the
-// chosen machine — behind one transport. See ../docs/songPlayer.md and ../docs/playbackTarget.md.
+// SongPlayer.tsx — the right half of a song's screen: one tab per version — the master, then
+// what the sidecar declares — each played and scrubbed on the shared waveform. WHERE it plays is
+// the account's choice — this browser, or the moteur on the chosen machine — behind one
+// transport. See ../docs/songPlayer.md and ../docs/playbackTarget.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
-import { AudioLines, Loader2, Pause, Play, RefreshCw } from "lucide-react";
+import {
+  AudioLines,
+  Disc3,
+  Loader2,
+  Pause,
+  Play,
+  RefreshCw,
+  Workflow,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { currentUser, engineMachine, library } from "./api";
 import {
@@ -20,6 +29,7 @@ import {
   type PlaybackTarget,
   playbackTargetInfo,
 } from "./playback/targets";
+import { ORIGINAL, renderNames, type Take, takesOf } from "./songTakes";
 import { readSongShape, type SongShape } from "./songWaveform";
 
 // The two ways the engine branch has nothing to open. Kept apart because the answers differ:
@@ -29,6 +39,11 @@ const ENGINE_NO_CACHE =
   "cette machine ne tient pas de cache de la médiathèque — lecture ici, ou choisissez-en une autre";
 const ENGINE_NOT_HERE =
   "cette machine n'a pas ce morceau en cache — l'analyse l'y rapatrie, sinon jouez ici";
+
+/** The glyph a version wears — the same three the médiathèque's tree draws for a song, a file
+ *  variant and a chain, so a row there and a tab here read as the same thing. */
+const takeIcon = (kind: Take["kind"]) =>
+  kind === "master" ? Disc3 : kind === "file" ? AudioLines : Workflow;
 
 /** mm:ss — the only format a transport needs, and the one the tree's captures already use. */
 function clock(sec: number): string {
@@ -60,7 +75,63 @@ export function SongPlayer({
   // `meta` is deliberately loose (a listing is family-agnostic), so the master is narrowed here.
   // Absent means the folder holds a sidecar and no audio, which the scan allows on purpose.
   const master = entry.meta?.master ? String(entry.meta.master) : null;
-  const path = master ? `${entry.path}/${master}` : null;
+
+  // The tabs: the master, then every version the sidecar declares. See songTakes.ts — the shape
+  // is worth a module of its own because it is answerable without a screen, and tested there.
+  const takes = useMemo<Take[]>(() => takesOf(entry), [entry]);
+
+  // Which tab is open, by NAME: the listing is re-polled every three seconds, so an index would
+  // silently come to mean another version the moment a line is added to the sidecar.
+  const [tab, setTab] = useState(ORIGINAL);
+  const take = takes.find((t) => t.name === tab) ?? takes[0];
+  // Another song opens on ITS master. A tab name is only unique within one sidecar, so carrying
+  // it across would land on a version that happens to share a name — or on nothing at all.
+  // `entry.path` is the TRIGGER and not a value the body reads, which is why it looks unused.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useEffect(() => setTab(ORIGINAL), [entry.path]);
+
+  /**
+   * What a CHAIN variant has to play: the render "Process" wrote beside the master.
+   *
+   * Looked for rather than listed. A song's catalogue entry carries no file list — the scan
+   * stops at the song folder (scan.ts) — and the render is not in the sidecar either: the
+   * variant still names its chain, and `<variante>.mp3` is a file that appeared next to it. So
+   * the two candidate names are asked for, one byte each.
+   *
+   * `undefined` is "still looking" and `null` is "nothing has been rendered", which the body
+   * words differently: one is a wait, the other is a button to press in the pane below.
+   */
+  const [rendered, setRendered] = useState<string | null | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (take?.kind !== "chain") return setRendered(undefined);
+    let alive = true;
+    setRendered(undefined);
+    void (async () => {
+      for (const name of renderNames(take.name)) {
+        if (await library.exists(`${entry.path}/${name}`)) {
+          if (alive) setRendered(name);
+          return;
+        }
+      }
+      if (alive) setRendered(null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [take?.kind, take?.name, entry.path]);
+
+  // The audio on screen, and its path in the médiathèque. Everything below reads these two and
+  // never asks which tab produced them.
+  const file =
+    take?.kind === "chain" ? (rendered ?? null) : (take?.file ?? null);
+  const path = file ? `${entry.path}/${file}` : null;
+  // What the engine calls the document. The version is IN the name — the moteur's session is
+  // shared with everything else st0 auditions, and three documents named after one song would
+  // be indistinguishable in its log. Same shape SongVariants uses for a chain it auditions.
+  const docName =
+    take?.kind === "master" ? entry.name : `${entry.name} · ${take?.name}`;
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [shape, setShape] = useState<SongShape | null>(null);
@@ -73,8 +144,9 @@ export function SongPlayer({
   // The audio element's own duration, which arrives before any analysis and covers the case
   // where none ever does — a song still plays without a waveform.
   const [duration, setDuration] = useState(0);
-  // The master this pane has already asked to have analysed. One attempt per song, so a moving
-  // engine choice cannot start the job twice; the button below is what asks for another.
+  // The file this pane has already asked to have analysed — the master, or whichever version is
+  // on screen. One attempt per file, so a moving engine choice cannot start the job twice; the
+  // button below is what asks for another.
   const attempted = useRef<string | null>(null);
   const [retry, setRetry] = useState(0);
 
@@ -98,22 +170,28 @@ export function SongPlayer({
    * that files a song already fires this same call — best effort, "and the first surface that
    * needs the cache computes it then" (AddSong.tsx). This is that surface.
    *
-   * ASKED ONCE, and cancelled when you leave. An analysis is minutes of somebody else's machine
-   * — it downloads the master and runs the engine over it — so it must not be re-fired because
-   * this effect re-ran, and it must not outlive the pane that wanted it. `attempted` is what
-   * makes the first true: the engine choice arrives asynchronously, so `fileBase`/`engineToken`
-   * legitimately move under us, and without it every move would start the job again.
+   * ASKED ONCE PER TAB, and cancelled when you leave. An analysis is minutes of somebody else's
+   * machine — it downloads the audio and runs the engine over it — so it must not be re-fired
+   * because this effect re-ran, and it must not outlive the pane that wanted it. `attempted` is
+   * what makes the first true: the engine choice arrives asynchronously, so
+   * `fileBase`/`engineToken` legitimately move under us, and without it every move would start
+   * the job again. It holds a PATH, so each version is asked for at most once and switching
+   * back to one already analysed costs nothing.
    */
   // `retry` is a TRIGGER, not a value this reads: the button clears `attempted` and bumps it,
   // which is the only thing that can ask for a second analysis. Removing it would make the
   // button do nothing at all.
   // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   useEffect(() => {
+    // Cleared BEFORE the guard: switching to a tab with no file at all must not leave the
+    // previous version's shape on screen, where its tempo and its onsets would read as this
+    // one's. Same for the element's duration, which nothing else resets.
+    setShape(null);
+    setStatus("");
+    setDuration(0);
     if (!path) return;
     let alive = true;
     const stop = new AbortController();
-    setShape(null);
-    setStatus("");
     void (async () => {
       const found = await readSongShape(path);
       if (!alive) return;
@@ -121,7 +199,7 @@ export function SongPlayer({
       if (!fileBase || !engineToken)
         return setStatus("pas encore analysé — aucun moteur joignable");
       if (attempted.current === path)
-        return setStatus("analyse déjà demandée pour ce master");
+        return setStatus("analyse déjà demandée pour ce fichier");
       attempted.current = path;
       setStatus("");
       setAnalysing(true);
@@ -172,9 +250,12 @@ export function SongPlayer({
     // none and would otherwise settle on the 401's `null` and never look again.
   }, [viaEngine, engine.fileBase, engineToken]);
 
+  // The tab's own file on that machine, not the song's master: a variant is a sibling of it,
+  // and playing the master while the strip says otherwise would be the same failure as drawing
+  // the wrong waveform, only audible.
   const enginePath = useMemo(
-    () => (root ? playablePath(root, entry) : null),
-    [root, entry],
+    () => (root && file ? playablePath(root, entry, file) : null),
+    [root, entry, file],
   );
 
   /**
@@ -259,12 +340,15 @@ export function SongPlayer({
     if (ours && engine.playing) setEngineAt(engine.playhead);
   }, [ours, engine.playing, engine.playhead]);
 
-  // A different song is a different document: neither the position nor "we loaded it" carries.
+  // A different file is a different document — another song, or another version of this one:
+  // neither position nor "we loaded it" carries. Both playheads, because a tab switch leaves
+  // whichever side was not playing showing a time that belonged to the other version.
   // `path` is the TRIGGER and not a value the body reads, which is why it looks unnecessary.
   // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   useEffect(() => {
     setLoadedPath(null);
     setEngineAt(0);
+    setBrowserAt(0);
   }, [path]);
 
   // One transport over two implementations. Everything below the header reads these two
@@ -295,21 +379,22 @@ export function SongPlayer({
       if (!enginePath) return setStatus(ENGINE_NO_CACHE);
       if (!cached) return setStatus(ENGINE_NOT_HERE);
       // The document, then the verb — a transport verb sent first plays whatever the engine
-      // still held. No steps: a master is the audio itself, so the chain is empty and this is
+      // still held. No steps whichever tab is open: a rendered variant is audio like the master
+      // is, its treatment already printed into the file, so the chain stays empty and this is
       // `chainPreviewDoc`'s degenerate case rather than a second document builder.
       setStatus(`envoyé au moteur : ${enginePath}`);
       setSent(true);
       setLoadedPath(enginePath);
       // Where to start, said rather than left to the engine — which resumes from a playhead
       // this pane did not put there. `engineAt` is 0 for a song not started yet.
-      engine.play(chainPreviewDoc(enginePath, entry.name, []), engineAt);
+      engine.play(chainPreviewDoc(enginePath, docName, []), engineAt);
       return;
     }
     const el = audioRef.current;
     if (!el) return;
     if (el.paused) void el.play().catch((e: Error) => setStatus(e.message));
     else el.pause();
-  }, [viaEngine, engine, enginePath, root, cached, engineAt, ours, entry.name]);
+  }, [viaEngine, engine, enginePath, root, cached, engineAt, ours, docName]);
 
   const seek = useCallback(
     (sec: number) => {
@@ -340,13 +425,27 @@ export function SongPlayer({
     return () => ro.disconnect();
   }, []);
 
-  if (!path)
-    return (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-        Ce morceau n'a pas de master : le dossier porte un sidecar et pas
-        d'audio.
-      </div>
-    );
+  /**
+   * Why there is nothing to draw, when there is nothing — worded per tab, because the three
+   * cases have three different answers.
+   *
+   * It replaces what used to be an early return on a song with no master. That return would now
+   * take the tab strip with it, leaving no way back to a version that DOES play — and the
+   * commonest of these three states is a chain variant, which is one button away from being
+   * playable.
+   */
+  const nothingToPlay = path
+    ? ""
+    : take?.kind === "chain"
+      ? rendered === undefined
+        ? "on cherche le rendu de cette variante…"
+        : "cette variante est une chaîne : « Process », sous la liste des variantes, en écrit le rendu à côté du master — et c'est ce rendu qui se dessine ici"
+      : take?.kind === "master"
+        ? "Ce morceau n'a pas de master : le dossier porte un sidecar et pas d'audio."
+        : "le sidecar déclare ce fichier et la médiathèque ne l'a pas";
+  // Still asking whether that chain has a render — a wait, and drawn as one.
+  const looking = !path && take?.kind === "chain" && rendered === undefined;
+  const EmptyIcon = takeIcon(take?.kind ?? "master");
 
   // The sidecar's duration when there is one — it comes from the decode and is the truth;
   // the element's own is what covers the wait, and a format it can play but not measure.
@@ -385,10 +484,15 @@ export function SongPlayer({
     <div className="flex h-full min-h-0 flex-col">
       {/* Ours, not `controls`: the waveform IS the scrubber, and two of them disagree the
           moment one is dragged. Mounted whichever destination is chosen — it is what reports
-          the duration for a song with no `.cache` yet, and switching back must not reload. */}
+          the duration for a song with no `.cache` yet, and switching back must not reload.
+          Always mounted, `src` absent when the open tab has no file: unmounting it is what a
+          conditional would do, and a media element detached mid-play goes on playing in the
+          browsers that keep it alive — sound from a version the strip no longer points at, with
+          nothing left on screen to stop it. No `src` attribute at all asks for nothing; an
+          EMPTY one would ask this origin for the page itself. */}
       <audio
         ref={audioRef}
-        src={library.fileUrl(path)}
+        src={path ? library.fileUrl(path) : undefined}
         preload="metadata"
         onPlay={() => setBrowserPlaying(true)}
         onPause={() => setBrowserPlaying(false)}
@@ -405,8 +509,8 @@ export function SongPlayer({
           size="sm"
           variant="secondary"
           onClick={toggle}
-          disabled={engineBlocked}
-          title={blockedWhy}
+          disabled={engineBlocked || !path}
+          title={blockedWhy || nothingToPlay}
         >
           {playing ? (
             <Pause className="h-4 w-4" />
@@ -431,13 +535,64 @@ export function SongPlayer({
           {where.label}
           {fellBack ? " (repli)" : ""}
         </span>
+        {/* The file actually on screen, which is the master only on the first tab. */}
         <span className="ml-auto min-w-0 truncate font-mono text-xs text-muted-foreground">
-          {master}
+          {file}
         </span>
       </header>
 
+      {/* One tab per version, in the sidecar's order — the same buttons the module builder
+          switches its files with, because this is the same gesture on the same screen.
+          Drawn only when the sidecar declares something: a lone "Original" is a control that
+          cannot be used for anything. */}
+      {takes.length > 1 ? (
+        <nav className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-3 py-1">
+          {takes.map((t) => {
+            const Icon = takeIcon(t.kind);
+            return (
+              <button
+                // The kind is in the key and not just the name: a sidecar is free to call a
+                // variant "Original", and two rows keyed alike is a React warning plus a strip
+                // that redraws wrong.
+                key={`${t.kind}:${t.name}`}
+                type="button"
+                onClick={() => setTab(t.name)}
+                // What the row is, since the icon alone cannot say it: a chain variant is a
+                // treatment, and what plays on its tab is the render, not the chain.
+                title={
+                  t.kind === "chain"
+                    ? `${t.name} — chaîne : son rendu à côté du master`
+                    : t.kind === "file"
+                      ? `${t.name} — ${t.file}`
+                      : `${t.name} — ${master ?? "aucun master"}`
+                }
+                className={`flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                  take?.name === t.name
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {t.name}
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
+
       <div ref={bodyRef} className="min-h-0 flex-1 overflow-hidden p-3">
-        {shape ? (
+        {/* No file on this tab at all — said here rather than by an early return, which would
+            have taken the strip with it and left no way back to a version that plays. */}
+        {nothingToPlay ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground">
+            {looking ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <EmptyIcon className="h-4 w-4" />
+            )}
+            {nothingToPlay}
+          </div>
+        ) : shape ? (
           <Waveform
             envelope={shape.envelope}
             duration={shape.duration}
@@ -450,7 +605,7 @@ export function SongPlayer({
             {analysing ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" /> analyse en cours —
-                le moteur décode le master, cela prend un moment
+                le moteur décode ce fichier, cela prend un moment
               </span>
             ) : (
               <>

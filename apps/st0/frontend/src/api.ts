@@ -292,6 +292,26 @@ export const library = {
   fileUrl: (path: string) =>
     `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
+  /**
+   * Does the library hold this file? One BYTE, not the file — the same `Range: bytes=0-0`
+   * trick `cachedOnMachine` uses on the engine's side, for the same reason: asking costs a
+   * request, and downloading a master to find out it is there costs the master.
+   *
+   * For what the catalogue cannot answer: a song's listing carries no file list (a song is a
+   * folder the scan stops at), so a render written beside the master — `<variante>.mp3` — is
+   * invisible to it. Any refusal reads as absent; the caller's next move is the same either way.
+   */
+  exists: async (path: string): Promise<boolean> => {
+    try {
+      const res = await fetch(library.fileUrl(path), {
+        headers: { range: "bytes=0-0" },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   /** One file's text. The library serves bytes; a module is YAML, so this reads it back. */
   readFile: async (
     path: string,

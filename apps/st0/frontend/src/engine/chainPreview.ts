@@ -116,12 +116,17 @@ export async function cachedOnMachine(
  * Null is a real state and not an error to swallow: a song is a FOLDER, and one carrying a
  * sidecar but no audio — a mirror that stopped halfway, a folder made by hand — has nothing to
  * play. `meta.master` is the master's filename; its absence IS that state.
+ *
+ * `file` names another audio in that same folder — a file variant, or a chain variant's render.
+ * The master is only the DEFAULT because it is the song's own recording; everything the player
+ * puts on a tab lives beside it and is addressed the same way.
  */
 export function playablePath(
   root: string,
   entry: MediatekEntry,
+  file?: string | null,
 ): string | null {
-  const master = entry.meta?.master;
+  const master = file ?? entry.meta?.master;
   if (typeof master !== "string" || !master) return null;
   // The service reports a native root ("C:\…" or "/home/…") while entry paths are POSIX, and
   // the engine takes either — so they are joined with a separator picked from the root rather
