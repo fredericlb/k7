@@ -20,6 +20,11 @@ export const renderRouter: Router = Router();
  * shorter than the poll interval. `--stems` is not offered here for the same reason: it
  * produces N files, which needs a job to hold them, and nothing asks for it.
  *
+ * Something asks now — stem separation — and it took the other branch rather than bending
+ * this one: `POST /separate`, with the job registry this comment predicted. Still not offered
+ * HERE, because per-track bounces of a document the caller already has remain seconds apart
+ * from the one file it asked for. See ../separateJobs.ts and docs/stemSplit.md.
+ *
  * The temp directory is always removed — here on success, inside renderProject on every
  * failure — because a wedged machine renders repeatedly and each attempt costs a song's
  * worth of disk.

@@ -14,5 +14,7 @@ import { join, resolve } from "node:path";
  * escaping one.
  */
 export function modelsRoot(): string {
-  return resolve(process.env.STUDIO_MODELS || join(homedir(), ".studio", "models"));
+  return resolve(
+    process.env.STUDIO_MODELS || join(homedir(), ".studio", "models"),
+  );
 }

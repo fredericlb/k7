@@ -71,14 +71,16 @@ function decode(source: string): Promise<Float32Array[]> {
         new Error(
           e.code === "ENOENT"
             ? "ffmpeg is not installed — stem separation decodes its input with it, and " +
-              "unlike a transcode there is no lesser result to fall back to"
+                "unlike a transcode there is no lesser result to fall back to"
             : e.message,
         ),
       ),
     );
     ff.on("close", (code) => {
       if (code !== 0)
-        return reject(new Error(`ffmpeg could not decode ${source}: ${err.trim()}`));
+        return reject(
+          new Error(`ffmpeg could not decode ${source}: ${err.trim()}`),
+        );
       const raw = Buffer.concat(chunks);
       // A Buffer's bytes are not necessarily 4-aligned in its pool, so copy rather than view.
       const pcm = new Float32Array(raw.byteLength / 4);
@@ -106,7 +108,9 @@ interface Ort {
     create(
       path: string,
       opts: { executionProviders: string[] },
-    ): Promise<{ run(feeds: Record<string, OrtTensor>): Promise<Record<string, OrtTensor>> }>;
+    ): Promise<{
+      run(feeds: Record<string, OrtTensor>): Promise<Record<string, OrtTensor>>;
+    }>;
   };
   Tensor: new (type: string, data: Float32Array, dims: number[]) => OrtTensor;
 }
@@ -119,7 +123,9 @@ interface Ort {
  * difference between DirectML and CPU here is minutes per song, and a silent fall back to CPU
  * looks exactly like a slow machine.
  */
-async function session(model: string): Promise<{ run: RunFn; provider: string }> {
+async function session(
+  model: string,
+): Promise<{ run: RunFn; provider: string }> {
   let ort: Ort;
   try {
     // Imported by NAME through a variable, and typed against the four-member interface above
@@ -156,7 +162,9 @@ async function session(model: string): Promise<{ run: RunFn; provider: string }>
       failures.push(`${ep}: ${(e as Error).message}`);
     }
   }
-  throw new Error(`no ONNX execution provider would load ${model} — ${failures.join("; ")}`);
+  throw new Error(
+    `no ONNX execution provider would load ${model} — ${failures.join("; ")}`,
+  );
 }
 
 type RunFn = (mix: Float32Array) => Promise<Float32Array>;
@@ -172,7 +180,11 @@ function windowOf(chans: Float32Array[], at: number): Float32Array {
   return mix;
 }
 
-export async function separate({ source, model, outDir }: SeparateInput): Promise<string[]> {
+export async function separate({
+  source,
+  model,
+  outDir,
+}: SeparateInput): Promise<string[]> {
   say({ phase: "decoding", percent: null });
   const chans = await decode(source);
   const length = chans[0]?.length ?? 0;
@@ -180,7 +192,11 @@ export async function separate({ source, model, outDir }: SeparateInput): Promis
 
   say({ phase: "loading model", percent: null });
   const { run, provider } = await session(model);
-  say({ phase: "separating", percent: 0, line: `execution provider: ${provider}` });
+  say({
+    phase: "separating",
+    percent: 0,
+    line: `execution provider: ${provider}`,
+  });
 
   const starts = windowStarts(length);
   const oa = new OverlapAdd(length);

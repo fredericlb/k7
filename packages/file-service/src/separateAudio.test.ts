@@ -37,7 +37,9 @@ describe("how a file is cut into windows", () => {
     expect(starts[0]).toBe(0);
     for (let i = 1; i < starts.length; i++)
       expect(starts[i]).toBeLessThanOrEqual(starts[i - 1] + SEGMENT);
-    expect(starts.some((s, i) => i > 0 && s - starts[i - 1] === HOP)).toBe(true);
+    expect(starts.some((s, i) => i > 0 && s - starts[i - 1] === HOP)).toBe(
+      true,
+    );
   });
 });
 
@@ -91,7 +93,10 @@ describe("deinterleave", () => {
 });
 
 describe("the WAV it writes", () => {
-  const chans = [Float32Array.from([0, 0.5, -0.5]), Float32Array.from([1, -1, 0])];
+  const chans = [
+    Float32Array.from([0, 0.5, -0.5]),
+    Float32Array.from([1, -1, 0]),
+  ];
 
   it("declares itself float, stereo, and the right length", () => {
     const b = wavFloat32(chans, 44100);

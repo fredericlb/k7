@@ -53,7 +53,8 @@ export function windowStarts(length: number): number[] {
 export function triangle(n: number = SEGMENT): Float32Array {
   const w = new Float32Array(n);
   const half = (n - 1) / 2;
-  for (let i = 0; i < n; i++) w[i] = Math.max(1 / n, 1 - Math.abs(i - half) / half);
+  for (let i = 0; i < n; i++)
+    w[i] = Math.max(1 / n, 1 - Math.abs(i - half) / half);
   return w;
 }
 
@@ -108,7 +109,10 @@ export class OverlapAdd {
 }
 
 /** Interleaved f32 (what ffmpeg writes) → one buffer per channel (what the model wants). */
-export function deinterleave(pcm: Float32Array, channels = CHANNELS): Float32Array[] {
+export function deinterleave(
+  pcm: Float32Array,
+  channels = CHANNELS,
+): Float32Array[] {
   const frames = Math.floor(pcm.length / channels);
   const out = Array.from({ length: channels }, () => new Float32Array(frames));
   for (let i = 0; i < frames; i++)
@@ -123,7 +127,10 @@ export function deinterleave(pcm: Float32Array, channels = CHANNELS): Float32Arr
  * and rounding the model's output on the way out would be a loss taken for no one's benefit.
  * Written by hand because a 44-byte header is smaller than the argument for a dependency.
  */
-export function wavFloat32(channels: Float32Array[], sampleRate = SAMPLE_RATE): Buffer {
+export function wavFloat32(
+  channels: Float32Array[],
+  sampleRate = SAMPLE_RATE,
+): Buffer {
   const frames = channels[0]?.length ?? 0;
   const n = channels.length;
   const dataBytes = frames * n * 4;

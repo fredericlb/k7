@@ -130,8 +130,12 @@ describe("wiring a named port", () => {
     expect(Object.keys(derived).sort()).toEqual(["deck", "phones"]);
     // …but the union costs the module's identity only, not the cable's origin: this used to be
     // the place the source jack was forgotten, and the two edges read the same.
-    expect(derived.deck.out.find((o) => o.to === "phones")?.fromPort).toBe("cue");
-    expect(derived.deck.out.find((o) => o.to === "OUT")?.fromPort).toBeUndefined();
+    expect(derived.deck.out.find((o) => o.to === "phones")?.fromPort).toBe(
+      "cue",
+    );
+    expect(
+      derived.deck.out.find((o) => o.to === "OUT")?.fromPort,
+    ).toBeUndefined();
   });
 
   it("ends the run at a module that splits across its own outputs", () => {

@@ -82,9 +82,12 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
    * heavy job in this repo is an out-of-process spawn for the same reason; ORT lives in this
    * process, so a thread is what buys the same property.
    */
-  const worker = new Worker(fileURLToPath(new URL("./separateWorker.ts", import.meta.url)), {
-    workerData: { source, model, outDir },
-  });
+  const worker = new Worker(
+    fileURLToPath(new URL("./separateWorker.ts", import.meta.url)),
+    {
+      workerData: { source, model, outDir },
+    },
+  );
   job.worker = worker;
 
   const timer = setTimeout(() => {
@@ -100,7 +103,11 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
 
   worker.on("message", (m: Record<string, unknown>) => {
     if (m.progress) {
-      const p = m.progress as { phase: string; percent: number | null; line?: string };
+      const p = m.progress as {
+        phase: string;
+        percent: number | null;
+        line?: string;
+      };
       job.phase = p.phase;
       job.percent = p.percent;
       if (p.line) {

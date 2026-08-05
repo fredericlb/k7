@@ -142,7 +142,11 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
   // because they are separate facts — the target's jack is part of the address, the source's is
   // part of the source.
   const outs = (ds: Dest[]): Out[] =>
-    ds.map((d) => ({ to: d.to, gain: 1, ...(d.fromPort ? { fromPort: d.fromPort } : {}) }));
+    ds.map((d) => ({
+      to: d.to,
+      gain: 1,
+      ...(d.fromPort ? { fromPort: d.fromPort } : {}),
+    }));
 
   // Modules already inside a chain. Absorption alone decides which run claims a module —
   // except in a cycle, where nothing is a root and this is what stops the walk.

@@ -56,6 +56,23 @@ Nesting inside `assets/` is kept, not flattened: a NAM pack arrives as a folder 
 `Two-Rock/Clean.nam` is a legitimate ref. Flattening a hundred models into one list is what made
 the old library picker unusable.
 
+## …except for a file too big to travel
+
+"A module carries its material so it survives a fork" is an argument about **cost**, and it
+inverts somewhere north of a few hundred megabytes. `forkSharedModule` copies a module's folder
+recursively; a 166 MB neural model would be duplicated per fork, per médiathèque upload, and
+per machine synced to — the exact multiplication `module populate` was removed for.
+
+So a model is named exactly like an amp profile (`onnx:` in `params:`, one of `FILE_PARAMS`)
+and `resolveModuleAsset` looks in two places: the module's own `assets/` first, then the
+machine's `~/.studio/models`. The module stays self-describing — it still says which model it
+wants — while the bytes live where a 166 MB file belongs, which is once per machine, beside the
+engine binary and the plugin scan.
+
+**The containment check keeps its priority.** A ref that climbs out of `assets/` is refused,
+not redirected to the cache: the fallback must not become a way to launder an escaping ref. The
+cache is consulted only for a name that already passed. Pinned in `moduleAssets.test.ts`.
+
 ## A dangling ref is reported, not silent
 
 The loader resolves each file-valued param to an absolute path and leaves it `undefined` when it

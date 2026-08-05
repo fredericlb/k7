@@ -73,7 +73,7 @@ describe("what /separate refuses before spending anything", () => {
     writeFileSync(source, "riff");
     const r = await post({ source, model: join(dir, "absent.onnx") });
     expect(r.status).toBe(503);
-    expect((await r.json()).error).toMatch(/models/);
+    expect(((await r.json()) as { error: string }).error).toMatch(/models/);
   });
 });
 

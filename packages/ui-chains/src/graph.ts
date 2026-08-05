@@ -774,7 +774,12 @@ export function buildGraph(graph: WebGraph): {
       out:
         n.kind === "sink"
           ? []
-          : jacksFor(n.outputs, left.get(n.id) ?? NONE, leaving.get(n.id), false),
+          : jacksFor(
+              n.outputs,
+              left.get(n.id) ?? NONE,
+              leaving.get(n.id),
+              false,
+            ),
     };
   }
 

@@ -66,9 +66,43 @@ chain as a step — and that step carries `in: ["deckB"]`. There is no chain *na
 because it is not a meeting point. Add a second bare feeder and it becomes one, which is the
 existing rule and is unchanged.
 
+## The source side
+
 A module may also be keyed with a port on the **source** side (`deck#cue: [ phones ]`). Its
 destinations are the union of every key naming it — keying on the raw string would have split
 one module into two nodes that never met.
+
+That union decides the module's **identity**, and for a long time it also cost the edge's
+origin: `dests()` dropped the key's port, `Out` had nowhere to put it, and the renderer drew
+every cable from the first output. Everything above was written from the input side because
+the input side was the only side that survived.
+
+It survives now. The key's port rides along as `Out.fromPort` — `WebOut.fromPort` on the wire,
+`GraphEdge.sourcePort` in the drawing — which is what makes a module with several outputs
+sayable at all:
+
+```yaml
+modules:
+  stemsplit#drums: [ gate ]
+  stemsplit#vocals: [ reverb ]
+```
+
+Three consequences worth knowing:
+
+- **Out-degree is the NODE's, not the key's.** Those two keys are one destination each, and
+  counting per key would call every edge an only child — absorbing both targets into a single
+  run through a module that in fact splits. `absorbed` is unchanged; what it reads is now
+  counted correctly.
+- **A wrong source port is reported.** `crossfade#typo` on a destination has always thrown;
+  `stemsplit#vocls` on a source routed silently onto the first jack. `validate()` checks it
+  against the module's `outputs` now.
+- **Output jacks are occupied per socket.** A separator with three stems wired and one spare
+  reads as exactly that, where before any cable leaving marked every output connected.
+
+What has **not** changed is that `out` compiles as a parallel send (below). Four outputs wired
+today are four copies of the same signal as far as the engine is concerned — which is why a
+module that genuinely fans out has to be `offline` and produce files instead. See
+`docs/coldModules.md`.
 
 ## What validates, and how loudly
 
