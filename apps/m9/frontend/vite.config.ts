@@ -15,6 +15,10 @@ export default defineAppConfig({
   port: 5225,
   backendPort: 8796,
   base: "/m9/",
+  // The engine relay. `/api` is proxied already, but only a declared wsPath gets `ws: true`,
+  // and without it an `upgrade` dies here rather than reaching the backend. Invisible behind
+  // Caddy, which routes /m9/api straight to :8796. See packages/engine-registry/docs/proxy.md.
+  wsPaths: ["/api/engine"],
   host: "studio.test",
   // Dev runs under WSL against /mnt/c, where inotify never fires (same as l8).
   poll: true,

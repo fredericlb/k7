@@ -3,7 +3,7 @@
 // which holds the project — that half is @studio/project-shell's, shared with l8 so a route
 // name cannot drift between them.
 
-import { registryClient } from "@studio/engine-browser/registry";
+import { engineAccess } from "@studio/engine-browser/access";
 import { projectApi } from "@studio/project-shell/project";
 import type { PublicEngine } from "@studio/web-protocol";
 
@@ -49,9 +49,11 @@ export const auth = {
   },
 };
 
-// The five registry routes every hosted service mounts. Shared rather than spelled here: st0's
-// copy of this was the same 36 lines, comments included.
-export const engines = registryClient<PublicEngine>(BASE, json);
+// Everything this browser does to reach an engine: the five registry routes every hosted
+// service mounts, the probe, the policy and the lease — bound to `/m9` once, so the relay and
+// the registry cannot end up pointed at different prefixes. See
+// @studio/engine-browser/docs/access.md.
+export const engines = engineAccess<PublicEngine>(BASE, json);
 
 /**
  * The open project, on the engine's machine. Every route here is the shared one — m9 adds

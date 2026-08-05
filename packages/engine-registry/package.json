@@ -10,6 +10,9 @@
     "./advertise": "./advertise.ts",
     "./proxy": "./proxy.ts"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@frediverse/http": "*",
     "@studio/engine-client": "*",
@@ -22,6 +25,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.12",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

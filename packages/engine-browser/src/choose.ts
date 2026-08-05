@@ -5,12 +5,11 @@
 // Shared because it is the same question in every service — it was written for the
 // médiathèque's module preview and m9 wanted it verbatim the same day.
 
-import type { PublicEngine } from "@studio/web-protocol";
-import type { RankedEngine } from "./probe.ts";
+import type { ProbeTarget, RankedEngine } from "./probe.ts";
 
-export interface Choice {
+export interface Choice<E extends ProbeTarget> {
   /** The engine to use, or null when the user has to be asked (or there is none). */
-  engine: RankedEngine<PublicEngine> | null;
+  engine: RankedEngine<E> | null;
   /** True when several were reachable and none was remembered — the only case worth a
    *  question. A single reachable engine is not a choice, it is the answer. */
   ambiguous: boolean;
@@ -28,10 +27,10 @@ export interface Choice {
  * is being on the wrong network or the machine being off, and forgetting the choice would
  * mean re-picking every time you work from somewhere else.
  */
-export function chooseEngine(
-  ranked: RankedEngine<PublicEngine>[],
+export function chooseEngine<E extends ProbeTarget>(
+  ranked: RankedEngine<E>[],
   rememberedId: string | undefined,
-): Choice {
+): Choice<E> {
   const reachable = ranked.filter((r) => r.wsUrl && r.token);
 
   const remembered = rememberedId

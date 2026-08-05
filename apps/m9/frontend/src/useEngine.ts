@@ -3,7 +3,6 @@
 // docs/plumbing.md.
 
 import { EngineClient } from "@studio/engine-browser";
-import { holdEngine } from "@studio/engine-browser/lease";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
@@ -50,12 +49,7 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     // The lease, KEPT rather than taken once: "in use" expires on its own, so a single
     // select lapses mid-set and the machine reads FREE in everyone's picker while this deck
     // is still playing through it. See @studio/engine-browser/docs/lease.md.
-    const drop = holdEngine(
-      engines,
-      chosen.engine.id,
-      chosen.token!,
-      chosen.latency?.totalMs ?? 0,
-    );
+    const drop = engines.hold(chosen);
     // Its own session, per SERVICE and per PERSON: a deck runs safely beside l8 on one
     // engine — loading a track no longer replaces whatever song is open there — and two
     // DJs on one machine hold two decks rather than fighting over one.

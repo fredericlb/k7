@@ -62,12 +62,27 @@ The `/(api|auth)/` location carries three settings l8's does not:
 mismatch is the kind of fault that only shows on the big files, because nginx answers `413`
 itself and the backend's own limit — and its error message — never runs.
 
-## 3. No WebSocket location, despite hosting the module builder
+## 3. One WebSocket location, and only one
 
-The builder does drive an engine over a WebSocket. But it drives a **local** `engine/moteur`
-on the listener's own machine, direct and cross-origin (`probeLocalEngine` on loopback) —
-never through this origin. There is nothing here to upgrade, and a `location /ws` would be
-a promise this service cannot keep.
+This page used to say the opposite, and it was true then: the module builder drove a **local**
+`engine/moteur` on the listener's own machine, direct and cross-origin, so there was nothing
+here to upgrade.
+
+Two things ended that. The engine became a **choice** — the account picks a machine, which is
+not always the browser's — and an HTTPS page may not open a `ws://` to a LAN address. So this
+origin now relays one, and exactly one, path:
+
+```
+location ~ ^/api/engine/[^/]+/ws$
+```
+
+`Upgrade`/`Connection` and `proxy_read_timeout 1d`, because a driving socket is idle for long
+stretches by design. It must come **before** the `^/(api|auth)/` block: nginx takes regex
+locations in the order written, and the general one would swallow it.
+
+The relay's HTTP half — `/api/engine/<id>/files` — needs no location of its own: it is an
+ordinary request under `/api`. What it does need is that **nothing consumes the body before
+it**; see `packages/engine-registry/docs/proxy.md`.
 
 ## The prune closure, checked rather than assumed
 

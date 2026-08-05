@@ -22,7 +22,7 @@ by the repo-root Caddyfile.
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
 | owns | the engine registry (auth is st0's) | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
-| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin, direct** (CORS-gated) | **WebSocket — direct when the browser may, else relayed through this origin** |
+| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin and direct (CORS-gated) when the browser may, else relayed through this origin** | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
 **The backend has no file routes and no `store.ts`.** Every file operation lives in
@@ -65,10 +65,13 @@ matches before changing it:
 
 ### Three data paths (`src/api.ts`)
 
-1. **Backend** (same-origin `/api/*`) — auth + engine registry only.
-2. **File service** (cross-origin, absolute URL) — everything file-shaped (`/tree`,
-   `/file`, `/hints`, `/command`, the compiled `/project-doc` and `/graph`). Bare
-   paths, no `/api` prefix.
+1. **Backend** (same-origin `/api/*`) — auth + engine registry only, through
+   `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns the probe, the
+   policy and the lease). Don't spell those routes here again.
+2. **File service** (absolute URL) — everything file-shaped (`/tree`, `/file`, `/hints`,
+   `/command`, the compiled `/project-doc` and `/graph`). Bare paths, no `/api` prefix. The
+   base comes from the PROBE and is set once by `ProjectGate`: direct to the machine when
+   the browser is allowed one, otherwise this origin's relay. Never build it yourself.
 3. **Engine WebSocket** (`@studio/engine-browser`, wired by `src/hooks/useEngineLink.ts`) —
    live transport and meters. Don't route transport through either server.
 

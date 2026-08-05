@@ -3,12 +3,9 @@
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
 // back on any browser — and is reused whenever it is still reachable.
 
-import { chooseEngine } from "@studio/engine-browser/choose";
-import { holdEngine } from "@studio/engine-browser/lease";
-import { probeEngines } from "@studio/engine-browser/probe";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api, BASE } from "../api";
+import { engines } from "../api";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
 import { ProjectGate } from "./ProjectGate";
@@ -23,12 +20,11 @@ export function EngineGate() {
   const [ranked, setRanked] = useState<RankedEngine[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async (): Promise<RankedEngine[]> => {
+  // Re-measure and redraw the picker, for the Refresh button and the way back from a switch.
+  const refresh = useCallback(async (): Promise<void> => {
     setBusy(true);
     try {
-      const r = await probeEngines(await api.engines(), BASE);
-      setRanked(r);
-      return r;
+      setRanked((await engines.find()).ranked);
     } finally {
       setBusy(false);
     }
@@ -37,7 +33,7 @@ export function EngineGate() {
   const pick = useCallback(async (r: RankedEngine): Promise<boolean> => {
     if (!r.wsUrl || !r.fileBase || r.token === null) return false;
     try {
-      await api.selectEngine(r.engine.id, r.token, r.latency?.totalMs ?? 0); // token verified server-side
+      await engines.select(r.engine.id, r.token, r.latency?.totalMs ?? 0); // token verified server-side
     } catch {
       return false; // engine vanished — stay on the picker
     }
@@ -46,40 +42,28 @@ export function EngineGate() {
     // premise is that an engine belongs to a person, changeable in settings.
     // Fire-and-forget: failing the pick because a preference did not save would take the
     // engine away too, and the user is trying to open their song.
-    api.saveAccountPrefs({ engineId: r.engine.id }).catch(() => {});
+    engines.savePrefs({ engineId: r.engine.id }).catch(() => {});
     setPhase({ k: "chosen", engine: r });
     return true;
   }, []);
 
   // The assignment is a LEASE this tab keeps alive. The loop is shared — see
-  // @studio/engine-browser/docs/lease.md — and only the two calls are ours.
+  // @studio/engine-browser/docs/lease.md — and nothing here but when to start it.
   useEffect(() => {
     if (phase.k !== "chosen") return;
-    const { engine } = phase;
-    return holdEngine(
-      { select: api.selectEngine, release: api.releaseEngine },
-      engine.engine.id,
-      engine.token!,
-      engine.latency?.totalMs ?? 0,
-    );
+    return engines.hold(phase.engine);
   }, [phase]);
 
   useEffect(() => {
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
     let cancelled = false;
     void (async () => {
-      // Both at once: the preference is a hint that still has to be PROBED, so waiting for
-      // one before starting the other would add a round trip to every load.
-      const [r, prefs] = await Promise.all([
-        refresh(),
-        api.accountPrefs().catch(() => ({}) as { engineId?: string }),
-      ]);
+      // List, preference, probe and policy in one call — the same four steps in the same
+      // order as st0 and m9, from @studio/engine-browser/access rather than three copies.
+      const { ranked: r, chosen } = await engines.find();
       if (cancelled) return;
-      // The same policy st0 and m9 run, rather than l8's own reading of it: this used to filter
-      // on `wsUrl` alone, so an engine that answered without a token was offered and then could
-      // not be selected, and a single reachable engine still raised the picker.
-      const { engine } = chooseEngine(r, prefs.engineId);
-      if (engine && (await pick(engine))) return;
+      setRanked(r);
+      if (chosen && (await pick(chosen))) return;
       // Nothing remembered and reachable, or several to choose between. The picker is the honest
       // answer; the preference is left alone, so coming back on the right network still works
       // without choosing again.
@@ -88,7 +72,7 @@ export function EngineGate() {
     return () => {
       cancelled = true;
     };
-  }, [refresh, pick]);
+  }, [pick]);
 
   if (phase.k === "chosen")
     // Hand the chosen engine to the project gate; key by wsUrl so switching engines remounts cleanly.

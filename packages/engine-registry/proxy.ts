@@ -188,6 +188,25 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
 }
 
 /**
+ * What a body parser mounted in FRONT of this route already swallowed, ready to send again —
+ * or null when the stream is still ours to pipe.
+ *
+ * All three backends mount `express.json()` app-wide, before the router that carries this
+ * relay. See docs/proxy.md, "The body a parser already took", for what that cost.
+ */
+function replayBody(req: {
+  readableEnded: boolean;
+  body?: unknown;
+}): Buffer | null {
+  if (!req.readableEnded) return null; // nobody consumed it; stream it through
+  const b = req.body;
+  if (b === undefined || b === null) return Buffer.alloc(0);
+  if (Buffer.isBuffer(b)) return b;
+  if (typeof b === "string") return Buffer.from(b);
+  return Buffer.from(JSON.stringify(b));
+}
+
+/**
  * Relay `/api/engine/<id>/files/*` to the engine machine's file service.
  *
  * The same wall as the WebSocket: the file service answers on `http://<lan-ip>:<filePort>`, and
@@ -202,6 +221,7 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
     // Express strips the mount path; `req.url` is what remains, which is the file service's own.
     const path = req.url.startsWith("/") ? req.url : `/${req.url}`;
     const hosts = hostsFor(engine);
+    const body = replayBody(req);
 
     const attempt = (i: number): void => {
       const host = hosts[i];
@@ -209,19 +229,29 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
         return void res
           .status(502)
           .json({ error: "engine file service unreachable from the server" });
+      const headers: Record<string, string | string[]> = {
+        ...(req.headers as Record<string, string | string[]>),
+        host: `${host}:${engine.addresses.filePort}`,
+      };
+      if (body) {
+        // Re-serialized bytes are not the bytes we were sent, so the original length is a lie —
+        // and a chunked encoding beside a length is a second one.
+        headers["content-length"] = String(body.length);
+        delete headers["transfer-encoding"];
+      }
       const up = httpRequest(
         {
           host,
           port: engine.addresses.filePort,
           path,
           method: req.method,
-          headers: {
-            ...req.headers,
-            host: `${host}:${engine.addresses.filePort}`,
-          },
+          headers,
           timeout: DIAL_TIMEOUT_MS,
         },
         (upRes) => {
+          // The bound above is the DIAL's, not the download's: it is a socket idle timeout, so
+          // leaving it on would destroy a mixdown export or a slow /media read mid-flight.
+          up.setTimeout(0);
           res.status(upRes.statusCode ?? 502);
           for (const [k, v] of Object.entries(upRes.headers))
             if (v !== undefined && k.toLowerCase() !== "transfer-encoding")
@@ -230,13 +260,19 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
         },
       );
       // Only a host that never answered is worth retrying on the next one — once bytes are
-      // flowing the response is committed and a second attempt would write it twice.
+      // flowing the response is committed and a second attempt would write it twice. A PIPED
+      // body cannot be retried either: the stream is spent, and the next host would get the
+      // headers with nothing behind them, which is the very failure this function had.
       up.on("error", () => {
-        if (!res.headersSent) attempt(i + 1);
-        else res.end();
+        if (res.headersSent) return void res.end();
+        if (body || !req.readableEnded) return attempt(i + 1);
+        res
+          .status(502)
+          .json({ error: "engine file service unreachable from the server" });
       });
       up.on("timeout", () => up.destroy());
-      req.pipe(up);
+      if (body) up.end(body);
+      else req.pipe(up);
     };
     attempt(0);
   };
