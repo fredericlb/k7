@@ -80,6 +80,15 @@ Le premier bug réel de tout ceci n'était d'ailleurs pas ici mais dans le relai
 1500 ms le temps de réflexion de l'amont et tuait donc chaque analyse — voir
 `packages/engine-registry/docs/proxy.md`, « 1500 ms n'est pas un délai de connexion ».
 
+### Lire un échec
+
+Le message affiché ici est **verbatim** celui que le service de fichiers a renvoyé, qui est
+lui-même celui de son propre échec. Le maillon suivant est donc le téléchargement du master
+depuis la médiathèque hébergée, et il nomme désormais l'adresse essayée et la cause réelle —
+voir `packages/mediatek/docs/sync.md`, « `terminated` ne dit rien ». La même ligne est écrite
+dans le journal de la machine qui a essayé, qui est l'endroit où l'on regarde quand un
+navigateur situé trois sauts plus loin dit que l'analyse a échoué.
+
 ## Le transport est à nous
 
 Pas de `controls` sur l'élément `<audio>`. La forme d'onde **est** la barre de défilement
