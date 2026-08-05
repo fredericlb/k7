@@ -97,6 +97,56 @@ soirée. Une machine sans cache, en revanche, arrête tout et le dit en haut : c
 de la **destination** et non de la ligne, et parcourir toute la playlist pour ça
 ressemblerait à une playlist cassée.
 
+## Ajouter un morceau
+
+« Ajouter un morceau », à côté de « Tout jouer », ouvre un champ de recherche au-dessus de la
+liste — au-dessus et non par-dessus : ce qu'on remplit reste visible, et le voir s'allonger
+est la seule confirmation qu'il y ait.
+
+La recherche cherche dans le titre, l'artiste et le chemin (donc l'album), et **chaque mot
+doit tomber quelque part, pas au même endroit** : « nirvana lithium » trouve un morceau dont
+l'un est l'artiste et l'autre le titre, ce qu'une simple sous-chaîne sur toute la requête ne
+ferait jamais. Entrée prend le premier résultat, Échap ferme.
+
+Le champ **reste ouvert** après un clic. Monter une setlist, c'est ajouter huit morceaux à la
+suite ; un panneau qui se refermerait à chaque fois en ferait huit allers-retours par le même
+bouton.
+
+Une rangée ajoute le **master** ; les pastilles à côté ajoutent une **variante** — sans elles,
+mettre `instrumental` dans une setlist voudrait dire aller taper le mapping à la main, alors
+que le format existe précisément pour le porter.
+
+### Ce qui est écrit, et pourquoi c'est du texte
+
+Le clic n'ajoute rien à une liste que ce composant tiendrait : il écrit **la ligne dans le
+tampon**, et le panneau de droite se redessine parce que le texte a changé. Autrement il y
+aurait deux sources de vérité pour un seul document, et le YamlPane à gauche continuerait
+d'afficher l'ancienne.
+
+`appendPlaylistItem` travaille donc sur le texte et ne repasse jamais par le sérialiseur —
+même soin que `withVariant` prend avec le sidecar d'un morceau, et pour la même raison : ces
+fichiers portent des commentaires et un ordre que quelqu'un a choisi. Faire un aller-retour
+d'une setlist par un sérialiseur, c'est exactement le changement que personne ne remarque
+avant que ses notes aient disparu.
+
+La référence écrite est le **chemin** (`AC-DC/Back in Black/Hells Bells`), pas le titre nu :
+celui-ci est écrit par une machine, et un clic sur une rangée désigne CE morceau-là et pas ce
+qui porte le même nom. `findSong` lit les deux, donc le fichier reste éditable à la main.
+
+Les valeurs sont citées quand il le faut et seulement là (`yamlScalar`) : un titre qui
+commence par `-`, qui contient `: `, ou qui s'appelle « No » deviendrait autre chose qu'une
+chaîne. Tout citer serait plus simple et mettrait deux conventions dans un fichier qu'on écrit
+aussi à la main.
+
+Le bouton se désactive, en le disant, quand le fichier a un `items:` que l'ajout textuel ne
+sait pas étendre — une séquence en flot sur plusieurs lignes, par exemple. Inventer un
+deuxième `items:` plus bas ferait un fichier dont les deux moitiés se contredisent, ce qui est
+pire que de s'entendre dire de taper la ligne soi-même.
+
+L'ajout **n'enregistre pas**. C'est une édition comme une frappe en est une, et c'est
+« Enregistrer * » qui en fait un fichier — sinon un clic écrirait sur le disque la ligne à
+moitié tapée qui traîne à côté.
+
 ## Créer
 
 « Nouvelle playlist… » dans le menu de l'arbre, à côté du « Nouveau fichier… » générique qui

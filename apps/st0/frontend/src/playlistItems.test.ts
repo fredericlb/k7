@@ -5,6 +5,8 @@ import {
   itemLabel,
   itemProblem,
   resolveItems,
+  songMatches,
+  songRef,
 } from "./playlistItems";
 
 const song = (
@@ -117,5 +119,46 @@ describe("itemLabel", () => {
     // So an unresolved row still reads as the thing you typed, which is what you go and fix.
     const [r] = resolveItems([{ song: "Lithuim" }], LIBRARY);
     expect(itemLabel(r)).toBe("Lithuim");
+  });
+});
+
+describe("songRef", () => {
+  it("writes the unambiguous path, and what it writes reads back", () => {
+    // A click means THAT morceau, unlike a title someone typed — so the search writes the
+    // form that cannot resolve to a namesake.
+    expect(songRef(HELLS)).toBe("AC-DC/Back in Black/Hells Bells");
+    // The property that matters: a line this produced finds its own song again.
+    expect(findSong(songRef(HELLS), LIBRARY)).toBe(HELLS);
+    expect(resolveItems([{ song: songRef(LITHIUM) }], LIBRARY)[0]?.song).toBe(
+      LITHIUM,
+    );
+  });
+});
+
+describe("songMatches", () => {
+  it("looks in the title, the artist and the path", () => {
+    const withArtist = song("Nirvana/Nevermind/Lithium", {
+      meta: { catalogued: true, master: "original.wav", artist: "Nirvana" },
+    });
+    expect(songMatches(withArtist, "lith")).toBe(true); // the title
+    expect(songMatches(withArtist, "nirvana")).toBe(true); // the artist
+    expect(songMatches(withArtist, "nevermind")).toBe(true); // the album, via the path
+    expect(songMatches(withArtist, "pearl jam")).toBe(false);
+  });
+
+  it("wants every word, but not in one place", () => {
+    // "nirvana lithium" is artist + title — a single substring match over the whole query
+    // finds nothing, which is exactly how a search feels broken.
+    expect(songMatches(LITHIUM, "nirvana lithium")).toBe(true);
+    expect(songMatches(LITHIUM, "nirvana bells")).toBe(false);
+  });
+
+  it("matches everything on an empty query, so opening the field shows the library", () => {
+    expect(songMatches(HELLS, "")).toBe(true);
+    expect(songMatches(HELLS, "   ")).toBe(true);
+  });
+
+  it("ignores case, which is the only way a typed search is usable", () => {
+    expect(songMatches(HELLS, "HELLS bells")).toBe(true);
   });
 });
