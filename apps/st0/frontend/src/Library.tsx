@@ -67,6 +67,7 @@ import {
   type SectionId,
 } from "./routes";
 import { SongEditor } from "./SongEditor";
+import { sortNodes } from "./treeOrder";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /**
@@ -140,6 +141,17 @@ const holdsChainsFile = (e: MediatekEntry): boolean =>
  *  what the scan stopped at, so every entry in the family is one — sidecar or not. A folder
  *  with no `song.yaml` is `catalogued: false`, which is a song nobody filed, not a category. */
 const isSong = (e: MediatekEntry): boolean => e.family === "songs";
+
+/**
+ * What `revealed` starts on, so a section opens SHOWING its first level instead of collapsed
+ * onto the one root row it synthesises below.
+ *
+ * `reveal` opens a target's ancestors, and the synthesised root's empty path is the ancestor of
+ * every path there is (see commons's file-tree.tsx) — so any target at all unfolds the top
+ * level. This one names no row, because NUL is the one byte no path can hold, so the top level
+ * is all it unfolds: what is below stays folded until something is actually revealed.
+ */
+const TOP_LEVEL = "\u0000";
 
 /** Where a module keeps what it LOADS — samples, IRs, amp profiles — as opposed to what it IS.
  *  The same folder `@studio/song` resolves a module's own assets out of, so a file dropped here
@@ -392,7 +404,11 @@ export function Library() {
         name: section.toUpperCase(),
         path: "",
         dir: true,
-        children: isZone ? dayNodes(recordings) : treeOf(entries, unlisted),
+        // Alphabetical, all the way down and whichever builder made the rows: a listing arrives
+        // in the order the scan walked it, which is an order nobody can look something up in.
+        children: sortNodes(
+          isZone ? dayNodes(recordings) : treeOf(entries, unlisted),
+        ),
       },
     ],
     [entries, isZone, recordings, section, unlisted],
@@ -454,8 +470,11 @@ export function Library() {
    * It also has to survive the listing arriving late. A deep link names a file before `entries`
    * has come back, so `editing` is null on the first render and resolves a poll later — the
    * effect is what carries the reveal across that gap.
+   *
+   * It starts on TOP_LEVEL rather than on nothing, which is what unfolds a freshly opened
+   * section down to its first level and no further.
    */
-  const [revealed, setRevealed] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<string | null>(TOP_LEVEL);
   const target = opened
     ? relative(opened.path)
     : picked

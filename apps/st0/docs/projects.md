@@ -68,6 +68,24 @@ seul dix secondes plus tard, donc que personne ne signalerait.
 L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
 dossiers qui ne sont pas des projets.
 
+### Comment elle s'ouvre
+
+Le **premier niveau est déplié** dès que le miroir répond, et rien en dessous : un dépôt qui
+s'ouvre tout replié cache derrière un clic la seule chose qu'on vient y chercher, et tout
+déplier noierait un projet dans le `node_modules` du voisin. Le calcul juste serait « les
+dossiers qu'il faut traverser pour voir un projet » ; le premier niveau y arrive presque
+toujours et ne dépend pas de ce qui a été chargé.
+
+Ce dépliage est fait **une fois par dépôt**, pas à chaque arbre reçu : ensuite les plis
+appartiennent à la personne, y compris ceux qu'elle a refermés, et un rafraîchissement
+(bouton, ou `fetch` qui se termine) ne les rouvre pas.
+
+Les lignes sont triées **alphabétiquement, à tous les niveaux**, dossiers et fichiers mêlés :
+git répond dans l'ordre de son arbre, qui n'est pas un ordre où l'on cherche quelque chose. Le
+comparateur est celui de la médiathèque — `frontend/src/treeOrder.ts`, `Intl.Collator` : la
+casse et les accents ne comptent pas, et `prise 2` précède `prise 10`. Les deux arbres de st0
+se lisent donc pareil.
+
 ## Le trajet complet
 
 1. Dans **Projets**, on colle une URI SSH. st0 génère la clé de déploiement si elle n'existe
