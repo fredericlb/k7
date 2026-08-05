@@ -249,8 +249,8 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
           timeout: DIAL_TIMEOUT_MS,
         },
         (upRes) => {
-          // The bound above is the DIAL's, not the download's: it is a socket idle timeout, so
-          // leaving it on would destroy a mixdown export or a slow /media read mid-flight.
+          // Belt and braces: the timer is dropped on connect below, and again here for a socket
+          // that was already open (a keep-alive reuse never fires `connect`).
           up.setTimeout(0);
           res.status(upRes.statusCode ?? 502);
           for (const [k, v] of Object.entries(upRes.headers))
@@ -259,10 +259,33 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
           upRes.pipe(res);
         },
       );
+      /**
+       * Drop the timer the moment the socket is UP, not the moment the answer starts.
+       *
+       * `timeout` on an http.request is a socket IDLE timeout — it fires whenever nothing has
+       * crossed the wire for that long, connected or not. Disarming it in the response callback
+       * therefore bounds far more than the dial: it bounds how long the engine's machine may
+       * think before its first byte. That is 1.5 s, and `POST /mediatek/analyse` says nothing
+       * for as long as it takes to download a master and run the engine over it — so every
+       * analysis of a song through the relay was destroyed a second and a half in, retried on
+       * the next address, destroyed again, and finally answered 502. The work itself kept
+       * running on the other machine, once per attempt.
+       *
+       * A connected socket gets no bound at all, deliberately, and for the reason the old
+       * comment gave: a mixdown export and a slow `/media` read are both legitimately silent.
+       */
+      up.on("socket", (s) => {
+        if (s.connecting) s.once("connect", () => up.setTimeout(0));
+        else up.setTimeout(0); // a pooled socket is already open — nothing to dial
+      });
       // Only a host that never answered is worth retrying on the next one — once bytes are
       // flowing the response is committed and a second attempt would write it twice. A PIPED
       // body cannot be retried either: the stream is spent, and the next host would get the
       // headers with nothing behind them, which is the very failure this function had.
+      //
+      // With the bound above this now means what it says: an error here is a host that could
+      // not be REACHED, so retrying costs nothing. It used to include "answered too slowly",
+      // which made the retry re-send a request the upstream had already accepted and started.
       up.on("error", () => {
         if (res.headersSent) return void res.end();
         if (body || !req.readableEnded) return attempt(i + 1);

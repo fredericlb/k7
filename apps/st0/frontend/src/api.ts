@@ -118,11 +118,17 @@ export const engineMachine = {
    * machine downloads the file from here, runs its engine, pushes the `.cache` sidecar back
    * beside the audio, and seeds `song.yaml` with the tempo it found. See
    * packages/file-service/src/routes/mediatek.ts.
+   *
+   * The one route here worth CANCELLING, hence the signal: it answers nothing until the whole
+   * decode is done, so a caller that has moved on would otherwise hold a request open for
+   * minutes. Cancelling does not stop the work on the far machine — nothing propagates that —
+   * but it does stop this tab waiting on an answer it will throw away.
    */
   analyse: async (
     fileBase: string,
     token: string,
     path: string,
+    signal?: AbortSignal,
   ): Promise<{ bpm: number; bpmSet: boolean; transients: number }> => {
     const res = await fetch(`${fileBase}/mediatek/analyse`, {
       method: "POST",
@@ -132,6 +138,7 @@ export const engineMachine = {
         "content-type": "application/json",
       },
       body: JSON.stringify({ path }),
+      signal,
     });
     return json(res, "analyse");
   },

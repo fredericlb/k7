@@ -5,7 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
-import { AudioLines, Loader2, Pause, Play } from "lucide-react";
+import { AudioLines, Loader2, Pause, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { engineMachine, library } from "./api";
 import { readSongShape, type SongShape } from "./songWaveform";
@@ -45,6 +45,10 @@ export function SongPlayer({
   // The audio element's own duration, which arrives before any analysis and covers the case
   // where none ever does — a song still plays without a waveform.
   const [duration, setDuration] = useState(0);
+  // The master this pane has already asked to have analysed. One attempt per song, so a moving
+  // engine choice cannot start the job twice; the button below is what asks for another.
+  const attempted = useRef<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   /**
    * The shape, and the analysis that produces one when it is missing.
@@ -52,10 +56,21 @@ export function SongPlayer({
    * Asked for automatically rather than behind a button: a `.cache` is derived, and the upload
    * that files a song already fires this same call — best effort, "and the first surface that
    * needs the cache computes it then" (AddSong.tsx). This is that surface.
+   *
+   * ASKED ONCE, and cancelled when you leave. An analysis is minutes of somebody else's machine
+   * — it downloads the master and runs the engine over it — so it must not be re-fired because
+   * this effect re-ran, and it must not outlive the pane that wanted it. `attempted` is what
+   * makes the first true: the engine choice arrives asynchronously, so `fileBase`/`engineToken`
+   * legitimately move under us, and without it every move would start the job again.
    */
+  // `retry` is a TRIGGER, not a value this reads: the button clears `attempted` and bumps it,
+  // which is the only thing that can ask for a second analysis. Removing it would make the
+  // button do nothing at all.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   useEffect(() => {
     if (!path) return;
     let alive = true;
+    const stop = new AbortController();
     setShape(null);
     setStatus("");
     void (async () => {
@@ -64,23 +79,30 @@ export function SongPlayer({
       if (found) return setShape(found);
       if (!fileBase || !engineToken)
         return setStatus("pas encore analysé — aucun moteur joignable");
+      if (attempted.current === path)
+        return setStatus("analyse déjà demandée pour ce master");
+      attempted.current = path;
+      setStatus("");
       setAnalysing(true);
       try {
-        await engineMachine.analyse(fileBase, engineToken, path);
+        await engineMachine.analyse(fileBase, engineToken, path, stop.signal);
         const made = await readSongShape(path);
         if (!alive) return;
         if (made) setShape(made);
         else setStatus("analysé, mais le cache n'est pas revenu");
       } catch (e) {
-        if (alive) setStatus(`analyse impossible : ${(e as Error).message}`);
+        // Our own cancellation is not a failure and has nobody left to tell.
+        if (alive && !stop.signal.aborted)
+          setStatus(`analyse impossible : ${(e as Error).message}`);
       } finally {
         if (alive) setAnalysing(false);
       }
     })();
     return () => {
       alive = false;
+      stop.abort();
     };
-  }, [path, fileBase, engineToken]);
+  }, [path, fileBase, engineToken, retry]);
 
   // Follow the playhead smoothly while playing — `timeupdate` fires ~4×/s, which reads as a
   // playhead that stutters across a canvas this wide.
@@ -176,15 +198,33 @@ export function SongPlayer({
             onSeek={seek}
           />
         ) : (
-          <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
             {analysing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> analyse en cours…
-              </>
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> analyse en cours —
+                le moteur décode le master, cela prend un moment
+              </span>
             ) : (
               <>
-                <AudioLines className="h-4 w-4" />
-                {status || "chargement…"}
+                <span className="flex items-center gap-2">
+                  <AudioLines className="h-4 w-4" />
+                  {status || "chargement…"}
+                </span>
+                {/* One attempt happens by itself; a second is asked for. An analysis is minutes
+                    of another machine's time, so a failure that retried on its own would be a
+                    loop nobody started. */}
+                {status && fileBase && engineToken ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      attempted.current = null;
+                      setRetry((n) => n + 1);
+                    }}
+                  >
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" /> Analyser
+                  </Button>
+                ) : null}
               </>
             )}
           </div>

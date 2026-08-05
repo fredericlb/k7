@@ -115,9 +115,59 @@ Deux conséquences de bord, dans le même geste :
 - Un corps **flué** (`application/octet-stream`, le seul que `express.json` ne touche pas) ne
   peut pas être rejoué sur l'adresse suivante : le flux est dépensé. Ce cas répond 502 au lieu
   de réessayer en silence avec un corps vide.
-- Le `timeout` de 1500 ms est celui du **dial**, pas du téléchargement. C'est une inactivité de
-  socket, donc le laisser courir détruisait un export de mixdown ou un `/media` lent en plein
-  vol ; il est désarmé dès que la réponse commence.
+- Le `timeout` de 1500 ms est celui du **dial**, pas du téléchargement — voir la section
+  suivante, qui est l'histoire de ce mot-là.
+
+## 1500 ms n'est pas un délai de connexion
+
+`timeout` sur un `http.request` de Node est une **inactivité de socket**. Il ne mesure pas
+« combien de temps pour se connecter » mais « depuis combien de temps rien n'a traversé le
+fil », connecté ou non. Il était désarmé dans le rappel de réponse — donc à l'arrivée du
+premier octet de l'amont.
+
+Entre les deux il reste une chose que ce rappel ne couvre pas : **le temps que la machine du
+moteur passe à réfléchir**. Et il était borné à 1500 ms.
+
+Presque toutes les routes du service de fichiers répondent tout de suite : une liste, un
+fichier, un `/media` qui commence à couler immédiatement (le *téléchargement* est lent, pas
+l'attente). `POST /mediatek/analyse` est l'exception, et elle est totale — elle ne dit rien
+tant qu'elle n'a pas téléchargé le master depuis la médiathèque hébergée **et** fait tourner le
+moteur dessus. Des minutes de silence, là où le relais en tolérait une seconde et demie.
+
+Le résultat, pour chaque morceau analysé à travers le relais :
+
+1. la requête part, le service de fichiers l'accepte et commence à travailler ;
+2. 1500 ms plus tard le socket est détruit — pour le relais, cet hôte n'a pas répondu ;
+3. `up.on("error")` réessaie donc **l'adresse suivante**, ce qui relance une analyse complète
+   sur la même machine, par un autre chemin ;
+4. les adresses épuisées, le relais répond `502` ;
+5. et le travail continue des deux côtés, sans personne pour l'attendre.
+
+Le côté navigateur voyait « analyse impossible », le côté serveur voyait des sockets coupés en
+plein corps de requête — un `BadRequestError: request aborted` de `raw-body`, qui est ce qu'un
+parseur dit quand son client disparaît.
+
+Le timer est donc désarmé **à la connexion** et non à la réponse, ce qui est ce que « dial »
+voulait dire depuis le début :
+
+```ts
+up.on("socket", (s) => {
+  if (s.connecting) s.once("connect", () => up.setTimeout(0));
+  else up.setTimeout(0); // socket recyclé : il n'y a rien à composer
+});
+```
+
+Un socket **connecté** n'a alors plus aucune borne, et c'est délibéré : c'est déjà la règle que
+l'ancien commentaire invoquait pour les téléchargements, et une route qui réfléchit longtemps
+est indiscernable d'une route qui télécharge lentement. La borne restante — se connecter en
+1500 ms — est la seule que le relais peut juger sans rien savoir de la route appelée.
+
+Conséquence à ne pas perdre : `up.on("error")` veut maintenant dire ce qu'il dit, *un hôte
+injoignable*, donc le réessai sur l'adresse suivante est gratuit. Il englobait « a répondu trop
+lentement », et renvoyait alors une requête que l'amont avait déjà acceptée et commencée.
+
+`proxy.test.ts` tient un amont qui met 2200 ms à écrire sa première ligne et vérifie deux
+choses : la réponse arrive, et l'amont ne l'a vue **qu'une fois**.
 
 ## Le premier message est mis en attente
 

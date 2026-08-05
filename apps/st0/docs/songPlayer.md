@@ -59,6 +59,27 @@ sur `library.fileUrl(master)` n'a besoin de personne, et la route sert du Range,
 déplacement dans le fichier marche aussi. Ce qui manque alors est le dessin, pas le son —
 ce qui est exactement l'ordre d'importance.
 
+### Une fois, et annulable
+
+Une analyse, ce sont des minutes de la machine de quelqu'un d'autre : elle télécharge le
+master et fait tourner le moteur dessus. Deux garde-fous, donc, et ils ne sont pas
+décoratifs :
+
+- **`attempted`** retient le master déjà demandé. Le choix du moteur arrive de façon
+  asynchrone, donc `fileBase` et `engineToken` bougent légitimement sous le panneau ; sans ce
+  verrou, chaque mouvement relançait le travail.
+- **un `AbortController`** coupe la requête quand on change de morceau ou qu'on ferme
+  l'éditeur. Cela n'arrête pas le travail sur la machine d'en face — rien ne propage
+  l'annulation jusque-là — mais cela cesse de tenir une requête ouverte pendant des minutes
+  pour une réponse dont personne ne veut plus.
+
+Un échec ne réessaie donc **pas** tout seul : il affiche un bouton « Analyser ». Une analyse
+qui se relance d'elle-même est une boucle que personne n'a demandée.
+
+Le premier bug réel de tout ceci n'était d'ailleurs pas ici mais dans le relais, qui bornait à
+1500 ms le temps de réflexion de l'amont et tuait donc chaque analyse — voir
+`packages/engine-registry/docs/proxy.md`, « 1500 ms n'est pas un délai de connexion ».
+
 ## Le transport est à nous
 
 Pas de `controls` sur l'élément `<audio>`. La forme d'onde **est** la barre de défilement
