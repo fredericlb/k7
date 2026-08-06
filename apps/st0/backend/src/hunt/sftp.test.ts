@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { baseName, localPathFor } from "./sftp.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  baseName,
+  fetchDownload,
+  localPathFor,
+  type SftpLike,
+} from "./sftp.ts";
 import { flattenTransfers } from "./slskd.ts";
 
 describe("localPathFor", () => {
@@ -90,5 +95,89 @@ describe("flattenTransfers", () => {
     expect(flattenTransfers(null)).toEqual([]);
     expect(flattenTransfers({ nothing: "here" })).toEqual([]);
     expect(flattenTransfers("a string")).toEqual([]);
+  });
+});
+
+describe("fetchDownload — ce qui part dans les journaux", () => {
+  let lines: string[] = [];
+
+  /** Un faux serveur SFTP : `at` est le chemin où le fichier se trouve VRAIMENT, `tree` ce que
+   *  chaque répertoire contient (un nom fini par `/` est un dossier). */
+  const fake = (at: string, tree: Record<string, string[]>): SftpLike => ({
+    connect: async () => undefined,
+    exists: async (p: string) => (p === at ? ("-" as const) : false),
+    list: async (d: string) => {
+      const rows = tree[d];
+      if (!rows) throw new Error("No such file");
+      return rows.map((n) => ({
+        name: n.replace(/\/$/, ""),
+        type: n.endsWith("/") ? "d" : "-",
+        size: 1,
+      }));
+    },
+    get: async () => Buffer.alloc(3),
+    end: async () => undefined,
+  });
+
+  beforeEach(() => {
+    lines = [];
+    vi.spyOn(console, "log").mockImplementation((m: unknown) => {
+      lines.push(String(m));
+    });
+    vi.spyOn(console, "warn").mockImplementation((m: unknown) => {
+      lines.push(String(m));
+    });
+    process.env.SLSKD_SFTP_HOST = "slskd.test";
+    process.env.SLSKD_SFTP_USER = "bob";
+    process.env.SLSKD_SFTP_KEY = "SECRET-KEY-MATERIAL";
+    process.env.SLSKD_DOWNLOADS_DIR = "/downloads";
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("écrit le chemin visé ET le contenu du dossier de téléchargement", async () => {
+    // Les deux questions qu'on se pose quand rien n'arrive, répondues au moment où la réponse
+    // est sous la main — c'est-à-dire pendant la connexion, pas après.
+    const remote = "@ann\\Music\\Nirvana\\Nevermind\\05 Lithium.flac";
+    await fetchDownload(remote, () =>
+      fake("/downloads/Nevermind/05 Lithium.flac", {
+        "/downloads": ["Nevermind/", "readme.txt"],
+      }),
+    );
+    const all = lines.join("\n");
+    expect(all).toContain(remote);
+    expect(all).toContain(
+      "chemin visé      : /downloads/Nevermind/05 Lithium.flac",
+    );
+    expect(all).toContain("/downloads : 2 entrée(s)");
+    expect(all).toContain("[d] Nevermind");
+    expect(all).toContain("[-] readme.txt");
+  });
+
+  it("dit où il a fini par le trouver quand ce n'est pas là", async () => {
+    // Le cas qui rendait un échec indistinguable d'un morceau que personne ne partage.
+    await fetchDownload("@ann\\x\\y\\Lithium.flac", () =>
+      fake("/downloads/complete/Lithium.flac", {
+        "/downloads": ["complete/"],
+        "/downloads/complete": ["Lithium.flac"],
+      }),
+    );
+    const all = lines.join("\n");
+    expect(all).toContain("pas à l'endroit attendu");
+    expect(all).toContain(
+      "trouvé ailleurs  : /downloads/complete/Lithium.flac",
+    );
+  });
+
+  it("n'écrit jamais la clé ni le mot de passe", async () => {
+    await fetchDownload("@a\\b\\c.flac", () =>
+      fake("/downloads/b/c.flac", { "/downloads": ["b/"] }),
+    );
+    const all = lines.join("\n");
+    expect(all).not.toContain("SECRET-KEY-MATERIAL");
+    // Le FAIT qu'il y ait une clé est utile pour diagnostiquer, sa valeur ne l'est pas.
+    expect(all).toContain("(clé)");
   });
 });

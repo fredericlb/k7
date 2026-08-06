@@ -204,6 +204,37 @@ l'essentiel est que le montage aurait demandé **deux** mécanismes à faire mar
 Si le fichier n'y est pas — slskd est configurable — on le cherche par son nom sur trois niveaux,
 parce qu'un échec dû à *ça* serait indistinguable d'un morceau que personne ne partage.
 
+### Cette étape se raconte dans les journaux
+
+C'est ici que deux machines se rencontrent, donc c'est ici qu'on ne peut rien déduire après
+coup. Chaque récupération écrit ce qu'elle vise et ce qu'elle voit :
+
+```
+⇣ sftp → fred@slskd.lan:22 (clé)
+⇣ sftp connecté, dossier /downloads
+⇣ sftp nom chez le pair : @ann\Music\Nirvana\Nevermind\05 Lithium.flac
+⇣ sftp chemin visé      : /downloads/Nevermind/05 Lithium.flac
+⇣ sftp /downloads : 3 entrée(s) → [d] complete, [d] incomplete, [-] readme.txt
+⇣ sftp pas à l'endroit attendu (absent) — recherche par nom sur 3 niveaux
+⇣ sftp descente dans /downloads/complete
+⇣ sftp /downloads/complete : 1 entrée(s) → [d] Nevermind
+⇣ sftp trouvé ailleurs  : /downloads/complete/Nevermind/05 Lithium.flac
+⇣ sftp 40.1 Mo lus depuis /downloads/complete/Nevermind/05 Lithium.flac
+```
+
+Ce que cette trace donne, et qu'aucun message d'erreur ne donnerait : **le nom du pair et le
+chemin déduit côte à côte**, donc un rangement inattendu de slskd se lit d'un coup d'œil ; et le
+**contenu réel** du dossier, donc « mauvais `SLSKD_DOWNLOADS_DIR` », « droits qui manquent à
+l'utilisateur SSH » et « slskd n'a rien écrit » cessent de se ressembler.
+
+La première ligne est écrite **avant** la connexion : si c'est elle qui échoue, ce sont ces
+valeurs-là qu'on veut relire, et l'exception de `connect` ne les porte pas. Elle dit qu'il y a une
+clé, jamais laquelle — un test le vérifie.
+
+Toujours écrites, pas seulement en cas d'échec : un téléchargement dure des minutes, donc une
+dizaine de lignes par téléchargement n'est pas du bruit. Les listes sont coupées à quarante
+entrées, un dossier de téléchargement pouvant en tenir des milliers.
+
 ## Ce qui vient du réseau est hostile
 
 La documentation de slskd le dit elle-même : les noms de fichiers viennent du réseau Soulseek et
