@@ -1,5 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { labelled, labelMinPx, labelStride, MAX_COLUMN_PX } from "./ticks";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  labelled,
+  labelMinPx,
+  labelStride,
+  MAX_COLUMN_PX,
+  nearestTick,
+} from "./ticks";
 import type {
   Annotation,
   DetectedEvent,
@@ -36,6 +42,7 @@ const MIN_DB = -120; // bottom of the vertical scale (0 dBFS at the top)
 const DB_GRID = [0, -20, -40, -60, -80, -100];
 const HANDLE_HIT = 9; // px from an edge that counts as grabbing its handle
 const MIN_DUR = 0.1; // shortest allowed moment (s)
+const GRID_DASH = [3, 4]; // the bar/beat rule's dash: on 3px, off 4px
 
 export function Waveform({
   envelope,
@@ -115,8 +122,11 @@ export function Waveform({
       ctx.stroke();
     }
 
-    // Bar/beat gridlines (behind everything else): bars solid + brighter, beats
-    // fainter. Labels are drawn last, on top. Used by the DAW clip editor.
+    // Bar/beat gridlines (behind everything else): bars brighter, beats fainter, both
+    // DASHED. The solid vertical lines on this canvas mean something — the playhead, a
+    // marker, a selection edge — so the grid, which is every tick, reads as a rule instead
+    // of competing with them. Labels are drawn last, on top. Used by the DAW clip editor.
+    ctx.setLineDash(GRID_DASH);
     for (const g of gridLines) {
       const gx = Math.round(timeToX(g.t)) + 0.5;
       ctx.strokeStyle = g.bar
@@ -128,6 +138,7 @@ export function Waveform({
       ctx.lineTo(gx, HEIGHT);
       ctx.stroke();
     }
+    ctx.setLineDash([]);
 
     // Detected event regions (behind the bars)
     ctx.fillStyle = "rgba(80, 200, 120, 0.2)";
@@ -372,6 +383,9 @@ export function Waveform({
     total,
   ]);
 
+  // The grid's times alone — what a click snaps to (see nearestTick).
+  const gridTimes = useMemo(() => gridLines.map((g) => g.t), [gridLines]);
+
   const localX = (clientX: number) => {
     const rect = canvasRef.current!.getBoundingClientRect();
     return Math.max(0, Math.min(width, clientX - rect.left));
@@ -439,7 +453,11 @@ export function Waveform({
     drag.current = null;
     setDragSel(null);
     if (!moved) {
-      onSeek?.(xToTime(x));
+      // A click lands on the nearest line the grid actually drew: you aimed at a tick, not
+      // at a pixel. With no grid there is nothing to snap to — k7's waveform passes none —
+      // and the seek stays exactly where the pointer was.
+      const t = xToTime(x);
+      onSeek?.(nearestTick(gridTimes, t) ?? t);
     } else {
       const a = xToTime(Math.min(startX, x));
       const b = xToTime(Math.max(startX, x));

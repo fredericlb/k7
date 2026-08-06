@@ -1,7 +1,7 @@
-# ticks — what a ruler draws, and what it numbers
+# ticks — what a ruler draws, what it numbers, and what a click lands on
 
-Two independent questions, answered by two functions, for the two rulers that have to
-agree with each other.
+Three questions, answered by three functions, for the two rulers that have to agree with
+each other.
 
 `subdivideBeats` picks the UNIT — a bar while a bar fits, then its beats, then halves of a
 beat. The ladder is musical, not binary: a 4/4 bar descends to the quarter, because
@@ -11,6 +11,28 @@ dividing it by two would draw a half-note line, which is not a thing a ruler mar
 after the numbers stop being: at 6px apart "17" and "18" are one smear. Thinning halves —
 every 2nd, then every 4th, every 8th — so the survivors are always the round ones (bars 1,
 5, 9… never 1, 4, 7). That is the whole reason it is not "fit as many as possible".
+
+`nearestTick` answers where a CLICK goes: the closest line the ruler actually drew.
+
+## Snapping is to the drawn list, not to the unit
+
+Rounding to a multiple of the unit would be the obvious implementation and is wrong twice
+over. A zoomed timeline starts at whatever beat the zoom does, so there is no origin to
+round from; and the waveform is handed its grid line by line by the host, with no stride at
+all. Both rulers instead pass `nearestTick` the array they just drew, which makes the
+guarantee exact rather than approximate: **you can only land on a line that is on screen.**
+
+Two consequences fall out of that and are worth stating, because both are the feature
+working rather than a limitation:
+
+- **The zoom is the resolution control.** `subdivideBeats` decides the unit, so opening the
+  view up is how you reach a finer position — a click can never put the playhead somewhere
+  the grid does not mark. The furthest it can move the pointer is half a column, and a
+  column is capped at `MAX_COLUMN_PX`.
+- **No grid, no snap.** `nearestTick` returns null on an empty list and the caller seeks
+  exactly where the pointer was. This is what keeps a waveform with no musical grid — k7's
+  rehearsal takes, st0's song player — scrubbing continuously, and it is why the behaviour
+  is not gated behind a prop: the data already says whether snapping means anything here.
 
 ## Both rulers, one rule
 
