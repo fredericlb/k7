@@ -4,6 +4,7 @@
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { fileHeaders } from "@studio/project-shell/fileApi";
+import type { Envelope } from "./waveform";
 
 /**
  * WHERE one machine's file service is, as the chosen engine reported it.
@@ -63,6 +64,16 @@ export const service = {
   modules: (s: FileLink) =>
     get<{ entries: MediatekEntry[] }>(s, "/mediatek/list?family=modules"),
 
+  /**
+   * One cached song's waveform envelope, transients and tempo.
+   *
+   * Slow the first time for a song nobody has analysed — the engine on that machine computes
+   * the sidecar — and a read afterwards. The caller shows that it is working rather than an
+   * empty box, because "no waveform yet" and "no waveform at all" look identical otherwise.
+   */
+  envelope: (s: FileLink, path: string) =>
+    get<Envelope>(s, `/mediatek/envelope?path=${encodeURIComponent(path)}`),
+
   /** One cached file's text. The deck needs a module's `plugin:` block, and the catalogue
    *  carries where a module IS, never what it runs. */
   moduleFile: async (s: FileLink, path: string): Promise<string> => {
@@ -85,6 +96,19 @@ export const service = {
  * a folder someone made by hand — has nothing to play. The scan reports the master's
  * filename in `meta.master`; its absence is that state.
  */
+/**
+ * The entry's master, CACHE-relative (`songs/artist/album/title/original.mp3`).
+ *
+ * The half of a playable path that does not depend on which machine holds the cache — which
+ * is exactly what a route taking a cache-relative `path` wants, and what `playablePath`
+ * prefixes a root onto. Written once so the two cannot disagree about where a master is.
+ */
+export function cacheRelPath(entry: MediatekEntry): string | null {
+  const master = entry.meta?.master;
+  if (typeof master !== "string" || !master) return null;
+  return `${entry.path}/${master}`;
+}
+
 export function playablePath(
   root: string,
   entry: MediatekEntry,

@@ -25,13 +25,24 @@ import {
   pushCrossfade,
   sendDecks,
 } from "../deck";
-import { type FileLink, fileLink, playablePath, service } from "../service";
+import {
+  cacheRelPath,
+  type FileLink,
+  fileLink,
+  playablePath,
+  service,
+} from "../service";
 import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
-import { useEngine } from "../useEngine";
+import { type Playhead, useEngine } from "../useEngine";
+import type { Envelope } from "../waveform";
 import { Vinyl } from "./Vinyl";
+import { Waveform } from "./Waveform";
 
 /** The set list's file, project-relative. Named once — the name is @studio/song's. */
 const SONGS_FILE = "songs.yaml";
+
+/** A deck's waveform, and the two states that are not one. */
+type Wave = { k: "loading" } | { k: "ready"; env: Envelope } | { k: "none" };
 
 export function MixView({
   engine,
@@ -50,6 +61,9 @@ export function MixView({
   const [error, setError] = useState<string | null>(null);
   const [loads, setLoads] = useState<DeckLoads>(NO_LOADS);
   const [mix, setMix] = useState(MIX_CENTRE);
+  // Per deck. Three states rather than a nullable envelope: "still computing" and "there
+  // will not be one" look identical as `null`, and they are different sentences on screen.
+  const [waves, setWaves] = useState<Partial<Record<DeckId, Wave>>>({});
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -84,7 +98,9 @@ export function MixView({
   /** Put a song on a deck. The document carries both decks, so this re-sends it — the engine
    *  diffs, and whatever the OTHER deck was playing carries on underneath. */
   const load = (deckId: DeckId, s: SetEntry) => {
-    if (!deck.engine || !root || !s.entry) return;
+    // `link` is implied by `root` — the root came from a summary through it — but it is
+    // carried explicitly so the waveform fetch below has it without a second assumption.
+    if (!deck.engine || !root || !link || !s.entry) return;
     const path = playablePath(root, s.entry);
     // Said out loud rather than swallowed: a catalogued folder with no audio is a real state
     // — a mirror that failed halfway — and a dead button explains nothing.
@@ -99,6 +115,18 @@ export function MixView({
     };
     setLoads(next);
     sendDecks(deck.engine, next, mix);
+
+    // The waveform, fetched beside the load and never blocking it: the song is already
+    // playing while this is still computing, which is the right order for a deck.
+    setWaves((w) => ({ ...w, [deckId]: { k: "loading" } }));
+    void service
+      // The SAME master `playablePath` just resolved, cache-relative — the route wants a path
+      // inside the cache, not one on the engine's disk.
+      .envelope(link, cacheRelPath(s.entry) ?? "")
+      .then((env) => setWaves((w) => ({ ...w, [deckId]: { k: "ready", env } })))
+      // A waveform that will not come is not worth an error card over the whole desk — the
+      // song plays regardless, and the strip says it has none rather than lying about it.
+      .catch(() => setWaves((w) => ({ ...w, [deckId]: { k: "none" } })));
   };
 
   /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
@@ -114,7 +142,14 @@ export function MixView({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* --- the two decks, and the set list between them ------------------------------ */}
       <div className="flex min-h-0 flex-1 gap-4 p-4">
-        <DeckSide side="A" load={loads.deckA} spinning={deck.playing} />
+        <DeckSide
+          side="A"
+          load={loads.deckA}
+          spinning={deck.playing}
+          wave={waves.deckA}
+          playhead={deck.playhead}
+          playing={deck.playing}
+        />
 
         <section className="flex min-w-0 flex-1 flex-col gap-2">
           {error ? (
@@ -138,7 +173,14 @@ export function MixView({
           </div>
         </section>
 
-        <DeckSide side="B" load={loads.deckB} spinning={deck.playing} />
+        <DeckSide
+          side="B"
+          load={loads.deckB}
+          spinning={deck.playing}
+          wave={waves.deckB}
+          playhead={deck.playhead}
+          playing={deck.playing}
+        />
       </div>
 
       {/* --- the crossfader, across the bottom ----------------------------------------- */}
@@ -226,15 +268,21 @@ export function MixView({
   );
 }
 
-/** One deck: the record, and what it is holding. */
+/** One deck: the record, its waveform, and what it is holding. */
 function DeckSide({
   side,
   load,
   spinning,
+  wave,
+  playhead,
+  playing,
 }: {
   side: string;
   load: DeckLoads[DeckId];
   spinning: boolean;
+  wave: Wave | undefined;
+  playhead: React.RefObject<Playhead>;
+  playing: boolean;
 }) {
   return (
     <section className="flex w-[26%] min-w-[14rem] shrink-0 flex-col items-center gap-3">
@@ -244,6 +292,16 @@ function DeckSide({
         title={load?.title ?? null}
         spinning={spinning && !!load}
       />
+      {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
+          under an empty deck is furniture. */}
+      {load ? (
+        <Waveform
+          envelope={wave?.k === "ready" ? wave.env : null}
+          playhead={playhead}
+          playing={playing}
+          analysing={wave?.k === "loading"}
+        />
+      ) : null}
       <div className="w-full truncate text-center text-xs text-muted-foreground">
         {load ? load.title : "rien de chargé"}
       </div>

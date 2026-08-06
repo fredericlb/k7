@@ -264,6 +264,55 @@ mediatekRouter.get(
   }),
 );
 
+/**
+ * One cached song's WAVEFORM: the envelope, the transient onsets and the tempo estimate.
+ *
+ * The sidecar (`{file}.cache`) is already beside the audio in the cache, so this is nearly
+ * always a read — `ensureFileEnvelope` returns it when the fingerprint still matches. When
+ * it does not, or a song landed here without ever being analysed, the engine on THIS machine
+ * computes it and writes the sidecar; that is slow (seconds for a long track) and is why the
+ * caller draws "analyse…" rather than an empty box.
+ *
+ * JSON and not the raw sidecar bytes: the file is an internal format with a version and a
+ * fingerprint in it, and a browser that parsed it would be a second implementation of
+ * `readSidecar` waiting to drift. ~120 KB for a five-minute track, 8192 buckets.
+ *
+ * No engine on this machine is a 503 and not a 500: it is a state a laptop is legitimately
+ * in, and the deck says so rather than looking broken.
+ */
+mediatekRouter.get(
+  "/mediatek/envelope",
+  wrap(async (req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path is required" });
+    let abs: string;
+    try {
+      abs = safePath(rel); // the same confinement /mediatek/file uses
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      return res.status(400).json({ error: (e as Error).message });
+    }
+    try {
+      // Throws ENOENT of its own for a file the cache has not got, which is why there is no
+      // separate existence check to get out of step with it.
+      return res.json(await ensureFileEnvelope(abs, findEngineBinary()));
+    } catch (e) {
+      const message = (e as Error).message;
+      const code = (e as NodeJS.ErrnoException).code;
+      return res
+        .status(
+          code === "ENOENT"
+            ? 404
+            : message.includes("engine binary")
+              ? 503
+              : 500,
+        )
+        .json({ error: message });
+    }
+  }),
+);
+
 /** Filter across families. What a query MEANS — including why `limit` is clamped — belongs to
  *  the catalogue, not to either shell over it: see parseQuery. */
 mediatekRouter.get(
