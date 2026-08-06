@@ -1,20 +1,14 @@
 // FindSongs.tsx — « Trouver des morceaux » : un champ de recherche, et sous lui l'historique
 // de ce qu'on a déjà demandé, vert quand c'est rangé, bleu pendant, rouge quand ça a échoué.
-// La recherche tourne côté serveur pendant des minutes ; cet écran ne fait que la regarder.
-// Voir ../../docs/hunt.md.
+// Une PAGE et non un dialogue — l'historique s'allonge. Voir ../../docs/hunt.md.
 
 import { Button } from "@frediverse/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
 import type { HuntRecord, HuntStatus } from "@studio/web-protocol/hunt";
 // Clapperboard et non un logo : lucide a retiré ses icônes de marque, et « une vidéo » est de
 // toute façon ce que la source est réellement.
 import {
+  ArrowLeft,
   CheckCircle2,
   Clapperboard,
   Loader2,
@@ -148,8 +142,15 @@ function Row({
   );
 }
 
-export function FindSongs({ onFiled }: { onFiled: () => void }) {
-  const [open, setOpen] = useState(false);
+export function FindSongs({
+  onBack,
+  onFiled,
+}: {
+  onBack: () => void;
+  /** Appelé quand une ligne vient de passer au vert, pour que le catalogue derrière soit
+   *  rechargé plutôt que d'attendre son propre tour de poll. */
+  onFiled: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<HuntRecord[] | null>(null);
   const [reason, setReason] = useState<string | null>(null);
@@ -158,13 +159,13 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
   const [error, setError] = useState<string | null>(null);
   // QUELLES lignes étaient déjà rangées, et non combien : une ligne retirée de l'historique
   // ferait baisser un compteur, et le morceau suivant le ramènerait au même chiffre sans que
-  // le catalogue derrière le dialogue soit rafraîchi.
+  // le catalogue soit rafraîchi.
   const filed = useRef<Set<string> | null>(null);
 
-  // Ne tourne QUE dialogue ouvert : une recherche vit sur le serveur, et un onglet qui
-  // interrogerait en permanence pour un écran fermé paierait un aller-retour pour rien.
+  // Ne tourne que tant que la page est montée, ce qui est exactement « la section est
+  // ouverte » : une recherche vit sur le serveur, et interroger pour un écran que personne ne
+  // regarde paierait un aller-retour pour rien.
   useEffect(() => {
-    if (!open) return;
     let stop = false;
     const tick = () =>
       void hunt
@@ -190,7 +191,7 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
       stop = true;
       clearInterval(t);
     };
-  }, [open, onFiled]);
+  }, [onFiled]);
 
   const submit = useCallback(() => {
     const q = query.trim();
@@ -229,82 +230,81 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
   }, []);
 
   return (
-    <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Search className="mr-1 h-4 w-4" /> Trouver des morceaux
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85vh] w-full max-w-3xl flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>Trouver des morceaux</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex items-center gap-2">
-            {/* Le focus au chargement : ce dialogue n'existe que pour ce champ, et le clic
-                qui l'a ouvert est déjà la demande de taper. */}
-            <Input
-              autoFocus
-              className="h-11 flex-1 text-base"
-              placeholder="artiste et titre — « nirvana lithium »"
-              value={query}
-              disabled={Boolean(reason)}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
-            <Button
-              size="lg"
-              onClick={submit}
-              disabled={busy || !query.trim() || Boolean(reason)}
-            >
-              {busy ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-1 h-4 w-4" />
-              )}
-              Chercher
-            </Button>
-          </div>
-
-          {/* Dit plutôt que caché : un déploiement pas encore configuré est son état normal,
-              et un champ qui échouerait à chaque frappe n'apprendrait rien. */}
-          {reason && (
-            <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              {reason}
-            </p>
-          )}
-          {error && (
-            <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </p>
-          )}
-
-          <div className="min-h-0 flex-1 overflow-auto">
-            {rows === null ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                chargement…
-              </p>
-            ) : rows.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                Rien encore. Tapez un artiste et un titre : le morceau est
-                identifié, cherché sur le réseau, puis rangé tout seul.
-              </p>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Le champ reste EN HAUT et ne défile pas : monter une bibliothèque, c'est enchaîner
+          les titres, et un champ qu'il faut aller rechercher après trente lignes d'historique
+          serait un aller-retour par morceau. */}
+      <div className="shrink-0 border-b border-border px-6 py-4">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" /> Morceaux
+          </Button>
+          {/* Le focus au chargement : cette page n'existe que pour ce champ, et le clic qui
+              l'a ouverte est déjà la demande de taper. */}
+          <Input
+            autoFocus
+            className="h-12 flex-1 text-base"
+            placeholder="artiste et titre — « nirvana lithium »"
+            value={query}
+            disabled={Boolean(reason)}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+          />
+          <Button
+            size="lg"
+            onClick={submit}
+            disabled={busy || !query.trim() || Boolean(reason)}
+          >
+            {busy ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
             ) : (
-              <ul className="flex flex-col gap-1">
-                {rows.map((h) => (
-                  <Row
-                    key={h.id}
-                    h={h}
-                    youtube={youtube}
-                    onForget={forget}
-                    onYoutube={retryOnYoutube}
-                  />
-                ))}
-              </ul>
+              <Search className="mr-1 h-4 w-4" />
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+            Chercher
+          </Button>
+        </div>
+
+        {/* Dit plutôt que caché : un déploiement pas encore configuré est son état normal,
+            et un champ qui échouerait à chaque frappe n'apprendrait rien. */}
+        {reason && (
+          <p className="mx-auto mt-3 max-w-4xl rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            {reason}
+          </p>
+        )}
+        {error && (
+          <p className="mx-auto mt-3 max-w-4xl rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+        <div className="mx-auto max-w-4xl">
+          {rows === null ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+              chargement…
+            </p>
+          ) : rows.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              Rien encore. Tapez un artiste et un titre : le morceau est
+              identifié, cherché sur le réseau, puis rangé tout seul.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {rows.map((h) => (
+                <Row
+                  key={h.id}
+                  h={h}
+                  youtube={youtube}
+                  onForget={forget}
+                  onYoutube={retryOnYoutube}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

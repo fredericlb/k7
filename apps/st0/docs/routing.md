@@ -82,6 +82,21 @@ It reuses `RouteState.file` deliberately. It is the same question — *what, ins
 are you looking at* — and a field of its own would be null for most of the sections while
 meaning exactly what this one already means.
 
+## Two sections have no tab
+
+`engine` and `find` are in `SECTION_IDS` but not in the header's tab strip. Each is reached by a
+button on the section it belongs to — the cog for the engine page, « Trouver des morceaux » on
+Morceaux — and each draws edge to edge, because nothing either shows is on the volume.
+
+They are sections rather than dialogues for the same reason: **an address**. A page reloads,
+bookmarks, and answers the back button; a modal does none of the three, and both of these hold
+enough content to be worth returning to. `find` in particular grows a history that a dialogue
+would have made scroll inside a scroll — see [hunt.md](hunt.md).
+
+The cost is a subtraction to keep up to date. `Library.tsx` derives `FamilyId` by removing the
+non-family ids from `SECTION_IDS`, so a section added here and forgotten there silently becomes
+a family the poll asks the server to list.
+
 ## The whitelist is a list, and it was short by one
 
 `fromLocation` drops the second half under a section that cannot open anything: the URL bar is

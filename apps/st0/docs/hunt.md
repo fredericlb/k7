@@ -1,8 +1,8 @@
 # Trouver des morceaux — de ce qu'on tape à un fichier rangé
 
-« Trouver des morceaux », à côté d'« Ajouter » dans la section Morceaux, ouvre un champ de
-recherche et, dessous, l'historique de ce qu'on a déjà demandé. On tape « nirvana lithium »,
-et la chaîne complète se déroule toute seule :
+« Trouver des morceaux », à côté d'« Ajouter » dans la section Morceaux, mène à **sa propre
+page** (`/find`) : un champ de recherche en haut, et dessous l'historique de ce qu'on a déjà
+demandé. On tape « nirvana lithium », et la chaîne complète se déroule toute seule :
 
 ```
   ce qu'on tape
@@ -279,6 +279,32 @@ de sortie et non le chemin principal.
 
 L'écran demande au backend si le binaire est là (`GET /api/hunt` → `youtube`), sondé une fois.
 Sans lui, le bouton est grisé et le dit, plutôt que d'échouer au clic.
+
+## Une page, pas un dialogue
+
+`/find` est une **section** au sens de `routes.ts`, comme `engine` : sans onglet dans l'en-tête,
+atteinte par un bouton depuis la section à laquelle elle appartient, et dessinée bord à bord.
+
+Un dialogue aurait été le réflexe — c'est ce que fait « Ajouter » juste à côté — et il aurait été
+le mauvais choix : **l'historique s'allonge**. Cent lignes dans une fenêtre de 85 % de hauteur,
+c'est un écran qui défile dans un écran. Et une page apporte trois choses qu'une boîte modale ne
+peut pas donner : une adresse qu'on recharge et qu'on met en signet, un bouton « précédent » qui
+ramène aux morceaux, et toute la hauteur disponible.
+
+Le champ de recherche est en haut et **ne défile pas** : monter une bibliothèque, c'est enchaîner
+les titres, et un champ qu'il faudrait aller rechercher après trente lignes serait un
+aller-retour par morceau.
+
+Deux conséquences dans `Library.tsx`, toutes deux faciles à manquer :
+
+- `find` doit être **retiré de `FamilyId`**, qui se calcule par soustraction sur `SECTION_IDS`.
+  Sans ça la nouvelle section deviendrait une famille, et le poll irait demander au serveur une
+  liste de `find`. C'est le prix de la soustraction : chaque section qui n'est pas une famille
+  doit être nommée là.
+- Le rafraîchissement du catalogue après un morceau rangé ne peut pas être le `refresh` général,
+  qui invalide le jeton de la section **ouverte** — laquelle est `find`. Ce qui vient d'arriver
+  est dans `songs` : c'est ce jeton-là qu'il faut effacer, sinon le morceau n'apparaîtrait qu'au
+  prochain changement de section.
 
 ## L'historique
 

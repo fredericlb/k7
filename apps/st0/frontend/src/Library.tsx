@@ -42,6 +42,7 @@ import {
   type LucideIcon,
   Mic,
   Pencil,
+  Search,
   Settings,
   Waves,
   Workflow,
@@ -100,10 +101,13 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
 ];
 
-/** The five that ARE families — the only ids `/list` and `/manifest` accept. */
+/** The five that ARE families — the only ids `/list` and `/manifest` accept. Subtracted rather
+ *  than listed, so a new family is one entry in `SECTION_IDS`; the cost is that every section
+ *  which is NOT one has to be named here, or it silently becomes a family the poll would ask
+ *  the server for. */
 type FamilyId = Exclude<
   SectionId,
-  typeof RECORDINGS_DIR | typeof PROJECTS_SECTION | "engine"
+  typeof RECORDINGS_DIR | typeof PROJECTS_SECTION | "engine" | "find"
 >;
 
 /** Poll interval for the revision map. Cheap on the server (a walk per family, only when
@@ -383,6 +387,10 @@ export function Library() {
   // The cog's engine-status page — a section with no tab, no tree and no library poll:
   // everything it shows comes from the engine's own socket. See engine/EnginePage.tsx.
   const isEngine = section === "engine";
+  // « Trouver des morceaux » — même forme que la page moteur : une section sans onglet, atteinte
+  // par un bouton depuis Morceaux, qui dessine bord à bord. Rien de ce qu'elle montre n'est sur
+  // le volume non plus : l'historique vient de `/api/hunt`. Voir ../../docs/hunt.md.
+  const isFind = section === "find";
   // Whether the TREE may write. Two sections say no, for two different reasons: `songs/`
   // has a shape deduced from tags — a folder made by hand there is not a badly filed
   // song, it is an invisible one — and a capture is named by the clock, so a renamed one
@@ -554,6 +562,18 @@ export function Library() {
     setError(null);
   }, [section]);
 
+  /**
+   * Recharger MORCEAUX, quelle que soit la section ouverte.
+   *
+   * `refresh` invalide le jeton de la section courante, ce qui est juste partout sauf sur la
+   * page de recherche : elle est la section `find`, et ce qu'elle vient de ranger est dans
+   * `songs`. Stable (`[]`), parce que FindSongs en dépend pour son intervalle — une fonction
+   * recréée à chaque rendu reconstruirait le poll indéfiniment.
+   */
+  const refreshSongs = useCallback(() => {
+    seen.current.songs = "";
+  }, []);
+
   // The variant PICKER, beside the drop — the same pairing the folder picker has above, and
   // for the same reason: a drag that lands on the wrong row fails silently, so the menu says
   // out loud which song it is adding to.
@@ -716,7 +736,7 @@ export function Library() {
   // count on switch. The zone is in that map beside the families, so there is still exactly
   // one poll for everything the volume holds.
   useEffect(() => {
-    if (isProjects || isEngine) return; // not on the volume — nothing of theirs to poll here
+    if (isProjects || isEngine || isFind) return; // not on the volume — nothing of theirs to poll here
     let stop = false;
     const tick = async () => {
       try {
@@ -736,7 +756,7 @@ export function Library() {
       stop = true;
       clearInterval(t);
     };
-  }, [isEngine, isProjects, isZone, load, loadZone, section]);
+  }, [isEngine, isFind, isProjects, isZone, load, loadZone, section]);
 
   // The repositories' poll, separate because they come from a DIFFERENT service. Folding them
   // into the loop above would make every library tick depend on `/api/projects` answering,
@@ -802,8 +822,15 @@ export function Library() {
               <>
                 {/* À côté d'« Ajouter », pas à sa place : déposer un fichier qu'on a déjà et
                     aller en chercher un qu'on n'a pas sont deux gestes, et celui-ci ne
-                    remplace pas l'autre. Voir docs/hunt.md. */}
-                <FindSongs onFiled={refresh} />
+                    remplace pas l'autre. Il MÈNE à une page — l'historique s'allonge — au
+                    lieu d'ouvrir un dialogue. Voir docs/hunt.md. */}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSection("find")}
+                >
+                  <Search className="mr-1 h-4 w-4" /> Trouver des morceaux
+                </Button>
                 <AddSong onDone={refresh} engine={choice} />
               </>
             ) : null}
@@ -869,6 +896,15 @@ export function Library() {
         {isEngine ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
             <EnginePage choice={choice} />
+          </div>
+        ) : /* La recherche de morceaux dessine sa propre page, pour la même raison : son
+          historique ne vient pas du volume, et il peut être long. */
+        isFind ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <FindSongs
+              onBack={() => setSection("songs")}
+              onFiled={refreshSongs}
+            />
           </div>
         ) : /* The repositories draw the whole row themselves: there is no library tree to put
           down the side, because nothing here is on the volume. */
