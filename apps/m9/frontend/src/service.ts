@@ -3,36 +3,45 @@
 // paths, not URLs, and the paths are that machine's. See docs/plumbing.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { USER_HEADER } from "@studio/web-protocol";
+import { fileHeaders } from "@studio/project-shell/fileApi";
 
 /**
- * How to reach ONE machine's file service, as the chosen engine reported it.
+ * WHERE one machine's file service is, as the chosen engine reported it.
  *
- * Both halves used to be typed into text boxes: the address defaulted to
- * `http://127.0.0.1:8770`, and the DJ wrote their own identity into a second box which the
- * file service then trusted. Now the address comes from the engine's own probe reply — the
- * file service sits on the same host as the engine, and only the engine knows which host
- * that is — and the identity comes from the session.
+ * It used to be a text box defaulting to `http://127.0.0.1:8770`, beside a second box the DJ
+ * typed their own identity into — which the file service then trusted. The address now comes
+ * from the engine's own probe reply, because the file service sits on the engine's host and
+ * only the engine knows which host that is.
+ *
+ * The identity is NOT here any more. It travels with the other two headers the service wants,
+ * from the transport the gate configured (`fileHeaders`) — one place, so a call cannot be
+ * made with a partial set again.
  */
 export interface FileLink {
   base: string;
-  /** The signed-in identity. The file service files workspaces under it and gates the
-   *  médiathèque routes on it, so it is required even though m9 opens no workspace. */
-  user: string;
 }
 
 /** The link for a chosen engine. Null when the probe found no file service on its host. */
-export function fileLink(
-  engine: { fileBase: string | null },
-  user: string,
-): FileLink | null {
-  return engine.fileBase ? { base: engine.fileBase, user } : null;
+export function fileLink(engine: { fileBase: string | null }): FileLink | null {
+  return engine.fileBase ? { base: engine.fileBase } : null;
 }
 
+/**
+ * The headers a file-service call needs — the SHARED set, not a second dialect.
+ *
+ * There are three, and this file used to send one. The two missing ones are not optional:
+ * `requireEngineToken` gates the whole service before `/mediatek` is even mounted, so a call
+ * without the engine token is a 401 whatever it asks for — which is exactly what a deck got,
+ * on every machine where a token is configured. The token comes from the engine's own whoami
+ * probe and only the gate has it, so taking the header set from `@studio/project-shell` is
+ * both the fix and the rule m9's AGENTS.md already states: a route m9 needs and l8 has goes
+ * through the package.
+ *
+ * Safe to call here because `ProjectGate` configures the transport before `Studio` — and so
+ * before any view — renders. Nothing in m9 reaches the médiathèque outside the gate.
+ */
 async function get<T>(s: FileLink, path: string): Promise<T> {
-  const res = await fetch(`${s.base}${path}`, {
-    headers: { [USER_HEADER]: s.user },
-  });
+  const res = await fetch(`${s.base}${path}`, { headers: fileHeaders() });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return (await res.json()) as T;
 }
@@ -59,7 +68,9 @@ export const service = {
   moduleFile: async (s: FileLink, path: string): Promise<string> => {
     const res = await fetch(
       `${s.base}/mediatek/file?path=${encodeURIComponent(path)}`,
-      { headers: { [USER_HEADER]: s.user } },
+      // The same three headers as every other call — this route is behind the same gate.
+      // Not routed through `get` because the reply is TEXT: a module's `plugin:` block.
+      { headers: fileHeaders() },
     );
     if (!res.ok) throw new Error(`module ${res.status}`);
     return res.text();

@@ -110,11 +110,20 @@ that rather than a lit button.
 * **One deck.** `DECK` is a single chain name. A second is a second track and a crossfade,
   and neither is in the document yet.
 * **No mixing, no cue, no tempo.** v1 is "choose a song and diffuse it", literally.
-* **The file service still trusts the header.** m9 now proves who you are to its OWN
-  backend, and sends that identity as `x-studio-user` — but the file service verifies no
-  session, so its CORS allowlist is still the real boundary, as it is for l8. What the
-  login bought is that the identity is no longer typed by hand; it is not yet a gate on the
-  machine's disk.
+* **The file service still trusts the identity header.** m9 proves who you are to its OWN
+  backend and sends that identity as `x-studio-user`, but the file service verifies no
+  session, so its CORS allowlist plus the engine token are the real boundary, as for l8.
+  What the login bought is that the identity is no longer typed by hand; it is not yet a
+  gate on the machine's disk.
+
+  There are **three** headers, not one, and sending only the identity was a bug that lived
+  here: `requireEngineToken` gates the whole service, mounted before `/mediatek` is, so
+  every deck call answered `401 bad or missing engine token` on any machine with a token
+  configured — while the project half of the same screen worked, because it goes through
+  `@studio/project-shell`'s transport and that sends all three. `service.ts` takes its
+  headers from the same place now, and `service.test.ts` fails if a call is ever made with
+  a partial set again. The lesson is the one m9's AGENTS.md already states: a route m9
+  needs and l8 has goes through the package, and that includes how it is addressed.
 * **Never run end to end.** The 8 tests cover the two things that decide — the path join and
   the document — and the app typechecks and builds. Whether the file service answers
   `/mediatek/list` to this origin, and whether the engine plays what it is sent, has not
