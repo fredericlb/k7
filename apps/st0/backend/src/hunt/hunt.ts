@@ -18,9 +18,9 @@ import {
 import { baseName, fetchDownload } from "./sftp.ts";
 import {
   cancelDownload,
-  deleteSearch,
   downloadsOf,
   enqueue,
+  releaseSearch,
   searchDone,
   searchResponses,
   startSearch,
@@ -221,7 +221,10 @@ async function run(
       );
     taken = await takeFromSomeone(sub, id, candidates, signal);
   } finally {
-    await deleteSearch(searchId);
+    // NOT awaited: stopping a search and waiting for it to wind down is slskd's housekeeping,
+    // not this hunt's outcome, and holding the file up for ten seconds of it would delay the
+    // green row for nothing. `releaseSearch` never rejects, so nothing escapes here.
+    void releaseSearch(searchId);
   }
 
   const { bytes } = await fetchDownload(taken.file.filename);

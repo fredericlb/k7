@@ -128,6 +128,28 @@ Une fois le transfert **commencé**, il a trente minutes. Ce plafond n'est pas d
 mais un pair qui envoie deux kilo-octets puis boude laisserait sinon une ligne bleue tourner
 indéfiniment.
 
+### Lâcher la recherche : arrêter avant de supprimer
+
+Une recherche **survit à l'intérêt qu'on lui porte** : on classe ce qui est arrivé au bout de
+quelques secondes, pendant que Soulseek continue de répondre une demi-minute.
+
+Supprimer une recherche encore en cours fait donc lever une exception à slskd, qui met à jour
+la ligne de cette recherche au fil des réponses :
+
+```
+Failed to execute search for 'Lady Gaga Telephone':
+The database operation was expected to affect 1 row(s), but actually affected 0 row(s)
+```
+
+L'`UPDATE` porte sur une ligne qu'on a effacée sous ses pieds. `releaseSearch` fait donc les
+choses dans l'ordre : `PUT /searches/{id}` **arrête** la recherche — c'est ce que ce verbe fait
+chez slskd —, puis le `DELETE` attend qu'elle ne soit plus en cours.
+
+Et si elle ne se termine jamais, **la ligne est laissée**. Une ligne de trop dans la liste de
+slskd ne coûte rien ; une trace de pile dans les journaux à chaque recherche coûte la confiance
+qu'on a dans l'outil. Pour la même raison la fonction ne lève jamais et n'est pas attendue :
+c'est du ménage, pas le résultat de la recherche.
+
 ## Les octets : slskd ne peut pas les servir
 
 Point vérifié dans le source de slskd, et c'est lui qui décide de toute l'architecture : son
