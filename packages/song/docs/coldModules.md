@@ -106,7 +106,10 @@ left is a pass that writes stretched audio to disk.
 
 Its params mirror the normaliser's exactly: `Source BPM` is MEASURED (0 until the pass has
 run, which makes the module a no-op rather than a stretch by a made-up ratio) and
-`Target BPM` is AUTHORED. Same two roles, same harmless default.
+`Target BPM` is AUTHORED. Same two roles, same harmless default — and its `ui.yaml` draws
+them the same way round: a knob for the one you choose (10..300 BPM), a meter for the one
+that is read. The knob cannot express 0, which is the untouched state; the panel draws it at
+the floor until the pass measures a tempo or somebody asks for one.
 
 It is what m9 puts on each deck — a deck's source being a file is precisely what makes the
 placement legal. See `packages/song/docs/m9Project.md`. **The pass is not written**, like

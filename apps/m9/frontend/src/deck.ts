@@ -85,22 +85,19 @@ export interface DeckTempo {
 export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
 
 /**
- * The ends of a deck's BPM fader.
+ * The ends of the tempo fader — the MODULE's knob, not a range m9 invented.
  *
- * ±`PITCH_RANGE` around the song's own tempo — **widened to include `current`**, because a
- * synced deck is driven to whatever the master is at, which can sit outside its own range.
- * A fader whose scale did not cover the value it is showing would draw the handle pinned at
- * an end while the number said something else, which is worse than a wide scale.
+ * `@mediatek/audio/utility/tempo`'s `ui.yaml` declares a BPM knob from 10 to 300, and the
+ * fader in Mix IS that knob. Keeping the two the same is the point: a surface that offered a
+ * narrower range would be quietly refusing values the module accepts, and one that offered a
+ * wider one would send values the panel cannot draw.
+ *
+ * Wide enough that a drag is coarse — 290 BPM across a screen — which is why the fader keeps
+ * a notch at the song's own tempo, a 0.1 step, and a double-click back to it. The ±16 % of a
+ * real deck survives as `PITCH_RANGE`, now purely the threshold past which the readout warns
+ * that a stretch has stopped sounding like the record.
  */
-export function faderRange(
-  natural: number,
-  current = natural,
-): [min: number, max: number] {
-  if (!(natural > 0)) return [0, 0];
-  const lo = Math.min(natural * (1 - PITCH_RANGE), current);
-  const hi = Math.max(natural * (1 + PITCH_RANGE), current);
-  return [lo, hi];
-}
+export const BPM_RANGE: readonly [min: number, max: number] = [10, 300];
 
 /**
  * The stretch that makes a song of `natural` BPM play at `target`.
@@ -291,6 +288,9 @@ export function sendDecks(
  *
  * A master with no tempo of its own (`natural: 0`, the engine found none) drives nothing:
  * there is no number to sync to, and inventing one is the confident lie this avoids.
+ *
+ * Nothing here CANCELS sync — that is the view's business, because it happens on a gesture
+ * (a hand on the slave's knob) rather than on a value. See `nudge` in MixView.
  */
 export function syncedTempos(
   tempos: DeckTempos,

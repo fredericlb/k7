@@ -42,18 +42,18 @@ beforeEach(() => {
   // The REAL file this repo ships, not a paraphrase of it: if `packages/dsp/modules/tempo`
   // stops being a module the loader accepts, this test is where that shows up.
   mkdirSync(join(utility, "tempo"), { recursive: true });
-  copyFileSync(
-    join(
-      import.meta.dirname,
-      "..",
-      "..",
-      "dsp",
-      "modules",
-      "tempo",
-      "module.yaml",
-    ),
-    join(utility, "tempo", "module.yaml"),
+  const shipped = join(
+    import.meta.dirname,
+    "..",
+    "..",
+    "dsp",
+    "modules",
+    "tempo",
   );
+  // `ui.yaml` too: the panel is part of the module, and a malformed one would otherwise
+  // only surface in st0's builder — on somebody else's screen, later.
+  for (const f of ["module.yaml", "ui.yaml"])
+    copyFileSync(join(shipped, f), join(utility, "tempo", f));
   // The crossfade has no copy in this repo — st0's catalogue is its home — so the fixture
   // states the shape the set depends on: two audio inputs, the second optional.
   mkdirSync(join(utility, "crossfade"), { recursive: true });
@@ -192,6 +192,25 @@ describe("a scaffolded m9 set", () => {
     // TWO instances, not one shared: each deck plays at its own BPM, and a param belongs to
     // a use rather than to a module.
     expect(modules.tempoA).not.toBe(modules.tempoB);
+  });
+
+  it("inherits the tempo module's BPM knob, 10 to 300", () => {
+    scaffoldM9(dir, "winter");
+    // The panel is inherited like everything else, so a deck's tempo is a knob you can see
+    // and turn wherever a module's UI is drawn — and it is the SAME range m9's own fader
+    // uses. Reading it here is what stops the two drifting into two different ranges.
+    const ui = loadGraph(dir).modules.tempoA.ui;
+    expect(ui?.widgets?.target).toMatchObject({
+      type: "knob",
+      bind: "Target BPM",
+      min: 10,
+      max: 300,
+    });
+    // …and the measured one is a METER: it is read, not chosen.
+    expect(ui?.widgets?.source).toMatchObject({
+      type: "meter",
+      bind: "Source BPM",
+    });
   });
 
   it("gives each deck a track with no arrangement", () => {

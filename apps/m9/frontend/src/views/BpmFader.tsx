@@ -2,12 +2,12 @@
 // song's own tempo. (A Technics puts + at the BOTTOM; this is a fader on a screen, not a
 // platter, so it follows the screen convention.) See ../../docs/bpm.md.
 
-import { faderRange, PITCH_RANGE } from "../deck";
+import { BPM_RANGE, PITCH_RANGE } from "../deck";
 
 export function BpmFader({
   natural,
   target,
-  disabled,
+  driven,
   onChange,
   onCommit,
 }: {
@@ -15,15 +15,22 @@ export function BpmFader({
   natural: number;
   /** What it is playing at. */
   target: number;
-  /** Driven by the other deck: the handle still moves, the hand cannot. */
-  disabled: boolean;
+  /**
+   * Driven by the other deck — greyed, and still grabbable.
+   *
+   * Greyed says "this is not yours right now", not "you may not". Taking hold of a synced
+   * deck's tempo is how a DJ leaves sync, on every piece of hardware that has the button, and
+   * a knob that refused the hand would make the only way out a second trip to the SYNC light.
+   * The parent turns the gesture into `master: null` — see MixView's `nudge`.
+   */
+  driven: boolean;
   /** Every step of the drag — for the number, which must keep up with the finger. */
   onChange: (bpm: number) => void;
   /** Let go. Re-warping is a DOCUMENT change, so it lands here and not on every pixel. */
   onCommit: () => void;
 }) {
   const has = natural > 0;
-  const [lo, hi] = faderRange(natural, target);
+  const [lo, hi] = BPM_RANGE;
   // The song's own tempo, as a fraction UP the track — the notch the handle returns to.
   const homeFromTop = hi > lo ? (1 - (natural - lo) / (hi - lo)) * 100 : 50;
 
@@ -31,7 +38,7 @@ export function BpmFader({
     <div className="flex h-full w-14 shrink-0 flex-col items-center gap-1">
       <span
         className={`font-mono text-[11px] tabular-nums ${
-          disabled ? "text-muted-foreground" : ""
+          driven ? "text-muted-foreground" : ""
         }`}
       >
         {has ? target.toFixed(1) : "—"}
@@ -54,13 +61,13 @@ export function BpmFader({
           max={hi}
           step={0.1}
           value={has ? target : 0}
-          disabled={disabled || !has}
+          disabled={!has}
           // `writingMode: vertical-lr` + `direction: rtl` is the portable way to stand a
           // range input up: `appearance: slider-vertical` is gone from Chrome and never
           // existed in Safari. rtl is what puts the LOW end at the bottom.
           style={{ writingMode: "vertical-lr", direction: "rtl" }}
           className={`h-full cursor-pointer accent-foreground ${
-            disabled ? "opacity-40" : ""
+            driven ? "opacity-60" : ""
           }`}
           onChange={(e) => onChange(Number(e.target.value))}
           // Wrapped, NOT passed straight through: React hands a handler the event, and a
@@ -71,7 +78,7 @@ export function BpmFader({
           // Double-click returns the record to its own tempo — the one position worth a
           // shortcut, and the one a drag never lands on exactly.
           onDoubleClick={() => {
-            if (!disabled && has) {
+            if (has) {
               onChange(natural);
               onCommit();
             }
@@ -80,16 +87,17 @@ export function BpmFader({
           title={
             !has
               ? "le moteur n'a trouvé aucun tempo pour ce morceau"
-              : disabled
-                ? "piloté par l'autre platine (sync)"
+              : driven
+                ? "piloté par l'autre platine — le bouger annule le sync"
                 : "tempo — double-clic pour revenir à celui du morceau"
           }
         />
       </div>
 
-      {/* How far from the record, which is what a DJ reads mid-set — and AMBER once past the
-          fader's own ±16 %, which only a sync can do. Syncing a 90 bpm track to a 123 bpm one
-          is a +37 % stretch: legitimate, audible as artefacts, and worth seeing rather than
+      {/* How far from the record, which is what a DJ reads mid-set — and AMBER past ±16 %,
+          a real deck's range. The fader itself goes to the module's 10..300, so this is now
+          reachable by hand as well as by a sync: matching a 90 bpm track to a 123 bpm one is
+          a +37 % stretch, legitimate, audible as artefacts, and worth seeing rather than
           discovering through the speakers. */}
       <span
         className={`font-mono text-[10px] tabular-nums ${

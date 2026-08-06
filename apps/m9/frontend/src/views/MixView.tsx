@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Square,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import {
   type DeckId,
@@ -79,6 +79,11 @@ export function MixView({
   // Derived rather than stored, so the two can never disagree — pressing sync and moving the
   // master's fader are the same code path, and the slave has nowhere to hold a stale number.
   const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
+  // A mirror of the line above, read by `commit`. `pointerup` can arrive before React has
+  // re-rendered from the last `onChange`, and a `commit` closed over that render's `tempos`
+  // would send the document one drag-step stale — silently, and only sometimes.
+  const latest = useRef(tempos);
+  latest.current = tempos;
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -163,12 +168,24 @@ export function MixView({
       .catch(() => setWaves((w) => ({ ...w, [deckId]: { k: "none" } })));
   };
 
-  /** Move a fader. The number follows the finger; the stretch waits for `commit`. */
-  const nudge = (deckId: DeckId, bpm: number) =>
+  /**
+   * Move a fader. The number follows the finger; the stretch waits for `commit`.
+   *
+   * **A hand on the SLAVE's fader cancels sync.** That is what the gesture means on every
+   * deck that has the button: you are taking this tempo back. Without it the slave's knob
+   * would fight the master and lose on the next render, which reads as a broken control.
+   *
+   * The value it lands on needs no special care: the knob was showing the SYNCED number, so
+   * dragging it starts from there and continues — no jump back to whatever this deck was at
+   * before the sync, which is the surprise a naive `setMaster(null)` first would cause.
+   */
+  const nudge = (deckId: DeckId, bpm: number) => {
+    if (master && master !== deckId) setMaster(null);
     setFaders((f) => {
       const t = f[deckId];
       return t ? { ...f, [deckId]: { ...t, target: bpm } } : f;
     });
+  };
 
   /**
    * Let go of a fader, or press sync: re-send the document.
@@ -178,7 +195,7 @@ export function MixView({
    * release. Re-warping per pixel would have the stretch engine rebuilt for every step of a
    * drag, on both decks when they are synced.
    */
-  const commit = (next = tempos) => {
+  const commit = (next = latest.current) => {
     if (deck.engine) sendDecks(deck.engine, loads, mix, undefined, next);
   };
 
@@ -425,7 +442,7 @@ function DeckSide({
     <BpmFader
       natural={tempo?.natural ?? 0}
       target={tempo?.target ?? 0}
-      disabled={driven}
+      driven={driven}
       onChange={onNudge}
       onCommit={onCommit}
     />

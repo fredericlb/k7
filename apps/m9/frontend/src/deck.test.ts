@@ -2,6 +2,7 @@ import { VOLUME_DB } from "@studio/engine-protocol/build";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
 import {
+  BPM_RANGE,
   DECKS,
   type DeckLoads,
   type DeckTempo,
@@ -9,7 +10,6 @@ import {
   DOC_TEMPO,
   deckDoc,
   deckGain,
-  faderRange,
   gainToDb,
   levelId,
   MIX_CENTRE,
@@ -169,24 +169,21 @@ describe("stretching a deck to a tempo", () => {
 });
 
 describe("the BPM fader's ends", () => {
-  it("is the song's own tempo either way", () => {
-    expect(faderRange(100)).toEqual([
-      100 * (1 - PITCH_RANGE),
-      100 * (1 + PITCH_RANGE),
-    ]);
+  it("is the MODULE's knob, 10 to 300", () => {
+    // Not a range m9 invented: `@mediatek/audio/utility/tempo`'s ui.yaml declares a BPM knob
+    // from 10 to 300, and the fader in Mix is that knob. A surface offering less would
+    // quietly refuse values the module accepts.
+    expect(BPM_RANGE).toEqual([10, 300]);
   });
 
-  it("widens to cover a value driven past it", () => {
-    // A synced deck is pushed to whatever the master is at. A scale that did not reach it
-    // would pin the handle at an end while the number said something else.
-    const [lo, hi] = faderRange(100, 150);
-    expect(hi).toBe(150);
-    expect(lo).toBe(100 * (1 - PITCH_RANGE));
-    expect(faderRange(100, 50)[0]).toBe(50);
-  });
-
-  it("is empty for a song with no tempo", () => {
-    expect(faderRange(0)).toEqual([0, 0]);
+  it("reaches any tempo a sync can ask for, so nothing has to be clamped", () => {
+    // The old fader was ±16 % of the song and had to widen when a master drove it past its
+    // own end. The module's range covers every real tempo, so that whole problem is gone.
+    const [lo, hi] = BPM_RANGE;
+    for (const natural of [60, 90, 123.31, 174]) {
+      expect(natural * (1 + PITCH_RANGE)).toBeLessThan(hi);
+      expect(natural * (1 - PITCH_RANGE)).toBeGreaterThan(lo);
+    }
   });
 });
 
@@ -210,12 +207,13 @@ describe("sync hands one deck's tempo to the other", () => {
     expect(out.deckA?.target).toBe(90);
   });
 
-  it("does NOT clamp the slave to its own range", () => {
-    // "Synced" means the same tempo. Clamping would leave the two decks at different BPMs
-    // while the button claimed they matched — the fader's scale widens instead.
+  it("hands over the exact number, past what a real deck would bend", () => {
+    // "Synced" means the same tempo. 90 -> 126 is a +40 % stretch, well past the ±16 % a
+    // turntable offers — the readout warns in amber and the tempo still matches, because a
+    // clamp would leave the two decks apart while the button claimed otherwise.
     const out = syncedTempos(both(), "deckA");
-    const [, hi] = faderRange(90);
-    expect(out.deckB?.target).toBeGreaterThan(hi);
+    expect(out.deckB?.target).toBe(126);
+    expect(Math.abs(126 - 90)).toBeGreaterThan(90 * PITCH_RANGE);
   });
 
   it("changes nothing with no master", () => {
