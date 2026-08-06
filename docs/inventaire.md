@@ -197,6 +197,27 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 - **Commentaire tronqué en pleine phrase** : `packages/ui-chains-react/src/moduleIcons.tsx:5`
   s'arrête sur « keyed by CATEGORY rather than a ».
 
+## 6 bis. Décroché par la refonte de Mix (6 août 2026), et gardé exprès
+
+La vue Mix est devenue un pupitre — deux vinyles et un crossfader — et la chaîne d'effets
+d'une platine n'y a plus de place. Rien ne monte donc plus :
+
+| symbole | fichier |
+|---|---|
+| `ChainsPanel` | `apps/m9/frontend/src/chains.tsx` |
+| `deckGraph`, `categoryOf` | `apps/m9/frontend/src/graph.ts` |
+
+**Non supprimés, et c'est un choix** : les trois marchent, `graph.test.ts` les couvre
+toujours, et la chaîne par platine fait partie des options annoncées comme revenant. Ce qui
+leur manquait quand il n'y avait qu'une platine — savoir *laquelle* ils dessinent — est un
+paramètre maintenant. `M9_ICONS`, dans le même fichier, reste utilisé par `GraphView`.
+
+Inscrit ici plutôt que laissé silencieux : c'est la différence entre un état connu et de la
+pourriture. Voir [apps/m9/docs/mix.md](../apps/m9/docs/mix.md).
+
+Le « ternaire mort » du §6 ci-dessus tient toujours, et `deckGraph` a désormais un troisième
+paramètre : si la chaîne par platine ne revient pas, c'est ce bloc-là qu'on supprime en entier.
+
 ## 7. Ce que le renommage a laissé dans le généré
 
 Sans effet, disparaît au prochain build : `engine/capot/src-tauri/resources/file-service.mjs`,

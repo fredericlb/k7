@@ -14,7 +14,7 @@ qu'un typecheck et 21 tests ne l'aient pas vu.
 
 | vue | ce qu'elle est |
 |---|---|
-| **Mix** | Le set : les morceaux que `songs.yaml` nomme, une platine, sa chaîne. Voir [setList.md](setList.md). |
+| **Mix** | Le pupitre : deux platines en vinyle, le set entre elles, le crossfade en bas. Voir [mix.md](mix.md) et [setList.md](setList.md). |
 | **Édition** | L'arbre et le fichier ouvert, en texte. Le même CodeMirror que l8 (`@studio/ui-editor`), la même complétion dérivée des schémas Zod, la même réponse de fourche à l'enregistrement. |
 | **Graphe** | Les chaînes du projet compilé, dessinées par `@studio/ui-chains-react` — le même pipeline que l'onglet Chains de l8. |
 

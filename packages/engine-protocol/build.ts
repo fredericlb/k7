@@ -148,6 +148,28 @@ export const DSP_GRAPH_PLUGIN = "DSP Graph";
 export const JSDSP_FILE = "jsdsp.ts";
 
 /**
+ * The plugin type a mixer module instantiates. An internal plugin reaches the engine under its
+ * DISPLAY name (see enginePlugin), so this is the string a compiled PluginDoc actually carries.
+ *
+ * Here rather than in @studio/song/project, which owns the compiler and opens `node:fs`: a
+ * BROWSER that builds a document — m9's decks do — needs the word and not the compiler. That
+ * file re-exports all three, so every existing importer is unchanged.
+ */
+export const MIXER_PLUGIN = "Mixer";
+
+/** The five knobs a strip has, in the order a strip reads them. Also the param names in the module file. */
+export const MIXER_PARAMS = ["Volume", "Pan", "Low", "Mid", "High"] as const;
+
+/**
+ * What a strip's `Volume` MEANS: decibels, floor to +6, with 0 at unity — never 0..1.
+ *
+ * Stated as a constant because a surface that guessed a 0..1 range would look like it worked
+ * (the fader moves, the number changes) while sending +0.5 dB for what the user set to half.
+ * The floor is silence as far as this vocabulary is concerned; anything quieter is the same.
+ */
+export const VOLUME_DB = { min: -60, max: 6, unity: 0 } as const;
+
+/**
  * Map an authored `plugin: {type, name}` onto the engine's older wire form, where `type`
  * holds either a built-in's xmlTypeName or an external format. `fallback` is the module
  * name. Full mapping table: @studio/song's docs/enginePlugin.md.

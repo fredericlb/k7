@@ -279,14 +279,18 @@ export function loadAudioClipDoc(dir: string, id: string): ClipDoc | null {
   return mapClip({ id, ...def }, dir, `'${id}'`);
 }
 
-/**
- * The plugin type a mixer module instantiates. An internal plugin reaches the engine under its DISPLAY name
- * (see enginePlugin), so this is the string a compiled PluginDoc actually carries.
- */
-export const MIXER_PLUGIN = "Mixer";
+// The mixer's vocabulary moved to @studio/engine-protocol/build — a leaf the BROWSER can hold,
+// which m9 needs to put a level on a deck without dragging a YAML parser and `node:fs` in for
+// two strings. Imported as well as re-exported: `export … from` re-publishes a name without
+// binding it locally, and `trackMixer` below reads MIXER_PLUGIN. Re-exported because this is
+// where every existing importer looks, the same arrangement `readPluginBlock` has.
+import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 
-/** The five knobs a strip has, in the order a strip reads them. Also the param names in the module file. */
-export const MIXER_PARAMS = ["Volume", "Pan", "Low", "Mid", "High"] as const;
+export {
+  MIXER_PARAMS,
+  MIXER_PLUGIN,
+  VOLUME_DB,
+} from "@studio/engine-protocol/build";
 
 /**
  * The channel strip at the end of a track's chain, or undefined when it has none.

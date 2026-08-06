@@ -1,6 +1,6 @@
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { describe, expect, it } from "vitest";
-import { DECK, deckDoc } from "./deck";
+import { DECKS, deckDoc, levelId, NO_LOADS } from "./deck";
 import { categoryOf, type DeckModule, deckGraph } from "./graph";
 
 const mod = (name: string, over: Partial<DeckModule> = {}): DeckModule => ({
@@ -11,19 +11,47 @@ const mod = (name: string, over: Partial<DeckModule> = {}): DeckModule => ({
   ...over,
 });
 
+/**
+ * Deck A's MODULE plugins, with `modules` loaded onto it.
+ *
+ * The document ends every deck with the level the crossfader moves (see deck.ts), and the
+ * graph does not draw it — a strip is not a step in the signal path, it is how loud the path
+ * comes out, which is why l8 draws its mixer as a fader panel and not as a node. So the
+ * identity these tests hold is between the graph's nodes and the plugins BEFORE that level;
+ * the assertion here is what stops the level quietly moving and the slice hiding a real one.
+ */
+const deckAModules = (modules: DeckModule[]) => {
+  const doc = deckDoc(
+    {
+      ...NO_LOADS,
+      deckA: {
+        path: "/m/song.wav",
+        title: "Song",
+        artist: null,
+        id: "songs/s",
+      },
+    },
+    0.5,
+    { deckA: modules },
+  );
+  const plugins = doc.tracks[0].plugins;
+  expect(plugins.at(-1)?.id).toBe(levelId("deckA"));
+  return plugins.slice(0, -1);
+};
+
 describe("the deck as a WebGraph", () => {
   it("draws even with nothing loaded", () => {
     // A deck before a pick is the ordinary state, not an error one — and arranging a chain
     // BEFORE choosing a song is a thing somebody will want to do.
     const g = deckGraph(null, []);
-    expect(g.tracks).toEqual([DECK]);
-    expect(g.chains[DECK].out).toEqual([{ to: "OUT", gain: 1 }]);
+    expect(g.tracks).toEqual([DECKS[0]]);
+    expect(g.chains[DECKS[0]].out).toEqual([{ to: "OUT", gain: 1 }]);
     expect(g.warnings).toEqual([]);
   });
 
   it("puts the modules on the chain in order", () => {
     const g = deckGraph("Song", [mod("filter"), mod("crush")]);
-    expect(g.chains[DECK].use.map((u) => u.module)).toEqual([
+    expect(g.chains[DECKS[0]].use.map((u) => u.module)).toEqual([
       "filter",
       "crush",
     ]);
@@ -32,13 +60,13 @@ describe("the deck as a WebGraph", () => {
   it("addresses each node the way the engine will", () => {
     // Without pluginId a node is decorative: nothing can bypass it or reach its params.
     const g = deckGraph("Song", [mod("filter")]);
-    expect(g.chains[DECK].use[0].pluginId).toBe(`${DECK}:filter`);
+    expect(g.chains[DECKS[0]].use[0].pluginId).toBe(`${DECKS[0]}:filter`);
   });
 
   it("carries a bypassed module as disabled rather than dropping it", () => {
     const g = deckGraph("Song", [mod("filter", { enabled: false })]);
-    expect(g.chains[DECK].use[0].enabled).toBe(false);
-    expect(g.chains[DECK].use).toHaveLength(1);
+    expect(g.chains[DECKS[0]].use[0].enabled).toBe(false);
+    expect(g.chains[DECKS[0]].use).toHaveLength(1);
   });
 });
 
@@ -72,40 +100,35 @@ describe("the graph and the document agree", () => {
   it("gives a node and a plugin the SAME id", () => {
     const modules = [mod("filter"), mod("crush")];
     const g = deckGraph("Song", modules);
-    const doc = deckDoc("/m/song.wav", "Song", modules);
-    expect(doc.tracks[0].plugins.map((p) => p.id)).toEqual(
-      g.chains[DECK].use.map((u) => u.pluginId),
+    expect(deckAModules(modules).map((p) => p.id)).toEqual(
+      g.chains[DECKS[0]].use.map((u) => u.pluginId),
     );
   });
 
   it("keeps the order, which is audible", () => {
     const modules = [mod("a"), mod("b"), mod("c")];
-    const doc = deckDoc("/m/song.wav", "Song", modules);
-    expect(doc.tracks[0].plugins.map((p) => p.name)).toEqual(["a", "b", "c"]);
+    expect(deckAModules(modules).map((p) => p.name)).toEqual(["a", "b", "c"]);
   });
 
   it("maps the authored plugin onto the engine's wire form", () => {
     // `internal` means the NAME is the engine's type and the module name is the label —
     // getting this backwards loads nothing at all, silently.
-    const doc = deckDoc("/m/song.wav", "Song", [mod("bass")]);
-    expect(doc.tracks[0].plugins[0].type).toBe("4OSC");
-    expect(doc.tracks[0].plugins[0].name).toBe("bass");
+    const plugins = deckAModules([mod("bass")]);
+    expect(plugins[0].type).toBe("4OSC");
+    expect(plugins[0].name).toBe("bass");
   });
 
   it("carries a bypass into the document", () => {
-    const doc = deckDoc("/m/song.wav", "Song", [
-      mod("filter", { enabled: false }),
-    ]);
-    expect(doc.tracks[0].plugins[0].enabled).toBe(false);
+    expect(deckAModules([mod("filter", { enabled: false })])[0].enabled).toBe(
+      false,
+    );
   });
 
   it("survives a module whose file had no plugin block", () => {
     // An io module, or a half-written file. It must produce a document, not throw.
-    const doc = deckDoc("/m/song.wav", "Song", [
-      mod("desk", { plugin: undefined }),
-    ]);
-    expect(doc.tracks[0].plugins).toHaveLength(1);
-    expect(doc.tracks[0].plugins[0].name).toBe("desk");
+    const plugins = deckAModules([mod("desk", { plugin: undefined })]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].name).toBe("desk");
   });
 });
 

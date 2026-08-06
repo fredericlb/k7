@@ -25,3 +25,25 @@
     height: 100%;
   }
 }
+
+/* The record turning. A plain linear rotation, deliberately slow: it says "this is running"
+   without becoming the brightest thing on a screen someone stares at all night.
+
+   Held OFF for anyone who asked their system for less motion — a spinning disc is exactly the
+   kind of continuous animation that setting exists for, and the deck is still legible stopped. */
+@keyframes m9-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.m9-spin {
+  animation: m9-spin 3.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .m9-spin {
+    animation: none;
+  }
+}

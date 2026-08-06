@@ -2,7 +2,7 @@
 // throwaway project folder; it does not, and that is the finding. See docs/chains.md.
 
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
-import { DECK } from "./deck";
+import { DECKS, type DeckId } from "./deck";
 
 /** A module the deck runs, as m9 holds it: a médiathèque ref plus what it plays as. */
 export interface DeckModule {
@@ -31,15 +31,18 @@ export interface DeckModule {
 export function deckGraph(
   song: string | null,
   modules: DeckModule[],
+  /** WHICH deck. There are two now, each with its own chain, so this can no longer be a
+   *  constant — a panel drawing deck B's effects must not label them deck A's. */
+  deck: DeckId = DECKS[0],
 ): WebGraph {
   return {
     // One track, standing for the deck's source. The graph resolves a chain's `from`
     // against this list, so a chain naming a track absent from it draws detached.
-    tracks: [DECK],
-    trackSignals: { [DECK]: "audio" },
+    tracks: [deck],
+    trackSignals: { [deck]: "audio" },
     chains: {
-      [DECK]: {
-        from: DECK,
+      [deck]: {
+        from: deck,
         use: modules.map((m) => ({
           module: m.name,
           category: m.category,
@@ -49,7 +52,7 @@ export function deckGraph(
           enabled: m.enabled,
           // The engine address, so a node can be bypassed and its params addressed — the
           // same `chain:module` the ProjectDoc uses. Without it a node is decorative.
-          pluginId: `${DECK}:${m.name}`,
+          pluginId: `${deck}:${m.name}`,
         })),
         out: [{ to: "OUT", gain: 1 }],
       },
