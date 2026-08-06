@@ -6,8 +6,8 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
-import type { TrackControlValues } from "@studio/ui-chains/graph";
-import { buildGraph, layout } from "@studio/ui-chains/graph";
+import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
+import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { DomChains, type FitToFn } from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -40,6 +40,8 @@ export function ChainsTab({
   trackControls,
   onTrackToggle,
   onTrackSet,
+  focus,
+  onFocused,
 }: {
   reloadKey: number;
   // VISIBLE, not focused: a display:none container has no size and fit() would frame to 0.
@@ -97,6 +99,10 @@ export function ChainsTab({
     control: "volume" | "pan",
     value: number,
   ) => void;
+  /** Frame the chains a track feeds. `nonce` is what makes picking the SAME track twice re-frame. */
+  focus?: { id: string; nonce: number } | null;
+  /** How many chains that framing found — so the shell's status line can say when it was none. */
+  onFocused?: (chains: number) => void;
 }) {
   const activeTracks = useActiveTracks(trackOrder);
   const [graph, setGraph] = useState<WebGraph | null>(null);
@@ -270,6 +276,30 @@ export function ChainsTab({
     },
     [graph],
   );
+
+  // --- framing a track (a double-click on its timeline header) -----------------------
+  //
+  // The set is the same one the Graph panel draws: every chain `subgraphForTrack` walks to
+  // from this track, so a send that leaves the track's own chain is inside the frame too.
+  //
+  // Applied ONCE per focus, tracked by its nonce rather than by depending on `laid`: the
+  // graph is re-laid out after every command, and re-framing on each would take the camera
+  // away from wherever it had been panned since. Off screen it waits — a display:none canvas
+  // has no size, and fitTo would frame to zero.
+  const focusApplied = useRef(-1);
+  useEffect(() => {
+    if (!focus || !graph || !laid || !active) return;
+    if (focusApplied.current === focus.nonce) return;
+    focusApplied.current = focus.nonce;
+    const chains = Object.keys(subgraphForTrack(graph, focus.id).chains);
+    const nodes = new Map<string, GraphNode>();
+    for (const name of chains)
+      for (const n of chainNodes(name)) nodes.set(n.id, n);
+    if (nodes.size) fitToFn.current?.([...nodes.values()]);
+    // Open them in the sidebar too, so the list reads as being about this track.
+    if (chains.length) setExpanded((prev) => new Set([...prev, ...chains]));
+    onFocused?.(chains.length);
+  }, [focus, graph, laid, active, chainNodes, onFocused]);
 
   // Scroll the selected row in, keyed on `expanded` too — the row doesn't exist until its group opens.
   const selectedRowRef = useRef<HTMLButtonElement | null>(null);

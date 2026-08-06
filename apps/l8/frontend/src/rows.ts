@@ -77,6 +77,25 @@ export const findRow = (rows: Row[], key: RowKey): Row | undefined =>
 export const isCellRow = (r: Row): boolean =>
   r.kind === "track" && !r.track.generated;
 
+// What a row ADDRESSES: the entity a command, a file open or a graph lookup should name for it.
+export type RowTarget = { kind: "track" | "group" | "video"; id: string };
+
+/**
+ * The entity behind a row, or null when it has none.
+ *
+ * A generated lane redirects to its GROUP, which is the same redirect mute/solo make (see
+ * `apps/l8/frontend/docs/timeline.md`) and for the same reason: the lane is synthesized per
+ * tick, so it has no file to open and no chain of its own to draw. A group with no id — a
+ * lane streaming from nowhere — has nothing to point at at all.
+ */
+export function rowTarget(r: Row): RowTarget | null {
+  if (r.kind === "group") return { kind: "group", id: r.group.id };
+  if (r.kind === "video") return { kind: "video", id: r.track.id };
+  if (r.track.generated)
+    return r.track.group ? { kind: "group", id: r.track.group } : null;
+  return { kind: "track", id: r.track.id };
+}
+
 // The nearest row `delta` away that `can` accepts, stopping at the ends; returns `key` when there is nowhere to go.
 export function stepRow(
   rows: Row[],

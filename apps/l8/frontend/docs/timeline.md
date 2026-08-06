@@ -4,7 +4,10 @@ A keyboard-driven arrangement: one lane per track, clips positioned by beat, a l
 playhead, and a caret moved with `hjkl`/arrows. Only *continuous* interaction lives in the
 component — the caret, growing the `v` rectangle, dragging a clip. Every discrete action is
 a key bound to a command in `keys.ts` and run by the shell through this component's
-imperative handle, so a key and a typed command do exactly the same thing.
+imperative handle, so a key and a typed command do exactly the same thing. The two gutter gestures ("Clicking a
+header", below) are the exception that proves it: neither writes anything — one moves the
+caret, the other aims the shell's other panes — so there is no command for them to disagree
+with.
 
 ## The caret
 
@@ -27,7 +30,31 @@ selected whenever the song starts with one.
 
 While the transport moves, the caret's beat rides the playhead so you always see where you
 are. Only the beat follows; the row stays where you put it. Not while a rectangle is being
-drawn — there the arrows drive the selection head, which the playhead must not yank around.
+drawn — there the arrows drive the selection head, which the playhead must not yank around —
+and not while a label is selected, which is a row rather than a beat and so has nothing to
+ride.
+
+## Clicking a header
+
+The gutter — the name column, on all three kinds of row — is the row's handle:
+
+- **click** selects the row. That is not a new kind of selection: it parks the caret on the
+  label, exactly where `h` off the view's first beat already puts it, so everything that reads
+  the caret (mute/solo, the Graph and Docs panels, the minimap) follows without being told.
+  A live `v` rectangle is dropped, because its head is somewhere else and leaving one standing
+  would draw two selections at once.
+- **double-click** points the *other* panes at the row: the editor opens its file and the
+  chains canvas frames the chains it feeds. Nothing is written, and the timeline keeps the
+  keyboard — your hands are still on the arrangement.
+
+The timeline decides *what* a row addresses and the shell decides what to do about it, which is
+why the double-click is a callback (`onFocusRow`) and not a command. What it addresses is
+`rowTarget` in `rows.ts`, and it is the redirect the mute/solo table below already describes: a
+generated lane has no file and no chain of its own, so it names its **group**.
+
+One consequence worth knowing: a label selection now survives playback. The caret's beat rides
+the playhead (above), but a selected label is a row, not a position in the lane — there is no
+beat there to ride, and pulling one in would drop a header selection the moment you hit play.
 
 ## The `v` rectangle
 
