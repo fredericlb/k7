@@ -46,11 +46,10 @@ export function loadEnv() {
       OIDC_ISSUER: z.string().default(""),
       OIDC_CLIENT_ID: z.string().default(""),
       OIDC_CLIENT_SECRET: z.string().default(""),
+      // Signs the guest cookie AND verifies st0's `studio.sid`. Must be
+      // env.yaml `common`'s: do not give this service its own, or the account
+      // login stops working with no error anywhere. See docs/auth.md.
       SESSION_SECRET: z.string().default(""),
-      // Signs `studio.sid`, which this backend only ever READS — the account
-      // login belongs to st0. Deliberately a second name rather than reusing
-      // SESSION_SECRET: see docs/auth.md, "deux secrets, et pourquoi".
-      STUDIO_SESSION_SECRET: z.string().default(""),
       AUTH_ADMIN_GROUPS: list,
 
       // Named BACKEND_PORT (not PORT) so dev tooling's ambient PORT can't leak in.

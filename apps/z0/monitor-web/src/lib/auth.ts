@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { logout as logoutAs } from "z0-shared/account";
+import {
+  cameBackStillAnonymous,
+  logout as logoutAs,
+  SIGN_IN_DID_NOT_STICK,
+} from "z0-shared/account";
 import { f } from "./api";
 
 // React port of the remote's useAuth: /api/auth/me once at boot, with the
@@ -55,7 +59,15 @@ async function bootstrap(): Promise<void> {
       return;
     }
     if (res.status === 401) {
-      setState({ status: "unauthenticated", error: null, user: null });
+      // Not always an invitation to log in. If we JUST came back from st0 and
+      // are still anonymous, the button would only bounce off it again — say
+      // so instead of looping. See apps/z0/docs/auth.md.
+      const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
+      setState({
+        status: why ? "error" : "unauthenticated",
+        error: why,
+        user: null,
+      });
       return;
     }
     setState({

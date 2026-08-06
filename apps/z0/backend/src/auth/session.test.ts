@@ -15,15 +15,13 @@ import {
   studioUser,
 } from "./session.ts";
 
-const GUEST_SECRET = "z0-signs-guests";
-const STUDIO_SECRET = "st0-signs-accounts";
+// ONE secret, `common`'s: it signs the guest cookie here and verifies the one
+// st0 signed. Two cookies, one key — see the "renamed" case below for why that
+// is safe.
+const SECRET = "the-shared-studio-secret";
 
 beforeAll(() => {
-  initSessionAuth({
-    sessionSecret: GUEST_SECRET,
-    studioSessionSecret: STUDIO_SECRET,
-    adminGroups: ["admins"],
-  });
+  initSessionAuth({ sessionSecret: SECRET, adminGroups: ["admins"] });
 });
 
 // currentUser() reads req.headers.cookie for the account and req.session for
@@ -34,7 +32,7 @@ const req = (opts: { cookie?: string; session?: unknown }): Request =>
     session: opts.session,
   }) as unknown as Request;
 
-const studioCookie = (user: Record<string, unknown>, secret = STUDIO_SECRET) =>
+const studioCookie = (user: Record<string, unknown>, secret = SECRET) =>
   sessionCookieHeader(user, { cookieName: STUDIO_COOKIE_NAME, secret });
 
 describe("studioUser", () => {
@@ -51,6 +49,9 @@ describe("studioUser", () => {
   });
 
   it("refuses a session signed with the wrong key", () => {
+    // The realistic misconfiguration: this service given a SESSION_SECRET of
+    // its own instead of `common`'s. Nothing errors — the cookie simply never
+    // verifies, and the login appears to loop. docs/auth.md.
     expect(studioUser(studioCookie({ sub: "a" }, "not-the-key"))).toBe(null);
   });
 
@@ -59,17 +60,19 @@ describe("studioUser", () => {
   });
 });
 
-describe("the two secrets are not interchangeable", () => {
-  // The reason z0 keeps its own SESSION_SECRET instead of adopting common's.
-  // A guest holds a cookie THIS backend signed; if one key signed both, that
-  // guest could rename their cookie to studio.sid and be an account — here,
-  // and in the médiathèque, l8 and m9, which trust the same cookie.
-  it("will not accept a guest cookie renamed studio.sid", () => {
-    const stolen = sessionCookieHeader(
+describe("one secret is enough for two cookies", () => {
+  // This is why z0 does NOT need a second key, and why it must instead use
+  // `common`'s like l8 and m9 do. A guest holds a cookie this backend signed
+  // with that very key — but cookie-session signs `<name>=<value>`, so the
+  // cookie's NAME is inside the signature. Renaming it to studio.sid leaves a
+  // signature computed over `bt_session=…`, which no longer verifies.
+  it("rejects a guest cookie renamed studio.sid, same key and all", () => {
+    const issued = sessionCookieHeader(
       { kind: "guest", name: "mallory" },
-      { cookieName: STUDIO_COOKIE_NAME, secret: GUEST_SECRET },
+      { cookieName: SESSION_COOKIE_NAME, secret: SECRET },
     );
-    expect(studioUser(stolen)).toBe(null);
+    const renamed = issued.replaceAll(SESSION_COOKIE_NAME, STUDIO_COOKIE_NAME);
+    expect(studioUser(renamed)).toBe(null);
   });
 });
 
@@ -102,7 +105,7 @@ describe("currentUser", () => {
     // not a principal here, and must not become one via the studio path.
     const raw = sessionCookieHeader(
       { kind: "user", sub: "nope" },
-      { cookieName: SESSION_COOKIE_NAME, secret: GUEST_SECRET },
+      { cookieName: SESSION_COOKIE_NAME, secret: SECRET },
     );
     expect(currentUser(req({ cookie: raw }))).toBe(null);
   });

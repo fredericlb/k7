@@ -9,9 +9,14 @@ import type { AuthConfig } from "../config.ts";
 // Two cookies reach this backend, and only ONE of them is ours to write.
 //
 //   bt_session   the game's own — guests, who have no account at all. Issued
-//                here by cookie-session, signed with SESSION_SECRET.
+//                here by cookie-session.
 //   studio.sid   the studio account, minted by st0 at the origin root and
 //                shared with l8 and m9. Read-only here.
+//
+// ONE secret signs both, and it is `common`'s — the same one l8, m9 and k7
+// verify studio.sid with. Two cookies do not need two keys: cookie-session
+// signs `<name>=<value>`, so the name is inside the signature and a bt_session
+// cookie presented as studio.sid fails to verify even under the same key.
 //
 // The account login stopped being z0's the day the IdP refused
 // <origin>/z0/auth/callback: only the prefixless callback is registered, so a
@@ -39,16 +44,6 @@ let authConfig: AuthConfig | null = null;
 /** Called once at boot so the authorization helpers know the admin groups. */
 export function initSessionAuth(cfg: AuthConfig): void {
   if (!cfg.sessionSecret) throw new Error("SESSION_SECRET is required");
-  // A warning and not a throw: a guests-only evening needs no account at all,
-  // and z0 must still boot somewhere st0 isn't deployed. But every ADMIN
-  // surface — editor, presenter, monitor, remote — is unreachable like this,
-  // so say it once, loudly, rather than answering 401 forever with no clue.
-  if (!cfg.studioSessionSecret)
-    console.warn(
-      "⚠️  STUDIO_SESSION_SECRET is not set — nobody can sign in with a studio\n" +
-        "    account (only guests). It is env.yaml `common`'s SESSION_SECRET,\n" +
-        "    the one st0 signs studio.sid with. See apps/z0/docs/auth.md.",
-    );
   authConfig = cfg;
 }
 
@@ -63,18 +58,20 @@ export function isAdmin(u: SessionUser | null): boolean {
 }
 
 /**
- * The studio account, read off `studio.sid` — st0 signs it, we only verify.
+ * The studio account, read off `studio.sid` — st0 signs it, we only verify,
+ * with the very same SESSION_SECRET that signs our own guest cookie. That is
+ * not a shortcut: it is the requirement l8, m9 and k7 already live under —
+ * `common`'s secret, or the check silently fails and nobody can sign in.
+ *
  * `kind` is stamped here rather than stored: st0's session has no idea z0
  * exists, and the three kinds are z0's vocabulary alone.
  */
 export function studioUser(
   cookieHeader: string | undefined,
 ): SessionUser | null {
-  const secret = getAuthConfig().studioSessionSecret;
-  if (!secret) return null;
   const u = sessionFromCookieHeader(cookieHeader, {
     cookieName: STUDIO_COOKIE_NAME,
-    secret,
+    secret: getAuthConfig().sessionSecret,
   });
   return u ? { ...u, kind: "user" } : null;
 }

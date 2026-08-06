@@ -12,7 +12,6 @@ describe("loadAppConfig", () => {
     "OIDC_ISSUER",
     "OIDC_SCOPES",
     "SESSION_SECRET",
-    "STUDIO_SESSION_SECRET",
     "AUTH_ADMIN_GROUPS",
     "GRIST_API_URL",
   ];
@@ -37,15 +36,15 @@ describe("loadAppConfig", () => {
     expect(loadAppConfig().auth).not.toHaveProperty("scopes");
   });
 
-  it("keeps the two secrets apart", () => {
-    // bt_session is ours to write; studio.sid is st0's to write and ours only
-    // to verify. One key for both would let a guest cookie be renamed into a
-    // studio session — see auth/session.test.ts.
-    process.env.SESSION_SECRET = "guests";
-    process.env.STUDIO_SESSION_SECRET = "account";
+  it("carries ONE session secret, used for both cookies", () => {
+    // It signs bt_session and verifies st0's studio.sid. A second key would buy
+    // nothing — the cookie's name is inside the signature, see
+    // auth/session.test.ts — and this one must be `common`'s or the account
+    // login silently stops working.
+    process.env.SESSION_SECRET = "shared";
     const cfg = loadAppConfig();
-    expect(cfg.auth.sessionSecret).toBe("guests");
-    expect(cfg.auth.studioSessionSecret).toBe("account");
+    expect(cfg.auth.sessionSecret).toBe("shared");
+    expect(cfg.auth).not.toHaveProperty("studioSessionSecret");
   });
 
   it("honours overrides and list parsing", () => {

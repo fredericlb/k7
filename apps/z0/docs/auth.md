@@ -36,7 +36,7 @@ Deux cookies arrivent sur le backend, et **un seul est de nous** :
 | cookie | signé par | ce qu'il porte |
 |---|---|---|
 | `bt_session` | z0, `SESSION_SECRET` | les invités : `guest` (mot de passe de session, sur le buzzer) et `guest_online` |
-| `studio.sid` | st0, `STUDIO_SESSION_SECRET` | le compte studio, celui de la médiathèque, de l8 et de m9 |
+| `studio.sid` | st0, avec la même clé | le compte studio, celui de la médiathèque, de l8 et de m9 |
 
 `currentUser()` est le seul point de passage — le middleware, le gate admin et chaque
 route en dépendent — et il lit le compte d'abord, l'invité ensuite. **L'ordre est
@@ -46,23 +46,36 @@ d'invité qui masquerait un compte serait indéconnectable depuis ici.
 L'upgrade WebSocket refait la même lecture à la main (`ws.ts`) : un `upgrade` est un
 événement http brut, cookie-session n'y tourne jamais.
 
-## Deux secrets, et pourquoi
+## Un seul secret, celui de `common`
 
-La tentation est de faire lire à z0 le `SESSION_SECRET` de `common` et d'en finir. **Non.**
-Une valeur de cookie-session est un JSON signé, et la signature ne couvre que
-`<nom>=<valeur>` — le *nom* du cookie en fait partie, mais rien n'empêche de resigner.
-Avec une seule clé, un invité tiendrait un cookie que ce backend a signé lui-même : il lui
-suffirait de le présenter sous le nom `studio.sid` pour devenir un compte — ici, et dans
-la médiathèque, l8 et m9, qui font confiance au même cookie.
+Deux cookies, **une** clé — et c'est la même que celle de l8, m9 et k7. z0 avait sa propre
+`SESSION_SECRET` du temps où il tenait son propre flux ; il faut la lui retirer, pas lui en
+ajouter une seconde. Une clé qui n'est pas celle de `common` ne produit aucune erreur : le
+cookie ne se vérifie simplement jamais.
 
-Donc `SESSION_SECRET` reste à z0 pour ce qu'il **émet**, et `STUDIO_SESSION_SECRET`
-(= le `SESSION_SECRET` de `common`) ne sert qu'à **vérifier**. Le test qui verrouille ça
-est dans `backend/src/auth/session.test.ts` : « un cookie invité renommé studio.sid est
-rejeté ».
+L'objection naturelle, et elle mérite une réponse précise : avec une seule clé, un invité
+tient un cookie que ce backend a signé lui-même — ne peut-il pas le renommer `studio.sid`
+et devenir un compte, ici et dans toute la médiathèque ?
 
-Vide, `STUDIO_SESSION_SECRET` laisse tourner une soirée d'invités et avertit au démarrage.
-C'est un avertissement et pas une erreur : z0 doit pouvoir démarrer là où st0 n'est pas
-déployé — mais toutes les surfaces admin répondent 401 dans cet état.
+**Non.** cookie-session signe `<nom>=<valeur>`, donc le *nom du cookie est à l'intérieur de
+la signature*. Un `bt_session` présenté sous le nom `studio.sid` porte une signature
+calculée sur `bt_session=…`, qui ne vérifie plus. Le nom fait office de séparation de
+domaine, et il faudrait la clé pour resigner. `backend/src/auth/session.test.ts` le
+verrouille : « rejette un cookie invité renommé studio.sid, même clé comprise ».
+
+### La boucle, et pourquoi c'est la SPA qui la détecte
+
+Une clé qui ne correspond pas produit une panne **muette et circulaire** : `/auth/me`
+répond 401, la gate s'affiche, le bouton envoie chez st0 — qui vous connaît déjà et vous
+renvoie aussitôt — et la gate revient, identique. Le compte *est* connecté ; z0 ne sait
+simplement pas le lire.
+
+Le backend ne peut pas le diagnostiquer : une mauvaise clé et un visiteur sans cookie
+échouent exactement pareil, `sessionFromCookieHeader` renvoyant `null` dans les deux cas.
+C'est donc la SPA qui se souvient d'avoir demandé — un jeton dans `sessionStorage` posé par
+`login()` — et qui, si elle revient toujours anonyme, affiche la raison au lieu de
+reproposer le bouton. Le buzzer est volontairement épargné : sa porte est un formulaire
+d'invité, et un invité n'a pas de compte.
 
 ## Le scope `groups`, qui a failli passer inaperçu
 
