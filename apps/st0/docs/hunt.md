@@ -11,7 +11,7 @@ et la chaîne complète se déroule toute seule :
   MusicBrainz  ──►  artiste / titre / album      (nommer AVANT de chercher)
         │
         ▼
-  slskd (autre machine, REST)  ──►  les pairs qui l'ont
+  slskd (autre machine, REST)  ──►  « album titre », puis « titre » — jamais l'artiste
         │
         ▼
   filtrage : même artiste, même titre, format que la médiathèque sait ranger
@@ -85,6 +85,39 @@ mérite mieux qu'« Album inconnu » : le live sur lequel il est vraiment paru.
 
 La sortie **retenue** dans le groupe gagnant est la plus ancienne, pour que la date affichée soit
 celle du disque et non d'une réédition.
+
+## Ce qu'on demande à slskd : l'album et le titre, jamais l'artiste
+
+Deux tentatives, dans cet ordre (`searchTexts`) :
+
+| # | la requête | pourquoi |
+|---|---|---|
+| 1 | `Nevermind Lithium` | l'album est la moitié précise de la paire |
+| 2 | `Lithium` | ce qui reste quand personne ne range par album |
+
+**L'artiste n'y est jamais.** Une recherche Soulseek porte sur le chemin partagé en entier, et
+l'artiste y est presque toujours le dossier *au-dessus* de l'album : il ne restreint rien que
+l'album n'ait déjà restreint, et chaque terme ajouté est une façon de plus pour une copie
+légitime d'être manquée.
+
+Il n'a pas disparu pour autant — il est le **filtre** sur ce qui revient. C'est toute la forme
+de cette étape : **demander largement, juger strictement.** Un terme dans la requête ne peut que
+perdre des résultats ; un terme dans le filtre s'applique à ce que les pairs ont réellement
+envoyé, et peut donc être exigeant sans rien coûter.
+
+Conséquence à connaître : quelqu'un qui partage `…/Nevermind/05 Lithium.flac` sans dossier
+d'artiste au-dessus sera trouvé par la recherche puis **écarté par le filtre**. C'est le prix
+assumé d'un filtre sur l'artiste ; le cas est minoritaire, les chemins Soulseek étant très
+majoritairement `Artiste/Album/Piste`.
+
+Sans album, une seule tentative : relancer le titre seul deux fois de suite ne ferait que
+dépenser un second tour de la patience de quelqu'un.
+
+Et le budget des dix pairs est **global aux deux recherches**, pas dix par tentative — sinon le
+repli doublerait discrètement le pire cas à vingt minutes d'attente, et les dix de la demande ne
+voudraient plus rien dire. Un pair déjà essayé est sauté plutôt que remis en file : les deux
+recherches se recouvrent beaucoup, et redonner une minute à la même file immobile est
+exactement ce que le changement de pair existe pour éviter.
 
 ## Choisir un pair
 
