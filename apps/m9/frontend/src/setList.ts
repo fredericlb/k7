@@ -15,6 +15,10 @@ export interface SetEntry {
   /** What to show. The catalogue's title when the cache holds it, else the id's last segment,
    *  which is the folder the médiathèque filed it under and the best name available. */
   name: string;
+  /** Who it is by, when the sidecar's tags said. Null rather than "" so a surface can leave
+   *  the line out entirely instead of drawing an empty one — a vinyl label has no room to
+   *  spend on nothing. */
+  artist: string | null;
   /** The catalogued entry, or null when this machine's cache has not got it YET. */
   entry: MediatekEntry | null;
 }
@@ -57,10 +61,16 @@ export function resolveSet(text: string, entries: MediatekEntry[]): SetList {
     entries: songRefs(value).map((ref) => {
       const id = songIdOf(ref) ?? ref;
       const entry = byId.get(id) ?? null;
+      const artist = entry?.meta?.artist;
       return {
         ref,
         id,
         name: entry?.name || (id.split("/").pop() ?? id),
+        // The id's SECOND segment is the artist folder (`songs/<artiste>/<album>/<titre>`),
+        // which is what to show while the cache has not got the entry and there are no tags
+        // to read — the médiathèque filed it under that name, so it is not a guess.
+        artist:
+          (typeof artist === "string" && artist) || id.split("/")[1] || null,
         entry,
       };
     }),

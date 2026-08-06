@@ -7,7 +7,7 @@ import type { ChainsIcons } from "@studio/ui-chains-react";
 import { DomChains } from "@studio/ui-chains-react";
 import { ModuleIcon, moduleGlyph } from "@studio/ui-chains-react/module-icons";
 import { useMemo, useRef, useState } from "react";
-import { DECK } from "./deck";
+import { DECKS, type DeckId } from "./deck";
 import { type DeckModule, deckGraph } from "./graph";
 
 /**
@@ -38,24 +38,35 @@ export const M9_ICONS: ChainsIcons = {
   ),
 };
 
+/**
+ * One deck's effect chain, drawn.
+ *
+ * **Nothing mounts this today.** The reworked Mix view is two records and a crossfader, and
+ * the per-deck effect chain has no place on it yet — see docs/mix.md, and the entry in
+ * docs/inventaire.md so this is a known state and not rot. It is kept, rather than deleted,
+ * because it works, it is tested, and the chain is one of the options coming back; the deck
+ * it draws is a prop now, which is what it was missing when there was only one.
+ */
 export function ChainsPanel({
   song,
   modules,
   onBypass,
+  deck = DECKS[0],
 }: {
   song: string | null;
   modules: DeckModule[];
   onBypass: (module: string) => void;
+  deck?: DeckId;
 }) {
-  const [selected, setSelected] = useState<string | null>(DECK);
+  const [selected, setSelected] = useState<string | null>(deck);
   // The camera lives OUTSIDE the graph, because the graph unmounts with its panel and a
   // camera that reset on every remount would fight the person using it.
   const cam = useRef<{ x: number; y: number; k: number } | null>(null);
 
   const laid = useMemo(() => {
-    const { nodes, edges } = buildGraph(deckGraph(song, modules));
+    const { nodes, edges } = buildGraph(deckGraph(song, modules, deck));
     return layout(nodes, edges);
-  }, [song, modules]);
+  }, [song, modules, deck]);
 
   return (
     <DomChains

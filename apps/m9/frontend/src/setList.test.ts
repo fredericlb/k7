@@ -47,6 +47,23 @@ describe("a set list resolved against the cache", () => {
     expect(set.entries[0].ref).toBe("@mediatek/songs/lemo/mante/hiver");
   });
 
+  it("finds an artist for the vinyl label, tags or no tags", () => {
+    const tagged = resolveSet(
+      'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n',
+      [{ ...CACHE[0], meta: { artist: "Lemo Mante" } } as MediatekEntry],
+    );
+    expect(tagged.entries[0].artist).toBe("Lemo Mante");
+
+    // Not in the cache, so there are no tags to read: the id's second segment is the artist
+    // FOLDER the médiathèque filed it under, which is a fact and not a guess.
+    const untagged = resolveSet(
+      'songs:\n  - "@mediatek/songs/Alain Bashung/Album inconnu/La nuit je mens"\n',
+      [],
+    );
+    expect(untagged.entries[0].artist).toBe("Alain Bashung");
+    expect(untagged.entries[0].name).toBe("La nuit je mens");
+  });
+
   it("draws the set in one order whatever the file's line order was", () => {
     const set = resolveSet(
       'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n  - "@mediatek/songs/lemo/mante/aube"\n',
