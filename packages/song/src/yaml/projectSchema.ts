@@ -38,9 +38,20 @@ export const ProjectSettingsSchema = z
   })
   .strict();
 
+/** What a project's files are FOR — the timeline song l8 opens, or the set m9 opens. */
+export const PROJECT_TYPES = ["l8", "m9"] as const;
+export type ProjectType = (typeof PROJECT_TYPES)[number];
+
 export const ProjectFileSchema = z
   .object({
     project: ProjectSettingsSchema.optional(),
+    // A ROOT sibling and not a `project:` setting, deliberately: the tiers above are the
+    // SONG's settings (its tempo, its rate), and this is a fact about the file's dialect —
+    // which entities the folder is allowed to hold and which app reads them. Putting it in
+    // `project:` is the same mistake `libraries_from` made from the other direction.
+    // The folder's SUFFIX stays authoritative (see projectType.ts): this is written down so
+    // a reader — and a loader handed an absolute path with no name to read — knows too.
+    type: z.enum(PROJECT_TYPES).optional(),
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
     markers: z // timeline markers: a timecode -> its label
       .record(

@@ -6,7 +6,7 @@ sur le côté, parce que c'est ce sur quoi on travaille et non le mobilier d'une
 
 | vue | ce qu'elle est |
 |---|---|
-| **Mix** | Pour l'instant les platines : les morceaux du cache de la médiathèque, une platine, sa chaîne. C'est ici qu'on viendra mixer le projet ouvert directement. |
+| **Mix** | Le set : les morceaux que `songs.yaml` nomme, une platine, sa chaîne. Voir [setList.md](setList.md). |
 | **Édition** | L'arbre et le fichier ouvert, en texte. Le même CodeMirror que l8 (`@studio/ui-editor`), la même complétion dérivée des schémas Zod, la même réponse de fourche à l'enregistrement. |
 | **Graphe** | Les chaînes du projet compilé, dessinées par `@studio/ui-chains-react` — le même pipeline que l'onglet Chains de l8. |
 
@@ -17,10 +17,12 @@ un jour n'apprend rien ; les platines, elles, marchent, et elles font déjà la 
 mixage fera — envoyer un `ProjectDoc` au moteur et le laisser jouer. Elles restent donc en
 place, et `deck.ts` est ce que le mixage du projet reprendra.
 
-C'est la seule vue qui ne parle **pas** du projet ouvert : elle lit le cache de la médiathèque
-sur la machine choisie (`service.ts`). Les deux coexistent sans se gêner — même service de
-fichiers, deux questions différentes. C'est aussi pourquoi l'arbre disparaît sur cette vue : il
-montrerait un projet que rien à l'écran ne concerne.
+Ce qui a changé, c'est **ce qu'elles listent**. Mix était la seule vue qui ne parlait pas du
+projet ouvert — elle montrait tout le cache de la médiathèque, et l'arbre disparaissait
+parce qu'il montrait un projet que rien à l'écran ne concernait. Elle lit maintenant le
+`songs.yaml` du projet, donc l'arbre reste sur toutes les vues. Ce qui n'a pas encore
+changé : le document envoyé au moteur est celui de la platine, pas celui du set. Les deux
+moitiés sont dans [setList.md](setList.md).
 
 ## Ce que m9 n'a pas, et ce n'est pas un oubli
 

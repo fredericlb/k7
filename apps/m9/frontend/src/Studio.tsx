@@ -276,27 +276,27 @@ export function Studio({
       )}
 
       <div className="flex min-h-0 flex-1">
-        {/* The tree stays across every view: it is what you are working ON, not one view's
-            furniture. Mix is the exception — it plays the médiathèque, not this project. */}
-        {view !== "mix" && (
-          <aside className="w-60 shrink-0 overflow-auto border-r p-2">
-            <FileTree
-              nodes={nodes}
-              rootPath=""
-              rootLabel={project === "." ? "PROJET" : project.split("/").pop()}
-              activePath={file}
-              reveal={file}
-              onOpen={(n) => {
-                if (!n.dir) {
-                  setView("edit");
-                  setFile(n.path);
-                }
-              }}
-            />
-          </aside>
-        )}
+        {/* The tree stays across EVERY view, Mix included: it is what you are working ON, not
+            one view's furniture. Mix used to be the exception because it played the whole
+            médiathèque and showed a project nothing on screen concerned; it plays this
+            project's set list now, and songs.yaml is a file in that tree. */}
+        <aside className="w-60 shrink-0 overflow-auto border-r p-2">
+          <FileTree
+            nodes={nodes}
+            rootPath=""
+            rootLabel={project === "." ? "PROJET" : project.split("/").pop()}
+            activePath={file}
+            reveal={file}
+            onOpen={(n) => {
+              if (!n.dir) {
+                setView("edit");
+                setFile(n.path);
+              }
+            }}
+          />
+        </aside>
 
-        {view === "mix" && <MixView engine={engine} />}
+        {view === "mix" && <MixView engine={engine} project={project} />}
         {view === "edit" && (
           <EditView
             path={file}

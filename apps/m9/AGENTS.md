@@ -12,7 +12,10 @@ Dev ports: **frontend 5225, backend 8796**, served at `https://studio.test/m9`.
 | `backend` (`m9-backend`) | Express — OIDC auth, **this service's** engine registry, and which machine the account works from. No file routes, no media. |
 
 Read `docs/views.md` first: what each view is, why Mix is still the decks, and what m9
-deliberately does not have.
+deliberately does not have. The project it opens is a **set** — `songs.yaml` plus two decks
+meeting at a crossfade — described in
+[packages/song/docs/m9Project.md](../../packages/song/docs/m9Project.md); what Mix does with
+it is [docs/setList.md](docs/setList.md).
 
 ## The two things to understand first
 
@@ -29,7 +32,9 @@ remembered anywhere. A `.m9` set nested inside a `.l8` song addresses fine —
 
 **2. The moteur opens file paths. It cannot fetch a URL.** That is still why Mix plays the
 médiathèque's **cache on the engine's own disk**, reached through that machine's file service,
-rather than the hosted library st0 serves. Three servers, and only one is same-origin:
+rather than the hosted library st0 serves — and it is why `songs.yaml` is a file rather than a
+picker: everything the set names is pulled onto that machine before the gig. Three servers,
+and only one is same-origin:
 
 | | m9's backend | the machine's file service | the machine's moteur |
 |---|---|---|---|

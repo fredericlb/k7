@@ -52,6 +52,7 @@ import {
   readModuleFile,
 } from "./yaml/moduleIO";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
+import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
 import { parseTrack } from "./yaml/trackFile";
 
 // The module vocabulary lives in moduleTypes.ts (a leaf, no filesystem) so the engine
@@ -805,6 +806,29 @@ export function loadChains(
         .join("\n  ")}`,
     );
   return value;
+}
+
+/**
+ * The set's songs, from `songs.yaml` — the médiathèque refs an m9 project draws on,
+ * deduplicated and sorted. Empty for a project that has no such file, which is every l8
+ * song: the file is m9's, and its absence is not a fault.
+ *
+ * The refs are NOT resolved here. What a ref names lives in the médiathèque, whose catalogue
+ * this package cannot read and should not learn to — and a ref that resolves to nothing is
+ * exactly the one worth reporting, so resolution belongs where the catalogue is (the cache
+ * sync fetches it, the surface says it is missing). Same reasoning as mediatekRefs.ts.
+ */
+export function loadSongs(dir: string, validate = false): string[] {
+  const file = entityFileFor(dir, "", "songs");
+  if (!file) return [];
+  const { value, issues } = parseSongsYaml(readFileSync(file.path, "utf8"));
+  if (issues.length && validate)
+    throw new Error(
+      `invalid songs:\n  ${issues
+        .map((i) => formatIssue(file.rel, i))
+        .join("\n  ")}`,
+    );
+  return songRefs(value);
 }
 
 /**
