@@ -104,9 +104,7 @@ export function ProjectsSection({
         nodes={nodes}
         onBack={() => onOpen(null)}
         onRefresh={() => refresh(repo)}
-        onOpenProject={(path, app) => {
-          window.location.href = api.openIn(repo.name, path, app);
-        }}
+        projectHref={(path, app) => api.openIn(repo.name, path, app)}
       />
     );
 
@@ -119,9 +117,7 @@ export function ProjectsSection({
         onAdd={add}
         onOpen={(r) => onOpen(r.id)}
         // Même départ que depuis l'arborescence : l'adresse de l'application, pas une vue d'ici.
-        onOpenProject={(r, p) => {
-          window.location.href = api.openIn(r.name, p.path, p.app);
-        }}
+        projectHref={(r, p) => api.openIn(r.name, p.path, p.app)}
         onRemove={remove}
         onRefresh={refresh}
       />

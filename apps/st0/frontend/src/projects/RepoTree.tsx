@@ -24,13 +24,13 @@ function Row({
   depth,
   open,
   onToggle,
-  onOpenProject,
+  projectHref,
 }: {
   node: FileNode;
   depth: number;
   open: Set<string>;
   onToggle: (path: string) => void;
-  onOpenProject: (path: string, app: ProjectApp) => void;
+  projectHref: (path: string, app: ProjectApp) => string;
 }) {
   const isOpen = open.has(node.path);
   const pad = { paddingLeft: `${depth * 14 + 8}px` };
@@ -66,15 +66,18 @@ function Row({
             {node.name}
           </span>
         </button>
-        {/* La seule action de tout l'écran : un projet s'ouvre dans SON application, pas ici.
-            C'est le suffixe du dossier qui la nomme — voir packages/web-protocol/projects.ts. */}
+        {/* Le seul départ de tout l'écran : un projet s'ouvre dans SON application, pas ici, et
+            c'est le suffixe du dossier qui la nomme (packages/web-protocol/projects.ts). Une
+            ancre et un nouvel onglet, pour les raisons de ../../docs/projects.md. */}
         {node.app && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onOpenProject(node.path, node.app!)}
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
+          <Button size="sm" variant="secondary" asChild>
+            <a
+              href={projectHref(node.path, node.app)}
+              target="_blank"
+              rel="noopener"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
+            </a>
           </Button>
         )}
       </div>
@@ -86,7 +89,7 @@ function Row({
             depth={depth + 1}
             open={open}
             onToggle={onToggle}
-            onOpenProject={onOpenProject}
+            projectHref={projectHref}
           />
         ))}
     </>
@@ -98,14 +101,15 @@ export function RepoTree({
   nodes,
   onBack,
   onRefresh,
-  onOpenProject,
+  projectHref,
 }: {
   repo: RepoSummary;
   /** null tant que le miroir n'a rien à lire — ce n'est pas un dépôt vide. */
   nodes: FileNode[] | null;
   onBack: () => void;
   onRefresh: () => void;
-  onOpenProject: (path: string, app: ProjectApp) => void;
+  /** L'adresse d'un projet, pas l'action de l'ouvrir : la rangée en fait un vrai lien. */
+  projectHref: (path: string, app: ProjectApp) => string;
 }) {
   // L'ordre de lecture, à tous les niveaux : le miroir répond dans celui de l'arbre git.
   const rows = useMemo(() => (nodes ? sortNodes(nodes) : null), [nodes]);
@@ -170,7 +174,7 @@ export function RepoTree({
               depth={0}
               open={open}
               onToggle={toggle}
-              onOpenProject={onOpenProject}
+              projectHref={projectHref}
             />
           ))
         )}

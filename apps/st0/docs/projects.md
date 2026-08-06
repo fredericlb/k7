@@ -68,6 +68,33 @@ seul dix secondes plus tard, donc que personne ne signalerait.
 L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
 dossiers qui ne sont pas des projets.
 
+### Un projet s'ouvre dans un nouvel onglet
+
+Les deux départs — la rangée en retrait sous le dépôt et le bouton de l'arborescence — sont
+des **ancres** portant `target="_blank"`, et non des boutons qui affectent
+`window.location`.
+
+C'est la phrase du haut de cette page prise au mot : le catalogue est ce dont un projet *se
+sert*, il est à un onglet. Un onglet dont on part n'est plus à un onglet. On ouvre un morceau
+dans l8, et cinq minutes plus tard on veut le sample qui manque, ou la chaîne à côté — la
+médiathèque doit être encore là, à sa section, avec ses dossiers dépliés. Un aller-retour par
+le bouton « précédent » redemanderait `/api/projects`, replierait l'arbre du dépôt, et
+arrêterait ce que `PlaybackProvider` était en train de jouer dans cet onglet-ci
+([miniPlayer.md](miniPlayer.md)).
+
+Et ouvrir un deuxième projet ne coûte alors plus rien : deux morceaux côte à côte sont deux
+onglets, ce qui est exactement la façon dont on compare deux mixes.
+
+Le corollaire est le type des props : `RepoList` et `RepoTree` reçoivent un `projectHref`,
+pas un `onOpenProject`. **Une adresse et non une action** — la section calcule où mène la
+rangée, la vue en fait un lien. Le navigateur fait le reste, et le fait mieux : ctrl-clic,
+clic du milieu et « copier l'adresse du lien » marchent parce que c'en est une. Un
+`window.open` dans un `onClick` aurait répondu la même chose aux trois.
+
+`rel="noopener"` coupe `window.opener` : l8 n'a rien à dire à l'onglet d'où il vient, et
+`@studio/project-shell` ne lit que son adresse à lui
+([launch.md](../../../packages/project-shell/docs/launch.md)).
+
 ### Comment elle s'ouvre
 
 Le **premier niveau est déplié** dès que le miroir répond, et rien en dessous : un dépôt qui
@@ -91,8 +118,9 @@ se lisent donc pareil.
 1. Dans **Projets**, on colle une URI SSH. st0 génère la clé de déploiement si elle n'existe
    pas encore, enregistre le dépôt et lance le miroir en tâche de fond.
 2. La liste affiche chaque dépôt avec **ses projets en retrait dessous** ; un clic sur l'un
-   d'eux part directement dans son application. Le nom du dépôt, lui, ouvre l'arborescence,
-   où les dossiers-projets sont marqués de la même façon.
+   d'eux part directement dans son application, **dans un nouvel onglet**. Le nom du dépôt,
+   lui, ouvre l'arborescence — ici même —, où les dossiers-projets sont marqués de la même
+   façon.
 3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — une ADRESSE, et le dépôt
    par son **nom court**, pas par son URI : une barre d'adresse se copie et se colle, et une
    URI SSH y traîne une machine, un port et un utilisateur.
