@@ -15,6 +15,7 @@ import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
+import { loadControllerLibrary } from "./controller";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { modelsRoot } from "./modelCache";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
@@ -438,7 +439,7 @@ export function loadModules(
       throw new Error(`invalid module(s):\n  ${yamlIssues.join("\n  ")}`);
     validatePlugins(raw);
   }
-  applyUiLibrary(dir, out, (m) => localUiRefs(m));
+  applyUiLibrary(dir, out, (m) => moduleOwnRefs(m));
   return out;
 }
 
@@ -503,7 +504,7 @@ function loadInstances(
 }
 
 /**
- * The refs a local module's panel may be filed under, best first.
+ * The refs a local module's OWN FILES may be filed under, best first.
  *
  * Its own — a module this project wrote has its own face. Then the module it DERIVES
  * from: a folder of instances is one use of something the engine or the library provides,
@@ -511,8 +512,11 @@ function loadInstances(
  * a project off the generated catalogue orphaned every panel that had been drawn for a
  * shared module — the same "No Options over a panel that is right there" as before, one
  * level further out.
+ *
+ * Exported because WRITING one of those files has to land where reading looks: `module cc`
+ * resolves a chain's module name to a folder through exactly this list (see controller.ts).
  */
-function localUiRefs(m: LoadedModule): string[] {
+export function moduleOwnRefs(m: LoadedModule): string[] {
   const from = typeof m.extends === "string" ? m.extends : "";
   // A project's own module answers to two refs — bare and "@project/…" — and an instance may
   // have been written with either. Both are tried, so a panel drawn once is found either way.
@@ -549,16 +553,27 @@ function applyUiLibrary(
   // is a use of. First hit wins, so the specific beats the general.
   refOf: (m: LoadedModule, key: string) => string | string[],
 ): void {
+  applyByRef(out, refOf, loadUiLibrary(dir).byRef, "ui", (e) => e.ui);
+  applyByRef(out, refOf, loadControllerLibrary(dir).byRef, "cc", (e) => e.cc);
+}
+
+/** Stamp a folder-keyed sibling file onto every module that answers to its ref. The panel and the
+ *  MIDI map are found the same way and land the same way; only the field differs. */
+function applyByRef<E>(
+  out: Record<string, LoadedModule>,
+  refOf: (m: LoadedModule, key: string) => string | string[],
+  byRef: Record<string, E>,
+  field: string,
+  valueOf: (entry: E) => unknown,
+): void {
   const entries = Object.entries(out);
-  if (!entries.length) return;
-  const lib = loadUiLibrary(dir);
-  if (!Object.keys(lib.byRef).length) return;
+  if (!entries.length || !Object.keys(byRef).length) return;
   for (const [key, m] of entries) {
     const refs = refOf(m, key);
     for (const ref of Array.isArray(refs) ? refs : [refs]) {
-      const panel = lib.byRef[ref];
-      if (panel) {
-        (m as { ui?: unknown }).ui = panel.ui;
+      const hit = byRef[ref];
+      if (hit) {
+        (m as unknown as Record<string, unknown>)[field] = valueOf(hit);
         break;
       }
     }

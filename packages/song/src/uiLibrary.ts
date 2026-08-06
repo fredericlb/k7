@@ -3,22 +3,11 @@
 // without touching how it is DRAWN. The FOLDER says which module a panel belongs to; the file only says how it
 // looks. Read across every module library the project can see, nearest first. Rationale: docs/uiLibrary.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import { MODULE_TYPES, moduleRefOf } from "./moduleTypes";
-import {
-  moduleLibraryDirs,
-  moduleNamespaceOf,
-  modulePanelRoots,
-} from "./sharedFolders";
-import { moduleFileFor, UI_BASE } from "./yaml/moduleIO";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { eachLibrarySibling } from "./moduleSiblings";
+import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
+import { UI_BASE } from "./yaml/moduleIO";
 import { type ModuleUI, UiFileSchema } from "./yaml/moduleSchema";
 import { parseUiFile } from "./yaml/uiFile";
 
@@ -63,76 +52,17 @@ export function uiPathFor(ref: string): string {
  */
 export function loadUiLibrary(dir: string): UiLibrary {
   const out: UiLibrary = { byRef: {}, issues: [] };
-  // The project's OWN `modules/` is the `@project` level, and `panelsIn` reads a null namespace as
-  // exactly that: bare refs, and no category folder in between. It used to fall out of
-  // `moduleNamespaceOf` returning null for a root with no config; that function answers from
-  // LOCATION now and always names a level, so the one root that is not a library is named here.
-  const own = resolve(join(dir, "modules"));
-  for (const root of modulePanelRoots(dir)) {
-    const ns = resolve(root) === own ? null : moduleNamespaceOf(root);
-    const label = basename(root);
-    for (const { ref, path, rel } of panelsIn(root, ns)) {
-      if (out.byRef[ref]) continue; // a nearer library already answered — that is precedence working
-      const parsed = parseUiFile(readFileSync(path, "utf8"));
-      if (!parsed.value) {
-        out.issues.push(
-          `${label}/${rel}: ${parsed.issues[0]?.message ?? "unreadable"}`,
-        );
-        continue;
-      }
-      out.byRef[ref] = { ref, ui: parsed.value, path };
-    }
-  }
-  return out;
-}
-
-/**
- * Every `ui.yaml` under one module library, with the ref its folder gives it.
- *
- * Two depths, because the two trees differ: a project files modules one level under the type folder, a shared
- * library may put one category folder in between. Mirrors the loaders' own walk rather than guessing at it, so a
- * folder this hands back a ref for is a folder loadModules and loadModuleRefs agree about.
- */
-function panelsIn(
-  root: string,
-  ns: string | null,
-): { ref: string; path: string; rel: string }[] {
-  const out: { ref: string; path: string; rel: string }[] = [];
-  const at = (folder: string, rel: string, ref: string): void => {
-    const file = moduleFileFor(folder, rel, UI_BASE);
-    if (file)
-      out.push({ ref, path: file.path, rel: `${rel}/${basename(file.path)}` });
-  };
-  const dirs = (abs: string): string[] => {
-    try {
-      return readdirSync(abs).filter((n) =>
-        statSync(join(abs, n)).isDirectory(),
+  eachLibrarySibling(dir, UI_BASE, ({ ref, path, rel }, label) => {
+    if (out.byRef[ref]) return; // a nearer library already answered — that is precedence working
+    const parsed = parseUiFile(readFileSync(path, "utf8"));
+    if (!parsed.value) {
+      out.issues.push(
+        `${label}/${rel}: ${parsed.issues[0]?.message ?? "unreadable"}`,
       );
-    } catch {
-      return []; // unreadable folder — the rest of the library still loads
+      return;
     }
-  };
-  for (const type of Object.keys(MODULE_TYPES)) {
-    const typeDir = join(root, type);
-    if (!existsSync(typeDir)) continue;
-    for (const name of dirs(typeDir)) {
-      const folder = join(typeDir, name);
-      at(
-        folder,
-        `${type}/${name}`,
-        ns ? `@${ns}/${type}/${name}` : moduleRefOf(type, name),
-      );
-      // A category folder, one level deep only — and only in a shared library, which is the
-      // one shape that files a module under `<type>/<category>/<leaf>`.
-      if (!ns) continue;
-      for (const leaf of dirs(folder))
-        at(
-          join(folder, leaf),
-          `${type}/${name}/${leaf}`,
-          `@${ns}/${type}/${name}/${leaf}`,
-        );
-    }
-  }
+    out.byRef[ref] = { ref, ui: parsed.value, path };
+  });
   return out;
 }
 

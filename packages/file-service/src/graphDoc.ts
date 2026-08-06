@@ -138,6 +138,10 @@ export function buildGraphDoc(dir: string): WebGraph {
             !unknownPlugin &&
             EXTERNAL_PLUGIN_FORMATS.has(fmt),
           ui: module?.ui,
+          // Which CC plays which param, from the module folder's `controller.yaml`. Rides beside
+          // `ui` because it is keyed the same way — by the widget's `bind` — and read in the same
+          // place: the graph is where a knob is drawn, so it is where a knob learns its control.
+          cc: module?.cc,
           params: module?.params ?? {},
           pluginId:
             isPlugin && !stub && !notSupported && !unknownPlugin

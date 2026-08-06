@@ -18,6 +18,7 @@ import {
   useTrackLevel,
 } from "@studio/engine-browser/store";
 import type {
+  WebCc,
   WebModuleCategory,
   WebSignal,
   WebWidget,
@@ -84,7 +85,21 @@ export type GraphMenuCtx =
   | { kind: "track"; id: string }
   | { kind: "module"; id: string; missing?: boolean }
   | { kind: "chain"; id: string }
-  | { kind: "sink"; id: string };
+  | { kind: "sink"; id: string }
+  // One WIDGET on a module, right-clicked: the param it drives, and the CC already mapped to it.
+  // Distinct from "module" because the answer is about one knob — a MIDI binding is per param, and
+  // the module menu has nothing to say about which one you were pointing at.
+  | {
+      kind: "param";
+      /** The module the widget is drawn on. */
+      id: string;
+      /** The widget's `bind`, verbatim — `Cutoff`, or `@monitor` for a module field. */
+      param: string;
+      /** Its label, for a menu that reads as the knob does. */
+      label: string;
+      /** The CC bound to it today, if any (the module's `controller.yaml`). */
+      cc?: WebCc;
+    };
 
 /**
  * The glyphs a node draws itself with, supplied by the host.
@@ -635,6 +650,7 @@ function TabsWidget({
   onPick,
   onPickLibrary,
   onWatchWaveform,
+  onContextParam,
 }: {
   n: GraphNode;
   w: WebWidget;
@@ -645,6 +661,8 @@ function TabsWidget({
   onPick: (n: GraphNode, w: WebWidget, value: number) => void;
   /** Open the library browser for this widget, at the click's viewport coords. */
   onPickLibrary: (n: GraphNode, kind: string, x: number, y: number) => void;
+  /** Right-click a sub-widget — passed straight through to each. */
+  onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -701,6 +719,7 @@ function TabsWidget({
               onPick={onPick}
               onPickLibrary={onPickLibrary}
               onWatchWaveform={onWatchWaveform}
+              onContextParam={onContextParam}
               styleOverride={{
                 position: "absolute",
                 left: sr.x - (style.left as number),
@@ -839,6 +858,7 @@ function Widget({
   onPick,
   onPickLibrary,
   onWatchWaveform,
+  onContextParam,
   styleOverride,
 }: {
   n: GraphNode;
@@ -857,6 +877,8 @@ function Widget({
     side: "input" | "output",
     on: boolean,
   ) => void;
+  /** Right-click on this control — the host's menu for the PARAM it drives (see GraphMenuCtx). */
+  onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   styleOverride?: React.CSSProperties;
 }) {
   const r = widgetRect(w);
@@ -876,6 +898,7 @@ function Widget({
         onPick={onPick}
         onPickLibrary={onPickLibrary}
         onWatchWaveform={onWatchWaveform}
+        onContextParam={onContextParam}
       />
     );
   }
@@ -931,6 +954,15 @@ function Widget({
               },
             }
           : { className: "dgx-w" };
+
+  // A control that drives something can be right-clicked for what drives IT. On the widget rather
+  // than the node, and stopped there, so the module's own menu does not answer for one knob.
+  if (actuable && onContextParam)
+    interact.onContextMenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onContextParam(n, w, e.clientX, e.clientY);
+    };
 
   let body: React.ReactNode = null;
   if (w.type === "knob") {
@@ -1136,6 +1168,7 @@ function Node({
   onPickWidget,
   onPickLibrary,
   onWatchWaveform,
+  onContextParam,
   sinkPlay,
 }: {
   n: GraphNode;
@@ -1164,6 +1197,8 @@ function Node({
     side: "input" | "output",
     on: boolean,
   ) => void;
+  /** Right-click on one of this node's controls — the menu for the PARAM, not for the module. */
+  onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   sinkPlay?: SinkPlay;
 }) {
   const { ModuleIcon, moduleGlyph, TrackIcon } = useIcons();
@@ -1497,6 +1532,7 @@ function Node({
             onPick={onPickWidget}
             onPickLibrary={onPickLibrary}
             onWatchWaveform={onWatchWaveform}
+            onContextParam={onContextParam}
           />
         ))
       ) : (
@@ -2195,6 +2231,38 @@ export function DomChains({
     const ctx = nodeToCtx(n);
     if (ctx) cb.current.onContextMenu?.(ctx, e.clientX, e.clientY);
   };
+  /**
+   * Right-click on a CONTROL: the menu for the param it drives.
+   *
+   * Only a module's own PLUGIN param. Two things are excluded, and both because the answer would
+   * be a promise nothing can keep:
+   *
+   * - a widget on a track node (`@volume`) drives a mixer control, and the MIDI map is a file in a
+   *   MODULE's folder — there is nowhere to record it;
+   * - an `@` bind is a module FIELD (`monitor`), a word rather than a number, so a control change
+   *   has nothing to sweep.
+   *
+   * Both fall through to the node's own menu, which is what they had before.
+   */
+  const contextParam = (
+    n: GraphNode,
+    w: WebWidget,
+    x: number,
+    y: number,
+  ): void => {
+    if (!n.module || !w.bind || w.bind.startsWith("@") || !n.pluginId) return;
+    cb.current.onContextMenu?.(
+      {
+        kind: "param",
+        id: n.module,
+        param: w.bind,
+        label: w.label || w.bind,
+        cc: n.cc?.[w.bind],
+      },
+      x,
+      y,
+    );
+  };
   const openPlugin = (module: string) =>
     void cb.current.command(`module open ${module}`);
   // Bare `module bypass` toggles, and NOT the quiet path: bypass changes the graph's shape, so it must reload.
@@ -2366,6 +2434,7 @@ export function DomChains({
                 onPickWidget={pickWidget}
                 onPickLibrary={pickLibrary}
                 onWatchWaveform={onWatchWaveform}
+                onContextParam={contextParam}
                 sinkPlay={sinkPlay}
               />
             ))}

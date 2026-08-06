@@ -26,6 +26,10 @@ export const LOCAL_COMMANDS = [
   "project delete", // recycle a project folder (confirmed via a dialog)
   "ui edit sequence", // open a MIDI sequence's file in the editor
   "ui edit clip", // open an audio clip's file in the editor
+  // Arm MIDI learn on a module's param: the next control change from any attached controller
+  // binds to it, and the binding is then written by `module cc`. A UI command because the
+  // LISTENING is the browser's; the map it ends up writing is the brain's.
+  "ui midi learn",
   // The timeline's selection, zoom, loop and move: the state lives in TimelineTab and these reach it via its handle.
   "ui select", // caret <-> selection rectangle
   "ui zoom", // frame the selection
@@ -51,6 +55,10 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
   "ui edit sequence": [
     { name: "name", kind: "file", hint: "a sequence of this project" },
+  ],
+  "ui midi learn": [
+    { name: "module", kind: "module", hint: "a module of this project" },
+    { name: "param", kind: "text", hint: "the name its widget binds" },
   ],
   "ui edit clip": [
     { name: "name", kind: "file", hint: "a clip of this project" },

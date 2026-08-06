@@ -26,6 +26,8 @@
     "./yaml/chainsFile": "./src/yaml/chainsFile.ts",
     "./yaml/uiFile": "./src/yaml/uiFile.ts",
     "./presets": "./src/presets.ts",
+    "./controller": "./src/controller.ts",
+    "./controllerBind": "./src/controllerBind.ts",
     "./trackMix": "./src/trackMix.ts",
     "./hints": "./src/hints.ts",
     "./ioPorts": "./src/ioPorts.ts",

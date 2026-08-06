@@ -4,7 +4,10 @@
 // send that skips a column doesn't slice through the module between. Shared with GraphPanel.
 
 import { cn } from "@frediverse/ui/lib/utils";
-import type { PluginParamsStore } from "@studio/engine-browser/params";
+import {
+  type PluginParamsStore,
+  usePluginParams,
+} from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
@@ -14,6 +17,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import {
+  type MappedParam,
+  type MidiControlApi,
+  useMidiControl,
+} from "../hooks/useMidiControl";
 import type { WebGraph } from "../types";
 import { useIsMobile } from "../useIsMobile";
 
@@ -42,6 +50,8 @@ export function ChainsTab({
   onTrackSet,
   focus,
   onFocused,
+  midiRef,
+  onMidiStatus,
 }: {
   reloadKey: number;
   // VISIBLE, not focused: a display:none container has no size and fit() would frame to 0.
@@ -103,6 +113,17 @@ export function ChainsTab({
   focus?: { id: string; nonce: number } | null;
   /** How many chains that framing found — so the shell's status line can say when it was none. */
   onFocused?: (chains: number) => void;
+  /**
+   * Where the shell reaches MIDI learn from.
+   *
+   * The runtime lives HERE because this is the one component that always holds the graph — the map
+   * is part of it — and it stays mounted when the pane is hidden, so a controller keeps playing
+   * while you are looking at the timeline. The shell only needs to arm a learn, so it gets a
+   * handle rather than the whole thing.
+   */
+  midiRef?: React.RefObject<MidiControlApi | null>;
+  /** Say what a learn is waiting for, or what it captured. */
+  onMidiStatus?: (line: string) => void;
 }) {
   const activeTracks = useActiveTracks(trackOrder);
   const [graph, setGraph] = useState<WebGraph | null>(null);
@@ -277,6 +298,29 @@ export function ChainsTab({
     [graph],
   );
 
+  // --- MIDI: the graph's map, played ------------------------------------------------
+  //
+  // `setParam` is the same call a knob drag makes, so a value moved by hand and one moved by a
+  // controller are indistinguishable downstream — including the optimistic override that makes the
+  // widget follow before the engine answers.
+  const midi = useMidiControl({
+    graph,
+    setParam: useCallback(
+      (m: MappedParam, value: number) =>
+        setPluginParam(m.pluginId, m.param, value),
+      [setPluginParam],
+    ),
+  });
+  useEffect(() => {
+    if (midiRef) midiRef.current = midi;
+  }, [midiRef, midi]);
+  useEffect(() => {
+    if (!midi.learning) return;
+    onMidiStatus?.(
+      `MIDI learn: ${midi.learning.module} ${midi.learning.param} — move a control, or run any command to cancel`,
+    );
+  }, [midi.learning, onMidiStatus]);
+
   // --- framing a track (a double-click on its timeline header) -----------------------
   //
   // The set is the same one the Graph panel draws: every chain `subgraphForTrack` walks to
@@ -346,6 +390,11 @@ export function ChainsTab({
   return (
     // min-w-0: without it the canvas's width becomes this flex child's minimum and the page slides sideways.
     <div className="relative flex min-h-0 min-w-0 flex-1">
+      {/* The MIDI feedback pass, in a component of its own that draws nothing. It is the one thing
+          here that has to watch the param store, which ticks per engine frame — subscribing in
+          ChainsTab would re-render the whole graph at that rate, which is exactly what the store
+          exists to prevent (see its comment on pluginParamsStore). */}
+      <MidiFeedback store={pluginParamsStore} push={midi.pushFeedback} />
       {/* On a phone the chain list is a DRAWER, not a column: 288px of a ~390px screen
           would leave the graph a sliver. It slides over the canvas, starts closed, and
           closes again as soon as a chain is picked — by which point the graph is what
@@ -492,4 +541,23 @@ export function ChainsTab({
       </main>
     </div>
   );
+}
+
+/**
+ * The MIDI feedback pass — the only thing here that watches the engine's param values.
+ *
+ * A component rather than a hook call in ChainsTab, and one that renders null, because those
+ * values arrive per engine frame: subscribing in the parent would re-render the graph at that
+ * rate. `usePluginParams` re-renders THIS, which draws nothing, and the push goes out from here.
+ */
+function MidiFeedback({
+  store,
+  push,
+}: {
+  store: PluginParamsStore;
+  push: (live: Record<string, Record<string, number>>) => void;
+}) {
+  const live = usePluginParams(store);
+  useEffect(() => push(live), [live, push]);
+  return null;
 }

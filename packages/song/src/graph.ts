@@ -21,6 +21,7 @@ import {
 } from "./loader";
 import {
   type ResolvedModule,
+  resolvedCc,
   resolvedUI,
   resolveModule,
   resolveModuleMap,
@@ -37,6 +38,7 @@ import type {
   RawVideoTrack,
 } from "./rawDoc";
 import { parsePosition } from "./timecode";
+import type { ControllerFile } from "./yaml/moduleSchema";
 
 // --- model -------------------------------------------------------------------
 
@@ -193,6 +195,9 @@ export interface Module {
   // Only usable on an input that is already a FILE — see docs/coldModules.md and isColdModule.
   cold?: boolean;
   ui?: ModuleUI;
+  // Which MIDI CC plays which param, from the `controller.yaml` in the module's folder. Keyed by the
+  // widget's `bind` string verbatim, so the map and the panel read side by side (controller.ts).
+  cc?: ControllerFile;
   inputs: InputDef[]; // typed input ports from the type folder (empty == unconstrained)
   // …and its output ports. Carried beside `emits` rather than derived from it: `emits` is one
   // word for the cable's colour, a port is a PLACE something plugs into, and a module may offer
@@ -590,6 +595,9 @@ export function buildGraph(
     // Inherited like `plugin`, so a use of a cold module is cold and nothing has to restate it.
     cold: b?.cold === true ? true : undefined,
     ui: resolvedUI(b),
+    // Stamped on by the loader from the folder's file; re-validated here because a map read off a
+    // module map (a cached doc) has not been through the schema.
+    cc: resolvedCc(b),
     inputs: normalizeInputs(b?.inputs),
     outputs: normalizeOutputs(b?.outputs),
     // `category` is the type FOLDER, added by loadModules — the only thing that says

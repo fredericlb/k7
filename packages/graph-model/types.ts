@@ -93,6 +93,11 @@ export interface WebChainStep {
   // The UI drawn inside this module's rectangle, already merged (extended module's, overridden per widget id by
   // this one's). Undefined == neither defines one.
   ui?: WebModuleUI;
+  // Which MIDI CC plays which param, from the `controller.yaml` in the module's FOLDER — so it is
+  // the module's, shared by every instance of it, exactly as the panel above is. Keyed by the
+  // widget's `bind` string verbatim (`Cutoff`, `@monitor`), so a widget finds its own control by
+  // the one name it already has. Undefined == this module is not mapped.
+  cc?: Record<string, WebCc>;
   // What the module actually runs with (defaults + overrides). A bound param may be ABSENT — the plugin's own
   // default is known only to the engine, so a widget with no value falls back to its authored min.
   // A STRING is a file-valued param (`nam`), drawn as a dropdown over the module's assets/ rather
@@ -109,6 +114,11 @@ export interface WebChainStep {
   tap?: { id: string; side: "input" | "output" };
   // Which curve (by id) drives which param. The graph draws each as a curve node arrowing into the module.
   automations?: WebAutomation[];
+}
+// One MIDI control change: the channel a musician counts (1-16), and the control number (0-127).
+export interface WebCc {
+  ch: number;
+  cc: number;
 }
 // One automation binding — a curve id driving a named param on a module.
 export interface WebAutomation {
