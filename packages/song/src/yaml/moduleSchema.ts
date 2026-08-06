@@ -162,6 +162,26 @@ export const PresetsFileSchema = z.record(
 
 export type PresetsFile = z.infer<typeof PresetsFileSchema>;
 
+// One `controller.yaml`: which MIDI control moves which of the module's params, beside its `module.yaml` like
+// the panel and the shelf. The key is the param — one control per param, because two controls fighting over one
+// value is a bug rather than a feature. See controller.ts and docs/controller.md.
+export const CcBindingSchema = z
+  .object({
+    // 1..16 as a musician counts them, not 0..15 as the wire does — this file is read by people.
+    ch: z.number().int().min(1).max(16),
+    cc: z.number().int().min(0).max(127),
+  })
+  .strict();
+
+export type CcBinding = z.infer<typeof CcBindingSchema>;
+
+export const ControllerFileSchema = z.record(
+  z.string().min(1),
+  CcBindingSchema,
+);
+
+export type ControllerFile = z.infer<typeof ControllerFileSchema>;
+
 /** The widget kinds, for a picker that must offer exactly what the schema accepts. */
 export type WidgetType = Widget["type"];
 

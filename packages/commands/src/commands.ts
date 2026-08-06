@@ -11,6 +11,7 @@ import type {
   PluginInfo,
 } from "@studio/engine-client/engineClient";
 import { migrateChains } from "@studio/song/chainsMigrate";
+import { bindModuleCc } from "@studio/song/controllerBind";
 import { createCurveFile } from "@studio/song/curves";
 import {
   coldPlacementError,
@@ -1336,6 +1337,50 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${module}: ${param} = ${value}`]);
     } catch (e) {
       h.log([`module param failed: ${(e as Error).message}`]);
+    }
+  },
+
+  // module cc <module> <param> <channel> <cc> — bind a MIDI control to a param, or
+  // `module cc <module> <param> none` to unbind. The param is read as everything BETWEEN the
+  // module and the trailing numbers, since plugin display names contain spaces (as in module.param).
+  //
+  // Writes a file and nothing else: the binding is played by the BROWSER's Web MIDI, so there is
+  // no engine state to patch and no project to re-apply. The reload the caller does afterwards is
+  // what carries the new map to the graph.
+  "module.cc": async (a, h) => {
+    const usage =
+      "usage: module cc <module> <param> <channel 1-16> <cc 0-127>  (e.g. module cc synth Cutoff 1 74)\n" +
+      "       module cc <module> <param> none            — unbind";
+    const trimmed = a.trim();
+    const unbind = /^(\S+)\s+(.+?)\s+none$/i.exec(trimmed);
+    const bind = /^(\S+)\s+(.+?)\s+(\d+)\s+(\d+)$/.exec(trimmed);
+    const m = unbind ?? bind;
+    if (!m) {
+      h.log([usage]);
+      return;
+    }
+    const module = m[1];
+    const param = m[2].replace(/^"(.*)"$/s, "$1").trim();
+    const binding = unbind ? null : { ch: Number(m[3]), cc: Number(m[4]) };
+    if (binding && (binding.ch < 1 || binding.ch > 16)) {
+      h.log([`channel ${binding.ch} is not 1-16`, usage]);
+      return;
+    }
+    if (binding && (binding.cc < 0 || binding.cc > 127)) {
+      h.log([`cc ${binding.cc} is not 0-127`, usage]);
+      return;
+    }
+    try {
+      const { rel, ref } = bindModuleCc(h.songPath, module, param, binding);
+      h.log([
+        binding
+          ? `${module}: ${param} <- ch${binding.ch} cc${binding.cc}  (${rel})`
+          : `${module}: ${param} unbound  (${rel})`,
+        // The map is the MODULE's, so it plays for every use of it — say so rather than let it be found.
+        `${ref}'s map — shared by every instance of it`,
+      ]);
+    } catch (e) {
+      h.log([`module cc failed: ${(e as Error).message}`]);
     }
   },
 

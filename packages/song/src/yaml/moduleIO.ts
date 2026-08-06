@@ -18,11 +18,21 @@ export interface ModuleFile {
 // short one should not find their module silently absent. `.yaml` wins when both exist.
 const EXTS = [".yaml", ".yml"];
 
-/** The two basenames a module folder holds that are NEITHER the generic nor one of its instances: its panel
- *  (uiLibrary.ts) and its named settings (presets.ts). Named here because this file is what decides which of a
- *  folder's YAML files is what — and every one of them that is not on this list is one use of the module. */
+/** The basenames a module folder holds that are NEITHER the generic nor one of its instances: its panel
+ *  (uiLibrary.ts), its named settings (presets.ts) and its MIDI map (controller.ts). Named here because this
+ *  file is what decides which of a folder's YAML files is what — and every one of them that is not on this list
+ *  is one use of the module. Adding a sibling file without adding it here files it as an INSTANCE. */
 export const UI_BASE = "ui";
 export const PRESETS_BASE = "presets";
+export const CONTROLLER_BASE = "controller";
+
+/** Every basename that is the module ITSELF rather than a use of it. */
+export const MODULE_OWN_BASES: ReadonlySet<string> = new Set([
+  "module",
+  UI_BASE,
+  PRESETS_BASE,
+  CONTROLLER_BASE,
+]);
 
 /**
  * The module file for `base` ("module", or an instance's name) in `folder`, or null when
@@ -42,7 +52,7 @@ export function moduleFileFor(
 
 /**
  * The INSTANCE files beside a module's generic — every `<instance>.yaml` that is none of the folder's own
- * three (`module.yaml`, `ui.yaml`, `presets.yaml`). One entry per instance NAME; a directory is never one.
+ * (MODULE_OWN_BASES). One entry per instance NAME; a directory is never one.
  */
 export function instanceFiles(
   folder: string,
@@ -59,9 +69,8 @@ export function instanceFiles(
     const ext = extname(f).toLowerCase();
     if (!EXTS.includes(ext)) continue;
     const base = basename(f, ext);
-    // The generic, the panel and the preset shelf are the module ITSELF, not uses of it.
-    if (base === "module" || base === UI_BASE || base === PRESETS_BASE)
-      continue;
+    // The generic, the panel, the preset shelf and the MIDI map are the module ITSELF, not uses of it.
+    if (MODULE_OWN_BASES.has(base)) continue;
     try {
       if (!statSync(join(folder, f)).isFile()) continue;
     } catch {

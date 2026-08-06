@@ -69,6 +69,7 @@ import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useLogs } from "./hooks/useLogs";
+import type { MidiControlApi } from "./hooks/useMidiControl";
 import { useMidiRecording } from "./hooks/useMidiRecording";
 import {
   useActiveProjectFollow,
@@ -203,6 +204,9 @@ export default function App({
   const cmdRef = useRef<CommandBarHandle>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const timelineRef = useRef<TimelineHandle>(null);
+  // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
+  // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
+  const chainsMidiRef = useRef<MidiControlApi | null>(null);
   const editorRef = useRef<EditorHandle>(null);
 
   // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
@@ -555,6 +559,62 @@ export default function App({
     [visible, fullscreen, focusOn],
   );
 
+  // `runCommand` is defined below and calls THIS, so a local command that needs to run a real one
+  // reaches it through a ref rather than closing over it.
+  const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
+
+  /**
+   * Arm MIDI learn on one param: the next control change from any attached controller binds to it.
+   *
+   * The capture is the browser's, the binding is a command — so what lands on disk goes through
+   * `module cc` like every other edit, and a learn is exactly a `module cc` you did not have to
+   * count the CC number for.
+   *
+   * A param may contain spaces ("Filter Freq"), so it is taken quoted or as the whole rest.
+   */
+  const armMidiLearn = useCallback((rest: string) => {
+    const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
+    if (!m) {
+      setStatus(
+        'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
+      );
+      return;
+    }
+    const module = m[1];
+    const param = (m[2] ?? m[3] ?? "").trim();
+    const midi = chainsMidiRef.current;
+    if (!midi?.ready) {
+      setStatus(
+        "no MIDI here — this browser has no Web MIDI, or access was refused",
+      );
+      return;
+    }
+    setStatus(
+      `MIDI learn: ${module} ${param} — move a control on your controller`,
+    );
+    midi.learn(module, param, (learned) => {
+      if (!learned) {
+        setStatus(`MIDI learn cancelled — ${module} ${param} unchanged`);
+        return;
+      }
+      const arg = /\s/.test(param) ? JSON.stringify(param) : param;
+      void runCommandRef
+        .current(`module cc ${module} ${arg} ${learned.ch} ${learned.cc}`)
+        .then(() => {
+          // "bidirectional when possible": possible means the device that just spoke also has an
+          // output port to answer on. Said at bind time, because that is when you can still
+          // choose a different control.
+          const both = midi.hasFeedback(module, param);
+          setStatus(
+            `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
+              (both
+                ? "bidirectional (the control will follow the value)"
+                : "write only (this device has no MIDI output to answer on)"),
+          );
+        });
+    });
+  }, []);
+
   // The shell's view commands; returns false when the line isn't one, so the caller falls through to the backend.
   const runLocalCommand = useCallback(
     (s: string): boolean => {
@@ -575,7 +635,7 @@ export default function App({
         "help",
       ]);
       // The ones that take an argument, so they match on their head rather than whole.
-      const UI_HEADS = ["file ", "edit sequence ", "edit clip "];
+      const UI_HEADS = ["file ", "edit sequence ", "edit clip ", "midi learn "];
       const isUi =
         UI_EXACT.has(line) || UI_HEADS.some((h) => line.startsWith(h));
       if (isUi !== prefixed) {
@@ -704,6 +764,12 @@ export default function App({
         openInEditor(s.slice("edit clip ".length).trim());
         return true;
       }
+      // ui midi learn <module> <param> — arm the browser's Web MIDI on one param. The BINDING is
+      // written by `module cc`, which is the brain's; what is local here is the listening.
+      if (line.startsWith("midi learn ")) {
+        armMidiLearn(s.slice("midi learn ".length).trim());
+        return true;
+      }
       return false;
     },
     [
@@ -712,6 +778,7 @@ export default function App({
       focusPane,
       hasVideo,
       openInEditor,
+      armMidiLearn,
       ringPanes,
       ws,
       openHelp,
@@ -765,6 +832,7 @@ export default function App({
     },
     [freezeTarget, pushLog, runLocalCommand],
   );
+  runCommandRef.current = runCommand;
 
   // --- following a track across the panes ------------------------------------------
   //
@@ -1419,6 +1487,8 @@ export default function App({
                   onTrackSet={onTrackSet}
                   focus={graphFocus}
                   onFocused={reportFramed}
+                  midiRef={chainsMidiRef}
+                  onMidiStatus={setStatus}
                 />
               </div>
 

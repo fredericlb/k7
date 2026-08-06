@@ -432,6 +432,20 @@
       { name: param, hint: "the engine's name for it — quote it if it has spaces" },
       { name: value, hint: "a number, in the param's own units" },
     ]
+# Binds a MIDI control change to one of a module's params, in the `controller.yaml` in the
+# module's own folder — so the map follows the module into every project that names it, and
+# every INSTANCE of it plays by the same one. `none` in place of the channel unbinds.
+- command: "module cc"
+  sid: module.cc
+  help: "bind a MIDI CC to a module's param (module cc synth Cutoff 1 74), or `none` to unbind"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: param, hint: "the name a widget binds — quote it if it has spaces" },
+      { name: channel, hint: "1-16, or `none` to unbind this param" },
+      { name: cc, hint: "0-127 — the control number the knob sends" },
+    ]
 - command: "project inspect graph"
   sid: graph.inspect
   help: "show the chain(s) for a track (or the whole graph)"

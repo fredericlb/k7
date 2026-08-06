@@ -5,6 +5,7 @@
 
 import dagre from "@dagrejs/dagre";
 import type {
+  WebCc,
   WebCurve,
   WebGraph,
   WebModuleCategory,
@@ -80,6 +81,9 @@ export interface GraphNode {
   pending?: boolean;
   // The module's merged widget grid and the values it shows; a node with one is SIZED to fit it (see nodeSize).
   ui?: WebModuleUI;
+  // Which MIDI CC plays which of its params, keyed by the widget's `bind` — the module's own map
+  // (its folder's `controller.yaml`), so every instance of it answers to the same controls.
+  cc?: Record<string, WebCc>;
   /** The module's input ports, when it has more than one. What lets the node draw a jack each,
    *  so a cable naming `#b` can land on `b` rather than on the node's edge. */
   inputs?: { name: string; type: WebSignal; mandatory?: boolean }[];
@@ -571,6 +575,7 @@ export function buildGraph(graph: WebGraph): {
         unknownPlugin: !!s.unknownPlugin,
         hasNativePluginUI: !!s.hasNativePluginUI,
         ui: s.ui,
+        cc: s.cc,
         params: s.params,
         // Carried to the node so it can draw a jack per port — see DomChains. Absent for the
         // single-port majority, which draws the one jack it always did.

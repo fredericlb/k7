@@ -15,6 +15,15 @@ export type MenuCtx =
   | { kind: "module"; id: string; missing?: boolean; ambient?: boolean }
   // A placed clip. `track` + `tc` say WHICH placement, the pair `event move`/`event remove` address; both optional.
   | { kind: "clip"; id: string; midi: boolean; track?: string; tc?: string }
+  // One control on a module, right-clicked: `param` is the widget's `bind`, `cc` what is already
+  // mapped to it. A binding is per param, so this is its own kind rather than part of "module".
+  | {
+      kind: "param";
+      id: string;
+      param: string;
+      label: string;
+      cc?: { ch: number; cc: number };
+    }
   | { kind: "chain"; id: string; track?: string }
   | { kind: "sink"; id: string }
   // Right-click on the timeline ruler — offer to drop a marker at `tc`. That is the CARET's
@@ -36,6 +45,10 @@ export interface MenuItem {
   label: string;
   command: string;
 }
+
+// An argument that must survive as ONE token. Plugins name their params "Filter Freq", and the
+// dispatcher splits on whitespace — so anything with a space is quoted, and nothing else is.
+const quoteArg = (s: string): string => (/\s/.test(s) ? JSON.stringify(s) : s);
 
 const build = (entries: Entry[]): MenuItem[] =>
   entries.map((e) => {
@@ -97,6 +110,21 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
             ]
           : []),
       ]);
+    case "param": {
+      // A param name may contain spaces (plugins name them "Filter Freq"), and every one of these
+      // takes it as one argument — so it is quoted here rather than at each call site.
+      const target = `${ctx.id} ${quoteArg(ctx.param)}`;
+      // Learn is a UI command, not a brain one: it arms the browser's Web MIDI and waits for a
+      // knob. It still goes through the bar like everything else, so the gesture is typeable.
+      return build([
+        { verb: "ui midi learn", arg: target },
+        // …and the same binding by hand, for when the controller is not to hand. The channel and
+        // number are left to type.
+        { verb: "module cc", arg: target, needsMore: true },
+        // Only worth offering when there is one to remove.
+        ...(ctx.cc ? [{ verb: "module cc", arg: `${target} none` }] : []),
+      ]);
+    }
     case "chain":
       // A chain has no command of its own; offer to inspect the graph for the track it carries, when that's known.
       return build(

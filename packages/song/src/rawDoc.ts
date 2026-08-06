@@ -126,6 +126,9 @@ export interface LoadedModule {
   // any of it. Inherited like `plugin`, so a use of a cold module is cold. See docs/coldModules.md.
   cold?: boolean;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
+  // The module's MIDI map, from the `controller.yaml` in its folder (controller.ts). Stamped on
+  // beside `ui` and by the same rule, so every instance of the module carries it.
+  cc?: unknown;
   channel?: unknown; // io "in" only
   // io "file" only — the audio it reads, project-relative. NOT `file`: the loader writes the
   // module's folder name to that one, and would overwrite an authored value. See moduleSchema.

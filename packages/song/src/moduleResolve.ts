@@ -13,6 +13,7 @@ import type {
   Widget,
 } from "./graph";
 import type { LoadedModule } from "./rawDoc";
+import { type ControllerFile, ControllerFileSchema } from "./yaml/moduleSchema";
 
 /**
  * A module with its ancestry folded in. The brand is phantom — nothing is written at
@@ -202,4 +203,19 @@ export function resolvedUI(
   for (const [id, w] of Object.entries(widgets))
     if (w?.hidden) delete widgets[id];
   return { cols: ui.cols ?? 0, rows: ui.rows ?? 0, widgets };
+}
+
+/**
+ * The MIDI map a module PLAYS BY — its `controller.yaml`, stamped on by the loader.
+ *
+ * Validated rather than trusted: this also runs over a module read back from a cached doc, which
+ * has not been through the schema. A map that fails reads as none, the same way a malformed panel
+ * does — a typo in one binding must not stop the graph drawing.
+ */
+export function resolvedCc(
+  m: ResolvedModule | undefined,
+): ControllerFile | undefined {
+  if (!m?.cc) return undefined;
+  const r = ControllerFileSchema.safeParse(m.cc);
+  return r.success && Object.keys(r.data).length ? r.data : undefined;
 }
