@@ -65,6 +65,21 @@ toujours par diverger.
 dépôt sans projet alors qu'il n'a pas encore été récupéré serait un mensonge qui se corrige tout
 seul dix secondes plus tard, donc que personne ne signalerait.
 
+### Le compte de l'en-tête, et deux façons de le rater
+
+Le badge de l'onglet compte les **projets**, pas les dépôts (`projects/count.ts`) : l'onglet
+s'appelle « Projets », et un dépôt qui en contient cinq est cinq choses à ouvrir, pas une. Il a
+longtemps affiché `repos.length`, ce qui donnait « 1 » à quelqu'un dont l'unique dépôt tenait
+cinq projets — un chiffre juste pour une autre question.
+
+Et son poll tourne sur **toute** section, pas seulement la sienne. Gardé derrière `isProjects`,
+il n'était jamais chargé ailleurs et le badge valait zéro partout — un chiffre faux, ce qui est
+pire qu'un chiffre absent. Les familles n'ont pas ce problème : `library.summary()` leur donne
+un compte au démarrage, et les dépôts venant d'un autre service, ils n'y figurent pas.
+
+En revanche il se tait ailleurs : une panne du service des dépôts ne doit pas barrer l'écran des
+morceaux d'un message rouge sur autre chose. Sur sa propre section, où c'est le sujet, il parle.
+
 L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
 dossiers qui ne sont pas des projets.
 

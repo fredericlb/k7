@@ -65,6 +65,7 @@ import { MiniPlayer } from "./playback/MiniPlayer";
 import { PlaybackPicker } from "./playback/PlaybackPicker";
 import { PlaybackProvider } from "./playback/PlaybackProvider";
 import { usePlaybackTarget } from "./playback/usePlaybackTarget";
+import { projectCount } from "./projects/count";
 import { ProjectsSection } from "./projects/ProjectsSection";
 import {
   DEFAULT_SECTION,
@@ -701,17 +702,24 @@ export function Library() {
     }
   }, []);
 
-  /** The repositories' own reload. Its own SERVICE, not just its own route — hence its own
-   *  poll below rather than a third branch inside the catalogue's. */
-  const loadProjects = useCallback(async (rev: string) => {
+  /**
+   * The repositories' own reload. Its own SERVICE, not just its own route — hence its own
+   * poll below rather than a third branch inside the catalogue's.
+   *
+   * `loud` is whether a failure is worth an error banner: this now runs on EVERY section, and
+   * a repository service that is down must not put a red message across Morceaux. On the
+   * Projets section it is the screen's own subject, so there it speaks.
+   */
+  const loadProjects = useCallback(async (rev: string, loud: boolean) => {
     try {
       const { repos: list } = await projects.list();
       seen.current[PROJECTS_SECTION] = rev;
       setRepos(list);
-      setCounts((c) => ({ ...c, [PROJECTS_SECTION]: list.length }));
-      setError(null);
+      // Les PROJETS et non les dépôts — c'est ce que l'onglet nomme. Voir projects/count.ts.
+      setCounts((c) => ({ ...c, [PROJECTS_SECTION]: projectCount(list) }));
+      if (loud) setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      if (loud) setError((e as Error).message);
     }
   }, []);
 
@@ -761,17 +769,19 @@ export function Library() {
   // The repositories' poll, separate because they come from a DIFFERENT service. Folding them
   // into the loop above would make every library tick depend on `/api/projects` answering,
   // and a git fetch that hangs would stop the catalogue from refreshing.
+  // Sur TOUTE section, et pas seulement la sienne : le badge de l'en-tête annonce un nombre en
+  // permanence, donc il doit être connu en permanence. Gardé derrière `isProjects`, il valait
+  // zéro partout ailleurs — un chiffre faux, pas un chiffre absent.
   useEffect(() => {
-    if (!isProjects) return;
     let stop = false;
     const tick = async () => {
       try {
         const { revision } = await projects.revision();
         if (stop) return;
         if (seen.current[PROJECTS_SECTION] !== revision)
-          await loadProjects(revision);
+          await loadProjects(revision, isProjects);
       } catch (e) {
-        if (!stop) setError((e as Error).message);
+        if (!stop && isProjects) setError((e as Error).message);
       }
     };
     void tick();
