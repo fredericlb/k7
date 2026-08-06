@@ -40,6 +40,7 @@ import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
 import { type Playhead, useEngine } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
+import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
 
@@ -74,6 +75,8 @@ export function MixView({
   const [faders, setFaders] = useState<DeckTempos>({});
   /** Which deck LEADS, or null. The two sync buttons are one choice, not two toggles. */
   const [master, setMaster] = useState<DeckId | null>(null);
+  /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
+  const [browsing, setBrowsing] = useState<DeckId | null>(null);
 
   // What the decks actually play at: the faders, with the master's value handed to the slave.
   // Derived rather than stored, so the two can never disagree — pressing sync and moving the
@@ -231,6 +234,7 @@ export function MixView({
           driven={master === "deckB"}
           onNudge={(bpm) => nudge("deckA", bpm)}
           onCommit={commit}
+          onPick={() => setBrowsing("deckA")}
         />
 
         <section className="flex min-w-0 flex-1 flex-col gap-2">
@@ -266,8 +270,19 @@ export function MixView({
           driven={master === "deckA"}
           onNudge={(bpm) => nudge("deckB", bpm)}
           onCommit={commit}
+          onPick={() => setBrowsing("deckB")}
         />
       </div>
+
+      {/* One browser, told which deck it is for — two dialogs would be two pieces of state
+          able to disagree about which is open. */}
+      <SongBrowser
+        side={browsing === "deckB" ? "B" : "A"}
+        songs={set?.entries ?? []}
+        open={browsing !== null}
+        onOpenChange={(o) => setBrowsing(o ? browsing : null)}
+        onPick={(song) => browsing && load(browsing, song)}
+      />
 
       {/* --- the crossfader, across the bottom ----------------------------------------- */}
       <footer className="flex h-[10%] min-h-[4.5rem] shrink-0 items-center gap-6 border-t px-6">
@@ -424,6 +439,7 @@ function DeckSide({
   driven,
   onNudge,
   onCommit,
+  onPick,
 }: {
   side: "A" | "B";
   load: DeckLoads[DeckId];
@@ -437,6 +453,8 @@ function DeckSide({
   driven: boolean;
   onNudge: (bpm: number) => void;
   onCommit: () => void;
+  /** The record's middle was clicked — open the browser for this deck. */
+  onPick: () => void;
 }) {
   const fader = (
     <BpmFader
@@ -459,6 +477,7 @@ function DeckSide({
           artist={load?.artist ?? null}
           title={load?.title ?? null}
           spinning={spinning && !!load}
+          onPick={onPick}
         />
         {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
             under an empty deck is furniture. */}

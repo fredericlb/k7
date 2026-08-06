@@ -35,6 +35,49 @@ export interface SetList {
 export const EMPTY_SET: SetList = { entries: [], issues: [], absent: true };
 
 /**
+ * A string as the browser SEARCHES it: lower case, accents folded.
+ *
+ * The médiathèque is full of them — `Alizée`, `Rosé`, `& Feduk` — and a DJ typing at a desk
+ * types `alizee`. Matching the raw string would make half the library unfindable by anyone
+ * who does not stop to compose an é. NFD splits a letter from its accent and the range strip
+ * drops the accent, which is the whole trick.
+ */
+export function fold(s: string): string {
+  // The combining-marks block, spelled as escapes: the literal characters are invisible in
+  // an editor, and a regex nobody can see the contents of is one nobody can review.
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * The set's songs as the browser shows them: filtered by `query`, then sorted by ARTIST and
+ * title.
+ *
+ * Every term has to appear somewhere in "artist title", in any ORDER — so `bashung nuit`
+ * finds *La nuit je mens* without knowing which field holds which word. A single substring
+ * over the joined string would fail that, and searching one field at a time would fail it
+ * twice.
+ *
+ * Sorted with `localeCompare` in French rather than by code point: `É` sorts after `E` and
+ * before `F` where a raw comparison files every accented artist after `Z`. `numeric` so
+ * `Track 2` precedes `Track 10`.
+ */
+export function browseSongs(entries: SetEntry[], query: string): SetEntry[] {
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  const hit = (s: SetEntry) => {
+    const hay = fold(`${s.artist ?? ""} ${s.name}`);
+    return terms.every((t) => hay.includes(t));
+  };
+  const cmp = (a: string, b: string) =>
+    a.localeCompare(b, "fr", { sensitivity: "base", numeric: true });
+  return entries
+    .filter(hit)
+    .sort((a, b) => cmp(a.artist ?? "", b.artist ?? "") || cmp(a.name, b.name));
+}
+
+/**
  * Resolve a set list against a catalogue listing.
  *
  * The ref is kept whatever happens. A song the cache has not got is a REAL and ordinary state

@@ -9,6 +9,7 @@ export function Vinyl({
   artist,
   title,
   spinning,
+  onPick,
 }: {
   /** "A" or "B" — the deck's own name, shown on the label when nothing is loaded. */
   side: string;
@@ -16,6 +17,9 @@ export function Vinyl({
   title: string | null;
   /** Turning: the transport is running AND this deck is holding something. */
   spinning: boolean;
+  /** Open the song browser for this deck. The LABEL is the target — the middle of a record
+   *  is where its name is, so it is where you press to change it. */
+  onPick: () => void;
 }) {
   const loaded = !!title;
   return (
@@ -63,10 +67,19 @@ export function Vinyl({
         />
       </svg>
 
-      {/* The label, centred over the disc and held still. */}
+      {/* The label, centred over the disc and held still. The disc itself stays
+          `pointer-events-none` so only the label takes the click — a record's middle is
+          where its name is, and grabbing the outer groove will one day mean scratching. */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div
-          className={`flex aspect-square w-[46%] flex-col items-center justify-center rounded-full px-3 text-center ${
+        <button
+          type="button"
+          onClick={onPick}
+          title={
+            loaded
+              ? "changer le morceau de cette platine"
+              : "choisir un morceau"
+          }
+          className={`pointer-events-auto flex aspect-square w-[46%] cursor-pointer flex-col items-center justify-center rounded-full px-3 text-center transition-shadow hover:ring-2 hover:ring-foreground/30 ${
             loaded
               ? "bg-accent text-accent-foreground"
               : "bg-muted text-muted-foreground"
@@ -88,7 +101,7 @@ export function Vinyl({
           )}
           {/* The spindle hole — the one detail that makes the ring read as a label. */}
           <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-background" />
-        </div>
+        </button>
       </div>
     </div>
   );
