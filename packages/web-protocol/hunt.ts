@@ -29,6 +29,14 @@ export interface HuntRecord {
   /** How it was fetched. Absent means the ordinary path, Soulseek through slskd; `youtube` is
    *  the fallback somebody asked for after that came back empty-handed. */
   via?: "youtube";
+  /**
+   * The playlist to append the song to once it is filed, mediatek-relative.
+   *
+   * Carried on the ROW rather than read when the download finishes. A hunt runs for minutes,
+   * and the menu on screen belongs to the next one: four searches started and then the choice
+   * changed would otherwise all land in the last playlist picked, which is nobody's intent.
+   */
+  playlist?: string;
   /** Why it failed — or, on a `done` row, why there was nothing to do. */
   error?: string;
   startedAt: number;

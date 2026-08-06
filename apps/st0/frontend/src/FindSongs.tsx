@@ -4,6 +4,14 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
+import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord, HuntStatus } from "@studio/web-protocol/hunt";
 // Clapperboard et non un logo : lucide a retiré ses icônes de marque, et « une vidéo » est de
 // toute façon ce que la source est réellement.
@@ -17,11 +25,16 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { hunt } from "./api";
+import { hunt, library } from "./api";
 
 /** Assez rapide pour qu'un changement de pair se voie, assez lent pour qu'un écran ouvert une
  *  demi-heure ne martèle pas le backend. Une recherche dure des minutes, pas des secondes. */
 const POLL_MS = 2000;
+
+/** Ce que vaut « ne rangez nulle part », et le défaut. Une valeur plutôt qu'une chaîne vide
+ *  parce que le Select de Radix traite le vide comme « rien de choisi » et rouvrirait sur son
+ *  texte de remplacement. */
+const NO_PLAYLIST = "non";
 
 /** Les trois couleurs demandées, et le fait qu'il n'y en ait que trois pour quatre états :
  *  « on cherche » et « ça télécharge » sont tous deux « en cours » pour qui regarde. */
@@ -101,6 +114,17 @@ function Row({
               {q}
             </span>
           )}
+          {/* La playlist visée, portée par la LIGNE : deux recherches lancées avec des choix
+              différents se ressembleraient sans ça, et le choix a été figé au lancement. */}
+          {h.playlist && (
+            <span
+              className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              title={h.playlist}
+            >
+              →{" "}
+              {h.playlist.replace(/^playlists\//, "").replace(/\.ya?ml$/i, "")}
+            </span>
+          )}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
           {detail(h)}
@@ -155,6 +179,10 @@ export function FindSongs({
   const [rows, setRows] = useState<HuntRecord[] | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [youtube, setYoutube] = useState(false);
+  const [playlists, setPlaylists] = useState<MediatekEntry[]>([]);
+  // NON par défaut : ranger dans une setlist est un geste qu'on demande, pas un état dans
+  // lequel on se retrouve sans l'avoir voulu.
+  const [playlist, setPlaylist] = useState<string>(NO_PLAYLIST);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // QUELLES lignes étaient déjà rangées, et non combien : une ligne retirée de l'historique
@@ -193,13 +221,24 @@ export function FindSongs({
     };
   }, [onFiled]);
 
+  // Chargée une fois : on ne crée pas de playlist depuis cet écran, et une liste qui
+  // s'actualiserait pendant qu'on déroule le menu déplacerait ce qu'on vise.
+  useEffect(() => {
+    void library
+      .list("playlists")
+      .then((l) => setPlaylists(l.entries))
+      // Silencieux : ne pas pouvoir proposer de playlist n'empêche pas de chercher un morceau,
+      // et une erreur rouge ici parlerait de la mauvaise chose.
+      .catch(() => {});
+  }, []);
+
   const submit = useCallback(() => {
     const q = query.trim();
     if (!q || busy) return;
     setBusy(true);
     setError(null);
     void hunt
-      .start(q)
+      .start(q, playlist === NO_PLAYLIST ? undefined : playlist)
       // Vidé tout de suite : monter une bibliothèque, c'est enchaîner les titres, et
       // reprendre le champ à la main entre chacun serait le geste de trop.
       .then((h) => {
@@ -208,7 +247,7 @@ export function FindSongs({
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
-  }, [query, busy]);
+  }, [query, busy, playlist]);
 
   const forget = useCallback((id: string) => {
     setRows((r) => (r ?? []).filter((h) => h.id !== id));
@@ -262,6 +301,35 @@ export function FindSongs({
             )}
             Chercher
           </Button>
+        </div>
+
+        {/* Sous le champ, parce que ça décrit ce que la PROCHAINE recherche fera — et que le
+            choix est figé sur la ligne au lancement, pas relu à la fin. Une recherche dure des
+            minutes ; ce menu appartiendra alors à la suivante. Voir ../../docs/hunt.md. */}
+        <div className="mx-auto mt-3 flex max-w-4xl items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            Ajouter automatiquement à la playlist :
+          </span>
+          <Select value={playlist} onValueChange={setPlaylist}>
+            <SelectTrigger className="h-8 w-72 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_PLAYLIST}>Non</SelectItem>
+              {playlists.map((p) => (
+                <SelectItem key={p.path} value={p.path}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Ce qu'aucune liste déroulante ne dit d'elle-même : que le choix vaut aussi pour
+              le secours YouTube, et qu'il ne s'applique qu'à ce qu'on lance après. */}
+          {playlist !== NO_PLAYLIST && (
+            <span className="truncate text-xs text-muted-foreground">
+              — les morceaux trouvés y seront ajoutés, secours YouTube compris
+            </span>
+          )}
         </div>
 
         {/* Dit plutôt que caché : un déploiement pas encore configuré est son état normal,

@@ -250,6 +250,38 @@ peuvent contenir n'importe quoi. Ils traversent ici deux endroits, et chacun a s
 
 Rien de ce qu'un inconnu a tapé ne devient donc un chemin.
 
+## Ajouter automatiquement à une playlist
+
+Sous le champ, un menu « Ajouter automatiquement à la playlist : », à **Non** par défaut. Tout
+morceau trouvé pendant qu'une playlist est choisie y est ajouté une fois rangé.
+
+**Le choix est figé sur la LIGNE, au lancement** — pas relu quand le téléchargement se termine.
+C'est la décision qui compte ici : une recherche dure des minutes, donc le menu à l'écran
+appartient déjà à la suivante. Quatre recherches lancées puis le menu changé atterriraient
+autrement toutes dans la dernière playlist choisie, ce qui n'est l'intention de personne. La
+ligne affiche donc sa playlist, sans quoi deux recherches aux choix différents se
+ressembleraient.
+
+Ça vaut aussi pour le **secours YouTube** : la ligne porte le choix, et le secours reprend la
+ligne. Un morceau récupéré autrement manquerait sinon à la setlist sans le dire.
+
+L'écriture passe par `appendPlaylistItem`, donc **au niveau du texte** : ces fichiers portent des
+commentaires et un ordre choisis à la main, et repasser par un sérialiseur les jetterait sans
+bruit (voir packages/mediatek/docs/playlists.md). La référence écrite est relative à `songs/`,
+comme celles qu'écrit le panneau des playlists — sinon un même fichier tiendrait deux
+orthographes de la même chose. Un morceau déjà présent n'est pas redoublé.
+
+### Un demi-succès reste vert
+
+Playlist disparue, `items:` d'une forme que l'ajout ne sait pas étendre : le morceau **est**
+rangé dans la médiathèque, seule la ligne de playlist manque. La ligne reste donc verte et dit
+la plainte à côté. La rougir prétendrait que le téléchargement a échoué — c'est faux, et ça
+enverrait le refaire alors qu'il n'y a qu'une ligne à taper à la main.
+
+La route valide que le chemin ressemble à `playlists/….yaml` avant de lancer quoi que ce soit.
+`writablePath` refuserait un `..` de toute façon, mais dix minutes plus tard : nommer la faute
+tout de suite vaut mieux que la faire découvrir à l'arrivée.
+
 ## Le secours : « DL sur YouTube »
 
 Quand une ligne est rouge — personne ne partageait le morceau, ou personne ne l'a envoyé —
