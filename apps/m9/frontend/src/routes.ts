@@ -13,7 +13,9 @@ const isView = (s: string): s is ViewId =>
 /** What the URL carries. */
 export interface RouteState {
   view: ViewId;
-  /** The file the editor has open, project-relative, or null. Only `edit` carries one. */
+  /** The file the editor has open, or null. Only `edit` carries one.
+   *  WORKSPACE-relative (`set.m9/tracks/deckA.yaml`) — that is what the tree hands out and
+   *  what `read`/`write` take, so it travels to the address unchanged. */
   file: string | null;
 }
 

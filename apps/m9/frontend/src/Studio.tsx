@@ -194,20 +194,18 @@ export function Studio({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [historyDeps, view, undoConfirm]);
 
-  // The tree is shown from the PROJECT down, not the whole workspace: this app was opened on
-  // one project and showing its siblings would offer to edit something it has not opened.
-  const nodes = useMemo<TreeNode[]>(() => {
-    if (project === ".") return tree as TreeNode[];
-    const find = (list: FileNode[], path: string): FileNode | null => {
-      for (const n of list) {
-        if (n.path === path) return n;
-        const hit = n.children ? find(n.children, path) : null;
-        if (hit) return hit;
-      }
-      return null;
-    };
-    return (find(tree, project)?.children ?? []) as TreeNode[];
-  }, [tree, project]);
+  // `/tree` is ALREADY rooted at the open project — the file service walks `activeProject`,
+  // not the workspace root (workspace.ts `tree()`), and l8 draws what it returns as it comes.
+  //
+  // This used to search the reply for a node named `<project>` and draw its children, which
+  // was right when the route returned the whole workspace and became silently wrong when it
+  // stopped: the project's own files are the TOP level now, so the search matched nothing and
+  // the Édition view drew an empty tree for every project. Nothing failed — `?? []` is a
+  // perfectly good empty tree — which is why it survived a typecheck and 21 tests.
+  //
+  // Paths stay workspace-relative (`set.m9/tracks/deckA.yaml`), which is what `read`/`write`
+  // want, so nothing below has to re-root them.
+  const nodes = tree as TreeNode[];
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">

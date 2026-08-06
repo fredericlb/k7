@@ -22,6 +22,31 @@ describe("a song ref", () => {
     );
   });
 
+  it("accepts the ids the médiathèque actually makes — spaces and all", () => {
+    // Ids are built from the TAGS, so this is the ordinary case, not an edge one:
+    // `songs/Alain Bashung/Album inconnu/La nuit je mens` is a real entry. A pattern that
+    // banned whitespace refused nearly every set list anyone would write, and did it as a
+    // schema error on the whole file.
+    const real = "@mediatek/songs/Alain Bashung/Album inconnu/La nuit je mens";
+    expect(songIdOf(real)).toBe(
+      "songs/Alain Bashung/Album inconnu/La nuit je mens",
+    );
+    expect(songPathPrefix(real)).toBe(
+      "songs/Alain Bashung/Album inconnu/La nuit je mens/",
+    );
+    // Punctuation the tags hand out, too — `& Feduk` and `50 cents` are both in the cache.
+    expect(songIdOf("@mediatek/songs/& Feduk/Album inconnu/Rosé")).toBe(
+      "songs/& Feduk/Album inconnu/Rosé",
+    );
+  });
+
+  it("still refuses a ref with no segment, or an empty one", () => {
+    // Structure is what the pattern is FOR, now that it says nothing about characters.
+    expect(songIdOf("@mediatek/songs/a//c")).toBe(null);
+    expect(songIdOf("@mediatek/songs/a/")).toBe(null);
+    expect(songIdOf("@mediatek/songs//")).toBe(null);
+  });
+
   it("is not a module ref, and does not answer for one", () => {
     // The two vocabularies differ by a segment — a module ref omits its family — and they are
     // read by different files. Pinned so a future merge of the two is a deliberate act.
