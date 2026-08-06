@@ -944,6 +944,9 @@ export function Library() {
               // The open repository is in the ADDRESS, in the same slot a module's file uses —
               // so a link to one survives a reload. See routes.ts.
               openId={file}
+              // Créer et supprimer un projet se font sur la machine, pas ici — voir
+              // projects/machine.ts et ../../docs/projects.md.
+              machine={choice}
               onOpen={(id) => setFile(id)}
               onChanged={() => {
                 // Force the next tick to reload: the write moved the revision, but waiting a

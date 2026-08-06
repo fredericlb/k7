@@ -154,6 +154,76 @@ lequel elle a été lancée. Voir
 l'adresse est un chemin et non des paramètres — ce qui supprime le `sessionStorage` d'avant — et
 [apps/m9/docs/views.md](../../m9/docs/views.md) pour ce que m9 fait d'un projet.
 
+## Créer et supprimer un projet — pas ici, sur la machine
+
+Le bloc de chaque dépôt porte un **« Nouveau projet »** (type l8 ou m9, et un nom), et chaque
+projet un petit **« Supprimer »** avec confirmation. Ni l'un ni l'autre n'est fait par st0, et
+c'est la conséquence directe de la règle du haut de cette page.
+
+### Pourquoi st0 ne peut pas
+
+Son miroir est `git clone --mirror --filter=blob:none` : bare, donc aucune copie de travail, et
+sans blobs, donc les chemins sans les contenus. Trois raisons, par ordre de gravité :
+
+1. **C'est un cache.** Un miroir que personne n'a lu depuis quinze jours est supprimé et recréé
+   au prochain regard. Y écrire la seule copie d'un projet neuf, c'est la mettre dans ce qui est
+   conçu pour être jeté.
+2. **Le partage est déjà posé** : st0 miroite pour répondre « qu'est-ce qu'il y a dedans », et
+   la copie qu'on édite et qu'on committe vit sur la machine du moteur.
+3. **Techniquement faisable, et c'est le piège.** On *peut* fabriquer un commit en plomberie et
+   pousser depuis un clone bare sans blobs. Mais ça ferait de st0 — le service qui émet aussi la
+   session de tout le monde et détient l'unique clé de déploiement — un **écrivain de tous les
+   dépôts**. C'est un changement de posture de sécurité, pas une fonctionnalité.
+
+### Ce que la machine sait déjà faire
+
+Tout existait, et rien n'a été ajouté côté file-service :
+
+| pièce | où |
+|---|---|
+| échafaudage aux réglages par défaut | `POST <fileBase>/project/create` → `createProjectIn` |
+| suppression (le dossier est recyclé) | `POST <fileBase>/project/delete` |
+| indexer, committer, pousser | la commande `commit` → `packages/commands/src/git.ts` |
+| cloner le dépôt s'il n'y est pas | `POST /workspaces/clone` + les jobs à interroger |
+
+st0 appelle ces routes **directement depuis le navigateur**, par la même couture que
+`engineMachine.analyse` et `.logs` : c'est déjà la seule façon d'apprendre un fait sur une
+machine plutôt que sur la bibliothèque.
+
+### Le clonage est ce qui rend un dépôt vide utilisable
+
+`ensureWorkspace` clone si la machine ne connaît pas encore le dépôt. Sans ça il faudrait déjà
+avoir un projet pour pouvoir en ouvrir un, donc pour pouvoir en créer un — un œuf sans poule,
+qui rendrait la fonction inutile précisément sur les dépôts neufs. La progression affichée est
+celle de git, dans ses mots (« Receiving objects »), parce qu'une attente de trente secondes qui
+ne dit rien ressemble à un écran figé.
+
+### Le suffixe décide, et le nom est montré avant
+
+`projectName.ts` est pur et testé : c'est lui qui pose `.l8` ou `.m9`, retire un suffixe déjà
+tapé — quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d'avis, et « hiver.l8.m9 » ne
+serait ni l'un ni l'autre — et refuse les séparateurs plutôt que de les remplacer en silence.
+Le dossier obtenu est affiché sous le champ **avant** de valider, comme `AddSong` montre
+l'arborescence déduite avant l'envoi : ici aussi c'est le nom qui décide de tout.
+
+**k7 et z0 n'ont pas de projets** — `ProjectApp` vaut `"l8" | "m9"` et rien d'autre. Le menu ne
+fait que refléter ce type ; introduire un `.z0` serait un autre chantier, touchant
+`PROJECT_SUFFIXES`, l'`isProjectDir` du file-service et z0 lui-même.
+
+### Un envoi raté n'annule pas la création
+
+Le commit vient après, et sa plainte est rapportée séparément : le dossier est là, sur la
+machine, et seul l'envoi a manqué — hors ligne, pas d'amont. Le dialogue se ferme, la section
+affiche « créé, mais : … ». Supprimer le projet pour faire propre serait jeter le travail de
+quelqu'un pour une panne de réseau, et lever inviterait à recommencer une création qui a eu lieu.
+
+Après coup, st0 demande explicitement un `git fetch` de son miroir : le poll n'en fait un qu'au
+plus toutes les dix minutes, et la liste serait sinon restée telle quelle — un clic qui a l'air
+de n'avoir rien fait.
+
+Sans machine joignable, les deux boutons sont grisés **et disent pourquoi**. C'est un état
+ordinaire de cette page, qui fonctionne parfaitement sans machine pour tout le reste.
+
 ## Pourquoi la comparaison des URI est normalisée
 
 Les deux bouts apprennent l'adresse par des chemins différents : st0 a ce qui a été **collé**,
