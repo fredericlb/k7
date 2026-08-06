@@ -8,6 +8,7 @@ import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
+  type CloneJob,
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type Hints,
@@ -18,6 +19,7 @@ import {
   type RepoSummary,
   type SshKeyInfo,
   USER_HEADER,
+  WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
@@ -104,6 +106,13 @@ export const auth = {
   },
 };
 
+/** Ce que le portier du file-service veut sur chaque appel : qui demande, et le jeton de la
+ *  machine. Écrit une fois — les appels ajoutés pour les projets le répétaient six fois. */
+const machineHeaders = (token: string): Record<string, string> => ({
+  [USER_HEADER]: currentUser(),
+  [ENGINE_TOKEN_HEADER]: token,
+});
+
 /**
  * The engine MACHINE's own file service, reached cross-origin and directly — the same seam
  * l8 uses, and the only way to learn a fact about that machine rather than about the
@@ -112,6 +121,9 @@ export const auth = {
  * The origin has to be trusted on that machine (`~/.studio/web-origins.json`, offered by the
  * tray), exactly as l8' is; a refusal reads as a network error here, which is why the
  * caller treats an empty list as "cannot say" and not as "no plugins".
+ *
+ * Elle est aussi la seule qui puisse ÉCRIRE dans un dépôt — créer ou supprimer un projet —
+ * parce qu'elle seule en tient une copie de travail. Voir projects/machine.ts.
  */
 export const engineMachine = {
   /**
@@ -192,6 +204,135 @@ export const engineMachine = {
       pluginNames: Record<string, string[]>;
     }>(res, "plugins");
     return pluginNames ?? {};
+  },
+
+  /**
+   * Quel espace de travail de cette machine tient déjà ce dépôt, ou `null`.
+   *
+   * st0 nomme un dépôt par son URI et ne sait rien des dossiers de cette machine-là — c'est
+   * exactement la question que l8 pose avant de décider s'il faut cloner quoi que ce soit.
+   */
+  workspaceForRepo: async (
+    fileBase: string,
+    token: string,
+    uri: string,
+  ): Promise<string | null> => {
+    const res = await fetch(
+      `${fileBase}/workspaces/by-repo?uri=${encodeURIComponent(uri)}`,
+      { headers: machineHeaders(token) },
+    );
+    const { workspace } = await json<{ workspace: string | null }>(
+      res,
+      "workspace",
+    );
+    return workspace ?? null;
+  },
+
+  /** Lancer le clone, et rendre le job à interroger : un vrai dépôt prend des dizaines de
+   *  secondes, ce qui est plus long qu'une requête ne doit rester ouverte. */
+  startClone: async (
+    fileBase: string,
+    token: string,
+    uri: string,
+  ): Promise<CloneJob> =>
+    json(
+      await fetch(`${fileBase}/workspaces/clone`, {
+        method: "POST",
+        headers: {
+          ...machineHeaders(token),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ uri }),
+      }),
+      "clone",
+    ),
+
+  /** …et l'interroger. `null` pour un job que la machine a oublié : on ne peut pas attendre
+   *  ce dont plus personne ne tient l'état. */
+  cloneJob: async (
+    fileBase: string,
+    token: string,
+    id: string,
+  ): Promise<CloneJob | null> => {
+    const res = await fetch(
+      `${fileBase}/workspaces/clone/${encodeURIComponent(id)}`,
+      { headers: machineHeaders(token) },
+    );
+    if (res.status === 404) return null;
+    return json(res, "clone");
+  },
+
+  /**
+   * Créer un projet dans l'espace de travail de cette machine.
+   *
+   * `name` porte DÉJÀ son suffixe (`hiver.m9`) : le service prend le nom brut comme nom de
+   * dossier, et c'est le suffixe qui dit quelle application l'ouvrira. `type` est la variante
+   * l8 du gabarit — « audio » est celle par défaut, « video » ajoute l'image.
+   */
+  createProject: async (
+    fileBase: string,
+    token: string,
+    workspace: string,
+    name: string,
+  ): Promise<string> => {
+    const { project } = await json<{ project: string }>(
+      await fetch(`${fileBase}/project/create`, {
+        method: "POST",
+        headers: {
+          ...machineHeaders(token),
+          [WORKSPACE_HEADER]: workspace,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ type: "audio", name }),
+      }),
+      "création",
+    );
+    return project;
+  },
+
+  /** Décharger le projet et recycler son dossier. Le service le met à la corbeille plutôt que
+   *  de l'effacer — le commit qui suit est ce qui le retire du dépôt. */
+  deleteProject: async (
+    fileBase: string,
+    token: string,
+    workspace: string,
+    path: string,
+  ): Promise<void> => {
+    await json(
+      await fetch(`${fileBase}/project/delete`, {
+        method: "POST",
+        headers: {
+          ...machineHeaders(token),
+          [WORKSPACE_HEADER]: workspace,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ path }),
+      }),
+      "suppression",
+    );
+  },
+
+  /** La barre de commandes de cette machine, pour le seul verbe dont on ait besoin ici :
+   *  `commit`, qui indexe, committe et pousse avec la clé de déploiement de la personne. */
+  command: async (
+    fileBase: string,
+    token: string,
+    workspace: string,
+    line: string,
+  ): Promise<string[]> => {
+    const { output } = await json<{ output: string[] }>(
+      await fetch(`${fileBase}/command`, {
+        method: "POST",
+        headers: {
+          ...machineHeaders(token),
+          [WORKSPACE_HEADER]: workspace,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ line }),
+      }),
+      "commande",
+    );
+    return output ?? [];
   },
 };
 

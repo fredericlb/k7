@@ -17,6 +17,8 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useState } from "react";
+import { DeleteProject } from "./DeleteProject";
+import { NewProject } from "./NewProject";
 
 /** Le nom du dossier, sans son suffixe : `chansons/hiver.l8` s'affiche « hiver », et le
  *  chemin qui la situe dans le dépôt est à côté. */
@@ -35,6 +37,9 @@ export function RepoList({
   error,
   onAdd,
   onOpen,
+  blocked,
+  onCreate,
+  onDelete,
   projectHref,
   onRemove,
   onRefresh,
@@ -44,6 +49,19 @@ export function RepoList({
   error: string | null;
   onAdd: (uri: string) => void;
   onOpen: (repo: RepoSummary) => void;
+  /** Pourquoi créer et supprimer sont impossibles, ou "". Les deux passent par une machine
+   *  moteur — st0 n'a qu'un miroir bare et sans blobs, voir ../../docs/projects.md. */
+  blocked: string;
+  onCreate: (
+    repo: RepoSummary,
+    folder: string,
+    onStep: (s: string) => void,
+  ) => Promise<void>;
+  onDelete: (
+    repo: RepoSummary,
+    project: RepoProject,
+    onStep: (s: string) => void,
+  ) => Promise<void>;
   /** L'adresse d'un projet dans SON application, sans passer par l'arborescence. Une adresse
    *  et non une action : la rangée est un lien, qui s'ouvre dans un nouvel onglet. */
   projectHref: (repo: RepoSummary, project: RepoProject) => string;
@@ -144,6 +162,12 @@ export function RepoList({
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
+                  {/* Dans le bloc du dépôt, à côté de ses deux autres actions : créer un
+                      projet est une opération SUR ce dépôt, pas sur la liste. */}
+                  <NewProject
+                    blocked={blocked}
+                    onCreate={(folder, onStep) => onCreate(r, folder, onStep)}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -175,9 +199,11 @@ export function RepoList({
               {r.projects && r.projects.length > 0 && (
                 <ul className="mt-2 flex flex-col border-l border-border pl-3 ml-2">
                   {r.projects.map((p) => (
-                    <li key={p.path}>
+                    // La rangée tient le lien ET le bouton : le lien s'étire, le bouton
+                    // reste au bout, et le `preventDefault` de celui-ci l'empêche d'ouvrir.
+                    <li key={p.path} className="flex items-center gap-1">
                       <a
-                        className="flex w-full min-w-0 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
+                        className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
                         title={`Ouvrir ${p.path} dans ${p.app}`}
                         href={projectHref(r, p)}
                         target="_blank"
@@ -192,6 +218,12 @@ export function RepoList({
                           </span>
                         )}
                       </a>
+                      <DeleteProject
+                        path={p.path}
+                        label={nameOf(p)}
+                        blocked={blocked}
+                        onDelete={(onStep) => onDelete(r, p, onStep)}
+                      />
                     </li>
                   ))}
                 </ul>
