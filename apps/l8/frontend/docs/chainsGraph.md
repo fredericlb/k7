@@ -46,6 +46,25 @@ for once.
 - Framing a chain the user picked in the sidebar counts as their choice too, so a later
   resize must not throw it away.
 
+### Framing a track from outside
+
+`ChainsTab`'s `focus` prop is how another pane says "show me this track" — today the timeline,
+when a header is double-clicked (see `timeline.md`). The set framed is the one the Graph panel
+draws, `subgraphForTrack`, so a send that leaves the track's own chain is inside the frame too.
+
+Two rules make it behave, and both are the camera rules above seen from the other side:
+
+- **Once per focus, counted by a nonce.** Not by depending on the layout: the graph is re-laid
+  out after every command, and re-framing on each would take the camera off wherever it had
+  been panned since. The nonce is also what lets the *same* track be picked twice and re-frame,
+  which a bare id could not.
+- **It waits for the pane.** A hidden canvas is unmounted and has no size, so the fit is held
+  until the pane is visible rather than framed to zero. Following a track therefore still holds
+  when you arrive at the chains view a minute later.
+
+The count of chains found goes back to the host (`onFocused`), because a track wired to nothing
+has to say so: a graph that merely looks unchanged reads as the gesture having missed.
+
 ## Values, overrides and reconciliation
 
 A widget shows, in order: the hand's **optimistic override**, else what the **engine**

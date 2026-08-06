@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  entityFile,
   fileStem,
   isClipFile,
   isRackModuleFile,
@@ -98,5 +99,38 @@ describe("reading a scalar field out of a file's text", () => {
   it("returns null for an absent or empty field", () => {
     expect(readScalarField("note: 36\n", "source")).toBe(null);
     expect(readScalarField("source:\n", "source")).toBe(null);
+  });
+});
+
+describe("entityFile", () => {
+  const files = [
+    "tracks/kick.yaml",
+    "clips/kick.yaml",
+    "tracks/ge.lead.yml",
+    "video_tracks/cam1.yaml",
+  ];
+
+  it("takes the file in the folder asked for, not the one that merely shares the id", () => {
+    expect(entityFile(files, "tracks", "kick")).toBe("tracks/kick.yaml");
+    expect(entityFile(files, "clips", "kick")).toBe("clips/kick.yaml");
+  });
+
+  it("accepts either spelling of the extension", () => {
+    expect(entityFile(files, "tracks", "ge.lead")).toBe("tracks/ge.lead.yml");
+  });
+
+  it("finds it under a project-folder prefix", () => {
+    expect(
+      entityFile(["band/winter.l8/tracks/kick.yaml"], "tracks", "kick"),
+    ).toBe("band/winter.l8/tracks/kick.yaml");
+  });
+
+  it("does not let an id's dots stand for any character", () => {
+    // The pattern is built by interpolation, so `ge.lead` must not also match `geXlead`.
+    expect(entityFile(["tracks/geXlead.yaml"], "tracks", "ge.lead")).toBe(null);
+  });
+
+  it("returns null when the song has no such file", () => {
+    expect(entityFile(files, "tracks", "snare")).toBe(null);
   });
 });

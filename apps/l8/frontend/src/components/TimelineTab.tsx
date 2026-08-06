@@ -1,8 +1,8 @@
 // TimelineTab.tsx — a keyboard-driven arrangement: one lane per track, clips positioned by
-// beat, a live playhead, and a caret moved with hjkl/arrows. No mouse features. Only
-// CONTINUOUS interaction lives here (the caret, and growing the `v` rectangle); every
-// discrete action is a key binding naming a command, run from the shell via this
-// component's imperative handle. See docs/timeline.md.
+// beat, a live playhead, and a caret moved with hjkl/arrows. Only CONTINUOUS interaction
+// lives here (the caret, growing the `v` rectangle, dragging a clip); every discrete action
+// is a key binding naming a command, run from the shell via this component's imperative
+// handle. See docs/timeline.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
@@ -40,8 +40,10 @@ import {
   projectRows,
   type Row,
   type RowKey,
+  type RowTarget,
   rowIndexOf,
   rowKey,
+  rowTarget,
   stepRow,
 } from "../rows";
 import { TrackIcon, trackIcon } from "../trackIcons";
@@ -132,6 +134,7 @@ export function TimelineTab({
   onSetLoop,
   onMoveEvent,
   onResizeEvent,
+  onFocusRow,
   trackControls,
   onTrackToggle,
   ref,
@@ -166,6 +169,9 @@ export function TimelineTab({
     toTc: string,
     toTrackId?: string,
   ) => void;
+  // A header was DOUBLE-clicked: point the shell's other panes at this row. Selecting it is
+  // this component's own business (the caret); following it is not — see docs/timeline.md.
+  onFocusRow?: (target: RowTarget) => void;
   // Per-track mute/solo/arm by track id — the same state the graph's track nodes draw, so the two stay in lockstep.
   trackControls?: Record<string, { mute: number; solo: number; arm: number }>;
   onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
@@ -358,16 +364,41 @@ export function TimelineTab({
 
   // What m/s aim at from here — a lane's track, a header's group, a pattern lane's GROUP. See docs/timeline.md.
   const caretTrackId = useMemo(() => {
-    if (!caretRow) return null;
-    if (caretRow.kind === "group") return caretRow.group.id;
+    const target = caretRow && rowTarget(caretRow);
     // A video lane is not an engine track: no level, no arm, no mixer command. The caret reports no track id on one.
-    if (caretRow.kind === "video") return null;
-    const t = caretRow.track;
-    return t.generated ? (t.group ?? null) || null : t.id;
+    return !target || target.kind === "video" ? null : target.id;
   }, [caretRow]);
   useEffect(() => {
     onCaret({ ...caret, trackId: caretTrackId });
   }, [caret, caretTrackId, onCaret]);
+
+  // Click a header: the row itself is selected — the caret parked on its label, the position
+  // `h` off the view's first beat already puts it in. A live rectangle is dropped, because its
+  // head is somewhere else and a click that left one standing would draw two selections.
+  const selectRow = useCallback((row: Row) => {
+    setSel(null);
+    setCaret({ row: rowKey(row), beat: LABEL });
+  }, []);
+
+  // Double-click a header: the shell points its other panes at the row. Nothing is written.
+  const focusRow = useCallback(
+    (row: Row) => {
+      const target = rowTarget(row);
+      if (target) onFocusRow?.(target);
+    },
+    [onFocusRow],
+  );
+
+  // The gutter is the row's handle, on all three kinds of row. Paired with `select-none` in
+  // the class list: a double-click would otherwise take the track's name as a word selection
+  // and leave it highlighted behind the caret's own mark.
+  const gutterProps = useCallback(
+    (row: Row) => ({
+      onClick: () => selectRow(row),
+      onDoubleClick: () => focusRow(row),
+    }),
+    [selectRow, focusRow],
+  );
 
   // How a lane READS: muted, its group muted, or soloed away — mirroring withGroupMix and the engine's solo rule.
   const groupById = useMemo(
@@ -846,7 +877,9 @@ export function TimelineTab({
   useEffect(() => {
     if (!active || selRef.current || moveRef.current) return;
     setCaret((c) =>
-      c.beat === playheadBeat
+      // A selected LABEL is a row, not a position in the lane: there is no beat there for the
+      // playhead to ride, and pulling one in would drop a header selection the moment you play.
+      c.beat === LABEL || c.beat === playheadBeat
         ? c
         : clampCaret({ ...c, beat: Math.max(0, playheadBeat) }),
     );
@@ -1296,8 +1329,9 @@ export function TimelineTab({
                 >
                   <div
                     style={{ width: GUTTER }}
+                    {...gutterProps(row)}
                     className={cn(
-                      "flex shrink-0 items-center gap-1 border-r border-border bg-muted/60 px-2",
+                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/60 px-2",
                       inSel && "bg-primary/20",
                       labelled && LABEL_SELECTED,
                     )}
@@ -1345,8 +1379,9 @@ export function TimelineTab({
                 >
                   <div
                     style={{ width: GUTTER }}
+                    {...gutterProps(row)}
                     className={cn(
-                      "flex shrink-0 items-center gap-1 border-r border-border bg-muted/40 px-2",
+                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
                       inSel && "bg-primary/20",
                       labelled && LABEL_SELECTED,
                     )}
@@ -1459,8 +1494,9 @@ export function TimelineTab({
               >
                 <div
                   style={{ width: GUTTER }}
+                  {...gutterProps(row)}
                   className={cn(
-                    "relative flex shrink-0 items-center gap-1 overflow-hidden border-r border-border px-2",
+                    "relative flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
                     // On the row: a faint tint. Label selected: the full caret mark.
                     onRow && !labelled && "bg-primary/10",
                     inSel && "bg-primary/20",
@@ -1540,6 +1576,9 @@ export function TimelineTab({
                           aria-label={`${control} ${t.name}`}
                           aria-pressed={on}
                           onPointerDown={(e) => e.stopPropagation()}
+                          // dblclick is its own event and bubbles past the click handler's stop —
+                          // without this, two fast mutes would also send the panes after the row.
+                          onDoubleClick={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             onTrackToggle(t.id, control);

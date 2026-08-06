@@ -43,6 +43,25 @@ export const isModuleFile = (path: string): boolean =>
     norm(path),
   );
 
+/**
+ * The file in `files` that IS `<folder>/<id>`, or null.
+ *
+ * An id names its file (`entityFiles` in `@studio/song`), so this is a lookup rather than a
+ * search — but not a string compare: either spelling of the extension counts, and a path may
+ * carry a project-folder prefix. Named rather than fuzzy-matched, because `tracks/kick` and
+ * `clips/kick` both exist in plenty of songs and a score on "kick" alone could take either.
+ */
+export function entityFile(
+  files: string[],
+  folder: string,
+  id: string,
+): string | null {
+  const want = new RegExp(`(^|/)${esc(folder)}/${esc(id)}\\.ya?ml$`, "i");
+  return files.find((p) => want.test(norm(p))) ?? null;
+}
+
+const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** A path with forward slashes, whatever the platform handed us. */
 export const norm = (path: string): string => path.replace(/\\/g, "/");
 

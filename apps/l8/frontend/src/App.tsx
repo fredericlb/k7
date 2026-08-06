@@ -95,9 +95,9 @@ import {
 } from "./moduleInsert";
 import { buildPaletteCommands, makeCompleteArg } from "./palette";
 import { m } from "./paraglide/messages.js";
-import { fileStem } from "./projectPaths";
+import { entityFile, fileStem } from "./projectPaths";
 import type { Pane, Panel, View } from "./routes";
-import type { RowKey } from "./rows";
+import type { RowKey, RowTarget } from "./rows";
 import {
   ALL_PANES,
   DOUBLE_SHIFT_MS,
@@ -524,6 +524,37 @@ export default function App({
     if (id) setDocSel({ kind: "track", id });
   }, [caret?.trackId]);
 
+  /**
+   * Open a file in the editor pane, by path or by name.
+   *
+   * An exact project path opens as-is, anything else takes the best fuzzy match — which is
+   * what lets `ui file <track>` be typed with a bare id. Returns the path it settled on.
+   *
+   * `reveal` brings the pane up and puts the keyboard in it: right for a typed command, whose
+   * whole point was to go and read the file, and wrong for the timeline pointing the panes at
+   * a track — there the hands are still on the arrangement.
+   */
+  const openInEditor = useCallback(
+    (arg: string, reveal = true): string | null => {
+      if (!arg) return null;
+      const files = editorRef.current?.files() ?? [];
+      const path = files.includes(arg)
+        ? arg
+        : (files
+            .map((p) => ({ p, score: fuzzyScore(arg, p) }))
+            .filter((x) => x.score >= 0)
+            .sort((a, b) => b.score - a.score || a.p.localeCompare(b.p))[0]
+            ?.p ?? arg);
+      if (reveal) {
+        if (!visible("editor")) fullscreen("editor");
+        else focusOn("editor");
+      }
+      editorRef.current?.open(path);
+      return path;
+    },
+    [visible, fullscreen, focusOn],
+  );
+
   // The shell's view commands; returns false when the line isn't one, so the caller falls through to the backend.
   const runLocalCommand = useCallback(
     (s: string): boolean => {
@@ -611,21 +642,6 @@ export default function App({
         }
         return true;
       }
-      // Open a file by name: an exact project path opens as-is, anything else takes the best fuzzy match.
-      const openInEditor = (arg: string) => {
-        if (!arg) return;
-        const files = editorRef.current?.files() ?? [];
-        const path = files.includes(arg)
-          ? arg
-          : (files
-              .map((p) => ({ p, score: fuzzyScore(arg, p) }))
-              .filter((x) => x.score >= 0)
-              .sort((a, b) => b.score - a.score || a.p.localeCompare(b.p))[0]
-              ?.p ?? arg);
-        if (!visible("editor")) fullscreen("editor");
-        else focusOn("editor");
-        editorRef.current?.open(path);
-      };
       if (line.startsWith("file ")) {
         openInEditor(s.slice(5).trim());
         return true;
@@ -695,8 +711,8 @@ export default function App({
       focusOn,
       focusPane,
       hasVideo,
+      openInEditor,
       ringPanes,
-      visible,
       ws,
       openHelp,
       closeHelp,
@@ -749,6 +765,49 @@ export default function App({
     },
     [freezeTarget, pushLog, runLocalCommand],
   );
+
+  // --- following a track across the panes ------------------------------------------
+  //
+  // A double-click on a timeline header says "this one" to the whole shell: the editor opens
+  // the row's file and the chains canvas frames what it feeds. Selecting the row is the
+  // timeline's own business — the caret — and happens on the single click that precedes this.
+  //
+  // The nonce is what makes the SAME track twice re-frame: the chains canvas applies a focus
+  // once, and without a changing value a second double-click would be indistinguishable from
+  // the first and do nothing after the camera had been panned away.
+  const [graphFocus, setGraphFocus] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
+  const focusNonce = useRef(0);
+  // What the status line said about the file, so the canvas's answer can be added to it rather
+  // than replace it: the two halves of one action arrive a render apart.
+  const focusLine = useRef("");
+  const focusRowInPanes = useCallback(
+    (target: RowTarget) => {
+      // Named, not fuzzy-matched: a row knows which folder its file is in, and the score a
+      // bare id would win is the one `clips/<id>.yaml` wins too. See projectPaths.
+      const dir = target.kind === "video" ? "video_tracks" : "tracks";
+      const file = entityFile(editorRef.current?.files() ?? [], dir, target.id);
+      const path = file && openInEditor(file, false);
+      focusLine.current = `${target.id} — ${path ?? `no ${dir}/ file`}`;
+      setStatus(focusLine.current);
+      // A video lane is not an engine track — it feeds no chain, so there is nothing to frame.
+      if (target.kind === "video") return;
+      focusNonce.current += 1;
+      setGraphFocus({ id: target.id, nonce: focusNonce.current });
+    },
+    [openInEditor],
+  );
+  // The canvas reports what the framing found; a track wired to nothing has to say so, or the
+  // graph merely looking unchanged reads as the double-click having missed.
+  const reportFramed = useCallback((chains: number) => {
+    setStatus(
+      chains
+        ? `${focusLine.current} · ${chains} chain${chains > 1 ? "s" : ""} framed`
+        : `${focusLine.current} · no chain takes it as its source`,
+    );
+  }, []);
 
   // The right-click context menu (timeline + graph).
   const [menu, setMenu] = useState<{
@@ -1311,6 +1370,7 @@ export default function App({
                       `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
                     )
                   }
+                  onFocusRow={focusRowInPanes}
                   trackControls={trackControls}
                   onTrackToggle={onTrackToggle}
                 />
@@ -1357,6 +1417,8 @@ export default function App({
                   trackControls={trackControls}
                   onTrackToggle={onTrackToggle}
                   onTrackSet={onTrackSet}
+                  focus={graphFocus}
+                  onFocused={reportFramed}
                 />
               </div>
 
