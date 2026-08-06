@@ -17,7 +17,9 @@ export type MenuCtx =
   | { kind: "clip"; id: string; midi: boolean; track?: string; tc?: string }
   | { kind: "chain"; id: string; track?: string }
   | { kind: "sink"; id: string }
-  // Right-click on the timeline ruler at `tc` (a timecode) — offer to drop a marker.
+  // Right-click on the timeline ruler — offer to drop a marker at `tc`. That is the CARET's
+  // beat, or the playhead's; the timeline resolves it, and it is deliberately not the beat
+  // under the pointer (see apps/l8/frontend/docs/timeline.md).
   | { kind: "marker-add"; tc: string }
   // Right-click on an existing marker — offer to delete it by name.
   | { kind: "marker"; name: string };
@@ -103,7 +105,7 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
     case "sink":
       return []; // OUT — nothing per-entity to do
     case "marker-add":
-      // Pre-writes `marker new <tc> ` with the caret left for the name to type.
+      // Pre-writes `marker new <tc> `, leaving the TEXT cursor where the name is typed.
       return build([{ verb: "marker new", arg: ctx.tc, needsMore: true }]);
     case "marker":
       return build([{ verb: "marker delete", arg: ctx.name }]);

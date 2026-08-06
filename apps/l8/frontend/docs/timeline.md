@@ -45,6 +45,23 @@ The coupling was never symmetric, and the direction that survives is the useful 
 (`transport locate`) sends the **playhead to the caret**. You aim, then you send the
 transport there — not the other way about.
 
+### Dropping a marker
+
+Right-clicking the ruler offers `marker new <tc>`, and `<tc>` is the **caret's beat when it
+holds one, otherwise the playhead's** — never the beat under the pointer. Both are positions
+you aimed at deliberately; where you happened to right-click is how you reached the menu, not
+a choice you made. A caret parked on a label is a row rather than a position, so that falls
+through to the playhead as well.
+
+The caret sits on a whole beat, so it spells cleanly. The playhead does not: it is continuous,
+and `beatsToPosition` subdivides a leftover fraction by four until it runs out, so marking a
+moment mid-playback produced `4:2:2:2:4:4:2:4` — a valid timecode, and one nobody wants
+pre-written into the command bar. It is therefore taken at the **sixteenth** that `marker
+new` documents its argument in (`bar:beat:sixteenth`). A landmark does not need sample
+precision, and a sixteenth is zoom-independent — unlike snapping to whichever tick the ruler
+is currently drawing, which would make where a marker lands depend on how far you had
+zoomed.
+
 ## The grid, and what a ruler click lands on
 
 The ruler's unit follows the zoom (`subdivideBeats`) and every tick it picks is drawn twice:
