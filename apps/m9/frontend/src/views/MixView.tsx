@@ -109,9 +109,9 @@ export function MixView({
   project: string;
 }) {
   const deck = useEngine(engine);
-  // Derived, never typed and never stored: the file service is on the chosen engine's host,
-  // and the identity is the session's. Both used to be text boxes.
-  const link = useMemo(() => fileLink(engine, currentUser()), [engine]);
+  // Derived, never typed and never stored: the file service is on the chosen engine's host.
+  // The identity rides in the shared headers — see service.ts. Both used to be text boxes.
+  const link = useMemo(() => fileLink(engine), [engine]);
   const [root, setRoot] = useState<string | null>(null);
   const [set, setSet] = useState<SetList | null>(null);
   const [error, setError] = useState<string | null>(null);
