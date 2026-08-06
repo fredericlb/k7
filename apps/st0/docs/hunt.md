@@ -219,6 +219,67 @@ peuvent contenir n'importe quoi. Ils traversent ici deux endroits, et chacun a s
 
 Rien de ce qu'un inconnu a tapé ne devient donc un chemin.
 
+## Le secours : « DL sur YouTube »
+
+Quand une ligne est rouge — personne ne partageait le morceau, ou personne ne l'a envoyé —
+elle porte un bouton **DL sur YouTube**, qui reprend le morceau avec `yt-dlp`.
+
+**Un bouton, jamais un repli automatique.** C'est un autre marché : un flux compressé tiré
+d'une vidéo au lieu du fichier de quelqu'un. Savoir quel morceau le mérite est un jugement sur
+le morceau — une reprise pour une playlist de répèt, oui ; une référence de mix, sûrement pas —
+et un serveur n'a pas à le faire à votre place.
+
+C'est **la même ligne** qui repart, pas une nouvelle. Elle porte déjà les tags résolus par
+MusicBrainz, donc le morceau se range exactement où il serait allé ; et l'historique garde une
+ligne par morceau voulu plutôt qu'une par tentative, ce qui est la question qu'on se pose en
+relisant la liste. Le sidecar dit `source: youtube`, à côté de `slskd` et d'`upload` : une fois
+le dossier rangé, c'est la seule trace qu'on écoute la piste audio d'une vidéo et non un disque.
+
+### Ici l'artiste EST dans la requête
+
+À l'inverse exact de slskd. Un titre de vidéo YouTube s'écrit « Artiste - Titre », donc
+l'artiste est dans le champ même qu'on interroge ; chez Soulseek il était le dossier au-dessus
+et ne restreignait rien. Même information, deux endroits différents, deux décisions opposées.
+
+`ytsearch1:` transforme la phrase en une vidéo sans qu'on ait à interroger YouTube nous-mêmes.
+Un seul résultat : le deuxième est déjà une reprise ou un live.
+
+### On ne ré-encode pas
+
+`--audio-format best` ne convertit pas, il **conserve** : YouTube sert de l'Opus autour de
+130 kbps, et le passer en mp3 serait un transcodage lossy vers lossy — nettement pire que l'un
+ou l'autre, pour rien. Ce qui sort est donc du `.opus` ou du `.m4a`, que `AUDIO_EXT` accepte
+déjà. Si yt-dlp rend autre chose, on refuse en le disant plutôt que de ranger un fichier que
+`masterName` rejetterait de toute façon.
+
+Le débit est inscrit dans la ligne comme pour un téléchargement Soulseek : un morceau à
+130 kbps qui s'annonce ne sera pas pris pour une référence six mois plus tard.
+
+### Ce qui est hostile, ici, c'est la requête
+
+Elle vient de ce que quelqu'un a tapé, et elle part vers un processus. `ytdlpArgs` rend un
+**tableau**, et `execFile` est appelé **sans shell** : un `;`, un `$(…)` ou un guillemet dans la
+recherche reste des caractères dans une recherche. C'est la même discipline que pour les noms
+de fichiers venus de Soulseek, à l'autre bout de la chaîne.
+
+Le travail se fait sous `.hunts/tmp/<id>` — sur le volume, donc de la vraie place, et derrière
+un point, donc invisible aux scans. Effacé quoi qu'il arrive : un téléchargement raté laisserait
+sinon des octets que plus rien ne nomme.
+
+### Ce que ça demande à l'image
+
+`yt-dlp` **et** `ffmpeg`, tous deux dans le Dockerfile. ffmpeg n'est pas un supplément : yt-dlp
+n'en embarque pas et ne sait pas séparer un flux de son conteneur sans lui, donc les deux ne
+font qu'une fonctionnalité.
+
+Et il faut le savoir : **yt-dlp est une cible mouvante**. YouTube le casse tous les quelques
+mois, donc la version figée dans une image vieillit et finit par échouer ; reconstruire est le
+correctif. C'est le coût de cette porte de sortie, et la raison pour laquelle elle est une porte
+de sortie et non le chemin principal.
+
+L'écran demande au backend si le binaire est là (`GET /api/hunt` → `youtube`), sondé une fois.
+Sans lui, le bouton est grisé et le dit, plutôt que d'échouer au clic.
+
 ## L'historique
 
 Une ligne par recherche, la plus récente en haut, dans `.hunts/<slug>-<hash>.json` sur le volume
@@ -287,3 +348,6 @@ sur la machine slskd sont deux confiances différentes.
 - Rien n'est **partagé** en retour. Beaucoup de pairs bannissent automatiquement qui ne partage
   rien, donc la moisson sera moins bonne qu'avec un client qui partage — c'est une décision à
   prendre, pas un oubli.
+- Le secours YouTube ne **choisit pas** la vidéo : c'est la première réponse, point. Proposer
+  une liste serait un autre écran, et le premier résultat d'une requête « artiste titre » est
+  la bonne piste bien plus souvent qu'il ne l'est pour une recherche Soulseek.

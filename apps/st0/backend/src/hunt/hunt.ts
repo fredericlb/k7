@@ -25,7 +25,8 @@ import {
   searchResponses,
   startSearch,
 } from "./slskd.ts";
-import { type HuntRecord, patchHunt, saveHunt } from "./store.ts";
+import { type HuntRecord, listHunts, patchHunt, saveHunt } from "./store.ts";
+import { fetchFromYoutube, youtubeQuery } from "./youtube.ts";
 
 /** A peer gets this long to START sending before the hunt moves to the next one. */
 export const NO_START_MS = 60_000;
@@ -311,6 +312,72 @@ export function startHunt(sub: string, query: string): HuntRecord {
       running.delete(rec.id);
     });
   return rec;
+}
+
+/**
+ * Le secours : reprendre une ligne échouée et aller chercher le morceau sur YouTube.
+ *
+ * La MÊME ligne, pas une nouvelle. Elle porte déjà les tags que MusicBrainz a résolus, donc le
+ * morceau se range au même endroit qu'il serait allé — et l'historique garde une ligne par
+ * morceau voulu plutôt qu'une par tentative, ce qui est la question que quelqu'un se pose en
+ * relisant la liste.
+ *
+ * Renvoie `null` quand la ligne est inconnue ou déjà en cours, ce que la route dit en 404/409 :
+ * deux téléchargements écrivant le même dossier gagneraient au hasard.
+ */
+export function startYoutube(sub: string, id: string): HuntRecord | null {
+  const row = listHunts(sub).find((h) => h.id === id);
+  if (!row || running.has(id)) return null;
+  const rec = patchHunt(sub, id, {
+    status: "downloading",
+    via: "youtube",
+    peer: undefined,
+    error: undefined,
+    endedAt: undefined,
+    format: undefined,
+    bitrate: undefined,
+  });
+  if (!rec) return null;
+  const ctl = new AbortController();
+  running.set(id, ctl);
+  void runYoutube(sub, rec)
+    .catch((e) => {
+      patchHunt(sub, id, {
+        status: "failed",
+        error: message(e),
+        endedAt: Date.now(),
+      });
+    })
+    .finally(() => {
+      running.delete(id);
+    });
+  return rec;
+}
+
+async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
+  const query = youtubeQuery(rec);
+  const { bytes, filename } = await fetchFromYoutube(query, rec.id);
+  const filed = addSong({
+    filename,
+    bytes,
+    tags: {
+      artist: rec.artist,
+      title: rec.title || rec.query,
+      album: rec.album,
+      // Le sidecar dit d'où ça vient, comme il dit `slskd` ou `upload`. Ce n'est pas une
+      // étiquette de plus : c'est la seule trace, une fois le dossier rangé, qu'on écoute une
+      // piste audio de vidéo et non un disque.
+      source: "youtube",
+    },
+    // Le secours d'un échec : rien n'est là à écraser, et si quelque chose l'est entre-temps,
+    // `addSong` refuse — ce qui est la bonne réponse, pas un problème à contourner.
+  });
+  patchHunt(sub, rec.id, {
+    status: "done",
+    path: filed.path,
+    format: extOf(filename),
+    endedAt: Date.now(),
+  });
 }
 
 /** Give up on one. The runner's own catch writes the row. */

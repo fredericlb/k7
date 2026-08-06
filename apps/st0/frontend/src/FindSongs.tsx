@@ -12,7 +12,16 @@ import {
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
 import type { HuntRecord, HuntStatus } from "@studio/web-protocol/hunt";
-import { CheckCircle2, Loader2, Search, TriangleAlert, X } from "lucide-react";
+// Clapperboard et non un logo : lucide a retiré ses icônes de marque, et « une vidéo » est de
+// toute façon ce que la source est réellement.
+import {
+  CheckCircle2,
+  Clapperboard,
+  Loader2,
+  Search,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
 
@@ -43,11 +52,15 @@ function detail(h: HuntRecord): string {
   if (h.status === "failed") return h.error ?? "échec";
   if (h.status === "searching") return "recherche du morceau…";
   if (h.status === "downloading") {
+    // Le secours ne passe par aucun pair : dire « en attente d'un pair » pendant que yt-dlp
+    // travaille décrirait la mauvaise machine.
+    if (h.via === "youtube") return "téléchargement depuis YouTube…";
     const who = h.peer ? `chez ${h.peer}` : "en attente d'un pair";
     const tries = h.switches ? ` — ${h.switches + 1}ᵉ pair essayé` : "";
     return `${who}${tries}`;
   }
-  return h.error ?? h.path ?? "rangé";
+  const from = h.via === "youtube" ? "YouTube · " : "";
+  return `${from}${h.error ?? h.path ?? "rangé"}`;
 }
 
 /** Le format obtenu, dit sans détour : un 128 kbps qui s'annonce ne sera pas pris pour une
@@ -60,10 +73,16 @@ function quality(h: HuntRecord): string | null {
 
 function Row({
   h,
+  youtube,
   onForget,
+  onYoutube,
 }: {
   h: HuntRecord;
+  /** yt-dlp est-il là ? Sinon le secours est proposé en grisé, en disant pourquoi — un bouton
+   *  qui échouerait au clic n'apprendrait rien de plus. */
+  youtube: boolean;
   onForget: (id: string) => void;
+  onYoutube: (id: string) => void;
 }) {
   const named = h.artist && h.title ? `${h.artist} — ${h.title}` : h.query;
   const q = quality(h);
@@ -93,6 +112,26 @@ function Row({
           {detail(h)}
         </span>
       </span>
+      {/* Le secours, et seulement sur les lignes rouges : c'est un autre marché — un flux
+          compressé tiré d'une vidéo plutôt que le fichier de quelqu'un — et savoir quel
+          morceau le mérite est un jugement sur le morceau. D'où un bouton, jamais un repli
+          automatique. Voir ../../docs/hunt.md. */}
+      {h.status === "failed" && (
+        <Button
+          variant="secondary"
+          size="xs"
+          className="shrink-0"
+          disabled={!youtube}
+          title={
+            youtube
+              ? "Récupérer ce morceau sur YouTube (audio compressé)"
+              : "yt-dlp n'est pas installé sur ce serveur"
+          }
+          onClick={() => onYoutube(h.id)}
+        >
+          <Clapperboard className="mr-1 h-3.5 w-3.5" /> DL sur YouTube
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon-xs"
@@ -114,6 +153,7 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<HuntRecord[] | null>(null);
   const [reason, setReason] = useState<string | null>(null);
+  const [youtube, setYoutube] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // QUELLES lignes étaient déjà rangées, et non combien : une ligne retirée de l'historique
@@ -133,6 +173,7 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
           if (stop) return;
           setRows(l.hunts);
           setReason(l.configured ? null : l.reason);
+          setYoutube(l.youtube);
           const done = new Set(
             l.hunts.filter((h) => h.status === "done").map((h) => h.id),
           );
@@ -171,6 +212,20 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
   const forget = useCallback((id: string) => {
     setRows((r) => (r ?? []).filter((h) => h.id !== id));
     void hunt.forget(id).catch(() => {});
+  }, []);
+
+  const retryOnYoutube = useCallback((id: string) => {
+    setError(null);
+    // La ligne repasse en bleu sans attendre le tour de poll suivant : le clic doit se voir,
+    // sinon on le refait.
+    setRows((r) =>
+      (r ?? []).map((h) =>
+        h.id === id
+          ? { ...h, status: "downloading", via: "youtube", error: undefined }
+          : h,
+      ),
+    );
+    void hunt.youtube(id).catch((e: Error) => setError(e.message));
   }, []);
 
   return (
@@ -237,7 +292,13 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
             ) : (
               <ul className="flex flex-col gap-1">
                 {rows.map((h) => (
-                  <Row key={h.id} h={h} onForget={forget} />
+                  <Row
+                    key={h.id}
+                    h={h}
+                    youtube={youtube}
+                    onForget={forget}
+                    onYoutube={retryOnYoutube}
+                  />
                 ))}
               </ul>
             )}

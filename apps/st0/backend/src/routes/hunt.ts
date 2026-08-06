@@ -5,10 +5,11 @@
 import { wrap } from "@frediverse/http/route";
 import type { Request } from "express";
 import { Router } from "express";
-import { runningIds, startHunt, stopHunt } from "../hunt/hunt.ts";
+import { runningIds, startHunt, startYoutube, stopHunt } from "../hunt/hunt.ts";
 import { sftpConfigured } from "../hunt/sftp.ts";
 import { slskdConfigured } from "../hunt/slskd.ts";
 import { reconcile, removeHunt } from "../hunt/store.ts";
+import { youtubeAvailable } from "../hunt/youtube.ts";
 
 /** Same shape as the projects router: st0 has no express type augmentation of its own. */
 function subOf(req: Request): string | null {
@@ -49,12 +50,40 @@ huntRouter.use((req, res, next) => {
  */
 huntRouter.get(
   "/",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     res.json({
       configured: missing() === null,
       reason: missing(),
+      // Whether the fallback is even possible, so a failed row can offer the button or say
+      // why it cannot. Probed once and cached — it is a binary in the image.
+      youtube: await youtubeAvailable(),
       hunts: reconcile(subOf(req) as string, runningIds()),
     });
+  }),
+);
+
+/**
+ * The fallback: fetch a failed row's song from YouTube instead.
+ *
+ * Deliberately NOT automatic. It is a different bargain — a lossy stream off a video rather
+ * than somebody's file — and which songs are worth it is a judgement about the song, not one a
+ * server should make on its own. Hence a button, on the rows that came back empty-handed.
+ */
+huntRouter.post(
+  "/:id/youtube",
+  wrap(async (req, res) => {
+    if (!(await youtubeAvailable()))
+      return res
+        .status(503)
+        .json({ error: "yt-dlp n'est pas installé sur ce serveur" });
+    const rec = startYoutube(subOf(req) as string, req.params.id);
+    // One row, one download: null means either no such row or one already running, and a
+    // second writer of the same folder would win by luck.
+    if (!rec)
+      return res
+        .status(409)
+        .json({ error: "recherche inconnue, ou déjà en cours" });
+    res.json(rec);
   }),
 );
 
