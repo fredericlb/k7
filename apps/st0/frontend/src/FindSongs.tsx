@@ -12,7 +12,11 @@ import {
   SelectValue,
 } from "@frediverse/ui/select";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import type { HuntRecord, HuntStatus } from "@studio/web-protocol/hunt";
+import {
+  canFallBackToYoutube,
+  type HuntRecord,
+  type HuntStatus,
+} from "@studio/web-protocol/hunt";
 // Clapperboard et non un logo : lucide a retiré ses icônes de marque, et « une vidéo » est de
 // toute façon ce que la source est réellement.
 import {
@@ -130,11 +134,12 @@ function Row({
           {detail(h)}
         </span>
       </span>
-      {/* Le secours, et seulement sur les lignes rouges : c'est un autre marché — un flux
-          compressé tiré d'une vidéo plutôt que le fichier de quelqu'un — et savoir quel
-          morceau le mérite est un jugement sur le morceau. D'où un bouton, jamais un repli
-          automatique. Voir ../../docs/hunt.md. */}
-      {h.status === "failed" && (
+      {/* Le secours, seulement quand Soulseek a été ÉPUISÉ — pas sur toute ligne rouge. Un
+          redémarrage du service ou un fichier introuvable en SFTP ne disent rien sur la
+          disponibilité du morceau, et y répondre par YouTube masquerait le vrai défaut derrière
+          un fichier de moins bonne qualité. Et jamais un repli automatique : c'est un autre
+          marché, et savoir quel morceau le mérite est un jugement sur le morceau. */}
+      {canFallBackToYoutube(h) && (
         <Button
           variant="secondary"
           size="xs"
