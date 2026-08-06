@@ -64,8 +64,10 @@ import { dataDir } from "./state.ts";
 // order and with the same auth gates.
 export function registerRoutes(app: Express): void {
   // Auth endpoints (always public — the middleware lets /auth/* through).
-  // /auth/login and /auth/callback are mounted by @frediverse/oidc's setupAuth
-  // in server.ts; the rest are ours.
+  // ALL of them are ours now: there is no /auth/login or /auth/callback here
+  // any more, because the account login is st0's (docs/auth.md). What is left
+  // is the guest flows, plus /me and /logout — and /logout expires only
+  // bt_session, since z0 does not sign studio.sid.
   app.post("/auth/logout", handleAuthLogout);
   app.get("/auth/me", handleAuthMe);
   app.post("/auth/guest", handleAuthGuest);

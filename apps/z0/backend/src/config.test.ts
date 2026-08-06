@@ -11,6 +11,8 @@ describe("loadAppConfig", () => {
   const keys = [
     "OIDC_ISSUER",
     "OIDC_SCOPES",
+    "SESSION_SECRET",
+    "STUDIO_SESSION_SECRET",
     "AUTH_ADMIN_GROUPS",
     "GRIST_API_URL",
   ];
@@ -28,16 +30,27 @@ describe("loadAppConfig", () => {
     expect(cfg.auth).not.toHaveProperty("allowedReturnOrigins");
   });
 
-  it("applies the scope defaults", () => {
-    expect(loadAppConfig().auth.scopes).toEqual(["openid", "profile", "email"]);
+  it("asks the IdP for nothing — st0 runs the flow now", () => {
+    // `scopes` used to live here and be handed to setupAuth. This backend
+    // mounts no login, so a scope list here would be config nothing reads.
+    process.env.OIDC_SCOPES = "openid, email , groups";
+    expect(loadAppConfig().auth).not.toHaveProperty("scopes");
+  });
+
+  it("keeps the two secrets apart", () => {
+    // bt_session is ours to write; studio.sid is st0's to write and ours only
+    // to verify. One key for both would let a guest cookie be renamed into a
+    // studio session — see auth/session.test.ts.
+    process.env.SESSION_SECRET = "guests";
+    process.env.STUDIO_SESSION_SECRET = "account";
+    const cfg = loadAppConfig();
+    expect(cfg.auth.sessionSecret).toBe("guests");
+    expect(cfg.auth.studioSessionSecret).toBe("account");
   });
 
   it("honours overrides and list parsing", () => {
-    process.env.OIDC_SCOPES = "openid, email , groups";
     process.env.AUTH_ADMIN_GROUPS = "a,b";
-    const cfg = loadAppConfig();
-    expect(cfg.auth.scopes).toEqual(["openid", "email", "groups"]);
-    expect(cfg.auth.adminGroups).toEqual(["a", "b"]);
+    expect(loadAppConfig().auth.adminGroups).toEqual(["a", "b"]);
   });
 
   it("reads it lazily, so tests can set process.env first", () => {

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { logout as logoutAs } from "z0-shared/account";
 import { f } from "./api";
 
 // React port of the remote's useAuth: /api/auth/me once at boot, with the
@@ -71,20 +72,13 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-// Single origin: /auth/login is served by the backend on this very host, so the
-// redirect target is relative. return_to comes back to wherever we are now.
-export function login(): void {
-  const back = encodeURIComponent(window.location.href);
-  window.location.assign(`/z0/auth/login?return_to=${back}`);
-}
+// Signing in and out is the same rule for all six SPAs, and a subtle one — the
+// account belongs to st0, the guest cookie to z0. It lives in z0-shared/account
+// rather than in six copies here.
+export { login } from "z0-shared/account";
 
 export async function logout(): Promise<void> {
-  try {
-    await f("/api/auth/logout", { method: "POST" });
-  } catch {
-    /* ignore */
-  }
-  window.location.reload();
+  await logoutAs(state.user?.kind);
 }
 
 export function useAuth(): AuthState {

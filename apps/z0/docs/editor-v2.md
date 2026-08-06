@@ -13,8 +13,9 @@ qu'un formulaire ne se pose par-dessus et ne commence à le cacher.
 ## Il n'est pas une surface de jeu
 
 C'est ce qu'il faut savoir en premier, parce que tout le reste en découle. Les six autres SPA
-de z0 parlent au backend z0 : cookie `bt_session`, invités sans compte, état en Grist et
-SQLite. Le v2 ne lui parle **jamais**.
+de z0 parlent au backend z0 — invités sans compte sur `bt_session`, état en Grist et SQLite —
+même si, depuis [auth.md](auth.md), elles prennent leur connexion de **compte** chez st0 comme
+tout le monde. Le v2, lui, ne parle **jamais** au backend du jeu.
 
 | ce qu'il lui faut | d'où ça vient |
 |---|---|
@@ -29,9 +30,9 @@ par l'environnement pour un rendu hors-ligne — et il ne sait rien d'une copie 
 répondre z0 à tout ça aurait voulu dire un deuxième registre et un deuxième login pour un seul
 compte.
 
-Ce qui reste vrai : le jeu garde sa propre porte. Un joueur ne se connecte pas ici ; c'est
-l'auteur du blindtest qui ouvre son dépôt, et c'est le même compte que pour l8, m9 et la
-médiathèque.
+Ce qui reste vrai : le jeu garde sa porte d'**invité**, celle qui n'a pas de compte derrière.
+Un joueur ne se connecte pas ici ; c'est l'auteur du blindtest qui ouvre son dépôt, et c'est
+le même compte que pour l8, m9 et la médiathèque.
 
 ## Les trois portes, dans l'ordre
 

@@ -21,8 +21,10 @@ its own database, and it touches `engine/moteur` at exactly one point — an off
 | `editor-v2` | 3007 | `/z0/editor-v2` | the same job over a `.z0` project — see [docs/editor-v2.md](docs/editor-v2.md) |
 | `backend` | 8080 | `/z0/api`, `/z0/auth`, `/z0/ws` | Express + WebSocket |
 
-`shared/` (`z0-shared`) holds the presentational components and types the six frontends
-have in common — source-only, compiled by each consumer, like `@frediverse/ui`.
+`shared/` (`z0-shared`) holds what the six game frontends have in common — the
+presentational components and types, plus `account.ts`, which is where signing in and out
+lives now that the rule has two halves (see below). Source-only, compiled by each consumer,
+like `@frediverse/ui`.
 
 Each SPA's vite `base` is its full public path, so the Caddyfile does **not** strip the prefix
 for them; it does for the API. That asymmetry is explained at the top of the repo-root
@@ -30,22 +32,25 @@ for them; it does for the API. That asymmetry is explained at the top of the rep
 
 ## What makes z0 different
 
-**Its own session cookie.** `bt_session` (`backend/src/auth/session.ts`), not the `studio.sid`
-that l8, the médiathèque and m9 share. The reason is in the domain: a blind-test player is
-a **guest with no account**, a kind the studio session does not model. So z0 runs its own
-OIDC flow on its own backend, which is why the Caddyfile sets `X-Forwarded-Prefix` for it and
-nowhere else — `redirectUriFor` reads that to name `/z0/auth/callback` instead of the
-origin root, which belongs to l8.
+**Its own session cookie — for guests, and only guests.** `bt_session`
+(`backend/src/auth/session.ts`) carries the kinds the studio session cannot model: a
+blind-test player is a **guest with no account**. But z0 no longer runs an OIDC flow. It
+used to, on its own backend, with the Caddyfile setting `X-Forwarded-Prefix` for it and
+nowhere else so `redirectUriFor` would name `/z0/auth/callback` — and the IdP has only the
+**prefixless** callback registered, so every account login was refused at the authorization
+endpoint. A service under a path cannot own a flow here; st0 can, having no prefix. So
+`studio.sid` is read (never written) beside `bt_session`, under a SEPARATE secret. The whole
+argument, including why one shared secret would be a privilege escalation, is in
+[docs/auth.md](docs/auth.md).
 
 **Its own state, in Grist and SQLite.** `backend/src/db.ts` and `backend/src/grist/`. Nothing
 here is a song folder; do not reach for `@studio/song`.
 
 **…except `editor-v2`, which is not a game surface at all.** It opens a `.z0` project out of a
-git repository, so it signs in with the STUDIO session, asks st0 which repositories exist and
-reads files through the machine's file service — the same three steps l8 and m9 take, through
-the same `@studio/project-shell`. It never talks to z0's backend. That is the one place where
-"z0 has its own everything" stops being true, and [docs/editor-v2.md](docs/editor-v2.md) says
-why it has to.
+git repository, so it asks st0 which repositories exist and reads files through the machine's
+file service — the same three steps l8 and m9 take, through the same `@studio/project-shell`.
+It never talks to z0's backend at all, which is what still sets it apart now that the six
+others take their account login from st0 too. [docs/editor-v2.md](docs/editor-v2.md).
 
 **One engine, owned by the BACKEND.** `backend/src/render.ts` is the single exception to the
 per-account engine story the rest of the repo tells: z0 renders offline and never plays,

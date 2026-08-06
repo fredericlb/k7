@@ -127,24 +127,23 @@ if (config.grist.url && config.grist.docId) {
 const app = express();
 app.set("trust proxy", true);
 app.use(cors);
-// Installs cookie-session and mounts /auth/login + /auth/callback. Must come
-// before authMiddleware, which reads the session it decodes. We keep /auth/me
-// and /auth/logout ourselves: ours carry the SPAs' login-gate flags and answer
-// 204 respectively, so they're omitted here rather than shadowed by ordering.
+// Installs cookie-session for `bt_session` — the GUEST cookie, all this backend
+// still mints — and mounts NO routes. Must come before authMiddleware, which
+// reads the session it decodes.
+//
+// It used to mount login + callback: z0 ran its own OIDC flow, on its own
+// backend, so that a player could be a guest with no account. The guests
+// survived; the flow did not. `redirectUriFor` named
+// <origin>/z0/auth/callback (the Caddyfile set X-Forwarded-Prefix for exactly
+// that), and the IdP has only the prefixless callback registered on this
+// client — so every account login died at the authorization endpoint with
+// "the 'redirect_uri' parameter does not match any of the pre-registered
+// 'redirect_uris'". A service under a path cannot own a flow here. st0 does,
+// because it has no prefix; this reads the cookie st0 mints. docs/auth.md.
 await setupAuth(app, {
   cookieName: SESSION_COOKIE_NAME,
   service: "z0-backend",
-  scopes: config.auth.scopes,
-  mountRoutes: ["login", "callback"],
-  // Tag OIDC logins so they're distinguishable from the guest kinds; the rest
-  // (sub/name/email/groups) is the package's default shape.
-  mapUser: (p) => ({
-    kind: "user",
-    sub: p.sub as string,
-    email: (p.email as string) ?? "",
-    name: (p.name as string) || (p.preferred_username as string) || "",
-    groups: Array.isArray(p.groups) ? p.groups.map(String) : [],
-  }),
+  mountRoutes: [],
 });
 app.use(authMiddleware);
 app.use(express.json({ limit: "32mb" })); // editor attachment uploads are big
