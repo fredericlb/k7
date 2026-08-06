@@ -3,6 +3,7 @@ import {
   beatsIn,
   bucketAt,
   type Envelope,
+  mmss,
   transientsIn,
   WINDOW_SECONDS,
   window,
@@ -106,6 +107,24 @@ describe("the beat grid", () => {
   it("returns nothing for an empty or inverted window", () => {
     expect(beatsIn(env(), 5, 5)).toEqual([]);
     expect(beatsIn(env(), 10, 2)).toEqual([]);
+  });
+});
+
+describe("the clock on the strip", () => {
+  it("pads the seconds, so the digits do not jump", () => {
+    expect(mmss(0)).toBe("0:00");
+    expect(mmss(9)).toBe("0:09");
+    expect(mmss(61)).toBe("1:01");
+    expect(mmss(3599)).toBe("59:59");
+  });
+
+  it("floors rather than rounds, so 0:59 never shows as 1:00", () => {
+    expect(mmss(59.9)).toBe("0:59");
+  });
+
+  it("signs what is LEFT, which is a negative number", () => {
+    expect(mmss(-5)).toBe("-0:05");
+    expect(mmss(-125)).toBe("-2:05");
   });
 });
 

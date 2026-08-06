@@ -8,6 +8,7 @@ import {
   beatsIn,
   bucketAt,
   type Envelope,
+  mmss,
   transientsIn,
   window as viewWindow,
   WINDOW_SECONDS,
@@ -27,11 +28,15 @@ export function Waveform({
   /** Said out loud while the engine is computing a sidecar — several seconds for a long
    *  track, and an empty box would read as "this song has no waveform". */
   analysing,
+  /** Why there is none, when there will not be one. Shown rather than swallowed: the strip
+   *  cannot draw the difference between "failed" and "none", so it has to say it. */
+  problem,
 }: {
   envelope: Envelope | null;
   playhead: React.RefObject<Playhead>;
   playing: boolean;
   analysing: boolean;
+  problem: string | null;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
 
@@ -102,6 +107,17 @@ export function Waveform({
       // --- the playhead, dead centre and never anywhere else --------------------------
       ctx.fillStyle = PLAYHEAD;
       ctx.fillRect(Math.round(w / 2), 0, 1, h);
+
+      // --- elapsed and remaining, in the corners --------------------------------------
+      // A deck wants both. They also make the playhead's MOVEMENT visible, which a quiet
+      // intro hides completely: a strip that is flat because the music has not started and
+      // one that is flat because nothing is advancing are the same picture without a clock.
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.fillStyle = "rgba(148,163,184,0.9)";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(mmss(Math.max(0, at)), 4, h - 3);
+      const left = mmss(Math.min(0, at - envelope.seconds));
+      ctx.fillText(left, w - ctx.measureText(left).width - 4, h - 3);
     };
 
     frame = requestAnimationFrame(draw);
@@ -116,6 +132,17 @@ export function Waveform({
       {analysing ? (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
           analyse du morceau…
+        </span>
+      ) : null}
+      {problem ? (
+        // The reason, on the strip that has none. Truncated to one line with the whole thing
+        // in the tooltip: a 200-character stack has no business across a deck, and a message
+        // nobody can read has no business being kept at all.
+        <span
+          className="absolute inset-x-2 top-1/2 -translate-y-1/2 truncate text-center text-[11px] text-destructive"
+          title={problem}
+        >
+          pas de forme d'onde : {problem}
         </span>
       ) : null}
       {envelope && !envelope.bpm ? (

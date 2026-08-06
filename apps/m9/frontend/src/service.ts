@@ -43,7 +43,17 @@ export function fileLink(engine: { fileBase: string | null }): FileLink | null {
  */
 async function get<T>(s: FileLink, path: string): Promise<T> {
   const res = await fetch(`${s.base}${path}`, { headers: fileHeaders() });
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  if (!res.ok) {
+    // The SERVER's sentence, not just its number. Every route here answers `{error}` with
+    // something actionable — "engine binary not found", "is not in this cache" — and this
+    // used to throw the bare status, turning each of them into `→ 503`. A surface can only
+    // be as honest as the error it is handed.
+    const said = await res
+      .json()
+      .then((b: { error?: string }) => b?.error)
+      .catch(() => undefined);
+    throw new Error(said || `${path} → ${res.status}`);
+  }
   return (await res.json()) as T;
 }
 
