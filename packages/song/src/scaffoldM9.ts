@@ -44,55 +44,84 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `#  - "@mediatek/songs/artiste/album/titre"\n`,
 
     "chains.yaml":
-      `# Two decks meeting at one module — the shape a single chain cannot express, because a\n` +
-      `# chain carries ONE signal.\n` +
+      `# Each deck through its own tempo, then both meeting at one crossfade — the shape a\n` +
+      `# single chain cannot express, because a chain carries ONE signal.\n` +
       `#\n` +
-      `# \`deckA\` FLOWS into the crossfade: a bare destination is the flow, so the crossfade\n` +
-      `# continues deckA's run as a step. \`deckB\` names a PORT, \`#b\`, so it lands on the\n` +
-      `# module's second input without claiming it as its own next step.\n` +
+      `# \`deckA\` FLOWS into its tempo and on into the crossfade: a bare destination is the\n` +
+      `# flow. \`deckB\`'s run ends on a PORT, \`#b\`, so it lands on the crossfade's second\n` +
+      `# input without claiming the module as its own next step.\n` +
       `#\n` +
-      `# Nothing about two is fixed. A third deck is a third track and a second meeting point;\n` +
-      `# m9 reads whatever is here. See packages/song/docs/ports.md.\n` +
+      `# The names here are INSTANCES, from instances/ — not modules. The modules themselves\n` +
+      `# live in the médiathèque and are not copied in.\n` +
+      `#\n` +
+      `# Nothing about two is fixed. A third deck is a third track, a third tempo and a second\n` +
+      `# meeting point; m9 reads whatever is here. See packages/song/docs/ports.md.\n` +
       `\n` +
       `tracks:\n` +
-      `  deckA: [ crossfade ]\n` +
-      `  deckB: [ crossfade#b ]\n` +
+      `  deckA: [ ${TEMPO_A} ]\n` +
+      `  deckB: [ ${TEMPO_B} ]\n` +
       `modules:\n` +
-      `  crossfade: [ OUT ]\n`,
+      `  ${TEMPO_A}: [ ${CROSSFADE} ]\n` +
+      `  ${TEMPO_B}: [ ${CROSSFADE}#b ]\n` +
+      `  ${CROSSFADE}: [ OUT ]\n`,
 
     "tracks/deckA.yaml": deckTrack(
       "A",
-      "It FLOWS into the crossfade, so it fills the module's first port.",
+      "Its run FLOWS on into the crossfade, so it fills the module's first port.",
     ),
     "tracks/deckB.yaml": deckTrack(
       "B",
-      "It lands on `#b`, the crossfade's second port.",
+      "Its run ends on `#b`, the crossfade's second port.",
     ),
 
-    "modules/audio/crossfade/module.yaml":
-      `# A module that declares its OWN ports, instead of taking the one audio input its type\n` +
-      `# folder would have given it. That is the whole reason a crossfade was unsayable before:\n` +
-      `# \`audio/\` means one in, one out, and a folder is not the right place to decide how many\n` +
-      `# wires an effect takes.\n` +
+    [`instances/${CROSSFADE}.yaml`]:
+      `# The crossfader, as an INSTANCE of the médiathèque's module.\n` +
       `#\n` +
-      `# \`mandatory: false\` on \`b\`: one deck loaded and the other silent is the normal state of\n` +
-      `# a set, not a half-built chain.\n` +
+      `# The module is NOT copied into this project, and that is the point: st0 owns the only\n` +
+      `# editable catalogue, so a copy here would be a second crossfade nobody maintains and\n` +
+      `# nobody would notice drifting. A use of a module you do not own needs no local folder\n` +
+      `# for it — see packages/song/docs/instances.md.\n` +
       `#\n` +
-      `# \`plugin: {type: jsdsp}\` says the sound comes from the \`jsdsp.ts\` beside this file.\n` +
-      `plugin: { type: jsdsp, name: Crossfade }\n` +
-      `inputs:\n` +
-      `  - { name: a, type: audio }\n` +
-      `  - { name: b, type: audio, mandatory: false }\n` +
-      `outputs:\n` +
-      `  - { name: out, type: audio }\n` +
+      `# \`kind\`, \`inputs\` and \`category\` are inherited by NOT being stated: the two audio\n` +
+      `# inputs, the second one optional, come from what this extends.\n` +
+      `extends: ${q(`${MEDIATEK_UTILITY}/crossfade`)}\n` +
       `params:\n` +
-      `  # The graph's own parameter, by its display name — that is how a param finds its\n` +
-      `  # plugin (see applyPluginParams). Centred: both decks at once.\n` +
-      `  Mix: 0.5\n` +
-      `docs: The crossfader. Mix at 0 is deck A alone, at 1 deck B alone, at 0.5 both at half.\n`,
+      `  # Centred: both decks at once, which is where a set starts.\n` +
+      `  Mix: 0.5\n`,
 
-    "modules/audio/crossfade/jsdsp.ts": CROSSFADE_DSP,
+    [`instances/${TEMPO_A}.yaml`]: tempoInstance("A"),
+    [`instances/${TEMPO_B}.yaml`]: tempoInstance("B"),
   };
+}
+
+/** The médiathèque folder the set's modules come from. */
+const MEDIATEK_UTILITY = "@mediatek/audio/utility";
+/** The instance names the chains file wires. Short on purpose — a chains file reads better
+ *  with `tempoA` in it than with the whole ref, and the ref is one line away in instances/. */
+const CROSSFADE = "crossfade";
+const TEMPO_A = "tempoA";
+const TEMPO_B = "tempoB";
+
+/** One deck's tempo: an instance of the médiathèque's cold Tempo module. */
+function tempoInstance(letter: string): string {
+  return (
+    `# Deck ${letter}'s tempo — an INSTANCE of the médiathèque's Tempo module, one per deck\n` +
+    `# because each deck plays at its own BPM and a param belongs to a use, not to a module.\n` +
+    `#\n` +
+    `# The module is COLD: a tempo change is a time stretch, and a stretch has to know where\n` +
+    `# the file ends. That is why it sits on a deck at all — a deck's source is a file on the\n` +
+    `# machine's disk, which is the one input whose whole length is knowable up front. See\n` +
+    `# packages/song/docs/coldModules.md.\n` +
+    `#\n` +
+    `# This is what the BPM fader in Mix moves. Both at 0 is a no-op: the record plays at its\n` +
+    `# own tempo until the analysis has measured one and somebody has asked for another.\n` +
+    `extends: ${q(`${MEDIATEK_UTILITY}/tempo`)}\n` +
+    `params:\n` +
+    `  # Measured by the pass that reads the file — the same analysis the waveform uses.\n` +
+    `  Source BPM: 0\n` +
+    `  # What the fader sets. 0 means "leave it alone".\n` +
+    `  Target BPM: 0\n`
+  );
 }
 
 /** One deck: a track that is DECLARED here and whose material arrives at play time. */
@@ -110,28 +139,6 @@ function deckTrack(letter: string, wiring: string): string {
     `docs: Deck ${letter}.\n`
   );
 }
-
-// The crossfade's DSP, verbatim from @studio/dsp's `crossfade()` graph — a module is a FOLDER
-// you can copy, so it carries its own source rather than pointing at a shared library.
-const CROSSFADE_DSP = `// The crossfade's DSP. The builder arrives as an ARGUMENT, so this file imports nothing at runtime — a song
-// folder has no node_modules and should never need one (the \`import type\` is erased; see dspRunner.mjs).
-//
-// \`input(0)\` and \`input(1)\` index the ports module.yaml declares, in order: \`a\` then \`b\`. An index and not a
-// name, because this graph is compiled to JSON the engine reads with no module.yaml in sight, and position is
-// the one fact both documents can hold on their own.
-
-import type { GraphBuilder } from "@studio/dsp";
-
-export default (g: GraphBuilder) => {
-  const mix = g.param("Mix", { min: 0, max: 1, default: 0.5 });
-  // Equal GAIN, not equal power — there is no sqrt among the primitives, and adding one for a single effect
-  // is how a graph language ends up with a node per effect. Linear dips ~3 dB at centre for uncorrelated
-  // material, which is a known shape rather than a bug.
-  const a = g.amul(g.input(0), g.sub(1, mix));
-  const b = g.amul(g.input(1), mix);
-  g.output(g.aadd(a, b));
-};
-`;
 
 /** Scaffold a new m9 set at `dir`, returning the project-relative paths written. */
 export function scaffoldM9(dir: string, name: string): string[] {

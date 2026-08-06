@@ -56,6 +56,22 @@ export const DOC_TEMPO = 120;
  *  deck's wide setting. Beyond it a stretch stops sounding like the record. */
 export const PITCH_RANGE = 0.16;
 
+/**
+ * The module a deck's tempo BELONGS to, and the param the fader is.
+ *
+ * The project says this outright: `example.m9`'s chains put an instance of the médiathèque's
+ * cold `tempo` module on each deck, and the fader is that instance's `Target BPM`. Written
+ * here so the browser's stand-in below is anchored to the thing it stands in for rather than
+ * being a second, unrelated way to change a tempo.
+ *
+ * Nothing sends these yet, for the reason the crossfade's module is not sent either: the
+ * module is `plugin: {type: offline}` — a pass writes stretched audio to disk — so it has no
+ * live parameter and no engine plugin. `warpFor` is how the browser realises it meanwhile.
+ */
+export const TEMPO_MODULE = "@mediatek/audio/utility/tempo";
+export const TEMPO_PARAM = "Target BPM";
+export const TEMPO_SOURCE_PARAM = "Source BPM";
+
 /** What one deck is playing at: the song's own tempo, its length, and where the fader is. */
 export interface DeckTempo {
   /** The engine's estimate for this song, or 0 when it found none. */
@@ -88,6 +104,12 @@ export function faderRange(
 
 /**
  * The stretch that makes a song of `natural` BPM play at `target`.
+ *
+ * **This is the browser's stand-in for `TEMPO_MODULE`.** The project declares the tempo as a
+ * module on each deck; that module is cold and offline, so it cannot run live and cannot be
+ * sent as a plugin. A clip warp is the one thing the engine WILL do live, so the fader lands
+ * here — and when the cold pass exists, this is what it replaces. `natural`/`target` are the
+ * module's `Source BPM`/`Target BPM` under different names for the same two facts.
  *
  * Two markers is a linear stretch (`WarpDoc`), each `[timeline beat, source second]`. The end
  * marker puts the whole file at the beat it should finish on:
