@@ -12,13 +12,18 @@ import type {
   User,
 } from "./types";
 
-// Single-origin: the SPA is served at / and the backend at /api on the same
+// Single-origin: the SPA is served at /k7 and the backend at /k7/api on the same
 // host (nginx proxies it in the image, Vite proxies it in dev), so paths stay
 // relative — there is no API origin to configure.
 // The API moved under the service prefix; AUTH did not. studio.test is one origin
-// and the l8 backend owns /auth/* at its root for every service, so those two
-// calls below use a bare fetch rather than this client.
-const client = createApiClient({ basePath: "/k7" });
+// and st0 owns /auth/* at its root for every service, so those calls below use a
+// bare fetch rather than this client.
+// BASE_URL is vite's `base`; it ends in a slash, trimmed here so every path below
+// can start with one. Derived rather than spelled out again: the prefix is declared
+// in vite.config.ts and nowhere else.
+export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const client = createApiClient({ basePath: BASE });
 
 // All API calls send the session cookie (createApiClient defaults to
 // credentials: "include").
@@ -31,7 +36,14 @@ const json = async (res: Response) => {
 
 export const api = {
   // --- Auth ---
-  loginUrl: `/auth/login`,
+  // A GETTER, not a constant: it must capture where you are when you click.
+  // `return_to` is the name the OIDC package reads (a `redirect` param is ignored).
+  // Without it login falls back to APP_ROOT — the bare studio.test, which belongs
+  // to st0 — so signing into k7 dropped you in the médiathèque.
+  get loginUrl(): string {
+    const here = window.location.pathname + window.location.search;
+    return `/auth/login?return_to=${encodeURIComponent(here)}`;
+  },
 
   getMe: async (): Promise<User | null> => {
     const res = await fetch("/auth/me");
@@ -109,7 +121,11 @@ export const api = {
     return f(`/api/sessions/${id}/events?${params}`).then(json);
   },
 
-  recordingUrl: (id: string) => `/api/sessions/${id}/recording`,
+  // The *Url helpers below are the exception to `f()`: they are handed to an
+  // <audio src>, an <img src> or a download link, so the browser fetches them
+  // directly and nothing is there to prepend the service prefix. Spell BASE out
+  // in every one of them — a bare /api/… is st0's, and the media 404s.
+  recordingUrl: (id: string) => `${BASE}/api/sessions/${id}/recording`,
 
   addAnnotation: (
     id: string,
@@ -143,7 +159,7 @@ export const api = {
     }).then(json),
 
   momentClipUrl: (id: string, annId: string) =>
-    `/api/sessions/${id}/annotations/${annId}/clip`,
+    `${BASE}/api/sessions/${id}/annotations/${annId}/clip`,
 
   // --- Markers (single-timestamp pins) ---
   addMarker: (
@@ -181,7 +197,7 @@ export const api = {
   deleteMoment: (id: string): Promise<null> =>
     f(`/api/moments/${id}`, { method: "DELETE" }).then(json),
 
-  momentPageClipUrl: (id: string) => `/api/moments/${id}/clip`,
+  momentPageClipUrl: (id: string) => `${BASE}/api/moments/${id}/clip`,
 
   addMomentMarker: (
     momentId: string,
@@ -265,11 +281,11 @@ export const api = {
     }).then(json),
 
   versionAudioUrl: (id: string, versionId: string) =>
-    `/api/releases/${id}/versions/${versionId}/audio`,
+    `${BASE}/api/releases/${id}/versions/${versionId}/audio`,
 
   // One stem of a multitrack version (download / stream).
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
-    `/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
+    `${BASE}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
 
   // Mint a personal access token for the l8 CLI (Settings UI).
   getApiToken: (): Promise<{ token: string }> => f("/api/token").then(json),
@@ -348,5 +364,5 @@ export const api = {
     f(`/api/songs/${id}/sheets/${fileId}`, { method: "DELETE" }).then(json),
 
   sheetFileUrl: (id: string, fileId: string) =>
-    `/api/songs/${id}/sheets/${fileId}`,
+    `${BASE}/api/songs/${id}/sheets/${fileId}`,
 };

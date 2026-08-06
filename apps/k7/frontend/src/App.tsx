@@ -10,6 +10,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { api } from "./api";
+import { signIn, signInLooped, signInSettled } from "./auth";
 import { SessionSourceDialog } from "./components/SessionSourceDialog";
 import { MomentDetailContainer } from "./containers/MomentDetailContainer";
 import { PageDetailContainer } from "./containers/PageDetailContainer";
@@ -183,12 +184,27 @@ export default function App() {
     refreshMoments();
   };
 
+  // No sign-in screen of our own: anonymous means leave for st0's /auth/login and
+  // come back by return_to. The card below is only what's left when that trip
+  // failed — see auth.ts.
   useEffect(() => {
     api
       .getMe()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setAuthChecked(true));
+      .then((u) => {
+        if (u) {
+          signInSettled();
+          setUser(u);
+        } else if (!signInLooped()) {
+          signIn();
+          return; // the page is navigating away; leave it on "Loading…"
+        }
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        // A real failure (network, st0 down), not a 401 — logging in won't fix it.
+        setUser(null);
+        setAuthChecked(true);
+      });
   }, []);
 
   // While the source chooser is open, keep checking whether a remote device is
@@ -221,14 +237,11 @@ export default function App() {
 
   const logout = async () => {
     await api.logout();
-    setUser(null);
-    setSessions([]);
-    setReleases([]);
-    setPages([]);
-    setSongs([]);
-    setMoments([]);
     setRecording(null);
-    navigate("/sessions");
+    // Leave the origin's home rather than staying here: the session was the whole
+    // origin's, and an anonymous k7 now bounces straight back into signing in —
+    // which would make logging out impossible.
+    window.location.href = "/";
   };
 
   const handleStartSession = async () => {
@@ -401,6 +414,8 @@ export default function App() {
     );
   }
 
+  // Reached only when the automatic trip to st0 did not bring a session back, so
+  // this is a recovery screen, not the way in.
   if (!user) {
     return <LoginView loginUrl={api.loginUrl} />;
   }
