@@ -888,20 +888,10 @@ export function TimelineTab({
     if (!active) setMove(null);
   }, [active]);
 
-  // The caret's beat rides the playhead so you see where you are — but not while a rectangle is being drawn.
-  const playheadBeat = proj
-    ? Math.floor((state.playhead * proj.tempo) / 60)
-    : 0;
-  useEffect(() => {
-    if (!active || selRef.current || moveRef.current) return;
-    setCaret((c) =>
-      // A selected LABEL is a row, not a position in the lane: there is no beat there for the
-      // playhead to ride, and pulling one in would drop a header selection the moment you play.
-      c.beat === LABEL || c.beat === playheadBeat
-        ? c
-        : clampCaret({ ...c, beat: Math.max(0, playheadBeat) }),
-    );
-  }, [active, playheadBeat, clampCaret]);
+  // The playhead does NOT touch the caret. They are two independent positions — where the
+  // transport is, and where you are working — and the caret only ever moves because you moved
+  // it. `t` still sends the transport to the caret; nothing sends the caret anywhere.
+  // See docs/timeline.md.
 
   // The rectangle in on-screen rows, normalised so anchor-first and head-first draw the same box.
   const selBox = useMemo(() => {
@@ -1156,10 +1146,10 @@ export function TimelineTab({
               className="shrink-0 border-r border-border"
             />
             {/* The ruler is both the transport scrubber and a time-range selector. A plain
-                CLICK moves the playhead to the nearest DRAWN tick (the caret rides it — see
-                the effect above). A DRAG sweeps a selection over the dragged beat range
-                across ALL tracks — the same rectangle `v` builds, so z / Shift+L then act
-                on it. Beat = the view's start + pixels/ppb; the selection snaps to
+                CLICK moves the playhead to the nearest DRAWN tick, and moves nothing else —
+                the caret stays where you left it. A DRAG sweeps a selection over the dragged
+                beat range across ALL tracks — the same rectangle `v` builds, so z / Shift+L
+                then act on it. Beat = the view's start + pixels/ppb; the selection snaps to
                 whole-beat cells, which is coarser than the ruler's unit on purpose. */}
             <div
               className="relative cursor-pointer overflow-hidden"
