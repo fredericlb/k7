@@ -28,11 +28,22 @@ pattern lane starting or stopping), so a vanished row falls back to the first ro
 hold a *beat* — not `visRows[0]`, which would open the timeline with a group header
 selected whenever the song starts with one.
 
-While the transport moves, the caret's beat rides the playhead so you always see where you
-are. Only the beat follows; the row stays where you put it. Not while a rectangle is being
-drawn — there the arrows drive the selection head, which the playhead must not yank around —
-and not while a label is selected, which is a row rather than a beat and so has nothing to
-ride.
+## The caret and the playhead are independent
+
+They answer different questions — *where the transport is* and *where you are working* — and
+nothing joins them. **The caret moves only because you moved it.** Playing, rewinding,
+clicking the ruler, scrubbing the minimap: none of them touch it.
+
+The caret used to ride the playhead's beat, on the theory that it kept you looking at where
+you were. What it actually did was take the caret away from you: start playback and the
+thing every key aims at — `e` to edit the clip under it, `m` to pick one up, `v` to start a
+rectangle — was somewhere else a moment later, dragged across the arrangement at 20 Hz. It
+also swept everything downstream of the caret along with it, so the Editor panel re-targeted
+a new clip several times a second while the transport ran.
+
+The coupling was never symmetric, and the direction that survives is the useful one: `t`
+(`transport locate`) sends the **playhead to the caret**. You aim, then you send the
+transport there — not the other way about.
 
 ## The grid, and what a ruler click lands on
 
@@ -81,9 +92,8 @@ why the double-click is a callback (`onFocusRow`) and not a command. What it add
 `rowTarget` in `rows.ts`, and it is the redirect the mute/solo table below already describes: a
 generated lane has no file and no chain of its own, so it names its **group**.
 
-One consequence worth knowing: a label selection now survives playback. The caret's beat rides
-the playhead (above), but a selected label is a row, not a position in the lane — there is no
-beat there to ride, and pulling one in would drop a header selection the moment you hit play.
+A header selection survives playback, as every caret position now does — see "The caret and
+the playhead are independent" above.
 
 ## The `v` rectangle
 
