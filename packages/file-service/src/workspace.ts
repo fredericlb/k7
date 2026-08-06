@@ -96,7 +96,10 @@ import type {
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
-import { projectApp } from "@studio/web-protocol/projects";
+import {
+  PROJECT_SUFFIXES,
+  projectApp,
+} from "@studio/web-protocol/projects";
 import { buildGraphDoc } from "./graphDoc.ts";
 import {
   type FileChange,
@@ -135,7 +138,7 @@ function parseCompileError(msg: string): Diagnostic[] {
 }
 
 /**
- * A project is any directory whose NAME claims an app — `mysong.l8`, `myset.m9`.
+ * A project is any directory whose NAME claims an app — `mysong.l8`, `myset.m9`, `party.z0`.
  *
  * The name, not a `project.yaml` inside, because st0 has to answer the same question from a
  * bare blobless mirror it has never checked out, where no file can be opened. One rule on both
@@ -490,7 +493,7 @@ export class Workspace {
       );
     if (!isProjectDir(abs))
       throw new Error(
-        `not a project (the folder must end in .l8 or .m9): ${rel}`,
+        `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
       );
     this.activeProject = abs;
     this.writeActiveMarker(abs);
@@ -521,7 +524,7 @@ export class Workspace {
       throw new Error(`already in the recycle bin: ${rel}`);
     if (!isProjectDir(abs))
       throw new Error(
-        `not a project (the folder must end in .l8 or .m9): ${rel}`,
+        `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
       );
 
     const wasActive = this.activeProject === abs;
