@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { logout as logoutAs } from "z0-shared/account";
+import { accountsUnconfigured, logout as logoutAs } from "z0-shared/account";
 import { f } from "./api";
 
 // React port of the remote's useAuth: /api/auth/me once at boot, with the
@@ -55,7 +55,15 @@ async function bootstrap(): Promise<void> {
       return;
     }
     if (res.status === 401) {
-      setState({ status: "unauthenticated", error: null, user: null });
+      // Not always an invitation to log in: if the backend cannot read the
+      // studio session at all, the button just bounces off st0 and lands back
+      // here. Say which case it is. See apps/z0/docs/auth.md.
+      const why = await accountsUnconfigured(res);
+      setState({
+        status: why ? "error" : "unauthenticated",
+        error: why,
+        user: null,
+      });
       return;
     }
     setState({

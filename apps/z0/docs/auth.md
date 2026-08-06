@@ -64,6 +64,18 @@ Vide, `STUDIO_SESSION_SECRET` laisse tourner une soirée d'invités et avertit a
 C'est un avertissement et pas une erreur : z0 doit pouvoir démarrer là où st0 n'est pas
 déployé — mais toutes les surfaces admin répondent 401 dans cet état.
 
+### La boucle que ça produisait, et le drapeau qui l'a remplacée
+
+Sans la clé, la panne était **muette et circulaire** : `/auth/me` répondait 401, la gate
+s'affichait, le bouton envoyait chez st0 — qui vous connaît déjà et vous renvoie aussitôt —
+et la gate revenait, identique. Le compte *était* connecté ; z0 ne savait simplement pas le
+lire, et rien à l'écran ne le disait.
+
+Un 401 « connectez-vous » et un 401 « vous ne pouvez pas vous connecter ici » sont
+indiscernables pour un navigateur. `/auth/me` porte donc `accountsConfigured`, et les cinq
+SPA qui gardent un compte en font une phrase au lieu d'un aller-retour. Le buzzer est
+volontairement épargné : sa porte est un formulaire d'invité, et un invité n'a pas de compte.
+
 ## Le scope `groups`, qui a failli passer inaperçu
 
 L'autorisation de z0 lit `groups` (`AUTH_ADMIN_GROUPS`). z0 demandait ce scope ; st0 ne le
