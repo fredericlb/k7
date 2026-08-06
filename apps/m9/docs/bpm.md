@@ -47,20 +47,36 @@ Pas de warp du tout quand la cible est le tempo du morceau : un étirement ident
 le moteur d'étirement dans le chemin pour ne rien changer — du CPU et de la qualité dépensés
 pour rien.
 
-## La plage, et pourquoi le sync en sort
+## La plage est celle du knob du module
 
-Le fader va à **±16 %** du tempo du morceau, la plage large d'une platine. Au-delà, un
-étirement cesse de sonner comme le disque.
+Le module déclare son panneau : un **knob BPM de 10 à 300**, plus un afficheur du tempo
+mesuré, en `ui.yaml`. Le fader de Mix **est** ce knob, et sa plage est donc celle-là. Une
+surface qui offrirait moins refuserait en silence des valeurs que le module accepte ; une qui
+offrirait plus enverrait des valeurs que le panneau ne sait pas dessiner.
 
-Le sync, lui, **ne borne pas**. « Synchronisées » veut dire le même tempo ; borner laisserait
-les deux platines à des BPM différents pendant que le bouton prétend le contraire. C'est
-l'échelle du fader esclave qui s'élargit pour couvrir la valeur qu'on lui impose — sinon la
-poignée serait collée en butée pendant que le nombre dirait autre chose.
+C'est large — 290 BPM sur une hauteur d'écran, donc un glissement grossier. Trois choses le
+rattrapent : le cran au tempo du morceau, le pas de 0,1, et le double-clic qui y ramène.
 
-Le pourcentage sous le fader passe en **ambre** dès qu'on dépasse les ±16 %. Sur du vrai
-matériel ça arrive vite : synchroniser un morceau à 90 BPM sur un morceau à 123 BPM est un
-étirement de **+37 %**, parfaitement légitime et parfaitement audible. Mieux vaut le voir que
-le découvrir dans les enceintes.
+Les **±16 %** d'une vraie platine survivent uniquement comme seuil d'alerte : le pourcentage
+sous le fader passe en **ambre** au-delà. Ça arrive vite — caler un morceau à 90 BPM sur un
+morceau à 123 est un étirement de **+37 %**, légitime et audible. Mieux vaut le voir que le
+découvrir dans les enceintes. Et le sync ne borne rien : « synchronisées » veut dire le même
+tempo, borner laisserait les deux platines à des BPM différents pendant que le bouton prétend
+le contraire.
+
+## Reprendre la main annule le sync
+
+Le fader de l'esclave est **grisé mais saisissable**. Le griser dit « ce n'est pas à toi en ce
+moment », pas « tu n'as pas le droit » : sur toutes les machines qui ont un bouton SYNC,
+attraper le pitch de la platine asservie est *la* façon d'en sortir. Un knob qui refuserait la
+main obligerait à un second aller-retour jusqu'au bouton.
+
+Donc bouger le fader esclave met `master` à `null` et cette platine repart de là où le knob
+était — c'est-à-dire de la valeur **synchronisée**, pas de celle qu'elle avait avant. C'est le
+détail qui compte : remettre `master` à `null` d'abord et lire la valeur ensuite ferait sauter
+le morceau à son ancien tempo au premier pixel.
+
+Bouger le fader du **maître** ne casse rien : les deux suivent, c'est ce que mener veut dire.
 
 Une platine sans tempo détecté ne mène rien et ne suit rien — il n'y a pas de nombre auquel
 se synchroniser, et en inventer un serait le mensonge confiant qu'on évite partout ici. Les

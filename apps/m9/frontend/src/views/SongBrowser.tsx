@@ -1,0 +1,117 @@
+// SongBrowser.tsx — click the middle of a record and pick what goes on it: the set's songs,
+// searchable, sorted by artist then title. See ../../docs/songBrowser.md.
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@frediverse/ui/dialog";
+import { Input } from "@frediverse/ui/input";
+import { CloudDownload, Disc3 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { browseSongs, type SetEntry } from "../setList";
+
+export function SongBrowser({
+  side,
+  songs,
+  open,
+  onOpenChange,
+  onPick,
+}: {
+  /** Which deck this will land on — the one thing the dialog has to say out loud. */
+  side: "A" | "B";
+  songs: SetEntry[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPick: (song: SetEntry) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const shown = useMemo(() => browseSongs(songs, query), [songs, query]);
+  /** In the cache, with audio: the two things that have to be true to play it. */
+  const playable = (s: SetEntry) => !!s.entry?.meta?.master;
+
+  const pick = (s: SetEntry) => {
+    if (!playable(s)) return;
+    onPick(s);
+    onOpenChange(false);
+    // Cleared on the way out, not on the way in: reopening for the OTHER deck should start
+    // fresh, and a search left behind would hide the set behind somebody's last word.
+    setQuery("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[80vh] max-w-lg flex-col">
+        <DialogHeader>
+          <DialogTitle>Platine {side}</DialogTitle>
+          <DialogDescription>
+            {songs.length} morceau{songs.length > 1 ? "x" : ""} dans le set
+          </DialogDescription>
+        </DialogHeader>
+
+        <Input
+          autoFocus
+          value={query}
+          placeholder="Chercher un artiste, un titre…"
+          onChange={(e) => setQuery(e.target.value)}
+          // Type, Enter, done — the whole point of a search at a desk. It picks the first
+          // PLAYABLE row rather than the first row, so a song still syncing cannot be loaded
+          // by a keystroke aimed at the one under it.
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            const first = shown.find(playable);
+            if (first) pick(first);
+          }}
+        />
+
+        <div className="min-h-0 flex-1 overflow-auto">
+          {!shown.length ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {songs.length
+                ? "Aucun morceau ne correspond."
+                : "Le set est vide — ajoutez des morceaux dans songs.yaml."}
+            </p>
+          ) : (
+            <ul className="flex flex-col">
+              {shown.map((s) => (
+                <li key={s.ref}>
+                  <button
+                    type="button"
+                    disabled={!playable(s)}
+                    onClick={() => pick(s)}
+                    title={
+                      playable(s)
+                        ? `charger sur la platine ${side}`
+                        : s.entry
+                          ? "ce dossier ne porte aucun audio"
+                          : "pas encore dans le cache de cette machine"
+                    }
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-accent/40 disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    {s.entry ? (
+                      <Disc3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <CloudDownload className="h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
+                    )}
+                    <span className="flex min-w-0 flex-col">
+                      {/* The ARTIST first and smaller, the title below: the list is sorted by
+                          artist, so that is the column a scanning eye follows down. */}
+                      {s.artist ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {s.artist}
+                        </span>
+                      ) : null}
+                      <span className="truncate text-sm">{s.name}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

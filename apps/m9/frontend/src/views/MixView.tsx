@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Square,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import {
   type DeckId,
@@ -40,6 +40,7 @@ import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
 import { type Playhead, useEngine } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
+import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
 
@@ -74,11 +75,18 @@ export function MixView({
   const [faders, setFaders] = useState<DeckTempos>({});
   /** Which deck LEADS, or null. The two sync buttons are one choice, not two toggles. */
   const [master, setMaster] = useState<DeckId | null>(null);
+  /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
+  const [browsing, setBrowsing] = useState<DeckId | null>(null);
 
   // What the decks actually play at: the faders, with the master's value handed to the slave.
   // Derived rather than stored, so the two can never disagree — pressing sync and moving the
   // master's fader are the same code path, and the slave has nowhere to hold a stale number.
   const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
+  // A mirror of the line above, read by `commit`. `pointerup` can arrive before React has
+  // re-rendered from the last `onChange`, and a `commit` closed over that render's `tempos`
+  // would send the document one drag-step stale — silently, and only sometimes.
+  const latest = useRef(tempos);
+  latest.current = tempos;
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -163,12 +171,24 @@ export function MixView({
       .catch(() => setWaves((w) => ({ ...w, [deckId]: { k: "none" } })));
   };
 
-  /** Move a fader. The number follows the finger; the stretch waits for `commit`. */
-  const nudge = (deckId: DeckId, bpm: number) =>
+  /**
+   * Move a fader. The number follows the finger; the stretch waits for `commit`.
+   *
+   * **A hand on the SLAVE's fader cancels sync.** That is what the gesture means on every
+   * deck that has the button: you are taking this tempo back. Without it the slave's knob
+   * would fight the master and lose on the next render, which reads as a broken control.
+   *
+   * The value it lands on needs no special care: the knob was showing the SYNCED number, so
+   * dragging it starts from there and continues — no jump back to whatever this deck was at
+   * before the sync, which is the surprise a naive `setMaster(null)` first would cause.
+   */
+  const nudge = (deckId: DeckId, bpm: number) => {
+    if (master && master !== deckId) setMaster(null);
     setFaders((f) => {
       const t = f[deckId];
       return t ? { ...f, [deckId]: { ...t, target: bpm } } : f;
     });
+  };
 
   /**
    * Let go of a fader, or press sync: re-send the document.
@@ -178,7 +198,7 @@ export function MixView({
    * release. Re-warping per pixel would have the stretch engine rebuilt for every step of a
    * drag, on both decks when they are synced.
    */
-  const commit = (next = tempos) => {
+  const commit = (next = latest.current) => {
     if (deck.engine) sendDecks(deck.engine, loads, mix, undefined, next);
   };
 
@@ -214,6 +234,7 @@ export function MixView({
           driven={master === "deckB"}
           onNudge={(bpm) => nudge("deckA", bpm)}
           onCommit={commit}
+          onPick={() => setBrowsing("deckA")}
         />
 
         <section className="flex min-w-0 flex-1 flex-col gap-2">
@@ -249,8 +270,19 @@ export function MixView({
           driven={master === "deckA"}
           onNudge={(bpm) => nudge("deckB", bpm)}
           onCommit={commit}
+          onPick={() => setBrowsing("deckB")}
         />
       </div>
+
+      {/* One browser, told which deck it is for — two dialogs would be two pieces of state
+          able to disagree about which is open. */}
+      <SongBrowser
+        side={browsing === "deckB" ? "B" : "A"}
+        songs={set?.entries ?? []}
+        open={browsing !== null}
+        onOpenChange={(o) => setBrowsing(o ? browsing : null)}
+        onPick={(song) => browsing && load(browsing, song)}
+      />
 
       {/* --- the crossfader, across the bottom ----------------------------------------- */}
       <footer className="flex h-[10%] min-h-[4.5rem] shrink-0 items-center gap-6 border-t px-6">
@@ -407,6 +439,7 @@ function DeckSide({
   driven,
   onNudge,
   onCommit,
+  onPick,
 }: {
   side: "A" | "B";
   load: DeckLoads[DeckId];
@@ -420,12 +453,14 @@ function DeckSide({
   driven: boolean;
   onNudge: (bpm: number) => void;
   onCommit: () => void;
+  /** The record's middle was clicked — open the browser for this deck. */
+  onPick: () => void;
 }) {
   const fader = (
     <BpmFader
       natural={tempo?.natural ?? 0}
       target={tempo?.target ?? 0}
-      disabled={driven}
+      driven={driven}
       onChange={onNudge}
       onCommit={onCommit}
     />
@@ -442,6 +477,7 @@ function DeckSide({
           artist={load?.artist ?? null}
           title={load?.title ?? null}
           spinning={spinning && !!load}
+          onPick={onPick}
         />
         {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
             under an empty deck is furniture. */}

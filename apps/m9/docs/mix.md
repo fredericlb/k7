@@ -15,7 +15,8 @@
 Sous chaque vinyle, la waveform qui défile sous la tête de lecture, beats en jaune et
 transitoires en gris — elle a ses propres règles, dans [waveform.md](waveform.md). Sur le
 bord extérieur, le fader de tempo, et aux deux bouts de la barre du bas les boutons SYNC :
-[bpm.md](bpm.md).
+[bpm.md](bpm.md). **Un clic au centre d'un vinyle** ouvre le sélecteur de morceaux :
+[songBrowser.md](songBrowser.md).
 
 Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue le `songs.yaml`
 de ce projet — c'est que le pupitre veut la largeur. Les fichiers, c'est l'Édition.

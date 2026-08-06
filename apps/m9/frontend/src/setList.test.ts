@@ -1,6 +1,6 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { resolveSet } from "./setList";
+import { browseSongs, resolveSet, type SetEntry } from "./setList";
 
 // Mix is about the PROJECT now, so this is the function that decides what it draws. The case
 // worth pinning is the third state: a song the set names and the cache has not got. It is
@@ -22,6 +22,80 @@ const CACHE = [
   entry("songs/lemo/mante/danse", "Danse"),
   entry("songs/lemo/mante/aube", "Aube"),
 ];
+
+describe("the song browser's list", () => {
+  const song = (artist: string, name: string): SetEntry => ({
+    ref: `@mediatek/songs/${artist}/x/${name}`,
+    id: `songs/${artist}/x/${name}`,
+    name,
+    artist,
+    entry: null,
+  });
+
+  const LIBRARY = [
+    song("Daft Punk", "Around the world"),
+    song("Alizée", "Moi Lolita"),
+    song("Alain Bashung", "La nuit je mens"),
+    song("Alain Bashung", "Ma petite entreprise"),
+    song("& Feduk", "Rosé"),
+  ];
+
+  it("sorts by artist, then by title", () => {
+    expect(
+      browseSongs(LIBRARY, "").map((s) => `${s.artist} — ${s.name}`),
+    ).toEqual([
+      "& Feduk — Rosé",
+      "Alain Bashung — La nuit je mens",
+      "Alain Bashung — Ma petite entreprise",
+      "Alizée — Moi Lolita",
+      "Daft Punk — Around the world",
+    ]);
+  });
+
+  it("files an accented artist where a reader looks for it", () => {
+    // `Alizée` between `Alain` and `Daft`. Comparing code points would file every accented
+    // artist after Z, which is where half this médiathèque would go.
+    const order = browseSongs(LIBRARY, "").map((s) => s.artist);
+    expect(order.indexOf("Alizée")).toBeGreaterThan(
+      order.indexOf("Alain Bashung"),
+    );
+    expect(order.indexOf("Alizée")).toBeLessThan(order.indexOf("Daft Punk"));
+  });
+
+  it("finds an accented name typed without accents", () => {
+    // The case that decides whether the search is usable at a desk: nobody stops to compose
+    // an é mid-set.
+    expect(browseSongs(LIBRARY, "alizee").map((s) => s.name)).toEqual([
+      "Moi Lolita",
+    ]);
+    expect(browseSongs(LIBRARY, "rose").map((s) => s.name)).toEqual(["Rosé"]);
+  });
+
+  it("matches terms in ANY order, across artist and title", () => {
+    // `bashung nuit` without knowing which field holds which word — a single substring over
+    // the joined string could not do this, and one field at a time could not either.
+    expect(browseSongs(LIBRARY, "bashung nuit").map((s) => s.name)).toEqual([
+      "La nuit je mens",
+    ]);
+    expect(browseSongs(LIBRARY, "nuit bashung").map((s) => s.name)).toEqual([
+      "La nuit je mens",
+    ]);
+  });
+
+  it("filters the WHOLE list, not the page", () => {
+    expect(browseSongs(LIBRARY, "bashung")).toHaveLength(2);
+    expect(browseSongs(LIBRARY, "  ")).toHaveLength(LIBRARY.length);
+    expect(browseSongs(LIBRARY, "zzz")).toEqual([]);
+  });
+
+  it("leaves the caller's array alone", () => {
+    // `sort` mutates in place, and the set list is state — sorting it would reorder the
+    // middle pane every time somebody typed a letter.
+    const before = LIBRARY.map((s) => s.name);
+    browseSongs(LIBRARY, "");
+    expect(LIBRARY.map((s) => s.name)).toEqual(before);
+  });
+});
 
 describe("a set list resolved against the cache", () => {
   it("pairs each ref with its catalogued song", () => {
