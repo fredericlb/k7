@@ -37,6 +37,20 @@ d'annexer un backend au passage.
 En production il n'y a pas d'`env.yaml` — les images l'excluent — donc les variables du
 conteneur sont la seule source. Le Dockerfile pose `ENV STUDIO_MEDIATEK=/library`.
 
+## Les variables facultatives
+
+`STUDIO_MEDIATEK` est la seule dont l'absence arrête le service. Les autres décrivent des
+fonctions qui **se désactivent en le disant** plutôt que d'échouer à l'usage :
+
+- `SLSKD_*`, `MUSICBRAINZ_USER_AGENT` — « Trouver des morceaux ». Sans elles, l'écran s'ouvre
+  et nomme ce qui manque. La liste et le pourquoi sont dans [hunt.md](hunt.md).
+- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR` — pour sortir ces trois
+  dot-dossiers du volume, ce qu'aucun déploiement ne fait ; ils existent pour les tests.
+
+La ligne de partage est la même partout : ce dont l'absence produirait un **mensonge** — une
+bibliothèque vide qui a l'air pleine — arrête le démarrage ; ce dont l'absence produit une
+fonction visiblement éteinte ne l'arrête pas.
+
 ## Effet de bord à connaître
 
 `loadServiceEnv` fusionne la section `common` **avec** celle du service, par conception.

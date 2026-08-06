@@ -19,6 +19,7 @@ import {
   type SshKeyInfo,
   USER_HEADER,
 } from "@studio/web-protocol";
+import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
@@ -274,6 +275,42 @@ export const projects = {
    */
   openIn: (repoName: string, project: string, app: ProjectApp): string =>
     launchUrl(window.location.origin, repoName, project, app),
+};
+
+/** `/api/hunt`, its own prefix like the projects one, and for the same reason: it is not the
+ *  médiathèque's volume that answers but a daemon on another machine. */
+const hget = async <T>(path: string, what: string): Promise<T> =>
+  json(await fetch(`${BASE}/api/hunt${path}`), what);
+
+/**
+ * Finding a song on the Soulseek network — the « Trouver des morceaux » screen.
+ *
+ * Starting one ANSWERS AT ONCE with the row: the work runs for minutes on the backend, and a
+ * request held open for it would die on the first proxy timeout and take the search's only
+ * handle with it. The screen polls this list instead, which is also what survives a reload.
+ */
+export const hunt = {
+  list: () => hget<HuntList>("", "hunt"),
+
+  start: async (query: string): Promise<HuntRecord> =>
+    json(
+      await fetch(`${BASE}/api/hunt`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query }),
+      }),
+      "hunt",
+    ),
+
+  /** Cancels it if it is still running, and takes the row off the list either way. */
+  forget: async (id: string): Promise<void> => {
+    await json(
+      await fetch(`${BASE}/api/hunt/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+      "hunt",
+    );
+  },
 };
 
 export const library = {

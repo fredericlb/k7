@@ -18,6 +18,7 @@ import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
 import { z } from "zod";
+import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { projectsRouter } from "./routes/projects.ts";
 
@@ -83,6 +84,12 @@ app.use(
   bearerOrSession(requireAuth),
   projectsRouter({ verifyApiToken }),
 );
+
+// Finding songs on the Soulseek network, through a slskd daemon on another machine. Session
+// only, unlike the two above: this one SPENDS somebody's bandwidth and queue slots on a network
+// their account is known on, so it is not something a machine token should be able to start.
+// See docs/hunt.md.
+app.use("/api/hunt", requireAuth, huntRouter);
 
 // This service's OWN engine registry. Until now a module preview was hardcoded to
 // ws://127.0.0.1:8765, so "which engine" had no question to answer here — and no answer to

@@ -56,6 +56,7 @@ import { EnginePage } from "./engine/EnginePage";
 import { EngineList, EnginePicker } from "./engine/EnginePicker";
 import { ModuleParams } from "./engine/ModuleParams";
 import { useEngineChoice } from "./engine/useEngineChoice";
+import { FindSongs } from "./FindSongs";
 import { ModuleEditor } from "./ModuleEditor";
 import { OtherApps } from "./OtherApps";
 import { PlaylistEditor } from "./PlaylistEditor";
@@ -798,7 +799,13 @@ export function Library() {
             enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md. */}
           <div className="ml-auto flex items-center gap-3">
             {section === "songs" ? (
-              <AddSong onDone={refresh} engine={choice} />
+              <>
+                {/* À côté d'« Ajouter », pas à sa place : déposer un fichier qu'on a déjà et
+                    aller en chercher un qu'on n'a pas sont deux gestes, et celui-ci ne
+                    remplace pas l'autre. Voir docs/hunt.md. */}
+                <FindSongs onFiled={refresh} />
+                <AddSong onDone={refresh} engine={choice} />
+              </>
             ) : null}
             {isZone ? (
               <AddRecording onDone={refresh} onError={setError} />

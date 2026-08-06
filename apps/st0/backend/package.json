@@ -19,6 +19,7 @@
     "@studio/user-prefs": "*",
     "@studio/web-protocol": "*",
     "express": "^4.21.2",
+    "ssh2-sftp-client": "^12.1.1",
     "tsx": "^4.16.0",
     "yaml": "^2.5.0",
     "zod": "^4.4.3"
