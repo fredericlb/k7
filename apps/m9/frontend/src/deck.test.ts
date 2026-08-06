@@ -4,12 +4,19 @@ import { describe, expect, it } from "vitest";
 import {
   DECKS,
   type DeckLoads,
+  type DeckTempo,
+  type DeckTempos,
+  DOC_TEMPO,
   deckDoc,
   deckGain,
+  faderRange,
   gainToDb,
   levelId,
   MIX_CENTRE,
   NO_LOADS,
+  PITCH_RANGE,
+  syncedTempos,
+  warpFor,
 } from "./deck";
 import { playablePath } from "./service";
 
@@ -98,6 +105,125 @@ describe("a gain as the strip's decibels", () => {
 
   it("halves to about -6 dB", () => {
     expect(gainToDb(0.5)).toBeCloseTo(-6.02, 1);
+  });
+});
+
+describe("stretching a deck to a tempo", () => {
+  const tempo = (over: Partial<DeckTempo> = {}): DeckTempo => ({
+    natural: 120,
+    seconds: 60, // 120 beats of music, at its own tempo
+    target: 120,
+    ...over,
+  });
+
+  it("does NOTHING when the target is the song's own tempo", () => {
+    // An identity warp would put the stretch engine in the path to change nothing — CPU and
+    // quality spent on a no-op.
+    expect(warpFor(tempo())).toBeUndefined();
+    expect(warpFor(tempo({ target: 120.0000001 }))).toBeUndefined();
+  });
+
+  it("refuses when there is no tempo, no target or no length", () => {
+    expect(warpFor(tempo({ natural: 0 }))).toBeUndefined();
+    expect(warpFor(tempo({ target: 0 }))).toBeUndefined();
+    expect(warpFor(tempo({ seconds: 0 }))).toBeUndefined();
+  });
+
+  it("puts the whole file between two markers", () => {
+    const w = warpFor(tempo({ target: 60 }));
+    expect(w?.algorithm).toBe("elastique");
+    expect(w?.markers[0]).toEqual([0, 0]);
+    // The second marker's source time is the file's length, always — a linear stretch maps
+    // the whole thing, and only the BEAT it lands on changes.
+    expect(w?.markers[1][1]).toBe(60);
+  });
+
+  it("takes twice the beats at half the speed", () => {
+    // 60 s at 120 bpm natural, played at 60 bpm: it lasts twice as long, so on a 120 bpm
+    // timeline it occupies twice the beats.
+    expect(warpFor(tempo({ target: 60 }))?.beats).toBeCloseTo(240);
+    expect(warpFor(tempo({ target: 240 }))?.beats).toBeCloseTo(60);
+  });
+
+  it("lands a song on the beats the DOC tempo counts, not its own", () => {
+    // The timeline is fixed at DOC_TEMPO and each deck reaches its target through its own
+    // warp — that is what lets one document play two songs at two BPMs.
+    const w = warpFor({ natural: 90, seconds: 60, target: DOC_TEMPO });
+    // 60 s of 90 bpm played at 120 lasts 45 s, which is 90 beats at 120 bpm.
+    expect(w?.beats).toBeCloseTo(90);
+  });
+});
+
+describe("the BPM fader's ends", () => {
+  it("is the song's own tempo either way", () => {
+    expect(faderRange(100)).toEqual([
+      100 * (1 - PITCH_RANGE),
+      100 * (1 + PITCH_RANGE),
+    ]);
+  });
+
+  it("widens to cover a value driven past it", () => {
+    // A synced deck is pushed to whatever the master is at. A scale that did not reach it
+    // would pin the handle at an end while the number said something else.
+    const [lo, hi] = faderRange(100, 150);
+    expect(hi).toBe(150);
+    expect(lo).toBe(100 * (1 - PITCH_RANGE));
+    expect(faderRange(100, 50)[0]).toBe(50);
+  });
+
+  it("is empty for a song with no tempo", () => {
+    expect(faderRange(0)).toEqual([0, 0]);
+  });
+});
+
+describe("sync hands one deck's tempo to the other", () => {
+  const both = (): DeckTempos => ({
+    deckA: { natural: 120, seconds: 60, target: 126 },
+    deckB: { natural: 90, seconds: 60, target: 90 },
+  });
+
+  it("leaves the master alone and drives the slave", () => {
+    const out = syncedTempos(both(), "deckA");
+    expect(out.deckA?.target).toBe(126);
+    expect(out.deckB?.target).toBe(126);
+  });
+
+  it("works the other way round, which is the second button", () => {
+    // The button says WHO LEADS. Pressing the right one makes B the master, so it keeps its
+    // own 90 and A is driven to it — the mirror of the case above, not a repeat of it.
+    const out = syncedTempos(both(), "deckB");
+    expect(out.deckB?.target).toBe(90);
+    expect(out.deckA?.target).toBe(90);
+  });
+
+  it("does NOT clamp the slave to its own range", () => {
+    // "Synced" means the same tempo. Clamping would leave the two decks at different BPMs
+    // while the button claimed they matched — the fader's scale widens instead.
+    const out = syncedTempos(both(), "deckA");
+    const [, hi] = faderRange(90);
+    expect(out.deckB?.target).toBeGreaterThan(hi);
+  });
+
+  it("changes nothing with no master", () => {
+    expect(syncedTempos(both(), null)).toEqual(both());
+  });
+
+  it("drives nothing from a master with no tempo of its own", () => {
+    // The engine found none. There is no number to sync to, and inventing one is the
+    // confident lie this avoids.
+    const t: DeckTempos = {
+      deckA: { natural: 0, seconds: 60, target: 0 },
+      deckB: { natural: 90, seconds: 60, target: 90 },
+    };
+    expect(syncedTempos(t, "deckA").deckB?.target).toBe(90);
+  });
+
+  it("leaves a slave that has no tempo of its own alone", () => {
+    const t: DeckTempos = {
+      deckA: { natural: 120, seconds: 60, target: 126 },
+      deckB: { natural: 0, seconds: 60, target: 0 },
+    };
+    expect(syncedTempos(t, "deckA").deckB?.target).toBe(0);
   });
 });
 

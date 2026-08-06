@@ -43,6 +43,86 @@ export const NO_LOADS: DeckLoads = { deckA: null, deckB: null };
 export const MIX_CENTRE = 0.5;
 
 /**
+ * The tempo the TIMELINE runs at. Fixed, and that is the whole trick.
+ *
+ * There is one document and therefore one tempo, but the two decks must be able to play at
+ * two different BPMs. So the timeline stays put and each deck reaches its own target through
+ * its OWN warp — the stretch is per clip, the tempo is not. Changing this constant changes
+ * nothing audible; every warp below is computed against it.
+ */
+export const DOC_TEMPO = 120;
+
+/** How far a deck's tempo bends either way, as a fraction of the song's own — ±16 %, a DJ
+ *  deck's wide setting. Beyond it a stretch stops sounding like the record. */
+export const PITCH_RANGE = 0.16;
+
+/** What one deck is playing at: the song's own tempo, its length, and where the fader is. */
+export interface DeckTempo {
+  /** The engine's estimate for this song, or 0 when it found none. */
+  natural: number;
+  /** The song's length in seconds — the second half of a warp marker. */
+  seconds: number;
+  /** What it should PLAY at. Equal to `natural` until somebody moves the fader. */
+  target: number;
+}
+
+export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
+
+/**
+ * The ends of a deck's BPM fader.
+ *
+ * ±`PITCH_RANGE` around the song's own tempo — **widened to include `current`**, because a
+ * synced deck is driven to whatever the master is at, which can sit outside its own range.
+ * A fader whose scale did not cover the value it is showing would draw the handle pinned at
+ * an end while the number said something else, which is worse than a wide scale.
+ */
+export function faderRange(
+  natural: number,
+  current = natural,
+): [min: number, max: number] {
+  if (!(natural > 0)) return [0, 0];
+  const lo = Math.min(natural * (1 - PITCH_RANGE), current);
+  const hi = Math.max(natural * (1 + PITCH_RANGE), current);
+  return [lo, hi];
+}
+
+/**
+ * The stretch that makes a song of `natural` BPM play at `target`.
+ *
+ * Two markers is a linear stretch (`WarpDoc`), each `[timeline beat, source second]`. The end
+ * marker puts the whole file at the beat it should finish on:
+ *
+ *   real seconds to play it = seconds × natural / target
+ *   beats in that time      = real seconds × DOC_TEMPO / 60
+ *
+ * which is why `natural` and `target` appear as a ratio and the file's length passes through
+ * untouched. `elastique` preserves PITCH — a stretched record does not go up in key, unlike a
+ * turntable's platter. That is the modern behaviour and worth knowing rather than assuming.
+ *
+ * Undefined for a song with no detected tempo, a zero length, or a target equal to natural:
+ * an identity warp would put the stretch engine in the path for nothing, costing CPU and
+ * quality to change absolutely nothing.
+ */
+export function warpFor(
+  { natural, seconds, target }: DeckTempo,
+  epsilon = 1e-6,
+):
+  | { algorithm: string; markers: [number, number][]; beats: number }
+  | undefined {
+  if (!(natural > 0) || !(target > 0) || !(seconds > 0)) return undefined;
+  if (Math.abs(target - natural) < epsilon) return undefined;
+  const beats = (seconds * DOC_TEMPO * natural) / (60 * target);
+  return {
+    algorithm: "elastique",
+    markers: [
+      [0, 0],
+      [beats, seconds],
+    ],
+    beats,
+  };
+}
+
+/**
  * A deck's linear gain at crossfade position `mix` (0 = A alone, 1 = B alone).
  *
  * Equal GAIN, deliberately the same law as the project's crossfade module writes in its
@@ -90,11 +170,14 @@ export function deckDoc(
   loads: DeckLoads,
   mix: number = MIX_CENTRE,
   modules: Partial<Record<DeckId, DeckModule[]>> = {},
+  tempos: DeckTempos = {},
 ): ProjectDoc {
   return emptyDoc({
     name: "m9",
+    tempo: DOC_TEMPO,
     tracks: DECKS.map((deck) => {
       const load = loads[deck];
+      const warp = tempos[deck] && warpFor(tempos[deck]);
       return trackDoc(deck, {
         name: load ? load.title : deck,
         clips: load
@@ -104,6 +187,18 @@ export function deckDoc(
                 type: "audio",
                 name: load.title,
                 source: load.path,
+                // Both or neither: the markers say how the source maps onto the timeline and
+                // `length` says how much timeline it takes. Warping without the length would
+                // leave the clip claiming its unstretched span.
+                ...(warp
+                  ? {
+                      warp: {
+                        algorithm: warp.algorithm,
+                        markers: warp.markers,
+                      },
+                      length: warp.beats,
+                    }
+                  : {}),
               }),
             ]
           : [],
@@ -158,6 +253,36 @@ export function sendDecks(
   loads: DeckLoads,
   mix: number,
   modules?: Partial<Record<DeckId, DeckModule[]>>,
+  tempos?: DeckTempos,
 ): void {
-  engine.sendProject(deckDoc(loads, mix, modules));
+  engine.sendProject(deckDoc(loads, mix, modules, tempos));
+}
+
+/**
+ * What the two decks should PLAY at, given where the faders are and who is master.
+ *
+ * Sync is one deck driving the other, so the answer is: the master keeps its own fader, and
+ * the slave is handed the master's number. Not clamped to the slave's own ±16 % — "synced"
+ * means the same tempo, and a clamp would silently leave the two decks at different BPMs
+ * while the button claimed otherwise. `faderRange` widens the slave's scale instead, so the
+ * fader can honestly draw where it has been put.
+ *
+ * A master with no tempo of its own (`natural: 0`, the engine found none) drives nothing:
+ * there is no number to sync to, and inventing one is the confident lie this avoids.
+ */
+export function syncedTempos(
+  tempos: DeckTempos,
+  master: DeckId | null,
+): DeckTempos {
+  const lead = master && tempos[master];
+  if (!master || !lead || !(lead.target > 0)) return tempos;
+  const out: DeckTempos = { ...tempos };
+  for (const deck of DECKS) {
+    const t = out[deck];
+    // A deck with no natural tempo cannot be stretched to one either — `warpFor` would
+    // refuse anyway, and this keeps the fader showing the truth about that.
+    if (!t || deck === master || !(t.natural > 0)) continue;
+    out[deck] = { ...t, target: lead.target };
+  }
+  return out;
 }

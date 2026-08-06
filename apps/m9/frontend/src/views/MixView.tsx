@@ -11,6 +11,7 @@ import {
   CloudDownload,
   Disc3,
   Headphones,
+  Link2,
   Play,
   RefreshCw,
   Square,
@@ -20,10 +21,13 @@ import { api } from "../api";
 import {
   type DeckId,
   type DeckLoads,
+  type DeckTempo,
+  type DeckTempos,
   MIX_CENTRE,
   NO_LOADS,
   pushCrossfade,
   sendDecks,
+  syncedTempos,
 } from "../deck";
 import {
   cacheRelPath,
@@ -35,6 +39,7 @@ import {
 import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
 import { type Playhead, useEngine } from "../useEngine";
 import type { Envelope } from "../waveform";
+import { BpmFader } from "./BpmFader";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
 
@@ -64,6 +69,16 @@ export function MixView({
   // Per deck. Three states rather than a nullable envelope: "still computing" and "there
   // will not be one" look identical as `null`, and they are different sentences on screen.
   const [waves, setWaves] = useState<Partial<Record<DeckId, Wave>>>({});
+  // Where each fader is. Seeded from the envelope's estimate when it lands, then owned by
+  // the hand — a later re-analysis must not yank a tempo somebody has set.
+  const [faders, setFaders] = useState<DeckTempos>({});
+  /** Which deck LEADS, or null. The two sync buttons are one choice, not two toggles. */
+  const [master, setMaster] = useState<DeckId | null>(null);
+
+  // What the decks actually play at: the faders, with the master's value handed to the slave.
+  // Derived rather than stored, so the two can never disagree — pressing sync and moving the
+  // master's fader are the same code path, and the slave has nowhere to hold a stale number.
+  const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -119,14 +134,60 @@ export function MixView({
     // The waveform, fetched beside the load and never blocking it: the song is already
     // playing while this is still computing, which is the right order for a deck.
     setWaves((w) => ({ ...w, [deckId]: { k: "loading" } }));
+    // A new record starts at ITS own tempo, whatever the outgoing one was doing. The fader
+    // is cleared here rather than left showing the previous song's number.
+    setFaders((f) => ({ ...f, [deckId]: undefined }));
     void service
       // The SAME master `playablePath` just resolved, cache-relative — the route wants a path
       // inside the cache, not one on the engine's disk.
       .envelope(link, cacheRelPath(s.entry) ?? "")
-      .then((env) => setWaves((w) => ({ ...w, [deckId]: { k: "ready", env } })))
+      .then((env) => {
+        setWaves((w) => ({ ...w, [deckId]: { k: "ready", env } }));
+        // The tempo arrives WITH the waveform — the sidecar carries both — so this is where
+        // the fader gets its scale and its home notch.
+        const t: DeckTempo = {
+          natural: env.bpm,
+          seconds: env.seconds,
+          target: env.bpm,
+        };
+        setFaders((f) => ({ ...f, [deckId]: t }));
+        // Re-sent so the OTHER deck's stretch survives this load: the document carries both
+        // warps, and one built without this deck's tempo would drop the other's.
+        if (deck.engine)
+          sendDecks(deck.engine, next, mix, undefined, {
+            ...syncedTempos({ ...faders, [deckId]: t }, master),
+          });
+      })
       // A waveform that will not come is not worth an error card over the whole desk — the
       // song plays regardless, and the strip says it has none rather than lying about it.
       .catch(() => setWaves((w) => ({ ...w, [deckId]: { k: "none" } })));
+  };
+
+  /** Move a fader. The number follows the finger; the stretch waits for `commit`. */
+  const nudge = (deckId: DeckId, bpm: number) =>
+    setFaders((f) => {
+      const t = f[deckId];
+      return t ? { ...f, [deckId]: { ...t, target: bpm } } : f;
+    });
+
+  /**
+   * Let go of a fader, or press sync: re-send the document.
+   *
+   * A warp is part of the DOCUMENT, not a plugin parameter, so there is no live message for
+   * it — unlike the crossfader, which is why that one moves per pixel and this one lands on
+   * release. Re-warping per pixel would have the stretch engine rebuilt for every step of a
+   * drag, on both decks when they are synced.
+   */
+  const commit = (next = tempos) => {
+    if (deck.engine) sendDecks(deck.engine, loads, mix, undefined, next);
+  };
+
+  /** Press a sync button. Pressing the one already lit releases it — a set spends most of
+   *  its time with neither deck leading, and there has to be a way back to that. */
+  const toggleSync = (deckId: DeckId) => {
+    const next = master === deckId ? null : deckId;
+    setMaster(next);
+    commit(syncedTempos(faders, next));
   };
 
   /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
@@ -149,6 +210,10 @@ export function MixView({
           wave={waves.deckA}
           playhead={deck.playhead}
           playing={deck.playing}
+          tempo={tempos.deckA}
+          driven={master === "deckB"}
+          onNudge={(bpm) => nudge("deckA", bpm)}
+          onCommit={commit}
         />
 
         <section className="flex min-w-0 flex-1 flex-col gap-2">
@@ -180,11 +245,24 @@ export function MixView({
           wave={waves.deckB}
           playhead={deck.playhead}
           playing={deck.playing}
+          tempo={tempos.deckB}
+          driven={master === "deckA"}
+          onNudge={(bpm) => nudge("deckB", bpm)}
+          onCommit={commit}
         />
       </div>
 
       {/* --- the crossfader, across the bottom ----------------------------------------- */}
       <footer className="flex h-[10%] min-h-[4.5rem] shrink-0 items-center gap-6 border-t px-6">
+        {/* At the two ENDS, flanking the crossfader, each under its own deck. The button says
+            who LEADS: pressing the left one puts both records on deck A's tempo. */}
+        <SyncButton
+          side="A"
+          on={master === "deckA"}
+          enabled={!!tempos.deckA?.natural && !!tempos.deckB?.natural}
+          onClick={() => toggleSync("deckA")}
+        />
+
         {/* Off by default: the sound already comes out of the machine's interface, so this
             doubles it. On a laptop with no monitors it is the only way to hear anything. */}
         <label
@@ -263,12 +341,61 @@ export function MixView({
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
+
+        <SyncButton
+          side="B"
+          on={master === "deckB"}
+          enabled={!!tempos.deckA?.natural && !!tempos.deckB?.natural}
+          onClick={() => toggleSync("deckB")}
+        />
       </footer>
     </div>
   );
 }
 
-/** One deck: the record, its waveform, and what it is holding. */
+/**
+ * One end of the sync pair: "this deck leads".
+ *
+ * Two buttons, ONE choice — pressing the lit one releases it, because a set spends most of
+ * its time with neither deck leading and there has to be a way back to that. Both dark is a
+ * state, not an absence of one.
+ *
+ * Disabled until BOTH decks have a tempo: there is nothing to sync to otherwise, and a
+ * button that does nothing when pressed is worse than one that says why it cannot.
+ */
+function SyncButton({
+  side,
+  on,
+  enabled,
+  onClick,
+}: {
+  side: "A" | "B";
+  on: boolean;
+  enabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={on ? "default" : "secondary"}
+      disabled={!enabled}
+      className="shrink-0"
+      title={
+        !enabled
+          ? "il faut un tempo sur les deux platines"
+          : on
+            ? `la platine ${side} mène — cliquer pour relâcher`
+            : `synchroniser sur la platine ${side}`
+      }
+      onClick={onClick}
+    >
+      <Link2 className="mr-1 h-3.5 w-3.5" />
+      SYNC {side}
+    </Button>
+  );
+}
+
+/** One deck: its tempo fader, the record, its waveform, and what it is holding. */
 function DeckSide({
   side,
   load,
@@ -276,35 +403,61 @@ function DeckSide({
   wave,
   playhead,
   playing,
+  tempo,
+  driven,
+  onNudge,
+  onCommit,
 }: {
-  side: string;
+  side: "A" | "B";
   load: DeckLoads[DeckId];
   spinning: boolean;
   wave: Wave | undefined;
   playhead: React.RefObject<Playhead>;
   playing: boolean;
+  /** What this deck plays at — already synced, so a slave shows the master's number. */
+  tempo: DeckTempo | undefined;
+  /** Driven by the other deck: the fader moves on its own and greys out. */
+  driven: boolean;
+  onNudge: (bpm: number) => void;
+  onCommit: () => void;
 }) {
+  const fader = (
+    <BpmFader
+      natural={tempo?.natural ?? 0}
+      target={tempo?.target ?? 0}
+      disabled={driven}
+      onChange={onNudge}
+      onCommit={onCommit}
+    />
+  );
+
   return (
-    <section className="flex w-[26%] min-w-[14rem] shrink-0 flex-col items-center gap-3">
-      <Vinyl
-        side={side}
-        artist={load?.artist ?? null}
-        title={load?.title ?? null}
-        spinning={spinning && !!load}
-      />
-      {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
-          under an empty deck is furniture. */}
-      {load ? (
-        <Waveform
-          envelope={wave?.k === "ready" ? wave.env : null}
-          playhead={playhead}
-          playing={playing}
-          analysing={wave?.k === "loading"}
+    <section className="flex w-[30%] min-w-[17rem] shrink-0 gap-2">
+      {/* On the OUTER edge of each deck, so the two records stay turned towards the set
+          between them and the desk reads as a mirror rather than a repeat. */}
+      {side === "A" ? fader : null}
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
+        <Vinyl
+          side={side}
+          artist={load?.artist ?? null}
+          title={load?.title ?? null}
+          spinning={spinning && !!load}
         />
-      ) : null}
-      <div className="w-full truncate text-center text-xs text-muted-foreground">
-        {load ? load.title : "rien de chargé"}
+        {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
+            under an empty deck is furniture. */}
+        {load ? (
+          <Waveform
+            envelope={wave?.k === "ready" ? wave.env : null}
+            playhead={playhead}
+            playing={playing}
+            analysing={wave?.k === "loading"}
+          />
+        ) : null}
+        <div className="w-full truncate text-center text-xs text-muted-foreground">
+          {load ? load.title : "rien de chargé"}
+        </div>
       </div>
+      {side === "B" ? fader : null}
     </section>
   );
 }
