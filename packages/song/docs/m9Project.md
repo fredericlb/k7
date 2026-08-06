@@ -10,10 +10,26 @@ one entity fewer and one file more.
 | `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
 | `chains.yaml` | the routing segments, exactly as in a song |
 | `tracks/<deck>.yaml` | one file per DECK — declared here, with no arrangement |
-| `modules/…` | the set's own modules, the crossfade among them |
+| `instances/<name>.yaml` | its USES of the médiathèque's modules — one line each |
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
 plays lives in the médiathèque, and what it says about playing it is the graph.
+
+**And no `modules/` either.** A set uses modules; it does not own any. st0 holds the only
+editable catalogue, so a crossfade copied into the project would be a second crossfade
+nobody maintains and nobody would notice drifting from the one everybody else uses. An
+instance is the whole use:
+
+```yaml
+# instances/crossfade.yaml
+extends: "@mediatek/audio/utility/crossfade"
+params:
+  Mix: 0.5
+```
+
+`kind`, `inputs` and `category` are inherited by NOT being stated — the two audio ports, the
+second one optional, come from what it extends. That is the mechanism, not a shortcut; see
+[instances.md](instances.md). A use of a module you do not own needs no local folder for it.
 
 ## `type:` earns its place, and does not win
 
@@ -69,17 +85,38 @@ signal**:
 
 ```yaml
 tracks:
-  deckA: [ crossfade ]      # the FLOW — lands on the module's first input
-  deckB: [ crossfade#b ]    # a side input — lands on the port called `b`
+  deckA: [ tempoA ]         # each deck through its OWN tempo first…
+  deckB: [ tempoB ]
 modules:
+  tempoA: [ crossfade ]     # …then the FLOW into the crossfade's first input
+  tempoB: [ crossfade#b ]   # a side input — lands on the port called `b`
   crossfade: [ OUT ]
 ```
 
-`#b` is what makes the second deck expressible; without it `deckB` would claim the module
+`#b` is what makes the second deck expressible; without it `tempoB` would claim the module
 as its own next step and its real input would go unnoticed. The full rule is
 [ports.md](ports.md). The crossfade declares its own two inputs with `mandatory: false` on
 the second, because one deck loaded and the other silent is the normal state of a set, not
 a half-built chain.
+
+**The tempo comes before the fade**, and the order is the signal path: a deck whose tempo
+were applied after the crossfade would be stretched post-mix, along with the other deck.
+
+### The tempo module is COLD
+
+`@mediatek/audio/utility/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo
+change is a time stretch, a stretch has to know where the file ends, and there is no engine
+plugin that stretches time (the engine hosts a Pitch Shifter and nothing else of that kind;
+Tracktion warps a CLIP instead). So it is the offline shape: a pass writes the stretched
+audio before the render. See [coldModules.md](coldModules.md).
+
+That is also why it belongs on a DECK specifically. The cold rule is that such a module's
+chain must draw from a file input — and a deck's source is a file on the machine's disk,
+which is the one input whose whole length is knowable up front.
+
+Two instances, not one shared: each deck plays at its own BPM, and a param belongs to a use
+rather than to a module. `Source BPM` is measured by the pass; `Target BPM` is what m9's
+tempo fader sets.
 
 **Nothing about two is fixed.** `scaffoldM9` writes two decks because two is what a
 crossfade takes; the format holds any number, and no code special-cases the names `deckA`,

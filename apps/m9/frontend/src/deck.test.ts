@@ -16,6 +16,9 @@ import {
   NO_LOADS,
   PITCH_RANGE,
   syncedTempos,
+  TEMPO_MODULE,
+  TEMPO_PARAM,
+  TEMPO_SOURCE_PARAM,
   warpFor,
 } from "./deck";
 import { playablePath } from "./service";
@@ -105,6 +108,17 @@ describe("a gain as the strip's decibels", () => {
 
   it("halves to about -6 dB", () => {
     expect(gainToDb(0.5)).toBeCloseTo(-6.02, 1);
+  });
+});
+
+describe("the deck's tempo is a MODULE, and the warp stands in for it", () => {
+  it("names the médiathèque module the project actually puts on a deck", () => {
+    // `example.m9`'s instances extend exactly this. If the médiathèque renames the module,
+    // this is the line that has to move with it — and the scaffold's own test pins the other
+    // end, so the two cannot drift apart silently.
+    expect(TEMPO_MODULE).toBe("@mediatek/audio/utility/tempo");
+    expect(TEMPO_PARAM).toBe("Target BPM");
+    expect(TEMPO_SOURCE_PARAM).toBe("Source BPM");
   });
 });
 

@@ -4,7 +4,25 @@ Un fader vertical à côté de chaque vinyle, deux boutons SYNC aux extrémités
 bas. Le bouton dit **qui mène** : appuyer à gauche met les deux disques sur le tempo du
 fader gauche, et le fader droit devient gris et bouge tout seul.
 
-## Comment un morceau change de tempo
+## Le fader est le paramètre d'un MODULE
+
+Ce n'est pas une commande que m9 s'invente : le projet le dit. `example.m9` pose sur chaque
+platine une instance du module `@mediatek/audio/utility/tempo` de la médiathèque, et le
+fader est le `Target BPM` de cette instance. Une instance par platine, parce que chaque
+platine joue à son propre BPM et qu'un paramètre appartient à un **usage**, pas à un module.
+
+Ce module est **froid**, et `plugin: {type: offline}` : un changement de tempo est un
+étirement temporel, un étirement doit savoir où le fichier se termine, et **le moteur n'a
+aucun plugin qui étire le temps** — `PluginScan.cpp` enregistre un Pitch Shifter et rien
+d'autre de cet ordre. Tracktion étire un CLIP, par des marqueurs de warp, pas dans un
+insert. Voir `packages/song/docs/coldModules.md`.
+
+D'où la conséquence à connaître : **la passe froide n'est pas écrite**. Ce qui suit est la
+façon dont le navigateur réalise ce module en attendant, exactement comme il réalise le
+crossfade en deux niveaux (voir [mix.md](mix.md)). `warpFor` est le tenant-lieu, et c'est ce
+que la passe remplacera.
+
+## Comment un morceau change de tempo, en attendant
 
 Le document ne porte **qu'un** tempo, et il reste fixe (`DOC_TEMPO`, 120). C'est là tout le
 montage : chaque platine atteint sa cible par son **propre warp**, donc un seul document

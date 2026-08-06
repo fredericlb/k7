@@ -95,6 +95,24 @@ See `@studio/file-service`'s `docs/stemSplit.md`.
 Both are cold for the same reason and obey the same rule — the input has to be knowable in
 full — which is why one word still covers them. What differs is what the pass hands back.
 
+### The tempo module is the second producing one
+
+`packages/dsp/modules/tempo/` changes a song's BPM, and it is `offline` for a reason worth
+stating because it is not the stem splitter's: it does not fan out, it simply cannot be a
+plugin at all. **The engine hosts no time-stretch.** `PluginScan.cpp` registers a Pitch
+Shifter and nothing that moves the clock — Tracktion stretches a CLIP, through warp markers,
+not through an insert. A graph of primitives cannot express it either. So the only shape
+left is a pass that writes stretched audio to disk.
+
+Its params mirror the normaliser's exactly: `Source BPM` is MEASURED (0 until the pass has
+run, which makes the module a no-op rather than a stretch by a made-up ratio) and
+`Target BPM` is AUTHORED. Same two roles, same harmless default.
+
+It is what m9 puts on each deck — a deck's source being a file is precisely what makes the
+placement legal. See `packages/song/docs/m9Project.md`. **The pass is not written**, like
+the normaliser's; m9's tempo fader realises the stretch as a clip warp meanwhile, which is a
+stand-in and is documented as one in `apps/m9/docs/bpm.md`.
+
 ## What is NOT wired yet
 
 **The measuring pass.** Nothing reads a file's peak and writes it into `Peak`: the flag, the
