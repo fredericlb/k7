@@ -475,8 +475,18 @@ function makeHost(
   };
 }
 
-// Commands that need no active project: the rig preferences, and the whole-repo git ones.
-const GLOBAL_COMMAND = /^(channels|channel|audio|commit|pull)\b/;
+/**
+ * Commands that need no active project: the rig preferences, and the whole-repo git ones.
+ *
+ * The git verbs are `project commit` and `project pull` — this listed a bare `commit|pull`,
+ * which matches NEITHER, so both were refused with "no project" whenever none was open. It
+ * went unnoticed because l8's command bar always has one; st0 creating a project it never
+ * opens is the first caller to arrive without.
+ *
+ * These are VERBS FROM `commands.yaml`, and this list has drifted from it once already —
+ * check there before adding to it.
+ */
+const GLOBAL_COMMAND = /^(channel|audio|project (commit|pull))\b/;
 
 export async function runWebCommand(
   ws: Workspace,

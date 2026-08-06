@@ -210,6 +210,33 @@ l'arborescence déduite avant l'envoi : ici aussi c'est le nom qui décide de to
 fait que refléter ce type ; introduire un `.z0` serait un autre chantier, touchant
 `PROJECT_SUFFIXES`, l'`isProjectDir` du file-service et z0 lui-même.
 
+### Le verbe est `project commit`, et un succès doit se prouver
+
+Deux pièges se sont refermés ensemble, et ils méritent d'être écrits parce qu'ils se cachaient
+l'un l'autre.
+
+**Le verbe.** `commands.yaml` déclare `project commit`, pas `commit`. Une ligne qui ne
+correspond à aucune commande **ne lève pas** : `runCommand` répond « unknown command ». Rien
+n'était donc committé, et rien ne le disait.
+
+**La lecture de la réponse.** La première version cherchait des mots d'échec connus et
+concluait au succès pour tout le reste. C'est le mauvais défaut : elle a donc annoncé que tout
+allait bien pour une commande qui n'existait pas. `commitOutcome` exige maintenant une **preuve
+positive** — une ligne `committed …` — et rend la sortie brute pour tout le reste, y compris ce
+qu'elle ne reconnaît pas. C'est cette sortie qui nommera la prochaine dérive entre ce code et
+`commands.yaml`.
+
+Il est pur et dans son propre module, sans le moindre import : c'est ce qui le rend chargeable
+par un test, `machine.ts` touchant `../api` — donc `window` — dès son chargement.
+
+**Et une faute latente du file-service, révélée par là.** Sa liste des commandes qui ne
+demandent pas de projet actif était `/^(channels|channel|audio|commit|pull)\b/` : elle ne
+reconnaît **ni** `project commit` **ni** `project pull`, donc les deux commandes git étaient
+refusées avec « no project » dès qu'aucun projet n'était ouvert — à rebours de son propre
+commentaire, et de `repoDir: ws.root` posé juste au-dessus « so it works with no project open ».
+Personne ne l'avait vu parce que la barre de commandes de l8 a toujours un projet ouvert ; st0,
+qui crée un projet sans jamais l'ouvrir, est le premier appelant à arriver sans.
+
 ### Un envoi raté n'annule pas la création
 
 Le commit vient après, et sa plainte est rapportée séparément : le dossier est là, sur la

@@ -3,6 +3,7 @@
 // et le file-service sait déjà la faire. Voir ../../docs/projects.md.
 
 import { engineMachine } from "../api";
+import { commitOutcome } from "./commitOutcome";
 
 /** La machine choisie : son file-service et le jeton qui en ouvre la porte. */
 export interface Machine {
@@ -71,10 +72,9 @@ export async function ensureWorkspace(
 /**
  * Committer et pousser ce qui vient d'être fait, en rendant la plainte s'il y en a une.
  *
- * `commit` indexe tout le dépôt et pousse. Il distingue déjà « commit passé, push échoué » —
- * hors ligne, pas d'amont — d'un échec complet, et cette différence doit remonter telle quelle :
- * le projet EXISTE alors sur la machine et manque seulement au dépôt distant, ce qui se
- * rattrape en poussant plus tard et non en recommençant.
+ * Le verbe est **`project commit`** et non `commit` — c'est ce que déclare
+ * `packages/commands/commands.yaml`, et une ligne qui ne correspond à aucune commande ne lève
+ * pas : elle répond « unknown command ».
  */
 export async function commitAndPush(
   m: Machine,
@@ -85,12 +85,11 @@ export async function commitAndPush(
     m.fileBase,
     m.token,
     workspace,
-    // Le message est passé tel quel à une barre de commandes qui découpe sur les espaces ;
-    // les retours à la ligne en feraient deux commandes.
-    `commit ${message.replace(/[\r\n]+/g, " ")}`,
+    // Le message est le reste de la ligne, sans guillemets ; un retour à la ligne en ferait
+    // deux commandes.
+    `project commit ${message.replace(/[\r\n]+/g, " ")}`,
   );
-  const bad = out.find((l) => /^error:|push/i.test(l) && !/ok|pushed/i.test(l));
-  return bad ?? null;
+  return commitOutcome(out);
 }
 
 /**
