@@ -3,6 +3,7 @@
 // (../hunt/hunt.ts); nothing here waits on it. See ../../docs/hunt.md.
 
 import { wrap } from "@frediverse/http/route";
+import { canFallBackToYoutube } from "@studio/web-protocol/hunt";
 import type { Request } from "express";
 import { Router } from "express";
 import { runningIds, startHunt, startYoutube, stopHunt } from "../hunt/hunt.ts";
@@ -76,13 +77,23 @@ huntRouter.post(
       return res
         .status(503)
         .json({ error: "yt-dlp n'est pas installé sur ce serveur" });
-    const rec = startYoutube(subOf(req) as string, req.params.id);
-    // One row, one download: null means either no such row or one already running, and a
-    // second writer of the same folder would win by luck.
-    if (!rec)
-      return res
-        .status(409)
-        .json({ error: "recherche inconnue, ou déjà en cours" });
+    const sub = subOf(req) as string;
+    const row = reconcile(sub, runningIds()).find(
+      (h) => h.id === req.params.id,
+    );
+    if (!row) return res.status(404).json({ error: "recherche inconnue" });
+    // La MÊME règle que celle qui affiche le bouton, prise dans le contrat partagé : un bouton
+    // visible que la route refuserait serait une impasse, et l'inverse une porte dérobée.
+    if (!canFallBackToYoutube(row))
+      return res.status(409).json({
+        error:
+          row.status === "failed"
+            ? "cet échec ne vient pas du réseau Soulseek — YouTube n'y répondrait pas"
+            : "ce secours n'a de sens qu'après un échec",
+      });
+    const rec = startYoutube(sub, row.id);
+    // One row, one download: a second writer of the same folder would win by luck.
+    if (!rec) return res.status(409).json({ error: "déjà en cours" });
     res.json(rec);
   }),
 );

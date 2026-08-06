@@ -29,6 +29,15 @@ import {
 import { type HuntRecord, listHunts, patchHunt, saveHunt } from "./store.ts";
 import { fetchFromYoutube, youtubeQuery } from "./youtube.ts";
 
+/**
+ * L'échec après lequel YouTube a un sens : Soulseek a été interrogé et épuisé.
+ *
+ * Une CLASSE et pas une relecture du message : le texte des erreurs change avec les
+ * reformulations, et un `includes("aucun pair")` finirait par ne plus rien reconnaître — donc
+ * par ne plus jamais proposer le secours, sans que rien ne le signale.
+ */
+class ExhaustedError extends Error {}
+
 /** A peer gets this long to START sending before the hunt moves to the next one. */
 export const NO_START_MS = 60_000;
 
@@ -286,6 +295,9 @@ async function run(
   const tried = new Set<string>();
   let taken: Candidate | null = null;
   let why = "";
+  // Le réseau a-t-il vraiment répondu « je ne l'ai pas » ? Posé ici et nulle part ailleurs :
+  // seul ce qui se passe DANS cette boucle dit quelque chose sur la disponibilité du morceau.
+  let exhausted = false;
   for (const text of searchTexts(tags.album, tags.title)) {
     if (tried.size >= MAX_SWITCHES) break;
     const searchId = await startSearch(text);
@@ -297,10 +309,13 @@ async function run(
       });
       if (!candidates.length) {
         why = `personne ne partage « ${text} » dans un format utilisable`;
+        exhausted = true;
         continue;
       }
       taken = await takeFromSomeone(sub, id, candidates, tried, signal);
       if (taken) break;
+      // Des pairs existaient et aucun n'a envoyé : c'est la forme la plus nette d'épuisement.
+      exhausted = true;
       why = `${tried.size} pair${tried.size > 1 ? "s" : ""} essayé${tried.size > 1 ? "s" : ""} pour « ${text} », aucun n'a commencé à envoyer`;
     } finally {
       // NOT awaited: stopping a search and waiting for it to wind down is slskd's housekeeping,
@@ -312,7 +327,12 @@ async function run(
   // The LAST reason, which is the one from the narrowest search still standing — and the only
   // one worth showing: "nobody had it" after the title alone is a different fact from the same
   // sentence about the album.
-  if (!taken) throw new Error(why || "aucune recherche n'a abouti");
+  if (!taken) {
+    const why2 = why || "aucune recherche n'a abouti";
+    // Le TYPE porte l'information, pas le texte : c'est lui que `startHunt` lit pour décider
+    // si la ligne mérite le bouton YouTube.
+    throw exhausted ? new ExhaustedError(why2) : new Error(why2);
+  }
 
   const { bytes } = await fetchDownload(taken.file.filename);
   const filed = addSong({
@@ -357,6 +377,9 @@ export function startHunt(
       patchHunt(sub, rec.id, {
         status: "failed",
         error: message(e),
+        // Seul cet échec-là dit quelque chose sur la disponibilité du morceau, et donc seul
+        // celui-là fait apparaître « DL sur YouTube ».
+        exhausted: e instanceof ExhaustedError,
         endedAt: Date.now(),
       });
     })

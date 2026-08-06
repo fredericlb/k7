@@ -37,10 +37,37 @@ export interface HuntRecord {
    * changed would otherwise all land in the last playlist picked, which is nobody's intent.
    */
   playlist?: string;
+  /**
+   * Soulseek a-t-il été interrogé et ÉPUISÉ ?
+   *
+   * Vrai dans trois cas seulement : personne ne partageait le morceau dans un format
+   * utilisable, aucun pair n'a commencé à envoyer, ou il n'en restait plus à essayer. C'est ce
+   * qui distingue « le réseau n'a pas le morceau » de tous les autres échecs — configuration
+   * absente, redémarrage du service, recherche annulée, fichier introuvable en SFTP — qui ne
+   * disent rien sur la disponibilité du morceau et appellent une autre correction.
+   */
+  exhausted?: boolean;
   /** Why it failed — or, on a `done` row, why there was nothing to do. */
   error?: string;
   startedAt: number;
   endedAt?: number;
+}
+
+/**
+ * Le secours YouTube a-t-il un sens sur cette ligne ?
+ *
+ * Ici, dans le contrat, parce que les deux bouts doivent en avoir la même définition : l'écran
+ * décide d'afficher le bouton, la route décide d'accepter le clic, et les deux réponses
+ * doivent être la même — un bouton visible que la route refuserait serait une impasse.
+ *
+ * Il ne suffit PAS que la ligne soit rouge. Un service redémarré, une recherche annulée, un
+ * fichier téléchargé qu'on n'a pas su récupérer en SFTP : dans ces trois cas Soulseek n'a rien
+ * dit sur la disponibilité du morceau, et aller sur YouTube répondrait à une question qui n'a
+ * pas été posée — pire, dans le cas SFTP, ça masquerait un défaut de configuration derrière un
+ * fichier de moins bonne qualité.
+ */
+export function canFallBackToYoutube(h: HuntRecord): boolean {
+  return h.status === "failed" && h.exhausted === true;
 }
 
 /** What `GET /api/hunt` answers. `configured` rides along so the screen can draw its own

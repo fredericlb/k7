@@ -65,6 +65,21 @@ toujours par diverger.
 dépôt sans projet alors qu'il n'a pas encore été récupéré serait un mensonge qui se corrige tout
 seul dix secondes plus tard, donc que personne ne signalerait.
 
+### Le compte de l'en-tête, et deux façons de le rater
+
+Le badge de l'onglet compte les **projets**, pas les dépôts (`projects/count.ts`) : l'onglet
+s'appelle « Projets », et un dépôt qui en contient cinq est cinq choses à ouvrir, pas une. Il a
+longtemps affiché `repos.length`, ce qui donnait « 1 » à quelqu'un dont l'unique dépôt tenait
+cinq projets — un chiffre juste pour une autre question.
+
+Et son poll tourne sur **toute** section, pas seulement la sienne. Gardé derrière `isProjects`,
+il n'était jamais chargé ailleurs et le badge valait zéro partout — un chiffre faux, ce qui est
+pire qu'un chiffre absent. Les familles n'ont pas ce problème : `library.summary()` leur donne
+un compte au démarrage, et les dépôts venant d'un autre service, ils n'y figurent pas.
+
+En revanche il se tait ailleurs : une panne du service des dépôts ne doit pas barrer l'écran des
+morceaux d'un message rouge sur autre chose. Sur sa propre section, où c'est le sujet, il parle.
+
 L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
 dossiers qui ne sont pas des projets.
 
@@ -198,6 +213,21 @@ empêcherait la médiathèque de se rafraîchir.
 Un `git fetch` coûte du réseau, donc le miroir n'est pas rafraîchi à chaque affichage : à
 l'ajout, sur le bouton, et au plus une fois par dix minutes. C'est la raison pour laquelle
 `useGitStatus` dans l8 est déjà sur un timer de dix minutes.
+
+### Le jeton dit « à jour », pas « en main »
+
+La carte `seen` retient, par section, la révision de ce qui a été chargé la dernière fois. Elle
+répond à « le volume a-t-il bougé depuis ? » — et **pas** à « est-ce que l'écran tient encore
+cette liste ? ». Or `entries` n'en tient qu'une à la fois.
+
+C'est ce qui produisait un spinner qui ne s'arrêtait plus : en revenant sur une section déjà
+vue et inchangée, le vidage de l'affichage laissait le jeton intact, donc le poll ne rechargeait
+rien, donc rien ne remplaçait le vide. Un rechargement de page « réparait » parce qu'il repart
+avec des jetons vides — le signe qu'il fallait chercher du côté d'un état survivant.
+
+Les deux vont donc ensemble maintenant, dans un seul effet sur `section` : on jette la liste
+**et** le jeton. Dans un effet et non dans le clic d'onglet, parce que le bouton « précédent »
+et un lien profond changent aussi de section (voir [routing.md](routing.md)) sans passer par lui.
 
 ## Ce qui tourne dans l'image
 

@@ -284,8 +284,33 @@ tout de suite vaut mieux que la faire découvrir à l'arrivée.
 
 ## Le secours : « DL sur YouTube »
 
-Quand une ligne est rouge — personne ne partageait le morceau, ou personne ne l'a envoyé —
-elle porte un bouton **DL sur YouTube**, qui reprend le morceau avec `yt-dlp`.
+Quand Soulseek a été **interrogé et épuisé**, la ligne porte un bouton **DL sur YouTube**, qui
+reprend le morceau avec `yt-dlp`.
+
+### Épuisé, pas simplement rouge
+
+Le bouton n'apparaît pas sur toute ligne rouge, et la distinction est le fond du sujet. Deux
+échecs seulement disent quelque chose sur la **disponibilité du morceau** :
+
+| l'échec | le bouton |
+|---|---|
+| personne ne partage ce morceau dans un format utilisable | **oui** |
+| des pairs l'avaient, aucun n'a commencé à envoyer | **oui** |
+| service redémarré, recherche annulée | non — Soulseek n'a rien dit |
+| slskd pas configuré, MusicBrainz n'a rien reconnu | non — on n'a même pas cherché |
+| téléchargé, mais introuvable en SFTP | non — et surtout pas |
+
+La dernière ligne est celle qui compte : le fichier **a bien été téléchargé**, c'est la
+récupération qui a échoué. Proposer YouTube là masquerait un défaut de configuration derrière un
+fichier de moins bonne qualité — le genre de secours qui empêche de réparer la vraie panne.
+
+C'est porté par `exhausted` sur la ligne, posé par le coureur au seul endroit qui le sait, et
+d'après le **type** de l'erreur et non son texte : un `includes("aucun pair")` finirait par ne
+plus rien reconnaître après une reformulation, donc par ne plus jamais proposer le secours, sans
+que rien ne le signale.
+
+La règle vit dans le contrat partagé (`canFallBackToYoutube`), et **la route l'applique aussi** :
+un bouton visible que la route refuserait serait une impasse, et l'inverse une porte dérobée.
 
 **Un bouton, jamais un repli automatique.** C'est un autre marché : un flux compressé tiré
 d'une vidéo au lieu du fichier de quelqu'un. Savoir quel morceau le mérite est un jugement sur
