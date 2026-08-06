@@ -1,6 +1,6 @@
 // OtherApps.tsx — the header's app switcher: the studio's other front doors, k7 and z0.
-// st0 answers at the origin itself, so both are plain same-origin paths and a normal link
-// is the whole navigation. See ../../docs/otherApps.md.
+// st0 answers at the origin itself, so both are plain same-origin paths and a link is the
+// whole navigation — one that opens a NEW TAB. See ../../docs/otherApps.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -54,13 +54,16 @@ export function OtherApps() {
         {OTHER_APPS.map((app) => {
           const Icon = app.icon;
           return (
-            // asChild so the row IS the anchor: middle-click and "open in new tab" keep working.
+            // asChild so the row IS the anchor: ctrl-click, middle-click and "copy link
+            // address" all mean what they say, and `target` is then the only thing to set.
             <DropdownMenuItem
               key={app.href}
               asChild
               className="items-start gap-2"
             >
-              <a href={app.href}>
+              {/* Another APPLICATION, not another page of this one: the médiathèque is what
+                  you were doing before and after, and leaving would stop what it is playing. */}
+              <a href={app.href} target="_blank" rel="noopener">
                 <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block">{app.label}</span>

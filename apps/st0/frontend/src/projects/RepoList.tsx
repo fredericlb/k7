@@ -1,7 +1,7 @@
 // RepoList.tsx — les dépôts git de la personne connectée, chacun avec ses projets détectés
 // en retrait : en ajouter un par URI SSH, en retirer, en rafraîchir, ou ouvrir un projet
-// directement. Présentationnel : la section détient l'asynchrone et ce fichier dessine.
-// Voir ../../docs/projects.md.
+// directement, dans un nouvel onglet. Présentationnel : la section détient l'asynchrone et
+// ce fichier dessine. Voir ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
@@ -35,7 +35,7 @@ export function RepoList({
   error,
   onAdd,
   onOpen,
-  onOpenProject,
+  projectHref,
   onRemove,
   onRefresh,
 }: {
@@ -44,8 +44,9 @@ export function RepoList({
   error: string | null;
   onAdd: (uri: string) => void;
   onOpen: (repo: RepoSummary) => void;
-  /** Ouvrir un projet dans SON application, sans passer par l'arborescence. */
-  onOpenProject: (repo: RepoSummary, project: RepoProject) => void;
+  /** L'adresse d'un projet dans SON application, sans passer par l'arborescence. Une adresse
+   *  et non une action : la rangée est un lien, qui s'ouvre dans un nouvel onglet. */
+  projectHref: (repo: RepoSummary, project: RepoProject) => string;
   onRemove: (repo: RepoSummary) => void;
   onRefresh: (repo: RepoSummary) => void;
 }) {
@@ -168,17 +169,19 @@ export function RepoList({
               </div>
 
               {/* Les projets détectés, en retrait sous leur dépôt : c'est ce qu'on vient
-                  chercher ici, et un clic va droit dans l'application qui l'ouvre. Le nom
-                  du dépôt reste cliquable pour l'arborescence, qui montre tout le reste. */}
+                  chercher ici, et un clic va droit dans l'application qui l'ouvre — dans un
+                  nouvel onglet, la médiathèque restant ce à quoi on revient. Le nom du dépôt
+                  reste cliquable pour l'arborescence, qui montre tout le reste. */}
               {r.projects && r.projects.length > 0 && (
                 <ul className="mt-2 flex flex-col border-l border-border pl-3 ml-2">
                   {r.projects.map((p) => (
                     <li key={p.path}>
-                      <button
-                        type="button"
+                      <a
                         className="flex w-full min-w-0 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
                         title={`Ouvrir ${p.path} dans ${p.app}`}
-                        onClick={() => onOpenProject(r, p)}
+                        href={projectHref(r, p)}
+                        target="_blank"
+                        rel="noopener"
                       >
                         <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="truncate">{nameOf(p)}</span>
@@ -188,7 +191,7 @@ export function RepoList({
                             {parentOf(p)}
                           </span>
                         )}
-                      </button>
+                      </a>
                     </li>
                   ))}
                 </ul>

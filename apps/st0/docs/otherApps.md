@@ -29,9 +29,22 @@ own login and its own `/z0/auth/callback` (see the Caddyfile), so it is not one 
 Adding it to that table to save one string would claim a session and a port it does not have.
 Its path is fixed all the same, by the same Caddyfile — it just is not that table's business.
 
-## Same tab
+## A new tab
 
-The rows are plain `<a href>`, navigating in place, with `asChild` on the menu item so the
-row *is* the anchor — middle-click and "open in new tab" keep working, and the browser's
-back button returns to the médiathèque. Nothing in st0's header holds unsaved state that
-leaving would lose.
+The rows are plain `<a href>` carrying `target="_blank"`. k7 and z0 are other
+**applications**, not other pages of this one: you go and record a rehearsal, or run a blind
+test, and the médiathèque is what you were doing before and what you come back to. It is the
+front door — leaving it to visit a room of the same house is the wrong shape.
+
+Navigating in place would also lose more than the scroll position and the open folder.
+`PlaybackProvider` is mounted above the screens and holds the tab's `<audio>` when the
+destination is the browser (see [miniPlayer.md](miniPlayer.md)), so a same-tab jump stops
+whatever was playing. The back button brings the page back; it does not bring the music back.
+
+`asChild` is still there and matters more now, not less: the row *is* the anchor, so
+ctrl-click, middle-click and "copy link address" all mean what they say — a menu item that
+merely *called* `window.open` would answer all three the same way, which is to say wrongly.
+
+`rel="noopener"` severs `window.opener`. Same origin makes that access legal, not useful:
+nothing here reaches back into the tab it came from, and saying so keeps the new tab a
+browsing context of its own.
