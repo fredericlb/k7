@@ -129,8 +129,22 @@ describe("fromLocation", () => {
       st({ section: "projects", file: "3f9a1c2b7e40" }),
       // The cog's engine-status page: a section with no tab, and no file to carry.
       st({ section: "engine" }),
+      // « Trouver des morceaux », the other tabless one — a PAGE rather than a dialogue,
+      // because its history grows. See ../../docs/hunt.md.
+      st({ section: "find" }),
     ])
       expect(fromLocation(toPath(s))).toEqual(s);
+  });
+
+  it("garde une adresse pour la recherche de morceaux, donc rechargeable", () => {
+    // Ce que le dialogue ne pouvait pas offrir : une page qu'on recharge, qu'on met en
+    // signet, et dont le bouton « précédent » ramène aux morceaux.
+    expect(fromLocation("/find")).toEqual({ section: "find", file: null });
+    // Rien à porter en seconde moitié : la page n'ouvre pas un élément, elle EST l'écran.
+    expect(fromLocation("/find/whatever")).toEqual({
+      section: "find",
+      file: null,
+    });
   });
 
   it("opens a repository from the address, so a link to one survives a reload", () => {

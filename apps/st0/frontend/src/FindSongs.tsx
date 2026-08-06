@@ -1,18 +1,21 @@
 // FindSongs.tsx — « Trouver des morceaux » : un champ de recherche, et sous lui l'historique
 // de ce qu'on a déjà demandé, vert quand c'est rangé, bleu pendant, rouge quand ça a échoué.
-// La recherche tourne côté serveur pendant des minutes ; cet écran ne fait que la regarder.
-// Voir ../../docs/hunt.md.
+// Une PAGE et non un dialogue — l'historique s'allonge. Voir ../../docs/hunt.md.
 
 import { Button } from "@frediverse/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
 import type { HuntRecord, HuntStatus } from "@studio/web-protocol/hunt";
-import { CheckCircle2, Loader2, Search, TriangleAlert, X } from "lucide-react";
+// Clapperboard et non un logo : lucide a retiré ses icônes de marque, et « une vidéo » est de
+// toute façon ce que la source est réellement.
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clapperboard,
+  Loader2,
+  Search,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
 
@@ -43,11 +46,15 @@ function detail(h: HuntRecord): string {
   if (h.status === "failed") return h.error ?? "échec";
   if (h.status === "searching") return "recherche du morceau…";
   if (h.status === "downloading") {
+    // Le secours ne passe par aucun pair : dire « en attente d'un pair » pendant que yt-dlp
+    // travaille décrirait la mauvaise machine.
+    if (h.via === "youtube") return "téléchargement depuis YouTube…";
     const who = h.peer ? `chez ${h.peer}` : "en attente d'un pair";
     const tries = h.switches ? ` — ${h.switches + 1}ᵉ pair essayé` : "";
     return `${who}${tries}`;
   }
-  return h.error ?? h.path ?? "rangé";
+  const from = h.via === "youtube" ? "YouTube · " : "";
+  return `${from}${h.error ?? h.path ?? "rangé"}`;
 }
 
 /** Le format obtenu, dit sans détour : un 128 kbps qui s'annonce ne sera pas pris pour une
@@ -60,10 +67,16 @@ function quality(h: HuntRecord): string | null {
 
 function Row({
   h,
+  youtube,
   onForget,
+  onYoutube,
 }: {
   h: HuntRecord;
+  /** yt-dlp est-il là ? Sinon le secours est proposé en grisé, en disant pourquoi — un bouton
+   *  qui échouerait au clic n'apprendrait rien de plus. */
+  youtube: boolean;
   onForget: (id: string) => void;
+  onYoutube: (id: string) => void;
 }) {
   const named = h.artist && h.title ? `${h.artist} — ${h.title}` : h.query;
   const q = quality(h);
@@ -93,6 +106,26 @@ function Row({
           {detail(h)}
         </span>
       </span>
+      {/* Le secours, et seulement sur les lignes rouges : c'est un autre marché — un flux
+          compressé tiré d'une vidéo plutôt que le fichier de quelqu'un — et savoir quel
+          morceau le mérite est un jugement sur le morceau. D'où un bouton, jamais un repli
+          automatique. Voir ../../docs/hunt.md. */}
+      {h.status === "failed" && (
+        <Button
+          variant="secondary"
+          size="xs"
+          className="shrink-0"
+          disabled={!youtube}
+          title={
+            youtube
+              ? "Récupérer ce morceau sur YouTube (audio compressé)"
+              : "yt-dlp n'est pas installé sur ce serveur"
+          }
+          onClick={() => onYoutube(h.id)}
+        >
+          <Clapperboard className="mr-1 h-3.5 w-3.5" /> DL sur YouTube
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon-xs"
@@ -109,22 +142,30 @@ function Row({
   );
 }
 
-export function FindSongs({ onFiled }: { onFiled: () => void }) {
-  const [open, setOpen] = useState(false);
+export function FindSongs({
+  onBack,
+  onFiled,
+}: {
+  onBack: () => void;
+  /** Appelé quand une ligne vient de passer au vert, pour que le catalogue derrière soit
+   *  rechargé plutôt que d'attendre son propre tour de poll. */
+  onFiled: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<HuntRecord[] | null>(null);
   const [reason, setReason] = useState<string | null>(null);
+  const [youtube, setYoutube] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // QUELLES lignes étaient déjà rangées, et non combien : une ligne retirée de l'historique
   // ferait baisser un compteur, et le morceau suivant le ramènerait au même chiffre sans que
-  // le catalogue derrière le dialogue soit rafraîchi.
+  // le catalogue soit rafraîchi.
   const filed = useRef<Set<string> | null>(null);
 
-  // Ne tourne QUE dialogue ouvert : une recherche vit sur le serveur, et un onglet qui
-  // interrogerait en permanence pour un écran fermé paierait un aller-retour pour rien.
+  // Ne tourne que tant que la page est montée, ce qui est exactement « la section est
+  // ouverte » : une recherche vit sur le serveur, et interroger pour un écran que personne ne
+  // regarde paierait un aller-retour pour rien.
   useEffect(() => {
-    if (!open) return;
     let stop = false;
     const tick = () =>
       void hunt
@@ -133,6 +174,7 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
           if (stop) return;
           setRows(l.hunts);
           setReason(l.configured ? null : l.reason);
+          setYoutube(l.youtube);
           const done = new Set(
             l.hunts.filter((h) => h.status === "done").map((h) => h.id),
           );
@@ -149,7 +191,7 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
       stop = true;
       clearInterval(t);
     };
-  }, [open, onFiled]);
+  }, [onFiled]);
 
   const submit = useCallback(() => {
     const q = query.trim();
@@ -173,77 +215,96 @@ export function FindSongs({ onFiled }: { onFiled: () => void }) {
     void hunt.forget(id).catch(() => {});
   }, []);
 
+  const retryOnYoutube = useCallback((id: string) => {
+    setError(null);
+    // La ligne repasse en bleu sans attendre le tour de poll suivant : le clic doit se voir,
+    // sinon on le refait.
+    setRows((r) =>
+      (r ?? []).map((h) =>
+        h.id === id
+          ? { ...h, status: "downloading", via: "youtube", error: undefined }
+          : h,
+      ),
+    );
+    void hunt.youtube(id).catch((e: Error) => setError(e.message));
+  }, []);
+
   return (
-    <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Search className="mr-1 h-4 w-4" /> Trouver des morceaux
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85vh] w-full max-w-3xl flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>Trouver des morceaux</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex items-center gap-2">
-            {/* Le focus au chargement : ce dialogue n'existe que pour ce champ, et le clic
-                qui l'a ouvert est déjà la demande de taper. */}
-            <Input
-              autoFocus
-              className="h-11 flex-1 text-base"
-              placeholder="artiste et titre — « nirvana lithium »"
-              value={query}
-              disabled={Boolean(reason)}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
-            <Button
-              size="lg"
-              onClick={submit}
-              disabled={busy || !query.trim() || Boolean(reason)}
-            >
-              {busy ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-1 h-4 w-4" />
-              )}
-              Chercher
-            </Button>
-          </div>
-
-          {/* Dit plutôt que caché : un déploiement pas encore configuré est son état normal,
-              et un champ qui échouerait à chaque frappe n'apprendrait rien. */}
-          {reason && (
-            <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              {reason}
-            </p>
-          )}
-          {error && (
-            <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </p>
-          )}
-
-          <div className="min-h-0 flex-1 overflow-auto">
-            {rows === null ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                chargement…
-              </p>
-            ) : rows.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                Rien encore. Tapez un artiste et un titre : le morceau est
-                identifié, cherché sur le réseau, puis rangé tout seul.
-              </p>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Le champ reste EN HAUT et ne défile pas : monter une bibliothèque, c'est enchaîner
+          les titres, et un champ qu'il faut aller rechercher après trente lignes d'historique
+          serait un aller-retour par morceau. */}
+      <div className="shrink-0 border-b border-border px-6 py-4">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" /> Morceaux
+          </Button>
+          {/* Le focus au chargement : cette page n'existe que pour ce champ, et le clic qui
+              l'a ouverte est déjà la demande de taper. */}
+          <Input
+            autoFocus
+            className="h-12 flex-1 text-base"
+            placeholder="artiste et titre — « nirvana lithium »"
+            value={query}
+            disabled={Boolean(reason)}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+          />
+          <Button
+            size="lg"
+            onClick={submit}
+            disabled={busy || !query.trim() || Boolean(reason)}
+          >
+            {busy ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
             ) : (
-              <ul className="flex flex-col gap-1">
-                {rows.map((h) => (
-                  <Row key={h.id} h={h} onForget={forget} />
-                ))}
-              </ul>
+              <Search className="mr-1 h-4 w-4" />
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+            Chercher
+          </Button>
+        </div>
+
+        {/* Dit plutôt que caché : un déploiement pas encore configuré est son état normal,
+            et un champ qui échouerait à chaque frappe n'apprendrait rien. */}
+        {reason && (
+          <p className="mx-auto mt-3 max-w-4xl rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            {reason}
+          </p>
+        )}
+        {error && (
+          <p className="mx-auto mt-3 max-w-4xl rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+        <div className="mx-auto max-w-4xl">
+          {rows === null ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+              chargement…
+            </p>
+          ) : rows.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              Rien encore. Tapez un artiste et un titre : le morceau est
+              identifié, cherché sur le réseau, puis rangé tout seul.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {rows.map((h) => (
+                <Row
+                  key={h.id}
+                  h={h}
+                  youtube={youtube}
+                  onForget={forget}
+                  onYoutube={retryOnYoutube}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -302,6 +302,16 @@ export const hunt = {
       "hunt",
     ),
 
+  /** Le secours, sur une ligne échouée : reprendre CETTE recherche par YouTube. La même ligne
+   *  et pas une nouvelle — elle porte déjà les tags, donc le morceau se range au même endroit. */
+  youtube: async (id: string): Promise<HuntRecord> =>
+    json(
+      await fetch(`${BASE}/api/hunt/${encodeURIComponent(id)}/youtube`, {
+        method: "POST",
+      }),
+      "youtube",
+    ),
+
   /** Cancels it if it is still running, and takes the row off the list either way. */
   forget: async (id: string): Promise<void> => {
     await json(

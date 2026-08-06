@@ -84,7 +84,13 @@ FROM ${BASE_IMAGE} AS runtime
 # what is in them, and generates the deploy key it reads them with. `openssh-client` is what
 # carries BOTH `ssh` (named by GIT_SSH_COMMAND) and `ssh-keygen` — git alone would clone
 # nothing, since every repository here is reached over SSH. See ../../docs/projects.md.
-RUN apk add --no-cache git openssh-client
+#
+# yt-dlp and ffmpeg are the « DL sur YouTube » fallback, for when nobody on Soulseek sends the
+# file. ffmpeg is NOT optional beside it: yt-dlp does not bundle one and cannot separate a
+# stream from its container without it, so the pair is one feature. Note that yt-dlp is a
+# MOVING TARGET — YouTube breaks it every few months — so the version pinned in an image goes
+# stale and starts failing; rebuilding is the fix. See ../../docs/hunt.md.
+RUN apk add --no-cache git openssh-client yt-dlp ffmpeg
 WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY --from=pruner /repo/out-backend/full/ ./

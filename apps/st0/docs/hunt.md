@@ -1,8 +1,8 @@
 # Trouver des morceaux — de ce qu'on tape à un fichier rangé
 
-« Trouver des morceaux », à côté d'« Ajouter » dans la section Morceaux, ouvre un champ de
-recherche et, dessous, l'historique de ce qu'on a déjà demandé. On tape « nirvana lithium »,
-et la chaîne complète se déroule toute seule :
+« Trouver des morceaux », à côté d'« Ajouter » dans la section Morceaux, mène à **sa propre
+page** (`/find`) : un champ de recherche en haut, et dessous l'historique de ce qu'on a déjà
+demandé. On tape « nirvana lithium », et la chaîne complète se déroule toute seule :
 
 ```
   ce qu'on tape
@@ -11,7 +11,7 @@ et la chaîne complète se déroule toute seule :
   MusicBrainz  ──►  artiste / titre / album      (nommer AVANT de chercher)
         │
         ▼
-  slskd (autre machine, REST)  ──►  les pairs qui l'ont
+  slskd (autre machine, REST)  ──►  « album titre », puis « titre » — jamais l'artiste
         │
         ▼
   filtrage : même artiste, même titre, format que la médiathèque sait ranger
@@ -86,6 +86,39 @@ mérite mieux qu'« Album inconnu » : le live sur lequel il est vraiment paru.
 La sortie **retenue** dans le groupe gagnant est la plus ancienne, pour que la date affichée soit
 celle du disque et non d'une réédition.
 
+## Ce qu'on demande à slskd : l'album et le titre, jamais l'artiste
+
+Deux tentatives, dans cet ordre (`searchTexts`) :
+
+| # | la requête | pourquoi |
+|---|---|---|
+| 1 | `Nevermind Lithium` | l'album est la moitié précise de la paire |
+| 2 | `Lithium` | ce qui reste quand personne ne range par album |
+
+**L'artiste n'y est jamais.** Une recherche Soulseek porte sur le chemin partagé en entier, et
+l'artiste y est presque toujours le dossier *au-dessus* de l'album : il ne restreint rien que
+l'album n'ait déjà restreint, et chaque terme ajouté est une façon de plus pour une copie
+légitime d'être manquée.
+
+Il n'a pas disparu pour autant — il est le **filtre** sur ce qui revient. C'est toute la forme
+de cette étape : **demander largement, juger strictement.** Un terme dans la requête ne peut que
+perdre des résultats ; un terme dans le filtre s'applique à ce que les pairs ont réellement
+envoyé, et peut donc être exigeant sans rien coûter.
+
+Conséquence à connaître : quelqu'un qui partage `…/Nevermind/05 Lithium.flac` sans dossier
+d'artiste au-dessus sera trouvé par la recherche puis **écarté par le filtre**. C'est le prix
+assumé d'un filtre sur l'artiste ; le cas est minoritaire, les chemins Soulseek étant très
+majoritairement `Artiste/Album/Piste`.
+
+Sans album, une seule tentative : relancer le titre seul deux fois de suite ne ferait que
+dépenser un second tour de la patience de quelqu'un.
+
+Et le budget des dix pairs est **global aux deux recherches**, pas dix par tentative — sinon le
+repli doublerait discrètement le pire cas à vingt minutes d'attente, et les dix de la demande ne
+voudraient plus rien dire. Un pair déjà essayé est sauté plutôt que remis en file : les deux
+recherches se recouvrent beaucoup, et redonner une minute à la même file immobile est
+exactement ce que le changement de pair existe pour éviter.
+
 ## Choisir un pair
 
 `rank.ts` est pur et testé, parce que c'est lui qui décide de ce qui entre dans la bibliothèque.
@@ -128,6 +161,28 @@ Une fois le transfert **commencé**, il a trente minutes. Ce plafond n'est pas d
 mais un pair qui envoie deux kilo-octets puis boude laisserait sinon une ligne bleue tourner
 indéfiniment.
 
+### Lâcher la recherche : arrêter avant de supprimer
+
+Une recherche **survit à l'intérêt qu'on lui porte** : on classe ce qui est arrivé au bout de
+quelques secondes, pendant que Soulseek continue de répondre une demi-minute.
+
+Supprimer une recherche encore en cours fait donc lever une exception à slskd, qui met à jour
+la ligne de cette recherche au fil des réponses :
+
+```
+Failed to execute search for 'Lady Gaga Telephone':
+The database operation was expected to affect 1 row(s), but actually affected 0 row(s)
+```
+
+L'`UPDATE` porte sur une ligne qu'on a effacée sous ses pieds. `releaseSearch` fait donc les
+choses dans l'ordre : `PUT /searches/{id}` **arrête** la recherche — c'est ce que ce verbe fait
+chez slskd —, puis le `DELETE` attend qu'elle ne soit plus en cours.
+
+Et si elle ne se termine jamais, **la ligne est laissée**. Une ligne de trop dans la liste de
+slskd ne coûte rien ; une trace de pile dans les journaux à chaque recherche coûte la confiance
+qu'on a dans l'outil. Pour la même raison la fonction ne lève jamais et n'est pas attendue :
+c'est du ménage, pas le résultat de la recherche.
+
 ## Les octets : slskd ne peut pas les servir
 
 Point vérifié dans le source de slskd, et c'est lui qui décide de toute l'architecture : son
@@ -163,6 +218,93 @@ peuvent contenir n'importe quoi. Ils traversent ici deux endroits, et chacun a s
    caractères. `putFile` refuse un `..` par-dessus, et `writablePath` un segment initial en `.`.
 
 Rien de ce qu'un inconnu a tapé ne devient donc un chemin.
+
+## Le secours : « DL sur YouTube »
+
+Quand une ligne est rouge — personne ne partageait le morceau, ou personne ne l'a envoyé —
+elle porte un bouton **DL sur YouTube**, qui reprend le morceau avec `yt-dlp`.
+
+**Un bouton, jamais un repli automatique.** C'est un autre marché : un flux compressé tiré
+d'une vidéo au lieu du fichier de quelqu'un. Savoir quel morceau le mérite est un jugement sur
+le morceau — une reprise pour une playlist de répèt, oui ; une référence de mix, sûrement pas —
+et un serveur n'a pas à le faire à votre place.
+
+C'est **la même ligne** qui repart, pas une nouvelle. Elle porte déjà les tags résolus par
+MusicBrainz, donc le morceau se range exactement où il serait allé ; et l'historique garde une
+ligne par morceau voulu plutôt qu'une par tentative, ce qui est la question qu'on se pose en
+relisant la liste. Le sidecar dit `source: youtube`, à côté de `slskd` et d'`upload` : une fois
+le dossier rangé, c'est la seule trace qu'on écoute la piste audio d'une vidéo et non un disque.
+
+### Ici l'artiste EST dans la requête
+
+À l'inverse exact de slskd. Un titre de vidéo YouTube s'écrit « Artiste - Titre », donc
+l'artiste est dans le champ même qu'on interroge ; chez Soulseek il était le dossier au-dessus
+et ne restreignait rien. Même information, deux endroits différents, deux décisions opposées.
+
+`ytsearch1:` transforme la phrase en une vidéo sans qu'on ait à interroger YouTube nous-mêmes.
+Un seul résultat : le deuxième est déjà une reprise ou un live.
+
+### On ne ré-encode pas
+
+`--audio-format best` ne convertit pas, il **conserve** : YouTube sert de l'Opus autour de
+130 kbps, et le passer en mp3 serait un transcodage lossy vers lossy — nettement pire que l'un
+ou l'autre, pour rien. Ce qui sort est donc du `.opus` ou du `.m4a`, que `AUDIO_EXT` accepte
+déjà. Si yt-dlp rend autre chose, on refuse en le disant plutôt que de ranger un fichier que
+`masterName` rejetterait de toute façon.
+
+Le débit est inscrit dans la ligne comme pour un téléchargement Soulseek : un morceau à
+130 kbps qui s'annonce ne sera pas pris pour une référence six mois plus tard.
+
+### Ce qui est hostile, ici, c'est la requête
+
+Elle vient de ce que quelqu'un a tapé, et elle part vers un processus. `ytdlpArgs` rend un
+**tableau**, et `execFile` est appelé **sans shell** : un `;`, un `$(…)` ou un guillemet dans la
+recherche reste des caractères dans une recherche. C'est la même discipline que pour les noms
+de fichiers venus de Soulseek, à l'autre bout de la chaîne.
+
+Le travail se fait sous `.hunts/tmp/<id>` — sur le volume, donc de la vraie place, et derrière
+un point, donc invisible aux scans. Effacé quoi qu'il arrive : un téléchargement raté laisserait
+sinon des octets que plus rien ne nomme.
+
+### Ce que ça demande à l'image
+
+`yt-dlp` **et** `ffmpeg`, tous deux dans le Dockerfile. ffmpeg n'est pas un supplément : yt-dlp
+n'en embarque pas et ne sait pas séparer un flux de son conteneur sans lui, donc les deux ne
+font qu'une fonctionnalité.
+
+Et il faut le savoir : **yt-dlp est une cible mouvante**. YouTube le casse tous les quelques
+mois, donc la version figée dans une image vieillit et finit par échouer ; reconstruire est le
+correctif. C'est le coût de cette porte de sortie, et la raison pour laquelle elle est une porte
+de sortie et non le chemin principal.
+
+L'écran demande au backend si le binaire est là (`GET /api/hunt` → `youtube`), sondé une fois.
+Sans lui, le bouton est grisé et le dit, plutôt que d'échouer au clic.
+
+## Une page, pas un dialogue
+
+`/find` est une **section** au sens de `routes.ts`, comme `engine` : sans onglet dans l'en-tête,
+atteinte par un bouton depuis la section à laquelle elle appartient, et dessinée bord à bord.
+
+Un dialogue aurait été le réflexe — c'est ce que fait « Ajouter » juste à côté — et il aurait été
+le mauvais choix : **l'historique s'allonge**. Cent lignes dans une fenêtre de 85 % de hauteur,
+c'est un écran qui défile dans un écran. Et une page apporte trois choses qu'une boîte modale ne
+peut pas donner : une adresse qu'on recharge et qu'on met en signet, un bouton « précédent » qui
+ramène aux morceaux, et toute la hauteur disponible.
+
+Le champ de recherche est en haut et **ne défile pas** : monter une bibliothèque, c'est enchaîner
+les titres, et un champ qu'il faudrait aller rechercher après trente lignes serait un
+aller-retour par morceau.
+
+Deux conséquences dans `Library.tsx`, toutes deux faciles à manquer :
+
+- `find` doit être **retiré de `FamilyId`**, qui se calcule par soustraction sur `SECTION_IDS`.
+  Sans ça la nouvelle section deviendrait une famille, et le poll irait demander au serveur une
+  liste de `find`. C'est le prix de la soustraction : chaque section qui n'est pas une famille
+  doit être nommée là.
+- Le rafraîchissement du catalogue après un morceau rangé ne peut pas être le `refresh` général,
+  qui invalide le jeton de la section **ouverte** — laquelle est `find`. Ce qui vient d'arriver
+  est dans `songs` : c'est ce jeton-là qu'il faut effacer, sinon le morceau n'apparaîtrait qu'au
+  prochain changement de section.
 
 ## L'historique
 
@@ -232,3 +374,6 @@ sur la machine slskd sont deux confiances différentes.
 - Rien n'est **partagé** en retour. Beaucoup de pairs bannissent automatiquement qui ne partage
   rien, donc la moisson sera moins bonne qu'avec un client qui partage — c'est une décision à
   prendre, pas un oubli.
+- Le secours YouTube ne **choisit pas** la vidéo : c'est la première réponse, point. Proposer
+  une liste serait un autre écran, et le premier résultat d'une requête « artiste titre » est
+  la bonne piste bien plus souvent qu'il ne l'est pour une recherche Soulseek.

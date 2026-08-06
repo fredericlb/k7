@@ -26,6 +26,9 @@ export interface HuntRecord {
    *  "nobody will send it" are different waits and want different patience. */
   peer?: string;
   switches?: number;
+  /** How it was fetched. Absent means the ordinary path, Soulseek through slskd; `youtube` is
+   *  the fallback somebody asked for after that came back empty-handed. */
+  via?: "youtube";
   /** Why it failed — or, on a `done` row, why there was nothing to do. */
   error?: string;
   startedAt: number;
@@ -38,5 +41,8 @@ export interface HuntRecord {
 export interface HuntList {
   configured: boolean;
   reason: string | null;
+  /** Whether the YouTube fallback is available at all — yt-dlp being a binary in the image
+   *  rather than a setting, a failed row otherwise offers a button that cannot work. */
+  youtube: boolean;
   hunts: HuntRecord[];
 }

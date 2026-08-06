@@ -18,14 +18,15 @@ import {
 import { baseName, fetchDownload } from "./sftp.ts";
 import {
   cancelDownload,
-  deleteSearch,
   downloadsOf,
   enqueue,
+  releaseSearch,
   searchDone,
   searchResponses,
   startSearch,
 } from "./slskd.ts";
-import { type HuntRecord, patchHunt, saveHunt } from "./store.ts";
+import { type HuntRecord, listHunts, patchHunt, saveHunt } from "./store.ts";
+import { fetchFromYoutube, youtubeQuery } from "./youtube.ts";
 
 /** A peer gets this long to START sending before the hunt moves to the next one. */
 export const NO_START_MS = 60_000;
@@ -138,20 +139,59 @@ async function watch(
   return { outcome: "stalled", transferId };
 }
 
-/** Work down the ranked peers until one of them actually sends the file. */
+/**
+ * What to ASK slskd, in the order to ask it.
+ *
+ * The album and the title, then the title alone — and **never the artist**.
+ *
+ * A Soulseek search is matched against the whole shared path, and the artist is nearly always
+ * the folder ABOVE the album: it narrows nothing the album has not already narrowed, and every
+ * term added is another way for a legitimate copy to miss. The album is the precise half of the
+ * pair, which is why it goes first and why dropping it is what the second attempt does.
+ *
+ * The artist has not gone away — it is the FILTER on what comes back (`rankCandidates`). Asking
+ * broadly and judging strictly is the whole shape of this: a term in the query can only lose
+ * results, while a term in the filter can be applied to what the peers actually sent.
+ */
+export function searchTexts(
+  album: string | null | undefined,
+  title: string,
+): string[] {
+  const t = title.trim();
+  if (!t) return [];
+  const a = (album ?? "").trim();
+  // No album — or one that adds nothing — leaves a single attempt rather than the same
+  // search run twice, which would only spend a second round of somebody's patience.
+  return a ? [`${a} ${t}`, t] : [t];
+}
+
+/**
+ * Work down the ranked peers until one of them actually sends the file.
+ *
+ * `tried` is shared ACROSS the searches and is the budget: ten peers in total, not ten per
+ * attempt. Otherwise the fallback search would quietly double the worst case to twenty minutes
+ * of waiting, and the ten in the request would stop meaning anything.
+ *
+ * A peer already tried is skipped rather than re-queued — the two searches overlap heavily, and
+ * giving the same unmoving queue a second minute is the one thing the switching exists to avoid.
+ *
+ * `null` for "this round found nobody", so the caller can decide whether another search is left.
+ */
 async function takeFromSomeone(
   sub: string,
   id: string,
   candidates: Candidate[],
+  tried: Set<string>,
   signal: AbortSignal,
-): Promise<Candidate> {
-  let switches = 0;
+): Promise<Candidate | null> {
   for (const c of candidates) {
-    if (switches >= MAX_SWITCHES) break;
+    if (tried.size >= MAX_SWITCHES) return null;
+    if (tried.has(c.username)) continue;
+    tried.add(c.username);
     patchHunt(sub, id, {
       status: "downloading",
       peer: c.username,
-      switches,
+      switches: tried.size - 1,
       format: extOf(baseNameOf(c.file.filename)),
       bitrate: c.bitrate,
     });
@@ -162,13 +202,8 @@ async function takeFromSomeone(
     const { outcome, transferId } = await watch(c, signal);
     if (outcome === "done") return c;
     if (transferId) await cancelDownload(c.username, transferId);
-    switches += 1;
   }
-  throw new Error(
-    switches >= MAX_SWITCHES
-      ? `${MAX_SWITCHES} pairs essayés, aucun n'a commencé à envoyer`
-      : `plus aucun pair à essayer (${switches} essayé${switches > 1 ? "s" : ""})`,
-  );
+  return null;
 }
 
 async function run(
@@ -206,23 +241,37 @@ async function run(
     return;
   }
 
-  const text = `${tags.artist} ${tags.title}`;
-  const searchId = await startSearch(text);
-  let taken: Candidate;
-  try {
-    const responses = await gather(searchId, signal);
-    const candidates = rankCandidates(responses, {
-      artist: tags.artist,
-      title: tags.title,
-    });
-    if (!candidates.length)
-      throw new Error(
-        `personne ne partage « ${text} » dans un format utilisable`,
-      );
-    taken = await takeFromSomeone(sub, id, candidates, signal);
-  } finally {
-    await deleteSearch(searchId);
+  // Album then title, then the title alone — never the artist. See `searchTexts`.
+  const tried = new Set<string>();
+  let taken: Candidate | null = null;
+  let why = "";
+  for (const text of searchTexts(tags.album, tags.title)) {
+    if (tried.size >= MAX_SWITCHES) break;
+    const searchId = await startSearch(text);
+    try {
+      const responses = await gather(searchId, signal);
+      const candidates = rankCandidates(responses, {
+        artist: tags.artist,
+        title: tags.title,
+      });
+      if (!candidates.length) {
+        why = `personne ne partage « ${text} » dans un format utilisable`;
+        continue;
+      }
+      taken = await takeFromSomeone(sub, id, candidates, tried, signal);
+      if (taken) break;
+      why = `${tried.size} pair${tried.size > 1 ? "s" : ""} essayé${tried.size > 1 ? "s" : ""} pour « ${text} », aucun n'a commencé à envoyer`;
+    } finally {
+      // NOT awaited: stopping a search and waiting for it to wind down is slskd's housekeeping,
+      // not this hunt's outcome, and holding the file up for ten seconds of it would delay the
+      // green row for nothing. `releaseSearch` never rejects, so nothing escapes here.
+      void releaseSearch(searchId);
+    }
   }
+  // The LAST reason, which is the one from the narrowest search still standing — and the only
+  // one worth showing: "nobody had it" after the title alone is a different fact from the same
+  // sentence about the album.
+  if (!taken) throw new Error(why || "aucune recherche n'a abouti");
 
   const { bytes } = await fetchDownload(taken.file.filename);
   const filed = addSong({
@@ -263,6 +312,72 @@ export function startHunt(sub: string, query: string): HuntRecord {
       running.delete(rec.id);
     });
   return rec;
+}
+
+/**
+ * Le secours : reprendre une ligne échouée et aller chercher le morceau sur YouTube.
+ *
+ * La MÊME ligne, pas une nouvelle. Elle porte déjà les tags que MusicBrainz a résolus, donc le
+ * morceau se range au même endroit qu'il serait allé — et l'historique garde une ligne par
+ * morceau voulu plutôt qu'une par tentative, ce qui est la question que quelqu'un se pose en
+ * relisant la liste.
+ *
+ * Renvoie `null` quand la ligne est inconnue ou déjà en cours, ce que la route dit en 404/409 :
+ * deux téléchargements écrivant le même dossier gagneraient au hasard.
+ */
+export function startYoutube(sub: string, id: string): HuntRecord | null {
+  const row = listHunts(sub).find((h) => h.id === id);
+  if (!row || running.has(id)) return null;
+  const rec = patchHunt(sub, id, {
+    status: "downloading",
+    via: "youtube",
+    peer: undefined,
+    error: undefined,
+    endedAt: undefined,
+    format: undefined,
+    bitrate: undefined,
+  });
+  if (!rec) return null;
+  const ctl = new AbortController();
+  running.set(id, ctl);
+  void runYoutube(sub, rec)
+    .catch((e) => {
+      patchHunt(sub, id, {
+        status: "failed",
+        error: message(e),
+        endedAt: Date.now(),
+      });
+    })
+    .finally(() => {
+      running.delete(id);
+    });
+  return rec;
+}
+
+async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
+  const query = youtubeQuery(rec);
+  const { bytes, filename } = await fetchFromYoutube(query, rec.id);
+  const filed = addSong({
+    filename,
+    bytes,
+    tags: {
+      artist: rec.artist,
+      title: rec.title || rec.query,
+      album: rec.album,
+      // Le sidecar dit d'où ça vient, comme il dit `slskd` ou `upload`. Ce n'est pas une
+      // étiquette de plus : c'est la seule trace, une fois le dossier rangé, qu'on écoute une
+      // piste audio de vidéo et non un disque.
+      source: "youtube",
+    },
+    // Le secours d'un échec : rien n'est là à écraser, et si quelque chose l'est entre-temps,
+    // `addSong` refuse — ce qui est la bonne réponse, pas un problème à contourner.
+  });
+  patchHunt(sub, rec.id, {
+    status: "done",
+    path: filed.path,
+    format: extOf(filename),
+    endedAt: Date.now(),
+  });
 }
 
 /** Give up on one. The runner's own catch writes the row. */

@@ -91,9 +91,40 @@ export async function searchDone(id: string): Promise<boolean> {
   return (s?.state ?? "").toLowerCase().includes("complete");
 }
 
-/** Tidy up. Failure is ignored: a search left behind costs a row in slskd's own list. */
-export async function deleteSearch(id: string): Promise<void> {
-  await call(`/searches/${id}`, { method: "DELETE" }).catch(() => {});
+/** How long to wait for a stopped search to actually be over before giving up on tidying it. */
+const RELEASE_WAIT_MS = 10_000;
+
+/**
+ * Let go of a search: stop it, wait for it to really be finished, and only then remove it.
+ *
+ * The order matters, and it was learnt from a crash. Deleting a search that is STILL RUNNING
+ * makes slskd throw `DbUpdateConcurrencyException` — it updates the search's own row as
+ * responses arrive, and an UPDATE against a row we deleted affects zero rows:
+ *
+ *     Failed to execute search for 'Lady Gaga Telephone':
+ *     The database operation was expected to affect 1 row(s), but actually affected 0 row(s)
+ *
+ * A search outlives our interest in it: we rank what has arrived after a few seconds, while
+ * Soulseek goes on answering for half a minute. So `PUT` stops it first — that is what that
+ * verb does here — and the DELETE waits until it is no longer in progress.
+ *
+ * If it never reports finished, the row is LEFT ALONE. An untidy row in slskd's own list costs
+ * nothing; a stack trace in somebody's logs every time they search costs them their trust in
+ * the whole thing. Never rejects, for the same reason — this is housekeeping, not the hunt.
+ */
+export async function releaseSearch(
+  id: string,
+  waitMs: number = RELEASE_WAIT_MS,
+): Promise<void> {
+  await call(`/searches/${id}`, { method: "PUT" }).catch(() => {});
+  const until = Date.now() + waitMs;
+  while (Date.now() < until) {
+    if (await searchDone(id).catch(() => false)) {
+      await call(`/searches/${id}`, { method: "DELETE" }).catch(() => {});
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
 }
 
 export async function enqueue(
