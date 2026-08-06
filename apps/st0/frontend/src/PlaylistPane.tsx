@@ -13,7 +13,10 @@ import {
   Loader2,
   Pause,
   Play,
+  Plus,
+  Search,
   Workflow,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { currentUser, library } from "./api";
@@ -29,6 +32,8 @@ import {
   itemProblem,
   type ResolvedItem,
   resolveItems,
+  songMatches,
+  songRef,
 } from "./playlistItems";
 import { renderNames } from "./songTakes";
 
@@ -42,11 +47,22 @@ const NO_CACHE =
 const renderKey = (song: MediatekEntry, take: string): string =>
   `${song.path}::${take}`;
 
+/**
+ * How many search hits are drawn at once.
+ *
+ * A library of three hundred morceaux in one scrolling box is not a list you read, it is one
+ * you give up on — and the field above it is the way through. The count of what is NOT shown
+ * is said out loud rather than silently dropped.
+ */
+const MAX_HITS = 40;
+
 export function PlaylistPane({
   items,
   songs,
   target,
   engineToken,
+  onAdd,
+  addRefusal,
 }: {
   /** The lines, as the text on the left currently parses. */
   items: PlaylistItem[];
@@ -56,6 +72,18 @@ export function PlaylistPane({
   target: PlaybackTarget;
   /** The chosen machine's engine token, for the file routes it gates. */
   engineToken?: string | null;
+  /**
+   * Put a line at the end of the playlist.
+   *
+   * The pane does not own the text — the editor does, and the YamlPane on the left is showing
+   * it — so adding a song is a request upwards rather than a write. That is what keeps the two
+   * halves one document: the line appears in the text, and this list redraws because the text
+   * changed, not because something told it to.
+   */
+  onAdd: (item: PlaylistItem) => void;
+  /** Why `onAdd` would not work right now — the file's `items:` is in a shape the text-level
+   *  append cannot extend. Empty when it can. */
+  addRefusal?: string;
 }) {
   const playback = usePlayback();
   const engine = useEngine();
@@ -229,6 +257,34 @@ export function PlaylistPane({
   // Settled, and empty. `undefined` is still being asked and says nothing yet.
   const noCache = viaEngine && root === null;
 
+  // --- adding ----------------------------------------------------------------------
+  //
+  // The search stays OPEN after a click. Building a set list is adding eight morceaux in a
+  // row, and a panel that shut each time would make that eight round trips through the same
+  // button. What confirms the add is the list below growing — the text on the left really did
+  // change, so there is nothing else to say.
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState("");
+  const queryRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (searching) queryRef.current?.focus();
+  }, [searching]);
+
+  const hits = useMemo(
+    () => (songs ?? []).filter((e) => songMatches(e, query)),
+    [songs, query],
+  );
+
+  const add = useCallback(
+    (song: MediatekEntry, variant?: string) => {
+      onAdd({ song: songRef(song), ...(variant ? { variant } : {}) });
+    },
+    [onAdd],
+  );
+
+  const cannotAdd =
+    addRefusal || (songs === null ? "morceaux pas encore chargés" : "");
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2">
@@ -239,6 +295,18 @@ export function PlaylistPane({
           onClick={() => void startAt(0)}
         >
           <Play className="mr-1 h-4 w-4" /> Tout jouer
+        </Button>
+        {/* Beside the play button rather than in the tree's menu: a playlist is filled while
+            you are looking at it, and the tree is showing the OTHER family — the playlists,
+            not the morceaux you want to put in one. */}
+        <Button
+          size="sm"
+          variant={searching ? "default" : "secondary"}
+          disabled={!!cannotAdd}
+          title={cannotAdd}
+          onClick={() => setSearching((s) => !s)}
+        >
+          <Plus className="mr-1 h-4 w-4" /> Ajouter un morceau
         </Button>
         <span className="text-xs text-muted-foreground">
           {rows.length} ligne{rows.length > 1 ? "s" : ""}
@@ -267,12 +335,115 @@ export function PlaylistPane({
         </p>
       ) : null}
 
+      {/* The search. Above the list and not over it: what you are adding to stays visible, so
+          you can see the set list grow as you pick — which is the only confirmation there is. */}
+      {searching ? (
+        <div className="flex max-h-[55%] min-h-0 shrink-0 flex-col border-b bg-muted/30">
+          <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              ref={queryRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Escape closes without adding; Enter takes the first hit, which is what
+                // "type three letters and press return" expects to do.
+                if (e.key === "Escape") return setSearching(false);
+                if (e.key === "Enter" && hits[0]) add(hits[0] as MediatekEntry);
+              }}
+              placeholder="titre, artiste, album…"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {hits.length}
+            </span>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0"
+              aria-label="Fermer la recherche"
+              onClick={() => setSearching(false)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <ul className="min-h-0 flex-1 overflow-auto px-2 pb-2">
+            {hits.length === 0 ? (
+              <li className="px-2 py-3 text-sm text-muted-foreground">
+                Aucun morceau ne répond à ça.
+              </li>
+            ) : (
+              hits.slice(0, MAX_HITS).map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/40"
+                >
+                  <Disc3 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {/* The whole row adds the MASTER, which is what a click on a morceau
+                      means; the chips beside it name a version instead. */}
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 truncate text-left"
+                    onClick={() => add(s)}
+                  >
+                    {s.name}
+                    {s.meta?.artist ? (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {String(s.meta.artist)}
+                      </span>
+                    ) : null}
+                  </button>
+                  {/* A song's other versions, addable in one click each. Without these,
+                      putting `instrumental` in a set list would mean going and typing the
+                      mapping by hand — and the playlist format exists to carry exactly that. */}
+                  {(s.variants ?? []).map((v) => (
+                    <button
+                      key={v.name}
+                      type="button"
+                      title={`ajouter la variante « ${v.name} »`}
+                      className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => add(s, v.name)}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                  <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                </li>
+              ))
+            )}
+            {/* Never a silent cap: a set list built from a search that quietly hid the
+                morceau you wanted is worse than one that says to type another word. */}
+            {hits.length > MAX_HITS ? (
+              <li className="px-2 py-1.5 text-xs text-muted-foreground">
+                …et {hits.length - MAX_HITS} autres — précisez la recherche
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-auto p-2">
         {rows.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Cette playlist ne nomme aucun morceau. Ajoutez des lignes sous{" "}
-            <span className="font-mono">items:</span>, à gauche.
-          </p>
+          <div className="flex flex-col items-start gap-3 p-4">
+            <p className="text-sm text-muted-foreground">
+              Cette playlist ne nomme aucun morceau. Cherchez-en un, ou écrivez
+              les lignes sous <span className="font-mono">items:</span> à gauche
+              — c'est le même fichier.
+            </p>
+            {/* The empty state is where the button is most needed and least findable up in
+                the header, so it is offered again here rather than only pointed at. */}
+            {searching ? null : (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!!cannotAdd}
+                title={cannotAdd}
+                onClick={() => setSearching(true)}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Ajouter un morceau
+              </Button>
+            )}
+          </div>
         ) : (
           <ol className="flex flex-col">
             {rows.map((r, i) => {

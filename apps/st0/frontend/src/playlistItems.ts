@@ -26,6 +26,34 @@ export function findSong(
   );
 }
 
+/**
+ * How a line should NAME a song the search just found — its path under `songs/`.
+ *
+ * The unambiguous form, not the bare title, because this one is written by a machine: a person
+ * typing `Lithium` is choosing brevity and accepting the ambiguity, whereas a click on one row
+ * of a list means THAT morceau and nothing that happens to share its name. `findSong` reads
+ * both, so the file stays hand-editable either way.
+ */
+export function songRef(entry: MediatekEntry): string {
+  return entry.path.replace(/^songs\//, "");
+}
+
+/**
+ * Does this song match what was typed? Case-insensitive, over the three things a person would
+ * search by — the title, the artist, and the path, which is where the album lives.
+ *
+ * Every word has to hit SOMETHING, though not the same thing: "nirvana lithium" finds a
+ * morceau whose artist is one and whose title is the other, which a single-substring match
+ * over the whole query never would.
+ */
+export function songMatches(entry: MediatekEntry, query: string): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay =
+    `${entry.name} ${entry.path} ${entry.meta?.artist ?? ""}`.toLowerCase();
+  return words.every((w) => hay.includes(w));
+}
+
 /** One line, as far as the two listings can take it. */
 export interface ResolvedItem {
   item: PlaylistItem;

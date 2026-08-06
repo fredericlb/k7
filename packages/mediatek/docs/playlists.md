@@ -74,3 +74,23 @@ réparer.
 `parsePlaylist` rend `null` dans ce cas, et non une playlist vide. Les deux sont des faits
 différents et une surface les dit différemment : un fichier qui ne parse pas est à
 corriger, un `items:` vide est à remplir.
+
+## Écrire une ligne, sans repasser par le sérialiseur
+
+`appendPlaylistItem` ajoute une ligne **au texte**. C'est la même discipline que
+`withVariant` dans `write.ts`, et pour la même raison : ces fichiers portent des
+commentaires et un ordre que quelqu'un a choisi, et parser vers un objet pour le
+re-sérialiser jetterait les deux sans bruit. Faire un aller-retour d'une setlist par un
+sérialiseur, c'est le changement que personne ne remarque avant que ses notes aient disparu.
+
+Il rend `null` — plutôt qu'une approximation — pour les formes qu'il ne sait pas étendre :
+une séquence en flot répartie sur plusieurs lignes, ou un `items:` qui n'est pas une liste.
+La surface désactive alors son bouton et dit pourquoi ; écrire un deuxième `items:` plus bas
+produirait un fichier dont les deux moitiés se contredisent.
+
+`yamlScalar` cite **quand il le faut et seulement là**. Les chemins de morceaux sortent de
+`segment()` et portent donc légitimement des espaces, des `&` et des parenthèses — tout cela
+va très bien sans guillemets au milieu d'un scalaire, et pas du tout en tête. Sont cités : ce
+qui commence par un indicateur, ce qui contient `: ` ou ` #`, et ce que YAML lirait comme
+autre chose qu'une chaîne (`No`, `null`, `42`). Tout citer serait plus simple à écrire et
+mettrait deux conventions dans un fichier qui s'édite aussi à la main.

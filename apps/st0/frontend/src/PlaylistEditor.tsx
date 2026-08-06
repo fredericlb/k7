@@ -4,6 +4,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import {
+  appendPlaylistItem,
   type PlaylistItem,
   parsePlaylist,
   playlistStub,
@@ -124,6 +125,41 @@ export function PlaylistEditor({
     [content],
   );
 
+  /**
+   * A morceau picked in the search, as a line at the end of the file.
+   *
+   * The EDIT is the text, not a list this component holds beside it: the pane on the right is
+   * drawn from the buffer, so writing the line into the buffer is what makes the row appear.
+   * Anything else would be two sources of truth for one document, and the YamlPane on the left
+   * would go on showing the old one.
+   *
+   * Not saved automatically. Adding is an edit like typing is, and the `Enregistrer *` in the
+   * header is how an edit becomes a file here — a click that wrote to disk while a half-typed
+   * line sat in the buffer would save that too.
+   */
+  const addItem = useCallback(
+    (item: PlaylistItem) => {
+      if (content == null) return;
+      const next = appendPlaylistItem(content, item);
+      // `addRefusal` keeps the button disabled for the shapes this cannot extend, so getting
+      // here means the file changed shape under us. Leaving the text alone is the honest
+      // answer; the pane goes on saying why.
+      if (next == null) return;
+      setContent(next);
+      setDirty(true);
+    },
+    [content],
+  );
+
+  /** Why the search cannot write a line right now — computed HERE, because it is a fact about
+   *  the text and the pane has never seen it. */
+  const addRefusal = useMemo(() => {
+    if (content == null) return "fichier pas encore chargé";
+    return appendPlaylistItem(content, { song: "x" }) === null
+      ? "l'écriture de `items:` dans ce fichier n'est pas une forme que l'ajout sait étendre — ajoutez la ligne à la main"
+      : "";
+  }, [content]);
+
   const save = useCallback(async () => {
     if (content == null) return;
     setSaving(true);
@@ -193,6 +229,8 @@ export function PlaylistEditor({
               songs={songs}
               target={playbackTarget}
               engineToken={engineToken}
+              onAdd={addItem}
+              addRefusal={addRefusal}
             />
           </div>
         </div>
