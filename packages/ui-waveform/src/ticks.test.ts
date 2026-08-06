@@ -10,6 +10,7 @@ import {
   labelStride,
   MIN_LABEL_PX,
   MONO_CHAR_PX,
+  nearestTick,
   subdivideBeats,
 } from "./ticks";
 
@@ -93,5 +94,40 @@ describe("subdivideBeats", () => {
     expect(subdivideBeats(4, 0)).toBe(4);
     expect(subdivideBeats(4, Number.NaN)).toBe(4);
     expect(subdivideBeats(4, 1e9)).toBeGreaterThanOrEqual(1 / 64);
+  });
+});
+
+describe("nearestTick", () => {
+  // What a ruler click lands on. The list is the one the ruler DREW, so a click can only
+  // ever put the playhead on a line that is on screen.
+  const ticks = [0, 0.5, 1, 1.5, 2];
+
+  it("takes the closest line, either side", () => {
+    expect(nearestTick(ticks, 1.1)).toBe(1);
+    expect(nearestTick(ticks, 1.4)).toBe(1.5);
+  });
+
+  it("keeps a value already on a tick", () => {
+    expect(nearestTick(ticks, 1.5)).toBe(1.5);
+  });
+
+  it("clamps to the ends rather than extending the grid", () => {
+    // There is no tick at -1 or at 9: a click past the last line lands ON the last line.
+    expect(nearestTick(ticks, -1)).toBe(0);
+    expect(nearestTick(ticks, 9)).toBe(2);
+  });
+
+  it("takes the first of two equally close lines, not an average", () => {
+    expect(nearestTick(ticks, 0.25)).toBe(0);
+  });
+
+  it("returns null when the ruler drew nothing", () => {
+    // The caller then seeks exactly where the pointer was — a waveform with no musical
+    // grid (k7's) must not be snapped to anything.
+    expect(nearestTick([], 1.2)).toBe(null);
+  });
+
+  it("does not need the list sorted", () => {
+    expect(nearestTick([2, 0, 1], 0.9)).toBe(1);
   });
 });

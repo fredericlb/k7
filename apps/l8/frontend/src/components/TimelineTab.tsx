@@ -12,6 +12,7 @@ import {
   labelled,
   labelMinPx,
   labelStride,
+  nearestTick,
   subdivideBeats,
 } from "@studio/ui-waveform";
 import {
@@ -72,6 +73,23 @@ const LABEL_SELECTED =
 
 // `beat: LABEL` puts the caret on the row's label — the only position a group or generated lane can take.
 export const LABEL = -1;
+
+// A tick's weight and its number: a bar keeps its own, a beat inside one is numbered within
+// the bar (5.2, 5.3…), and anything finer is a line with no number at all. At module level
+// because two things now ask — the ruler and the lanes' grid — and they must read one answer.
+const tickAt = (b: number, barBeats: number) => {
+  const bar = Math.abs(b / barBeats - Math.round(b / barBeats)) < 1e-6;
+  const onBeat = Math.abs(b - Math.round(b)) < 1e-6;
+  return {
+    bar,
+    onBeat,
+    label: bar
+      ? String(Math.round(b / barBeats) + 1)
+      : onBeat
+        ? `${Math.floor(b / barBeats) + 1}.${Math.round(b % barBeats) + 1}`
+        : "",
+  };
+};
 
 interface Caret {
   row: RowKey; // identity, not an index — the orbit lanes renumber the rows
@@ -1004,21 +1022,6 @@ export function TimelineTab({
   const bars: number[] = [];
   for (let b = Math.ceil(beatLo / unit - 1e-9) * unit; b <= lastBeat; b += unit)
     bars.push(b);
-  // A tick's weight and its number: a bar keeps its own, a beat inside one is numbered
-  // within the bar (5.2, 5.3…), and anything finer is a line with no number at all.
-  const tickAt = (b: number) => {
-    const bar = Math.abs(b / barBeats - Math.round(b / barBeats)) < 1e-6;
-    const onBeat = Math.abs(b - Math.round(b)) < 1e-6;
-    return {
-      bar,
-      onBeat,
-      label: bar
-        ? String(Math.round(b / barBeats) + 1)
-        : onBeat
-          ? `${Math.floor(b / barBeats) + 1}.${Math.round(b % barBeats) + 1}`
-          : "",
-    };
-  };
   // The widest number this ruler CAN print — the last bar's, carrying a beat once beats are
   // drawn. Taken from the ruler's END rather than the bars on screen: on those, panning past
   // bar 10 and again past bar 100 would re-thin every label under the cursor.
@@ -1110,6 +1113,39 @@ export function TimelineTab({
           style={{ width: GUTTER + laneW }}
           className="relative select-none font-mono text-xs"
         >
+          {/* The GRID: every tick the ruler drew, continued down the lanes as a dashed
+              rule, so where a clip falls against the beat is readable where the clip is
+              and not only in the header. Same `bars`, same `x()`, so the two cannot drift.
+              Dashed because the solid vertical lines here already mean something — the
+              playhead, a marker — and a third would compete with them.
+              FIRST in the wrapper on purpose: positioned siblings paint in tree order, so
+              everything a lane holds draws over this rather than being crossed out by it. */}
+          {bars.map((b) => {
+            // A tick at the lane's right edge is a 1px border past the end of the box, and
+            // one pixel of horizontal scroll in a view that fits its pane exactly.
+            if (x(b) >= laneW) return null;
+            const { bar, onBeat } = tickAt(b, barBeats);
+            return (
+              <div
+                key={`grid:${b}`}
+                className={cn(
+                  "pointer-events-none absolute border-l border-dashed",
+                  // The ruler's three weights, one step fainter: down here they cross the
+                  // material rather than sitting in a header of their own.
+                  bar
+                    ? "border-border/40"
+                    : onBeat
+                      ? "border-border/25"
+                      : "border-border/10",
+                )}
+                style={{
+                  left: GUTTER + x(b),
+                  top: ROW_H, // below the ruler, which draws its own solid tick
+                  height: contentH - ROW_H,
+                }}
+              />
+            );
+          })}
           {/* ruler */}
           <div
             className="sticky top-0 z-10 flex bg-background"
@@ -1120,10 +1156,11 @@ export function TimelineTab({
               className="shrink-0 border-r border-border"
             />
             {/* The ruler is both the transport scrubber and a time-range selector. A plain
-                CLICK moves the playhead there (the caret rides it — see the effect above).
-                A DRAG sweeps a selection over the dragged beat range across ALL tracks —
-                the same rectangle `v` builds, so z / Shift+L then act on it. Beat = the
-                view's start + pixels/ppb; the selection snaps to whole-beat cells. */}
+                CLICK moves the playhead to the nearest DRAWN tick (the caret rides it — see
+                the effect above). A DRAG sweeps a selection over the dragged beat range
+                across ALL tracks — the same rectangle `v` builds, so z / Shift+L then act
+                on it. Beat = the view's start + pixels/ppb; the selection snaps to
+                whole-beat cells, which is coarser than the ruler's unit on purpose. */}
             <div
               className="relative cursor-pointer overflow-hidden"
               style={{ width: laneW }}
@@ -1193,8 +1230,13 @@ export function TimelineTab({
                   el.style.cursor = "";
                   if (gesture === -1) return; // zoom gesture — nothing to undo
                   if (dragged) return; // selection stays
-                  setSel(null); // plain click deselects and seeks precisely
-                  const beat = Math.max(0, beatLo + (startX - rect.left) / ppb);
+                  setSel(null); // plain click deselects and seeks
+                  // Snapped to the nearest tick the ruler DREW: you aimed at a line, not at
+                  // a pixel. `bars` is that list, so the grid you see and the positions you
+                  // can land on cannot disagree — and since the drawn unit follows the zoom,
+                  // opening the view up is how you reach a finer one.
+                  const raw = Math.max(0, beatLo + (startX - rect.left) / ppb);
+                  const beat = nearestTick(bars, raw) ?? raw;
                   onSeek?.((beat * 60) / proj.tempo);
                 };
                 window.addEventListener("mousemove", onMove);
@@ -1233,7 +1275,7 @@ export function TimelineTab({
                 const tickIndex = Math.round(b / unit);
                 // Numbering a subdivided ruler is what makes it locatable; below the beat
                 // it is lines only, since a 16th's number is noise at any zoom (tickAt).
-                const { bar, onBeat, label } = tickAt(b);
+                const { bar, onBeat, label } = tickAt(b, barBeats);
                 return (
                   <div
                     key={b}

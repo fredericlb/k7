@@ -11,6 +11,7 @@ export {
   MAX_COLUMN_PX,
   MIN_LABEL_PX,
   MONO_CHAR_PX,
+  nearestTick,
   subdivideBeats,
 } from "./ticks";
 export type {

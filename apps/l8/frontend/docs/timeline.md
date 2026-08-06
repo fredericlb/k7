@@ -34,6 +34,35 @@ drawn — there the arrows drive the selection head, which the playhead must not
 and not while a label is selected, which is a row rather than a beat and so has nothing to
 ride.
 
+## The grid, and what a ruler click lands on
+
+The ruler's unit follows the zoom (`subdivideBeats`) and every tick it picks is drawn twice:
+as the ruler's own short solid tick, and as a **dashed rule continuing down every lane**, so
+where a clip falls against the beat is readable where the clip is rather than only in the
+header. One `bars` array and one `x()` feed both, so they cannot drift apart.
+
+Dashed, and one alpha step fainter than the ruler's, for a reason: the solid vertical lines
+in this view already mean something — the playhead, a marker — and the grid is *every* tick.
+A third solid line would compete with the two that carry information.
+
+The grid divs sit **first** in the scroll wrapper. Positioned siblings paint in tree order,
+so everything a lane holds draws over the grid instead of being crossed out by it. It stops
+below the ruler (the ruler draws its own tick there) and skips a tick landing exactly on the
+lane's right edge, whose 1px border would otherwise be one pixel of horizontal scroll in a
+view that is supposed to fit its pane exactly.
+
+**A click on the ruler snaps the playhead to the nearest drawn tick** (`nearestTick`) — you
+aimed at a line, not at a pixel. It is the drawn list that decides, not a round-to-the-unit,
+so the guarantee is exact: the playhead can only land somewhere the grid marks. Opening the
+zoom is how you reach a finer position, and the furthest a click can move from the pointer
+is half a column. A *drag* on the ruler is unchanged: it still sweeps a selection over whole
+beat cells.
+
+One cost to know: this is one DOM node per tick, on top of the one the ruler already draws,
+and the component re-renders on every playhead frame. At the deepest zoom on a long song
+that is ~1000 nodes becoming ~2000. Memoizing would mean hoisting the whole ruler geometry
+above two early returns; it was not worth that for a 2× on a cost the ruler already paid.
+
 ## Clicking a header
 
 The gutter — the name column, on all three kinds of row — is the row's handle:

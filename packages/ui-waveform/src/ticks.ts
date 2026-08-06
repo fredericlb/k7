@@ -57,6 +57,29 @@ export function labelled(index: number, stride: number): boolean {
   return stride <= 1 || index % stride === 0;
 }
 
+/**
+ * The tick nearest `v`, or null when the ruler drew none.
+ *
+ * What a click on a ruler snaps to. Deliberately the drawn LIST rather than a round-to-the-
+ * unit: a ruler that starts mid-bar has no origin to round from, and the waveform's grid is
+ * handed to it line by line with no stride at all. Both rulers pass the array they just
+ * drew, so what you land on is always something you can see.
+ *
+ * Order-independent — the callers' lists happen to ascend, but nothing here needs them to.
+ */
+export function nearestTick(ticks: number[], v: number): number | null {
+  let best: number | null = null;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (const t of ticks) {
+    const d = Math.abs(t - v);
+    if (d < bestD) {
+      bestD = d;
+      best = t;
+    }
+  }
+  return best;
+}
+
 /** Above this, a column is wide enough to hold the next unit down inside it. */
 export const MAX_COLUMN_PX = 50;
 
