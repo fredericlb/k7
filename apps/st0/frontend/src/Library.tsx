@@ -739,6 +739,25 @@ export function Library() {
     }
   }, []);
 
+  /**
+   * Changer de section jette ce qu'on tenait — ET le jeton qui prétendait qu'il était à jour.
+   *
+   * `entries` ne contient qu'UNE section à la fois, donc dès qu'on en change, le jeton de
+   * révision de la nouvelle section est un mensonge : il dit « rien n'a bougé depuis la
+   * dernière fois », ce qui est vrai du VOLUME et faux de l'écran, qui ne tient plus rien.
+   * Le poll ci-dessous ne rechargeait alors pas, et le spinner tournait indéfiniment — jusqu'à
+   * un rechargement de page, qui repart avec des jetons vides. C'était le symptôme.
+   *
+   * Ici, sur `section`, et pas dans le clic d'onglet : le bouton « précédent » et un lien
+   * profond changent de section sans passer par lui (voir useLibraryRoute).
+   */
+  useEffect(() => {
+    setEntries(null);
+    setUnlisted([]);
+    setPicked(null);
+    seen.current[section] = "";
+  }, [section]);
+
   // One poll drives every section OF THE LIBRARY: fetch the token map, and reload the
   // SELECTED one only if its token moved. A section nobody is looking at just updates its
   // count on switch. The zone is in that map beside the families, so there is still exactly
@@ -807,11 +826,10 @@ export function Library() {
               <button
                 key={id}
                 type="button"
-                onClick={() => {
-                  setSection(id);
-                  setEntries(null);
-                  setPicked(null);
-                }}
+                // Rien à vider ici : changer de section suffit, et l'effet qui suit
+                // `section` s'en charge — y compris quand c'est le bouton « précédent » ou un
+                // lien profond qui en change, ce que ce gestionnaire ne voit pas.
+                onClick={() => setSection(id)}
                 className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${
                   section === id
                     ? "bg-accent text-accent-foreground"

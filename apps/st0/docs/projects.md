@@ -214,6 +214,21 @@ Un `git fetch` coûte du réseau, donc le miroir n'est pas rafraîchi à chaque 
 l'ajout, sur le bouton, et au plus une fois par dix minutes. C'est la raison pour laquelle
 `useGitStatus` dans l8 est déjà sur un timer de dix minutes.
 
+### Le jeton dit « à jour », pas « en main »
+
+La carte `seen` retient, par section, la révision de ce qui a été chargé la dernière fois. Elle
+répond à « le volume a-t-il bougé depuis ? » — et **pas** à « est-ce que l'écran tient encore
+cette liste ? ». Or `entries` n'en tient qu'une à la fois.
+
+C'est ce qui produisait un spinner qui ne s'arrêtait plus : en revenant sur une section déjà
+vue et inchangée, le vidage de l'affichage laissait le jeton intact, donc le poll ne rechargeait
+rien, donc rien ne remplaçait le vide. Un rechargement de page « réparait » parce qu'il repart
+avec des jetons vides — le signe qu'il fallait chercher du côté d'un état survivant.
+
+Les deux vont donc ensemble maintenant, dans un seul effet sur `section` : on jette la liste
+**et** le jeton. Dans un effet et non dans le clic d'onglet, parce que le bouton « précédent »
+et un lien profond changent aussi de section (voir [routing.md](routing.md)) sans passer par lui.
+
 ## Ce qui tourne dans l'image
 
 Le conteneur st0 installe `git` **et `openssh-client`** : chaque dépôt est joint par SSH, donc
