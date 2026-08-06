@@ -5,11 +5,14 @@
 │              │                           │              │
 │  PLATINE A   │   le set — songs.yaml     │  PLATINE B   │
 │   (vinyle)   │   une ligne, deux boutons │   (vinyle)   │
-│              │   A · B                   │              │
+│  ▁▃▇▅▂▃▇▅▁   │   A · B                   │  ▁▃▇▅▂▃▇▅▁   │
 ├──────────────┴───────────────────────────┴──────────────┤
 │ Écouter ici      A ══════╪══════ B   50%   ▶   ⟳        │  10 %
 └─────────────────────────────────────────────────────────┘
 ```
+
+Sous chaque vinyle, la waveform qui défile sous la tête de lecture, beats en jaune et
+transitoires en gris — elle a ses propres règles, dans [waveform.md](waveform.md).
 
 Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue le `songs.yaml`
 de ce projet — c'est que le pupitre veut la largeur. Les fichiers, c'est l'Édition.

@@ -16,9 +16,19 @@ export type Phase =
   | { k: "absent" }
   | { k: "ready"; id: string };
 
+/** The transport's position, and the moment it was heard — see the note where it is set. */
+export interface Playhead {
+  seconds: number;
+  /** `performance.now()` when this arrived, so a redraw can extrapolate between pushes. */
+  at: number;
+}
+
 export interface Deck {
   phase: Phase;
   playing: boolean;
+  /** Where the transport is, as a REF. Deliberately not state: read it in an animation
+   *  frame, do not render from it. */
+  playhead: React.RefObject<Playhead>;
   engine: EngineClient | null;
   retry: () => void;
   /** Hear in this browser what the engine's interface is putting out. Off by default: the
@@ -36,6 +46,7 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   const [listening, setListen] = useState(false);
   const [listenStats, setStats] = useState({ depth: 0, underruns: 0 });
   const engine = useRef<EngineClient | null>(null);
+  const playhead = useRef<Playhead>({ seconds: 0, at: 0 });
 
   useEffect(() => {
     setPhase({ k: "looking" });
@@ -62,7 +73,15 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     // The engine's own transport is the truth about whether sound is happening — never a
     // flag set hopefully when a play was sent. A file that failed to load leaves it
     // stopped, and the deck has to show that.
-    client.onState((s) => setPlaying(s.playing));
+    client.onState((s) => {
+      setPlaying(s.playing);
+      // The playhead goes into a REF, never into state. The engine pushes it many times a
+      // second, and a setState per push would re-render the whole desk — two waveforms, the
+      // set list, both decks — to move one line. The canvas reads this ref in its own rAF
+      // loop instead, so the two rates stay independent. `at` is when it arrived, which is
+      // what lets a 60 fps redraw interpolate between two 20 Hz pushes.
+      playhead.current = { seconds: s.playhead, at: performance.now() };
+    });
     client.connect();
     setPhase({ k: "ready", id: chosen.engine.id });
     return () => {
@@ -118,6 +137,7 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   return {
     phase,
     playing,
+    playhead,
     engine: engine.current,
     retry: useCallback(() => setAttempt((n) => n + 1), []),
     listening,
