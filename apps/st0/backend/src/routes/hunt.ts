@@ -92,12 +92,20 @@ huntRouter.post(
   wrap((req, res) => {
     const gap = missing();
     if (gap) return res.status(503).json({ error: gap });
-    const body = req.body as { query?: unknown };
+    const body = req.body as { query?: unknown; playlist?: unknown };
     const query = typeof body?.query === "string" ? body.query.trim() : "";
     if (!query)
       return res.status(400).json({ error: "il faut un titre à chercher" });
     if (query.length > MAX_QUERY)
       return res.status(400).json({ error: "recherche trop longue" });
+    // Une playlist et pas n'importe quel chemin : `writablePath` refuserait un `..` plus tard,
+    // mais dire non ici nomme la faute au lieu de la faire découvrir dix minutes après.
+    const playlist =
+      typeof body?.playlist === "string" ? body.playlist.trim() : "";
+    if (playlist && !/^playlists\/[^\0]+\.ya?ml$/i.test(playlist))
+      return res
+        .status(400)
+        .json({ error: `« ${playlist} » n'est pas une playlist` });
     const sub = subOf(req) as string;
     const mine = reconcile(sub, runningIds()).filter(
       (h) => h.status === "searching" || h.status === "downloading",
@@ -106,7 +114,7 @@ huntRouter.post(
       return res.status(429).json({
         error: `${MAX_RUNNING} recherches déjà en cours — attendez qu'une se termine`,
       });
-    res.json(startHunt(sub, query));
+    res.json(startHunt(sub, query, playlist || undefined));
   }),
 );
 

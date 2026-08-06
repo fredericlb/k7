@@ -292,12 +292,14 @@ const hget = async <T>(path: string, what: string): Promise<T> =>
 export const hunt = {
   list: () => hget<HuntList>("", "hunt"),
 
-  start: async (query: string): Promise<HuntRecord> =>
+  /** `playlist` est figée sur la ligne au lancement : une recherche dure des minutes, et le
+   *  menu de l'écran appartiendra alors à la suivante. */
+  start: async (query: string, playlist?: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, playlist }),
       }),
       "hunt",
     ),
