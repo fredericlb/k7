@@ -47,8 +47,17 @@ import { Waveform } from "./Waveform";
 /** The set list's file, project-relative. Named once — the name is @studio/song's. */
 const SONGS_FILE = "songs.yaml";
 
-/** A deck's waveform, and the two states that are not one. */
-type Wave = { k: "loading" } | { k: "ready"; env: Envelope } | { k: "none" };
+/**
+ * A deck's waveform, and the two states that are not one.
+ *
+ * `none` CARRIES ITS REASON. It used to be a bare marker, and nothing drew it: a failed
+ * envelope and a deck with no waveform looked identical — an empty strip, no explanation,
+ * nothing to act on. The reason is the whole value of the state.
+ */
+type Wave =
+  | { k: "loading" }
+  | { k: "ready"; env: Envelope }
+  | { k: "none"; why: string };
 
 export function MixView({
   engine,
@@ -167,8 +176,12 @@ export function MixView({
           });
       })
       // A waveform that will not come is not worth an error card over the whole desk — the
-      // song plays regardless, and the strip says it has none rather than lying about it.
-      .catch(() => setWaves((w) => ({ ...w, [deckId]: { k: "none" } })));
+      // song plays regardless. But the REASON goes into the strip: the analysis needs the
+      // engine on that machine, and "no engine binary" is a thing somebody can act on where
+      // an empty rectangle is not.
+      .catch((e: Error) =>
+        setWaves((w) => ({ ...w, [deckId]: { k: "none", why: e.message } })),
+      );
   };
 
   /**
@@ -487,6 +500,7 @@ function DeckSide({
             playhead={playhead}
             playing={playing}
             analysing={wave?.k === "loading"}
+            problem={wave?.k === "none" ? wave.why : null}
           />
         ) : null}
         <div className="w-full truncate text-center text-xs text-muted-foreground">

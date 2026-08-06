@@ -97,6 +97,21 @@ export function beatsIn(
   return out;
 }
 
+/**
+ * Seconds as `m:ss`, and `-m:ss` for what is left.
+ *
+ * On the strip because a deck needs it, and because it is the one thing that makes the
+ * PLAYHEAD's movement visible: a waveform of a quiet intro and a waveform that is not
+ * advancing look identical, and a clock that stays at 0:00 while sound comes out says which
+ * of the two you are looking at.
+ */
+export function mmss(seconds: number): string {
+  const sign = seconds < 0 ? "-" : "";
+  const whole = Math.floor(Math.abs(seconds));
+  const m = Math.floor(whole / 60);
+  return `${sign}${m}:${String(whole % 60).padStart(2, "0")}`;
+}
+
 /** The transients falling inside `[from, to]`. A plain filter — they are already sorted and
  *  already in file seconds, so nothing here interprets them. */
 export function transientsIn(
