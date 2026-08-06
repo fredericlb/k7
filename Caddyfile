@@ -45,7 +45,9 @@ studio.test {
 	# It points at st0 (8795), the service that OWNS the origin root. That is not a
 	# preference: the prefixless redirect_uri above belongs to whoever has no prefix,
 	# and st0 is the only one. l8 held this while the bare origin merely redirected
-	# to it, and now passes mountRoutes: [] like m9 and k7 always have.
+	# to it, and now passes mountRoutes: [] like m9 and k7 always have. z0 was the
+	# last exception and is one no longer: it ran its own flow under /z0 until the
+	# IdP refused the prefixed callback it implied (apps/z0/docs/auth.md).
 	handle /auth/* {
 		reverse_proxy 127.0.0.1:8795
 	}
@@ -87,12 +89,14 @@ studio.test {
 		reverse_proxy 127.0.0.1:5225
 	}
 
-	# --- z0: its own login, so its own callback ------------------------
-	# It keeps `bt_session` rather than the shared studio one: a blind-test player
-	# is a GUEST with no account, a kind the studio session does not model. Its
-	# flow therefore runs on its own backend, which is why X-Forwarded-Prefix is
-	# set here — redirectUriFor reads it to name /z0/auth/callback instead of
-	# the origin root, which belongs to st0.
+	# --- z0: guests are its own, the ACCOUNT login is st0's -------------
+	# It keeps `bt_session` for guests — a blind-test player has no account, a
+	# kind the studio session does not model — but no longer runs an OIDC flow.
+	# X-Forwarded-Prefix used to be set here, and ONLY here, so redirectUriFor
+	# would name /z0/auth/callback; the IdP has only the prefixless callback
+	# registered, so that URI was refused and no account could sign in at all.
+	# /z0/auth/* still reaches this backend: me, guest and logout live there.
+	# See apps/z0/docs/auth.md.
 	@z0_api path /z0/api/*
 	handle @z0_api {
 		uri strip_prefix /z0/api
@@ -101,9 +105,7 @@ studio.test {
 	@z0_backend path /z0/auth/* /z0/audio/* /z0/ws*
 	handle @z0_backend {
 		uri strip_prefix /z0
-		reverse_proxy 127.0.0.1:8080 {
-			header_up X-Forwarded-Prefix /z0
-		}
+		reverse_proxy 127.0.0.1:8080
 	}
 	# The five path-routed SPAs, then the apex one. No strip: each vite `base` is
 	# the full public path, so the dev server must see it.

@@ -42,6 +42,12 @@ if (!process.env.STUDIO_MEDIATEK) {
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
+// Empty stays undefined, not []: setupAuth only falls back on nullish, so an empty array
+// would ask the IdP for no scopes at all rather than for its defaults.
+const scopes = (process.env.OIDC_SCOPES ?? "")
+  .split(/[\s,]+/)
+  .filter((s) => s !== "");
+
 const { requireAuth } = await setupAuth(app, {
   // This backend OWNS /auth/* for the WHOLE origin, because st0 is what the origin
   // root serves: `redirectUriFor` builds `<origin>/auth/callback` with no prefix, which
@@ -50,6 +56,12 @@ const { requireAuth } = await setupAuth(app, {
   // or their check fails. All routes mounted, so no `mountRoutes` here.
   cookieName: "studio.sid",
   service: "st0-backend",
+  // `groups` is not decoration: z0 now reads this same cookie and gates its editor,
+  // presenter, monitor and remote on group membership (AUTH_ADMIN_GROUPS). The package
+  // defaults to openid/profile/email, which would put an EMPTY groups array in every
+  // session and lock every admin surface out with a 403 nobody could explain. The value
+  // comes from env.yaml `common`, where it already reads "openid profile email groups".
+  ...(scopes.length > 0 ? { scopes } : {}),
 });
 
 // A bearer token stands in for the session, because the main consumer has no cookie jar:

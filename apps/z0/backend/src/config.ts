@@ -2,13 +2,15 @@ import { loadEnv } from "./env.ts";
 
 // What the shared auth package can't decide for us.
 //
-// The OIDC flow lives in @frediverse/oidc (setupAuth), which reads OIDC_ISSUER
-// / OIDC_CLIENT_ID / OIDC_CLIENT_SECRET / SESSION_SECRET from this service's
-// env section itself — so those aren't carried here any more. What's left:
-//   scopes        passed through to setupAuth (this IdP also sends `groups`)
+// There is no OIDC flow here at all any more — st0 owns the account login for
+// the whole origin, because only the prefixless callback is registered (see
+// docs/auth.md). So `scopes` is gone with it: nothing in this process asks the
+// IdP for anything. What's left:
 //   adminGroups   which groups are privileged is per-app authorization policy
 //   sessionSecret needed to decode the session on a WebSocket upgrade, which is
 //                 a raw http event and so never sees req.session (see ws.ts)
+//   studioSessionSecret  st0 signs `studio.sid` with it; this backend only
+//                 verifies. The account login is st0's — see docs/auth.md.
 //
 // Note what is NOT here either: the OIDC redirect URI, the cookie's Domain and
 // Secure flag, and the allowed return origins. Those are all host-shaped, and
@@ -16,8 +18,8 @@ import { loadEnv } from "./env.ts";
 // — so they're derived per request from the public URL the client actually used
 // (X-Forwarded-Proto / X-Forwarded-Host, honoured via `trust proxy`).
 export interface AuthConfig {
-  scopes: string[];
   sessionSecret: string;
+  studioSessionSecret: string;
   adminGroups: string[];
 }
 
@@ -38,7 +40,6 @@ export interface AppConfig {
 // config.go's loadDotEnv). Mirrors config.go's loadAppConfig.
 export function loadAppConfig(): AppConfig {
   const env = loadEnv();
-  const scopes = env.OIDC_SCOPES;
 
   return {
     grist: {
@@ -47,8 +48,8 @@ export function loadAppConfig(): AppConfig {
       docId: env.GRIST_DOC_ID,
     },
     auth: {
-      scopes: scopes.length > 0 ? scopes : ["openid", "profile", "email"],
       sessionSecret: env.SESSION_SECRET,
+      studioSessionSecret: env.STUDIO_SESSION_SECRET,
       adminGroups: env.AUTH_ADMIN_GROUPS,
     },
   };

@@ -7,6 +7,7 @@ import {
   isAdmin,
   SESSION_COOKIE_NAME,
   type SessionUser,
+  studioUser,
 } from "./auth/session.ts";
 import {
   broadcastDeviceBuzz,
@@ -78,11 +79,14 @@ export class WsHub {
       return;
     }
     // An upgrade is a raw http event, so cookie-session's middleware never ran
-    // and there is no req.session — decode the cookie ourselves.
-    const u = sessionFromCookieHeader(req.headers.cookie, {
-      cookieName: SESSION_COOKIE_NAME,
-      secret: getAuthConfig().sessionSecret,
-    }) as SessionUser | null;
+    // and there is no req.session — decode the cookies ourselves. Same order as
+    // currentUser(): the studio account first, the guest cookie second.
+    const u =
+      studioUser(req.headers.cookie) ??
+      (sessionFromCookieHeader(req.headers.cookie, {
+        cookieName: SESSION_COOKIE_NAME,
+        secret: getAuthConfig().sessionSecret,
+      }) as SessionUser | null);
     if (!u) {
       socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
       socket.destroy();

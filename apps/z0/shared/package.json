@@ -7,6 +7,7 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./account": "./src/account.ts",
     "./auth-badge": "./src/auth-badge.tsx",
     "./login-gate": "./src/login-gate.tsx",
     "./session-picker": "./src/session-picker.tsx",

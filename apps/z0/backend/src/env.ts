@@ -39,11 +39,18 @@ export function loadEnv() {
       SPOTIFY_CLIENT_ID: z.string().default(""),
       SPOTIFY_CLIENT_SECRET: z.string().default(""),
 
+      // Read by @frediverse/oidc's own defineEnv, not here — listed so this
+      // stays the one place that says what this service's section must hold.
+      // OIDC_SCOPES is NOT among them any more: st0 runs the flow, so it is
+      // st0 that asks the IdP for `groups`. See docs/auth.md.
       OIDC_ISSUER: z.string().default(""),
       OIDC_CLIENT_ID: z.string().default(""),
       OIDC_CLIENT_SECRET: z.string().default(""),
-      OIDC_SCOPES: list,
       SESSION_SECRET: z.string().default(""),
+      // Signs `studio.sid`, which this backend only ever READS — the account
+      // login belongs to st0. Deliberately a second name rather than reusing
+      // SESSION_SECRET: see docs/auth.md, "deux secrets, et pourquoi".
+      STUDIO_SESSION_SECRET: z.string().default(""),
       AUTH_ADMIN_GROUPS: list,
 
       // Named BACKEND_PORT (not PORT) so dev tooling's ambient PORT can't leak in.

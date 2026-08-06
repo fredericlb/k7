@@ -1,4 +1,4 @@
-# One origin, seven services, two session cookies
+# One origin, seven services, two session cookies — one of them borrowed
 
 z0 lives under `/z0` on the same host as every other studio service, and that
 single fact drives most of its wiring. This page collects the consequences, because each one
@@ -11,35 +11,40 @@ The repo-root `Caddyfile` handles z0 in three blocks, and the order matters beca
 
 - `/z0/api/*` — prefix **stripped**. The backend keeps seeing `/api/...` exactly as it
   would at a root, which is what the production edge does too.
-- `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` — stripped, **plus**
-  `X-Forwarded-Prefix: /z0`.
-- the six SPAs — **not** stripped. Each vite `base` is the full public path, so the dev server
-  must see the prefix; strip it and every asset request 404s against a server that is only
-  listening under `/z0/<app>/`.
+- `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` — stripped. Nothing else: this block used to add
+  `X-Forwarded-Prefix: /z0`, and that header is gone. See below.
+- the seven SPAs — **not** stripped. Each vite `base` is the full public path, so the dev
+  server must see the prefix; strip it and every asset request 404s against a server that is
+  only listening under `/z0/<app>/`.
 
-## Why z0 sets `X-Forwarded-Prefix` and nobody else does
+## Why z0 no longer sets `X-Forwarded-Prefix`
 
-`redirectUriFor` builds `<origin>/auth/callback` with no prefix. That is correct for l8,
-which owns `/auth/*` at the origin root and mints the shared `studio.sid` for the médiathèque
-and m9 to verify.
+`redirectUriFor` builds `<origin><X-Forwarded-Prefix>/auth/callback`. z0 set the header so
+its callback would be `/z0/auth/callback` rather than the origin root's, which belongs to
+st0 — the service with no prefix, the one that mints `studio.sid`.
 
-z0 cannot join that flow, so it needs its callback to be `/z0/auth/callback`, and
-the header is how the backend learns it is mounted under a prefix at all. Without it z0
-would register a `redirect_uri` that collides with l8'.
+It could not work, and the reason is not z0's: **the IdP has only the prefixless callback
+registered on this client.** Asking for the prefixed one is refused at the authorization
+endpoint, before any password is typed, so no account could sign into z0 at all. A service
+mounted under a path cannot own an OIDC flow here. The header had one purpose and that
+purpose was unreachable, so it is gone; the account login is st0's. Full account in
+[auth.md](auth.md).
 
-## Why a second cookie exists at all
+## Why a second cookie still exists
 
-`bt_session`, not `studio.sid`.
+`bt_session` **beside** `studio.sid` — one written here, one only read here.
 
 The studio session models **an account**: an OIDC identity, resolved to a folder slug, that
 owns workspaces and preferences. A blind-test player is a **guest** — they have a name they
 typed, a seat in a session, and no account anywhere. Modelling that as a studio session would
 mean either inventing accounts for strangers or teaching the shared session a guest kind that
-only one app would use.
+only one app would use. So the guest cookie stays, and stays z0's.
 
-The cost is real and worth stating plainly: signing into z0 does not sign you into
-l8, and signing out of l8 does not sign you out of z0. That is intended. An
-operator who is also a studio user holds two sessions.
+What has changed is the other half. An operator who is a studio user no longer holds two
+sessions: they hold the one studio session, the same one l8 and the médiathèque see, and
+signing out of z0 signs them out of those too. The two cookies are signed with **different
+secrets** — that separation is what stops a guest cookie from being renamed into an account,
+and [auth.md](auth.md) explains why it is not optional.
 
 ## The seam that surfaces a rename last
 
