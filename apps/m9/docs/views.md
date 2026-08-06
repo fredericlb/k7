@@ -4,6 +4,14 @@ m9 est **l8 sans la timeline**. Il s'ouvre sur un projet — un dossier `*.m9` d
 choisi depuis la section Projets de st0 — et montre une vue à la fois. L'arbre du projet reste
 sur le côté, parce que c'est ce sur quoi on travaille et non le mobilier d'une vue.
 
+Cet arbre est **la réponse de `/tree` telle quelle**. Le service de fichiers parcourt le
+projet ACTIF, pas la racine du workspace (`workspace.ts`, `tree()`), donc les fichiers du
+projet sont déjà le premier niveau — comme dans l8, qui dessine la réponse sans la retoucher.
+m9 y cherchait un noeud portant le nom du projet et affichait ses enfants : juste tant que la
+route rendait tout le workspace, silencieusement faux ensuite. Rien ne cassait, l'arbre était
+simplement **vide** — un `?? []` est un arbre vide parfaitement valable, ce qui explique
+qu'un typecheck et 21 tests ne l'aient pas vu.
+
 | vue | ce qu'elle est |
 |---|---|
 | **Mix** | Le set : les morceaux que `songs.yaml` nomme, une platine, sa chaîne. Voir [setList.md](setList.md). |
@@ -45,7 +53,7 @@ test à une seule étape ne détecterait pas la boucle.
 ```
 /mix                              la vue
 /graph
-/edit/tracks/bass.yaml            …et le fichier ouvert, projet-relatif
+/edit/live.m9/tracks/deckA.yaml   …et le fichier ouvert, relatif au WORKSPACE
 ```
 
 Le routeur est **hors** des portes (`main.tsx`), comme dans l8 : l'adresse nomme une vue du

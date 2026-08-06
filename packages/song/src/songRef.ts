@@ -29,7 +29,19 @@ export const MEDIATEK_SONG_REF = `${MEDIATEK_REF}/songs`;
  * consistent here: rewriting every song already written would cost more than the asymmetry,
  * and the two are read by different files, so nothing has to tell them apart at a distance.
  */
-export const SONG_REF = new RegExp(`^${MEDIATEK_SONG_REF}/[^\\s]*[^\\s/]$`);
+/**
+ * The shape only: `@mediatek/songs/` then at least one non-empty segment.
+ *
+ * **Spaces are legal, and that is not a detail.** A médiathèque id is built from the tags —
+ * `songs/Alain Bashung/Album inconnu/La nuit je mens` is a real one — so a pattern that
+ * banned whitespace refused nearly every set list anyone would actually write. This one is
+ * strict about STRUCTURE (no empty segment, no trailing slash, one line) and says nothing
+ * about the characters a segment may hold, because the médiathèque is what decides those and
+ * a ref is compared to its id verbatim.
+ */
+export const SONG_REF = new RegExp(
+  `^${MEDIATEK_SONG_REF}/(?:[^/\\r\\n]+/)*[^/\\r\\n]+$`,
+);
 
 /** True for a well-formed song ref — the shape, never whether the médiathèque has it. */
 export const isSongRef = (v: unknown): v is string =>
