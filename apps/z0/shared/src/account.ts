@@ -10,6 +10,33 @@ const Z0 = "/z0";
 const post = (path: string): Promise<Response> =>
   fetch(path, { method: "POST", credentials: "include" });
 
+// A login that does not stick reads as a loop: st0 knows you, so it bounces the
+// browser straight back, and the gate reappears unchanged. The cause is always
+// the same shape — z0's SESSION_SECRET is not the one st0 signed `studio.sid`
+// with — but the backend cannot detect it: a wrong key and no cookie both just
+// fail to verify. So the SPA notices instead, by remembering that it asked.
+const RETURNING = "z0.auth.returning";
+
+export const SIGN_IN_DID_NOT_STICK =
+  "Vous revenez de la connexion sans être identifié : ce serveur n'a pas pu lire " +
+  "votre session studio. Son SESSION_SECRET doit être celui de la médiathèque " +
+  "(section `common`).";
+
+/**
+ * True exactly once, when this page load follows a login we sent off and came
+ * back from still anonymous. Consumed on read, so a later plain 401 — someone
+ * who simply never signed in — still shows the ordinary gate.
+ */
+export function cameBackStillAnonymous(): boolean {
+  try {
+    const asked = sessionStorage.getItem(RETURNING);
+    sessionStorage.removeItem(RETURNING);
+    return asked === "1";
+  } catch {
+    return false; // private mode, or storage denied — fall back to the gate
+  }
+}
+
 /**
  * Sign in. st0 serves the origin root, so its `/auth/login` is prefixless —
  * and that is not a detail: the IdP has only `<origin>/auth/callback`
@@ -17,6 +44,11 @@ const post = (path: string): Promise<Response> =>
  * password field.
  */
 export function login(): void {
+  try {
+    sessionStorage.setItem(RETURNING, "1");
+  } catch {
+    /* storage denied — we lose the diagnosis, not the login */
+  }
   const back = encodeURIComponent(window.location.href);
   window.location.assign(`/auth/login?return_to=${back}`);
 }
@@ -29,30 +61,6 @@ export function login(): void {
  * it. Posting only to z0 would leave an account user still signed in, with a
  * "Se déconnecter" button that reloads into the same session forever.
  */
-/**
- * Why a 401 is sometimes not an invitation to log in.
- *
- * If the backend has no secret to verify st0's `studio.sid`, it can only ever
- * see guests. Showing the login button then costs a round trip to st0 and back
- * — the account IS signed in, z0 just cannot read it — and the gate reappears
- * unchanged. That reads as a loop, so `/auth/me` says which case it is.
- */
-export const ACCOUNTS_UNCONFIGURED =
-  "La connexion par compte n'est pas configurée sur ce serveur : il ne peut pas " +
-  "lire la session de la médiathèque (STUDIO_SESSION_SECRET). Seuls les invités " +
-  "peuvent entrer.";
-
-/** The message when accounts are impossible here, or null when it is a plain 401. */
-export async function accountsUnconfigured(
-  res: Response,
-): Promise<string | null> {
-  const body = (await res
-    .clone()
-    .json()
-    .catch(() => null)) as { accountsConfigured?: boolean } | null;
-  return body?.accountsConfigured === false ? ACCOUNTS_UNCONFIGURED : null;
-}
-
 export async function logout(kind?: string): Promise<void> {
   try {
     await post(`${Z0}/api/auth/logout`);

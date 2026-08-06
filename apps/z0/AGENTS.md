@@ -39,9 +39,10 @@ used to, on its own backend, with the Caddyfile setting `X-Forwarded-Prefix` for
 nowhere else so `redirectUriFor` would name `/z0/auth/callback` — and the IdP has only the
 **prefixless** callback registered, so every account login was refused at the authorization
 endpoint. A service under a path cannot own a flow here; st0 can, having no prefix. So
-`studio.sid` is read (never written) beside `bt_session`, under a SEPARATE secret. The whole
-argument, including why one shared secret would be a privilege escalation, is in
-[docs/auth.md](docs/auth.md).
+`studio.sid` is read (never written) beside `bt_session`. Both use ONE key, `common`'s
+`SESSION_SECRET` — the same constraint l8, m9 and k7 are under, and z0's own override had to
+go. A second key would buy nothing: cookie-session signs `<name>=<value>`, so a renamed
+cookie fails to verify anyway. [docs/auth.md](docs/auth.md).
 
 **Its own state, in Grist and SQLite.** `backend/src/db.ts` and `backend/src/grist/`. Nothing
 here is a song folder; do not reach for `@studio/song`.

@@ -4,7 +4,6 @@ import { gameState } from "../gameState.ts";
 import {
   clearSession,
   currentUser,
-  getAuthConfig,
   isAdmin,
   type SessionUser,
   setSessionUser,
@@ -65,12 +64,6 @@ export function handleAuthMe(req: Request, res: Response): void {
   if (!u) {
     res.status(401).json({
       authenticated: false,
-      // Whether signing in with an ACCOUNT is even possible here. Without the
-      // secret that verifies st0's studio.sid, this backend can only ever see
-      // guests — and a gate that keeps offering the button sends the browser
-      // to st0, which sends it straight back, forever. The SPAs turn this into
-      // a sentence instead of a loop. See docs/auth.md.
-      accountsConfigured: getAuthConfig().studioSessionSecret !== "",
       guestEnabled,
       registrationOpen,
     });

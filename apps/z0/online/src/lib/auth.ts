@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { accountsUnconfigured, logout as logoutAs } from "z0-shared/account";
+import {
+  cameBackStillAnonymous,
+  logout as logoutAs,
+  SIGN_IN_DID_NOT_STICK,
+} from "z0-shared/account";
 import { f } from "./api";
 
 // React port of shared/composables/useAuth.ts: one module-level auth state,
@@ -56,10 +60,10 @@ async function bootstrap(): Promise<void> {
       return;
     }
     if (res.status === 401) {
-      // Not always an invitation to log in: if the backend cannot read the
-      // studio session at all, the button just bounces off st0 and lands back
-      // here. Say which case it is. See apps/z0/docs/auth.md.
-      const why = await accountsUnconfigured(res);
+      // Not always an invitation to log in. If we JUST came back from st0 and
+      // are still anonymous, the button would only bounce off it again — say
+      // so instead of looping. See apps/z0/docs/auth.md.
+      const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
       setState({
         status: why ? "error" : "unauthenticated",
         error: why,

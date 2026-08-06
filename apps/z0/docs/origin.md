@@ -42,9 +42,10 @@ only one app would use. So the guest cookie stays, and stays z0's.
 
 What has changed is the other half. An operator who is a studio user no longer holds two
 sessions: they hold the one studio session, the same one l8 and the médiathèque see, and
-signing out of z0 signs them out of those too. The two cookies are signed with **different
-secrets** — that separation is what stops a guest cookie from being renamed into an account,
-and [auth.md](auth.md) explains why it is not optional.
+signing out of z0 signs them out of those too. Both cookies use **one** key, `common`'s —
+z0's own `SESSION_SECRET` override had to go, and that is the whole configuration change.
+What keeps a guest cookie from being renamed into an account is not a second key but the
+signature itself, which covers the cookie's name; [auth.md](auth.md) shows it.
 
 ## The seam that surfaces a rename last
 
