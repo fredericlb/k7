@@ -34,6 +34,30 @@ refs, preset-save state, level meters — in the order that keeps editors from o
 plugins they point at. It is shared by `applyFull()` (which then rebuilds) and `reset()`
 (which does not), and leaves the Edit alone either way.
 
+### A retimed clip is RE-INSERTED, and a stub in that switch is not free
+
+`ClipMoved` covers any change to a clip's start, length, source, offset, source window,
+loop **or warp** — `clipMoved()` in ProjectDiff compares all of them together, because they
+are applied in one place: at INSERT time, by `clipPositionFor`, `applyClipLoop` and
+`applyClipWarp`, and nowhere else. So the incremental case removes the clip and inserts it
+again rather than calling `setStart`/`setLength`, which would move it and silently drop
+everything else it carries.
+
+It was an empty stub for a long time, and that is the shape of failure worth remembering:
+the diff still ran, so the changeset still said `~ clip on deckA moved` and the log read as
+a success while nothing in the edit moved. `needsFullRebuild()` does not list `ClipMoved`,
+so there was no rebuild to cover for it either.
+
+What finally surfaced it was m9's tempo fader, which is a clip warp: the fader moved, the
+document went out carrying correct markers, the engine acknowledged the change, and the
+audio never altered. It stayed hidden that long because an **offline render of the same
+document stretched correctly** — a render calls `populateEdit`, which BUILDS rather than
+diffs, so it never touches this path. Any check that renders will pass while live playback
+does nothing; the two paths have to be tested apart.
+
+The cost is a clip re-insert per change, so a control that retimes a clip should commit on
+release rather than per pixel — which is what m9's fader does.
+
 ## Session state lives here, and only here
 
 Arming, the global record enable and the loop region are **not** song state: they live in
