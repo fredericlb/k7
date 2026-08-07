@@ -76,6 +76,9 @@ and two plan/recipe pages, [module-builder-plan.md](docs/module-builder-plan.md)
 `lanes → pistes` and two renames stale in its names; its method is what survives.
 [inventaire.md](docs/inventaire.md) is the standing inventory of dead and duplicated code —
 read it before deleting anything that merely *looks* unused.
+[audit-moteur.md](docs/audit-moteur.md) is the standing audit of everything that links a
+surface to `engine/moteur` — what is shared, what is copied, where the connections give way,
+and the plan by lots. Read it before touching the registry, the relay or a gate.
 
 `commons/` is a **git submodule** — the shared base, also used by the `phare`
 monorepo. Editing something under `commons/` means committing in two places:
