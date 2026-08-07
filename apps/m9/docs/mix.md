@@ -65,6 +65,33 @@ Bouger le fader n'envoie **pas** un document : c'est `set-plugin-param`, un mess
 mouvement, comme les potentiomètres de l8. Renvoyer un projet entier par pixel ferait
 diffuser au moteur un document qui ne change que de deux nombres.
 
+### Deck B est MUTÉE, et ce n'est pas optionnel
+
+La ligne dont l'absence fait passer le crossfader pour mort — et ce n'était pas le
+crossfader.
+
+`out` compile comme un chemin **parallèle** : le signal sec continue vers le master à côté du
+module qu'il alimente, c'est ce qui fait qu'un send est un send. Deck B n'alimente que le
+second port du crossfade, donc non mutée elle atteignait le master aussi : entendue une fois
+brute et une fois à travers le module, et pousser le fader vers deck A ne l'enlevait pas.
+Tous les réglages sonnaient pareil.
+
+Ça marche parce que le nœud de mute de Tracktion laisse **délibérément** passer les clips vers
+les sends et les sidechains : le crossfade garde son second signal, le master cesse d'avoir un
+doublon. Voir `engine/moteur/docs/sidechain.md`.
+
+Mesuré sur le document compilé d'`example.m9`, deux morceaux de 20 s, en rendant deck A seule
+comme référence :
+
+| rendu | niveau | résidu contre deck A seule |
+|---|---|---|
+| Mix = 0, deck B mutée | −20,32 dBFS | **−120 dBFS** — identique |
+| Mix = 1 | −23,26 dBFS | −18,55 dBFS — l'autre morceau |
+| Mix = 0, deck B **non** mutée | −18,51 dBFS | **−23,26 dBFS** |
+
+La dernière ligne est le bug : à Mix = 0, deck B est encore là, exactement à son propre
+niveau. `scaffoldM9` écrit le mute désormais, et un test le fige.
+
 ## La lecture passe par le compilateur
 
 m9 ne construit plus le document. Il **récupère celui que le projet compile** (`/engine-doc`
@@ -99,6 +126,11 @@ lecture du bas est global, et c'est pour ça qu'il est en bas et pas sur chaque 
 
 Écouter une platine au casque pendant que l'autre passe demanderait deux transports
 indépendants côté moteur. Ce n'est pas là.
+
+Caler les temps forts, en revanche, **n'en demande pas** — et cette page a longtemps prétendu
+le contraire. On ne décale pas le transport, on décale le **clip** : `start` est par clip, et
+retarder l'esclave de moins d'un temps suffit. C'est ce que fait le sync maintenant, voir
+[bpm.md](bpm.md).
 
 ## Ce qui attend une place
 

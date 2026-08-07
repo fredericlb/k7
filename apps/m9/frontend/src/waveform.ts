@@ -2,6 +2,8 @@
 // on screen, where a second lands in pixels, and where the beats are. No canvas, no React, so
 // the parts that decide what you SEE are testable. See docs/waveform.md.
 
+import { beatPhase, firstBeatAfter } from "./beats";
+
 /** What the file service hands back for one cached song (@studio/commands/waveform's shape). */
 export interface Envelope {
   sampleRate: number;
@@ -84,13 +86,12 @@ export function beatsIn(
   if (!(env.bpm > 0) || !(to > from)) return [];
   const period = 60 / env.bpm;
   if (!(period > 0) || !Number.isFinite(period)) return [];
-  const anchor = env.transients.length ? env.transients[0] : 0;
-  // The first beat at or after `from`, counted from the anchor — which may be negative, since
-  // the grid extends backwards through a lead-in as much as forwards.
-  const first = Math.ceil((from - anchor) / period);
+  // The grid the DECK uses, not a guess of this view's own: one onset was the anchor here
+  // until a stray click in a quiet intro moved every line drawn from it. `beatPhase` averages
+  // them all, and sync aligns against the same number — so what you see is what you hear.
+  const anchor = beatPhase(env.transients, env.bpm).phase;
   const out: number[] = [];
-  for (let k = first; out.length < max; k++) {
-    const t = anchor + k * period;
+  for (let t = firstBeatAfter(from, anchor, period); out.length < max; t += period) {
     if (t > to) break;
     if (t >= 0) out.push(t);
   }

@@ -239,6 +239,37 @@ describe("sync hands one deck's tempo to the other", () => {
     };
     expect(syncedTempos(t, "deckA").deckB?.target).toBe(0);
   });
+
+  it("ALIGNS the beats too, not just the tempos", () => {
+    // Sync is two facts. Two decks at the same BPM whose downbeats sit apart are not synced,
+    // they are flamming — so the slave also gets the delay that closes the gap, and the
+    // master gets none because it is what the other one is meeting.
+    const t: DeckTempos = {
+      deckA: { natural: 120, seconds: 60, target: 120, phase: 0.2 },
+      deckB: { natural: 120, seconds: 60, target: 120, phase: 0.3 },
+    };
+    const out = syncedTempos(t, "deckA");
+    expect(out.deckA?.align).toBeUndefined();
+    // B's grid is 0.1 s late, so it waits 0.4 s for the master's next beat: 0.8 doc beats.
+    expect(out.deckB?.align).toBeCloseTo(0.8, 6);
+  });
+
+  it("asks for no delay when the two grids already agree", () => {
+    const t: DeckTempos = {
+      deckA: { natural: 120, seconds: 60, target: 120, phase: 0.25 },
+      deckB: { natural: 120, seconds: 60, target: 120, phase: 0.25 },
+    };
+    expect(syncedTempos(t, "deckA").deckB?.align).toBeCloseTo(0, 6);
+  });
+
+  it("aligns nothing it was told nothing about", () => {
+    // A song with no onsets has no grid. It still gets the TEMPO — matching the speed is
+    // worth having on its own — and a phase invented from nothing would move the record for
+    // no reason. Both phases absent means both read as zero, which agree.
+    const out = syncedTempos(both(), "deckA");
+    expect(out.deckB?.target).toBe(126);
+    expect(out.deckB?.align).toBeCloseTo(0, 6);
+  });
 });
 
 describe("filling the decks into the COMPILED project", () => {
@@ -289,6 +320,18 @@ describe("filling the decks into the COMPILED project", () => {
     });
     expect(doc.tracks[0].clips[0].warp?.markers[1][0]).toBeCloseTo(240);
     expect(doc.tracks[1].clips[0].warp).toBeUndefined();
+  });
+
+  it("delays a clip by sync's alignment, and only when there is one", () => {
+    // Where beat alignment actually lands: `start`, in document beats. Under one beat, so it
+    // costs the top of a deck nothing you would notice — and the engine re-inserts the clip
+    // to apply it, which is why it goes out on release rather than per pixel.
+    const doc = withDecks(compiled(), loaded(), {
+      deckB: { natural: 120, seconds: 60, target: 120, align: 0.8 },
+    });
+    expect(doc.tracks[1].clips[0].start).toBeCloseTo(0.8);
+    // Deck A was handed no alignment: it starts where it always did.
+    expect(doc.tracks[0].clips[0].start).toBe(0);
   });
 });
 

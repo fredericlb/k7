@@ -13,6 +13,7 @@ import {
   VOLUME_DB,
 } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
+import { alignDelay } from "./beats";
 import type { DeckModule } from "./graph";
 
 /**
@@ -80,6 +81,20 @@ export interface DeckTempo {
   seconds: number;
   /** What it should PLAY at. Equal to `natural` until somebody moves the fader. */
   target: number;
+  /**
+   * Where this song's beat grid starts, in SOURCE seconds — `beats.ts`'s `phase`.
+   *
+   * A fact about the file, measured once when the envelope lands and never moved by a fader:
+   * stretching changes how often a beat happens, not which moment is the first one.
+   */
+  phase?: number;
+  /**
+   * TIMELINE beats to delay this deck's clip by, so its beats meet the other deck's.
+   *
+   * Only the slave of a sync ever carries one; absent means "start at zero", which is every
+   * deck the rest of the time. Derived by `syncedTempos`, never stored — see `alignDelay`.
+   */
+  align?: number;
 }
 
 export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
@@ -218,6 +233,9 @@ export function withDecks(
             type: "audio",
             name: load.title,
             source: load.path,
+            // Where sync's beat alignment lands: under a beat of delay, so this deck's grid
+            // meets the other's. Zero for the master and for every unsynced deck.
+            ...(tempo?.align ? { start: tempo.align } : {}),
             ...(warp
               ? {
                   warp: { algorithm: warp.algorithm, markers: warp.markers },
@@ -260,6 +278,7 @@ export function deckDoc(
                 type: "audio",
                 name: load.title,
                 source: load.path,
+                ...(tempos[deck]?.align ? { start: tempos[deck]?.align } : {}),
                 // Both or neither: the markers say how the source maps onto the timeline and
                 // `length` says how much timeline it takes. Warping without the length would
                 // leave the clip claiming its unstretched span.
@@ -344,14 +363,21 @@ export function sendDecks(
 /**
  * What the two decks should PLAY at, given where the faders are and who is master.
  *
- * Sync is one deck driving the other, so the answer is: the master keeps its own fader, and
- * the slave is handed the master's number. Not clamped to the slave's own ±16 % — "synced"
- * means the same tempo, and a clamp would silently leave the two decks at different BPMs
- * while the button claimed otherwise. `faderRange` widens the slave's scale instead, so the
- * fader can honestly draw where it has been put.
+ * Sync is TWO facts, and the tempo is only the first. Two decks at 128 BPM whose downbeats sit
+ * 200 ms apart are not synced, they are flamming — so this also hands the slave the delay that
+ * puts its beats on the master's, which is what `align` carries. See `alignDelay`.
+ *
+ * The tempo half: the master keeps its own fader and the slave is handed the master's number.
+ * Not clamped to the slave's own ±16 % — "synced" means the same tempo, and a clamp would
+ * silently leave the two decks at different BPMs while the button claimed otherwise.
+ * `faderRange` widens the slave's scale instead, so the fader can honestly draw where it has
+ * been put.
  *
  * A master with no tempo of its own (`natural: 0`, the engine found none) drives nothing:
- * there is no number to sync to, and inventing one is the confident lie this avoids.
+ * there is no number to sync to, and inventing one is the confident lie this avoids. A deck
+ * whose ONSETS say nothing (no transients, so no grid) still gets the tempo and no delay —
+ * matching the speed is worth having on its own, and a phase invented from nothing would move
+ * the record for no reason.
  *
  * Nothing here CANCELS sync — that is the view's business, because it happens on a gesture
  * (a hand on the slave's knob) rather than on a value. See `nudge` in MixView.
@@ -368,7 +394,8 @@ export function syncedTempos(
     // A deck with no natural tempo cannot be stretched to one either — `warpFor` would
     // refuse anyway, and this keeps the fader showing the truth about that.
     if (!t || deck === master || !(t.natural > 0)) continue;
-    out[deck] = { ...t, target: lead.target };
+    const synced = { ...t, target: lead.target };
+    out[deck] = { ...synced, align: alignDelay(lead, synced, DOC_TEMPO) };
   }
   return out;
 }
