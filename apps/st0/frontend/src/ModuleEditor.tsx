@@ -8,6 +8,7 @@ import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Plug, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library, moduleStore } from "./api";
+import { useBaseModules } from "./engine/baseModules";
 import { readPluginBlock } from "./engine/preview";
 import { ModulePreview } from "./ModulePreview";
 import { useEngine } from "./playback/PlaybackProvider";
@@ -31,6 +32,8 @@ export function ModuleEditor({
   // edit a module makes that a second client on one session.
   const {
     phase,
+    client,
+    connected,
     paramNames,
     paramMeta,
     presets,
@@ -38,6 +41,9 @@ export function ModuleEditor({
     listPresets,
     setPreset,
   } = useEngine();
+  // What `extends:` may name. Off the ENGINE, because the médiathèque's backend serves a
+  // volume of files and has never seen the plugin scan — see ../docs/completion.md.
+  const baseModules = useBaseModules(client, connected);
   const [status, setStatus] = useState("");
   const [vimMode, setVimMode] = useState(
     () => localStorage.getItem(VIM_KEY) === "1",
@@ -87,6 +93,7 @@ export function ModuleEditor({
           onSetPreset={setPreset}
           pluginParamNames={paramNames}
           pluginParamMeta={paramMeta}
+          baseModules={baseModules}
           // The builder owns the box under the grid; the graph renderer needs OUR icons, so
           // what goes in it is supplied from here. See ModulePreview.tsx.
           renderPreview={({ ui, params }) => (

@@ -6,9 +6,10 @@ import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, Loader2, Save, Workflow } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { ChainView } from "./ChainView";
+import { chainNodes, chainsVocabulary } from "./chainsVocabulary";
 
 /** The file that IS the chain — the same name and shape a l8 project uses at its root. */
 const CHAINS_FILE = "chains.yaml";
@@ -44,6 +45,25 @@ export function ChainEditor({
       alive = false;
     };
   }, [path]);
+
+  /**
+   * The nodes a segment may point at, as the text CURRENTLY declares them.
+   *
+   * Only ever REPLACED by something readable, exactly as the drawing on the right is: the
+   * document stops parsing on nearly every keystroke — a bracket you have not typed yet — and
+   * a list that emptied itself each time would offer nothing precisely while you are writing
+   * the line that needs it.
+   */
+  const [nodes, setNodes] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (content == null) return;
+    const read = chainNodes(content);
+    if (read) setNodes(read);
+  }, [content]);
+  const vocabulary = useMemo(
+    () => chainsVocabulary(path, nodes),
+    [path, nodes],
+  );
 
   const save = useCallback(async () => {
     if (content == null) return;
@@ -100,6 +120,10 @@ export function ChainEditor({
             <YamlPane
               path={path}
               content={content}
+              // The file's SECTIONS come from the schema, but its nodes are named by the
+              // template itself — there is no project here to hint them. See
+              // ./chainsVocabulary.ts.
+              vocabulary={vocabulary}
               vimMode={vimMode}
               onChange={(text) => {
                 setContent(text);

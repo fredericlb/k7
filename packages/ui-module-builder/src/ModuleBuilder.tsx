@@ -111,6 +111,7 @@ export function ModuleBuilder({
   onSetPreset,
   pluginParamNames,
   pluginParamMeta,
+  baseModules,
   onRelocated,
   renderPreview,
 }: {
@@ -136,6 +137,11 @@ export function ModuleBuilder({
   pluginParamNames?: string[];
   // …and what each spans, so a bound widget adopts the real range instead of the placeholder 0..1.
   pluginParamMeta?: Record<string, ParamMeta>;
+  // Refs this module may `extends`, when the STORE cannot say. Which plugins a machine has
+  // scanned is a question only that machine's engine answers, over its socket — l8's backend
+  // reads the same cache off disk and puts it in `hints`, the médiathèque's has no such disk.
+  // A prop for exactly the reason `pluginParamNames` is one.
+  baseModules?: string[];
   // A save the host redirected — l8 forks a shared module rather than writing into it, so the
   // file being edited moves. The host reopens; this component does not follow paths on its own.
   onRelocated?: (path: string) => void;
@@ -403,6 +409,25 @@ export function ModuleBuilder({
     setStatus,
   ]);
 
+  /**
+   * The hints the code pane completes against: the store's, plus whatever the host learnt
+   * from a live engine.
+   *
+   * Merged rather than substituted — a project's own base modules are real vocabulary too,
+   * and the two sources answer for different halves of what `extends:` may name. Deduped,
+   * since a project that has already scanned holds some of the same refs.
+   */
+  const completionHints = useMemo(
+    () =>
+      hints && baseModules?.length
+        ? {
+            ...hints,
+            baseModules: [...new Set([...baseModules, ...hints.baseModules])],
+          }
+        : hints,
+    [hints, baseModules],
+  );
+
   const params = paramRef ? (hints?.paramsByBase[paramRef] ?? []) : [];
   // Ranges for a built-in whose params l8 defines (see builtinParams.ts). The engine's live report is
   // better when there is one — it comes from the loaded plugin — so this only fills what that has not.
@@ -643,7 +668,7 @@ export function ModuleBuilder({
               <YamlPane
                 path={sidecar ? sidecar.path : path}
                 content={sidecar ? sidecar.content : content}
-                hints={hints}
+                hints={completionHints ?? undefined}
                 vimMode={vimMode}
                 onChange={
                   pane === "panel"
