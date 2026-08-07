@@ -3,6 +3,7 @@
 // is paraglide's, and what to render once the project is open. See @studio/project-shell docs/launch.md.
 
 import { ProjectGate as Shared } from "@studio/project-shell/gate";
+import { engines } from "../api";
 import App from "../App";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
@@ -40,7 +41,9 @@ export function ProjectGate({
         // key by workspace+project so moving between them remounts the editor cleanly.
         <App
           key={`${workspace}/${project}`}
-          engineUrl={engine.wsUrl!}
+          // A function, not the address: the editor stays open for hours and the relayed URL
+          // measured above carries a one-minute ticket. See @studio/engine-browser's EngineUrl.
+          engineUrl={engines.linkUrl(engine)}
           // What this link measured, for the status bar. Passed down rather than re-probed:
           // the gate already paid for the round trip, and a second one would report a
           // different number for the same connection.

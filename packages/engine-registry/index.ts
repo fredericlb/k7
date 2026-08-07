@@ -3,6 +3,12 @@
 // and m9 will. See docs/shared.md.
 
 export {
+  ENGINE_BODY_LIMIT,
+  type EngineMount,
+  engineErrorHandler,
+  mountEngineRegistry,
+} from "./mount.ts";
+export {
   attachEngineProxy,
   ENGINE_PROXY_PATH,
   issueEngineTicket,

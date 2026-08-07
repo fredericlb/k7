@@ -6,6 +6,10 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import { request as httpRequest } from "node:http";
 import type { Socket } from "node:net";
+import {
+  ENGINE_DIAL_TIMEOUT_MS,
+  ENGINE_REACH_BUDGET_MS,
+} from "@studio/web-protocol";
 import type { RequestHandler } from "express";
 import { WebSocket, WebSocketServer } from "ws";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
@@ -72,29 +76,51 @@ const hostsFor = (e: EngineEntry): string[] => [
   ...e.addresses.lanIps,
 ];
 
-const DIAL_TIMEOUT_MS = 1500;
-
-// Open the first address that answers, in order. Sequential rather than raced: the list is two
-// or three long, loopback wins it whenever the backend shares the engine's machine, and a race
-// would leave losing sockets half-open against an audio process.
+/**
+ * Open the first address that answers, in order — within ONE budget for the whole list.
+ *
+ * Sequential rather than raced: the list is two or three long, loopback wins it whenever the
+ * backend shares the engine's machine, and a race would leave losing sockets half-open against
+ * an audio process.
+ *
+ * The deadline is what sequential costs if nobody imposes it. The browser measures its
+ * candidates in PARALLEL and gives up at ENGINE_REACH_BUDGET_MS; this side spent that PER
+ * address, so a machine advertising two dead LAN interfaces — a VPN, a Docker bridge — took
+ * three times the browser's patience and was called unreachable while the engine sat there
+ * answering on loopback. Now both stop at the same wall clock, and a dead first address can
+ * eat at most ENGINE_DIAL_TIMEOUT_MS of it.
+ */
 async function dial(e: EngineEntry): Promise<WebSocket | null> {
+  const deadline = Date.now() + ENGINE_REACH_BUDGET_MS;
   for (const host of hostsFor(e)) {
+    const left = deadline - Date.now();
+    if (left <= 0) return null;
     const up = await new Promise<WebSocket | null>((resolve) => {
       const ws = new WebSocket(`ws://${host}:${e.addresses.port}`);
-      const timer = setTimeout(() => {
-        try {
-          ws.terminate();
-        } catch {
-          /* already gone */
-        }
-        resolve(null);
-      }, DIAL_TIMEOUT_MS);
+      const timer = setTimeout(
+        () => {
+          try {
+            ws.terminate();
+          } catch {
+            /* already gone */
+          }
+          resolve(null);
+        },
+        Math.min(ENGINE_DIAL_TIMEOUT_MS, left),
+      );
       ws.once("open", () => {
         clearTimeout(timer);
         resolve(ws);
       });
       ws.once("error", () => {
         clearTimeout(timer);
+        // Terminate too: an error AFTER the handshake leaves a socket behind, and only the
+        // timeout path above was cleaning up.
+        try {
+          ws.terminate();
+        } catch {
+          /* already gone */
+        }
         resolve(null);
       });
     });
@@ -246,7 +272,7 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
           path,
           method: req.method,
           headers,
-          timeout: DIAL_TIMEOUT_MS,
+          timeout: ENGINE_DIAL_TIMEOUT_MS,
         },
         (upRes) => {
           // Belt and braces: the timer is dropped on connect below, and again here for a socket

@@ -8,11 +8,10 @@ import { loadServiceEnv } from "@frediverse/env";
 import { setupAuth } from "@frediverse/oidc";
 import { apiTokenAuth } from "@frediverse/oidc/api-auth";
 import {
-  attachEngineProxy,
-  createRegistry,
-  engineRegistryRouter,
+  ENGINE_BODY_LIMIT,
+  engineErrorHandler,
+  mountEngineRegistry,
 } from "@studio/engine-registry";
-import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
@@ -41,7 +40,9 @@ if (!process.env.STUDIO_MEDIATEK) {
 }
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+// The relay pipes bodies through to an engine's file service, so the limit is that service's
+// and not this one's opinion. See ENGINE_BODY_LIMIT.
+app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
 // Empty stays undefined, not []: setupAuth only falls back on nullish, so an empty array
 // would ask the IdP for no scopes at all rather than for its defaults.
@@ -95,9 +96,7 @@ app.use("/api/hunt", requireAuth, huntRouter);
 // ws://127.0.0.1:8765, so "which engine" had no question to answer here — and no answer to
 // offer either. Same mounting rule as l8: the browser routes need a session, the
 // engine-facing heartbeat stays open because a machine authenticates with its own token.
-app.use(["/api/engines", "/api/engine"], requireAuth);
-const registry = createRegistry();
-app.use("/api", engineRegistryRouter(registry));
+const engine = mountEngineRegistry(app, { service: "st0", requireAuth });
 
 // The engine this user auditions modules through. Same shape as l8', a different store:
 // a person's médiathèque engine and their l8 engine are two choices, and this service is
@@ -131,46 +130,10 @@ app.post("/api/token", requireAuth, (req, res) => {
   res.json({ token: issueApiToken(id) });
 });
 
-/**
- * The last word on an error, and the reason this service has one at all: a caller that HANGS UP.
- *
- * Three routes here read a body up to 512 MB (`PUT /file`, `POST /song`, `POST /recording`), and
- * a body that stops arriving is an everyday event — a cancelled upload, a closed tab, a socket
- * the engine relay gave up on. `raw-body` reports it as a `BadRequestError: request aborted`,
- * and it is thrown INSIDE the parser, where `wrap`'s try/catch cannot see it. Without a handler
- * of our own it reached Express's default one, which prints nine lines of stack and names
- * neither the method nor the path — a normal disconnect dressed as a crash, and undiagnosable.
- *
- * So: one line, and it says WHICH request. Nothing is written back — the socket is already gone,
- * and `res.headersSent` is the honest test for that.
- *
- * Four arguments, `_next` included and unused: that shape is how Express tells an error handler
- * from an ordinary middleware. Dropping it silently turns this into one that never runs.
- */
-app.use(
-  (
-    err: Error & { type?: string; code?: string; status?: number },
-    req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction,
-  ) => {
-    // A disconnect, and nothing else: `entity.too.large` deliberately is NOT one — that caller
-    // is still there and wants its 413, which `err.status` already carries.
-    const gone =
-      err.type === "request.aborted" ||
-      err.code === "ECONNABORTED" ||
-      err.code === "ECONNRESET";
-    if (gone)
-      console.warn(`↯ ${req.method} ${req.originalUrl}: ${err.message}`);
-    else console.error(`✗ ${req.method} ${req.originalUrl}:`, err);
-    if (res.headersSent) return void res.end();
-    res
-      .status(err.status ?? 500)
-      .json({ error: err.message || "server error" });
-  },
-);
-
-let unadvertise: (() => void) | null = null;
+// Mounted LAST, after every route. Three routes here read a body up to 512 MB (`PUT /file`,
+// `POST /song`, `POST /recording`), so a caller that hangs up is an everyday event; the handler
+// moved to @studio/engine-registry because l8 and m9 relay the same bytes and had none.
+app.use(engineErrorHandler);
 
 const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
@@ -186,18 +149,5 @@ const server = app.listen(PORT, () => {
   }
   // This service holds its OWN registry, so the supervisor has to be told about it — an engine
   // heartbeats to every advertised URL, and one it never hears about lists no engines at all.
-  unadvertise = advertiseRegistry("st0", url);
+  engine.serve(server, url);
 });
-
-// The engine, relayed through this origin. Attached to the SERVER, not mounted as a route: a
-// WebSocket upgrade never reaches Express's middleware chain. It is what makes an engine on
-// another machine reachable at all — this page is HTTPS, and an HTTPS page may not open a
-// `ws://` to a LAN address. See packages/engine-registry/docs/proxy.md.
-attachEngineProxy(server, registry);
-
-const bye = () => {
-  unadvertise?.();
-  process.exit(0);
-};
-process.on("SIGINT", bye);
-process.on("SIGTERM", bye);

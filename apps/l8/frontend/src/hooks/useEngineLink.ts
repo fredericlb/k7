@@ -2,7 +2,7 @@
 // EngineClient, wires its callbacks into state, and exposes the stable senders the
 // panes call. Extracted from App.tsx; the behaviour is unchanged.
 
-import { EngineClient } from "@studio/engine-browser";
+import { EngineClient, type EngineUrl } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta } from "@studio/engine-protocol";
@@ -33,7 +33,7 @@ export interface EngineLink {
 }
 
 export function useEngineLink(
-  engineUrl: string,
+  engineUrl: EngineUrl,
   /** Who is logged in — the session id's other half. See @studio/engine-protocol/sessions. */
   userEmail: string,
   store: EngineStore,

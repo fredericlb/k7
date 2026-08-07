@@ -21,6 +21,14 @@ import {
   forSession,
   type SessionId,
 } from "@studio/engine-protocol/sessions";
+import {
+  ENGINE_IDLE_PING_MS,
+  ENGINE_OUTBOX_MAX,
+  ENGINE_OUTBOX_TTL_MS,
+  ENGINE_PONG_TIMEOUT_MS,
+  ENGINE_RECONNECT_MAX_MS,
+  ENGINE_RECONNECT_MIN_MS,
+} from "@studio/web-protocol";
 
 export type {
   EngineState,
@@ -39,6 +47,20 @@ export type {
  */
 export type BeginActivity = (name: string) => () => void;
 const noActivity: BeginActivity = () => () => {};
+
+/**
+ * Where to connect, asked again before every attempt.
+ *
+ * A constant string is accepted and was all this took for a long time. It is wrong for the
+ * path that matters: away from the engine's own machine the only route is the relay, whose
+ * URL carries a ticket good for one minute (packages/engine-registry/proxy.ts). Frozen at
+ * construction, every reconnect after that minute replays a dead ticket and collects a 401,
+ * for ever. A function is the caller's chance to fetch a fresh one — in practice, to re-probe.
+ *
+ * Returning null means "no engine to reach right now": the client backs off and asks again
+ * rather than treating it as a failure to connect.
+ */
+export type EngineUrl = string | (() => string | null | Promise<string | null>);
 
 // The control-query shapes, mirroring engineControl.ts in @studio/engine-client — which a
 // browser cannot import (it opens `ws`). Both restate the same wire, which engine-protocol
@@ -134,7 +156,9 @@ interface EngineMessage {
 
 export class EngineClient {
   private ws?: WebSocket;
-  private outbox: string[] = [];
+  // Held with the time it was queued: what covers a blink is worth replaying, what has been
+  // waiting half a minute is a transport verb nobody is waiting for any more.
+  private outbox: { at: number; s: string }[] = [];
   private stateCbs = new Set<StateCb>();
   private connCbs = new Set<ConnCb>();
   private paramsCbs = new Set<ParamsCb>();
@@ -157,6 +181,32 @@ export class EngineClient {
   private waveformSubs = new Map<string, { id: string; side: string }>();
   private closed = false;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * Which attempt owns the client right now.
+   *
+   * Bumped by every `connect()`. A socket's handlers capture the value they were born under
+   * and do nothing once it has moved on — because a socket the watchdog gave up on can still
+   * fire `close` afterwards, and that late event would otherwise schedule a SECOND reconnect
+   * beside the one already running. Two ladders, both doubling, is how a quiet retry becomes
+   * a flood.
+   */
+  private gen = 0;
+  /** Consecutive failures, for the backoff. Reset by a socket that actually opened. */
+  private attempt = 0;
+  /** When anything last arrived — the only honest evidence the link still carries. */
+  private lastInbound = 0;
+  /** When the idle `whoami` went out, or 0 when none is outstanding. */
+  private pingSentAt = 0;
+  private keepaliveTimer?: ReturnType<typeof setInterval>;
+  /**
+   * The document last handed to the engine, replayed on every open.
+   *
+   * The engine diffs against a baseline that survives a dropped socket, so re-sending is
+   * cheap and correct. Without it, an engine that RESTARTED comes back empty and the surface
+   * goes on driving it — the symptom being that Play does nothing, with nothing in any log to
+   * connect it to a connection that blinked.
+   */
+  private lastProject?: ProjectDoc;
 
   /**
    * @param session which project on that engine this client drives. One engine hosts
@@ -165,7 +215,7 @@ export class EngineClient {
    * `@studio/engine-protocol/sessions`.
    */
   constructor(
-    private readonly url: string,
+    private readonly url: EngineUrl,
     private readonly beginActivity: BeginActivity = noActivity,
     private readonly session: SessionId = DEFAULT_SESSION,
   ) {}
@@ -173,14 +223,49 @@ export class EngineClient {
   connect(): void {
     // A reconnect queued before dispose() must not resurrect the client — onclose's timer can still be pending.
     if (this.closed) return;
-    const ws = new WebSocket(this.url);
+    const myGen = ++this.gen;
+    void this.resolveUrl().then((url) => {
+      // dispose(), or another connect(), landed while we were asking.
+      if (this.closed || this.gen !== myGen) return;
+      // No engine to reach yet. Not a failure — ask again, on the same ladder.
+      if (!url) return this.retryLater(myGen);
+      this.open(url, myGen);
+    });
+  }
+
+  private async resolveUrl(): Promise<string | null> {
+    if (typeof this.url === "string") return this.url;
+    try {
+      return await this.url();
+    } catch {
+      // The caller's lookup failed — indistinguishable, from here, from no engine.
+      return null;
+    }
+  }
+
+  private open(url: string, myGen: number): void {
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(url);
+    } catch {
+      // A malformed URL throws synchronously; a dead one does not. Both are just "not now".
+      this.retryLater(myGen);
+      return;
+    }
     // Audio frames arrive as binary on this same socket. Without this they would surface
     // as Blobs, which stringify to "[object Blob]" and die silently in the JSON parse.
     ws.binaryType = "arraybuffer";
     this.ws = ws;
     ws.onopen = () => {
-      for (const m of this.outbox) ws.send(m);
-      this.outbox = [];
+      if (this.gen !== myGen) return void ws.close();
+      this.attempt = 0;
+      this.lastInbound = Date.now();
+      this.pingSentAt = 0;
+      this.startKeepalive();
+      // The project FIRST: the subscriptions and the queue below are about a document, and a
+      // restarted engine has none until this lands. Ordering is the whole of the fix.
+      if (this.lastProject)
+        this.sendNow({ type: "project", doc: this.lastProject });
       for (const id of this.watched)
         this.send({ type: "watch-plugin-params", id, on: true });
       for (const [, sub] of this.waveformSubs)
@@ -191,15 +276,20 @@ export class EngineClient {
         });
       // The broadcast subscription lives in the ENGINE, so it is replayed like the others.
       if (this.broadcasting) this.send({ type: "broadcast", on: true });
+      this.flushOutbox();
       this.emitConn(true);
     };
     ws.onclose = () => {
-      this.emitConn(false);
-      if (!this.closed)
-        this.reconnectTimer = setTimeout(() => this.connect(), 1000); // retry
+      if (this.gen !== myGen) return;
+      this.down(myGen);
     };
     ws.onerror = () => {};
     ws.onmessage = (ev) => {
+      if (this.gen !== myGen) return;
+      // Anything at all proves the link carries. The engine's own 20 Hz state frame is what
+      // usually does it, so a busy client never pings.
+      this.lastInbound = Date.now();
+      this.pingSentAt = 0;
       // Binary is audio, and never goes near the JSON path — it arrives at ~100 Hz and a
       // parse attempt per frame would be pure waste even though it would fail harmlessly.
       if (ev.data instanceof ArrayBuffer) {
@@ -220,6 +310,87 @@ export class EngineClient {
         doneDispatch();
       }
     };
+  }
+
+  /**
+   * The link went down — once per attempt, whoever noticed first.
+   *
+   * `close` and the watchdog can both arrive for the same socket; the generation bump is what
+   * makes the second one a no-op instead of a second reconnect ladder.
+   */
+  private down(myGen: number): void {
+    if (this.gen !== myGen) return;
+    this.gen++; // this attempt is over; late events from its socket are now ignored
+    this.stopKeepalive();
+    this.emitConn(false);
+    if (!this.closed) this.retryLater(this.gen);
+  }
+
+  /**
+   * Wait, then try again — doubling, jittered, capped.
+   *
+   * It used to be a flat second, for ever. A forgotten background tab on a machine whose
+   * engine is off then knocks once a second for as long as the tab lives, and each knock
+   * costs the backend a full sequential dial of every address the engine ever advertised.
+   * The jitter is for the other half: several tabs dropped by one relay restart would
+   * otherwise come back in lockstep.
+   */
+  private retryLater(myGen: number): void {
+    if (this.closed || this.gen !== myGen) return;
+    const step = Math.min(
+      ENGINE_RECONNECT_MAX_MS,
+      ENGINE_RECONNECT_MIN_MS * 2 ** this.attempt,
+    );
+    this.attempt++;
+    const wait = step / 2 + Math.random() * (step / 2);
+    this.reconnectTimer = setTimeout(() => {
+      if (this.gen === myGen) this.connect();
+    }, wait);
+  }
+
+  /**
+   * Ask, when nothing has been said for a while.
+   *
+   * There is no ping in this protocol and none under it: the engine's server ships with
+   * heartbeats disabled, so a wedged relay or a lapsed NAT leaves a socket that reports OPEN
+   * and carries nothing. `whoami` is the probe — the one verb the engine answers whatever
+   * state it is in, engine-global so it comes back even to a client driving no session.
+   */
+  private startKeepalive(): void {
+    this.stopKeepalive();
+    this.keepaliveTimer = setInterval(() => {
+      const quiet = Date.now() - this.lastInbound;
+      if (this.pingSentAt) {
+        if (Date.now() - this.pingSentAt > ENGINE_PONG_TIMEOUT_MS) {
+          // Open by its own account, and deaf. Drop it ourselves: waiting for a `close` that
+          // is not coming is exactly the state this exists to end.
+          const gen = this.gen;
+          this.ws?.close();
+          this.down(gen);
+        }
+        return;
+      }
+      if (quiet > ENGINE_IDLE_PING_MS) {
+        this.pingSentAt = Date.now();
+        this.sendNow({ type: "whoami" });
+      }
+    }, ENGINE_PONG_TIMEOUT_MS);
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepaliveTimer) clearInterval(this.keepaliveTimer);
+    this.keepaliveTimer = undefined;
+    this.pingSentAt = 0;
+  }
+
+  /** Replay what is still worth replaying, oldest first, and drop the rest. */
+  private flushOutbox(): void {
+    const fresh = this.outbox.filter(
+      (e) => Date.now() - e.at < ENGINE_OUTBOX_TTL_MS,
+    );
+    this.outbox = [];
+    for (const e of fresh)
+      if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(e.s);
   }
 
   private dispatch(m: EngineMessage): void {
@@ -273,7 +444,9 @@ export class EngineClient {
 
   dispose(): void {
     this.closed = true;
+    this.gen++; // whatever is in flight stops belonging to anyone
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.stopKeepalive();
     this.ws?.close();
   }
 
@@ -326,6 +499,9 @@ export class EngineClient {
    * — fold before calling if yours might.
    */
   sendProject(doc: ProjectDoc): void {
+    // Remembered, not just sent: an engine that restarted has no document, and the surface
+    // has no reason to send this again — see `lastProject`.
+    this.lastProject = doc;
     this.send({ type: "project", doc });
   }
 
@@ -515,14 +691,27 @@ export class EngineClient {
   }
 
   private send(o: object): void {
+    const s = this.frame(o);
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(s);
+      return;
+    }
+    this.outbox.push({ at: Date.now(), s });
+    // Bounded, and the oldest goes: what is queued is a command, and the newest command is
+    // the one that still describes what the person wants.
+    if (this.outbox.length > ENGINE_OUTBOX_MAX) this.outbox.shift();
+  }
+
+  /** Send or drop — for what only means something on THIS socket, and must never be queued. */
+  private sendNow(o: object): void {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(this.frame(o));
+  }
+
+  private frame(o: object): string {
     // Stamped at the ONE choke point every command already goes through: a verb added later
     // is addressed by construction, and forgetting it would silently drive someone else's
     // project. Omitted when default, so the bytes an old client sends stay byte-identical.
-    const s = JSON.stringify(
-      this.session ? { session: this.session, ...o } : o,
-    );
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(s);
-    else this.outbox.push(s);
+    return JSON.stringify(this.session ? { session: this.session, ...o } : o);
   }
   private emitState(s: EngineState): void {
     for (const cb of this.stateCbs) cb(s);

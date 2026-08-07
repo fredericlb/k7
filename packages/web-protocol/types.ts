@@ -455,6 +455,44 @@ export const ENGINE_ASSIGN_RENEW_MS = 5000;
 /** No renewal for this long ⇒ the assignment lapses and the engine shows free. */
 export const ENGINE_ASSIGN_TTL_MS = 15000;
 
+// ── Reaching an engine, and staying reached ──────────────────────────────────
+// One budget for both halves. The browser measures addresses in PARALLEL, so it spends this
+// once; the relay dials them in SEQUENCE, so without a shared deadline it spends this PER
+// address and is called unreachable while the engine answers. Both now stop at the same wall
+// clock. See packages/engine-registry/docs/proxy.md and packages/engine-browser/docs/access.md.
+
+/** All the time anyone gets to reach an engine — the browser's probe, and the relay's dial. */
+export const ENGINE_REACH_BUDGET_MS = 3000;
+
+/** …and the most one address may eat of it, so a first dead address cannot spend the lot. */
+export const ENGINE_DIAL_TIMEOUT_MS = 1500;
+
+// ── Keeping a link honest ────────────────────────────────────────────────────
+// A half-open socket — a wedged relay, a lapsed NAT, a laptop back from sleep — never fires
+// `close`, so nothing reconnects and sends go nowhere. The engine has no server-side ping
+// (IXWebSocket ships `kPingIntervalSeconds(-1)`), so the client is what has to ask.
+
+/** Nothing inbound for this long ⇒ ask `whoami`, the one verb the engine always answers. */
+export const ENGINE_IDLE_PING_MS = 10000;
+
+/** …and no answer to it within this ⇒ the socket is dead however open it claims to be. */
+export const ENGINE_PONG_TIMEOUT_MS = 5000;
+
+/** Reconnect backoff: doubles from here, jittered, and resets on a connection that opened. */
+export const ENGINE_RECONNECT_MIN_MS = 1000;
+
+/** …and never waits longer than this, so a forgotten tab stops hammering the relay. */
+export const ENGINE_RECONNECT_MAX_MS = 30000;
+
+// The queue that covers a blink, and only a blink. Unbounded, it turned a ten-minute outage
+// into a burst of stale transport verbs delivered all at once on reconnect.
+
+/** Most messages held while the socket is down. Oldest go first. */
+export const ENGINE_OUTBOX_MAX = 200;
+
+/** …and none replayed after this long: a command nobody is waiting for is not worth sending. */
+export const ENGINE_OUTBOX_TTL_MS = 30000;
+
 // ── The engine registry ──────────────────────────────────────────────────────
 // An engine registers itself (via the supervisor) with these addresses; the browser MEASURES them
 // (packages/engine-browser/src/probe.ts) and picks from the unassigned ones. See the backend `registry.ts`.

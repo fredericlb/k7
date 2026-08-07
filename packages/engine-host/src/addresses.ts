@@ -30,10 +30,23 @@ export interface EnginePresence {
  * on the LAN routes to it, so advertising one only adds a probe the browser must wait
  * to time out before trying an address that works.
  */
+/**
+ * Interfaces that exist on the machine and reach no browser: VPN tunnels, container bridges,
+ * WSL and Hyper-V switches, VirtualBox and VMware host adapters.
+ *
+ * They are not `internal`, so the flag above lets them through, and they carry perfectly
+ * ordinary private addresses. Every one advertised is an address the relay dials in sequence
+ * and the browser probes in parallel — pure waiting, since nothing on the LAN routes to them.
+ * Matched by NAME because the address cannot tell them apart from a real one.
+ */
+const PHANTOM_IFACE =
+  /^(vEthernet|WSL|Hyper-V|VirtualBox|VMware|vmnet|docker|br-|veth|tun|tap|utun|ZeroTier|Tailscale|wg\d)/i;
+
 function lanIPv4s(): string[] {
   const out: string[] = [];
   const ifaces = networkInterfaces();
   for (const name of Object.keys(ifaces)) {
+    if (PHANTOM_IFACE.test(name)) continue;
     for (const ni of ifaces[name] ?? []) {
       // node <18 typed `family` as "IPv4", >=18 also allows 4 — accept both, or this silently returns [].
       const isV4 = ni.family === "IPv4" || (ni.family as unknown) === 4;

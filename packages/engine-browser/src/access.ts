@@ -46,6 +46,25 @@ export interface EngineAccess<
   find(preferId?: string): Promise<EngineLookup<E>>;
   /** Take the lease on a measured engine and keep it. Returns the goodbye, for unmount. */
   hold(chosen: RankedEngine<E>): () => void;
+  /**
+   * Where to reach ONE engine, asked again — what `EngineClient` calls before reconnecting.
+   *
+   * Not the address kept from the first measurement, and that is the point twice over. The
+   * relayed URL carries a ticket good for a minute, so the old one is refused outright after
+   * that; and the best route may simply have moved — a laptop carried onto the engine's own
+   * network stops needing the relay. Null when that engine is no longer listed or no longer
+   * answers, which the client reads as "not now" rather than as a failure.
+   */
+  wsUrlFor(id: string): Promise<string | null>;
+  /**
+   * What to hand `new EngineClient(...)`: the address just measured, then a fresh one.
+   *
+   * The first connection has no reason to measure again — the gate did it a moment ago, and
+   * `wsUrlFor` costs a registry round trip plus a probe. Every connection AFTER it has every
+   * reason to, because the ticket in that first URL has a minute to live. One function so the
+   * three surfaces cannot each get half of it right.
+   */
+  linkUrl(chosen: RankedEngine<E>): () => string | Promise<string | null>;
 }
 
 /**
@@ -86,5 +105,22 @@ export function engineAccess<
         chosen.token ?? "",
         chosen.latency?.totalMs ?? 0,
       ),
+    linkUrl(chosen) {
+      let measured: string | null = chosen.wsUrl;
+      return () => {
+        const first = measured;
+        measured = null; // spent: from here on, ask for a live one
+        return first ?? this.wsUrlFor(chosen.engine.id);
+      };
+    },
+    async wsUrlFor(id) {
+      // Through the registry rather than from a cache: the ticket is minted by that call, so
+      // there is no fresh URL to be had without it.
+      const list = await reg.list().catch(() => [] as E[]);
+      const engine = list.find((e) => e.id === id);
+      if (!engine) return null;
+      const [ranked] = await probe([engine]);
+      return ranked?.wsUrl ?? null;
+    },
   };
 }

@@ -36,6 +36,34 @@ An engine is therefore listed in several services at once, and **that is the int
 state**: one machine, one audio interface, several apps driving it through separate sessions
 (`packages/engine-protocol/docs/sessions.md`).
 
+## Un registre par service, mais un seul montage
+
+Chaque service tient son registre ; aucun n'a de raison de tenir son propre **montage**.
+`mountEngineRegistry(app, { service, requireAuth })` pose la garde, le registre et les routes,
+et rend un `serve(server, url)` qui attache le relais après `listen` — le relais a besoin de
+l'`http.Server`, qu'Express n'a pas avant.
+
+L'ordre est la partie porteuse, et c'est pourquoi c'est une fonction plutôt qu'un paragraphe :
+`requireAuth` va sur les chemins destinés au NAVIGATEUR **avant** le routeur, pour que ceux
+destinés au MOTEUR — `heartbeat`, `deregister`, où une machine s'authentifie avec son propre
+jeton — restent ouverts. Écrit à la main par service, cet ordre était une règle que trois
+fichiers devaient tenir ; le jour où l'un d'eux a monté une garde sur tout `/api`, la seule
+chose qui protégeait encore le heartbeat était que le routeur avait déjà répondu.
+
+Trois dérives avaient déjà eu lieu, que le socle supprime par construction :
+
+- **La limite de corps.** Le relais fait de ces backends un tuyau vers un quatrième service,
+  qui accepte 8 Mo. l8 l'avait relevée, st0 et m9 non : la même requête passait ou faisait 413
+  selon l'origine depuis laquelle le navigateur l'envoyait. C'est maintenant
+  `ENGINE_BODY_LIMIT`, un seul nombre.
+- **Le gestionnaire d'erreur.** Un corps qui cesse d'arriver lève **dans** le parseur, là où
+  aucun `try/catch` de route ne le voit. Seul st0 en avait un ; les trois relaient les mêmes
+  octets. C'est `engineErrorHandler`, à monter en DERNIER.
+- **Le départ.** Un service qui laisse son fichier d'annonce derrière lui est battu vers un
+  port mort pour toujours. Le socle installe SIGINT et SIGTERM, et `alsoOnStop` est là pour ce
+  qu'un service a en propre — l8 y met son fichier legacy, parce que le socle sort du processus
+  dans ses gestionnaires et qu'un second, enregistré après, ne s'exécuterait jamais.
+
 ## What `assigned` means now, and why it is nearly obsolete
 
 `assigned` is a lease: a tab re-POSTs `/engine/select` every few seconds, and the flag

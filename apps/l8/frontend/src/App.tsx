@@ -16,6 +16,7 @@ import {
 } from "@frediverse/ui/dialog";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { cn } from "@frediverse/ui/lib/utils";
+import type { EngineUrl } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
   arrayEq,
@@ -123,7 +124,7 @@ export default function App({
   onQuitWorkspace,
   onChangeEngine,
 }: {
-  engineUrl: string;
+  engineUrl: EngineUrl;
   /** What the link to that engine measured — the footer's Q badge. Null when the gate
    *  could not measure it, which the badge says rather than guessing a band. */
   engineLatency: EngineLatency | null;

@@ -161,7 +161,9 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       // same machine, and on a bare "st0" one of them auditioning a module would tear
       // down the other's preview mid-listen.
       const client = new EngineClient(
-        found.wsUrl!,
+        // Measured once here, re-measured before every reconnect: the relayed URL's ticket
+        // outlives nothing, and a preview pane stays open far longer than a minute.
+        engines.linkUrl(found),
         undefined,
         sessionFor(SESSIONS.st0, currentUser()),
       );

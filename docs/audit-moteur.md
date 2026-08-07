@@ -305,25 +305,39 @@ A1 (z0 en `patchPrefs`), A6 (`socket.destroy()`), A9 (aligner la limite JSON, so
 gestionnaire d'erreur dans le socle), A10 (authentifier `release`), et fermer le mode dégradé
 du service de fichiers (`if (!expected)`). Chacun est un patch de quelques lignes.
 
-### Lot 1 — la fiabilité des connexions
+### Lot 1 — la fiabilité des connexions ✅ FAIT
 
-Le cœur de la demande. Dans `engine-browser/src/engine.ts`, plus les points d'appel :
+Voir `packages/engine-browser/docs/reliability.md` pour le détail et les raisons. Livré :
+l'URL redemandée avant chaque tentative (`EngineUrl`, `engines.linkUrl`), le repli doublé,
+plafonné et secoué, la file bornée en taille et en âge, le chien de garde `whoami` sur socket
+silencieuse, le document rejoué à l'ouverture, `onConnected` branché dans m9, un budget unique
+pour joindre un moteur (`ENGINE_REACH_BUDGET_MS`) partagé entre la sonde et le relais, et les
+interfaces fantômes retirées de l'annonce.
 
-- **URL fournie, pas figée.** `EngineClient` prend un `() => Promise<string>` au lieu d'une
-  URL constante, et re-sonde pour un ticket neuf avant chaque reconnexion (A2).
-- **Backoff exponentiel plafonné, avec jitter**, et arrêt sur onglet caché (A7).
-- **`outbox` bornée** en taille et en âge, avec écrasement des verbes de transport périmés (A8).
-- **Chien de garde sur la trame d'état** : au-delà de N trames manquées, la socket est réputée
-  morte et fermée (A3). Aucun changement de protocole — le flux 20 Hz est déjà là. Pour les
-  surfaces qui ne s'abonnent pas au broadcast, ajouter un ping applicatif reste possible mais
-  n'est pas nécessaire au premier tour.
-- **`onConnected` branché partout**, et renvoi du `ProjectDoc` sur le front montant (A4, A5).
-- Aligner `DIAL_TIMEOUT_MS` et `PROBE_TIMEOUT_MS` — une seule constante, dans
-  `web-protocol`, et filtrer les interfaces fantômes dans `gatherAddresses`.
+Restent de A3–A8 : rien côté navigateur. A5 est couvert pour le document ; l'état de session
+(armements, boucle) revient de lui-même dans la trame à 20 Hz.
 
-### Lot 2 — `mountEngineRegistry`
+Deux écarts au plan, tous deux assumés :
 
-C1. Petit, mécanique, et supprime par construction les dérives de A9.
+- **Le chien de garde sonde par `whoami`, pas par la trame d'état.** Le plan disait de compter
+  les trames manquées à 20 Hz. C'est faux pour une surface qui ne pilote aucune session : elle
+  n'en reçoit aucune, et le chien de garde fermerait une socket parfaitement saine. `whoami` est
+  *engine-global*, donc il répond dans tous les cas. Il ne part d'ailleurs que sur une socket
+  silencieuse — un client occupé ne sonde jamais.
+- **Pas d'arrêt du repli sur onglet caché.** Le plafond à 30 s et le jitter suffisent à rendre
+  un onglet oublié inoffensif, et suspendre la reconnexion en arrière-plan ferait rater à un
+  onglet qui revient l'instant où le moteur est redevenu joignable — ce que `useRelook` a déjà
+  eu à corriger une fois.
+
+### Lot 2 — `mountEngineRegistry` ✅ FAIT
+
+C1, plus les dérives de A9 qu'il supprime par construction : `ENGINE_BODY_LIMIT`,
+`engineErrorHandler` monté par les trois, et un départ propre avec `alsoOnStop` pour ce que l8
+a en propre. Voir `packages/engine-registry/docs/shared.md`, « Un registre par service, mais un
+seul montage ».
+
+A6 (la fuite de socket sur upgrade non concerné) et A10 (`release` non authentifié) restent
+ouverts : ils étaient au lot 0.
 
 ### Lot 3 — `@studio/engine-gate`
 

@@ -8,11 +8,10 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
 import {
-  attachEngineProxy,
-  createRegistry,
-  engineRegistryRouter,
+  ENGINE_BODY_LIMIT,
+  engineErrorHandler,
+  mountEngineRegistry,
 } from "@studio/engine-registry";
-import { advertiseRegistry } from "@studio/engine-registry/advertise";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
@@ -36,9 +35,9 @@ function advertiseLegacyEndpoint(url: string): void {
     /* unwritable — the supervisor can still be pointed with --registry */
   }
 }
-let unadvertise: (() => void) | null = null;
-
-app.use(express.json({ limit: "8mb" }));
+// The relay pipes bodies through to an engine's file service, so the limit is that service's
+// and not this one's opinion. See ENGINE_BODY_LIMIT.
+app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
 // Auth: the browser must be logged in before it can list or select engines (shared
 // @frediverse/oidc). No routes are mounted — see below — so a login sends the browser to
@@ -57,13 +56,9 @@ const { requireAuth } = await setupAuth(app, {
   service: "l8-backend",
 });
 
-// Browser-facing registry routes need a session. Mounted before the router so the engine-to-backend routes
-// (heartbeat, deregister — a machine authed by its own token) stay open.
-app.use(["/api/engines", "/api/engine"], requireAuth);
 // OUR registry, not the registry: st0 holds its own, and an engine heartbeats to both.
 // See packages/engine-registry/docs/shared.md for why that is not one central one.
-const registry = createRegistry();
-app.use("/api", engineRegistryRouter(registry));
+const engine = mountEngineRegistry(app, { service: "l8", requireAuth });
 
 /**
  * What this service remembers about a person. One field so far: the engine they drive.
@@ -86,29 +81,23 @@ app.use(
   ),
 );
 
+// Mounted LAST, after every route: a body that stops arriving throws inside the parser, where
+// no route's own try/catch can see it. See engineErrorHandler.
+app.use(engineErrorHandler);
+
 const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   // "verifies auth", not "auth": st0 mints the session, this only checks it.
   console.log(`🎛  l8-web backend on ${url}  (registry; verifies auth)`);
-  unadvertise = advertiseRegistry("l8", url); // so the supervisor heartbeats to us
+  // The legacy file goes with the shared goodbye rather than beside it: the socle installs the
+  // signal handlers and exits in them, so a second handler here would never run.
+  // (Windows force-kills us, so --web does this cleanup too.)
+  engine.serve(server, url, () => {
+    try {
+      rmSync(WEB_ENDPOINT_PATH);
+    } catch {
+      /* no endpoint file */
+    }
+  });
   advertiseLegacyEndpoint(url);
 });
-
-// The engine, relayed through this origin. Attached to the SERVER, not mounted as a route: a
-// WebSocket upgrade never reaches Express's middleware chain. It is what makes an engine on
-// another machine reachable at all — this page is HTTPS, and an HTTPS page may not open a
-// `ws://` to a LAN address. See packages/engine-registry/docs/proxy.md.
-attachEngineProxy(server, registry);
-
-// On shutdown, drop our registry endpoint file. (Windows force-kills us, so --web does this cleanup too.)
-const bye = () => {
-  unadvertise?.();
-  try {
-    rmSync(WEB_ENDPOINT_PATH);
-  } catch {
-    /* no endpoint file */
-  }
-  process.exit(0);
-};
-process.on("SIGINT", bye);
-process.on("SIGTERM", bye);

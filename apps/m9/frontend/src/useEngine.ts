@@ -65,11 +65,20 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     // engine — loading a track no longer replaces whatever song is open there — and two
     // DJs on one machine hold two decks rather than fighting over one.
     const client = new EngineClient(
-      wsUrl,
+      // Asked again before every reconnect rather than frozen here: away from the engine's
+      // own machine this is a relayed URL whose ticket lasts a minute, and a deck outlives
+      // that by a whole set. See @studio/engine-browser's EngineUrl.
+      engines.linkUrl(chosen),
       undefined,
       sessionFor(SESSIONS.m9, currentUser()),
     );
     engine.current = client;
+    // The deck showed "playing" on a dead socket: `ready` was posted once, just after
+    // connect(), and nothing ever took it back. What the engine says about the transport is
+    // only worth anything while the link carries.
+    client.onConnected((up) => {
+      if (!up) setPlaying(false);
+    });
     // The engine's own transport is the truth about whether sound is happening — never a
     // flag set hopefully when a play was sent. A file that failed to load leaves it
     // stopped, and the deck has to show that.
