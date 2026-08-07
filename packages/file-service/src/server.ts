@@ -25,6 +25,7 @@ import { startMediatekPuller } from "./mediatekPull.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
+import { playerRouter } from "./routes/player.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
@@ -199,6 +200,12 @@ app.get(
 // The media library is per MACHINE, so it needs the user (for the gate) but no workspace —
 // registered here for the same reason /workspaces is.
 app.use(mediatekRouter);
+
+// Jouer un morceau du cache sur les sorties de CETTE machine, sans le moteur. Per machine et
+// sans espace de travail, comme la médiathèque au-dessus : ce qu'on écoute n'appartient à aucun
+// projet, et c'est justement ce qui permet d'écouter pendant que le moteur sert l8.
+// Voir docs/machinePlayer.md.
+app.use(playerRouter);
 
 // An offline bounce, for a hosted backend that cannot exec anything itself. Per MACHINE
 // too — it is this machine's engine binary and this machine's plugins — and behind the same
