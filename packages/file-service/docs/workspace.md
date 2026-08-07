@@ -38,6 +38,29 @@ things this is meant to guard. Count+mtime misses a change that preserves both �
 practice an edit inside the same millisecond as another — and the mutation counter covers
 the case we cause ourselves.
 
+## What the token keys: both derived caches
+
+`graphDoc()` and `cachedProjectDoc()` are memoised on it, and that is the whole
+invalidation story — there is nothing else to remember to call.
+
+The compiled doc was the exception until recently: it was invalidated by our OWN writes
+only, through `invalidateProjectDoc()`. Which is correct for every edit that arrives
+through the API, and silently wrong for every edit that doesn't. A `git pull`, an editor on
+the same disk, a tool writing the folder directly — none of them touch the mutation
+counter, so the service kept serving a compile of a project that no longer existed, for the
+lifetime of the process. The symptom is the worst kind available: the graph, the document
+sent to the engine and the error list all agree with each other and all contradict the
+files on screen, and the only thing that ever fixed it was reopening the project. It cost a
+debugging session in m9, where a module added to a set never appeared in the graph.
+
+The cost is one directory walk per read where there used to be none: 4.8 ms against the
+~280 ms a graph build takes and the compile behind it, and the frontend pays that same walk
+on every poll anyway. `invalidateProjectDoc()` stays — it bumps `mutations`, which is what
+makes our own write visible inside a single timestamp tick.
+
+The token describes the ACTIVE project. Both caches take a `dir` because building takes
+one, not because a second project can sit in them.
+
 ## Windows handle discipline
 
 Deleting a project moves its whole folder to the recycle bin, and on Windows a directory

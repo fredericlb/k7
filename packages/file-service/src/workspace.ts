@@ -356,7 +356,7 @@ export class Workspace {
   private readonly realRoot: string;
   readonly rootIsProject: boolean;
   private activeProject: string | null;
-  private docCache: { dir: string; doc: ProjectDoc } | null = null;
+  private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
   private historyCache: { dir: string; h: ProjectHistory } | null = null;
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
@@ -572,14 +572,33 @@ export class Workspace {
   }
 
   // --- compiled-project cache ------------------------------------------------
+  /**
+   * The compiled project, memoised against the REVISION rather than against our own writes.
+   *
+   * It used to be invalidated only by edits this service made, which meant a project changed
+   * any other way served a stale compile until the process restarted: a `git pull`, an editor
+   * on the same disk, a tool writing the folder directly. The symptom is the worst kind —
+   * every derived view (the graph, the engine's document, the errors) is confidently wrong,
+   * and the files on screen say otherwise.
+   *
+   * `revision()` is the token built for exactly this question, and clients already poll it
+   * rather than the derivations; using it here applies the same rule on this side of the wire
+   * instead of trusting that nobody else touches the disk. It is the trade `graphDoc()` made
+   * first, and measured: a 4.8 ms directory walk against the ~280 ms it saves.
+   *
+   * The token describes the ACTIVE project, which every caller passes — `dir` is there because
+   * loading takes one, not because a second project can be cached beside it.
+   */
   cachedProjectDoc(dir: string): ProjectDoc {
-    if (this.docCache && this.docCache.dir === dir) return this.docCache.doc;
+    const rev = this.revision().rev;
+    if (this.docCache && this.docCache.dir === dir && this.docCache.rev === rev)
+      return this.docCache.doc;
     const doc = loadProject(dir);
-    this.docCache = { dir, doc };
+    this.docCache = { dir, rev, doc };
     return doc;
   }
   setCachedProjectDoc(dir: string, doc: ProjectDoc): void {
-    this.docCache = { dir, doc };
+    this.docCache = { dir, rev: this.revision().rev, doc };
   }
   invalidateProjectDoc(): void {
     this.docCache = null;

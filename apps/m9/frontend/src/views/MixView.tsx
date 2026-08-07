@@ -39,7 +39,13 @@ import {
   sendDecks,
   syncedTempos,
 } from "../deck";
-import { resolveBindings, stretchTargets, valueFor } from "../mixBindings";
+import {
+  enginePluginIds,
+  hasPlugin,
+  resolveBindings,
+  stretchTargets,
+  valueFor,
+} from "../mixBindings";
 import {
   cacheRelPath,
   type FileLink,
@@ -119,29 +125,25 @@ export function MixView({
   // Derived rather than stored, so the two can never disagree — pressing sync and moving the
   // master's fader are the same code path, and the slave has nowhere to hold a stale number.
   const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
-  // A mirror of the line above, read by `commit`. `pointerup` can arrive before React has
-  // re-rendered from the last `onChange`, and a `commit` closed over that render's `tempos`
-  // would send the document one drag-step stale — silently, and only sometimes.
   /**
-   * The stretches to apply, keyed by the TRACK each lands on — read off `views/mix.yaml`.
+   * The plugin ids the engine will HAVE — the compiled document's, never the graph's.
    *
-   * This is the tempo going through its module. The module compiles to no plugin (`offline`),
-   * so there is no param to set; what the binding gives is the track whose material it
-   * processes, and warping that track's clip is how the stretch is realised. The fader still
-   * BELONGS to a deck — its scale is that deck's song — but what it MOVES is whatever the file
-   * says. Rebind `deckA.tempo` to `tempoB` and deck B stretches.
+   * `buildGraphDoc` hands every step a `pluginId` it *would* have, including steps the
+   * compiler emits no plugin for: an `offline` tempo comes back as `deckA:tempoA` with no
+   * such plugin anywhere. Deciding a control's path off that is what left the tempo faders
+   * doing nothing — they were classed as params and sent into the void.
    */
-  const stretches = useMemo(() => {
-    const out: DeckTempos = {};
-    for (const b of wiring.bindings) {
-      if (b.pluginId || !b.track) continue; // a real param, or nothing to aim at
-      const deck = b.control.id.split(".")[0] as DeckId;
-      const t = tempos[deck];
-      if (t) out[b.track as DeckId] = t;
-    }
-    return out;
-  }, [wiring, tempos]);
+  const plugins = useMemo(() => enginePluginIds(compiled), [compiled]);
 
+  // Which TRACK each fader stretches, read off views/mix.yaml — see stretchTargets.
+  const stretches = useMemo(
+    () => stretchTargets(wiring.bindings, tempos, plugins),
+    [wiring, tempos, plugins],
+  );
+
+  // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
+  // last `onChange`, and a `commit` closed over that render's value would send the document
+  // one drag-step stale — silently, and only sometimes.
   const latest = useRef(stretches);
   latest.current = stretches;
 
@@ -234,6 +236,7 @@ export function MixView({
             stretchTargets(
               wiring.bindings,
               syncedTempos({ ...faders, [deckId]: t }, master),
+              plugins,
             ),
             compiled,
           );
@@ -294,11 +297,12 @@ export function MixView({
     // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`, and
     // the compiled document is what put that module in the engine. One `set-plugin-param` and
     // the project's own DSP does the fade.
-    // With a pluginId: the module is in the engine and takes a param.
+    // Only when the plugin is really IN the document the engine was sent — the graph hands
+    // out an id for modules that compile to no plugin at all.
     const bound = wiring.bindings.find(
-      (b) => b.control.id === "crossfade" && b.pluginId,
+      (b) => b.control.id === "crossfade" && hasPlugin(b, plugins),
     );
-    if (bound?.pluginId && compiled)
+    if (bound?.pluginId)
       return deck.engine.setPluginParam(
         bound.pluginId,
         bound.param,
@@ -307,7 +311,13 @@ export function MixView({
     // …and the stand-in, for the seconds before the compile lands or a project that will not
     // compile: no crossfade module in the engine, so the two decks' levels are moved instead.
     // Same law, different mechanism — see docs/mix.md.
-    pushCrossfade(deck.engine, value);
+    if (!compiled) return pushCrossfade(deck.engine, value);
+    // Compiled, but nothing bound to a plugin the engine has. The levels the stand-in moves
+    // are not in THIS document, so moving them would do nothing at all — and a crossfader
+    // that silently does nothing is the exact bug this whole file keeps paying for.
+    setError(
+      `le crossfade n'est lié à aucun plugin chargé — vérifiez ${MIX_VIEW_FILE}`,
+    );
   };
 
   const anyLoaded = !!(loads.deckA || loads.deckB);

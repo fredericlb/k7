@@ -10,11 +10,13 @@ import { Workspace } from "./workspace.ts";
 // were written, so adding an entity made the next read fail against a vocabulary that
 // predated it. There are no overlays now, and nothing to heal.
 //
-// What survives is the reason those tests could observe anything at all: the Workspace
-// CACHES the compiled project, and nothing tells it when the files change underneath. No
-// watcher — so a read that follows nothing keeps the project it has. Opening the project is
-// the signal, which is what the browser does on /open and why a reopen fixes a project that
-// looks wrong.
+// What survives is the reason those tests could observe anything at all: the Workspace CACHES
+// the compiled project. It used to key that memo on its OWN writes, so a change made any other
+// way — a git pull, another editor, a tool writing the folder — served a stale compile until
+// somebody reopened the project. It keys on `revision()` now, the same token the graph uses
+// and the frontend already polls, so these tests pin the reverse: the edit is seen, and a read
+// that follows nothing still does not recompile.
+// See ../docs/workspace.md.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
 const SONG = join(
@@ -66,18 +68,26 @@ describe("a project changed underneath the Workspace", () => {
   const colour = (): string | undefined =>
     ws.cachedProjectDoc(proj).tracks.find((t) => t.id === "melody")?.color;
 
-  it("serves the cached project on a read that follows no change", () => {
-    // Why the invalidation has to be explicit: re-compiling a large song on every poll is
-    // the cost this avoids. There is no watcher, so an edit nobody announced is not seen.
-    const before = colour();
+  it("picks up an out-of-band edit with no reopen at all", () => {
+    // The symptom this replaced is the worst kind: every derived view — the graph, the
+    // document sent to the engine, the errors — confidently describing a project the files on
+    // screen contradict, until somebody thought to reopen it. The revision token moves for an
+    // edit nobody announced, so the next read compiles what is actually there.
+    colour(); // fill the memo first, so a stale hit would be the failure
     setColor("#123456");
-    expect(colour()).toBe(before);
+    expect(colour()).toBe("#123456");
+  });
+
+  it("still serves the memo when nothing changed", () => {
+    // The cost the cache exists for — re-compiling a real song on every poll — is NOT given up
+    // to get that. Same revision, same object: the walk that reads the token is 4.8 ms against
+    // the ~280 ms it saves, which is the same trade graphDoc() already made.
+    expect(ws.cachedProjectDoc(proj)).toBe(ws.cachedProjectDoc(proj));
   });
 
   it("picks up an out-of-band edit when the project is reopened", () => {
-    // A `git pull`, another tab, a hand-edited file: nothing tells this Workspace. Opening
-    // the project is the signal — which is what the browser does on /open, and why a reopen
-    // fixes a project that looks wrong.
+    // Reopening is no longer the only signal, but it is still A signal — /open is what the
+    // browser does, and it must not serve something older than what it just opened.
     setColor("#123456");
     ws.setActiveProject("song.l8");
     expect(colour()).toBe("#123456");
