@@ -1,4 +1,5 @@
 import { VOLUME_DB } from "@studio/engine-protocol/build";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
 import {
@@ -20,6 +21,7 @@ import {
   TEMPO_PARAM,
   TEMPO_SOURCE_PARAM,
   warpFor,
+  withDecks,
 } from "./deck";
 import { playablePath } from "./service";
 
@@ -236,6 +238,57 @@ describe("sync hands one deck's tempo to the other", () => {
       deckB: { natural: 0, seconds: 60, target: 0 },
     };
     expect(syncedTempos(t, "deckA").deckB?.target).toBe(0);
+  });
+});
+
+describe("filling the decks into the COMPILED project", () => {
+  /** A stand-in for what the compiler hands back: two decks, the crossfade on deck A with its
+   *  baked graph and its side input, and deck A's tempo already applied by the chains. */
+  const compiled = (): ProjectDoc =>
+    deckDoc(NO_LOADS, MIX_CENTRE, {
+      deckA: [
+        {
+          name: "crossfade",
+          category: "audio",
+          plugin: { type: "internal", name: "DSP Graph" },
+          enabled: true,
+        },
+      ],
+    });
+
+  it("keeps everything the project declared", () => {
+    // The whole point of playing the compiled document: the chains, the plugins and the DSP
+    // are the project's. m9 fills in the one thing the project cannot say — which song.
+    const before = compiled();
+    const after = withDecks(before, loaded());
+    expect(after.tracks.map((t) => t.id)).toEqual(
+      before.tracks.map((t) => t.id),
+    );
+    expect(after.tracks[0].plugins).toEqual(before.tracks[0].plugins);
+    expect(after.tempo).toBe(before.tempo);
+  });
+
+  it("puts each deck's song on its own track", () => {
+    const doc = withDecks(compiled(), loaded());
+    expect(doc.tracks[0].clips[0].source).toBe("/m/a.wav");
+    expect(doc.tracks[1].clips[0].source).toBe("/m/b.wav");
+  });
+
+  it("leaves an empty deck's clips alone rather than emptying them", () => {
+    // A track the project gave clips of its own — not a deck — must come back untouched.
+    const before = compiled();
+    const after = withDecks(before, { ...NO_LOADS, deckA: loaded().deckA });
+    expect(after.tracks[1].clips).toEqual(before.tracks[1].clips);
+  });
+
+  it("carries the tempo stretch onto the clip it fills in", () => {
+    // The tempo module is `offline` and compiles to no plugin, so the stretch cannot be a
+    // param — it stays a warp on the clip, which is the one thing that plays live.
+    const doc = withDecks(compiled(), loaded(), {
+      deckA: { natural: 120, seconds: 60, target: 60 },
+    });
+    expect(doc.tracks[0].clips[0].warp?.markers[1][0]).toBeCloseTo(240);
+    expect(doc.tracks[1].clips[0].warp).toBeUndefined();
   });
 });
 

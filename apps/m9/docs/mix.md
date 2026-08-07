@@ -65,21 +65,31 @@ Bouger le fader n'envoie **pas** un document : c'est `set-plugin-param`, un mess
 mouvement, comme les potentiomètres de l8. Renvoyer un projet entier par pixel ferait
 diffuser au moteur un document qui ne change que de deux nombres.
 
-## Ce que le crossfade ne fait pas encore
+## La lecture passe par le compilateur
 
-Il ne commande pas encore **le module** `crossfade` du projet. Il ne peut pas : un module
-`jsdsp` est un graphe **cuit dans le document par le compilateur**, qui exécute la source du
-module dans un processus fils (`nodeProject.ts`) — le moteur n'a pas de plugin « crossfade »
-à nommer, il a un hôte de graphe à qui on passe un graphe. Un navigateur ne peut pas en
-produire un.
+m9 ne construit plus le document. Il **récupère celui que le projet compile** (`/engine-doc`
+sur le service de fichiers), y met les morceaux des platines, et l'envoie par son propre
+socket. Ce qui joue est donc le projet : les chaînes, le `sidechainFrom: deckB`, et le graphe
+DSP du crossfade **cuit par le compilateur** — 768 octets pour `example.m9`.
 
-Donc pour l'instant : deux pistes, un niveau chacune, et le fader déplace les deux niveaux.
-La loi est la même, le résultat s'entend, et **la vue Graphe montre le vrai graphe du
-projet, qui n'est pas encore ce qui joue** — c'est la divergence à garder en tête.
+Conséquence directe : le crossfader ne bouge plus deux niveaux, il pose `Mix` sur
+`deckA:crossfade` — le module de la médiathèque, via la liaison déclarée dans
+`views/mix.yaml`. Le câblage en dur a disparu du chemin normal.
 
-Quand la lecture passera par le compilateur, `pushCrossfade` est la **seule** fonction qui
-change : le même geste posera `Mix` sur `deckA:crossfade`. C'est aussi pourquoi les pistes
-s'appellent déjà `deckA` et `deckB`, comme le `chains.yaml` du projet les nomme.
+`withDecks` ne touche **que** les clips des pistes qui portent une platine chargée. Un
+plugin, un send, une automation que le projet déclare restent au projet ; y toucher
+remettrait m9 dans le métier de décider ce qu'un set sonne.
+
+**Le tenant-lieu reste**, et c'est délibéré : le temps que la compilation arrive, ou pour un
+projet qui ne compile pas, `deckDoc` construit encore deux pistes avec un niveau chacune et
+le crossfader déplace les niveaux. Une platine doit pouvoir jouer avant que tout soit prêt ;
+c'est l'imitation du set, et elle le dit.
+
+Le tempo passe par son module lui aussi, par l'autre chemin. `tempo` est `offline` : aucun
+plugin, donc rien à qui poser un paramètre — mais `offline` ne veut pas dire « ne fait rien »,
+il veut dire « rendu vrai hors du graphe ». Ce qu'une liaison vers un tel module désigne, c'est
+la PISTE dont il traite la matière, et l'étirement est un warp sur le clip que `withDecks` y
+remplit — ce que Tracktion fait en direct. Voir [bpm.md](bpm.md).
 
 ## Un seul transport
 

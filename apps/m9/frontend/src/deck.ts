@@ -185,6 +185,60 @@ export const levelId = (deck: DeckId): string => `${deck}:level`;
  * `recordDir` stays empty (see emptyDoc): a deck plays and never records, and a made-up
  * directory is a path the engine would eventually try to write into.
  */
+/**
+ * The COMPILED project with the decks' songs filled in — what the engine is actually sent.
+ *
+ * This replaces a document m9 used to build from nothing, and the difference is the whole
+ * point: the chains, the crossfade's baked DSP graph and `sidechainFrom: deckB` all come from
+ * the compiler now, so what plays is the project rather than an imitation of it. The one thing
+ * the project cannot say is which song is on a deck — that is a live choice, and its tracks
+ * are declared with `clips: []` precisely so this can fill them.
+ *
+ * Everything else is left ALONE. A plugin, a send, an automation the project declares is the
+ * project's business; touching any of it here would put m9 back in the business of deciding
+ * what a set sounds like.
+ */
+export function withDecks(
+  compiled: ProjectDoc,
+  loads: DeckLoads,
+  tempos: DeckTempos = {},
+): ProjectDoc {
+  return {
+    ...compiled,
+    tracks: compiled.tracks.map((track) => {
+      const load = loads[track.id as DeckId];
+      if (!load) return track;
+      const tempo = tempos[track.id as DeckId];
+      const warp = tempo && warpFor(tempo);
+      return {
+        ...track,
+        clips: [
+          clipDoc({
+            id: `${track.id}-clip`,
+            type: "audio",
+            name: load.title,
+            source: load.path,
+            ...(warp
+              ? {
+                  warp: { algorithm: warp.algorithm, markers: warp.markers },
+                  length: warp.beats,
+                }
+              : {}),
+          }),
+        ],
+      };
+    }),
+  };
+}
+
+/**
+ * A document built from NOTHING — two tracks, a level each, no project.
+ *
+ * Kept for the state m9 spends its first seconds in: the compile has not arrived (or the
+ * project will not compile), and a deck still has to be able to play. It is an imitation of
+ * the set and says so — no crossfade module, so the crossfader moves the two levels instead.
+ * `withDecks` is the real thing.
+ */
 export function deckDoc(
   loads: DeckLoads,
   mix: number = MIX_CENTRE,
@@ -265,16 +319,26 @@ export function pushCrossfade(engine: EngineClient, mix: number): void {
     );
 }
 
-/** Send the decks as they now stand. The engine diffs, so a song that was already playing on
- *  the other deck keeps playing under it. */
+/**
+ * Send the decks as they now stand.
+ *
+ * The COMPILED project when there is one, the stand-in when there is not. The engine diffs, so
+ * a song already playing on the other deck keeps playing under it — and the switch from one
+ * document to the other is itself a diff, not a reload.
+ */
 export function sendDecks(
   engine: EngineClient,
   loads: DeckLoads,
   mix: number,
   modules?: Partial<Record<DeckId, DeckModule[]>>,
   tempos?: DeckTempos,
+  compiled?: ProjectDoc | null,
 ): void {
-  engine.sendProject(deckDoc(loads, mix, modules, tempos));
+  engine.sendProject(
+    compiled
+      ? withDecks(compiled, loads, tempos)
+      : deckDoc(loads, mix, modules, tempos),
+  );
 }
 
 /**

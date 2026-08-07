@@ -418,6 +418,31 @@ filesRouter.get(
     }
   }),
 );
+
+/**
+ * The compiled `ProjectDoc` — what the ENGINE is given, not the shape a timeline draws.
+ *
+ * `/project-doc` above returns the web view: tracks and clips arranged for a screen. This one
+ * is the document itself, plugins and baked DSP graphs included, and it exists because m9
+ * plays a project it did not compile. Its decks' songs are a live choice rather than an
+ * arrangement, so it fills the clips in and sends the result to the engine over its own
+ * socket — which needs the real document, not a picture of one.
+ *
+ * Read-only, and no transport of its own: WHO plays and WHEN stays with the app holding the
+ * engine session. This is the compile, nothing else.
+ */
+filesRouter.get(
+  "/engine-doc",
+  wrap((req, res) => {
+    try {
+      res.json(req.ws!.engineDoc());
+    } catch (e) {
+      // A project that will not compile — the message is the compiler's own, and the caller
+      // shows it rather than an empty desk.
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
 filesRouter.get(
   "/graph",
   wrap((req, res) => {

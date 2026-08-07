@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import {
@@ -12,7 +13,9 @@ import {
   parseMixView,
   VIEWS_DIR,
 } from "@studio/song/yaml/mixViewFile";
-import type { MixView } from "@studio/song/yaml/mixViewSchema";
+// Aliased: the component below is also called MixView, and a type shadowing it is exactly
+// the confusion a reader does not need.
+import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
   CloudDownload,
@@ -36,7 +39,7 @@ import {
   sendDecks,
   syncedTempos,
 } from "../deck";
-import { resolveBindings } from "../mixBindings";
+import { resolveBindings, stretchTargets, valueFor } from "../mixBindings";
 import {
   cacheRelPath,
   type FileLink,
@@ -100,7 +103,13 @@ export function MixView({
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
   /** The desk's bindings, as `views/mix.yaml` declares them. */
-  const [view, setView] = useState<MixView>({});
+  const [view, setView] = useState<MixViewFile>({});
+  /**
+   * The COMPILED project — the chains, the crossfade's baked graph, the whole document the
+   * engine is meant to play. Null until it arrives, or when the project will not compile, and
+   * the deck falls back to the stand-in rather than going silent.
+   */
+  const [compiled, setCompiled] = useState<ProjectDoc | null>(null);
 
   // Checked against the project on every compile, so a binding that names a module the chains
   // do not have is a sentence on screen rather than a control that quietly does nothing.
@@ -113,8 +122,28 @@ export function MixView({
   // A mirror of the line above, read by `commit`. `pointerup` can arrive before React has
   // re-rendered from the last `onChange`, and a `commit` closed over that render's `tempos`
   // would send the document one drag-step stale — silently, and only sometimes.
-  const latest = useRef(tempos);
-  latest.current = tempos;
+  /**
+   * The stretches to apply, keyed by the TRACK each lands on — read off `views/mix.yaml`.
+   *
+   * This is the tempo going through its module. The module compiles to no plugin (`offline`),
+   * so there is no param to set; what the binding gives is the track whose material it
+   * processes, and warping that track's clip is how the stretch is realised. The fader still
+   * BELONGS to a deck — its scale is that deck's song — but what it MOVES is whatever the file
+   * says. Rebind `deckA.tempo` to `tempoB` and deck B stretches.
+   */
+  const stretches = useMemo(() => {
+    const out: DeckTempos = {};
+    for (const b of wiring.bindings) {
+      if (b.pluginId || !b.track) continue; // a real param, or nothing to aim at
+      const deck = b.control.id.split(".")[0] as DeckId;
+      const t = tempos[deck];
+      if (t) out[b.track as DeckId] = t;
+    }
+    return out;
+  }, [wiring, tempos]);
+
+  const latest = useRef(stretches);
+  latest.current = stretches;
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -127,6 +156,10 @@ export function MixView({
         // play. A song in the set and not in the cache is a line, not an omission.
         setSet(await readSet(project, cached));
         setView(await readMixView(project));
+        // Allowed to fail on its own: a set whose project will not compile can still choose
+        // songs and still play them through the stand-in, and losing the whole desk over it
+        // would take away the screen you fix it from.
+        setCompiled(await api.engineDoc().catch(() => null));
         setError(null);
       } catch (e) {
         setSet(null);
@@ -166,7 +199,7 @@ export function MixView({
       [deckId]: { path, title: s.name, artist: s.artist, id: s.id },
     };
     setLoads(next);
-    sendDecks(deck.engine, next, mix);
+    sendDecks(deck.engine, next, mix, undefined, stretches, compiled);
 
     // The waveform, fetched beside the load and never blocking it: the song is already
     // playing while this is still computing, which is the right order for a deck.
@@ -191,9 +224,19 @@ export function MixView({
         // Re-sent so the OTHER deck's stretch survives this load: the document carries both
         // warps, and one built without this deck's tempo would drop the other's.
         if (deck.engine)
-          sendDecks(deck.engine, next, mix, undefined, {
-            ...syncedTempos({ ...faders, [deckId]: t }, master),
-          });
+          sendDecks(
+            deck.engine,
+            next,
+            mix,
+            undefined,
+            // The freshly measured tempo has not reached `stretches` yet — it is derived from
+            // state this callback is still ahead of — so the same mapping is done inline.
+            stretchTargets(
+              wiring.bindings,
+              syncedTempos({ ...faders, [deckId]: t }, master),
+            ),
+            compiled,
+          );
       })
       // A waveform that will not come is not worth an error card over the whole desk — the
       // song plays regardless. But the REASON goes into the strip: the analysis needs the
@@ -232,7 +275,8 @@ export function MixView({
    * drag, on both decks when they are synced.
    */
   const commit = (next = latest.current) => {
-    if (deck.engine) sendDecks(deck.engine, loads, mix, undefined, next);
+    if (deck.engine)
+      sendDecks(deck.engine, loads, mix, undefined, next, compiled);
   };
 
   /** Press a sync button. Pressing the one already lit releases it — a set spends most of
@@ -246,7 +290,24 @@ export function MixView({
   /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
   const crossfade = (value: number) => {
     setMix(value);
-    if (deck.engine) pushCrossfade(deck.engine, value);
+    if (!deck.engine) return;
+    // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`, and
+    // the compiled document is what put that module in the engine. One `set-plugin-param` and
+    // the project's own DSP does the fade.
+    // With a pluginId: the module is in the engine and takes a param.
+    const bound = wiring.bindings.find(
+      (b) => b.control.id === "crossfade" && b.pluginId,
+    );
+    if (bound?.pluginId && compiled)
+      return deck.engine.setPluginParam(
+        bound.pluginId,
+        bound.param,
+        valueFor(bound, value),
+      );
+    // …and the stand-in, for the seconds before the compile lands or a project that will not
+    // compile: no crossfade module in the engine, so the two decks' levels are moved instead.
+    // Same law, different mechanism — see docs/mix.md.
+    pushCrossfade(deck.engine, value);
   };
 
   const anyLoaded = !!(loads.deckA || loads.deckB);
@@ -682,7 +743,7 @@ function SetRow({
  * project written before the file existed — so it reads as "no bindings" and not as an error.
  * A file that is THERE and malformed is a different matter, and `parseMixView` reports it.
  */
-async function readMixView(project: string): Promise<MixView> {
+async function readMixView(project: string): Promise<MixViewFile> {
   const path = project === "." ? MIX_VIEW_FILE : `${project}/${MIX_VIEW_FILE}`;
   try {
     return parseMixView((await api.read(path)).content).value ?? {};

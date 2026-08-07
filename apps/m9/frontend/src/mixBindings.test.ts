@@ -2,7 +2,7 @@ import type { WebGraph } from "@studio/graph-model";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import { describe, expect, it } from "vitest";
 import { mixControl } from "./controls";
-import { resolveBindings, valueFor } from "./mixBindings";
+import { resolveBindings, stretchTargets, valueFor } from "./mixBindings";
 
 /** A graph with one chain holding the steps given, each addressable and drawn. */
 const graphWith = (
@@ -80,16 +80,27 @@ describe("resolving the desk's bindings", () => {
     expect(problems[0].message).toContain("crossfad");
   });
 
-  it("names a module with nothing to send a value to", () => {
-    // The state m9 is actually in for a cold module today: it is in the chains and has no
-    // plugin in the document. The most likely reason a binding looks dead, and not the
-    // file's fault — so it says so rather than dropping the line.
+  it("resolves a module with no plugin by the TRACK it processes", () => {
+    // An `offline` module — m9's tempo is one — compiles to no plugin, so there is no param
+    // to set. It is not unbindable: what it changes is the material of the track its chain
+    // draws from, and that track is the address.
     const { bindings, problems } = resolveBindings(
       VIEW,
       graphWith([{ module: "crossfade" }]),
     );
+    expect(problems).toEqual([]);
+    expect(bindings[0].pluginId).toBeUndefined();
+    expect(bindings[0].track).toBe("deckA");
+  });
+
+  it("names a module with neither a plugin nor a track", () => {
+    // Nothing to move at all. Named rather than skipped: "nothing happens when I move it" is
+    // the most likely reason a binding looks dead, and it is not the file's fault.
+    const graph = graphWith([{ module: "crossfade" }]);
+    graph.chains.deckA.from = "";
+    const { bindings, problems } = resolveBindings(VIEW, graph);
     expect(bindings).toEqual([]);
-    expect(problems[0].message).toContain("valeur");
+    expect(problems[0].message).toContain("bouger");
   });
 
   it("resolves WITHOUT a widget rather than calling it broken", () => {
@@ -109,6 +120,57 @@ describe("resolving the desk's bindings", () => {
     const { bindings, problems } = resolveBindings(VIEW, null);
     expect(bindings).toEqual([]);
     expect(problems).toHaveLength(1);
+  });
+});
+
+describe("which track a fader stretches", () => {
+  const tempoView: MixView = {
+    "deckA.tempo": { module: "tempoA", param: "Target BPM" },
+    "deckB.tempo": { module: "tempoB", param: "Target BPM" },
+  };
+  const twoDecks = () => {
+    const g = graphWith([{ module: "tempoA" }]);
+    g.chains.deckB = {
+      from: "deckB",
+      use: [
+        { module: "tempoB", category: "audio", emits: "audio", enabled: true },
+      ],
+      out: [{ to: "OUT", gain: 1 }],
+    } as unknown as WebGraph["chains"][string];
+    return g;
+  };
+  const byDeck = {
+    deckA: { natural: 120, seconds: 60, target: 126 },
+    deckB: { natural: 90, seconds: 60, target: 90 },
+  };
+
+  it("sends each deck's fader to its own deck's track", () => {
+    const { bindings } = resolveBindings(tempoView, twoDecks());
+    expect(stretchTargets(bindings, byDeck)).toEqual({
+      deckA: byDeck.deckA,
+      deckB: byDeck.deckB,
+    });
+  });
+
+  it("FOLLOWS the file when a fader is pointed elsewhere", () => {
+    // The difference between a declared control and a hardcoded one: deck A's fader stretches
+    // whatever module the file names, and here that is deck B's.
+    const crossed: MixView = {
+      "deckA.tempo": { module: "tempoB", param: "Target BPM" },
+    };
+    const { bindings } = resolveBindings(crossed, twoDecks());
+    // Deck A's fader position, landing on deck B's track.
+    expect(stretchTargets(bindings, byDeck)).toEqual({ deckB: byDeck.deckA });
+  });
+
+  it("skips a binding that has a real param to set", () => {
+    // The crossfade goes the other way — `setPluginParam`, not a warp. Stretching its track
+    // as well would apply the fade twice, in two different currencies.
+    const { bindings } = resolveBindings(
+      VIEW,
+      graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
+    );
+    expect(stretchTargets(bindings, byDeck)).toEqual({});
   });
 });
 

@@ -1439,6 +1439,18 @@ export class Workspace {
     }
   }
 
+  /**
+   * The compiled document itself, for an app that drives the engine over its own socket.
+   *
+   * The same memoised compile every other view is built from — `withGroupMix`/`withoutVideo`
+   * are NOT applied, deliberately: those are the folds a SENDER does on the way to the engine
+   * (see docs/mixFolding.md), and doing them here would mean this route decided something the
+   * sender owns. The caller sends; the caller folds.
+   */
+  engineDoc(): ProjectDoc {
+    return this.cachedProjectDoc(this.requireActive());
+  }
+
   projectDoc(): WebProject {
     const p = this.cachedProjectDoc(this.requireActive());
     return {
