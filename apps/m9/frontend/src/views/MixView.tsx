@@ -13,7 +13,9 @@ import {
   parseMixView,
   VIEWS_DIR,
 } from "@studio/song/yaml/mixViewFile";
-import type { MixView } from "@studio/song/yaml/mixViewSchema";
+// Aliased: the component below is also called MixView, and a type shadowing it is exactly
+// the confusion a reader does not need.
+import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
   CloudDownload,
@@ -37,7 +39,7 @@ import {
   sendDecks,
   syncedTempos,
 } from "../deck";
-import { resolveBindings, valueFor } from "../mixBindings";
+import { resolveBindings, stretchTargets, valueFor } from "../mixBindings";
 import {
   cacheRelPath,
   type FileLink,
@@ -101,7 +103,7 @@ export function MixView({
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
   /** The desk's bindings, as `views/mix.yaml` declares them. */
-  const [view, setView] = useState<MixView>({});
+  const [view, setView] = useState<MixViewFile>({});
   /**
    * The COMPILED project — the chains, the crossfade's baked graph, the whole document the
    * engine is meant to play. Null until it arrives, or when the project will not compile, and
@@ -120,8 +122,28 @@ export function MixView({
   // A mirror of the line above, read by `commit`. `pointerup` can arrive before React has
   // re-rendered from the last `onChange`, and a `commit` closed over that render's `tempos`
   // would send the document one drag-step stale — silently, and only sometimes.
-  const latest = useRef(tempos);
-  latest.current = tempos;
+  /**
+   * The stretches to apply, keyed by the TRACK each lands on — read off `views/mix.yaml`.
+   *
+   * This is the tempo going through its module. The module compiles to no plugin (`offline`),
+   * so there is no param to set; what the binding gives is the track whose material it
+   * processes, and warping that track's clip is how the stretch is realised. The fader still
+   * BELONGS to a deck — its scale is that deck's song — but what it MOVES is whatever the file
+   * says. Rebind `deckA.tempo` to `tempoB` and deck B stretches.
+   */
+  const stretches = useMemo(() => {
+    const out: DeckTempos = {};
+    for (const b of wiring.bindings) {
+      if (b.pluginId || !b.track) continue; // a real param, or nothing to aim at
+      const deck = b.control.id.split(".")[0] as DeckId;
+      const t = tempos[deck];
+      if (t) out[b.track as DeckId] = t;
+    }
+    return out;
+  }, [wiring, tempos]);
+
+  const latest = useRef(stretches);
+  latest.current = stretches;
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -177,7 +199,7 @@ export function MixView({
       [deckId]: { path, title: s.name, artist: s.artist, id: s.id },
     };
     setLoads(next);
-    sendDecks(deck.engine, next, mix, undefined, tempos, compiled);
+    sendDecks(deck.engine, next, mix, undefined, stretches, compiled);
 
     // The waveform, fetched beside the load and never blocking it: the song is already
     // playing while this is still computing, which is the right order for a deck.
@@ -207,7 +229,12 @@ export function MixView({
             next,
             mix,
             undefined,
-            syncedTempos({ ...faders, [deckId]: t }, master),
+            // The freshly measured tempo has not reached `stretches` yet — it is derived from
+            // state this callback is still ahead of — so the same mapping is done inline.
+            stretchTargets(
+              wiring.bindings,
+              syncedTempos({ ...faders, [deckId]: t }, master),
+            ),
             compiled,
           );
       })
@@ -267,8 +294,11 @@ export function MixView({
     // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`, and
     // the compiled document is what put that module in the engine. One `set-plugin-param` and
     // the project's own DSP does the fade.
-    const bound = wiring.bindings.find((b) => b.control.id === "crossfade");
-    if (bound && compiled)
+    // With a pluginId: the module is in the engine and takes a param.
+    const bound = wiring.bindings.find(
+      (b) => b.control.id === "crossfade" && b.pluginId,
+    );
+    if (bound?.pluginId && compiled)
       return deck.engine.setPluginParam(
         bound.pluginId,
         bound.param,
@@ -713,7 +743,7 @@ function SetRow({
  * project written before the file existed — so it reads as "no bindings" and not as an error.
  * A file that is THERE and malformed is a different matter, and `parseMixView` reports it.
  */
-async function readMixView(project: string): Promise<MixView> {
+async function readMixView(project: string): Promise<MixViewFile> {
   const path = project === "." ? MIX_VIEW_FILE : `${project}/${MIX_VIEW_FILE}`;
   try {
     return parseMixView((await api.read(path)).content).value ?? {};

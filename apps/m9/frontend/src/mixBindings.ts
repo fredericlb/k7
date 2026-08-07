@@ -6,15 +6,28 @@
 import type { WebGraph, WebWidget } from "@studio/graph-model";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import { type MixControl, mixControl } from "./controls";
+import type { DeckId, DeckTempos } from "./deck";
 
-/** A binding that resolved all the way to something the engine can be told. */
+/** A binding that resolved to something that can be moved. */
 export interface ResolvedBinding {
   control: MixControl;
   /** The instance the chains file names — what the file said. */
   module: string;
   param: string;
-  /** The engine's `chain:module` address; what `set-plugin-param` takes. */
-  pluginId: string;
+  /**
+   * The engine's `chain:module` address; what `set-plugin-param` takes. Absent for a module
+   * that compiles to NO plugin — an `offline` one, which the compiler skips.
+   */
+  pluginId?: string;
+  /**
+   * The track whose material this module processes — its chain's source.
+   *
+   * The address for a module realised OUTSIDE the graph. `offline` does not mean "does
+   * nothing": it means no engine plugin, and something else makes it true — a pass writing
+   * files for a stem splitter, the player warping a clip for a tempo. Either way the thing
+   * being changed is the track's material, so the track is what a binding must name.
+   */
+  track?: string;
   /** The widget that draws the param, and therefore states its range. Undefined when the
    *  module has no panel for it — see below for why that is not fatal. */
   widget?: WebWidget;
@@ -54,10 +67,16 @@ export function resolveBindings(
 
   // The steps of every chain, by the name the chains file uses — which is exactly what a
   // binding's `module` is, so the lookup is one string and never a guess.
-  const steps = new Map<string, WebGraph["chains"][string]["use"][number]>();
+  // The chain's SOURCE travels with each step: a module with no plugin is addressed by the
+  // material it processes, not by a plugin id it has not got.
+  const steps = new Map<
+    string,
+    { step: WebGraph["chains"][string]["use"][number]; track?: string }
+  >();
   for (const chain of Object.values(graph?.chains ?? {}))
     for (const step of chain.use)
-      if (!steps.has(step.module)) steps.set(step.module, step);
+      if (!steps.has(step.module))
+        steps.set(step.module, { step, track: chain.from });
 
   for (const [id, b] of Object.entries(view)) {
     const control = mixControl(id);
@@ -68,21 +87,22 @@ export function resolveBindings(
       });
       continue;
     }
-    const step = steps.get(b.module);
-    if (!step) {
+    const found = steps.get(b.module);
+    if (!found) {
       problems.push({
         control: id,
         message: `aucun module « ${b.module} » dans les chaînes de ce projet`,
       });
       continue;
     }
-    if (!step.pluginId) {
-      // An io module, a stub, an unsupported plugin — or, today, a module the browser cannot
-      // put in its document. Named rather than skipped: "nothing to send a value to" is the
-      // most likely reason a binding looks dead, and it is not the file's fault.
+    const { step, track } = found;
+    if (!step.pluginId && !track) {
+      // Neither a plugin to tell nor material to change. An io module, a stub, an unsupported
+      // plugin. Named rather than skipped: "nothing to move" is the most likely reason a
+      // binding looks dead, and it is not the file's fault.
       problems.push({
         control: id,
-        message: `« ${b.module} » n'a pas de plugin à qui envoyer une valeur`,
+        message: `« ${b.module} » n'a ni plugin ni piste à faire bouger`,
       });
       continue;
     }
@@ -90,13 +110,42 @@ export function resolveBindings(
       control,
       module: b.module,
       param: b.param,
-      pluginId: step.pluginId,
+      ...(step.pluginId ? { pluginId: step.pluginId } : {}),
+      ...(track ? { track } : {}),
       widget: Object.values(step.ui?.widgets ?? {}).find(
         (w) => w.bind === b.param,
       ),
     });
   }
   return { bindings, problems };
+}
+
+/**
+ * The stretches to apply, keyed by the TRACK each lands on.
+ *
+ * This is the tempo going through its module. `tempo` compiles to no plugin, so there is no
+ * param to set — what the binding gives is the track whose material it processes, and warping
+ * that track's clip is how the stretch is realised.
+ *
+ * The fader still BELONGS to a deck: its scale is that deck's song, which is a fact about what
+ * is loaded and not about the wiring. What it MOVES is whatever the file says. Rebind
+ * `deckA.tempo` to `tempoB` and deck B stretches — which is the difference between a declared
+ * control and a hardcoded one.
+ *
+ * A binding with a `pluginId` is skipped: that one is a real param and goes the other way.
+ */
+export function stretchTargets(
+  bindings: ResolvedBinding[],
+  byDeck: DeckTempos,
+): DeckTempos {
+  const out: DeckTempos = {};
+  for (const b of bindings) {
+    if (b.pluginId || !b.track) continue;
+    // The control's own deck — `deckA.tempo` is deck A's fader wherever it points.
+    const tempo = byDeck[b.control.id.split(".")[0] as DeckId];
+    if (tempo) out[b.track as DeckId] = tempo;
+  }
+  return out;
 }
 
 /**

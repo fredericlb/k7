@@ -17,12 +17,17 @@ aucun plugin qui étire le temps** — `PluginScan.cpp` enregistre un Pitch Shif
 d'autre de cet ordre. Tracktion étire un CLIP, par des marqueurs de warp, pas dans un
 insert. Voir `packages/song/docs/coldModules.md`.
 
-D'où la conséquence à connaître : **la passe froide n'est pas écrite**. Ce qui suit est la
-façon dont le navigateur réalise ce module en attendant, exactement comme il réalise le
-crossfade en deux niveaux (voir [mix.md](mix.md)). `warpFor` est le tenant-lieu, et c'est ce
-que la passe remplacera.
+Et ce n'est **pas** un tenant-lieu en attendant une passe froide. Une passe rendrait un
+fichier étiré sur le disque, ce qu'une platine ne peut justement pas se permettre : on ne
+re-rend pas quatre minutes d'audio entre deux nudges de pitch. Tracktion étire un clip en
+direct, et c'est le bon mécanisme ; ce que le module apporte, c'est la DÉCLARATION que cette
+platine a un tempo — ce qui permet à un contrôle du pupitre de le nommer.
 
-## Comment un morceau change de tempo, en attendant
+Concrètement : la liaison ne donne pas un `pluginId` (il n'y en a pas) mais la **piste** dont
+le module traite la matière, et c'est ce clip-là qui est warpé. Repointer `deckA.tempo` vers
+`tempoB` et c'est la platine B qui s'étire sous le fader de gauche.
+
+## Comment un morceau change de tempo
 
 Le document ne porte **qu'un** tempo, et il reste fixe (`DOC_TEMPO`, 120). C'est là tout le
 montage : chaque platine atteint sa cible par son **propre warp**, donc un seul document

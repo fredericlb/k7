@@ -44,13 +44,20 @@ C'est aussi pourquoi `deckA.tempo` porte la plage du **knob du module** (10..300
 plage à lui : une liaison ne doit pas pouvoir demander un tempo que le panneau refuse de
 dessiner.
 
-## Ce qui marche, et ce qui reste
+## Les deux chemins
 
-Le crossfader passe par sa liaison : m9 joue le document **compilé** (voir [mix.md](mix.md)),
-donc `deckA:crossfade` est un plugin que le moteur a chargé, et bouger le fader pose `Mix`
-dessus. Le câblage en dur ne sert plus que de tenant-lieu, le temps que la compilation arrive.
+Le crossfader passe par sa liaison vers un PARAMÈTRE : m9 joue le document compilé (voir
+[mix.md](mix.md)), donc `deckA:crossfade` est un plugin chargé par le moteur et bouger le
+fader pose `Mix` dessus.
 
-Le fader de tempo, lui, se résout puis n'a personne à qui parler : le module `tempo` est
-`offline` et ne compile vers aucun plugin. Ce n'est pas un trou dans la liaison, c'est ce que
-`offline` veut dire — l'étirement reste un warp sur le clip jusqu'à ce que la passe froide
-existe. m9 l'affiche par contrôle plutôt que de laisser un fader mort.
+Le fader de tempo passe par sa liaison vers une PISTE. Le module `tempo` est `offline` : il
+n'a pas de plugin, il est rendu vrai hors du graphe — ici par l'étirement du clip, que
+Tracktion fait en direct. La liaison donne donc la piste dont le module traite la matière, et
+c'est ce clip-là qui est warpé.
+
+Les deux sont déclarés. Repointer `deckA.tempo` vers `tempoB` dans `views/mix.yaml` et c'est
+la platine B qui s'étire sous le fader de gauche — ce qui est exactement la différence entre
+un contrôle déclaré et un contrôle câblé.
+
+Le fader appartient toujours à une platine (son échelle vient du morceau chargé, un fait sur
+ce qui joue et non sur le câblage) ; ce qu'il DÉPLACE vient du fichier.

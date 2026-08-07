@@ -87,6 +87,9 @@ the ones the engine has loaded. Moving the crossfader is one call —
 ships does the fade. The hardcoded path is gone from normal operation; it survives only as the
 stand-in for the seconds before the compile arrives.
 
-One kind of binding still resolves and then has nowhere to go: a module that compiles to **no
-plugin**. An `offline` module is the case — m9's tempo is one — and it is reported per control
-rather than left as a dead fader. That is not a gap in this file; it is what `offline` means.
+A module that compiles to **no plugin** resolves too, by the TRACK its chain draws from. An
+`offline` module is made true outside the graph — a pass writing files, or the player
+stretching a clip — so what a binding to one names is the material, and the track is where the
+material is. m9's tempo faders go that way; the crossfade goes the other.
+
+Only a module with NEITHER is reported: nothing to tell, nothing to change.

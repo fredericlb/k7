@@ -85,11 +85,11 @@ projet qui ne compile pas, `deckDoc` construit encore deux pistes avec un niveau
 le crossfader déplace les niveaux. Une platine doit pouvoir jouer avant que tout soit prêt ;
 c'est l'imitation du set, et elle le dit.
 
-Ce qui ne passe **toujours pas** par un module : le tempo. Le module `tempo` est `offline`,
-donc il ne compile vers aucun plugin — vérifié sur `example.m9`, la piste deckA n'a que le
-crossfade. L'étirement reste un warp sur le clip que `withDecks` remplit, ce qui est la seule
-chose qui s'étire en direct. Le fader `deckA.tempo` est donc une liaison qui se résout puis
-n'a personne à qui parler, et m9 le dit.
+Le tempo passe par son module lui aussi, par l'autre chemin. `tempo` est `offline` : aucun
+plugin, donc rien à qui poser un paramètre — mais `offline` ne veut pas dire « ne fait rien »,
+il veut dire « rendu vrai hors du graphe ». Ce qu'une liaison vers un tel module désigne, c'est
+la PISTE dont il traite la matière, et l'étirement est un warp sur le clip que `withDecks` y
+remplit — ce que Tracktion fait en direct. Voir [bpm.md](bpm.md).
 
 ## Un seul transport
 

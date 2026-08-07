@@ -112,9 +112,30 @@ that is read. The knob cannot express 0, which is the untouched state; the panel
 the floor until the pass measures a tempo or somebody asks for one.
 
 It is what m9 puts on each deck — a deck's source being a file is precisely what makes the
-placement legal. See `packages/song/docs/m9Project.md`. **The pass is not written**, like
-the normaliser's; m9's tempo fader realises the stretch as a clip warp meanwhile, which is a
-stand-in and is documented as one in `apps/m9/docs/bpm.md`.
+placement legal. See `packages/song/docs/m9Project.md`.
+
+### What `offline` actually promises
+
+Reading it as "a pass writes files to disk" is too narrow, and the tempo module is what made
+that visible. `offline` says one thing: **there is no engine plugin, and the module is made
+true outside the graph.** The compiler acts on exactly that — `nodeProject` skips emitting a
+plugin, and nothing more.
+
+*How* it is made true is the module's own business, and there are two shapes so far:
+
+| module | realised by |
+|---|---|
+| `stemsplit` | a pass writing four files before the render |
+| `tempo` | the PLAYER time-stretching the clip it feeds |
+
+The tempo's is not a stand-in for a pass that ought to exist. A pass would render a stretched
+file to disk, which is exactly what a deck must not do: you cannot re-render four minutes of
+audio between two nudges of a pitch fader. Tracktion stretches a clip live, through warp
+markers, and that is the right mechanism — what the module contributes is the DECLARATION that
+this deck has a tempo, which is what lets a desk control name it (`docs/viewBindings.md`).
+
+So a binding to an `offline` module resolves by the TRACK its chain draws from rather than by
+a plugin id. The material is what changes, and the track is where the material is.
 
 ## What is NOT wired yet
 
