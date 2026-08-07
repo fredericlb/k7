@@ -1530,7 +1530,18 @@ export default function App({
                   />
                 )}
                 {panel === "mixer" && (
-                  <MixerTab reloadKey={reloadKey} command={quietCommand} />
+                  <MixerTab
+                    reloadKey={reloadKey}
+                    command={quietCommand}
+                    trackOrder={trackOrder}
+                    pluginParamsStore={pluginParamsStore}
+                    requestPluginParams={requestPluginParams}
+                    watchPluginParams={watchPluginParams}
+                    setPluginParam={setPluginParam}
+                    trackControls={trackControls}
+                    onContextMenu={openContextMenu}
+                    engineWarnings={engineWarnings}
+                  />
                 )}
                 {panel === "graph" && (
                   <GraphPanel

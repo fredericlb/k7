@@ -4,6 +4,7 @@ import {
   buildGraph,
   CELL,
   layout,
+  moduleRow,
   NODE_H,
   NODE_MIN_W,
   NODE_W,
@@ -662,5 +663,78 @@ describe("an input wired to a track", () => {
     const from = edges.find((e) => e.source === "mod:IN:in-2");
     expect(from?.target).toBe("trk:gtr");
     expect(from?.target).not.toBe("mod:wah");
+  });
+});
+
+describe("moduleRow", () => {
+  // The Mixer panel: named modules laid out side by side, in the order the caller gives — the
+  // song's track order. dagre is not used, because there is nothing here to route and the order
+  // is not a layout engine's to choose.
+  const three = graph(
+    {
+      a: {
+        from: "vox",
+        use: [{ module: "mx-vox" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      b: {
+        from: "bass",
+        use: [{ module: "mx-bass" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      c: {
+        from: "gtr",
+        use: [{ module: "mx-gtr" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox", "bass", "gtr"],
+  );
+
+  it("places them left to right in the order asked for, not the graph's", () => {
+    const row = moduleRow(three, ["mx-gtr", "mx-vox", "mx-bass"]);
+    expect(row.nodes.map((n) => n.module)).toEqual([
+      "mx-gtr",
+      "mx-vox",
+      "mx-bass",
+    ]);
+    // Strictly increasing x, all on one line.
+    const xs = row.nodes.map((n) => n.x);
+    expect(xs).toEqual([...xs].sort((p, q) => p - q));
+    expect(new Set(row.nodes.map((n) => n.y)).size).toBe(1);
+  });
+
+  it("leaves a gap between cards rather than butting them together", () => {
+    const row = moduleRow(three, ["mx-vox", "mx-bass"]);
+    const [first, second] = row.nodes;
+    expect(second.x).toBeGreaterThan(first.x + first.w);
+  });
+
+  it("keeps the node the full graph would draw — the card, not a copy of it", () => {
+    // Same id, same size, same chain: only the position is the row's. That is what lets a strip
+    // carry its live values, its VU and its own menu without any of it re-implemented here.
+    const built = buildGraph(three);
+    const full = layout(built.nodes, built.edges);
+    const fromFull = full.nodes.find((n) => n.module === "mx-vox");
+    const fromRow = moduleRow(three, ["mx-vox"]).nodes[0];
+    expect(fromRow.id).toBe(fromFull?.id);
+    expect(fromRow.w).toBe(fromFull?.w);
+    expect(fromRow.h).toBe(fromFull?.h);
+    expect(fromRow.chain).toBe(fromFull?.chain);
+  });
+
+  it("skips a name the graph does not have, rather than leaving a hole", () => {
+    // The list comes from the compiled project and the graph is fetched separately, so the two
+    // can be one reload apart.
+    const row = moduleRow(three, ["mx-vox", "gone", "mx-bass"]);
+    expect(row.nodes.map((n) => n.module)).toEqual(["mx-vox", "mx-bass"]);
+  });
+
+  it("has no extent when nothing is named", () => {
+    const row = moduleRow(three, []);
+    expect(row.nodes).toHaveLength(0);
+    expect(row.width).toBe(0);
+    expect(row.height).toBe(0);
+    expect(row.edges).toEqual([]);
   });
 });

@@ -811,6 +811,47 @@ export function buildGraph(graph: WebGraph): {
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
+/** The gap between two strips in a mixer row, px. Wider than dagre's `nodesep` on purpose: these
+ *  cards are read as a rank of separate channels, not as a chain that flows. */
+const STRIP_GAP = 24;
+const ROW_MARGIN = 16; // matches layout()'s marginx/marginy, so the two frame alike
+
+/**
+ * The named modules of a graph, laid out SIDE BY SIDE in the order given.
+ *
+ * What a mixer is: a rank of channel strips. dagre is deliberately not used — there are no cables
+ * between these cards to route, and the ORDER is the caller's (the song's track order), which is
+ * not a thing a layout engine should be allowed to choose. Nodes come from `buildGraph`, so each
+ * card is the same card the full graph draws, live values and all; only its position is ours.
+ *
+ * A name with no module in the graph is skipped rather than drawn as a gap: the caller's list is
+ * derived from the compiled project and the graph is refetched separately, so the two can be one
+ * reload apart, and a hole in the row would be the only sign.
+ */
+export function moduleRow(graph: WebGraph, modules: string[]): LaidOutGraph {
+  const { nodes } = buildGraph(graph);
+  const byModule = new Map<string, (typeof nodes)[number]>();
+  for (const n of nodes)
+    if (n.kind === "module" && n.module && !byModule.has(n.module))
+      byModule.set(n.module, n);
+
+  const out: GraphNode[] = [];
+  let x = ROW_MARGIN;
+  for (const name of modules) {
+    const n = byModule.get(name);
+    if (!n) continue;
+    out.push({ ...n, x, y: ROW_MARGIN });
+    x += n.w + STRIP_GAP;
+  }
+  const tallest = out.reduce((h, n) => Math.max(h, n.h), 0);
+  return {
+    nodes: out,
+    edges: [],
+    width: out.length ? x - STRIP_GAP + ROW_MARGIN : 0,
+    height: out.length ? tallest + ROW_MARGIN * 2 : 0,
+  };
+}
+
 // Position with dagre and KEEP its routed edge points, so a send that skips a column bends around the module.
 // dagre returns centres; we store top-left, while edge points stay in the same absolute graph space.
 export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
