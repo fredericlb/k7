@@ -26,9 +26,8 @@ export type MenuCtx =
     }
   | { kind: "chain"; id: string; track?: string }
   | { kind: "sink"; id: string }
-  // Right-click on the timeline ruler — offer to drop a marker at `tc`. That is the CARET's
-  // beat, or the playhead's; the timeline resolves it, and it is deliberately not the beat
-  // under the pointer (see apps/l8/frontend/docs/timeline.md).
+  // Right-click on the timeline ruler — offer to drop a marker at `tc`, the beat under the
+  // pointer snapped to the ruler's drawn grid (the timeline resolves it).
   | { kind: "marker-add"; tc: string }
   // Right-click on an existing marker — offer to delete it by name.
   | { kind: "marker"; name: string };

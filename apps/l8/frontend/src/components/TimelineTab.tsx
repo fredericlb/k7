@@ -1235,26 +1235,18 @@ export function TimelineTab({
               }}
               onContextMenu={(e) => {
                 // Right-click the ruler → "add marker here", pre-writing `marker new <tc> `.
-                // HERE is the caret when it holds a beat, else the playhead — never the
-                // pointer. A marker names a place you have already aimed at; the right-click
-                // is how you reach the menu, not how you choose the beat. A caret parked on a
-                // label is a row rather than a position, so that falls through to the
-                // playhead too. See docs/timeline.md.
+                // HERE is where you right-clicked, snapped to the nearest DRAWN tick — the
+                // same rule, off the same `bars`, that a left-click seek uses. So the two
+                // buttons agree about where a point on the ruler is, and a marker can only
+                // land on a line you can see. See docs/timeline.md.
                 e.preventDefault();
-                // The caret sits on a whole beat. The playhead is continuous, and
-                // beatsToPosition will spell that to eight fields — so it is taken at the
-                // SIXTEENTH `marker new` documents its argument in. A landmark does not need
-                // sample precision, and a sixteenth is zoom-independent, unlike snapping to
-                // whichever tick the ruler happens to be drawing.
-                const sixteenth = 4 / tsDen / 4; // in model beats (quarter notes)
-                const at =
-                  caretRow && caret.beat !== LABEL
-                    ? caret.beat
-                    : Math.round(playBeat / sixteenth) * sixteenth;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const raw = Math.max(0, beatLo + (e.clientX - rect.left) / ppb);
+                const at = nearestTick(bars, raw) ?? raw;
                 onContextMenu?.(
                   {
                     kind: "marker-add",
-                    tc: beatsToPosition(Math.max(0, at), tsNum, tsDen),
+                    tc: beatsToPosition(at, tsNum, tsDen),
                   },
                   e.clientX,
                   e.clientY,
