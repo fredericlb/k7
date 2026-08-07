@@ -1,4 +1,4 @@
-// projectType.ts — which dialect a project folder is, l8 or m9, and what to do when the
+// projectType.ts — which dialect a project folder is — l8, m9 or z0 — and what to do when the
 // folder's NAME and its `project.yaml` disagree. The suffix decides; the file is checked
 // against it and never overrules it. Full rationale: docs/m9Project.md.
 
@@ -33,6 +33,9 @@ export function declaredType(dir: string): ProjectType | null {
  *    project-shell's launch.md), and then there is no suffix to read at all. This is the case
  *    `type:` exists for.
  * 3. Failing both, **l8** — every project written before m9 existed, and none of them says so.
+ *
+ * The dialects are `ProjectApp`'s members, not a list of its own: step 1 already answers with
+ * `projectApp`, so a second list could only ever disagree with the first. See projectSchema.
  */
 export function projectTypeOf(dir: string): ProjectType {
   return projectApp(basename(dir)) ?? declaredType(dir) ?? "l8";

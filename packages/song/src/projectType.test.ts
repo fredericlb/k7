@@ -29,6 +29,22 @@ describe("what kind of project a folder is", () => {
     expect(projectTypeOf(project("winter.l8", "type: l8\n"))).toBe("l8");
   });
 
+  // z0 arrived in `ProjectApp` — the blind test's editor opens a `.z0` folder through the same
+  // shell — while the dialect list still said l8-or-m9. The two are now one set; these hold
+  // that, because the drift was invisible until a type error surfaced in an unrelated function.
+  it("knows z0, by suffix and by declaration", () => {
+    expect(projectTypeOf(project("party.z0", "type: z0\n"))).toBe("z0");
+    expect(declaredType(project("quiz.z0", "type: z0\n"))).toBe("z0");
+    // A repository that IS the project has no suffix to read, so the file is all there is.
+    expect(projectTypeOf(project("no_suffix", "type: z0\n"))).toBe("z0");
+  });
+
+  it("reports a z0 folder that declares something else", () => {
+    const issues = projectTypeIssues(project("party.z0", "type: l8\n"));
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toContain("z0");
+  });
+
   it("takes the suffix even when the file DISAGREES", () => {
     // The app that opened the folder decided from the name; a loader that decided otherwise
     // would be reading a different project than the one on screen.

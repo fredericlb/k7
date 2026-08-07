@@ -3,6 +3,7 @@
 // up is what once put `libraries_from` at the top level doing nothing. `markers` keys
 // are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
 
+import type { ProjectApp } from "@studio/web-protocol/projects";
 import { z } from "zod";
 import { TIMECODE } from "./trackSchema";
 
@@ -38,9 +39,32 @@ export const ProjectSettingsSchema = z
   })
   .strict();
 
-/** What a project's files are FOR — the timeline song l8 opens, or the set m9 opens. */
-export const PROJECT_TYPES = ["l8", "m9"] as const;
-export type ProjectType = (typeof PROJECT_TYPES)[number];
+/**
+ * What a project's files are FOR — l8's timeline song, m9's set, z0's blind test.
+ *
+ * The SAME set as `ProjectApp`, and not a second list that happens to agree. `projectTypeOf`
+ * answers step 1 with `projectApp(basename(dir))`, so the two are already one question asked
+ * once; restating the members here is what let them drift, and z0 arriving on one side and not
+ * the other is exactly how that showed up — as an assignability error forty lines away, in a
+ * function that had not changed.
+ *
+ * `satisfies` pins every member as a real app; the line below pins the other direction, so
+ * widening `ProjectApp` fails HERE, by name, instead of somewhere downstream.
+ */
+export const PROJECT_TYPES = [
+  "l8",
+  "m9",
+  "z0",
+] as const satisfies readonly ProjectApp[];
+export type ProjectType = ProjectApp;
+
+/** Compile-time exhaustiveness: an app missing from the list above makes this `never`. */
+type _EveryAppIsAType =
+  Exclude<ProjectApp, (typeof PROJECT_TYPES)[number]> extends never
+    ? true
+    : never;
+const _everyAppIsAType: _EveryAppIsAType = true;
+void _everyAppIsAType;
 
 export const ProjectFileSchema = z
   .object({
