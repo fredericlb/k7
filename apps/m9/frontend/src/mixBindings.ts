@@ -137,15 +137,45 @@ export function resolveBindings(
 export function stretchTargets(
   bindings: ResolvedBinding[],
   byDeck: DeckTempos,
+  /** The plugin ids the ENGINE actually has — see `enginePluginIds`. */
+  plugins: ReadonlySet<string>,
 ): DeckTempos {
   const out: DeckTempos = {};
   for (const b of bindings) {
-    if (b.pluginId || !b.track) continue;
+    if (!b.track || hasPlugin(b, plugins)) continue;
     // The control's own deck — `deckA.tempo` is deck A's fader wherever it points.
     const tempo = byDeck[b.control.id.split(".")[0] as DeckId];
     if (tempo) out[b.track as DeckId] = tempo;
   }
   return out;
+}
+
+/**
+ * Is this binding's target a plugin the engine has LOADED?
+ *
+ * The distinction that decides which of the two paths a control takes, and it cannot be read
+ * off the graph. `buildGraphDoc` gives every step a `pluginId` — the `chain:module` address it
+ * *would* have — including steps the compiler emits no plugin for at all. An `offline` module
+ * comes back with `deckA:tempoA` on it and no such plugin in the document.
+ *
+ * So the DOCUMENT is the truth, and asking it is the difference between a tempo fader that
+ * stretches and one that sends a param into the void. It sent one into the void for exactly
+ * one commit.
+ */
+export function hasPlugin(
+  b: ResolvedBinding,
+  plugins: ReadonlySet<string>,
+): boolean {
+  return !!b.pluginId && plugins.has(b.pluginId);
+}
+
+/** Every plugin id in a compiled document — what the engine will have once it is sent. */
+export function enginePluginIds(
+  doc: { tracks: { plugins: { id: string }[] }[] } | null,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const t of doc?.tracks ?? []) for (const p of t.plugins) ids.add(p.id);
+  return ids;
 }
 
 /**

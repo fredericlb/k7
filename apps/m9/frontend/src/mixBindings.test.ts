@@ -40,6 +40,9 @@ const graphWith = (
 
 const VIEW: MixView = { crossfade: { module: "crossfade", param: "Mix" } };
 
+/** An engine with nothing loaded — the state before a compile is sent. */
+const NO_PLUGINS = new Set<string>();
+
 describe("resolving the desk's bindings", () => {
   it("finds the plugin and the widget a control drives", () => {
     const { bindings, problems } = resolveBindings(
@@ -146,7 +149,7 @@ describe("which track a fader stretches", () => {
 
   it("sends each deck's fader to its own deck's track", () => {
     const { bindings } = resolveBindings(tempoView, twoDecks());
-    expect(stretchTargets(bindings, byDeck)).toEqual({
+    expect(stretchTargets(bindings, byDeck, NO_PLUGINS)).toEqual({
       deckA: byDeck.deckA,
       deckB: byDeck.deckB,
     });
@@ -160,17 +163,35 @@ describe("which track a fader stretches", () => {
     };
     const { bindings } = resolveBindings(crossed, twoDecks());
     // Deck A's fader position, landing on deck B's track.
-    expect(stretchTargets(bindings, byDeck)).toEqual({ deckB: byDeck.deckA });
+    expect(stretchTargets(bindings, byDeck, NO_PLUGINS)).toEqual({
+      deckB: byDeck.deckA,
+    });
   });
 
-  it("skips a binding that has a real param to set", () => {
+  it("skips a binding whose plugin the ENGINE actually has", () => {
     // The crossfade goes the other way — `setPluginParam`, not a warp. Stretching its track
     // as well would apply the fade twice, in two different currencies.
     const { bindings } = resolveBindings(
       VIEW,
       graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
     );
-    expect(stretchTargets(bindings, byDeck)).toEqual({});
+    const loaded = new Set(["deckA:crossfade"]);
+    expect(stretchTargets(bindings, byDeck, loaded)).toEqual({});
+  });
+
+  it("STRETCHES when the graph invented an id the document has not got", () => {
+    // The bug this argument exists for. `buildGraphDoc` gives an `offline` module a
+    // `pluginId` — `deckA:tempoA` — and the compiler emits no such plugin. Judging by the
+    // graph classed every tempo fader as a param and sent it into the void; judging by the
+    // DOCUMENT is what puts it back on the warp path.
+    const { bindings } = resolveBindings(
+      { "deckA.tempo": { module: "tempoA", param: "Target BPM" } },
+      graphWith([{ module: "tempoA", pluginId: "deckA:tempoA" }]),
+    );
+    expect(bindings[0].pluginId).toBe("deckA:tempoA");
+    expect(stretchTargets(bindings, byDeck, NO_PLUGINS)).toEqual({
+      deckA: byDeck.deckA,
+    });
   });
 });
 

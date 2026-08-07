@@ -61,3 +61,21 @@ un contrôle déclaré et un contrôle câblé.
 
 Le fader appartient toujours à une platine (son échelle vient du morceau chargé, un fait sur
 ce qui joue et non sur le câblage) ; ce qu'il DÉPLACE vient du fichier.
+
+### Qui décide du chemin — et pourquoi ce n'est pas le graphe
+
+C'est le DOCUMENT COMPILÉ, jamais le graphe, et la nuance a coûté un commit entier.
+
+`buildGraphDoc` donne un `pluginId` à CHAQUE étape d'une chaîne : l'adresse
+`chaîne:module` que l'étape *aurait*. Y compris aux étapes dont le compilateur n'émet aucun
+plugin — il fait littéralement `if (rawType === OFFLINE_TYPE) continue`. Un module `offline`
+ressort donc du graphe avec `deckA:tempoA` sur le dos, et le document n'a rien de tel.
+
+Décider « paramètre ou piste » en regardant si l'étape a un `pluginId` classe donc tous les
+faders de tempo du côté paramètre, et `set-plugin-param` part vers une adresse que le moteur
+ne connaît pas. Aucune erreur, aucun log : le fader bouge et rien ne se passe.
+
+`enginePluginIds(compiled)` collecte les identifiants que le moteur aura vraiment une fois le
+document envoyé, et `hasPlugin()` est la question à poser. Règle générale : le graphe décrit
+ce qu'on DESSINE, le document décrit ce qui JOUE — pour savoir quoi envoyer au moteur, on
+interroge le second.
