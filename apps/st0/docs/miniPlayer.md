@@ -69,6 +69,72 @@ because `phase: ready` only says a socket was made and told to connect, while th
 ask its questions once the socket is actually open; `onConnected` does not replay a state it
 already reached, so the queries are issued on mount instead.
 
+## La liste de lecture
+
+Clic droit sur un morceau dans l'arbre → « Ajouter à la liste de lecture ». Un morceau qui se
+termine enchaîne sur le suivant. Le bouton à droite de la barre l'ouvre : on y déplace et on y
+retire des lignes.
+
+### Une file d'attente n'est pas une playlist
+
+Les deux mots se ressemblent, les deux choses n'ont rien à voir :
+
+| | la file d'attente | une playlist |
+|---|---|---|
+| ce que c'est | **ce qu'on écoute maintenant** | **un document** |
+| où elle vit | dans l'onglet, en mémoire | un fichier YAML sous `playlists/` |
+| qui la voit | cet onglet | tout le monde, et l'éditeur à gauche |
+| survit à | la navigation entre écrans | tout |
+
+Elle ne va donc pas sur le serveur, et elle disparaît au rechargement — comme la file de
+n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist
+(`packages/mediatek/docs/playlists.md`).
+
+### Elle est tenue par la Library, pas par le provider
+
+Ça a l'air à l'envers, et c'est forcé : `Library` **rend** `PlaybackProvider`, elle est donc
+au-dessus du contexte et ne peut pas appeler `usePlayback()`. Or c'est elle qui porte l'arbre
+dont le clic droit remplit la file. Le hook `usePlayQueue` vit donc en haut et le provider le
+reçoit en prop, puis le rediffuse — une seule file par onglet, au-dessus des écrans, comme le
+transport lui-même.
+
+### Deux choses savent enchaîner, une seule le fait à la fois
+
+Le panneau d'une playlist enchaîne, la file aussi. Toutes deux regardent `ended`, aucune ne
+voit l'autre : sans arbitrage, les deux démarreraient un morceau sur le même événement et le
+dernier écrit gagnerait, au hasard.
+
+`claimAdvance()` est la revendication. Le panneau la prend **tant qu'il pilote une ligne** — pas
+tant qu'il est ouvert, un panneau simplement affiché ne confisque rien — et la file s'abstient
+pendant ce temps. C'est un compteur et non un booléen : deux panneaux peuvent être montés le
+temps d'une transition d'écran, et le démontage du premier remettrait un booléen à faux alors
+que le second pilote encore.
+
+### Le démarrage à froid
+
+L'avance n'écoute que la **fin** d'un morceau. Ajouter à une file alors que rien ne joue
+resterait donc là indéfiniment — ce qu'un lecteur ne fait pas. Un second effet démarre la tête
+quand `now` est nul et que la file n'est pas vide.
+
+Ça ne se déclenche jamais entre deux titres : `now` n'est pas vidé quand un morceau se termine
+(« ce que je viens d'écouter » survit au dernier échantillon), donc le cas ne se présente
+qu'avant la première lecture ou après avoir fermé la barre.
+
+Et la barre apparaît pour une file non vide, pas seulement pour un morceau chargé : sinon le
+bouton qui montre la file vivrait dans une barre que la file ne suffit pas à faire apparaître,
+et on ajouterait un morceau sans nulle part où le voir.
+
+### Ce qui est sauté et ce qui arrête
+
+Un morceau sans master est **sauté** : la file continue. Une machine sans cache **arrête** — le
+défaut est celui de la destination et non de la ligne, et vider la file pour ça effacerait ce
+que quelqu'un vient d'y mettre. Même partage que dans le panneau des playlists, et pour la même
+raison.
+
+Enfin, `enqueue` refuse les doublons et `moveTo` prend l'indice VOULU dans la liste finale —
+insérer à l'indice de départ ferait un déplacement d'un cran trop court vers le bas, et le
+bouton semblerait mort. Les deux sont testés dans `playback/queue.test.ts`.
+
 ## What the bar does not follow
 
 **A chain variant.** Auditioning one takes the engine's transport away from whatever the bar

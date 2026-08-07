@@ -64,7 +64,9 @@ import { PlaylistEditor } from "./PlaylistEditor";
 import { MiniPlayer } from "./playback/MiniPlayer";
 import { PlaybackPicker } from "./playback/PlaybackPicker";
 import { PlaybackProvider } from "./playback/PlaybackProvider";
+import { QueueAdvance } from "./playback/QueueAdvance";
 import { usePlaybackTarget } from "./playback/usePlaybackTarget";
+import { usePlayQueue } from "./playback/usePlayQueue";
 import { projectCount } from "./projects/count";
 import { ProjectsSection } from "./projects/ProjectsSection";
 import {
@@ -75,6 +77,7 @@ import {
   type SectionId,
 } from "./routes";
 import { SongEditor } from "./SongEditor";
+import { takesOf } from "./songTakes";
 import { sortNodes } from "./treeOrder";
 import { useLibraryRoute } from "./useLibraryRoute";
 
@@ -520,6 +523,9 @@ export function Library() {
   // account and both are drawn in this header — and because the editors below need it: a
   // destination that could only be read where it is drawn would not reach the player.
   const playback = usePlaybackTarget();
+  // Tenue ICI parce que ce composant REND le provider — il est donc au-dessus du contexte, et
+  // c'est lui qui porte l'arbre dont le clic droit remplit la file. Voir playback/usePlayQueue.ts.
+  const playQueue = usePlayQueue();
   // What the chosen MACHINE has scanned, flattened across formats — the vocabulary for
   // "give this plugin a face". It comes from that machine's file service, not from this
   // app's backend, which is hosted and has no scan cache of its own. Empty is "cannot
@@ -656,6 +662,23 @@ export function Library() {
               run: (t) => pickVariant(t.path),
             },
             {
+              key: "queue-song",
+              // La file d'attente de la barre du bas, pas une playlist : ce qu'on écoute
+              // maintenant, dans cet onglet, par opposition au fichier YAML qu'est une
+              // playlist. Voir ../docs/miniPlayer.md.
+              label: "Ajouter à la liste de lecture",
+              // Seulement ce qui a réellement un master : mettre à la suite un dossier que
+              // personne n'a rempli ferait une ligne que la lecture sauterait en silence.
+              when: (t) => {
+                const e = entryAt(entries, t.path);
+                return !!e && takesOf(e).some((k) => k.kind === "master");
+              },
+              run: (t) => {
+                const e = entryAt(entries, t.path);
+                if (e) playQueue.enqueue([e]);
+              },
+            },
+            {
               key: "delete-song",
               // Named, and named as a folder: what goes is the master and its sidecar, not
               // just the row. There is no confirmation, as everywhere else in this menu.
@@ -676,7 +699,7 @@ export function Library() {
                   .catch((e: Error) => setError(e.message)),
             },
           ],
-    [entries, file, openFile, pickVariant, refresh, section],
+    [entries, file, openFile, pickVariant, playQueue.enqueue, refresh, section],
   );
 
   useEffect(() => {
@@ -815,7 +838,7 @@ export function Library() {
     /* Wrapping the whole shell, because what plays must outlive every screen inside it — and
        because it holds this tab's ONE engine socket, which the editors below borrow rather
        than each opening their own. */
-    <PlaybackProvider engineId={choice.chosenId}>
+    <PlaybackProvider engineId={choice.chosenId} playQueue={playQueue}>
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* The families moved from the side to the header, where l8 puts its views: the
           side is worth more as the current zone's tree than as three fixed buttons. */}
@@ -1559,6 +1582,17 @@ export function Library() {
           drawn here and not inside a song's editor: absent until something plays, and it stays
           after the song ends. Above the status bar, which stays the app's last line — one is a
           thing you act on, the other a line you read. See docs/miniPlayer.md. */}
+        {/* Ne dessine rien : c'est l'enchaînement de la file. DANS le provider, parce qu'il
+            lui faut le transport, et ici parce qu'il lui faut aussi la machine choisie et la
+            destination — c'est ce couple qui dit OÙ un fichier se joue. */}
+        <QueueAdvance
+          machine={{
+            fileBase: choice.fileBase,
+            token: choice.token,
+            ready: choice.ready,
+          }}
+          target={playback.target}
+        />
         <MiniPlayer />
 
         {/* The status bar. Outside the row above so it spans the whole width, under the tree
