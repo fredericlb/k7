@@ -47,20 +47,21 @@ transport there — not the other way about.
 
 ### Dropping a marker
 
-Right-clicking the ruler offers `marker new <tc>`, and `<tc>` is the **caret's beat when it
-holds one, otherwise the playhead's** — never the beat under the pointer. Both are positions
-you aimed at deliberately; where you happened to right-click is how you reached the menu, not
-a choice you made. A caret parked on a label is a row rather than a position, so that falls
-through to the playhead as well.
+Right-clicking the ruler offers `marker new <tc>`, and `<tc>` is **where you right-clicked,
+snapped to the nearest drawn tick** — the same `nearestTick` against the same `bars` that a
+left-click seek uses. Both buttons therefore agree about where a point on the ruler is, and a
+marker can only land on a line you can see. The zoom is the resolution control here too.
 
-The caret sits on a whole beat, so it spells cleanly. The playhead does not: it is continuous,
-and `beatsToPosition` subdivides a leftover fraction by four until it runs out, so marking a
-moment mid-playback produced `4:2:2:2:4:4:2:4` — a valid timecode, and one nobody wants
-pre-written into the command bar. It is therefore taken at the **sixteenth** that `marker
-new` documents its argument in (`bar:beat:sixteenth`). A landmark does not need sample
-precision, and a sixteenth is zoom-independent — unlike snapping to whichever tick the ruler
-is currently drawing, which would make where a marker lands depend on how far you had
-zoomed.
+It aimed at the caret first, falling back to the playhead, on the theory that those are
+positions you chose deliberately. That was wrong for a reason worth recording: **the caret is
+always defined.** It sits at beat 0 until you move it, so "the caret if it holds a beat" is
+not a test for *has the user aimed at something* — and once the playhead stopped dragging the
+caret along (above), every right-click read that untouched beat 0 and proposed `1:1`.
+
+Snapping also removes the problem the caret was there to solve. The playhead is continuous,
+and `beatsToPosition` subdivides a leftover fraction by four until it runs out, so a raw
+transport position spelled as `4:2:2:2:4:4:2:4`; a drawn tick is always a whole multiple of
+the ruler's unit, so it spells as `4:2` or `4:2:3`.
 
 ## The grid, and what a ruler click lands on
 
