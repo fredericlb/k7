@@ -47,6 +47,34 @@ the pane toggles in the header. It is the wiring and the layout; almost nothing 
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
+### The Mixer panel draws the graph's strips, not its own
+
+`MixerTab` has no controls of its own. It is the row of MIXER MODULES the song actually
+has — the module each track ends on (`trackMixer`, by plugin type) — drawn as the very
+cards the chains view draws, side by side, in track order.
+
+It used to hand-roll a strip per track: a VU, a fader, a pan slider, M and S. That was a
+second implementation of a channel strip, and it drifted from the one the module's own
+`ui.yaml` declares — a module could grow a knob and the panel would never show it. Now
+whatever the mixer module's panel says IS the mixer, and the two cannot disagree because
+they are the same component.
+
+Three consequences, all of them the design rather than gaps:
+
+- **A track with no mixer module has no strip.** It is not "at unity" — it is a track with
+  nowhere to put a level, which is what the panel should say rather than draw a dead fader.
+  A song where no track ends on a mixer shows a line saying so.
+- **Mute and solo are not here.** They were never the strip's — they are the track's, and
+  they live on the timeline (`m`/`s`) and on the graph's track nodes.
+- **Two tracks sharing a strip draw one card.** In practice the compiler makes such a strip
+  its own bus track, so it arrives once anyway; `mixerModules` de-duplicates regardless,
+  because two cards for one value would be two controls fighting.
+
+Two sources, because neither answers alone: the compiled project says *which* modules are
+strips and in what order (the graph doc does not carry a plugin type), and the graph says
+what each one looks like. `moduleRow` (in `@studio/ui-chains`) then places them — no dagre,
+since there is nothing to route and the order is the song's, not a layout engine's.
+
 ## A view is a LAYOUT, not a mode
 
 All three panes are mounted always, and always the *same instances*. Three pieces of
