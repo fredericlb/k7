@@ -14,6 +14,10 @@ import { mixerModules } from "../mixerStrips";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph, WebProject } from "../types";
 
+/** Strips are drawn 1.5× the width their grid asks for — read side by side, a card sized exactly
+ *  to its controls reads as cramped. Elbow room, not bigger controls: see moduleRow. */
+const STRIP_WIDTH_SCALE = 1.5;
+
 export function MixerTab({
   reloadKey,
   command,
@@ -58,7 +62,7 @@ export function MixerTab({
 
   const modules = useMemo(() => mixerModules(proj), [proj]);
   const laid = useMemo(
-    () => (graph ? moduleRow(graph, modules) : null),
+    () => (graph ? moduleRow(graph, modules, STRIP_WIDTH_SCALE) : null),
     [graph, modules],
   );
 
@@ -117,6 +121,10 @@ export function MixerTab({
           // Re-frame when the ROW changes, not on every refetch: a param landing must not take the
           // camera back from wherever it was panned. Same rule as the chains view's fitKey.
           fitKey={modules.join("|")}
+          // Fill the panel's HEIGHT and let the row run off the right, which pans. Fitting both
+          // axes would shrink every strip as the song gains tracks, and a mixer you cannot read
+          // is worse than one you have to scroll.
+          fitAxis="height"
           command={command}
           onContextMenu={onContextMenu}
           engineWarnings={engineWarnings}

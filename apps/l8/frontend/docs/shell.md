@@ -75,6 +75,29 @@ strips and in what order (the graph doc does not carry a plugin type), and the g
 what each one looks like. `moduleRow` (in `@studio/ui-chains`) then places them — no dagre,
 since there is nothing to route and the order is the song's, not a layout engine's.
 
+#### It fills the HEIGHT, and the row pans
+
+`fitAxis="height"`, not the default fit-both. This is not a preference: fitting both axes
+divides the panel between however many strips the song has, and the camera scale falls with
+every track added. Below `WIDGET_MIN_SCALE` (0.6) the renderer drops the widget grid
+altogether — so a busy song's mixer would show a rank of bare name cards, which is the one
+thing this panel must not do. Measured on a 1200×280 panel with a 3×6 strip grid:
+
+| strips | fit-both | fit-height |
+|---|---|---|
+| 4 | k 0.85, card 152×225 | k 0.85, card 152×225 |
+| 8 | k 0.66, card 119×175 | k 0.85, card 152×225 |
+| 12 | **k 0.44 — widgets dropped** | k 0.85, card 152×225 |
+
+Filling the height instead keeps every strip the same readable size whatever the track
+count, and lets the row run off the right, where it pans. A mixer you have to scroll beats
+one you cannot read.
+
+The cards are drawn at **1.5× the width their grid asks for** (`STRIP_WIDTH_SCALE`). That is
+elbow room, not bigger controls: the grid inside a card is a fixed cell size (`widgetRect`),
+so the extra width is space beside the controls, and the height is deliberately left alone —
+scaling it too would only add dead space under them.
+
 ## A view is a LAYOUT, not a mode
 
 All three panes are mounted always, and always the *same instances*. Three pieces of

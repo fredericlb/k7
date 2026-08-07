@@ -738,3 +738,43 @@ describe("moduleRow", () => {
     expect(row.edges).toEqual([]);
   });
 });
+
+describe("moduleRow width scale", () => {
+  const one = graph(
+    {
+      a: {
+        from: "vox",
+        use: [{ module: "mx-vox" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      b: {
+        from: "bass",
+        use: [{ module: "mx-bass" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox", "bass"],
+  );
+
+  it("widens each card without touching its height", () => {
+    // Elbow room, not bigger controls: the grid inside is a fixed cell size (widgetRect), so the
+    // height must not move or the card would gain dead space below the controls too.
+    const plain = moduleRow(one, ["mx-vox"]).nodes[0];
+    const wide = moduleRow(one, ["mx-vox"], 1.5).nodes[0];
+    expect(wide.w).toBe(Math.round(plain.w * 1.5));
+    expect(wide.h).toBe(plain.h);
+  });
+
+  it("spaces the row by the WIDENED width, so cards still cannot overlap", () => {
+    const row = moduleRow(one, ["mx-vox", "mx-bass"], 1.5);
+    const [first, second] = row.nodes;
+    expect(second.x).toBeGreaterThanOrEqual(first.x + first.w);
+    expect(row.width).toBeGreaterThan(second.x + second.w - 1);
+  });
+
+  it("defaults to the card's own width", () => {
+    expect(moduleRow(one, ["mx-vox"]).nodes[0].w).toBe(
+      moduleRow(one, ["mx-vox"], 1).nodes[0].w,
+    );
+  });
+});
