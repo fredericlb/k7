@@ -17,6 +17,14 @@ export interface CursorContext {
   inKey: boolean;
   /** The field whose value the cursor is filling, when it is filling one. */
   valueOf: string | null;
+  /**
+   * Is the cursor on the `- ` item of a block sequence, with nothing yet deciding what it is?
+   *
+   * Such a line is genuinely BOTH: `- song: x` is a mapping and `- x` is a scalar, and only
+   * the colon tells them apart. It is reported as a key position AND as a sequence item, so a
+   * caller can offer the two vocabularies together rather than guessing which was meant.
+   */
+  inSeqItem: boolean;
 }
 
 const MAPPINGS = new Set(["BlockMapping", "FlowMapping"]);
@@ -71,8 +79,8 @@ export function cursorContext(state: EditorState, pos: number): CursorContext {
   }
   path.reverse();
 
-  const inKey = keyPosition(state, pos);
-  return { path, inKey, valueOf: inKey ? null : ownField };
+  const { inKey, inSeqItem } = linePosition(state, pos);
+  return { path, inKey, valueOf: inKey ? null : ownField, inSeqItem };
 }
 
 /** Is the cursor's line indented deeper than the line `keyFrom` sits on? */
@@ -91,18 +99,29 @@ function nestedUnder(
 }
 
 /**
- * Is the cursor where a field NAME goes?
+ * What the cursor's own LINE says about it: a field name or a value, and whether it sits on a
+ * sequence item.
  *
  * A mapping entry is a key until its colon. The fragment examined is the current line
  * from its last structural break — a `- ` sequence marker, or the `{`/`,` of a flow
  * mapping — so `{ type: knob, ` is asking for a key while `{ type: kn` is asking for a
  * value.
  */
-function keyPosition(state: EditorState, pos: number): boolean {
+function linePosition(
+  state: EditorState,
+  pos: number,
+): { inKey: boolean; inSeqItem: boolean } {
   const line = state.doc.lineAt(pos);
   let fragment = state.sliceDoc(line.from, pos);
   const brk = Math.max(fragment.lastIndexOf("{"), fragment.lastIndexOf(","));
+  let marker = false;
   if (brk >= 0) fragment = fragment.slice(brk + 1);
-  else fragment = fragment.replace(/^\s*-\s*/, "");
-  return !fragment.includes(":");
+  else {
+    const bare = fragment.replace(/^\s*-\s*/, "");
+    marker = bare !== fragment;
+    fragment = bare;
+  }
+  const inKey = !fragment.includes(":");
+  // A `- ` that HAS its colon is an ordinary mapping entry; only the undecided one is both.
+  return { inKey, inSeqItem: marker && inKey };
 }

@@ -91,6 +91,34 @@ describe("the cursor's key path, from the tree", () => {
     });
   });
 
+  it("names `extends` at the very top of a module file", () => {
+    // The headline case, and the one that completed against nothing: the field sits at the
+    // root, so the path is empty and there is no enclosing mapping to walk up to.
+    expect(ctx('extends: "@engine/de', 'extends: "@engine/de')).toMatchObject({
+      path: [],
+      inKey: false,
+      valueOf: "extends",
+    });
+  });
+
+  it("reports a `- ` item as BOTH a key and a sequence item", () => {
+    // Undecided by construction: `- song: x` is a mapping and `- x` is a scalar, and the
+    // colon that tells them apart has not been typed. Saying "key" alone is what left a
+    // playlist's `items:` with no completion at all.
+    expect(ctx("items:\n  - AC", "  - AC")).toMatchObject({
+      path: ["items"],
+      inKey: true,
+      inSeqItem: true,
+    });
+    // …and once the colon is there it is an ordinary entry again.
+    expect(ctx("items:\n  - song: AC", "  - song: AC")).toMatchObject({
+      path: ["items"],
+      inKey: false,
+      inSeqItem: false,
+      valueOf: "song",
+    });
+  });
+
   it("survives a document being typed — an incomplete one", () => {
     // Completion runs on every keystroke, so the tree is usually of a broken document.
     // This is where a hand-rolled scanner earns its bugs.
@@ -232,6 +260,91 @@ describe("the completion source", () => {
     // …and the list must survive the next `/` the user types.
     expect((r as { validFor: RegExp }).validFor.test("@engine/audio/")).toBe(
       true,
+    );
+  });
+
+  // A playlist's shape: the list holds bare song refs, and each item may instead be a
+  // mapping naming a variant. Both vocabularies belong on a `- ` line.
+  const PLAYLIST = {
+    fieldsAt: (p: string[]) => (p[0] === "items" ? ["song", "variant"] : []),
+    valuesAt: (p: string[], f: string) =>
+      (p.length === 0 && f === "items") || (p[0] === "items" && f === "song")
+        ? ["AC-DC/Back in Black/Hells Bells", "Nirvana/Nevermind/Lithium"]
+        : [],
+  };
+
+  const completeWith = (
+    vocabulary: typeof PLAYLIST,
+    doc: string,
+    marker: string,
+  ) => {
+    const { state, pos } = at(doc, marker);
+    return yamlCompletions(vocabulary)({
+      state,
+      pos,
+      explicit: true,
+      matchBefore: (re: RegExp) => {
+        const text = state.sliceDoc(state.doc.lineAt(pos).from, pos);
+        const m = text.match(re);
+        return m ? { from: pos - m[0].length, to: pos, text: m[0] } : null;
+      },
+      aborted: null,
+      tokenBefore: () => null,
+      // biome-ignore lint/suspicious/noExplicitAny: a CompletionContext stub, not the real one
+    } as any);
+  };
+
+  it("offers a sequence's values AND the item's fields on a `- ` line", () => {
+    const r = completeWith(PLAYLIST, "items:\n  - ", "  - ");
+    expect(labels(r)).toEqual([
+      "song",
+      "variant",
+      "AC-DC/Back in Black/Hells Bells",
+      "Nirvana/Nevermind/Lithium",
+    ]);
+  });
+
+  it("replaces the WHOLE value when one may hold spaces", () => {
+    // A song folder is made from its tags, so it legitimately carries spaces. The word
+    // token stops at the last one, and accepting the pick there would splice the ref into
+    // the middle of itself: `- AC-DC/Back in AC-DC/Back in Black/Hells Bells`.
+    const doc = "items:\n  - AC-DC/Back in Bl";
+    const r = completeWith(PLAYLIST, doc, "  - AC-DC/Back in Bl") as {
+      from: number;
+    };
+    expect(r.from).toBe(doc.indexOf("AC-DC/Back in Bl"));
+    // …and the list must survive the space the user is about to type.
+    expect(
+      (r as unknown as { validFor: RegExp }).validFor.test("AC-DC/Back in "),
+    ).toBe(true);
+  });
+
+  it("leaves a quote the user already opened alone", () => {
+    const doc = "items:\n  - song: 'AC-DC/Back in Bl";
+    const r = completeWith(PLAYLIST, doc, "'AC-DC/Back in Bl") as {
+      from: number;
+      options: { label: string; apply?: string }[];
+    };
+    expect(r.from).toBe(doc.indexOf("AC-DC/Back in Bl"));
+    expect(r.options[0]?.apply).toBeUndefined();
+  });
+
+  it("quotes a value YAML would read as something else", () => {
+    const reserved = {
+      fieldsAt: () => [],
+      valuesAt: () => ["-M-/Je dis aime/Machistador", "plain/one"],
+    };
+    const r = completeWith(
+      reserved as unknown as typeof PLAYLIST,
+      "items:\n  - ",
+      "  - ",
+    ) as unknown as { options: { label: string; apply?: string }[] };
+    expect(r.options.find((o) => o.label.startsWith("-M-"))?.apply).toBe(
+      '"-M-/Je dis aime/Machistador"',
+    );
+    // Only where it is needed: quoting everything would put YAML in a list of names.
+    expect(r.options.find((o) => o.label === "plain/one")?.apply).toBe(
+      "plain/one",
     );
   });
 

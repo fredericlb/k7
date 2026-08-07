@@ -26,6 +26,13 @@ function projectValues(
   field: string,
   hints: Hints,
 ): string[] {
+  // What a module may EXTEND. No enum can hold these — they are whatever this machine's
+  // engine scanned plus whatever anybody wrote — which is exactly why `valuesAt` in
+  // @studio/song answers nothing for `extends` rather than pretending to.
+  if (kind === "module")
+    return !keyPath.length && field === "extends"
+      ? (hints.baseModules ?? [])
+      : [];
   if (kind !== "chains") return [];
   // Inside `tracks:` or `modules:` the "field" is a NODE's name and the values are its
   // destinations — so the vocabulary is positional now rather than per field name. A

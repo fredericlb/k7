@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { PlaylistPane } from "./PlaylistPane";
 import type { PlaybackTarget } from "./playback/targets";
+import { playlistVocabulary } from "./playlistVocabulary";
 
 /** How often the songs listing is re-read while a playlist is open. The same interval the
  *  catalogue polls at — a morceau filed in another tab should appear here too, and a playlist
@@ -72,6 +73,11 @@ export function PlaylistEditor({
       clearInterval(t);
     };
   }, []);
+
+  // Memoised on the listing itself: the poll above hands back a fresh array every three
+  // seconds, and the pane holds this in a ref precisely so a new one does not reconfigure the
+  // editor — but rebuilding the ref lists on every tick would still be work for nothing.
+  const vocabulary = useMemo(() => playlistVocabulary(songs), [songs]);
 
   // Absent is NOT an error, the way a song's missing sidecar is not: the editor opens on what
   // the file WOULD say, and the first save creates it through the ordinary write route. An
@@ -215,6 +221,10 @@ export function PlaylistEditor({
             <YamlPane
               path={path}
               content={content}
+              // The path cannot say what this file is — a playlist is the médiathèque's, not
+              // a l8 project's — so the vocabulary comes from the listing already polled
+              // above. See ./playlistVocabulary.ts.
+              vocabulary={vocabulary}
               vimMode={vimMode}
               onChange={(text) => {
                 setContent(text);

@@ -23,6 +23,7 @@ import {
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
+import { mediatekModuleRefs } from "./moduleRefs";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
 import type { St0Prefs } from "./prefs";
@@ -568,6 +569,11 @@ export const library = {
   list: (family: string) =>
     get<FamilyListing>(`/list?family=${encodeURIComponent(family)}`, "list"),
 
+  /** The library's own modules, as the refs a sibling's `extends:` may name — see
+   *  moduleRefs.ts. A listing read for its NAMES only; the tree is drawn elsewhere. */
+  baseModules: async (): Promise<string[]> =>
+    mediatekModuleRefs((await library.list("modules")).entries),
+
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>
     `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
@@ -679,16 +685,22 @@ export const library = {
   /**
    * What the editor can complete against.
    *
-   * A shadow of l8', and now nearly empty: most of `Hints` describes a SONG — its tracks,
+   * A shadow of l8', and nearly empty: most of `Hints` describes a SONG — its tracks,
    * clips, chains — and a library has none of those. Parameter names used to come from here;
    * the engine reports them now (see engine/useModuleEngine), which is a better source anyway
    * — it is the loaded plugin talking rather than a table about it. The asset list went the
    * same way: a module's files live in its own `assets/`, so the builder reads them from the
    * module rather than from a project-wide list nobody here could fill.
+   *
+   * `baseModules` is the exception, and it is only HALF of that field: the médiathèque's own
+   * modules, which a sibling may extend. The other half — what the engine provides, which is
+   * what these files actually say — is asked of the machine over its socket, because this
+   * backend serves a volume of files and has never seen a plugin scan. The builder merges the
+   * two. See ../docs/completion.md.
    */
   hints: async (): Promise<Hints> => {
     return {
-      baseModules: [],
+      baseModules: await library.baseModules().catch(() => []),
       ioSinks: [],
       modules: [],
       tracks: [],
