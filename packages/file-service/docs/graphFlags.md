@@ -24,12 +24,35 @@ the engine":
   (`~/.studio/exts.json`) — e.g. a VST3 the project references but this machine hasn't
   scanned or installed. That's the common one on an imported song.
 
-The KNOWN types are `internal`, `jsdsp`, and the external formats. `jsdsp` had to be added
+The KNOWN types are `internal`, `jsdsp`, `offline`, and the external formats. `jsdsp` had to be added
 by hand once and was missed, which is worth remembering because of how it failed: the module
 played perfectly — the compiler hands the engine its graph — while the node drew red and its
 knobs drew empty. Empty because a red node gets no `pluginId`, and that is the address the
 panel asks the engine for a parameter value by. So a missing entry in this list costs both
 the colour and the values, and neither says which list is wrong.
+
+## `offline` is known AND has no pluginId — the one case where they come apart
+
+Being known and having an address are two different facts, and `offline` is the type that
+proves it. It is known for the same reason `jsdsp` is — the compiler recognises it, so
+drawing it red would call a module that works exactly as written broken. But where `jsdsp`
+becomes a real plugin in the compiled document, `offline` becomes **nothing**: the compiler
+reads the type and skips the emit (`if (rawType === OFFLINE_TYPE) continue`). It means "no
+engine plugin, realised outside the graph" — a pass that writes files for a stem splitter,
+the player warping the clip it feeds for m9's tempo.
+
+So it gets no `pluginId`, and the reason is worth stating plainly: an id here would name an
+address no document contains. It carried one for a while and everything downstream believed
+it. m9's tempo faders were classed as plugin params and sent `set-plugin-param` to
+`deckA:tempoA` for ever — no error, no log, a fader that moves and changes nothing. The
+panel drew the same lie: a knob you could turn, over a param that was never there. And the
+input tap two loops below, whose comment promises an id "the engine really has", could land
+on one too.
+
+Without the id the widget resolves to no target and goes inert — `pickWidget` returns on a
+null target — which is the honest state. What such a module's panel shows is its DECLARED
+params, since nothing live will ever arrive for them. Where the value actually lives is the
+surface that realises it: for m9 that is the desk's fader, which addresses the TRACK.
 
 ## Why the two red cases behave differently downstream
 

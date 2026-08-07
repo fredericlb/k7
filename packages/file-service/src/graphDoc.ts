@@ -143,8 +143,20 @@ export function buildGraphDoc(dir: string): WebGraph {
           // place: the graph is where a knob is drawn, so it is where a knob learns its control.
           cc: module?.cc,
           params: module?.params ?? {},
+          // The engine's address for this step — and ONLY when the engine will really have
+          // one. `offline` is the exception `known` above hides: the compiler recognises it
+          // and then emits no plugin at all (`if (rawType === OFFLINE_TYPE) continue`), so an
+          // id here would name something no document contains. It named one for a while, and
+          // everything downstream believed it: m9's tempo faders were classed as plugin
+          // params and sent `set-plugin-param` to `deckA:tempoA` for ever, the panel drew a
+          // knob that moved and changed nothing, and the input tap below — which promises an
+          // id "the engine really has" — could land on it too. See docs/graphFlags.md.
           pluginId:
-            isPlugin && !stub && !notSupported && !unknownPlugin
+            isPlugin &&
+            !stub &&
+            !notSupported &&
+            !unknownPlugin &&
+            fmt !== OFFLINE_TYPE
               ? `${name}:${s.module}`
               : undefined,
           // A live input's own field, so a widget can show and set it. Not a param: it is
