@@ -193,6 +193,18 @@ float EngineHost::masterLevelDb(const std::string& session) const {
     return std::max(l, r);
 }
 
+// Drop the clip a ClipDoc names. Clips carry their doc id as the Tracktion clip name, so that is what
+// identifies one; iterating a COPY is deliberate, since removeFromParent() mutates the live list.
+static void removeClipFor(te::AudioTrack& t, const ClipDoc& c) {
+    const juce::String name = juce::String(c.name.empty() ? c.id : c.name);
+    auto clips = t.getClips();
+    for (auto* clip : clips)
+        if (clip != nullptr && clip->getName() == name) {
+            clip->removeFromParent();
+            break;
+        }
+}
+
 ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir) {
     WarningScope ws{session};   // same reason as applyFull, for the incremental path
     impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
@@ -241,31 +253,32 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 }
                 break;
 
-            // --- Skeletons: structurally located, engine call TODO ------------
-            // Each of these has a clear home; they are left explicit rather than faked, so the compiler keeps reminding us.
-            case ChangeKind::TrackRemoved:
-                // te::deleteRegionOfTracks / edit.deleteTrack(*t) — needs the Track (not just AudioTrack) and an undo transaction.
-                break;
             case ChangeKind::ClipRemoved:
-                // Clips carry their doc id as the Tracktion clip name, so match on that and drop it. Iterating a COPY is
-                // deliberate — removeFromParent() mutates the live list — and this is what lets a live-streamed pattern prune
-                // played clips instead of accumulating them.
-                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
-                    const juce::String name = juce::String(c.clip->name.empty() ? c.clip->id : c.clip->name);
-                    auto clips = t->getClips();   // a copy — removeFromParent() mutates the live list
-                    for (auto* clip : clips)
-                        if (clip != nullptr && clip->getName() == name) {
-                            clip->removeFromParent();
-                            break;
-                        }
-                }
+                // What lets a live-streamed pattern prune played clips instead of accumulating them.
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip)
+                    removeClipFor(*t, *c.clip);
                 break;
             case ChangeKind::ClipMoved:
-                // clip->setStart(pos, preserveSync, true); clip->setLength(...)
+                // Re-INSERT, not reposition: start, length, source, offset, source window, loop and warp are all
+                // applied at insert time and nowhere else, so setStart/setLength would drop everything but two.
+                // This was an empty stub, and the diff reported "moved" the whole time — see docs/engineHost.md.
+                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
+                    removeClipFor(*t, *c.clip);
+                    if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
+                    else insertClip(engine, edit, *t, *c.clip, baseDir);
+                }
                 break;
             case ChangeKind::PluginAdded:
                 if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.plugin)
                     addPlugin(edit, *t, *c.plugin, 0);   // incremental add at the front
+                break;
+
+            // --- Skeletons: structurally located, engine call TODO ------------
+            // Each of these has a clear home; they are left explicit rather than faked, so the compiler keeps reminding us.
+            // A stub here is NOT free: the diff still reports the change, so the log says it was applied while nothing
+            // moved. ClipMoved sat here for as long as it took a tempo fader to be built on top of it.
+            case ChangeKind::TrackRemoved:
+                // te::deleteRegionOfTracks / edit.deleteTrack(*t) — needs the Track (not just AudioTrack) and an undo transaction.
                 break;
             case ChangeKind::PluginRemoved:
                 // plugin->deleteFromParent();
