@@ -42,7 +42,13 @@ const selectBody = z.object({
   latencyMs: z.number().optional(),
 });
 
-const releaseBody = z.object({ id: z.string().min(1) });
+// The token, like `select`: a session says WHO is asking, not WHICH engine they hold. Without
+// it any logged-in user could drop anyone else's lease, on any engine, by id alone — and the
+// holder would simply read FREE in every picker while still driving it.
+const releaseBody = z.object({
+  id: z.string().min(1),
+  token: z.string().min(1),
+});
 
 /** The routes over one registry. Each service holds its own — see docs/shared.md. */
 export function engineRegistryRouter(reg: EngineRegistry): Router {
@@ -115,8 +121,11 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
     "/engine/release",
     validate(releaseBody),
     wrap((req, res) => {
-      const { id } = req.body as z.infer<typeof releaseBody>;
-      reg.release(id);
+      const { id, token } = req.body as z.infer<typeof releaseBody>;
+      // 200 either way: this arrives by `sendBeacon` from a page that is already going, so
+      // there is nobody left to read a status. Refusing SILENTLY is the whole of the fix — the
+      // lease then simply expires on its own, which is what it was built to do.
+      if (reg.verifyToken(id, token)) reg.release(id);
       res.json({ ok: true });
     }),
   );

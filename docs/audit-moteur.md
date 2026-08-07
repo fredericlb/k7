@@ -299,11 +299,30 @@ succès, l'audio ne bouge pas.
 Ordonné par rapport valeur/risque. Les lots 0 et 1 sont indépendants du reste et livrables
 séparément.
 
-### Lot 0 — les saignements (petit, sans risque)
+### Lot 0 — les saignements ✅ FAIT
 
-A1 (z0 en `patchPrefs`), A6 (`socket.destroy()`), A9 (aligner la limite JSON, sortir le
-gestionnaire d'erreur dans le socle), A10 (authentifier `release`), et fermer le mode dégradé
-du service de fichiers (`if (!expected)`). Chacun est un patch de quelques lignes.
+**A1.** `patchPrefs` rejoint le client de registre — lecture, fusion, écriture — et les trois
+gates y passent, pas seulement z0. `savePrefs` reste, pour qui veut vraiment remplacer, mais le
+verbe qui ne peut pas effacer le voisin est désormais celui qu'on prend par défaut : le jour où
+l8 ou m9 gagne un second champ, personne n'aura à se souvenir de ces lignes.
+
+**A6.** L'intention coopérative est conservée — k7 et z0 attachent bien leur propre signalisation
+à un même serveur — mais elle est maintenant vérifiée : le socket n'est détruit que si ce
+gestionnaire est le SEUL écouteur `'upgrade'`, compté à chaque requête et non une fois pour
+toutes, parce qu'un service peut ajouter le sien plus tard.
+
+**A9.** Parti avec le lot 2.
+
+**A10.** `release` porte le jeton du moteur, comme `select`. Le refus est **silencieux** et
+répond 200 : l'appel arrive par `sendBeacon` d'une page qui s'en va, il n'y a plus personne pour
+lire un statut — et un bail non relâché expire de lui-même, ce pour quoi il a été fait.
+
+**Le mode ouvert du service de fichiers.** Le `catch` autour de la lecture de `engine-id.json`
+confondait deux choses très différentes : « aucune identité sur cette machine » et « il y en a
+une et je n'ai pas su la lire ». La seconde ouvrait toutes les routes. Trois états maintenant,
+et une identité illisible fait 503 au lieu de laisser passer. Le service annonce aussi en clair,
+au démarrage, quand rien ne garde ses routes — il écoute sur `0.0.0.0`, donc un run ouvert est
+ouvert sur tout le réseau local, ce qui vaut une ligne plutôt qu'un état à deviner.
 
 ### Lot 1 — la fiabilité des connexions ✅ FAIT
 
@@ -336,8 +355,7 @@ C1, plus les dérives de A9 qu'il supprime par construction : `ENGINE_BODY_LIMIT
 a en propre. Voir `packages/engine-registry/docs/shared.md`, « Un registre par service, mais un
 seul montage ».
 
-A6 (la fuite de socket sur upgrade non concerné) et A10 (`release` non authentifié) restent
-ouverts : ils étaient au lot 0.
+A6 et A10 sont partis avec le lot 0.
 
 ### Lot 3 — `@studio/engine-gate`
 

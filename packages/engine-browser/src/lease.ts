@@ -7,7 +7,7 @@ import { ENGINE_ASSIGN_RENEW_MS } from "@studio/web-protocol";
 /** The two calls a service's api client already has. `release` is fire-and-forget by nature. */
 export interface EngineLeaseApi {
   select(id: string, token: string, latencyMs: number): Promise<unknown>;
-  release(id: string): void;
+  release(id: string, token: string): void;
 }
 
 /**
@@ -31,7 +31,7 @@ export function holdEngine(
   };
   renew(); // immediately — a StrictMode remount, whose cleanup released, has to re-claim
   const timer = setInterval(renew, ENGINE_ASSIGN_RENEW_MS);
-  const bye = () => api.release(id);
+  const bye = () => api.release(id, token);
   window.addEventListener("pagehide", bye);
   return () => {
     clearInterval(timer);

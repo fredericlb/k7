@@ -36,7 +36,11 @@ export function Gate() {
   const pick = useCallback((r: RankedEngine<PublicEngine>) => {
     // Remembered before opening, and the failure is quiet: a save that did not land costs
     // the choice surviving the session, not the project about to open.
-    void engines.savePrefs({ engineId: r.engine.id }).catch(() => {});
+    // `patchPrefs`, and here it is load-bearing: this writes into st0's document, which is not
+    // ours and has a second field — where the médiathèque's playback comes out. A PUT of
+    // `{engineId}` alone erased it, so choosing a machine in this editor silently reset the
+    // médiathèque's audio destination.
+    void engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
     setPhase({ k: "ready", engine: r });
   }, []);
 

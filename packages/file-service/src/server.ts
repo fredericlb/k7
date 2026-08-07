@@ -13,7 +13,7 @@ import express from "express";
 import { z } from "zod";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
-  engineToken,
+  engineTokenState,
   requireEngineToken,
   resolveUser,
   resolveWorkspace,
@@ -68,10 +68,13 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "8mb" }));
 
-// Constant-time compare of a query token, mirroring requireEngineToken's "no token configured => allow".
+// Constant-time compare of a query token, mirroring requireEngineToken — including its three
+// states: absent identity allows, unreadable one refuses.
 function mediaTokenOk(supplied: string): boolean {
-  const expected = engineToken();
-  if (!expected) return true;
+  const state = engineTokenState();
+  if (state.k === "unreadable") return false;
+  if (state.k === "none") return true;
+  const expected = state.value;
   const a = Buffer.from(supplied);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -249,6 +252,15 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   syncAllRepos();
   // Log the effective policy: a bad allowlist otherwise surfaces only as an unexplained browser failure.
   console.log(`   cors: ${originPolicySummary()}`);
+  // …and say it out loud when nothing gates the routes. This binds 0.0.0.0, so an open run is
+  // an open run on the whole LAN — worth a line rather than a state you have to infer.
+  const tok = engineTokenState();
+  if (tok.k === "none")
+    console.warn(
+      "   ⚠ no engine identity here — every route is UNAUTHENTICATED (bare dev run)",
+    );
+  else if (tok.k === "unreadable")
+    console.error(`   ✗ engine identity unreadable, refusing all: ${tok.why}`);
   // Dial the local engine so file/command ops can compile-and-send the project.
   setSelectedEngine(`ws://127.0.0.1:${ENGINE_PORT}`);
   // Keep the médiathèque cache in step with the hosted library, for what the open songs name.

@@ -13,22 +13,60 @@ import {
 import type { RequestHandler } from "express";
 import { getWorkspace, UnknownWorkspaceError } from "./workspaces.ts";
 
+/**
+ * What this machine can check a caller against.
+ *
+ * Three states and not two, because "" used to mean both "no identity here, nothing to gate
+ * on" and "the identity is there and I could not read it" — and the second opened every route
+ * on the machine. A `catch` around a file read is not a configuration decision.
+ */
+type TokenState =
+  | { k: "token"; value: string }
+  /** No identity on this machine at all: a bare dev run, genuinely nothing to compare with. */
+  | { k: "none" }
+  /** There IS one and it could not be read. Refuse: a broken read must not read as open. */
+  | { k: "unreadable"; why: string };
+
 // Prefer the env the supervisor sets, else engine-id.json. We READ, never mint — identity is the supervisor's.
-export function engineToken(): string {
-  if (process.env.STUDIO_ENGINE_TOKEN) return process.env.STUDIO_ENGINE_TOKEN;
+export function engineTokenState(): TokenState {
+  if (process.env.STUDIO_ENGINE_TOKEN)
+    return { k: "token", value: process.env.STUDIO_ENGINE_TOKEN };
+  let raw: string;
   try {
-    const v = JSON.parse(readFileSync(engineIdPath(), "utf8"));
-    return typeof v.token === "string" ? v.token : "";
+    raw = readFileSync(engineIdPath(), "utf8");
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    // Absent is the ONLY innocent failure: no supervisor has ever run here.
+    if (err.code === "ENOENT") return { k: "none" };
+    return { k: "unreadable", why: err.message };
+  }
+  try {
+    const v = JSON.parse(raw);
+    if (typeof v.token === "string" && v.token)
+      return { k: "token", value: v.token };
+    return { k: "unreadable", why: "no token in engine-id.json" };
   } catch {
-    return "";
+    return { k: "unreadable", why: "engine-id.json is not JSON" };
   }
 }
 
-// Reject callers without the engine's token; with none configured (a bare dev run) there is nothing to gate on.
+/** The token to compare against, or "" when there is nothing to compare with. */
+export function engineToken(): string {
+  const s = engineTokenState();
+  return s.k === "token" ? s.value : "";
+}
+
+// Reject callers without the engine's token. With none configured — a bare dev run — there is
+// nothing to gate on; with one that cannot be READ, refuse, because an unreadable secret is not
+// the absence of a secret.
 export const requireEngineToken: RequestHandler = (req, res, next) => {
-  const expected = engineToken();
-  if (!expected) return next();
-  if (req.get(ENGINE_TOKEN_HEADER) !== expected)
+  const state = engineTokenState();
+  if (state.k === "none") return next();
+  if (state.k === "unreadable") {
+    console.error(`✗ engine identity unreadable, refusing: ${state.why}`);
+    return res.status(503).json({ error: "engine identity unreadable" });
+  }
+  if (req.get(ENGINE_TOKEN_HEADER) !== state.value)
     return res.status(401).json({ error: "bad or missing engine token" });
   next();
 };

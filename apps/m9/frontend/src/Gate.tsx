@@ -68,7 +68,10 @@ export function Gate() {
   const pick = useCallback((r: RankedEngine<PublicEngine>) => {
     // Remembered before connecting, and the failure is quiet: a save that did not land
     // costs the choice surviving the session, not the set that is about to start.
-    void engines.savePrefs({ engineId: r.engine.id }).catch(() => {});
+    // `patchPrefs` even though m9's document holds only this field today: the verb that cannot
+    // erase a neighbour is the one to reach for by default, and the day a second field lands
+    // nobody has to remember this line exists.
+    void engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
     setPhase({ k: "ready", engine: r });
   }, []);
 

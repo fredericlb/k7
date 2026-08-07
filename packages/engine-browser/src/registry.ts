@@ -23,11 +23,26 @@ export interface EnginePrefs {
 export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
   list(): Promise<E[]>;
   select(id: string, token: string, latencyMs: number): Promise<{ ok: true }>;
-  release(id: string): boolean;
+  /** The engine's own token, same as `select`: dropping someone else's lease is not something
+   *  a session alone should buy. See @studio/engine-registry's router. */
+  release(id: string, token: string): boolean;
   prefs(): Promise<P>;
-  /** WHOLESALE — the router replaces, it does not merge, so a caller holding one field would
-   *  clear the others. Send the whole object; st0's `prefs.ts` is what does the merging. */
+  /**
+   * WHOLESALE — the router REPLACES, it does not merge.
+   *
+   * Reach for `patchPrefs` unless you genuinely mean to clear everything else: a caller
+   * holding one field wipes the rest, which is how choosing a machine in z0's editor came to
+   * erase the médiathèque's playback destination.
+   */
   savePrefs(p: P): Promise<{ ok: true }>;
+  /**
+   * One field, the others left alone — read, merge, write.
+   *
+   * Not a PATCH route: the store replaces documents and there is nothing on the server that
+   * merges. Doing it here means every service gets the safe verb, rather than st0 being the
+   * only one that remembered to write the merge by hand.
+   */
+  patchPrefs(p: Partial<P>): Promise<{ ok: true }>;
 }
 
 /** Read a JSON body, or throw with `what` in the message. Passed in because each app already
@@ -62,10 +77,12 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
 
     /** The lease's goodbye, as a BEACON so it survives the tab closing — a fetch there is
      *  cancelled with the page. Best-effort by nature, which is why the TTL exists behind it. */
-    release: (id) =>
+    release: (id, token) =>
       navigator.sendBeacon(
         `${base}/api/engine/release`,
-        new Blob([JSON.stringify({ id })], { type: "application/json" }),
+        new Blob([JSON.stringify({ id, token })], {
+          type: "application/json",
+        }),
       ),
 
     prefs: async () =>
@@ -80,5 +97,11 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
         }),
         "preferences",
       ),
+
+    async patchPrefs(p) {
+      // A missing document is an empty one, not a failure: the first save is what creates it.
+      const current = await this.prefs().catch(() => ({}) as P);
+      return this.savePrefs({ ...current, ...p });
+    },
   };
 }

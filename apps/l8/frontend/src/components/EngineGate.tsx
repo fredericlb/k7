@@ -70,7 +70,8 @@ export function EngineGate() {
     // premise is that an engine belongs to a person, changeable in settings.
     // Fire-and-forget: failing the pick because a preference did not save would take the
     // engine away too, and the user is trying to open their song.
-    engines.savePrefs({ engineId: r.engine.id }).catch(() => {});
+    // `patchPrefs` even though l8's document holds only this field today — see m9's Gate.
+    engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
     setPhase({ k: "chosen", engine: r });
     return true;
   }, []);

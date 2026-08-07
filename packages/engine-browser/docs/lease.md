@@ -38,6 +38,12 @@ for it, not `fetch`: a fetch issued during `pagehide` is cancelled with the page
 precisely the moment the goodbye matters. The beacon still is not a guarantee — that is what the
 TTL behind it is for.
 
+It carries the engine's **token**, like `select`. A session says who is asking, not which engine
+they hold: with an id alone, any logged-in user could drop anyone else's lease on any engine,
+and the holder would read FREE in every picker while still driving it. The refusal is silent and
+answers 200 — the caller is a page already leaving, so there is nobody left to read a status, and
+an unreleased lease simply expires, which is the behaviour it was built for.
+
 ## The StrictMode detail
 
 `renew()` runs immediately rather than waiting for the first interval tick. React's StrictMode

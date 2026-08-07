@@ -171,15 +171,31 @@ const deny = (socket: Socket, status: string): void => {
 export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
   const wss = new WebSocketServer({ noServer: true });
 
+  /**
+   * Hand an upgrade we do not serve to whoever else might, or close it.
+   *
+   * Passing is a real convention — k7 and z0 both attach their own signalling to one server —
+   * and the reason a bare `return` was written here. But Node only destroys an unclaimed
+   * upgrade socket when there is NO `'upgrade'` listener at all: register one, and the cleanup
+   * becomes the listeners' job. In the three engine backends this is the only listener, so
+   * every `Upgrade:` to any other path leaked a socket that nothing would ever close.
+   *
+   * Counted per request, not once at attach time: a service may add its own listener later,
+   * and then passing is right again.
+   */
+  const notOurs = (socket: Socket): void => {
+    if (server.listenerCount("upgrade") <= 1) socket.destroy();
+  };
+
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
     let url: URL;
     try {
       url = new URL(req.url || "", "http://localhost");
     } catch {
-      return; // not a URL we can read — leave it for another handler
+      return notOurs(socket); // not a URL we can read
     }
     const m = WS_ROUTE.exec(url.pathname);
-    if (!m) return; // not ours
+    if (!m) return notOurs(socket);
 
     const id = decodeURIComponent(m[1]);
     if (verifyEngineTicket(url.searchParams.get("ticket") || "") !== id)
