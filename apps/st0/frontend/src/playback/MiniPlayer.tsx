@@ -3,8 +3,9 @@
 // the song ends. See ../../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Disc3, Pause, Play, X } from "lucide-react";
+import { Disc3, ListVideo, Pause, Play, X } from "lucide-react";
 import { usePlayback } from "./PlaybackProvider";
+import { QueueButton } from "./QueueButton";
 import { playbackTargetInfo } from "./targets";
 
 /** mm:ss — the same clock the song pane uses, so two readings of one transport agree. */
@@ -22,10 +23,46 @@ function albumOf(path: string): string {
   return parts.length >= 4 ? parts[parts.length - 2] : "";
 }
 
+/** La barre réduite à ce qu'elle a à dire quand rien ne joue mais que la file attend : ce
+ *  qu'il y a dedans, et de quoi l'ouvrir. */
+function QueueOnly() {
+  const { queue } = usePlayback();
+  return (
+    <section
+      aria-label="Liste de lecture"
+      className="flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2"
+    >
+      <ListVideo className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+        {queue.length} morceau{queue.length === 1 ? "" : "x"} en attente — le
+        premier part dès qu'une machine peut le jouer.
+      </span>
+      <QueueButton />
+    </section>
+  );
+}
+
 export function MiniPlayer() {
-  const { now, playing, position, duration, error, toggle, seek, close } =
-    usePlayback();
-  if (!now) return null;
+  const {
+    now,
+    playing,
+    position,
+    duration,
+    error,
+    toggle,
+    seek,
+    close,
+    queue,
+  } = usePlayback();
+
+  /**
+   * La barre apparaît aussi pour une file NON VIDE, pas seulement pour un morceau chargé.
+   *
+   * Sinon le bouton qui montre la file vivrait dans une barre que la file elle-même ne suffit
+   * pas à faire apparaître : on ajouterait un morceau et il n'y aurait nulle part où le voir.
+   * Le cas se produit quand rien n'a encore été lu, ou quand la barre a été fermée.
+   */
+  if (!now) return queue.length ? <QueueOnly /> : null;
 
   const { entry, target, version } = now;
   const artist =
@@ -125,6 +162,10 @@ export function MiniPlayer() {
         <WhereIcon className="h-3.5 w-3.5" />
         {where.label}
       </span>
+
+      {/* Ce qui passera ensuite. À droite, avant la fermeture : c'est une commande de lecture,
+          pas une commande de la barre. */}
+      <QueueButton />
 
       {/* Top right, and it is the ONLY thing that clears the bar: a song that ends stays, so
           that "what was that" survives the last sample. */}

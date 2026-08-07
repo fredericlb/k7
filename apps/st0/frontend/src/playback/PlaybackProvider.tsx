@@ -16,7 +16,9 @@ import {
 import { library } from "../api";
 import { chainPreviewDoc } from "../engine/chainPreview";
 import { type ModuleEngine, useModuleEngine } from "../engine/useModuleEngine";
+import type { QueueItem } from "./queue";
 import type { PlaybackTarget } from "./targets";
+import type { PlayQueue } from "./usePlayQueue";
 
 /** What is loaded, wherever it plays. */
 export interface NowPlaying {
@@ -64,6 +66,35 @@ export interface Playback {
   /** Silence it and forget it. The bar's close button, and the only thing that clears `now`:
    *  a song that ENDS stays, because "what did I just listen to" outlives the last sample. */
   close: () => void;
+
+  /**
+   * Ce qui passera ensuite.
+   *
+   * Ici, à côté du transport, et pour la même raison que lui : une file d'attente doit
+   * survivre à l'écran qui l'a remplie — on ajoute un morceau depuis l'arbre des Morceaux et
+   * on continue à naviguer. Elle vit dans l'onglet, pas sur le serveur : c'est ce qu'on écoute
+   * maintenant, pas un document. Une playlist, elle, est un fichier
+   * (packages/mediatek/docs/playlists.md).
+   */
+  queue: QueueItem[];
+  /** Mettre à la suite, sans doublon. */
+  enqueue: (entries: MediatekEntry[]) => void;
+  removeFromQueue: (i: number) => void;
+  moveInQueue: (from: number, to: number) => void;
+  /** Prendre la tête de la file et la retirer, ou `null`. Ce que fait l'avance automatique. */
+  takeNext: () => QueueItem | null;
+
+  /**
+   * Dire « c'est moi qui décide de la suite », et rendre de quoi le relâcher.
+   *
+   * Deux choses savent enchaîner : le panneau d'une playlist et cette file. Toutes deux
+   * regardent `ended`, aucune ne voit l'autre, et sans arbitrage les deux démarreraient un
+   * morceau sur le même événement — le dernier écrit gagnerait, au hasard. Le panneau prend
+   * donc la main tant qu'il pilote, et la file s'efface pendant ce temps.
+   */
+  claimAdvance: () => () => void;
+  /** Quelqu'un d'autre enchaîne-t-il ? Lu par l'avance de la file, qui s'abstient alors. */
+  advanceClaimed: boolean;
 }
 
 /** What the engine calls what we sent it. The version is IN the name because that session is
@@ -97,10 +128,15 @@ export function usePlayback(): Playback {
 
 export function PlaybackProvider({
   engineId,
+  playQueue,
   children,
 }: {
   /** The account's chosen engine, from the header's picker. */
   engineId?: string;
+  /** La file d'attente, tenue PLUS HAUT — la Library rend ce provider, donc elle est au-dessus
+   *  du contexte, et c'est elle qui porte l'arbre dont le clic droit la remplit. Voir
+   *  ./usePlayQueue.ts. */
+  playQueue: PlayQueue;
   children: ReactNode;
 }) {
   const engine = useModuleEngine(engineId);
@@ -259,6 +295,15 @@ export function PlaybackProvider({
     setDuration(0);
   }, [ours, engine]);
 
+  // Un COMPTEUR de revendications et non un booléen : deux panneaux de playlist peuvent être
+  // montés le temps d'une transition d'écran, et le démontage du premier remettrait un
+  // booléen à faux alors que le second pilote encore.
+  const [claims, setClaims] = useState(0);
+  const claimAdvance = useCallback(() => {
+    setClaims((n) => n + 1);
+    return () => setClaims((n) => Math.max(0, n - 1));
+  }, []);
+
   const value = useMemo<Playback>(
     () => ({
       now,
@@ -271,6 +316,9 @@ export function PlaybackProvider({
       toggle,
       seek,
       close,
+      ...playQueue,
+      claimAdvance,
+      advanceClaimed: claims > 0,
     }),
     [
       now,
@@ -283,6 +331,9 @@ export function PlaybackProvider({
       toggle,
       seek,
       close,
+      playQueue,
+      claimAdvance,
+      claims,
     ],
   );
 

@@ -235,6 +235,18 @@ export function PlaylistPane({
    * at the bottom outlives this screen, and a song started from a morceau's own page must not
    * make a playlist nobody is looking at walk forward.
    */
+  /**
+   * Tant que ce panneau pilote, c'est LUI qui dit ce qui suit.
+   *
+   * Sans cette revendication, la file d'attente de la barre du bas enchaînerait sur le même
+   * `ended` — deux démarrages sur un événement, et le dernier écrit gagne au hasard. Prise
+   * seulement quand une ligne est en cours : un panneau simplement ouvert ne confisque rien.
+   */
+  useEffect(() => {
+    if (!mine || current === null) return;
+    return playback.claimAdvance();
+  }, [mine, current, playback.claimAdvance]);
+
   const seenEnded = useRef(playback.ended);
   useEffect(() => {
     if (playback.ended === seenEnded.current) return;
