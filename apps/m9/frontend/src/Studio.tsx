@@ -295,7 +295,11 @@ export function Studio({
           </aside>
         )}
 
-        {view === "mix" && <MixView engine={engine} project={project} />}
+        {/* The graph goes to Mix as well as to Graphe: the desk's bindings name modules by
+            the chains' own names, and the graph is where a name becomes a plugin id. */}
+        {view === "mix" && (
+          <MixView engine={engine} project={project} graph={graph} />
+        )}
         {view === "edit" && (
           <EditView
             path={file}

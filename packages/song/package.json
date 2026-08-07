@@ -52,6 +52,8 @@
     "./songRef": "./src/songRef.ts",
     "./yaml/songsFile": "./src/yaml/songsFile.ts",
     "./yaml/songsSchema": "./src/yaml/songsSchema.ts",
+    "./yaml/mixViewFile": "./src/yaml/mixViewFile.ts",
+    "./yaml/mixViewSchema": "./src/yaml/mixViewSchema.ts",
     "./projectType": "./src/projectType.ts",
     "./scaffoldM9": "./src/scaffoldM9.ts",
     "./moduleTypes": "./src/moduleTypes.ts"

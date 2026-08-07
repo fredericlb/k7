@@ -1,8 +1,7 @@
-// controls.ts — every control on the Mix desk, by a stable id. What a `controller.yaml` will
-// name to bind one to a module param, the way it already names a MIDI `ch`/`cc`.
-// See ../../docs/controls.md.
+// controls.ts — every control on the Mix desk, by a stable id. What the project's
+// `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
-import { BPM_RANGE, MIX_CENTRE } from "./deck";
+import { BPM_RANGE, DECKS, MIX_CENTRE } from "./deck";
 
 /**
  * One control on the desk.
@@ -25,35 +24,21 @@ export interface MixControl {
 }
 
 /**
- * The ids are of TWO kinds, and the difference is not cosmetic.
+ * The ids are ABSOLUTE — `deckA.tempo`, not a relative `deck.tempo`.
  *
- * A `controller.yaml` belongs to a MODULE and is shared by every instance of it — that is
- * stated in its own doc, and it is what makes a map travel with the device. So a set with a
- * tempo module on each deck has ONE map for both, and a binding that named `deckA.tempo`
- * outright would drive deck B's stretch from deck A's fader.
+ * They were relative for one turn, and the reason is worth keeping because it says what
+ * changed: a `controller.yaml` belongs to a MODULE and is shared by every instance of it, so
+ * a set with a tempo module on each deck has ONE map for both, and `deckA.tempo` in it would
+ * have driven deck B's stretch from deck A's fader.
  *
- * Hence:
- *
- * - **desk-wide** (`crossfade`, `transport`, `listen`) — one control, no ambiguity.
- * - **per-deck and RELATIVE** (`deck.tempo`, `deck.sync`) — "the deck this instance is on",
- *   resolved against the chain the step sits in. One map, two decks, each answering to its own
- *   hand.
- *
- * `deck.` is the prefix that says "resolve me"; nothing else may start with it.
+ * The bindings live in the PROJECT now (`views/mix.yaml`), which can name each instance
+ * outright — `tempoA` and `tempoB` are different lines. So there is nothing left to resolve,
+ * and an id that means exactly one control beats one that means "whichever deck you are".
  */
-export const DECK_PREFIX = "deck.";
-
-export const MIX_CONTROLS: readonly MixControl[] = [
+const perDeck = (deck: string, letter: string): MixControl[] => [
   {
-    id: "crossfade",
-    label: "Crossfade",
-    kind: "fader",
-    range: [0, 1],
-    home: MIX_CENTRE,
-  },
-  {
-    id: "deck.tempo",
-    label: "Tempo de la platine",
+    id: `${deck}.tempo`,
+    label: `Tempo platine ${letter}`,
     kind: "fader",
     // The module's own knob, so a binding cannot offer a range the panel refuses to draw.
     range: BPM_RANGE,
@@ -63,12 +48,30 @@ export const MIX_CONTROLS: readonly MixControl[] = [
     home: 0,
   },
   {
-    id: "deck.sync",
-    label: "Sync de la platine",
+    id: `${deck}.sync`,
+    label: `Sync platine ${letter}`,
     kind: "button",
     range: [0, 1],
     home: 0,
   },
+];
+
+/**
+ * Every control, DERIVED from the decks rather than listed.
+ *
+ * A third deck is a third track and a second meeting point in the file format, and nothing in
+ * m9 hardcodes two — so the desk's controls must not either, or adding a deck would silently
+ * leave it unbindable.
+ */
+export const MIX_CONTROLS: readonly MixControl[] = [
+  {
+    id: "crossfade",
+    label: "Crossfade",
+    kind: "fader",
+    range: [0, 1],
+    home: MIX_CENTRE,
+  },
+  ...DECKS.flatMap((d, i) => perDeck(d, String.fromCharCode(65 + i))),
   {
     id: "transport",
     label: "Lecture / arrêt",
@@ -83,16 +86,13 @@ export const MIX_CONTROLS: readonly MixControl[] = [
     range: [0, 1],
     home: 0,
   },
-] as const;
+];
 
 const BY_ID = new Map(MIX_CONTROLS.map((c) => [c.id, c]));
 
 /** The control an id names, or undefined. A binding to an unknown id is a typo, and the
  *  caller reports it rather than silently doing nothing. */
 export const mixControl = (id: string): MixControl | undefined => BY_ID.get(id);
-
-/** True for an id that has to be resolved against a deck before it means anything. */
-export const isPerDeck = (id: string): boolean => id.startsWith(DECK_PREFIX);
 
 /**
  * A control's position as 0..1, which is what a binding hands on.
