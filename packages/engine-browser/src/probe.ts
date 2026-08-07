@@ -53,7 +53,20 @@ export function isReachable<E extends ProbeTarget>(
   return r.latency !== null && r.wsUrl !== null;
 }
 
-const PROBE_TIMEOUT_MS = 1500;
+/**
+ * Combien de temps une adresse a pour répondre `whoami`.
+ *
+ * Trois secondes et non une et demie, pour deux raisons qui vont ensemble. D'abord le coût :
+ * les candidats sont mesurés EN PARALLÈLE, donc un moteur réellement absent coûte UN délai et
+ * non un par adresse — l'allonger retarde le verdict de rien du tout dans le cas courant.
+ *
+ * Ensuite ce qu'on mesure. Sur toute machine autre que celle du moteur, les candidats directs
+ * sont refusés par le navigateur (une page HTTPS n'ouvre pas de `ws://`), donc la seule voie
+ * praticable est le RELAIS : page → Caddy → backend → moteur. Juger ce chemin-là au budget
+ * d'un aller-retour en loopback, c'est déclarer injoignable ce qui n'est que plus long — et
+ * `unreachable` n'est pas une latence lente, c'est un état à part qui cache le moteur.
+ */
+const PROBE_TIMEOUT_MS = 3000;
 
 /** What one address answered: its token, the round trip, and the device it is playing through. */
 interface Reply {

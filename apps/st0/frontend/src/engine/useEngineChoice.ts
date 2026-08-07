@@ -3,9 +3,10 @@
 // mean two connections to the same engine from one tab. PlaybackProvider holds the socket.
 
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import { useRelook } from "@studio/engine-browser/relook";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { EngineLatency } from "@studio/web-protocol/quality";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { engines } from "../api";
 import { patchPrefs } from "../prefs";
 
@@ -39,7 +40,13 @@ export function useEngineChoice(): EngineChoice {
   const [chosenId, setChosenId] = useState<string | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const relook = useRelook();
+  // Dans une ref et non dans les dépendances : la re-mesure doit LIRE le choix courant sans
+  // que choisir un moteur déclenche une mesure complète.
+  const chosen = useRef<string | undefined>(undefined);
+  chosen.current = chosenId;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` et `relook` sont des déclencheurs, pas des valeurs lues ici — ils disent QUAND relancer.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -47,7 +54,10 @@ export function useEngineChoice(): EngineChoice {
       // is ignored here on purpose: this hook draws a picker, so it shows what the account
       // remembered even when that engine did not answer — `ready` below is what says whether
       // it can be driven.
-      const { ranked: r, rememberedId } = await engines.find();
+      // Le choix COURANT est passé en préférence, et c'est ce qui rend la re-mesure sans
+      // danger : `find` rend `preferId ?? prefs.engineId`, donc un `choose()` optimiste dont
+      // l'enregistrement n'a pas encore atterri n'est pas écrasé par la valeur du serveur.
+      const { ranked: r, rememberedId } = await engines.find(chosen.current);
       if (cancelled) return;
       setChosenId(rememberedId);
       setRanked(r);
@@ -56,7 +66,10 @@ export function useEngineChoice(): EngineChoice {
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+    // `relook` fait revenir ici toutes les quinze secondes et au retour de l'onglet : une
+    // sonde est un instantané, et une seule course ratée marquait le moteur injoignable
+    // jusqu'au rechargement de la page. Voir packages/engine-browser/src/relook.ts.
+  }, [attempt, relook]);
 
   const choose = useCallback((id: string) => {
     // Optimistic, then persisted: the tick moves under the cursor rather than after a round
