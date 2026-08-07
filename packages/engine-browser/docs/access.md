@@ -56,6 +56,42 @@ service dont le registre est à terre ne peut effectivement pas être piloté �
 **écran**, là où une promesse rejetée dans l'effet d'un gate est un spinner éternel. l8 avait
 exactement ce cas : sa liste n'était pas gardée, seule sa préférence l'était.
 
+## Une sonde est un instantané — `useRelook`
+
+`find()` mesure **une fois**. Or « injoignable » n'est pas une latence lente : `probeEngines`
+rend `latency: null`, un état à part, dès qu'aucune adresse candidate n'a répondu dans le
+délai. Une seule course malchanceuse marquait donc le moteur injoignable **jusqu'au
+rechargement de la page** — le symptôme « parfois il est là, parfois non ».
+
+`relook.ts` rend un compteur à mettre dans les dépendances de l'effet qui appelle `find()`.
+Il avance sur deux déclencheurs, et le second compte autant que le premier :
+
+- **toutes les 15 s**, calé sur `REGISTRY_TTL_MS` : plus long ne servirait à rien, un moteur
+  qui a cessé de battre ayant déjà disparu de la liste ; plus court sonderait plus vite que
+  l'information ne peut changer ;
+- **au retour de l'onglet au premier plan**. Un onglet caché ne sonde pas — ouvrir des
+  WebSockets vers chaque adresse pour un écran que personne ne regarde coûte sans rien
+  apprendre — mais c'est précisément en y revenant qu'on lit « injoignable ».
+
+Où le brancher n'est pas la même réponse partout, et la différence est un choix :
+
+| surface | quand |
+|---|---|
+| st0, `useEngineChoice` | **toujours** — c'est un sélecteur permanent dans l'en-tête |
+| l8 `EngineGate`, m9 `Gate` | **seulement en `picking`** — ce sont des gates, et re-mesurer après le choix ramènerait l'écran en arrière sous les doigts de quelqu'un qui travaille |
+
+Dans st0, la re-mesure passe le choix courant à `find(preferId)`. Ce n'est pas un détail :
+`find` rend `preferId ?? prefs.engineId`, donc sans ça un `choose()` optimiste dont
+l'enregistrement n'a pas encore atterri serait écrasé par la valeur du serveur, et le sélecteur
+reviendrait tout seul sur l'ancien moteur.
+
+Le délai de la sonde est passé à **3 s**. Les candidats sont mesurés en parallèle, donc un
+moteur réellement absent coûte UN délai et non un par adresse — l'allonger ne retarde rien dans
+le cas courant. Et sur toute machine autre que celle du moteur, les candidats directs sont
+refusés par le navigateur (une page HTTPS n'ouvre pas de `ws://`) : la seule voie praticable est
+le relais, et le juger au budget d'un aller-retour en loopback déclarait injoignable ce qui
+n'était que plus long.
+
 ## Ce qui reste au dehors
 
 - **`EngineClient`** : ouvrir le socket, avec la session du service

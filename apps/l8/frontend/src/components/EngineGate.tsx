@@ -3,6 +3,7 @@
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
 // back on any browser — and is reused whenever it is still reachable.
 
+import { useRelook } from "@studio/engine-browser/relook";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { engines } from "../api";
@@ -29,6 +30,33 @@ export function EngineGate() {
       setBusy(false);
     }
   }, []);
+
+  /**
+   * La liste se re-mesure toute seule TANT QUE le sélecteur est à l'écran.
+   *
+   * Une sonde est un instantané, et `unreachable` n'est pas une latence lente mais un état à
+   * part : une seule course ratée figeait « hors de portée » jusqu'au rechargement de la page.
+   * C'est justement en regardant cette liste qu'on attend qu'elle change d'avis.
+   *
+   * Seulement en `picking` : une fois le moteur choisi, re-mesurer pourrait ramener l'écran en
+   * arrière sous les doigts de quelqu'un qui travaille. Et sans toucher `busy` — c'est le
+   * bouton Rafraîchir qui le possède, et le voir clignoter tout seul dirait qu'on a cliqué.
+   */
+  const relook = useRelook();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `relook` est un déclencheur, pas une valeur lue ici — il dit QUAND re-mesurer.
+  useEffect(() => {
+    if (phase.k !== "picking") return;
+    let cancelled = false;
+    void engines
+      .find()
+      .then((l) => {
+        if (!cancelled) setRanked(l.ranked);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [relook, phase.k]);
 
   const pick = useCallback(async (r: RankedEngine): Promise<boolean> => {
     if (!r.wsUrl || !r.fileBase || r.token === null) return false;

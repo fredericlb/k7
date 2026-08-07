@@ -6,6 +6,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import { useRelook } from "@studio/engine-browser/relook";
 import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { Loader2, RefreshCw, Server } from "lucide-react";
@@ -38,6 +39,31 @@ export function Gate() {
     if (!chosen) return setPhase({ k: "picking", ranked });
     setPhase({ k: "ready", engine: chosen });
   }, []);
+
+  /**
+   * La liste se re-mesure toute seule tant que le sélecteur est à l'écran — même raison que
+   * dans l8 : `unreachable` est un état à part, pas une latence lente, et une seule course
+   * ratée le figeait jusqu'au rechargement.
+   *
+   * Elle ne fait que remplacer la LISTE : un moteur qui répond de nouveau ne fait pas sauter
+   * l'écran, parce que quelqu'un est en train de choisir et qu'une décision prise à sa place
+   * serait un clic volé.
+   */
+  const relook = useRelook();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `relook` est un déclencheur, pas une valeur lue ici — il dit QUAND re-mesurer.
+  useEffect(() => {
+    if (phase.k !== "picking") return;
+    let cancelled = false;
+    void engines
+      .find()
+      .then(({ ranked }) => {
+        if (!cancelled) setPhase({ k: "picking", ranked });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [relook, phase.k]);
 
   const pick = useCallback((r: RankedEngine<PublicEngine>) => {
     // Remembered before connecting, and the failure is quiet: a save that did not land
