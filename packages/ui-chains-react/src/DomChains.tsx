@@ -1789,6 +1789,7 @@ export function DomChains({
   camStore,
   engineWarnings,
   fitKey,
+  fitAxis = "both",
   command,
   onBypassModule,
   onSetModuleAsset,
@@ -1821,6 +1822,10 @@ export function DomChains({
   engineWarnings?: Record<string, string>;
   // Identifies WHICH graph is on screen: a change re-frames, a redraw of the same one leaves the camera alone.
   fitKey?: string | number | null;
+  /** How the first frame is chosen. "both" (the default) fits the whole graph; "height" fills the
+   *  height and lets the width overflow, which is pannable — what a row of channel strips wants,
+   *  since fitting both axes shrinks every strip as the song gains tracks. */
+  fitAxis?: "both" | "height";
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
@@ -1953,16 +1958,26 @@ export function DomChains({
     const sh = host.clientHeight;
     if (!sw || !sh) return false;
     const pad = 0.9;
+    // "height" frames the HEIGHT and lets the width run off the side, which is pannable. A row of
+    // channel strips wants that: fitting both axes means the strips get smaller with every track
+    // the song gains, and a mixer you cannot read is worse than one you have to scroll.
     const k = Math.min(
       MAX_ZOOM,
       Math.max(
         MIN_ZOOM,
-        Math.min((sw / graph.width) * pad, (sh / graph.height) * pad),
+        fitAxis === "height"
+          ? (sh / graph.height) * pad
+          : Math.min((sw / graph.width) * pad, (sh / graph.height) * pad),
       ),
     );
     setCam({
       k,
-      x: (sw - graph.width * k) / 2,
+      // Height-fitted content usually overflows; pin it to the left edge rather than centring it
+      // off screen, so the first strip is the one you see.
+      x:
+        fitAxis === "height" && graph.width * k > sw
+          ? 0
+          : (sw - graph.width * k) / 2,
       y: (sh - graph.height * k) / 2,
     });
     return true;

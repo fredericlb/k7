@@ -828,7 +828,14 @@ const ROW_MARGIN = 16; // matches layout()'s marginx/marginy, so the two frame a
  * derived from the compiled project and the graph is refetched separately, so the two can be one
  * reload apart, and a hole in the row would be the only sign.
  */
-export function moduleRow(graph: WebGraph, modules: string[]): LaidOutGraph {
+export function moduleRow(
+  graph: WebGraph,
+  modules: string[],
+  /** Widen each card by this much. The GRID inside it is a fixed cell size and stays where it is,
+   *  so this is elbow room around the controls rather than bigger controls — the Mixer asks for
+   *  1.5, where strips are read side by side and a tight card reads as cramped. */
+  widthScale = 1,
+): LaidOutGraph {
   const { nodes } = buildGraph(graph);
   const byModule = new Map<string, (typeof nodes)[number]>();
   for (const n of nodes)
@@ -840,8 +847,9 @@ export function moduleRow(graph: WebGraph, modules: string[]): LaidOutGraph {
   for (const name of modules) {
     const n = byModule.get(name);
     if (!n) continue;
-    out.push({ ...n, x, y: ROW_MARGIN });
-    x += n.w + STRIP_GAP;
+    const w = Math.round(n.w * widthScale);
+    out.push({ ...n, w, x, y: ROW_MARGIN });
+    x += w + STRIP_GAP;
   }
   const tallest = out.reduce((h, n) => Math.max(h, n.h), 0);
   return {
