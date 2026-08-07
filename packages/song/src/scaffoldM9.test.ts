@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { loadMixView, loadSongs, loadTracks } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
+import { compileNodeProject } from "./nodeProject";
 import { projectTypeOf } from "./projectType";
 import { scaffoldM9 } from "./scaffoldM9";
 
@@ -239,6 +240,18 @@ describe("a scaffolded m9 set", () => {
       type: "meter",
       bind: "Source BPM",
     });
+  });
+
+  it("COMPILES with deck B reaching the crossfade's second input", () => {
+    scaffoldM9(dir, "winter");
+    const doc = compileNodeProject(dir);
+    expect(doc.tracks.map((t) => t.id)).toEqual(["deckA", "deckB"]);
+    const cross = doc.tracks[0].plugins.find((p) => p.id === "deckA:crossfade");
+    // The whole point of the shape, and it was BROKEN the moment a tempo module went in front
+    // of the crossfade: `chainsGraph` records the feeder by its own name, so the side input
+    // arrived as `tempoB` — neither a chain nor a track — and resolved to nothing. The chains
+    // file, the graph and the panel all still said deck B was wired; only the audio disagreed.
+    expect(cross?.sidechainFrom).toBe("deckB");
   });
 
   it("gives each deck a track with no arrangement", () => {

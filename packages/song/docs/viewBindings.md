@@ -79,14 +79,14 @@ the journey a MIDI CC's 0..127 already makes in l8's `useMidiControl`. That is w
 declares a range at all: without one, every consumer would have to invent a scale, and a fader
 would sweep one nobody chose.
 
-## Not wired to the engine yet
+## Wired
 
-The bindings resolve and are checked; **nothing sends the value**. The same wall as the rest of
-Mix: m9 builds its document in the browser, so the only plugins the engine has loaded are the
-decks' levels. A `crossfade` compiles to a DSP-graph plugin the browser cannot bake, and the
-tempo module is `offline` and compiles to no plugin at all — so a binding to either resolves
-and then has nothing to send to. m9 says so, per control, rather than leaving a dead fader.
+m9 plays the COMPILED project now (`apps/m9/docs/mix.md`), so the plugins a binding names are
+the ones the engine has loaded. Moving the crossfader is one call —
+`setPluginParam(pluginId, param, valueFor(binding, position))` — and the module the médiathèque
+ships does the fade. The hardcoded path is gone from normal operation; it survives only as the
+stand-in for the seconds before the compile arrives.
 
-When playback goes through the compiler (`apps/m9/docs/mix.md`), the send is one call —
-`setPluginParam(pluginId, param, valueFor(binding, position))` — and the hardcoded crossfader
-goes away.
+One kind of binding still resolves and then has nowhere to go: a module that compiles to **no
+plugin**. An `offline` module is the case — m9's tempo is one — and it is reported per control
+rather than left as a dead fader. That is not a gap in this file; it is what `offline` means.

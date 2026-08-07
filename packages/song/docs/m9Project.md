@@ -129,18 +129,18 @@ Derived, this is **two** chains and no chain called `crossfade`: the module has 
 flow feeder, so it is a step inside deck A's run rather than a meeting point of its own.
 `scaffoldM9.test.ts` pins that, which is the cheapest way to notice if `#b` is ever lost.
 
-## What is NOT done
+## What plays is the compiled project
 
-The engine does not yet play the set's own graph. `deckDoc` builds a one-track document in
-the browser and sends it; the project's crossfade is not in it.
+m9 fetches the compiled `ProjectDoc` from the machine's file service (`GET /engine-doc`),
+fills in each deck's song, and sends it to the engine over its own socket. So the chains, the
+`sidechainFrom`, and the crossfade's **baked DSP graph** are the compiler's — not an imitation
+built in the browser.
 
-That is not an oversight, and it is not a small fix. `plugin: {type: jsdsp}` means the DSP
-is a graph **baked into the document by the compiler**, which runs the module's source in a
-child process (`nodeProject.ts`) — the engine has no crossfade plugin to name, it has a
-graph host that is handed a graph. A browser cannot produce one. Playing the set's real
-chains therefore means the machine's file service compiling the project and sending it,
-with loading a song onto a deck becoming a project **edit** — which is how l8 already
-works, and is the next étape rather than this one.
+Loading a song is therefore NOT a project edit. The decks' tracks are declared with
+`clips: []` exactly so a live choice can fill them without writing to the folder: a set list
+is committed, what is on a deck right now is not.
 
-Until then the honest description is: the set list is the project's, the signal path drawn
-under Mix is the deck's, and the two are not the same picture.
+**One thing still cannot be a module.** The tempo is `offline`, so it compiles to no plugin —
+`example.m9` compiles to deckA carrying the crossfade and nothing else. The stretch stays a
+warp on the clip m9 fills in, which is the only thing that stretches live. Making it a module
+in fact means writing the cold pass, and that is a separate piece of work from this one.

@@ -3,6 +3,7 @@
 // the graph are drawn from, and the repository's git. l8 spreads this into its own client and
 // adds what only it has (timeline, waveforms, video); m9 uses it as it stands.
 
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 import type {
   Alternatives,
@@ -51,6 +52,10 @@ export const projectApi = {
   // --- Derived views. A cheap token changes when the sources do; poll it, not these. ---
   revision: () => fget<{ rev: string }>("/revision"),
   projectDoc: () => fget<WebProject>("/project-doc"),
+  // The compiled document the ENGINE takes, for an app that drives one itself — m9 fills its
+  // decks' clips into this and sends it. l8 never calls it: the file service plays l8's project
+  // on its own machine, so l8 has no document to hold.
+  engineDoc: () => fget<ProjectDoc>("/engine-doc"),
   graph: () => fget<WebGraph>("/graph"),
   projectErrors: () => fget<ProjectErrors>("/project-errors"),
 

@@ -555,7 +555,19 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const sideInputTrack = (id: string): string => {
     const c = chains[id];
     if (c) return ownerOf(id, c);
-    return tracksMap[id] ? id : "";
+    if (tracksMap[id]) return id;
+    // …and a STEP in the middle of a run. `chainsGraph` records the feeder by its own name, so
+    // a module wired to a port from inside another chain arrives here as a step name rather
+    // than as that chain's. The signal it carries is its chain's, so the lane is that chain's
+    // owner — one level deeper, same ownership rule.
+    //
+    // `deckB: [ tempoB ]` + `tempoB: [ crossfade#b ]` is exactly this shape, and it appears the
+    // moment a deck gets anything of its own before the meeting point. Without this the second
+    // input resolved to nothing and the deck went SILENT, with the chains file, the graph and
+    // the panel all still saying it was wired.
+    for (const [name, chain] of Object.entries(chains))
+      if (chain.use.some((s) => s?.module === id)) return ownerOf(name, chain);
+    return "";
   };
 
   const trackPlugins: Record<string, PluginDoc[]> = {};

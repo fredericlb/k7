@@ -44,15 +44,13 @@ C'est aussi pourquoi `deckA.tempo` porte la plage du **knob du module** (10..300
 plage à lui : une liaison ne doit pas pouvoir demander un tempo que le panneau refuse de
 dessiner.
 
-## Ce qui reste
+## Ce qui marche, et ce qui reste
 
-Les liaisons se résolvent et se vérifient ; **rien n'envoie encore la valeur**. Le mur est
-celui de tout le reste de Mix : m9 construit son document dans le navigateur, donc les seuls
-plugins chargés par le moteur sont les niveaux des platines. Un `crossfade` compile vers un
-plugin graphe que le navigateur ne peut pas cuire, et le module tempo est `offline` et ne
-compile vers aucun plugin — donc une liaison vers l'un ou l'autre se résout puis n'a personne
-à qui parler. m9 le dit, par contrôle, plutôt que de laisser un fader mort.
+Le crossfader passe par sa liaison : m9 joue le document **compilé** (voir [mix.md](mix.md)),
+donc `deckA:crossfade` est un plugin que le moteur a chargé, et bouger le fader pose `Mix`
+dessus. Le câblage en dur ne sert plus que de tenant-lieu, le temps que la compilation arrive.
 
-Quand la lecture passera par le compilateur, l'envoi est un appel :
-`setPluginParam(pluginId, param, valueFor(binding, position))`, et le crossfader câblé en dur
-disparaît.
+Le fader de tempo, lui, se résout puis n'a personne à qui parler : le module `tempo` est
+`offline` et ne compile vers aucun plugin. Ce n'est pas un trou dans la liaison, c'est ce que
+`offline` veut dire — l'étirement reste un warp sur le clip jusqu'à ce que la passe froide
+existe. m9 l'affiche par contrôle plutôt que de laisser un fader mort.
