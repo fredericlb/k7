@@ -91,6 +91,27 @@ export function m9ProjectFiles(name: string): Record<string, string> {
 
     [`instances/${TEMPO_A}.yaml`]: tempoInstance("A"),
     [`instances/${TEMPO_B}.yaml`]: tempoInstance("B"),
+
+    "views/mix.yaml":
+      `# What each control of m9's Mix desk drives.\n` +
+      `#\n` +
+      `# Keyed by the CONTROL, because this file is about a desk: a control drives at most one\n` +
+      `# param, and two targets on one fader is a thing you cannot see going wrong. The reverse\n` +
+      `# is allowed — two controls may name the same param, and both move it.\n` +
+      `#\n` +
+      `# \`module\` is the name the CHAINS file uses, not a médiathèque ref: a set has two uses\n` +
+      `# of the tempo module, and a ref could not tell them apart. That ambiguity is exactly why\n` +
+      `# these bindings are not in the module's own \`controller.yaml\`, which belongs to the\n` +
+      `# device and is shared by every use of it — a MIDI CC is a property of the device, a desk\n` +
+      `# control is a property of THIS set.\n` +
+      `#\n` +
+      `# \`param\` is spelled as the module's ui.yaml binds it, so this file, the panel and a MIDI\n` +
+      `# map line up key for key.\n` +
+      `#\n` +
+      `# The control ids are m9's: see apps/m9/docs/controls.md for the list.\n` +
+      `crossfade: { module: ${CROSSFADE}, param: Mix }\n` +
+      `deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
+      `deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n`,
   };
 }
 

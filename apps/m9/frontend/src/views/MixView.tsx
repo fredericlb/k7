@@ -5,7 +5,14 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import type { WebGraph } from "@studio/graph-model";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import {
+  MIX_VIEW_BASE,
+  parseMixView,
+  VIEWS_DIR,
+} from "@studio/song/yaml/mixViewFile";
+import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
   CloudDownload,
@@ -29,6 +36,7 @@ import {
   sendDecks,
   syncedTempos,
 } from "../deck";
+import { resolveBindings } from "../mixBindings";
 import {
   cacheRelPath,
   type FileLink,
@@ -46,6 +54,8 @@ import { Waveform } from "./Waveform";
 
 /** The set list's file, project-relative. Named once — the name is @studio/song's. */
 const SONGS_FILE = "songs.yaml";
+/** …and the desk's bindings, from the same place, so the two names cannot drift. */
+const MIX_VIEW_FILE = `${VIEWS_DIR}/${MIX_VIEW_BASE}.yaml`;
 
 /**
  * A deck's waveform, and the two states that are not one.
@@ -62,10 +72,13 @@ type Wave =
 export function MixView({
   engine,
   project,
+  graph,
 }: {
   engine: RankedEngine<PublicEngine>;
   /** The project this app was opened on, workspace-relative — what the set list belongs to. */
   project: string;
+  /** The compiled chains. Where a binding's module name becomes a plugin id. */
+  graph: WebGraph | null;
 }) {
   const deck = useEngine(engine);
   // Derived, never typed and never stored: the file service is on the chosen engine's host.
@@ -86,6 +99,12 @@ export function MixView({
   const [master, setMaster] = useState<DeckId | null>(null);
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
+  /** The desk's bindings, as `views/mix.yaml` declares them. */
+  const [view, setView] = useState<MixView>({});
+
+  // Checked against the project on every compile, so a binding that names a module the chains
+  // do not have is a sentence on screen rather than a control that quietly does nothing.
+  const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
 
   // What the decks actually play at: the faders, with the master's value handed to the slave.
   // Derived rather than stored, so the two can never disagree — pressing sync and moving the
@@ -107,6 +126,7 @@ export function MixView({
         // says which songs this set is, the cache listing says which of them this machine can
         // play. A song in the set and not in the cache is a line, not an omission.
         setSet(await readSet(project, cached));
+        setView(await readMixView(project));
         setError(null);
       } catch (e) {
         setSet(null);
@@ -262,6 +282,19 @@ export function MixView({
               {set.issues.map((i) => (
                 <div key={i} className="font-mono text-xs">
                   {i}
+                </div>
+              ))}
+            </Card>
+          ) : null}
+          {/* A binding that names something this project has not got. Reported by CONTROL,
+              because that is what looks broken from the desk: you move a fader, nothing
+              happens, and this says which line to fix. */}
+          {wiring.problems.length ? (
+            <Card className="p-3 text-sm text-destructive">
+              <div className="font-semibold">{MIX_VIEW_FILE}</div>
+              {wiring.problems.map((p) => (
+                <div key={p.control} className="font-mono text-xs">
+                  {p.control} : {p.message}
                 </div>
               ))}
             </Card>
@@ -644,6 +677,20 @@ function SetRow({
  * for both a missing file and an unreadable one, which is why this cannot tell them apart —
  * and does not need to, since neither is something m9 can fix.
  */
+/**
+ * Read the desk's bindings. Absent is the ordinary state — a set that has bound nothing, or a
+ * project written before the file existed — so it reads as "no bindings" and not as an error.
+ * A file that is THERE and malformed is a different matter, and `parseMixView` reports it.
+ */
+async function readMixView(project: string): Promise<MixView> {
+  const path = project === "." ? MIX_VIEW_FILE : `${project}/${MIX_VIEW_FILE}`;
+  try {
+    return parseMixView((await api.read(path)).content).value ?? {};
+  } catch {
+    return {};
+  }
+}
+
 async function readSet(
   project: string,
   cached: MediatekEntry[],

@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  DECK_PREFIX,
-  denormalise,
-  isPerDeck,
-  MIX_CONTROLS,
-  mixControl,
-  normalise,
-} from "./controls";
-import { BPM_RANGE } from "./deck";
+import { denormalise, MIX_CONTROLS, mixControl, normalise } from "./controls";
+import { BPM_RANGE, DECKS } from "./deck";
 
 describe("the desk's controls", () => {
   it("has an id for every one of them, and no duplicates", () => {
@@ -17,30 +10,36 @@ describe("the desk's controls", () => {
     // rather than something that quietly changes what a controller.yaml can say.
     expect(ids).toEqual([
       "crossfade",
-      "deck.tempo",
-      "deck.sync",
+      "deckA.tempo",
+      "deckA.sync",
+      "deckB.tempo",
+      "deckB.sync",
       "transport",
       "listen",
     ]);
   });
 
-  it("tells a per-deck control from a desk-wide one", () => {
-    // The distinction a shared map depends on: one `controller.yaml` serves every instance of
-    // a module, so a tempo binding has to mean "this instance's deck" and not deck A.
-    expect(isPerDeck("deck.tempo")).toBe(true);
-    expect(isPerDeck("deck.sync")).toBe(true);
-    expect(isPerDeck("crossfade")).toBe(false);
-    expect(isPerDeck("transport")).toBe(false);
+  it("names one control each, absolutely", () => {
+    // Not `deck.tempo` resolved against whichever deck: the bindings live in the PROJECT's
+    // views/mix.yaml, which names `tempoA` and `tempoB` on separate lines, so there is
+    // nothing left to resolve and an id means exactly one control.
+    expect(mixControl("deckA.tempo")).toBeDefined();
+    expect(mixControl("deckB.tempo")).toBeDefined();
+    expect(mixControl("deck.tempo")).toBeUndefined();
   });
 
-  it("keeps the prefix as the ONLY marker of a relative id", () => {
-    for (const c of MIX_CONTROLS)
-      expect(isPerDeck(c.id)).toBe(c.id.startsWith(DECK_PREFIX));
+  it("grows a control per DECK rather than listing two", () => {
+    // A third deck is expressible in the file format, so the desk must not hardcode two or
+    // the new deck would be silently unbindable.
+    for (const deck of DECKS) {
+      expect(mixControl(`${deck}.tempo`)).toBeDefined();
+      expect(mixControl(`${deck}.sync`)).toBeDefined();
+    }
   });
 
   it("gives the tempo fader the module's own range, not one of its own", () => {
     // A binding must not be able to ask for a tempo the module's knob refuses to draw.
-    expect(mixControl("deck.tempo")?.range).toEqual(BPM_RANGE);
+    expect(mixControl("deckA.tempo")?.range).toEqual(BPM_RANGE);
   });
 
   it("answers nothing for an id nobody defined", () => {
@@ -53,7 +52,7 @@ describe("the desk's controls", () => {
 
 describe("a control's position as a unit value", () => {
   const fader = mixControl("crossfade");
-  const tempo = mixControl("deck.tempo");
+  const tempo = mixControl("deckA.tempo");
   if (!fader || !tempo)
     throw new Error("the fixtures are the controls themselves");
 

@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
-import { loadSongs, loadTracks } from "./loader";
+import { loadMixView, loadSongs, loadTracks } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { projectTypeOf } from "./projectType";
 import { scaffoldM9 } from "./scaffoldM9";
@@ -95,7 +95,35 @@ describe("a scaffolded m9 set", () => {
       "tracks",
       "tracks/deckA.yaml",
       "tracks/deckB.yaml",
+      "views",
+      "views/mix.yaml",
     ]);
+  });
+
+  it("declares what the desk's controls drive, instead of hardcoding it", () => {
+    scaffoldM9(dir, "winter");
+    // The crossfader used to reach a level in m9's own code, with nothing saying so. It names
+    // the crossfade module's own `Mix` here, and each tempo fader its own deck's instance —
+    // which a module-owned controller.yaml could not have said, since both decks share one.
+    expect(loadMixView(dir)).toEqual({
+      crossfade: { module: "crossfade", param: "Mix" },
+      "deckA.tempo": { module: "tempoA", param: "Target BPM" },
+      "deckB.tempo": { module: "tempoB", param: "Target BPM" },
+    });
+  });
+
+  it("names params the modules actually have", () => {
+    scaffoldM9(dir, "winter");
+    // The join this file exists for: every binding must find its module in the chains and its
+    // param on that module. A typo here is a control that silently does nothing.
+    const modules = loadGraph(dir).modules;
+    for (const b of Object.values(loadMixView(dir))) {
+      expect(modules[b.module], `module ${b.module}`).toBeDefined();
+      expect(
+        Object.keys(modules[b.module].params ?? {}),
+        `${b.module}.${b.param}`,
+      ).toContain(b.param);
+    }
   });
 
   it("copies NO module into the project", () => {

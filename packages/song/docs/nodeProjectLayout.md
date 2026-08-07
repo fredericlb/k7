@@ -11,6 +11,7 @@ A node project routes sources through a graph. `graph.ts` loads and inspects one
 | `modules/<type>/<name>/<inst>.yaml` | an instance of that module, inheriting its `module.yaml` and used as `"<name>:<inst>"` |
 | `chains.yaml` | the routing SEGMENTS: which module(s) each track and each module feeds |
 | `songs.yaml` | m9 only — the médiathèque songs a SET draws on (see [songsFile.md](songsFile.md)) |
+| `views/<view>.yaml` | what a VIEW's own controls drive — see [viewBindings.md](viewBindings.md) |
 
 An **m9 set** is this same layout with `clips/` and `sequences/` missing and `songs.yaml`
 present: it holds no material of its own, and its tracks are DECKS — declared, with no

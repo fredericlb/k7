@@ -11,6 +11,7 @@ one entity fewer and one file more.
 | `chains.yaml` | the routing segments, exactly as in a song |
 | `tracks/<deck>.yaml` | one file per DECK — declared here, with no arrangement |
 | `instances/<name>.yaml` | its USES of the médiathèque's modules — one line each |
+| `views/mix.yaml` | what each control of the Mix desk drives — see [viewBindings.md](viewBindings.md) |
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
 plays lives in the médiathèque, and what it says about playing it is the graph.
