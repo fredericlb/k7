@@ -106,6 +106,18 @@ export const auth = {
   },
 };
 
+/** Ce que le lecteur d'une machine rend de lui-même. Le chemin est celui qu'on a DEMANDÉ,
+ *  relatif à la médiathèque : mpv ne connaît que l'absolu, et le rendre exposerait
+ *  l'arborescence de la machine à un client qui n'en a pas besoin. */
+export interface MachinePlayerState {
+  path: string | null;
+  playing: boolean;
+  position: number;
+  duration: number;
+  /** Plus rien à jouer — la fin d'un morceau, ou rien n'a jamais été chargé. */
+  idle: boolean;
+}
+
 /** Ce que le portier du file-service veut sur chaque appel : qui demande, et le jeton de la
  *  machine. Écrit une fois — les appels ajoutés pour les projets le répétaient six fois. */
 const machineHeaders = (token: string): Record<string, string> => ({
@@ -310,6 +322,83 @@ export const engineMachine = {
       }),
       "suppression",
     );
+  },
+
+  /**
+   * Le lecteur de CETTE machine : mpv sur ses propres sorties, sans le moteur.
+   *
+   * Le chemin est RELATIF à la médiathèque et jamais absolu — c'est ce qui fait qu'un client ne
+   * peut nommer que ce que cette machine cache. Elle le résout contre sa propre racine.
+   * Voir packages/file-service/docs/machinePlayer.md.
+   */
+  player: {
+    state: async (
+      fileBase: string,
+      token: string,
+    ): Promise<MachinePlayerState> =>
+      json(
+        await fetch(`${fileBase}/player`, { headers: machineHeaders(token) }),
+        "lecteur",
+      ),
+
+    play: async (
+      fileBase: string,
+      token: string,
+      path: string,
+      from = 0,
+    ): Promise<MachinePlayerState> =>
+      json(
+        await fetch(`${fileBase}/player/play`, {
+          method: "POST",
+          headers: {
+            ...machineHeaders(token),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ path, from }),
+        }),
+        "lecteur",
+      ),
+
+    pause: async (
+      fileBase: string,
+      token: string,
+      paused: boolean,
+    ): Promise<MachinePlayerState> =>
+      json(
+        await fetch(`${fileBase}/player/pause`, {
+          method: "POST",
+          headers: {
+            ...machineHeaders(token),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ paused }),
+        }),
+        "lecteur",
+      ),
+
+    seek: async (
+      fileBase: string,
+      token: string,
+      to: number,
+    ): Promise<MachinePlayerState> =>
+      json(
+        await fetch(`${fileBase}/player/seek`, {
+          method: "POST",
+          headers: {
+            ...machineHeaders(token),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ to }),
+        }),
+        "lecteur",
+      ),
+
+    stop: async (fileBase: string, token: string): Promise<void> => {
+      await fetch(`${fileBase}/player/stop`, {
+        method: "POST",
+        headers: machineHeaders(token),
+      }).catch(() => {});
+    },
   },
 
   /** La barre de commandes de cette machine, pour le seul verbe dont on ait besoin ici :

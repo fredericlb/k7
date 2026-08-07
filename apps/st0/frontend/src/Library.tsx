@@ -838,7 +838,13 @@ export function Library() {
     /* Wrapping the whole shell, because what plays must outlive every screen inside it — and
        because it holds this tab's ONE engine socket, which the editors below borrow rather
        than each opening their own. */
-    <PlaybackProvider engineId={choice.chosenId} playQueue={playQueue}>
+    <PlaybackProvider
+      engineId={choice.chosenId}
+      playQueue={playQueue}
+      // Pour la destination « les enceintes de la machine » : c'est son service de fichiers
+      // qui pilote son mpv. Voir playback/targets.ts.
+      machine={{ fileBase: choice.fileBase, token: choice.token }}
+    >
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* The families moved from the side to the header, where l8 puts its views: the
           side is worth more as the current zone's tree than as three fixed buttons. */}

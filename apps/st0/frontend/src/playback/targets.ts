@@ -2,10 +2,10 @@
 // means, and what it needs to work. One list, so a third destination is one entry here and
 // nothing else. See ../../docs/playbackTarget.md.
 
-import { Laptop, type LucideIcon, Speaker } from "lucide-react";
+import { Laptop, type LucideIcon, Radio, Speaker } from "lucide-react";
 
 /** A destination's id. It is what is stored on the account, so these strings are permanent. */
-export type PlaybackTarget = "browser" | "engine";
+export type PlaybackTarget = "browser" | "engine" | "machine";
 
 export interface PlaybackTargetInfo {
   id: PlaybackTarget;
@@ -39,6 +39,18 @@ export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
     label: "Le moteur",
     hint: "joué par la machine choisie, sur ses propres sorties",
     icon: Speaker,
+    needsEngine: true,
+  },
+  {
+    id: "machine",
+    label: "Les enceintes de la machine",
+    // Ce que ça change vraiment par rapport au moteur : rien ne lui est demandé, donc l8 peut
+    // s'en servir en même temps, et le fichier ne traverse pas le réseau — il est déjà là-bas.
+    hint: "joué par la machine elle-même, sans passer par le moteur",
+    icon: Radio,
+    // `true` bien que le moteur ne joue RIEN : c'est par lui que la machine est découverte et
+    // qu'elle livre son jeton (la sonde lui ouvre un WebSocket). Sans moteur joignable, il n'y
+    // a pas d'adresse de service de fichiers à qui parler. Voir ../../docs/machinePlayer.md.
     needsEngine: true,
   },
 ];

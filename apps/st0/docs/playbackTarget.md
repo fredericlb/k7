@@ -188,6 +188,27 @@ this is the setting it reads.
 So today the destination governs exactly one thing: a song's master. That is the surface where
 both answers are real.
 
+## La troisième : les enceintes de la machine
+
+`machine` joue le fichier que la machine cache déjà, par `mpv`, sur ses propres sorties — **sans
+rien demander au moteur**. On peut donc écouter pendant que l8 s'en sert. Le pourquoi et les
+détails de la machine sont dans
+[packages/file-service/docs/machinePlayer.md](../../../packages/file-service/docs/machinePlayer.md).
+
+Deux choses valent d'être dites ici, parce qu'elles sont la conséquence de cette liste :
+
+`needsEngine: true` **bien qu'elle ne lui demande rien**. La machine est découverte par le
+registre des moteurs — la sonde ouvre un WebSocket vers le moteur, et c'est de l'hôte qui répond
+que `fileBase` et le jeton sont tirés. Sans moteur joignable, il n'y a personne à qui parler. Le
+drapeau dit « cette destination a besoin d'un moteur joignable », pas « elle le fait jouer », et
+c'est bien ce qu'il faut ici : `effectiveTarget` retombera sur le navigateur, ce qui est le bon
+repli.
+
+Elle ne demande **aucune résolution** côté navigateur, à l'inverse du moteur qui a besoin de
+`cacheRoot` puis `playablePath`. `NowPlaying.path` est déjà relatif à la médiathèque : il part
+tel quel, et c'est la machine qui le résout contre sa propre racine — ce qui est aussi le
+garde-fou, un client ne pouvant nommer que ce qu'elle cache.
+
 ## The preference, and the trap under it
 
 It lives on the account, beside the engine id, in the same per-user JSON

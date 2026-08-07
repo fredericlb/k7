@@ -13,12 +13,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { library } from "../api";
+import { engineMachine, library, type MachinePlayerState } from "../api";
 import { chainPreviewDoc } from "../engine/chainPreview";
 import { type ModuleEngine, useModuleEngine } from "../engine/useModuleEngine";
 import type { QueueItem } from "./queue";
 import type { PlaybackTarget } from "./targets";
 import type { PlayQueue } from "./usePlayQueue";
+
+/** Deux fois par seconde : assez pour qu'une barre de progression ne saccade pas, assez peu
+ *  pour ne pas marteler une machine dont c'est le seul travail. */
+const MACHINE_POLL_MS = 500;
 
 /** What is loaded, wherever it plays. */
 export interface NowPlaying {
@@ -129,6 +133,7 @@ export function usePlayback(): Playback {
 export function PlaybackProvider({
   engineId,
   playQueue,
+  machine,
   children,
 }: {
   /** The account's chosen engine, from the header's picker. */
@@ -137,6 +142,9 @@ export function PlaybackProvider({
    *  du contexte, et c'est elle qui porte l'arbre dont le clic droit la remplit. Voir
    *  ./usePlayQueue.ts. */
   playQueue: PlayQueue;
+  /** Le service de fichiers de la machine choisie, pour la destination « machine » : c'est lui
+   *  qui pilote son mpv. Vient du sélecteur, comme `engineId`. */
+  machine: { fileBase: string | null; token: string | null };
   children: ReactNode;
 }) {
   const engine = useModuleEngine(engineId);
@@ -189,8 +197,67 @@ export function PlaybackProvider({
     return () => cancelAnimationFrame(raf);
   }, [viaEngine, browserPlaying]);
 
-  const playing = viaEngine ? ours && engine.playing : browserPlaying;
-  const position = viaEngine ? engineAt : browserAt;
+  /**
+   * La machine joue toute seule, et on ne le sait qu'en le demandant.
+   *
+   * mpv est sur une autre machine : il n'a aucun moyen de pousser sa position jusqu'ici, donc
+   * elle est interrogée. Deux fois par seconde — assez pour qu'une barre de progression ne
+   * saccade pas, assez peu pour ne pas marteler une machine dont c'est le seul travail.
+   */
+  const viaMachine = now?.target === "machine";
+  const [machineState, setMachineState] = useState<MachinePlayerState | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!viaMachine || !machine.fileBase || !machine.token) {
+      setMachineState(null);
+      return;
+    }
+    let stop = false;
+    const tick = () =>
+      void engineMachine.player
+        .state(machine.fileBase as string, machine.token as string)
+        .then((s) => {
+          if (!stop) setMachineState(s);
+        })
+        // Silencieux : une machine qui ne répond pas un tour est une machine occupée, pas une
+        // erreur à mettre sous les yeux de quelqu'un qui écoute.
+        .catch(() => {});
+    tick();
+    const t = setInterval(tick, MACHINE_POLL_MS);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [viaMachine, machine.fileBase, machine.token]);
+
+  const playing = viaMachine
+    ? !!machineState?.playing
+    : viaEngine
+      ? ours && engine.playing
+      : browserPlaying;
+  const position = viaMachine
+    ? (machineState?.position ?? 0)
+    : viaEngine
+      ? engineAt
+      : browserAt;
+
+  /**
+   * La machine arrive au bout.
+   *
+   * mpv passe en veille (`idle`) quand il n'a plus rien : c'est un signal franc, contrairement
+   * au moteur dont il faut inférer la fin. Reste `weStopped`, pour la même raison qu'ailleurs —
+   * un arrêt demandé ressemble à une fin.
+   */
+  const machineWasPlaying = useRef(false);
+  useEffect(() => {
+    if (!viaMachine) return;
+    const nowPlaying = !!machineState?.playing;
+    if (machineWasPlaying.current && !nowPlaying && !weStopped.current)
+      setEnded((n) => n + 1);
+    machineWasPlaying.current = nowPlaying;
+    weStopped.current = false;
+  }, [viaMachine, machineState?.playing]);
 
   // The engine reaching the end of what it was given. Inferred, because the machine reports a
   // transport and not an event — see `weStopped` for the one case that has to be told apart.
@@ -211,6 +278,20 @@ export function PlaybackProvider({
       // Whatever the transport does in the next moment, it does because of this call — so it
       // is not the end of a song, even when it looks exactly like one.
       weStopped.current = true;
+      if (what.target === "machine") {
+        audioRef.current?.pause();
+        if (ours) engine.stop();
+        setLoadedEnginePath(null);
+        // `what.path` est DÉJÀ relatif à la médiathèque, et c'est tout ce qu'il faut : la
+        // machine le résout contre sa propre racine. Pas de `cacheRoot` ni de `playablePath`
+        // comme pour le moteur — cette destination ne demande aucune résolution ici.
+        if (machine.fileBase && machine.token)
+          void engineMachine.player
+            .play(machine.fileBase, machine.token, what.path, from)
+            .then(setMachineState)
+            .catch((e: Error) => setError(e.message));
+        return;
+      }
       if (what.target === "engine") {
         if (!what.enginePath) return;
         audioRef.current?.pause();
@@ -244,12 +325,35 @@ export function PlaybackProvider({
       pendingSeek.current = from;
       wantPlay.current = true;
     },
-    [engine, ours, loadedEnginePath, now?.path],
+    [
+      engine,
+      ours,
+      loadedEnginePath,
+      now?.path,
+      machine.fileBase,
+      machine.token,
+    ],
   );
 
   const toggle = useCallback(() => {
     if (!now) return;
     weStopped.current = true; // asked for, either way — see the ref
+    if (viaMachine) {
+      if (!machine.fileBase || !machine.token) return;
+      // Past the end, mpv est en veille : redemander le fichier plutôt que de le « reprendre »,
+      // puisqu'il n'y a plus rien à reprendre.
+      if (machineState?.idle)
+        void engineMachine.player
+          .play(machine.fileBase, machine.token, now.path, 0)
+          .then(setMachineState)
+          .catch((e: Error) => setError(e.message));
+      else
+        void engineMachine.player
+          .pause(machine.fileBase, machine.token, playing)
+          .then(setMachineState)
+          .catch(() => {});
+      return;
+    }
     if (viaEngine) {
       if (ours && engine.playing) return engine.stop();
       if (!now.enginePath) return;
@@ -267,11 +371,35 @@ export function PlaybackProvider({
     // bar that survives the end of a song needs.
     if (el.paused) void el.play().catch(() => {});
     else el.pause();
-  }, [now, viaEngine, ours, engine, duration, engineAt, loadedEnginePath]);
+  }, [
+    now,
+    viaEngine,
+    ours,
+    engine,
+    duration,
+    engineAt,
+    loadedEnginePath,
+    viaMachine,
+    machine.fileBase,
+    machine.token,
+    machineState?.idle,
+    playing,
+  ]);
 
   const seek = useCallback(
     (seconds: number) => {
       const at = Math.max(0, seconds);
+      if (viaMachine) {
+        // Optimiste : la poignée suit le doigt, et le prochain tour d'interrogation dira la
+        // vérité. Attendre l'aller-retour ferait sauter le curseur en arrière sous la souris.
+        setMachineState((s) => (s ? { ...s, position: at } : s));
+        if (machine.fileBase && machine.token)
+          void engineMachine.player
+            .seek(machine.fileBase, machine.token, at)
+            .then(setMachineState)
+            .catch(() => {});
+        return;
+      }
       if (viaEngine) {
         setEngineAt(at);
         if (ours) engine.seek(at);
@@ -281,19 +409,24 @@ export function PlaybackProvider({
       if (el) el.currentTime = at;
       setBrowserAt(at);
     },
-    [viaEngine, ours, engine],
+    [viaEngine, ours, engine, viaMachine, machine.fileBase, machine.token],
   );
 
   const close = useCallback(() => {
     weStopped.current = true;
     audioRef.current?.pause();
     if (ours) engine.stop();
+    // La machine continuerait sans nous — c'est un processus là-bas, pas un élément de cette
+    // page. Fermer la barre doit faire taire ce qu'elle montrait.
+    if (viaMachine && machine.fileBase && machine.token)
+      void engineMachine.player.stop(machine.fileBase, machine.token);
     setNow(null);
     setLoadedEnginePath(null);
+    setMachineState(null);
     setBrowserAt(0);
     setEngineAt(0);
     setDuration(0);
-  }, [ours, engine]);
+  }, [ours, engine, viaMachine, machine.fileBase, machine.token]);
 
   // Un COMPTEUR de revendications et non un booléen : deux panneaux de playlist peuvent être
   // montés le temps d'une transition d'écran, et le démontage du premier remettrait un
@@ -309,7 +442,11 @@ export function PlaybackProvider({
       now,
       playing,
       position,
-      duration,
+      // L'`<audio>` reste monté quelle que soit la destination et donne la durée du master,
+      // mais seulement une fois ses métadonnées arrivées — alors que mpv l'a déjà lue. Celle
+      // de la machine gagne quand elle est là : c'est celle du fichier qui sort vraiment.
+      duration:
+        viaMachine && machineState?.duration ? machineState.duration : duration,
       error,
       ended,
       start,
@@ -325,6 +462,8 @@ export function PlaybackProvider({
       playing,
       position,
       duration,
+      viaMachine,
+      machineState,
       error,
       ended,
       start,
