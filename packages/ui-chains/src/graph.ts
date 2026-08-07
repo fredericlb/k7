@@ -827,6 +827,8 @@ const ROW_MARGIN = 16; // matches layout()'s marginx/marginy, so the two frame a
  * A name with no module in the graph is skipped rather than drawn as a gap: the caller's list is
  * derived from the compiled project and the graph is refetched separately, so the two can be one
  * reload apart, and a hole in the row would be the only sign.
+ *
+ * The cards come WITHOUT their sockets — see the `jacks` line below.
  */
 export function moduleRow(
   graph: WebGraph,
@@ -848,7 +850,9 @@ export function moduleRow(
     const n = byModule.get(name);
     if (!n) continue;
     const w = Math.round(n.w * widthScale);
-    out.push({ ...n, w, x, y: ROW_MARGIN });
+    // No sockets: this row has no edges, so every jack on it would lead nowhere. A plug that
+    // plugs into nothing is furniture, and on a rank of strips it is furniture between them.
+    out.push({ ...n, w, x, y: ROW_MARGIN, jacks: undefined });
     x += w + STRIP_GAP;
   }
   const tallest = out.reduce((h, n) => Math.max(h, n.h), 0);

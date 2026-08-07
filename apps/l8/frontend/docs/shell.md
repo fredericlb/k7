@@ -75,6 +75,11 @@ strips and in what order (the graph doc does not carry a plugin type), and the g
 what each one looks like. `moduleRow` (in `@studio/ui-chains`) then places them — no dagre,
 since there is nothing to route and the order is the song's, not a layout engine's.
 
+It also drops each card's **sockets**. The row has no edges by construction, so every jack on it
+would plug into nothing — furniture, and on a rank of strips, furniture *between* them. The
+routing that makes a socket mean something is the chains view's job; go there to see what feeds a
+strip.
+
 #### It fills the HEIGHT, and the row pans
 
 `fitAxis="height"`, not the default fit-both. This is not a preference: fitting both axes

@@ -723,6 +723,20 @@ describe("moduleRow", () => {
     expect(fromRow.chain).toBe(fromFull?.chain);
   });
 
+  it("strips the sockets, which on an edgeless row would plug into nothing", () => {
+    // The full graph gives this same card its jacks — a cable arrives and one leaves. Here there
+    // are no cables at all, so drawing the plates would only put furniture between the strips.
+    const built = buildGraph(three);
+    const fromFull = layout(built.nodes, built.edges).nodes.find(
+      (n) => n.module === "mx-vox",
+    );
+    expect(
+      (fromFull?.jacks?.in.length ?? 0) + (fromFull?.jacks?.out.length ?? 0),
+    ).toBeGreaterThan(0);
+    for (const n of moduleRow(three, ["mx-vox", "mx-bass"]).nodes)
+      expect(n.jacks).toBeUndefined();
+  });
+
   it("skips a name the graph does not have, rather than leaving a hole", () => {
     // The list comes from the compiled project and the graph is fetched separately, so the two
     // can be one reload apart.
