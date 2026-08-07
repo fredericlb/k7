@@ -72,6 +72,7 @@ export function m9ProjectFiles(name: string): Record<string, string> {
     "tracks/deckB.yaml": deckTrack(
       "B",
       "Its run ends on `#b`, the crossfade's second port.",
+      true,
     ),
 
     [`instances/${CROSSFADE}.yaml`]:
@@ -116,6 +117,24 @@ export function m9ProjectFiles(name: string): Record<string, string> {
 }
 
 /** The médiathèque folder the set's modules come from. */
+/**
+ * Why deck B is MUTED, which is the one line of this scaffold worth reading twice.
+ *
+ * `out` compiles as a PARALLEL path: the dry signal carries on to the master beside the module
+ * it feeds, which is what makes a send a send. A deck that only feeds the crossfade's second
+ * port gets the same treatment, so unmuted you hear deck B twice — once raw, once through the
+ * crossfade — and pushing the crossfader to deck A does not take it away. Which is exactly what
+ * "the crossfader does nothing" looks like from the desk.
+ *
+ * Mute says "this lane is not heard on its own", and it works because Tracktion's muting node
+ * deliberately still passes clips to aux sends and sidechains: the crossfade keeps its second
+ * signal, the master stops getting a duplicate. `engine/capot/songs/crossfade-demo.l8` measured
+ * it, and engine/moteur/docs/sidechain.md says why.
+ */
+const MUTED_LANE =
+  "# Heard through the crossfade ONLY — see scaffoldM9.ts for why this is not optional.\n" +
+  "mute: true\n";
+
 const MEDIATEK_UTILITY = "@mediatek/audio/utility";
 /** The instance names the chains file wires. Short on purpose — a chains file reads better
  *  with `tempoA` in it than with the whole ref, and the ref is one line away in instances/. */
@@ -146,7 +165,7 @@ function tempoInstance(letter: string): string {
 }
 
 /** One deck: a track that is DECLARED here and whose material arrives at play time. */
-function deckTrack(letter: string, wiring: string): string {
+function deckTrack(letter: string, wiring: string, muted = false): string {
   return (
     `# Deck ${letter}. A track with no arrangement — \`clips\` is empty and stays empty in git.\n` +
     `#\n` +
@@ -156,8 +175,9 @@ function deckTrack(letter: string, wiring: string): string {
     `# the graph. ${wiring}\n` +
     `type: single\n` +
     `contentType: audio\n` +
+    (muted ? MUTED_LANE : "") +
     `clips: []\n` +
-    `docs: Deck ${letter}.\n`
+    `docs: Deck ${letter}.${muted ? " Muted so it is heard through the crossfade only." : ""}\n`
   );
 }
 

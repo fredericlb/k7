@@ -87,13 +87,23 @@ Une platine sans tempo détecté ne mène rien et ne suit rien — il n'y a pas 
 se synchroniser, et en inventer un serait le mensonge confiant qu'on évite partout ici. Les
 deux boutons sont désactivés tant que les deux platines n'ont pas de tempo.
 
-## Pourquoi ça atterrit au relâchement
+## Pendant le glissement, mais pas à chaque pixel
 
 Le crossfade bouge à chaque pixel parce que c'est un **paramètre de plugin** :
-`set-plugin-param`, un message. Un warp est dans le **document** — il n'y a pas de message
-pour ça — donc déplacer le fader met le nombre à jour tout de suite et n'envoie le document
-qu'au relâchement. Re-warper à chaque pixel reconstruirait le moteur d'étirement à chaque pas
-d'un glissement, sur les deux platines quand elles sont synchronisées.
+`set-plugin-param`, un message. Un warp est dans le **document**, il n'y a pas de message pour
+ça, et le moteur y répond en **réinsérant le clip**
+(`engine/moteur/docs/engineHost.md`). Reconstruire le nœud d'étirement à chaque pas d'un
+glissement — sur les deux platines quand elles sont synchronisées — passerait le geste à
+bégayer.
+
+Donc le document part **cadencé** : au plus une fois par `LIVE_WARP_MS` (120 ms), et toujours
+avec la dernière valeur. Le tempo suit la main au lieu d'arriver à la fin.
+
+C'est un *throttle*, délibérément pas un *debounce* : un debounce annule son échéance à chaque
+nouvelle valeur, donc un glissement continu n'enverrait rien tant que la main ne s'arrête pas
+— exactement le comportement qu'on remplace. Ici une échéance déjà posée est laissée
+tranquille et lit la valeur courante quand elle se déclenche. Le relâchement envoie en plus la
+valeur exacte : le dernier tick cadencé peut s'en écarter de 120 ms de geste.
 
 ## Ce qu'il faut savoir avant de l'essayer
 
@@ -104,10 +114,57 @@ affiche `—` et le sync est désactivé. Ce n'est pas une panne, c'est l'état 
 qui n'a jamais été analysé ; l'endroit naturel pour préchauffer, plus tard, c'est la liste du
 set (`songs.yaml` nomme déjà exactement les morceaux concernés).
 
-## Un seul transport, toujours
+## Le sync aligne aussi les temps
 
-Le sync aligne les **tempos**, pas les phases : les deux disques tournent à la même vitesse,
-rien ne garantit que leurs temps forts tombent ensemble. Caler la phase demanderait de
-décaler un morceau dans le temps, donc un transport par platine — ce que le moteur n'a pas
-(voir [mix.md](mix.md)). C'est la moitié qui manque, et elle manque pour la même raison que
-le reste.
+Deux platines à 128 BPM dont les temps forts sont à 200 ms l'un de l'autre ne sont pas
+synchronisées, elles *flamment*. Le sync fait donc **deux** choses : donner son tempo à
+l'esclave, puis caler sa grille sur celle du maître.
+
+Cette page a longtemps dit que caler la phase demanderait un transport par platine, que le
+moteur n'a pas. C'était l'erreur : on ne décale pas le **transport**, on décale le **clip**.
+`ClipDoc.start` est par clip, il est en beats du document, et retarder l'esclave de moins d'un
+temps suffit — ça ne coûte rien qu'on entende en tête de platine.
+
+Deux morceaux à savoir mesurer pour ça :
+
+- **Où commence la grille.** `beats.ts` en fait une **moyenne circulaire** : chaque transitoire
+  est replié sur une période de temps et devient un angle, et on moyenne les vecteurs
+  unitaires. Ce qui tombe sur le temps s'additionne, le reste s'annule. La longueur du
+  résultat dit à quel point les attaques étaient d'accord, ce qui permet de refuser de
+  répondre plutôt que d'inventer une phase à partir de bruit. Ça remplace `transients[0]` :
+  une seule attaque est une seule mesure, et un clic dans une intro calme déplaçait toute la
+  grille — y compris les lignes jaunes de la waveform, qui lisent maintenant le même nombre.
+- **Où elle est ENTENDUE.** Une seconde source `s` est jouée à `s · natural / target` : un
+  morceau à 90 BPM étiré à 120 arrive un tiers plus tôt. Prendre la phase du fichier au lieu
+  de celle de la platine décalerait le temps fort de 100 ms — un flam audible.
+
+Les deux platines sont au même `target` au moment où la question se pose (c'est ce que le sync
+a fait en premier), donc leurs périodes coïncident déjà et seuls les décalages diffèrent. La
+réponse est leur différence, repliée dans un temps : jamais plus d'un temps de retard, jamais
+négatif — ce qu'un `start` de clip ne saurait pas exprimer.
+
+### Savoir se taire, et le dire
+
+C'est la décision la moins évidente du lot, et elle est mesurée. Une phase est publiée
+seulement si les attaques l'ont vraiment dite ; sinon la platine reçoit le **tempo** et aucun
+décalage. Égaler la vitesse vaut le coup toute seule, et une phase inventée déplacerait le
+disque pour rien.
+
+La force brute ne peut pas trancher toute seule, parce que ce qui compte comme « élevé »
+dépend du nombre d'attaques : en disperser `n` au hasard laisse quand même une résultante
+d'environ `0,886/√n` — 0,04 pour 400 attaques, 0,09 pour 100. Un seuil fixe classerait donc
+les morceaux par leur **longueur**. Le test de **Rayleigh** est cette comparaison faite
+proprement : `n·R²` contre 4,6, soit p ≈ 0,01 contre « les attaques sont réparties
+uniformément, il n'y a pas de grille ».
+
+Sur les trois morceaux d'`example.m9`, ça sépare franchement au lieu de tergiverser :
+
+| morceau | bpm | attaques | force | `n·R²` | grille |
+|---|---|---|---|---|---|
+| Daft Punk — Around the world | 121,36 | 404 | 0,591 | **141** | oui |
+| Stromae x Pomme — Ma meilleure ennemie | 87,93 | 236 | 0,268 | **17** | oui |
+| Alain Bashung — La nuit je mens | 123,31 | 292 | 0,027 | **0,2** | non |
+
+La dernière ligne est *sous* le niveau du hasard : le tempo détecté est simplement faux, et
+c'est exactement le cas qui ne doit pas déplacer un disque. Le bouton SYNC reste actif — la
+moitié du sync vaut le coup — et son infobulle dit laquelle il fera.

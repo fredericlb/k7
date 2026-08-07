@@ -28,11 +28,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { beatPhase } from "../beats";
 import {
   type DeckId,
   type DeckLoads,
   type DeckTempo,
   type DeckTempos,
+  DECKS,
   MIX_CENTRE,
   NO_LOADS,
   pushCrossfade,
@@ -60,6 +62,17 @@ import { BpmFader } from "./BpmFader";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
+
+/**
+ * How often a tempo may reach the engine WHILE the fader is moving.
+ *
+ * The crossfader is a plugin param and goes out per pixel; a tempo is a clip warp, and the
+ * engine answers a changed warp by re-inserting the clip. So this is the rate that trade
+ * settles on: fast enough that the pitch tracks the hand rather than arriving at the end,
+ * slow enough that each rebuild finishes before the next is asked for — on both decks at
+ * once when they are synced.
+ */
+const LIVE_WARP_MS = 120;
 
 /** The set list's file, project-relative. Named once — the name is @studio/song's. */
 const SONGS_FILE = "songs.yaml";
@@ -141,11 +154,26 @@ export function MixView({
     [wiring, tempos, plugins],
   );
 
+  /**
+   * Can sync do its SECOND half — put the two decks' beats together?
+   *
+   * Only when both songs gave a grid the onsets agreed on. `phase` is carried exactly when
+   * that held (see the load path), so its presence is the answer, and the sync button says so
+   * rather than aligning nothing in silence.
+   */
+  const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
+
   // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
   // last `onChange`, and a `commit` closed over that render's value would send the document
   // one drag-step stale — silently, and only sometimes.
   const latest = useRef(stretches);
   latest.current = stretches;
+
+  /** True between the first `onChange` of a drag and the `onCommit` that ends it. */
+  const dragging = useRef(false);
+  /** When the throttle last let a document through, and the pending tick if there is one. */
+  const lastWarp = useRef(0);
+  const warpTimer = useRef<number | null>(null);
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -217,10 +245,18 @@ export function MixView({
         setWaves((w) => ({ ...w, [deckId]: { k: "ready", env } }));
         // The tempo arrives WITH the waveform — the sidecar carries both — so this is where
         // the fader gets its scale and its home notch.
+        const grid = beatPhase(env.transients, env.bpm);
         const t: DeckTempo = {
           natural: env.bpm,
           seconds: env.seconds,
           target: env.bpm,
+          // Measured once, here, from the same onsets the waveform draws: where this song's
+          // beat grid starts. Sync needs it to put two decks' downbeats together.
+          //
+          // Carried ONLY when the onsets really said so. A song whose detected tempo is wrong
+          // gives a phase indistinguishable from noise, and moving a record onto that is
+          // worse than leaving it where it is — so it syncs the tempo and nothing else.
+          ...(grid.confident ? { phase: grid.phase } : {}),
         };
         setFaders((f) => ({ ...f, [deckId]: t }));
         // Re-sent so the OTHER deck's stretch survives this load: the document carries both
@@ -251,7 +287,7 @@ export function MixView({
   };
 
   /**
-   * Move a fader. The number follows the finger; the stretch waits for `commit`.
+   * Move a fader. The number follows the finger, and so does the tempo — see `commit`.
    *
    * **A hand on the SLAVE's fader cancels sync.** That is what the gesture means on every
    * deck that has the button: you are taking this tempo back. Without it the slave's knob
@@ -262,6 +298,7 @@ export function MixView({
    * before the sync, which is the surprise a naive `setMaster(null)` first would cause.
    */
   const nudge = (deckId: DeckId, bpm: number) => {
+    dragging.current = true;
     if (master && master !== deckId) setMaster(null);
     setFaders((f) => {
       const t = f[deckId];
@@ -270,16 +307,60 @@ export function MixView({
   };
 
   /**
-   * Let go of a fader, or press sync: re-send the document.
+   * Send the decks as they now stand — on release, on sync, and during a drag.
    *
-   * A warp is part of the DOCUMENT, not a plugin parameter, so there is no live message for
-   * it — unlike the crossfader, which is why that one moves per pixel and this one lands on
-   * release. Re-warping per pixel would have the stretch engine rebuilt for every step of a
-   * drag, on both decks when they are synced.
+   * A warp is part of the DOCUMENT rather than a plugin parameter, so there is no
+   * `set-plugin-param` for it: every change is a re-send, and the engine answers it by
+   * RE-INSERTING the clip (engine/moteur/docs/engineHost.md). That is why this is not per
+   * pixel like the crossfader — a slider emits a value per pixel dragged, and a stretch node
+   * rebuilt that often, on both decks when they are synced, would spend the gesture
+   * stuttering. It is throttled instead, which is what makes the tempo follow the hand
+   * without the drag falling apart.
    */
   const commit = (next = latest.current) => {
     if (deck.engine)
       sendDecks(deck.engine, loads, mix, undefined, next, compiled);
+  };
+  // Read by the throttle timer below, so what it sends is this render's document and not the
+  // one from whichever render happened to schedule it.
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+
+  /**
+   * The drag's own sends: at most one per `LIVE_WARP_MS`, and always the newest value.
+   *
+   * Deliberately NOT a debounce. A debounce clears its pending tick on every new value, so a
+   * continuous drag never sends anything until the hand stops — the exact behaviour this
+   * replaces. Here a tick already scheduled is left alone and reads `latest` when it fires,
+   * so the stream comes out at a steady rate however fast the fader moves.
+   *
+   * `dragging` is what keeps this to the gesture: `stretches` also changes on a load and on
+   * sync, and both of those already send for themselves.
+   */
+  useEffect(() => {
+    if (!dragging.current || warpTimer.current !== null) return;
+    const wait = Math.max(0, LIVE_WARP_MS - (Date.now() - lastWarp.current));
+    warpTimer.current = window.setTimeout(() => {
+      warpTimer.current = null;
+      lastWarp.current = Date.now();
+      commitRef.current();
+    }, wait);
+  }, [stretches]);
+  // A drag that ends by unmounting — switching to Graphe mid-gesture — must not leave a timer
+  // holding a document for a view that has gone.
+  useEffect(
+    () => () => {
+      if (warpTimer.current !== null) window.clearTimeout(warpTimer.current);
+    },
+    [],
+  );
+
+  /** Let go of the fader: the drag's throttle stops, and the exact value it landed on goes
+   *  out — the last throttled tick may have been up to `LIVE_WARP_MS` short of it. */
+  const release = () => {
+    dragging.current = false;
+    lastWarp.current = Date.now();
+    commit();
   };
 
   /** Press a sync button. Pressing the one already lit releases it — a set spends most of
@@ -337,7 +418,7 @@ export function MixView({
           tempo={tempos.deckA}
           driven={master === "deckB"}
           onNudge={(bpm) => nudge("deckA", bpm)}
-          onCommit={commit}
+          onCommit={release}
           onPick={() => setBrowsing("deckA")}
         />
 
@@ -386,7 +467,7 @@ export function MixView({
           tempo={tempos.deckB}
           driven={master === "deckA"}
           onNudge={(bpm) => nudge("deckB", bpm)}
-          onCommit={commit}
+          onCommit={release}
           onPick={() => setBrowsing("deckB")}
         />
       </div>
@@ -409,6 +490,7 @@ export function MixView({
           side="A"
           on={master === "deckA"}
           enabled={!!tempos.deckA?.natural && !!tempos.deckB?.natural}
+          beats={canAlign}
           onClick={() => toggleSync("deckA")}
         />
 
@@ -495,6 +577,7 @@ export function MixView({
           side="B"
           on={master === "deckB"}
           enabled={!!tempos.deckA?.natural && !!tempos.deckB?.natural}
+          beats={canAlign}
           onClick={() => toggleSync("deckB")}
         />
       </footer>
@@ -511,16 +594,24 @@ export function MixView({
  *
  * Disabled until BOTH decks have a tempo: there is nothing to sync to otherwise, and a
  * button that does nothing when pressed is worse than one that says why it cannot.
+ *
+ * `beats` is the same rule one step further. Sync does TWO things, and the second one — putting
+ * the downbeats together — needs a grid the onsets actually agreed on. A song whose detected
+ * tempo is wrong has no such grid (see `beatPhase`), so the speeds still match and the beats
+ * do not. The button stays live, because half of sync is worth having, and says which half.
  */
 function SyncButton({
   side,
   on,
   enabled,
+  beats,
   onClick,
 }: {
   side: "A" | "B";
   on: boolean;
   enabled: boolean;
+  /** Can the two decks' beats be aligned, or only their tempos? */
+  beats: boolean;
   onClick: () => void;
 }) {
   return (
@@ -532,9 +623,11 @@ function SyncButton({
       title={
         !enabled
           ? "il faut un tempo sur les deux platines"
-          : on
-            ? `la platine ${side} mène — cliquer pour relâcher`
-            : `synchroniser sur la platine ${side}`
+          : !beats
+            ? `synchroniser sur la platine ${side} — tempo seulement : l'analyse n'a pas trouvé de grille fiable sur l'un des morceaux, les temps ne seront pas calés`
+            : on
+              ? `la platine ${side} mène — cliquer pour relâcher`
+              : `synchroniser sur la platine ${side}`
       }
       onClick={onClick}
     >

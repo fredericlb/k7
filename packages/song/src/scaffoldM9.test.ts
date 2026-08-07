@@ -254,6 +254,25 @@ describe("a scaffolded m9 set", () => {
     expect(cross?.sidechainFrom).toBe("deckB");
   });
 
+  it("MUTES deck B, so the crossfader can actually take it away", () => {
+    // The bug this pins made the crossfader look dead, and it was not the crossfader.
+    //
+    // `out` compiles as a PARALLEL path — the dry signal carries on to the master beside the
+    // module it feeds, which is what makes a send a send. Deck B only feeds the crossfade's
+    // second port, so unmuted it reached the master too: heard once raw and once through the
+    // module, and moving the fader to deck A did not remove it. Every setting sounded the
+    // same, which reads as "the crossfade does nothing".
+    //
+    // It works because Tracktion's muting node deliberately still passes clips to sidechains,
+    // so the crossfade keeps its second signal. crossfade-demo.l8 measured the same thing.
+    const doc = (scaffoldM9(dir, "winter"), compileNodeProject(dir));
+    const byId = Object.fromEntries(doc.tracks.map((t) => [t.id, t]));
+    expect(byId.deckB.mute).toBe(true);
+    // …and deck A is NOT muted: it flows into the crossfade's first port and is heard through
+    // it, so muting it would take the whole desk away.
+    expect(byId.deckA.mute).toBe(false);
+  });
+
   it("gives each deck a track with no arrangement", () => {
     scaffoldM9(dir, "winter");
     const tracks = loadTracks(dir);
