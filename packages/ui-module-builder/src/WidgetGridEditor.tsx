@@ -10,6 +10,7 @@ import {
   Activity,
   AudioWaveform,
   Circle,
+  FileSearch,
   Hash,
   LayoutGrid,
   List,
@@ -36,6 +37,7 @@ const TYPES: { type: WidgetType; icon: LucideIcon; label: string }[] = [
   { type: "fader", icon: SlidersVertical, label: "Fader" },
   { type: "toggle", icon: ToggleLeft, label: "Toggle" },
   { type: "dropdown", icon: List, label: "Dropdown" },
+  { type: "filepicker", icon: FileSearch, label: "File" },
   { type: "button", icon: RectangleHorizontal, label: "Button" },
   { type: "number", icon: Hash, label: "Number" },
   { type: "meter", icon: Activity, label: "Meter" },
@@ -518,8 +520,11 @@ function Inspector({
   const isLabel = w.type === "label";
   const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
-  // A library dropdown's `bind` names a FIELD OF THE MODULE, set with the library — so the bind chip steps aside.
-  const isLibrary = w.type === "dropdown" && !!w.library;
+  // A file picker's `bind` names a file-valued param, chosen from the File select below rather
+  // than dragged from the plugin's numeric params — so the bind chip steps aside for both it and
+  // the older `dropdown` + `library` spelling of the same widget.
+  const isLibrary =
+    w.type === "filepicker" || (w.type === "dropdown" && !!w.library);
   const numeric = ranged(w); // same predicate the drop path uses to adopt a range
   const num = (v: string): number | undefined => {
     const t = v.trim();
@@ -631,10 +636,37 @@ function Inspector({
           />
         </Field>
 
-        {w.type === "dropdown" && (
-          // Where a dropdown's choices come from: empty = the bound param's own settings, else
-          // the module's assets/ — the files a file-valued param can be set to.
-          <Field label="Files">
+        {w.type === "filepicker" && (
+          // WHICH file-valued param this picker sets. It is the whole configuration: the param
+          // names the key written, the command that writes it, and the extension offered — so
+          // there is one choice to make and nothing that can disagree with itself.
+          <Field label="File">
+            <select
+              className={FIELD_CLS}
+              value={w.bind ?? ""}
+              disabled={disabled || !assetParams?.length}
+              onChange={(e) =>
+                onPatch({
+                  bind: e.target.value || undefined,
+                  library: undefined,
+                })
+              }
+            >
+              <option value="">(pick a parameter)</option>
+              {(assetParams ?? []).map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        {w.type === "dropdown" && !!w.library && (
+          // The older spelling of a file picker, kept editable so a panel already written can be
+          // read and moved off it — `library` and `bind` name the same param. New ones are made
+          // with the File widget; see packages/song/docs/filePicker.md.
+          <Field label="Files (legacy)">
             <select
               className={FIELD_CLS}
               value={w.library ?? ""}
@@ -643,9 +675,7 @@ function Inspector({
                 const param = e.target.value;
                 onPatch(
                   param
-                    ? // The param names both the key written and the files offered, so choosing
-                      // one fills the binding too and the old param's settings go with it.
-                      { library: param, bind: param, options: undefined }
+                    ? { library: param, bind: param, options: undefined }
                     : { library: undefined, bind: undefined },
                 );
               }}

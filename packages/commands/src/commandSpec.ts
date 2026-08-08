@@ -6,11 +6,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  listModuleAssets,
-  loadModules,
-  MODULE_TYPES,
-} from "@studio/song/loader";
+import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { parsePosition } from "@studio/song/timecode";
 import { parse as parseYaml } from "yaml";
 import {
@@ -111,18 +108,26 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
   // Every module's own assets at once, as assets-relative paths, plus `none` to clear. Not
   // narrowed to the module being edited: the completion runs before that argument is typed,
   // and a project's modules carry a handful of files each, not a library's worth.
-  assetFiles: (h) => [
-    ...new Set(
-      Object.values(loadModules(h.songPath)).flatMap((m) =>
-        m?.category && m?.file
-          ? listModuleAssets(
-              join(h.songPath, "modules", String(m.category), String(m.file)),
-            )
-          : [],
+  assetFiles: (h) => {
+    // Read once, then asked per module: `moduleAssetChoices` walks each module's ancestry, so a
+    // thin local module extending a médiathèque amp offers that amp's profiles rather than the
+    // empty list its own folder holds.
+    const refs = (() => {
+      try {
+        return loadModuleRefs(h.songPath);
+      } catch {
+        return {};
+      }
+    })();
+    return [
+      ...new Set(
+        Object.values(loadModules(h.songPath)).flatMap((m) =>
+          moduleAssetChoices(h.songPath, m, refs),
+        ),
       ),
-    ),
-    "none",
-  ],
+      "none",
+    ];
+  },
   // Audio files in the active project, walked per completion so new ones appear; hidden dirs are skipped.
   audioFiles: (h) => {
     const AUDIO_EXT = new Set([

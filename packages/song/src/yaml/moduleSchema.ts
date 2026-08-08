@@ -71,6 +71,10 @@ export const WIDGET_TYPES = [
   "tabs",
   "waveform",
   "dropdown",
+  // Picks a FILE the module carries for a file-valued param (`bind: nam`). Its own type rather
+  // than a flavour of dropdown: it lists a folder tree with a search field, not a set of values
+  // the panel author wrote down. See docs/filePicker.md.
+  "filepicker",
 ] as const;
 
 // A refinement, not a union: a union would reject the half-second where the editor changed `type` but not the fields.
@@ -127,6 +131,15 @@ export const WidgetSchema: z.ZodType<Widget> = WidgetBase.extend({
     if (w.library !== undefined)
       wrong("library", "only a dropdown lists a library");
   }
+  // A file picker with nothing to pick FOR is a button that cannot say what it would write:
+  // the param it binds is where the chosen file lands, and there is no default worth guessing.
+  if (w.type === "filepicker" && !w.bind)
+    ctx.addIssue({
+      code: "custom",
+      path: ["bind"],
+      message:
+        "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: nam)",
+    });
   if (w.type === "tabs" && w.pages === undefined)
     ctx.addIssue({
       code: "custom",

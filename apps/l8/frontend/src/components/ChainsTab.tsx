@@ -34,7 +34,7 @@ export function ChainsTab({
   onBypassModule,
   engineWarnings,
   onSetModuleAsset,
-  onLibraryBrowse,
+  onAssetBrowse,
   onWatchWaveform,
   pendingInsert,
   onPickModule,
@@ -68,7 +68,7 @@ export function ChainsTab({
   // Load a library file into a module: `kind` is the asset, `file` library-relative or "none" to clear.
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the library browser for a module's asset field, at viewport coords. */
-  onLibraryBrowse?: (
+  onAssetBrowse?: (
     module: string,
     kind: string,
     x: number,
@@ -529,7 +529,7 @@ export function ChainsTab({
             onBypassModule={bypassModule}
             engineWarnings={engineWarnings}
             onSetModuleAsset={onSetModuleAsset}
-            onLibraryBrowse={onLibraryBrowse}
+            onAssetBrowse={onAssetBrowse}
             onWatchWaveform={onWatchWaveform}
             pluginParamsStore={pluginParamsStore}
             setPluginParam={setPluginParam}

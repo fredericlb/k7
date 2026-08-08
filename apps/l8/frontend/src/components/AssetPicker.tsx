@@ -1,13 +1,15 @@
-// LibraryPicker.tsx — "which file?", asked by a module's library dropdown (a cabinet IR,
-// a NAM profile). The same popup as the `+` on a graph arrow, deliberately: both browse a
-// nested catalogue and both want a search field, and two pickers behaving differently
-// would be a coin toss. The shell is TreePicker; this only says what the tree is.
+// AssetPicker.tsx — "which file?", asked by a module's filepicker widget (a NAM profile, a
+// model). The same popup as the `+` on a graph arrow, deliberately: both browse a nested
+// catalogue and both want a search field, and two pickers behaving differently would be a coin
+// toss. The shell is TreePicker; this only says what the tree is. See docs/filePicker.md.
 //
-// The catalogue is the library's own folders. These arrive nested — a NAM pack is a folder
-// per amp, an IR pack a folder per cabinet then per mic — and the flat <select> this
-// replaces listed all 300 of them in one scroll, alphabetically, with the folder ground
-// into the filename.
+// The choices are the module's OWN assets/, `assets/`-relative and nested — a NAM pack is a
+// folder per amp — so they are filtered by the EXTENSION the bound param takes rather than by a
+// folder prefix. It was a prefix while a shared `_library/` existed and files were named
+// `nam/Marshall/jcm800.nam`; that library is gone (packages/song/docs/moduleAssets.md), and the
+// prefix filter matched nothing a module actually carries.
 
+import { assetsForParam } from "@studio/song/moduleTypes";
 import { fuzzyScore } from "../fuzzy";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
@@ -21,19 +23,15 @@ const stem = (path: string) => {
 };
 
 /**
- * Library-relative paths → one level per folder.
+ * `assets/`-relative paths → one level per folder.
  *
- * `nam/Two-Rock/Clean/a.nam` under kind `nam` → level "Two-Rock" → level "Clean" → leaf "a".
- *
- * The KIND prefix is dropped: the widget already says which library it browses, so
- * repeating "nam/" on every row costs width and tells you nothing. A file sitting directly
- * in the kind's folder becomes a leaf at the root, beside the folders.
+ * `roland jc 120b/bright on.nam` under param `nam` → level "roland jc 120b" → leaf "bright on".
+ * A file sitting directly in `assets/` becomes a leaf at the root, beside the folders.
  */
-export function buildLibraryTree(
+export function buildAssetTree(
   files: string[],
-  kind: string,
+  param: string,
 ): TreeNode<string>[] {
-  const prefix = `${kind}/`;
   // A folder's children by path, so a level can be built without re-walking the list.
   const roots: TreeNode<string>[] = [];
   const dirs = new Map<string, TreeNode<string>>();
@@ -53,14 +51,12 @@ export function buildLibraryTree(
     return node.children as TreeNode<string>[];
   };
 
-  for (const file of [...files].sort()) {
-    if (!file.startsWith(prefix)) continue;
-    const rel = file.slice(prefix.length); // "Two-Rock/Clean/a.nam"
-    const cut = rel.lastIndexOf("/");
-    folderFor(cut < 0 ? "" : rel.slice(0, cut)).push({
+  for (const file of assetsForParam(files, param).sort()) {
+    const cut = file.lastIndexOf("/");
+    folderFor(cut < 0 ? "" : file.slice(0, cut)).push({
       key: `f:${file}`,
       label: stem(file),
-      entry: file, // what the caller writes to the module — the full library-relative path
+      entry: file, // what the caller writes to the module — the full assets-relative path
     });
   }
 
@@ -79,23 +75,20 @@ export function buildLibraryTree(
 }
 
 /**
- * Flat matches for a query, best first. Scored on the file's own name AND on its whole
- * path, so both "jcm" and "marshall/jcm" find `nam/Marshall/jcm800.nam` — the folder is
- * half of what you remember about a profile.
+ * Flat matches for a query, best first. Scored on the file's own name AND on its whole path, so
+ * both "jc" and "roland/bright" find `roland jc 120b/bright on.nam` — the folder is half of what
+ * you remember about a profile.
  */
-export function searchLibrary(
+export function searchAssets(
   files: string[],
-  kind: string,
+  param: string,
   query: string,
 ): TreeNode<string>[] {
   const q = query.trim();
   if (!q) return [];
-  const prefix = `${kind}/`;
   const scored: { node: TreeNode<string>; score: number }[] = [];
-  for (const file of files) {
-    if (!file.startsWith(prefix)) continue;
-    const rel = file.slice(prefix.length);
-    const best = Math.max(fuzzyScore(q, stem(file)), fuzzyScore(q, rel));
+  for (const file of assetsForParam(files, param)) {
+    const best = Math.max(fuzzyScore(q, stem(file)), fuzzyScore(q, file));
     if (best <= 0) continue;
     scored.push({
       node: {
@@ -103,8 +96,8 @@ export function searchLibrary(
         label: stem(file),
         entry: file,
         // The folder path, so two profiles with the same name stay distinguishable.
-        hint: rel.includes("/")
-          ? rel.slice(0, rel.lastIndexOf("/"))
+        hint: file.includes("/")
+          ? file.slice(0, file.lastIndexOf("/"))
           : undefined,
       },
       score: best,
@@ -116,25 +109,25 @@ export function searchLibrary(
   return scored.slice(0, SEARCH_LIMIT).map((s) => s.node);
 }
 
-export function LibraryPicker({
+export function AssetPicker({
   x,
   y,
-  kind,
+  param,
   files,
   onPick,
   onClose,
 }: {
   x: number; // viewport coords of the widget that opened it
   y: number;
-  kind: string; // "nam", "ir" — the library folder being browsed
-  files: string[]; // every library file, kind-prefixed; filtered here
-  /** The library-relative path, or "" to clear — an asset is a real choice to UNMAKE. */
+  param: string; // "nam" — the file-valued param being set, which also picks the extension
+  files: string[]; // every asset the module can name; filtered here
+  /** The assets-relative path, or "" to clear — an asset is a real choice to UNMAKE. */
   onPick: (file: string) => void;
   onClose: () => void;
 }) {
-  const tree = buildLibraryTree(files, kind);
-  // "none" first and always: a convolver with no IR is a legitimate state, and it must not
-  // be something you have to hunt for among the files.
+  const tree = buildAssetTree(files, param);
+  // "none" first and always: a module with no profile loaded is a legitimate state, and it must
+  // not be something you have to hunt for among the files.
   const withNone: TreeNode<string>[] = [
     { key: "none", label: "— none —", entry: "" },
     ...tree,
@@ -144,10 +137,10 @@ export function LibraryPicker({
       x={x}
       y={y}
       tree={withNone}
-      search={(q) => searchLibrary(files, kind, q)}
+      search={(q) => searchAssets(files, param, q)}
       searchLimit={SEARCH_LIMIT}
-      placeholder={`search ${kind}…`}
-      emptyLabel={`no ${kind} file matches`}
+      placeholder={`search ${param}…`}
+      emptyLabel={`no ${param} file matches`}
       onPick={onPick}
       onClose={onClose}
     />

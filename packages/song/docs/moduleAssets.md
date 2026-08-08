@@ -15,6 +15,12 @@ modules/audio/amp/
 That is the only place they are looked for. There is no shared asset library any more (see
 "What replaced the library" below).
 
+A module INHERITS its ancestors' assets: pointing a song at a shared amp means a thin local
+module that `extends` it, and the files are in the shared folder. `moduleAssetChoices` is the one
+answer to "what may this param be set to" — the panel's picker, the graph and the CLI completion
+all ask it. See [filePicker.md](filePicker.md), which is also where the widget that offers them
+is described.
+
 ## A file is a param
 
 The file a plugin loads is named in `params:`, beside the numbers:

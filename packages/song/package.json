@@ -28,6 +28,7 @@
     "./presets": "./src/presets.ts",
     "./controller": "./src/controller.ts",
     "./controllerBind": "./src/controllerBind.ts",
+    "./moduleAssetChoices": "./src/moduleAssetChoices.ts",
     "./trackMix": "./src/trackMix.ts",
     "./hints": "./src/hints.ts",
     "./ioPorts": "./src/ioPorts.ts",
