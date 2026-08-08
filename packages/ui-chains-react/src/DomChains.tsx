@@ -388,6 +388,13 @@ const CSS = `
   cursor:pointer; }
 .dgx-sel:disabled { cursor:default; opacity:.5; }
 .dgx-sel.unknown { color:var(--faint); }
+/* The FILE picker fills the cell its colSpan gave it — the horizontal twin of .dgx-fader's
+   flex:1, and the same argument: a colSpan of 4 that draws a 40px button is four cells of
+   nothing. What it holds is a file NAME, so the width is the useful part.
+   Ellipsis rather than overflow: names here run long (a NAM pack's are a sentence), and a
+   fixed-width box was hiding that behind its own edge. */
+.dgx-file { width:100%; padding:1px 5px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
 .dgx-meter { width:80%; height:5px; border-radius:3px; background:#08080b; border:1px solid #212129; }
 
 .dgx-out { position:absolute; top:38px; left:0; right:0; bottom:0; display:grid; place-items:center; }
@@ -1006,7 +1013,9 @@ function Widget({
     body = (
       <button
         type="button"
-        className={`dgx-sel${current ? "" : " unknown"}`}
+        className={`dgx-sel dgx-file${current ? "" : " unknown"}`}
+        // The whole path, since the face shows only the basename: two amps in different packs
+        // can have the same file name, and hovering is what tells them apart.
         title={current || `pick a ${w.library} file`}
         disabled={!n.module}
         onClick={(e) => {
