@@ -45,7 +45,29 @@ picked from opened with nothing in it. Both the graph (`assetChoicesFor`) and th
 (`assetFiles`) had that same line, and both were wrong the same way.
 
 A nearer module's assets come first and a duplicate path is dropped, so a local file shadows an
-inherited one of the same name — the precedence `resolveModuleAsset` already gives the folders.
+inherited one of the same name.
+
+**Three** places computed that folder, not two. The third was the WRITE: `module nam` checks the
+file against the module's assets before writing it, off the same wrong line — so once the picker
+could offer a profile, the command refused it and the click did nothing at all.
+
+## Choosing one has to RESOLVE, too
+
+Picking a profile for a shared amp writes the ref into the local module, and each module resolves
+its own file params against its own folder — which for that one holds nothing. The ref came back
+undefined, and `mergeAuthored` then kept the PARENT's path: the panel showed the name you chose
+while the engine loaded the inherited file. Silently the wrong sound, which is worse than none.
+
+So the fold re-resolves a file param against the folders of the whole chain
+(`withInheritedAssets`), nearest first — the same order the choices are offered in, because the
+list you pick from and the path you get must agree. Two rules keep it honest:
+
+- Only what **this** module named. A ref it inherited was already resolved by the module that
+  declared it, against the folder that holds the file; re-doing it here would blank it.
+- An escaping ref is still refused outright. Escaping is a property of the ref, not of the folder
+  it was tried against, so one refusal ends the walk — otherwise `../` would become a way through
+  a shared module's containment. `resolveModuleAssetIn` holds that check, once, for both the
+  single-folder and the ancestry case.
 
 ## `dropdown` + `library` is the older spelling
 

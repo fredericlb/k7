@@ -27,12 +27,13 @@ import {
   createModuleInstance,
   createTrackFile,
   FILE_PARAMS,
-  listModuleAssets,
   loadChains,
+  loadModuleRefs,
   loadModules,
   loadProjectRoot,
   moduleRefOf,
 } from "@studio/song/loader";
+import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
 import {
   clearChannelLabel,
@@ -1267,15 +1268,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // so there is one place to look and nothing to declare anywhere.
     if (!clearing) {
       const found = loadModules(h.songPath)[module];
-      const folder = found?.category
-        ? join(
-            h.songPath,
-            "modules",
-            String(found.category),
-            String(found.file),
-          )
-        : "";
-      const have = folder ? listModuleAssets(folder) : [];
+      // Its own assets AND its ancestors' — the same answer the panel's picker offers, so the
+      // command cannot refuse a file the picker just showed. It could: a song points at a shared
+      // amp with a thin local module that extends it, and only the shared folder holds the files.
+      const have = moduleAssetChoices(
+        h.songPath,
+        found,
+        loadModuleRefs(h.songPath),
+      );
       if (!have.includes(file)) {
         h.log([
           have.length

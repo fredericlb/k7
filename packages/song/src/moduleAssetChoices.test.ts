@@ -7,7 +7,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { loadModuleRefs, loadModules } from "./loader";
 import { moduleAssetChoices } from "./moduleAssetChoices";
+import { resolveModuleMap } from "./moduleResolve";
 import { assetExtFor, assetsForParam } from "./moduleTypes";
 
 let root: string;
@@ -136,6 +138,64 @@ describe("moduleAssetChoices", () => {
     expect(
       moduleAssetChoices(project, { extends: "@mediatek/a" }, refs),
     ).toEqual([]);
+  });
+});
+
+describe("a file the module INHERITS", () => {
+  it("resolves against the folder that holds it, not the one that named it", () => {
+    // Picking a profile for a shared amp writes the ref into the LOCAL module, whose own
+    // assets/ is empty. Resolved against that folder alone it came back undefined, and the
+    // merge then kept the PARENT's path — the panel showed the chosen name while the engine
+    // loaded the inherited file. Silently the wrong sound.
+    mkModule(
+      join(root, "mediatek", "modules", "audio", "amps", "guitar"),
+      "plugin: { type: internal, name: NAM }\n",
+      ["roland/bright.nam", "fender/clean.nam"],
+    );
+    mkModule(
+      join(project, "modules", "audio", "guitar"),
+      'extends: "@mediatek/audio/amps/guitar"\nparams:\n  nam: roland/bright.nam\n',
+    );
+    const refs = loadModuleRefs(project, {}, []);
+    const resolved = resolveModuleMap(loadModules(project), refs);
+    const g = resolved["audio/guitar"] ?? resolved.guitar;
+    expect(g?.assets).toEqual({ nam: "roland/bright.nam" });
+    expect(g?.nam).toContain(join("amps", "guitar", "assets", "roland"));
+  });
+
+  it("prefers the module's OWN file when both carry that name", () => {
+    mkModule(
+      join(root, "mediatek", "modules", "audio", "amps", "shared"),
+      "plugin: { type: internal, name: NAM }\n",
+      ["clean.nam"],
+    );
+    mkModule(
+      join(project, "modules", "audio", "local"),
+      'extends: "@mediatek/audio/amps/shared"\nparams:\n  nam: clean.nam\n',
+      ["clean.nam"],
+    );
+    const refs = loadModuleRefs(project, {}, []);
+    const resolved = resolveModuleMap(loadModules(project), refs);
+    const m = resolved["audio/local"] ?? resolved.local;
+    expect(m?.nam).toContain(join("modules", "audio", "local"));
+  });
+
+  it("still refuses a ref that climbs out, rather than trying the next folder up", () => {
+    // Escaping is a property of the REF. Walking the ancestry must not turn `../` into a way
+    // through — a module that arrives from a shared catalogue was written by somebody else.
+    mkModule(
+      join(root, "mediatek", "modules", "audio", "amps", "shared"),
+      "plugin: { type: internal, name: NAM }\n",
+      ["clean.nam"],
+    );
+    mkModule(
+      join(project, "modules", "audio", "sneaky"),
+      'extends: "@mediatek/audio/amps/shared"\nparams:\n  nam: ../../../../secret.nam\n',
+    );
+    const refs = loadModuleRefs(project, {}, []);
+    const resolved = resolveModuleMap(loadModules(project), refs);
+    const m = resolved["audio/sneaky"] ?? resolved.sneaky;
+    expect(m?.nam).toBeUndefined();
   });
 });
 
