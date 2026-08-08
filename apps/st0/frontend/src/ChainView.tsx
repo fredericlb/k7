@@ -6,7 +6,7 @@ import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { type Cam, DomChains, type SinkPlay } from "@studio/ui-chains-react";
 import { useMemo, useRef, useState } from "react";
 import { chainGraph } from "./chainGraph";
-import { MEDIATEK_ICONS } from "./ModulePreview";
+import { MEDIATEK_ICONS } from "./moduleIcons";
 
 export function ChainView({
   text,

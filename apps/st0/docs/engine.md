@@ -1,79 +1,60 @@
-# The engine link, and the builder that needs it
+# The engine link — one socket, and what is left on it
 
-The médiathèque is a hosted catalogue of files, and for two of its three families that is
-all it has to be: a song and a sample are bytes, and listing them needs nothing but a
-directory walk. A **module** is different. A module file names a plugin, and the only thing
-in the repo that knows what that plugin's parameters are called, what they span, and what
-presets it ships is a running `engine/moteur`. No table can substitute — the answer belongs
-to the loaded binary, and it changes when the plugin is updated.
+The médiathèque is a hosted catalogue of files. For two of its three families that is all it
+has to be: a song and a sample are bytes, and listing them needs nothing but a directory walk.
 
-So the module builder needs an engine, and the engine is on *your* machine.
+It still holds **one** socket to a `engine/moteur`, and it is worth being precise about what
+that socket is for now, because it used to be for two things and one of them left.
 
-## Which engine, and where the choice lives
+## What it carries
 
-It was loopback and nothing else once, on the argument that a preview must play on the
-machine the module will be used from — so "which of my engines" had no question to answer.
-That held while a person had one machine.
+Playback. A song, a playlist, a chain variant — anything the médiathèque hands to a machine to
+be heard. The moteur opens file PATHS and cannot fetch a URL, so what plays is the cache on
+that machine's disk, reached through its file service. See
+[playbackTarget.md](playbackTarget.md) and [miniPlayer.md](miniPlayer.md).
 
-The médiathèque holds its own registry now (`packages/engine-registry/docs/shared.md`: each
-hosted service keeps one, so an engine appears here only once its capot has been pointed at
-the médiathèque). The choice is remembered **on the account**, and the policy lives in
-`chooseEngine` where it can be tested. `useEngineChoice` reads the list and the remembered
-id WITHOUT connecting — drawing a menu must not open a second socket to the engine
-`useModuleEngine` is already holding.
+`PlaybackProvider` opens that socket and hands it out through `useEngine()`. **It is the tab's
+only one**, and that rule is enforced in one place rather than remembered in several:
+`useEngineChoice` reads the engine list and the remembered id WITHOUT connecting, so drawing
+the header's picker cannot open a second.
 
-That rule is now enforced in one place: `PlaybackProvider` opens the tab's **only** socket and
-hands it out through `useEngine()`. It had to move above the screens once a song could keep
-playing after you leave the one that started it — see [miniPlayer.md](miniPlayer.md) for what
-that changed, and [playbackTarget.md](playbackTarget.md) for the transport itself.
+The session is `sessionFor(SESSIONS.st0, currentUser())` — per service and per person. Per
+service so the médiathèque cannot tear down the song l8 has open on the same machine; per
+person because the médiathèque is hosted and two people can choose one machine.
 
-## The Modules section is gated on one
+It claims the engine with **no project** (`engines.hold(found, { project: null })`), and that
+is deliberate: st0 never opens one, so it must not compete for one. Claiming here would take a
+song away from the l8 tab next door every time somebody glanced at the catalogue. See
+[packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md).
 
-An absent engine used to be a **normal state** everywhere: the editor still edited text, the
-parameter list was simply empty, and the footer said why. That is still true *inside* the
-builder — an engine can drop mid-edit and the text must not become unsavable — but it is no
-longer true at the door.
+## What left: the module builder
 
-`Library.tsx` puts an overlay over the Modules section until `useEngineChoice` reports one
-chosen AND reachable from this browser. Not a nag: a module IS what a plugin is, so without
-one the builder edits blind — every binding typed from memory, every range guessed, every
-preset absent. Being told to pick an engine is a better answer than a screen that looks like
-it works.
+A **module** is different from a song and a sample. A module file names a plugin, and the only
+thing that knows what that plugin's parameters are called, what they span and what presets it
+ships is a running engine with **that plugin loaded**. No table can substitute — the answer
+belongs to the binary, and it changes when the binary is updated.
 
-Two states it deliberately tells apart, because a bare "no engine" hides the second:
+The médiathèque had an engine but no project to load a plugin into, so it manufactured one: a
+one-track, one-plugin `ProjectDoc` sent down its own session, purely so there would be
+something to ask about. Everything else followed from that — an audition with its own input
+picker, its own metered channel menu, its own level gauge, and an engine gate over the whole
+Modules section demanding a machine before you could edit a text file.
 
-- nothing has announced itself — the capot has not been pointed at the médiathèque;
-- something is remembered but does not answer, which means "turn that machine on".
+That is all gone. **Modules are built in l8**, on the bench
+([banc.md](banc.md)), where a real project instantiates a plugin for real and the builder
+reads the one that is actually making the sound. The reasoning is in
+[apps/l8/frontend/docs/moduleBuilder.md](../../l8/frontend/docs/moduleBuilder.md).
 
-`choice.loaded` is what keeps it from flashing in everybody's face on load: before it, "not
-chosen" and "not looked yet" are the same value. The header stays above the overlay, so the
-other two sections are one click away — the gate is on Modules, not on the app.
+What the médiathèque keeps is what it is: **the only editable catalogue**. The Modules section
+lists, searches, uploads, renames and deletes; opening a module shows its files, read-only,
+with a button to the bench. And the bench writes back here — it is the one project allowed to
+save at `@mediatek` level, which is what makes editing a module there mean editing *the*
+module rather than forking a copy into a song.
 
-The picker's rows are `EngineList`, rendered bare here and inside the header's popover. One
-list, two wrappers: a second rendering of the same choice is a second thing to keep in step.
+There is no engine gate on the section any more. There is nothing left on it that an engine
+would improve, and a door in front of an empty room is worse than no door.
 
-## The preview document
-
-`src/engine/preview.ts` builds the smallest `ProjectDoc` that makes a plugin exist: one
-track named after the module, one plugin, no clips. Three things it gets right, each of
-which was a bug at some point:
-
-* **`recordDir` stays `""`.** The engine reads that as "refuse to arm". A preview plays and
-  never records, and a made-up path is a lie the engine would eventually write into.
-* **The plugin is `role: "instrument"`.** An audio effect on a silent track is a plugin a
-  host may not bother to instantiate — and an uninstantiated plugin reports no parameters,
-  which looks exactly like a plugin that has none.
-* **The wire form is not the authored form.** `plugin: {type: internal, name: 4OSC}` in a
-  module file means "the built-in called 4OSC"; on the wire the engine wants `type: 4OSC`.
-  `enginePlugin` (in `@studio/engine-protocol/build`) swaps them, and getting it wrong
-  loads nothing at all. `preview.test.ts` pins both directions.
-
-Reading the `plugin:` block is done with two regexes rather than a YAML parser — a preview
-needs two scalars, and both spellings used in this repo (indented block, inline flow) are
-covered. Unparseable yields `undefined`, never a throw: a module with no plugin is a real
-thing (an io module) and shows an empty list.
-
-## Why the builder passed through here
+## Why the builder passed through here at all
 
 It used to be a screen inside l8, editing the workspace's `_modules` in place through an
 `editShared` flag on the file service's write route. That worked because a workspace's
@@ -82,24 +63,9 @@ It used to be a screen inside l8, editing the workspace's `_modules` in place th
 It is not any more. Modules live in the médiathèque, which every project reads through the
 `@mediatek` named root; a workspace's copy is a **read-only mirror**, and the general escape
 hatch is gone (see `packages/song/docs/moduleFork.md`). So the builder moved here, where the
-catalogue is editable.
+catalogue is editable — and moving it here is what made it a package, `@studio/ui-module-builder`,
+which is why it could move back out again without being rewritten.
 
-**It is a package now** — `@studio/ui-module-builder` — and l8 draws the same component
-again, over a store of its own. Moving it here was still the right step: it is where the
-builder was rebuilt around the library's own service, and that rebuild is what made the seam
-obvious enough to name. What this app keeps is the host around it: the engine link, the
-entry it was opened on, and the vim toggle.
-
-What did **not** move into the package, and why:
-
-* `EditorPane` stayed in l8. It carries a sequence tracker, waveform views and video
-  readers because l8 edits a song's *material*; a module is a page of YAML.
-  `YamlPane.tsx`, in the package, is the small pane that replaces it.
-* `yamlVocabulary.ts` went further out still, to `@studio/ui-editor/yaml/vocabulary`: three
-  editors need the same answers, and what completes where is a *language* concern, not a
-  builder one. `paramDrag.ts` is the package's, exported, because a host's file tree has to
-  recognise the drag to ignore it.
-* **User presets** are gone rather than ported. In l8 they were parameters saved into
-  the active *project*, and a library has no project. Here, "save the current parameters"
-  is what Save already does — a module file **is** its parameters, so a second place to
-  keep them would be a second truth. Factory presets, which come from the plugin, stay.
+The round trip was not wasted. What it settled is that the builder needs **two** things and
+they live in different places: an editable catalogue, which is here, and a loaded plugin, which
+is only ever in a project. The bench is the answer to having both at once.
