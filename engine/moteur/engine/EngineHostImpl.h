@@ -16,6 +16,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -192,26 +193,45 @@ struct EngineHost::Impl {
     InputTuner tuner;
     bool tunerAttached = false;
 
-    // Per-INPUT-device metering clients, keyed by device. The devices are ENGINE-level and outlive every Edit, so
-    // unlike the output meters these are not rebuilt per project: they attach lazily on the first poll of a track
+    // Per-INPUT-device metering clients, keyed by device NAME. The devices are ENGINE-level and outlive every Edit,
+    // so unlike the output meters these are not rebuilt per project: they attach lazily on the first poll of a track
     // fed by that device and stay for the engine's life, reading the live signal used for monitoring and recording.
-    std::map<te::InputDevice*, std::unique_ptr<te::LevelMeasurer::Client>> inputClients;
+    //
+    // By NAME and not by pointer, which is what this was and could not be: any change to the wave-device list —
+    // enabling a channel is enough — DESTROYS every WaveInputDevice and builds new ones. Keyed by pointer, the map
+    // then held keys into freed memory, grew a second client for every rebuild, and had nothing left to read the
+    // level through. `dev` records which object the live client is attached to, so a rebuilt device gets a fresh one.
+    struct InputClient {
+        te::InputDevice* dev = nullptr;
+        std::unique_ptr<te::LevelMeasurer::Client> client;
+    };
+    std::map<std::string, InputClient> inputClients;
 
     te::LevelMeasurer::Client& inputClientFor(te::InputDevice& dev) {
-        auto& slot = inputClients[&dev];
-        if (!slot) {
-            slot = std::make_unique<te::LevelMeasurer::Client>();
-            dev.levelMeasurer.addClient(*slot);
+        auto& slot = inputClients[dev.getName().toStdString()];
+        // A rebuilt device is a new object carrying a new measurer. The old client was orphaned when the old
+        // measurer died, so it is dropped rather than removed from it — removing would touch freed memory.
+        if (!slot.client || slot.dev != &dev) {
+            slot.client = std::make_unique<te::LevelMeasurer::Client>();
+            slot.dev = &dev;
+            dev.levelMeasurer.addClient(*slot.client);
         }
-        return *slot;
+        return *slot.client;
     }
 
     // Unregister every input client before the devices (and their measurers) go away. From ~EngineHost only: the
     // devices are engine-level, so this survives project reloads and must run before the device manager is torn down.
+    //
+    // Only from devices that are STILL THERE. A client whose device was destroyed by a wave-device-list rebuild
+    // points at a measurer that no longer exists, and removing it from that would be a read of freed memory at
+    // shutdown — a crash on exit that would be blamed on whatever ran last.
     void detachInputClients() {
-        for (auto& [dev, client] : inputClients)
-            if (dev != nullptr && client)
-                dev->levelMeasurer.removeClient(*client);
+        std::set<te::InputDevice*> live;
+        for (auto* d : engine.getDeviceManager().getWaveInputDevices())
+            if (d != nullptr) live.insert(d);
+        for (auto& [name, slot] : inputClients)
+            if (slot.client && slot.dev != nullptr && live.count(slot.dev))
+                slot.dev->levelMeasurer.removeClient(*slot.client);
         inputClients.clear();
     }
 

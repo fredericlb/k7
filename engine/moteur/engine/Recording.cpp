@@ -286,39 +286,49 @@ std::vector<EngineHost::InputDeviceInfo> EngineHost::inputDevices() const {
     return out;
 }
 
+/**
+ * Peak dB per channel set, read off the INTERFACE's raw inputs — the tuner's tap, not Tracktion's routing.
+ *
+ * It went through `WaveInputDevice` and its LevelMeasurer once, and that is the wrong side of the engine to ask.
+ * A device only measures anything once it is ENABLED and has an INSTANCE on a playback context, and obtaining
+ * either rebuilds the entire wave-device list — destroying every WaveInputDevice, reloading every context's
+ * devices and restarting playback on every Edit — or reallocates that context's graph. Asked for twenty inputs
+ * by a menu polling at 8 Hz, that wedged the message thread within three seconds and never came back: no
+ * transport, no meters, no replies to anything, and `whoami` still answering because it is served off that
+ * thread. Doing it once per device instead of once per poll was not enough; ONE batch of twenty already hangs.
+ *
+ * So this reads what the audio callback already sees. It costs a max over the block, it knows nothing about any
+ * Edit, and it measures every channel the interface delivers whether or not a track is wired to it — which is
+ * the whole point of the panel that asks: you are looking for which input the guitar is on. The tuner made this
+ * argument first (docs/inputTuner.md) and this is the same tap, for the same reason.
+ */
 std::vector<EngineHost::ChannelLevel>
 EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
     std::vector<ChannelLevel> out(channelSets.size());
-    // MACHINE-level, so it belongs to no session — but it still needs A playback context to
-    // reach the input device instances, and with N sessions there is no "the" one. Any will
-    // do: the instances it looks up are the DEVICE's, shared by every context, which is the
-    // same reason inputClients live on Impl and not in a session.
-    te::EditPlaybackContext* ctx = nullptr;
-    for (const auto& sid : impl_->ids())
-        if (auto* s = impl_->find(sid); s != nullptr && s->edit) {
-            ctx = s->edit->getCurrentPlaybackContext();
-            if (ctx != nullptr) break;
-        }
-    // Read+clear each (device, index) at most once: two ports on the two halves of one stereo device are
-    // different indices and independent, but two asking the SAME index would leave the second reading zero.
-    std::map<std::pair<te::InputDevice*, int>, float> seen;
+    // Attach on the first ask and stay, exactly as channelPitches does: a second audio callback is cheap, and
+    // detaching between polls would restart the accumulation so no reading ever settled.
+    if (!impl_->tunerAttached) {
+        impl_->engine.getDeviceManager().deviceManager.addAudioCallback(&impl_->tuner);
+        impl_->tunerAttached = true;
+    }
+    const int have = impl_->tuner.inputChannels();
+
+    // Read+clear each channel at most once per call: the same channel is usually asked for twice — alone and as
+    // half of a stereo pair — and the second read of a cleared peak would report silence.
+    std::map<int, float> seen;
 
     for (size_t i = 0; i < channelSets.size(); ++i) {
         float peak = -100.0f;
         bool any = false;
         for (const int channel : channelSets[i]) {
-            auto [dev, index] = channelTap(impl_->engine, channel);
-            if (dev == nullptr) continue;   // a channel this rig doesn't have
+            if (channel < 1 || channel > have) continue;   // a channel this rig doesn't have
             any = true;
-
-            const auto key = std::make_pair(static_cast<te::InputDevice*>(dev), index);
-            auto it = seen.find(key);
-            if (it == seen.end()) {
-                dev->setEnabled(true);
-                if (ctx != nullptr && ctx->getInputFor(dev) == nullptr)
-                    ctx->addWaveInputDeviceInstance(*dev);
-                it = seen.emplace(key, impl_->inputClientFor(*dev).getAndClearAudioLevel(index).dB).first;
-            }
+            auto it = seen.find(channel);
+            if (it == seen.end())
+                it = seen.emplace(channel,
+                                  juce::Decibels::gainToDecibels(
+                                      impl_->tuner.getAndClearPeak(channel), -100.0f))
+                         .first;
             peak = std::max(peak, it->second);
         }
         out[i] = {any ? peak : -100.0f, any};
