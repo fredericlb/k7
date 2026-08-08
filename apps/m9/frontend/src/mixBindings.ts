@@ -179,6 +179,29 @@ export function enginePluginIds(
 }
 
 /**
+ * The binding read BACKWARDS: which control drives this module's param?
+ *
+ * The graph knows a module and a param — that is all a node has — and needs the desk control
+ * they belong to, so a knob turned there moves the right deck. `views/mix.yaml` already says
+ * it, in the other direction, and reading the same line both ways is what keeps the two
+ * surfaces from disagreeing: re-point `deckA.tempo` at `tempoB` and the graph's knob on
+ * `tempoB` becomes deck A's, without either side being told.
+ *
+ * Only bindings with NO plugin. One with a plugin has a socket of its own — the graph sends
+ * `set-plugin-param` and never asks this — and answering for it would give a param two routes
+ * to the engine, which is how a value ends up applied twice.
+ */
+export function controlDriving(
+  bindings: readonly ResolvedBinding[],
+  module: string,
+  param: string,
+): ResolvedBinding | undefined {
+  return bindings.find(
+    (b) => !b.pluginId && b.module === module && b.param === param,
+  );
+}
+
+/**
  * What a bound control should DRAW: the hand's value if a gesture is in flight, else the
  * engine's, else nothing.
  *

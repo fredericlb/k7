@@ -3,6 +3,7 @@ import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import { describe, expect, it } from "vitest";
 import { mixControl } from "./controls";
 import {
+  controlDriving,
   engineAgrees,
   resolveBindings,
   shownValue,
@@ -209,6 +210,63 @@ describe("which track a fader stretches", () => {
     expect(stretchTargets(bindings, byDeck, NO_PLUGINS)).toEqual({
       deckA: byDeck.deckA,
     });
+  });
+});
+
+describe("reading a binding backwards, for the graph", () => {
+  const tempoView: MixView = {
+    "deckA.tempo": { module: "tempoA", param: "Target BPM" },
+    "deckB.tempo": { module: "tempoB", param: "Target BPM" },
+  };
+  const graph = () => {
+    const g = graphWith([{ module: "tempoA" }]);
+    g.chains.deckB = {
+      from: "deckB",
+      use: [
+        { module: "tempoB", category: "audio", emits: "audio", enabled: true },
+      ],
+      out: [{ to: "OUT", gain: 1 }],
+    } as unknown as WebGraph["chains"][string];
+    return g;
+  };
+
+  it("finds the control a module's param belongs to", () => {
+    // All the graph has is a module and a param — a node knows nothing about decks. The file
+    // already says which control drives it, and reading the same line the other way is what
+    // lets a knob turned there move the right deck.
+    const { bindings } = resolveBindings(tempoView, graph());
+    expect(controlDriving(bindings, "tempoB", "Target BPM")?.control.id).toBe(
+      "deckB.tempo",
+    );
+  });
+
+  it("FOLLOWS the file, so re-pointing a line moves the graph's knob too", () => {
+    // Deck A's fader aimed at deck B's module: the knob on `tempoB` is now deck A's control,
+    // and neither surface had to be told.
+    const crossed: MixView = {
+      "deckA.tempo": { module: "tempoB", param: "Target BPM" },
+    };
+    const { bindings } = resolveBindings(crossed, graph());
+    expect(controlDriving(bindings, "tempoB", "Target BPM")?.control.id).toBe(
+      "deckA.tempo",
+    );
+  });
+
+  it("refuses a binding that HAS a plugin", () => {
+    // That one has a socket of its own — the graph sends `set-plugin-param` and never asks
+    // this. Answering would give one param two routes to the engine, which is how a value
+    // gets applied twice.
+    const { bindings } = resolveBindings(
+      VIEW,
+      graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
+    );
+    expect(controlDriving(bindings, "crossfade", "Mix")).toBeUndefined();
+  });
+
+  it("knows nothing about a param nobody bound", () => {
+    const { bindings } = resolveBindings(tempoView, graph());
+    expect(controlDriving(bindings, "tempoA", "Source BPM")).toBeUndefined();
+    expect(controlDriving(bindings, "nope", "Target BPM")).toBeUndefined();
   });
 });
 

@@ -8,11 +8,13 @@ import { DomChains } from "@studio/ui-chains-react";
 import { Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { M9_ICONS } from "../chains";
+import type { DeckSet } from "../useDeckSet";
 import type { Deck } from "../useEngine";
 
 export function GraphView({
   graph,
   deck,
+  set: decks,
 }: {
   graph: WebGraph | null;
   /**
@@ -24,6 +26,14 @@ export function GraphView({
    * the same missing wire.
    */
   deck: Deck;
+  /**
+   * The decks, so a module the ENGINE has no plugin for is still turnable here.
+   *
+   * m9's tempo is `offline`: the compiler emits nothing, so there is no `set-plugin-param` to
+   * send and no id to send it to. What realises it is the deck document — a clip warp — and
+   * that now lives above both views, which is the whole reason this knob can move at all.
+   */
+  set: DeckSet;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph, because the graph unmounts with its view and a camera
@@ -56,12 +66,14 @@ export function GraphView({
         fitKey={`${laid.nodes.length}`}
         // The engine's own values, shared with the desk — see Deck.params.
         pluginParamsStore={deck.params}
-        // …and what the DESK says about the modules the engine has never heard of. An
+        // …and what the DECKS say about the modules the engine has never heard of. An
         // `offline` module compiles to no plugin, so there is nothing to watch: the tempo's
-        // number lives on the surface that warps the clip. Read-only here — `onModuleParam`
-        // is deliberately not passed, because realising a tempo needs the deck's songs and
-        // its document, which are gone while this view is on screen.
+        // number lives on the surface that warps the clip.
         moduleParams={deck.moduleParams}
+        // Writable now that the deck document outlives this view. It goes back through the
+        // DECLARED binding — `views/mix.yaml` says which control drives `tempoA`'s
+        // `Target BPM` — so re-pointing that line moves this knob's effect with it.
+        onModuleParam={decks.fromGraph}
         // …and the way back. One message per move, exactly as the desk's crossfader and EQ
         // send theirs: this IS that path, reached from the other picture of the same plugin.
         setPluginParam={(id, name, value) =>

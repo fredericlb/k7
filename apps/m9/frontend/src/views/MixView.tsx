@@ -1,22 +1,15 @@
 // MixView.tsx — the desk: a deck top left, a deck top right, the set list between them, and
 // the crossfader across the bottom. What plays comes from the project's `songs.yaml`; how loud
 // each deck is comes from the crossfader. See ../../docs/mix.md.
+//
+// It DRAWS the decks and owns nothing about them. The document — what is loaded, what it plays
+// at, every gesture that changes either — is `useDeckSet`, held by Studio, because this view is
+// unmounted the moment somebody opens the graph and a set does not stop existing then.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { usePluginParams } from "@studio/engine-browser/params";
 import type { RankedEngine } from "@studio/engine-browser/probe";
-import type { ProjectDoc } from "@studio/engine-protocol/project";
-import type { WebGraph } from "@studio/graph-model";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import {
-  MIX_VIEW_BASE,
-  parseMixView,
-  VIEWS_DIR,
-} from "@studio/song/yaml/mixViewFile";
-// Aliased: the component below is also called MixView, and a type shadowing it is exactly
-// the confusion a reader does not need.
-import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
   CloudDownload,
@@ -27,31 +20,11 @@ import {
   RefreshCw,
   Square,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { beatPhase } from "../beats";
-import {
-  type DeckId,
-  type DeckLoads,
-  type DeckTempo,
-  type DeckTempos,
-  DECKS,
-  EQ_BANDS,
-  MIX_CENTRE,
-  NO_LOADS,
-  pushCrossfade,
-  sendDecks,
-  syncedTempos,
-} from "../deck";
-import {
-  enginePluginIds,
-  hasPlugin,
-  engineAgrees,
-  resolveBindings,
-  shownValue,
-  stretchTargets,
-  valueFor,
-} from "../mixBindings";
+import { type DeckId, type DeckLoads, type DeckTempo, MIX_CENTRE } from "../deck";
+import { MIX_VIEW_FILE } from "../mixView";
 import {
   cacheRelPath,
   type FileLink,
@@ -60,7 +33,8 @@ import {
   service,
 } from "../service";
 import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
-import type { Deck, Playhead } from "../useEngine";
+import type { DeckSet } from "../useDeckSet";
+import { type Playhead, type Deck } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { EqStrip } from "./EqStrip";
@@ -68,21 +42,8 @@ import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
 
-/**
- * How often a tempo may reach the engine WHILE the fader is moving.
- *
- * The crossfader is a plugin param and goes out per pixel; a tempo is a clip warp, and the
- * engine answers a changed warp by re-inserting the clip. So this is the rate that trade
- * settles on: fast enough that the pitch tracks the hand rather than arriving at the end,
- * slow enough that each rebuild finishes before the next is asked for — on both decks at
- * once when they are synced.
- */
-const LIVE_WARP_MS = 120;
-
 /** The set list's file, project-relative. Named once — the name is @studio/song's. */
 const SONGS_FILE = "songs.yaml";
-/** …and the desk's bindings, from the same place, so the two names cannot drift. */
-const MIX_VIEW_FILE = `${VIEWS_DIR}/${MIX_VIEW_BASE}.yaml`;
 
 /**
  * A deck's waveform, and the two states that are not one.
@@ -99,22 +60,16 @@ type Wave =
 export function MixView({
   engine,
   deck,
+  set: decks,
   project,
-  graph,
 }: {
   engine: RankedEngine<PublicEngine>;
-  /**
-   * The engine link, held by Studio rather than by this view.
-   *
-   * It used to be created HERE, and Mix is unmounted the moment you switch to Graphe — so the
-   * two views could never have shared a picture of a plugin, because only one of them was
-   * ever connected. See `Deck.params`.
-   */
+  /** The engine link, held by Studio so both views share one. */
   deck: Deck;
+  /** The decks as a document — everything this view shows and every gesture it forwards. */
+  set: DeckSet;
   /** The project this app was opened on, workspace-relative — what the set list belongs to. */
   project: string;
-  /** The compiled chains. Where a binding's module name becomes a plugin id. */
-  graph: WebGraph | null;
 }) {
   // Derived, never typed and never stored: the file service is on the chosen engine's host.
   // The identity rides in the shared headers — see service.ts. Both used to be text boxes.
@@ -122,134 +77,11 @@ export function MixView({
   const [root, setRoot] = useState<string | null>(null);
   const [set, setSet] = useState<SetList | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loads, setLoads] = useState<DeckLoads>(NO_LOADS);
-  /**
-   * The crossfader, as an OPTIMISTIC layer — the same arrangement as the EQ knobs below.
-   *
-   * `undefined` means "nothing in hand", and then the engine's own `Mix` is what draws it. It
-   * was plain state seeded at centre, so a trip through the graph brought the fader back to
-   * the middle while the sound stayed where it had been put.
-   */
-  const [held, setHeld] = useState<number | undefined>(undefined);
   // Per deck. Three states rather than a nullable envelope: "still computing" and "there
   // will not be one" look identical as `null`, and they are different sentences on screen.
   const [waves, setWaves] = useState<Partial<Record<DeckId, Wave>>>({});
-  // Where each fader is. Seeded from the envelope's estimate when it lands, then owned by
-  // the hand — a later re-analysis must not yank a tempo somebody has set.
-  const [faders, setFaders] = useState<DeckTempos>({});
-  /** Which deck LEADS, or null. The two sync buttons are one choice, not two toggles. */
-  const [master, setMaster] = useState<DeckId | null>(null);
-  /**
-   * A knob the hand is ON, by control id — an OPTIMISTIC layer over the engine's own values.
-   *
-   * Not the state of the EQ: `deck.params` is, and it survives this view being unmounted every
-   * time somebody looks at the graph. This only covers the round trip, so a knob follows the
-   * finger instead of waiting for the engine to agree — the same override the chains panel
-   * keeps for the same reason.
-   */
-  const [eq, setEq] = useState<Record<string, number>>({});
-  /** The engine's values, shared with the graph. Subscribed HERE so only the desk redraws. */
-  const live = usePluginParams(deck.params);
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
-  /** The desk's bindings, as `views/mix.yaml` declares them. */
-  const [view, setView] = useState<MixViewFile>({});
-  /**
-   * The COMPILED project — the chains, the crossfade's baked graph, the whole document the
-   * engine is meant to play. Null until it arrives, or when the project will not compile, and
-   * the deck falls back to the stand-in rather than going silent.
-   */
-  const [compiled, setCompiled] = useState<ProjectDoc | null>(null);
-
-  // Checked against the project on every compile, so a binding that names a module the chains
-  // do not have is a sentence on screen rather than a control that quietly does nothing.
-  const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
-
-  // What the decks actually play at: the faders, with the master's value handed to the slave.
-  // Derived rather than stored, so the two can never disagree — pressing sync and moving the
-  // master's fader are the same code path, and the slave has nowhere to hold a stale number.
-  const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
-  /**
-   * The plugin ids the engine will HAVE — the compiled document's, never the graph's.
-   *
-   * `buildGraphDoc` hands every step a `pluginId` it *would* have, including steps the
-   * compiler emits no plugin for: an `offline` tempo comes back as `deckA:tempoA` with no
-   * such plugin anywhere. Deciding a control's path off that is what left the tempo faders
-   * doing nothing — they were classed as params and sent into the void.
-   */
-  const plugins = useMemo(() => enginePluginIds(compiled), [compiled]);
-
-  // Which TRACK each fader stretches, read off views/mix.yaml — see stretchTargets.
-  const stretches = useMemo(
-    () => stretchTargets(wiring.bindings, tempos, plugins),
-    [wiring, tempos, plugins],
-  );
-
-  /**
-   * Where the crossfader IS: the hand, then the engine, then the centre a set starts at.
-   *
-   * Derived rather than stored for the same reason as the EQ knobs — the engine is what knows,
-   * and this view is unmounted every time somebody opens the graph.
-   */
-  const mix =
-    shownValue(
-      wiring.bindings.find((b) => b.control.id === "crossfade"),
-      held,
-      live,
-    ) ?? MIX_CENTRE;
-
-  /**
-   * Can sync do its SECOND half — put the two decks' beats together?
-   *
-   * Only when both songs gave a grid the onsets agreed on. `phase` is carried exactly when
-   * that held (see the load path), so its presence is the answer, and the sync button says so
-   * rather than aligning nothing in silence.
-   */
-  const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
-
-  /**
-   * Which decks have an EQ the engine can really be told about.
-   *
-   * The same question `pushParam` asks, hoisted so the knobs can grey themselves out instead
-   * of turning against nothing. A binding that names a module the chains have not got is
-   * already a line on screen; this is the quieter case — the project wired it, the compile has
-   * not landed yet, or it will not compile.
-   */
-  const eqLive = useMemo(() => {
-    const live = new Set<string>();
-    for (const b of wiring.bindings)
-      if (hasPlugin(b, plugins)) live.add(b.control.id);
-    return (deckId: DeckId) =>
-      EQ_BANDS.some((band) => live.has(`${deckId}.${band.id}`));
-  }, [wiring, plugins]);
-
-  /**
-   * One deck's knob positions, by the plain band id the strip draws.
-   *
-   * The hand first, then the ENGINE — never a number this view invented. Reading the engine is
-   * what makes a knob still show a −12 dB cut after a trip through the graph and back, where a
-   * private copy would have drawn it flat while the sound said otherwise.
-   */
-  const eqOf = (deckId: DeckId): Partial<Record<string, number>> =>
-    Object.fromEntries(
-      EQ_BANDS.map((b) => {
-        const id = `${deckId}.${b.id}`;
-        const bound = wiring.bindings.find((x) => x.control.id === id);
-        return [b.id, shownValue(bound, eq[id], live)];
-      }).filter(([, v]) => v !== undefined),
-    );
-
-  // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
-  // last `onChange`, and a `commit` closed over that render's value would send the document
-  // one drag-step stale — silently, and only sometimes.
-  const latest = useRef(stretches);
-  latest.current = stretches;
-
-  /** True between the first `onChange` of a drag and the `onCommit` that ends it. */
-  const dragging = useRef(false);
-  /** When the throttle last let a document through, and the pending tick if there is one. */
-  const lastWarp = useRef(0);
-  const warpTimer = useRef<number | null>(null);
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -261,11 +93,6 @@ export function MixView({
         // says which songs this set is, the cache listing says which of them this machine can
         // play. A song in the set and not in the cache is a line, not an omission.
         setSet(await readSet(project, cached));
-        setView(await readMixView(project));
-        // Allowed to fail on its own: a set whose project will not compile can still choose
-        // songs and still play them through the stand-in, and losing the whole desk over it
-        // would take away the screen you fix it from.
-        setCompiled(await api.engineDoc().catch(() => null));
         setError(null);
       } catch (e) {
         setSet(null);
@@ -286,8 +113,13 @@ export function MixView({
     void refresh(link);
   }, [link, refresh]);
 
-  /** Put a song on a deck. The document carries both decks, so this re-sends it — the engine
-   *  diffs, and whatever the OTHER deck was playing carries on underneath. */
+  /**
+   * Put a song on a deck.
+   *
+   * The two halves land apart on purpose: the song goes on and PLAYS at once, and the
+   * analysis — the waveform, the tempo, the beat grid — arrives when it arrives. A deck that
+   * waited for the second would be a deck that waited.
+   */
   const load = (deckId: DeckId, s: SetEntry) => {
     // `link` is implied by `root` — the root came from a summary through it — but it is
     // carried explicitly so the waveform fetch below has it without a second assumption.
@@ -300,19 +132,12 @@ export function MixView({
         `${s.name} : le dossier est catalogué mais ne porte aucun audio`,
       );
     setError(null);
-    const next: DeckLoads = {
-      ...loads,
-      [deckId]: { path, title: s.name, artist: s.artist, id: s.id },
-    };
-    setLoads(next);
-    sendDecks(deck.engine, next, mix, undefined, stretches, compiled);
+    decks.putOn(deckId, { path, title: s.name, artist: s.artist, id: s.id });
 
-    // The waveform, fetched beside the load and never blocking it: the song is already
-    // playing while this is still computing, which is the right order for a deck.
     setWaves((w) => ({ ...w, [deckId]: { k: "loading" } }));
     // A new record starts at ITS own tempo, whatever the outgoing one was doing. The fader
     // is cleared here rather than left showing the previous song's number.
-    setFaders((f) => ({ ...f, [deckId]: undefined }));
+    decks.clearTempo(deckId);
     void service
       // The SAME master `playablePath` just resolved, cache-relative — the route wants a path
       // inside the cache, not one on the engine's disk.
@@ -334,24 +159,7 @@ export function MixView({
           // worse than leaving it where it is — so it syncs the tempo and nothing else.
           ...(grid.confident ? { phase: grid.phase } : {}),
         };
-        setFaders((f) => ({ ...f, [deckId]: t }));
-        // Re-sent so the OTHER deck's stretch survives this load: the document carries both
-        // warps, and one built without this deck's tempo would drop the other's.
-        if (deck.engine)
-          sendDecks(
-            deck.engine,
-            next,
-            mix,
-            undefined,
-            // The freshly measured tempo has not reached `stretches` yet — it is derived from
-            // state this callback is still ahead of — so the same mapping is done inline.
-            stretchTargets(
-              wiring.bindings,
-              syncedTempos({ ...faders, [deckId]: t }, master),
-              plugins,
-            ),
-            compiled,
-          );
+        decks.measured(deckId, t);
       })
       // A waveform that will not come is not worth an error card over the whole desk — the
       // song plays regardless. But the REASON goes into the strip: the analysis needs the
@@ -362,198 +170,7 @@ export function MixView({
       );
   };
 
-  /**
-   * Move a fader. The number follows the finger, and so does the tempo — see `commit`.
-   *
-   * **A hand on the SLAVE's fader cancels sync.** That is what the gesture means on every
-   * deck that has the button: you are taking this tempo back. Without it the slave's knob
-   * would fight the master and lose on the next render, which reads as a broken control.
-   *
-   * The value it lands on needs no special care: the knob was showing the SYNCED number, so
-   * dragging it starts from there and continues — no jump back to whatever this deck was at
-   * before the sync, which is the surprise a naive `setMaster(null)` first would cause.
-   */
-  const nudge = (deckId: DeckId, bpm: number) => {
-    dragging.current = true;
-    if (master && master !== deckId) setMaster(null);
-    setFaders((f) => {
-      const t = f[deckId];
-      return t ? { ...f, [deckId]: { ...t, target: bpm } } : f;
-    });
-  };
-
-  /**
-   * Send the decks as they now stand — on release, on sync, and during a drag.
-   *
-   * A warp is part of the DOCUMENT rather than a plugin parameter, so there is no
-   * `set-plugin-param` for it: every change is a re-send, and the engine answers it by
-   * RE-INSERTING the clip (engine/moteur/docs/engineHost.md). That is why this is not per
-   * pixel like the crossfader — a slider emits a value per pixel dragged, and a stretch node
-   * rebuilt that often, on both decks when they are synced, would spend the gesture
-   * stuttering. It is throttled instead, which is what makes the tempo follow the hand
-   * without the drag falling apart.
-   */
-  const commit = (next = latest.current) => {
-    if (deck.engine)
-      sendDecks(deck.engine, loads, mix, undefined, next, compiled);
-  };
-  // Read by the throttle timer below, so what it sends is this render's document and not the
-  // one from whichever render happened to schedule it.
-  const commitRef = useRef(commit);
-  commitRef.current = commit;
-
-  /**
-   * The drag's own sends: at most one per `LIVE_WARP_MS`, and always the newest value.
-   *
-   * Deliberately NOT a debounce. A debounce clears its pending tick on every new value, so a
-   * continuous drag never sends anything until the hand stops — the exact behaviour this
-   * replaces. Here a tick already scheduled is left alone and reads `latest` when it fires,
-   * so the stream comes out at a steady rate however fast the fader moves.
-   *
-   * `dragging` is what keeps this to the gesture: `stretches` also changes on a load and on
-   * sync, and both of those already send for themselves.
-   */
-  useEffect(() => {
-    if (!dragging.current || warpTimer.current !== null) return;
-    const wait = Math.max(0, LIVE_WARP_MS - (Date.now() - lastWarp.current));
-    warpTimer.current = window.setTimeout(() => {
-      warpTimer.current = null;
-      lastWarp.current = Date.now();
-      commitRef.current();
-    }, wait);
-  }, [stretches]);
-  // A drag that ends by unmounting — switching to Graphe mid-gesture — must not leave a timer
-  // holding a document for a view that has gone.
-  useEffect(
-    () => () => {
-      if (warpTimer.current !== null) window.clearTimeout(warpTimer.current);
-    },
-    [],
-  );
-
-  /** Let go of the fader: the drag's throttle stops, and the exact value it landed on goes
-   *  out — the last throttled tick may have been up to `LIVE_WARP_MS` short of it. */
-  const release = () => {
-    dragging.current = false;
-    lastWarp.current = Date.now();
-    commit();
-  };
-
-  /** Press a sync button. Pressing the one already lit releases it — a set spends most of
-   *  its time with neither deck leading, and there has to be a way back to that. */
-  const toggleSync = (deckId: DeckId) => {
-    const next = master === deckId ? null : deckId;
-    setMaster(next);
-    commit(syncedTempos(faders, next));
-  };
-
-  /**
-   * Move a control that `views/mix.yaml` binds to a REAL plugin param. One message, per pixel.
-   *
-   * The other of the desk's two paths — the crossfader and the EQ take this one, the tempo
-   * cannot. A `set-plugin-param` needs a plugin the engine actually has, and an `offline`
-   * module compiles to none, however confidently the graph hands out an address for it
-   * (`hasPlugin`). So a control whose target is not loaded is REFUSED here rather than sent
-   * into the void, and the caller decides what that means.
-   */
-  const pushParam = (controlId: string, value: number): boolean => {
-    if (!deck.engine) return false;
-    const bound = wiring.bindings.find(
-      (b) => b.control.id === controlId && hasPlugin(b, plugins),
-    );
-    if (!bound?.pluginId) return false;
-    deck.engine.setPluginParam(
-      bound.pluginId,
-      bound.param,
-      valueFor(bound, value),
-    );
-    return true;
-  };
-
-  /**
-   * Turn one of a deck's EQ knobs. Straight down the declared path — the EQ module IS a
-   * plugin, so this is the crossfader's mechanism and not the tempo's.
-   *
-   * The position is kept here as well as sent, because nothing echoes it back: the engine is
-   * told and says nothing, so the knob's own state is what draws it.
-   */
-  const turnEq = (deckId: DeckId, band: string, dB: number) => {
-    const id = `${deckId}.${band}`;
-    setEq((e) => ({ ...e, [id]: dB }));
-    pushParam(id, dB);
-  };
-
-  /**
-   * Lend the graph what each tempo module is set to.
-   *
-   * The engine cannot answer this one: an `offline` module compiles to no plugin, so there is
-   * nothing to watch and no id to watch it by. The desk is where the value exists — it is the
-   * thing that turns it into a clip warp — so the desk publishes it, and the graph reads it
-   * from the Deck, which outlives this view.
-   *
-   * Keyed by the MODULE the binding names, not by the deck: `views/mix.yaml` decides which
-   * module a fader drives, and a set that pointed both faders at one module should show one
-   * number moving, not two.
-   */
-  useEffect(() => {
-    for (const b of wiring.bindings) {
-      if (b.pluginId) continue; // a real plugin — the engine reports that one itself
-      const t = tempos[b.control.id.split(".")[0] as DeckId];
-      if (t) deck.setModuleParam(b.module, b.param, t.target);
-    }
-  }, [wiring, tempos, deck.setModuleParam]);
-
-  /**
-   * Let go of the override once the engine has caught up.
-   *
-   * An optimistic value that never yields is a knob that stops listening: the engine could
-   * clamp what it was sent, or the graph could move the same param, and the desk would go on
-   * drawing the last thing THIS hand did. Dropping it the moment the two agree hands the
-   * question back to the engine, which is the only thing that knows.
-   */
-  useEffect(() => {
-    setEq((current) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      for (const [id, at] of Object.entries(current)) {
-        const bound = wiring.bindings.find((b) => b.control.id === id);
-        if (engineAgrees(bound, at, live)) changed = true;
-        else next[id] = at;
-      }
-      return changed ? next : current;
-    });
-    // …and the crossfader, which holds ONE number rather than a map.
-    setHeld((at) =>
-      at !== undefined &&
-      engineAgrees(
-        wiring.bindings.find((b) => b.control.id === "crossfade"),
-        at,
-        live,
-      )
-        ? undefined
-        : at,
-    );
-  }, [live, wiring]);
-
-  /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
-  const crossfade = (value: number) => {
-    setHeld(value);
-    if (!deck.engine) return;
-    // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`, and
-    // the compiled document is what put that module in the engine. One `set-plugin-param` and
-    // the project's own DSP does the fade.
-    if (pushParam("crossfade", value)) return;
-    // …and the stand-in, for the seconds before the compile lands or a project that will not
-    // compile: no crossfade module in the engine, so the two decks' levels are moved instead.
-    // Same law, different mechanism — see docs/mix.md.
-    if (!compiled) return pushCrossfade(deck.engine, value);
-    // Compiled, but nothing bound to a plugin the engine has. The levels the stand-in moves
-    // are not in THIS document, so moving them would do nothing at all — and a crossfader
-    // that silently does nothing is the exact bug this whole file keeps paying for.
-    setError(
-      `le crossfade n'est lié à aucun plugin chargé — vérifiez ${MIX_VIEW_FILE}`,
-    );
-  };
+  const { loads, tempos, master, mix } = decks;
 
   const anyLoaded = !!(loads.deckA || loads.deckB);
   const ready = deck.phase.k === "ready";
@@ -571,17 +188,26 @@ export function MixView({
           playing={deck.playing}
           tempo={tempos.deckA}
           driven={master === "deckB"}
-          onNudge={(bpm) => nudge("deckA", bpm)}
-          onCommit={release}
+          onNudge={(bpm) => decks.nudge("deckA", bpm)}
+          onCommit={decks.release}
           onPick={() => setBrowsing("deckA")}
-          eq={eqOf("deckA")}
-          eqLive={eqLive("deckA")}
-          onEq={(band, dB) => turnEq("deckA", band, dB)}
+          eq={decks.eqOf("deckA")}
+          eqLive={decks.eqLive("deckA")}
+          onEq={(band, dB) => decks.turnEq("deckA", band, dB)}
         />
 
         <section className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* This view's own trouble — the catalogue, a song with no audio — and the DESK's,
+              which the deck document raises and which outlives this tab. Two sources, one
+              card each, because "the médiathèque is unreachable" and "the crossfader is bound
+              to nothing" are different things to go and fix. */}
           {error ? (
             <Card className="p-3 text-sm text-destructive">{error}</Card>
+          ) : null}
+          {decks.deskError ? (
+            <Card className="p-3 text-sm text-destructive">
+              {decks.deskError}
+            </Card>
           ) : null}
           {/* A set list that will not parse is the project's problem, not the machine's, so
               it is reported apart from the error above and names its own lines. */}
@@ -598,10 +224,10 @@ export function MixView({
           {/* A binding that names something this project has not got. Reported by CONTROL,
               because that is what looks broken from the desk: you move a fader, nothing
               happens, and this says which line to fix. */}
-          {wiring.problems.length ? (
+          {decks.problems.length ? (
             <Card className="p-3 text-sm text-destructive">
               <div className="font-semibold">{MIX_VIEW_FILE}</div>
-              {wiring.problems.map((p) => (
+              {decks.problems.map((p) => (
                 <div key={p.control} className="font-mono text-xs">
                   {p.control} : {p.message}
                 </div>
@@ -623,12 +249,12 @@ export function MixView({
           playing={deck.playing}
           tempo={tempos.deckB}
           driven={master === "deckA"}
-          onNudge={(bpm) => nudge("deckB", bpm)}
-          onCommit={release}
+          onNudge={(bpm) => decks.nudge("deckB", bpm)}
+          onCommit={decks.release}
           onPick={() => setBrowsing("deckB")}
-          eq={eqOf("deckB")}
-          eqLive={eqLive("deckB")}
-          onEq={(band, dB) => turnEq("deckB", band, dB)}
+          eq={decks.eqOf("deckB")}
+          eqLive={decks.eqLive("deckB")}
+          onEq={(band, dB) => decks.turnEq("deckB", band, dB)}
         />
       </div>
 
@@ -650,8 +276,8 @@ export function MixView({
           side="A"
           on={master === "deckA"}
           enabled={!!tempos.deckA?.natural && !!tempos.deckB?.natural}
-          beats={canAlign}
-          onClick={() => toggleSync("deckA")}
+          beats={decks.canAlign}
+          onClick={() => decks.toggleSync("deckA")}
         />
 
         {/* Off by default: the sound already comes out of the machine's interface, so this
@@ -679,7 +305,7 @@ export function MixView({
             max={1}
             step={0.01}
             value={mix}
-            onChange={(e) => crossfade(Number(e.target.value))}
+            onChange={(e) => decks.crossfade(Number(e.target.value))}
             disabled={!ready}
             className="min-w-0 flex-1 accent-foreground"
             aria-label="crossfade entre la platine A et la platine B"
@@ -691,7 +317,7 @@ export function MixView({
               shortcut, and the one a mouse drag never lands on exactly. */}
           <button
             type="button"
-            onDoubleClick={() => crossfade(MIX_CENTRE)}
+            onDoubleClick={() => decks.crossfade(MIX_CENTRE)}
             title="double-clic : recentrer"
             className="w-12 shrink-0 font-mono text-xs tabular-nums text-muted-foreground"
           >
@@ -737,8 +363,8 @@ export function MixView({
           side="B"
           on={master === "deckB"}
           enabled={!!tempos.deckA?.natural && !!tempos.deckB?.natural}
-          beats={canAlign}
-          onClick={() => toggleSync("deckB")}
+          beats={decks.canAlign}
+          onClick={() => decks.toggleSync("deckB")}
         />
       </footer>
     </div>
@@ -1012,20 +638,6 @@ function SetRow({
  * for both a missing file and an unreadable one, which is why this cannot tell them apart —
  * and does not need to, since neither is something m9 can fix.
  */
-/**
- * Read the desk's bindings. Absent is the ordinary state — a set that has bound nothing, or a
- * project written before the file existed — so it reads as "no bindings" and not as an error.
- * A file that is THERE and malformed is a different matter, and `parseMixView` reports it.
- */
-async function readMixView(project: string): Promise<MixViewFile> {
-  const path = project === "." ? MIX_VIEW_FILE : `${project}/${MIX_VIEW_FILE}`;
-  try {
-    return parseMixView((await api.read(path)).content).value ?? {};
-  } catch {
-    return {};
-  }
-}
-
 async function readSet(
   project: string,
   cached: MediatekEntry[],

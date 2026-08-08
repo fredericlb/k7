@@ -125,14 +125,14 @@ warp de clip. Le pupitre la prête donc via `Deck.moduleParams`, et le graphe l'
 plugin. Sur le `Deck` et non dans MixView, parce que MixView est démonté exactement quand le
 graphe est à l'écran, le seul moment où celui-ci en a besoin.
 
-Le potard de tempo du graphe est donc **en lecture seule**, et visiblement : `onModuleParam`
-n'est délibérément pas passé. Montrer et prendre sont deux capacités distinctes, et étirer un
-morceau demande les morceaux chargés et le document du pupitre — partis avec lui. Un potard
-qui tournerait contre rien serait le mensonge que le retrait du `pluginId` avait supprimé.
+Et il est **tournable** depuis le graphe, parce que l'état des platines a été sorti de MixView :
+`useDeckSet` vit dans Studio et survit donc à l'onglet. Ça a réglé le même nœud trois fois — un
+aller-retour par le graphe n'oublie plus les morceaux chargés, ne ramène plus le crossfader au
+centre, et le tempo se règle des deux côtés. Voir [deckSet.md](deckSet.md).
 
-Le tourner depuis le graphe demanderait de sortir l'état des platines de MixView. Ça
-réglerait aussi le fait qu'un aller-retour par le graphe oublie les morceaux chargés — c'est
-le même nœud, et il n'est pas encore défait.
+Le retour se fait par la liaison DÉCLARÉE, lue à l'envers : le graphe ne connaît qu'un module et
+un paramètre, `controlDriving` retrouve le contrôle qui les pilote. Repointer une ligne de
+`views/mix.yaml` déplace donc aussi l'effet de ce potard.
 
 ## Ce qu'il faut savoir
 
