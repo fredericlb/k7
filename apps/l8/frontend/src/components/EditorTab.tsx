@@ -206,7 +206,9 @@ export function EditorTab({
   ref,
 }: {
   active: boolean;
-  showTree: boolean; // render the file-tree sidebar (on whenever the editor pane is visible)
+  // Render the file-tree sidebar. On whenever the editor pane is on screen in the layout, and
+  // OFF in the popin — that one is a single file a command already named. See docs/shell.md.
+  showTree: boolean;
   reloadKey: number;
   activeProject: string | null;
   // The whole project's load findings; the editor draws the open file's inline. Refreshed by App's 2s vet poll.

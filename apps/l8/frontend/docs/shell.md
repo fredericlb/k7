@@ -118,6 +118,31 @@ the timeline caret, the zoom stack, the graph canvas — simply never moves. Thi
 one invariant to preserve when adding a pane: mount it once, unconditionally, and let the
 tables decide its size.
 
+### The editor POPIN
+
+A command that sends the editor to a file (`ui file`, `edit clip`, `edit sequence`) has to do
+something when the editor pane is off screen. It used to **fullscreen** it, which answered a
+question nobody asked: you wanted the file, and it threw away the timeline or the graph you
+were about to read it against.
+
+It opens as a popin instead — over the layout, on a dimmed backdrop, **without the file tree**,
+because a command already named the one file it is showing.
+
+It is the SAME EditorTab, in the same place in the tree, wearing different classes. That is
+forced by the invariant above and is also what makes it good: the open file, its undo history
+and the CodeMirror instance survive being popped out and put back, because nothing unmounted.
+A second editor would have been a second undo stack.
+
+Three details it needs to be usable:
+
+- **The popin is the active pane** while it is up (`activePane`), or the pane underneath would
+  keep answering the keys.
+- **It closes on a click outside, or the ×** — not on Escape. Escape belongs to the editor: in
+  vim mode it leaves insert mode, and a key that both leaves insert mode and closes the window
+  you are typing in is a trap.
+- **Any change of layout puts it away.** It is a detour to one file, not a place to be, so it is
+  deliberately NOT URL state — a reload lands you in the view, not in the popin.
+
 ## The command palette
 
 A double-tap of Shift opens the palette (IntelliJ style). It runs the brain's shared
