@@ -124,6 +124,15 @@ export const BPM_RANGE: readonly [min: number, max: number] = [10, 300];
  */
 export const EQ_DB: readonly [min: number, max: number] = [-20, 20];
 
+/**
+ * The ends of a deck's filter knob — the module's own, signed so the neutral is the middle.
+ *
+ * The `sweep` module is ONE param by design: a desk control drives at most one, so "low-pass
+ * or high-pass" cannot be a second setting. Left runs a low-pass down, right runs a high-pass
+ * up, and 0 is inaudible rather than bypassed.
+ */
+export const FILTER_RANGE: readonly [min: number, max: number] = [-100, 100];
+
 /** The three bands a deck's EQ strip draws, low to high — the order they sit in. */
 export const EQ_BANDS = [
   { id: "eqLow", label: "GRAVE" },

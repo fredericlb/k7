@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EQ_DB } from "../deck";
-import { angleOf } from "./EqStrip";
+import { EQ_DB, FILTER_RANGE } from "../deck";
+import { angleOf } from "./ChannelStrip";
 
 describe("where a value sits on the dial", () => {
   it("puts flat straight up", () => {
@@ -24,5 +24,13 @@ describe("where a value sits on the dial", () => {
 
   it("says nothing for a range with no width", () => {
     expect(angleOf(5, [3, 3])).toBe(0);
+  });
+
+  it("reads the FILTER's own range, not the EQ's", () => {
+    // Two scales on one strip: ±20 dB and ±100. The dial takes the range it is given rather
+    // than assuming one, or the filter would sit pinned at an end from its first degree.
+    expect(angleOf(0, FILTER_RANGE)).toBeCloseTo(0);
+    expect(angleOf(-100, FILTER_RANGE)).toBe(angleOf(EQ_DB[0], EQ_DB));
+    expect(angleOf(20, FILTER_RANGE)).toBeCloseTo(30);
   });
 });

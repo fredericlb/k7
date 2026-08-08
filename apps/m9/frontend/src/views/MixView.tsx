@@ -1,6 +1,6 @@
-// MixView.tsx — the desk: a deck top left, a deck top right, the set list between them, and
-// the crossfader across the bottom. What plays comes from the project's `songs.yaml`; how loud
-// each deck is comes from the crossfader. See ../../docs/mix.md.
+// MixView.tsx — the desk: two decks facing each other, each with its tempo on the outer edge
+// and its channel strip on the inner one, and the crossfader across the bottom. What plays
+// comes from the project's `songs.yaml`, chosen at the record itself. See ../../docs/mix.md.
 //
 // It DRAWS the decks and owns nothing about them. The document — what is loaded, what it plays
 // at, every gesture that changes either — is `useDeckSet`, held by Studio, because this view is
@@ -12,8 +12,6 @@ import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
-  CloudDownload,
-  Disc3,
   Headphones,
   Link2,
   Play,
@@ -37,7 +35,7 @@ import type { DeckSet } from "../useDeckSet";
 import { type Playhead, type Deck } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
-import { EqStrip } from "./EqStrip";
+import { ChannelStrip } from "./ChannelStrip";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
@@ -177,30 +175,15 @@ export function MixView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* --- the two decks, and the set list between them ------------------------------ */}
-      <div className="flex min-h-0 flex-1 gap-4 p-4">
-        <DeckSide
-          side="A"
-          load={loads.deckA}
-          spinning={deck.playing}
-          wave={waves.deckA}
-          playhead={deck.playhead}
-          playing={deck.playing}
-          tempo={tempos.deckA}
-          driven={master === "deckB"}
-          onNudge={(bpm) => decks.nudge("deckA", bpm)}
-          onCommit={decks.release}
-          onPick={() => setBrowsing("deckA")}
-          eq={decks.eqOf("deckA")}
-          eqLive={decks.eqLive("deckA")}
-          onEq={(band, dB) => decks.turnEq("deckA", band, dB)}
-        />
-
-        <section className="flex min-w-0 flex-1 flex-col gap-2">
+      {/* Anything wrong, across the top. It used to sit in the middle column with the set
+          list; the list has gone to the record's own browser, and a fault is not something to
+          hide in a column that no longer exists. */}
+      {error || decks.deskError || set?.issues.length || decks.problems.length ? (
+        <div className="flex shrink-0 flex-col gap-2 px-4 pt-4">
           {/* This view's own trouble — the catalogue, a song with no audio — and the DESK's,
-              which the deck document raises and which outlives this tab. Two sources, one
-              card each, because "the médiathèque is unreachable" and "the crossfader is bound
-              to nothing" are different things to go and fix. */}
+              which the deck document raises and which outlives this tab. Two sources, one card
+              each, because "the médiathèque is unreachable" and "the crossfader is bound to
+              nothing" are different things to go and fix. */}
           {error ? (
             <Card className="p-3 text-sm text-destructive">{error}</Card>
           ) : null}
@@ -209,8 +192,8 @@ export function MixView({
               {decks.deskError}
             </Card>
           ) : null}
-          {/* A set list that will not parse is the project's problem, not the machine's, so
-              it is reported apart from the error above and names its own lines. */}
+          {/* A set list that will not parse is the project's problem, not the machine's, so it
+              is reported apart from the error above and names its own lines. */}
           {set?.issues.length ? (
             <Card className="p-3 text-sm text-destructive">
               <div className="font-semibold">{SONGS_FILE}</div>
@@ -234,11 +217,30 @@ export function MixView({
               ))}
             </Card>
           ) : null}
+        </div>
+      ) : null}
 
-          <div className="min-h-0 flex-1 overflow-auto">
-            <SetListPane set={set} ready={ready} loads={loads} onLoad={load} />
-          </div>
-        </section>
+      {/* --- the two decks, facing each other -------------------------------------------- */}
+      <div className="flex min-h-0 flex-1 gap-4 p-4">
+        <DeckSide
+          side="A"
+          load={loads.deckA}
+          spinning={deck.playing}
+          wave={waves.deckA}
+          playhead={deck.playhead}
+          playing={deck.playing}
+          tempo={tempos.deckA}
+          driven={master === "deckB"}
+          onNudge={(bpm) => decks.nudge("deckA", bpm)}
+          onCommit={decks.release}
+          onPick={() => setBrowsing("deckA")}
+          eq={decks.eqOf("deckA")}
+          eqLive={decks.eqLive("deckA")}
+          onEq={(band, dB) => decks.turnEq("deckA", band, dB)}
+          filter={decks.filterOf("deckA")}
+          filterLive={decks.filterLive("deckA")}
+          onFilter={(v) => decks.turnFilter("deckA", v)}
+        />
 
         <DeckSide
           side="B"
@@ -255,6 +257,9 @@ export function MixView({
           eq={decks.eqOf("deckB")}
           eqLive={decks.eqLive("deckB")}
           onEq={(band, dB) => decks.turnEq("deckB", band, dB)}
+          filter={decks.filterOf("deckB")}
+          filterLive={decks.filterLive("deckB")}
+          onFilter={(v) => decks.turnFilter("deckB", v)}
         />
       </div>
 
@@ -439,6 +444,9 @@ function DeckSide({
   eq,
   eqLive,
   onEq,
+  filter,
+  filterLive,
+  onFilter,
 }: {
   side: "A" | "B";
   load: DeckLoads[DeckId];
@@ -458,6 +466,10 @@ function DeckSide({
   eq: Partial<Record<string, number>>;
   eqLive: boolean;
   onEq: (band: string, dB: number) => void;
+  /** …and its filter, on the same strip but its own module. */
+  filter: number | undefined;
+  filterLive: boolean;
+  onFilter: (value: number) => void;
 }) {
   const fader = (
     <BpmFader
@@ -469,11 +481,23 @@ function DeckSide({
     />
   );
 
+  const strip = (
+    <ChannelStrip
+      eq={eq}
+      eqLive={eqLive}
+      filter={filter}
+      filterLive={filterLive}
+      onEq={onEq}
+      onFilter={onFilter}
+    />
+  );
+
   return (
-    <section className="flex w-[30%] min-w-[17rem] shrink-0 gap-2">
-      {/* On the OUTER edge of each deck, so the two records stay turned towards the set
-          between them and the desk reads as a mirror rather than a repeat. */}
-      {side === "A" ? fader : null}
+    <section className="flex min-w-0 flex-1 gap-2">
+      {/* The tempo on the OUTER edge, the shaping controls on the INNER one: the two decks
+          face each other across the middle, so the desk reads as a mirror rather than a
+          repeat and a hand knows which deck it is on without looking up. */}
+      {side === "A" ? fader : strip}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
         <Vinyl
           side={side}
@@ -493,140 +517,12 @@ function DeckSide({
             problem={wave?.k === "none" ? wave.why : null}
           />
         ) : null}
-        {/* The channel EQ, under the waveform and above the title — where a mixer puts it
-            relative to the record, and drawn whether or not a song is loaded because it is a
-            property of the DECK and not of what is on it. */}
-        <EqStrip values={eq} onChange={onEq} disabled={!eqLive} />
         <div className="w-full truncate text-center text-xs text-muted-foreground">
           {load ? load.title : "rien de chargé"}
         </div>
       </div>
-      {side === "B" ? fader : null}
+      {side === "B" ? fader : strip}
     </section>
-  );
-}
-
-/** The project's songs, with a button per deck on each row. */
-function SetListPane({
-  set,
-  ready,
-  loads,
-  onLoad,
-}: {
-  set: SetList | null;
-  ready: boolean;
-  loads: DeckLoads;
-  onLoad: (deck: DeckId, s: SetEntry) => void;
-}) {
-  if (set === null)
-    return (
-      <Card className="p-6 text-sm text-muted-foreground">
-        Pas de service local joignable. m9 lit le CACHE de la médiathèque, pas
-        la bibliothèque hébergée — c'est le moteur qui joue, et il ouvre des
-        fichiers.
-      </Card>
-    );
-  // No songs.yaml at all — an l8 song opened here, or a set from before the file existed.
-  // Named as the missing file it is, since adding it is one edit away in the Édition view.
-  if (set.absent)
-    return (
-      <Card className="p-6 text-sm text-muted-foreground">
-        Ce projet n'a pas de <code>{SONGS_FILE}</code>. C'est le fichier qui dit
-        quels morceaux de la médiathèque font partie du set.
-      </Card>
-    );
-  if (!set.entries.length)
-    return (
-      <Card className="p-6 text-sm text-muted-foreground">
-        Le set est vide. Ajoutez des morceaux dans <code>{SONGS_FILE}</code> —
-        ils seront tirés dans le cache de cette machine tout seuls.
-      </Card>
-    );
-
-  return (
-    <ul className="flex flex-col gap-1">
-      {set.entries.map((s) => (
-        <SetRow
-          key={s.ref}
-          song={s}
-          ready={ready}
-          on={
-            loads.deckA?.id === s.id
-              ? "A"
-              : loads.deckB?.id === s.id
-                ? "B"
-                : null
-          }
-          onLoad={onLoad}
-        />
-      ))}
-    </ul>
-  );
-}
-
-/** One song of the set: what it is called, whether this machine can play it, and the two
- *  buttons that put it on a deck. */
-function SetRow({
-  song,
-  ready,
-  on,
-  onLoad,
-}: {
-  song: SetEntry;
-  ready: boolean;
-  /** The deck this song is currently on, or null. */
-  on: string | null;
-  onLoad: (deck: DeckId, s: SetEntry) => void;
-}) {
-  const master = song.entry?.meta?.master;
-  const playable = !!song.entry && !!master && ready;
-  // Three states, and they are three different sentences. Not in the cache is the ordinary
-  // one — the sync pulls what the open set names, so a song added a minute ago is on its way.
-  const why = !song.entry
-    ? "pas encore dans le cache de cette machine — la synchro va le chercher"
-    : !master
-      ? "ce dossier ne porte aucun audio"
-      : !ready
-        ? "aucun moteur sur cette machine"
-        : null;
-
-  return (
-    <li
-      className={`flex items-center gap-3 rounded-md px-3 py-2 ${
-        on ? "bg-accent/60" : "hover:bg-accent/30"
-      }`}
-    >
-      {song.entry ? (
-        <Disc3 className="h-4 w-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <CloudDownload className="h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
-      )}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span
-          className={`truncate text-sm ${song.entry ? "" : "text-muted-foreground"}`}
-        >
-          {song.name}
-        </span>
-        {song.artist ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {song.artist}
-          </span>
-        ) : null}
-      </span>
-      {(["A", "B"] as const).map((s) => (
-        <Button
-          key={s}
-          size="sm"
-          variant={on === s ? "default" : "secondary"}
-          disabled={!playable}
-          // Disabled with a reason, not just greyed.
-          title={why ?? `charger sur la platine ${s}`}
-          onClick={() => onLoad(s === "A" ? "deckA" : "deckB", song)}
-        >
-          {s}
-        </Button>
-      ))}
-    </li>
   );
 }
 

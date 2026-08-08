@@ -18,6 +18,16 @@ clique pour l'éditer.
 `resolveSet` croise les deux par l'**id** de la médiathèque — un ref est `@mediatek/` suivi
 de l'id, mot pour mot, donc le croisement est une comparaison de chaînes et rien d'autre.
 
+## Où la liste se lit maintenant
+
+Elle a quitté le milieu du pupitre. Le set se choisit **au disque lui-même** — un clic au
+centre d'un vinyle ouvre le sélecteur ([songBrowser.md](songBrowser.md)) — et c'est déjà la
+seule façon dont on chargeait une platine. Une colonne qui répétait ce que le disque sait
+prenait la largeur que les platines voulaient.
+
+Rien de ce qui suit ne change pour autant : le croisement, les trois états et leurs phrases
+sont ceux du sélecteur, qui lit le même `SetList`.
+
 ## Trois états, trois phrases
 
 Un morceau nommé par le set et absent du cache **reste dans la liste**, en gris, avec son

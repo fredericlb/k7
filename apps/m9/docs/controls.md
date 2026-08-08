@@ -19,11 +19,12 @@ platines, pour qu'une troisième platine ne soit pas silencieusement impossible 
 | `deckA.eqLow`, `deckB.eqLow` | le grave d'une platine | −20..+20 dB |
 | `deckA.eqMid`, `deckB.eqMid` | le médium | −20..+20 dB |
 | `deckA.eqHigh`, `deckB.eqHigh` | l'aigu | −20..+20 dB |
+| `deckA.filter`, `deckB.filter` | le filtre de balayage | −100..+100 |
 | `transport` | lecture / arrêt | 0..1 |
 | `listen` | écouter dans cet onglet | 0..1 |
 
-Les trois bandes d'EQ sont en **décibels** et symétriques, pour que le plat tombe au milieu
-de la course : voir [eq.md](eq.md).
+Les trois bandes d'EQ sont en **décibels**, le filtre en pourcentage de course, et tous
+symétriques pour que le neutre tombe au milieu : voir [eq.md](eq.md) et [filter.md](filter.md).
 
 Les liaisons, elles, sont dans le **projet** : `views/mix.yaml`, décrit dans
 [packages/song/docs/viewBindings.md](../../../packages/song/docs/viewBindings.md).

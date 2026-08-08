@@ -71,6 +71,9 @@ export interface DeckSet {
   eqOf: (deck: DeckId) => Partial<Record<string, number>>;
   /** Does this deck have an EQ the engine has actually loaded? */
   eqLive: (deck: DeckId) => boolean;
+  /** Where this deck's filter sits, −100..+100. Undefined until anything says. */
+  filterOf: (deck: DeckId) => number | undefined;
+  filterLive: (deck: DeckId) => boolean;
   /** Can sync do its second half — put the two decks' beats together? */
   canAlign: boolean;
 
@@ -86,6 +89,7 @@ export interface DeckSet {
   toggleSync: (deck: DeckId) => void;
   crossfade: (value: number) => void;
   turnEq: (deck: DeckId, band: string, dB: number) => void;
+  turnFilter: (deck: DeckId, value: number) => void;
   /**
    * A knob turned in the GRAPH, on a module the engine holds no plugin for.
    *
@@ -293,6 +297,17 @@ export function useDeckSet(
         return !!x && hasPlugin(x, plugins);
       }),
 
+    // The filter rides the same two rails as the EQ — an optimistic value over the engine's —
+    // because it is the same kind of thing: a real plugin param, sent per pixel.
+    filterOf: (deckId) => {
+      const id = `${deckId}.filter`;
+      return shownValue(bindingFor(id), eq[id], live);
+    },
+    filterLive: (deckId) => {
+      const x = bindingFor(`${deckId}.filter`);
+      return !!x && hasPlugin(x, plugins);
+    },
+
     putOn: (deckId, load) => {
       setDeskError(null);
       const next: DeckLoads = { ...loadsRef.current, [deckId]: load };
@@ -351,6 +366,11 @@ export function useDeckSet(
       const id = `${deckId}.${band}`;
       setEq((e) => ({ ...e, [id]: dB }));
       pushParam(id, dB);
+    },
+    turnFilter: (deckId, value) => {
+      const id = `${deckId}.filter`;
+      setEq((e) => ({ ...e, [id]: value }));
+      pushParam(id, value);
     },
 
     fromGraph: (module, name, value) => {
