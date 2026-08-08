@@ -13,6 +13,7 @@ import {
   useEngineInputDevices,
   useEnginePlugins,
 } from "./engine/baseModules";
+import { InputMeter } from "./engine/InputMeter";
 import { InputPicker } from "./engine/InputPicker";
 import {
   type ChannelLabel,
@@ -50,6 +51,9 @@ export function ModuleEditor({
     fileBase,
     paramNames,
     paramMeta,
+    paramsStore,
+    setPluginParam,
+    inputLevel,
     presets,
     preview,
     listPresets,
@@ -240,6 +244,10 @@ export function ModuleEditor({
                 // last was rather than at a corner of the screen.
                 toggleArm(lastPointer.current.x, lastPointer.current.y)
               }
+              // …and the module's own knobs, which drew the authored value and ignored the
+              // mouse: this preview had no store to read and no writer to call.
+              paramsStore={paramsStore}
+              onSetParam={setPluginParam}
             />
           )}
         />
@@ -309,6 +317,9 @@ export function ModuleEditor({
             {armed ? "armé" : "armer"}
           </button>
         )}
+        {/* Le niveau, seulement quand quelque chose passe : une jauge à zéro en permanence
+            est un meuble, et elle dit ici « il y a une entrée et voilà ce qu'elle fait ». */}
+        {armed && inputChannels.length > 0 && <InputMeter db={inputLevel} />}
         <button
           type="button"
           className={vimMode ? "underline" : "underline opacity-50"}

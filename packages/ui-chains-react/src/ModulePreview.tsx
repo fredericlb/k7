@@ -1,8 +1,10 @@
 // ModulePreview.tsx — the module being edited, drawn as the card it will be in a chain. The
 // renderer half only: the graph is @studio/ui-chains' modulePreview.ts, and between them runs
-// the same buildGraph → layout → DomChains pipeline the full graph does. Read-only.
-// See apps/st0/docs/modulePreview.md — the page lives with the builder, not here.
+// the same buildGraph → layout → DomChains pipeline the full graph does. Its controls are LIVE
+// where the host wires them — the source's arm, the module's own knobs.
+// See docs/modulePreview.md.
 
+import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import {
   modulePreviewGraph,
@@ -23,6 +25,8 @@ export function ModulePreview({
   onPickSourceInput,
   sourceArmed,
   onToggleSourceArm,
+  paramsStore,
+  onSetParam,
 }: {
   /** The host's glyphs — the graph's own requirement, and this only passes them along. */
   icons: ChainsIcons;
@@ -56,6 +60,16 @@ export function ModulePreview({
    */
   sourceArmed?: boolean;
   onToggleSourceArm?: () => void;
+  /**
+   * The loaded plugin's live values, and how to change one — what turns the module's own
+   * widgets from a picture into controls.
+   *
+   * This component said "Read-only" at the top and meant it: no store, no writer, so every
+   * knob on the card drew the authored value and ignored the mouse. Both or neither — a knob
+   * that moves and changes nothing is worse than one that plainly does not move.
+   */
+  paramsStore?: PluginParamsStore;
+  onSetParam?: (id: string, name: string, value: number) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph: the panel unmounts whenever the editor closes, and a
@@ -111,6 +125,8 @@ export function ModulePreview({
           onToggleSourceArm &&
           ((_id, control) => control === "arm" && onToggleSourceArm())
         }
+        pluginParamsStore={paramsStore}
+        setPluginParam={onSetParam}
       />
     </div>
   );

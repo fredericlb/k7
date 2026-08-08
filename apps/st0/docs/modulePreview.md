@@ -148,6 +148,29 @@ soit — `recordDir` est vide précisément pour que ce soit impossible. On veut
 quoi que fasse le transport ». Le moteur fait le reste (`EngineHost::applyTrackInput`) : il
 résout le périphérique, y cible la piste, et applique le mode de monitoring.
 
+### Les contrôles du module sont vivants
+
+Ce composant disait « Read-only » en tête et le pensait : aucun store de valeurs, aucun
+écrivain, donc chaque potard de la carte dessinait la valeur du fichier et ignorait la souris.
+Il reçoit maintenant le `PluginParamsStore` du moteur et un `setPluginParam` — les deux ou
+aucun, parce qu'un potard qui bouge sans rien changer est pire qu'un potard qui ne bouge pas.
+
+L'écriture est **optimiste** dans le store en plus d'être envoyée : le moteur renvoie le jeu
+complet à sa propre cadence, et un widget qui n'afficherait que ce qui revient traînerait
+derrière le geste au point de se lire comme un contrôle qui recule sous le doigt.
+
+### La jauge d'entrée
+
+Le niveau monitoré, en dB, pris sur `inputLevels` du cadre d'état — l'aperçu ne tient qu'une
+piste, donc c'est le premier de la liste. C'est le seul retour visuel qui dise que la guitare
+arrive **avant** le module : un panneau muet et un panneau débranché se ressemblent.
+
+L'échelle va de -60 à 0 et non de -100 : sous -60 il n'y a rien à régler, et étaler quarante dB
+de silence écrase la portion qu'on est en train de rider. Le trait à -6 dB est la marge qu'on
+vise vraiment sur un préampli. Le moteur envoie -100 aussi bien pour « silence » que pour
+« aucune entrée assignée » : les deux affichent « — », ce qui est honnête — dans les deux cas il
+n'y a rien à entendre.
+
 ### La liste vient du MOTEUR, pas d'un compte de canaux
 
 C'est le piège de cette fonctionnalité, et le moteur le dit lui-même :

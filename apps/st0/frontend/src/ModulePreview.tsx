@@ -3,6 +3,7 @@
 // wanted the same panel; what stays here is the one thing the two apps do not share, which is
 // what a source node looks like. See ../../docs/modulePreview.md.
 
+import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { ChainsIcons } from "@studio/ui-chains-react";
 import { ModuleIcon, moduleGlyph } from "@studio/ui-chains-react/module-icons";
 import { ModulePreview as SharedPreview } from "@studio/ui-chains-react/module-preview";
@@ -49,6 +50,8 @@ export function ModulePreview({
   onPickSourceInput,
   sourceArmed,
   onToggleSourceArm,
+  paramsStore,
+  onSetParam,
 }: {
   name: string;
   path: string;
@@ -60,6 +63,10 @@ export function ModulePreview({
   /** …and its `A`, which is what actually lets the signal through. */
   sourceArmed?: boolean;
   onToggleSourceArm?: () => void;
+  /** The loaded plugin's live values and how to change one — what makes the module's own
+   *  controls manœuvrable rather than drawn. */
+  paramsStore?: PluginParamsStore;
+  onSetParam?: (id: string, name: string, value: number) => void;
 }) {
   return (
     <SharedPreview
@@ -72,6 +79,8 @@ export function ModulePreview({
       onPickSourceInput={onPickSourceInput}
       sourceArmed={sourceArmed}
       onToggleSourceArm={onToggleSourceArm}
+      paramsStore={paramsStore}
+      onSetParam={onSetParam}
       // The médiathèque has no command bar. Required by the package rather than defaulted,
       // which is the package saying out loud that a node's command menu does nothing here.
       command={(line) => {
