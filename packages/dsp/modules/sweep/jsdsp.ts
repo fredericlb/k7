@@ -1,4 +1,4 @@
-// The sweep filter's DSP. The builder arrives as an ARGUMENT, so this file imports nothing at
+// The DJ filter's DSP. The builder arrives as an ARGUMENT, so this file imports nothing at
 // runtime — a song folder has no node_modules and should never need one (the `import type` is
 // erased; see @studio/song's dspRunner.mjs).
 //
@@ -9,6 +9,10 @@
 // ONE knob, because a desk control drives at most one param — so "low-pass or high-pass"
 // cannot be a second setting somebody flips. Both filters are therefore always in the chain,
 // and what moves is where each one sits.
+//
+// What makes this a DJ filter rather than a filter is the RESONANCE. A flat corner sliding
+// across a track only muffles it, progressively and dully; the swoosh everyone knows is a PEAK
+// travelling with the corner, lifting a narrow band as it goes. That peak is the effect.
 
 import type { GraphBuilder } from "@studio/dsp";
 
@@ -18,6 +22,22 @@ export default (g: GraphBuilder) => {
   const t = g.mul(sweep, 0.01);
   const down = g.clamp(g.mul(t, -1), 0, 1);
   const up = g.clamp(t, 0, 1);
+  // How far from centre, either way. A sum rather than a maximum because only one of the two
+  // is ever non-zero — and the builder has no `max`.
+  const depth = g.add(down, up);
+
+  // Resonance CLIMBS with how far the knob has been pushed: 0.707 is Butterworth, maximally
+  // flat, so a filter doing nothing also colours nothing; 6 whistles. A permanently resonant
+  // filter rings even parked out of the way, and a permanently flat one is a tone control.
+  //
+  // 6 rather than a polite 4, measured: at 4 only about +4 dB was left at the corner once the
+  // flat stage below it had taken its own 3 dB, which is audible but is not what anybody means
+  // by a filter sweep.
+  //
+  // Each half gets its OWN. Sharing one would leave the high-pass ringing at 20 Hz while
+  // somebody sweeps the low-pass down — a resonant peak parked on the sub.
+  const lowQ = g.lerp(0.707, 6, down);
+  const highQ = g.lerp(0.707, 6, up);
 
   // `glide` on both corners. A biquad recomputes its coefficients per BLOCK, and this is a
   // knob people throw — a jump between two blocks is a click, and a sweep of them is the
@@ -28,9 +48,29 @@ export default (g: GraphBuilder) => {
   // this vocabulary, and a module that must be removed to be silent is one a chain cannot
   // automate from nothing.
   //
-  // The low-pass runs FIRST, so at the far left the high-pass sees the muffled signal rather
-  // than the raw one. The high-pass stops at 4 kHz where the low-pass falls to 200: the two
-  // halves are not symmetric in use — sweeping the bass out is a build, and it ends at air.
-  g.biquad("lowpass", g.glide(g.geolerp(20000, 200, down)), 1);
-  g.biquad("highpass", g.glide(g.geolerp(20, 4000, up)), 1);
+  // The low-pass closes to 30 Hz and the high-pass opens to 10 kHz: far enough to take the
+  // track AWAY. A filter that stopped a few hundred hertz down leaves a muddy thump, and the
+  // last part of the sweep — only the peak left whistling — is the part people actually use.
+  // ASCENDING pair, and the journey inverted — never `geolerp(20000, 30, down)`. The engine
+  // sorts a geolerp's ends, so a descending pair reads as its own mirror: written the obvious
+  // way this filter sat at 30 Hz at rest and OPENED as you swept, which is silence with the
+  // knob at neutral.
+  const lowHz = g.glide(g.geolerp(30, 20000, g.sub(1, down)));
+  const highHz = g.glide(g.geolerp(20, 10000, up));
+
+  // TWO stages each, so the slope is 24 dB/octave rather than 12. One pole pair muffles; two
+  // is the wall a DJ filter puts up. The first of each pair stays FLAT and only the second
+  // resonates: two resonant stages at one frequency multiply their peaks — Q² — which is a
+  // filter that screams before it sweeps.
+  g.biquad("lowpass", lowHz, 0.707);
+  g.biquad("lowpass", lowHz, lowQ);
+  g.biquad("highpass", highHz, 0.707);
+  g.biquad("highpass", highHz, highQ);
+
+  // …and the trim, LAST, so it takes back a little of what the stages above just added. Only
+  // −3 dB at the extreme: the first attempt took −6 and ate the peak exactly where the peak is
+  // the point, and the clipping it guarded against was theoretical — the filter removes 14 dB
+  // from the whole signal at half sweep. What is left keeps a Q of 6 on a 30 Hz kick from
+  // costing somebody their master.
+  g.gain(g.lerp(1, 0.7, depth));
 };

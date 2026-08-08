@@ -143,8 +143,23 @@ export class GraphBuilder {
   linmap(x: Input, lo: Input, hi: Input): Scalar {
     return this.node("linmap", [x, lo, hi]);
   }
-  /** Geometric interpolation — the one to use for anything measured in Hz, where a linear map crawls then races. */
+  /**
+   * Geometric interpolation — the one to use for anything measured in Hz, where a linear map crawls then races.
+   *
+   * `lo` must be the LOW end. The engine's node sorts the two before interpolating (`jmin`/`jmax`, so a graph
+   * cannot ask for a negative ratio), which means a descending pair does not fail — it silently reads as its own
+   * mirror. A filter written `geolerp(20000, 200, t)` therefore sits at 200 Hz when `t` is 0 and OPENS as `t`
+   * rises: the exact opposite of what it says, with nothing on screen to suggest it.
+   *
+   * So it is refused here, where the author is, rather than absorbed there. To sweep DOWN, keep the pair
+   * ascending and invert the journey: `geolerp(200, 20000, g.sub(1, t))`.
+   */
   geolerp(lo: Input, hi: Input, t: Input): Scalar {
+    if (typeof lo === "number" && typeof hi === "number" && lo > hi)
+      throw new Error(
+        `geolerp(${lo}, ${hi}) is descending — the engine sorts its ends, so this would read as ` +
+          `geolerp(${hi}, ${lo}) and sweep the wrong way. Invert t instead: geolerp(${hi}, ${lo}, sub(1, t)).`,
+      );
     return this.node("geolerp", [lo, hi, t]);
   }
   clamp(x: Input, lo: Input, hi: Input): Scalar {
