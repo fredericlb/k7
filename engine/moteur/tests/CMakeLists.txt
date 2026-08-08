@@ -8,7 +8,10 @@
 add_executable(studio_engine_tests
     ProjectDiff_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine/ProjectDoc.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/ProjectDiff.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/ProjectDiff.cpp
+    # index() names a duplicate id rather than dropping it in silence. Warnings.cpp is JUCE-free, so
+    # this keeps the "builds in seconds, no audio device" property the comment above is about.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/Warnings.cpp)
 
 # The data-layer headers (ProjectDoc.h / ProjectDiff.h) live in ../engine.
 target_include_directories(studio_engine_tests PRIVATE

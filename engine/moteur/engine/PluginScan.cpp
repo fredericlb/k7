@@ -16,6 +16,8 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -24,19 +26,24 @@ namespace studio {
 
 // The scan cache, parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing the file each time
 // added up on projects with many. Invalidated after a rescan; only the two accessors cross TUs.
+//
+// Under a mutex, and handed out as a shared snapshot, because the invalidator runs on a DETACHED scan thread
+// while the reader is the message thread — see PluginScan.h for what that raced with.
 namespace {
-std::vector<PluginInfo> g_pluginInfoMemo;
-bool g_pluginInfoLoaded = false;
+std::mutex g_pluginInfoMx;
+std::shared_ptr<const std::vector<PluginInfo>> g_pluginInfoMemo;
 }  // namespace
 
-const std::vector<PluginInfo>& cachedPluginInfos() {
-    if (!g_pluginInfoLoaded) {
-        g_pluginInfoMemo = loadPluginCache();
-        g_pluginInfoLoaded = true;
-    }
+std::shared_ptr<const std::vector<PluginInfo>> cachedPluginInfos() {
+    std::lock_guard<std::mutex> lk(g_pluginInfoMx);
+    if (!g_pluginInfoMemo)
+        g_pluginInfoMemo = std::make_shared<const std::vector<PluginInfo>>(loadPluginCache());
     return g_pluginInfoMemo;
 }
-void invalidatePluginInfoMemo() { g_pluginInfoLoaded = false; }
+void invalidatePluginInfoMemo() {
+    std::lock_guard<std::mutex> lk(g_pluginInfoMx);
+    g_pluginInfoMemo.reset();
+}
 
 namespace {
 

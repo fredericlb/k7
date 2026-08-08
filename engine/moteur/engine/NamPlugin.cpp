@@ -150,6 +150,9 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
 
 void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
 {
+    // NAM's Eigen tensors are unprotected against denormals, and a model's tail is exactly where they
+    // appear — see GraphDspPlugin::applyToBuffer.
+    const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr) return;
 
     const int numSamples = ctx.bufferNumSamples;
@@ -169,42 +172,51 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
         outDb += (float)(targetLoudnessDb - loudnessDb_.load(std::memory_order_relaxed));
     const float outGain = juce::Decibels::decibelsToGain(outDb);
 
-    // A block bigger than we prepared for (a render can hand out a long one). Growing here allocates, which is what
-    // we avoid on the audio thread — but the alternative is a silent gap, worse than one allocation we then keep.
-    if (mono_.getNumSamples() < numSamples) {
-        mono_.setSize(1, numSamples, false, true, false);
-        blockSize_ = numSamples;
-        dsp_->Reset(sampleRate_, blockSize_);
-    }
+    // A block bigger than we prepared for (a render can hand out a long one) is CHUNKED, never grown.
+    // Growing used to `setSize` and then call dsp_->Reset(), and Reset is not a pointer bump: it
+    // reallocates the whole network's Eigen matrices and prewarms it — thousands of samples of
+    // WaveNet/LSTM inference, on the audio thread, guaranteed to fire the first time the device buffer
+    // grew. The model is sample-by-sample stateful, so splitting a block changes nothing that comes out.
+    const int chunk = mono_.getNumSamples();
+    if (chunk <= 0) return;
 
-    // Sum to mono, since the model is one-in/one-out — averaged rather than added, so a stereo source doesn't hit
-    // the amp 6 dB hotter; a model's input level is part of its sound.
-    float* in = mono_.getWritePointer(0);
-    {
-        const float* l = ctx.destBuffer->getReadPointer(0, start);
+    for (int done = 0; done < numSamples; done += chunk) {
+        const int n = juce::jmin(chunk, numSamples - done);
+        const int at = start + done;
+
+        // Sum to mono, since the model is one-in/one-out — averaged rather than added, so a stereo source
+        // doesn't hit the amp 6 dB hotter; a model's input level is part of its sound.
+        float* in = mono_.getWritePointer(0);
+        const float* l = ctx.destBuffer->getReadPointer(0, at);
         if (numChans > 1) {
-            const float* r = ctx.destBuffer->getReadPointer(1, start);
-            for (int i = 0; i < numSamples; ++i) in[i] = 0.5f * (l[i] + r[i]);
+            const float* r = ctx.destBuffer->getReadPointer(1, at);
+            for (int i = 0; i < n; ++i) in[i] = 0.5f * (l[i] + r[i]);
         } else {
-            juce::FloatVectorOperations::copy(in, l, numSamples);
+            juce::FloatVectorOperations::copy(in, l, n);
         }
+
+        // Ramped from where the last block ended — a gain that steps between blocks clicks, and Normalize
+        // is a step of several dB the moment you toggle it. The ramp spans the WHOLE block and each chunk
+        // takes its slice of it, so chunking is inaudible rather than a stair per chunk.
+        const auto slice = [&](float from, float to, int upTo) {
+            return from + (to - from) * ((float)upTo / (float)numSamples);
+        };
+        mono_.applyGainRamp(0, 0, n, slice(lastInGain_, inGain, done),
+                            slice(lastInGain_, inGain, done + n));
+
+        float* out = in; // in place: NAM allows input and output to be the same buffer
+        dsp_->process(&in, &out, n);
+
+        mono_.applyGainRamp(0, 0, n, slice(lastOutGain_, outGain, done),
+                            slice(lastOutGain_, outGain, done + n));
+
+        for (int ch = 0; ch < juce::jmin(numChans, 2); ++ch)
+            juce::FloatVectorOperations::copy(
+                ctx.destBuffer->getWritePointer(ch, at), out, n);
     }
 
-    // Ramped from where the last block ended — a gain that steps between blocks clicks, and Normalize is a step
-    // of several dB the moment you toggle it. Applied to the mono buffer, so it costs one pass whatever the
-    // channel count.
-    mono_.applyGainRamp(0, 0, numSamples, lastInGain_, inGain);
     lastInGain_ = inGain;
-
-    float* out = in; // in place: NAM allows input and output to be the same buffer
-    dsp_->process(&in, &out, numSamples);
-
-    mono_.applyGainRamp(0, 0, numSamples, lastOutGain_, outGain);
     lastOutGain_ = outGain;
-
-    for (int ch = 0; ch < juce::jmin(numChans, 2); ++ch)
-        juce::FloatVectorOperations::copy(
-            ctx.destBuffer->getWritePointer(ch, start), out, numSamples);
 }
 
 }  // namespace studio

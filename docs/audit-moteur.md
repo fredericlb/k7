@@ -4,6 +4,11 @@
 mutualisé, ce qui est recopié, et où la fiabilité des connexions cède. Écrit pour être
 exécuté par lots — le plan est en fin de page.
 
+> **L'autre moitié est ailleurs.** Cette page s'arrête à la socket. Ce qui se passe une fois
+> le message arrivé — les fils, le rappel audio, le coût d'un chargement de projet, et le gel
+> de la première lecture — est dans
+> [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md).
+
 ## Périmètre
 
 Trois services parlent vraiment au moteur : **l8**, **m9** et **st0**, chacun par ses deux

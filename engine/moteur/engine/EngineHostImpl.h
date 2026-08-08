@@ -13,6 +13,7 @@
 #include "SessionRegistry.h"
 #include "WaveformTap.h"
 
+#include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
@@ -157,6 +158,15 @@ struct EngineHost::Impl {
 
     te::Engine engine{"Studio", nullptr, std::make_unique<ServerBehaviour>()};
     std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
+
+    // What the open device costs, PUBLISHED by the message thread whenever it opens or changes.
+    // Atomics because `whoami` is answered on the socket's own thread — see publishAudioTiming().
+    std::atomic<int> audioBufferFrames{0};
+    std::atomic<double> audioSampleRate{0.0};
+
+    // The count-in mode last written to Tracktion's ENGINE-GLOBAL property storage. -1 = never. See
+    // EngineHost::play for why a mode that looks per-Edit is shadowed once per process.
+    int countInApplied = -1;
 
     // The sessions, by id. Declared AFTER `engine` so they are destroyed BEFORE it: every
     // Edit, plugin and broadcast ring in here is written to from the audio thread, and the

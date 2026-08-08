@@ -273,6 +273,13 @@ void GraphDspPlugin::reset()
 
 void GraphDspPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
+    // Flush denormals for this block. `grep ScopedNoDenormals` found none anywhere in this repo OR in
+    // Tracktion 3.2.0, and a decaying feedback delay — which `adelay` and `awires_` are — is the
+    // canonical way to generate them: once the tail falls below ~1e-38 every operation on it costs
+    // tens to hundreds of cycles instead of one, and the symptom is an engine that gets slower the
+    // longer it plays. juce::IIRFilter snaps its own state to zero, so the biquads were already safe;
+    // nothing else here was.
+    const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || graph_ == nullptr) return;
     for (size_t i = 0; i < params_.size(); ++i)
         scratch_[i] = params_[i]->getCurrentValue();

@@ -110,7 +110,18 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
         std::cerr << " — leaving it silent\n";
         return;
     }
-    dev->setEnabled(true);   // a disabled device yields no instance to target
+    if (!dev->isEnabled()) {
+        // A disabled device yields no instance to target — but enabling one rebuilds the whole wave
+        // device list, and Tracktion's own comment inside setEnabled is "this object is probably
+        // deleted..". So let the rebuild land and resolve the channel set AGAIN, or every line below
+        // reads through a dangling pointer. Costly, which is why applyAllTrackInputs hoists it.
+        dev->setEnabled(true);
+        impl_->engine.getDeviceManager().dispatchPendingUpdates();
+        dev = findWaveInput(impl_->engine, t.inputChannels);
+        if (dev == nullptr) return;
+        ctx = impl_->session(session).edit->getCurrentPlaybackContext();
+        if (ctx == nullptr) return;
+    }
 
     // A context only builds instances for the devices that were ALREADY enabled when it was
     // built (EditPlaybackContext::createDeviceInstances), so enabling one now is not enough —
@@ -134,7 +145,31 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
     dev->setInputGainDb(static_cast<float>(t.inputGain));
 }
 
+/**
+ * Wire every track to its input, enabling the DEVICES first and only once.
+ *
+ * Enabling a `WaveInputDevice` rebuilds the whole wave-device list and reallocates every Edit's
+ * graph — the cost InputTuner.h already records ("asked for twenty inputs by a menu polling at
+ * 8 Hz, wedged the engine outright"). That lesson was applied to metering and not here, so a
+ * twenty-input song paid twenty list rebuilds and twenty graph reallocations on every full apply.
+ *
+ * Distinct CHANNEL SETS rather than distinct pointers, and re-resolved on each pass, because
+ * enabling one device destroys the objects for the others.
+ */
 void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDoc& doc) {
+    std::vector<std::vector<int>> toEnable;
+    for (const auto& t : doc.tracks) {
+        if (t.inputChannels.empty()) continue;
+        auto* dev = findWaveInput(impl_->engine, t.inputChannels);
+        if (dev == nullptr || dev->isEnabled()) continue;
+        if (std::find(toEnable.begin(), toEnable.end(), t.inputChannels) == toEnable.end())
+            toEnable.push_back(t.inputChannels);
+    }
+    for (const auto& channels : toEnable)
+        if (auto* dev = findWaveInput(impl_->engine, channels)) dev->setEnabled(true);
+    // Once for the batch. applyTrackInput below then finds every device enabled and skips its own.
+    if (!toEnable.empty()) impl_->engine.getDeviceManager().dispatchPendingUpdates();
+
     for (const auto& t : doc.tracks) applyTrackInput(session, t);
 }
 

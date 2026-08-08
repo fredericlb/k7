@@ -115,7 +115,8 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
         else if (type == "mul")      { node.kind = Kind::mul;      node.phase = Phase::control; }
         else if (type == "glide")    { node.kind = Kind::glide;    node.phase = Phase::control; }
         else if (type == "gain")     { node.kind = Kind::gain;     node.phase = Phase::audio; }
-        else if (type == "mix")      { node.kind = Kind::mix;      node.phase = Phase::audio; }
+        else if (type == "mix")      { node.kind = Kind::mix;      node.phase = Phase::audio;
+                                       g->hasMix_ = true; }   // process() needs the dry snapshot
         // MIDI: block-rate rewrites of the message list. Scalar inputs like a control node, no output register —
         // the buffer IS the output, which is why these have no `out`.
         else if (type == "transpose" || type == "velocity" || type == "mchannel") {
@@ -181,6 +182,14 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
     g->regs_.assign(g->regNames_.size(), 0.0f);
     for (const auto& [i, k] : g->constants_)
         g->regs_[(size_t)i] = k;
+
+    // The sample-phase nodes, in DECLARED order — which is load-bearing, because a node reading a wire
+    // written later gets the previous sample's value, and that is the unit delay a feedback loop needs.
+    // Collected here so the per-sample loop iterates only these: it used to walk every node in the graph
+    // and branch on its phase, once per sample, so a graph with ten control nodes and two audio ones paid
+    // for twelve at 48 kHz. Same output, a fraction of the iterations, and vectorisable.
+    for (size_t i = 0; i < g->nodes_.size(); ++i)
+        if (g->nodes_[i].phase == Phase::sample) g->sampleNodes_.push_back((int)i);
     return g;
 }
 
@@ -192,8 +201,14 @@ void DspGraph::prepare(double sampleRate, int maxBlockSize)
     // Allocated HERE and never in process(): a delay line is the one thing in this interpreter big enough that
     // growing it on the audio thread would be heard.
     for (auto& n : nodes_)
-        if (n.kind == Kind::adelay && n.delayLine >= 0) {
-            const int len = juce::jmax(2, (int)std::ceil(n.maxMs * 0.001 * sampleRate) + 2);
+        if (n.kind == Kind::adelay && n.delayLine >= 0
+            && (size_t)n.delayLine < delayLines_.size()) {
+            // Rounded UP to a power of two so the read/write wrap is a mask rather than a modulo: the
+            // sample loop did four integer divisions per sample per channel, each ~20-40 cycles, for a
+            // wrap that costs one AND. The memory this wastes is at most one extra delay's worth.
+            const int need = juce::jmax(2, (int)std::ceil(n.maxMs * 0.001 * sampleRate) + 2);
+            int len = 2;
+            while (len < need) len <<= 1;
             for (auto& ch : delayLines_[(size_t)n.delayLine])
                 ch.assign((size_t)len, 0.0f);
         }
@@ -205,6 +220,10 @@ void DspGraph::reset()
     for (auto& n : nodes_) {
         n.s0 = 0.0f;
         n.primed = false;
+        // Forget the cached coefficients too: reset() follows prepare(), and prepare() may have moved
+        // the sample rate under coefficients that only get recomputed when the KNOB moves.
+        n.lastFreq_ = -1.0f;
+        n.lastQ_ = -1.0f;
         for (auto& f : n.filters)
             f.reset();
     }
@@ -232,9 +251,15 @@ void DspGraph::runControlNodes()
             case Kind::todb:   out = juce::Decibels::gainToDecibels(a, -100.0f); break;
             case Kind::fromdb: out = juce::Decibels::decibelsToGain(a, -100.0f); break;
             case Kind::lerp:  out = a + c * (b - a); break;                 // lerp(a, b, t)
-            case Kind::linmap:                                              // linmap(x, lo, hi) -> 0..1 clamped
-                out = juce::jlimit(0.0f, 1.0f, (a - b) / (c - b));
+            case Kind::linmap: {                                            // linmap(x, lo, hi) -> 0..1 clamped
+                // An empty range is 0, not a division. `jlimit` does NOT filter NaN — both its
+                // comparisons are false, so 0/0 came straight back out, and a NaN reaching
+                // makeBandPass below poisons that filter's state for good. The shipped auto-wah
+                // computes `lo` from a lerp, so this was reachable, not theoretical.
+                const float span = c - b;
+                out = span == 0.0f ? 0.0f : juce::jlimit(0.0f, 1.0f, (a - b) / span);
                 break;
+            }
             case Kind::geolerp: {                                           // geolerp(lo, hi, t), order-free
                 const float lo = juce::jmin(a, b), hi = juce::jmax(a, b);
                 out = lo > 0.0f ? lo * std::pow(hi / lo, c) : lo + c * (hi - lo);
@@ -316,6 +341,18 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
     const int numChans = juce::jmin(buffer.getNumChannels(), 2);
     if (numSamples <= 0 || numChans <= 0) return;
 
+    // Never grow a buffer in here. A block bigger than prepare() was told about — an offline render, a
+    // rack's own render context, a device buffer that outran a re-initialise — used to `setSize` the dry
+    // snapshot below, on the AUDIO THREAD. Split the block instead: the control and analysis phases then
+    // run once per chunk, which is finer-grained rather than wrong.
+    const int maxBlock = dry_.getNumSamples();
+    if (maxBlock > 0 && numSamples > maxBlock) {
+        for (int done = 0; done < numSamples; done += maxBlock)
+            process(buffer, startSample + done, juce::jmin(maxBlock, numSamples - done),
+                    paramValues, numParams);
+        return;
+    }
+
     if (srReg_ >= 0) regs_[(size_t)srReg_] = (float)sampleRate_;
     // Parameters occupy the registers right after `sr`, in declared order — see build().
     for (int i = 0; i < numParams && (size_t)(i + 1) < regs_.size(); ++i)
@@ -342,11 +379,9 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
     // --- audio ----------------------------------------------------------------
     // The dry snapshot is taken BEFORE any audio node runs, because that is what `mix` means: blend the graph's
     // output against what came in, not against whatever the node before it produced.
-    const bool needsDry = std::any_of(nodes_.begin(), nodes_.end(),
-                                      [](const Node& n) { return n.kind == Kind::mix; });
-    if (needsDry) {
-        if (dry_.getNumSamples() < numSamples)
-            dry_.setSize(2, numSamples, false, true, false);
+    // `hasMix_` rather than a std::any_of over every node per block: whether this graph contains a mix
+    // node is fixed at build().
+    if (hasMix_) {
         for (int ch = 0; ch < numChans; ++ch)
             juce::FloatVectorOperations::copy(dry_.getWritePointer(ch),
                                               buffer.getReadPointer(ch, startSample), numSamples);
@@ -355,16 +390,23 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
     for (auto& n : nodes_) {
         if (n.phase != Phase::audio) continue;
         if (n.kind == Kind::biquad) {
-            const float freq = r(n.in[0]);
+            // Clamped to a real, stable band: a cutoff at or past Nyquist makes the coefficients blow up,
+            // and this is fed by control nodes whose inputs are automatable.
+            const float freq = juce::jlimit(20.0f, (float)(sampleRate_ * 0.45), r(n.in[0]));
             const float q = juce::jmax(0.5f, r(n.in[1]));
-            const auto coeffs = n.mode == 1 ? juce::IIRCoefficients::makeLowPass(sampleRate_, freq, q)
-                              : n.mode == 2 ? juce::IIRCoefficients::makeHighPass(sampleRate_, freq, q)
-                              : n.mode == 3 ? juce::IIRCoefficients::makeNotchFilter(sampleRate_, freq, q)
-                                            : juce::IIRCoefficients::makeBandPass(sampleRate_, freq, q);
-            for (int ch = 0; ch < numChans; ++ch) {
-                n.filters[ch].setCoefficients(coeffs);
-                n.filters[ch].processSamples(buffer.getWritePointer(ch, startSample), numSamples);
+            // Only when the knob actually moved — see the note on lastFreq_ in the header. MixerPlugin
+            // has always done this; this interpreter did not.
+            if (freq != n.lastFreq_ || q != n.lastQ_) {
+                const auto coeffs = n.mode == 1 ? juce::IIRCoefficients::makeLowPass(sampleRate_, freq, q)
+                                  : n.mode == 2 ? juce::IIRCoefficients::makeHighPass(sampleRate_, freq, q)
+                                  : n.mode == 3 ? juce::IIRCoefficients::makeNotchFilter(sampleRate_, freq, q)
+                                                : juce::IIRCoefficients::makeBandPass(sampleRate_, freq, q);
+                for (int ch = 0; ch < 2; ++ch) n.filters[ch].setCoefficients(coeffs);
+                n.lastFreq_ = freq;
+                n.lastQ_ = q;
             }
+            for (int ch = 0; ch < numChans; ++ch)
+                n.filters[ch].processSamples(buffer.getWritePointer(ch, startSample), numSamples);
         } else if (n.kind == Kind::gain) {
             buffer.applyGain(startSample, numSamples, r(n.in[0]));
         }
@@ -386,8 +428,8 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
         float* wr[2] = {buffer.getWritePointer(0, startSample),
                         numChans > 1 ? buffer.getWritePointer(1, startSample) : nullptr};
         for (int i = 0; i < numSamples; ++i) {
-            for (auto& n : nodes_) {
-                if (n.phase != Phase::sample) continue;
+            for (const int nodeIndex : sampleNodes_) {
+                auto& n = nodes_[(size_t)nodeIndex];
                 switch (n.kind) {
                     case Kind::ain: {
                         // Port n is the stereo pair at channels 2n / 2n+1: the flow is 0/1, the first side
@@ -441,10 +483,15 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
                         break;
                     }
                     case Kind::adelay: {
+                        // Checked here as prepare() checks it: build() always sets delayLine for an
+                        // adelay, so a -1 would be a bug elsewhere — and delayLines_[SIZE_MAX] is not
+                        // how a bug elsewhere should present.
+                        if (n.delayLine < 0 || (size_t)n.delayLine >= delayLines_.size()) break;
                         auto& line = delayLines_[(size_t)n.delayLine];
                         int& w = delayWrite_[(size_t)n.delayLine];
                         const int len = (int)line[0].size();
                         if (len < 2) break;
+                        const int mask = len - 1;   // a power of two — see prepare()
                         // Fractional read, linearly interpolated: an integer-only tap zippers the moment the
                         // delay time moves, which is exactly what a flanger does for a living.
                         // Time comes from a WIRE when one is given (modulated per sample), else from a scalar.
@@ -457,13 +504,13 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
                             const float frac = d - (float)di;
                             line[(size_t)ch][(size_t)w] =
                                 n.in[0] >= 0 ? awires_[(size_t)n.in[0]][(size_t)ch] : 0.0f;
-                            const int r0 = (w - di + len) % len;
-                            const int r1 = (r0 - 1 + len) % len;
+                            const int r0 = (w - di + len) & mask;
+                            const int r1 = (r0 - 1 + len) & mask;
                             const float v = line[(size_t)ch][(size_t)r0] * (1.0f - frac)
                                           + line[(size_t)ch][(size_t)r1] * frac;
                             if (n.out >= 0) awires_[(size_t)n.out][(size_t)ch] = v;
                         }
-                        w = (w + 1) % len;
+                        w = (w + 1) & mask;
                         break;
                     }
                     default: break;

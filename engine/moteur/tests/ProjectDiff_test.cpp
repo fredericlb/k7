@@ -3,7 +3,11 @@
 // Not exhaustive by design; each test pins a property that would silently break playback if it regressed.
 
 #include "ProjectDiff.h"
+#include "Warnings.h"       // the sink, so a test can read what index() reports
 #include "test_harness.h"
+
+#include <string>
+#include <vector>
 
 using namespace studio;
 
@@ -230,6 +234,31 @@ void diff_removals_before_adds() {
     CHECK(rem >= 0 && add >= 0 && rem < add);
 }
 
+// A duplicate id is DIFFED AS ONE and SAID SO. index() keeps the first — changing which one survives would
+// change what plays — but it used to drop the rest in silence, so a second track sharing an id was built by
+// populateEdit and then invisible to every later diff: editing it reached the engine and changed nothing.
+// Same shape as the ring a lane requested twice built empty.
+void diff_duplicate_id_is_reported() {
+    std::vector<Warning> seen;
+    setWarningSink([&](const Warning& w) { seen.push_back(w); });
+
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "One"));
+    a.tracks.push_back(mkTrack("t1", "Two"));   // same id — a compiler bug, or a hand-edited file
+    ProjectDoc b = a;
+
+    const auto d = diff(a, b);
+    CHECK(d.empty());          // identical documents still diff to nothing…
+    CHECK(!seen.empty());      // …but the collision is on the record rather than swallowed
+
+    bool namesTheId = false;
+    for (const auto& w : seen)
+        if (w.message.find("track:t1") != std::string::npos) namesTheId = true;
+    CHECK(namesTheId);
+
+    setWarningSink(nullptr);
+}
+
 }  // namespace
 
 int main() {
@@ -243,5 +272,6 @@ int main() {
     RUN(diff_clip_moved);
     RUN(diff_clip_retimed_by_every_field);
     RUN(diff_removals_before_adds);
+    RUN(diff_duplicate_id_is_reported);
     TEST_MAIN_END();
 }

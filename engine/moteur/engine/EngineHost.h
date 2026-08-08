@@ -299,11 +299,18 @@ public:
     // browser turns the pair into milliseconds (2 × buffer / rate: a block in, a block out)
     // and adds its measured round trip, which is what decides an engine's quality band. Both
     // zero when no device is open, meaning "not measured" and never "instant".
+    // Reads two atomics and nothing else, so it is safe from ANY thread — which is the point:
+    // `whoami` answers on the socket's own thread to keep the probe out of the message queue.
     struct AudioTiming {
         int bufferFrames = 0;
         double sampleRate = 0.0;
     };
     AudioTiming audioTiming() const;
+
+    // Re-read the open device and publish what it costs. MESSAGE THREAD ONLY — it dereferences the
+    // live device, which is exactly what audioTiming() must not do. Call it after anything that
+    // opens, closes or re-buffers one.
+    void publishAudioTiming();
 
     // listAudioDevices() enumerates the interfaces, ASIO first; setAudioDevice() opens one for input and output,
     // false when not found. An empty `type` means "any backend offering that name", which is arbitrary for a device

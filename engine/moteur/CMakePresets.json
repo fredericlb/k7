@@ -14,29 +14,29 @@
     {
       "name": "dev-gcc",
       "displayName": "Dev (GCC) — default",
-      "description": "Default dev build. Pins BOTH C and C++ to gcc/g++ so the toolchain can't drift into the gcc/clang mix that breaks JUCE's warning flags. The most trodden JUCE-on-Linux path.",
+      "description": "Default dev build. Pins BOTH C and C++ to gcc/g++ so the toolchain can't drift into the gcc/clang mix that breaks JUCE's warning flags. The most trodden JUCE-on-Linux path. RelWithDebInfo and NOT Debug: this is the preset AGENTS.md calls the default, and at -O0 the DSP path — NAM's Eigen inference, the DspGraph interpreter, 186 AirWindows effects — runs several times slower than it ever will in production, so an engine judged 'slow' on it was being judged on the flags. Keep the symbols, lose the -O0.",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "gcc",
         "CMAKE_CXX_COMPILER": "g++",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
     {
       "name": "dev-clang",
       "displayName": "Dev (Clang)",
-      "description": "Optional Clang build (better diagnostics). Pins BOTH C and C++ to clang. Requires the clang package.",
+      "description": "Optional Clang build (better diagnostics). Pins BOTH C and C++ to clang. Requires the clang package. RelWithDebInfo for the same reason as dev-gcc.",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
     {
       "name": "asan",
       "displayName": "Sanitizers (GCC ASan+UBSan)",
-      "description": "GCC with AddressSanitizer + UndefinedBehaviorSanitizer for the model/diff logic. For ThreadSanitizer on the audio/message-thread boundary, switch inherits to dev-clang (TSan is stronger under Clang).",
+      "description": "GCC with AddressSanitizer + UndefinedBehaviorSanitizer for the model/diff logic. Debug on purpose, unlike the dev presets it inherits from: a sanitiser run is about the report, not the speed. For ThreadSanitizer on the audio/message-thread boundary, switch inherits to dev-clang (TSan is stronger under Clang).",
       "inherits": "dev-gcc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",

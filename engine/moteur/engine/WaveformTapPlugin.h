@@ -51,7 +51,10 @@ public:
 
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override {}
     void deinitialise() override {}
-    void reset() override { tap_.reset(); }
+    // Only the writer's half. reset() is called from graph preparation and transport repositioning —
+    // i.e. beside the audio thread — and the ring's read cursor belongs to the message thread that
+    // drains it. See WaveformTap::reset(), and BroadcastTapPlugin, which has no reset() for this reason.
+    void reset() override { tap_.resetBucket(); }
 
     void applyToBuffer(const tracktion::engine::PluginRenderContext& ctx) override
     {

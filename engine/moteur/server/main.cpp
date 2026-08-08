@@ -1097,8 +1097,10 @@ int main(int argc, char** argv) {
                 //
                 // It carries the audio timing too, because the browser is timing THIS round trip to get the network half
                 // and needs the interface half from the same breath — a second query would measure a second, warmer trip.
-                // Answered off the message thread deliberately: reading the open device is a field read, and posting it
-                // would put the probe behind whatever the engine is doing, turning the ping into a measure of its queue.
+                // Answered off the message thread deliberately: posting it would put the probe behind whatever the engine
+                // is doing, turning the ping into a measure of its queue. That is only SAFE because audioTiming() reads
+                // two atomics the message thread publishes — it used to dereference the live device, which a concurrent
+                // set-audio-device destroys, and this keepalive fires every few seconds on every socket.
                 const auto timing = host.audioTiming();
                 ws.send(json{{"type", "whoami"},
                              {"id", engineId},

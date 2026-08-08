@@ -199,6 +199,43 @@ void an_unfed_second_port_is_silence_rather_than_a_read_past_the_end() {
 
 }  // namespace
 
+// --- what the audit of 2026-08-08 fixed, pinned here so it cannot come back -----------------
+
+// linmap with an EMPTY range is 0, not NaN. `jlimit` does not filter NaN — both its comparisons are false, so
+// 0/0 came straight out — and a NaN reaching juce::IIRCoefficients::makeBandPass poisons that filter's state
+// permanently: the module goes silent and stays silent until the graph is rebuilt. The shipped auto-wah
+// computes its `lo` from a lerp, so an empty range was reachable and not hypothetical.
+void linmap_with_an_empty_range_is_zero_not_nan() {
+    // gain(linmap(x, lo, hi)) with lo == hi == 1: an honest 0 mutes the block; a NaN makes it non-finite.
+    const char* json = R"({
+      "params": [ { "name": "X", "min": 0, "max": 2, "default": 1 } ],
+      "nodes": [
+        { "type": "linmap", "out": "g", "in": ["X", 1, 1] },
+        { "type": "gain", "in": ["g"] }
+      ]
+    })";
+    auto g = buildGraph(json);
+    if (!g) return;
+    g->prepare(kRate, kBlock);
+    auto buf = dc(0.5f);
+    const float params[1] = {1.0f};
+    g->process(buf, 0, kBlock, params, 1);
+    for (int i = 0; i < kBlock; ++i) CHECK(std::isfinite(buf.getReadPointer(0)[i]));
+}
+
+// A block LARGER than prepare() was told about is processed, not grown into. process() used to setSize the dry
+// snapshot on the audio thread; it now splits the block, so the arithmetic must come out the same.
+void a_block_bigger_than_prepared_is_chunked_not_grown() {
+    auto g = buildGraph(kSampleGraph);
+    if (!g) return;
+    g->prepare(kRate, kBlock);              // prepared for kBlock…
+    const int big = kBlock * 3 + 7;         // …handed an odd multiple of it, as a render would
+    auto buf = dc(0.25f, big);
+    const float params[2] = {1.0f, 2.0f};   // Mix fully wet: the graph doubles, so every sample is 0.5
+    g->process(buf, 0, big, params, 2);
+    for (int i = 0; i < big; ++i) CHECK(std::abs(buf.getReadPointer(0)[i] - 0.5f) < 1e-5f);
+}
+
 int main() {
     RUN(mix_moves_the_output_of_a_sample_rate_graph);
     RUN(mix_at_zero_gives_back_exactly_what_came_in);
@@ -211,5 +248,7 @@ int main() {
     RUN(a_graph_declares_as_many_inputs_as_its_ports);
     RUN(a_second_port_reads_the_second_pair_of_the_buffer);
     RUN(an_unfed_second_port_is_silence_rather_than_a_read_past_the_end);
+    RUN(linmap_with_an_empty_range_is_zero_not_nan);
+    RUN(a_block_bigger_than_prepared_is_chunked_not_grown);
     TEST_MAIN_END();
 }

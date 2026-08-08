@@ -72,6 +72,8 @@ Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHo
 `protocol.md` (the wire), `sessions.md` (this side: who may create one, what the registry's
 lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
+`audit-stabilite.md` (the standing audit of this engine's own stability and speed — read it
+before touching the audio callback, `applyFull`, or the build flags),
 `builtinParams.md`, `namPlugin.md`, `sidechain.md` (a module's second input),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
@@ -140,7 +142,8 @@ often locked while the engine is running — stop it before rebuilding.
 > ```
 >
 > There is a real verification loop, and it should be run on every engine change: that build,
-> then the three test suites (see Tests below — two of them must be NAMED to be built), then a
+> then the FOUR test suites (see Tests below — every one of them must be NAMED to be built, and
+> `studio_session_tests` is the one this line used to forget), then a
 > CLI smoke run. What is genuinely NOT possible here is *listening*: a render can be measured,
 > never judged. Say that limit, and stop there — not one step earlier.
 
@@ -160,14 +163,16 @@ Build gotchas:
 ## Tests
 
 **The test targets are not built by an ordinary build, and that hid a broken one.** The
-presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` /
+presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` / `studio_session_tests` /
 `studio_midigraph_tests` / `studio_dspgraph_tests` are only built when named. One of them had
 referenced a `TrackDoc::volume` that was removed when a track's level became a mixer module,
 and nothing reported it for as long as that took. Build them explicitly after touching the
-data layer:
+data layer — **all four**, or `ctest` reports the missing one as "Not Run", which reads as a
+failure:
 
 ```
-cmake --build build/<preset> --target studio_engine_tests --config RelWithDebInfo
+cmake --build build/<preset> --config RelWithDebInfo --target \
+      studio_engine_tests studio_session_tests studio_midigraph_tests studio_dspgraph_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

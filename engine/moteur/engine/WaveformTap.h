@@ -60,12 +60,24 @@ public:
         return out;
     }
 
-    // Reset the buffer (e.g. when the tap is first enabled).
+    /**
+     * Reset the whole ring — MESSAGE THREAD ONLY, and only while nothing is draining it.
+     *
+     * `lastRead_` is the reader's cursor, so this is not something the audio side may call: the
+     * plugin's `reset()` used to, from graph preparation and transport repositioning, and rewinding
+     * `writeHead_` under a nonzero `lastRead_` makes `written - lastRead_` underflow — capped at
+     * BUFFER_SIZE by drain(), so it read back as a full ring of stale points rather than crashing.
+     * `BroadcastTapPlugin` carries the same warning and answers it by having no reset() at all.
+     */
     void reset() {
         writeHead_.store(0, std::memory_order_release);
         lastRead_ = 0;
         samplesInBucket_ = 0;
     }
+
+    // The writer's own state, and nothing the reader owns — safe on the audio thread. A repositioned
+    // transport wants the half-filled bucket dropped, not the ring rewound.
+    void resetBucket() { samplesInBucket_ = 0; }
 
 private:
     static constexpr size_t BUFFER_SIZE = 1024;
