@@ -29,8 +29,9 @@ export interface ParsedModule {
 // YAML 1.2, forced: a file may declare 1.1, whose sexagesimals and true-like scalars are this app's vocabulary.
 const PARSE_OPTIONS = { version: "1.2" as const, strict: false };
 
-/** Where `path` sits in the document, for an error that points at the line. */
-function locate(
+/** Where `path` sits in the document, for an error that points at the line. Exported for
+ *  validate.ts, which asks the same question of the kinds that have no parser of their own. */
+export function locate(
   doc: Document.Parsed,
   lines: LineCounter,
   path: (string | number)[],

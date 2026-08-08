@@ -143,9 +143,11 @@ sait pas étendre — une séquence en flot sur plusieurs lignes, par exemple. I
 deuxième `items:` plus bas ferait un fichier dont les deux moitiés se contredisent, ce qui est
 pire que de s'entendre dire de taper la ligne soi-même.
 
-L'ajout **n'enregistre pas**. C'est une édition comme une frappe en est une, et c'est
-« Enregistrer * » qui en fait un fichier — sinon un clic écrirait sur le disque la ligne à
-moitié tapée qui traîne à côté.
+L'ajout est une édition comme une frappe en est une, et il atteint le disque de la même
+façon : tout seul, dès que le tampon **se lit comme une playlist**. Une ligne à moitié tapée
+ailleurs dans le fichier retient donc l'ajout aussi — c'est le but, le fichier s'écrit entier
+ou pas du tout. Il n'y a plus de bouton « Enregistrer » : voir
+[packages/ui-editor/docs/autosave.md](../../../packages/ui-editor/docs/autosave.md).
 
 ## Créer
 

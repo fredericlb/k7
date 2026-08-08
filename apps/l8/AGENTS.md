@@ -112,7 +112,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 - **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
-  `~/.studio/preferences.yaml`); `:w` is wired to the tab's `onSave`.
+  `~/.studio/preferences.yaml`). **There is no Save button**: the buffer is written as soon as
+  it is a document the compiler could read, and held back with the reason while it is not
+  (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). `:w` and
+  Ctrl+S mean "now", not "at all" — they flush the timer and cannot overrule the rule.
 - **Modules** — `@studio/ui-module-builder`, the same component the médiathèque runs,
   as a full-screen overlay over the shell. It is reached by the **Builder** button on a
   module file's editor toolbar, not by opening the file: `module.yaml` must still open

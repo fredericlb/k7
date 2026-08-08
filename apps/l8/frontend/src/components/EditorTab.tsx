@@ -1,8 +1,9 @@
-// EditorTab.tsx — the project-file editor: a CodeMirror pane with schema-aware completion
-// and Save, plus a breadcrumb and (when there's room) a file tree. ONE instance serves
-// both layouts — a second would fork the open file, the dirty flag and the undo history.
-// Saving does NOT format: the writers emit canonical YAML, and reflowing a hand-edited
-// file is exactly what this format was chosen to avoid.
+// EditorTab.tsx — the project-file editor: a CodeMirror pane with schema-aware completion,
+// a breadcrumb and (when there's room) a file tree. ONE instance serves both layouts — a
+// second would fork the open file, its unsaved text and the undo history. There is no Save
+// button: the buffer is written as soon as it is a document the compiler could read
+// (packages/ui-editor/docs/autosave.md). Saving does NOT format either — the writers emit
+// canonical YAML, and reflowing a hand-edited file is what this format was chosen to avoid.
 
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
@@ -11,12 +12,14 @@ import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
 import { parsePosition } from "@studio/song/timecode";
+import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
+import type { LintItem } from "@studio/ui-editor/lint";
 import {
   FolderTree,
   Grid3x3,
   LayoutGrid,
+  Loader2,
   Piano,
-  Save,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -161,6 +164,16 @@ function clipWindow(
 const findUseRack = (text: string): string | null =>
   readScalarField(text, "use_rack");
 
+// What the toolbar says where the Save button was. "clean" says nothing: a file that is saved
+// is the ordinary state, and a badge for it would be noise on every screen.
+const SAVE_LABEL: Record<string, string> = {
+  clean: "",
+  pending: "edited",
+  saving: "saving…",
+  held: "not saved",
+  error: "save failed",
+};
+
 const EMPTY_HINTS: Hints = {
   baseModules: [],
   ioSinks: [],
@@ -229,7 +242,10 @@ export function EditorTab({
   const [file, setFile] = useState<FileContent | null>(null);
   // The live CodeMirror view, forwarded by EditorPane — read for the Ctrl+Z arbitration below.
   const cmViewRef = useRef<EditorView | null>(null);
-  const [dirty, setDirty] = useState(false);
+  // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
+  // with autosave writing constantly, a flag is one more thing that can disagree with the text.
+  const [saved, setSaved] = useState("");
+  const dirty = !!file && !file.binary && file.content !== saved;
   // How inline notes are shown — text, piano roll, or tracker. Per-tab; clicking the active view drops back to text.
   const [seqView, setSeqView] = useState<SeqView>("none");
   // The audio clip this clips/*.yaml links to: it docks at the bottom of the CODE pane, not the shared panel.
@@ -515,8 +531,11 @@ export function EditorTab({
           setStatus(`${path} — binary file, not shown`);
           return;
         }
-        setFile(f);
-        setDirty(false);
+        // An edit that could never be written — it did not compile — outlived the pane showing
+        // it. Give it back rather than the disk copy, which is not what the author last typed.
+        const kept = recallBuffer(path);
+        setFile(kept == null ? f : { ...f, content: kept });
+        setSaved(f.content);
         setStatus(path);
       } catch (e) {
         setStatus(`open error: ${(e as Error).message}`);
@@ -692,20 +711,33 @@ export function EditorTab({
     dirty,
     onAdopt: useCallback((text: string) => {
       setFile((f) => (f ? { ...f, content: text } : f));
-      setDirty(false);
+      setSaved(text);
     }, []),
-    onClean: useCallback(() => setDirty(false), []),
+    onClean: useCallback(
+      () =>
+        setFile((f) => {
+          if (f) setSaved(f.content);
+          return f;
+        }),
+      [],
+    ),
     reloadKey,
   });
 
-  const save = useCallback(async () => {
-    if (!file || file.binary) return;
-    try {
-      const { forked } = await api.write(file.path, file.content);
+  // The write autosave performs. It does NOT re-read the file afterwards the way the Save
+  // button did: a write is not a reformat, so what is on disk is the text just sent — and a
+  // re-read landing under a cursor that has moved on is the edit-eating useDiskSync exists to
+  // stop. That hook still watches the file for changes made anywhere else.
+  const write = useCallback(
+    async (text: string) => {
+      const path = file?.path;
+      if (!path) return;
+      const { forked } = await api.write(path, text);
+      setSaved(text);
       // A file in the shared `_modules` library isn't written: the module is copied into the project and the
-      // chains follow. Open the copy, so what's on screen is the file that now holds the edit.
+      // chains follow. Open the copy, so what's on screen is the file that now holds the edit. The text is
+      // identical, so the cursor stays where it was.
       if (forked) {
-        setDirty(false);
         await refresh();
         void open(forked.path);
         onChanged();
@@ -717,17 +749,25 @@ export function EditorTab({
         );
         return;
       }
-      // fmt is a plain re-read now (the writers emit canonical YAML): the on-disk text becomes the buffer.
-      const formatted = await api.fmt(file.path);
-      setFile(formatted);
-      setDirty(false);
-      setStatus(`saved ${file.path}`);
+      setStatus(`saved ${path}`);
       await refresh(); // a new/edited entity updates the tree + completions
       onChanged(); // the arrangement / graph may have changed
-    } catch (e) {
-      setStatus(`save error: ${(e as Error).message}`);
-    }
-  }, [file, refresh, open, onChanged, setStatus]);
+    },
+    [file?.path, refresh, open, onChanged, setStatus],
+  );
+
+  const autosave = useAutosave({
+    path: file && !file.binary ? file.path : null,
+    text: file?.content ?? "",
+    saved,
+    write,
+  });
+  // The bar is where this pane already says what it did, and a failed write is the one thing
+  // the badge is too small to explain.
+  useEffect(() => {
+    if (autosave.status === "error" && autosave.reason)
+      setStatus(`save error: ${autosave.reason}`);
+  }, [autosave.status, autosave.reason, setStatus]);
 
   // Drop OS files onto the tree: upload each into the dropped folder, sequentially, skipping existing names.
   const [uploadState, setUploadState] = useState<{
@@ -809,7 +849,27 @@ export function EditorTab({
     [refresh, onChanged, setStatus],
   );
 
-  const editable = !!file && !file.binary;
+  /**
+   * What the gutter draws: the project's load findings for this file, plus what autosave found
+   * in the BUFFER.
+   *
+   * Two sources because they answer at different moments. The server's arrive on a 2s poll and
+   * describe what is on disk; autosave's describe the text you are looking at, and are the
+   * reason it is not being written — which would otherwise be a sentence in the toolbar with no
+   * line attached to it.
+   */
+  const lintItems = useMemo<LintItem[]>(
+    () => [
+      ...fileDiagnostics,
+      ...autosave.issues.map((i) => ({
+        line: i.line ?? 1,
+        col: i.col ?? 1,
+        message: i.path ? `${i.path}: ${i.message}` : i.message,
+      })),
+    ],
+    [fileDiagnostics, autosave.issues],
+  );
+
   // The view toggles only make sense on a sequence file (they show its notes).
   const isSeq = !!file && isSeqFile(file.path);
   // Clicking the active view again turns it off (back to text); clicking the other switches straight to it.
@@ -888,10 +948,28 @@ export function EditorTab({
             Builder
           </Button>
         )}
-        <Button size="sm" onClick={save} disabled={!editable || !dirty}>
-          <Save className="mr-1 h-4 w-4" />
-          Save{dirty ? " *" : ""}
-        </Button>
+        {/* Where the Save button was. It says nothing while the file is saved — that is the
+            normal state — and stays amber, with the reason, for as long as it is not. */}
+        <span
+          className={cn(
+            "flex min-w-0 shrink items-center gap-1 text-xs",
+            autosave.status === "held" || autosave.status === "error"
+              ? "text-amber-500"
+              : "text-muted-foreground",
+          )}
+          title={autosave.reason ?? undefined}
+        >
+          {autosave.status === "saving" && (
+            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+          )}
+          <span className="truncate">
+            {SAVE_LABEL[autosave.status]}
+            {(autosave.status === "held" || autosave.status === "error") &&
+            autosave.reason
+              ? ` — ${autosave.reason}`
+              : ""}
+          </span>
+        </span>
       </div>
       {/* The file moved under an edit in progress. Both versions are real work, so this states the choice and
           waits — it does not pick, and it does not disappear on its own. */}
@@ -983,18 +1061,15 @@ export function EditorTab({
             preview={preview}
             onClosePreview={() => setPreview(null)}
             onChange={(v) => {
-              if (file) {
-                setFile({ ...file, content: v });
-                setDirty(true);
-              }
+              if (file) setFile({ ...file, content: v });
             }}
-            onSave={save}
+            onSave={autosave.flush}
             onOpenEntity={open}
             onPreview={handlePreview}
             // A slice-rack module.yaml → inline per-symbol waveform editors in the code.
             sliceRack={sliceRack}
             // The open file's load errors, drawn inline as squiggles.
-            diagnostics={fileDiagnostics}
+            diagnostics={lintItems}
           />
         </main>
       </div>

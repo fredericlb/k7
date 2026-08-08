@@ -15,7 +15,8 @@
     "./yaml/keyPath": "./src/yaml/keyPath.ts",
     "./tracker/notes": "./src/tracker/notes.ts",
     "./tracker/plugin": "./src/tracker/plugin.ts",
-    "./lint": "./src/lint.ts"
+    "./lint": "./src/lint.ts",
+    "./autosave": "./src/autosave.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -37,7 +38,11 @@
     "@studio/web-protocol": "*"
   },
   "devDependencies": {
+    "@types/react": "^19.2.17",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
   }
 }

@@ -13,6 +13,7 @@
     "./yaml/trackSchema": "./src/yaml/trackSchema.ts",
     "./yaml/chainsSchema": "./src/yaml/chainsSchema.ts",
     "./yaml/fields": "./src/yaml/fields.ts",
+    "./yaml/validate": "./src/yaml/validate.ts",
     "./preferences": "./src/preferences.ts",
     "./timecode": "./src/timecode.ts",
     "./materialWindow": "./src/materialWindow.ts",
