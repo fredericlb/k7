@@ -155,6 +155,10 @@ export interface LoadedModule {
   onnx?: string; // …the same, for the neural model an offline module runs (see docs/moduleAssets.md)
   jsdsp?: string; // resolved ABSOLUTE path to the module's JS/TS DSP source, when it declares one
   assets?: Record<string, string>; // …and the name it was authored with
+  // The ABSOLUTE folder this module's files live in, whichever library that is. Written by the
+  // loader on every module it decorates, and read by the ancestry fold: a module may name a file
+  // its PARENT carries, so resolving one needs the folders of the whole chain. See assetPath.ts.
+  folderAbs?: string;
   // -- local modules only (loadModules) -----------------------------------------
   name?: string; // the chain `use` key ("<name>" or "<name>:<instance>")
   category?: string; // the type folder (io|instruments|audio|transformers|…)

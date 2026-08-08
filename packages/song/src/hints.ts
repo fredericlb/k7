@@ -12,7 +12,6 @@ import {
   baseModuleRefs,
   exportSub,
   isVideoSource,
-  listModuleAssets,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -20,6 +19,7 @@ import {
   loadTracks,
   loadVideoTracks,
 } from "./loader";
+import { moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
 import { loadPreferences } from "./preferences";
 
@@ -277,11 +277,10 @@ export function projectHints(dir: string): Hints {
   const moduleAssets: Hints["moduleAssets"] = {};
   for (const [name, m] of Object.entries<any>(modules ?? {})) {
     if (!m?.category || !m?.file) continue;
+    // Its own assets AND its ancestors' — a thin local module extending a shared amp carries
+    // none of its own, and offering nothing there is what made the picker open empty.
     const files = safe(
-      () =>
-        listModuleAssets(
-          join(dir, "modules", String(m.category), String(m.file)),
-        ),
+      () => moduleAssetChoices(dir, m, moduleRefs ?? {}),
       [] as string[],
     );
     if (files.length) moduleAssets[name] = files;

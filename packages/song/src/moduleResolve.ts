@@ -5,6 +5,7 @@
 // drifted. Resolving is now a step you pass THROUGH — the brand on ResolvedModule means a
 // consumer cannot take a raw module by accident. See docs/moduleResolve.md.
 
+import { resolveModuleAssetIn } from "./assetPath";
 import type {
   InstrumentType,
   ModuleUI,
@@ -12,6 +13,7 @@ import type {
   RackSound,
   Widget,
 } from "./graph";
+import { FILE_PARAMS } from "./moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 import { type ControllerFile, ControllerFileSchema } from "./yaml/moduleSchema";
 
@@ -132,10 +134,56 @@ export function resolveModule(
   const parent = ref && !seen.has(ref) ? byRef[ref] : undefined;
   if (!parent) return m as ResolvedModule;
   seen.add(ref);
-  return mergeAuthored(
+  const merged = mergeAuthored(
     resolveModule(parent, byRef, seen) as unknown as Record<string, unknown>,
     m as unknown as Record<string, unknown>,
   ) as unknown as ResolvedModule;
+  return withInheritedAssets(merged, m, byRef);
+}
+
+/**
+ * Re-resolve the file-valued params against the folders of the WHOLE chain.
+ *
+ * A module may name a file its parent carries — that is the normal way to use a shared amp: a
+ * thin local module `extends` it and says which profile to load, while the profiles live in the
+ * shared folder. Each module resolves its own refs against its own folder when it is loaded,
+ * which for that local module is a folder holding nothing, so the ref came back unresolved and
+ * `mergeAuthored` then kept the PARENT's path — the panel showed the chosen name and the engine
+ * loaded the inherited file. Silently the wrong sound, which is worse than none.
+ *
+ * Nearest folder first, matching the order `moduleAssetChoices` offers the files in: the list you
+ * pick from and the path you get must agree.
+ */
+function withInheritedAssets(
+  merged: ResolvedModule,
+  child: LoadedModule,
+  byRef: Record<string, LoadedModule>,
+): ResolvedModule {
+  // Only what THIS module named. A ref it inherited was already resolved by the module that
+  // declared it, against the folder that holds the file — re-doing that here would blank it.
+  const authored = child.assets;
+  if (!authored || !FILE_PARAMS.some((p) => authored[p])) return merged;
+
+  // The chain's folders, nearest first. Cycle-guarded like resolveModule itself.
+  const folders: (string | undefined)[] = [child.folderAbs];
+  const walked = new Set<string>();
+  let next: string = child.extends ? String(child.extends) : "";
+  while (next && !walked.has(next)) {
+    walked.add(next);
+    const parent: LoadedModule | undefined = byRef[next];
+    if (!parent) break;
+    folders.push(parent.folderAbs);
+    next = parent.extends ? String(parent.extends) : "";
+  }
+  if (folders.length < 2) return merged; // nothing inherited — the loader's answer already stands
+
+  const out = { ...(merged as LoadedModule) } as LoadedModule;
+  for (const param of FILE_PARAMS) {
+    const ref = authored[param];
+    if (typeof ref === "string" && ref)
+      out[param] = resolveModuleAssetIn(ref, folders);
+  }
+  return out as ResolvedModule;
 }
 
 /** Resolve a ref against the map it lives in; undefined when nothing answers to it. */

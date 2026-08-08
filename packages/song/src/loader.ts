@@ -11,13 +11,13 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
+import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
 import { loadControllerLibrary } from "./controller";
 import { engineModules, engineRef } from "./engineCatalogue";
-import { modelsRoot } from "./modelCache";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
 import {
   categoryForRole,
@@ -158,8 +158,9 @@ function portsOf(
   };
 }
 
-/** Where a module keeps the files it loads, inside its own folder. */
-export const MODULE_ASSETS_DIR = "assets";
+/** Where a module keeps the files it loads, inside its own folder. Defined in assetPath.ts,
+ *  the leaf the ancestry fold shares, and re-exported here where every caller already looks. */
+export { MODULE_ASSETS_DIR };
 
 /** What an asset folder holds — one extension per file-valued param, see FILE_PARAMS. */
 const ASSET_EXT = [".nam", ".onnx"];
@@ -179,18 +180,7 @@ export function resolveModuleAsset(
   ref: unknown,
   folderAbs: string | undefined,
 ): string | undefined {
-  if (typeof ref !== "string" || !ref || isAbsolute(ref)) return undefined;
-  if (folderAbs) {
-    const root = resolve(folderAbs, MODULE_ASSETS_DIR);
-    const abs = resolve(root, ref);
-    const inside = abs === root || abs.startsWith(root + sep);
-    if (!inside) return undefined; // an escaping ref is refused, never redirected to the cache
-    if (existsSync(abs)) return abs;
-  }
-  const cacheRoot = modelsRoot();
-  const cached = resolve(cacheRoot, ref);
-  const inCache = cached === cacheRoot || cached.startsWith(cacheRoot + sep);
-  return inCache && existsSync(cached) ? cached : undefined;
+  return resolveModuleAssetIn(ref, [folderAbs]);
 }
 
 /**
@@ -327,6 +317,8 @@ function readModuleTree(
         jsdsp: jsDspFileFor(value, folder),
         // …and the files its params name, out of its OWN assets/ — a borrowed module brings its own.
         ...resolveAssets(value, folder),
+        // Its own folder, so the ancestry fold can resolve a file this module inherits.
+        folderAbs: folder,
       }) as LoadedModule;
 
     out[key(type, sub)] = decorate(m);
@@ -426,6 +418,8 @@ export function loadModules(
           jsdsp: jsDspFileFor(value, folder),
           // Resolved on this copy, same reason as `rack` above; `folder` is what makes its own assets reachable.
           ...resolveAssets(value, folder),
+          // Its own folder, so the ancestry fold can resolve a file this module inherits.
+          folderAbs: folder,
         } as LoadedModule;
       };
 
@@ -499,6 +493,8 @@ function loadInstances(
       ...(existsSync(preset) ? { preset } : {}),
       jsdsp: jsDspFileFor(value, folder),
       ...resolveAssets(value, folder),
+      // Its own folder, so the ancestry fold can resolve a file this module inherits.
+      folderAbs: folder,
     } as LoadedModule;
   }
 }
