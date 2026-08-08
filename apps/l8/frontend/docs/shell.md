@@ -41,9 +41,16 @@ used to be a second such renderer; it is the DOM now, and double-mounts harmless
 
 ## The layout (`App.tsx`)
 
-`App` is the l8 web editor itself: the global view — the file editor down the left
-half, the timeline over the chains graph on the right — with the transport controls and
-the pane toggles in the header. It is the wiring and the layout; almost nothing else.
+`App` is the l8 web editor itself: the global view — **the timeline over the chains graph,
+full width** — with the transport controls and the pane toggles in the header. It is the
+wiring and the layout; almost nothing else.
+
+The editor is not in it. It had the left half, which meant every song opened with half the
+screen showing a YAML file you had not asked for, while the two views of the song that are
+*about the song* — where things happen in time, and how the signal flows — shared the other
+half. So the default is the two that answer "what is this song", and the editor is summoned:
+`ui editor` gives it the screen, and a command that sends it to a file opens it as a popin
+(below). It stays mounted throughout, so summoning it costs nothing.
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
@@ -105,11 +112,14 @@ scaling it too would only add dead space under them.
 
 ## A view is a LAYOUT, not a mode
 
-All three panes are mounted always, and always the *same instances*. Three pieces of
-state decide what you see, and none of them mounts or unmounts anything:
+Every pane is mounted always, and always the *same instance* — including the editor, which
+the default layout does not show. Three pieces of state decide what you see, and none of them
+mounts or unmounts anything:
 
 - `full` — which pane gets the whole screen (`null` = the global view)
-- `focus` — which pane gets the keys; Tab walks the focus ring
+- `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`: the two the layout
+  actually shows, so the editor is not on it — and focus left on a pane the layout dropped is
+  snapped back, or the keys would go to something off screen)
 - `panel` — the side panel, independent of both
 
 `f` expands what you are on, Escape backs out. Because nothing is torn down by any of

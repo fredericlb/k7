@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 import type { Pane, Panel, View } from "./routes";
 
-// The three panes, not tabs: the global view shows all three, and a "view" is a LAYOUT over the same instances.
-// `viewport` is absent because it only exists for a song WITH video; this is the set that can be fullscreened.
+// The panes, not tabs: a "view" is a LAYOUT over the same instances, and the default one stacks the
+// timeline over the graph. `editor` is in this list because it can be FULLSCREENED and toggled from the
+// header — it just has no slot in either layout (see App's ringPanes). `viewport` is absent because it
+// only exists for a song WITH video; this is the set that can be fullscreened.
 export const PANES: Pane[] = ["editor", "timeline", "chains"];
 export const ALL_PANES: Pane[] = [...PANES, "viewport"];
 
@@ -33,7 +35,7 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   viewport: { icon: Video, label: "Viewport" },
 };
 
-// The two layouts, and the pane each puts in the bottom-right slot.
+// The two layouts, and the pane each puts UNDER the timeline.
 export const VIEW_META: Record<
   View,
   { icon: LucideIcon; label: string; third: Pane }

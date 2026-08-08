@@ -144,7 +144,8 @@ export default function App({
   const isMobile = useIsMobile();
   const [mobileMenu, setMobileMenu] = useState(false);
   const [view, setView] = useState<View>("global");
-  const [focusPane, setFocusPane] = useState<Pane>("editor");
+  // The timeline, because it is what the default view opens on — see ringPanes.
+  const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
   const [docSel, setDocSel] = useState<DocsSelection>(null);
   // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
@@ -310,12 +311,14 @@ export default function App({
     }
   }, [vimMode]);
 
-  // The third pane of the current view, and the ring `tab` walks.
+  // The second pane of the current view, and the ring `tab` walks.
+  //
+  // The EDITOR is not in it. The default view is the timeline over the graph, full width; the
+  // editor is reached deliberately (`ui editor`) or arrives as a popin when a command sends it
+  // to a file. That is what `visible("editor")` reads to decide between the two — see
+  // docs/shell.md.
   const thirdPane = VIEW_META[view].third;
-  const ringPanes = useMemo<Pane[]>(
-    () => ["editor", "timeline", thirdPane],
-    [thirdPane],
-  );
+  const ringPanes = useMemo<Pane[]>(() => ["timeline", thirdPane], [thirdPane]);
 
   // The popin IS the active pane while it is up: it is what the keys are for, and the pane
   // underneath must not also answer them.
@@ -345,6 +348,14 @@ export default function App({
   const paneProps = (p: Pane) => ({
     onPointerDown: () => focusOn(p),
   });
+
+  // Focus can be left on a pane the layout no longer shows — leaving `ui editor` returns to a
+  // view the editor is not in, and `activePane` would then hand the keys to something off
+  // screen while the timeline answered nothing. Snap it back to the ring.
+  useEffect(() => {
+    if (full === null && !ringPanes.includes(focusPane))
+      setFocusPane(ringPanes[0]);
+  }, [full, ringPanes, focusPane]);
 
   const ringFor = (p: Pane) =>
     !full && focusPane === p ? "ring-1 ring-inset ring-primary/50" : undefined;
@@ -1403,13 +1414,13 @@ export default function App({
                 "flex min-h-0 min-w-0 flex-col",
                 // The SAME element in the same place in the tree, restyled — so the open file,
                 // its undo history and the CodeMirror instance survive being popped out.
+                //
+                // It has no slot in either layout any more: fullscreened, popped in, or away.
                 editorPopin
                   ? "fixed inset-4 z-50 overflow-hidden rounded-lg border border-border bg-background shadow-2xl sm:inset-x-[12%] sm:inset-y-[8%]"
                   : full === "editor"
                     ? "flex-1"
-                    : full
-                      ? "hidden"
-                      : "w-1/2 shrink-0 border-r border-border",
+                    : "hidden",
                 ringFor("editor"),
               )}
             >
@@ -1426,8 +1437,9 @@ export default function App({
               <EditorTab
                 ref={editorRef}
                 active={activePane === "editor"}
-                // No tree in the popin: it is one file, opened by a command that already named it.
-                showTree={!editorPopin && (full === null || full === "editor")}
+                // Only when it owns the screen. Not in the popin: that is one file, opened by a
+                // command that already named it.
+                showTree={full === "editor"}
                 reloadKey={reloadKey}
                 activeProject={ws?.activeProject ?? null}
                 projectName={project?.name ?? null}

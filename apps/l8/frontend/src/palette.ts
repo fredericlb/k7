@@ -18,7 +18,7 @@ import type { CommandInfo } from "./types";
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui global", // the 3-pane view — the default, and what esc backs out to
-  "ui video", // the same three panes with the renderer instead of the graph (video songs)
+  "ui video", // the same layout with the renderer under the timeline instead of the graph (video songs)
   ...ALL_PANES.map((p) => `ui ${p}`), // fullscreen one pane (viewport: a no-op without video)
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
