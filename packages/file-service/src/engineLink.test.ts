@@ -44,7 +44,7 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
   EngineClient: FakeClient,
 }));
 
-const { ensureEngine, pruneIdleLinks, sessionOf, setSelectedEngine } =
+const { awaitArm, ensureEngine, pruneIdleLinks, sessionOf, setSelectedEngine } =
   await import("./engineLink.ts");
 
 const wsFor = (email: string, name = "songs") => ({
@@ -131,5 +131,100 @@ describe("pruneIdleLinks", () => {
     const b = ensureEngine(ws("same@x.org"));
     expect(a).toBe(b);
     expect(built).toHaveLength(1);
+  });
+});
+
+// Waiting for the engine's answer to an arm. `armed` is BROADCAST to every client in the
+// session, so the wait has to pick out its own answer — and it has to let go of its listeners
+// whichever way it ends.
+describe("awaitArm", () => {
+  // An emitter that records what is still attached: the leak is the point of half these tests.
+  class ArmSpy {
+    sent: string[] = [];
+    listeners = new Map<string, Set<(...a: never[]) => void>>();
+    on(event: string, fn: (...a: never[]) => void) {
+      (
+        this.listeners.get(event) ??
+        this.listeners.set(event, new Set()).get(event)
+      )?.add(fn);
+    }
+    off(event: string, fn: (...a: never[]) => void) {
+      this.listeners.get(event)?.delete(fn);
+    }
+    arm(track: string) {
+      this.sent.push(track);
+    }
+    emit(event: string, arg: unknown) {
+      for (const fn of [...(this.listeners.get(event) ?? [])])
+        (fn as (a: unknown) => void)(arg);
+    }
+    /** Listeners still attached — must be none once the wait is over. */
+    attached() {
+      let n = 0;
+      for (const s of this.listeners.values()) n += s.size;
+      return n;
+    }
+  }
+  const spy = () =>
+    new ArmSpy() as unknown as ArmSpy & Parameters<typeof awaitArm>[0];
+
+  it("sends the arm and resolves with what the engine answered", async () => {
+    const c = spy();
+    const out: string[] = [];
+    const p = awaitArm(c, "gtr", out, () => true);
+    expect(c.sent).toEqual(["gtr"]);
+    c.emit("armed", { track: "gtr", armed: true });
+    expect(await p).toBe(true);
+    expect(out).toEqual([]);
+    expect(c.attached()).toBe(0);
+  });
+
+  it("IGNORES the answer to another track's arm", async () => {
+    // The engine broadcasts every arm in the session. Taking a frame for `bass` as the answer
+    // for `gtr` reported the wrong state AND left the real answer with nobody waiting for it.
+    const c = spy();
+    const out: string[] = [];
+    const p = awaitArm(c, "gtr", out, () => true, 50);
+    c.emit("armed", { track: "bass", armed: true });
+    c.emit("armed", { track: "gtr", armed: false });
+    expect(await p).toBe(false);
+    expect(out).toEqual([]);
+  });
+
+  it("surfaces the engine's refusal and stops waiting", async () => {
+    const c = spy();
+    const out: string[] = [];
+    const p = awaitArm(c, "gtr", out, () => true);
+    c.emit("engineError", 'track "gtr" has no input — nothing to record');
+    expect(await p).toBeUndefined();
+    expect(out).toEqual(['track "gtr" has no input — nothing to record']);
+    expect(c.attached()).toBe(0);
+  });
+
+  it("names the track and says the link was UP when nothing answered", async () => {
+    const c = spy();
+    const out: string[] = [];
+    expect(await awaitArm(c, "gtr", out, () => true, 5)).toBeUndefined();
+    expect(out[0]).toContain('"gtr"');
+    expect(out[0]).toContain("[rec]"); // where to look next, rather than a dead end
+  });
+
+  it("says the LINK DROPPED when it is no longer up", async () => {
+    // The same silence, a different fault: worth telling apart before anyone reads engine logs.
+    const c = spy();
+    const out: string[] = [];
+    expect(await awaitArm(c, "gtr", out, () => false, 5)).toBeUndefined();
+    expect(out[0]).toContain("dropped");
+  });
+
+  it("lets go of its listeners on a timeout, so the next error is not swallowed", async () => {
+    // They were `once`, which never fires when nothing arrives: the stale engineError listener
+    // outlived the request and ate the following command's message.
+    const c = spy();
+    const out: string[] = [];
+    await awaitArm(c, "gtr", out, () => true, 5);
+    expect(c.attached()).toBe(0);
+    c.emit("engineError", "a later, unrelated failure");
+    expect(out).toHaveLength(1); // still just the timeout line
   });
 });

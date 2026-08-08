@@ -47,6 +47,18 @@ picked from opened with nothing in it. Both the graph (`assetChoicesFor`) and th
 A nearer module's assets come first and a duplicate path is dropped, so a local file shadows an
 inherited one of the same name.
 
+### It costs no directory walk
+
+"Where does this ref live" is answered from `folderAbs`, which the loader stamps on every module
+it reads — so the ref map a caller has loaded anyway already knows. Asking the libraries instead
+(`moduleFolderForRef`) is a full walk of every module library **per ancestor, per module**, which
+turned one graph build into a walk per node.
+
+The same mistake in a second shape: `buildGraphDoc` briefly loaded the ref map itself, when
+`loadGraph` — which it calls one line earlier — had already read it. That doubled the cost of a
+graph build, and a graph is polled. Both are the same lesson: this data is loaded once per
+request already, and the walk is expensive enough that a second one shows up as a timeout.
+
 **Three** places computed that folder, not two. The third was the WRITE: `module nam` checks the
 file against the module's assets before writing it, off the same wrong line — so once the picker
 could offer a profile, the command refused it and the click did nothing at all.

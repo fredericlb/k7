@@ -8,8 +8,11 @@ import { isPluginScanned } from "@studio/engine-client/pluginCache";
 import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
-import { loadModuleRefs } from "@studio/song/loader";
-import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
+import {
+  type AssetLookup,
+  assetLookup,
+  moduleAssetChoices,
+} from "@studio/song/moduleAssetChoices";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   JSDSP_TYPE,
@@ -28,9 +31,10 @@ function assetChoicesFor(
   dir: string,
   module: { category?: string; file?: string; extends?: string } | undefined,
   refs: Readonly<Record<string, { extends?: unknown }>>,
+  lookup: AssetLookup,
 ): string[] | undefined {
   try {
-    const files = moduleAssetChoices(dir, module, refs);
+    const files = moduleAssetChoices(dir, module, refs, lookup);
     return files.length ? files : undefined;
   } catch {
     return undefined;
@@ -48,15 +52,13 @@ export function buildGraphDoc(dir: string): WebGraph {
       return {}; // a broken curve file shouldn't take the whole graph down
     }
   })();
-  // The `extends` vocabulary, read ONCE: the asset walk needs it per step, and re-reading the
-  // libraries for every module in the graph would be a disk walk per node.
-  const moduleRefs = (() => {
-    try {
-      return loadModuleRefs(dir);
-    } catch {
-      return {}; // no vocabulary just means no inherited assets, not a broken graph
-    }
-  })();
+  // The `extends` vocabulary comes off the graph, which has already read it — calling
+  // loadModuleRefs again here doubled the cost of every graph build (~1.8s on a project this
+  // size), and a graph is polled. Each entry carries the folder its files live in.
+  const moduleRefs = g.moduleRefs;
+  // …and the `assets/` listings, memoised for this whole build: ancestors repeat, so every
+  // module inheriting one shared amp would otherwise re-read that amp's folder.
+  const assets = assetLookup();
   const usedCurves: WebGraph["curves"] = {};
   const chains: WebGraph["chains"] = {};
   for (const [name, c] of Object.entries(g.chains))
@@ -130,7 +132,7 @@ export function buildGraphDoc(dir: string): WebGraph {
           // …and what it may choose from: the module's OWN assets/, walked. Per module rather
           // than once for the graph, because there is no shared library any more — the choices
           // ARE the folder's contents. An unreadable folder is an empty one, never a failure.
-          assetChoices: assetChoicesFor(dir, module, moduleRefs),
+          assetChoices: assetChoicesFor(dir, module, moduleRefs, assets),
           // Its type folder — the node's icon. From the module itself, never its base: a kind comes from where IT lives.
           category: module?.category as WebChainStep["category"],
           // What leaves this module — the colour of the cable to the next one.

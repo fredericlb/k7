@@ -209,6 +209,10 @@ export interface Module {
   // and an audio effect both emit audio), so the graph needs the folder itself to pick
   // an icon. Absent on a module read from a map that didn't record it.
   category?: string;
+  // The ABSOLUTE folder this module's files live in, whichever library that is — stamped by the
+  // loader. Carried so a consumer can ask what a module's `assets/` holds without re-reading the
+  // libraries to find out where it is; `moduleAssetChoices` walks the ancestry off these.
+  folderAbs?: string;
   // What this module EMITS — the signal on the cable leaving it (see moduleEmits).
   // NOT derivable from `inputs`: an instrument and a midi transformer both take midi,
   // but one hands back audio and the other midi. Undefined for a sink.
@@ -605,6 +609,7 @@ export function buildGraph(
     // transformer). Kept AND derived from: the graph draws an icon per folder, which
     // `emits` alone can't tell apart.
     category: b?.category ? String(b.category) : undefined,
+    folderAbs: typeof b?.folderAbs === "string" ? b.folderAbs : undefined,
     emits: moduleEmits(b?.category, b?.io),
     // Both halves of every file-valued param: the absolute path the engine loads, and the
     // name it was authored with. validate() needs the pair — a name with no path is a file
