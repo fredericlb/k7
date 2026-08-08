@@ -3,7 +3,7 @@
 // Read-only: the segments are edited as text, beside it.
 
 import { buildGraph, layout } from "@studio/ui-chains/graph";
-import { DomChains, type SinkPlay } from "@studio/ui-chains-react";
+import { type Cam, DomChains, type SinkPlay } from "@studio/ui-chains-react";
 import { useMemo, useRef, useState } from "react";
 import { chainGraph } from "./chainGraph";
 import { MEDIATEK_ICONS } from "./ModulePreview";
@@ -22,7 +22,7 @@ export function ChainView({
   sinkPlay?: SinkPlay;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const cam = useRef<{ x: number; y: number; k: number } | null>(null);
+  const cam = useRef<Cam | null>(null);
   // The last drawing that parsed. Kept across a broken keystroke so the panel does not blank
   // out on every character typed — the text pane is what reports the error, not this.
   const lastGood = useRef<ReturnType<typeof layout> | null>(null);

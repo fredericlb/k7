@@ -9,7 +9,7 @@ import {
   type visibleGrid,
 } from "@studio/ui-chains/modulePreview";
 import { useMemo, useRef, useState } from "react";
-import { type ChainsIcons, DomChains } from "./DomChains";
+import { type Cam, type ChainsIcons, DomChains } from "./DomChains";
 
 export function ModulePreview({
   icons,
@@ -35,7 +35,7 @@ export function ModulePreview({
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph: the panel unmounts whenever the editor closes, and a
   // camera that reset on every remount would fight the person using it.
-  const cam = useRef<{ x: number; y: number; k: number } | null>(null);
+  const cam = useRef<Cam | null>(null);
 
   const laid = useMemo(() => {
     const { nodes, edges } = buildGraph(

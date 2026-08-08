@@ -499,6 +499,21 @@ function moduleFieldValue(
   return w.options?.find((o) => o.label === current)?.value;
 }
 
+/**
+ * Where a host parks the camera between mounts, and the shape of the camera itself.
+ *
+ * Named because it was not: six surfaces wrote `useRef<{x,y,k}|null>(null)` with four
+ * near-identical comments above it. The graph is torn down with its pane, so the pan and zoom
+ * have to be held by something that outlives it — see docs/chainsGraph.md. A host that omits
+ * it gets a fresh frame on every reopen, which is a choice, but rarely the intended one.
+ */
+export interface Cam {
+  x: number;
+  y: number;
+  k: number;
+}
+export type CamStore = React.MutableRefObject<Cam | null>;
+
 interface Channels {
   liveParams: Record<string, Record<string, number>>;
   trackControls: Record<string, TrackControlValues>;
@@ -1864,7 +1879,7 @@ export function DomChains({
   onCanvasInsert?: (x: number, y: number) => void;
   onFitToReady?: (fitTo: FitToFn) => void;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
-  camStore?: React.MutableRefObject<{ x: number; y: number; k: number } | null>;
+  camStore?: CamStore;
   /** Engine load problems by PluginDoc id — a node badges itself from this. */
   engineWarnings?: Record<string, string>;
   // Identifies WHICH graph is on screen: a change re-frames, a redraw of the same one leaves the camera alone.

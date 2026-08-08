@@ -1,4 +1,4 @@
-import type { WebGraph } from "@studio/graph-model";
+import type { WebGraph, WebWidget } from "@studio/graph-model";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import { describe, expect, it } from "vitest";
 import { mixControl } from "./controls";
@@ -16,7 +16,10 @@ const graphWith = (
   steps: {
     module: string;
     pluginId?: string;
-    widget?: { bind: string; min?: number; max?: number };
+    // The widget's own fields, minus the placement the fixture supplies. Not a narrowing of
+    // three of them: `curve` and `step` are what the desk has to honour, so a fixture that
+    // cannot express them cannot test that it does.
+    widget?: Partial<WebWidget> & { bind: string };
   }[],
 ): WebGraph =>
   ({
@@ -337,6 +340,41 @@ describe("what a control's position sends", () => {
     expect(valueFor(b, 0)).toBeCloseTo(-60);
     expect(valueFor(b, 1)).toBeCloseTo(6);
     expect(valueFor(b, 0.5)).toBeCloseTo(-27);
+  });
+
+  // The widget half belongs to `widgetDenorm`, not to a lerp written here. Expanded by hand,
+  // a log control's midpoint landed at the ARITHMETIC middle — so the same param moved from
+  // the desk and moved on the graph gave two different numbers, in one app, on one plugin.
+  it("follows a log widget's curve, like the graph does", () => {
+    const b = resolveBindings(
+      VIEW,
+      graphWith([
+        {
+          module: "crossfade",
+          pluginId: "deckA:crossfade",
+          widget: { bind: "Mix", min: 20, max: 20000, curve: "log" },
+        },
+      ]),
+    ).bindings[0];
+    expect(valueFor(b, 0)).toBeCloseTo(20);
+    expect(valueFor(b, 1)).toBeCloseTo(20000);
+    // Geometric middle (632), not the arithmetic 10010 a lerp would give.
+    expect(valueFor(b, 0.5)).toBeCloseTo(Math.sqrt(20 * 20000), 0);
+  });
+
+  // …and `step` quantises, which a hand-rolled expansion also dropped.
+  it("quantises to the widget's step", () => {
+    const b = resolveBindings(
+      VIEW,
+      graphWith([
+        {
+          module: "crossfade",
+          pluginId: "deckA:crossfade",
+          widget: { bind: "Mix", min: 0, max: 10, step: 1 },
+        },
+      ]),
+    ).bindings[0];
+    expect(valueFor(b, 0.44)).toBe(4);
   });
 
   it("scales a control whose own range is not 0..1", () => {

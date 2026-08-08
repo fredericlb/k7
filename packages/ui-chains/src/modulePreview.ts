@@ -9,6 +9,7 @@ import type {
   WebModuleUI,
   WebWidget,
 } from "@studio/graph-model";
+import { MODULE_CATEGORIES } from "@studio/graph-model";
 
 /** The source node the module hangs off — a module editor has no tracks, and a chain's `from`
  *  has to resolve to something. It stands for "whatever will feed this". */
@@ -29,16 +30,8 @@ export const PREVIEW_CHAIN = "preview";
 export const previewPluginId = (module: string): string =>
   `${PREVIEW_CHAIN}:${module}`;
 
-/** The module type folders a chain draws an icon for. `midi` is the legacy alias of transformers. */
-const MODULE_TYPES = [
-  "io",
-  "instruments",
-  "audio",
-  "transformers",
-  "midi",
-  "video_effects",
-  "video_transitions",
-];
+/** The list is `@studio/graph-model`'s, so it cannot say something the type does not. */
+const MODULE_TYPES: readonly string[] = MODULE_CATEGORIES;
 
 /**
  * A module path as its type folder, which is all that picks the node's glyph.

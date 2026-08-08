@@ -8,7 +8,7 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
-import { DomChains } from "@studio/ui-chains-react";
+import { type Cam, DomChains } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
@@ -64,7 +64,7 @@ export function GraphPanel({
   // Parked HERE, because App mounts this panel conditionally: it is torn down every time the
   // panel is closed, and a camera held inside it would be a fresh frame on every reopen. Same
   // rule as ChainsTab's, and the reason DomChains takes the ref rather than owning it.
-  const camStore = useRef<{ x: number; y: number; k: number } | null>(null);
+  const camStore = useRef<Cam | null>(null);
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);

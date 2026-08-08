@@ -1,7 +1,8 @@
 // types.ts — the chains routing graph as the browser receives it (mirrors the essentials
-// of the song compiler's GraphDoc). Types only, so the whole module is erased at runtime.
-// Lives apart from @studio/web-protocol because three apps draw chains — l8, st0's
-// module builder, m9 — and only l8 wants auth, workspaces and the registry.
+// of the song compiler's GraphDoc). Almost all types, plus the handful of values both sides
+// must agree on BY VALUE — the port separator and the category list. Lives apart from
+// @studio/web-protocol because three apps draw chains — l8, st0's module builder, m9 — and
+// only l8 wants auth, workspaces and the registry.
 
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")
@@ -54,14 +55,25 @@ export interface WebModuleUI {
 export type WebSignal = "audio" | "midi" | "video";
 
 // A module's type folder. The graph draws an icon per kind, which `emits` can't stand in for.
-export type WebModuleCategory =
-  | "io"
-  | "instruments"
-  | "audio"
-  | "transformers"
-  | "midi" // the legacy alias of transformers
-  | "video_effects"
-  | "video_transitions";
+/**
+ * The module type folders, as VALUES — and the type derived from them, not beside them.
+ *
+ * Both halves are needed: the type to write against, and the list to test a path segment
+ * against at runtime. Written twice, they drifted — two of the four copies in the repo had
+ * dropped `midi`, so a transformer authored under the legacy name drew as audio on those
+ * surfaces and not on the others. Deriving one from the other makes that impossible.
+ */
+export const MODULE_CATEGORIES = [
+  "io",
+  "instruments",
+  "audio",
+  "transformers",
+  "midi", // the legacy alias of transformers
+  "video_effects",
+  "video_transitions",
+] as const;
+
+export type WebModuleCategory = (typeof MODULE_CATEGORIES)[number];
 
 export interface WebChainStep {
   module: string; // a module instance name

@@ -4,6 +4,7 @@
 // See ../../docs/controls.md.
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";
+import { widgetDenorm } from "@studio/ui-chains/graph";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import { type MixControl, mixControl } from "./controls";
 import type { DeckId, DeckTempos } from "./deck";
@@ -257,5 +258,10 @@ export function valueFor(b: ResolvedBinding, value: number): number {
   if (w?.min === undefined || w?.max === undefined) return value;
   const [lo, hi] = b.control.range;
   const unit = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
-  return w.min + unit * (w.max - w.min);
+  // The widget half is `widgetDenorm`'s and not ours. Expanding it by hand — `min + unit *
+  // (max - min)` — is right only for a LINEAR widget with no `step`: a `curve: log` param
+  // moved from the desk landed somewhere else than the same param moved on the graph, in the
+  // same app, on the same plugin. The comment above already claimed this was "the journey a
+  // MIDI CC makes in l8"; l8 calls the shared function, so now this does too.
+  return widgetDenorm(w, unit);
 }

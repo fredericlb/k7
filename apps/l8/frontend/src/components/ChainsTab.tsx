@@ -11,7 +11,7 @@ import {
 import { useActiveTracks } from "@studio/engine-browser/store";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
-import { DomChains, type FitToFn } from "@studio/ui-chains-react";
+import { type Cam, DomChains, type FitToFn } from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -132,7 +132,7 @@ export function ChainsTab({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const fitToFn = useRef<FitToFn | null>(null);
   // The camera is parked HERE because this stays mounted while DomChains is torn down with its pane.
-  const camStore = useRef<{ x: number; y: number; k: number } | null>(null);
+  const camStore = useRef<Cam | null>(null);
   const isMobile = useIsMobile();
   const [listOpen, setListOpen] = useState(false);
 

@@ -63,8 +63,16 @@ export const SAMPLE_KINDS = ["audio", "video"] as const;
 export const MODULES_CONFIG = "config.yaml";
 export const DEFAULT_NAMESPACE = "mediatek";
 
-/** The module type folders, the same vocabulary a project's `modules/` uses — the mediatek
- *  is the `_modules` library promoted, so the shape has to match or nothing would resolve. */
+/**
+ * The module type FOLDERS this library has on disk.
+ *
+ * Deliberately not `MODULE_CATEGORIES` from `@studio/graph-model`, and one short of it: that
+ * list is the drawing vocabulary and includes `midi`, the legacy name a chain may READ for
+ * `transformers`. It is never a directory to create or walk, so it has no place here. The two
+ * answer different questions and only look like the same list.
+ *
+ * This package stays free of the graph model on purpose — it is the disk, below it.
+ */
 export const MODULE_TYPES = [
   "io",
   "instruments",

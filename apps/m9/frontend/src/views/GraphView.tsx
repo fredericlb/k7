@@ -4,7 +4,7 @@
 
 import type { WebGraph } from "@studio/graph-model";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
-import { DomChains } from "@studio/ui-chains-react";
+import { type Cam, DomChains } from "@studio/ui-chains-react";
 import { Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { M9_ICONS } from "../chains";
@@ -38,7 +38,7 @@ export function GraphView({
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph, because the graph unmounts with its view and a camera
   // that reset on every remount would fight the person using it.
-  const cam = useRef<{ x: number; y: number; k: number } | null>(null);
+  const cam = useRef<Cam | null>(null);
 
   const laid = useMemo(() => {
     if (!graph) return null;

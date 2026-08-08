@@ -5,6 +5,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { WebOut } from "@studio/graph-model";
 import { deriveChains, isParked } from "./chainsGraph";
 import {
   exportSub,
@@ -95,15 +96,14 @@ export interface OutputDef {
   name: string;
   type: "audio" | "midi" | "video";
 }
-// A signal destination: a downstream chain / io sink (`to`), how much of the
-// signal reaches it (`gain`, a 0..1 share; 1 == the whole signal), and which of the
-// source's outputs it left from (`fromPort`, absent on a module with the usual single
-// output). See docs/ports.md.
-export interface Out {
-  to: string;
-  gain: number;
-  fromPort?: string;
-}
+/**
+ * A signal destination — the SAME shape the browser receives, not a second declaration of it.
+ *
+ * `Out` and `WebOut` were field-for-field identical, one here and one in `@studio/graph-model`,
+ * which is how `fromPort` came to be added twice. The name survives because it reads better
+ * inside a compiler that has no "web" side; the type is one. See docs/ports.md.
+ */
+export type Out = WebOut;
 export interface Chain {
   from?: string;
   use: Step[]; // ordered module instances: from -> use[0] -> … -> out

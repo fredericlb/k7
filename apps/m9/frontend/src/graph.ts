@@ -2,6 +2,7 @@
 // throwaway project folder; it does not, and that is the finding. See docs/chains.md.
 
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
+import { OFFLINE_TYPE } from "@studio/song/moduleTypes";
 import { DECKS, type DeckId } from "./deck";
 
 /** A module the deck runs, as m9 holds it: a médiathèque ref plus what it plays as. */
@@ -14,6 +15,10 @@ export interface DeckModule {
   plugin: { type?: string; name?: string } | undefined;
   enabled: boolean;
 }
+
+/** Does the engine hold a plugin for this module? Only then does it have an address. */
+const playable = (m: DeckModule): boolean =>
+  !!m.plugin?.type && m.plugin.type !== OFFLINE_TYPE;
 
 /**
  * The deck's signal path, as the graph draws it.
@@ -52,7 +57,14 @@ export function deckGraph(
           enabled: m.enabled,
           // The engine address, so a node can be bypassed and its params addressed — the
           // same `chain:module` the ProjectDoc uses. Without it a node is decorative.
-          pluginId: `${deck}:${m.name}`,
+          //
+          // Only for a module the engine actually LOADS. An `offline` one is recognised by
+          // the compiler and then emits no plugin at all, so an id here names something the
+          // engine has never heard of: the knob moved, `set-plugin-param` went out to
+          // nothing, and no error came back. The server-side producer was fixed for exactly
+          // this (see file-service/src/graphDoc.ts and docs/graphFlags.md); this producer is
+          // the browser-side twin that had not been.
+          pluginId: playable(m) ? `${deck}:${m.name}` : undefined,
         })),
         out: [{ to: "OUT", gain: 1 }],
       },
@@ -64,21 +76,12 @@ export function deckGraph(
   };
 }
 
-/** A médiathèque module path as its type folder — `modules/<type>/<name>/` — or "audio"
- *  when it is not one of the known folders, which only decides a glyph. */
-export function categoryOf(path: string): WebModuleCategory {
-  const parts = path.split("/");
-  const type = parts[1] ?? "";
-  return (
-    [
-      "io",
-      "instruments",
-      "audio",
-      "transformers",
-      "video_effects",
-      "video_transitions",
-    ].includes(type)
-      ? type
-      : "audio"
-  ) as WebModuleCategory;
-}
+/**
+ * A médiathèque module path as its type folder.
+ *
+ * The shared one, not a local copy. This was a weakened twin of it: a fixed `parts[1]`, which
+ * is right for `modules/<type>/<name>` and wrong for `_modules/…` and for a workspace holding
+ * several projects; and a list missing `midi`, so a transformer authored under the legacy name
+ * drew as audio here and correctly everywhere else.
+ */
+export { moduleCategoryOf as categoryOf } from "@studio/ui-chains/modulePreview";

@@ -3,7 +3,7 @@
 // See docs/chains.md.
 
 import { buildGraph, layout } from "@studio/ui-chains/graph";
-import type { ChainsIcons } from "@studio/ui-chains-react";
+import type { Cam, ChainsIcons } from "@studio/ui-chains-react";
 import { DomChains } from "@studio/ui-chains-react";
 import { ModuleIcon, moduleGlyph } from "@studio/ui-chains-react/module-icons";
 import { useMemo, useRef, useState } from "react";
@@ -61,7 +61,7 @@ export function ChainsPanel({
   const [selected, setSelected] = useState<string | null>(deck);
   // The camera lives OUTSIDE the graph, because the graph unmounts with its panel and a
   // camera that reset on every remount would fight the person using it.
-  const cam = useRef<{ x: number; y: number; k: number } | null>(null);
+  const cam = useRef<Cam | null>(null);
 
   const laid = useMemo(() => {
     const { nodes, edges } = buildGraph(deckGraph(song, modules, deck));
