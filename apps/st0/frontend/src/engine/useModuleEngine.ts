@@ -1,8 +1,10 @@
 // useModuleEngine.ts — the ONE socket to the engine this account chose: it loads a module and
 // answers for its plugin's parameters, and it carries the transport for anything the moteur
-// plays (a chain variant, a master). No meters. See docs/engine.md, docs/playbackTarget.md.
+// plays (a chain variant, a master), and the levels at both ends of an audition.
+// See docs/engine.md, docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
+import { PluginParamsStore } from "@studio/engine-browser/params";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
@@ -53,6 +55,19 @@ export interface ModuleEngine {
   fileBase: string | null;
   /** Parameter names the loaded plugin reports, or [] before one is loaded. */
   paramNames: string[];
+  /**
+   * Live parameter VALUES, as an external store the graph subscribes to.
+   *
+   * Not React state: a watched plugin reports its whole set ~20×/s, and holding that here
+   * would re-render the editor to move one knob. See @studio/engine-browser/params.
+   */
+  paramsStore: PluginParamsStore;
+  /** Turn one of the loaded plugin's knobs. `id` is the PluginDoc id (`chain:module`). */
+  setPluginParam: (id: string, name: string, value: number) => void;
+  /** The monitored INPUT's level in dB, and what leaves the module. -100 is nothing —
+   *  which is also what a track with no input reads, since the two look the same. */
+  inputLevel: number;
+  outputLevel: number;
   /** What each spans, so a bound widget adopts the real range instead of a 0..1 guess. */
   paramMeta: Record<string, ParamMeta>;
   /** Factory presets the loaded plugin offers. Empty for a built-in, which has none. */
@@ -132,6 +147,15 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   const [paramNames, setParamNames] = useState<string[]>([]);
   const [paramMeta, setParamMeta] = useState<Record<string, ParamMeta>>({});
   const [presets, setPresets] = useState<PresetInfo[]>([]);
+  // What the monitored input is doing, and what leaves the module — the two ends of the
+  // audition, in dB. From the engine's own frame: the signal is on another machine, so its
+  // level is a thing only that machine can report.
+  const [inputLevel, setInputLevel] = useState(-100);
+  const [outputLevel, setOutputLevel] = useState(-100);
+  // Live parameter values, as an EXTERNAL store: the engine reports a watched plugin's whole
+  // set ~20×/s, and holding that in React state would re-render the editor to move one knob.
+  // A ref, so it survives every reconnection — the graph subscribes to this object once.
+  const paramsStore = useRef(new PluginParamsStore());
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [warning, setWarning] = useState<EngineWarning | null>(null);
@@ -173,9 +197,12 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
         sessionFor(SESSIONS.st0, currentUser()),
       );
       engine.current = client;
-      client.onPluginParams(({ params, meta }) => {
+      client.onPluginParams(({ id, params, meta }) => {
         setParamNames(Object.keys(params));
         if (meta) setParamMeta(meta);
+        // …and into the store the graph's knobs read, so a widget shows what the plugin
+        // actually holds rather than the file's authored value.
+        if (id) paramsStore.current.set(id, params);
       });
       client.onPresets((_module, list) => setPresets(list));
       // The transport, as the engine reports it. Subscribed always and not only while
@@ -185,6 +212,11 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       client.onState((s) => {
         setPlaying(s.playing);
         setPlayhead(s.playhead);
+        // The preview holds exactly ONE track, so its levels are the first of each list.
+        // -100 is the engine's "nothing", which is also what it sends for a track with no
+        // input assigned — the same reading either way, and the same empty meter.
+        setInputLevel(s.inputLevels?.[0] ?? -100);
+        setOutputLevel(s.levels?.[0] ?? -100);
       });
       // Kept rather than dropped: this is how the engine says a clip could not be opened, and
       // what it says next is silence. See `warning` above.
@@ -214,6 +246,22 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       loaded.current = [module, plugin, params, inputChannels];
       const client = engine.current;
       if (client) sendPreview(client, module, plugin, params);
+    },
+    [],
+  );
+
+  /**
+   * Turn a knob on the loaded plugin.
+   *
+   * Optimistic into the store as well as sent: the engine echoes the whole set back on its own
+   * cadence, and a widget that only ever showed what came back would lag a drag enough to read
+   * as the control snapping backwards under the finger.
+   */
+  const setPluginParam = useCallback(
+    (id: string, name: string, value: number) => {
+      const store = paramsStore.current;
+      store.set(id, { ...(store.getSnapshot()[id] ?? {}), [name]: value });
+      engine.current?.setPluginParam(id, name, value);
     },
     [],
   );
@@ -273,6 +321,10 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     warning,
     paramNames,
     paramMeta,
+    paramsStore: paramsStore.current,
+    setPluginParam,
+    inputLevel,
+    outputLevel,
     presets,
     preview,
     listPresets,
