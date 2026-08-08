@@ -5,7 +5,7 @@ Everything else is a command and can also be typed into the command bar.
 
 | Key | What |
 | --- | --- |
-| `Shift Shift` | open the command palette (double-tap Shift) |
+| `Shift Shift` | jump to the command bar, at the bottom of the window (double-tap Shift; Esc gives the keys back) |
 | `f` | fullscreen the focused pane |
 | `hjkl / ←↓↑→` | move the timeline caret (extends the selection in select mode) |
 | `?` | this help — Esc closes it |

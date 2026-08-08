@@ -72,6 +72,14 @@ const ARG_PLACEHOLDER: Record<ArgClass, string> = {
 // The shell focuses the bar and PRE-WRITES lines through this; prewrite parses one back into command + params.
 export interface CommandBarHandle {
   focus: () => void;
+  /**
+   * Give the keyboard back to the editor.
+   *
+   * The bar is DOCKED — always on screen — so Escape can no longer mean "unmount it", and
+   * leaving it focused would swallow every single-key binding (the shell's listener ignores
+   * events from an input). Blurring is what "I'm done here" has to do instead.
+   */
+  blur: () => void;
   prewrite: (text: string) => void;
   /**
    * Fill params from a gesture elsewhere in the editor, keyed by param NAME.
@@ -155,6 +163,7 @@ export const CommandBar = forwardRef<
     ref,
     () => ({
       focus: () => inputRef.current?.focus(),
+      blur: () => inputRef.current?.blur(),
       prewrite: (text: string) => {
         // The longest head — canonical or translated — that prefixes the line; anything trailing becomes param values.
         let best: { spec: PaletteCommand; head: string } | null = null;

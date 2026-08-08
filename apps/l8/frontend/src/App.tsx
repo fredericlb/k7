@@ -205,6 +205,10 @@ export default function App({
       .catch(() => {});
   }, []);
   const cmdRef = useRef<CommandBarHandle>(null);
+  // On a wide screen the bar is DOCKED under the minimap and always on screen, so there is
+  // nothing to open: `paletteOpen` governs the PHONE's popin alone (no minimap there, and the
+  // band a permanent prompt costs is what a phone has least of). See docs/commandBar.md.
+  const docked = !isMobile;
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Which field the command bar is waiting on, or null. The shell reads it to decide whether a
   // gesture in a pane should ACT or feed the bar — see docs/commandBar.md.
@@ -874,13 +878,15 @@ export default function App({
   } | null>(null);
   const prewriteCommand = useCallback(
     (text: string) => {
-      if (paletteOpen) cmdRef.current?.prewrite(text);
+      // Docked, the bar is already mounted: write into it. The deferral below exists only for
+      // the popin, which cannot be prewritten before it has rendered.
+      if (docked || paletteOpen) cmdRef.current?.prewrite(text);
       else {
         pendingPrewrite.current = text;
         setPaletteOpen(true);
       }
     },
-    [paletteOpen],
+    [docked, paletteOpen],
   );
   useEffect(() => {
     if (paletteOpen && pendingPrewrite.current != null) {
@@ -1048,7 +1054,9 @@ export default function App({
           el.isContentEditable)
       )
         return;
-      // The command palette: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a held Shift.
+      // The command bar: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a held Shift.
+      // Docked, it FOCUSES the bar that is already there; on the phone it still opens the popin.
+      // (Never the other way: this branch is unreachable from inside the bar, which is an input.)
       if (
         e.key === "Shift" &&
         !e.ctrlKey &&
@@ -1059,10 +1067,12 @@ export default function App({
         const now = e.timeStamp;
         if (now - lastShiftAt.current <= DOUBLE_SHIFT_MS) {
           lastShiftAt.current = 0;
-          setPaletteOpen((o) => {
-            if (!o) pendingPrewrite.current = null;
-            return !o;
-          });
+          if (docked) cmdRef.current?.focus();
+          else
+            setPaletteOpen((o) => {
+              if (!o) pendingPrewrite.current = null;
+              return !o;
+            });
         } else {
           lastShiftAt.current = now;
         }
@@ -1080,7 +1090,7 @@ export default function App({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [conditions, runCommand, settingsScreen]);
+  }, [conditions, docked, runCommand, settingsScreen]);
 
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
   // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor
@@ -1657,17 +1667,37 @@ export default function App({
           </div>
         </footer>
 
-        {/* minimap — the whole arrangement at a glance, click to move the playhead.
-            Desktop only: it is a second, redundant view of the timeline, and the vertical
-            band it costs is the one thing a phone has least of. */}
-        {!isMobile && (
-          <Minimap
-            reloadKey={reloadKey}
-            orbit={orbit}
-            caret={caret}
-            highlight={openItem}
-            onSeek={seek}
-          />
+        {/* The bottom of the window, in one piece: the minimap — the whole arrangement at a
+            glance, click to move the playhead — and the command bar under it, full width.
+
+            Desktop only, both for the same reason: they are a second view of the timeline and a
+            permanent prompt, and the vertical band they cost is the one thing a phone has least
+            of. The phone gets the tab bar below instead, and the bar as a popin it opens.
+
+            The bar is DOCKED rather than summoned: it is where you type, so it is always there,
+            the way a terminal's prompt is. It never autofocuses — a shell that opened with the
+            keyboard captured could not be typed into — so double-Shift focuses it and Escape
+            hands the keys back. See docs/commandBar.md. */}
+        {docked && (
+          <>
+            <Minimap
+              reloadKey={reloadKey}
+              orbit={orbit}
+              caret={caret}
+              highlight={openItem}
+              onSeek={seek}
+            />
+            <div className="flex shrink-0 items-center border-t border-border bg-popover px-3 py-2">
+              <CommandBar
+                ref={cmdRef}
+                commands={paletteCommands}
+                completeArg={completeArg}
+                onRun={(line) => void runCommand(line)}
+                onClose={() => cmdRef.current?.blur()}
+                onPending={setBarPending}
+              />
+            </div>
+          </>
         )}
 
         {/* The tab bar takes the minimap's place — one tab per pane, plus the command
@@ -1685,15 +1715,15 @@ export default function App({
           />
         )}
 
-        {/* Command palette — docked to the BOTTOM of the window (a prompt, where a terminal's
-            is), opened by a double-tap of Shift and by the right-click menus, which prewrite a
-            command into it. Its suggestion list opens upward — see CommandBar.
+        {/* The PHONE's command bar, which has to be summoned — opened by the tab bar's button
+            and by the right-click menus, which prewrite a command into it. Its suggestion list
+            opens upward — see CommandBar.
 
-            NOT modal, and that is the whole point: no backdrop, and `pointer-events-none` on
-            the strip so only the bar itself takes clicks. The editor behind stays visible and
+            Still not modal, and that is the whole point: no backdrop, and `pointer-events-none`
+            on the strip so only the bar itself takes clicks. What is behind stays visible and
             live, because reaching into it is how a param gets filled — Escape is the way out,
             not a click on the dimmer. See docs/commandBar.md. */}
-        {paletteOpen && (
+        {!docked && paletteOpen && (
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4">
             <div className="pointer-events-auto mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border bg-popover px-3 py-2.5 shadow-2xl">
               <CommandBar
