@@ -34,6 +34,22 @@ edit a graph has one.
 playhead, `params` for the ~20 Hz plugin parameter feed. Both are external stores, so a
 frame re-renders the node that reads it and nothing else.
 
+**Stable props, and this one is not decoration.** Every node and every widget is memoised, so
+a prop whose identity changes on each of the host's renders undoes that for the whole graph.
+The ones that matter: `icons` (it reaches the nodes through a context, and context bypasses
+`memo` — every app passes a module-level constant, keep it that way), `onWatchWaveform` and
+`sinkPlay`. Hoist them to module scope or wrap them in `useCallback`/`useMemo`; an inline
+object or lambda in the host's JSX is enough to re-render every card on every frame.
+
+Everything the host passes as a *callback* is already safe — the renderer reads those through
+a ref and binds its own handlers once, precisely so a host is free to pass inline lambdas
+(l8's `App` does). It is the non-callback props above that have no such shelter.
+
+Why this is now load-bearing: the plugin-param subscription moved from the root of the graph
+down to each individual widget. Before, one frame re-rendered everything anyway and stale
+props cost nothing extra; now a frame is meant to redraw one control, and a churning prop is
+what would put the old cost back. See `@studio/engine-browser`'s `docs/params.md`.
+
 The engine store is **optional, and the component provides one when you don't** — the same
 arrangement `icons` has, for the same reason. `InputMeterBar` renders under every track node
 unconditionally, so a host that drew a graph without wrapping itself in an

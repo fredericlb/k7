@@ -79,6 +79,36 @@ export function smoothPath(pts: Pt[]): string {
   return d;
 }
 
+/**
+ * `smoothPath` from a FLAT `[x0,y0,x1,y1,…]` buffer, allocating nothing but the string it returns.
+ *
+ * Byte-identical to `smoothPath` over the same points — a test asserts it, and that equality is
+ * the whole safety argument. It exists for the wobble, which redraws every live cable sixty times
+ * a second and cannot afford the `Pt` and `Cubic` objects the point-taking version builds on the
+ * way. See docs/wobble.md.
+ *
+ * `count` is the number of POINTS, so the buffer may be longer than it and be reused across frames.
+ */
+export function smoothPathXY(xy: ArrayLike<number>, count: number): string {
+  if (count < 2) return "";
+  if (count === 2) return `M ${xy[0]} ${xy[1]} L ${xy[2]} ${xy[3]}`;
+  const last = count - 1;
+  let d = `M ${xy[0]} ${xy[1]}`;
+  for (let i = 0; i < last; i++) {
+    // The same four points cubicSegments takes, as offsets into the flat buffer.
+    const p0 = Math.max(0, i - 1) * 2;
+    const p1 = i * 2;
+    const p2 = (i + 1) * 2;
+    const p3 = Math.min(last, i + 2) * 2;
+    const c1x = xy[p1] + (xy[p2] - xy[p0]) / 6;
+    const c1y = xy[p1 + 1] + (xy[p2 + 1] - xy[p0 + 1]) / 6;
+    const c2x = xy[p2] - (xy[p3] - xy[p1]) / 6;
+    const c2y = xy[p2 + 1] - (xy[p3 + 1] - xy[p1 + 1]) / 6;
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${xy[p2]} ${xy[p2 + 1]}`;
+  }
+  return d;
+}
+
 // One resampled point on a cable: position, unit normal, and arc-length travelled.
 export interface CableSample {
   x: number;

@@ -75,6 +75,21 @@ When a plugin frame lands, the overrides it now speaks for are dropped — excep
 under the hand. Same idea the old `render.ts` used: the commit reconciles, then the frame
 owns the value.
 
+**The two halves live at different heights, and that is the point.** The override map is the
+graph's, held at the root: it is the hand's, and the hand is one. The engine's value is each
+**widget's own** — every control subscribes to its plugin and re-renders when *its* number
+moves. Before, the root held the whole param map, so one plugin's frame re-rendered every
+node; with N strips each carrying a plugin, and the engine sending one message per plugin
+~20×/s, that was quadratic in the number of strips, and it is what made the mixer heavy on a
+song with many tracks. See `@studio/engine-browser`'s `docs/params.md`.
+
+Two consequences worth knowing. The reconciliation above is now driven by a store
+subscription rather than a render, and it returns the override map **unchanged** when it drops
+nothing — a fresh object was re-rendering the graph on every frame purely to say nothing had
+changed, which doubled the rate for no work. And an event handler (a drag starting, a toggle
+tapped) reads the engine's value from the store at call time rather than from the last paint,
+which is the more correct reading of the two.
+
 Three things deliberately opt out of optimism:
 
 | what | why |
