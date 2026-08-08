@@ -33,6 +33,7 @@ import {
   insertFor,
   midByArc,
   smoothPath,
+  smoothPathXY,
 } from "@studio/ui-chains/cables";
 import {
   cablePath,
@@ -40,7 +41,6 @@ import {
   type GraphNode,
   type LaidOutGraph,
   PORT_PLATE,
-  type Pt,
   type TrackControlValues,
   widgetDenorm,
   widgetNorm,
@@ -1732,20 +1732,24 @@ function CablesInner({
   const anyLive = live.size > 0;
   const k = (Math.PI * 2) / WOBBLE_WAVELENGTH;
 
-  // The wobbling `d`, built into a reused buffer. Called once per live cable per frame,
-  // so it allocates NOTHING per frame: on a 40-cable graph the previous version handed
-  // React 1382 fresh points and ~149 KB of new path strings sixty times a second — 8.7
-  // MB/s of garbage, and a full reconciliation of every cable, purely to move a ripple.
-  const buf: Pt[] = [];
+  // The wobbling `d`, displaced into a reused FLAT buffer. Called once per live cable per
+  // frame, and the only thing it allocates is the string setAttribute needs — see
+  // @studio/ui-chains' docs/wobble.md for what this cost before, and what it still costs.
+  const buf = useRef(new Float64Array(WOBBLE_MAX_SAMPLES * 2));
   const wobbleD = (g: EdgeGeom, phase: number): string => {
-    buf.length = 0;
-    for (const p of g.samples) {
+    const n = g.samples.length;
+    // maxSamples is a target, not a ceiling — a many-waypoint cable gets one sample per segment.
+    if (n * 2 > buf.current.length) buf.current = new Float64Array(n * 2);
+    const xy = buf.current;
+    for (let i = 0; i < n; i++) {
+      const p = g.samples[i];
       const u = g.len > 0 ? p.s / g.len : 0;
       const off =
         WOBBLE_AMP * Math.sin(Math.PI * u) * Math.sin(k * p.s - phase);
-      buf.push({ x: p.x + p.nx * off, y: p.y + p.ny * off });
+      xy[i * 2] = p.x + p.nx * off;
+      xy[i * 2 + 1] = p.y + p.ny * off;
     }
-    return smoothPath(buf);
+    return smoothPathXY(xy, n);
   };
 
   // The per-frame update writes to the DOM directly, never through state. A cable's
