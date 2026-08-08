@@ -24,12 +24,26 @@
   sid: track.new.audio
   help: "add an audio track (e.g. track new audio gtr) — named audio-N if you don't say"
   surfaces: [cli]
-  args: [{ name: name, hint: "the track's id, which is its filename — optional" }]
+  args:
+    [
+      {
+        name: name,
+        optional: true,
+        hint: "the track's id, which is its filename — optional",
+      },
+    ]
 - command: "track new midi"
   sid: track.new.midi
   help: "add a MIDI track, seeded with an empty sequence (e.g. track new midi lead)"
   surfaces: [cli]
-  args: [{ name: name, hint: "the track's id, which is its filename — optional" }]
+  args:
+    [
+      {
+        name: name,
+        optional: true,
+        hint: "the track's id, which is its filename — optional",
+      },
+    ]
 - { command: "project reload",          sid: project.reload,  help: "reload the song from disk and re-send", surfaces: [cli] }
 # Stages all of the project's changes, commits with the given message, and pushes.
 # The message is the whole rest of the line — no quotes needed (e.g. commit fix melody).
@@ -295,6 +309,7 @@
       { name: "extends-ref", complete: baseModules },
       {
         name: "instance-name",
+        optional: true,
         hint: "optional — names an instance of the new module, used in chains as name:instance",
       },
     ]
@@ -469,6 +484,7 @@
       {
         name: toTrack,
         complete: tracks,
+        optional: true,
         hint: "optional — another track, of the same type as this one",
       },
     ]
@@ -528,7 +544,11 @@
       { name: after, hint: "the node the arrow ENTERS — the new module goes before it" },
       { name: "category/name", complete: categories },
       { name: "extends-ref", complete: baseModules },
-      { name: "instance-name", hint: "optional — used in chains as name:instance" },
+      {
+        name: "instance-name",
+        optional: true,
+        hint: "optional — used in chains as name:instance",
+      },
     ]
 # The same, minus the arrow: create the module and put it in the graph wired to NOTHING.
 # `modules: { x: [] }` is a state chains.yaml can hold, and it is what a right-click on
@@ -541,7 +561,11 @@
     [
       { name: "category/name", complete: categories },
       { name: "extends-ref", complete: baseModules },
-      { name: "instance-name", hint: "optional — used in chains as name:instance" },
+      {
+        name: "instance-name",
+        optional: true,
+        hint: "optional — used in chains as name:instance",
+      },
     ]
 - command: "chain add"
   sid: chain.addModule

@@ -18,6 +18,64 @@ a param that has a vocabulary can only be filled from it.
 Only a field with NO suggestions (a dB number, a marker name — args with no completion
 provider) takes the typed text verbatim.
 
+### Enter runs, Tab keeps going
+
+Enter and Tab are otherwise the same key, and they part company on one point.
+
+A command may declare trailing params it runs without (`optional: true` in `commands.yaml` —
+see [that package's page](../../../../packages/commands/docs/optionalArgs.md)). `requiredCount`
+counts the params up to the last mandatory one, and **Enter dispatches as soon as those are
+answered**: it means "that is my line". **Tab** means "there is more", and steps onto the
+trailing optional param instead. Enter on an empty optional field runs the line as it stands
+rather than passing `""` as that param's value.
+
+Without this the bar could not run `event move` at all. Its fourth param moves the clip to
+another track and is usually not wanted, but `args.length` said four, so the form waited
+forever for an answer the command did not need. The old catalogue said "optional" in the
+hint's prose, which a person could read and the form could not.
+
+## It is NOT modal
+
+The bar is docked to the bottom of the window with **no backdrop**, and the strip around it is
+`pointer-events-none` so only the bar itself takes clicks. Escape is the way out; clicking
+elsewhere does not close it.
+
+That is not a nicety about dimming. The bar is fed BY the editor behind it — see below — so a
+backdrop would have blocked the very gestures that fill it, and dimming would have hidden the
+clip you are being asked to point at. A modal palette can afford to cover the app because
+everything it needs is typed into it; this one cannot.
+
+## A gesture can answer a field
+
+A param can be filled by pointing at the thing rather than naming it. Trigger `event move`,
+drag the clip, and the bar shows the timecode under the pointer as it moves; Enter runs the
+line, Escape drops it.
+
+The contract is two halves and deliberately small:
+
+- The bar reports **what it is waiting for** (`onPending` → `{ canonical, wants, kind }`), and
+  the shell reads that to decide whether a gesture should ACT or answer.
+- A gesture offers values **keyed by param NAME** (`CommandBarHandle.offer`), because a
+  gesture knows what it is holding, not where the command happens to ask for it. A clip drag
+  knows a track and two timecodes whatever order `event move` lists them in.
+
+`live` says the pointer is still down: the value is shown, nothing is validated, and the drag
+re-offers on every frame. The closing offer takes the focus back — the click that began the
+gesture took it away, and Enter has to land in the bar.
+
+`applyOffer` puts the highest param the gesture knows in the INPUT and fills everything before
+it, so a live drag rewrites one field while the line in front of it stays still. A param the
+offer skips keeps what is already there rather than being blanked, or a second gesture that
+knew less would quietly erase an answer the first one gave.
+
+**Answering is not committing.** While the bar is asking, the clip drag writes nothing to
+disk: it fills the line and leaves it for you to run. That is what makes the gesture safe to
+try — and it is why the drop shows `event move — enter runs it, esc drops the line` rather
+than the usual "moved" status.
+
+Both halves are pure and tested (`commandFill.ts`, `commandFill.test.ts`); the wiring is not,
+because nothing in this app mounts a component.
+
 ### Presentation
 
 The validated command and the params filled so far are shown as a prefix before the

@@ -40,6 +40,9 @@ export interface ArgSpec {
   values?: string[];
   // A one-line clue about what this argument ACCEPTS — worth writing when the class's own clue doesn't say enough.
   hint?: string;
+  // TRAILING args only: the line runs without it. Several hints already said "optional" in prose, which told a
+  // reader and not the palette — so a form could never know it had collected enough. See docs/optionalArgs.md.
+  optional?: boolean;
 }
 export interface CommandSpec {
   command: string; // the typed prefix (may contain spaces/colons)
@@ -198,6 +201,7 @@ export function loadCommandSpecs(): CommandSpec[] {
                   ? a.values.map(String)
                   : undefined,
                 hint: a?.hint ? String(a.hint) : undefined,
+                optional: a?.optional === true ? true : undefined,
               };
             })
           : undefined,

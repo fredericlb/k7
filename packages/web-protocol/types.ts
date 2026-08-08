@@ -377,6 +377,8 @@ export interface CommandArg {
   kind: ArgClass;
   // One line on what this argument accepts; empty when there is nothing to promise, and the palette shows no clue.
   hint: string;
+  // TRAILING args only: the line runs without it, so a form knows when it has collected enough.
+  optional?: boolean;
 }
 export interface CommandInfo {
   command: string;

@@ -152,6 +152,7 @@ export function TimelineTab({
   onSetLoop,
   onMoveEvent,
   onResizeEvent,
+  feedMove,
   onFocusRow,
   trackControls,
   onTrackToggle,
@@ -186,6 +187,16 @@ export function TimelineTab({
     fromTc: string,
     toTc: string,
     toTrackId?: string,
+  ) => void;
+  // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar
+  // instead of committing, `live` on every frame and once more on release. The shell decides
+  // which command that is; this only reports the numbers it already knows. See docs/timeline.md.
+  feedMove?: (
+    trackId: string,
+    fromTc: string,
+    toTc: string,
+    toTrackId: string | undefined,
+    live: boolean,
   ) => void;
   // A header was DOUBLE-clicked: point the shell's other panes at this row. Selecting it is
   // this component's own business (the caret); following it is not — see docs/timeline.md.
@@ -633,6 +644,26 @@ export function TimelineTab({
     );
   }, [proj, onResizeEvent, setStatus]);
 
+  // A live prop read from pointer callbacks that must not re-bind on every frame — the same
+  // shadowing commitMoveRef does, and for the same reason.
+  const feedMoveRef = useRef(feedMove);
+  feedMoveRef.current = feedMove;
+
+  // The move as `event move`'s four values. ONE place, so the frames of a live drag and its
+  // release cannot disagree about which timecode is the `from` and which the `to`.
+  const moveArgs = useCallback((m: Move) => {
+    const p = projRef.current;
+    if (!p) return null;
+    const num = p.timeSigNumerator;
+    const den = p.timeSigDenominator;
+    return {
+      trackId: m.trackId,
+      fromTc: beatsToPosition(m.origStart, num, den),
+      toTc: beatsToPosition(m.origStart + m.offset, num, den),
+      toTrackId: m.toTrackId === m.trackId ? undefined : m.toTrackId,
+    };
+  }, []);
+
   const onClipDragMove = useCallback(
     (e: React.PointerEvent) => {
       const d = dragRef.current;
@@ -655,10 +686,17 @@ export function TimelineTab({
         lane && src && !lane.generated && lane.contentType === src.contentType
           ? lane.id
           : m.toTrackId;
-      if (offset !== m.offset || toTrackId !== m.toTrackId)
-        setMove({ ...m, offset, toTrackId });
+      if (offset !== m.offset || toTrackId !== m.toTrackId) {
+        const next = { ...m, offset, toTrackId };
+        setMove(next);
+        // …and if the bar is asking for this move, it reads the timecode under the pointer as
+        // the drag happens. Nothing is validated: `live` says the gesture is still in hand.
+        const feed = feedMoveRef.current;
+        const a = feed ? moveArgs(next) : null;
+        if (feed && a) feed(a.trackId, a.fromTc, a.toTc, a.toTrackId, true);
+      }
     },
-    [laneAtPoint],
+    [laneAtPoint, moveArgs],
   );
 
   const endClipDrag = useCallback(() => {
@@ -667,8 +705,19 @@ export function TimelineTab({
     // Only a drag that MOVED eats the context menu — see suppressClipMenu.
     suppressClipMenu.current = d.moved;
     dragRef.current = null;
+    // Answering the bar is NOT committing. The line is filled and sits there waiting for enter,
+    // so the drop writes nothing to disk — which is what makes the gesture safe to try.
+    const feed = feedMoveRef.current;
+    const m = moveRef.current;
+    if (feed && m) {
+      const a = moveArgs(m);
+      if (a) feed(a.trackId, a.fromTc, a.toTc, a.toTrackId, false);
+      setMove(null);
+      setStatus("event move — enter runs it, esc drops the line");
+      return;
+    }
     commitMoveRef.current();
-  }, []);
+  }, [moveArgs, setStatus]);
 
   // Drop the clip as an `event move` between 1-based timecodes; a zero net move just cancels. See docs/timeline.md.
   const commitMove = useCallback(() => {

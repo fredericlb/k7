@@ -39,7 +39,11 @@ import { STUDIO_ICONS } from "./chainsIcons";
 import { canonicalizeCommand } from "./commandI18n";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { ChainsTab } from "./components/ChainsTab";
-import { CommandBar, type CommandBarHandle } from "./components/CommandBar";
+import {
+  CommandBar,
+  type CommandBarHandle,
+  type CommandPending,
+} from "./components/CommandBar";
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { DocsPanel, type DocsSelection } from "./components/DocsPanel";
@@ -204,6 +208,9 @@ export default function App({
   }, []);
   const cmdRef = useRef<CommandBarHandle>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Which field the command bar is waiting on, or null. The shell reads it to decide whether a
+  // gesture in a pane should ACT or feed the bar — see docs/commandBar.md.
+  const [barPending, setBarPending] = useState<CommandPending | null>(null);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -1439,6 +1446,23 @@ export default function App({
                       `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
                     )
                   }
+                  // While the bar is filling `event move`, the drag ANSWERS it instead of
+                  // committing: same gesture, same numbers, but the line is yours to run. The
+                  // param names are the command's own — see commands.yaml.
+                  feedMove={
+                    barPending?.canonical === "event move"
+                      ? (trackId, fromTc, toTc, toTrackId, live) =>
+                          cmdRef.current?.offer(
+                            {
+                              track: trackId,
+                              timecode: fromTc,
+                              newTimecode: toTc,
+                              ...(toTrackId ? { toTrack: toTrackId } : {}),
+                            },
+                            live,
+                          )
+                      : undefined
+                  }
                   onFocusRow={focusRowInPanes}
                   trackControls={trackControls}
                   onTrackToggle={onTrackToggle}
@@ -1709,18 +1733,17 @@ export default function App({
           />
         )}
 
-        {/* Command palette — a popin docked to the BOTTOM of the window (a prompt, where
-            a terminal's is), opened by a double-tap of Shift and by the right-click
-            menus, which prewrite a command into it. Its suggestion list opens upward —
-            see CommandBar. */}
+        {/* Command palette — docked to the BOTTOM of the window (a prompt, where a terminal's
+            is), opened by a double-tap of Shift and by the right-click menus, which prewrite a
+            command into it. Its suggestion list opens upward — see CommandBar.
+
+            NOT modal, and that is the whole point: no backdrop, and `pointer-events-none` on
+            the strip so only the bar itself takes clicks. The editor behind stays visible and
+            live, because reaching into it is how a param gets filled — Escape is the way out,
+            not a click on the dimmer. See docs/commandBar.md. */}
         {paletteOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 pb-4"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setPaletteOpen(false);
-            }}
-          >
-            <div className="mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border bg-popover px-3 py-2.5 shadow-2xl">
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4">
+            <div className="pointer-events-auto mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border bg-popover px-3 py-2.5 shadow-2xl">
               <CommandBar
                 ref={cmdRef}
                 commands={paletteCommands}
@@ -1730,6 +1753,7 @@ export default function App({
                   setPaletteOpen(false);
                 }}
                 onClose={() => setPaletteOpen(false)}
+                onPending={setBarPending}
                 autoFocus
               />
             </div>
