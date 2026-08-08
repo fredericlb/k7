@@ -29,9 +29,14 @@ When the overlay opens, l8 reads the compiled graph and looks for a chain step w
 matches the folder the file is in:
 
 ```
-_modules/audio/reverb/module.yaml   →  module "reverb"
-chains.yaml:  tracks: { banc: [ reverb ] }   →  the step, and its pluginId
+modules/audio/reverb/module.yaml            →  module "reverb"
+chains.yaml:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
 ```
+
+A chain step names a **module folder** or an **instance**, and the lookup matches either, since
+`step.module` is one string. On the bench it is always the folder: the catalogue is mirrored
+into `modules/`, so every module in it is a `@project` module — and an instance may not take a
+module's name, which settles the question by making the alternative illegal.
 
 Found: the builder gets the plugin's parameter names, their ranges, its factory presets, and
 knobs that move the real thing (the params store and the setter go in **together** — a knob
@@ -42,9 +47,9 @@ Not found: the builder is exactly what it has always been here — the text, the
 module's own preset shelf. That is an ordinary state and not an error. Every binding is typed
 rather than picked, which is what editing a module the project does not use has always been.
 
-**The rule this puts on a name.** An instance named after the module it extends is the one that
-lights this up. That is not an accident of the lookup, it is the convention the bench is built
-around — see [apps/st0/docs/banc.md](../../st0/docs/banc.md).
+**The rule this puts on a chain.** Wire the module you want to work on, by its folder name. That
+is the bench's whole workflow rather than a quirk of this lookup — see
+[apps/st0/docs/banc.md](../../st0/docs/banc.md).
 
 ## What did not move, and is not coming back
 

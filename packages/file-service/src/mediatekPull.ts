@@ -118,6 +118,42 @@ export async function pullOnce(): Promise<void> {
   }
 }
 
+/**
+ * Fetch a WHOLE family, ignoring the scope — what the module bench needs and nothing else does.
+ *
+ * `pullOnce` above fetches only what the open projects name, which is the right default and the
+ * reason this cache stays small. The bench names nothing: its whole content is the catalogue, so
+ * the scoped pull would leave it holding whatever happened to be cached for other songs.
+ *
+ * It deliberately does NOT record a revision. `markSynced`'s claim is "this cache is in step with
+ * the owner", and while that is now true for modules it is not for songs — letting the scoped
+ * loop keep its own bookkeeping is cheaper than teaching it about a second kind of pass.
+ *
+ * Never throws, same as `pullOnce`: an unreachable library must cost the refresh, not the open.
+ */
+export async function syncMediatekFamily(
+  family: "modules" | "songs",
+): Promise<void> {
+  const base = mediatekBase();
+  if (!base) return;
+  try {
+    const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
+    const report = await syncFamily(source, family, () => true);
+    if (report.fetched.length || report.dropped.length) {
+      console.log(
+        `   mediatek ${family} (full): ${report.fetched.length} file(s) in, ${report.dropped.length} out`,
+      );
+      for (const ws of liveWorkspaces()) ws.invalidateProjectDoc();
+    }
+    // The scoped loop's memo would now be a lie in the other direction — it records a SCOPE
+    // alongside the revision, and this pass had none. Dropping the entry makes its next tick
+    // re-decide rather than skip.
+    seen.delete(family);
+  } catch (e) {
+    console.warn(`   mediatek ${family} (full): ${(e as Error).message}`);
+  }
+}
+
 /** Start the loop. A no-op with no hosted library configured — the local folder is then not a
  *  cache of anything, which is a working state (see fileServiceProcess.ts). */
 export function startMediatekPuller(): void {

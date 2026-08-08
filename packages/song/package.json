@@ -57,6 +57,7 @@
     "./yaml/mixViewFile": "./src/yaml/mixViewFile.ts",
     "./yaml/mixViewSchema": "./src/yaml/mixViewSchema.ts",
     "./projectType": "./src/projectType.ts",
+    "./scaffoldBench": "./src/scaffoldBench.ts",
     "./scaffoldM9": "./src/scaffoldM9.ts",
     "./scaffoldV1": "./src/scaffoldV1.ts",
     "./videoDoc": "./src/videoDoc.ts",

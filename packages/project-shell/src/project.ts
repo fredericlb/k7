@@ -43,6 +43,20 @@ export const projectApi = {
   startClone: (uri: string) =>
     fsend<CloneJob>("POST", "/workspaces/clone", { uri }),
   cloneStatus: (id: string) => fget<CloneJob>(`/workspaces/clone/${id}`),
+  /**
+   * The module bench: made if absent, refreshed from the médiathèque either way.
+   *
+   * Instead of the three calls above, not beside them — the bench has no repository, so there is
+   * no name to resolve and nothing to clone. `@banc` in the address is what routes here. It is
+   * slow the first time (a full modules sync), which is why it replaces the clone's progress
+   * screen rather than being asked for silently. See apps/st0/docs/banc.md.
+   */
+  openBench: () =>
+    fsend<{ workspace: string; project: string }>(
+      "POST",
+      "/workspaces/bench",
+      {},
+    ),
 
   // --- The open project ---------------------------------------------------------
   workspace: () => fget<WorkspaceInfo>("/workspace"),

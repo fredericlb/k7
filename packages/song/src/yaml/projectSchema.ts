@@ -17,6 +17,18 @@ export const ProjectSettingsSchema = z
       .string()
       .regex(/^[0-9]+\/[0-9]+$/, "expected a time signature like 4/4")
       .optional(),
+    /**
+     * This project is the MODULE BENCH, and a save aimed at a `@mediatek` module writes
+     * THROUGH to the catalogue instead of forking a copy into the project.
+     *
+     * Exactly one project carries it, and it is generated (`scaffoldBench.ts`) rather than
+     * authored. It lives in the settings tier because it is a fact about what this project IS,
+     * like `type` beside it — and it is in the SCHEMA rather than a stray key because this
+     * object is `.strict()`: an undeclared marker would make the bench a project that will not
+     * open. Everywhere else this is absent and a shared module forks, which is the rule
+     * (`packages/song/docs/moduleFork.md`).
+     */
+    mediatekBench: z.boolean().optional(),
     // DEAD, and still accepted: a project sees the workspace's `_modules`/`_library` and the
     // médiathèque because of where they are (sharedFolders.ts), so nothing reads these. Kept
     // in the schema because every song already written carries them and refusing the key

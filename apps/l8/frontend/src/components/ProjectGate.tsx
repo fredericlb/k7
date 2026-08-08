@@ -3,8 +3,8 @@
 // is paraglide's, and what to render once the project is open. See @studio/project-shell docs/launch.md.
 
 import { ProjectGate as Shared } from "@studio/project-shell/gate";
-import { engines } from "../api";
 import App from "../App";
+import { engines } from "../api";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 
@@ -35,6 +35,8 @@ export function ProjectGate({
         bothBody: m["filesGate.body"](),
         missingTitle: m["project.missingTitle"](),
         missingBody: m["project.missingBody"](),
+        benchWorkspace: m["project.benchWorkspace"](),
+        benchFetching: m["project.benchFetching"](),
       }}
     >
       {({ workspace, project, userEmail, quit }) => (

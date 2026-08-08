@@ -3,7 +3,7 @@
 // render the app. Neither l8 nor m9 picks anything here: st0 owns the repositories, and
 // arriving with no target sends you back there. See docs/launch.md.
 
-import type { ProjectApp } from "@studio/web-protocol/projects";
+import { isBench, type ProjectApp } from "@studio/web-protocol/projects";
 import {
   FolderGit2,
   FolderSearch,
@@ -61,6 +61,15 @@ export interface ProjectGateStrings {
   /** The project named is not in the workspace — a wording apart, because nothing is broken. */
   missingTitle: string;
   missingBody: string;
+  /**
+   * The bench's wait, which is a catalogue fetch and not a clone — see the gate's bench branch.
+   *
+   * OPTIONAL, and that is the honest shape: the bench is a `.l8` project, so m9 and v1 can never
+   * be opened on one and have nothing to say about it. Required here, they would each be made to
+   * translate a screen neither can reach.
+   */
+  benchWorkspace?: string;
+  benchFetching?: string;
 }
 
 /**
@@ -195,6 +204,39 @@ export function ProjectGate({
         if (cancelled) return;
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
+
+        /**
+         * The BENCH takes a road of its own, and takes it first.
+         *
+         * It has no repository — it is generated from the médiathèque's catalogue and
+         * regenerated on every open — so every step below it is about something that does not
+         * exist: a name st0 could not resolve, a URI git could not clone, a workspace nothing
+         * would have made. One call replaces all three.
+         *
+         * Reported as `cloning`, because from here it is the same thing: a visible wait while a
+         * machine fetches a catalogue. The first one is the slow one.
+         */
+        // `app` as well as the name: the bench is a `.l8` project, so `/m9/@banc/…` names
+        // nothing and must fall through to the ordinary road, where st0 answers "no such
+        // repository" — which is exactly what it is.
+        if (app === "l8" && isBench(repoName)) {
+          setPhase({
+            k: "cloning",
+            workspace: strings.benchWorkspace ?? "",
+            phase: strings.benchFetching ?? "",
+            percent: null,
+          });
+          const bench = await projectApi.openBench();
+          if (cancelled) return;
+          configure(userEmail, bench.workspace);
+          await projectApi.open(bench.project);
+          if (cancelled) return;
+          return setPhase({
+            k: "open",
+            workspace: bench.workspace,
+            project: bench.project,
+          });
+        }
 
         // The address carries a NAME; git needs a URI, and st0 is what holds the pairing.
         // First, because everything below is about a repository we cannot yet name to git.

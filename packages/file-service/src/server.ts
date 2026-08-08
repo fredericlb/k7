@@ -14,6 +14,7 @@ import { ensureLayout } from "@studio/mediatek/layout";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
+import { ensureBench } from "./bench.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
   engineTokenState,
@@ -24,7 +25,7 @@ import {
 import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
 import { pruneIdleLinks, setSelectedEngine } from "./engineLink.ts";
-import { startMediatekPuller } from "./mediatekPull.ts";
+import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
@@ -165,6 +166,30 @@ app.get(
     } catch (e) {
       // The only throw is a uri we refuse to hand git — caller-fixable, so 400.
       res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/**
+ * The MODULE BENCH — made, or refreshed, and answered as a workspace + project.
+ *
+ * Its own route rather than a clone, because there is no repository: the bench is generated
+ * from the médiathèque's catalogue and regenerated every time it is opened, so putting it under
+ * version control would version a cache. `ProjectGate` calls this instead of the
+ * by-name → by-repo → clone sequence when the address names `@banc`.
+ *
+ * A full modules sync first, and that is the load-bearing line. `mediatekPull` fetches only what
+ * the OPEN projects name (docs/mediatekPull.md), and the bench names nothing — so without this
+ * the folder it is about to mirror would be whatever happened to be cached for other songs.
+ */
+app.post(
+  "/workspaces/bench",
+  wrap(async (req, res) => {
+    try {
+      await syncMediatekFamily("modules");
+      res.json(ensureBench(req.userEmail!));
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
     }
   }),
 );

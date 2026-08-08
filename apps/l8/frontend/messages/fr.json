@@ -13,6 +13,8 @@
   "project.backToProjects": "Retour aux projets",
   "project.missingTitle": "Ce projet n'est pas dans le dépôt",
   "project.missingBody": "Le dépôt est bien là, mais pas ce projet : il a sans doute été renommé ou supprimé depuis la dernière lecture du dépôt par la médiathèque. Retournez aux projets et rouvrez-le.",
+  "project.benchWorkspace": "Le banc d'essai",
+  "project.benchFetching": "Récupération des modules de la médiathèque sur cette machine…",
   "project.takenTitle": "Ce projet a été ouvert ailleurs",
   "project.takenBody": "{heldBy} vient de l'ouvrir, et un projet ne tourne que sur un moteur à la fois — cet onglet a donc cessé de le piloter. Rien de ce qui était enregistré n'est perdu. Rouvrez-le depuis les projets pour le reprendre.",
   "project.takenBodyAnon": "Il vient d'être ouvert ailleurs, et un projet ne tourne que sur un moteur à la fois — cet onglet a donc cessé de le piloter. Rien de ce qui était enregistré n'est perdu. Rouvrez-le depuis les projets pour le reprendre.",
