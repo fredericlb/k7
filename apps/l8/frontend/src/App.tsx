@@ -1531,6 +1531,11 @@ export default function App({
                     }
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}
+                    pluginParamsStore={pluginParamsStore}
+                    setPluginParam={setPluginParam}
+                    trackControls={trackControls}
+                    onTrackToggle={onTrackToggle}
+                    onTrackSet={onTrackSet}
                   />
                 )}
                 {panel === "docs" && (

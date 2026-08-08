@@ -4,10 +4,12 @@
 // already lays out LR, so don't hand-roll a strip — it would lose the routed sends.
 // The track comes from the caret, so the panel has no selection state of its own.
 
+import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
+import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
@@ -22,6 +24,11 @@ export function GraphPanel({
   onBypassModule,
   engineWarnings,
   onContextMenu,
+  pluginParamsStore,
+  setPluginParam,
+  trackControls,
+  onTrackToggle,
+  onTrackSet,
 }: {
   reloadKey: number;
   trackId: string | null;
@@ -34,8 +41,30 @@ export function GraphPanel({
   engineWarnings?: Record<string, string>;
   // Right-click a node → the shell opens its context menu.
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
+  /**
+   * The live values, and the way back.
+   *
+   * This panel had NEITHER, and was the only host of DomChains in the repo without them. A
+   * widget with no store falls back to `n.params` — the number the project file declares,
+   * never the one the engine holds — and a widget with no setter is still draggable: it moves
+   * its optimistic override and sends nothing, with no frame arriving to correct it. It looked
+   * like it worked. See ../../docs/chainsGraph.md.
+   */
+  pluginParamsStore: PluginParamsStore;
+  setPluginParam: (id: string, name: string, value: number) => void;
+  trackControls?: Record<string, TrackControlValues>;
+  onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
+  onTrackSet?: (
+    trackId: string,
+    control: "volume" | "pan",
+    value: number,
+  ) => void;
 }) {
   const activeTracks = useActiveTracks(trackOrder);
+  // Parked HERE, because App mounts this panel conditionally: it is torn down every time the
+  // panel is closed, and a camera held inside it would be a fresh frame on every reopen. Same
+  // rule as ChainsTab's, and the reason DomChains takes the ref rather than owning it.
+  const camStore = useRef<{ x: number; y: number; k: number } | null>(null);
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -78,9 +107,15 @@ export function GraphPanel({
         onContextMenu={onContextMenu}
         // This panel follows the caret's track, so another track IS a different graph and earns a re-frame; a reload isn't.
         fitKey={trackId}
+        camStore={camStore}
         command={command}
         onBypassModule={onBypassModule}
         engineWarnings={engineWarnings}
+        pluginParamsStore={pluginParamsStore}
+        setPluginParam={setPluginParam}
+        trackControls={trackControls}
+        onTrackToggle={onTrackToggle}
+        onTrackSet={onTrackSet}
       />
     );
   };

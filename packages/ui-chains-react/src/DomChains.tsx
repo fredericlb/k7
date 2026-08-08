@@ -515,6 +515,12 @@ interface Channels {
   // deck's tempo while the desk that sets it is unmounted — but a knob that turns against a
   // host with nowhere to put the value is the lie this pair of flags exists to avoid.
   offlineWritable: boolean;
+  // The same question for the other two channels, which went years without being asked. The
+  // send is an optional call (`setPluginParam?.()`, `onTrackSet?.()`), so a host that passes
+  // neither still got a widget that dragged, moved its optimistic override, sent nothing, and
+  // had no engine frame coming to correct it. l8's Graph panel was exactly that.
+  pluginWritable: boolean;
+  trackWritable: boolean;
 }
 
 // The value a widget shows: override, else engine, else authored, else nothing. See docs/chainsGraph.md.
@@ -944,9 +950,15 @@ function Widget({
 
   const tgt = widgetTarget(n, w, ch.offlineChannel);
   // Drawn from a value it cannot change: read-only rather than dead, which is what an offline
-  // module looks like on a surface that only borrows its number.
+  // module looks like on a surface that only borrows its number — and now what ANY widget looks
+  // like when its host gave no way back. Read-only is honest; draggable-and-ignored is not.
   const actuable =
-    tgt !== null && (tgt.kind !== "offline" || ch.offlineWritable);
+    tgt !== null &&
+    (tgt.kind === "offline"
+      ? ch.offlineWritable
+      : tgt.kind === "track"
+        ? ch.trackWritable
+        : ch.pluginWritable);
   const value = widgetValue(n, w, ch);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -2141,6 +2153,10 @@ export function DomChains({
     // Either prop turns the channel on: a host may only be able to SHOW such a value (m9's
     // graph, while the desk that realises it is unmounted) or only to take one.
     offlineChannel: moduleParams !== undefined || onModuleParam !== undefined,
+    pluginWritable: setPluginParam !== undefined,
+    // Either one: a track node's widgets are the toggles AND the two continuous controls, and a
+    // host that wired one half meant it.
+    trackWritable: onTrackSet !== undefined || onTrackToggle !== undefined,
     offlineWritable: onModuleParam !== undefined,
   };
 
