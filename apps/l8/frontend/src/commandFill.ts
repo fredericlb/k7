@@ -4,6 +4,7 @@
 // See docs/commandBar.md.
 
 import type { PaletteArg } from "./components/CommandBar";
+import type { ArgClass } from "./types";
 
 /**
  * How many params must be filled before the line is runnable.
@@ -35,28 +36,47 @@ export function runsAfter(
 /**
  * Where a gesture's values land, keyed by param NAME.
  *
- * The highest param it knows goes in the INPUT and everything before it is filled, so a live
- * drag re-writes one field while the line in front of it stays put. By name rather than by
- * position because a gesture knows what it is holding, not where the command happens to ask
- * for it — a clip drag knows a track and two timecodes whatever their order.
+ * By name rather than by position because a gesture knows what it is holding, not where the
+ * command happens to ask for it — a clip drag knows a track and two timecodes whatever order
+ * `event move` lists them in.
  *
- * A param the offer skips keeps whatever is already in that field; it is not blanked, or a
- * gesture that knows less than the last one would quietly erase an answer.
+ * It fills FORWARD ONLY, from the field currently open. An answer you have already given is
+ * never rewritten: type `event move ge.rythm` and the drag fills the timecodes after it,
+ * leaving your track alone. Without that rule the gesture would silently replace a param you
+ * chose with the one it happened to touch, which is the opposite of answering a question.
  *
- * Returns null when the offer names nothing this command asks for — a gesture and a command
- * that have nothing to say to each other, which is the common case and not an error.
+ * The highest param it knows goes in the INPUT and the ones between are filled, so a live drag
+ * rewrites one field while the line in front of it stays still.
+ *
+ * Returns null when the offer names nothing still being asked — a gesture and a command with
+ * nothing to say to each other, which is the common case and not an error.
  */
 export function applyOffer(
   args: readonly PaletteArg[],
   values: Readonly<Record<string, string>>,
-  current: readonly string[],
+  filled: readonly string[],
 ): { args: string[]; value: string } | null {
+  const from = filled.length;
   let hi = -1;
-  for (let i = 0; i < args.length; i++)
+  for (let i = from; i < args.length; i++)
     if (values[args[i].name] !== undefined) hi = i;
   if (hi < 0) return null;
-  const filled: string[] = [];
-  for (let i = 0; i < hi; i++)
-    filled.push(values[args[i].name] ?? current[i] ?? "");
-  return { args: filled, value: values[args[hi].name] ?? "" };
+  const out = [...filled];
+  for (let i = from; i < hi; i++) out.push(values[args[i].name] ?? "");
+  return { args: out, value: values[args[hi].name] ?? "" };
+}
+
+/**
+ * Whether the field currently open is asking for `kind`.
+ *
+ * The inlet for a gesture that knows a VALUE and not a command: a click on the ruler produces a
+ * timecode and has no idea which param wants one. Matching on the class the field already
+ * declares is the whole check — the bar is asking for a timecode, here is a timecode.
+ */
+export function wantsKind(
+  args: readonly PaletteArg[],
+  filled: number,
+  kind: ArgClass,
+): boolean {
+  return args[filled]?.kind === kind;
 }

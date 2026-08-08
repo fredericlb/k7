@@ -203,6 +203,20 @@ frame and its release cannot disagree about which timecode is the `from`. Read
 [commandBar.md](commandBar.md) for the contract; what it buys is being able to *point* at the
 destination instead of typing a timecode.
 
+Because an offer fills forward, the same drag answers whatever is still open: from a bare
+`event move` it gives the track and both timecodes, and from `event move ge.rythm` it gives
+the two timecodes and leaves the track you typed alone.
+
+### The ruler answers a timecode field too
+
+When the bar's open field asks for a **timecode**, a click on the ruler fills it (`feedTimecode`,
+present only then) — snapped to the same drawn tick a seek would land on, so the value you get
+is the line you aimed at. The transport does **not** move: answering is not acting, the same
+rule the clip drag follows.
+
+Only a click. A drag on the ruler is still a selection or a zoom, because those gestures are
+how you get around and taking them away while a command is half-typed would strand you.
+
 Move mode is **modal**: every key is swallowed while it is live, and swallowed hard
 (`stopImmediatePropagation` on a capture-phase listener) so Enter and Escape do not also
 reach the shell's rewind/close bindings. Leaving the tab drops the pickup rather than

@@ -10,7 +10,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { applyOffer, requiredCount, runsAfter } from "../commandFill";
+import {
+  applyOffer,
+  requiredCount,
+  runsAfter,
+  wantsKind,
+} from "../commandFill";
 import type { ArgClass } from "../types";
 
 // A command the palette can build: its canonical name, a joined display label, each translation, and its params.
@@ -77,6 +82,12 @@ export interface CommandBarHandle {
    * land here.
    */
   offer: (values: Record<string, string>, live?: boolean) => void;
+  /**
+   * Fill the OPEN field from a gesture that knows a value and not a command — a click on the
+   * ruler is a timecode with no idea which param wanted one. Ignored unless that field is
+   * asking for this kind, so a stray click cannot land in a field that meant something else.
+   */
+  offerValue: (kind: ArgClass, value: string, live?: boolean) => void;
 }
 
 // Split an argument string into tokens, honouring "double quotes" so a value with spaces stays one token.
@@ -179,6 +190,13 @@ export const CommandBar = forwardRef<
         setValue(next.value);
         // A fed value is not a completion. Leaving the list up would let Enter take a
         // suggestion instead of the value the gesture just put under the cursor.
+        setSugs([]);
+        setSel(0);
+        if (!live) inputRef.current?.focus();
+      },
+      offerValue: (kind: ArgClass, v: string, live = false) => {
+        if (!command || !wantsKind(command.args, args.length, kind)) return;
+        setValue(v);
         setSugs([]);
         setSel(0);
         if (!live) inputRef.current?.focus();

@@ -59,6 +59,29 @@ The contract is two halves and deliberately small:
   gesture knows what it is holding, not where the command happens to ask for it. A clip drag
   knows a track and two timecodes whatever order `event move` lists them in.
 
+### It fills FORWARD, and never rewrites your answer
+
+An offer starts at the field currently open. Type `event move ge.rythm`, drag a clip, and the
+gesture answers the two timecodes *after* your track — it does not replace `ge.rythm` with
+whatever clip the pointer happened to touch. A gesture that overwrote a param you chose would
+be the opposite of answering a question.
+
+So the same drag reads differently depending on how far you have got, and that is the point:
+from a bare `event move` it answers three params at once, and from `event move ge.rythm` it
+answers the two that are left.
+
+### A value that knows its kind but not the command
+
+A click on the ruler produces a timecode and has no idea which param wanted one. That is the
+second inlet, `offerValue(kind, value)`: it fills the OPEN field **if that field declares this
+kind**, and is ignored otherwise, so a stray click cannot land in a field that meant something
+else. `wantsKind` is the whole check.
+
+It is deliberately narrower than `offer` — one value, one field, no knowledge of the command —
+which is what lets a general-purpose picker feed any command that asks for its kind. The ruler
+is wired for `timecode`; a track header feeding a `track` field is the same three lines and is
+not written yet.
+
 `live` says the pointer is still down: the value is shown, nothing is validated, and the drag
 re-offers on every frame. The closing offer takes the focus back — the click that began the
 gesture took it away, and Enter has to land in the bar.

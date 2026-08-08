@@ -153,6 +153,7 @@ export function TimelineTab({
   onMoveEvent,
   onResizeEvent,
   feedMove,
+  feedTimecode,
   onFocusRow,
   trackControls,
   onTrackToggle,
@@ -198,6 +199,9 @@ export function TimelineTab({
     toTrackId: string | undefined,
     live: boolean,
   ) => void;
+  // Present only while the bar's OPEN field is asking for a timecode: a click on the ruler
+  // answers it there and then, instead of seeking. Nothing else on the timeline changes.
+  feedTimecode?: (tc: string, live: boolean) => void;
   // A header was DOUBLE-clicked: point the shell's other panes at this row. Selecting it is
   // this component's own business (the caret); following it is not — see docs/timeline.md.
   onFocusRow?: (target: RowTarget) => void;
@@ -647,6 +651,8 @@ export function TimelineTab({
   // shadowing commitMoveRef does, and for the same reason.
   const feedMoveRef = useRef(feedMove);
   feedMoveRef.current = feedMove;
+  const feedTimecodeRef = useRef(feedTimecode);
+  feedTimecodeRef.current = feedTimecode;
 
   // The move as `event move`'s four values. ONE place, so the frames of a live drag and its
   // release cannot disagree about which timecode is the `from` and which the `to`.
@@ -1271,6 +1277,16 @@ export function TimelineTab({
                   // opening the view up is how you reach a finer one.
                   const raw = Math.max(0, beatLo + (startX - rect.left) / ppb);
                   const beat = nearestTick(bars, raw) ?? raw;
+                  // If the bar is asking for a timecode, the click ANSWERS it and the
+                  // transport stays put: answering is not acting, the same rule the clip
+                  // drag follows. Only a click — a drag on the ruler is still a selection.
+                  if (feedTimecodeRef.current) {
+                    feedTimecodeRef.current(
+                      beatsToPosition(beat, tsNum, tsDen),
+                      false,
+                    );
+                    return;
+                  }
                   onSeek?.((beat * 60) / proj.tempo);
                 };
                 window.addEventListener("mousemove", onMove);
