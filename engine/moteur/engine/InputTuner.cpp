@@ -87,12 +87,23 @@ void InputTuner::watch(const std::vector<int>& channels) {
     // channel that stayed keeps its history (a tuner that restarted its window on every poll would never settle).
     std::map<int, Ring> next;
     for (const int ch : channels) {
-        if (ch <= 0) continue;
+        // A channel asked for TWICE must be taken once. The second take found the key still in `rings_` with its
+        // Ring already moved from — an empty `data` — and handed that to the audio thread, which indexes it and
+        // takes a modulo by its size: an out-of-bounds write and a divide by zero, per block, on the audio thread.
+        // The callers do repeat themselves and are right to: the I/O panel asks about channel 1 alone and about
+        // the pair 1+2, and `channelPitches` takes the first channel of each set.
+        if (ch <= 0 || next.count(ch) != 0) continue;
         auto it = rings_.find(ch);
         next[ch] = it != rings_.end() ? std::move(it->second) : Ring{};
     }
     rings_ = std::move(next);
     watching_.store(!rings_.empty(), std::memory_order_relaxed);
+}
+
+float InputTuner::getAndClearPeak(int channel) {
+    const int index = channel - 1;   // 1-based on the wire, 0-based in the device
+    if (index < 0 || index >= kMaxChannels) return 0.0f;
+    return peak_[static_cast<size_t>(index)].exchange(0.0f, std::memory_order_relaxed);
 }
 
 PitchEstimate InputTuner::pitchOf(int channel) {
@@ -136,6 +147,23 @@ void InputTuner::audioDeviceIOCallbackWithContext(const float* const* input, int
     for (int ch = 0; ch < numOutput; ++ch)
         if (output[ch] != nullptr) juce::FloatVectorOperations::clear(output[ch], numSamples);
 
+    // The meters, BEFORE the watching_ gate: reading a level is how you decide what to watch, so it cannot
+    // depend on something already being watched. One pass per channel, no lock, no allocation.
+    inputChannels_.store(numInput, std::memory_order_relaxed);
+    const int metered = std::min(numInput, kMaxChannels);
+    for (int ch = 0; ch < metered; ++ch) {
+        if (input[ch] == nullptr) continue;
+        juce::Range<float> r = juce::FloatVectorOperations::findMinAndMax(input[ch], numSamples);
+        const float mag = std::max(std::abs(r.getStart()), std::abs(r.getEnd()));
+        // Hold the highest until the reader clears it: a meter polled at 8 Hz would otherwise miss the
+        // transient that fell between two polls, which is the one you are listening for.
+        float prev = peak_[static_cast<size_t>(ch)].load(std::memory_order_relaxed);
+        while (mag > prev
+               && !peak_[static_cast<size_t>(ch)].compare_exchange_weak(prev, mag,
+                                                                        std::memory_order_relaxed)) {
+        }
+    }
+
     if (!watching_.load(std::memory_order_relaxed)) return;
 
     const int step = std::max(1, decimate_.load(std::memory_order_relaxed));
@@ -147,6 +175,7 @@ void InputTuner::audioDeviceIOCallbackWithContext(const float* const* input, int
     for (auto& [channel, ring] : rings_) {
         const int index = channel - 1;   // 1-based in the doc, 0-based in the device
         if (index < 0 || index >= numInput || input[index] == nullptr) continue;
+        if (ring.data.empty()) continue;   // never divide by its size below; watch() must not build one, but this is the audio thread
         const float* src = input[index];
         for (int i = 0; i < numSamples; ++i) {
             // Plain decimation, no anti-alias filter: an aliased partial lands somewhere random and does not

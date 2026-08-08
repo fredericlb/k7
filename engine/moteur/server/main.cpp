@@ -1032,9 +1032,9 @@ int main(int argc, char** argv) {
                 host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
             } else if (type == "io-levels") {
                 // Meter the interface itself: one peak per `channels` entry, plus the master output. Asked for
-                // rather than ridden on the state frame — the I/O panel is the only thing that wants it, it
-                // ENABLES the devices it measures (see channelLevelsDb), and it must not cost every client 20 Hz
-                // of devices nobody is looking at.
+                // rather than ridden on the state frame — the I/O panel is the only thing that wants it, and the
+                // pitch estimate below is real work per channel, so it must not cost every client 20 Hz of
+                // channels nobody is looking at. It no longer ENABLES anything: see channelLevelsDb.
                 std::vector<std::vector<int>> sets;
                 for (const auto& s : j.value("channels", json::array())) {
                     std::vector<int> ch;

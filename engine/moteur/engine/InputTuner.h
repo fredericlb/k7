@@ -9,6 +9,7 @@
 
 #include "EngineTypes.h"
 
+#include <array>
 #include <atomic>
 #include <map>
 #include <mutex>
@@ -53,6 +54,21 @@ public:
     // Is anything being watched? The engine skips the whole path when not, so an unopened panel costs nothing.
     bool active() const { return watching_.load(std::memory_order_relaxed); }
 
+    /**
+     * Peak level on a 1-based interface channel since the last read, as a linear magnitude. Reading CLEARS it.
+     *
+     * Here rather than on Tracktion's LevelMeasurer for the same reason the pitch rings are: measuring an input
+     * must not require ROUTING it. Going through a WaveInputDevice means enabling it and giving it an instance on
+     * a playback context, and each of those rebuilds the whole wave-device list and reallocates every Edit's
+     * graph — which, asked for twenty inputs by a menu polling at 8 Hz, wedged the engine outright. This costs a
+     * max over the block and knows nothing about any Edit. See docs/inputTuner.md.
+     */
+    float getAndClearPeak(int channel);
+
+    // How many input channels the open device actually delivers — what the audio callback last saw, so a channel
+    // beyond it reads as "not measured" rather than as silence. 0 before the first block.
+    int inputChannels() const { return inputChannels_.load(std::memory_order_relaxed); }
+
     void audioDeviceIOCallbackWithContext(const float* const* input, int numInput,
                                           float* const* output, int numOutput,
                                           int numSamples,
@@ -80,6 +96,14 @@ private:
     // How close two consecutive estimates must be to count as agreeing — 3%, about half a semitone. Wide enough
     // that bending or a peg turning still reads, narrow enough that two unrelated flukes never match.
     static constexpr float kAgreeRatio = 0.03f;
+
+    // Peak per 0-based device channel since the reader last cleared it. Plain atomics and no mutex: the meters
+    // want one number per channel and no history, so unlike the pitch rings there is nothing to guard — and
+    // unlike them this runs whether or not anything is being WATCHED, since a meter is what you read to find
+    // out which input to watch. A fixed array so the audio thread never allocates.
+    static constexpr int kMaxChannels = 64;
+    std::array<std::atomic<float>, kMaxChannels> peak_{};
+    std::atomic<int> inputChannels_{0};
 
     std::mutex mx_;                       // guards rings_ against the audio thread
     std::map<int, Ring> rings_;           // 1-based channel -> its decimated history
