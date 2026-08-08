@@ -121,16 +121,44 @@ struct Session {
     double lastTouchedMs = 0.0;
 
     /**
+     * How many sockets have declared themselves DRIVERS of this session, and when the last of
+     * them went.
+     *
+     * A driver is a surface a person is looking at (`{"role":"driver"}` on hello). The file
+     * service is deliberately not one: it holds a socket per session for as long as the machine
+     * is up, so counting it would mean no session ever looks abandoned. See docs/sessions.md.
+     *
+     * `noDriverSinceMs` is 0 while somebody is driving. It exists so the drop can be DELAYED:
+     * refcounting alone would take a loaded project away on every tab reload, which is exactly
+     * the objection this file used to record as the reason for having no refcount at all.
+     */
+    int drivers = 0;
+    double noDriverSinceMs = 0.0;
+
+    /**
      * Whether this session can be forgotten: it HOLDS nothing and has been quiet a while.
      *
      * Deliberately not "has no listener" — a browser tab reloads in under a second, and a
      * refcount would take its loaded project with it. Holding nothing makes the drop invisible
-     * instead: the next message naming it recreates exactly this, so no work can be lost, and a
-     * session with an Edit is never auto-dropped however long its owner is at lunch.
+     * instead: the next message naming it recreates exactly this, so no work can be lost.
      */
     bool reapable(double nowMs, double ttlMs) const {
         return !edit && !broadcastWanted && !recordEnabled && watchedParams.empty() &&
                pendingTakes.empty() && (nowMs - lastTouchedMs) > ttlMs;
+    }
+
+    /**
+     * Whether the project this session holds should be let go: it HAD a driver, has none now,
+     * and the grace period has run out.
+     *
+     * The grace is the whole design. A reload, a dropped Wi-Fi, a laptop lid — all of them close
+     * the socket, and none of them means "I am done with this project". A session that never had
+     * a driver (`noDriverSinceMs == 0`) is never freed this way either: that is the file service
+     * on its own, which is how a project gets loaded in the first place.
+     */
+    bool abandoned(double nowMs, double graceMs) const {
+        return edit && drivers == 0 && noDriverSinceMs > 0.0 &&
+               (nowMs - noDriverSinceMs) > graceMs;
     }
 
     void detachLevelMeters() {

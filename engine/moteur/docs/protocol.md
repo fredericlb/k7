@@ -60,6 +60,7 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue |
 | `{ type: "whoami" }` | identity probe, answered to the asking socket alone |
+| `{ type: "hello", role: "driver" }` | the same probe, **and** "a person is looking at this session" — the engine frees a project 45 s after its last driver goes. Omit `role` and nothing is counted, which is how the file service and every prober stay out of it. See [sessions.md](sessions.md). |
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
 | `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |

@@ -90,6 +90,27 @@ public:
     // TTL on emptiness rather than a refcount of listeners.
     size_t reapEmptySessions(double ttlMs);
 
+    /**
+     * A socket driving this session arrived, or went. Message-thread only.
+     *
+     * "Driving" means a surface somebody is looking at, which declares itself on hello. The file
+     * service is not one — it keeps a socket per session for as long as the machine is up, so
+     * counting it would mean no project ever looks abandoned.
+     */
+    void addDriver(const std::string& session);
+    void removeDriver(const std::string& session);
+
+    /**
+     * Let go of every project whose last driver left more than `graceMs` ago: stop the transport
+     * and free the Edit, its plugins and its meters. The SESSION stays, so a tab coming back
+     * re-sends its document into the same slot. Returns how many were freed.
+     *
+     * The grace is what makes this safe to do at all. A closing tab, a reload, a dropped
+     * connection and a laptop lid are the same event from here, and only one of them means "I am
+     * done" — so waiting is the only way to tell them apart. See docs/sessions.md.
+     */
+    size_t releaseAbandonedProjects(double graceMs);
+
     // This session's record enable: play() records its armed tracks only while this is on. Message-thread only.
     void setRecordEnabled(const std::string& session, bool on);
     bool recordEnabled(const std::string& session) const;

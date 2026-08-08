@@ -280,6 +280,12 @@ export class EngineClient {
       this.lastInbound = Date.now();
       this.pingSentAt = 0;
       this.startKeepalive();
+      // Say we DRIVE this session, before anything else. The engine counts drivers per session
+      // and frees a project whose last one left — so a reconnect that did not re-declare would
+      // have the engine let go of the very document the lines below are about to replay. It is a
+      // field on hello rather than a verb of its own precisely so it cannot be forgotten: every
+      // connection sends one, including this one. See engine/moteur/docs/sessions.md.
+      this.sendNow({ type: "hello", role: "driver" });
       // The project FIRST: the subscriptions and the queue below are about a document, and a
       // restarted engine has none until this lands. Ordering is the whole of the fix.
       if (this.lastProject)

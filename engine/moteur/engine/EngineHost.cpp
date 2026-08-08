@@ -666,6 +666,44 @@ size_t EngineHost::reapEmptySessions(double ttlMs) {
     return gone;
 }
 
+// Creating, like the other verbs a client uses to declare it drives this project: a socket saying
+// "I am driving X" is the moment X starts existing as far as this engine is concerned.
+void EngineHost::addDriver(const std::string& session) {
+    auto& s = impl_->session(session);
+    ++s.drivers;
+    s.noDriverSinceMs = 0.0;   // somebody is here; the clock stops
+    s.lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
+}
+
+// NOT creating: a socket closing must not conjure the session it was on. find() and nothing else.
+void EngineHost::removeDriver(const std::string& session) {
+    auto* s = impl_->find(session);
+    if (s == nullptr || s->drivers <= 0) return;
+    if (--s->drivers == 0) {
+        s->noDriverSinceMs = juce::Time::getMillisecondCounterHiRes();
+        std::cerr << "[sessions] '" << session << "' has no driver — freeing its project in "
+                  << "a moment unless one comes back\n";
+    }
+}
+
+size_t EngineHost::releaseAbandonedProjects(double graceMs) {
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    size_t freed = 0;
+    for (const auto& id : impl_->ids()) {
+        auto* s = impl_->find(id);
+        if (s == nullptr || !s->abandoned(now, graceMs)) continue;
+        // reset() and not drop(): the SESSION survives. A tab that comes back re-sends its
+        // document into the same slot, and anything still keyed on the id — a watch, a
+        // subscription — keeps meaning what it meant.
+        reset(id);
+        s->noDriverSinceMs = 0.0;   // freed once; do not report it again every sweep
+        ++freed;
+        std::cerr << "[sessions] '" << id << "' let go: its last driver left "
+                  << (int)(graceMs / 1000.0) << "s ago\n";
+    }
+    return freed;
+}
+
 // --- Server support ----------------------------------------------------------
 
 namespace {
@@ -680,19 +718,39 @@ public:
         // session's state only to the connections driving it — a listener that got
         // everybody's meters would draw somebody else's song.
         for (const auto& sid : host_.sessionIds()) emit(sid);
-        // Ride this timer rather than add one: the sweep is cheap and the cadence does not matter.
-        if (++ticks_ >= kTicksPerReap) {
+        // Ride this timer rather than add one: both sweeps are cheap.
+        if (++ticks_ >= kTicksPerRelease) {
             ticks_ = 0;
-            host_.reapEmptySessions(kSessionTtlMs);
+            // Abandoned projects first, and on their OWN cadence: a grace of 45 s swept once a
+            // minute would take up to a minute and three quarters, and the whole point is that
+            // closing a tab frees the machine promptly.
+            host_.releaseAbandonedProjects(kDriverGraceMs);
+            if (++releases_ >= kReleasesPerReap) {
+                releases_ = 0;
+                host_.reapEmptySessions(kSessionTtlMs);
+            }
         }
     }
 
 private:
-    // Ten minutes untouched, swept once a minute at the 50 ms tick. Both generous: dropping an
-    // empty session is invisible, so the only cost of waiting is a map entry.
+    // Ten minutes untouched, and dropping an EMPTY session is invisible, so the only cost of
+    // waiting is a map entry.
     static constexpr double kSessionTtlMs = 10 * 60 * 1000.0;
-    static constexpr int kTicksPerReap = 1200;
+    /**
+     * How long a session keeps its project after its last driver went.
+     *
+     * Long enough to survive a reload, a redraw and a flaky minute of Wi-Fi; short enough that
+     * closing a tab and walking to the machine finds it free. Those are the two failures being
+     * traded, and neither is a corner case: a refcount with no grace at all was rejected in
+     * docs/sessions.md precisely because it took a loaded project away on every tab reload.
+     */
+    static constexpr double kDriverGraceMs = 45 * 1000.0;
+    // Every five seconds at the 50 ms tick — a hundredth of the grace, so what a person sees is
+    // the grace and not the sweep.
+    static constexpr int kTicksPerRelease = 100;
+    static constexpr int kReleasesPerReap = 12;   // …and the empty-session sweep once a minute
     int ticks_ = 0;
+    int releases_ = 0;
 
     void emit(const std::string& session) {
         EngineHost::EngineState s;
