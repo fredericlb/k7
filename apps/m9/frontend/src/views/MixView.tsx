@@ -19,7 +19,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { beatPhase } from "../beats";
-import { type DeckId, type DeckLoads, type DeckTempo, MIX_CENTRE } from "../deck";
+import {
+  type DeckId,
+  type DeckLoads,
+  type DeckTempo,
+  MIX_CENTRE,
+  sourceAt,
+} from "../deck";
 import { MIX_VIEW_FILE, SONGS_FILE } from "../mixView";
 import {
   cacheRelPath,
@@ -490,6 +496,17 @@ function DeckSide({
     />
   );
 
+  /**
+   * Where the transport is, RIGHT NOW — extrapolated between the engine's pushes.
+   *
+   * It arrives ~20×/s, so the last number received can be 50 ms stale: on a downbeat that is
+   * audible when a cue is dropped, and visible as a stutter when the record's progress is
+   * drawn at 60 fps from it.
+   */
+  const transportNow = () =>
+    playhead.current.seconds +
+    (playing ? (performance.now() - playhead.current.at) / 1000 : 0);
+
   const strip = (
     <ChannelStrip
       eq={eq}
@@ -514,6 +531,11 @@ function DeckSide({
           title={load?.title ?? null}
           spinning={spinning && !!load}
           onPick={onPick}
+          // The FILE's clock for both, so a stretched deck is not drawn further through its
+          // record than an unstretched one at the same bar — see `sourceAt`.
+          at={() => sourceAt(transportNow(), tempo)}
+          length={tempo?.seconds ?? 0}
+          markers={cues}
         />
         {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
             under an empty deck is furniture. */}
@@ -533,14 +555,8 @@ function DeckSide({
             markers={cues}
             onJump={onCueJump}
             onSet={onCueSet}
-            // Read on the way DOWN, and extrapolated: the engine pushes ~20×/s, so the last
-            // number it sent can be 50 ms stale — which on a downbeat is audible.
-            now={() =>
-              playhead.current.seconds +
-              (playing
-                ? (performance.now() - playhead.current.at) / 1000
-                : 0)
-            }
+            // Read on the way DOWN — see `transportNow`.
+            now={transportNow}
           />
         ) : null}
         <div className="w-full truncate text-center text-xs text-muted-foreground">

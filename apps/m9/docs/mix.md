@@ -4,9 +4,10 @@
 ┌───┬──────────────┬───┬───┬──────────────┬───┐
 │ ┃ │              │ ◍ │ ◍ │              │ ┃ │
 │ ┃ │  PLATINE A   │ ◍ │ ◍ │  PLATINE B   │ ┃ │
-│ ┃ │  (vinyle)    │ ◍ │ ◍ │  (vinyle)    │ ┃ │
+│ ┃ │ (rempli à   │ ◍ │ ◍ │ (rempli à    │ ┃ │
+│ ┃ │  40%, ● ● )  │ ◍ │ ◍ │  40%, ● ● )  │ ┃ │
 │ ┃ │  ▁▃▇▅▂▃▇▅    │ ─ │ ─ │  ▁▃▇▅▂▃▇▅    │ ┃ │
-│ ┃ │              │ ⬤ │ ⬤ │              │ ┃ │
+│ ┃ │ ①②③④⑤⑥⑦⑧   │ ⬤ │ ⬤ │ ①②③④⑤⑥⑦⑧    │ ┃ │
 ├───┴──────────────┴───┴───┴──────────────┴───┤
 │ SYNC A  Écouter  A ═══╪═══ B  50%  ▶  ⟳  SYNC B │  10 %
 └─────────────────────────────────────────────┘
@@ -44,6 +45,10 @@ quelque chose ne va pas — les cartes d'erreur, désormais en bandeau au-dessus
 Un disque en SVG : un dégradé radial (un vrai disque se lit parce que la lumière s'y
 déplace), des sillons, et une étiquette au centre qui porte **l'artiste et le titre** de ce
 qui est chargé. Vide, l'étiquette dit « platine A » ou « platine B ».
+
+Le disque **se remplit** au fil du morceau — vide à 0 %, plein à 100 % — et porte les repères
+en cercles, chacun dans la couleur de son bouton. Les deux vivent sur une couche qui ne tourne
+PAS, et sont redessinés par frame plutôt que par React : [vinyl.md](vinyl.md).
 
 Le disque tourne quand le transport tourne **et** que cette platine tient quelque chose.
 Deux détails qui ne sont pas décoratifs :
