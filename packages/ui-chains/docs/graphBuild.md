@@ -181,10 +181,21 @@ chains, sinks one past the deepest module, and chain pass-through nodes at 1. Ta
 *maximum* position matters for a shared module — at index 0 in chain A and 2 in chain B it
 ranks after both, so chain A's full pipeline is still respected.
 
-Layout is left→right layered, and **dagre's routed edge points are kept**, so a send that
-skips a column bends around the module in between instead of slicing through it. dagre
+Layout is **top→bottom** layered, and **dagre's routed edge points are kept**, so a send that
+skips a stage bends around the module in between instead of slicing through it. dagre
 returns node centres; we store top-left (what a renderer wants) while the edge points stay
 in the same absolute graph space.
+
+The direction is a `rankdir`, and three things follow it: `nodesep` and `ranksep` swap axes
+(siblings are now side by side, stages one under the next, so the numbers swapped with them),
+`jackPoint` puts inputs on a card's TOP edge and outputs on its bottom, spread across the
+width, and `cablePath`'s straight leads run on Y. Those three have to agree with the plate
+positions the renderer sets inline — the socket and the cable's end are one place drawn
+twice, and a disagreement reads as a cable that misses its plug.
+
+The one surface that stays horizontal is `moduleRow`, the Mixer's rank of strips: it lays its
+own nodes out and never calls `layout`, because a row of mixer strips is a row and not a
+signal path.
 
 ### The -Infinity extent
 

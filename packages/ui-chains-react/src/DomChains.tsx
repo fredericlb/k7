@@ -333,11 +333,11 @@ const CSS = `
    competes with the widget grid, and its flat side is the one against the card.
    (No backticks anywhere in this block: it is inside a template literal, and one would end it.) */
 .dgx-port { position:absolute; display:grid; place-items:center;
-  width:${PORT_PLATE}px; height:17px; box-sizing:border-box;
+  width:17px; height:${PORT_PLATE}px; box-sizing:border-box;
   background:linear-gradient(#2a2930,#141419); border:1px solid var(--line);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.05); transform:translateY(-50%); }
-.dgx-port.in  { left:-${PORT_PLATE}px;  border-right-width:0; border-radius:4px 0 0 4px; }
-.dgx-port.out { right:-${PORT_PLATE}px; border-left-width:0;  border-radius:0 4px 4px 0; }
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05); transform:translateX(-50%); }
+.dgx-port.in  { top:-${PORT_PLATE}px;    border-bottom-width:0; border-radius:4px 4px 0 0; }
+.dgx-port.out { bottom:-${PORT_PLATE}px; border-top-width:0;    border-radius:0 0 4px 4px; }
 /* …and the barrel, seen end on: a dark bore with a bright ring, coloured by what the port
    carries so a socket matches the cable that belongs in it. */
 .dgx-port i { width:9px; height:9px; border-radius:50%;
@@ -1580,7 +1580,11 @@ function Node({
               style={{
                 // Coloured by what the port carries, so a socket matches the cable for it.
                 ["--jc" as string]: cableColorFor(p.type),
-                top: `${((i + 1) / (all.length + 1)) * 100}%`,
+                // Spread across the WIDTH: the sockets are on the top and bottom edges now
+                // that signal runs down. Must agree with `jackPoint`, which is where the
+                // cable's end is computed — the plate and the cable end are one place drawn
+                // twice, and a disagreement reads as a cable that misses its socket.
+                left: `${((i + 1) / (all.length + 1)) * 100}%`,
               }}
             >
               <i />
@@ -1759,8 +1763,8 @@ function Cables({
                 into — the node paints over this layer, so the last few pixels are hidden by the
                 plate and the cable reads as seated. An arrow was the right mark while the cable
                 pointed at a card and had nowhere in particular to land. Direction is not lost
-                with it: the graph is laid out left to right, and every socket is on the side its
-                signal uses. */}
+                with it: the graph is laid out top to bottom, inputs on a card's top edge and
+                outputs on its bottom, so which way a cable runs is read off where it lands. */}
             {mid && (
               <text
                 className="dgx-clab"

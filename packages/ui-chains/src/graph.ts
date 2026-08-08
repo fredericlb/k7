@@ -242,9 +242,11 @@ export interface GraphEdge {
 export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
   const count = Math.max(1, (n.jacks?.[side] ?? []).length);
   const i = Math.min(Math.max(0, index), count - 1);
+  // Signal runs down, so inputs sit on the TOP edge and outputs on the bottom, spread across
+  // the card's width. It was the left and right edges while the layout ran left to right.
   return {
-    x: side === "in" ? n.x - PORT_PLATE / 2 : n.x + n.w + PORT_PLATE / 2,
-    y: n.y + (n.h * (i + 1)) / (count + 1),
+    x: n.x + (n.w * (i + 1)) / (count + 1),
+    y: side === "in" ? n.y - PORT_PLATE / 2 : n.y + n.h + PORT_PLATE / 2,
   };
 }
 
@@ -280,11 +282,14 @@ export function cablePath(
   const to = tgt
     ? jackPoint(tgt, "in", toIndex < 0 ? 0 : toIndex)
     : pts[pts.length - 1];
+  // The short straight lead leaves each plate square, so a cable looks plugged in rather than
+  // curving off the socket. Down out of the source, down into the target — on Y, since the
+  // sockets moved to the top and bottom edges.
   return [
     from,
-    { x: from.x + PORT_LEAD, y: from.y },
+    { x: from.x, y: from.y + PORT_LEAD },
     ...mid,
-    { x: to.x - PORT_LEAD, y: to.y },
+    { x: to.x, y: to.y - PORT_LEAD },
     to,
   ];
 }
@@ -919,11 +924,15 @@ export function moduleRow(
 export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
   const g = new dagre.graphlib.Graph({ multigraph: true });
   g.setGraph({
-    rankdir: "LR",
+    // Signal runs DOWN the page. `nodesep` and `ranksep` swap axes with it: `nodesep` is now
+    // the gap between siblings side by side, `ranksep` the gap between one stage and the next.
+    // The numbers swap with them — a card is 160 wide and 70 tall, so side-by-side wants the
+    // larger figure and stage-to-stage the smaller, or the graph reads as a sparse column.
+    rankdir: "TB",
     ranker: "longest-path",
     align: "UL",
-    nodesep: 40,
-    ranksep: 100,
+    nodesep: 60,
+    ranksep: 70,
     edgesep: 24,
     marginx: 16,
     marginy: 16,

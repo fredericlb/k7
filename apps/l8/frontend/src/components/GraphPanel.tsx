@@ -1,7 +1,7 @@
 // GraphPanel.tsx — the "Graph" bottom panel: the selected track's signal path, answering
 // "where does THIS track go?" without leaving the timeline. Same pipeline as the Chains
 // tab (subgraph -> buildGraph -> dagre -> DomChains), only the input set differs; dagre
-// already lays out LR, so don't hand-roll a strip — it would lose the routed sends.
+// already lays the path out, so don't hand-roll a strip — it would lose the routed sends.
 // The track comes from the caret, so the panel has no selection state of its own.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";

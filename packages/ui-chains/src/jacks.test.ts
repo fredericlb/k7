@@ -221,18 +221,19 @@ describe("where a cable plugs in", () => {
 
   it("puts a socket where the renderer draws it", () => {
     // The plate steps off the card and the barrel is centred in it, so the point is half a plate outside the
-    // edge; the sockets are spread evenly down it, matching the `top` percentages the node sets inline.
+    // edge — the TOP edge for an input, the bottom for an output, now that signal runs down. The sockets are
+    // spread evenly ACROSS the width, matching the `left` percentages the node sets inline.
     expect(jackPoint(twoIn, "in", 0)).toEqual({
-      x: 100 - PORT_PLATE / 2,
-      y: 200 + 70 / 3,
+      x: 100 + 160 / 3,
+      y: 200 - PORT_PLATE / 2,
     });
     expect(jackPoint(twoIn, "in", 1)).toEqual({
-      x: 100 - PORT_PLATE / 2,
-      y: 200 + (70 * 2) / 3,
+      x: 100 + (160 * 2) / 3,
+      y: 200 - PORT_PLATE / 2,
     });
     expect(jackPoint(twoIn, "out", 0)).toEqual({
-      x: 100 + 160 + PORT_PLATE / 2,
-      y: 200 + 35,
+      x: 100 + 80,
+      y: 200 + 70 + PORT_PLATE / 2,
     });
   });
 
@@ -281,11 +282,12 @@ describe("where a cable plugs in", () => {
       src,
       twoIn,
     );
-    // A lead at each end, level with its socket: the bend starts after the plug, not on it.
-    expect(path[1].y).toBe(path[0].y);
-    expect(path[1].x).toBeGreaterThan(path[0].x);
-    expect(path[path.length - 2].y).toBe(path[path.length - 1].y);
-    expect(path[path.length - 2].x).toBeLessThan(path[path.length - 1].x);
+    // A lead at each end, in line with its socket: the bend starts after the plug, not on it.
+    // Vertical now — out of the bottom of the source, into the top of the target.
+    expect(path[1].x).toBe(path[0].x);
+    expect(path[1].y).toBeGreaterThan(path[0].y);
+    expect(path[path.length - 2].x).toBe(path[path.length - 1].x);
+    expect(path[path.length - 2].y).toBeLessThan(path[path.length - 1].y);
   });
 
   it("keeps dagre's waypoints in between", () => {
