@@ -30,11 +30,22 @@ export { PREVIEW_CHAIN, previewPluginId, readPluginBlock };
  * `recordDir` stays empty, which the engine reads as "refuse to arm" — right here, because
  * a preview plays and never records, and a made-up directory would be a lie the engine
  * would eventually try to write into. See emptyDoc.
+ *
+ * `inputChannels` is what makes the preview AUDIBLE from an instrument rather than only
+ * visible: the engine wires that physical input to this track and monitors it, so the signal
+ * arrives ahead of the module and comes out treated (EngineHost::applyTrackInput). Empty is
+ * the ordinary case and costs nothing — the engine reads `monitor` only when there are
+ * channels.
+ *
+ * `monitor: "on"` and not `"auto"`: auto monitors only while the track is ARMED, and nothing
+ * here arms anything — `recordDir` is empty precisely so it cannot. On is "let it through
+ * whatever the transport is doing", which is what auditioning a module means.
  */
 export function modulePreviewDoc(
   module: string,
   plugin: { type?: unknown; name?: unknown } | undefined,
   params: Record<string, number> = {},
+  inputChannels: number[] = [],
 ): ProjectDoc {
   const { type, name } = enginePlugin(plugin, module);
   return emptyDoc({
@@ -42,6 +53,8 @@ export function modulePreviewDoc(
     tracks: [
       trackDoc(PREVIEW_CHAIN, {
         name: module,
+        inputChannels,
+        monitor: "on",
         plugins: [
           pluginDoc({
             id: previewPluginId(module),

@@ -57,11 +57,18 @@ export interface ModuleEngine {
   paramMeta: Record<string, ParamMeta>;
   /** Factory presets the loaded plugin offers. Empty for a built-in, which has none. */
   presets: PresetInfo[];
-  /** Load a module so the engine can answer for it. Safe to call on every edit. */
+  /**
+   * Load a module so the engine can answer for it. Safe to call on every edit.
+   *
+   * `inputChannels` feeds the preview from the machine's interface — 1-based, one for mono
+   * and two for a pair — so a module can be heard treating something you play rather than
+   * only inspected. Empty is the ordinary case. See engine/inputChannels.ts.
+   */
   preview: (
     module: string,
     plugin: { type?: unknown; name?: unknown } | undefined,
     params?: Record<string, number>,
+    inputChannels?: number[],
   ) => void;
   listPresets: (module: string) => void;
   setPreset: (module: string, sel: { index?: number; path?: string }) => void;
@@ -203,8 +210,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   }, [attempt, engineId]);
 
   const preview = useCallback<ModuleEngine["preview"]>(
-    (module, plugin, params) => {
-      loaded.current = [module, plugin, params];
+    (module, plugin, params, inputChannels) => {
+      loaded.current = [module, plugin, params, inputChannels];
       const client = engine.current;
       if (client) sendPreview(client, module, plugin, params);
     },
@@ -284,7 +291,8 @@ function sendPreview(
   module: string,
   plugin: { type?: unknown; name?: unknown } | undefined,
   params?: Record<string, number>,
+  inputChannels?: number[],
 ): void {
-  client.sendProject(modulePreviewDoc(module, plugin, params));
+  client.sendProject(modulePreviewDoc(module, plugin, params, inputChannels));
   client.getPluginParams(previewPluginId(module));
 }

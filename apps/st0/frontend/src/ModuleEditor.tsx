@@ -7,8 +7,18 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Plug, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { library, moduleStore } from "./api";
-import { baseModuleRefs, useEnginePlugins } from "./engine/baseModules";
+import { engineMachine, library, moduleStore } from "./api";
+import {
+  baseModuleRefs,
+  useEngineInputDevices,
+  useEnginePlugins,
+} from "./engine/baseModules";
+import { InputPicker } from "./engine/InputPicker";
+import {
+  type ChannelLabel,
+  inputChoices,
+  inputLabel,
+} from "./engine/inputChannels";
 import { readExtends, resolvePluginBlock } from "./engine/resolvePlugin";
 import { ModulePreview } from "./ModulePreview";
 import { useEngine } from "./playback/PlaybackProvider";
@@ -20,11 +30,14 @@ const VIM_KEY = "st0.vim";
 export function ModuleEditor({
   entry,
   pane,
+  engineToken,
   onBack,
 }: {
   entry: MediatekEntry;
   // Which of the module's three files the click pointed at — the builder's code pane opens on it.
   pane?: BuilderPane;
+  /** The chosen machine's token — its file service, and behind it the channel labels. */
+  engineToken?: string | null;
   onBack: () => void;
 }) {
   // The app's engine, which follows the header's picker on its own — this used to take the
@@ -34,6 +47,7 @@ export function ModuleEditor({
     phase,
     client,
     connected,
+    fileBase,
     paramNames,
     paramMeta,
     presets,
@@ -50,22 +64,41 @@ export function ModuleEditor({
   const [vimMode, setVimMode] = useState(
     () => localStorage.getItem(VIM_KEY) === "1",
   );
+
+  /**
+   * What feeds the preview — the interface channels the engine monitors into this module.
+   *
+   * Empty by default, and deliberately not remembered on the account: an input is a fact
+   * about the rig you are sitting at RIGHT NOW, and a module reopened next week on another
+   * machine would otherwise start monitoring a channel that means something else there.
+   */
+  const [inputChannels, setInputChannels] = useState<number[]>([]);
+  const [picking, setPicking] = useState<{ x: number; y: number } | null>(null);
+  const inputDevices = useEngineInputDevices(client, connected);
+  // The machine's channel LABELS. Its own fetch and not part of the engine socket: they live
+  // in `~/.studio/preferences.yaml` beside the engine, which the file service serves.
+  const [labels, setLabels] = useState<ChannelLabel[]>([]);
+  useEffect(() => {
+    if (!fileBase || !engineToken) return setLabels([]);
+    let alive = true;
+    void engineMachine
+      .preferences(fileBase, engineToken)
+      .then((p) => alive && setLabels(p.channels.in))
+      // A machine that will not answer has no labels to give; the channel NUMBERS below are
+      // what the picker really needs, and those come from the engine.
+      .catch(() => alive && setLabels([]));
+    return () => {
+      alive = false;
+    };
+  }, [fileBase, engineToken]);
+  const choices = useMemo(
+    () => inputChoices(labels, inputDevices),
+    [labels, inputDevices],
+  );
   // Bumped on save, so the engine reloads the module and re-reports its parameters.
   const [reload, setReload] = useState(0);
   const path = `${entry.path}/module.yaml`;
 
-  /**
-   * Put the module into the engine as soon as there is one. The page reads the same file for
-   * its text; this second read only wants the plugin, and is cheap.
-   *
-   * Through `extends`, and that is the whole of it: a FACE declares nothing but that ref (see
-   * @studio/song's engineFace.ts), so reading the text alone found no `plugin:` block, asked
-   * the engine to load nothing, and every one of those modules showed an empty parameter list.
-   *
-   * `scanned` is a dependency and NOT a precondition. Gating on it would have a machine that
-   * has never scanned show nothing for a `jsdsp` module either — one that names its plugin
-   * outright and needs no catalogue at all. Arriving late simply re-runs this.
-   */
   /**
    * What the resolution found, so the footer can SAY when it found nothing.
    *
@@ -78,6 +111,21 @@ export function ModuleEditor({
     found: boolean;
   } | null>(null);
 
+  /**
+   * Put the module into the engine as soon as there is one. The page reads the same file for
+   * its text; this second read only wants the plugin, and is cheap.
+   *
+   * Through `extends`, and that is the whole of it: a FACE declares nothing but that ref (see
+   * @studio/song's engineFace.ts), so reading the text alone found no `plugin:` block, asked
+   * the engine to load nothing, and every one of those modules showed an empty parameter list.
+   *
+   * `scanned` is a dependency and NOT a precondition. Gating on it would have a machine that
+   * has never scanned show nothing for a `jsdsp` module either — one that names its plugin
+   * outright and needs no catalogue at all. Arriving late simply re-runs this.
+   *
+   * `inputChannels` is one too, so picking an input re-sends the document: what feeds the
+   * module is part of what the engine is being asked to build.
+   */
   useEffect(() => {
     if (phase.k !== "ready") return;
     let alive = true;
@@ -89,7 +137,7 @@ export function ModuleEditor({
         );
         if (!alive) return;
         setPlugged({ ref: readExtends(f.content), found: !!plugin });
-        preview(entry.name, plugin);
+        preview(entry.name, plugin, undefined, inputChannels);
         listPresets(entry.name);
       })
       .catch(() => {
@@ -98,7 +146,16 @@ export function ModuleEditor({
     return () => {
       alive = false;
     };
-  }, [path, entry.name, phase.k, scanned, preview, listPresets, reload]);
+  }, [
+    path,
+    entry.name,
+    phase.k,
+    scanned,
+    inputChannels,
+    preview,
+    listPresets,
+    reload,
+  ]);
 
   const onSaved = useCallback(() => setReload((n) => n + 1), []);
 
@@ -130,6 +187,11 @@ export function ModuleEditor({
               path={entry.path}
               ui={ui}
               params={params}
+              // The `in` node becomes a real source: pick a channel and what you play arrives
+              // ahead of the module, monitored, so the panel moves and the treatment is
+              // audible. See ../docs/modulePreview.md.
+              sourceInput={inputLabel(inputChannels, choices)}
+              onPickSourceInput={(x, y) => setPicking({ x, y })}
             />
           )}
         />
@@ -169,6 +231,19 @@ export function ModuleEditor({
         </button>
         <span className="min-w-0 flex-1 truncate text-right">{status}</span>
       </footer>
+
+      {/* Rendered HERE and not inside the preview box: that box is 30% of a column and
+          clips, and a menu opened near its bottom edge would be half a menu. Fixed
+          positioning against the viewport, at the coordinates the node's chip reported. */}
+      {picking && (
+        <InputPicker
+          at={picking}
+          choices={choices}
+          current={inputChannels}
+          onPick={setInputChannels}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </div>
   );
 }
