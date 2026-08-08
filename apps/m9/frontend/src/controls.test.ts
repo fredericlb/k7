@@ -15,14 +15,26 @@ describe("the desk's controls", () => {
       "deckA.eqLow",
       "deckA.eqMid",
       "deckA.eqHigh",
+      "deckA.filter",
       "deckB.tempo",
       "deckB.sync",
       "deckB.eqLow",
       "deckB.eqMid",
       "deckB.eqHigh",
+      "deckB.filter",
       "transport",
       "listen",
     ]);
+  });
+
+  it("gives the FILTER the module's own signed range too", () => {
+    // Its own scale, not the EQ's: ±100 against ±20 dB. Both centred, because both are knobs
+    // whose rest position is the middle of the travel — a filter at 0 is inaudible, not off.
+    for (const deck of DECKS) {
+      const c = mixControl(`${deck}.filter`);
+      expect(c?.range).toEqual([-100, 100]);
+      expect(normalise(c!, 0)).toBeCloseTo(0.5);
+    }
   });
 
   it("gives the EQ knobs the module's range, with flat in the MIDDLE", () => {

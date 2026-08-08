@@ -1,0 +1,13 @@
+# panel for audio/filter/sweep
+#
+# Un seul potard, et il n'y en aura pas d'autre : la plage et la résonance sont dans la DSP
+# parce que ce sont elles qui font que ce module EST un filtre de table plutôt qu'un filtre
+# générique. Un second bouton ferait un autre module, pas un autre réglage.
+#
+# Signé, donc le neutre tombe exactement au centre de la course — même règle que les gains de
+# l'EQ : un potard dont le repos n'est pas au milieu se lit de travers à chaque coup d'œil.
+cols: 1
+rows: 1
+widgets:
+  sweep:
+    { type: knob, col: 0, row: 0, label: Filtre, bind: Sweep, min: -100, max: 100, step: 1 }

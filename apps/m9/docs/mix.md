@@ -1,25 +1,42 @@
 ﻿# La vue Mix — le pupitre
 
 ```
-┌───┬──────────┬───────────────────────┬──────────┬───┐
-│ ┃ │          │                       │          │ ┃ │
-│ ┃ │ PLATINE A│  le set — songs.yaml  │PLATINE B │ ┃ │
-│ ┃ │ (vinyle) │  une ligne, A · B     │(vinyle)  │ ┃ │
-│ ┃ │ ▁▃▇▅▂▃▇▅ │                       │ ▁▃▇▅▂▃▇▅ │ ┃ │
-├───┴──────────┴───────────────────────┴──────────┴───┤
-│ SYNC A  Écouter  A ═══╪═══ B  50%  ▶  ⟳     SYNC B  │  10 %
-└─────────────────────────────────────────────────────┘
-   ↑ les faders BPM, sur le bord extérieur de chaque platine
+┌───┬──────────────┬───┬───┬──────────────┬───┐
+│ ┃ │              │ ◍ │ ◍ │              │ ┃ │
+│ ┃ │  PLATINE A   │ ◍ │ ◍ │  PLATINE B   │ ┃ │
+│ ┃ │  (vinyle)    │ ◍ │ ◍ │  (vinyle)    │ ┃ │
+│ ┃ │  ▁▃▇▅▂▃▇▅    │ ─ │ ─ │  ▁▃▇▅▂▃▇▅    │ ┃ │
+│ ┃ │              │ ⬤ │ ⬤ │              │ ┃ │
+├───┴──────────────┴───┴───┴──────────────┴───┤
+│ SYNC A  Écouter  A ═══╪═══ B  50%  ▶  ⟳  SYNC B │  10 %
+└─────────────────────────────────────────────┘
+   ↑ le fader BPM, bord extérieur   ↑ la tranche, bord intérieur :
+                                      3 potards d'EQ, un trait, le filtre
 ```
 
 Sous chaque vinyle, la waveform qui défile sous la tête de lecture, beats en jaune et
 transitoires en gris — elle a ses propres règles, dans [waveform.md](waveform.md). Sur le
 bord extérieur, le fader de tempo, et aux deux bouts de la barre du bas les boutons SYNC :
-[bpm.md](bpm.md). **Un clic au centre d'un vinyle** ouvre le sélecteur de morceaux :
+[bpm.md](bpm.md). Sur le bord intérieur, la tranche : l'EQ ([eq.md](eq.md)) et le filtre
+([filter.md](filter.md)). **Un clic au centre d'un vinyle** ouvre le sélecteur de morceaux :
 [songBrowser.md](songBrowser.md).
 
 Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue le `songs.yaml`
 de ce projet — c'est que le pupitre veut la largeur. Les fichiers, c'est l'Édition.
+
+## La disposition
+
+Deux platines qui se font face, et rien entre elles. Chacune porte son **tempo sur le bord
+extérieur** et sa **tranche sur le bord intérieur** — trois potards d'EQ puis le filtre, à la
+verticale. Les deux tranches se regardent donc de part et d'autre du milieu : le pupitre se lit
+comme un miroir plutôt que comme une répétition, et une main sait sur quelle platine elle est
+sans lever les yeux.
+
+La liste des morceaux occupait le milieu. Elle n'y est plus : on choisit un morceau **au disque
+lui-même**, en cliquant le centre du vinyle, ce qui est déjà la façon dont on charge une platine
+(voir [songBrowser.md](songBrowser.md)). Une colonne qui répétait ce que le disque sait déjà
+prenait la place que les platines voulaient. Ce qui reste au milieu ne s'affiche que quand
+quelque chose ne va pas — les cartes d'erreur, désormais en bandeau au-dessus des platines.
 
 ## Les vinyles
 

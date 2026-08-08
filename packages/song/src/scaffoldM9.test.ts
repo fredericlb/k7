@@ -76,6 +76,21 @@ beforeEach(() => {
     "utf8",
   );
 
+  // The sweep filter, from the files this repo ships — jsdsp.ts included, because the module's
+  // DSP is part of it and a description the builder rejects would otherwise only surface at
+  // playback.
+  mkdirSync(join(filter, "sweep"), { recursive: true });
+  const sweep = join(
+    import.meta.dirname,
+    "..",
+    "..",
+    "dsp",
+    "modules",
+    "sweep",
+  );
+  for (const f of ["module.yaml", "ui.yaml", "jsdsp.ts"])
+    copyFileSync(join(sweep, f), join(filter, "sweep", f));
+
   // The crossfade has no copy in this repo — st0's catalogue is its home — so the fixture
   // states the shape the set depends on: two audio inputs, the second optional.
   mkdirSync(join(utility, "crossfade"), { recursive: true });
@@ -112,6 +127,8 @@ describe("a scaffolded m9 set", () => {
       "instances/crossfade.yaml",
       "instances/eqA.yaml",
       "instances/eqB.yaml",
+      "instances/filterA.yaml",
+      "instances/filterB.yaml",
       "instances/tempoA.yaml",
       "instances/tempoB.yaml",
       "project.yaml",
@@ -139,6 +156,8 @@ describe("a scaffolded m9 set", () => {
       "deckB.eqLow": { module: "eqB", param: "Low-shelf gain" },
       "deckB.eqMid": { module: "eqB", param: "Mid gain 1" },
       "deckB.eqHigh": { module: "eqB", param: "High-shelf gain" },
+      "deckA.filter": { module: "filterA", param: "Sweep" },
+      "deckB.filter": { module: "filterB", param: "Sweep" },
     });
   });
 
@@ -175,13 +194,14 @@ describe("a scaffolded m9 set", () => {
     expect(ext("instances/tempoB.yaml")).toBe("@mediatek/audio/utility/tempo");
   });
 
-  it("asks the médiathèque for exactly those three modules", () => {
+  it("asks the médiathèque for exactly those four modules", () => {
     scaffoldM9(dir, "winter");
-    // What the cache sync will go and fetch for this set. One tempo and one EQ, not two of
-    // each: the decks are two INSTANCES of one module, and fetching a module twice would be a
-    // bug in the ref reader rather than a fact about the set.
+    // What the cache sync will go and fetch for this set. One of each, not two: the decks are
+    // two INSTANCES of one module, and fetching a module twice would be a bug in the ref
+    // reader rather than a fact about the set.
     expect(mediatekRefs(dir)).toEqual([
       "@mediatek/audio/filter/eq3",
+      "@mediatek/audio/filter/sweep",
       "@mediatek/audio/utility/crossfade",
       "@mediatek/audio/utility/tempo",
     ]);
@@ -202,12 +222,14 @@ describe("a scaffolded m9 set", () => {
     expect(Object.keys(g.chains).sort()).toEqual(["deckA", "deckB"]);
     const deckA = g.chains.deckA;
     expect(deckA.from).toBe("deckA");
-    // Tempo, then EQ, then the crossfade — the order IS the signal path. A deck stretched
+    // Tempo, EQ, filter, then the crossfade — the order IS the signal path. A deck stretched
     // after the fade would be stretched post-mix; a deck equalised after it would have the
-    // other deck's bass cut along with its own.
+    // other deck's bass cut along with its own. The filter goes last of the three because it
+    // is the one a hand throws, over whatever the EQ has already done.
     expect(deckA.use.map((s) => s.module)).toEqual([
       "tempoA",
       "eqA",
+      "filterA",
       "crossfade",
     ]);
     expect(deckA.out.map((o) => o.to)).toEqual(["OUT"]);
@@ -221,13 +243,12 @@ describe("a scaffolded m9 set", () => {
     // nothing, silently — the chain would still parse and the deck would go quiet.
     const cross = use.at(-1);
     expect(cross?.module).toBe("crossfade");
-    // `eqB` and not `deckB`: what lands on the port is the NODE that feeds it, and deck B now
-    // reaches the crossfade through its own tempo and its own EQ. Deck B arrives already
-    // stretched AND already equalised, which is the whole reason both sit before the fade.
-    expect(cross?.in).toEqual(["eqB"]);
-    // And nothing lands on the tempo or the EQ, which each take one signal.
-    expect(use[0].in ?? []).toEqual([]);
-    expect(use[1].in ?? []).toEqual([]);
+    // `filterB` and not `deckB`: what lands on the port is the NODE that feeds it, and deck B
+    // now reaches the crossfade through its whole strip. It arrives already stretched, already
+    // equalised and already filtered, which is the whole reason all three sit before the fade.
+    expect(cross?.in).toEqual(["filterB"]);
+    // And nothing lands on the others, which each take one signal.
+    for (const step of use.slice(0, -1)) expect(step.in ?? []).toEqual([]);
   });
 
   it("inherits the crossfade's two ports without restating them", () => {
@@ -298,8 +319,12 @@ describe("a scaffolded m9 set", () => {
     const doc = (scaffoldM9(dir, "winter"), compileNodeProject(dir));
     const ids = (t: string) =>
       doc.tracks.find((x) => x.id === t)?.plugins.map((p) => p.id) ?? [];
-    expect(ids("deckA")).toEqual(["deckA:eqA", "deckA:crossfade"]);
-    expect(ids("deckB")).toEqual(["deckB:eqB"]);
+    expect(ids("deckA")).toEqual([
+      "deckA:eqA",
+      "deckA:filterA",
+      "deckA:crossfade",
+    ]);
+    expect(ids("deckB")).toEqual(["deckB:eqB", "deckB:filterB"]);
   });
 
   it("compiles the EQ to a REAL plugin, unlike the tempo beside it", () => {

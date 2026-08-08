@@ -44,7 +44,7 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `#  - "@mediatek/songs/artiste/album/titre"\n`,
 
     "chains.yaml":
-      `# Each deck through its own tempo and its own EQ, then both meeting at one crossfade —\n` +
+      `# Each deck through its own tempo, EQ and filter, then both meeting at one crossfade —\n` +
       `# the shape a single chain cannot express, because a chain carries ONE signal.\n` +
       `#\n` +
       `# \`deckA\` FLOWS into its tempo and on into the crossfade: a bare destination is the\n` +
@@ -54,9 +54,12 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# The names here are INSTANCES, from instances/ — not modules. The modules themselves\n` +
       `# live in the médiathèque and are not copied in.\n` +
       `#\n` +
-      `# The EQ sits AFTER the tempo and BEFORE the crossfade, which is where a mixing desk\n` +
-      `# puts it: a channel strip is equalised on its way to the fader, so cutting a deck's\n` +
-      `# bass is a property of that deck and not of the blend.\n` +
+      `# The EQ and the filter sit AFTER the tempo and BEFORE the crossfade, which is where a\n` +
+      `# mixing desk puts them: a channel strip is shaped on its way to the fader, so cutting a\n` +
+      `# deck's bass is a property of that deck and not of the blend.\n` +
+      `#\n` +
+      `# Filter LAST of the three. It is the effect a hand throws — the one you want on top of\n` +
+      `# whatever the EQ has already done, rather than equalised afterwards.\n` +
       `#\n` +
       `# Nothing about two is fixed. A third deck is a third track, a third tempo and a second\n` +
       `# meeting point; m9 reads whatever is here. See packages/song/docs/ports.md.\n` +
@@ -67,8 +70,10 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `modules:\n` +
       `  ${TEMPO_A}: [ ${EQ_A} ]\n` +
       `  ${TEMPO_B}: [ ${EQ_B} ]\n` +
-      `  ${EQ_A}: [ ${CROSSFADE} ]\n` +
-      `  ${EQ_B}: [ ${CROSSFADE}#b ]\n` +
+      `  ${EQ_A}: [ ${FILTER_A} ]\n` +
+      `  ${EQ_B}: [ ${FILTER_B} ]\n` +
+      `  ${FILTER_A}: [ ${CROSSFADE} ]\n` +
+      `  ${FILTER_B}: [ ${CROSSFADE}#b ]\n` +
       `  ${CROSSFADE}: [ OUT ]\n`,
 
     "tracks/deckA.yaml": deckTrack(
@@ -102,6 +107,9 @@ export function m9ProjectFiles(name: string): Record<string, string> {
     [`instances/${EQ_A}.yaml`]: eqInstance("A"),
     [`instances/${EQ_B}.yaml`]: eqInstance("B"),
 
+    [`instances/${FILTER_A}.yaml`]: filterInstance("A"),
+    [`instances/${FILTER_B}.yaml`]: filterInstance("B"),
+
     "views/mix.yaml":
       `# What each control of m9's Mix desk drives.\n` +
       `#\n` +
@@ -127,7 +135,9 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `deckA.eqHigh: { module: ${EQ_A}, param: High-shelf gain }\n` +
       `deckB.eqLow: { module: ${EQ_B}, param: Low-shelf gain }\n` +
       `deckB.eqMid: { module: ${EQ_B}, param: Mid gain 1 }\n` +
-      `deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n`,
+      `deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n` +
+      `deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
+      `deckB.filter: { module: ${FILTER_B}, param: Sweep }\n`,
   };
 }
 
@@ -160,6 +170,8 @@ const TEMPO_A = "tempoA";
 const TEMPO_B = "tempoB";
 const EQ_A = "eqA";
 const EQ_B = "eqB";
+const FILTER_A = "filterA";
+const FILTER_B = "filterB";
 
 /** One deck's tempo: an instance of the médiathèque's cold Tempo module. */
 function tempoInstance(letter: string): string {
@@ -202,6 +214,23 @@ function eqInstance(letter: string): string {
     `  Low-shelf gain: 0\n` +
     `  Mid gain 1: 0\n` +
     `  High-shelf gain: 0\n`
+  );
+}
+
+/** One deck's filter: an instance of the médiathèque's one-knob sweep. */
+function filterInstance(letter: string): string {
+  return (
+    `# Deck ${letter}'s filter — an INSTANCE of the médiathèque's Sweep Filter, one per deck.\n` +
+    `#\n` +
+    `# ONE param, and that is the module's whole shape: a desk control drives at most one, so\n` +
+    `# "low-pass or high-pass" cannot be a second setting. Both filters live in its graph at\n` +
+    `# once and the knob decides where each sits — which is how the hardware works too.\n` +
+    `#\n` +
+    `# 0 is the middle of the travel and is INAUDIBLE rather than bypassed: at rest the two\n` +
+    `# corners sit outside the material, at 20 kHz and 20 Hz.\n` +
+    `extends: ${q(`${MEDIATEK_FILTER}/sweep`)}\n` +
+    `params:\n` +
+    `  Sweep: 0\n`
   );
 }
 

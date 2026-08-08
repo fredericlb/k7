@@ -1,7 +1,7 @@
 // controls.ts — every control on the Mix desk, by a stable id. What the project's
 // `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
-import { BPM_RANGE, DECKS, EQ_DB, MIX_CENTRE } from "./deck";
+import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
 
 /**
  * One control on the desk.
@@ -70,6 +70,15 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     range: EQ_DB,
     home: 0,
   })),
+  {
+    id: `${deck}.filter`,
+    label: `Filtre platine ${letter}`,
+    kind: "fader",
+    // The module's own knob. Signed, so a control at the middle of its travel is a filter that
+    // is doing nothing — the same reading an EQ gain gets.
+    range: FILTER_RANGE,
+    home: 0,
+  },
 ];
 
 /**
