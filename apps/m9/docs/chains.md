@@ -90,8 +90,12 @@ callers are unchanged.
 * **No context menu, no edge insert, no canvas insert.** All optional props; m9 passes
   none, so a right-click does nothing. Adding a module goes through the dropdown under the
   graph instead, which is honest for a v1 and ugly.
-* **No module parameters.** `pluginParamsStore` and `setPluginParam` are wired in l8 and
-  not here, so a node's widgets draw nothing. That is the next thing worth doing, and it
-  needs the engine's live params — which st0's builder already knows how to ask for.
+* ~~**No module parameters.**~~ Done, and it turned out not to be a graph problem at all.
+  `pluginParamsStore` and `setPluginParam` are wired here now, so a node's widgets show the
+  engine's own values and moving one sets them — the same `set-plugin-param` the desk's
+  crossfader and EQ send. What blocked it was that `useEngine` lived inside `MixView`, which
+  Studio unmounts the moment you open Graphe: the graph had no engine to ask. The link is
+  Studio's now, and `Deck.params` is the one store both views read. See
+  [eq.md](eq.md#une-seule-vérité-deux-images).
 * **Never run end to end.** 21 tests and a clean typecheck; whether the graph draws what
   these numbers say has not been seen on screen.

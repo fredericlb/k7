@@ -2,7 +2,13 @@ import type { WebGraph } from "@studio/graph-model";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
 import { describe, expect, it } from "vitest";
 import { mixControl } from "./controls";
-import { resolveBindings, stretchTargets, valueFor } from "./mixBindings";
+import {
+  engineAgrees,
+  resolveBindings,
+  shownValue,
+  stretchTargets,
+  valueFor,
+} from "./mixBindings";
 
 /** A graph with one chain holding the steps given, each addressable and drawn. */
 const graphWith = (
@@ -203,6 +209,46 @@ describe("which track a fader stretches", () => {
     expect(stretchTargets(bindings, byDeck, NO_PLUGINS)).toEqual({
       deckA: byDeck.deckA,
     });
+  });
+});
+
+describe("what a control's position SHOWS", () => {
+  const bound = () =>
+    resolveBindings(
+      VIEW,
+      graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
+    ).bindings[0];
+  const LIVE = { "deckA:crossfade": { Mix: 0.8 } };
+
+  it("draws the ENGINE's value when no hand is on it", () => {
+    // The bug this exists for. Every surface used to keep its own copy, so a knob turned in
+    // Mix left the graph drawing the number the project file declares — and the graph is
+    // where you go to check what a module is actually doing.
+    expect(shownValue(bound(), undefined, LIVE)).toBe(0.8);
+  });
+
+  it("lets the hand win while a gesture is in flight", () => {
+    // Optimism, and only for the round trip: waiting for the engine to agree before moving
+    // the knob would make every drag feel like a lag.
+    expect(shownValue(bound(), 0.2, LIVE)).toBe(0.2);
+  });
+
+  it("knows nothing rather than guessing zero", () => {
+    // Before the first frame. Zero is a real value — and on a ±20 dB EQ it is the CENTRE —
+    // so a caller drawing the control's own home is right where inventing a 0 would not be.
+    expect(shownValue(bound(), undefined, {})).toBeUndefined();
+    expect(shownValue(undefined, undefined, LIVE)).toBeUndefined();
+  });
+
+  it("yields the override once the engine has caught up", () => {
+    // An override that never yields is a control that has stopped listening: the engine can
+    // clamp what it was sent, and the graph can move the same param.
+    expect(engineAgrees(bound(), 0.8, LIVE)).toBe(true);
+    expect(engineAgrees(bound(), 0.81, LIVE)).toBe(true); // within a hair
+    expect(engineAgrees(bound(), 0.2, LIVE)).toBe(false);
+    // Nothing heard yet is not agreement — dropping the hand's value here would snap the
+    // knob back to wherever the file said.
+    expect(engineAgrees(bound(), 0.8, {})).toBe(false);
   });
 });
 

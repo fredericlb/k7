@@ -179,6 +179,49 @@ export function enginePluginIds(
 }
 
 /**
+ * What a bound control should DRAW: the hand's value if a gesture is in flight, else the
+ * engine's, else nothing.
+ *
+ * The order is the whole point, and getting it wrong is what left the graph's knobs stuck at
+ * the number the project file declares. A surface's own state is an OPTIMISTIC layer over the
+ * engine, never a substitute for it: the engine is the only thing that knows what a plugin is
+ * set to, and it says so whichever surface did the setting. Two pictures of one plugin that
+ * each keep their own copy will disagree the moment one of them is unmounted — which, in m9,
+ * is every time somebody looks at the graph.
+ *
+ * `undefined` means "nothing known yet", which a caller draws as the control's own home rather
+ * than as zero — a param whose flat is not zero would otherwise jump when the first frame
+ * lands.
+ */
+export function shownValue(
+  binding: ResolvedBinding | undefined,
+  held: number | undefined,
+  live: Readonly<Record<string, Record<string, number>>>,
+): number | undefined {
+  if (held !== undefined) return held;
+  if (!binding?.pluginId) return undefined;
+  return live[binding.pluginId]?.[binding.param];
+}
+
+/**
+ * Has the engine caught up with an optimistic value, so the override may be dropped?
+ *
+ * An override that never yields is a control that has stopped listening: the engine can clamp
+ * what it was sent, and the other picture of the same plugin can move it.
+ */
+export function engineAgrees(
+  binding: ResolvedBinding | undefined,
+  held: number,
+  live: Readonly<Record<string, Record<string, number>>>,
+  epsilon = 0.05,
+): boolean {
+  const said = binding?.pluginId
+    ? live[binding.pluginId]?.[binding.param]
+    : undefined;
+  return said !== undefined && Math.abs(said - held) < epsilon;
+}
+
+/**
  * What to send for a control at `value`.
  *
  * With a widget, the control is normalised to 0..1 and the widget's own min/max expand it —

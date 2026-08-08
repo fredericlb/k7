@@ -3,6 +3,7 @@
 // docs/plumbing.md.
 
 import { EngineClient } from "@studio/engine-browser";
+import { PluginParamsStore } from "@studio/engine-browser/params";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
@@ -37,6 +38,28 @@ export interface Deck {
   setListening: (on: boolean) => void;
   /** Underruns and buffer depth, once listening — the numbers étape 7 exists to expose. */
   listenStats: { depth: number; underruns: number };
+  /**
+   * Every WATCHED plugin's live parameter values — the desk and the graph read the SAME one.
+   *
+   * They used to read nothing and their own state respectively, so moving a knob in Mix left
+   * the graph drawing the value the file declared: not stale, but never true in the first
+   * place. The engine is the only thing that knows what a plugin is set to, and it reports it
+   * whichever surface did the setting, so one store fed from it is what keeps two pictures of
+   * one plugin from disagreeing.
+   *
+   * An external store rather than state on purpose: while a plugin is watched the values
+   * arrive as fast as they move, and a `setState` per frame would re-render the whole app to
+   * turn one knob. Only what draws a value subscribes.
+   */
+  params: PluginParamsStore;
+  /**
+   * Watch exactly these plugins, and stop watching anything else.
+   *
+   * Called with the ids the project actually compiled, so the feed costs what the screen
+   * shows. Watching is what makes the engine report a value at all — without it a knob draws
+   * the file's number for ever.
+   */
+  watchParams: (ids: readonly string[]) => void;
 }
 
 export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
@@ -47,6 +70,9 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   const [listenStats, setStats] = useState({ depth: 0, underruns: 0 });
   const engine = useRef<EngineClient | null>(null);
   const playhead = useRef<Playhead>({ seconds: 0, at: 0 });
+  // Outlives every reconnection, so a socket dropping does not blank the knobs on screen.
+  const params = useRef(new PluginParamsStore()).current;
+  const watched = useRef<readonly string[]>([]);
 
   useEffect(() => {
     setPhase({ k: "looking" });
@@ -70,6 +96,17 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
       sessionFor(SESSIONS.m9, currentUser()),
     );
     engine.current = client;
+    // Both channels into ONE store. `plugin-params` is the answer to a question we asked;
+    // `plugin-params-live` fires mid-gesture, including when the gesture was somebody else's
+    // — which is exactly the case that makes the graph follow the desk.
+    client.onPluginParams((p) => params.set(p.id, p.params));
+    client.onPluginParamsLive((p) => params.set(p.id, p.params));
+    // A reconnection loses the engine's watch list, so re-ask for whatever we were watching
+    // rather than waiting for the next value to move.
+    for (const id of watched.current) {
+      client.watchPluginParams(id, true);
+      client.getPluginParams(id);
+    }
     // The engine's own transport is the truth about whether sound is happening — never a
     // flag set hopefully when a play was sent. A file that failed to load leaves it
     // stopped, and the deck has to show that.
@@ -143,5 +180,27 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     listening,
     setListening: setListen,
     listenStats,
+    params,
+    watchParams: useCallback(
+      (ids: readonly string[]) => {
+        const next = [...ids].sort();
+        // Same set, same subscription: this is called from an effect on every compile, and
+        // re-watching would ask the engine to re-send everything for no change.
+        if (next.join(" ") === watched.current.join(" ")) return;
+        const client = engine.current;
+        for (const id of watched.current)
+          if (!next.includes(id)) client?.watchPluginParams(id, false);
+        for (const id of next)
+          if (!watched.current.includes(id)) {
+            client?.watchPluginParams(id, true);
+            // …and ASK, rather than wait: watching reports the current values once on
+            // subscribe, but a plugin that never moves again would otherwise be drawn from
+            // the file for the rest of the session.
+            client?.getPluginParams(id);
+          }
+        watched.current = next;
+      },
+      [engine],
+    ),
   };
 }

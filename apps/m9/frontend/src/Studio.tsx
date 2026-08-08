@@ -38,6 +38,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { DEFAULT_VIEW, type RouteState, type ViewId } from "./routes";
+import { useEngine } from "./useEngine";
 import { useViewRoute } from "./useViewRoute";
 import { EditView } from "./views/EditView";
 import { GraphView } from "./views/GraphView";
@@ -100,11 +101,37 @@ export function Studio({
 
   const [tree, setTree] = useState<FileNode[]>([]);
   const [graph, setGraph] = useState<WebGraph | null>(null);
+  /**
+   * ONE link to the engine, for every view.
+   *
+   * It lived inside MixView, which Studio unmounts the moment you switch to Graphe — so the
+   * graph had no engine at all and drew every knob from the value the file declares. Two
+   * pictures of one plugin, and only one of them connected. Hoisting it is what lets both read
+   * `deck.params`.
+   */
+  const deck = useEngine(engine);
   const [hints, setHints] = useState<Hints | null>(null);
   const [git, setGit] = useState<GitStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The token the derived views were last built from. Poll the token, refetch only on a move.
   const [rev, setRev] = useState("");
+
+  /**
+   * Watch every plugin the compiled chains carry, so a value on screen is the engine's.
+   *
+   * Keyed on the GRAPH rather than on a view: the desk and the graph draw the same plugins,
+   * and a subscription that came and went with a tab would leave whichever one you opened
+   * second showing the file's numbers until something moved.
+   *
+   * A step with no `pluginId` is skipped rather than watched — an `offline` module compiles to
+   * no plugin, so there is nothing to ask about.
+   */
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const chain of Object.values(graph?.chains ?? {}))
+      for (const step of chain.use) if (step.pluginId) ids.add(step.pluginId);
+    deck.watchParams([...ids]);
+  }, [graph, deck.watchParams]);
 
   const reload = useCallback(async () => {
     try {
@@ -298,7 +325,12 @@ export function Studio({
         {/* The graph goes to Mix as well as to Graphe: the desk's bindings name modules by
             the chains' own names, and the graph is where a name becomes a plugin id. */}
         {view === "mix" && (
-          <MixView engine={engine} project={project} graph={graph} />
+          <MixView
+            engine={engine}
+            deck={deck}
+            project={project}
+            graph={graph}
+          />
         )}
         {view === "edit" && (
           <EditView
@@ -311,7 +343,7 @@ export function Studio({
             reloadKey={editReload}
           />
         )}
-        {view === "graph" && <GraphView graph={graph} />}
+        {view === "graph" && <GraphView graph={graph} deck={deck} />}
       </div>
 
       {/* The status bar. Which machine plays, and how good the link to it is — Q1/Q2/Q3 off a
