@@ -35,6 +35,7 @@ import {
   type DeckTempo,
   type DeckTempos,
   DECKS,
+  EQ_BANDS,
   MIX_CENTRE,
   NO_LOADS,
   pushCrossfade,
@@ -59,6 +60,7 @@ import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
 import { type Playhead, useEngine } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
+import { EqStrip } from "./EqStrip";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
@@ -119,6 +121,14 @@ export function MixView({
   const [faders, setFaders] = useState<DeckTempos>({});
   /** Which deck LEADS, or null. The two sync buttons are one choice, not two toggles. */
   const [master, setMaster] = useState<DeckId | null>(null);
+  /**
+   * Every EQ knob's position in dB, by control id — `deckA.eqLow` and its five siblings.
+   *
+   * Held here because nothing sends it back: `set-plugin-param` is one-way, so the desk's own
+   * state is what draws the knob. Absent means flat, which is why 0 is the fallback and not a
+   * value written into this map on load.
+   */
+  const [eq, setEq] = useState<Record<string, number>>({});
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
   /** The desk's bindings, as `views/mix.yaml` declares them. */
@@ -162,6 +172,30 @@ export function MixView({
    * rather than aligning nothing in silence.
    */
   const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
+
+  /**
+   * Which decks have an EQ the engine can really be told about.
+   *
+   * The same question `pushParam` asks, hoisted so the knobs can grey themselves out instead
+   * of turning against nothing. A binding that names a module the chains have not got is
+   * already a line on screen; this is the quieter case — the project wired it, the compile has
+   * not landed yet, or it will not compile.
+   */
+  const eqLive = useMemo(() => {
+    const live = new Set<string>();
+    for (const b of wiring.bindings)
+      if (hasPlugin(b, plugins)) live.add(b.control.id);
+    return (deckId: DeckId) =>
+      EQ_BANDS.some((band) => live.has(`${deckId}.${band.id}`));
+  }, [wiring, plugins]);
+
+  /** One deck's knob positions, by the plain band id the strip draws. */
+  const eqOf = (deckId: DeckId): Partial<Record<string, number>> =>
+    Object.fromEntries(
+      EQ_BANDS.map((b) => [b.id, eq[`${deckId}.${b.id}`]]).filter(
+        ([, v]) => v !== undefined,
+      ),
+    );
 
   // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
   // last `onChange`, and a `commit` closed over that render's value would send the document
@@ -371,6 +405,42 @@ export function MixView({
     commit(syncedTempos(faders, next));
   };
 
+  /**
+   * Move a control that `views/mix.yaml` binds to a REAL plugin param. One message, per pixel.
+   *
+   * The other of the desk's two paths — the crossfader and the EQ take this one, the tempo
+   * cannot. A `set-plugin-param` needs a plugin the engine actually has, and an `offline`
+   * module compiles to none, however confidently the graph hands out an address for it
+   * (`hasPlugin`). So a control whose target is not loaded is REFUSED here rather than sent
+   * into the void, and the caller decides what that means.
+   */
+  const pushParam = (controlId: string, value: number): boolean => {
+    if (!deck.engine) return false;
+    const bound = wiring.bindings.find(
+      (b) => b.control.id === controlId && hasPlugin(b, plugins),
+    );
+    if (!bound?.pluginId) return false;
+    deck.engine.setPluginParam(
+      bound.pluginId,
+      bound.param,
+      valueFor(bound, value),
+    );
+    return true;
+  };
+
+  /**
+   * Turn one of a deck's EQ knobs. Straight down the declared path — the EQ module IS a
+   * plugin, so this is the crossfader's mechanism and not the tempo's.
+   *
+   * The position is kept here as well as sent, because nothing echoes it back: the engine is
+   * told and says nothing, so the knob's own state is what draws it.
+   */
+  const turnEq = (deckId: DeckId, band: string, dB: number) => {
+    const id = `${deckId}.${band}`;
+    setEq((e) => ({ ...e, [id]: dB }));
+    pushParam(id, dB);
+  };
+
   /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
   const crossfade = (value: number) => {
     setMix(value);
@@ -378,17 +448,7 @@ export function MixView({
     // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`, and
     // the compiled document is what put that module in the engine. One `set-plugin-param` and
     // the project's own DSP does the fade.
-    // Only when the plugin is really IN the document the engine was sent — the graph hands
-    // out an id for modules that compile to no plugin at all.
-    const bound = wiring.bindings.find(
-      (b) => b.control.id === "crossfade" && hasPlugin(b, plugins),
-    );
-    if (bound?.pluginId)
-      return deck.engine.setPluginParam(
-        bound.pluginId,
-        bound.param,
-        valueFor(bound, value),
-      );
+    if (pushParam("crossfade", value)) return;
     // …and the stand-in, for the seconds before the compile lands or a project that will not
     // compile: no crossfade module in the engine, so the two decks' levels are moved instead.
     // Same law, different mechanism — see docs/mix.md.
@@ -420,6 +480,9 @@ export function MixView({
           onNudge={(bpm) => nudge("deckA", bpm)}
           onCommit={release}
           onPick={() => setBrowsing("deckA")}
+          eq={eqOf("deckA")}
+          eqLive={eqLive("deckA")}
+          onEq={(band, dB) => turnEq("deckA", band, dB)}
         />
 
         <section className="flex min-w-0 flex-1 flex-col gap-2">
@@ -469,6 +532,9 @@ export function MixView({
           onNudge={(bpm) => nudge("deckB", bpm)}
           onCommit={release}
           onPick={() => setBrowsing("deckB")}
+          eq={eqOf("deckB")}
+          eqLive={eqLive("deckB")}
+          onEq={(band, dB) => turnEq("deckB", band, dB)}
         />
       </div>
 
@@ -650,6 +716,9 @@ function DeckSide({
   onNudge,
   onCommit,
   onPick,
+  eq,
+  eqLive,
+  onEq,
 }: {
   side: "A" | "B";
   load: DeckLoads[DeckId];
@@ -665,6 +734,10 @@ function DeckSide({
   onCommit: () => void;
   /** The record's middle was clicked — open the browser for this deck. */
   onPick: () => void;
+  /** This deck's EQ knobs, in dB by band id, and whether they reach anything. */
+  eq: Partial<Record<string, number>>;
+  eqLive: boolean;
+  onEq: (band: string, dB: number) => void;
 }) {
   const fader = (
     <BpmFader
@@ -700,6 +773,10 @@ function DeckSide({
             problem={wave?.k === "none" ? wave.why : null}
           />
         ) : null}
+        {/* The channel EQ, under the waveform and above the title — where a mixer puts it
+            relative to the record, and drawn whether or not a song is loaded because it is a
+            property of the DECK and not of what is on it. */}
+        <EqStrip values={eq} onChange={onEq} disabled={!eqLive} />
         <div className="w-full truncate text-center text-xs text-muted-foreground">
           {load ? load.title : "rien de chargé"}
         </div>

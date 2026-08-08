@@ -12,11 +12,30 @@ describe("the desk's controls", () => {
       "crossfade",
       "deckA.tempo",
       "deckA.sync",
+      "deckA.eqLow",
+      "deckA.eqMid",
+      "deckA.eqHigh",
       "deckB.tempo",
       "deckB.sync",
+      "deckB.eqLow",
+      "deckB.eqMid",
+      "deckB.eqHigh",
       "transport",
       "listen",
     ]);
+  });
+
+  it("gives the EQ knobs the module's range, with flat in the MIDDLE", () => {
+    // dB, not 0..1 — the mixer strip's rule, where sending 0.5 for "half" looks right and is
+    // six decibels wrong. Symmetric so that a knob at the centre of its travel is flat, which
+    // is what an EQ knob has to mean at a glance.
+    for (const deck of DECKS)
+      for (const band of ["eqLow", "eqMid", "eqHigh"]) {
+        const c = mixControl(`${deck}.${band}`);
+        expect(c?.range).toEqual([-20, 20]);
+        expect(c?.home).toBe(0);
+        expect(normalise(c!, 0)).toBeCloseTo(0.5);
+      }
   });
 
   it("names one control each, absolutely", () => {

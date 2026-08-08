@@ -115,6 +115,23 @@ export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
 export const BPM_RANGE: readonly [min: number, max: number] = [10, 300];
 
 /**
+ * The ends of an EQ knob, in dB — the module's own, for the same reason `BPM_RANGE` is.
+ *
+ * ±20 dB is what Tracktion's 4-band EQ accepts and what `eq3`'s panel draws, so the desk
+ * offers exactly that: narrower would refuse values the module takes, wider would send ones
+ * the panel cannot draw. Symmetric, so flat lands in the middle of the travel — a mixing desk
+ * cuts further than it boosts by USE, not because the control forbids it.
+ */
+export const EQ_DB: readonly [min: number, max: number] = [-20, 20];
+
+/** The three bands a deck's EQ strip draws, low to high — the order they sit in. */
+export const EQ_BANDS = [
+  { id: "eqLow", label: "GRAVE" },
+  { id: "eqMid", label: "MÉDIUM" },
+  { id: "eqHigh", label: "AIGU" },
+] as const;
+
+/**
  * The stretch that makes a song of `natural` BPM play at `target`.
  *
  * **This is the browser's stand-in for `TEMPO_MODULE`.** The project declares the tempo as a

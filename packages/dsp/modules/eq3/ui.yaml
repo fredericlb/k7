@@ -1,0 +1,19 @@
+# panel for audio/filter/eq3
+#
+# Trois potards et rien d'autre. Les fréquences de coupure sont dans module.yaml et n'ont
+# pas de widget : ce sont elles qui définissent CE QU'EST une bande, donc les déplacer ferait
+# un autre module plutôt qu'un autre réglage — et une tranche de table n'offre pas ce bouton.
+#
+# ±20 dB est la plage du plugin, reprise telle quelle plutôt que resserrée. Le neutre tombe
+# ainsi exactement au centre de la course, ce qu'un potard d'EQ doit faire : un potard dont le
+# 0 dB n'est pas au milieu se lit de travers à chaque coup d'œil. Une table coupe plus qu'elle
+# ne remonte — mais par l'usage, pas parce que la commande le lui interdit.
+cols: 3
+rows: 1
+widgets:
+  low:
+    { type: knob, col: 0, row: 0, label: Grave, bind: "Low-shelf gain", min: -20, max: 20, step: 0.1 }
+  mid:
+    { type: knob, col: 1, row: 0, label: Médium, bind: "Mid gain 1", min: -20, max: 20, step: 0.1 }
+  high:
+    { type: knob, col: 2, row: 0, label: Aigu, bind: "High-shelf gain", min: -20, max: 20, step: 0.1 }
