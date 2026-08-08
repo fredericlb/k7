@@ -1,58 +1,102 @@
-# The live cable's wobble, and what it allocates
+# The live cable's wobble, and why it left the DOM
 
 A cable carrying signal ripples: a travelling sine displaces it along its own normals,
 enveloped by `sin(πu)` so both endpoints stay exactly where the still cable's are. That
-envelope is why only the two `<path>` elements move — the arrowhead and the label never
-have to be redrawn.
+envelope is why only the cable itself moves — the label and the arrowhead never have to be
+redrawn.
 
-It runs at 60 Hz for every live cable at once, which makes it the one piece of drawing in
-this package where allocation is worth counting.
+It runs for every live cable at once, which makes it the one piece of drawing in this package
+where the cost is worth counting. This page is the record of that count, twice revised,
+because both earlier versions read as a solved problem for as long as they stood.
 
-## What it used to cost
+## What it cost as SVG, first version
 
-The renderer already knew this and had escaped React for it: the per-frame update writes
-`d` straight onto the path nodes rather than going through state, and the comment above it
-said the loop "allocates NOTHING per frame". That was not true, and the shape of the untruth
-is worth recording because it read as a solved problem for as long as it stood.
-
-Two allocations survived, both inside `wobbleD`:
+The renderer had already escaped React for it: the per-frame update wrote `d` straight onto
+the path nodes rather than going through state, and the comment above it said the loop
+"allocates NOTHING per frame". That was not true.
 
 - the displaced polyline was built with `buf.push({ x, y })` — the *array* was reused, the
   **points were not**, so one object per sample;
-- `smoothPath` then called `cubicSegments`, which builds one `Cubic` **plus two fresh `Pt`s
+- `smoothPath` then called `cubicSegments`, which built one `Cubic` **plus two fresh `Pt`s
   for the control points** per segment.
 
-At `n` samples that is `n + 3(n-1)` objects, so ~381 per cable per frame at the 96-sample
-cap. On a 40-cable graph: ~15 000 objects a frame, ~900 000 a second. The figure the old
-comment quoted as *removed* — 149 KB of path strings, 8.7 MB/s — was in fact still being paid,
-because only the React reconciliation had gone.
+At `n` samples that is `n + 3(n-1)` objects, ~381 per cable per frame at the 96-sample cap. On
+a 40-cable graph: ~15 000 objects a frame, ~900 000 a second.
+
+## What it cost as SVG, second version
+
+`smoothPathXY` took a flat `[x0,y0,x1,y1,…]` buffer and emitted the path directly, computing
+each segment's control points into local numbers instead of objects; `wobbleD` displaced into
+a reused `Float64Array`. Object allocation went to zero, and the page then said what remained
+was "one string per live cable per frame, and that is not removable while the cables are SVG".
+
+The string was real. What the page did not say is that the string was the **small** half.
+
+## What the profiler actually found
+
+A Firefox profile of l8 during playback, ~23 s on a 149 Hz screen, 15.6 s of CPU on the
+content process's main thread:
+
+| | |
+|---|---|
+| Paint — display list building + WebRender display list | **9.75 s, 62 %** |
+| the wobble's rAF | 1.03 s |
+| React | 1.35 s |
+
+Writing `d` on a path inside `.dgx-cables` put that layer on WebRender's **blob image** path
+(`Grouper::ConstructItemInsideInactive`, `DIGroup::ComputeGeometryChange`). Changing one cable
+invalidated the whole group, so every frame:
+
+- re-serialised the coordinates (~100 ms of `double → string` in the profile),
+- had the SVG engine **re-parse** them (~150 ms of `svg_path::parse_number`),
+- re-recorded the entire group into a blob — including the cable **labels**, whose glyphs were
+  being drawn inside display-list construction (`nsTextFrame::PaintText`, `gfxFont::Draw`),
+- and re-uploaded the result: 2 859 texture uploads for 2 873 paints, one per frame.
+
+The refresh driver's tick ran 4.6 ms at the median against a 6.7 ms budget, 6.8 ms at p90.
+That is the lag, and almost none of it was the string.
 
 ## What it costs now
 
-`smoothPathXY` takes a flat `[x0,y0,x1,y1,…]` buffer and emits the path directly, computing
-each segment's control points into local numbers instead of objects. `wobbleD` displaces into
-a reused `Float64Array`. **Object allocation is zero.**
+The signal cables are drawn on a **canvas**. `wobbleInto` displaces into the same reused
+`Float64Array`; `tracePolyline` then calls `bezierCurveTo` with those numbers. No string is
+built, nothing is parsed, and the whole layer is one display item whose contents the display
+list never looks inside.
 
-The buffer grows only when a cable needs more room than it has. `maxSamples` in
-`buildCableGeom` is a target rather than a ceiling — `Math.max(1, …)` gives every segment at
-least one sample, and the closing endpoint adds one more — so a cable with many waypoints can
-exceed it, and a fixed-size buffer would have silently truncated such a cable to a shorter one.
+Three details are load-bearing:
 
-What remains is **one string per live cable per frame**, and that is not removable while the
-cables are SVG: `setAttribute("d", …)` takes a string, and the browser exposes no numeric path
-API to write instead. Removing it means leaving SVG — a Canvas2D cable layer would call
-`bezierCurveTo` with numbers and allocate nothing at all, and would reproduce the round caps,
-the `5 4` dash and the half-alpha shadow with identical semantics. That is the one place in
-this graph where moving off the DOM would pay; it is not, notably, WebGL's doing — Canvas2D
-is enough, and the load here is two orders of magnitude below where a GPU starts to matter.
+- **The canvas is not inside `.dgx-world`.** That element carries the camera as a CSS
+  transform, and a canvas scaled by CSS resamples — it would go blurry the moment you zoomed
+  in. The camera is applied to the 2D context instead (`setTransform(dpr·k, …)`), so the
+  drawing code below it still speaks world coordinates exactly as the SVG did.
+- **A camera change redraws immediately, the ripple does not.** The ripple is capped near
+  `WOBBLE_FPS`, far below a modern screen's rate, because at `WOBBLE_HZ` = 1.2 nobody can tell.
+  But a pan redraws in a *layout* effect, in the same frame as the transform: throttle that and
+  the cables visibly tear away from their sockets.
+- **The shadow is a second `stroke()`, not a second geometry.** As SVG it was a second element
+  with its own `d`, so a live cable paid the serialise-and-reparse round twice.
 
-## Why byte-identity is the contract
+The labels, the automation cables and the hit paths stayed in SVG. They do not move, so they
+cost nothing per frame — and text is the one thing a canvas would draw worse.
 
-`smoothPathXY` is asserted **equal to `smoothPath`, string for string**, over straight lines,
-bends, degenerate inputs and a genuinely wobbled cable whose coordinates are all irrational.
-That test is the entire safety argument: an optimisation of a drawing path is only safe if the
-drawing is provably the same, and "looks fine to me" does not survive a rebase.
+## Why the trace is the contract
 
-The two functions are kept side by side rather than one being written in terms of the other,
-because the point of the flat one is precisely that it does *not* build the intermediate the
-other returns.
+`smoothPathXY` was asserted **equal to `smoothPath`, string for string**. That test was the
+entire safety argument, and deleting the function deletes it, so `tracePolyline`'s calls are
+asserted against the same authority instead: the `moveTo`/`bezierCurveTo` sequence must be the
+one `smoothPath`'s `d` string spells out, over straight lines, bends, degenerate inputs and a
+genuinely wobbled cable whose coordinates are all irrational. A double survives
+`toString`/`parseFloat` exactly, so reading the reference back out of the string is as strict
+as comparing strings was.
+
+An optimisation of a drawing path is only safe if the drawing is provably the same, and "looks
+fine to me" does not survive a rebase.
+
+## What is left on the table
+
+WebGL was considered and rejected on these numbers. It attacks rasterisation, and rasterisation
+was never the problem: the Renderer thread was 5.5 s of the 23, compositing at 0.85 ms a frame.
+The one thing it would buy is the sine in a vertex shader, so the JS did nothing per frame at
+all — for the price of tessellating polylines with round caps, joins and the automation cables'
+dash pattern by hand, all of which Canvas2D gives away. Worth revisiting only if a profile ever
+puts `drawCables` back at the top, which ~4 000 curve segments a frame will not.

@@ -119,10 +119,16 @@ travelling sine wave, amplitude in world units so it scales with zoom) already s
 Colours are muted rather than saturated: cables run behind the nodes and there are a lot of
 them.
 
-The cable layer is its own component so the per-frame wobble re-renders only the cables,
-never the nodes. It holds the animation phase, and the ticker runs only while a cable is
-live. Stroke width grows as the camera pulls back, so on-screen thickness stays roughly
-constant instead of thinning to nothing.
+The signal cables are drawn on a **canvas**, not in the DOM: a rippling `<path>` re-parsed its
+`d` and re-recorded a whole WebRender blob every frame, which was most of the cost of playback
+in l8. The canvas sits outside the panned element and takes the camera on its context instead,
+so it never goes blurry. What stays in SVG is what does not move — the labels, the automation
+arrows, the hit paths. The ripple runs only while a cable is live, and well below the screen's
+refresh rate; a camera move redraws at once, in step with the pan. See
+`@studio/ui-chains`' `docs/wobble.md`.
+
+Stroke width grows as the camera pulls back, so on-screen thickness stays roughly constant
+instead of thinning to nothing.
 
 **Text is sized in world units**, so it scales with the camera: a node that is tiny on
 screen still shows a name as large as it can hold. `fitText` is width-bound by glyph count

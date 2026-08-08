@@ -11,10 +11,9 @@ import {
   insertFor,
   midByArc,
   smoothPath,
-  smoothPathXY,
   TRACK_NODE_PREFIX,
 } from "./cables";
-import type { GraphNode, Pt } from "./graph";
+import type { GraphNode } from "./graph";
 
 const line = [
   { x: 0, y: 0 },
@@ -49,53 +48,6 @@ describe("smoothPath", () => {
     expect(smoothPath(line)).toBe("M 0 0 L 100 0");
     expect(smoothPath(bend)).toMatch(/^M 0 0( C [^C]+){2}$/);
     expect(smoothPath([])).toBe("");
-  });
-});
-
-describe("smoothPathXY", () => {
-  // The flat emitter's ONLY contract: same string, no objects. Byte equality is what lets the
-  // wobble use it without anyone having to re-argue that the curve is unchanged.
-  const flat = (pts: Pt[]): Float64Array => {
-    const xy = new Float64Array(pts.length * 2 + 8); // deliberately longer than it needs
-    pts.forEach((p, i) => {
-      xy[i * 2] = p.x;
-      xy[i * 2 + 1] = p.y;
-    });
-    return xy;
-  };
-  const same = (pts: Pt[]) =>
-    expect(smoothPathXY(flat(pts), pts.length)).toBe(smoothPath(pts));
-
-  it("draws exactly what smoothPath draws", () => {
-    same([]);
-    same([{ x: 1, y: 1 }]);
-    same(line);
-    same(bend);
-  });
-
-  it("agrees on the wobbled, irrational coordinates it exists for", () => {
-    // The real input: a resampled cable pushed off its normals, so nothing lands on a round number.
-    const g = buildCableGeom([
-      { x: 0, y: 0 },
-      { x: 137, y: 41 },
-      { x: 210, y: 190 },
-      { x: 33, y: 260 },
-    ]);
-    for (const phase of [0, 0.7, Math.PI, 4.2]) {
-      const pts = g.samples.map((p) => {
-        const off =
-          2.5 *
-          Math.sin(Math.PI * (p.s / g.len)) *
-          Math.sin((Math.PI * 2 * p.s) / 40 - phase);
-        return { x: p.x + p.nx * off, y: p.y + p.ny * off };
-      });
-      same(pts);
-    }
-  });
-
-  it("reads only `count` points, so one buffer serves cables of every length", () => {
-    const xy = flat(bend.concat([{ x: 999, y: 999 }]));
-    expect(smoothPathXY(xy, bend.length)).toBe(smoothPath(bend));
   });
 });
 
