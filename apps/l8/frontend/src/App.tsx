@@ -1781,7 +1781,13 @@ export default function App({
             not a click on the dimmer. See docs/commandBar.md. */}
         {!docked && paletteOpen && (
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4">
-            <div className="pointer-events-auto mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border bg-popover px-3 py-2.5 shadow-2xl">
+            {/* A click anywhere on the bar is a click on its field. Without this, landing on
+                the padding or the `❯` blurs the input — which now also takes the completion
+                list with it, for a gesture that was aimed at the bar. */}
+            <div
+              className="pointer-events-auto mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border bg-popover px-3 py-2.5 shadow-2xl"
+              onPointerDown={() => cmdRef.current?.focus()}
+            >
               <CommandBar
                 ref={cmdRef}
                 commands={paletteCommands}

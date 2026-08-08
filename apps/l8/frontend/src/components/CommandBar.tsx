@@ -135,6 +135,9 @@ export const CommandBar = forwardRef<
   const [args, setArgs] = useState<string[]>([]);
   const [sugs, setSugs] = useState<string[]>([]);
   const [sel, setSel] = useState(0);
+  // Whether the input holds the keyboard. Only then is a completion list something you are
+  // choosing from rather than a panel left behind — see the input's onFocus.
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const selRef = useRef<HTMLLIElement>(null); // the highlighted row, to keep it in view
   const latest = useRef(0); // guard against out-of-order async completion
@@ -366,6 +369,13 @@ export const CommandBar = forwardRef<
         ref={inputRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        // The list belongs to the field being typed in, so it goes when the field does. This
+        // is not decoration: the bar is not modal, and reaching into a pane to answer a param
+        // takes the focus away — leaving a completion list parked over the timeline you just
+        // clicked. A suggestion's own onMouseDown preventDefaults, so picking one does not
+        // blur first and pull the list out from under the click.
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onKeyDown={(e) => {
           // Both validate from the completion — typing only narrows, so there is no fill. They part
           // company on ONE point: Enter says "that is my line" and runs as soon as every required
@@ -411,7 +421,7 @@ export const CommandBar = forwardRef<
         </span>
       )}
 
-      {sugs.length > 0 && (
+      {focused && sugs.length > 0 && (
         // Opens UPWARD and lists bottom-first, so suggestion 0 — the default — sits right above the input.
         <ul className="absolute bottom-full left-0 right-0 z-30 mb-2 flex max-h-72 flex-col-reverse overflow-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md">
           {sugs.map((s, i) => (
