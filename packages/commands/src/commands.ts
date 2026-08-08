@@ -1092,12 +1092,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // --- channel labels (global user preferences) -------------------------------
-  // The interface in use is shown here but only CHOSEN from the CLI (`l8 config --set interface`).
+  // The interface in use is shown here but CHOSEN in the médiathèque's « État du moteur »,
+  // which both switches the engine and writes this file (engine/moteur/docs/audioDevice.md).
   "channels.list": (_a, h) => {
     const p = loadPreferences();
     const f = formatChannels(p);
     h.log([
-      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: l8 config --set interface)`,
+      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: médiathèque → État du moteur)`,
       `in:  ${f.in || "(none — set with: channel in <ch> <label>)"}`,
       `out: ${f.out || "(none — set with: channel out <ch> <label>)"}`,
     ]);

@@ -73,6 +73,8 @@ Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHo
 lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
 `builtinParams.md`, `namPlugin.md`, `sidechain.md` (a module's second input),
+`audioDevice.md` (which interface is opened, who remembers the choice, and what an
+interface change does to the live inputs),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.
 
 ## Key concepts

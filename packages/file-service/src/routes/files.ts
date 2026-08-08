@@ -31,7 +31,12 @@ import {
   webGitEnv,
 } from "../engineLink.ts";
 import { readLog } from "../logs.ts";
-import { preferences, setVim, toWebTracks } from "../workspace.ts";
+import {
+  preferences,
+  setAudioDevicePref,
+  setVim,
+  toWebTracks,
+} from "../workspace.ts";
 
 export const filesRouter = Router();
 
@@ -58,6 +63,22 @@ filesRouter.put(
   validate(vimBody),
   wrap((req, res) => {
     res.json({ vim: setVim((req.body as z.infer<typeof vimBody>).vim) });
+  }),
+);
+// The interface this machine plays through. Written here and not by the engine, which keeps no
+// such memory of its own on purpose (docs/audioDevice.md): a picker tells the engine to switch
+// NOW, and this to still be on it after the next restart. `type` matters — ASIO and the Windows
+// endpoint of one interface share a name and not a latency.
+const audioDeviceBody = z.object({
+  name: z.string(),
+  type: z.string().optional(),
+});
+filesRouter.put(
+  "/preferences/audio-device",
+  validate(audioDeviceBody),
+  wrap((req, res) => {
+    const { name, type } = req.body as z.infer<typeof audioDeviceBody>;
+    res.json({ audioDevice: setAudioDevicePref(name, type) });
   }),
 );
 

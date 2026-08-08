@@ -186,6 +186,57 @@ export const engineMachine = {
     return removed ?? 0;
   },
 
+  /**
+   * Remember the interface that machine should play through, for the next engine too.
+   *
+   * TWO calls make one pick: the engine's own `set-audio-device` switches the running one,
+   * this makes it survive a restart. They are separate because they are separate facts — a
+   * live engine and a file on a disk — and the engine holds no memory of its device by
+   * design (engine/moteur/docs/audioDevice.md). Sending only the first is how a machine
+   * ends up back on the Windows endpoint after every rebuild, monitoring at four times the
+   * latency, with nothing on screen saying so.
+   */
+  /** Which interface that machine is REMEMBERING — "(system default)" spelled as null when
+   *  nothing is pinned, which is the state that leaves the engine on the Windows endpoint. */
+  audioDevicePref: async (
+    fileBase: string,
+    token: string,
+  ): Promise<string | null> => {
+    const res = await fetch(`${fileBase}/preferences`, {
+      headers: {
+        [USER_HEADER]: currentUser(),
+        [ENGINE_TOKEN_HEADER]: token,
+      },
+    });
+    const { audioDevice } = await json<{ audioDevice: string | null }>(
+      res,
+      "preferences",
+    );
+    return audioDevice ?? null;
+  },
+
+  setAudioDevice: async (
+    fileBase: string,
+    token: string,
+    name: string,
+    type?: string,
+  ): Promise<string | null> => {
+    const res = await fetch(`${fileBase}/preferences/audio-device`, {
+      method: "PUT",
+      headers: {
+        [USER_HEADER]: currentUser(),
+        [ENGINE_TOKEN_HEADER]: token,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name, ...(type ? { type } : {}) }),
+    });
+    const { audioDevice } = await json<{ audioDevice: string | null }>(
+      res,
+      "audio-device",
+    );
+    return audioDevice ?? null;
+  },
+
   /** The tail of that machine's merged log (engine + supervisor + file service) — what the
    *  tray's « Show logs » opens, minus the text editor. */
   logs: async (

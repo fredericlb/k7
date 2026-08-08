@@ -1,8 +1,8 @@
 // EnginePage.tsx — the cog's « État du moteur » : the tray's engine options, in the
 // browser. Everything here talks to the ENGINE's own WebSocket or to its machine's file
-// service; the supervisor has no network surface, so its verbs (start/stop/restart,
-// preferred/fallback device, full rescan) stay in the tray — the page says so rather
-// than pretending. Tray↔page mapping and limits: apps/st0/docs/engine-status.md.
+// service — the interface pick needs both, one to switch and one to remember. The
+// supervisor has no network surface, so its verbs (start/stop/restart, the audio fallback,
+// full rescan) stay in the tray. Mapping and limits: apps/st0/docs/engine-status.md.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
@@ -41,6 +41,10 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
   // from 0, which would read as "no plugins" about a scan that simply isn't done.
   const [pluginCount, setPluginCount] = useState<number | null>(null);
   const [maintenance, setMaintenance] = useState<string | null>(null);
+  // The interface the MACHINE remembers, which is not the one the engine is on: the second
+  // is live state off the socket, the first a file that decides what the next engine opens.
+  const [pinned, setPinned] = useState<string | null>(null);
+  const [pinNote, setPinNote] = useState<string | null>(null);
   const [logLines, setLogLines] = useState<string[] | null>(null);
   // The APP's socket, borrowed. This page used to build one of its own, which held while the
   // section replaced every other screen — it does not any more: a song keeps playing while you
@@ -77,6 +81,43 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
       clearInterval(poll);
     };
   }, [client, connected]);
+
+  // Read what the machine remembers, once the machine is known. Separate from the socket
+  // effect above: this outlives a reconnect, and a dropped engine says nothing about the file.
+  useEffect(() => {
+    setPinned(null);
+    setPinNote(null);
+    if (!choice.fileBase || !choice.token) return;
+    engineMachine
+      .audioDevicePref(choice.fileBase, choice.token)
+      .then(setPinned)
+      .catch(() => setPinNote("préférences de la machine illisibles"));
+  }, [choice.fileBase, choice.token]);
+
+  /**
+   * Switch now, and be on it again after the next restart.
+   *
+   * Both halves, because the engine deliberately keeps no memory of its interface (its
+   * AGENTS.md explains what that memory used to wedge). Telling only the engine is what left
+   * this machine back on the Windows endpoint after every rebuild — and a bad interface is
+   * inaudible on playback, so nothing but recording latency ever reported it.
+   */
+  const pickDevice = (d: EngineAudioDevice) => {
+    client?.setAudioDevice(d.name, d.type);
+    if (!choice.fileBase || !choice.token) {
+      setPinNote("machine injoignable — ce choix ne survivra pas au moteur");
+      return;
+    }
+    engineMachine
+      .setAudioDevice(choice.fileBase, choice.token, d.name, d.type)
+      .then((v) => {
+        setPinned(v);
+        setPinNote(null);
+      })
+      .catch((e: Error) =>
+        setPinNote(`mémorisation impossible : ${e.message}`),
+      );
+  };
 
   const rescan = () => {
     setPluginCount(null); // the spinner, until the fresh list lands
@@ -195,7 +236,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent/50"
-                  onClick={() => client?.setAudioDevice(d.name, d.type)}
+                  onClick={() => pickDevice(d)}
                 >
                   <Check
                     className={`h-3.5 w-3.5 ${d.current ? "" : "invisible"}`}
@@ -215,8 +256,14 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
           </ul>
         )}
         <p className="text-xs text-muted-foreground">
-          L'interface préférée et le repli se règlent dans le capot : c'est une
-          politique du superviseur, pas du moteur.
+          {pinned
+            ? `Mémorisée sur la machine : ${pinned}`
+            : "Aucune interface mémorisée : au prochain démarrage le moteur ouvrira la sortie Windows par défaut, dont la latence d'écoute vaut plusieurs fois celle d'un pilote ASIO. Choisissez-en une ci-dessus."}
+        </p>
+        {pinNote && <p className="text-xs text-red-500">{pinNote}</p>}
+        <p className="text-xs text-muted-foreground">
+          Le repli — où aller quand celle-ci est débranchée — se règle dans le
+          capot : c'est une politique du superviseur, pas du moteur.
         </p>
       </Card>
 

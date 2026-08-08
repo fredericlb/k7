@@ -418,6 +418,9 @@ private:
     void applyTrackInput(const std::string& session, const TrackDoc& t);
     // Re-apply every track's input, for the full-rebuild path where the whole playback context was just replaced.
     void applyAllTrackInputs(const std::string& session, const ProjectDoc& doc);
+    // The same after an INTERFACE change, plus putting back the arm flags the rebuild dropped — see
+    // docs/audioDevice.md. Takes the arm sets read before the switch, since after it there is nothing left to read.
+    void reconnectTrackInputs(const std::map<std::string, std::vector<std::string>>& armedBefore);
 
     // Name each armed track's take and point the input devices at recordDir_, called from play() the moment before
     // the transport rolls so the filename's timestamp is the take's start. False (and logged) with no recordDir.

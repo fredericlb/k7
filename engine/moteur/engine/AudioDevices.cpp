@@ -156,6 +156,15 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
     const juce::String wanted(name);
     const juce::String wantedType(type);
 
+    // Already there: say so and touch nothing. Not an optimisation — the file service re-asserts
+    // the machine's remembered interface on EVERY reconnect, and doing the work below for a device
+    // that never changed would re-wire the live inputs of a rolling session for nothing (and, on
+    // ASIO, close and reopen a single-client driver under it).
+    if (auto* cur = jdm.getCurrentAudioDevice();
+        cur != nullptr && cur->getName() == wanted
+        && (wantedType.isEmpty() || cur->getTypeName().equalsIgnoreCase(wantedType)))
+        return true;
+
     juce::AudioIODeviceType* found = nullptr;
     for (auto* t : jdm.getAvailableDeviceTypes()) {
         if (t == nullptr) continue;
@@ -201,6 +210,12 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
         return false;
     }
 
+    // What was armed, BEFORE the switch — reading it afterwards would read the new device's
+    // (empty) arm flags. See below for why it has to be put back by hand.
+    std::map<std::string, std::vector<std::string>> armedBefore;
+    for (const auto& sid : impl_->ids())
+        if (auto armed = armedTracks(sid); !armed.empty()) armedBefore[sid] = std::move(armed);
+
     const auto err = jdm.setAudioDeviceSetup(setup, true);
     dm.rescanWaveDeviceList(); // let Tracktion rebuild its wave-device wrappers for the new device
     if (err.isNotEmpty()) {
@@ -216,6 +231,7 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
     // The new device brings its own default buffer, so ask again: without this, switching
     // interface silently moved the engine between quality bands.
     applyPreferredBufferSize(jdm);
+    reconnectTrackInputs(armedBefore);
     if (!hasOut)
         std::cerr << "[audio] '" << name << "' is input-only — keeping output on '"
                   << setup.outputDeviceName << "'\n";
