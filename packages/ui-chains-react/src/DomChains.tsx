@@ -1245,7 +1245,6 @@ function Node({
   onTapWidget,
   onPickWidget,
   onPickAsset,
-  onPickLibrary,
   trackInput,
   onPickTrackInput,
   onWatchWaveform,
@@ -1269,10 +1268,10 @@ function Node({
   onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
   onTapWidget: (n: GraphNode, w: WebWidget) => void;
   onPickWidget: (n: GraphNode, w: WebWidget, value: number) => void;
-  // A library dropdown's pick — a FILE for the module field named by the asset kind.
-  /** Open the library browser for this widget, at the click's viewport coords. */
+  /** Open the library browser for this widget, at the click's viewport coords — a FILE for
+   *  the module field the widget names. Called `onPickLibrary` until the assets rework;
+   *  the old name survived a merge as a dead prop beside this one, and is gone now. */
   onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
-  onPickLibrary: (n: GraphNode, kind: string, x: number, y: number) => void;
   /** What this TRACK is fed from, as a chip on its header. Undefined draws none — which is
    *  every node that is not a track, and every host that cannot change one. */
   trackInput?: string;
@@ -2631,7 +2630,6 @@ export function DomChains({
                 onTapWidget={tapWidget}
                 onPickWidget={pickWidget}
                 onPickAsset={pickAsset}
-                onPickLibrary={pickLibrary}
                 trackInput={
                   onPickTrackInput && n.kind === "track"
                     ? (trackInputs?.[n.label] ?? "aucune")
