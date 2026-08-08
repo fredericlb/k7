@@ -86,10 +86,10 @@ describe("the one-module preview document", () => {
     expect(modulePreviewDoc("synth", undefined).recordDir).toBe("");
   });
 
-  it("carries no groups and no video, which is why it can be sent unfolded", () => {
+  it("carries no groups, which is why it can be sent unfolded", () => {
+    // It used to assert no PICTURE either. There is no such field to assert on any more —
+    // a ProjectDoc carries none since picture became v1's own document.
     const doc = modulePreviewDoc("synth", undefined);
     expect(doc.groups).toEqual([]);
-    expect(doc.video).toBe(false);
-    expect(doc.videoTracks).toEqual([]);
   });
 });

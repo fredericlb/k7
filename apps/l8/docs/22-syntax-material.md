@@ -82,14 +82,6 @@ points:
   - { time: "5:1:1", value: 0 }
 ```
 
-## clips/<id>.yaml — video
-
-A clip is audio or video by the EXTENSION of its source — there is no discriminant field. A video source (.mp4/.mov/.m4v/.webm/.mkv) makes it a video clip, placed by a video_tracks lane rather than an audio track.
-
-```yaml schema=Clip
-source: media/shot_a.mp4
-```
-
 ## clips/<id>.yaml — warped
 
 A stretch map carried over from an imported DAW project. `markers` pairs [timeline beat, source second], monotonic, at least two — the clip follows the song tempo instead of its own. Written by the importer; rarely authored by hand.

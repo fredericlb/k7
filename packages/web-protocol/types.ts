@@ -122,7 +122,7 @@ export interface Hints {
   tracks: string[];
   channels: string[]; // input-channel labels from the machine's preferences
   clips: string[];
-  // Video track ids — what an audio track's `video_source` may name to inherit its placements and audio.
+  // Video track ids (video_tracks/<id>.yaml) — v1's lanes, and what its `layers:` may name.
   videoTracks: string[];
   sequences: string[];
   chains: string[];
@@ -315,7 +315,8 @@ export interface WebGroup {
   mute: boolean;
   solo: boolean;
 }
-// A video clip on a video track. Times are SECONDS — `startBeat` serves the shared ruler only, never the model.
+// A video clip on a video track. Every time here is SECONDS: picture is cut against the wall
+// clock, which is the whole reason v1's timeline is not l8's.
 export interface WebVideoClip {
   id: string;
   name: string;
@@ -323,7 +324,6 @@ export interface WebVideoClip {
   start: number; // seconds
   length: number; // seconds (0 == natural)
   sourceFrom: number; // seconds into the source
-  startBeat: number; // start converted to beats, for the timeline only
 }
 // A shape module (mirrors ShapeDoc): a fill or text on the viewport, geometry in px, `color` any CSS colour.
 export type WebShape =
@@ -406,10 +406,31 @@ export interface WebProject {
   countIn: number;
   // Named timeline markers, sorted by beat. Empty when the song has none.
   markers: WebMarker[];
-  // Picture. `video` gates the viewport pane; when false the rest are inert. viewport is [w,h] px, fps for export.
-  video: boolean;
+}
+
+// --- v1: the same folder read as PICTURE -----------------------------------------
+// A `*.v1` project has no tempo, so nothing here is a beat. It is a separate document and
+// not a flag on WebProject: an l8 song answers "what plays", a v1 project answers "what is
+// on screen", and the two were only ever one interface while one app drew both.
+// See packages/song/docs/v1Project.md.
+
+/** A named point on v1's ruler. `sec` is its position; `tc` the `m:ss.mmm` it is stored under (the delete key). */
+export interface WebVideoMarker {
+  sec: number;
+  name: string;
+  tc: string;
+}
+
+export interface WebVideoProject {
+  name: string;
+  /** The frame the lanes draw into, in px. */
   viewport: [number, number];
+  /** Frames per second. Authoritative for EXPORT; realtime follows the transport's own clock. */
   fps: number;
+  /** Where the last picture ends, in seconds — what the timeline sizes itself against. 0 when empty. */
+  duration: number;
+  markers: WebVideoMarker[];
+  /** Already in `layers:` draw order, bottom first — no consumer re-sorts. */
   videoTracks: WebVideoTrack[];
 }
 

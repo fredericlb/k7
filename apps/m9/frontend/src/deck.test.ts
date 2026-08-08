@@ -405,9 +405,11 @@ describe("the decks' document", () => {
     expect(deckDoc(loaded()).recordDir).toBe("");
   });
 
-  it("carries no video and no groups, so it can be sent unfolded", () => {
+  it("carries no groups, so it can be sent unfolded", () => {
+    // It used to assert no PICTURE either. There is no such field to assert on any more —
+    // a ProjectDoc carries none since picture became v1's own document — so the fold this
+    // document skips is `withGroupMix` and nothing else.
     const doc = deckDoc(loaded());
     expect(doc.groups).toEqual([]);
-    expect(doc.video).toBe(false);
   });
 });

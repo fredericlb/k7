@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectRows, type Row, rowKey, rowTarget } from "./rows";
-import type { WebGroup, WebTrack, WebVideoTrack } from "./types";
+import type { WebGroup, WebTrack } from "./types";
 
 // The lane layout, and what each kind of row ADDRESSES — which is what a header click, a
 // mute key and a graph lookup all ask it.
@@ -24,20 +24,6 @@ const group = (id: string): WebGroup => ({
   mute: false,
   solo: false,
 });
-const videoTrack = (id: string): WebVideoTrack => ({
-  id,
-  name: id,
-  kind: "video",
-  color: "",
-  mute: false,
-  x: 0,
-  y: 0,
-  w: 1920,
-  h: 1080,
-  clips: [],
-  shapes: [],
-});
-
 describe("projectRows", () => {
   it("nests a group's members under a header placed where the first sits", () => {
     const rows = projectRows({ groups: [group("drums")] }, [
@@ -101,14 +87,5 @@ describe("rowTarget", () => {
       grouped: false,
     };
     expect(rowTarget(row)).toBeNull();
-  });
-
-  it("keeps a video lane apart from an engine track", () => {
-    // It has a file, so a header click can still open it — but it is no track, and the
-    // callers that ask for a mixer command or a chain have to be able to tell.
-    expect(rowTarget({ kind: "video", track: videoTrack("cam1") })).toEqual({
-      kind: "video",
-      id: "cam1",
-    });
   });
 });

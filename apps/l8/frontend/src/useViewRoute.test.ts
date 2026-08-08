@@ -92,8 +92,6 @@ describe("a deep link", () => {
       "/editor",
       "/timeline",
       "/chains",
-      "/viewport",
-      "/video",
       "/help",
       "/chains?panel=graph",
       "/help?panel=logs",

@@ -26,6 +26,7 @@ import type {
   UndoResult,
   WebPreferences,
   WebProject,
+  WebVideoProject,
   WorkspaceForRepo,
   WorkspaceInfo,
 } from "@studio/web-protocol";
@@ -56,6 +57,10 @@ export const projectApi = {
   // decks' clips into this and sends it. l8 never calls it: the file service plays l8's project
   // on its own machine, so l8 has no document to hold.
   engineDoc: () => fget<ProjectDoc>("/engine-doc"),
+  // The same folder read as PICTURE — v1's document. A `.l8` folder fails here and a `.v1`
+  // folder fails at projectDoc: they are two compilers, not one route with a flag.
+  videoDoc: () => fget<WebVideoProject>("/video-doc"),
+  videoErrors: () => fget<ProjectErrors>("/video-errors"),
   graph: () => fget<WebGraph>("/graph"),
   projectErrors: () => fget<ProjectErrors>("/project-errors"),
 

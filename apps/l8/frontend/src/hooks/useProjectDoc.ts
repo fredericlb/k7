@@ -1,5 +1,5 @@
 // useProjectDoc.ts — the compiled doc's slice of shell state, refetched on reloadKey.
-// The doc drives the viewport gate (hasVideo), the strudel poll gate, the track order
+// The doc drives the strudel poll gate, the track order
 // the engine meters index by, the mixer state for the track-node controls, and the
 // recording overlay's fields. Extracted from App.tsx; behaviour unchanged.
 
@@ -31,7 +31,6 @@ export interface ProjectDocState {
   metronomeOn: boolean;
   recInfo: RecInfo;
   docTracks: DocTrack[];
-  hasVideo: boolean;
   hasStrudel: boolean;
   /** The MIDI sequence each track carries ({seqId, start-in-beats}), by track id. */
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
@@ -44,8 +43,6 @@ export function useProjectDoc(
     onMidiSeqs: (
       seqs: Record<string, { seqId: string; start: number }>,
     ) => void;
-    /** Called with the project's name when it has video, null when it hasn't. */
-    onVideo: (projectName: string | null) => void;
   },
 ): ProjectDocState {
   const [trackOrder, setTrackOrder] = useState<string[]>([]);
@@ -58,7 +55,6 @@ export function useProjectDoc(
     names: {},
   });
   const [docTracks, setDocTracks] = useState<DocTrack[]>([]);
-  const [hasVideo, setHasVideo] = useState(false);
   const [hasStrudel, setHasStrudel] = useState(false);
   const midiSeqRef = useRef<Record<string, { seqId: string; start: number }>>(
     {},
@@ -103,14 +99,11 @@ export function useProjectDoc(
             frozen: !!t.frozen,
           })),
         );
-        setHasVideo(!!p.video);
         setHasStrudel(!!p.strudel);
-        optsRef.current.onVideo(p.video ? p.name : null);
       })
       .catch(() => {
-        // No doc: reset what is derived from it, but do NOT touch the view — only a loaded video-less doc does that.
+        // No doc: reset what is derived from it.
         if (!alive) return;
-        setHasVideo(false);
         setHasStrudel(false);
         setDocTracks([]);
       });
@@ -124,7 +117,6 @@ export function useProjectDoc(
     metronomeOn,
     recInfo,
     docTracks,
-    hasVideo,
     hasStrudel,
     midiSeqRef,
   };

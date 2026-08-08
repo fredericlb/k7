@@ -24,7 +24,16 @@ export const ProjectSettingsSchema = z
     // them as a warning instead, naming the lines to delete.
     modules_from: z.array(z.string()).optional(),
     libraries_from: z.array(z.string()).optional(),
+    // DEAD in the same sense, and for a newer reason: picture moved out of l8 into v1, so an
+    // l8 song's `video: true` now gates nothing. Every song that ever had picture carries the
+    // line, so refusing it would break folders that still compile perfectly as audio;
+    // `deadProjectFields` names it and says where the picture went instead.
     video: z.boolean().optional(),
+    // v1's, and only v1's — the frame its lanes draw into and their draw order, bottom first.
+    // They stay in the SHARED settings tier because one schema validates every dialect (the
+    // loader has no type to branch on when it reads the header); which dialect READS them is
+    // stated in packages/song/docs/v1Project.md, and `deadProjectFields` reports them in an l8
+    // folder rather than leaving "accepted" to mean "silently ignored".
     viewport: z
       .union([
         z.tuple([z.number().int().positive(), z.number().int().positive()]),
@@ -40,7 +49,7 @@ export const ProjectSettingsSchema = z
   .strict();
 
 /**
- * What a project's files are FOR — l8's timeline song, m9's set, z0's blind test.
+ * What a project's files are FOR — l8's timeline song, m9's set, v1's cut, z0's blind test.
  *
  * The SAME set as `ProjectApp`, and not a second list that happens to agree. `projectTypeOf`
  * answers step 1 with `projectApp(basename(dir))`, so the two are already one question asked
@@ -54,6 +63,7 @@ export const ProjectSettingsSchema = z
 export const PROJECT_TYPES = [
   "l8",
   "m9",
+  "v1",
   "z0",
 ] as const satisfies readonly ProjectApp[];
 export type ProjectType = ProjectApp;
@@ -66,6 +76,19 @@ type _EveryAppIsAType =
 const _everyAppIsAType: _EveryAppIsAType = true;
 void _everyAppIsAType;
 
+/**
+ * v1's marker key: a WALL-CLOCK position — `90`, `12.5`, `1:30`, `1:30.5`.
+ *
+ * A superset of TIMECODE where it overlaps, which is the point: `"90"` and `"1:30"` are legal
+ * under both, and the DIALECT decides what they mean — bar 90 in a song, ninety seconds in a
+ * cut. Only the decimal part is new, and it is exactly what a musical timecode cannot say.
+ * Quoted for the same YAML 1.1 sexagesimal reason every other timecode here is (trackFile.ts).
+ */
+export const WALL_CLOCK = /^[0-9]+(\.[0-9]+)?$|^[0-9]+:[0-5][0-9](\.[0-9]+)?$/;
+
+/** What `markers:` accepts across every dialect — one schema validates them all (see viewport above). */
+const MARKER_KEY = new RegExp(`${TIMECODE.source}|${WALL_CLOCK.source}`);
+
 export const ProjectFileSchema = z
   .object({
     project: ProjectSettingsSchema.optional(),
@@ -77,9 +100,14 @@ export const ProjectFileSchema = z
     // a reader — and a loader handed an absolute path with no name to read — knows too.
     type: z.enum(PROJECT_TYPES).optional(),
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
-    markers: z // timeline markers: a timecode -> its label
+    markers: z // timeline markers: a position -> its label
       .record(
-        z.string().regex(TIMECODE, "a marker's key is a timecode like 5:1:1"),
+        z
+          .string()
+          .regex(
+            MARKER_KEY,
+            "a marker's key is a musical timecode like 5:1:1, or — in a v1 project — a wall-clock position like 1:30.5",
+          ),
         z.string(),
       )
       .optional(),

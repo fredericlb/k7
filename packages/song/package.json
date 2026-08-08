@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "l8's song layer — parses a folder of CUE files, compiles it to a flat ProjectDoc/GraphDoc, and resolves Strudel patterns. Consumed as source.",
+  "description": "The song layer — parses a folder of CUE files and compiles it: to a flat ProjectDoc/GraphDoc for l8 and m9, to a VideoProjectDoc for v1. Also resolves Strudel patterns. Consumed as source.",
   "exports": {
     "./loader": "./src/loader.ts",
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
@@ -44,6 +44,7 @@
     "./testSupport": "./src/testSupport.ts",
     "./yaml/edit": "./src/yaml/edit.ts",
     "./yaml/trackFile": "./src/yaml/trackFile.ts",
+    "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts",
     "./yaml/sequenceFile": "./src/yaml/sequenceFile.ts",
     "./engineCatalogue": "./src/engineCatalogue.ts",
     "./engineFace": "./src/engineFace.ts",
@@ -56,6 +57,10 @@
     "./yaml/mixViewSchema": "./src/yaml/mixViewSchema.ts",
     "./projectType": "./src/projectType.ts",
     "./scaffoldM9": "./src/scaffoldM9.ts",
+    "./scaffoldV1": "./src/scaffoldV1.ts",
+    "./videoDoc": "./src/videoDoc.ts",
+    "./videoTracks": "./src/videoTracks.ts",
+    "./videoProject": "./src/videoProject.ts",
     "./moduleTypes": "./src/moduleTypes.ts"
   },
   "scripts": {

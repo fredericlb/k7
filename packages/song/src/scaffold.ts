@@ -1,48 +1,23 @@
 // scaffold.ts — the file map + writer for a new l8 song: a minimal, immediately
-// playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern),
-// `video` adding a viewport + two video tracks on top. Every file is hand-authored, not
-// serialised, because its `#` comments are the one worked example a reader gets.
+// playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern).
+// Every file is hand-authored, not serialised, because its `#` comments are the one worked
+// example a reader gets. Picture has its own scaffold now — scaffoldV1.ts.
 // Full rationale: docs/scaffold.md.
 
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DEFAULT_COUNT_IN } from "./project";
 
 const q = (s: string) => JSON.stringify(s);
 
-// The bundled sample video: testsrc burns the frame number in, so playback sync is visible at a glance.
-const SAMPLE_VIDEO = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "samples",
-  "video",
-  "sample.mp4",
-); // packages/song/samples/video/sample.mp4
-
 // The files of a minimal node project, keyed by path relative to the project folder.
-export function projectFiles(
-  name: string,
-  video: boolean,
-): Record<string, string> {
-  const projectYaml = video // `video` turns on picture: a 1280x720 viewport at 30fps for export, drawing the two video tracks below
-    ? `project:\n` +
-      `  name: ${q(name)}\n` +
-      `  tempo: 120\n` +
-      `  sampleRate: 48000\n` +
-      `  timeSignature: "4/4"\n\n` +
-      `  # Picture. viewport is [width, height, fps] — the fps is used only by export\n` +
-      `  # (realtime follows the engine's clock). Video files' audio is ignored; every\n` +
-      `  # sound comes from the engine.\n` +
-      `  video: true\n` +
-      `  viewport: [1280, 720, 30]\n` +
-      `  # Draw order, bottom first: the full-frame "main" lane, then "pip" over it.\n` +
-      `  layers: [main, pip]\n`
-    : `project:\n` +
-      `  name: ${q(name)}\n` +
-      `  tempo: 120\n` +
-      `  sampleRate: 48000\n` +
-      `  timeSignature: "4/4"\n`;
+export function projectFiles(name: string): Record<string, string> {
+  const projectYaml =
+    `project:\n` +
+    `  name: ${q(name)}\n` +
+    `  tempo: 120\n` +
+    `  sampleRate: 48000\n` +
+    `  timeSignature: "4/4"\n`;
 
   const base: Record<string, string> = {
     "project.yaml": projectYaml,
@@ -160,7 +135,7 @@ export function projectFiles(
     // invent. Git tracks files, not directories, so keeping it costs a file: this one,
     // which deliberately ignores NOTHING. A pattern here would hide the curves.
     //
-    // In `base`, not the video branch: every song gets curves, picture or not.
+    // Unconditional: every song gets curves.
     "curves/.gitignore":
       `# Keeps curves/ in the repository while it is still empty.
 ` +
@@ -168,26 +143,7 @@ export function projectFiles(
 `,
   };
 
-  if (!video) return base;
-
-  // Picture over the same audio example — all video time is DECIMAL SECONDS, cut against the wall clock.
-  return {
-    ...base,
-
-    "clips/sample.yaml": `source: clips/sample.mp4\n`, // kind read from the .mp4 extension (clips/ holds both audio and video)
-
-    // The full-frame background lane: x/y/w/h place it in viewport px, source_from is the in-point in seconds.
-    "video_tracks/main.yaml":
-      `# A video track: like an audio one, but it links picture and places it on the\n` +
-      `# viewport. Draw order lives in project.layers, not here. All times are seconds.\n` +
-      `x: 0\ny: 0\nw: 1280\nh: 720\n` +
-      `clips:\n  - { ref: sample, start: 0, length: 6, source_from: 0 }\n`,
-
-    // A picture-in-picture lane over "main", playing the same clip from 2s in — proof the compositing works.
-    "video_tracks/pip.yaml":
-      `x: 940\ny: 520\nw: 320\nh: 180\n` +
-      `clips:\n  - { ref: sample, start: 0, length: 6, source_from: 2 }\n`,
-  };
+  return base;
 }
 
 /** Write a project's file map under `dir`, making the folders it implies. Shared with the m9
@@ -204,24 +160,13 @@ export function writeProjectFiles(
   return Object.keys(files);
 }
 
-export function scaffold(dir: string, name: string, video = false): string[] {
-  const files = projectFiles(name, video);
+export function scaffold(dir: string, name: string): string[] {
+  const files = projectFiles(name);
   writeProjectFiles(dir, files);
-
-  const copied: string[] = []; // the bundled sample video is binary, so it's copied separately from the text-file map above
-  if (video) {
-    if (!existsSync(SAMPLE_VIDEO))
-      throw new Error(
-        `bundled sample video missing (${SAMPLE_VIDEO}) — the @studio/song package is incomplete`,
-      );
-    mkdirSync(join(dir, "clips"), { recursive: true });
-    copyFileSync(SAMPLE_VIDEO, join(dir, "clips/sample.mp4"));
-    copied.push("clips/sample.mp4");
-  }
 
   // Nothing to point at the shared folders any more: a project sees the workspace's own and
   // the machine's media library because of WHERE they are (sharedFolders.ts). The three
   // `ensure*` calls that used to write those lists into project.yaml wrote down facts the
   // loader already knew, and left a project wrong whenever one of them moved.
-  return [...Object.keys(files), ...copied];
+  return Object.keys(files);
 }

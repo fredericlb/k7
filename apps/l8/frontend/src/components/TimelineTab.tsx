@@ -8,6 +8,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { beatsToPosition } from "@studio/song/timecode";
 import { trackLabel } from "@studio/song/trackKind";
+import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
   labelled,
   labelMinPx,
@@ -50,7 +51,6 @@ import {
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type { WebProject, WebTrack } from "../types";
 import { useIsMobile } from "../useIsMobile";
-import { useHZoom, usePanScroll } from "../usePanZoom";
 import { ClipContent } from "./ClipContent";
 import type { EditTarget } from "./EditorPanel";
 
@@ -383,8 +383,7 @@ export function TimelineTab({
   // What m/s aim at from here — a lane's track, a header's group, a pattern lane's GROUP. See docs/timeline.md.
   const caretTrackId = useMemo(() => {
     const target = caretRow && rowTarget(caretRow);
-    // A video lane is not an engine track: no level, no arm, no mixer command. The caret reports no track id on one.
-    return !target || target.kind === "video" ? null : target.id;
+    return target ? target.id : null;
   }, [caretRow]);
   useEffect(() => {
     onCaret({ ...caret, trackId: caretTrackId });
@@ -954,10 +953,6 @@ export function TimelineTab({
       setStatus(
         `selected: group ${caretRow.group.name} — m/s act on its members`,
       );
-    else if (caretRow.kind === "video")
-      setStatus(
-        `selected: video ${caretRow.track.name} — picture, not a mixer lane`,
-      );
     else if (caretRow.track.generated)
       setStatus(
         caretTrackId
@@ -1396,76 +1391,6 @@ export function TimelineTab({
                   </div>
                 </div>
               );
-
-            // A VIDEO lane, read-only here: it is cut in seconds and this grid is in beats. See docs/timeline.md.
-            if (row.kind === "video") {
-              const vt = row.track;
-              // Seconds → beats at the project tempo, as the compiler does for `video_source`; length isn't precomputed.
-              const toBeats = (s: number) => (s * proj.tempo) / 60;
-              return (
-                <div
-                  key={`video:${vt.id}`}
-                  className={cn(
-                    "flex border-b border-border/40",
-                    vt.mute && "opacity-50", // "mute" on a video lane == hidden
-                  )}
-                  style={{ height: ROW_H }}
-                >
-                  <div
-                    style={{ width: GUTTER }}
-                    {...gutterProps(row)}
-                    className={cn(
-                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
-                      inSel && "bg-primary/20",
-                      labelled && LABEL_SELECTED,
-                    )}
-                  >
-                    {vt.color && (
-                      <span
-                        className="size-2 shrink-0 rounded-sm"
-                        style={{ background: vt.color }}
-                      />
-                    )}
-                    <TrackIcon
-                      name={vt.name}
-                      video
-                      className="h-3.5 w-3.5 shrink-0 opacity-70"
-                    />
-                    <span
-                      className="truncate"
-                      title={`${vt.name} — a ${vt.kind === "shape" ? "shape" : "video"} lane; cut in seconds, edited in its own file`}
-                    >
-                      {trackLabel(vt.name)}
-                    </span>
-                  </div>
-                  <div
-                    className="relative overflow-hidden"
-                    style={{ width: laneW }}
-                  >
-                    {vt.clips.map((c, i) => (
-                      <div
-                        key={`${c.id}:${i}`}
-                        className="absolute inset-y-0.5 flex items-center gap-0.5 overflow-hidden rounded-sm bg-violet-600/70 px-1 text-[10px] text-white"
-                        style={{
-                          left: x(c.startBeat),
-                          // length 0 == "to the end of the source", whose duration isn't known here — give it one beat so it's still visible.
-                          width: Math.max(ppb, toBeats(c.length) * ppb || ppb),
-                        }}
-                        title={`${c.name || c.id} — ${c.length ? `${c.length}s` : "to the end of the source"}`}
-                      >
-                        <TrackIcon
-                          name={c.name}
-                          video
-                          className="h-2.5 w-2.5 shrink-0 opacity-80"
-                        />
-                        <span className="truncate">{c.name || c.id}</span>
-                      </div>
-                    ))}
-                    {inSel && selBox && selSlice(selBox)}
-                  </div>
-                </div>
-              );
-            }
 
             const { track: t, index: ti } = row;
             const eff = effOf(t);

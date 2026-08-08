@@ -10,16 +10,15 @@ import {
 } from "./commandI18n";
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
 import { fuzzyScore } from "./fuzzy";
-import { ALL_PANES } from "./shellMeta";
+import { PANES } from "./shellMeta";
 import type { CommandInfo } from "./types";
 
 // Everything whose ONLY effect is on the shell lives under `ui` — the namespace promises it writes no file and
 // never moves the transport. `locate`, `loop`, `record`, `new/delete project` and `event move` keep bare names.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
-  "ui global", // the 3-pane view — the default, and what esc backs out to
-  "ui video", // the same three panes with the renderer instead of the graph (video songs)
-  ...ALL_PANES.map((p) => `ui ${p}`), // fullscreen one pane (viewport: a no-op without video)
+  "ui global", // the 3-pane view — the default, and the only one since picture left for v1
+  ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
   "project new", // scaffold a new project at the workspace root, then open it
@@ -45,9 +44,9 @@ export const LOCAL_COMMANDS = [
 // The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field.
 export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui file": [{ name: "path", kind: "file", hint: "a file of this project" }],
-  // `type` is the fixed audio|video choice completed below in makeCompleteArg.
+  // `type` is the fixed audio|m9|v1 choice completed below in makeCompleteArg.
   "project new": [
-    { name: "type", kind: "choice", hint: "audio · video" },
+    { name: "type", kind: "choice", hint: "audio · m9 · v1" },
     { name: "name", kind: "text", hint: "the new project's folder name" },
   ],
   "project delete": [
@@ -95,11 +94,11 @@ export function makeCompleteArg(files: () => string[]) {
   ): Promise<string[]> => {
     const canonical = canonicalizeCommand(command);
     // `new project`'s first arg is a fixed choice the backend knows nothing about, so offer it
-    // here. `m9` is a SET — two decks and a crossfade — and lands as a `.m9` folder that this
-    // app cannot open; it is offered anyway because the workspace is one clone and l8 is where
-    // the command bar is.
+    // here. `m9` is a SET — two decks and a crossfade — and `v1` a CUT — a viewport and its
+    // lanes; both land as folders this app cannot open. They are offered anyway because the
+    // workspace is one clone and l8 is where the command bar is.
     if (canonical === "new project" && priorArgs.length === 0)
-      return ["audio", "video", "m9"].filter((t) =>
+      return ["audio", "m9", "v1"].filter((t) =>
         t.startsWith(partial.toLowerCase()),
       );
     if (canonical === "file" && priorArgs.length === 0) {

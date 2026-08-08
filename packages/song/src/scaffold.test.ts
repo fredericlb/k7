@@ -60,27 +60,6 @@ describe("a scaffolded project", () => {
     expect(melody?.clips?.[0]?.start).toBe(0); // bar 1 == beat 0, not 3661
   });
 
-  it("adds picture without disturbing the audio example", () => {
-    scaffold(dir, "demo", true);
-    const doc = compileNodeProject(dir);
-    expect(loadGraph(dir).warnings).toEqual([]);
-    // The same three audio tracks, plus the two video lanes and the clip they share.
-    expect(doc.tracks.map((t) => t.id).sort()).toEqual([
-      "kit",
-      "melody",
-      "pad",
-    ]);
-    expect((doc.videoTracks ?? []).map((t) => t.id).sort()).toEqual([
-      "main",
-      "pip",
-    ]);
-    expect(tree()).toContain("clips/sample.mp4");
-    // The pip lane starts 2s into the same source — the difference that makes the two
-    // lanes show different frames.
-    const pip = doc.videoTracks?.find((t) => t.id === "pip");
-    expect(pip?.clips?.[0]?.sourceFrom).toBe(2);
-  });
-
   it("names the project what it was asked to", () => {
     scaffold(dir, "my song");
     expect(compileNodeProject(dir).name).toBe("my song");

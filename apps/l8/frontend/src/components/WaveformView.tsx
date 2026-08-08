@@ -5,12 +5,12 @@
 // from the clip's samples); the notes/grid come from the backend (/api/waveform).
 
 import { useEngineState } from "@studio/engine-browser/store";
+import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
-import { useHZoom, usePanScroll } from "../usePanZoom";
 
 export function WaveformView({
   project,

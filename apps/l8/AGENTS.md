@@ -10,7 +10,7 @@ the whole audio side. Two workspaces live here:
 
 | Package | Role |
 |---|---|
-| `frontend` (`l8-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph, video compositor. |
+| `frontend` (`l8-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
 | `backend` (`l8-backend`) | Express — **the engine registry only**, plus verifying the session st0 mints. It has no file routes and no auth routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
 
 Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://studio.test/l8`
@@ -80,12 +80,12 @@ matches before changing it:
 
 `App.tsx` shows three panes at once — editor (left), timeline (top-right), chains
 (bottom-right). Each pane is **mounted exactly once, in every layout**. `hidden` takes
-a pane off screen; nothing unmounts. Two views: `global` (chains graph) and `video`
-(video compositor). `full` sits on top of a view to fullscreen one pane.
+a pane off screen; nothing unmounts. One view, `global` — there was a second, `video`, and
+it left with the picture for `apps/v1`. `full` sits on top of a view to fullscreen one pane.
 
 The vocabulary is three words, not two, and `src/routes.ts` is where they are declared —
-read it before changing layout. A **pane** is one of four (`editor | timeline | chains |
-viewport`) and is what `full` fullscreens. A **panel** is one of five (`editor | mixer |
+read it before changing layout. A **pane** is one of three (`editor | timeline | chains`)
+and is what `full` fullscreens. A **panel** is one of five (`editor | mixer |
 graph | docs | logs`) and is what the editor column shows. A **view** is the arrangement of
 panes. All three are URL state (`src/hooks/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
@@ -104,7 +104,7 @@ Keys are looked up in `KEYS` and the named command runs through `runCommand`. `;
 focuses the command bar (`@command`). Bindings can be conditional, ordered, and
 interpolate conditions into command names (`f` → `{focus_pane}`).
 
-### Editor, chains, timeline, video
+### Editor, chains, timeline
 
 - **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
@@ -127,8 +127,6 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   for the zoom stack, `m`/`s` for mute/solo (which rewrite `tracks/*.yaml`, not a
   session flag). Selection and zoom are a stack; the innermost entry describes the
   view. Unlike chains, this one stays l8-only.
-- **Video** — `@studio/ui-eyes`, a WebGL compositor. One `<video>` per layer, not per
-  clip. The `video` view is the default for songs with video tracks (`autoVideoRef`).
 
 ## The backend in detail
 

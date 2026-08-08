@@ -10,17 +10,16 @@ const st = (o: Partial<RouteState> = {}): RouteState => ({
 });
 
 describe("toPath", () => {
-  it("maps the two layouts and each fullscreen pane", () => {
+  it("maps the layout and each fullscreen pane", () => {
     expect(toPath(st())).toBe("/");
-    expect(toPath(st({ view: "video" }))).toBe("/video");
     expect(toPath(st({ full: "timeline" }))).toBe("/timeline");
-    expect(toPath(st({ full: "viewport" }))).toBe("/viewport");
+    expect(toPath(st({ full: "chains" }))).toBe("/chains");
     expect(toPath(st({ help: true }))).toBe("/docs");
   });
 
   it("drops the layout once a pane is fullscreened", () => {
-    // You are looking at the timeline, not at the video layout behind it.
-    expect(toPath(st({ view: "video", full: "timeline" }))).toBe("/timeline");
+    // You are looking at the timeline, not at the layout behind it.
+    expect(toPath(st({ full: "timeline" }))).toBe("/timeline");
   });
 
   it("carries the panel as a query on any screen", () => {
@@ -36,7 +35,6 @@ describe("fromLocation", () => {
   it("round-trips every screen", () => {
     for (const s of [
       st(),
-      st({ view: "video" }),
       st({ full: "editor" }),
       st({ full: "chains", panel: "mixer" }),
       st({ help: true }),
@@ -51,9 +49,8 @@ describe("fromLocation", () => {
   });
 
   it("keeps the current layout under a fullscreen pane", () => {
-    // Leaving /timeline should put you back in the video layout you came from, so the
-    // path must not force `view` back to global.
-    expect(fromLocation("/timeline", "", "video").view).toBe("video");
+    // The path must not force `view`: with one layout that is invisible, and the rule is the
+    // routing's rather than the layout list's — a second layout would rely on it again.
     expect(fromLocation("/timeline", "", "global").view).toBe("global");
   });
 
@@ -70,7 +67,8 @@ describe("fromLocation", () => {
 
   it("tolerates trailing and doubled slashes", () => {
     expect(fromLocation("/timeline/", "", "global").full).toBe("timeline");
-    expect(fromLocation("//video//", "", "global").view).toBe("video");
+    // `/video` was a real address until picture left for v1; it still lands somewhere usable.
+    expect(fromLocation("//video//", "", "global")).toEqual(st());
   });
 });
 
@@ -79,13 +77,6 @@ describe("sameRoute", () => {
     expect(sameRoute(st({ full: "editor" }), st({ full: "editor" }))).toBe(
       true,
     );
-    // The layout is not in the URL while a pane is full, so these agree.
-    expect(
-      sameRoute(
-        st({ full: "editor", view: "video" }),
-        st({ full: "editor", view: "global" }),
-      ),
-    ).toBe(true);
     expect(sameRoute(st({ panel: "mixer" }), st({ panel: "logs" }))).toBe(
       false,
     );

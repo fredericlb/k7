@@ -89,6 +89,20 @@ studio.test {
 		reverse_proxy 127.0.0.1:5225
 	}
 
+	# The cut. Its backend holds auth, the machine registry and which machine the
+	# account works from; the file service that holds the project AND the footage is
+	# reached directly, cross-origin, so it is not proxied here. There is no moteur
+	# in this app's picture at all — a cut has no audio.
+	@v1_api path /v1/api/*
+	handle @v1_api {
+		uri strip_prefix /v1
+		reverse_proxy 127.0.0.1:8790
+	}
+	@v1 path /v1 /v1/*
+	handle @v1 {
+		reverse_proxy 127.0.0.1:5226
+	}
+
 	# --- z0: guests are its own, the ACCOUNT login is st0's -------------
 	# It keeps `bt_session` for guests — a blind-test player has no account, a
 	# kind the studio session does not model — but no longer runs an OIDC flow.

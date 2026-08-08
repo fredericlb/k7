@@ -1,7 +1,7 @@
 // VideoReadersStrip.tsx — the per-placement dock for an open video_tracks/*.yaml: one
 // small <video> reader per `clips:` entry, with Set From / Set To writing the reader's
 // current timecode into that placement's `source_from` / `length`. Both are surgical text
-// rewrites of the open file (see ../videoPlacements.ts); the author saves.
+// rewrites of the open file (@studio/song/yaml/videoTrackFile); the author saves.
 
 import { Button } from "@frediverse/ui/button";
 import { useEffect, useRef, useState } from "react";

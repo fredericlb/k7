@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     // ES2022, matching the @studio/* packages this app consumes as RAW SOURCE
-    // (vite.config.ts excludes ui-eyes/ui-chains/ui-editor from pre-bundling, so
+    // (vite.config.ts excludes ui-chains/ui-editor/ui-timeline from pre-bundling, so
     // their .ts is compiled here). They're authored at ES2022; checking them under an
     // ES2020 target was a genuine mismatch, not just a style difference.
     "target": "ES2022",
