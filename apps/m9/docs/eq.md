@@ -113,6 +113,27 @@ même paramètre.
 C'est aussi ce qui fait qu'un creux de −12 dB est **toujours là** au retour du graphe, là où une
 copie privée aurait redessiné le potard à plat pendant que le son disait le contraire.
 
+### Et le tempo, qui n'a pas de plugin du tout
+
+Le crossfade et l'EQ sont de vrais plugins : le moteur les tient, il les rapporte, tout suit.
+Le tempo est `offline` — le compilateur n'en émet **aucun** plugin — donc il n'y a rien à
+surveiller et aucune adresse pour le faire. Le store de paramètres ne peut rien pour lui.
+
+Sa valeur existe pourtant : sur la surface qui le RÉALISE, le pupitre, qui la transforme en
+warp de clip. Le pupitre la prête donc via `Deck.moduleParams`, et le graphe l'emprunte —
+`moduleParams` sur la vue chaînes, indexé par NOM DE MODULE puisqu'il n'y a pas d'id de
+plugin. Sur le `Deck` et non dans MixView, parce que MixView est démonté exactement quand le
+graphe est à l'écran, le seul moment où celui-ci en a besoin.
+
+Le potard de tempo du graphe est donc **en lecture seule**, et visiblement : `onModuleParam`
+n'est délibérément pas passé. Montrer et prendre sont deux capacités distinctes, et étirer un
+morceau demande les morceaux chargés et le document du pupitre — partis avec lui. Un potard
+qui tournerait contre rien serait le mensonge que le retrait du `pluginId` avait supprimé.
+
+Le tourner depuis le graphe demanderait de sortir l'état des platines de MixView. Ça
+réglerait aussi le fait qu'un aller-retour par le graphe oublie les morceaux chargés — c'est
+le même nœud, et il n'est pas encore défait.
+
 ## Ce qu'il faut savoir
 
 Un `params:` changé à la main dans `instances/eqA.yaml` ne bouge pas le potard tant que le

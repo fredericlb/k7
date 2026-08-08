@@ -123,7 +123,14 @@ export function MixView({
   const [set, setSet] = useState<SetList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loads, setLoads] = useState<DeckLoads>(NO_LOADS);
-  const [mix, setMix] = useState(MIX_CENTRE);
+  /**
+   * The crossfader, as an OPTIMISTIC layer — the same arrangement as the EQ knobs below.
+   *
+   * `undefined` means "nothing in hand", and then the engine's own `Mix` is what draws it. It
+   * was plain state seeded at centre, so a trip through the graph brought the fader back to
+   * the middle while the sound stayed where it had been put.
+   */
+  const [held, setHeld] = useState<number | undefined>(undefined);
   // Per deck. Three states rather than a nullable envelope: "still computing" and "there
   // will not be one" look identical as `null`, and they are different sentences on screen.
   const [waves, setWaves] = useState<Partial<Record<DeckId, Wave>>>({});
@@ -177,6 +184,19 @@ export function MixView({
     () => stretchTargets(wiring.bindings, tempos, plugins),
     [wiring, tempos, plugins],
   );
+
+  /**
+   * Where the crossfader IS: the hand, then the engine, then the centre a set starts at.
+   *
+   * Derived rather than stored for the same reason as the EQ knobs — the engine is what knows,
+   * and this view is unmounted every time somebody opens the graph.
+   */
+  const mix =
+    shownValue(
+      wiring.bindings.find((b) => b.control.id === "crossfade"),
+      held,
+      live,
+    ) ?? MIX_CENTRE;
 
   /**
    * Can sync do its SECOND half — put the two decks' beats together?
@@ -464,6 +484,26 @@ export function MixView({
   };
 
   /**
+   * Lend the graph what each tempo module is set to.
+   *
+   * The engine cannot answer this one: an `offline` module compiles to no plugin, so there is
+   * nothing to watch and no id to watch it by. The desk is where the value exists — it is the
+   * thing that turns it into a clip warp — so the desk publishes it, and the graph reads it
+   * from the Deck, which outlives this view.
+   *
+   * Keyed by the MODULE the binding names, not by the deck: `views/mix.yaml` decides which
+   * module a fader drives, and a set that pointed both faders at one module should show one
+   * number moving, not two.
+   */
+  useEffect(() => {
+    for (const b of wiring.bindings) {
+      if (b.pluginId) continue; // a real plugin — the engine reports that one itself
+      const t = tempos[b.control.id.split(".")[0] as DeckId];
+      if (t) deck.setModuleParam(b.module, b.param, t.target);
+    }
+  }, [wiring, tempos, deck.setModuleParam]);
+
+  /**
    * Let go of the override once the engine has caught up.
    *
    * An optimistic value that never yields is a knob that stops listening: the engine could
@@ -475,18 +515,29 @@ export function MixView({
     setEq((current) => {
       let changed = false;
       const next: Record<string, number> = {};
-      for (const [id, held] of Object.entries(current)) {
+      for (const [id, at] of Object.entries(current)) {
         const bound = wiring.bindings.find((b) => b.control.id === id);
-        if (engineAgrees(bound, held, live)) changed = true;
-        else next[id] = held;
+        if (engineAgrees(bound, at, live)) changed = true;
+        else next[id] = at;
       }
       return changed ? next : current;
     });
+    // …and the crossfader, which holds ONE number rather than a map.
+    setHeld((at) =>
+      at !== undefined &&
+      engineAgrees(
+        wiring.bindings.find((b) => b.control.id === "crossfade"),
+        at,
+        live,
+      )
+        ? undefined
+        : at,
+    );
   }, [live, wiring]);
 
   /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
   const crossfade = (value: number) => {
-    setMix(value);
+    setHeld(value);
     if (!deck.engine) return;
     // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`, and
     // the compiled document is what put that module in the engine. One `set-plugin-param` and

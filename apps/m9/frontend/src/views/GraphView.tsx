@@ -56,6 +56,12 @@ export function GraphView({
         fitKey={`${laid.nodes.length}`}
         // The engine's own values, shared with the desk — see Deck.params.
         pluginParamsStore={deck.params}
+        // …and what the DESK says about the modules the engine has never heard of. An
+        // `offline` module compiles to no plugin, so there is nothing to watch: the tempo's
+        // number lives on the surface that warps the clip. Read-only here — `onModuleParam`
+        // is deliberately not passed, because realising a tempo needs the deck's songs and
+        // its document, which are gone while this view is on screen.
+        moduleParams={deck.moduleParams}
         // …and the way back. One message per move, exactly as the desk's crossfader and EQ
         // send theirs: this IS that path, reached from the other picture of the same plugin.
         setPluginParam={(id, name, value) =>

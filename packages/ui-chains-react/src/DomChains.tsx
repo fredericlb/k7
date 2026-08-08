@@ -436,7 +436,9 @@ type TrackControl = keyof TrackControlValues;
 type WidgetTarget =
   | { kind: "plugin"; pluginId: string; name: string }
   | { kind: "track"; trackId: string; control: TrackControl }
-  | { kind: "module"; module: string; field: string };
+  | { kind: "module"; module: string; field: string }
+  // A param of a module realised OUTSIDE the graph — see `offlineOf`.
+  | { kind: "offline"; module: string; name: string };
 
 /**
  * What a widget actuates: an `@` bind is an INTRINSIC — the thing's own field rather than a plugin param — and
@@ -446,7 +448,12 @@ type WidgetTarget =
  *
  * Everything else is a plugin param, and needs a plugin to send it to.
  */
-function widgetTarget(n: GraphNode, w: WebWidget): WidgetTarget | null {
+function widgetTarget(
+  n: GraphNode,
+  w: WebWidget,
+  /** Does the host offer a channel for modules with no plugin? See `offlineOf`. */
+  offline = false,
+): WidgetTarget | null {
   if (!w.bind) return null;
   if (w.bind.startsWith("@")) {
     const field = w.bind.slice(1);
@@ -458,8 +465,12 @@ function widgetTarget(n: GraphNode, w: WebWidget): WidgetTarget | null {
       };
     return n.module ? { kind: "module", module: n.module, field } : null;
   }
-  return n.pluginId
-    ? { kind: "plugin", pluginId: n.pluginId, name: w.bind }
+  if (n.pluginId) return { kind: "plugin", pluginId: n.pluginId, name: w.bind };
+  // No plugin, and the host says it knows what such a module is set to. Opt-in, so a host
+  // that does NOT — l8, st0 — keeps drawing nothing here rather than a knob that turns
+  // against an address the engine never had.
+  return offline && n.module
+    ? { kind: "offline", module: n.module, name: w.bind }
     : null;
 }
 
@@ -467,6 +478,7 @@ function widgetTarget(n: GraphNode, w: WebWidget): WidgetTarget | null {
 function targetKey(t: WidgetTarget): string {
   if (t.kind === "track") return `t:${t.trackId}:${t.control}`;
   if (t.kind === "module") return `m:${t.module}:${t.field}`;
+  if (t.kind === "offline") return `o:${t.module}:${t.name}`;
   return `p:${t.pluginId}:${t.name}`;
 }
 
@@ -494,6 +506,15 @@ interface Channels {
   // The engine's `levels` arrive by POSITION, so metering anything needs the order to name them. Here rather than
   // as a prop because a widget deep inside a tabs page needs it too, and `ch` is what already reaches there.
   trackOrder: string[];
+  // A module the compiler emits NO plugin for — see `moduleParams` on the props.
+  moduleParams: Record<string, Record<string, number>>;
+  // Does the host handle those at all? An EMPTY map is a legitimate state (nothing set yet),
+  // so the offer has to be a fact of its own rather than inferred from the map's size.
+  offlineChannel: boolean;
+  // …and can it TAKE one back? Showing without taking is legitimate — m9's graph knows a
+  // deck's tempo while the desk that sets it is unmounted — but a knob that turns against a
+  // host with nowhere to put the value is the lie this pair of flags exists to avoid.
+  offlineWritable: boolean;
 }
 
 // The value a widget shows: override, else engine, else authored, else nothing. See docs/chainsGraph.md.
@@ -502,7 +523,7 @@ function widgetValue(
   w: WebWidget,
   ch: Channels,
 ): number | undefined {
-  const tgt = widgetTarget(n, w);
+  const tgt = widgetTarget(n, w, ch.offlineChannel);
   if (!tgt) return undefined;
   const key = targetKey(tgt);
   if (key in ch.override) return ch.override[key];
@@ -511,7 +532,11 @@ function widgetValue(
       ? ch.trackControls[tgt.trackId]?.[tgt.control]
       : tgt.kind === "module"
         ? moduleFieldValue(n, w, tgt.field)
-        : (ch.liveParams[tgt.pluginId]?.[tgt.name] ?? n.params?.[tgt.name]);
+        : tgt.kind === "offline"
+          // What the SURFACE that realises it says, else what the file authored. There is no
+          // engine answer to fall back on: the compiler emitted no plugin to ask.
+          ? (ch.moduleParams[tgt.module]?.[tgt.name] ?? n.params?.[tgt.name])
+          : (ch.liveParams[tgt.pluginId]?.[tgt.name] ?? n.params?.[tgt.name]);
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
@@ -917,8 +942,11 @@ function Widget({
     );
   }
 
-  const tgt = widgetTarget(n, w);
-  const actuable = tgt !== null;
+  const tgt = widgetTarget(n, w, ch.offlineChannel);
+  // Drawn from a value it cannot change: read-only rather than dead, which is what an offline
+  // module looks like on a surface that only borrows its number.
+  const actuable =
+    tgt !== null && (tgt.kind !== "offline" || ch.offlineWritable);
   const value = widgetValue(n, w, ch);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -1798,6 +1826,8 @@ export function DomChains({
   sinkPlay,
   pluginParamsStore,
   setPluginParam,
+  moduleParams,
+  onModuleParam,
   trackControls,
   onTrackToggle,
   onTrackSet,
@@ -1848,6 +1878,21 @@ export function DomChains({
   sinkPlay?: SinkPlay;
   pluginParamsStore?: PluginParamsStore;
   setPluginParam?: (id: string, name: string, value: number) => void;
+  /**
+   * What a module with NO plugin is currently set to, by module name then param.
+   *
+   * `offline` modules compile to nothing the engine holds — m9's tempo is one — so there is
+   * no plugin to ask and no id to ask it by. Their value lives on whichever surface realises
+   * them (for the tempo, the desk that warps the clip), and this is how that surface lends it
+   * to the graph. Without it such a widget draws the number the FILE declares and never
+   * changes, which reads as a knob stuck on its default.
+   *
+   * Passing it — or `onModuleParam` — is what turns those widgets on at all: a host that
+   * offers neither keeps them inert rather than showing a control that turns against nothing.
+   */
+  moduleParams?: Record<string, Record<string, number>>;
+  /** …and the way back, for the same modules. Called per frame during a drag. */
+  onModuleParam?: (module: string, name: string, value: number) => void;
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
   onTrackSet?: (
@@ -1888,6 +1933,7 @@ export function DomChains({
     onSetModuleAsset,
     onLibraryBrowse,
     setPluginParam,
+    onModuleParam,
     onTrackToggle,
     onTrackSet,
   });
@@ -1902,6 +1948,7 @@ export function DomChains({
     onSetModuleAsset,
     onLibraryBrowse,
     setPluginParam,
+    onModuleParam,
     onTrackToggle,
     onTrackSet,
   };
@@ -2071,6 +2118,15 @@ export function DomChains({
       const dk = drag.current?.key;
       const keep: Record<string, number> = {};
       for (const key in o)
+        if (!key.startsWith("o:") || key === dk) keep[key] = o[key];
+      return keep;
+    });
+  }, [moduleParams]);
+  useEffect(() => {
+    setOverride((o) => {
+      const dk = drag.current?.key;
+      const keep: Record<string, number> = {};
+      for (const key in o)
         if (!key.startsWith("t:") || key === dk) keep[key] = o[key];
       return keep;
     });
@@ -2081,6 +2137,11 @@ export function DomChains({
     trackControls: trackControls ?? {},
     override,
     trackOrder: trackOrder ?? EMPTY_ORDER,
+    moduleParams: moduleParams ?? {},
+    // Either prop turns the channel on: a host may only be able to SHOW such a value (m9's
+    // graph, while the desk that realises it is unmounted) or only to take one.
+    offlineChannel: moduleParams !== undefined || onModuleParam !== undefined,
+    offlineWritable: onModuleParam !== undefined,
   };
 
   // --- widget drag (knob/slider/number): live sends coalesced, commit on release ------
@@ -2090,7 +2151,7 @@ export function DomChains({
     // move, send a param set into the void, and be discarded on the next reload. A frozen TRACK is different:
     // its node's widgets are the mixer strip, and gain/pan/mute are exactly what stays live.
     if (n.frozen && n.kind === "module") return;
-    const tgt = widgetTarget(n, w);
+    const tgt = widgetTarget(n, w, ch.offlineChannel);
     if (!tgt) return;
     const v = widgetValue(n, w, ch);
     drag.current = {
@@ -2138,17 +2199,26 @@ export function DomChains({
         d.value = value;
         setOverride((o) => ({ ...o, [d.key]: value }));
         // Coalesce to one live send per frame; only a plugin param feeds live (a track knob persists on release).
-        if (!d.sent && d.tgt.kind === "plugin") {
+        if (!d.sent && (d.tgt.kind === "plugin" || d.tgt.kind === "offline")) {
           d.sent = true;
           requestAnimationFrame(() => {
             const cur = drag.current;
-            if (!cur || cur.tgt.kind !== "plugin") return;
+            if (!cur) return;
             cur.sent = false;
-            cb.current.setPluginParam?.(
-              cur.tgt.pluginId,
-              cur.tgt.name,
-              cur.value,
-            );
+            if (cur.tgt.kind === "plugin")
+              cb.current.setPluginParam?.(
+                cur.tgt.pluginId,
+                cur.tgt.name,
+                cur.value,
+              );
+            // An offline module has no socket to send down: the surface that REALISES it —
+            // for m9's tempo, the clip warp — is what this reaches, and it decides the cost.
+            else if (cur.tgt.kind === "offline")
+              cb.current.onModuleParam?.(
+                cur.tgt.module,
+                cur.tgt.name,
+                cur.value,
+              );
           });
         }
         return;
@@ -2291,10 +2361,15 @@ export function DomChains({
   };
   // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
   const pickWidget = (n: GraphNode, w: WebWidget, value: number) => {
-    const tgt = widgetTarget(n, w);
+    const tgt = widgetTarget(n, w, ch.offlineChannel);
     if (!tgt || tgt.kind === "track") return; // a track intrinsic has no named settings
     if (tgt.kind === "module") {
       setModuleField(w, tgt, value);
+      return;
+    }
+    if (tgt.kind === "offline") {
+      setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
+      cb.current.onModuleParam?.(tgt.module, tgt.name, value);
       return;
     }
     setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
@@ -2323,7 +2398,7 @@ export function DomChains({
   };
 
   const tapWidget = (n: GraphNode, w: WebWidget) => {
-    const tgt = widgetTarget(n, w);
+    const tgt = widgetTarget(n, w, ch.offlineChannel);
     if (!tgt) return;
     if (tgt.kind === "track") {
       // Mute/solo/arm: no optimism, so a rapid double-click can't leave the button inverted against the file.
@@ -2348,6 +2423,10 @@ export function DomChains({
     const on = cur !== undefined && widgetNorm(w, cur) >= 0.5;
     const next = widgetDenorm(w, on ? 0 : 1);
     setOverride((o) => ({ ...o, [targetKey(tgt)]: next }));
+    if (tgt.kind === "offline") {
+      cb.current.onModuleParam?.(tgt.module, tgt.name, next);
+      return;
+    }
     cb.current.setPluginParam?.(tgt.pluginId, tgt.name, next);
     if (n.module)
       cb.current.command(

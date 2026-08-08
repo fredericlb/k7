@@ -38,6 +38,32 @@ That is not a hypothetical: the médiathèque's module preview hit it, and m9's 
 would have. Wrap the graph in your own provider to show live meters; pass nothing and they
 read silent, which is the truth for a host with no engine.
 
+### Modules the engine has never heard of — `moduleParams` / `onModuleParam`
+
+Optional, and off unless you pass one of them.
+
+A widget normally resolves to a PLUGIN param, addressed by the step's `pluginId`. An
+`offline` module has none: the compiler reads the type and emits no plugin at all, so there
+is nothing to watch and no id to watch it by. Its widgets therefore draw nothing and refuse
+the hand — correct, and the reason `buildGraphDoc` stopped inventing an id for them.
+
+But the value is not nowhere. It lives on whichever surface REALISES the module — m9's tempo
+becomes a clip warp on the desk — and these two props are how that surface lends it:
+
+- `moduleParams: { [module]: { [param]: number } }` — keyed by MODULE name, since there is no
+  plugin id to key by. Consulted before the value the file authored.
+- `onModuleParam(module, param, value)` — the way back, per frame during a drag.
+
+They are separate because **showing and taking are separate abilities**. m9's graph can show
+a deck's tempo while the desk that sets it is unmounted, and cannot take a new one: realising
+a tempo needs that desk's songs and its document. Pass only `moduleParams` and the widget is
+read-only — drawn from a value it cannot change, rather than a knob that turns against
+nothing. That distinction is the whole point of the pair; a single prop would have brought
+back the lie the missing `pluginId` removed.
+
+A host that passes neither is unaffected: l8 and st0 draw those widgets inert, exactly as
+before.
+
 ## What it emits
 
 `onContextMenu(ctx, x, y)` carries a `GraphMenuCtx` — four kinds, the ones a node can be:
