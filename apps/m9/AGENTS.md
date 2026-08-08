@@ -44,6 +44,15 @@ and only one is same-origin:
 See `docs/plumbing.md` for the whole path, and `docs/chains.md` for what hosting the shared
 chains view proved about its seams.
 
+**3. The decks are a DOCUMENT, and it does not live in the view that draws them.**
+`useDeckSet` is held by `Studio`: what is loaded, what each deck plays at, the bindings, the
+compiled project and every gesture that changes them. Mix is unmounted the moment somebody
+opens Graphe, and a set does not stop existing then — that one fact is why the graph can show
+a plugin's real value, why a trip through it no longer forgets the songs or re-centres the
+crossfader, and why a tempo can be turned from either side. `MixView` draws and owns nothing;
+what stays its own is the set list, the waveforms and the song browser. See
+[docs/deckSet.md](docs/deckSet.md).
+
 ## Conventions worth knowing
 
 - **Every file route is `@studio/project-shell`'s.** `api.ts` re-exports `projectApi` and adds

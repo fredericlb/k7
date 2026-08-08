@@ -38,6 +38,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { DEFAULT_VIEW, type RouteState, type ViewId } from "./routes";
+import { useDeckSet } from "./useDeckSet";
 import { useEngine } from "./useEngine";
 import { useViewRoute } from "./useViewRoute";
 import { EditView } from "./views/EditView";
@@ -110,11 +111,21 @@ export function Studio({
    * `deck.params`.
    */
   const deck = useEngine(engine);
+
   const [hints, setHints] = useState<Hints | null>(null);
   const [git, setGit] = useState<GitStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The token the derived views were last built from. Poll the token, refetch only on a move.
   const [rev, setRev] = useState("");
+  /**
+   * The two decks as a DOCUMENT, held here rather than by the view that draws them.
+   *
+   * Mix is unmounted the moment somebody opens Graphe, and a set does not stop existing then:
+   * what is loaded, what it plays at and the bindings that say which control moves what all
+   * have to outlive the tab. It is also what lets the graph turn a tempo — realising one needs
+   * the songs and the compiled document, which used to go with the view.
+   */
+  const decks = useDeckSet(deck, project, graph, rev);
 
   /**
    * Watch every plugin the compiled chains carry, so a value on screen is the engine's.
@@ -328,8 +339,8 @@ export function Studio({
           <MixView
             engine={engine}
             deck={deck}
+            set={decks}
             project={project}
-            graph={graph}
           />
         )}
         {view === "edit" && (
@@ -343,7 +354,9 @@ export function Studio({
             reloadKey={editReload}
           />
         )}
-        {view === "graph" && <GraphView graph={graph} deck={deck} />}
+        {view === "graph" && (
+          <GraphView graph={graph} deck={deck} set={decks} />
+        )}
       </div>
 
       {/* The status bar. Which machine plays, and how good the link to it is — Q1/Q2/Q3 off a
