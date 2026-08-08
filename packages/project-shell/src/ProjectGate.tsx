@@ -10,6 +10,7 @@ import {
   Loader2,
   ServerCrash,
   ShieldAlert,
+  UserRoundX,
 } from "lucide-react";
 import {
   type ReactNode,
@@ -60,6 +61,52 @@ export interface ProjectGateStrings {
   /** The project named is not in the workspace — a wording apart, because nothing is broken. */
   missingTitle: string;
   missingBody: string;
+}
+
+/**
+ * "Somebody else opened this project" — the end of the road for a tab that lost its claim.
+ *
+ * Here, and not three times in three engine gates, because the claim is enforced in ONE place
+ * (`@studio/engine-registry`) and a screen that explained it differently per app would be three
+ * accounts of one rule. It is pure presentation: this package deliberately does not depend on
+ * `@studio/engine-browser` (see docs/launch.md), and a `heldBy` string and a callback keep it
+ * that way. The wording stays the caller's, as everything else here does.
+ *
+ * No Retry. Retrying is precisely what must not happen: the claim was handed over on purpose,
+ * and a tab that took it back on a timer is how one project ends up flickering between two
+ * people. The only move is to go and pick again — or to reopen the project deliberately, which
+ * is a fresh open and therefore a fresh takeover.
+ */
+export function ProjectTakenOver({
+  heldBy,
+  title,
+  body,
+  back,
+  onBack,
+}: {
+  /** Who has it now — empty when the registry could not say, in which case body carries it. */
+  heldBy: string;
+  title: string;
+  body: (heldBy: string) => string;
+  back: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
+      <div className="flex max-w-md flex-col items-center gap-4 text-center">
+        <UserRoundX className="h-10 w-10 text-amber-500" />
+        <h1 className="text-lg font-semibold">{title}</h1>
+        <p className="text-sm text-muted-foreground">{body(heldBy)}</p>
+        <button
+          type="button"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+          onClick={onBack}
+        >
+          {back}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function ProjectGate({

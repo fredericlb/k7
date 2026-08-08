@@ -9,6 +9,12 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import { ProjectTakenOver } from "@studio/project-shell/gate";
+import {
+  parseLaunch,
+  projectClaimKey,
+  projectsUrl,
+} from "@studio/project-shell/launch";
 import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { Loader2, RefreshCw, Server } from "lucide-react";
@@ -21,6 +27,8 @@ type Phase =
   | { k: "anon" }
   | { k: "looking" }
   | { k: "picking"; ranked: RankedEngine<PublicEngine>[] }
+  // Somebody else opened this cut, or took this machine for another project. Terminal.
+  | { k: "taken"; heldBy: string }
   | { k: "ready"; engine: RankedEngine<PublicEngine> };
 
 /** How good the link is, measured. Null when nothing answered — listed by the registry, out of
@@ -48,6 +56,30 @@ export function Gate() {
     setPhase({ k: "ready", engine: r });
   }, []);
 
+  /**
+   * Hold the machine for this cut, for as long as the tab is on it.
+   *
+   * v1 reaches no moteur — but it reaches that machine's FILE SERVICE, which holds a single
+   * active project (`engineLink.ts`: "several browser tabs share it, last write wins"). So a cut
+   * open here and a song open in l8 on the same machine do not coexist, and this app taking no
+   * lease at all (docs/audit-moteur.md, C3) meant it was the one surface that could clobber
+   * another silently. See @studio/engine-registry/docs/claim.md.
+   */
+  useEffect(() => {
+    if (phase.k !== "ready") return;
+    const engine = phase.engine;
+    const target = parseLaunch(
+      window.location.pathname,
+      "v1",
+      import.meta.env.BASE_URL,
+    );
+    return engines.hold(engine, {
+      project: target ? projectClaimKey(target) : null,
+      onLost: (heldBy) => setPhase({ k: "taken", heldBy }),
+    });
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only in the "ready" branch; depending on the whole phase would re-hold on the state this very effect sets.
+  }, [phase.k]);
+
   useEffect(() => {
     let cancelled = false;
     void auth
@@ -62,6 +94,21 @@ export function Gate() {
       cancelled = true;
     };
   }, [findMachine]);
+
+  if (phase.k === "taken")
+    return (
+      <ProjectTakenOver
+        heldBy={phase.heldBy}
+        title="Ce montage a été ouvert ailleurs"
+        body={(who) =>
+          `${who ? `${who} vient d'ouvrir ce montage` : "Ce montage vient d'être ouvert ailleurs"}, ou de prendre cette machine pour un autre projet — et une machine ne sert qu'un projet à la fois. Cet onglet l'a donc lâché. Rouvrez-le depuis les projets pour le reprendre.`
+        }
+        back="Retour aux projets"
+        onBack={() => {
+          window.location.href = projectsUrl(window.location.href);
+        }}
+      />
+    );
 
   if (phase.k === "ready")
     // Keyed on the machine: switching rebuilds everything rather than reusing a workspace and a

@@ -3,7 +3,7 @@
 // existed; what this adds is that `base` is given ONCE. See docs/access.md.
 
 import { chooseEngine } from "./choose.ts";
-import { holdEngine } from "./lease.ts";
+import { type HoldOptions, holdEngine } from "./lease.ts";
 import { type ProbeTarget, probeEngines, type RankedEngine } from "./probe.ts";
 import {
   type EnginePrefs,
@@ -44,8 +44,14 @@ export interface EngineAccess<
    * a screen, where a rejected promise inside a gate's effect is an eternal spinner.
    */
   find(preferId?: string): Promise<EngineLookup<E>>;
-  /** Take the lease on a measured engine and keep it. Returns the goodbye, for unmount. */
-  hold(chosen: RankedEngine<E>): () => void;
+  /**
+   * Claim a measured engine for a project and keep it. Returns the goodbye, for unmount.
+   *
+   * `opts.project` is what makes "one engine per project" true: opening a project somebody else
+   * has open takes it from them, and their `onLost` fires. A surface that opens on no project at
+   * all — st0 — passes null and never competes for one.
+   */
+  hold(chosen: RankedEngine<E>, opts?: HoldOptions): () => void;
   /**
    * Where to reach ONE engine, asked again — what `EngineClient` calls before reconnecting.
    *
@@ -98,12 +104,13 @@ export function engineAccess<
       const { engine, ambiguous } = chooseEngine(ranked, rememberedId);
       return { ranked, rememberedId, chosen: engine, ambiguous };
     },
-    hold: (chosen) =>
+    hold: (chosen, opts) =>
       holdEngine(
         reg,
         chosen.engine.id,
         chosen.token ?? "",
         chosen.latency?.totalMs ?? 0,
+        opts ?? { project: null },
       ),
     linkUrl(chosen) {
       let measured: string | null = chosen.wsUrl;

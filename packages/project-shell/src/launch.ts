@@ -12,6 +12,7 @@ export {
   parseLaunch,
   projectApp,
   projectBasename,
+  projectClaimKey,
 } from "@studio/web-protocol/projects";
 
 /** Where projects are chosen: st0's Projets section, which is also its home page. */

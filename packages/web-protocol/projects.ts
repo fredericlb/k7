@@ -184,6 +184,22 @@ export function projectBasename(
 }
 
 /**
+ * How a project is NAMED in an engine claim — `<repo>/<projet>`.
+ *
+ * Here rather than in each gate, and beside the address it is derived from, for the same reason
+ * the address itself is here: two surfaces that spell one project differently would each believe
+ * they had it, and the rule "one engine per project" would hold for neither. The repository's
+ * short name and the folder path inside it are exactly what identifies a project across machines
+ * — a workspace path would not, since the same repository is cloned somewhere different on each.
+ *
+ * No app prefix: which app opens a folder is decided by its SUFFIX, so `winter.l8` and
+ * `winter.l8/live.m9` are already two different strings and cannot collide.
+ */
+export function projectClaimKey(l: Launch): string {
+  return `${l.repo}/${l.project}`;
+}
+
+/**
  * Where a project opens — whichever app its folder name claims. This is the link st0 writes.
  *
  * `origin` may be any URL on the studio origin; only its origin is kept, so a caller can pass

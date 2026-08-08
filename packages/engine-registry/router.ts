@@ -31,23 +31,30 @@ const deregisterBody = z.object({
   token: z.string().min(1),
 });
 
-// Select only marks the engine assigned, after verifying the token — the backend never connects to an engine;
-// the browser does that itself. The driving tab re-POSTs this on an interval to renew the lease.
+// Select CLAIMS the engine for a project, after verifying the token — the backend never connects
+// to an engine; the browser does that itself. The driving tab re-POSTs this on an interval to
+// renew, carrying the `secret` it was given, and a renewal that no longer matches is refused
+// rather than granted. See registry.ts and docs/claim.md for why those are two different calls.
 const selectBody = z.object({
   id: z.string().min(1),
   token: z.string().min(1),
+  // The launch address, `<repo>/<projet>`. Absent or null for a surface that opens on no project
+  // — st0 drives an engine without ever holding a project, and must not compete for one.
+  project: z.string().nullish(),
+  // Absent on the first call, which is an OPEN and always wins; present on every renewal.
+  secret: z.string().optional(),
   // Informational: what the browser MEASURED for this link, ms (round trip + the interface's
   // two buffers). Kept on the wire for the constraints this will grow — "no take on a Q3
   // engine" is a question only the server can answer, and only if it was told the number.
   latencyMs: z.number().optional(),
 });
 
-// The token, like `select`: a session says WHO is asking, not WHICH engine they hold. Without
-// it any logged-in user could drop anyone else's lease, on any engine, by id alone — and the
-// holder would simply read FREE in every picker while still driving it.
+// The claim's own secret, not the engine token: a goodbye may only drop the claim it actually
+// holds. With the engine token, a tab leaving would drop the claim of whoever took the project
+// from it a moment earlier — and that person would read FREE while still driving.
 const releaseBody = z.object({
   id: z.string().min(1),
-  token: z.string().min(1),
+  secret: z.string().min(1),
 });
 
 /** The routes over one registry. Each service holds its own — see docs/shared.md. */
@@ -108,12 +115,32 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
     "/engine/select",
     validate(selectBody),
     wrap((req, res) => {
-      const { id, token } = req.body as z.infer<typeof selectBody>;
+      const { id, token, project, secret } = req.body as z.infer<
+        typeof selectBody
+      >;
       if (!reg.verifyToken(id, token))
         return res.status(403).json({ error: "unknown engine or bad token" });
       if (!reg.get(id)) return res.status(404).json({ error: "engine gone" });
-      reg.assign(id);
-      res.json({ ok: true });
+
+      // WHO comes from the session, never from the body: this name is shown to the person who
+      // gets turned away, and a claim you can sign with someone else's name is not a claim.
+      const holder = req.user?.email || req.user?.sub || "";
+      const result = reg.claim(id, {
+        project: project ?? null,
+        holder,
+        secret,
+      });
+      // 409 and not 403: nothing is wrong with this request, the project simply moved on. The
+      // client's job is to let go and say so, which is why the holder's name is in the body.
+      if (!result.ok)
+        return res
+          .status(409)
+          .json({ error: "project taken", heldBy: result.heldBy });
+      res.json({
+        ok: true,
+        secret: result.secret,
+        tookOver: result.tookOver,
+      });
     }),
   );
 
@@ -121,11 +148,11 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
     "/engine/release",
     validate(releaseBody),
     wrap((req, res) => {
-      const { id, token } = req.body as z.infer<typeof releaseBody>;
+      const { id, secret } = req.body as z.infer<typeof releaseBody>;
       // 200 either way: this arrives by `sendBeacon` from a page that is already going, so
       // there is nobody left to read a status. Refusing SILENTLY is the whole of the fix — the
-      // lease then simply expires on its own, which is what it was built to do.
-      if (reg.verifyToken(id, token)) reg.release(id);
+      // claim then simply expires on its own, which is what it was built to do.
+      reg.release(id, secret);
       res.json({ ok: true });
     }),
   );

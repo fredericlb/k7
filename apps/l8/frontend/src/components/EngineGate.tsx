@@ -4,9 +4,16 @@
 // back on any browser — and is reused whenever it is still reachable.
 
 import { useRelook } from "@studio/engine-browser/relook";
+import { ProjectTakenOver } from "@studio/project-shell/gate";
+import {
+  parseLaunch,
+  projectClaimKey,
+  projectsUrl,
+} from "@studio/project-shell/launch";
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { engines } from "../api";
+import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
 import { ProjectGate } from "./ProjectGate";
@@ -14,7 +21,9 @@ import { ProjectGate } from "./ProjectGate";
 type Phase =
   | { k: "loading" }
   | { k: "picking" }
-  | { k: "chosen"; engine: RankedEngine };
+  | { k: "chosen"; engine: RankedEngine }
+  // Somebody else opened this project. A terminal state on purpose: see ProjectTakenOver.
+  | { k: "taken"; heldBy: string };
 
 export function EngineGate() {
   const [phase, setPhase] = useState<Phase>({ k: "loading" });
@@ -58,13 +67,25 @@ export function EngineGate() {
     };
   }, [relook, phase.k]);
 
+  /**
+   * Which project this tab is claiming, read from the address exactly as the router's basename
+   * is. Null when there is none, which sends us to st0 a moment later anyway — and which must
+   * NOT claim, or every stray `/l8/` would fight the real tabs for an engine.
+   */
+  const claimProject = useMemo(() => {
+    const target = parseLaunch(
+      window.location.pathname,
+      "l8",
+      import.meta.env.BASE_URL,
+    );
+    return target ? projectClaimKey(target) : null;
+  }, []);
+
   const pick = useCallback(async (r: RankedEngine): Promise<boolean> => {
     if (!r.wsUrl || !r.fileBase || r.token === null) return false;
-    try {
-      await engines.select(r.engine.id, r.token, r.latency?.totalMs ?? 0); // token verified server-side
-    } catch {
-      return false; // engine vanished — stay on the picker
-    }
+    // No `select` here any more. `holdEngine` renews immediately on mount, so this was a second
+    // claim in the same tick (docs/audit-moteur.md, C3) — and now that a claim mints a secret,
+    // an extra one would hand out a secret nobody keeps and then be taken over by our own hold.
     // Remembered on the ACCOUNT, not in this tab. sessionStorage meant a second tab was
     // back at the picker and a second browser had never chosen anything — while the whole
     // premise is that an engine belongs to a person, changeable in settings.
@@ -76,12 +97,20 @@ export function EngineGate() {
     return true;
   }, []);
 
-  // The assignment is a LEASE this tab keeps alive. The loop is shared — see
-  // @studio/engine-browser/docs/lease.md — and nothing here but when to start it.
+  // The claim is a LEASE this tab keeps alive, ON THIS PROJECT. The loop is shared — see
+  // @studio/engine-browser/docs/lease.md — and nothing here but when to start it and what to do
+  // when it is lost. Losing it is not an error to retry: somebody opened the project, and this
+  // tab stops driving. `phase.k` rather than `phase` in the deps, or the state we set inside
+  // would restart the very hold that reported the loss.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only while phase.k is "chosen", and depending on the whole object would re-hold on every phase change.
   useEffect(() => {
     if (phase.k !== "chosen") return;
-    return engines.hold(phase.engine);
-  }, [phase]);
+    const engine = phase.engine;
+    return engines.hold(engine, {
+      project: claimProject,
+      onLost: (heldBy) => setPhase({ k: "taken", heldBy }),
+    });
+  }, [phase.k, claimProject]);
 
   useEffect(() => {
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
@@ -114,6 +143,25 @@ export function EngineGate() {
         onChangeEngine={() => {
           setPhase({ k: "picking" });
           void refresh();
+        }}
+      />
+    );
+
+  if (phase.k === "taken")
+    return (
+      <ProjectTakenOver
+        heldBy={phase.heldBy}
+        title={m["project.takenTitle"]()}
+        // Two wordings, because "opened by" with nobody named reads as a bug. The registry can
+        // fail to name a holder — a claim that expired between the refusal and the read.
+        body={(heldBy) =>
+          heldBy
+            ? m["project.takenBody"]({ heldBy })
+            : m["project.takenBodyAnon"]()
+        }
+        back={m["project.backToProjects"]()}
+        onBack={() => {
+          window.location.href = projectsUrl(window.location.href);
         }}
       />
     );

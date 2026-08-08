@@ -184,7 +184,11 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       // The lease, exactly as l8' EngineGate holds it. A miss is not fatal: it marks the
       // engine in use, it does not grant the connection, which the browser makes itself.
       lease.current?.(); // a previous one, if this effect re-ran on a new choice
-      lease.current = engines.hold(found);
+      // `project: null` — and that is the whole of st0's relationship to the claim. The
+      // médiathèque drives an engine without ever opening a project, so it must not compete for
+      // one: claiming here would take a song away from the l8 tab next door every time somebody
+      // looked at the catalogue. It still holds the ENGINE, which is what marks it in use.
+      lease.current = engines.hold(found, { project: null });
 
       // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
       // engine slot l8 had a song in — auditioning a module unloaded the song.
