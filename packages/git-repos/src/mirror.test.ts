@@ -7,6 +7,8 @@ const FILES = [
   "songs/first.l8/tracks/bass.yaml",
   "songs/first.l8/audio/kick.wav",
   "songs/live.m9/chains.yaml",
+  "clips/le clip.v1/project.yaml",
+  "clips/le clip.v1/video_tracks/main.yaml",
   "songs/notes.txt",
   "deep/a/b/c.l8/project.yaml",
   // A folder with a project file but NO suffix is not a project any more — the name decides.
@@ -21,6 +23,7 @@ describe("projectDirs", () => {
       new Map([
         ["songs/first.l8", "l8"],
         ["songs/live.m9", "m9"],
+        ["clips/le clip.v1", "v1"],
         ["deep/a/b/c.l8", "l8"],
       ]),
     );

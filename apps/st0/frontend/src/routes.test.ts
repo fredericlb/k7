@@ -156,11 +156,12 @@ describe("fromLocation", () => {
 
   it("keeps the new section clear of the paths Caddy claims above st0", () => {
     // A section named after another service would never reach this app at all — the edge
-    // matches `/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console` and `/dev-status` first.
+    // matches `/l8`, `/m9`, `/v1`, `/k7`, `/z0`, `/dev`, `/console` and `/dev-status` first.
     // See docs/routing.md.
     for (const taken of [
       "l8",
       "m9",
+      "v1",
       "k7",
       "z0",
       "dev",

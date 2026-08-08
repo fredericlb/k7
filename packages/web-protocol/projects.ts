@@ -18,6 +18,32 @@ export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
 };
 
 /**
+ * The apps a project can be CREATED for, which is not the same set as the apps that own one.
+ *
+ * Owning a folder kind is a naming rule; creating one needs a **scaffold** — a file map the
+ * file service can write (`createProjectIn`, and `@studio/song`'s three `scaffold*` modules).
+ * z0 owns `.z0` and has none, so offering it in st0's "Nouveau projet" menu produced a folder
+ * with an l8 song inside it: the suffix said z0, the contents said otherwise, and nothing
+ * complained until the app that opened it found nothing it could read.
+ *
+ * Stated HERE, beside the suffixes, because it is the same kind of fact and the same contract
+ * between the side that OFFERS a kind and the side that writes it. A `Record<ProjectApp,
+ * boolean>` rather than a list, so adding an app to `ProjectApp` fails to compile until
+ * someone answers the question for it.
+ */
+export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
+  l8: true,
+  m9: true,
+  v1: true,
+  z0: false,
+};
+
+/** The apps st0 may offer to create, in the order its menu shows them. */
+export const SCAFFOLDED_APPS: ProjectApp[] = (
+  Object.keys(PROJECT_SUFFIXES) as ProjectApp[]
+).filter((a) => HAS_SCAFFOLD[a]);
+
+/**
  * Where inside its service the app that opens a project is mounted.
  *
  * Empty for l8, m9 and v1, which ARE their service: `studio.test/l8/<repo>/<project>`. z0 is six

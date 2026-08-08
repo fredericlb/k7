@@ -13,16 +13,33 @@ import {
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
 import {
-  PROJECT_SUFFIXES,
   type ProjectApp,
+  SCAFFOLDED_APPS,
 } from "@studio/web-protocol/projects";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { projectFolderName } from "./projectName";
 
-/** Les applications qui possèdent des projets. k7 et z0 n'en ont pas — c'est `ProjectApp` qui
- *  le dit, et ce menu ne fait que le refléter. */
-const APPS = Object.keys(PROJECT_SUFFIXES) as ProjectApp[];
+/**
+ * Les applications pour lesquelles on peut CRÉER un projet.
+ *
+ * Pas `PROJECT_SUFFIXES` : z0 possède bien les dossiers `.z0`, mais aucun gabarit ne sait en
+ * écrire un. Le proposer ici fabriquait un dossier `.z0` contenant une chanson l8 — le suffixe
+ * disait une chose, le contenu une autre, et personne ne s'en plaignait avant que z0 l'ouvre.
+ * `SCAFFOLDED_APPS` est la liste qui répond à la bonne question ; voir
+ * packages/web-protocol/projects.ts.
+ */
+const APPS = SCAFFOLDED_APPS;
+
+/** Une ligne pour dire ce qu'on est en train de créer — le suffixe seul ne le dit pas. */
+const WHAT: Record<ProjectApp, string> = {
+  l8: "l'éditeur complet, avec la timeline",
+  m9: "mix, édition et graphe — sans la timeline",
+  v1: "le montage : un viewport et ses pistes, en secondes",
+  // Jamais affiché (z0 n'est pas dans APPS), mais le Record force à répondre pour chaque app :
+  // c'est ce qui fera échouer la compilation le jour où z0 gagne un gabarit.
+  z0: "un blind-test",
+};
 
 export function NewProject({
   /** Pourquoi c'est impossible, ou "" — une machine hors ligne est l'état ordinaire. */
@@ -98,15 +115,7 @@ export function NewProject({
                   {a}
                 </Button>
               ))}
-              <span className="text-xs text-muted-foreground">
-                {app === "l8"
-                  ? "l'éditeur complet, avec la timeline"
-                  : app === "v1"
-                    ? "le montage : un viewport et ses pistes, en secondes"
-                    : app === "z0"
-                      ? "un blind-test"
-                      : "mix, édition et graphe — sans la timeline"}
-              </span>
+              <span className="text-xs text-muted-foreground">{WHAT[app]}</span>
             </div>
 
             <Input
