@@ -54,6 +54,7 @@ import {
   setModuleBypass,
   setModuleMonitor,
   setModuleParam,
+  unlinkChainNode,
 } from "@studio/song/projectEdit";
 import {
   beatsToDuration,
@@ -1565,6 +1566,29 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.reload();
     } catch (e) {
       h.log([`delete module failed: ${(e as Error).message}`]);
+    }
+  },
+
+  // module instance unlink <node> — out of the signal path, files untouched. The splice is
+  // removeNode's; what this adds is that nothing is deleted, so it goes back with `chain add`.
+  "module.instance.unlink": async (a, h) => {
+    const node = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!node) {
+      h.log(["usage: module instance unlink <instance>"]);
+      return;
+    }
+    try {
+      const { rewired } = unlinkChainNode(h.songPath, node);
+      h.log([
+        `unlinked ${node}` +
+          (rewired.length
+            ? ` and rejoined what fed it: ${rewired.join(", ")}`
+            : " — nothing fed it, so there was nothing to rejoin") +
+          "; its files are untouched",
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`module instance unlink failed: ${(e as Error).message}`]);
     }
   },
 

@@ -148,3 +148,41 @@ describe("module replace", () => {
     expect(existsSync(modDir("amp"))).toBe(true);
   });
 });
+
+// `module instance unlink` — the same splice, the opposite intention: out of the signal path,
+// still on disk. Deleting cannot be undone by re-wiring; unlinking can.
+describe("module instance unlink", () => {
+  it("closes the gap over the node and leaves its files alone", async () => {
+    // `cab` is fed by `amp` on one path and by `bass` on another, so BOTH must be rejoined.
+    await runCommand("module instance unlink cab", host(), "cli");
+    expect(chains()).not.toContain("cab");
+    expect(chains()).toContain("amp: [ OUT ]");
+    expect(chains()).toContain("bass: [ OUT ]");
+    // The whole difference from `module delete`.
+    expect(existsSync(modDir("cab"))).toBe(true);
+  });
+
+  it("unlinks an INSTANCE without touching the module it uses", async () => {
+    await runCommand("chain add gtr amp lead", host(), "cli");
+    expect(chains()).toContain("lead");
+    await runCommand("module instance unlink lead", host(), "cli");
+    expect(chains()).not.toContain("lead");
+    expect(chains()).toContain("gtr: [ amp ]");
+    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(existsSync(modDir("amp"))).toBe(true);
+  });
+
+  it("refuses a TRACK — a chain starts there, so there is nothing to splice around", async () => {
+    const before = chains();
+    await runCommand("module instance unlink gtr", host(), "cli");
+    expect(logs.join(" ")).toContain("track");
+    expect(chains()).toBe(before);
+  });
+
+  it("refuses a name the chains do not have, rather than quietly writing nothing", async () => {
+    const before = chains();
+    await runCommand("module instance unlink nope", host(), "cli");
+    expect(logs.join(" ")).toContain("no 'nope'");
+    expect(chains()).toBe(before);
+  });
+});
