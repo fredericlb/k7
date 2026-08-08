@@ -105,6 +105,57 @@ Le scan est une **dépendance** et non une précondition de ces effets. Attendre
 ferait qu'une machine n'ayant jamais scanné n'afficherait rien non plus pour un module `jsdsp`,
 qui nomme son greffon lui-même et n'a que faire d'un catalogue.
 
+## Le nœud `in` : brancher une entrée de l'interface
+
+Le nœud source du graphe était un décor — « ce qui alimentera ceci ». Il porte maintenant une
+pastille : on clique, on choisit une entrée de l'interface, et ce qu'on joue arrive **devant**
+le module, monitoré. Le panneau bouge et le traitement s'entend, ce qui est la seule façon de
+savoir ce qu'un module fait.
+
+Côté document, c'est deux champs sur la piste d'aperçu :
+
+```
+inputChannels: [3]      ← 1-based, un canal en mono, deux pour une paire
+monitor: "on"
+```
+
+`"on"` et pas `"auto"` : auto ne monitore qu'une piste **armée**, et rien ici n'arme quoi que ce
+soit — `recordDir` est vide précisément pour que ce soit impossible. On veut « laisse passer,
+quoi que fasse le transport ». Le moteur fait le reste (`EngineHost::applyTrackInput`) : il
+résout le périphérique, y cible la piste, et applique le mode de monitoring.
+
+### La liste vient du MOTEUR, pas d'un compte de canaux
+
+C'est le piège de cette fonctionnalité, et le moteur le dit lui-même :
+
+> « an interface's inputs are usually paired into stereo devices, so asking for channel 2 alone
+> matches nothing at all and reads as silence » — `Recording.cpp`, `channelTap`
+
+`findWaveInput` retient un périphérique dont le jeu de canaux est **exactement** celui demandé.
+Un menu « Entrée 1 … Entrée 20 » bâti sur `EngineAudioDevice.inputs` proposerait donc vingt
+lignes sur un rack apparié et n'en routerait aucune.
+
+La liste est donc bâtie sur la disposition réelle, que le moteur fait déjà voyager sur
+`io-levels` — le navigateur la **jetait**. Mesuré sur la machine : la Focusrite y expose vingt
+entrées mono avec ses propres noms, `Input 1`…`Input 8`, `SPDIF 1/2`, `Loop 1/2`, `ADAT 1`…`8`.
+Le menu lit donc la façade de l'interface, et chaque ligne est routable par construction.
+
+On la demande avec une liste de canaux **vide** : la réponse porte la disposition de toute
+façon, et ne rien mesurer n'active aucun périphérique — le moteur n'active que ce qu'on lui
+demande de mesurer.
+
+### Les labels par-dessus, jamais à la place
+
+`~/.studio/preferences.yaml` peut nommer un jeu de canaux (`arm`, `overheads`). Ce nom gagne sur
+celui du périphérique — c'est tout l'intérêt de nommer une entrée. Mais un label qui désigne un
+jeu qu'aucun périphérique n'offre est **écarté** : ce serait une ligne qu'on ne peut pas router,
+exactement ce que cette liste existe pour éviter. Les préférences disent comment le rig
+s'appelle ; le moteur dit ce qu'il sait atteindre.
+
+Le choix n'est pas retenu sur le compte. Une entrée est un fait sur le rig devant lequel on est
+**maintenant** ; un module rouvert la semaine suivante sur une autre machine se mettrait sinon à
+monitorer un canal qui y veut dire autre chose.
+
 ## Why the builder does not own the graph
 
 `ModuleBuilder` is shared with l8, and it takes `renderPreview` rather than importing

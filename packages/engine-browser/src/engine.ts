@@ -112,6 +112,18 @@ export interface EngineWarning {
   message: string;
 }
 type WarningCb = (w: EngineWarning) => void;
+/**
+ * One wave input the engine can route a track FROM — how the interface groups its channels.
+ *
+ * `channels` is 1-based and is the set `findWaveInput` matches EXACTLY: a rig that pairs its
+ * inputs has no device for channel 2 alone, so asking for it resolves to nothing and reads as
+ * silence. Anything offering a choice of input has to offer these sets and not raw numbers.
+ */
+export interface EngineInputDevice {
+  name: string;
+  channels: number[];
+  enabled: boolean;
+}
 /** Peak dB per channel set asked for, in order, plus the master output. See EngineClient.ioLevels. */
 export interface IoLevels {
   inputs: number[];
@@ -120,6 +132,9 @@ export interface IoLevels {
   pitches: number[];
   /** How periodic each window was, 0..1 — an uncertain note is shown faded rather than hidden. */
   clarity: number[];
+  /** The interface's own grouping. The engine has ridden it along all this time and the browser
+   *  was dropping it — it is the one thing that explains a channel that exists and meters nothing. */
+  devices: EngineInputDevice[];
 }
 type IoLevelsCb = (l: IoLevels) => void;
 /** One binary audio frame, exactly as it arrived. See @studio/engine-protocol/stream. */
@@ -150,7 +165,10 @@ interface EngineMessage {
   pitches?: number[]; // …the tuner's Hz per input (0 = no confident note)
   clarity?: number[]; // …and how periodic each window was
   sessions?: EngineSessionInfo[]; // the 'sessions' reply
-  devices?: EngineAudioDevice[]; // the 'audio-devices' reply
+  // Two replies carry `devices`, and they are different things: the INTERFACES this machine
+  // could open, and — on io-levels — how the open one groups its inputs. Told apart by `type`,
+  // which the dispatch reads first, so one field is enough and a union would be ceremony.
+  devices?: EngineAudioDevice[] | EngineInputDevice[];
   plugins?: unknown[]; // 'plugins' (catalogue) AND 'edit-plugins' (instances) both use this field
 }
 
@@ -426,11 +444,15 @@ export class EngineClient {
           master: Number(m.master ?? -100),
           pitches: (m.pitches ?? []) as number[],
           clarity: (m.clarity ?? []) as number[],
+          devices: (m.devices ?? []) as EngineInputDevice[],
         });
     else if (m.type === "sessions")
       for (const cb of this.sessionsCbs) cb(m.sessions ?? []);
     else if (m.type === "audio-devices")
-      for (const cb of this.devicesCbs) cb(m.devices ?? []);
+      // `devices` is shared with io-levels, which sends a different shape; `type` is what tells
+      // them apart, and this branch has already read it.
+      for (const cb of this.devicesCbs)
+        cb((m.devices ?? []) as EngineAudioDevice[]);
     else if (m.type === "plugins")
       for (const cb of this.pluginListCbs)
         cb((m.plugins ?? []) as EnginePluginInfo[]);

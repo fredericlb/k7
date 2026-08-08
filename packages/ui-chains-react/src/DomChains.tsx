@@ -262,6 +262,15 @@ const CSS = `
 .dgx-sub { font:10px ui-monospace,monospace; color:var(--faint); }
 .dgx-sub.stub { color:#f87171; }
 .dgx-sub.unsupported { color:#fbbf24; }
+/* The interface input a track is fed from. min-width:0 plus the ellipsis is what keeps a long
+   channel label from pushing the track's own name out of a header only as wide as the card —
+   the name identifies the node, so it wins the room.
+   (No backticks in here — this block is a template literal.) */
+.dgx-tin { margin-left:auto; max-width:52%; min-width:0; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; font:9px ui-monospace,monospace;
+  color:var(--sand); background:#08080b; border:1px solid #2c2c33; border-radius:4px;
+  padding:0 4px; cursor:pointer; }
+.dgx-tin.unknown { color:var(--faint); }
 /* A bubble STRADDLING the node's top-right corner — half on the card, half off it, so
    it reads as attached to the module without belonging to its title strip.
    The overhang is safe: dagre keeps nodes 40px apart (nodesep) and ranks 100px, and
@@ -403,6 +412,13 @@ const CSS = `
   cursor:pointer; }
 .dgx-sel:disabled { cursor:default; opacity:.5; }
 .dgx-sel.unknown { color:var(--faint); }
+/* The FILE picker fills the cell its colSpan gave it — the horizontal twin of .dgx-fader's
+   flex:1, and the same argument: a colSpan of 4 that draws a 40px button is four cells of
+   nothing. What it holds is a file NAME, so the width is the useful part.
+   Ellipsis rather than overflow: names here run long (a NAM pack's are a sentence), and a
+   fixed-width box was hiding that behind its own edge. */
+.dgx-file { width:100%; padding:1px 5px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
 .dgx-meter { width:80%; height:5px; border-radius:3px; background:#08080b; border:1px solid #212129; }
 
 .dgx-out { position:absolute; top:38px; left:0; right:0; bottom:0; display:grid; place-items:center; }
@@ -1098,8 +1114,10 @@ function Widget({
     body = (
       <button
         type="button"
-        className={`dgx-sel${current ? "" : " unknown"}`}
-        title={current || `pick a ${param} file`}
+        className={`dgx-sel dgx-file${current ? "" : " unknown"}`}
+        // The whole path, since the face shows only the basename: two amps in different packs
+        // can have the same file name, and hovering is what tells them apart.
+        title={current || `pick a ${w.library} file`}
         disabled={!n.module}
         onClick={(e) => {
           e.stopPropagation();
@@ -1227,6 +1245,9 @@ function Node({
   onTapWidget,
   onPickWidget,
   onPickAsset,
+  onPickLibrary,
+  trackInput,
+  onPickTrackInput,
   onWatchWaveform,
   onContextParam,
   sinkPlay,
@@ -1251,6 +1272,11 @@ function Node({
   // A library dropdown's pick — a FILE for the module field named by the asset kind.
   /** Open the library browser for this widget, at the click's viewport coords. */
   onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
+  onPickLibrary: (n: GraphNode, kind: string, x: number, y: number) => void;
+  /** What this TRACK is fed from, as a chip on its header. Undefined draws none — which is
+   *  every node that is not a track, and every host that cannot change one. */
+  trackInput?: string;
+  onPickTrackInput: (n: GraphNode, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -1436,6 +1462,24 @@ function Node({
             there); the header keeps only a real sub — the chains a module is shared
             across. Saying it in both places was the same sentence twice. */}
         {n.sub && <span className={`dgx-sub${flagCls}`}>{n.sub}</span>}
+        {/* What feeds this track, and one click to change it. In the header row rather than
+            on a corner like the plugin bubble: it carries a NAME, and the corners are for
+            glyph-sized toggles. `stopPropagation` on the press for the same reason the
+            others do it — otherwise the pointer-down arms a pan and the click never lands. */}
+        {trackInput !== undefined && (
+          <button
+            type="button"
+            className={`dgx-tin${trackInput === "aucune" ? " unknown" : ""}`}
+            title={`Entrée de l'interface : ${trackInput} — cliquer pour changer`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPickTrackInput(n, e.clientX, e.clientY);
+            }}
+          >
+            {trackInput}
+          </button>
+        )}
       </div>
 
       {/* The native plugin's editor. A bubble on the node's top-right corner rather
@@ -1854,6 +1898,9 @@ export function DomChains({
   onBypassModule,
   onSetModuleAsset,
   onAssetBrowse,
+  onLibraryBrowse,
+  trackInputs,
+  onPickTrackInput,
   onWatchWaveform,
   sinkPlay,
   pluginParamsStore,
@@ -1895,6 +1942,23 @@ export function DomChains({
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
+  onLibraryBrowse?: (
+    module: string,
+    kind: string,
+    x: number,
+    y: number,
+  ) => void;
+  /**
+   * What each track is fed FROM, by track id — the chip a track node wears.
+   *
+   * A plain record and not a lookup on the graph, like `engineWarnings` beside it: this is
+   * what the HOST knows about a live input and the graph does not. The chip is drawn only
+   * where `onPickTrackInput` is also given, so a host that cannot change one never shows one.
+   */
+  trackInputs?: Record<string, string>;
+  /** Choose what feeds a track, at the click's viewport coords — the popup is the host's,
+   *  exactly as the asset browser above is. */
+  onPickTrackInput?: (trackId: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap while a waveform widget is on screen. */
   onWatchWaveform?: (
     pluginId: string,
@@ -1959,6 +2023,8 @@ export function DomChains({
     onBypassModule,
     onSetModuleAsset,
     onAssetBrowse,
+    onLibraryBrowse,
+    onPickTrackInput,
     setPluginParam,
     onModuleParam,
     onTrackToggle,
@@ -1974,6 +2040,8 @@ export function DomChains({
     onBypassModule,
     onSetModuleAsset,
     onAssetBrowse,
+    onLibraryBrowse,
+    onPickTrackInput,
     setPluginParam,
     onModuleParam,
     onTrackToggle,
@@ -2390,6 +2458,11 @@ export function DomChains({
   const pickAsset = (n: GraphNode, param: string, x: number, y: number) => {
     if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y);
   };
+  // What feeds a track. Same shape as the asset browser above and for the same reason: the
+  // list is the MACHINE's — its interface, its channel labels — and the graph knows neither.
+  const pickTrackInput = (n: GraphNode, x: number, y: number) => {
+    cb.current.onPickTrackInput?.(n.label, x, y);
+  };
   // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
   const pickWidget = (n: GraphNode, w: WebWidget, value: number) => {
     const tgt = widgetTarget(n, w, ch.offlineChannel);
@@ -2558,6 +2631,13 @@ export function DomChains({
                 onTapWidget={tapWidget}
                 onPickWidget={pickWidget}
                 onPickAsset={pickAsset}
+                onPickLibrary={pickLibrary}
+                trackInput={
+                  onPickTrackInput && n.kind === "track"
+                    ? (trackInputs?.[n.label] ?? "aucune")
+                    : undefined
+                }
+                onPickTrackInput={pickTrackInput}
                 onWatchWaveform={onWatchWaveform}
                 onContextParam={contextParam}
                 sinkPlay={sinkPlay}

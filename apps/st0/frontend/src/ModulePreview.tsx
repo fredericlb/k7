@@ -45,11 +45,16 @@ export function ModulePreview({
   path,
   ui,
   params,
+  sourceInput,
+  onPickSourceInput,
 }: {
   name: string;
   path: string;
   ui: ModuleUI;
   params: Record<string, number>;
+  /** What the `in` node is fed from, and how to change it — see engine/inputChannels.ts. */
+  sourceInput?: string;
+  onPickSourceInput?: (x: number, y: number) => void;
 }) {
   return (
     <SharedPreview
@@ -58,6 +63,8 @@ export function ModulePreview({
       path={path}
       ui={ui}
       params={params}
+      sourceInput={sourceInput}
+      onPickSourceInput={onPickSourceInput}
       // The médiathèque has no command bar. Required by the package rather than defaulted,
       // which is the package saying out loud that a node's command menu does nothing here.
       command={(line) => {

@@ -1434,6 +1434,10 @@ export function Library() {
                 <ModuleEditor
                   entry={editing.entry}
                   pane={editing.pane}
+                  // The machine's own preferences — its channel labels — are behind the same
+                  // token as its file service. Handed down like the other editors' rather
+                  // than re-derived: `useEngineChoice` lives here.
+                  engineToken={choice.token}
                   onBack={() => openFile(null)}
                 />
               </main>

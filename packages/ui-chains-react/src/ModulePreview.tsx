@@ -6,6 +6,7 @@
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import {
   modulePreviewGraph,
+  PREVIEW_SOURCE,
   type visibleGrid,
 } from "@studio/ui-chains/modulePreview";
 import { useMemo, useRef, useState } from "react";
@@ -18,6 +19,8 @@ export function ModulePreview({
   path,
   ui,
   params,
+  sourceInput,
+  onPickSourceInput,
 }: {
   /** The host's glyphs — the graph's own requirement, and this only passes them along. */
   icons: ChainsIcons;
@@ -31,6 +34,16 @@ export function ModulePreview({
   /** The grid AS EDITED, not as saved: the point is to see a widget land before saving it. */
   ui: Parameters<typeof visibleGrid>[0];
   params: Record<string, number>;
+  /**
+   * What the source node is fed from, as its chip reads — an interface input, so the module
+   * can be HEARD treating something you play rather than only inspected.
+   *
+   * The source is a placeholder in this graph ("whatever will feed this"), and this is what
+   * makes it a real one. Both props or neither: the chip is a control, and one you cannot
+   * click is worse than none.
+   */
+  sourceInput?: string;
+  onPickSourceInput?: (x: number, y: number) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph: the panel unmounts whenever the editor closes, and a
@@ -56,6 +69,16 @@ export function ModulePreview({
         // row should fit the new picture. Renaming a label should not move the camera.
         fitKey={`${ui.cols}x${ui.rows}`}
         command={command}
+        // Keyed by the source node's id, which is the graph's own name for "whatever will
+        // feed this" — see @studio/ui-chains' PREVIEW_SOURCE.
+        trackInputs={
+          sourceInput === undefined
+            ? undefined
+            : { [PREVIEW_SOURCE]: sourceInput }
+        }
+        onPickTrackInput={
+          onPickSourceInput && ((_id, x, y) => onPickSourceInput(x, y))
+        }
       />
     </div>
   );
