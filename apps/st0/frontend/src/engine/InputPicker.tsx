@@ -3,12 +3,14 @@
 // belongs to the node it came from. See ../../docs/modulePreview.md.
 
 import { useEffect, useRef } from "react";
+import { meterFill } from "./InputMeter";
 import type { InputChoice } from "./inputChannels";
 
 export function InputPicker({
   at,
   choices,
   current,
+  levels,
   onPick,
   onClose,
 }: {
@@ -17,6 +19,13 @@ export function InputPicker({
   choices: InputChoice[];
   /** The channels currently feeding the preview, so the row can be marked. */
   current: number[];
+  /**
+   * What each set is doing RIGHT NOW, in dB, keyed `"1"` / `"1+2"`.
+   *
+   * The point of the whole menu: an interface has twenty inputs and your guitar is on one of
+   * them, and reading the labels tells you nothing about which. Play a note and the row moves.
+   */
+  levels: Record<string, number>;
   onPick: (channels: number[]) => void;
   onClose: () => void;
 }) {
@@ -67,6 +76,18 @@ export function InputPicker({
           }}
         >
           <span className="min-w-0 flex-1 truncate">{c.label}</span>
+          {/* What it is doing, right now. Play a note and the row moves — which is the only
+              way to tell twenty identically-named inputs apart. */}
+          {c.channels.length > 0 && (
+            <span className="relative block h-1 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+              <span
+                className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                style={{
+                  width: `${meterFill(levels[c.channels.join("+")] ?? -100) * 100}%`,
+                }}
+              />
+            </span>
+          )}
           {/* The channel numbers beside the name: a label says what it is plugged into, the
               number says where, and troubleshooting a silent input needs the second. */}
           {c.channels.length > 0 && (

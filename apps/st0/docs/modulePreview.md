@@ -159,6 +159,18 @@ L'écriture est **optimiste** dans le store en plus d'être envoyée : le moteur
 complet à sa propre cadence, et un widget qui n'afficherait que ce qui revient traînerait
 derrière le geste au point de se lire comme un contrôle qui recule sous le doigt.
 
+### Le menu mesure les entrées
+
+Une interface a vingt entrées et la guitare est sur l'une d'elles ; lire les étiquettes ne dit
+pas laquelle. Chaque ligne du menu porte donc son **niveau vivant** : on joue une note et la
+bonne ligne bouge. Sur le rig mesuré, le canal 1 est à 0 dB et les canaux 3 à 8 au plancher —
+sans ça, choisir se fait au hasard, et un mauvais choix ne se distingue pas d'une panne.
+
+Mesuré **seulement pendant que le menu est ouvert** : le moteur ACTIVE les périphériques qu'on
+lui demande de mesurer, donc mesurer vingt entrées pour un menu fermé serait du travail sur le
+fil audio pour rien. C'est la même raison qui fait d'`io-levels` une requête plutôt qu'un champ
+du cadre d'état.
+
 ### La jauge d'entrée
 
 Le niveau monitoré, en dB, pris sur `inputLevels` du cadre d'état — l'aperçu ne tient qu'une
