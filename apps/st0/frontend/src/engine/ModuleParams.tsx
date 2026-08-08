@@ -5,16 +5,23 @@
 import { Card } from "@frediverse/ui/card";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Loader2, Plug, PlugZap } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { library } from "../api";
 import { useEngine } from "../playback/PlaybackProvider";
 import { useEnginePlugins } from "./baseModules";
-import { resolvePluginBlock } from "./resolvePlugin";
+import { readExtends, resolvePluginBlock } from "./resolvePlugin";
 
 export function ModuleParams({ entry }: { entry: MediatekEntry }) {
   const { phase, client, connected, paramNames, paramMeta, preview, retry } =
     useEngine();
   const scanned = useEnginePlugins(client, connected);
+  // What the resolution found, so an empty list can say WHY. Three causes look identical on
+  // screen — no engine, a ref this machine has not scanned, a module naming no plugin — and
+  // only the first was worded.
+  const [plugged, setPlugged] = useState<{
+    ref: string;
+    found: boolean;
+  } | null>(null);
 
   /**
    * Load the module so the engine can answer for it — through `extends`.
@@ -36,7 +43,9 @@ export function ModuleParams({ entry }: { entry: MediatekEntry }) {
         const plugin = await resolvePluginBlock(f.content, scanned, (p) =>
           library.readFile(p).then((m) => m.content),
         );
-        if (alive) preview(entry.name, plugin);
+        if (!alive) return;
+        setPlugged({ ref: readExtends(f.content), found: !!plugin });
+        preview(entry.name, plugin);
       })
       .catch(() => {
         /* a module with no readable file simply has no parameters to show */
@@ -72,7 +81,13 @@ export function ModuleParams({ entry }: { entry: MediatekEntry }) {
         <PlugZap className="h-4 w-4" />
         {paramNames.length
           ? `${paramNames.length} paramètre(s)`
-          : "le moteur n'a pas encore répondu pour ce module"}
+          : plugged && !plugged.found
+            ? // Not "the engine has not answered yet": it answered, and it was asked to load
+              // nothing. Naming the ref is what turns an empty list into something to go and fix.
+              plugged.ref
+              ? `${plugged.ref} : ce moteur n'a pas ce greffon`
+              : "ce module ne nomme aucun greffon"
+            : "le moteur n'a pas encore répondu pour ce module"}
       </div>
       <ul className="flex flex-col gap-0.5 font-mono text-xs">
         {paramNames.map((n) => {
