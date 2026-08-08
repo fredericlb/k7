@@ -340,7 +340,6 @@ export function Studio({
             engine={engine}
             deck={deck}
             set={decks}
-            project={project}
           />
         )}
         {view === "edit" && (

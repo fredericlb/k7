@@ -5,6 +5,11 @@
 import { usePluginParams } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
+import {
+  parseSongs,
+  songMarkers,
+  withMarkers,
+} from "@studio/song/yaml/songsFile";
 import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
@@ -19,7 +24,9 @@ import {
   NO_LOADS,
   pushCrossfade,
   sendDecks,
+  sourceAt,
   syncedTempos,
+  transportAt,
 } from "./deck";
 import {
   type BindingProblem,
@@ -32,7 +39,13 @@ import {
   stretchTargets,
   valueFor,
 } from "./mixBindings";
-import { MIX_VIEW_FILE, readMixView } from "./mixView";
+import {
+  MIX_VIEW_FILE,
+  readMixView,
+  readSongsText,
+  SONGS_FILE,
+  writeSongsText,
+} from "./mixView";
 import type { Deck } from "./useEngine";
 
 /**
@@ -77,6 +90,20 @@ export interface DeckSet {
   /** Can sync do its second half — put the two decks' beats together? */
   canAlign: boolean;
 
+  /** songs.yaml as it stands on disk — the set list is resolved from this same read. */
+  songsText: string;
+  /** This deck's eight cue slots, positional. `null` is an empty button. */
+  cuesOf: (deck: DeckId) => (number | null)[];
+  /**
+   * Drop a cue where the press BEGAN, and write it to songs.yaml.
+   *
+   * `transportSeconds` is the timeline position captured on the way down; what is stored is
+   * the position in the FILE, because that is what survives a tempo change.
+   */
+  setCue: (deck: DeckId, slot: number, transportSeconds: number) => void;
+  /** Send the transport to one. Nothing happens on an empty slot. */
+  jumpCue: (deck: DeckId, slot: number) => void;
+
   /** Put a song on a deck and send it. */
   putOn: (deck: DeckId, load: NonNullable<DeckLoads[DeckId]>) => void;
   /** Forget a deck's tempo — a new record starts at its OWN. */
@@ -115,6 +142,15 @@ export function useDeckSet(
   const [view, setView] = useState<MixViewFile>({});
   const [compiled, setCompiled] = useState<ProjectDoc | null>(null);
   const [deskError, setDeskError] = useState<string | null>(null);
+  /**
+   * songs.yaml, held as TEXT rather than as a parsed object.
+   *
+   * Because writing a cue edits it in place: the file's comments are the one worked example a
+   * reader of an m9 set gets, and a desk that reprinted the file from a parse tree would eat
+   * them the first time somebody dropped a cue. The text is the thing; the markers below are a
+   * reading of it.
+   */
+  const [songsText, setSongsText] = useState("");
   const live = usePluginParams(deck.params);
 
   // The bindings and the compile, refetched when the project moves. Allowed to fail on their
@@ -124,9 +160,11 @@ export function useDeckSet(
     let stop = false;
     void (async () => {
       const v = await readMixView(project);
+      const songs = await readSongsText(project);
       const doc = await api.engineDoc().catch(() => null);
       if (stop) return;
       setView(v);
+      setSongsText(songs);
       setCompiled(doc);
     })();
     return () => {
@@ -146,6 +184,12 @@ export function useDeckSet(
     [wiring],
   );
   const mix = shownValue(bindingFor("crossfade"), held, live) ?? MIX_CENTRE;
+  // Every song's cues, by ref. Re-read rather than kept beside the text, so the file stays the
+  // one place a cue lives and the two can never disagree.
+  const cues = useMemo(
+    () => songMarkers(parseSongs(songsText).value),
+    [songsText],
+  );
   const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
 
   // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
@@ -171,6 +215,12 @@ export function useDeckSet(
   // bindings against the project as it is NOW, not as it was when the button was pressed.
   const derived = useRef({ wiring, plugins, master });
   derived.current = { wiring, plugins, master };
+  // A cue is written a second after the press, and the write is asynchronous — so the text it
+  // edits has to be the one on disk NOW, not the one from the render the finger landed in.
+  const songsRef = useRef(songsText);
+  songsRef.current = songsText;
+  const temposRef = useRef(tempos);
+  temposRef.current = tempos;
   const dragging = useRef(false);
   const lastWarp = useRef(0);
   const warpTimer = useRef<number | null>(null);
@@ -306,6 +356,44 @@ export function useDeckSet(
     filterLive: (deckId) => {
       const x = bindingFor(`${deckId}.filter`);
       return !!x && hasPlugin(x, plugins);
+    },
+
+    songsText,
+
+    cuesOf: (deckId) => {
+      const id = loads[deckId]?.id;
+      return id ? (cues[`@mediatek/${id}`] ?? []) : [];
+    },
+
+    setCue: (deckId, slot, transportSeconds) => {
+      const load = loadsRef.current[deckId];
+      if (!load) return;
+      const ref = `@mediatek/${load.id}`;
+      // The FILE's clock, not the transport's — see `sourceAt`. A cue stored as a timeline
+      // position would move the moment somebody touched this deck's tempo fader.
+      const at = sourceAt(transportSeconds, temposRef.current[deckId]);
+      const next = [...(cues[ref] ?? [])];
+      while (next.length <= slot) next.push(null);
+      next[slot] = at;
+
+      // The text on disk is edited, never reprinted from a parse — the file's comments are the
+      // worked example, and losing them to a cue would be a poor trade.
+      const text = withMarkers(songsRef.current, ref, next);
+      setSongsText(text);
+      void writeSongsText(project, text).catch((e: Error) =>
+        // Said out loud: the button has already gone coloured, so a silent failure would leave
+        // a cue that is there until the next reload and then is not.
+        setDeskError(`le repère n'a pas pu être écrit dans ${SONGS_FILE} : ${e.message}`),
+      );
+    },
+
+    jumpCue: (deckId, slot) => {
+      const id = loadsRef.current[deckId]?.id;
+      const at = id ? cues[`@mediatek/${id}`]?.[slot] : null;
+      if (at == null || !deck.engine) return;
+      // One transport for both decks (docs/mix.md), so this moves the OTHER deck too. That is
+      // the engine m9 has, and a cue is still worth having on it.
+      deck.engine.seek(transportAt(at, temposRef.current[deckId]));
     },
 
     putOn: (deckId, load) => {

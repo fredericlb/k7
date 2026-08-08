@@ -10,7 +10,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { loadGraph } from "./graph";
 import { loadMixView, loadSongs, loadTracks } from "./loader";
 import { parseMixView } from "./yaml/mixViewFile";
@@ -18,6 +19,10 @@ import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
 import { projectTypeOf } from "./projectType";
 import { scaffoldM9 } from "./scaffoldM9";
+// Compiling this set means compiling TWO jsdsp graphs — the crossfade and the sweep filter —
+// and each shells out to esbuild. That is seconds, not milliseconds, and under a full parallel
+// run it has overrun the 5 s default and failed as a timeout rather than as anything real.
+vi.setConfig({ testTimeout: 30_000 });
 
 // A scaffolded set is the one worked example an m9 user gets, and the only m9 project
 // anything writes from scratch — so "does it LOAD, with the graph it claims" is the whole

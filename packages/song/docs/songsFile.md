@@ -96,3 +96,26 @@ the id's last segment.
 
 Dropping it from the list would make a set that is missing three songs look exactly like a
 set that never had them, on the one screen where that difference matters most.
+
+## Une entrée peut porter des réglages
+
+Le jour annoncé plus haut est arrivé, et il n'a pas fallu transformer `songs:` en table. Une
+entrée est **soit** une référence nue **soit** une référence qui porte quelque chose :
+
+```yaml
+songs:
+  - "@mediatek/songs/artiste/album/titre"
+  - ref: "@mediatek/songs/artiste/album/autre"
+    markers: [ 12.5, null, 48.25 ]
+```
+
+Les deux formes coexistent exprès. Un morceau qui n'a rien à dire tient sur une ligne — donc
+tous, tant que personne n'y a posé de repère — et toute liste écrite avant l'existence des
+réglages se lit encore, sans migration. Une table de références vers presque-rien aurait donné
+à chaque entrée l'air qu'il lui manque quelque chose, ce que cette page redoutait.
+
+`markers` sont les huit repères du pupitre de m9, positionnels, en secondes dans le FICHIER :
+[apps/m9/docs/cues.md](../../../apps/m9/docs/cues.md). Le fichier est écrit par le pupitre, en
+plein set, et `withMarkers` l'édite **dans son texte** — les commentaires de ce scaffold sont le
+seul exemple travaillé qu'un lecteur obtient, et un pupitre qui les mangerait au premier repère
+posé serait un pupitre qu'on ne pardonne pas.

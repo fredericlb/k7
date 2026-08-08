@@ -40,8 +40,15 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# before you need it — which is the difference between a set list and a folder of files.\n` +
       `#\n` +
       `# The refs stay live: fix a song in the médiathèque and every set naming it is fixed.\n` +
-      `songs: []\n` +
-      `#  - "@mediatek/songs/artiste/album/titre"\n`,
+      `#\n` +
+      `# An entry is a bare ref, or a ref that CARRIES something. Today that is \`markers\` —\n` +
+      `# the desk's eight cue buttons, positional, in seconds into the FILE. A song with\n` +
+      `# nothing to say stays one line, which is every song until somebody drops a cue:\n` +
+      `#\n` +
+      `#  - "@mediatek/songs/artiste/album/titre"\n` +
+      `#  - ref: "@mediatek/songs/artiste/album/autre"\n` +
+      `#    markers: [ 12.5, null, 48.25 ]   # boutons 1 et 3; le 2 est vide\n` +
+      `songs: []\n`,
 
     "chains.yaml":
       `# Each deck through its own tempo, EQ and filter, then both meeting at one crossfade —\n` +

@@ -141,6 +141,62 @@ export const EQ_BANDS = [
 ] as const;
 
 /**
+ * The eight cue buttons a deck draws, and the colour each one wears once it holds something.
+ *
+ * A colour per BUTTON rather than per cue: the point of a hot cue is that your hand knows
+ * where it is without reading, so slot 3 has to look like slot 3 on both decks and on every
+ * song. White is the empty state — see `CueButtons`.
+ *
+ * Spread around the wheel and kept away from the amber the tempo readout warns in, so a cue
+ * cannot be mistaken for a warning at a glance.
+ */
+export const CUE_COLOURS = [
+  "#ef4444", // rouge
+  "#f97316", // orange
+  "#eab308", // jaune
+  "#22c55e", // vert
+  "#14b8a6", // turquoise
+  "#3b82f6", // bleu
+  "#a855f7", // violet
+  "#ec4899", // rose
+] as const;
+
+/**
+ * Where a moment in the FILE lands on the transport, in seconds.
+ *
+ * The conversion a cue point cannot do without. A marker is a position in the SOURCE — where
+ * the drop is, a fact about the recording — while `seek` takes a position on the timeline, and
+ * a warped deck maps one onto the other by the ratio it is being stretched by. Storing the
+ * transport's number instead would move every cue the moment somebody touched the tempo fader,
+ * silently and only on the decks that had been stretched.
+ *
+ * `align` is the sync's own delay, in document beats, and it shifts the whole clip — so it
+ * shifts every cue with it, which is what keeps a cued deck cued after it has been beat-matched.
+ */
+export function transportAt(source: number, tempo: DeckTempo | undefined): number {
+  const ratio = playRatio(tempo);
+  return startSeconds(tempo) + source * ratio;
+}
+
+/** …and back, for the cue somebody drops while the deck is playing. */
+export function sourceAt(transport: number, tempo: DeckTempo | undefined): number {
+  const ratio = playRatio(tempo);
+  return Math.max(0, (transport - startSeconds(tempo)) / ratio);
+}
+
+/** How fast the file is playing, as a multiplier of its own clock. 1 when nothing says. */
+function playRatio(tempo: DeckTempo | undefined): number {
+  const n = tempo?.natural ?? 0;
+  const t = tempo?.target ?? 0;
+  return n > 0 && t > 0 ? n / t : 1;
+}
+
+/** Where the clip starts on the timeline, in seconds — sync's alignment, in its own units. */
+function startSeconds(tempo: DeckTempo | undefined): number {
+  return ((tempo?.align ?? 0) * 60) / DOC_TEMPO;
+}
+
+/**
  * The stretch that makes a song of `natural` BPM play at `target`.
  *
  * **This is the browser's stand-in for `TEMPO_MODULE`.** The project declares the tempo as a
