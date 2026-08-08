@@ -194,6 +194,41 @@ describe("scanning samples and modules", () => {
     expect(amp?.files).toEqual(["module.yaml"]); // the folder itself, not what is under it
   });
 
+  it("keeps a pack's folders instead of flattening them", () => {
+    // The measured case: `modules/audio/amps/guitar/assets` holds one folder per amp. This used
+    // to filter to `isFile()` at one level, so all twenty-two files reported as an empty list —
+    // every one of them on disk, none of them anywhere on screen.
+    write("modules/audio/amps/guitar/module.yaml", "plugin: {}\n");
+    write("modules/audio/amps/guitar/assets/two rocks/clean.nam", "profile");
+    write("modules/audio/amps/guitar/assets/two rocks/crunch.nam", "profile");
+    write("modules/audio/amps/guitar/assets/deluxe/oxford - big.wav", "ir");
+    write("modules/audio/amps/guitar/assets/loose.nam", "profile");
+    const amp = scanFamily("modules").find((e) => e.name === "guitar");
+    // The same shape `listModuleAssets` returns, so a path a tree shows is a path a `params:`
+    // may name — and the `.wav` too, which that one filters out and a tree must not.
+    expect(amp?.assets).toEqual([
+      "deluxe/oxford - big.wav",
+      "loose.nam",
+      "two rocks/clean.nam",
+      "two rocks/crunch.nam",
+    ]);
+  });
+
+  it("names a folder that holds nothing, since nothing else would", () => {
+    // « Nouveau dossier… » inside a pack: a folder implied by no path at all. Answering 200 and
+    // appearing nowhere reads as the call having done nothing — the same reason `scanUnlisted`
+    // exists one level up.
+    write("modules/audio/amp/module.yaml", "plugin: {}\n");
+    mkdirSync(join(root, "modules/audio/amp/assets/empty"), {
+      recursive: true,
+    });
+    write("modules/audio/amp/assets/full/x.nam", "profile");
+    const amp = scanFamily("modules").find((e) => e.name === "amp");
+    // …and only that one. A folder with children needs no row of its own: its path is already
+    // a prefix of theirs.
+    expect(amp?.assets).toEqual(["empty/", "full/x.nam"]);
+  });
+
   it("keeps an asset from becoming an entry, or a folder to browse", () => {
     // The descent stops at a module; `assets/` is inside one, so it must reach neither the
     // catalogue (a sample is not a module) nor `scanUnlisted` (it is already drawn, on its

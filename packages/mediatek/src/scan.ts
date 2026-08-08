@@ -45,6 +45,50 @@ function dirents(abs: string): Dirent[] {
   }
 }
 
+/** How deep an `assets/` walk goes. The same cap `listModuleAssets` uses, and for the same
+ *  reason: a pathological tree must not be able to hang a listing request. */
+const ASSETS_MAX_DEPTH = 6;
+
+/**
+ * What a module carries, as `assets/`-relative POSIX paths, sorted.
+ *
+ * RECURSIVE, and nested rather than flattened, because that is how this material arrives: a NAM
+ * pack is a folder per amp, an IR pack a folder per cabinet. The measured case is
+ * `audio/amps/guitar`, whose four folders and twenty-two files this used to report as an empty
+ * list — every one of them on disk, and none of them anywhere on screen.
+ *
+ * The same shape `@studio/song`'s `listModuleAssets` returns, on purpose, so a path a tree
+ * shows is a path a `params:` may name. What differs is the filter: that one keeps the
+ * extensions a file-valued param accepts, this one keeps EVERYTHING, because a tree that hid
+ * the `.wav` beside the `.nam` would be lying about the folder.
+ *
+ * A folder holding no file at any depth is reported with a TRAILING SLASH. Nothing else would
+ * mention it — a folder is otherwise implied by the paths under it — and `scanUnlisted` states
+ * the same rule one level up: a "Nouveau dossier…" that answers 200 and appears nowhere reads
+ * as the call having done nothing at all.
+ */
+function assetsOf(moduleAbs: string): string[] {
+  const out: string[] = [];
+  const walk = (abs: string, rel: string, depth: number): void => {
+    const before = out.length;
+    for (const e of dirents(abs)) {
+      const child = rel ? `${rel}/${e.name}` : e.name;
+      // Past the cap a folder is named rather than descended into: the row is still true, and
+      // it says there is something there to go and look at.
+      if (e.isDirectory())
+        depth < ASSETS_MAX_DEPTH
+          ? walk(join(abs, e.name), child, depth + 1)
+          : out.push(`${child}/`);
+      else if (e.isFile()) out.push(child);
+    }
+    // Nothing came out of this folder, so nothing else would ever mention it. A folder with
+    // children needs no such row — its own path is a prefix of theirs.
+    if (rel && out.length === before) out.push(`${rel}/`);
+  };
+  walk(join(moduleAbs, ASSETS_DIR), "", 0);
+  return out.sort();
+}
+
 function mtimeOf(abs: string): number {
   try {
     return statSync(abs).mtimeMs;
@@ -240,10 +284,7 @@ function scanModules(): MediatekEntry[] {
 
   const push = (abs: string, type: string, sub: string): void => {
     const files = dirents(abs);
-    const assets = dirents(join(abs, ASSETS_DIR))
-      .filter((f) => f.isFile())
-      .map((f) => f.name)
-      .sort();
+    const assets = assetsOf(abs);
     out.push({
       family: "modules",
       id: toRel(abs),
@@ -257,9 +298,9 @@ function scanModules(): MediatekEntry[] {
         .filter((f) => f.isFile())
         .map((f) => f.name)
         .sort(),
-      // …and what it LOADS, one folder down. The only place the scan looks inside an entry, and
-      // what it finds is the entry's own material rather than more catalogue: nothing under
-      // `assets/` is ever an entry of its own, so the descent stops there.
+      // …and what it LOADS. The only place the scan looks inside an entry, and what it finds is
+      // the entry's own material rather than more catalogue: nothing under `assets/` is ever an
+      // entry of its own, whatever depth it sits at. See `assetsOf`.
       ...(assets.length ? { assets } : {}),
       meta: {
         catalogued: files.some((f) => f.isFile() && f.name === MODULE_FILE),

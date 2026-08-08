@@ -96,11 +96,19 @@ export interface MediatekEntry {
    *  disk — and nothing less, because the tree used to draw three fixed rows and whatever had
    *  actually been dropped in vanished. */
   files?: string[];
-  /** What the entry's own `assets/` folder holds, by name — the samples, impulse responses and
-   *  amp profiles a MODULE carries itself. Its own field and not part of `files`, because the two
-   *  are different things to a surface: `files` is the module's definition (its instances, its
-   *  panel, its shelf), and these are the material it loads. A tree draws these as the module's
-   *  children and drops new ones in; nothing offers to create one, since they arrive as bytes. */
+  /**
+   * What the entry's own `assets/` folder holds — the samples, impulse responses and amp
+   * profiles a MODULE carries itself.
+   *
+   * Its own field and not part of `files`, because the two are different things to a surface:
+   * `files` is the module's definition (its instances, its panel, its shelf), and these are the
+   * material it loads. A tree draws these as the module's children and drops new ones in;
+   * nothing offers to create one, since they arrive as bytes.
+   *
+   * `assets/`-relative POSIX paths, NESTED — a NAM pack is a folder per amp, so flattening
+   * would be inventing a shape the disk does not have. A path ending in `/` is a folder that
+   * holds nothing: the one thing no other path would mention. See scan.ts's `assetsOf`.
+   */
   assets?: string[];
   /** A SONG's alternative versions, as its sidecar declares them. Its own field for the
    *  same reason `assets` is: `meta` is flat scalars, and these are a list of records. Absent
