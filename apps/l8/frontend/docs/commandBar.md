@@ -34,16 +34,34 @@ another track and is usually not wanted, but `args.length` said four, so the for
 forever for an answer the command did not need. The old catalogue said "optional" in the
 hint's prose, which a person could read and the form could not.
 
-## It is NOT modal
+## It is not a popin — it is the last row of the shell
 
-The bar is docked to the bottom of the window with **no backdrop**, and the strip around it is
-`pointer-events-none` so only the bar itself takes clicks. Escape is the way out; clicking
-elsewhere does not close it.
+On a wide screen the bar is **always there**: under the minimap, full width, the last row of
+the window. Nothing opens it and nothing closes it. Double-tapping Shift focuses it, Escape
+blurs it, and in between it sits where a terminal's prompt sits.
 
-That is not a nicety about dimming. The bar is fed BY the editor behind it — see below — so a
-backdrop would have blocked the very gestures that fill it, and dimming would have hidden the
-clip you are being asked to point at. A modal palette can afford to cover the app because
-everything it needs is typed into it; this one cannot.
+It got there by degrees, and each step removed a reason for the previous one. It was a modal
+palette; then it stopped being modal, because a backdrop blocks the very gestures that fill it
+(see below) and dimming hides the clip you are being asked to point at. Once it had no
+backdrop, was fed by the editor behind it, and had to be summoned before any of that could
+start, "opened" was doing no work — it was a permanent tool with a curtain in front of it.
+
+What being docked actually buys, beyond one less keystroke:
+
+- **It says what it accepts before you commit to it.** The prompt, the field's colour and its
+  hint are on screen while you work, so the vocabulary is visible rather than recalled.
+- **A gesture has somewhere to land.** The bar reports what it is waiting for and the shell
+  routes drags to it; that contract now has no state in which the receiver does not exist.
+- **The layout stops moving.** A strip that appears over the window used to cover the bottom
+  of the panes exactly when you were pointing at them. A row that is always there is a row the
+  panes were never given.
+
+The phone keeps the popin, opened from the tab bar. It has no minimap to sit under, and a
+permanent prompt would cost the band a phone has least of — the same trade that keeps the
+minimap off it.
+
+Both forms are the same component, mounted once either way, and neither ever autofocuses: a
+shell that opened with the keyboard captured could not be typed into.
 
 ## A gesture can answer a field
 

@@ -154,11 +154,14 @@ Three details it needs to be usable:
   deliberately NOT URL state — a reload lands you in the view, not in the popin.
 
 ## The command palette
+## The command bar
 
-A double-tap of Shift opens the palette (IntelliJ style). It runs the brain's shared
-commands — the same ones `l8 cmd` runs on the CLI — so the UI adds no command
+It is the last row of the shell, under the minimap and full width — always there, not
+summoned. A double-tap of Shift jumps to it and Escape hands the keyboard back. It runs the
+brain's shared commands — the same ones `l8 cmd` runs on the CLI — so the UI adds no command
 vocabulary of its own: pick a command, fill its parameters, Enter runs it. The catalogue
-and the argument completers live in [`../src/palette.ts`](../src/palette.ts).
+and the argument completers live in [`../src/palette.ts`](../src/palette.ts); why it is
+docked rather than opened is in [`commandBar.md`](commandBar.md).
 
 ## Live state does not re-render the tree
 
@@ -169,9 +172,10 @@ for plugin parameters) instead, and components subscribe to just the slice they 
 a state frame re-renders the meters, not the tree. Keep it that way: pulling a live value
 into `App` state costs a full render per frame.
 
-The palette opens on a **double-tap of Shift**: two lone Shift presses within
+The bar takes focus on a **double-tap of Shift**: two lone Shift presses within
 `DOUBLE_SHIFT_MS` with no other key between them. `e.repeat` filters out the auto-repeat
-stream from a held Shift.
+stream from a held Shift. The gesture cannot toggle back out, because the shell's key
+listener ignores anything typed into an input — Escape is the way out, and has to be.
 
 ### The `ui` namespace
 
