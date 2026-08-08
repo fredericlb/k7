@@ -336,6 +336,15 @@
   help: "delete a module (or one instance) and remove it from every chain (e.g. module delete synth:lead)"
   surfaces: [cli]
   args: [{ name: "module", complete: modules }]
+# Takes a node OUT of the signal path and leaves its FILES alone — what fed it is joined to
+# what it fed, so the run closes over the gap instead of going quiet. The counterpart of
+# `chain add`, and the difference from `module delete` is the whole point: an instance you
+# unlink still has its settings and goes back in with one command.
+- command: "module instance unlink"
+  sid: module.instance.unlink
+  help: "take an instance out of its chain, rejoining what fed it to what it fed (e.g. module instance unlink lead)"
+  surfaces: [cli]
+  args: [{ name: "instance", complete: modules }]
 # Gives a module the ENGINE reports a folder in this project. A scanned plugin has no files
 # anywhere — a chain can name `@engine/nam` and nothing is on disk — and that is fine until
 # you want to draw its panel or give it presets, because both are FILES in a module's folder.

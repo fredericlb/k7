@@ -10,6 +10,7 @@ import { sharedRoots } from "./moduleFork";
 import {
   addNode,
   insertBetween,
+  parseChains,
   removeNode,
   renameNode,
   setModuleEnabled,
@@ -224,6 +225,45 @@ export function replaceModuleInChains(
   // Now nothing refers to it, so removing its files cannot dangle. deleteModule's own chain sweep finds nothing.
   const { removed } = deleteModule(dir, from);
   return { removed, rewired: r.rewired };
+}
+
+/**
+ * Take a node OUT of the chains, joining what fed it to what it fed — and leave its files alone.
+ *
+ * The whole difference from `deleteModule` is that last clause. An instance you unlink is still
+ * on disk with its settings intact, so putting it back is `chain add`; deleting it is not
+ * undoable that way. Taking a module out of the signal path and getting rid of it are two
+ * different intentions, and only one of them had a command.
+ *
+ * A TRACK is refused rather than spliced: a track is where a chain STARTS, so it has nothing
+ * feeding it to rejoin to what it feeds — `removeNode` would rewrite its destinations and leave
+ * the track itself in place, which is not what "unlink" would have meant.
+ */
+export function unlinkChainNode(
+  dir: string,
+  node: string,
+): { rewired: string[] } {
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const { value, issues } = parseChains(text);
+  if (!value)
+    throw new Error(`chains.yaml: ${issues[0]?.message ?? "unreadable"}`);
+  if (node in (value.tracks ?? {}))
+    throw new Error(
+      `'${node}' is a track — a chain starts there, so there is nothing to splice around`,
+    );
+  // Named as a step, or only ever as somebody's destination: the last module in a run has no
+  // entry of its own, and it is still in the chain and still unlinkable.
+  const isDest = [
+    ...Object.values(value.tracks ?? {}),
+    ...Object.values(value.modules ?? {}),
+  ].some((dests) => dests.includes(node));
+  if (!(node in (value.modules ?? {})) && !isDest)
+    throw new Error(`no '${node}' in the chains`);
+
+  const r = removeNode(text, node);
+  if (r.text !== text) writeFileSync(path, r.text, "utf8");
+  return { rewired: r.rewired };
 }
 
 /** Put a module in the graph wired to nothing — dropped in, to be connected after. */

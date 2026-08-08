@@ -112,6 +112,20 @@ module that is already there, under this name". Two refusals remain, and both ar
   module, so proceeding would silently drop the parent that was asked for. The message names
   the one it actually has.
 
+## Taking one back out — `module instance unlink`
+
+`module instance unlink <name>` removes a node from the chains and **joins what fed it to what
+it fed**, so the run closes over the gap instead of going quiet. Its files are untouched.
+
+That last clause is the whole reason it exists beside `module delete`. Taking a module out of
+the signal path and getting rid of it are two different intentions, and only the second had a
+command — so "mute this out of the chain for a moment" meant deleting an instance and losing its
+settings. Unlinked, it is still on disk with everything it had, and `chain add` puts it back.
+
+The splice itself is `removeNode`'s, the same one `module delete` uses; a node fed from two
+paths has both of them rejoined. A **track** is refused rather than spliced: a chain starts
+there, so there is nothing feeding it to reconnect to what it feeds.
+
 ## Not covered by this
 
 The **shared library** still files instances beside a module's `module.yaml`, keyed
