@@ -1448,6 +1448,14 @@ export default function App({
                   // While the bar is filling `event move`, the drag ANSWERS it instead of
                   // committing: same gesture, same numbers, but the line is yours to run. The
                   // param names are the command's own — see commands.yaml.
+                  // Any command whose open field wants a timecode: the ruler is a timecode
+                  // picker, and it does not need to know which command asked.
+                  feedTimecode={
+                    barPending?.kind === "timecode"
+                      ? (tc, live) =>
+                          cmdRef.current?.offerValue("timecode", tc, live)
+                      : undefined
+                  }
                   feedMove={
                     barPending?.canonical === "event move"
                       ? (trackId, fromTc, toTc, toTrackId, live) =>

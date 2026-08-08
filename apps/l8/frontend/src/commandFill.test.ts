@@ -1,20 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { applyOffer, requiredCount, runsAfter } from "./commandFill";
+import { applyOffer, requiredCount, runsAfter, wantsKind } from "./commandFill";
 import type { PaletteArg } from "./components/CommandBar";
 
-const arg = (name: string, optional?: boolean): PaletteArg => ({
+const arg = (
+  name: string,
+  kind: PaletteArg["kind"] = "text",
+  optional?: boolean,
+): PaletteArg => ({
   name,
-  kind: "text",
+  kind,
   hint: "",
   ...(optional ? { optional: true } : {}),
 });
 
-// `event move`, the command the whole gesture-feeds-the-bar path was built around.
+// `event move` as commands.yaml declares it — the command the whole gesture-feeds-the-bar path
+// was built around. The KINDS are real, because that is what a kind-matched offer tests against.
 const MOVE: PaletteArg[] = [
-  arg("track"),
-  arg("timecode"),
-  arg("newTimecode"),
-  arg("toTrack", true),
+  arg("track", "track"),
+  arg("timecode", "timecode"),
+  arg("newTimecode", "timecode"),
+  arg("toTrack", "track", true),
 ];
 
 describe("requiredCount", () => {
@@ -28,13 +33,13 @@ describe("requiredCount", () => {
 
   it("is zero when they are ALL optional — the line runs bare", () => {
     // `track new audio` with no name: the handler picks audio-N, which is the documented behaviour.
-    expect(requiredCount([arg("name", true)])).toBe(0);
+    expect(requiredCount([arg("name", "text", true)])).toBe(0);
   });
 
   it("only drops a TRAILING run — an optional param before a required one still counts", () => {
     // Skipping it would shift the next value into its place, so the command would receive an
     // answer for a param nobody gave. Required is the index after the last mandatory one.
-    expect(requiredCount([arg("a"), arg("b", true), arg("c")])).toBe(3);
+    expect(requiredCount([arg("a"), arg("b", "text", true), arg("c")])).toBe(3);
   });
 
   it("survives an empty param list", () => {
@@ -71,14 +76,24 @@ describe("applyOffer", () => {
     ).toEqual({ args: ["gtr", "1:1:1", "5:1:1"], value: "gtr2" });
   });
 
-  it("keeps what is already in a field the offer skips", () => {
-    // A second gesture that knows less must not blank an answer the first one gave.
+  it("never rewrites an answer already given — it fills FORWARD from the open field", () => {
+    // `event move ge.rythm` typed by hand, then the clip dragged: the track you chose stays,
+    // and the gesture answers the two timecodes after it. Replacing `ge.rythm` with whatever
+    // clip the pointer happened to touch would be the opposite of answering a question.
     expect(
-      applyOffer(MOVE, { track: "gtr", newTimecode: "9:1:1" }, [
-        "old",
-        "1:1:1",
-      ]),
-    ).toEqual({ args: ["gtr", "1:1:1"], value: "9:1:1" });
+      applyOffer(
+        MOVE,
+        { track: "other", timecode: "1:1:1", newTimecode: "5:1:1" },
+        ["ge.rythm"],
+      ),
+    ).toEqual({ args: ["ge.rythm", "1:1:1"], value: "5:1:1" });
+  });
+
+  it("returns null when everything it knows is already answered", () => {
+    // Nothing left to say: the fields it could fill are behind the open one.
+    expect(
+      applyOffer(MOVE, { track: "gtr" }, ["ge.rythm", "1:1:1"]),
+    ).toBeNull();
   });
 
   it("returns null when the offer names nothing this command asks for", () => {
@@ -88,6 +103,39 @@ describe("applyOffer", () => {
 
   it("is empty-safe on a command with no params", () => {
     expect(applyOffer([], { track: "gtr" }, [])).toBeNull();
+  });
+});
+
+describe("wantsKind", () => {
+  it("matches the class the OPEN field declares", () => {
+    // `event move ge.rythm` → the field open is `timecode`, so a ruler click belongs in it.
+    expect(wantsKind(MOVE, 1, "timecode")).toBe(true);
+  });
+
+  it("refuses a value the open field did not ask for", () => {
+    // Field 0 is a track: a timecode landing there would be a stray click writing nonsense.
+    expect(wantsKind(MOVE, 0, "timecode")).toBe(false);
+  });
+
+  it("refuses once every field is answered", () => {
+    expect(wantsKind(MOVE, 4, "timecode")).toBe(false);
+  });
+});
+
+// Typed by hand as far as the timecode, then answered by pointing — the second half of the
+// gesture story: the ruler knows a timecode and nothing about which command wanted one.
+describe("a ruler click answering the open field", () => {
+  it("lands in the timecode `event move ge.rythm` is waiting for", () => {
+    const filled = ["ge.rythm"];
+    expect(wantsKind(MOVE, filled.length, "timecode")).toBe(true);
+    // …and answering it leaves one required param, so this is not yet the last Enter.
+    expect(runsAfter(MOVE, filled.length + 1, false)).toBe(false);
+  });
+
+  it("completes the line when it answers the LAST required field", () => {
+    const filled = ["ge.rythm", "1:1:1"];
+    expect(wantsKind(MOVE, filled.length, "timecode")).toBe(true);
+    expect(runsAfter(MOVE, filled.length + 1, false)).toBe(true);
   });
 });
 
