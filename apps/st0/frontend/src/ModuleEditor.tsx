@@ -6,7 +6,7 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Mic, Plug, PlugZap } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engineMachine, library, moduleStore } from "./api";
 import {
   baseModuleRefs,
@@ -73,7 +73,19 @@ export function ModuleEditor({
    * machine would otherwise start monitoring a channel that means something else there.
    */
   const [inputChannels, setInputChannels] = useState<number[]>([]);
+  /**
+   * Whether that input is LET THROUGH — the `A` on the source node's mixer strip.
+   *
+   * Two states and not one, because they answer different questions: which input, and whether
+   * it is live. Disarming keeps the pick, so getting the guitar back is one click and not a
+   * trip through the menu — which is the whole reason a mixer has an arm button rather than
+   * making you unplug the cable.
+   */
+  const [armed, setArmed] = useState(false);
   const [picking, setPicking] = useState<{ x: number; y: number } | null>(null);
+  // Where the pointer last was, so a picker opened from a widget — which reports no
+  // coordinates — lands under the hand rather than in a corner.
+  const lastPointer = useRef({ x: 0, y: 0 });
   const inputDevices = useEngineInputDevices(client, connected);
   // The machine's channel LABELS. Its own fetch and not part of the engine socket: they live
   // in `~/.studio/preferences.yaml` beside the engine, which the file service serves.
@@ -137,7 +149,11 @@ export function ModuleEditor({
         );
         if (!alive) return;
         setPlugged({ ref: readExtends(f.content), found: !!plugin });
-        preview(entry.name, plugin, undefined, inputChannels);
+        // Disarmed sends NO channels rather than `monitor: "off"`: the engine then clears the
+        // track's input outright, so nothing on the machine is left holding an interface it is
+        // not using — and the monitor mode is a property of the DEVICE, shared with whatever
+        // else is on it (see EngineHost::applyTrackInput).
+        preview(entry.name, plugin, undefined, armed ? inputChannels : []);
         listPresets(entry.name);
       })
       .catch(() => {
@@ -152,15 +168,40 @@ export function ModuleEditor({
     phase.k,
     scanned,
     inputChannels,
+    armed,
     preview,
     listPresets,
     reload,
   ]);
 
+  /**
+   * The `A` on the source node, and the same thing in the footer.
+   *
+   * Arming an input that names nothing would be a click that does nothing, so it opens the
+   * picker instead — and picking one arms it, because choosing your guitar's input IS asking
+   * to hear it. `aucune` disarms, which is the one pick that means "stop".
+   */
+  const toggleArm = useCallback(
+    (x: number, y: number) => {
+      if (!inputChannels.length) return setPicking({ x, y });
+      setArmed((on) => !on);
+    },
+    [inputChannels],
+  );
+  const pickInput = useCallback((channels: number[]) => {
+    setInputChannels(channels);
+    setArmed(channels.length > 0);
+  }, []);
+
   const onSaved = useCallback(() => setReload((n) => n + 1), []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      className="flex h-full min-h-0 flex-col"
+      onPointerDownCapture={(e) => {
+        lastPointer.current = { x: e.clientX, y: e.clientY };
+      }}
+    >
       <div className="min-h-0 flex-1">
         <ModuleBuilder
           store={moduleStore}
@@ -192,6 +233,13 @@ export function ModuleEditor({
               // audible. See ../docs/modulePreview.md.
               sourceInput={inputLabel(inputChannels, choices)}
               onPickSourceInput={(x, y) => setPicking({ x, y })}
+              // The strip's `A`, which was drawn on every track node and inert on this one.
+              sourceArmed={armed}
+              onToggleSourceArm={() =>
+                // No coordinates from a widget click, so the picker opens where the pointer
+                // last was rather than at a corner of the screen.
+                toggleArm(lastPointer.current.x, lastPointer.current.y)
+              }
             />
           )}
         />
@@ -223,6 +271,9 @@ export function ModuleEditor({
             being fed — but it is only drawn past a zoom of 0.6 (below that a node draws as its
             name alone, see DomChains' `far`), and the preview box is 30% of a column. A
             control you have to zoom in to find is one that reads as not being there. */}
+        {/* The same two controls as the source node's strip, for when the graph is too far out
+            to draw one: a node only draws its header past a zoom of 0.6 (DomChains' `far`), and
+            the preview box is 30% of a column. */}
         <button
           type="button"
           className="flex items-center gap-1 underline disabled:no-underline disabled:opacity-50"
@@ -232,16 +283,32 @@ export function ModuleEditor({
               ? "Ce que le module écoute — une entrée de l'interface de cette machine"
               : "Il faut un moteur pour lire une entrée de l'interface"
           }
-          onClick={(e) =>
-            setPicking({
-              x: e.currentTarget.getBoundingClientRect().left,
-              y: e.currentTarget.getBoundingClientRect().top,
-            })
-          }
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setPicking({ x: r.left, y: r.top });
+          }}
         >
           <Mic className="h-3.5 w-3.5" />
           entrée : {inputLabel(inputChannels, choices)}
         </button>
+        {/* The `A` of the node's strip, spelled out. Only once an input is picked: arming
+            nothing is a click with nothing to do, and the button above is where you start. */}
+        {inputChannels.length > 0 && (
+          <button
+            type="button"
+            className={
+              armed ? "text-destructive underline" : "underline opacity-50"
+            }
+            title={
+              armed
+                ? "Armé — l'entrée passe dans le module. Cliquer pour couper."
+                : "Cliquer pour laisser passer l'entrée dans le module"
+            }
+            onClick={() => setArmed((on) => !on)}
+          >
+            {armed ? "armé" : "armer"}
+          </button>
+        )}
         <button
           type="button"
           className={vimMode ? "underline" : "underline opacity-50"}
@@ -264,7 +331,7 @@ export function ModuleEditor({
           at={picking}
           choices={choices}
           current={inputChannels}
-          onPick={setInputChannels}
+          onPick={pickInput}
           onClose={() => setPicking(null)}
         />
       )}
