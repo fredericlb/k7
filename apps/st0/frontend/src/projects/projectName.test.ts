@@ -12,6 +12,10 @@ describe("projectFolderName", () => {
       folder: "répèt du jeudi.m9",
       error: "",
     });
+    expect(projectFolderName("le clip", "v1")).toEqual({
+      folder: "le clip.v1",
+      error: "",
+    });
   });
 
   it("ne double pas un suffixe déjà tapé", () => {
@@ -23,6 +27,14 @@ describe("projectFolderName", () => {
     // Quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d'avis ; « hiver.l8.m9 » ne
     // serait ni l'un ni l'autre.
     expect(projectFolderName("hiver.l8", "m9").folder).toBe("hiver.m9");
+    expect(projectFolderName("hiver.m9", "v1").folder).toBe("hiver.v1");
+  });
+
+  it("garde un « v1 » qui fait partie du nom", () => {
+    // Le piège de ce suffixe-là : « prise v1 » est un nom, pas un montage. Seul un `.v1`
+    // FINAL en est un, et le retrait ne mange que celui-là.
+    expect(projectFolderName("prise v1", "l8").folder).toBe("prise v1.l8");
+    expect(projectFolderName("prise v1.v1", "v1").folder).toBe("prise v1.v1");
   });
 
   it("refuse les séparateurs plutôt que de les remplacer en silence", () => {

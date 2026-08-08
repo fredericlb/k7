@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { projectApp, projectLabel } from "./projects.ts";
+import {
+  HAS_SCAFFOLD,
+  launchUrl,
+  PROJECT_SUFFIXES,
+  projectApp,
+  projectLabel,
+  SCAFFOLDED_APPS,
+} from "./projects.ts";
 
 describe("projectApp", () => {
   it("reads the suffix", () => {
     expect(projectApp("mysong.l8")).toBe("l8");
     expect(projectApp("myset.m9")).toBe("m9");
+    expect(projectApp("le clip.v1")).toBe("v1");
     expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
@@ -16,7 +24,17 @@ describe("projectApp", () => {
   it("refuses a bare suffix — `.l8` is a dotfolder, not a nameless project", () => {
     expect(projectApp(".l8")).toBe(null);
     expect(projectApp(".m9")).toBe(null);
+    expect(projectApp(".v1")).toBe(null);
     expect(projectApp(".z0")).toBe(null);
+  });
+
+  it("reads `.v1` only as a final suffix, never as part of a name", () => {
+    // The one suffix that is also an ordinary word in a folder name. `prise v1` is a take;
+    // only the dot makes it a cut.
+    expect(projectApp("prise v1")).toBe(null);
+    expect(projectApp("v1")).toBe(null);
+    expect(projectApp("prise v1.l8")).toBe("l8");
+    expect(projectApp("prise v1.v1")).toBe("v1");
   });
 
   it("does not match another service's name", () => {
@@ -41,5 +59,42 @@ describe("projectLabel", () => {
 
   it("keeps a dot that is part of the name", () => {
     expect(projectLabel("v1.2.l8")).toBe("v1.2");
+    expect(projectLabel("le clip.v1")).toBe("le clip");
+  });
+});
+
+describe("launchUrl", () => {
+  it("sends each app to its own service, under one origin", () => {
+    const o = "https://studio.test";
+    expect(launchUrl(o, "band", "winter.l8", "l8")).toBe(
+      "https://studio.test/l8/band/winter.l8",
+    );
+    expect(launchUrl(o, "band", "live.m9", "m9")).toBe(
+      "https://studio.test/m9/band/live.m9",
+    );
+    expect(launchUrl(o, "band", "le clip.v1", "v1")).toBe(
+      "https://studio.test/v1/band/le%20clip.v1",
+    );
+  });
+
+  it("keeps only the origin of whatever URL it is handed", () => {
+    // Callers pass `window.location.href`, which carries a path of its own.
+    expect(
+      launchUrl("https://studio.test/projects?x=1", "b", "c.v1", "v1"),
+    ).toBe("https://studio.test/v1/b/c.v1");
+  });
+});
+
+describe("which apps can be CREATED", () => {
+  it("is not the same set as the apps that own a folder kind", () => {
+    // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an l8 song.
+    expect(SCAFFOLDED_APPS).toEqual(["l8", "m9", "v1"]);
+    expect(HAS_SCAFFOLD.z0).toBe(false);
+  });
+
+  it("answers for every app that owns a suffix", () => {
+    // The Record is what makes a new ProjectApp fail to compile until someone decides.
+    for (const app of Object.keys(PROJECT_SUFFIXES))
+      expect(HAS_SCAFFOLD, app).toHaveProperty(app);
   });
 });

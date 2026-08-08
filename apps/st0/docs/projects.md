@@ -16,8 +16,8 @@ propre travail. Le catalogue est ce dont un projet *se sert* — il est à un on
 ## La règle qui tient tout
 
 **Le suffixe du dossier nomme l'application.** `mysong.l8` s'ouvre dans l8, `myset.m9` dans
-m9 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle entière. Un dossier sans
-suffixe n'est pas un projet, même s'il contient un `project.yaml`.
+m9, `leclip.v1` dans v1 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle
+entière. Un dossier sans suffixe n'est pas un projet, même s'il contient un `project.yaml`.
 
 **st0 ne fait jamais de copie de travail.** Il tient un miroir *bare* et *sans blobs* de
 chaque dépôt, uniquement pour répondre « qu'est-ce qu'il y a dedans ». La copie qu'on édite,
@@ -48,7 +48,7 @@ deux bouts.
 > l'arbre.
 
 L'arbre rendu est du `FileNode` — **le même type** que celui que sert le file service, avec le
-même drapeau `project?: boolean` sur les dossiers, plus `app` qui dit laquelle des deux
+même drapeau `project?: boolean` sur les dossiers, plus `app` qui dit laquelle des
 applications l'ouvre. Les deux arbres du dépôt dessinent donc les mêmes lignes.
 
 ## L'arborescence n'est pas le chemin normal
@@ -136,7 +136,8 @@ se lisent donc pareil.
    d'eux part directement dans son application, **dans un nouvel onglet**. Le nom du dépôt,
    lui, ouvre l'arborescence — ici même —, où les dossiers-projets sont marqués de la même
    façon.
-3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — une ADRESSE, et le dépôt
+3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/v1/band/leclip.v1`
+   pour un montage — une ADRESSE, et le dépôt
    par son **nom court**, pas par son URI : une barre d'adresse se copie et se colle, et une
    URI SSH y traîne une machine, un port et un utilisateur.
 4. L'application nous redemande l'URI derrière ce nom (`GET /api/projects/by-name/:name`).
@@ -156,7 +157,7 @@ l'adresse est un chemin et non des paramètres — ce qui supprime le `sessionSt
 
 ## Créer et supprimer un projet — pas ici, sur la machine
 
-Le bloc de chaque dépôt porte un **« Nouveau projet »** (type l8 ou m9, et un nom), et chaque
+Le bloc de chaque dépôt porte un **« Nouveau projet »** (le type, et un nom), et chaque
 projet un petit **« Supprimer »** avec confirmation. Ni l'un ni l'autre n'est fait par st0, et
 c'est la conséquence directe de la règle du haut de cette page.
 
@@ -200,15 +201,30 @@ ne dit rien ressemble à un écran figé.
 
 ### Le suffixe décide, et le nom est montré avant
 
-`projectName.ts` est pur et testé : c'est lui qui pose `.l8` ou `.m9`, retire un suffixe déjà
-tapé — quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d'avis, et « hiver.l8.m9 » ne
-serait ni l'un ni l'autre — et refuse les séparateurs plutôt que de les remplacer en silence.
+`projectName.ts` est pur et testé : c'est lui qui pose le suffixe du menu, retire un suffixe
+déjà tapé — quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d'avis, et
+« hiver.l8.m9 » ne serait ni l'un ni l'autre — et refuse les séparateurs plutôt que de les
+remplacer en silence.
+
+`.v1` est le suffixe qui demande le plus d'attention, parce que « v1 » est aussi un mot
+ordinaire : « prise v1 » est un nom de dossier, pas un montage. Seul un `.v1` **final** en est
+un — c'est déjà la règle de `projectApp`, et `projectName.test.ts` la fixe des deux côtés.
 Le dossier obtenu est affiché sous le champ **avant** de valider, comme `AddSong` montre
 l'arborescence déduite avant l'envoi : ici aussi c'est le nom qui décide de tout.
 
-**k7 et z0 n'ont pas de projets** — `ProjectApp` vaut `"l8" | "m9"` et rien d'autre. Le menu ne
-fait que refléter ce type ; introduire un `.z0` serait un autre chantier, touchant
-`PROJECT_SUFFIXES`, l'`isProjectDir` du file-service et z0 lui-même.
+### Posséder un suffixe et pouvoir être créé sont deux questions
+
+`ProjectApp` vaut `"l8" | "m9" | "v1" | "z0"` — k7 seul n'a pas de projets. Mais le menu ne
+reflète PAS ce type : il reflète `SCAFFOLDED_APPS`, et la différence est un bug qui a vécu.
+
+Créer demande un **gabarit** — une carte de fichiers que le file-service sait écrire
+(`createProjectIn`, et les trois modules `scaffold*` de `@studio/song`). z0 possède bien les
+dossiers `.z0` et n'en a aucun. Le proposer fabriquait donc un dossier `.z0` contenant une
+chanson l8 : le suffixe disait une chose, le contenu une autre, et rien ne s'en plaignait
+avant que z0 essaie de l'ouvrir.
+
+`HAS_SCAFFOLD` répond la question app par app, dans un `Record` et non une liste : ajouter une
+application à `ProjectApp` ne compilera plus tant que personne n'aura répondu pour elle.
 
 ### Le verbe est `project commit`, et un succès doit se prouver
 

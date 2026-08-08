@@ -8,7 +8,7 @@ and the header's `OtherApps` button is it — a menu with one row per app.
 
 Only **k7** and **z0**.
 
-`l8` and `m9` are deliberately absent. Neither is a place you *visit*: both are opened
+`l8`, `m9` and `v1` are deliberately absent. None is a place you *visit*: each is opened
 **on one project**, by st0, with launch parameters (`packages/project-shell/docs/launch.md`,
 `apps/st0/docs/projects.md`). A bare link to `/l8` would land on an app with nothing to
 open, which is a worse answer than no link at all. The repositories section is how you
