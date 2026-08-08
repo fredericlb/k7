@@ -126,6 +126,11 @@ The splice itself is `removeNode`'s, the same one `module delete` uses; a node f
 paths has both of them rejoined. A **track** is refused rather than spliced: a chain starts
 there, so there is nothing feeding it to reconnect to what it feeds.
 
+Right-clicking a module in l8's graph offers it, last in the list — everything above that reads
+or edits the node, while this one takes it out of the run. It is offered on a **dangling** node
+too, where it is the actual repair: a step naming a module that does not exist has no file to
+open and no param to set, but removing it and closing the gap needs no module to exist.
+
 ## Not covered by this
 
 The **shared library** still files instances beside a module's `module.yaml`, keyed
