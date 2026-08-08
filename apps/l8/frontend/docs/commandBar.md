@@ -34,6 +34,16 @@ another track and is usually not wanted, but `args.length` said four, so the for
 forever for an answer the command did not need. The old catalogue said "optional" in the
 hint's prose, which a person could read and the form could not.
 
+### The list only shows while the field has the keys
+
+A completion list is part of the field you are typing in, so it goes when the focus does.
+
+That follows from the bar not being modal: answering a param by reaching into a pane takes the
+focus away, and the list would otherwise sit parked over the timeline you just clicked —
+covering the thing the gesture was about. A suggestion's own `onMouseDown` preventDefaults, so
+picking one does not blur first and pull the list out from under the click, and a pointer-down
+anywhere on the bar puts the focus back in the field rather than dismissing it.
+
 ## It is NOT modal
 
 The bar is docked to the bottom of the window with **no backdrop**, and the strip around it is
