@@ -252,10 +252,10 @@
   args: [{ name: module, complete: modules }]
 
 # --- channel labels (global user preferences) ---
-# Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision,
-# not a per-song edit, so it lives only in the CLI (`l8 config --set
-# interface`, brain/src/config.tsx). These labels just annotate that rig, so they
-# stay on every surface.
+# Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision, not a
+# per-song edit, so it lives in the médiathèque's « État du moteur » — the one screen that
+# reaches both the engine and its machine, which a pick needs (engine/moteur/docs/audioDevice.md).
+# These labels just annotate that rig, so they stay on every surface.
 - { command: "channel list", sid: channels.list, help: "show the input/output channel labels", surfaces: [cli] }
 - command: "channel clear"
   sid: channels.clear

@@ -112,6 +112,11 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
     }
     dev->setEnabled(true);   // a disabled device yields no instance to target
 
+    // A context only builds instances for the devices that were ALREADY enabled when it was
+    // built (EditPlaybackContext::createDeviceInstances), so enabling one now is not enough —
+    // add its instance, exactly as channelLevelsDb does for the meters. Without this, wiring a
+    // track to an input the context predates left the track silent with only a log line.
+    if (ctx->getInputFor(dev) == nullptr) ctx->addWaveInputDeviceInstance(*dev);
     auto* instance = ctx->getInputFor(dev);
     if (instance == nullptr) {
         std::cerr << "[input] track '" << t.id << "': '" << dev->getName()
@@ -131,6 +136,38 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
 
 void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDoc& doc) {
     for (const auto& t : doc.tracks) applyTrackInput(session, t);
+}
+
+/**
+ * Put every session's live inputs back after the INTERFACE changed under them.
+ *
+ * A device switch destroys Tracktion's `WaveInputDevice` objects and builds new ones, so every
+ * assignment made through them — which track an input feeds, and whether it is armed — refers to
+ * something that no longer exists. Nothing else re-does it: `applyAllTrackInputs` otherwise runs
+ * only from a full apply, so before this the first take after changing interface recorded silence
+ * from a track that still LOOKED armed. Full account in docs/audioDevice.md.
+ *
+ * The rebuild is asynchronous — `rescanWaveDeviceList` only triggers it — hence the dispatch
+ * first: re-wiring before it lands would wire to the devices about to be thrown away.
+ */
+void EngineHost::reconnectTrackInputs(
+    const std::map<std::string, std::vector<std::string>>& armedBefore) {
+    impl_->engine.getDeviceManager().dispatchPendingUpdates();
+
+    for (const auto& sid : impl_->ids()) {
+        auto* s = impl_->find(sid);
+        if (s == nullptr || !s->edit) continue;
+        applyAllTrackInputs(sid, s->current);
+
+        // Re-arm what was armed. A refusal is normal and already explains itself — the new
+        // interface may simply not carry the channels that track asks for.
+        const auto it = armedBefore.find(sid);
+        if (it == armedBefore.end()) continue;
+        for (const auto& trackId : it->second)
+            if (auto r = setArmed(sid, trackId, true); !r.ok)
+                std::cerr << "[rec] '" << trackId << "' could not be re-armed on the new interface: "
+                          << r.error << '\n';
+    }
 }
 
 // --- Record arming -----------------------------------------------------------

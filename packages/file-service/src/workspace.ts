@@ -65,6 +65,7 @@ import {
   formatAudioDevice,
   formatChannels,
   loadPreferences,
+  setAudioDevice,
   setEditorVim,
 } from "@studio/song/preferences";
 import type {
@@ -294,6 +295,14 @@ export function preferences(): {
 
 export function setVim(on: boolean): boolean {
   return setEditorVim(on).editor.vim;
+}
+
+// Remember which interface this machine plays through. The engine itself forgets — see
+// docs/audioDevice.md — so this file is what re-selects it, replayed by engineLink on
+// every connect. An empty name clears the pick and hands the machine back to the default.
+export function setAudioDevicePref(name: string, type?: string): string | null {
+  const p = setAudioDevice(name, type);
+  return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
 }
 
 // The per-workspace active-project marker; a dotfile, so skip() hides it from the tree.

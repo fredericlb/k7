@@ -22,13 +22,13 @@ page is.
 |---|---|---|
 | status line (running · id · port) | « Moteur » card | probe + socket state |
 | `Sessions ▸` + drop | « Sessions » card | `list-sessions` / `drop-session`, polled like the tray (2.5 s) |
-| `Audio interface ▸` select | « Interface audio » card | `list-audio-devices` / `set-audio-device` |
+| `Audio interface ▸` select | « Interface audio » card | `list-audio-devices` / `set-audio-device`, **plus** `PUT <fileBase>/preferences/audio-device` — one pick is two facts, the running engine and what the next one opens (`engine/moteur/docs/audioDevice.md`) |
 | `Plugins: n` + `Rescan plugins` | « Plugins » card | `list-plugins` / `rescan-plugins` — **incremental**: the full rescan deletes the engine machine's `exts.json` first, which only the supervisor can do |
 | `Native plugin UI ▸` | « UI native » card | `list-edit-plugins` / `show-native-plugin-ui` — the window opens on the engine machine's screen |
 | `Clear waveform cache` | « Maintenance » | `POST <fileBase>/waveforms/clear`, the same route the supervisor calls |
 | `Show logs` | « Maintenance » → Journal | `GET <fileBase>/logs?tail=300` — the merged log, read instead of opened |
 | `Start/Stop/Restart engine`, `Restart file service` | **absent, on purpose** | the supervisor's only client is the stdio peer that spawned it; it has no network surface, and that is a security stance, not a gap (see engine-host) |
-| audio preferred/fallback, web origins, autostart, folders | absent | supervisor/OS policy, same reason |
+| audio FALLBACK, web origins, autostart, folders | absent | supervisor/OS policy, same reason — the fallback is a rule about a device that is *not* there, which only something watching continuously can apply. The preferred one is no longer in this row: the page writes it, because a pick nobody remembers is how a machine ends up back on the Windows endpoint after every restart |
 
 The wire verbs come from `@studio/engine-browser`'s `EngineClient`, which grew the
 control queries (`listSessions`, `listAudioDevices`, `setAudioDevice`,
