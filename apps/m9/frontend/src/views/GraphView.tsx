@@ -8,8 +8,23 @@ import { DomChains } from "@studio/ui-chains-react";
 import { Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { M9_ICONS } from "../chains";
+import type { Deck } from "../useEngine";
 
-export function GraphView({ graph }: { graph: WebGraph | null }) {
+export function GraphView({
+  graph,
+  deck,
+}: {
+  graph: WebGraph | null;
+  /**
+   * The engine, so a knob here SHOWS a value and can move one.
+   *
+   * Without it `liveParams` was empty and every widget fell back to `n.params` — the number
+   * the project file declares. So an EQ turned in Mix stayed at 0 dB here, and turning one
+   * here did nothing at all: `pickWidget` needs a `setPluginParam` to call. Both halves were
+   * the same missing wire.
+   */
+  deck: Deck;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph, because the graph unmounts with its view and a camera
   // that reset on every remount would fight the person using it.
@@ -39,6 +54,13 @@ export function GraphView({ graph }: { graph: WebGraph | null }) {
         // Re-frame when the SHAPE changes, not on every redraw: adding a module should fit the
         // new picture, moving a knob should leave the camera where it was put.
         fitKey={`${laid.nodes.length}`}
+        // The engine's own values, shared with the desk — see Deck.params.
+        pluginParamsStore={deck.params}
+        // …and the way back. One message per move, exactly as the desk's crossfader and EQ
+        // send theirs: this IS that path, reached from the other picture of the same plugin.
+        setPluginParam={(id, name, value) =>
+          deck.engine?.setPluginParam(id, name, value)
+        }
         // m9 has no command bar. The prop is required because l8's graph is driven by one and
         // the package will not pretend otherwise — so this says out loud that a node's command
         // menu does nothing here, rather than silently swallowing it. See docs/chains.md.

@@ -4,6 +4,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { usePluginParams } from "@studio/engine-browser/params";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
@@ -45,7 +46,9 @@ import {
 import {
   enginePluginIds,
   hasPlugin,
+  engineAgrees,
   resolveBindings,
+  shownValue,
   stretchTargets,
   valueFor,
 } from "../mixBindings";
@@ -57,7 +60,7 @@ import {
   service,
 } from "../service";
 import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
-import { type Playhead, useEngine } from "../useEngine";
+import type { Deck, Playhead } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { EqStrip } from "./EqStrip";
@@ -95,16 +98,24 @@ type Wave =
 
 export function MixView({
   engine,
+  deck,
   project,
   graph,
 }: {
   engine: RankedEngine<PublicEngine>;
+  /**
+   * The engine link, held by Studio rather than by this view.
+   *
+   * It used to be created HERE, and Mix is unmounted the moment you switch to Graphe — so the
+   * two views could never have shared a picture of a plugin, because only one of them was
+   * ever connected. See `Deck.params`.
+   */
+  deck: Deck;
   /** The project this app was opened on, workspace-relative — what the set list belongs to. */
   project: string;
   /** The compiled chains. Where a binding's module name becomes a plugin id. */
   graph: WebGraph | null;
 }) {
-  const deck = useEngine(engine);
   // Derived, never typed and never stored: the file service is on the chosen engine's host.
   // The identity rides in the shared headers — see service.ts. Both used to be text boxes.
   const link = useMemo(() => fileLink(engine), [engine]);
@@ -122,13 +133,16 @@ export function MixView({
   /** Which deck LEADS, or null. The two sync buttons are one choice, not two toggles. */
   const [master, setMaster] = useState<DeckId | null>(null);
   /**
-   * Every EQ knob's position in dB, by control id — `deckA.eqLow` and its five siblings.
+   * A knob the hand is ON, by control id — an OPTIMISTIC layer over the engine's own values.
    *
-   * Held here because nothing sends it back: `set-plugin-param` is one-way, so the desk's own
-   * state is what draws the knob. Absent means flat, which is why 0 is the fallback and not a
-   * value written into this map on load.
+   * Not the state of the EQ: `deck.params` is, and it survives this view being unmounted every
+   * time somebody looks at the graph. This only covers the round trip, so a knob follows the
+   * finger instead of waiting for the engine to agree — the same override the chains panel
+   * keeps for the same reason.
    */
   const [eq, setEq] = useState<Record<string, number>>({});
+  /** The engine's values, shared with the graph. Subscribed HERE so only the desk redraws. */
+  const live = usePluginParams(deck.params);
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
   /** The desk's bindings, as `views/mix.yaml` declares them. */
@@ -189,12 +203,20 @@ export function MixView({
       EQ_BANDS.some((band) => live.has(`${deckId}.${band.id}`));
   }, [wiring, plugins]);
 
-  /** One deck's knob positions, by the plain band id the strip draws. */
+  /**
+   * One deck's knob positions, by the plain band id the strip draws.
+   *
+   * The hand first, then the ENGINE — never a number this view invented. Reading the engine is
+   * what makes a knob still show a −12 dB cut after a trip through the graph and back, where a
+   * private copy would have drawn it flat while the sound said otherwise.
+   */
   const eqOf = (deckId: DeckId): Partial<Record<string, number>> =>
     Object.fromEntries(
-      EQ_BANDS.map((b) => [b.id, eq[`${deckId}.${b.id}`]]).filter(
-        ([, v]) => v !== undefined,
-      ),
+      EQ_BANDS.map((b) => {
+        const id = `${deckId}.${b.id}`;
+        const bound = wiring.bindings.find((x) => x.control.id === id);
+        return [b.id, shownValue(bound, eq[id], live)];
+      }).filter(([, v]) => v !== undefined),
     );
 
   // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
@@ -440,6 +462,27 @@ export function MixView({
     setEq((e) => ({ ...e, [id]: dB }));
     pushParam(id, dB);
   };
+
+  /**
+   * Let go of the override once the engine has caught up.
+   *
+   * An optimistic value that never yields is a knob that stops listening: the engine could
+   * clamp what it was sent, or the graph could move the same param, and the desk would go on
+   * drawing the last thing THIS hand did. Dropping it the moment the two agree hands the
+   * question back to the engine, which is the only thing that knows.
+   */
+  useEffect(() => {
+    setEq((current) => {
+      let changed = false;
+      const next: Record<string, number> = {};
+      for (const [id, held] of Object.entries(current)) {
+        const bound = wiring.bindings.find((b) => b.control.id === id);
+        if (engineAgrees(bound, held, live)) changed = true;
+        else next[id] = held;
+      }
+      return changed ? next : current;
+    });
+  }, [live, wiring]);
 
   /** Drag the crossfader. One message per move, not a document — see pushCrossfade. */
   const crossfade = (value: number) => {

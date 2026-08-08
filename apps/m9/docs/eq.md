@@ -84,12 +84,40 @@ seule position qui mérite un raccourci, et celle qu'un glissement n'atteint jam
 Le chiffre ne s'affiche **que** hors du plat. Six potards affichant tous « 0.0 » sont du bruit ;
 ce qu'un coup d'œil cherche, c'est quelle bande quelqu'un a touchée.
 
+## Une seule vérité, deux images
+
+Le pupitre et le graphe dessinent les mêmes plugins. Chacun a longtemps gardé sa propre copie
+— et le graphe n'en avait aucune : sans `liveParams`, chaque widget retombait sur `n.params`,
+le nombre que le fichier du projet **déclare**. Un EQ tourné dans Mix restait donc à 0 dB dans
+le graphe, et un potard tourné dans le graphe ne faisait rien du tout, faute de
+`setPluginParam` à appeler. Les deux moitiés étaient le même fil manquant.
+
+La cause était plus bas : `useEngine` vivait **dans** `MixView`, que Studio démonte dès qu'on
+passe sur Graphe. Les deux vues ne pouvaient pas partager une image d'un plugin, puisqu'une
+seule était connectée à la fois. Le lien est remonté dans `Studio`, et `Deck.params` est le
+`PluginParamsStore` que les deux lisent.
+
+Le moteur est la seule chose qui sache à quoi un plugin est réglé, et il le rapporte quelle que
+soit la surface qui l'a réglé — mesuré : on s'abonne (`watch-plugin-params`), une autre
+surface pose `Low-shelf gain: -12`, une trame `plugin-params-live` arrive avec `-12`. Studio
+s'abonne à tous les plugins que les chaînes compilent, et **demande** en plus leur valeur à
+l'abonnement : sans ça, un plugin qui ne bouge plus jamais serait dessiné depuis le fichier
+pour le reste de la session.
+
+L'état local d'une surface est donc une couche **optimiste** par-dessus, jamais un
+remplacement : `shownValue` prend la main d'abord, le moteur ensuite, et `engineAgrees` lâche
+l'optimisme dès que le moteur a rattrapé. Un override qui ne cède jamais est une commande qui a
+cessé d'écouter — le moteur peut borner ce qu'on lui a envoyé, et l'autre image peut bouger le
+même paramètre.
+
+C'est aussi ce qui fait qu'un creux de −12 dB est **toujours là** au retour du graphe, là où une
+copie privée aurait redessiné le potard à plat pendant que le son disait le contraire.
+
 ## Ce qu'il faut savoir
 
-Rien ne renvoie la valeur. `set-plugin-param` est à sens unique, donc la position du potard est
-l'état du pupitre et non un écho du moteur : elle est perdue au rechargement, et un `params:`
-changé dans `instances/eqA.yaml` ne fait pas bouger le potard tant que la page n'est pas
-relue.
+Un `params:` changé à la main dans `instances/eqA.yaml` ne bouge pas le potard tant que le
+projet n'est pas rouvert : ce que le potard montre est l'état du **moteur**, et le fichier
+n'atteint le moteur qu'au prochain envoi de document.
 
 Et `extends: "@engine/equaliser"` se résout contre le **scan de plugins de la machine**
 (`~/.studio/exts.json`, un chemin qu'aucune variable d'environnement ne déplace). Sur une
