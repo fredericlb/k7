@@ -60,6 +60,20 @@ export interface Deck {
    * the file's number for ever.
    */
   watchParams: (ids: readonly string[]) => void;
+  /**
+   * What each `offline` module is set to — by MODULE name, since it has no plugin id.
+   *
+   * The tempo's other half. `deck.params` cannot carry it: the compiler emits no plugin for an
+   * offline module, so the engine has nothing to report and no address to report it under. The
+   * value only exists on the surface that REALISES the module — the desk, which turns it into
+   * a clip warp — so the desk lends it here and the graph borrows it.
+   *
+   * On the Deck rather than in MixView because MixView is unmounted exactly when the graph is
+   * on screen, which is the only moment the graph needs to read it.
+   */
+  moduleParams: Record<string, Record<string, number>>;
+  /** Publish one — called by whichever surface owns the value. */
+  setModuleParam: (module: string, name: string, value: number) => void;
 }
 
 export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
@@ -73,6 +87,11 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   // Outlives every reconnection, so a socket dropping does not blank the knobs on screen.
   const params = useRef(new PluginParamsStore()).current;
   const watched = useRef<readonly string[]>([]);
+  // Plain state, not an external store: an offline module's value moves when a hand moves it,
+  // not twenty times a second, so there is no frame rate to protect anything from.
+  const [moduleParams, setModuleParams] = useState<
+    Record<string, Record<string, number>>
+  >({});
 
   useEffect(() => {
     setPhase({ k: "looking" });
@@ -181,6 +200,16 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     setListening: setListen,
     listenStats,
     params,
+    moduleParams,
+    setModuleParam: useCallback(
+      (module: string, name: string, value: number) =>
+        setModuleParams((m) =>
+          m[module]?.[name] === value
+            ? m
+            : { ...m, [module]: { ...m[module], [name]: value } },
+        ),
+      [],
+    ),
     watchParams: useCallback(
       (ids: readonly string[]) => {
         const next = [...ids].sort();
