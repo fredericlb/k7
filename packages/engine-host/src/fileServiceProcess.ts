@@ -4,36 +4,14 @@
 // reports FAILED rather than a green lie. Full rationale: docs/supervisorPolicy.md.
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { createConnection } from "node:net";
 import { killTree } from "@studio/engine-client/processTree";
 import * as bundle from "./bundle.ts";
 import type { EngineIdentity } from "./identity.ts";
 import { line, pump } from "./logbus.ts";
+import { isServing } from "./portProbe.ts";
 
-const PROBE_TIMEOUT_MS = 300;
-
-/**
- * Is something serving on the file port? A loopback TCP probe.
- *
- * Non-blocking, unlike the tray's old `connect_timeout` under `spawn_blocking` — this
- * is a socket and a timer, so a dead port costs nothing but the wait.
- */
-export function isServing(filePort: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (up: boolean): void => {
-      if (done) return;
-      done = true;
-      socket.destroy();
-      resolve(up);
-    };
-    const socket = createConnection({ host: "127.0.0.1", port: filePort });
-    socket.setTimeout(PROBE_TIMEOUT_MS);
-    socket.once("connect", () => finish(true));
-    socket.once("timeout", () => finish(false));
-    socket.once("error", () => finish(false));
-  });
-}
+/** Re-exported so `fileService.isServing(...)` keeps reading as one thing to its callers. */
+export { isServing };
 
 export type SpawnResult =
   | { kind: "spawned"; child: ChildProcess }

@@ -59,6 +59,32 @@ The spawn rule, which must not be simplified:
 The old standalone host always spawned via `tsx`, which is branch 2 with no branch 1 —
 correct standalone, wrong under a tray, where it would race `npm run dev` for 8770.
 
+## `engineProcess.ts` — adopting, and what a pidfile is not
+
+A pidfile is what makes a supervisor crash survivable: the engine outlives us, and the next
+supervisor ADOPTS it rather than finding the port held by a process nobody owns. That part is
+right and stays.
+
+What it is not is an identity. `engineRunning()` asks the operating system whether that NUMBER
+is a live process — nothing more — and a pid is reused. The failure that follows is silent in
+every direction:
+
+> Overnight the engine died. The OS handed its pid to an unrelated `node`. The next supervisor
+> read the pidfile, found the pid alive, logged *adopting the engine already on the pidfile*,
+> and spawned nothing. The crash watch asks the same question, so it never relaunched either.
+> The heartbeat asks it too, so all three registries went on being told an engine was there.
+> Every app listed a machine that answered nothing.
+
+So the port is asked as well: adopt only if something is actually serving on it, and otherwise
+treat the pidfile as stale, clear it and start a fresh engine. The dead pid's process is left
+alone — it belongs to somebody else now.
+
+**Why here and not in the crash watch.** The same check there would be the complete fix, and it
+carries a risk this one does not: a probe that answers wrongly under load would relaunch an
+engine that is playing. `start()` runs before anything plays, so a wrong answer costs a spare
+engine instead of somebody's audio. Extending it to the crash watch is a real decision — it
+needs consecutive failures before acting — and it has not been taken.
+
 ## `engineQueries.ts` — request/reply over one connection
 
 This replaces a design where the tray opened a FRESH WebSocket per call, with loops

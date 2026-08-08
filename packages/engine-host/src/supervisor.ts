@@ -264,7 +264,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   /** Returns whether an engine is running afterwards — spawned or adopted. */
   const startEngine = async (): Promise<boolean> => {
     state.userStopped = false;
-    const r = engineProcess.start(state.identity, state.settings.port);
+    const r = await engineProcess.start(state.identity, state.settings.port);
     switch (r.kind) {
       case "spawned":
         state.engineChild = r.child;

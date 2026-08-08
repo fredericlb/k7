@@ -4,14 +4,17 @@
 // rather than finding the port held by a process nobody owns.
 
 import type { ChildProcess } from "node:child_process";
+import { rmSync } from "node:fs";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
+  ENGINE_PID,
   engineRunning,
   ensureEngineDaemon,
   stopEngineDaemon,
 } from "@studio/engine-client/engineDaemon";
 import type { EngineIdentity } from "./identity.ts";
 import { line, pump } from "./logbus.ts";
+import { isServing } from "./portProbe.ts";
 
 export type StartResult =
   /** We spawned it: ours to stop. */
@@ -30,10 +33,31 @@ export type StartResult =
  * is wrong twice over: a force-killed tray leaves its engine and pidfile behind, and
  * refusing to start would make every launch after a crash a dead end.
  */
-export function start(identity: EngineIdentity, port: number): StartResult {
+export async function start(
+  identity: EngineIdentity,
+  port: number,
+): Promise<StartResult> {
+  // A pid is not an identity. `engineRunning()` only asks whether that number is a live
+  // process, and a pidfile outlives the engine that wrote it: overnight the engine died, the
+  // OS handed 25096 to an unrelated node, and the next supervisor adopted it. Nothing then
+  // spawned an engine, nothing complained, and every app listed a machine that answered
+  // nothing — the heartbeat kept going, because it asks the same wrong question.
+  //
+  // So the port is asked too. Confirming here is free of the risk the same check would carry
+  // in the crash watch: this runs at startup, before anything is playing, so a probe that is
+  // wrong costs a spare engine rather than somebody's audio.
   if (engineRunning()) {
-    line("host", "adopting the engine already on the pidfile");
-    return { kind: "adopted" };
+    if (await isServing(port)) {
+      line("host", "adopting the engine already on the pidfile");
+      return { kind: "adopted" };
+    }
+    line(
+      "host",
+      `pidfile names a live process but nothing answers :${port} — stale, starting a fresh engine`,
+    );
+    // Cleared, or `ensureEngineDaemon` refuses on the very same check and we adopt the ghost
+    // all over again. The process itself is left alone: it is somebody else's now.
+    rmSync(ENGINE_PID, { force: true });
   }
   const bin = findEngineBinary();
   if (!bin) return { kind: "missing" };
