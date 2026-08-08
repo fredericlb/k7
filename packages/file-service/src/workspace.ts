@@ -1214,9 +1214,16 @@ export class Workspace {
   // "…/modules/<type>/<name>/<file>" -> the ref the loader keys that module by; null for anything else.
   private localModuleRef(dir: string, abs: string): string | null {
     const segs = relative(dir, abs).split(sep);
-    return segs.length === 4 && segs[0] === "modules"
-      ? moduleRefOf(segs[1], segs[2])
-      : null;
+    if (segs.length < 4 || segs[0] !== "modules") return null;
+    // Everything between the TYPE and the file is the module's name: `audio/reverb` keys as
+    // "reverb", `audio/amps/neural-amp-modeler` as "amps/neural-amp-modeler". One level of
+    // filing, which is what `loadModules` walks and what the médiathèque's catalogue uses.
+    //
+    // This was pinned at exactly four segments, so a filed module was "not a module file" —
+    // a 400 from /module-ui and /module-presets for a file plainly sitting in the tree. It
+    // could not happen while a project's own modules were always flat; the bench, whose
+    // `modules/` IS the catalogue, is the first project where they are not.
+    return moduleRefOf(segs[1], segs.slice(2, -1).join("/"));
   }
 
   /**

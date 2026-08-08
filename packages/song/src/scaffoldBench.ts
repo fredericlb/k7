@@ -69,12 +69,14 @@ export function benchFiles(name: string): Record<string, string> {
       `# Le graphe, en SEGMENTS : chaque piste et chaque module dit où son signal va ensuite.\n` +
       `#\n` +
       `# C'EST ICI QUE L'ON ESSAIE UN MODULE. Tout le catalogue est dans modules/ : il suffit\n` +
-      `# de nommer un module dans la chaîne, par son nom de dossier.\n` +
+      `# de nommer un module dans la chaîne, par son chemin SOUS son dossier de type — donc\n` +
+      `# "tape-delay" pour modules/audio/tape-delay/, et "amps/neural-amp-modeler" pour\n` +
+      `# modules/audio/amps/neural-amp-modeler/, qui est rangé d'un cran plus loin.\n` +
       `#\n` +
       `#     tracks:\n` +
-      `#       banc: [ tape-delay, mixer ]\n` +
+      `#       banc: [ amps/neural-amp-modeler, mixer ]\n` +
       `#     modules:\n` +
-      `#       tape-delay: [ mixer ]\n` +
+      `#       amps/neural-amp-modeler: [ mixer ]\n` +
       `#       mixer: [ OUT ]\n` +
       `#\n` +
       `# Pas d'instance à créer : une instance sert à avoir DEUX exemplaires d'un module réglés\n` +

@@ -238,8 +238,16 @@ export function projectHints(dir: string): Hints {
       addPath("module", key, `modules/${b.category}/${b.file ?? key}/module`);
   for (const ref of baseRefs)
     if (!ref.startsWith("@")) {
-      const [t, n] = ref.split("/");
-      if (t && n) addPath("base", ref, `modules/${t}/${n}/module`);
+      // The FIRST segment is the type and the rest is the name, filing included: a module may
+      // sit at `modules/audio/amps/neural-amp-modeler/`, so destructuring two segments sent
+      // "go to this module" at the category folder — a path with no `module.yaml` in it.
+      const cut = ref.indexOf("/");
+      if (cut > 0)
+        addPath(
+          "base",
+          ref,
+          `modules/${ref.slice(0, cut)}/${ref.slice(cut + 1)}/module`,
+        );
     }
   for (const s of [...ioSinks, ...ioSources])
     if (!s.startsWith("@")) addPath("sink", s, `modules/io/${s}/module`);
