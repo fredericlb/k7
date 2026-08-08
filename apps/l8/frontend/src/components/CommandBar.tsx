@@ -135,6 +135,11 @@ export const CommandBar = forwardRef<
   const [args, setArgs] = useState<string[]>([]);
   const [sugs, setSugs] = useState<string[]>([]);
   const [sel, setSel] = useState(0);
+  // Whether the completion list is on screen at all. It has to be FOCUS, not "are there
+  // suggestions": the bar is docked and always mounted, and the command list is non-empty
+  // from the moment the catalogue loads — so anything else leaves 30 rows hanging over the
+  // minimap for ever. Nobody saw this while the bar was a popin you opened.
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const selRef = useRef<HTMLLIElement>(null); // the highlighted row, to keep it in view
   const latest = useRef(0); // guard against out-of-order async completion
@@ -366,6 +371,10 @@ export const CommandBar = forwardRef<
         ref={inputRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setFocused(true)}
+        // A suggestion is taken on mousedown, which preventDefaults to keep the focus — so the
+        // blur that closes the list can never be the one that was about to pick from it.
+        onBlur={() => setFocused(false)}
         onKeyDown={(e) => {
           // Both validate from the completion — typing only narrows, so there is no fill. They part
           // company on ONE point: Enter says "that is my line" and runs as soon as every required
@@ -411,7 +420,7 @@ export const CommandBar = forwardRef<
         </span>
       )}
 
-      {sugs.length > 0 && (
+      {focused && sugs.length > 0 && (
         // Opens UPWARD and lists bottom-first, so suggestion 0 — the default — sits right above the input.
         <ul className="absolute bottom-full left-0 right-0 z-30 mb-2 flex max-h-72 flex-col-reverse overflow-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md">
           {sugs.map((s, i) => (

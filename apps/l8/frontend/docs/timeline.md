@@ -45,6 +45,50 @@ The coupling was never symmetric, and the direction that survives is the useful 
 (`transport locate`) sends the **playhead to the caret**. You aim, then you send the
 transport there — not the other way about.
 
+## Live state is drawn by LEAVES, never by the body
+
+**The timeline body must not subscribe to the engine's state.** `EngineStore.set()` hands out
+a fresh snapshot object ~20 times a second, so *any* subscription held by `TimelineTab` itself
+re-renders the whole arrangement at frame rate — and a selector of `s => s` does it whether or
+not a single number in that frame has changed.
+
+That is not a theoretical cost. A Firefox profile of 17.7 s, taken while the app sat there:
+
+| | |
+|---|---|
+| React synchronous passes | **406 — 22.9/s**, mean 11.2 ms, 62 over 16 ms |
+| …containing `TimelineTab` | 236 of them, mean 12.4 ms |
+| React total | **4.9 s = 28 %** of the capture |
+| of which `updateProperties` (DOM writes) | **2.18 s = 12 %** |
+| Graphics — display list + paint | **6.4 s = 36 %**, ~154 paints/s |
+| Idle | **18 %** |
+
+The tab was 82 % busy drawing a playhead and two meter bars. Receiving the frames cost 55 ms —
+0.3 %. The cost was never the wire or the JSX; it was re-rendering an arrangement's worth of
+DOM to move one line.
+
+So the rule, and the three things that follow it:
+
+- **`Playhead`** subscribes to `s.playhead` and holds the one absolutely-positioned div it
+  moves. Its geometry arrives as numbers, so it re-renders on a frame and on nothing else.
+- **`LaneMeter`** subscribes per lane to `s.levels[i]` / `s.inputLevels[i]`, rounded to whole
+  dB — a bar 0.4 dB different is the same bar, and rounding turns "changed" into "changed
+  visibly". A silent lane costs nothing while a loud one plays.
+- **`armed`** is the one live value the body reads, through `arrayEq`, because it changes on a
+  keystroke rather than on a frame.
+
+`Grid` and `RulerTicks` are memoised for the other half of the same problem: they are the most
+numerous elements here, they are a pure function of the view window, and every prop is a
+number — so a re-render for any other reason leaves both untouched. Both build their tick list
+from `tickBeats`, rather than taking one as a prop, because an array would be a new identity
+each render and would defeat exactly the memo they exist for. `ClipContent` is memoised for
+the same reason, one level down.
+
+What is deliberately **not** memoised: the lane rows themselves. They close over some
+twenty-five values, several of them closures rebuilt every render, so a `memo()` there buys
+nothing until those are stabilised too — and with the frame-rate driver gone, what is left
+re-renders a few times a second on a poll or a keystroke, not 23. Measure before paying for it.
+
 ### Dropping a marker
 
 Right-clicking the ruler offers `marker new <tc>`, and `<tc>` is **where you right-clicked,

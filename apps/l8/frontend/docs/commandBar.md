@@ -131,6 +131,14 @@ The bar sits at the bottom of the window, so the suggestion list opens UPWARD an
 rendered bottom-first: the highlighted entry sits right above the input (where the eye
 already is) and ↑ walks away from it, the way a shell completion list reads.
 
+The list is shown only while the input has **focus**, and that condition is load-bearing now
+that the bar is docked. `sugs` is non-empty from the moment the catalogue loads — the command
+phase filters the whole vocabulary — so "are there suggestions" left thirty rows hanging over
+the minimap for ever. It went unnoticed for exactly as long as the bar was something you
+opened. Taking a suggestion is safe under this rule because the list commits on `mousedown`
+and preventDefaults to keep the focus, so the blur that closes the list can never be the one
+that was about to pick from it.
+
 ## `ModulePicker.tsx` — "which module?"
 
 Opened by the `+` on a graph arrow, before the command bar sees anything. Like

@@ -4,11 +4,18 @@
 // fetched once per clip and cached. Both fill the box the caller gives them (absolute
 // inset-0), so the lane row sizes it and this just paints.
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { api } from "../api";
 import type { WebClip, WebNote, WebWaveform } from "../types";
 
-export function ClipContent({
+/**
+ * Memoised, because the timeline re-renders for reasons no clip cares about — the caret
+ * moving, a hover, a poll landing — and this is the most numerous thing on the surface once
+ * the lanes are expanded. Both props settle it by shallow compare: `clip` comes off the
+ * project doc and keeps its identity until the doc is refetched, and `spanBeats` is a number.
+ * Below here a waveform is fetched per clip, so a needless re-render is not free.
+ */
+export const ClipContent = memo(function ClipContent({
   clip,
   spanBeats,
 }: {
@@ -26,7 +33,7 @@ export function ClipContent({
   ) : (
     <ClipWaveform clipId={clip.id} />
   );
-}
+});
 
 // The notes as a mini piano-roll, y scaled to the clip's own note range. A looping clip tiles its window's notes
 // exactly as the engine repeats them, so a short pattern reads as the repeats it plays.
