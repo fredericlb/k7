@@ -4,7 +4,6 @@
 // See docs/moduleAssets.md.
 
 import { join } from "node:path";
-import { moduleFolderForRef } from "./controller";
 import { listModuleAssets } from "./loader";
 
 // A cycle in `extends` is already refused upstream; this is a backstop so a bad file cannot hang a UI request.
@@ -15,6 +14,36 @@ interface AssetOwner {
   category?: unknown;
   file?: unknown;
   extends?: unknown;
+  /** Where its files are, stamped by the loader on every module it reads. */
+  folderAbs?: unknown;
+}
+
+/**
+ * `assets/` listings, memoised for one request.
+ *
+ * The FOLDERS are not looked up here: the loader already stamps `folderAbs` on every module it
+ * reads, so the ref map a caller has loaded anyway answers "where does this one live" for free.
+ * Asking the libraries instead cost a full directory walk per ancestor per module — one graph
+ * build became a walk per node, and on a médiathèque mounted over /mnt/c that is seconds.
+ *
+ * What is left is worth memoising because ancestors repeat: every module inheriting one shared
+ * amp would otherwise re-read that amp's `assets/` once each.
+ */
+export interface AssetLookup {
+  assetsIn: (folder: string) => string[];
+}
+
+export function assetLookup(_dir?: string): AssetLookup {
+  const assets = new Map<string, string[]>();
+  return {
+    assetsIn: (folder) => {
+      const hit = assets.get(folder);
+      if (hit) return hit;
+      const files = listModuleAssets(folder);
+      assets.set(folder, files);
+      return files;
+    },
+  };
 }
 
 /**
@@ -40,27 +69,36 @@ export function moduleAssetChoices(
   dir: string,
   module: AssetOwner | undefined,
   refs: Readonly<Record<string, AssetOwner>>,
+  lookup: AssetLookup = assetLookup(dir),
 ): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   const add = (folder: string | null | undefined) => {
     if (!folder) return;
-    for (const f of listModuleAssets(folder))
+    for (const f of lookup.assetsIn(folder))
       if (!seen.has(f)) {
         seen.add(f);
         out.push(f);
       }
   };
 
-  // Its own folder, when this project holds one — a module the engine merely reports has none.
-  if (module?.category && module?.file)
-    add(join(dir, "modules", String(module.category), String(module.file)));
+  // Its own folder. The loader's stamp when there is one; otherwise rebuilt from where a
+  // project files its modules, which is what a caller passing a hand-made module still has.
+  add(
+    typeof module?.folderAbs === "string" && module.folderAbs
+      ? module.folderAbs
+      : module?.category && module?.file
+        ? join(dir, "modules", String(module.category), String(module.file))
+        : undefined,
+  );
 
-  // …then everything it inherits from, in order, whichever library each one lives in.
+  // …then everything it inherits from, in order, whichever library each one lives in — read
+  // off the ref map the caller already loaded, so this costs no directory walk.
   let ref = module?.extends;
   for (let i = 0; i < MAX_ANCESTRY && typeof ref === "string" && ref; i++) {
-    add(moduleFolderForRef(dir, ref));
-    ref = refs[ref]?.extends;
+    const parent = refs[ref];
+    add(typeof parent?.folderAbs === "string" ? parent.folderAbs : undefined);
+    ref = parent?.extends;
   }
   return out;
 }

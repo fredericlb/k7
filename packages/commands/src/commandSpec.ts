@@ -7,7 +7,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
-import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
+import {
+  assetLookup,
+  moduleAssetChoices,
+} from "@studio/song/moduleAssetChoices";
 import { parsePosition } from "@studio/song/timecode";
 import { parse as parseYaml } from "yaml";
 import {
@@ -119,10 +122,11 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
         return {};
       }
     })();
+    const lookup = assetLookup(h.songPath);
     return [
       ...new Set(
         Object.values(loadModules(h.songPath)).flatMap((m) =>
-          moduleAssetChoices(h.songPath, m, refs),
+          moduleAssetChoices(h.songPath, m, refs, lookup),
         ),
       ),
       "none",

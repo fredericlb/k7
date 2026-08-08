@@ -19,7 +19,7 @@ import {
   loadTracks,
   loadVideoTracks,
 } from "./loader";
-import { moduleAssetChoices } from "./moduleAssetChoices";
+import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
 import { loadPreferences } from "./preferences";
 
@@ -275,12 +275,14 @@ export function projectHints(dir: string): Hints {
   // keyed by the chain `use` ref like `racks` below. Per module, because a module carries the
   // files it loads — there is no project-wide library to list any more.
   const moduleAssets: Hints["moduleAssets"] = {};
+  // One walk for every module, not one per module — see assetLookup.
+  const assets = assetLookup(dir);
   for (const [name, m] of Object.entries<any>(modules ?? {})) {
     if (!m?.category || !m?.file) continue;
     // Its own assets AND its ancestors' — a thin local module extending a shared amp carries
     // none of its own, and offering nothing there is what made the picker open empty.
     const files = safe(
-      () => moduleAssetChoices(dir, m, moduleRefs ?? {}),
+      () => moduleAssetChoices(dir, m, moduleRefs ?? {}, assets),
       [] as string[],
     );
     if (files.length) moduleAssets[name] = files;

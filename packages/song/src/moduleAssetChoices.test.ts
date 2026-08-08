@@ -61,15 +61,11 @@ describe("moduleAssetChoices", () => {
       join(project, "modules", "audio", "guitar"),
       'extends: "@mediatek/audio/amps/guitar"\n',
     );
-    const choices = moduleAssetChoices(
-      project,
-      {
-        category: "audio",
-        file: "guitar",
-        extends: "@mediatek/audio/amps/guitar",
-      },
-      {},
-    );
+    // Through the real loaders, because the FOLDER each module lives in is something they
+    // stamp — reading it off the ref map is what keeps this from walking the libraries again.
+    const refs = loadModuleRefs(project, {}, []);
+    const mod = loadModules(project).guitar;
+    const choices = moduleAssetChoices(project, mod, refs);
     // Its own folder holds none; every choice comes from the ancestor.
     expect(choices.sort()).toEqual(["fender/clean.nam", "roland/bright.nam"]);
   });
@@ -85,15 +81,13 @@ describe("moduleAssetChoices", () => {
       'extends: "@mediatek/audio/amps/base"\n',
       ["mid.nam"],
     );
-    const refs = {
-      "@mediatek/audio/amps/mid": { extends: "@mediatek/audio/amps/base" },
-    };
-    const choices = moduleAssetChoices(
-      project,
-      { extends: "@mediatek/audio/amps/mid" },
-      refs,
+    mkModule(
+      join(project, "modules", "audio", "top"),
+      'extends: "@mediatek/audio/amps/mid"\n',
     );
-    // Nearest first: `mid`'s own, then what it inherits.
+    const refs = loadModuleRefs(project, {}, []);
+    const choices = moduleAssetChoices(project, loadModules(project).top, refs);
+    // Nearest first: `mid`'s own, then what IT inherits, two links up.
     expect(choices).toEqual(["mid.nam", "deep.nam"]);
   });
 

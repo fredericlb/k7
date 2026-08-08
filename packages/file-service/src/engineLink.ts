@@ -370,6 +370,70 @@ export function webGitEnv(userEmail?: string): GitEnv {
     : undefined;
 }
 
+/** How long the engine gets to answer an arm. A local socket answers in single-digit ms. */
+export const ARM_TIMEOUT_MS = 2000;
+
+type ArmFrame = { track: string; armed: boolean };
+/** The slice of EngineClient an arm needs — so the wait can be tested without a socket. */
+export interface ArmingClient {
+  on(event: "armed", fn: (a: ArmFrame) => void): unknown;
+  on(event: "engineError", fn: (m: string) => void): unknown;
+  off(event: "armed", fn: (a: ArmFrame) => void): unknown;
+  off(event: "engineError", fn: (m: string) => void): unknown;
+  arm(track: string): void;
+}
+
+/**
+ * Wait for the engine's answer to ONE arm. `undefined` means it did not take, and `out` says why.
+ *
+ * Matched on the TRACK, because `armed` is broadcast to every client in the session: another
+ * surface arming a different track used to resolve this wait with a frame that was not its
+ * answer — and then the arm actually asked for waited for a frame already consumed, and timed
+ * out. Two surfaces arming at once is not exotic; the timeline's `a` button and `rec` are two.
+ *
+ * Every path REMOVES both listeners. They were `once`, which never fires on a timeout: the
+ * leaked `engineError` listener outlived the request and swallowed the next engine error into an
+ * `out` array nobody reads any more, so a later command lost its message.
+ */
+export function awaitArm(
+  c: ArmingClient,
+  track: string,
+  out: string[],
+  linkUp: () => boolean,
+  timeoutMs: number = ARM_TIMEOUT_MS,
+): Promise<boolean | undefined> {
+  return new Promise((res) => {
+    const done = (v?: boolean) => {
+      clearTimeout(timer);
+      c.off("armed", onArmed);
+      c.off("engineError", onError);
+      res(v);
+    };
+    const onArmed = (a: ArmFrame) => {
+      if (a.track !== track) return; // another surface's arm, not the answer to this one
+      done(a.armed);
+    };
+    const onError = (m: string) => {
+      out.push(m);
+      done(undefined);
+    };
+    // Both remaining states get named. "engine did not answer" alone could not tell a dropped
+    // link from a silent engine, and the engine prints its own `[rec]` line either way — so
+    // saying which half to look in is the difference between a report and a dead end.
+    const timer = setTimeout(() => {
+      out.push(
+        linkUp()
+          ? `engine did not answer the arm of "${track}" in ${timeoutMs}ms — the link is up, so check the engine log for a [rec] line`
+          : `the engine link dropped while arming "${track}"`,
+      );
+      done(undefined);
+    }, timeoutMs);
+    c.on("armed", onArmed);
+    c.on("engineError", onError);
+    c.arm(track);
+  });
+}
+
 function makeHost(
   ws: Workspace,
   out: string[],
@@ -400,30 +464,14 @@ function makeHost(
       }
     },
     transport: (a: TransportAction) => ensureEngine()?.transport(a),
-    arm: (track) =>
-      new Promise<boolean | undefined>((res) => {
-        const c = ensureEngine();
-        if (!c || !isReady()) {
-          out.push(NO_ENGINE);
-          return res(undefined);
-        }
-        const t = setTimeout(() => {
-          out.push("engine did not answer the arm");
-          res(undefined);
-        }, 2000);
-        const done = (v?: boolean) => {
-          clearTimeout(t);
-          res(v);
-        };
-        c.once("armed", (a: { track: string; armed: boolean }) =>
-          done(a.armed),
-        );
-        c.once("engineError", (m: string) => {
-          out.push(m);
-          done(undefined);
-        });
-        c.arm(track);
-      }),
+    arm: (track) => {
+      const c = ensureEngine();
+      if (!c || !isReady()) {
+        out.push(NO_ENGINE);
+        return Promise.resolve(undefined);
+      }
+      return awaitArm(c, track, out, () => isReady());
+    },
     applyProject: (p) => {
       ws.setCachedProjectDoc(requireDir(), p);
       patternClock.setBaseProject(p);
