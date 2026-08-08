@@ -135,8 +135,10 @@ export const CommandBar = forwardRef<
   const [args, setArgs] = useState<string[]>([]);
   const [sugs, setSugs] = useState<string[]>([]);
   const [sel, setSel] = useState(0);
-  // Whether the input holds the keyboard. Only then is a completion list something you are
-  // choosing from rather than a panel left behind — see the input's onFocus.
+  // Whether the completion list is on screen at all. It has to be FOCUS, not "are there
+  // suggestions": the bar is docked and always mounted, and the command list is non-empty
+  // from the moment the catalogue loads — so anything else leaves 30 rows hanging over the
+  // minimap for ever. Nobody saw this while the bar was a popin you opened.
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const selRef = useRef<HTMLLIElement>(null); // the highlighted row, to keep it in view
@@ -369,12 +371,9 @@ export const CommandBar = forwardRef<
         ref={inputRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        // The list belongs to the field being typed in, so it goes when the field does. This
-        // is not decoration: the bar is not modal, and reaching into a pane to answer a param
-        // takes the focus away — leaving a completion list parked over the timeline you just
-        // clicked. A suggestion's own onMouseDown preventDefaults, so picking one does not
-        // blur first and pull the list out from under the click.
         onFocus={() => setFocused(true)}
+        // A suggestion is taken on mousedown, which preventDefaults to keep the focus — so the
+        // blur that closes the list can never be the one that was about to pick from it.
         onBlur={() => setFocused(false)}
         onKeyDown={(e) => {
           // Both validate from the completion — typing only narrows, so there is no fill. They part

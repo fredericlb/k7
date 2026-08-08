@@ -5,7 +5,7 @@
 // handle. See docs/timeline.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
-import { useEngineState } from "@studio/engine-browser/store";
+import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import { beatsToPosition } from "@studio/song/timecode";
 import { trackLabel } from "@studio/song/trackKind";
 import {
@@ -31,6 +31,7 @@ import {
   Volume2,
 } from "lucide-react";
 import {
+  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -95,6 +96,208 @@ const tickAt = (b: number, barBeats: number) => {
         : "",
   };
 };
+
+/**
+ * The two things on this surface that move at ENGINE frame rate, each subscribing for itself.
+ *
+ * They are separate components for one reason: a `useEngineState` subscription re-renders the
+ * component that holds it, so whoever holds it decides how much of the screen a frame costs.
+ * Held by TimelineTab, one selector re-rendered the whole arrangement ~23 times a second —
+ * see docs/timeline.md for what that measured. Held here, a frame rewrites one absolutely
+ * positioned div and nothing else: no lane, no clip, no ruler tick is touched.
+ *
+ * Everything they need to place themselves arrives as a NUMBER, so React's own bailout does
+ * the rest — a parent re-render with an unchanged view window re-renders neither of them.
+ */
+function Playhead({
+  tempo,
+  beatLo,
+  beatHi,
+  ppb,
+  left0,
+  height,
+}: {
+  tempo: number;
+  beatLo: number;
+  beatHi: number;
+  ppb: number;
+  left0: number; // the lane's left edge — the gutter's width
+  height: number;
+}) {
+  const playhead = useEngineState((s) => s.playhead);
+  const beat = (playhead * tempo) / 60;
+  // Hidden outright when the transport is outside the zoomed range, rather than pinned to an
+  // edge it isn't actually at.
+  if (beat < beatLo || beat > beatHi) return null;
+  return (
+    <div
+      className="pointer-events-none absolute top-0 z-20 w-px bg-white/80"
+      style={{ left: left0 + (beat - beatLo) * ppb, height }}
+    />
+  );
+}
+
+// dB → how much of the header the bar fills.
+const vuFill = (db: number | undefined) =>
+  Math.max(
+    0,
+    Math.min(1, ((db ?? -Infinity) - VU_MIN_DB) / (VU_MAX_DB - VU_MIN_DB)),
+  ) * 100;
+
+/**
+ * One lane's meters: the output level across the name header, and — when armed — the input
+ * level as a thin bar on its bottom edge.
+ *
+ * Selects a single number out of the frame, so the store's default `Object.is` already stops
+ * a re-render when this lane's level is unchanged; a silent track costs nothing while a loud
+ * one plays. The dB is rounded first, because a bar 0.4 dB different is the same bar on
+ * screen and re-rendering for it would be paying for a pixel nobody can see.
+ */
+function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
+  const out = useEngineState((s) => Math.round(s.levels[index] ?? -Infinity));
+  const input = useEngineState((s) =>
+    armed ? Math.round(s.inputLevels[index] ?? -Infinity) : -Infinity,
+  );
+  return (
+    <>
+      {/* live VU: a faint green fill across the name header, its width the track's output
+          level. Behind the label — the content spans are `relative`, so they paint over
+          this absolutely-placed bar. */}
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 bg-emerald-500/20"
+        style={{ width: `${vuFill(out)}%` }}
+      />
+      {/* armed input meter: a thin red bar pinned to the bottom edge, its fill the live
+          input level. The faint track shows the bar's extent even at silence, so an
+          armed-but-quiet input still reads as armed. */}
+      {armed && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-red-500/20">
+          <div
+            className="h-full bg-red-500"
+            style={{ width: `${vuFill(input)}%` }}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+// Every tick drawn between the view's edges, from the ruler's ORIGIN rather than from the
+// first visible one — the ruler and the grid both walk this, and computing it twice from one
+// formula is what stops them drifting apart as you pan.
+const tickBeats = (
+  beatLo: number,
+  lastBeat: number,
+  unit: number,
+): number[] => {
+  const out: number[] = [];
+  for (let b = Math.ceil(beatLo / unit - 1e-9) * unit; b <= lastBeat; b += unit)
+    out.push(b);
+  return out;
+};
+
+/**
+ * The two tick layers, memoised — together the most numerous elements on the surface.
+ *
+ * They are a pure function of the VIEW WINDOW, and every prop here is a number, so React's
+ * shallow compare settles it: a re-render of the timeline for any other reason (a caret move,
+ * a poll landing, a meter changing) leaves both untouched. That matters more than their render
+ * cost, which is small: they were the bulk of the DOM the profile caught React rewriting —
+ * `updateProperties` was 12 % of the whole capture, and a tick's `style` object is new on every
+ * render, so all three of its properties were written again each time. See docs/timeline.md.
+ */
+const Grid = memo(function Grid({
+  beatLo,
+  lastBeat,
+  unit,
+  barBeats,
+  ppb,
+  laneW,
+  left0,
+  top,
+  height,
+}: {
+  beatLo: number;
+  lastBeat: number;
+  unit: number;
+  barBeats: number;
+  ppb: number;
+  laneW: number;
+  left0: number;
+  top: number;
+  height: number;
+}) {
+  return (
+    <>
+      {tickBeats(beatLo, lastBeat, unit).map((b) => {
+        const left = (b - beatLo) * ppb;
+        // A tick at the lane's right edge is a 1px border past the end of the box, and one
+        // pixel of horizontal scroll in a view that fits its pane exactly.
+        if (left >= laneW) return null;
+        const { bar, onBeat } = tickAt(b, barBeats);
+        return (
+          <div
+            key={`grid:${b}`}
+            className={cn(
+              "pointer-events-none absolute border-l border-dashed",
+              // The ruler's three weights, one step fainter: down here they cross the
+              // material rather than sitting in a header of their own.
+              bar
+                ? "border-border/40"
+                : onBeat
+                  ? "border-border/25"
+                  : "border-border/10",
+            )}
+            style={{ left: left0 + left, top, height }}
+          />
+        );
+      })}
+    </>
+  );
+});
+
+const RulerTicks = memo(function RulerTicks({
+  beatLo,
+  lastBeat,
+  unit,
+  barBeats,
+  ppb,
+  barStride,
+}: {
+  beatLo: number;
+  lastBeat: number;
+  unit: number;
+  barBeats: number;
+  ppb: number;
+  barStride: number;
+}) {
+  return (
+    <>
+      {tickBeats(beatLo, lastBeat, unit).map((b) => {
+        // Three weights, so the bar line still reads as the bar once beats are drawn between
+        // them: a bar, a whole beat, anything finer. Strided on the tick's index from the
+        // ORIGIN, or the surviving labels would change as scrolling moved the first one.
+        const { bar, onBeat, label } = tickAt(b, barBeats);
+        return (
+          <div
+            key={b}
+            className={cn(
+              "pointer-events-none absolute top-0 h-full border-l pl-1",
+              bar
+                ? "border-border/50 text-muted-foreground"
+                : onBeat
+                  ? "border-border/30 text-muted-foreground/60"
+                  : "border-border/15",
+            )}
+            style={{ left: (b - beatLo) * ppb }}
+          >
+            {labelled(Math.round(b / unit), barStride) ? label : ""}
+          </div>
+        );
+      })}
+    </>
+  );
+});
 
 interface Caret {
   row: RowKey; // identity, not an index — the orbit lanes renumber the rows
@@ -219,8 +422,12 @@ export function TimelineTab({
   onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
-  // Engine state from the store, not a prop: the playhead re-renders this every frame, off its own subscription.
-  const state = useEngineState((s) => s);
+  // The ONE live value the body itself needs, and it changes on a keystroke rather than on a
+  // frame. Everything else the engine sends is drawn by Playhead and LaneMeter, which
+  // subscribe for themselves: this component held a `s => s` selector, and since the store
+  // hands out a fresh snapshot ~20x/s, that re-rendered the entire arrangement at frame rate
+  // whether or not anything in it had changed. docs/timeline.md has the profile.
+  const armedIds = useEngineState((s) => s.armed, arrayEq);
   const [proj, setProj] = useState<WebProject | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
@@ -1084,9 +1291,11 @@ export function TimelineTab({
   // zoom opens up (see ticks.ts). The GRID follows the music, so what you snap to and what
   // you see are the same thing at every zoom.
   const unit = subdivideBeats(barBeats, ppb);
-  const bars: number[] = [];
-  for (let b = Math.ceil(beatLo / unit - 1e-9) * unit; b <= lastBeat; b += unit)
-    bars.push(b);
+  // The drawn ticks, for the gestures that SNAP to one — the ruler's click-to-seek and its
+  // right-click "add marker here". Grid and RulerTicks build the same list from the same
+  // helper rather than taking it as a prop: an array would be a new identity on every render
+  // and would defeat the memo that keeps them off the frame path.
+  const bars = tickBeats(beatLo, lastBeat, unit);
   // The widest number this ruler CAN print — the last bar's, carrying a beat once beats are
   // drawn. Taken from the ruler's END rather than the bars on screen: on those, panning past
   // bar 10 and again past bar 100 would re-thin every label under the cursor.
@@ -1099,8 +1308,6 @@ export function TimelineTab({
   // closes. Measured on the drawn unit, which is what a column now is, against the room the
   // widest label actually needs — see @studio/ui-waveform's docs/ticks.md.
   const barStride = labelStride(unit * ppb, labelMinPx(widestLabel));
-  const playBeat = (state.playhead * proj.tempo) / 60;
-  const playVisible = playBeat >= beatLo && playBeat <= lastBeat;
 
   // Markers inside the visible range, drawn in the ruler; num/den turn a right-click beat into a timecode.
   const tsNum = proj.timeSigNumerator;
@@ -1180,37 +1387,23 @@ export function TimelineTab({
         >
           {/* The GRID: every tick the ruler drew, continued down the lanes as a dashed
               rule, so where a clip falls against the beat is readable where the clip is
-              and not only in the header. Same `bars`, same `x()`, so the two cannot drift.
+              and not only in the header. Same `tickBeats`, same view window, so the two
+              cannot drift.
               Dashed because the solid vertical lines here already mean something — the
               playhead, a marker — and a third would compete with them.
               FIRST in the wrapper on purpose: positioned siblings paint in tree order, so
               everything a lane holds draws over this rather than being crossed out by it. */}
-          {bars.map((b) => {
-            // A tick at the lane's right edge is a 1px border past the end of the box, and
-            // one pixel of horizontal scroll in a view that fits its pane exactly.
-            if (x(b) >= laneW) return null;
-            const { bar, onBeat } = tickAt(b, barBeats);
-            return (
-              <div
-                key={`grid:${b}`}
-                className={cn(
-                  "pointer-events-none absolute border-l border-dashed",
-                  // The ruler's three weights, one step fainter: down here they cross the
-                  // material rather than sitting in a header of their own.
-                  bar
-                    ? "border-border/40"
-                    : onBeat
-                      ? "border-border/25"
-                      : "border-border/10",
-                )}
-                style={{
-                  left: GUTTER + x(b),
-                  top: ROW_H, // below the ruler, which draws its own solid tick
-                  height: contentH - ROW_H,
-                }}
-              />
-            );
-          })}
+          <Grid
+            beatLo={beatLo}
+            lastBeat={lastBeat}
+            unit={unit}
+            barBeats={barBeats}
+            ppb={ppb}
+            laneW={laneW}
+            left0={GUTTER}
+            top={ROW_H} // below the ruler, which draws its own solid tick
+            height={contentH - ROW_H}
+          />
           {/* ruler */}
           <div
             className="sticky top-0 z-10 flex bg-background"
@@ -1339,33 +1532,14 @@ export function TimelineTab({
                   waveform's ruler uses, so the two agree when stacked in the clip
                   editor). Strided on the bar's own index, not its position in `bars`, or
                   the surviving labels would change as scrolling moved the first one. */}
-              {bars.map((b) => {
-                // Three weights, so the bar line still reads as the bar once beats are
-                // drawn between them: a bar, a whole beat, anything finer.
-                // Index from the ruler's ORIGIN, not from the first visible tick: on the
-                // visible index, scrolling would change which ticks survive the stride and
-                // the numbers would flicker as you pan.
-                const tickIndex = Math.round(b / unit);
-                // Numbering a subdivided ruler is what makes it locatable; below the beat
-                // it is lines only, since a 16th's number is noise at any zoom (tickAt).
-                const { bar, onBeat, label } = tickAt(b, barBeats);
-                return (
-                  <div
-                    key={b}
-                    className={cn(
-                      "pointer-events-none absolute top-0 h-full border-l pl-1",
-                      bar
-                        ? "border-border/50 text-muted-foreground"
-                        : onBeat
-                          ? "border-border/30 text-muted-foreground/60"
-                          : "border-border/15",
-                    )}
-                    style={{ left: x(b) }}
-                  >
-                    {labelled(tickIndex, barStride) ? label : ""}
-                  </div>
-                );
-              })}
+              <RulerTicks
+                beatLo={beatLo}
+                lastBeat={lastBeat}
+                unit={unit}
+                barBeats={barBeats}
+                ppb={ppb}
+                barStride={barStride}
+              />
               {/* The transport loop region, over its bar range. `overflow-hidden` above
                   clips it when it runs past the view, same as the bar markers. The engine
                   does the actual wrapping; this just shows what's looping. */}
@@ -1480,7 +1654,7 @@ export function TimelineTab({
 
             const { track: t, index: ti } = row;
             const eff = effOf(t);
-            const armed = state.armed.includes(t.id);
+            const armed = armedIds.includes(t.id);
             // M/S/A states: the graph's live trackControls when available, else the doc's own values. Arm is always the engine's.
             const ctl = trackControls?.[t.id];
             const msa: [string, "mute" | "solo" | "arm", boolean, string][] = [
@@ -1498,26 +1672,6 @@ export function TimelineTab({
               ],
               ["A", "arm", armed, "bg-red-500 text-white"],
             ];
-            // The track's live output level, drawn across the NAME HEADER so it never competes with the clips.
-            const vuPct =
-              Math.max(
-                0,
-                Math.min(
-                  1,
-                  ((state.levels[ti] ?? -Infinity) - VU_MIN_DB) /
-                    (VU_MAX_DB - VU_MIN_DB),
-                ),
-              ) * 100;
-            // An armed track also shows its live INPUT level as a thin red bar — what a take would capture.
-            const inputPct =
-              Math.max(
-                0,
-                Math.min(
-                  1,
-                  ((state.inputLevels[ti] ?? -Infinity) - VU_MIN_DB) /
-                    (VU_MAX_DB - VU_MIN_DB),
-                ),
-              ) * 100;
             return (
               <div
                 key={t.id}
@@ -1548,24 +1702,8 @@ export function TimelineTab({
                     labelled && LABEL_SELECTED,
                   )}
                 >
-                  {/* live VU: a faint green fill across the name header, its width the
-                      track's output level. Behind the label — the content spans are
-                      `relative`, so they paint over this absolutely-placed bar. */}
-                  <div
-                    className="pointer-events-none absolute inset-y-0 left-0 bg-emerald-500/20"
-                    style={{ width: `${vuPct}%` }}
-                  />
-                  {/* armed input meter: a thin red bar pinned to the bottom edge, its
-                      fill the live input level. The faint track shows the bar's extent
-                      even at silence, so an armed-but-quiet input still reads as armed. */}
-                  {armed && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-red-500/20">
-                      <div
-                        className="h-full bg-red-500"
-                        style={{ width: `${inputPct}%` }}
-                      />
-                    </div>
-                  )}
+                  {/* Both live meters, subscribing for themselves — see LaneMeter. */}
+                  <LaneMeter index={ti} armed={armed} />
                   {/* The instrument its name's prefix asks for ("ge.lead" → a strat),
                       painted the track's own colour — it carries the identity the
                       separate swatch used to, in the space the row index used to take.
@@ -1914,17 +2052,16 @@ export function TimelineTab({
               }}
             />
           ))}
-          {/* playhead — hidden outright when the transport is outside the zoomed
-              range, rather than pinned to an edge it isn't actually at */}
-          {playVisible && (
-            <div
-              className="pointer-events-none absolute top-0 z-20 w-px bg-white/80"
-              style={{
-                left: GUTTER + x(playBeat),
-                height: contentH,
-              }}
-            />
-          )}
+          {/* playhead — its own subscriber, so the transport moves one div and re-renders
+              nothing else on this surface. See Playhead. */}
+          <Playhead
+            tempo={proj.tempo}
+            beatLo={beatLo}
+            beatHi={lastBeat}
+            ppb={ppb}
+            left0={GUTTER}
+            height={contentH}
+          />
         </div>
       </div>
     </div>
