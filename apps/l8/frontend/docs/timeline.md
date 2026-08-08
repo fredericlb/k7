@@ -181,7 +181,7 @@ commit through `commitMove`:
 
 - **keyboard** — `m` picks up the placement under the caret, arrows (or `j`/`m`) nudge it,
   Enter drops it, Escape puts it back.
-- **pointer** — a **right**-drag slides it, and release drops it.
+- **pointer** — a **left**-drag slides it, and release drops it.
 
 The placement is pinned by its track *and its original start*, because a track can hold the
 same clip id at several beats. The ghost draws where it came from; the block draws `offset`
@@ -222,18 +222,39 @@ Move mode is **modal**: every key is swallowed while it is live, and swallowed h
 reach the shell's rewind/close bindings. Leaving the tab drops the pickup rather than
 stranding a half-finished move whose keys no longer reach it.
 
-### Why the right button
+### A dropped clip STAYS dropped
 
-Moving a clip rewrites the project, and it used to happen on the same button that does
-every harmless thing in the timeline — one stray drag while clicking around and a placement
-had silently moved. The right button makes it deliberate, and leaves the left to the caret
-and selection.
+The commit used to clear the move state and then send the command, so for the length of the
+write-and-reload round trip the clip drew at its old start — it sprang home on release and
+jumped forward a moment later. Read as "the move didn't take".
 
-That costs one workaround: Windows fires `contextmenu` on button-up, *after* our
-`pointerup`, so a drag that actually moved sets a flag the menu handler consumes. It is
-cleared unconditionally at the start of a drag — a drag cancelled by the OS fires
-`pointercancel` with no `contextmenu` to follow, and a stale flag would swallow the next
-right-click on any clip.
+So a committed move is **held**, not cleared (`Move.pending`), and the clip keeps drawing where
+it was dropped until the project containing that move arrives. That is also the right answer when
+the command FAILS: the clip returns to where the file still says it is, rather than sitting at a
+position nothing on disk agrees with.
+
+A pending move is deliberately **not modal** — it is already written and only still drawn, so it
+must not swallow the keys, and `m` may pick up the next clip immediately. The edge resize is held
+the same way, for the same reason.
+
+### The LEFT button, and what that cost
+
+It was the right button for a while. The argument was that moving a clip rewrites the project
+and should not sit on the button that does every harmless thing, so one stray drag could not
+silently move a placement.
+
+It is the left button now, because that argument lost to the one that matters more: dragging a
+block is what a left button is *for*, and a gesture nobody reaches for protects nothing. What
+guards against the stray drag instead is the 4px slop (below it the gesture is a click, and a
+click on a clip still writes nothing) and `u`, which puts it back.
+
+Two things fall out, both good. The right button goes back to being only the context menu — the
+`suppressClipMenu` flag is gone, and with it the Windows `contextmenu`-after-`pointerup`
+workaround that existed solely because one button did two jobs. And nothing else wanted the left
+button on a clip: the caret is keyboard-driven, so `stopPropagation` there costs no gesture.
+
+The resize handles were already left-button and already stopped propagation, which is what keeps
+an edge grab from also starting a move.
 
 ### Which lane it lands on
 

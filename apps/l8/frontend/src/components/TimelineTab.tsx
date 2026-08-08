@@ -118,6 +118,10 @@ interface Move {
   toTrackId: string;
   // A pointer drag is live: it commits on release, and must not also be cancelled by the keymap's handlers.
   dragging?: boolean;
+  // Released and written, waiting for the reload to show it. The clip keeps drawing where it was
+  // DROPPED until the project comes back, or it would snap home for the length of a round trip
+  // and jump forward again. Not modal: the keys are yours again the moment you let go.
+  pending?: boolean;
 }
 
 // One zoom: the beat range and the run of rows. Rows by identity, range against the FULL list — see docs/timeline.md.
@@ -242,6 +246,15 @@ export function TimelineTab({
       })
       .catch((e) => setError((e as Error).message));
   }, [reloadKey]);
+
+  // A committed move stops being drawn once the project it wrote has come back — which is also
+  // the right answer when the command FAILED: the clip returns to where the file still says it
+  // is, rather than sitting at a position nothing on disk agrees with.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `proj` IS the signal — a new doc arrived.
+  useEffect(() => {
+    setMove((m) => (m?.pending ? null : m));
+    setResize((r) => (r?.pending ? null : r));
+  }, [proj]);
 
   const barBeats = Math.max(1, proj?.timeSigNumerator || 4);
   const nTracks = proj?.tracks.length ?? 0;
@@ -535,8 +548,6 @@ export function TimelineTab({
     ppb: number;
     moved: boolean;
   } | null>(null);
-  // A right-drag that MOVED must not also open the menu: Windows fires contextmenu on button-up, after our pointerup.
-  const suppressClipMenu = useRef(false);
   // Below this the gesture is a click, not a drag — same 4px the ruler's gestures use.
   const DRAG_SLOP = 4;
 
@@ -556,12 +567,10 @@ export function TimelineTab({
       track: WebTrack,
       c: WebProject["tracks"][0]["clips"][0],
     ) => {
-      // Clear unconditionally: a pointercancel leaves no contextmenu to consume the flag, which would eat the next click.
-      suppressClipMenu.current = false;
-      // RIGHT button only (a stray left-drag used to move clips silently), and never a generated lane — it has no file.
+      // LEFT button, the one you already have on the clip. Never a generated lane — it has no file.
       // A FROZEN lane is out too: its one clip is a render, not a placement, and there is no `clips:` entry in the
       // track's file for a move to rewrite. Its real material is still in there, waiting for the unfreeze.
-      if (e.button !== 2 || track.generated || track.frozen) return;
+      if (e.button !== 0 || track.generated || track.frozen) return;
       e.stopPropagation();
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       dragRef.current = {
@@ -598,12 +607,14 @@ export function TimelineTab({
     end: number;
     x: number; // pointer x at grab
     ppb: number;
+    pending?: boolean; // released and written, still drawn until the reload — see Move.pending
   } | null>(null);
   const resizeRef = useRef<typeof resize>(null);
   resizeRef.current = resize;
 
   const onResizeMove = useCallback((e: React.PointerEvent) => {
     const r = resizeRef.current;
+    if (r?.pending) return; // already written and only still drawn — a hover must not re-time it
     if (!r) return;
     // Whole beats, the same grid the move drag and the caret use.
     //
@@ -630,16 +641,23 @@ export function TimelineTab({
 
   const commitResize = useCallback(() => {
     const r = resizeRef.current;
-    setResize(null);
-    if (!r || !proj) return;
+    if (r?.pending) return; // a second pointerup must not send the same edit twice
+    if (!r || !proj) {
+      setResize(null);
+      return;
+    }
     const num = proj.timeSigNumerator;
     const den = proj.timeSigDenominator;
     // A drag that ended where it started writes nothing — the same courtesy the move
     // drag extends, and it keeps a stray click on a handle out of the undo history.
     if (r.start === r.origStart && r.end === r.origEnd) {
+      setResize(null);
       setStatus("resize cancelled — no change");
       return;
     }
+    // Held until the reload, exactly as a committed move is: clearing here snapped the edge
+    // back to where it was grabbed for the length of the round trip.
+    setResize({ ...r, pending: true });
     onResizeEvent?.(
       r.trackId,
       beatsToPosition(r.origStart, num, den),
@@ -706,10 +724,7 @@ export function TimelineTab({
   );
 
   const endClipDrag = useCallback(() => {
-    const d = dragRef.current;
-    if (!d) return;
-    // Only a drag that MOVED eats the context menu — see suppressClipMenu.
-    suppressClipMenu.current = d.moved;
+    if (!dragRef.current) return;
     dragRef.current = null;
     // Answering the bar is NOT committing. The line is filled and sits there waiting for enter,
     // so the drop writes nothing to disk — which is what makes the gesture safe to try.
@@ -742,7 +757,10 @@ export function TimelineTab({
     const den = proj.timeSigDenominator;
     const fromTc = beatsToPosition(m.origStart, num, den);
     const toTc = beatsToPosition(m.origStart + m.offset, num, den);
-    setMove(null);
+    // HELD, not cleared. Clearing here drew the clip back at its old start for the whole
+    // write-and-reload round trip, so a drop read as "it sprang back" and then jumped forward.
+    // The effect below drops it once the project that contains the move has arrived.
+    setMove({ ...m, dragging: false, pending: true });
     onMoveEvent?.(
       m.trackId,
       fromTc,
@@ -765,7 +783,9 @@ export function TimelineTab({
       )
         return;
       // Move mode is modal: keys are swallowed HARD (capture + stopImmediatePropagation), away from the shell.
-      if (moveRef.current) {
+      // A PENDING move is not being carried — it is already written and only still drawn, so it
+      // must not swallow the keys for the length of a reload.
+      if (moveRef.current && !moveRef.current.pending) {
         if (e.key === "ArrowLeft" || e.key === "j") nudgeMove(-1);
         else if (e.key === "ArrowRight" || e.key === "m") nudgeMove(1);
         else if (e.key === "Enter") commitMove();
@@ -895,7 +915,7 @@ export function TimelineTab({
       },
       // m on a clip: pick up the placement under the caret. Cancels any selection — the arrows can only drive one mode.
       startMove: () => {
-        if (moveRef.current) return; // already carrying one
+        if (moveRef.current && !moveRef.current.pending) return; // already carrying one
         if (!caretRow || caretRow.kind !== "track" || caret.beat === LABEL)
           return;
         // A generated lane's clips are the scheduler's look-ahead, backed by no file — there is no `start:` to rewrite.
@@ -1810,8 +1830,8 @@ export function TimelineTab({
                           <div
                             // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                             key={`${c.id}-${i}`}
-                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? " · stretched" : ""} — right-drag to move`}
-                            // RIGHT-drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
+                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? " · stretched" : ""} — drag to move`}
+                            // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                             onPointerDown={(e) => beginClipDrag(e, t, c)}
                             onPointerMove={onClipDragMove}
                             onPointerUp={endClipDrag}
@@ -1824,11 +1844,6 @@ export function TimelineTab({
                               // "unfreeze" lives, and the only thing worth offering on it.
                               if (t.frozen) return;
                               e.stopPropagation();
-                              // …unless that right button just DRAGGED the clip, or every move would end with a menu over the drop.
-                              if (suppressClipMenu.current) {
-                                suppressClipMenu.current = false;
-                                return;
-                              }
                               onContextMenu?.(
                                 {
                                   kind: "clip",
