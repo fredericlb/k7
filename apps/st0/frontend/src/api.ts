@@ -6,6 +6,7 @@ import { engineAccess } from "@studio/engine-browser/access";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
+import type { FaceablePlugin } from "@studio/song/engineFace";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   type CloneJob,
@@ -202,21 +203,29 @@ export const engineMachine = {
     return lines ?? [];
   },
 
-  /** What this machine's engine has scanned, grouped by lowercased format. */
+  /**
+   * What this machine's engine has scanned.
+   *
+   * The whole record and not just the names: the ROLE decides a module's ports and the
+   * plugin's own category decides where it is filed, so giving every plugin a face needs
+   * both (see ../docs/completion.md's neighbour, `@studio/song`'s engineFace.ts). The names
+   * are derived here rather than fetched twice.
+   */
   plugins: async (
     fileBase: string,
     token: string,
-  ): Promise<Record<string, string[]>> => {
+  ): Promise<FaceablePlugin[]> => {
     const res = await fetch(`${fileBase}/plugins`, {
       headers: {
         [USER_HEADER]: currentUser(),
         [ENGINE_TOKEN_HEADER]: token,
       },
     });
-    const { pluginNames } = await json<{
-      pluginNames: Record<string, string[]>;
-    }>(res, "plugins");
-    return pluginNames ?? {};
+    const { plugins } = await json<{ plugins?: FaceablePlugin[] }>(
+      res,
+      "plugins",
+    );
+    return plugins ?? [];
   },
 
   /**
@@ -573,6 +582,26 @@ export const library = {
    *  moduleRefs.ts. A listing read for its NAMES only; the tree is drawn elsewhere. */
   baseModules: async (): Promise<string[]> =>
     mediatekModuleRefs((await library.list("modules")).entries),
+
+  /**
+   * Give every plugin a machine has scanned a module here — the face that lets a chain name it
+   * and a panel be drawn for it.
+   *
+   * The scan travels in the REQUEST because it belongs to that machine and this backend is
+   * hosted somewhere else. One call for the whole pass, not one write per plugin: two hundred
+   * and fifty round-trips from a browser is a minute that can fail halfway. Idempotent — what
+   * is already faced is skipped there, by ref.
+   */
+  addEngineFaces: async (
+    plugins: FaceablePlugin[],
+  ): Promise<{ created: string[]; scanned: number }> => {
+    const res = await fetch(`${BASE}/api/mediatek/engine-faces`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ plugins }),
+    });
+    return json<{ created: string[]; scanned: number }>(res, "engine-faces");
+  },
 
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>

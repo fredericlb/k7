@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { engineFaceModule, FACE_CATEGORIES } from "./engineFace";
+import {
+  engineFaceModule,
+  engineFaces,
+  FACE_CATEGORIES,
+  faceFolder,
+} from "./engineFace";
 import { loadModuleRefs } from "./loader";
 import { resolveModule } from "./moduleResolve";
 import type { LoadedModule } from "./rawDoc";
@@ -176,5 +181,72 @@ describe("scaffolding that module", () => {
 
   it("refuses a name that leaves no folder to make", () => {
     expect(() => engineFaceModule("!!!", "audio")).toThrow(/no name/);
+  });
+});
+
+describe("filing a whole scan at once", () => {
+  it("puts a plugin on the axis the library already files by", () => {
+    // The scan's own category, LAST segment: the first repeats the type folder — every effect
+    // says `Fx` — and what tells them apart is what follows. `audio/distortion` and
+    // `audio/filter` are folders somebody made by hand before any of this existed.
+    expect(faceFolder("Fx|Delay")).toBe("delay");
+    expect(faceFolder("instrument|synth")).toBe("synth");
+    expect(faceFolder("dynamics")).toBe("dynamics");
+    // …and nothing when it only repeats the type, or says nothing at all.
+    expect(faceFolder("Fx")).toBe("");
+    expect(faceFolder("instrument")).toBe("");
+    expect(faceFolder(undefined)).toBe("");
+  });
+
+  it("files each plugin by its role and its category", () => {
+    const faces = engineFaces([
+      { name: "ADClip 7", role: "audioEffect", category: "dynamics" },
+      { name: "ARP 2600 V3", role: "instrument", category: "instrument|synth" },
+      { name: "Arp", role: "midiEffect" },
+    ]);
+    expect(faces.map((f) => f.path)).toEqual([
+      "audio/dynamics/adclip-7/module.yaml",
+      "instruments/synth/arp-2600-v3/module.yaml",
+      "transformers/arp/module.yaml",
+    ]);
+  });
+
+  it("skips a plugin the library already has a face for", () => {
+    // By REF and not by path: `audio/distortion/bitcrush` extending `@engine/de-rez` is that
+    // plugin's face under a name somebody chose, and a second one at the default path would give
+    // one plugin two names a chain could reach it by.
+    const faces = engineFaces(
+      [
+        { name: "de-rez", category: "distortion" },
+        { name: "Bite", category: "distortion" },
+      ],
+      ["@engine/de-rez"],
+    );
+    expect(faces.map((f) => f.base)).toEqual(["@engine/bite"]);
+  });
+
+  it("collapses two scans of one plugin, and drops what cannot be slugged", () => {
+    // The identical rule `engineModules` applies to the catalogue these refs point INTO — it has
+    // to be identical, or a face would name a ref nothing synthesises.
+    const faces = engineFaces([
+      { name: "Chorus", category: "modulation" },
+      { name: "chorus", category: "modulation" },
+      { name: "!!!" },
+    ]);
+    expect(faces.map((f) => f.base)).toEqual(["@engine/chorus"]);
+  });
+
+  it("is idempotent — a second pass over the same scan writes nothing", () => {
+    const scan = [
+      { name: "ADClip 7", role: "audioEffect", category: "dynamics" },
+      { name: "Bite", category: "distortion" },
+    ];
+    const first = engineFaces(scan);
+    expect(
+      engineFaces(
+        scan,
+        first.map((f) => f.base),
+      ),
+    ).toEqual([]);
   });
 });

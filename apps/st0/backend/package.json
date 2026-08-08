@@ -16,6 +16,7 @@
     "@studio/engine-registry": "*",
     "@studio/git-repos": "*",
     "@studio/mediatek": "*",
+    "@studio/song": "*",
     "@studio/user-prefs": "*",
     "@studio/web-protocol": "*",
     "express": "^4.21.2",
