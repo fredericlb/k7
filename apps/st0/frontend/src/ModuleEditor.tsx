@@ -9,7 +9,7 @@ import { Plug, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library, moduleStore } from "./api";
 import { baseModuleRefs, useEnginePlugins } from "./engine/baseModules";
-import { resolvePluginBlock } from "./engine/resolvePlugin";
+import { readExtends, resolvePluginBlock } from "./engine/resolvePlugin";
 import { ModulePreview } from "./ModulePreview";
 import { useEngine } from "./playback/PlaybackProvider";
 
@@ -66,6 +66,18 @@ export function ModuleEditor({
    * has never scanned show nothing for a `jsdsp` module either — one that names its plugin
    * outright and needs no catalogue at all. Arriving late simply re-runs this.
    */
+  /**
+   * What the resolution found, so the footer can SAY when it found nothing.
+   *
+   * An empty parameter list has three causes that look identical on screen — no engine, a ref
+   * this machine has not scanned, a module that names no plugin at all — and only the first
+   * was ever worded. The other two read as the editor being broken.
+   */
+  const [plugged, setPlugged] = useState<{
+    ref: string;
+    found: boolean;
+  } | null>(null);
+
   useEffect(() => {
     if (phase.k !== "ready") return;
     let alive = true;
@@ -76,6 +88,7 @@ export function ModuleEditor({
           library.readFile(p).then((m) => m.content),
         );
         if (!alive) return;
+        setPlugged({ ref: readExtends(f.content), found: !!plugin });
         preview(entry.name, plugin);
         listPresets(entry.name);
       })
@@ -125,6 +138,15 @@ export function ModuleEditor({
         {phase.k === "ready" ? (
           <span className="flex items-center gap-1">
             <PlugZap className="h-3.5 w-3.5" /> moteur {phase.id}
+            {/* Said only when there is an engine: without one the line beside it already
+                explains the empty list, and two explanations for one symptom is one too many. */}
+            {plugged && !plugged.found ? (
+              <span className="text-destructive">
+                {plugged.ref
+                  ? ` — ${plugged.ref} : ce moteur n'a pas ce greffon, aucun paramètre à lister`
+                  : " — ce module ne nomme aucun greffon"}
+              </span>
+            ) : null}
           </span>
         ) : (
           <span className="flex items-center gap-1">
