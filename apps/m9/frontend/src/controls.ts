@@ -1,7 +1,7 @@
 // controls.ts — every control on the Mix desk, by a stable id. What the project's
 // `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
-import { BPM_RANGE, DECKS, MIX_CENTRE } from "./deck";
+import { BPM_RANGE, DECKS, EQ_DB, MIX_CENTRE } from "./deck";
 
 /**
  * One control on the desk.
@@ -54,6 +54,22 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     range: [0, 1],
     home: 0,
   },
+  // The channel EQ, in DECIBELS and not 0..1. Same rule as the mixer strip's Volume: a
+  // control that sent 0.5 for "half" would look right and be six decibels wrong. The range is
+  // the module's knob, so 0 dB — flat — lands exactly at the middle of the travel.
+  ...(
+    [
+      ["eqLow", "Grave"],
+      ["eqMid", "Médium"],
+      ["eqHigh", "Aigu"],
+    ] as const
+  ).map(([suffix, band]) => ({
+    id: `${deck}.${suffix}`,
+    label: `${band} platine ${letter}`,
+    kind: "fader" as const,
+    range: EQ_DB,
+    home: 0,
+  })),
 ];
 
 /**

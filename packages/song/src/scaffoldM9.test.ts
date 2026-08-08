@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { loadMixView, loadSongs, loadTracks } from "./loader";
+import { parseMixView } from "./yaml/mixViewFile";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
 import { projectTypeOf } from "./projectType";
@@ -55,6 +56,26 @@ beforeEach(() => {
   // only surface in st0's builder — on somebody else's screen, later.
   for (const f of ["module.yaml", "ui.yaml"])
     copyFileSync(join(shipped, f), join(utility, "tempo", f));
+  // The EQ, stated INLINE rather than copied from `packages/dsp/modules/eq3`.
+  //
+  // The shipped file says `extends: "@engine/equaliser"`, and an `@engine/` ref resolves
+  // against the MACHINE's plugin scan (`~/.studio/exts.json`, a path no env var moves). A test
+  // that depended on that would pass or fail by what the developer had scanned, and — worse —
+  // an unresolved ref makes a module a silent STUB rather than an error, so the failure would
+  // read as "the EQ is missing from the document" with nothing to point at. So the fixture
+  // states the shape the set depends on: an internal plugin, three gains.
+  const filter = join(mediatek, "modules", "audio", "filter");
+  mkdirSync(join(filter, "eq3"), { recursive: true });
+  writeFileSync(
+    join(filter, "eq3", "module.yaml"),
+    "plugin: { type: internal, name: Equaliser }\n" +
+      "params:\n" +
+      "  Low-shelf gain: 0\n  Mid gain 1: 0\n  High-shelf gain: 0\n" +
+      "  Low-shelf freq: 200\n  Mid freq 1: 1000\n  High-shelf freq: 6000\n" +
+      "  Mid gain 2: 0\n",
+    "utf8",
+  );
+
   // The crossfade has no copy in this repo — st0's catalogue is its home — so the fixture
   // states the shape the set depends on: two audio inputs, the second optional.
   mkdirSync(join(utility, "crossfade"), { recursive: true });
@@ -89,6 +110,8 @@ describe("a scaffolded m9 set", () => {
       "chains.yaml",
       "instances",
       "instances/crossfade.yaml",
+      "instances/eqA.yaml",
+      "instances/eqB.yaml",
       "instances/tempoA.yaml",
       "instances/tempoB.yaml",
       "project.yaml",
@@ -110,6 +133,12 @@ describe("a scaffolded m9 set", () => {
       crossfade: { module: "crossfade", param: "Mix" },
       "deckA.tempo": { module: "tempoA", param: "Target BPM" },
       "deckB.tempo": { module: "tempoB", param: "Target BPM" },
+      "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" },
+      "deckA.eqMid": { module: "eqA", param: "Mid gain 1" },
+      "deckA.eqHigh": { module: "eqA", param: "High-shelf gain" },
+      "deckB.eqLow": { module: "eqB", param: "Low-shelf gain" },
+      "deckB.eqMid": { module: "eqB", param: "Mid gain 1" },
+      "deckB.eqHigh": { module: "eqB", param: "High-shelf gain" },
     });
   });
 
@@ -146,12 +175,13 @@ describe("a scaffolded m9 set", () => {
     expect(ext("instances/tempoB.yaml")).toBe("@mediatek/audio/utility/tempo");
   });
 
-  it("asks the médiathèque for exactly those two modules", () => {
+  it("asks the médiathèque for exactly those three modules", () => {
     scaffoldM9(dir, "winter");
-    // What the cache sync will go and fetch for this set. One tempo, not two: the decks are
-    // two INSTANCES of one module, and fetching a module twice would be a bug in the ref
-    // reader rather than a fact about the set.
+    // What the cache sync will go and fetch for this set. One tempo and one EQ, not two of
+    // each: the decks are two INSTANCES of one module, and fetching a module twice would be a
+    // bug in the ref reader rather than a fact about the set.
     expect(mediatekRefs(dir)).toEqual([
+      "@mediatek/audio/filter/eq3",
       "@mediatek/audio/utility/crossfade",
       "@mediatek/audio/utility/tempo",
     ]);
@@ -172,25 +202,32 @@ describe("a scaffolded m9 set", () => {
     expect(Object.keys(g.chains).sort()).toEqual(["deckA", "deckB"]);
     const deckA = g.chains.deckA;
     expect(deckA.from).toBe("deckA");
-    // The tempo comes FIRST and the crossfade second — the order is the signal path, and a
-    // deck whose tempo were applied after the fade would be stretched post-mix.
-    expect(deckA.use.map((s) => s.module)).toEqual(["tempoA", "crossfade"]);
+    // Tempo, then EQ, then the crossfade — the order IS the signal path. A deck stretched
+    // after the fade would be stretched post-mix; a deck equalised after it would have the
+    // other deck's bass cut along with its own.
+    expect(deckA.use.map((s) => s.module)).toEqual([
+      "tempoA",
+      "eqA",
+      "crossfade",
+    ]);
     expect(deckA.out.map((o) => o.to)).toEqual(["OUT"]);
   });
 
   it("lands deck B on the crossfade's second port", () => {
     scaffoldM9(dir, "winter");
     const use = loadGraph(dir).chains.deckA.use;
-    // On the CROSSFADE, which is deck A's second step now that a tempo comes first. `#b` is
-    // the whole reason two decks are expressible; losing it would compile to deckB feeding
+    // On the CROSSFADE, deck A's LAST step now that a tempo and an EQ come first. `#b` is the
+    // whole reason two decks are expressible; losing it would compile to deckB feeding
     // nothing, silently — the chain would still parse and the deck would go quiet.
-    expect(use[1].module).toBe("crossfade");
-    // `tempoB` and not `deckB`: what lands on the port is the NODE that feeds it, and deck B
-    // now reaches the crossfade through its own tempo. Deck B arrives already stretched,
-    // which is the whole reason the tempo sits before the fade and not after it.
-    expect(use[1].in).toEqual(["tempoB"]);
-    // And nothing lands on the tempo, which takes one signal.
+    const cross = use.at(-1);
+    expect(cross?.module).toBe("crossfade");
+    // `eqB` and not `deckB`: what lands on the port is the NODE that feeds it, and deck B now
+    // reaches the crossfade through its own tempo and its own EQ. Deck B arrives already
+    // stretched AND already equalised, which is the whole reason both sit before the fade.
+    expect(cross?.in).toEqual(["eqB"]);
+    // And nothing lands on the tempo or the EQ, which each take one signal.
     expect(use[0].in ?? []).toEqual([]);
+    expect(use[1].in ?? []).toEqual([]);
   });
 
   it("inherits the crossfade's two ports without restating them", () => {
@@ -252,6 +289,60 @@ describe("a scaffolded m9 set", () => {
     // arrived as `tempoB` — neither a chain nor a track — and resolved to nothing. The chains
     // file, the graph and the panel all still said deck B was wired; only the audio disagreed.
     expect(cross?.sidechainFrom).toBe("deckB");
+  });
+
+  it("puts an EQ on each deck, between its tempo and the crossfade", () => {
+    // Where a mixing desk puts it: a channel strip is equalised on its way to the fader, so
+    // cutting a deck's bass is a property of that DECK and not of the blend. One instance per
+    // deck, because that is the whole point of a channel EQ.
+    const doc = (scaffoldM9(dir, "winter"), compileNodeProject(dir));
+    const ids = (t: string) =>
+      doc.tracks.find((x) => x.id === t)?.plugins.map((p) => p.id) ?? [];
+    expect(ids("deckA")).toEqual(["deckA:eqA", "deckA:crossfade"]);
+    expect(ids("deckB")).toEqual(["deckB:eqB"]);
+  });
+
+  it("compiles the EQ to a REAL plugin, unlike the tempo beside it", () => {
+    // The distinction that decides how a knob reaches it. The EQ is an engine plugin, so the
+    // desk moves it with `set-plugin-param`, live and per pixel. The tempo is `offline` and
+    // emits nothing, so its fader re-sends the document instead — and a control that took the
+    // wrong one of those two paths sent a param into the void for a whole commit.
+    scaffoldM9(dir, "winter");
+    const doc = compileNodeProject(dir);
+    const eq = doc.tracks
+      .find((t) => t.id === "deckA")
+      ?.plugins.find((p) => p.id === "deckA:eqA");
+    expect(eq?.type).toBe("Equaliser");
+    // Flat, and on a DJ's crossover points rather than Tracktion's mastering defaults of
+    // 80 / 3000 / 17000 — a high shelf at 17 kHz is air, and an "aigu" knob on it does almost
+    // nothing.
+    expect(eq?.params).toMatchObject({
+      "Low-shelf gain": 0,
+      "Mid gain 1": 0,
+      "High-shelf gain": 0,
+      "Low-shelf freq": 200,
+      "Mid freq 1": 1000,
+      "High-shelf freq": 6000,
+    });
+  });
+
+  it("binds all six EQ knobs, by deck and by band", () => {
+    scaffoldM9(dir, "winter");
+    const view = parseMixView(
+      readFileSync(join(dir, "views", "mix.yaml"), "utf8"),
+    ).value;
+    expect(view?.["deckA.eqLow"]).toEqual({
+      module: "eqA",
+      param: "Low-shelf gain",
+    });
+    expect(view?.["deckB.eqHigh"]).toEqual({
+      module: "eqB",
+      param: "High-shelf gain",
+    });
+    // Deck A's knobs never name deck B's module: that was the exact ambiguity that moved
+    // these bindings out of the module's own controller.yaml.
+    for (const [id, b] of Object.entries(view ?? {}))
+      if (id.startsWith("deckA.eq")) expect(b.module).toBe("eqA");
   });
 
   it("MUTES deck B, so the crossfader can actually take it away", () => {

@@ -1,8 +1,12 @@
 ﻿# Les contrôles du pupitre, et comment les lier à un paramètre
 
-Aujourd'hui le crossfader de Mix est **câblé en dur** : il pose `Volume` sur `deckA:level` et
-`deckB:level`, et le fader de tempo calcule un warp. Ni l'un ni l'autre n'est déclaré nulle
-part, donc ni l'un ni l'autre ne peut être repointé sans toucher au code.
+Rien sur ce pupitre n'est câblé en dur. Chaque contrôle porte un identifiant, et ce qu'il
+DÉPLACE est écrit dans le projet — repointer une ligne de `views/mix.yaml` suffit à envoyer le
+fader de gauche sur la platine de droite.
+
+(Cette page a longtemps commencé par le contraire : le crossfader posait `Volume` sur
+`deckA:level` et `deckB:level` depuis le code de m9, sans que rien ne le dise. C'est ce que la
+déclaration a remplacé.)
 
 `controls.ts` donne un identifiant à chaque contrôle ; un contrôle par platine est DÉRIVÉ des
 platines, pour qu'une troisième platine ne soit pas silencieusement impossible à lier.
@@ -12,8 +16,14 @@ platines, pour qu'une troisième platine ne soit pas silencieusement impossible 
 | `crossfade` | le crossfader | 0..1 |
 | `deckA.tempo`, `deckB.tempo` | le fader de tempo d'une platine | 10..300 (le knob du module) |
 | `deckA.sync`, `deckB.sync` | le bouton SYNC d'une platine | 0..1 |
+| `deckA.eqLow`, `deckB.eqLow` | le grave d'une platine | −20..+20 dB |
+| `deckA.eqMid`, `deckB.eqMid` | le médium | −20..+20 dB |
+| `deckA.eqHigh`, `deckB.eqHigh` | l'aigu | −20..+20 dB |
 | `transport` | lecture / arrêt | 0..1 |
 | `listen` | écouter dans cet onglet | 0..1 |
+
+Les trois bandes d'EQ sont en **décibels** et symétriques, pour que le plat tombe au milieu
+de la course : voir [eq.md](eq.md).
 
 Les liaisons, elles, sont dans le **projet** : `views/mix.yaml`, décrit dans
 [packages/song/docs/viewBindings.md](../../../packages/song/docs/viewBindings.md).
@@ -46,9 +56,10 @@ dessiner.
 
 ## Les deux chemins
 
-Le crossfader passe par sa liaison vers un PARAMÈTRE : m9 joue le document compilé (voir
-[mix.md](mix.md)), donc `deckA:crossfade` est un plugin chargé par le moteur et bouger le
-fader pose `Mix` dessus.
+Le crossfader et les six potards d'EQ passent par leur liaison vers un PARAMÈTRE : m9 joue le
+document compilé (voir [mix.md](mix.md)), donc `deckA:crossfade` et `deckA:eqA` sont des
+plugins chargés par le moteur, et bouger la commande pose le paramètre dessus. Un message par
+mouvement, à chaque pixel. Voir [eq.md](eq.md).
 
 Le fader de tempo passe par sa liaison vers une PISTE. Le module `tempo` est `offline` : il
 n'a pas de plugin, il est rendu vrai hors du graphe — ici par l'étirement du clip, que

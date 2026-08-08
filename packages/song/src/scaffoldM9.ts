@@ -44,8 +44,8 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `#  - "@mediatek/songs/artiste/album/titre"\n`,
 
     "chains.yaml":
-      `# Each deck through its own tempo, then both meeting at one crossfade — the shape a\n` +
-      `# single chain cannot express, because a chain carries ONE signal.\n` +
+      `# Each deck through its own tempo and its own EQ, then both meeting at one crossfade —\n` +
+      `# the shape a single chain cannot express, because a chain carries ONE signal.\n` +
       `#\n` +
       `# \`deckA\` FLOWS into its tempo and on into the crossfade: a bare destination is the\n` +
       `# flow. \`deckB\`'s run ends on a PORT, \`#b\`, so it lands on the crossfade's second\n` +
@@ -54,6 +54,10 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# The names here are INSTANCES, from instances/ — not modules. The modules themselves\n` +
       `# live in the médiathèque and are not copied in.\n` +
       `#\n` +
+      `# The EQ sits AFTER the tempo and BEFORE the crossfade, which is where a mixing desk\n` +
+      `# puts it: a channel strip is equalised on its way to the fader, so cutting a deck's\n` +
+      `# bass is a property of that deck and not of the blend.\n` +
+      `#\n` +
       `# Nothing about two is fixed. A third deck is a third track, a third tempo and a second\n` +
       `# meeting point; m9 reads whatever is here. See packages/song/docs/ports.md.\n` +
       `\n` +
@@ -61,8 +65,10 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `  deckA: [ ${TEMPO_A} ]\n` +
       `  deckB: [ ${TEMPO_B} ]\n` +
       `modules:\n` +
-      `  ${TEMPO_A}: [ ${CROSSFADE} ]\n` +
-      `  ${TEMPO_B}: [ ${CROSSFADE}#b ]\n` +
+      `  ${TEMPO_A}: [ ${EQ_A} ]\n` +
+      `  ${TEMPO_B}: [ ${EQ_B} ]\n` +
+      `  ${EQ_A}: [ ${CROSSFADE} ]\n` +
+      `  ${EQ_B}: [ ${CROSSFADE}#b ]\n` +
       `  ${CROSSFADE}: [ OUT ]\n`,
 
     "tracks/deckA.yaml": deckTrack(
@@ -93,6 +99,9 @@ export function m9ProjectFiles(name: string): Record<string, string> {
     [`instances/${TEMPO_A}.yaml`]: tempoInstance("A"),
     [`instances/${TEMPO_B}.yaml`]: tempoInstance("B"),
 
+    [`instances/${EQ_A}.yaml`]: eqInstance("A"),
+    [`instances/${EQ_B}.yaml`]: eqInstance("B"),
+
     "views/mix.yaml":
       `# What each control of m9's Mix desk drives.\n` +
       `#\n` +
@@ -112,7 +121,13 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# The control ids are m9's: see apps/m9/docs/controls.md for the list.\n` +
       `crossfade: { module: ${CROSSFADE}, param: Mix }\n` +
       `deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
-      `deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n`,
+      `deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n` +
+      `deckA.eqLow: { module: ${EQ_A}, param: Low-shelf gain }\n` +
+      `deckA.eqMid: { module: ${EQ_A}, param: Mid gain 1 }\n` +
+      `deckA.eqHigh: { module: ${EQ_A}, param: High-shelf gain }\n` +
+      `deckB.eqLow: { module: ${EQ_B}, param: Low-shelf gain }\n` +
+      `deckB.eqMid: { module: ${EQ_B}, param: Mid gain 1 }\n` +
+      `deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n`,
   };
 }
 
@@ -136,11 +151,15 @@ const MUTED_LANE =
   "mute: true\n";
 
 const MEDIATEK_UTILITY = "@mediatek/audio/utility";
+/** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
+const MEDIATEK_FILTER = "@mediatek/audio/filter";
 /** The instance names the chains file wires. Short on purpose — a chains file reads better
  *  with `tempoA` in it than with the whole ref, and the ref is one line away in instances/. */
 const CROSSFADE = "crossfade";
 const TEMPO_A = "tempoA";
 const TEMPO_B = "tempoB";
+const EQ_A = "eqA";
+const EQ_B = "eqB";
 
 /** One deck's tempo: an instance of the médiathèque's cold Tempo module. */
 function tempoInstance(letter: string): string {
@@ -161,6 +180,28 @@ function tempoInstance(letter: string): string {
     `  Source BPM: 0\n` +
     `  # What the fader sets. 0 means "leave it alone".\n` +
     `  Target BPM: 0\n`
+  );
+}
+
+/** One deck's EQ: an instance of the médiathèque's three-band channel EQ. */
+function eqInstance(letter: string): string {
+  return (
+    `# Deck ${letter}'s EQ — an INSTANCE of the médiathèque's EQ 3 bandes, one per deck, because\n` +
+    `# cutting THIS deck's bass is the whole point and a param belongs to a use.\n` +
+    `#\n` +
+    `# Unlike the tempo beside it, this one is a REAL plugin: the module is a name and a set of\n` +
+    `# crossover frequencies over Tracktion's 4-band EQ, so the compiler emits a plugin and the\n` +
+    `# desk's knobs move it with \`set-plugin-param\`, live and per pixel. The tempo cannot do\n` +
+    `# that — it is offline, and its fader re-sends the document instead.\n` +
+    `#\n` +
+    `# Flat. Only the three gains are stated: the crossover points come from the module, and\n` +
+    `# restating them here would let one deck quietly disagree with the other about what\n` +
+    `# "mid" means.\n` +
+    `extends: ${q(`${MEDIATEK_FILTER}/eq3`)}\n` +
+    `params:\n` +
+    `  Low-shelf gain: 0\n` +
+    `  Mid gain 1: 0\n` +
+    `  High-shelf gain: 0\n`
   );
 }
 

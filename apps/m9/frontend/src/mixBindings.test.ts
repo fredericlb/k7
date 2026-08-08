@@ -179,6 +179,17 @@ describe("which track a fader stretches", () => {
     expect(stretchTargets(bindings, byDeck, loaded)).toEqual({});
   });
 
+  it("leaves an EQ knob out of the stretches entirely", () => {
+    // The EQ is a REAL plugin, so its knobs take the param path — `set-plugin-param`, per
+    // pixel. Letting one into the stretch map would warp the deck's clip every time somebody
+    // touched the bass, which is the same confusion of currencies the crossfade case guards.
+    const { bindings } = resolveBindings(
+      { "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" } },
+      graphWith([{ module: "eqA", pluginId: "deckA:eqA" }]),
+    );
+    expect(stretchTargets(bindings, byDeck, new Set(["deckA:eqA"]))).toEqual({});
+  });
+
   it("STRETCHES when the graph invented an id the document has not got", () => {
     // The bug this argument exists for. `buildGraphDoc` gives an `offline` module a
     // `pluginId` — `deckA:tempoA` — and the compiler emits no such plugin. Judging by the
