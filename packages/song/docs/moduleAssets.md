@@ -117,4 +117,33 @@ its tree draws its `assets/` as children, and dropping a file on that row upload
 `assets` — its own field, separate from `files`, because `files` is the module's definition and
 these are its material.
 
-Nothing offers to *create* an asset. They arrive as bytes.
+Nothing offers to *create* an asset. They arrive as bytes — a **folder** of them as readily as
+one, since the tree reads a drop through `webkitGetAsEntry` rather than `dataTransfer.files`
+(commons's `lib/droppedEntries.ts`) and `uploadTree` PUTs each file at its own nested path.
+
+### The listing has to nest too, and did not
+
+That drop worked long before this listing did, which is the worst shape a bug takes: the bytes
+landed, and the screen said nothing was there. Measured on the real library —
+`modules/audio/amps/guitar/assets` holds one folder per amp, twenty-two files across four of
+them, and the entry reported `assets: []`, because the scan filtered to `isFile()` at one level.
+
+So `scan.ts`'s `assetsOf` walks, and `MediatekEntry.assets` carries `assets/`-relative POSIX
+paths — the **same shape** `listModuleAssets` returns, so a path the tree shows is a path a
+`params:` may name. Two things differ, both deliberate:
+
+- **No extension filter.** `listModuleAssets` keeps what a file-valued param accepts; a tree that
+  hid the `.wav` cabinet IR beside the `.nam` would be lying about the folder.
+- **A folder holding nothing is reported with a trailing `/`.** Nothing else would ever mention
+  it — a folder with children is implied by their paths — and the médiathèque already had to
+  learn this lesson one level up (`scanUnlisted`): a "Nouveau dossier…" that answers 200 and
+  appears nowhere reads as the call having done nothing at all.
+
+`apps/st0/frontend/src/assetTree.ts` turns those paths back into rows. The `assets` segment
+itself is never drawn — a module's children ARE its assets, and a fixed row between them and it
+would be a level with nothing to choose in — but it stays in every row's `path`, so a drop, a
+move, a rename and a delete all address the file that is actually there.
+
+The size of that listing is not capped. A module carrying a five-thousand-sample pack would make
+the modules listing heavy, and the listing is polled; nothing observed has come close, and a cap
+would have to choose which files to hide, which is the failure this section is about.

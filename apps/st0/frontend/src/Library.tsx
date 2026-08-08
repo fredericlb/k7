@@ -51,6 +51,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
 import { auth, engineMachine, library, projects } from "./api";
+import { assetNodes, folderAt } from "./assetTree";
 import { ChainEditor } from "./ChainEditor";
 import { EngineStatusBar } from "./EngineStatusBar";
 import { EnginePage } from "./engine/EnginePage";
@@ -230,23 +231,6 @@ const variantAt = (
   return variant ? { song, variant } : null;
 };
 
-/** Walk a family-relative folder path into the tree, creating what is missing. Returns the
- *  level INSIDE it, so a caller can keep descending. */
-function folderAt(roots: TreeNode[], rel: string): TreeNode[] {
-  let level = roots;
-  let sofar = "";
-  for (const part of rel.split("/").filter(Boolean)) {
-    sofar = sofar ? `${sofar}/${part}` : part;
-    let node = level.find((n) => n.name === part);
-    if (!node) {
-      node = { name: part, path: sofar, dir: true, children: [] };
-      level.push(node);
-    }
-    level = node.children ??= [];
-  }
-  return level;
-}
-
 /**
  * The family's entries as a folder tree, from their paths alone — the service hands out a flat
  * list, and the shape is already in the strings. Directories are synthesised on the way down, so
@@ -306,13 +290,11 @@ function treeOf(
           ? { name: part, path: sofar }
           : { name: part, path: sofar, dir: true, children: [] };
         level.push(node);
-        // A module's children: what its `assets/` folder holds. Named at their real path, so a
-        // drop, a rename and a delete all address the file that is actually there.
+        // A module's children: what its `assets/` folder holds, nested as it is on disk — a NAM
+        // pack is a folder per amp. Named at their real path, so a drop, a rename and a delete
+        // all address the file that is actually there. See assetTree.ts.
         if (leaf && holdsModuleFile(e))
-          node.children = (e.assets ?? []).map((name) => ({
-            name,
-            path: `${sofar}/${ASSETS_DIR}/${name}`,
-          }));
+          node.children = assetNodes(e.assets ?? [], `${sofar}/${ASSETS_DIR}`);
         // A song's children: the versions its sidecar declares. Named by that sidecar and NOT
         // by a file, because half of them are not files — a chain variant names a template in
         // another family — so the name is the one thing every variant has and the only one
@@ -554,9 +536,11 @@ export function Library() {
   // and a drag-and-drop that fails does so silently, which is a bad only-way-in. `webkitdirectory` is the
   // input's property, not the click's, hence a dedicated hidden input; `webkitRelativePath` is what it fills.
   const pickRef = useRef<HTMLInputElement>(null);
+  // The RESOLVED target, not the row that was clicked: a module's row means its `assets/`, and
+  // mapping it here keeps the picker and the drop landing in the same place.
   const pickInto = useRef<string>("");
   const pickFolder = (dir: string) => {
-    pickInto.current = dir;
+    pickInto.current = assetsTarget(dir);
     if (pickRef.current) pickRef.current.value = ""; // else picking the same folder twice fires no `change`
     pickRef.current?.click();
   };
@@ -1047,11 +1031,13 @@ export function Library() {
                       file,
                     }),
                   );
-                  const dir = pickInto.current;
+                  // Already section-prefixed and already mapped through `assetsTarget` — see
+                  // `pickFolder`, which is the only writer.
+                  const target = pickInto.current;
                   e.target.value = "";
                   if (files.length)
                     void library
-                      .uploadTree(dir ? `${section}/${dir}` : section, files)
+                      .uploadTree(target, files)
                       .then(refresh)
                       .catch((err: Error) => setError(err.message));
                 }}
@@ -1204,26 +1190,25 @@ export function Library() {
                         {
                           key: "upload-folder",
                           label: "Téléverser un dossier…",
-                          when: (t) =>
-                            (t.dir || t.root) &&
-                            !isModuleFolder(entries, t.path),
+                          // Through `assetsTarget`, exactly like the drop: a folder dragged onto
+                          // a module becomes material under its `assets/`, and the picker is
+                          // there because a drag that fails does so silently. The two must not
+                          // disagree about where the same folder lands.
+                          when: (t) => t.dir || t.root,
                           run: (t) => pickFolder(t.path),
                         },
                         {
                           key: "new-folder",
                           label: "Nouveau dossier…",
-                          // Anywhere but INSIDE a module: a module holds its own files and its
-                          // instances, never folders. Depth is not this menu's business — the
-                          // scanner finds a module wherever its file is.
-                          when: (t) =>
-                            (t.dir || t.root) &&
-                            !isModuleFolder(entries, t.path),
+                          // On a module too, and it means `assets/` — a NAM pack is a folder per
+                          // amp, so somewhere to drop into before the first file is a thing this
+                          // menu has to be able to make. Never beside module.yaml: what a module
+                          // IS is three files and its instances, and the builder writes those.
+                          when: (t) => t.dir || t.root,
                           prompt: { placeholder: "nom", submit: "Créer" },
                           run: (t, value) =>
                             void library
-                              .newFolder(
-                                `${section}/${t.path ? `${t.path}/` : ""}${value}`,
-                              )
+                              .newFolder(`${assetsTarget(t.path)}/${value}`)
                               .then(refresh)
                               .catch((e: Error) => setError(e.message)),
                         },
