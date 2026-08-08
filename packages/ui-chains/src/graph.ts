@@ -5,15 +5,73 @@
 
 import dagre from "@dagrejs/dagre";
 import type {
-  WebCc,
+  WebChainStep,
   WebCurve,
   WebGraph,
-  WebModuleCategory,
   WebModuleUI,
   WebSignal,
   WebWidget,
 } from "@studio/graph-model";
 import { splitPort } from "@studio/graph-model";
+
+/**
+ * What a node carries from its step, and how — declared once instead of copied.
+ *
+ * `buildGraph` used to restate these field by field, which made "add a field" three edits in
+ * three files. `assetChoices` missed the third: it reached the browser and stopped at the node,
+ * so l8 re-fetched the whole graph on a click to read a value already under the mouse. The same
+ * shape of omission put every ported cable on the node's edge once, when `targetPort` was
+ * forgotten on the edge copy below.
+ *
+ * Three groups, and the guard underneath makes them cover the type: a new field on
+ * `WebChainStep` stops the build HERE, by name, until it is placed in one of them.
+ */
+const CARRIED = [
+  "category",
+  "inputs",
+  "outputs",
+  "assets",
+  "assetChoices",
+  "ui",
+  "cc",
+  "params",
+  "pluginId",
+  "monitor",
+  "tap",
+] as const satisfies readonly (keyof WebChainStep)[];
+
+/** …and the optional flags, which the node wants definite rather than `undefined`. */
+const FLAGS = [
+  "missing",
+  "stub",
+  "notSupported",
+  "unknownPlugin",
+  "hasNativePluginUI",
+] as const satisfies readonly (keyof WebChainStep)[];
+
+/** Read by buildGraph itself and deliberately absent from the node: `module` becomes the
+ *  label and the id, `enabled` becomes `bypassed`/`dim`, `emits` decides an edge's signal,
+ *  and `automations` become nodes of their own. */
+type Consumed = "module" | "enabled" | "emits" | "automations";
+
+type Carried = Pick<WebChainStep, (typeof CARRIED)[number]>;
+type Flags = { [K in (typeof FLAGS)[number]]: boolean };
+
+// The guard. `never` here means every field of WebChainStep is accounted for above.
+type _Unplaced = Exclude<
+  keyof WebChainStep,
+  (typeof CARRIED)[number] | (typeof FLAGS)[number] | Consumed
+>;
+const _allPlaced: [_Unplaced] extends [never] ? true : never = true;
+void _allPlaced;
+
+/** One step's contribution to its node. */
+function carryStep(s: WebChainStep): Carried & Flags {
+  const out: Record<string, unknown> = {};
+  for (const k of CARRIED) out[k] = s[k];
+  for (const k of FLAGS) out[k] = !!s[k];
+  return out as Carried & Flags;
+}
 
 // Narrow the graph to one track's signal path: the chains it enters, plus everything reachable downstream.
 // Returns a WebGraph, so `buildGraph` takes it unchanged and only the input set differs from the full graph.
@@ -50,7 +108,14 @@ export function subgraphForTrack(graph: WebGraph, track: string): WebGraph {
 
 export type Kind = "track" | "module" | "chain" | "sink" | "curve";
 
-export interface GraphNode {
+/**
+ * A node as the renderer receives it: what its step carries, plus what only a laid-out graph
+ * knows — identity, kind, and geometry.
+ *
+ * The step's own fields are DERIVED (see CARRIED/FLAGS) rather than restated, so they are
+ * documented in one place, `WebChainStep`, and cannot fall out of step with it.
+ */
+export interface GraphNode extends Carried, Flags {
   id: string;
   label: string;
   sub?: string; // secondary line (the owning chain name on a chain's first module)
@@ -62,15 +127,6 @@ export interface GraphNode {
   chains?: string[]; // all chains this module belongs to (when shared across chains)
   dim: boolean; // bypassed (module or whole chain)
   module?: string; // the module instance name (for the nativePluginUI open)
-  category?: WebModuleCategory; // module only: its type folder — picks the node's icon
-  // The chain names a module the project doesn't define: the node exists so you can SEE which name dangles, and where.
-  missing: boolean;
-  // The library files this module loads, per asset kind — what a library dropdown here shows as its current choice.
-  assets?: Record<string, string>;
-  stub: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported: boolean; // plugin.type is "not_supported" — l8 can't load it (amber)
-  unknownPlugin: boolean; // plugin.type is an UNKNOWN format — a typo / unimported (red)
-  hasNativePluginUI: boolean; // an external plugin with a nativePluginUI the engine can open
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through
   // Frozen: on a track, it plays a render of itself; on a module, it is INSIDE that render and so is not running
   // at all. Not `dim` — a bypassed module is still built and can be un-bypassed on the spot, while a frozen one
@@ -79,29 +135,10 @@ export interface GraphNode {
   // A node that does not exist yet: the module being created right now, drawn where it will land. It is not in
   // any graph the server has — the canvas inserts it on the click and drops it when real data arrives.
   pending?: boolean;
-  // The module's merged widget grid and the values it shows; a node with one is SIZED to fit it (see nodeSize).
-  ui?: WebModuleUI;
-  // Which MIDI CC plays which of its params, keyed by the widget's `bind` — the module's own map
-  // (its folder's `controller.yaml`), so every instance of it answers to the same controls.
-  cc?: Record<string, WebCc>;
-  /** The module's input ports, when it has more than one. What lets the node draw a jack each,
-   *  so a cable naming `#b` can land on `b` rather than on the node's edge. */
-  inputs?: { name: string; type: WebSignal; mandatory?: boolean }[];
-  /** …and its outputs, when it has more than one. */
-  outputs?: { name: string; type: WebSignal }[];
   /** The sockets to DRAW, already decided — see `jacksFor`. Computed here rather than in the
    *  renderer because how many a node shows depends on what is wired to it, which is a fact
-   *  about the graph and not about the DOM. */
+   *  about the graph and not about the DOM. Not from the step: it depends on what is wired. */
   jacks?: { in: Jack[]; out: Jack[] };
-  // A STRING value is a file-valued param (`nam`): drawn as a dropdown over the module's own
-  // assets/ rather than a knob, and never sent to the engine as a param.
-  params?: Record<string, number | string>;
-  pluginId?: string; // the engine's PluginDoc id (chain:module), for live param sets
-  // io "in" only: whether the interface signal is audible. A module FIELD, not a param, so a widget bound to it
-  // needs a target of its own — see DomChains' widgetTarget.
-  monitor?: "off" | "auto" | "on";
-  // Where this node's waveform listens, when it is not its own plugin's output (an input borrows the lane's).
-  tap?: { id: string; side: "input" | "output" };
   // The node's size, per-node because a module's UI decides it — dagre is told these and reserves the real space.
   w: number;
   h: number;
@@ -493,7 +530,22 @@ export function buildGraph(graph: WebGraph): {
   // one still runs for the live one, and marking it asleep would be a plain lie about a node you can still edit.
   const moduleFrozen = (chains: string[]) =>
     chains.length > 0 && chains.every((n) => chainFrozen(n));
-  // Add a connection once: the same link can be expressed from either end, so collapse both into one arrow.
+  /**
+   * Add a connection once — but "once" is per SOCKET, not per pair.
+   *
+   * Two things are true at the same time and the key has to serve both. The same link can be
+   * expressed from either end (`A.out: [B]` and `B.from: A`), and only one of the two carries
+   * ports — so those must collapse into one arrow. And a module that splits feeds one target
+   * from several of its outputs (`sep#drums: [mix]`, `sep#bass: [mix]`), which are genuinely
+   * different cables — those must NOT collapse. Keying on the pair alone drew the second as
+   * the first, leaving one arrow out of the wrong jack; that is what this fixes.
+   *
+   * So: an expression that names ports gets its own identity, and one that names none merges
+   * into whatever cable already joins the pair. Order-independent, which matters because the
+   * two ends are visited in whatever order the chains happen to be in.
+   */
+  const pairs = new Map<string, string[]>(); // "a->b" (unordered) -> edge ids on it
+  const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   const link = (
     source: string,
     target: string,
@@ -503,8 +555,17 @@ export function buildGraph(graph: WebGraph): {
     sourcePort?: string,
   ) => {
     if (source === target) return; // a chain that feeds itself — skip the degenerate self-loop
-    const key = `${source}->${target}`;
-    const existing = edges.get(key) ?? edges.get(`${target}->${source}`);
+    const pk = pairKey(source, target);
+    const onPair = pairs.get(pk) ?? [];
+    // A cable already here that this expression could BE: same source port, or one of the two
+    // says nothing about ports and so cannot be contradicting the other.
+    const existing = onPair
+      .map((id) => edges.get(id))
+      .find(
+        (e) =>
+          e !== undefined &&
+          (!sourcePort || !e.sourcePort || e.sourcePort === sourcePort),
+      );
     if (existing) {
       if (!existing.label && label) existing.label = label;
       if (!existing.signal && signal) existing.signal = signal;
@@ -512,6 +573,9 @@ export function buildGraph(graph: WebGraph): {
       if (!existing.sourcePort && sourcePort) existing.sourcePort = sourcePort;
       return;
     }
+    // The port is IN the id: two cables between one pair need two, and the renderer keys on it.
+    const key = `${source}${sourcePort ? `#${sourcePort}` : ""}->${target}`;
+    pairs.set(pk, [...onPair, key]);
     edges.set(key, {
       id: key,
       source,
@@ -567,23 +631,9 @@ export function buildGraph(graph: WebGraph): {
         bypassed: s.enabled === false,
         frozen: moduleFrozen(chains),
         module: s.module,
-        category: s.category,
-        missing: !!s.missing,
-        assets: s.assets,
-        stub: !!s.stub,
-        notSupported: !!s.notSupported,
-        unknownPlugin: !!s.unknownPlugin,
-        hasNativePluginUI: !!s.hasNativePluginUI,
-        ui: s.ui,
-        cc: s.cc,
-        params: s.params,
-        // Carried to the node so it can draw a jack per port — see DomChains. Absent for the
-        // single-port majority, which draws the one jack it always did.
-        inputs: s.inputs,
-        outputs: s.outputs,
-        pluginId: s.pluginId,
-        monitor: s.monitor,
-        tap: s.tap,
+        // Everything the step itself says, in one move — see CARRIED/FLAGS. Listing them here
+        // is what let `assetChoices` reach the browser and stop short of the node.
+        ...carryStep(s),
         ...nodeSize(s.ui), // a module with a UI is as big as its grid needs
       });
       // Track the maximum position this module occupies across all chains.

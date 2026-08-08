@@ -170,6 +170,46 @@ describe("buildGraph", () => {
       "trk:drums->chn:drums",
     ]);
   });
+
+  // A splitter feeds one target from two of its outputs. Keyed on the PAIR alone, the second
+  // collapsed into the first and the graph drew one cable — out of the wrong jack, since the
+  // survivor kept the first port it saw. The pair is not the identity of a cable; the socket is.
+  it("keeps two cables when one source feeds a target from two ports", () => {
+    const { edges } = buildGraph(
+      graph({
+        sep: {
+          from: "stems",
+          use: [],
+          out: [
+            { to: "mix", gain: 1, fromPort: "drums" },
+            { to: "mix", gain: 1, fromPort: "bass" },
+          ],
+        },
+        mix: { use: [], out: [{ to: "OUT", gain: 1 }] },
+      }),
+    );
+    const toMix = edges.filter((e) => e.target === "chn:mix");
+    expect(toMix).toHaveLength(2);
+    expect(toMix.map((e) => e.sourcePort).sort()).toEqual(["bass", "drums"]);
+    // Distinct ids, or the renderer keys two cables to one element.
+    expect(new Set(toMix.map((e) => e.id)).size).toBe(2);
+  });
+
+  // …and the other half of the same key: one link expressed from BOTH ends is still one cable,
+  // whichever end is visited first. Only one of the two carries the port.
+  it("collapses a link expressed from both ends, and keeps its port", () => {
+    const { edges } = buildGraph(
+      graph({
+        a: { use: [], out: [{ to: "b", gain: 1, fromPort: "left" }] },
+        b: { from: "a", use: [], out: [{ to: "OUT", gain: 1 }] },
+      }),
+    );
+    const ab = edges.filter(
+      (e) => e.source === "chn:a" && e.target === "chn:b",
+    );
+    expect(ab).toHaveLength(1);
+    expect(ab[0].sourcePort).toBe("left");
+  });
 });
 
 describe("subgraphForTrack", () => {
