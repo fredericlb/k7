@@ -648,7 +648,7 @@ function TabsWidget({
   onDragStart,
   onTap,
   onPick,
-  onPickLibrary,
+  onPickAsset,
   onWatchWaveform,
   onContextParam,
 }: {
@@ -660,7 +660,7 @@ function TabsWidget({
   onTap: (n: GraphNode, w: WebWidget) => void;
   onPick: (n: GraphNode, w: WebWidget, value: number) => void;
   /** Open the library browser for this widget, at the click's viewport coords. */
-  onPickLibrary: (n: GraphNode, kind: string, x: number, y: number) => void;
+  onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
   /** Right-click a sub-widget — passed straight through to each. */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
@@ -717,7 +717,7 @@ function TabsWidget({
               onDragStart={onDragStart}
               onTap={onTap}
               onPick={onPick}
-              onPickLibrary={onPickLibrary}
+              onPickAsset={onPickAsset}
               onWatchWaveform={onWatchWaveform}
               onContextParam={onContextParam}
               styleOverride={{
@@ -856,7 +856,7 @@ function Widget({
   onDragStart,
   onTap,
   onPick,
-  onPickLibrary,
+  onPickAsset,
   onWatchWaveform,
   onContextParam,
   styleOverride,
@@ -870,7 +870,7 @@ function Widget({
   onPick: (n: GraphNode, w: WebWidget, value: number) => void;
   // A library dropdown picks a FILE for a module field, so it takes neither a widget nor a number.
   /** Open the library browser for this widget, at the click's viewport coords. */
-  onPickLibrary: (n: GraphNode, kind: string, x: number, y: number) => void;
+  onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -896,7 +896,7 @@ function Widget({
         onDragStart={onDragStart}
         onTap={onTap}
         onPick={onPick}
-        onPickLibrary={onPickLibrary}
+        onPickAsset={onPickAsset}
         onWatchWaveform={onWatchWaveform}
         onContextParam={onContextParam}
       />
@@ -939,7 +939,7 @@ function Widget({
           onPointerDown: (e) => onDragStart(n, w, e),
           onClick: (e) => e.stopPropagation(),
         }
-      : w.type === "dropdown"
+      : w.type === "dropdown" || w.type === "filepicker"
         ? {
             className: "dgx-w",
             onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
@@ -1026,12 +1026,17 @@ function Widget({
     body = <span className="dgx-wval">{w.text ?? ""}</span>;
   } else if (w.type === "meter") {
     body = <div className="dgx-meter" />;
-  } else if (w.type === "dropdown" && w.library) {
-    // A LIBRARY dropdown picks a FILE for a module field. A button, not a <select>: these
-    // folders are nested and long (a NAM pack is a folder per amp), and a native select is
-    // one flat alphabetical scroll with no search. Clicking asks the shell to open the
-    // same browsing popup the `+` on an arrow uses — see LibraryPicker.
-    const current = n.assets?.[w.library] ?? "";
+  } else if (w.type === "filepicker" || (w.type === "dropdown" && w.library)) {
+    // Picks a FILE the module carries, for the file-valued param it binds. A button, not a
+    // <select>: these folders are nested and long (a NAM pack is a folder per amp), and a
+    // native select is one flat alphabetical scroll with no search. Clicking asks the shell to
+    // open the same browsing popup the `+` on an arrow uses — see AssetPicker.
+    //
+    // `dropdown` + `library` is the older spelling of the same widget, from when the files came
+    // from a shared library instead of the module's own assets/. Read as a filepicker so every
+    // panel already written keeps working — see docs/filePicker.md.
+    const param = String(w.type === "filepicker" ? (w.bind ?? "") : w.library);
+    const current = n.assets?.[param] ?? "";
     const shown = current
       ? current.slice(current.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")
       : "—";
@@ -1039,11 +1044,11 @@ function Widget({
       <button
         type="button"
         className={`dgx-sel${current ? "" : " unknown"}`}
-        title={current || `pick a ${w.library} file`}
+        title={current || `pick a ${param} file`}
         disabled={!n.module}
         onClick={(e) => {
           e.stopPropagation();
-          onPickLibrary(n, String(w.library), e.clientX, e.clientY);
+          onPickAsset(n, param, e.clientX, e.clientY);
         }}
       >
         {shown}
@@ -1166,7 +1171,7 @@ function Node({
   onDragStart,
   onTapWidget,
   onPickWidget,
-  onPickLibrary,
+  onPickAsset,
   onWatchWaveform,
   onContextParam,
   sinkPlay,
@@ -1190,7 +1195,7 @@ function Node({
   onPickWidget: (n: GraphNode, w: WebWidget, value: number) => void;
   // A library dropdown's pick — a FILE for the module field named by the asset kind.
   /** Open the library browser for this widget, at the click's viewport coords. */
-  onPickLibrary: (n: GraphNode, kind: string, x: number, y: number) => void;
+  onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -1530,7 +1535,7 @@ function Node({
             onDragStart={onDragStart}
             onTap={onTapWidget}
             onPick={onPickWidget}
-            onPickLibrary={onPickLibrary}
+            onPickAsset={onPickAsset}
             onWatchWaveform={onWatchWaveform}
             onContextParam={onContextParam}
           />
@@ -1793,7 +1798,7 @@ export function DomChains({
   command,
   onBypassModule,
   onSetModuleAsset,
-  onLibraryBrowse,
+  onAssetBrowse,
   onWatchWaveform,
   sinkPlay,
   pluginParamsStore,
@@ -1832,12 +1837,7 @@ export function DomChains({
   // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
-  onLibraryBrowse?: (
-    module: string,
-    kind: string,
-    x: number,
-    y: number,
-  ) => void;
+  onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap while a waveform widget is on screen. */
   onWatchWaveform?: (
     pluginId: string,
@@ -1886,7 +1886,7 @@ export function DomChains({
     command,
     onBypassModule,
     onSetModuleAsset,
-    onLibraryBrowse,
+    onAssetBrowse,
     setPluginParam,
     onTrackToggle,
     onTrackSet,
@@ -1900,7 +1900,7 @@ export function DomChains({
     command,
     onBypassModule,
     onSetModuleAsset,
-    onLibraryBrowse,
+    onAssetBrowse,
     setPluginParam,
     onTrackToggle,
     onTrackSet,
@@ -2286,8 +2286,8 @@ export function DomChains({
   // shell's to render, exactly as the `+` on an arrow works. What comes back is written by
   // the shell too — an asset loads when the plugin is BUILT, so there is nothing optimistic
   // to do here.
-  const pickLibrary = (n: GraphNode, kind: string, x: number, y: number) => {
-    if (n.module) cb.current.onLibraryBrowse?.(n.module, kind, x, y);
+  const pickAsset = (n: GraphNode, param: string, x: number, y: number) => {
+    if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y);
   };
   // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
   const pickWidget = (n: GraphNode, w: WebWidget, value: number) => {
@@ -2447,7 +2447,7 @@ export function DomChains({
                 onDragStart={beginDrag}
                 onTapWidget={tapWidget}
                 onPickWidget={pickWidget}
-                onPickLibrary={pickLibrary}
+                onPickAsset={pickAsset}
                 onWatchWaveform={onWatchWaveform}
                 onContextParam={contextParam}
                 sinkPlay={sinkPlay}

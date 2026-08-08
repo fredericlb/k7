@@ -8,7 +8,8 @@ import { isPluginScanned } from "@studio/engine-client/pluginCache";
 import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
-import { listModuleAssets } from "@studio/song/loader";
+import { loadModuleRefs } from "@studio/song/loader";
+import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   JSDSP_TYPE,
@@ -20,17 +21,16 @@ import {
 // keep in step did not even mention this one.
 export { EXTERNAL_PLUGIN_FORMATS };
 
-/** A module's own `assets/`, or nothing — for a module with no folder of its own (one the
- *  engine provides, named by a chain with no local file), there is nothing to list. */
+/** The assets a module may name — its own and its ancestors', so a thin local module that
+ *  extends a médiathèque amp offers that amp's profiles. Nothing for a module the engine
+ *  merely reports: it has no folder anywhere. */
 function assetChoicesFor(
   dir: string,
-  module: { category?: string; file?: string } | undefined,
+  module: { category?: string; file?: string; extends?: string } | undefined,
+  refs: Readonly<Record<string, { extends?: unknown }>>,
 ): string[] | undefined {
-  if (!module?.category || !module?.file) return undefined;
   try {
-    const files = listModuleAssets(
-      join(dir, "modules", String(module.category), String(module.file)),
-    );
+    const files = moduleAssetChoices(dir, module, refs);
     return files.length ? files : undefined;
   } catch {
     return undefined;
@@ -46,6 +46,15 @@ export function buildGraphDoc(dir: string): WebGraph {
       return loadCurves(dir);
     } catch {
       return {}; // a broken curve file shouldn't take the whole graph down
+    }
+  })();
+  // The `extends` vocabulary, read ONCE: the asset walk needs it per step, and re-reading the
+  // libraries for every module in the graph would be a disk walk per node.
+  const moduleRefs = (() => {
+    try {
+      return loadModuleRefs(dir);
+    } catch {
+      return {}; // no vocabulary just means no inherited assets, not a broken graph
     }
   })();
   const usedCurves: WebGraph["curves"] = {};
@@ -121,7 +130,7 @@ export function buildGraphDoc(dir: string): WebGraph {
           // …and what it may choose from: the module's OWN assets/, walked. Per module rather
           // than once for the graph, because there is no shared library any more — the choices
           // ARE the folder's contents. An unreadable folder is an empty one, never a failure.
-          assetChoices: assetChoicesFor(dir, module),
+          assetChoices: assetChoicesFor(dir, module, moduleRefs),
           // Its type folder — the node's icon. From the module itself, never its base: a kind comes from where IT lives.
           category: module?.category as WebChainStep["category"],
           // What leaves this module — the colour of the cable to the next one.

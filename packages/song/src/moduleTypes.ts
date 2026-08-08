@@ -138,6 +138,25 @@ export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
  * knob. A param not in this list is a number, and that is still the overwhelming majority.
  */
 export const FILE_PARAMS = ["nam", "onnx"] as const;
+
+/**
+ * The extension a file-valued param takes — `nam` loads `.nam`, `onnx` loads `.onnx`.
+ *
+ * Derived from the param's NAME rather than declared on the widget that picks it, because those
+ * two facts have never disagreed: the param is named after the format it loads. A widget that had
+ * to repeat it would be a second place to get it wrong, and its author already wrote `bind: nam`.
+ *
+ * Here, beside FILE_PARAMS and free of `node:fs`, because the PICKER runs in a browser: the panel
+ * filters the module's assets down to the ones its param can take. `moduleAssetChoices` reads
+ * disk and is the node-only half.
+ */
+export const assetExtFor = (param: string): string => `.${param.toLowerCase()}`;
+
+/** Those of `files` a param of this name can take. */
+export function assetsForParam(files: string[], param: string): string[] {
+  const ext = assetExtFor(param);
+  return files.filter((f) => f.toLowerCase().endsWith(ext));
+}
 export type FileParam = (typeof FILE_PARAMS)[number];
 export const isFileParam = (name: string): name is FileParam =>
   (FILE_PARAMS as readonly string[]).includes(name);

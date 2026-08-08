@@ -23,7 +23,9 @@ export interface WebWidget {
     | "meter"
     | "tabs"
     | "waveform"
-    | "dropdown";
+    | "dropdown"
+    // Picks a FILE the module carries for the file-valued param it binds — see filePicker.md.
+    | "filepicker";
   col: number;
   row: number;
   colSpan?: number;
@@ -39,7 +41,8 @@ export interface WebWidget {
   source?: "input" | "output"; // waveform only: which audio tap to display
   // dropdown only: a discrete param's named settings with the value that selects each (not derivable from index).
   options?: { label: string; value: number }[];
-  // dropdown only: choices from a library folder ("ir"). Picking one writes the module's own field, not a param.
+  // dropdown only, and HISTORICAL: the older spelling of a filepicker, from when the files came
+  // from a shared library. Read as one, so panels already written keep working.
   library?: string;
 }
 export interface WebModuleUI {

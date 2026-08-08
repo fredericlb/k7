@@ -37,6 +37,7 @@ import { api, moduleStore } from "./api";
 import { STUDIO_ICONS } from "./chainsIcons";
 import { canonicalizeCommand } from "./commandI18n";
 import { AlternativePicker } from "./components/AlternativePicker";
+import { AssetPicker } from "./components/AssetPicker";
 import { ChainsTab } from "./components/ChainsTab";
 import {
   CommandBar,
@@ -54,7 +55,6 @@ import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
 import { IoPanel } from "./components/IoPanel";
-import { LibraryPicker } from "./components/LibraryPicker";
 import { LogsPanel } from "./components/LogsPanel";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MixerTab } from "./components/MixerTab";
@@ -920,29 +920,30 @@ export default function App({
   }, []);
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingInsert | null>(null);
-  // "which file?" — the module widget's asset browser. The popup is viewport-positioned,
+  // "which file?" — a filepicker widget's asset browser. The popup is viewport-positioned,
   // so the shell renders it, exactly as it does the `+`'s module picker below.
-  const [libraryPicker, setLibraryPicker] = useState<{
+  const [assetPicker, setAssetPicker] = useState<{
     module: string;
-    kind: string;
+    param: string;
     x: number;
     y: number;
     files: string[];
   } | null>(null);
-  const browseLibrary = useCallback(
-    (module: string, kind: string, x: number, y: number) => {
-      // The choices are the MODULE's own assets/, carried on its node — there is no
-      // project-wide library to fetch any more. Re-read from the graph rather than kept in
-      // state, so a file dropped on the module since the last look is offered.
+  const browseAssets = useCallback(
+    (module: string, param: string, x: number, y: number) => {
+      // The choices are the MODULE's own assets/ and its ancestors', carried on its node — a
+      // thin local module extending a médiathèque amp offers that amp's profiles. Re-read from
+      // the graph rather than kept in state, so a file dropped on the module since the last look
+      // is offered. Filtering to the param's extension is the picker's own job.
       void api
         .graph()
         .then((g) => {
           const step = Object.values(g.chains ?? {})
             .flatMap((c) => c.use ?? [])
             .find((s) => s.module === module);
-          setLibraryPicker({
+          setAssetPicker({
             module,
-            kind,
+            param,
             x,
             y,
             files: step?.assetChoices ?? [],
@@ -1498,7 +1499,7 @@ export default function App({
                     void runCommand(`module bypass ${mod}`)
                   }
                   engineWarnings={engineWarnings}
-                  onLibraryBrowse={browseLibrary}
+                  onAssetBrowse={browseAssets}
                   onWatchWaveform={watchWaveform}
                   onSetModuleAsset={(mod, kind, f) =>
                     void runCommand(`module ${kind} ${mod} ${f}`)
@@ -1780,19 +1781,20 @@ export default function App({
 
         {/* "which file?" — a module widget's library browser: the same popup as the `+`,
             because both are a nested catalogue you either browse or search. */}
-        {libraryPicker && (
-          <LibraryPicker
-            x={libraryPicker.x}
-            y={libraryPicker.y}
-            kind={libraryPicker.kind}
-            files={libraryPicker.files}
+        {assetPicker && (
+          <AssetPicker
+            x={assetPicker.x}
+            y={assetPicker.y}
+            param={assetPicker.param}
+            files={assetPicker.files}
             onPick={(file) => {
-              const { module, kind } = libraryPicker;
-              setLibraryPicker(null);
+              const { module, param } = assetPicker;
+              setAssetPicker(null);
+              // The param names the command AND the key written — `module nam <module> <file>`.
               // "" is a real choice — clearing the asset; the command spells that `none`.
-              void runCommand(`module ${kind} ${module} ${file || "none"}`);
+              void runCommand(`module ${param} ${module} ${file || "none"}`);
             }}
-            onClose={() => setLibraryPicker(null)}
+            onClose={() => setAssetPicker(null)}
           />
         )}
 

@@ -4,7 +4,7 @@
 // Generic over what a leaf CARRIES, because two things browse this way and behaving
 // differently would be a coin toss for the user: the `+` on a graph arrow picking a module
 // (ModulePicker), and a module widget picking a file from the asset library
-// (LibraryPicker). Both are "a nested catalogue, searchable" — the only difference is what
+// (AssetPicker). Both are "a nested catalogue, searchable" — the only difference is what
 // the tree is built from and what a pick hands back.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
