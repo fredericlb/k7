@@ -3,7 +3,7 @@
 // parameter set ~20×/s, and holding that in React state re-renders a whole tree just to
 // move one knob. The writer never re-renders on a frame; only what draws the values does.
 
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 // id (`chain:module`) -> its live parameter values.
 export type PluginParamsMap = Record<string, Record<string, number>>;
@@ -11,6 +11,7 @@ export type PluginParamsMap = Record<string, Record<string, number>>;
 export class PluginParamsStore {
   private map: PluginParamsMap = {};
   private listeners = new Set<() => void>();
+  private byId = new Map<string, Set<() => void>>();
 
   getSnapshot = (): PluginParamsMap => this.map;
 
@@ -21,10 +22,28 @@ export class PluginParamsStore {
     };
   };
 
+  // Subscribe to ONE plugin. See docs/params.md for why this channel exists beside the whole-map one.
+  subscribeTo = (id: string, cb: () => void): (() => void) => {
+    let set = this.byId.get(id);
+    if (!set) {
+      set = new Set();
+      this.byId.set(id, set);
+    }
+    set.add(cb);
+    return () => {
+      const s = this.byId.get(id);
+      if (!s) return;
+      s.delete(cb);
+      if (!s.size) this.byId.delete(id);
+    };
+  };
+
   // Merge one plugin's values, replacing the map reference so useSyncExternalStore sees it, then poke subscribers.
   set = (id: string, params: Record<string, number>): void => {
     this.map = { ...this.map, [id]: params };
     for (const l of this.listeners) l();
+    const s = this.byId.get(id);
+    if (s) for (const l of s) l();
   };
 }
 
@@ -35,4 +54,27 @@ export function usePluginParams(store: PluginParamsStore): PluginParamsMap {
     store.getSnapshot,
     store.getSnapshot,
   );
+}
+
+/**
+ * One plugin param's live value. Returns a PRIMITIVE, so React's own Object.is is the equality
+ * cache and a frame that did not move this number re-renders nothing — see docs/params.md.
+ *
+ * A null id or name is the "nothing to watch" case (a widget bound to a track or an offline
+ * module), so a caller can hold the hook unconditionally.
+ */
+export function usePluginParamValue(
+  store: PluginParamsStore,
+  id: string | null,
+  name: string | null,
+): number | undefined {
+  const subscribe = useCallback(
+    (cb: () => void) => (id ? store.subscribeTo(id, cb) : () => {}),
+    [store, id],
+  );
+  const read = useCallback(
+    () => (id && name ? store.getSnapshot()[id]?.[name] : undefined),
+    [store, id, name],
+  );
+  return useSyncExternalStore(subscribe, read, read);
 }

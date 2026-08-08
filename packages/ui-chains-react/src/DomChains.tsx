@@ -7,7 +7,7 @@
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import {
   PluginParamsStore,
-  usePluginParams,
+  usePluginParamValue,
 } from "@studio/engine-browser/params";
 import {
   EngineStore,
@@ -49,6 +49,8 @@ import {
 import { Snowflake } from "lucide-react";
 import {
   createContext,
+  memo,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -140,7 +142,8 @@ function useIcons(): ChainsIcons {
   return v;
 }
 
-// A shared, never-updated store for a graph without live params — lets DomChains call the hook unconditionally.
+// A shared, never-updated store for a graph without live params — gives every widget something
+// to subscribe to, so the hook is unconditional and a host may still pass nothing.
 const EMPTY_PARAMS_STORE = new PluginParamsStore();
 
 // Signal-typed accents. Sand is the neutral, automation mauve; a track control keeps its own M/S/A identity colour.
@@ -490,6 +493,33 @@ function widgetTarget(
     : null;
 }
 
+// Is any optimistic value outstanding on this channel? The guard that keeps a frame free when none is.
+function hasChannel(o: Record<string, number>, prefix: string): boolean {
+  for (const key in o) if (key.startsWith(prefix)) return true;
+  return false;
+}
+
+/**
+ * The override map with one channel's entries dropped, keeping the one under the hand.
+ *
+ * Returns the SAME object when it dropped nothing. A fresh one is never Object.is-equal to the
+ * state, so `setOverride` would re-render on every incoming frame purely to say nothing changed —
+ * which, at a plugin's ~20 frames a second per plugin, doubled the graph's render rate.
+ */
+function dropChannel(
+  o: Record<string, number>,
+  prefix: string,
+  under: string | undefined,
+): Record<string, number> {
+  let dropped = false;
+  const keep: Record<string, number> = {};
+  for (const key in o) {
+    if (key.startsWith(prefix) && key !== under) dropped = true;
+    else keep[key] = o[key];
+  }
+  return dropped ? keep : o;
+}
+
 // The override map's key: an optimistic value that outranks the incoming frame until that frame catches up.
 function targetKey(t: WidgetTarget): string {
   if (t.kind === "track") return `t:${t.trackId}:${t.control}`;
@@ -531,7 +561,9 @@ export interface Cam {
 export type CamStore = React.MutableRefObject<Cam | null>;
 
 interface Channels {
-  liveParams: Record<string, Record<string, number>>;
+  // The STORE, not its map: each widget subscribes to its own plugin, so one plugin's frame
+  // re-renders one control instead of the graph. See @studio/engine-browser's docs/params.md.
+  params: PluginParamsStore;
   trackControls: Record<string, TrackControlValues>;
   override: Record<string, number>;
   // The engine's `levels` arrive by POSITION, so metering anything needs the order to name them. Here rather than
@@ -554,11 +586,18 @@ interface Channels {
   trackWritable: boolean;
 }
 
-// The value a widget shows: override, else engine, else authored, else nothing. See docs/chainsGraph.md.
+/**
+ * The value a widget shows: override, else engine, else authored, else nothing. See docs/chainsGraph.md.
+ *
+ * `live` is the subscribed value when the caller is a rendering widget, which holds its own
+ * subscription. An event handler passes none and the store is read at call time — which for a
+ * handler is the RIGHT reading, being the value as of the click rather than as of the last paint.
+ */
 function widgetValue(
   n: GraphNode,
   w: WebWidget,
   ch: Channels,
+  live?: number,
 ): number | undefined {
   const tgt = widgetTarget(n, w, ch.offlineChannel);
   if (!tgt) return undefined;
@@ -570,10 +609,12 @@ function widgetValue(
       : tgt.kind === "module"
         ? moduleFieldValue(n, w, tgt.field)
         : tgt.kind === "offline"
-          // What the SURFACE that realises it says, else what the file authored. There is no
-          // engine answer to fall back on: the compiler emitted no plugin to ask.
-          ? (ch.moduleParams[tgt.module]?.[tgt.name] ?? n.params?.[tgt.name])
-          : (ch.liveParams[tgt.pluginId]?.[tgt.name] ?? n.params?.[tgt.name]);
+          ? // What the SURFACE that realises it says, else what the file authored. There is no
+            // engine answer to fall back on: the compiler emitted no plugin to ask.
+            (ch.moduleParams[tgt.module]?.[tgt.name] ?? n.params?.[tgt.name])
+          : (live ??
+            ch.params.getSnapshot()[tgt.pluginId]?.[tgt.name] ??
+            n.params?.[tgt.name]);
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
@@ -911,7 +952,7 @@ function WaveformWidget({
 }
 
 // One widget at its widgetRect box: knob/slider/number drag, toggle/button tap, painted off the override.
-function Widget({
+function WidgetInner({
   n,
   w,
   ch,
@@ -944,6 +985,16 @@ function Widget({
   styleOverride?: React.CSSProperties;
 }) {
   const r = widgetRect(w);
+  // Hoisted above the two delegating returns because the subscription below is a hook and a hook
+  // cannot live after one. Pure, and null for both of them — neither type carries a `bind`.
+  const tgt = widgetTarget(n, w, ch.offlineChannel);
+  // This control's own live value: a plugin frame re-renders this widget, not the graph. Same
+  // shape as InputMeterBar and FaderMeter below — the leaf that draws the number owns the tap.
+  const live = usePluginParamValue(
+    ch.params,
+    tgt?.kind === "plugin" ? tgt.pluginId : null,
+    tgt?.kind === "plugin" ? tgt.name : null,
+  );
 
   // Tabs widget: delegate to TabsWidget
   if (w.type === "tabs") {
@@ -979,7 +1030,6 @@ function Widget({
     );
   }
 
-  const tgt = widgetTarget(n, w, ch.offlineChannel);
   // Drawn from a value it cannot change: read-only rather than dead, which is what an offline
   // module looks like on a surface that only borrows its number — and now what ANY widget looks
   // like when its host gave no way back. Read-only is honest; draggable-and-ignored is not.
@@ -990,7 +1040,7 @@ function Widget({
       : tgt.kind === "track"
         ? ch.trackWritable
         : ch.pluginWritable);
-  const value = widgetValue(n, w, ch);
+  const value = widgetValue(n, w, ch, live);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
   const style: React.CSSProperties = styleOverride ?? {
@@ -1162,6 +1212,8 @@ function Widget({
     </div>
   );
 }
+// Memoised: it holds its own param tap now, so a frame that did not move THIS number must not redraw it.
+const Widget = memo(WidgetInner);
 
 // Fit one line of text to a box in world units: glyph-count width, capped by height, floored so it never vanishes.
 function fitFont(label: string, w: number, h: number): number {
@@ -1229,7 +1281,7 @@ function FaderMeter({ trackId, order }: { trackId: string; order: string[] }) {
   );
 }
 
-function Node({
+function NodeInner({
   n,
   selected,
   showWidgets,
@@ -1650,11 +1702,13 @@ function Node({
     </div>
   );
 }
+// Memoised: with `ch` and every handler stable, a pan or a param frame re-renders no card at all.
+const Node = memo(NodeInner);
 
 // The SVG cable layer. React renders the cables at REST; the wobble is then driven by
 // writing `d` straight onto the two path nodes from a rAF, so a playing song costs no
 // reconciliation and no allocation per frame (see wobbleD).
-function Cables({
+function CablesInner({
   signal,
   auto,
   live,
@@ -1860,6 +1914,8 @@ function Cables({
     </>
   );
 }
+// Memoised: a pan changes the camera, not the cables, and the wobble already bypasses React.
+const Cables = memo(CablesInner);
 
 // Map a right-clicked node to the shell's menu context (track id, module instance, chain name; curves have none).
 function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
@@ -1996,8 +2052,9 @@ export function DomChains({
   ) => void;
 }) {
   useCss();
-  // Live plugin params from the external store — subscribing here re-renders only the graph on a param frame.
-  const pluginParams = usePluginParams(pluginParamsStore ?? EMPTY_PARAMS_STORE);
+  // NOT subscribed here: each widget taps its own plugin, so one frame moves one control rather
+  // than re-rendering every node. See @studio/engine-browser's docs/params.md.
+  const params = pluginParamsStore ?? EMPTY_PARAMS_STORE;
   const hostRef = useRef<HTMLDivElement>(null);
   const [cam, setCam] = useState(
     () => camStore?.current ?? { x: 0, y: 0, k: 1 },
@@ -2201,85 +2258,106 @@ export function DomChains({
     value: number;
     sent: boolean;
   } | null>(null);
+  const overrideRef = useRef(override);
+  overrideRef.current = override;
   useEffect(() => {
     // A plugin frame landed: drop the overrides it now speaks for, keeping the one under the hand.
-    setOverride((o) => {
-      const dk = drag.current?.key;
-      const keep: Record<string, number> = {};
-      for (const key in o)
-        if (!key.startsWith("p:") || key === dk) keep[key] = o[key];
-      return keep;
+    // Subscribed rather than depended on, so a frame reconciling nothing costs one key scan and
+    // no render — which is the whole point of not holding the param map up here.
+    return params.subscribe(() => {
+      if (!hasChannel(overrideRef.current, "p:")) return;
+      setOverride((o) => dropChannel(o, "p:", drag.current?.key));
     });
-  }, [pluginParams]);
+  }, [params]);
   useEffect(() => {
-    setOverride((o) => {
-      const dk = drag.current?.key;
-      const keep: Record<string, number> = {};
-      for (const key in o)
-        if (!key.startsWith("o:") || key === dk) keep[key] = o[key];
-      return keep;
-    });
+    setOverride((o) => dropChannel(o, "o:", drag.current?.key));
   }, [moduleParams]);
   useEffect(() => {
-    setOverride((o) => {
-      const dk = drag.current?.key;
-      const keep: Record<string, number> = {};
-      for (const key in o)
-        if (!key.startsWith("t:") || key === dk) keep[key] = o[key];
-      return keep;
-    });
+    setOverride((o) => dropChannel(o, "t:", drag.current?.key));
   }, [trackControls]);
 
-  const ch: Channels = {
-    liveParams: pluginParams ?? {},
-    trackControls: trackControls ?? {},
-    override,
-    trackOrder: trackOrder ?? EMPTY_ORDER,
-    moduleParams: moduleParams ?? {},
-    // Either prop turns the channel on: a host may only be able to SHOW such a value (m9's
-    // graph, while the desk that realises it is unmounted) or only to take one.
-    offlineChannel: moduleParams !== undefined || onModuleParam !== undefined,
-    pluginWritable: setPluginParam !== undefined,
-    // Either one: a track node's widgets are the toggles AND the two continuous controls, and a
-    // host that wired one half meant it.
-    trackWritable: onTrackSet !== undefined || onTrackToggle !== undefined,
-    offlineWritable: onModuleParam !== undefined,
-  };
+  // Either prop turns the channel on: a host may only be able to SHOW such a value (m9's
+  // graph, while the desk that realises it is unmounted) or only to take one.
+  const offlineChannel =
+    moduleParams !== undefined || onModuleParam !== undefined;
+  const pluginWritable = setPluginParam !== undefined;
+  // Either one: a track node's widgets are the toggles AND the two continuous controls, and a
+  // host that wired one half meant it.
+  const trackWritable = onTrackSet !== undefined || onTrackToggle !== undefined;
+  const offlineWritable = onModuleParam !== undefined;
+  // Memoised on VALUES, never on the host's callbacks: a host that passes an inline lambda
+  // (App.tsx does, to GraphPanel) would otherwise hand every node a new `ch` on every render.
+  const ch = useMemo<Channels>(
+    () => ({
+      params,
+      trackControls: trackControls ?? {},
+      override,
+      trackOrder: trackOrder ?? EMPTY_ORDER,
+      moduleParams: moduleParams ?? {},
+      offlineChannel,
+      pluginWritable,
+      trackWritable,
+      offlineWritable,
+    }),
+    [
+      params,
+      trackControls,
+      override,
+      trackOrder,
+      moduleParams,
+      offlineChannel,
+      pluginWritable,
+      trackWritable,
+      offlineWritable,
+    ],
+  );
+
+  // The same trick the window listeners use below, extended to the node handlers: read the current
+  // value through a ref so every handler can be bound once and a memoised Node never sees a new prop.
+  // Assigned on every render, never in an effect — an effect would serve one render's stale value.
+  const chRef = useRef(ch);
+  chRef.current = ch;
+  const selRef = useRef(selected);
+  selRef.current = selected;
 
   // --- widget drag (knob/slider/number): live sends coalesced, commit on release ------
-  const beginDrag = (n: GraphNode, w: WebWidget, e: React.PointerEvent) => {
-    e.stopPropagation(); // don't select the node or start a pan
-    // A frozen MODULE's plugin does not exist in the engine — the render replaced it — so a knob here would
-    // move, send a param set into the void, and be discarded on the next reload. A frozen TRACK is different:
-    // its node's widgets are the mixer strip, and gain/pan/mute are exactly what stays live.
-    if (n.frozen && n.kind === "module") return;
-    const tgt = widgetTarget(n, w, ch.offlineChannel);
-    if (!tgt) return;
-    const v = widgetValue(n, w, ch);
-    drag.current = {
-      node: n,
-      w,
-      tgt,
-      key: targetKey(tgt),
-      startT: v === undefined ? 0 : widgetNorm(w, v),
-      startY: e.clientY,
-      // A fader sweeps over its OWN throw, so the cap tracks the pointer instead of running away from it — the one
-      // control here whose travel is drawn on screen, and the one where a fixed 150 px would be visibly wrong.
-      // Measured off the rail rather than derived from the box: the readout, the caption and the borders all eat
-      // into it, and clientHeight is exactly the span the cap's centre line moves over. Arithmetic would drift the
-      // moment any of that changed, and the drift is the bug — a cap that does not stay under the finger.
-      travel:
-        w.type === "fader"
-          ? Math.max(
-              40,
-              (e.currentTarget as HTMLElement).querySelector(".rail")
-                ?.clientHeight ?? DRAG_TRAVEL_PX,
-            )
-          : DRAG_TRAVEL_PX,
-      value: v ?? widgetDenorm(w, 0),
-      sent: false,
-    };
-  };
+  const beginDrag = useCallback(
+    (n: GraphNode, w: WebWidget, e: React.PointerEvent) => {
+      const ch = chRef.current;
+      e.stopPropagation(); // don't select the node or start a pan
+      // A frozen MODULE's plugin does not exist in the engine — the render replaced it — so a knob here would
+      // move, send a param set into the void, and be discarded on the next reload. A frozen TRACK is different:
+      // its node's widgets are the mixer strip, and gain/pan/mute are exactly what stays live.
+      if (n.frozen && n.kind === "module") return;
+      const tgt = widgetTarget(n, w, ch.offlineChannel);
+      if (!tgt) return;
+      const v = widgetValue(n, w, ch);
+      drag.current = {
+        node: n,
+        w,
+        tgt,
+        key: targetKey(tgt),
+        startT: v === undefined ? 0 : widgetNorm(w, v),
+        startY: e.clientY,
+        // A fader sweeps over its OWN throw, so the cap tracks the pointer instead of running away from it — the one
+        // control here whose travel is drawn on screen, and the one where a fixed 150 px would be visibly wrong.
+        // Measured off the rail rather than derived from the box: the readout, the caption and the borders all eat
+        // into it, and clientHeight is exactly the span the cap's centre line moves over. Arithmetic would drift the
+        // moment any of that changed, and the drift is the bug — a cap that does not stay under the finger.
+        travel:
+          w.type === "fader"
+            ? Math.max(
+                40,
+                (e.currentTarget as HTMLElement).querySelector(".rail")
+                  ?.clientHeight ?? DRAG_TRAVEL_PX,
+              )
+            : DRAG_TRAVEL_PX,
+        value: v ?? widgetDenorm(w, 0),
+        sent: false,
+      };
+    },
+    [],
+  );
 
   // Global pointer handling — pan, widget drag, gesture settle. Bound once; a movement threshold gates selection.
   const pan = useRef<{
@@ -2403,21 +2481,22 @@ export function DomChains({
   }, []);
 
   // --- node + widget actions ---------------------------------------------------------
-  const tapNode = (n: GraphNode) => {
+  const tapNode = useCallback((n: GraphNode) => {
     if (suppressClick.current) return; // that click ended a pan
+    const selected = selRef.current;
     cb.current.onPickModule?.(n.kind === "module" ? (n.module ?? null) : null);
     if (n.kind === "module" && n.module) {
       cb.current.onSelect(selected === n.module ? null : n.module);
     } else if (n.chain) {
       cb.current.onSelect(selected === n.chain ? null : n.chain);
     }
-  };
-  const contextNode = (n: GraphNode, e: React.MouseEvent) => {
+  }, []);
+  const contextNode = useCallback((n: GraphNode, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const ctx = nodeToCtx(n);
     if (ctx) cb.current.onContextMenu?.(ctx, e.clientX, e.clientY);
-  };
+  }, []);
   /**
    * Right-click on a CONTROL: the menu for the param it drives.
    *
@@ -2431,119 +2510,134 @@ export function DomChains({
    *
    * Both fall through to the node's own menu, which is what they had before.
    */
-  const contextParam = (
-    n: GraphNode,
-    w: WebWidget,
-    x: number,
-    y: number,
-  ): void => {
-    if (!n.module || !w.bind || w.bind.startsWith("@") || !n.pluginId) return;
-    cb.current.onContextMenu?.(
-      {
-        kind: "param",
-        id: n.module,
-        param: w.bind,
-        label: w.label || w.bind,
-        cc: n.cc?.[w.bind],
-      },
-      x,
-      y,
-    );
-  };
-  const openPlugin = (module: string) =>
-    void cb.current.command(`module open ${module}`);
+  const contextParam = useCallback(
+    (n: GraphNode, w: WebWidget, x: number, y: number): void => {
+      if (!n.module || !w.bind || w.bind.startsWith("@") || !n.pluginId) return;
+      cb.current.onContextMenu?.(
+        {
+          kind: "param",
+          id: n.module,
+          param: w.bind,
+          label: w.label || w.bind,
+          cc: n.cc?.[w.bind],
+        },
+        x,
+        y,
+      );
+    },
+    [],
+  );
+  const openPlugin = useCallback(
+    (module: string) => void cb.current.command(`module open ${module}`),
+    [],
+  );
   // Bare `module bypass` toggles, and NOT the quiet path: bypass changes the graph's shape, so it must reload.
-  const bypassModule = (module: string) => cb.current.onBypassModule?.(module);
+  const bypassModule = useCallback(
+    (module: string) => cb.current.onBypassModule?.(module),
+    [],
+  );
   // The widget only ASKS: the browser popup is a viewport-positioned overlay, so it is the
   // shell's to render, exactly as the `+` on an arrow works. What comes back is written by
   // the shell too — an asset loads when the plugin is BUILT, so there is nothing optimistic
   // to do here.
-  const pickAsset = (n: GraphNode, param: string, x: number, y: number) => {
-    if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y);
-  };
+  const pickAsset = useCallback(
+    (n: GraphNode, param: string, x: number, y: number) => {
+      if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y);
+    },
+    [],
+  );
   // What feeds a track. Same shape as the asset browser above and for the same reason: the
   // list is the MACHINE's — its interface, its channel labels — and the graph knows neither.
-  const pickTrackInput = (n: GraphNode, x: number, y: number) => {
+  const pickTrackInput = useCallback((n: GraphNode, x: number, y: number) => {
     cb.current.onPickTrackInput?.(n.label, x, y);
-  };
-  // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
-  const pickWidget = (n: GraphNode, w: WebWidget, value: number) => {
-    const tgt = widgetTarget(n, w, ch.offlineChannel);
-    if (!tgt || tgt.kind === "track") return; // a track intrinsic has no named settings
-    if (tgt.kind === "module") {
-      setModuleField(w, tgt, value);
-      return;
-    }
-    if (tgt.kind === "offline") {
-      setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
-      cb.current.onModuleParam?.(tgt.module, tgt.name, value);
-      return;
-    }
-    setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
-    cb.current.setPluginParam?.(tgt.pluginId, tgt.name, value);
-    if (n.module)
-      cb.current.command(
-        `module param ${n.module} ${JSON.stringify(tgt.name)} ${value}`,
-      );
-  };
-
+  }, []);
   /**
    * Commit a module FIELD: the option's label, written into the module's own file.
    *
    * No optimism and no socket. A field is not a plugin param — there is nothing live to set, and the engine
    * learns it by rebuilding the track's input, so the reload the command triggers IS how it takes effect.
    * Showing the new value before that would be a guess about a round-trip we can just wait for.
+   *
+   * Declared before its two callers because their dependency arrays name it, and those are evaluated
+   * on the spot rather than at call time.
    */
-  const setModuleField = (
-    w: WebWidget,
-    tgt: { module: string; field: string },
-    value: number,
-  ) => {
-    const label = w.options?.find((o) => o.value === value)?.label;
-    if (!label) return; // a field with no named settings — nothing to write
-    cb.current.command(`module ${tgt.field} ${tgt.module} ${label}`);
-  };
+  const setModuleField = useCallback(
+    (w: WebWidget, tgt: { module: string; field: string }, value: number) => {
+      const label = w.options?.find((o) => o.value === value)?.label;
+      if (!label) return; // a field with no named settings — nothing to write
+      cb.current.command(`module ${tgt.field} ${tgt.module} ${label}`);
+    },
+    [],
+  );
 
-  const tapWidget = (n: GraphNode, w: WebWidget) => {
-    const tgt = widgetTarget(n, w, ch.offlineChannel);
-    if (!tgt) return;
-    if (tgt.kind === "track") {
-      // Mute/solo/arm: no optimism, so a rapid double-click can't leave the button inverted against the file.
-      if (
-        tgt.control === "mute" ||
-        tgt.control === "solo" ||
-        tgt.control === "arm"
-      )
-        cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
-      return;
-    }
-    // A module field cycles through its own named settings — there is no 0/1 to flip.
-    if (tgt.kind === "module") {
-      const opts = w.options ?? [];
-      const at = opts.findIndex((o) => o.value === widgetValue(n, w, ch));
-      const next = opts[(at + 1) % (opts.length || 1)];
-      if (next) setModuleField(w, tgt, next.value);
-      return;
-    }
-    // A plugin toggle has no such round-trip: set it 0/1 down the socket, optimistically, and commit at once.
-    const cur = widgetValue(n, w, ch);
-    const on = cur !== undefined && widgetNorm(w, cur) >= 0.5;
-    const next = widgetDenorm(w, on ? 0 : 1);
-    setOverride((o) => ({ ...o, [targetKey(tgt)]: next }));
-    if (tgt.kind === "offline") {
-      cb.current.onModuleParam?.(tgt.module, tgt.name, next);
-      return;
-    }
-    cb.current.setPluginParam?.(tgt.pluginId, tgt.name, next);
-    if (n.module)
-      cb.current.command(
-        `module param ${n.module} ${JSON.stringify(tgt.name)} ${next}`,
-      );
-  };
-  const insert = (info: EdgeInsert, x: number, y: number) => {
+  // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
+  const pickWidget = useCallback(
+    (n: GraphNode, w: WebWidget, value: number) => {
+      const tgt = widgetTarget(n, w, chRef.current.offlineChannel);
+      if (!tgt || tgt.kind === "track") return; // a track intrinsic has no named settings
+      if (tgt.kind === "module") {
+        setModuleField(w, tgt, value);
+        return;
+      }
+      if (tgt.kind === "offline") {
+        setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
+        cb.current.onModuleParam?.(tgt.module, tgt.name, value);
+        return;
+      }
+      setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
+      cb.current.setPluginParam?.(tgt.pluginId, tgt.name, value);
+      if (n.module)
+        cb.current.command(
+          `module param ${n.module} ${JSON.stringify(tgt.name)} ${value}`,
+        );
+    },
+    [setModuleField],
+  );
+
+  const tapWidget = useCallback(
+    (n: GraphNode, w: WebWidget) => {
+      const ch = chRef.current;
+      const tgt = widgetTarget(n, w, ch.offlineChannel);
+      if (!tgt) return;
+      if (tgt.kind === "track") {
+        // Mute/solo/arm: no optimism, so a rapid double-click can't leave the button inverted against the file.
+        if (
+          tgt.control === "mute" ||
+          tgt.control === "solo" ||
+          tgt.control === "arm"
+        )
+          cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
+        return;
+      }
+      // A module field cycles through its own named settings — there is no 0/1 to flip.
+      if (tgt.kind === "module") {
+        const opts = w.options ?? [];
+        const at = opts.findIndex((o) => o.value === widgetValue(n, w, ch));
+        const next = opts[(at + 1) % (opts.length || 1)];
+        if (next) setModuleField(w, tgt, next.value);
+        return;
+      }
+      // A plugin toggle has no such round-trip: set it 0/1 down the socket, optimistically, and commit at once.
+      const cur = widgetValue(n, w, ch);
+      const on = cur !== undefined && widgetNorm(w, cur) >= 0.5;
+      const next = widgetDenorm(w, on ? 0 : 1);
+      setOverride((o) => ({ ...o, [targetKey(tgt)]: next }));
+      if (tgt.kind === "offline") {
+        cb.current.onModuleParam?.(tgt.module, tgt.name, next);
+        return;
+      }
+      cb.current.setPluginParam?.(tgt.pluginId, tgt.name, next);
+      if (n.module)
+        cb.current.command(
+          `module param ${n.module} ${JSON.stringify(tgt.name)} ${next}`,
+        );
+    },
+    [setModuleField],
+  );
+  const insert = useCallback((info: EdgeInsert, x: number, y: number) => {
     if (suppressClick.current) return;
     cb.current.onEdgeInsert?.(info, x, y);
-  };
+  }, []);
   /**
    * Right-click on EMPTY canvas — the picker, for a module that lands wired to nothing.
    *
