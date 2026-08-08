@@ -5,7 +5,6 @@
 import { useEngineState } from "@studio/engine-browser/store";
 import {
   AudioWaveform,
-  Clapperboard,
   FileCode,
   LayoutGrid,
   type LucideIcon,
@@ -13,15 +12,13 @@ import {
   Piano,
   ScrollText,
   SlidersVertical,
-  Video,
   Workflow,
 } from "lucide-react";
 import type { Pane, Panel, View } from "./routes";
 
 // The three panes, not tabs: the global view shows all three, and a "view" is a LAYOUT over the same instances.
-// `viewport` is absent because it only exists for a song WITH video; this is the set that can be fullscreened.
+// There used to be a fourth, `viewport`, present only for a song WITH video; it left with the picture, for v1.
 export const PANES: Pane[] = ["editor", "timeline", "chains"];
-export const ALL_PANES: Pane[] = [...PANES, "viewport"];
 
 // Max gap between the two Shift presses that open the command palette (IntelliJ style).
 export const DOUBLE_SHIFT_MS = 400;
@@ -30,16 +27,14 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   editor: { icon: FileCode, label: "Editor" },
   timeline: { icon: AudioWaveform, label: "Timeline" },
   chains: { icon: Workflow, label: "Chains" },
-  viewport: { icon: Video, label: "Viewport" },
 };
 
-// The two layouts, and the pane each puts in the bottom-right slot.
+// The layouts, and the pane each puts in the bottom-right slot. One of them since picture left.
 export const VIEW_META: Record<
   View,
   { icon: LucideIcon; label: string; third: Pane }
 > = {
   global: { icon: LayoutGrid, label: "Global", third: "chains" },
-  video: { icon: Clapperboard, label: "Video", third: "viewport" },
 };
 
 // The bottom panels: `editor` is the clip editor, `mixer` the strips, `graph` the caret track's path, `logs` both.

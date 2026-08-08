@@ -93,13 +93,8 @@ export function withGroupMix(doc: ProjectDoc): ProjectDoc {
   };
 }
 
-// Strip the picture on the way to the engine, which plays sound and has no business
-// with a video track. A stated CONTRACT at the one choke point every sender funnels
-// through, not a crash it prevents — see docs/mixFolding.md.
-export function withoutVideo(doc: ProjectDoc): ProjectDoc {
-  const { videoTracks, video, viewport, fps, ...rest } = doc;
-  return rest as ProjectDoc;
-}
+// `withoutVideo` stood here and is gone: a ProjectDoc no longer carries picture at all, so
+// there is nothing left to strip on the way to the engine. Picture is v1's — videoDoc.ts.
 
 // Read a single-file source into the { project, tracks } shape. Folder projects
 // are handled earlier (in loadProject); here the only supported file is YAML.
@@ -226,10 +221,6 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
     tracks: activeTracks,
     groups,
     strudel: false, // …nor a pattern lane: algo/ is a folder a single-file song hasn't got
-    video: false, // …nor picture, for the same reason (a node project fills these)
-    viewport: [0, 0],
-    fps: 30,
-    videoTracks: [],
     markers: parseMarkers(doc.markers, num, den),
     settings: parseSettings(doc.settings),
   };

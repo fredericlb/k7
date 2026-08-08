@@ -4,25 +4,22 @@
 // component. Both must be fed the same tracks — live Strudel lanes come from their own
 // endpoint, so passing only `project.tracks` silently loses them and any group they fill.
 
-import type { WebGroup, WebProject, WebTrack, WebVideoTrack } from "./types";
+import { HATCH } from "@studio/ui-timeline/lanes";
+import type { WebGroup, WebProject, WebTrack } from "./types";
 
-// Hatching for a lane that can't hold clips. A CSS gradient (neither surface has an SVG layer), shared so the two
-// can't drift; `currentColor` lets the lane set the stripe colour with a text-* class.
-export const HATCH =
-  "repeating-linear-gradient(45deg, transparent 0 4px, currentColor 4px 5px)";
+// The hatching moved to @studio/ui-timeline when v1 started drawing lanes too; re-exported
+// here so the two surfaces that use it keep reaching for one import.
+export { HATCH };
 
 export type Row =
   | { kind: "group"; group: WebGroup }
   // `index` is the track's position in the ORIGINAL array: clustering reorders the display, not the engine's levels.
-  | { kind: "track"; track: WebTrack; index: number; grouped: boolean }
-  // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio rows, in layer order.
-  | { kind: "video"; track: WebVideoTrack };
+  | { kind: "track"; track: WebTrack; index: number; grouped: boolean };
 
 // Flatten tracks into rows, clustering a group's members under a header placed where its FIRST member sits.
 // A dangling `group` pointer draws as a plain track: the surfaces show what the song has, not what it should.
 export function projectRows(
-  project: Pick<WebProject, "groups"> &
-    Partial<Pick<WebProject, "videoTracks">>,
+  project: Pick<WebProject, "groups">,
   tracks: WebTrack[],
 ): Row[] {
   const byId = new Map(project.groups.map((g) => [g.id, g]));
@@ -54,10 +51,6 @@ export function projectRows(
       });
   });
 
-  // Video lanes last, as their own block: no group, no engine index, and the renderer stacks them in their own order.
-  for (const track of project.videoTracks ?? [])
-    rows.push({ kind: "video", track });
-
   return rows;
 }
 
@@ -78,7 +71,7 @@ export const isCellRow = (r: Row): boolean =>
   r.kind === "track" && !r.track.generated;
 
 // What a row ADDRESSES: the entity a command, a file open or a graph lookup should name for it.
-export type RowTarget = { kind: "track" | "group" | "video"; id: string };
+export type RowTarget = { kind: "track" | "group"; id: string };
 
 /**
  * The entity behind a row, or null when it has none.
@@ -90,7 +83,6 @@ export type RowTarget = { kind: "track" | "group" | "video"; id: string };
  */
 export function rowTarget(r: Row): RowTarget | null {
   if (r.kind === "group") return { kind: "group", id: r.group.id };
-  if (r.kind === "video") return { kind: "video", id: r.track.id };
   if (r.track.generated)
     return r.track.group ? { kind: "group", id: r.track.group } : null;
   return { kind: "track", id: r.track.id };

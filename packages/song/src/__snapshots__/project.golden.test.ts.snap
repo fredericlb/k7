@@ -2,7 +2,6 @@
 
 exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vitest -u\` to update after an intended change) 1`] = `
 {
-  "fps": 30,
   "groups": [],
   "markers": [],
   "name": "rack-demo",
@@ -183,18 +182,11 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
       "solo": false,
     },
   ],
-  "video": false,
-  "videoTracks": [],
-  "viewport": [
-    0,
-    0,
-  ],
 }
 `;
 
 exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vitest -u\` to update after an intended change) 1`] = `
 {
-  "fps": 30,
   "groups": [
     {
       "color": "",
@@ -805,12 +797,6 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "sends": [],
       "solo": false,
     },
-  ],
-  "video": false,
-  "videoTracks": [],
-  "viewport": [
-    0,
-    0,
   ],
 }
 `;

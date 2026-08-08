@@ -1,7 +1,8 @@
-// usePanZoom.ts — navigation for the media panes, which scale to FIT by default (so there
+// panZoom.ts — navigation for the media panes, which scale to FIT by default (so there
 // is nothing to scroll until you zoom). useHZoom scales horizontally, anchored so the
 // point under the cursor stays put; usePanScroll pans on a MIDDLE-mouse drag — not
-// Space-drag, because Space is the app's transport toggle everywhere.
+// Space-drag, because Space is the transport toggle in every app that mounts these.
+// Unit-free on purpose: the caller multiplies its own lane width, in beats or in seconds.
 
 import {
   type RefObject,

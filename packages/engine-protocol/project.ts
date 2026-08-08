@@ -148,64 +148,10 @@ export interface GroupDoc {
   solo: boolean;
 }
 
-// A video clip. Times are SECONDS, not beats — picture is cut against the wall clock, not the bar line.
-export interface VideoClipDoc {
-  id: string;
-  name: string;
-  source: string; // absolute path
-  start: number; // seconds on the timeline
-  length: number; // seconds; 0 == the source's natural length
-  sourceFrom: number; // seconds, the in-point INTO the source
-}
-
-// A shape drawn straight onto the viewport, in px. A square/text x,y is its top-left, a circle's its CENTRE.
-export type ShapeDoc =
-  | {
-      type: "square";
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-      color: string;
-    }
-  | { type: "circle"; x: number; y: number; r: number; color: string }
-  | {
-      type: "text";
-      content: string;
-      font: string;
-      fontSize: number;
-      x: number;
-      y: number;
-      w?: number; // optional max width (text condenses to fit)
-      color: string;
-    };
-
-// A video chain's step, folded onto its track so the renderer applies it per placement; VIDEO_OUT is the sink.
-export interface VideoPluginDoc {
-  id: string; // "<trackId>:<stepIndex>" — the engine/renderer's per-instance key
-  type: "video_effect" | "video_transition"; // mirrors the module's `type`
-  name: string; // the module folder name (modules/video_effects/<name>/module.yaml)
-  enabled: boolean; // chain step `enabled`; false == bypassed by the renderer
-  params: Record<string, number>;
-}
-// A video-mode lane: "video" links picture and places it at (x,y,w,h), "shape" draws
-// parametric shapes. Never reaches the C++ engine (see withoutVideo) — @studio/ui-eyes
-// is the only consumer. Already in project.layers draw order.
-export interface VideoTrackDoc {
-  id: string;
-  name: string;
-  color: string;
-  mute: boolean; // hidden
-  kind: "video" | "shape";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  clips: VideoClipDoc[]; // "video" tracks only
-  shapes: ShapeDoc[]; // "shape" tracks only
-  plugins?: VideoPluginDoc[]; // modelled but not compiled yet — the video-chain -> renderer path
-  // No audio link: an AUDIO track's `video_source` inherits these placements, already resolved into its clips by now.
-}
+// PICTURE IS NOT HERE. It used to be — four interfaces and four ProjectDoc fields — and none
+// of it ever reached the C++ engine: a `withoutVideo` step existed purely to take it back off
+// again before the wire. It now belongs to the app that draws it, as @studio/song's videoDoc.ts
+// (compiled) and @studio/web-protocol's WebVideoProject (browser). See apps/v1.
 
 export interface ProjectDoc {
   uuid?: string; // stable song id, generated on first `l8 export`; absent until then
@@ -219,13 +165,6 @@ export interface ProjectDoc {
   tracks: TrackDoc[];
   groups: GroupDoc[]; // what the tracks' `group` pointers refer to; the engine ignores it
   strudel: boolean; // whether any track streams from an algo/ pattern — surfaces skip the clock poll when false
-
-  // --- picture (stripped before the engine, see withoutVideo) ---------------
-  video: boolean;
-  viewport: [number, number]; // px the video tracks draw into; [0,0] when video is off
-  fps: number; // frame-by-frame export only (realtime follows the engine clock); default 30
-  videoTracks: VideoTrackDoc[]; // ALREADY in project.layers draw order — no consumer re-sorts
-
   markers: Marker[]; // sorted by beat
   settings: SettingsDoc; // always present, defaulted when settings.yaml is absent
 }

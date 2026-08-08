@@ -36,7 +36,6 @@ import {
   isRackModuleFile,
   isSeqFile,
   isTrackFile,
-  isVideoTrackFile,
   moduleFileOf,
   readScalarField,
 } from "../projectPaths";
@@ -50,17 +49,12 @@ import type {
   WebProject,
 } from "../types";
 import { useIsMobile } from "../useIsMobile";
-import {
-  listVideoPlacements,
-  setVideoPlacementField,
-} from "../videoPlacements";
 import { Breadcrumb } from "./Breadcrumb";
 import { EditorPane, type SeqView } from "./EditorPane";
 import type { EditTarget } from "./EditorPanel";
 import { FileTree } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
 import { UploadProgress } from "./UploadProgress";
-import type { VideoReader } from "./VideoReadersStrip";
 
 // The handle the shell reaches the editor through: `open` opens a file, `files` is what `file` completes against.
 // The `local*` methods expose the live CodeMirror buffer so the shell can arbitrate Ctrl+Z between the
@@ -253,8 +247,6 @@ export function EditorTab({
     clip: WebClip;
     sliceRanges?: { symbol: string; from: number; to: number }[];
   } | null>(null);
-  // The per-placement video readers for an open video_tracks/*.yaml — see components/VideoReadersStrip.tsx.
-  const [videoReaders, setVideoReaders] = useState<VideoReader[] | null>(null);
 
   // Point the minimap at the open file's entity: a clip or sequence highlights a clip, a track file a track.
   useEffect(() => {
@@ -275,42 +267,6 @@ export function EditorTab({
   useEffect(() => {
     setPreview(null);
   }, [file?.path]);
-
-  // Build one reader per placement, re-running on every buffer change so the strip follows typing and Set From/To.
-  useEffect(() => {
-    const path = (file?.path ?? "").replace(/\\/g, "/");
-    if (!file || file.binary || !isVideoTrackFile(path)) {
-      setVideoReaders(null);
-      return;
-    }
-    const placements = listVideoPlacements(file.content);
-    if (!placements.length) {
-      setVideoReaders([]);
-      return;
-    }
-    let cancelled = false;
-    void api
-      .projectDoc()
-      .then((proj) => {
-        if (cancelled) return;
-        const byId = new Map<string, string>();
-        for (const t of proj.videoTracks)
-          for (const c of t.clips) if (c.src) byId.set(c.id, c.src);
-        const readers: VideoReader[] = placements.map((p) => ({
-          ref: p.ref,
-          src: byId.get(p.ref) ?? "",
-          sourceFrom: p.sourceFrom,
-          length: p.length,
-        }));
-        setVideoReaders(readers);
-      })
-      .catch(() => {
-        if (!cancelled) setVideoReaders([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [file, hints]);
 
   // Audition from a gutter ▶: play it AND fetch a waveform to dock. Playback happens regardless of the fetch.
   const previewSound = useCallback(
@@ -725,38 +681,6 @@ export function EditorTab({
     [open, tree, activeProject, file?.path],
   );
 
-  // Set From / Set To surgically rewrite the placement's field in the OPEN buffer; the author saves.
-  const setVideoFrom = useCallback(
-    (ref: string, t: number) => {
-      if (!file) return;
-      const next = setVideoPlacementField(
-        file.content,
-        ref,
-        "source_from",
-        Math.max(0, t),
-      );
-      if (next === file.content) return;
-      setFile({ ...file, content: next });
-      setDirty(true);
-    },
-    [file],
-  );
-  const setVideoTo = useCallback(
-    (ref: string, t: number) => {
-      if (!file) return;
-      // length is the OUT-point relative to source_from; clamp to >=0.
-      const placements = listVideoPlacements(file.content);
-      const p = placements.find((x) => x.ref === ref);
-      const from = p?.sourceFrom ?? 0;
-      const length = Math.max(0, t - from);
-      const next = setVideoPlacementField(file.content, ref, "length", length);
-      if (next === file.content) return;
-      setFile({ ...file, content: next });
-      setDirty(true);
-    },
-    [file],
-  );
-
   // The open file follows disk: every command here rewrites YAML, so a buffer read once and never again is a
   // snapshot of the past that the next Save writes back over everything since. Clean buffers refresh silently;
   // a dirty one asks, because only the person knows which of the two versions matters.
@@ -1069,11 +993,6 @@ export function EditorTab({
             sliceRack={sliceRack}
             // The open file's load errors, drawn inline as squiggles.
             diagnostics={fileDiagnostics}
-            // An open video_tracks/*.yaml → per-placement <video> readers with Set From / Set To buttons.
-            videoReaders={videoReaders}
-            onVideoSetFrom={setVideoFrom}
-            onVideoSetTo={setVideoTo}
-            onCloseVideoReaders={() => setVideoReaders(null)}
           />
         </main>
       </div>

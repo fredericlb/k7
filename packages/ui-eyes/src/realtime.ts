@@ -1,9 +1,10 @@
-// realtime.ts — draw the viewport live against the engine's playhead, with one <video>
-// per LAYER (a layer shows one clip at a time, so per-clip elements would mean N decoders
-// for one picture). The engine and each <video> drift, corrected two-speed: playbackRate
-// for a small drift, a hard seek for a jump. Full rationale: docs/realtime.md.
+// realtime.ts — draw the viewport live against a SeekingClock (v1's own transport, or an
+// engine's playhead), with one <video> per LAYER: a layer shows one clip at a time, so
+// per-clip elements would mean N decoders for one picture. The clock and each <video> drift,
+// corrected two-speed: playbackRate for a small drift, a hard seek for a jump.
+// Full rationale: docs/realtime.md.
 
-import type { EngineClock } from "./clock";
+import type { SeekingClock } from "./clock";
 import { Compositor } from "./compositor";
 import type { VideoLayer, VideoScene } from "./scene";
 import { activeAt } from "./timeline";
@@ -42,7 +43,7 @@ export class RealtimeDriver {
   private constructor(
     comp: Compositor,
     lanes: Lane[],
-    private readonly clock: EngineClock,
+    private readonly clock: SeekingClock,
   ) {
     this.comp = comp;
     this.lanes = lanes;
@@ -53,7 +54,7 @@ export class RealtimeDriver {
   static create(
     host: HTMLElement,
     scene: VideoScene,
-    clock: EngineClock,
+    clock: SeekingClock,
   ): RealtimeDriver {
     const comp = Compositor.create(host, scene);
     const lanes: Lane[] = scene.layers.map((layer) => {

@@ -2,7 +2,7 @@
 
 ## project.yaml
 
-The song header: tempo, rate, meter — plus what the song borrows from outside its own folder, and the video fields for a song with picture.
+The song header: tempo, rate, meter — plus what the song borrows from outside its own folder.
 
 ```yaml schema=ProjectFile
 # What this folder IS. `l8` is a song with a timeline — the default, and what every
@@ -30,10 +30,9 @@ project:
   # accepted so older songs open, and read by nothing — l8 says so and
   # the lines can be deleted.
 
-  # optional picture:
-  # video: true
-  # viewport: [1280, 720, 30]   # [w, h, fps]
-  # layers: [main, pip]         # draw order, bottom first
+  # `video`, `viewport` and `layers` are still ACCEPTED here and read by nothing:
+  # picture is v1's now, in a `.v1` folder of its own. l8 says so and the lines
+  # can be deleted.
 
 # Lane order in the timeline, top first. Absent = the order tracks/ is read in.
 trackOrder: [drums, bass, melody]

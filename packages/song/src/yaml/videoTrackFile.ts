@@ -1,7 +1,8 @@
-// videoPlacements.ts — read and edit a video track's `clips:` list in the browser, each
-// placement `{ref, start, length, source_from}` in DECIMAL SECONDS (picture is cut against
-// the wall clock, not the bar grid). Runs here rather than in the brain because the readers
-// strip edits the editor's buffer, which never leaves the browser until the author saves.
+// videoTrackFile.ts — read and edit a video track's `clips:` list, each placement
+// `{ref, start, length, source_from}` in DECIMAL SECONDS. A SURGICAL text rewrite, like every
+// other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
+// document the format, and a round trip through the serialiser would delete every one of them.
+// Browser-safe, because v1's readers strip edits a buffer that has not been saved yet.
 
 import { isSeq, parseDocument } from "yaml";
 

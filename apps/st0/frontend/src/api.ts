@@ -279,8 +279,10 @@ export const engineMachine = {
    * Créer un projet dans l'espace de travail de cette machine.
    *
    * `name` porte DÉJÀ son suffixe (`hiver.m9`) : le service prend le nom brut comme nom de
-   * dossier, et c'est le suffixe qui dit quelle application l'ouvrira. `type` est la variante
-   * l8 du gabarit — « audio » est celle par défaut, « video » ajoute l'image.
+   * dossier, et c'est le suffixe qui dit quelle application l'ouvrira — ET, depuis
+   * projectLifecycle.ts, quel gabarit y est écrit. C'est pourquoi `type` reste « audio » ici
+   * sans que ce soit un bug : le nom gagne, et c'est nous qui l'avons construit. Il ne sert
+   * qu'au cas où le nom ne réclame rien, ce qui n'arrive pas depuis ce dialogue.
    */
   createProject: async (
     fileBase: string,

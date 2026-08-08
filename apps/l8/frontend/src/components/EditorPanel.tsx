@@ -28,10 +28,6 @@ const FALLBACK_PROJECT: WebProject = {
   groups: [],
   metronome: false,
   countIn: 0,
-  video: false,
-  viewport: [0, 0],
-  fps: 30,
-  videoTracks: [],
   markers: [],
 };
 

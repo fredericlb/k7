@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "l8's eyes — composites a song's video tracks onto its viewport with WebGL, in real time or frame-by-frame to a file. Knows nothing about audio.",
+  "description": "v1's eyes — composites a project's video lanes onto its viewport with WebGL, in real time or frame-by-frame to a file. Knows nothing about audio, and nothing about the brain: it takes a plain VideoScene.",
   "exports": {
     "./scene": "./src/scene.ts",
     "./timeline": "./src/timeline.ts",

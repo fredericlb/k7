@@ -127,7 +127,9 @@ export const api = {
       path,
     }),
   // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its path.
-  createProject: (type: "audio" | "video" | "m9", name: string) =>
+  // The three kinds a workspace holds, not the three l8 opens: this route belongs to the file
+  // service, which is what can write a folder on the machine whichever app reads it back.
+  createProject: (type: "audio" | "m9" | "v1", name: string) =>
     fsend<{ project: string }>("POST", "/project/create", { type, name }),
   // Delete a project: unload it and move it to _recycle_bin. Reversible, but it can no longer be started.
   deleteProject: (path: string) =>

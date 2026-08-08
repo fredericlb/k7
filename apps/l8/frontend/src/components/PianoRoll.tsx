@@ -4,10 +4,10 @@
 // new`; wheel zooms time, middle-drag pans. Opened as the timeline's bottom split pane.
 
 import { useEngineState } from "@studio/engine-browser/store";
+import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject } from "../types";
-import { useHZoom, usePanScroll } from "../usePanZoom";
 
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const pc = (k: number) => ((k % 12) + 12) % 12;

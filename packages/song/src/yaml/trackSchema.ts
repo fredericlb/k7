@@ -56,7 +56,11 @@ export const SingleTrackSchema = z
     contentType: z.enum(["audio", "sequences"]).optional(),
     clips: z.array(PlacementSchema).optional(),
     frozen,
-    // Audio tracks only — the video track whose placements this one plays the sound of.
+    // DEAD, and still accepted, the same bargain `modules_from` gets in projectSchema.ts.
+    // It named the video track whose placements this one played the sound of — a link that
+    // cannot exist now that picture is a `.v1` project of its own. Refusing the key would
+    // stop a song that still plays perfectly from opening at all; the compiler reads it no
+    // more, and the syntax page says where the picture went.
     video_source: z.string().min(1).optional(),
   })
   .strict();

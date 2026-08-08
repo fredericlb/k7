@@ -1,0 +1,9 @@
+{
+  "name": "v1",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The cut: a timeline of video lanes in seconds, composited live onto a viewport. l8's picture half, on its own — no audio, no engine, one *.v1 project.",
+  "scripts": {
+    "dev": "turbo run dev --filter=v1-frontend --filter=v1-backend"
+  }
+}

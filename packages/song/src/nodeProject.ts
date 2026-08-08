@@ -18,7 +18,6 @@ import {
 import {
   type Diagnostic,
   exportSub,
-  isVideoSource,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -44,10 +43,7 @@ import type {
   ProjectDoc,
   RackSoundDoc,
   SendDoc,
-  ShapeDoc,
   TrackDoc,
-  VideoClipDoc,
-  VideoTrackDoc,
 } from "./project";
 import {
   EXTERNAL_PLUGIN_FORMATS,
@@ -58,12 +54,7 @@ import {
   parseMarkers,
   parseSettings,
 } from "./project";
-import type {
-  RawClip,
-  RawPlacement,
-  RawSequence,
-  RawVideoPlacement,
-} from "./rawDoc";
+import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
 import { sortTracksByKind } from "./trackKind";
 
@@ -308,54 +299,6 @@ function frozenClip(id: string, source: string): ClipDoc {
   };
 }
 
-// A video placement -> a VideoClipDoc, in plain DECIMAL SECONDS: the tempo map never reaches picture.
-function videoPlacementToClip(
-  dir: string,
-  p: RawVideoPlacement,
-  clipsMap: Record<string, RawClip>,
-): VideoClipDoc {
-  const ref = String(p.ref ?? "");
-  return {
-    id: ref,
-    name: ref,
-    source: clipsMap[ref] ? resolve(dir, String(clipsMap[ref].source)) : "",
-    start: Number(p.start ?? 0),
-    length: Number(p.length ?? 0),
-    sourceFrom: Number(p.source_from ?? 0),
-  };
-}
-
-// One shape -> a ShapeDoc in viewport px; the fill reads `background_color` or `color`, each the other's fallback.
-function compileShape(s: Record<string, unknown>): ShapeDoc {
-  const x = Number(s.x ?? 0);
-  const y = Number(s.y ?? 0);
-  const fill = String(s.background_color ?? s.color ?? "#ffffff");
-  switch (s.type) {
-    case "circle":
-      return { type: "circle", x, y, r: Number(s.r ?? 0), color: fill };
-    case "text":
-      return {
-        type: "text",
-        content: String(s.content ?? ""),
-        font: String(s.font ?? "sans-serif"),
-        fontSize: Number(s.font_size ?? s.fontSize ?? 24),
-        x,
-        y,
-        ...(s.w != null ? { w: Number(s.w) } : {}),
-        color: String(s.color ?? s.background_color ?? "#ffffff"),
-      };
-    default: // "square"
-      return {
-        type: "square",
-        x,
-        y,
-        w: Number(s.w ?? 0),
-        h: Number(s.h ?? 0),
-        color: fill,
-      };
-  }
-}
-
 // The engine's monitor vocabulary; anything else (including absent) is "auto" — audible only once armed.
 // A boolean is the everyday spelling and maps onto the ends of the same scale; only the tri-state can say "auto".
 function normMonitor(v: unknown): string {
@@ -465,51 +408,12 @@ export function compileNodeProject(dir: string): ProjectDoc {
           `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
         );
 
-  // Video placements, mirroring the audio pass — plus a re-check that the source really is a video.
-  for (const [trackId, t] of Object.entries(videoTracksMap))
-    for (const p of Array.isArray(t?.clips) ? t.clips : []) {
-      const ref = String(p?.ref ?? "");
-      if (!ref) continue;
-      const clip = clipsMap[ref];
-      if (!clip) {
-        refErrs.push(`video track '${trackId}': clip '${ref}' not found`);
-      } else if (!existsSync(resolve(dir, String(clip.source ?? "")))) {
-        refErrs.push(
-          `video track '${trackId}': clip '${ref}' file missing (${clip.source ?? "?"})`,
-        );
-      } else if (!isVideoSource(String(clip.source))) {
-        refErrs.push(
-          `video track '${trackId}': clip '${ref}' is not a video (${clip.source}) — a video track takes video clips only`,
-        );
-      }
-    }
-
-  // `video_source` names the VIDEO track an audio track takes its placements from — declared on the lane described.
-  for (const [trackId, t] of Object.entries(tracksMap)) {
-    const src = String(t?.video_source ?? "");
-    if (!src) continue;
-    if (t.type === "group" || t.type === "strudel")
-      refErrs.push(
-        `track '${trackId}': video_source is for a single audio track, not a ${t.type === "group" ? "group" : "strudel lane"}`,
-      );
-    else if (t.contentType === "sequences")
-      refErrs.push(
-        `track '${trackId}': video_source '${src}' — a sequences track carries MIDI, not audio`,
-      );
-    // Own clips AND an inherited list would be two sources of truth, the inherited one silently winning — say so instead.
-    else if (Array.isArray(t.clips) && t.clips.length)
-      refErrs.push(
-        `track '${trackId}': video_source '${src}' replaces this track's clips — remove its own ${t.clips.length} placement(s), or drop video_source`,
-      );
-    else if (!videoTracksMap[src])
-      refErrs.push(
-        `track '${trackId}': video_source '${src}' — video track not found`,
-      );
-    else if (videoTracksMap[src].kind === "shape")
-      refErrs.push(
-        `track '${trackId}': video_source '${src}' is a shape track — it draws fills, it has no clips to take audio from`,
-      );
-  }
+  // A `video_tracks/` folder here is a v1 cut in an l8 song's clothing — the lanes would be
+  // read by nothing at all, which is the failure this codebase refuses to ship silently.
+  if (Object.keys(videoTracksMap).length)
+    refErrs.push(
+      `video_tracks/ holds ${Object.keys(videoTracksMap).length} lane(s), and an l8 song has no picture — move them to a \`.v1\` project, which is what draws them (packages/song/docs/v1Project.md)`,
+    );
 
   if (refErrs.length)
     throw new Error(`unresolved reference(s):\n  - ${refErrs.join("\n  - ")}`);
@@ -890,105 +794,10 @@ export function compileNodeProject(dir: string): ProjectDoc {
     }
   }
 
-  // --- picture ---------------------------------------------------------------
-  // video_tracks/ -> VideoTrackDoc[] in project.layers order (bottom first), plus three checks the schema can't make.
-  const video = !!proj.video;
-  const videoTrackIds = Object.keys(videoTracksMap);
-  const layers = (Array.isArray(proj.layers) ? proj.layers : []).map(String);
-  const videoErrs: string[] = [];
-
-  // A whole folder ignored would be a silent surprise — say so instead.
-  if (!video && videoTrackIds.length)
-    videoErrs.push(
-      `video_tracks/ has ${videoTrackIds.length} track(s) but project.video is false — set video: true and a viewport in project.yaml`,
-    );
-
-  if (video) {
-    const known = new Set(videoTrackIds);
-    const listed = new Set<string>();
-    for (const id of layers) {
-      if (!known.has(id))
-        videoErrs.push(
-          `project.layers names '${id}', which is not a video track (add video_tracks/${id}.yaml, or remove it from layers)`,
-        );
-      if (listed.has(id))
-        videoErrs.push(`project.layers lists '${id}' more than once`);
-      listed.add(id);
-    }
-    // A track absent from layers would silently never draw — an error, not a no-op.
-    for (const id of videoTrackIds)
-      if (!listed.has(id))
-        videoErrs.push(
-          `video track '${id}' is missing from project.layers (add it — layers decides draw order, bottom first)`,
-        );
-  }
-
-  if (videoErrs.length)
-    throw new Error(`video config invalid:\n  - ${videoErrs.join("\n  - ")}`);
-
-  // In layers order (validated complete above), so the renderer draws bottom-first with no re-sort.
-  const videoTracks: VideoTrackDoc[] = (video ? layers : []).map(
-    (id: string) => {
-      const t = videoTracksMap[id] ?? {};
-      const kind = t.kind === "shape" ? "shape" : "video";
-      return {
-        id,
-        name: String(t.name ?? id),
-        color: String(t.color ?? ""),
-        mute: !!t.mute,
-        kind,
-        x: Number(t.x ?? 0),
-        y: Number(t.y ?? 0),
-        w: Number(t.w ?? 0),
-        h: Number(t.h ?? 0),
-        // Only the matching field is read downstream, so the other stays empty.
-        clips:
-          kind === "video"
-            ? (Array.isArray(t.clips) ? t.clips : []).map((p) =>
-                videoPlacementToClip(dir, p, clipsMap),
-              )
-            : [],
-        shapes:
-          kind === "shape"
-            ? (Array.isArray(t.shapes) ? t.shapes : []).map((sh) =>
-                compileShape((sh ?? {}) as Record<string, unknown>),
-              )
-            : [],
-      };
-    },
-  );
-
-  // The same cut played as AUDIO — only the unit changes, so a shot and its sound can't drift.
-  const videoClipAsAudio = (vc: VideoClipDoc): ClipDoc => ({
-    id: vc.id,
-    type: "audio",
-    name: vc.name,
-    source: vc.source,
-    start: (vc.start * tempo) / 60,
-    length: vc.length > 0 ? (vc.length * tempo) / 60 : 0,
-    offset: (vc.sourceFrom * tempo) / 60,
-    fadeIn: 0,
-    fadeOut: 0,
-    loopStart: 0,
-    loopEnd: 0,
-    notes: [],
-  });
-
-  // Resolved against the AUTHORED video tracks: neither project.layers nor `video: false` gates inherited audio.
-  for (const t of tracks) {
-    const src = String(tracksMap[t.id]?.video_source ?? "");
-    if (!src) continue;
-    const vt = videoTracksMap[src];
-    if (!vt) continue; // already validated above — defensive
-    t.clips = (Array.isArray(vt.clips) ? vt.clips : [])
-      .map((p) => videoPlacementToClip(dir, p, clipsMap))
-      .map(videoClipAsAudio);
-  }
-
-  // viewport is [w, h] with an optional third element for export fps (default 30).
-  const vp = Array.isArray(proj.viewport) ? proj.viewport.map(Number) : [];
-  const viewport: [number, number] = video ? [vp[0] || 0, vp[1] || 0] : [0, 0];
-  const fps = vp[2] && vp[2] > 0 ? Number(vp[2]) : 30;
+  // PICTURE IS NOT HERE, and the folder above says why: a `.v1` project draws it, out of
+  // videoTracks.ts, against a wall clock this compiler has no use for. What stood here was
+  // the layers pass, the shape compiler and `video_source` — an audio track inheriting a
+  // video lane's placements, which cannot exist once the two dialects are two folders.
 
   return {
     name: String(proj.name ?? "untitled"),
@@ -1001,10 +810,6 @@ export function compileNodeProject(dir: string): ProjectDoc {
     groups,
     // Read off the AUTHORED tracks — a strudel lane compiles to an empty one, so by then the fact it streams is gone.
     strudel: Object.values(tracksMap).some((t) => t?.type === "strudel"),
-    video,
-    viewport,
-    fps,
-    videoTracks,
     markers: parseMarkers(root.markers, num || 4, den || 4),
     // settings.yaml is a flat, package-less root file (not part of `root` above) — load
     // it on its own, validated as it is read (a bad value fails the compile).

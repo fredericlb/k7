@@ -101,7 +101,11 @@ export function NewProject({
               <span className="text-xs text-muted-foreground">
                 {app === "l8"
                   ? "l'éditeur complet, avec la timeline"
-                  : "mix, édition et graphe — sans la timeline"}
+                  : app === "v1"
+                    ? "le montage : un viewport et ses pistes, en secondes"
+                    : app === "z0"
+                      ? "un blind-test"
+                      : "mix, édition et graphe — sans la timeline"}
               </span>
             </div>
 

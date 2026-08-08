@@ -8,12 +8,17 @@ import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scaffold } from "@studio/song/scaffold";
 import { scaffoldM9 } from "@studio/song/scaffoldM9";
+import { scaffoldV1 } from "@studio/song/scaffoldV1";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";
 import type { Translation } from "@studio/translator/model";
 import { resolvePluginParams } from "@studio/translator/params";
-import { PROJECT_SUFFIXES, projectLabel } from "@studio/web-protocol/projects";
+import {
+  PROJECT_SUFFIXES,
+  projectApp,
+  projectLabel,
+} from "@studio/web-protocol/projects";
 
 /** What the lifecycle functions need from their workspace — the path guards. */
 export interface LifecycleHost {
@@ -126,35 +131,55 @@ export function importProjectInto(
 /**
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
  * relative path. This is the web command bar's `new project <type> <name>`. `type` is
- * "audio" (the default variant), "video" (adds picture: a viewport, the bundled
- * sample clip, and two video tracks), or "m9" (a SET: two decks, a crossfade, an empty
- * set list — a different file map, written by @studio/song/scaffoldM9).
+ * "audio" (an l8 song), "m9" (a SET: two decks, a crossfade, an empty set list), or
+ * "v1" (a CUT: a viewport, the bundled sample clip and two lanes over it). Each is a
+ * different file map, written by its own scaffold in @studio/song.
  *
  * The name is sanitised to a single top-level segment (no separators, no leading dot
  * that would hide it) so it always lands directly under the root. Refuses to write over
  * an existing non-empty folder — same contract as the CLI — rather than silently
  * uniquify, so the project lands at exactly the name the user typed or not at all.
  *
- * An m9 set gets `.m9` appended when the name lacks it. Not cosmetic and not a default a
- * caller may skip: the folder's SUFFIX is what makes st0 offer it to m9 at all
- * (@studio/web-protocol/projects), so a set without one is a set nothing can open.
+ * **A suffix on the NAME wins over `type`**, and that is the same rule `projectTypeOf`
+ * states: the folder's name is what decides which app opens it, so it must also decide
+ * what is written into it. Without this, st0 — which builds the folder name itself, from
+ * the app you picked, and has always sent `type: "audio"` — scaffolded an l8 song inside a
+ * `.m9` folder, a project the app that owns it cannot read.
+ *
+ * `type` is therefore the answer for a name with NO suffix, which is l8's command bar
+ * (`project new v1 myfilm`), and it appends the suffix that kind needs. "audio" appends
+ * nothing, because l8 also opens a repository that IS a song.
  */
 export function createProjectIn(
   host: LifecycleHost,
-  type: "audio" | "video" | "m9",
+  type: "audio" | "m9" | "v1",
   rawName: string,
 ): { project: string } {
   let name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
-  if (type === "m9" && !name.endsWith(PROJECT_SUFFIXES.m9))
-    name += PROJECT_SUFFIXES.m9;
+  // The name's own claim, if it makes one. Only the kinds with a scaffold are honoured: a
+  // `.z0` folder has none, and falling through to `type` writes what the caller asked for
+  // rather than throwing on a name that is otherwise perfectly good.
+  const claimed = projectApp(name);
+  const kind: "audio" | "m9" | "v1" =
+    claimed === "m9" || claimed === "v1"
+      ? claimed
+      : claimed === "l8"
+        ? "audio"
+        : type;
+  if (
+    (kind === "m9" || kind === "v1") &&
+    !name.endsWith(PROJECT_SUFFIXES[kind])
+  )
+    name += PROJECT_SUFFIXES[kind];
   const abs = host.safePath(name);
   if (abs === host.root) throw new Error("project name required");
   if (existsSync(abs) && readdirSync(abs).length)
     throw new Error(`"${name}" already exists and is not empty`);
   // The label the project CALLS itself drops the suffix — `winter.m9` is the folder,
   // "winter" is the set. projectLabel is the one place that rule is stated.
-  if (type === "m9") scaffoldM9(abs, projectLabel(name));
-  else scaffold(abs, name, type === "video");
+  if (kind === "m9") scaffoldM9(abs, projectLabel(name));
+  else if (kind === "v1") scaffoldV1(abs, projectLabel(name));
+  else scaffold(abs, name);
   return { project: host.toRel(abs) };
 }

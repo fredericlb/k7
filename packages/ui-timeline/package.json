@@ -1,0 +1,27 @@
+{
+  "name": "@studio/ui-timeline",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The pieces every arrangement surface needs whatever its unit is: wheel zoom and middle-drag pan for a scroll container, a ruler's tick chooser, and the lane geometry the gutter and the rows are drawn to. l8 measures in beats and v1 in seconds; this is what they agree about.",
+  "types": "./src/panZoom.ts",
+  "exports": {
+    "./panZoom": "./src/panZoom.ts",
+    "./ticks": "./src/ticks.ts",
+    "./lanes": "./src/lanes.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@frediverse/tsconfig": "*",
+    "@types/react": "^19.2.17",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

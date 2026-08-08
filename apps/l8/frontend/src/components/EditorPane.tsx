@@ -29,7 +29,6 @@ import type {
   WebClip,
   WebProject,
 } from "../types";
-import { type VideoReader, VideoReadersStrip } from "./VideoReadersStrip";
 import { WaveformView } from "./WaveformView";
 
 // A sequence file — its inline notes can be shown as an in-editor piano roll or tracker.
@@ -52,10 +51,6 @@ export function EditorPane({
   onPreview,
   sliceRack,
   diagnostics,
-  videoReaders,
-  onVideoSetFrom,
-  onVideoSetTo,
-  onCloseVideoReaders,
   onEditorView,
 }: {
   file: FileContent | null;
@@ -87,11 +82,6 @@ export function EditorPane({
   sliceRack?: { source: string } | null;
   // This file's load findings, already filtered, drawn inline as squiggles and refreshed on each poll.
   diagnostics?: LintItem[];
-  // Per-placement <video> readers for a video_tracks/*.yaml, docked unless a preview or clip claims the strip.
-  videoReaders?: VideoReader[] | null;
-  onVideoSetFrom?: (ref: string, t: number) => void;
-  onVideoSetTo?: (ref: string, t: number) => void;
-  onCloseVideoReaders?: () => void;
   // Hand the live CodeMirror view up, so the shell can ask it for its focus/undo depth (Ctrl+Z arbitration).
   onEditorView?: (view: EditorView | null) => void;
 }) {
@@ -266,22 +256,6 @@ export function EditorPane({
             whole={strip.whole}
             sliceRanges={strip.sliceRanges}
             onClose={preview ? onClosePreview : undefined}
-          />
-        </div>
-      </div>
-    );
-  }
-  // A video_tracks/*.yaml: readers with Set From / Set To. Its placements are picture, so the audio strip is idle.
-  if (videoReaders && videoReaders.length) {
-    return (
-      <div className="relative h-full">
-        {body}
-        <div className="absolute inset-x-0 bottom-0 z-20 h-56 shadow-[0_-4px_12px_rgba(0,0,0,0.35)]">
-          <VideoReadersStrip
-            readers={videoReaders}
-            onSetFrom={(ref, t) => onVideoSetFrom?.(ref, t)}
-            onSetTo={(ref, t) => onVideoSetTo?.(ref, t)}
-            onClose={() => onCloseVideoReaders?.()}
           />
         </div>
       </div>

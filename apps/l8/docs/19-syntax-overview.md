@@ -4,7 +4,7 @@ A song is a folder of YAML. One entity per file, and **the filename is the id** 
 
 Files are **flat**: no wrapper key, no package clause. A track file starts at `type:`, a clip file at `source:`.
 
-**Timecodes are strings, and l8 always writes them quoted** — `"1:1:1"`, bars:beats:ticks, one-based. Files are read as **YAML 1.2**, where `25:1` is already a string, so unquoted parses correctly here. The quoting is for everyone else: under YAML **1.1** the same bytes are a sexagesimal number, and `start: 25:1` silently becomes beat 1501. Quoted, every version agrees — so nothing this app writes is left bare. Beats inside a sequence are plain numbers, and video is in seconds: material that answers to the tempo is in beats, material that answers to the clock is in seconds.
+**Timecodes are strings, and l8 always writes them quoted** — `"1:1:1"`, bars:beats:ticks, one-based. Files are read as **YAML 1.2**, where `25:1` is already a string, so unquoted parses correctly here. The quoting is for everyone else: under YAML **1.1** the same bytes are a sexagesimal number, and `start: 25:1` silently becomes beat 1501. Quoted, every version agrees — so nothing this app writes is left bare. Beats inside a sequence are plain numbers, and a clip's `from`/`to` may be either: material that answers to the tempo is in beats, material that answers to the clock is in seconds. Picture is entirely the second kind, which is why it is v1's and not here.
 
 The same choice covers the other 1.1 traps: `on`, `no` and `y` stay strings rather than becoming booleans, and a leading zero is not octal — so a track called `no` is a track called `no`.
 

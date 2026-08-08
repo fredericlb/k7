@@ -62,14 +62,20 @@ clips:
   - { ref: melody, start: "1:1:1" }
 ```
 
-## tracks/<id>.yaml — sourced from a video track
+## tracks/<id>.yaml — `video_source`, which no longer does anything
 
-An audio track can take its material from a VIDEO track instead of authoring it: it inherits that track's placements and plays their AUDIO — same files, same cuts, picture left to the renderer, so a shot and its sound can't drift apart. It authors no clips of its own then. Video placements are in seconds and get converted to beats at the project tempo. For the sound without the picture, mute the video track.
+An audio track used to be able to take its material from a VIDEO track — inheriting its
+placements and playing their audio, so a shot and its sound could not drift apart. Picture
+now lives in its own kind of project, a `.v1` folder cut in seconds, and that link cannot
+cross the gap.
+
+The key is still **accepted**, so a song that has one still opens; it is simply read by
+nothing, and the line can be deleted. A track carrying it authors its own `clips` again.
 
 ```yaml schema=Track
 type: single
 contentType: audio
-video_source: main   # video_tracks/main.yaml — its clips, audio only
+video_source: main   # dead — delete it, and place the clips here instead
 ```
 
 ## tracks/<id>.yaml — group

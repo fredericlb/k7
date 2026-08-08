@@ -67,12 +67,7 @@ import {
   loadPreferences,
   setEditorVim,
 } from "@studio/song/preferences";
-import type {
-  ClipDoc,
-  ProjectDoc,
-  TrackDoc,
-  VideoTrackDoc,
-} from "@studio/song/project";
+import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import {
   loadAudioClipDoc,
   loadProject,
@@ -81,6 +76,9 @@ import {
 import { projectTypeIssues } from "@studio/song/projectType";
 import { isInSharedModules } from "@studio/song/sharedFolders";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
+import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
+import { loadVideoProject } from "@studio/song/videoProject";
+import { videoDuration } from "@studio/song/videoTracks";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import type {
   FileContent,
@@ -92,14 +90,12 @@ import type {
   WebMixer,
   WebProject,
   WebTrack,
+  WebVideoProject,
   WebVideoTrack,
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
-import {
-  PROJECT_SUFFIXES,
-  projectApp,
-} from "@studio/web-protocol/projects";
+import { PROJECT_SUFFIXES, projectApp } from "@studio/web-protocol/projects";
 import { buildGraphDoc } from "./graphDoc.ts";
 import {
   type FileChange,
@@ -360,6 +356,12 @@ export class Workspace {
   readonly rootIsProject: boolean;
   private activeProject: string | null;
   private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
+  // The v1 compile's own cache — see cachedVideoDoc for why it is not a branch inside the one above.
+  private videoCache: {
+    dir: string;
+    rev: string;
+    doc: VideoProjectDoc;
+  } | null = null;
   private historyCache: { dir: string; h: ProjectHistory } | null = null;
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
@@ -568,7 +570,7 @@ export class Workspace {
 
   /** Scaffold a NEW project folder at the workspace root — see projectLifecycle.ts. */
   createProject(
-    type: "audio" | "video" | "m9",
+    type: "audio" | "m9" | "v1",
     rawName: string,
   ): { project: string } {
     return createProjectIn(this.lifecycleHost(), type, rawName);
@@ -1399,10 +1401,7 @@ export class Workspace {
     return this.wf.prewarm(buckets);
   }
 
-  toWebVideoTracks(
-    videoTracks: VideoTrackDoc[],
-    tempo: number,
-  ): WebVideoTrack[] {
+  toWebVideoTracks(videoTracks: VideoTrackDoc[]): WebVideoTrack[] {
     return videoTracks.map((t) => ({
       id: t.id,
       name: t.name,
@@ -1413,6 +1412,8 @@ export class Workspace {
       y: t.y,
       w: t.w,
       h: t.h,
+      // Workspace-RELATIVE on the way out: the compiled doc holds absolute paths, and the
+      // browser fetches every byte back through this service's own media route.
       clips: t.clips.map((c) => ({
         id: c.id,
         name: c.name,
@@ -1420,7 +1421,6 @@ export class Workspace {
         start: c.start,
         length: c.length,
         sourceFrom: c.sourceFrom,
-        startBeat: (c.start * tempo) / 60,
       })),
       // Shapes carry no media path — each variant's fields pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
@@ -1488,12 +1488,55 @@ export class Workspace {
       metronome: p.settings.metronome,
       countIn: p.settings.countIn,
       strudel: p.strudel,
-      video: p.video,
-      viewport: p.viewport,
-      fps: p.fps,
-      videoTracks: this.toWebVideoTracks(p.videoTracks, p.tempo),
       markers: p.markers.map((m) => ({ beat: m.beat, name: m.name, tc: m.tc })),
     };
+  }
+
+  /**
+   * The same folder read as PICTURE — what v1 draws. Memoised on the revision, exactly as the
+   * song compile is and for the same reason: every other way of invalidating it serves a
+   * confidently wrong view after a `git pull`.
+   *
+   * A SECOND cache rather than a branch inside `cachedProjectDoc`, because the two compiles
+   * return different documents. One project is only ever one of them, so at most one of these
+   * is ever warm.
+   */
+  cachedVideoDoc(dir: string): VideoProjectDoc {
+    const rev = this.revision().rev;
+    if (
+      this.videoCache &&
+      this.videoCache.dir === dir &&
+      this.videoCache.rev === rev
+    )
+      return this.videoCache.doc;
+    const doc = loadVideoProject(dir);
+    this.videoCache = { dir, rev, doc };
+    return doc;
+  }
+
+  videoProjectDoc(): WebVideoProject {
+    const p = this.cachedVideoDoc(this.requireActive());
+    const videoTracks = this.toWebVideoTracks(p.videoTracks);
+    return {
+      name: p.name,
+      viewport: p.viewport,
+      fps: p.fps,
+      duration: videoDuration(p.videoTracks),
+      markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
+      videoTracks,
+    };
+  }
+
+  /** Everything wrong with a v1 project — the compile's own throw, same shape as projectErrors. */
+  videoProjectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
+    const dir = this.activeProject;
+    if (!dir) return { errors: [], diagnostics: [] };
+    try {
+      this.cachedVideoDoc(dir);
+      return { errors: [], diagnostics: [] };
+    } catch (e) {
+      return { errors: [(e as Error).message], diagnostics: [] };
+    }
   }
 
   /**

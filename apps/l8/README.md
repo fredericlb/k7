@@ -56,7 +56,6 @@ packages/                  studio's shared tier (consumed as raw TS source):
   file-service/            @studio/file-service    — serves file ops + compiles projects for the browser
   ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
   ui-editor/               @studio/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
-  ui-eyes/                 @studio/ui-eyes         — WebGL video compositor (song's video tracks → viewport)
   translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `l8 import` is its caller
   web-protocol/            @studio/web-protocol    — the browser↔server wire types
 ```
@@ -77,7 +76,7 @@ project.yaml           header + trackOrder + markers
 settings.yaml          project settings (metronome, count-in)
 chains.yaml            the routing graph
 tracks/<id>.yaml       track config + clip refs
-clips/<id>.yaml        audio/video clips
+clips/<id>.yaml        audio clips
 sequences/<id>.yaml    MIDI clip config + inline notes ({t,d,k,v} mappings)
 curves/<id>.yaml       automation curves (lfo / custom points)
 algo/<name>.strudel    live Strudel patterns (played only when a strudel track links one)
@@ -94,13 +93,12 @@ modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.y
   `contentType` and it's inferred from the refs.
 - **A group holds no material — only membership.** `tracks` lists the member track
   ids. That's all a group is.
-- **An audio track can take its material from a VIDEO track.** `video_source: "<video
-  track id>"` makes it inherit that track's placements and play their **audio** — same
-  files, same cuts, picture left to the renderer, so a shot and its sound can't drift
-  apart. The track authors no `clips` of its own then (that would be two sources of
-  truth). Video placements are in seconds, so they're converted to beats at the project
-  tempo. For the sound *without* the picture, `mute` the video track — every video track
-  must be in `project.layers`, so muting is how a lane contributes audio and nothing else.
+- **There is no picture here.** l8 drew video tracks until they left for `apps/v1`,
+  which cuts in seconds against a wall clock rather than in beats against a tempo. A
+  `video_tracks/` folder in a song is now a compile error naming where it belongs. The one
+  thing that genuinely went with it is `video_source` — an audio track inheriting a video
+  lane's placements — which cannot exist once the two are two folders. See
+  [packages/song/docs/v1Project.md](../../packages/song/docs/v1Project.md).
 - **A `strudel` track streams its material from a pattern.** `strudel` links one file
   under `algo/`, and the track's **name** (defaulting to its id) picks which lane of
   it to receive — the pattern's `.label("…")`, matched ignoring case and punctuation.

@@ -218,9 +218,10 @@ filesRouter.post(
 
 // Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
-  // "m9" is a different KIND of project, not a variant of the song scaffold — a set folder,
-  // whose name gets `.m9` appended so st0 offers it to m9. See projectLifecycle.ts.
-  type: z.enum(["audio", "video", "m9"]),
+  // "m9" and "v1" are different KINDS of project, not variants of the song scaffold — a set
+  // folder and a cut folder, each getting its suffix appended so st0 offers it to the app
+  // that opens it. See projectLifecycle.ts.
+  type: z.enum(["audio", "m9", "v1"]),
   name: z.string().min(1),
 });
 filesRouter.post(
@@ -417,6 +418,30 @@ filesRouter.get(
       res.status(400).json({ error: (e as Error).message });
     }
   }),
+);
+
+/**
+ * The same folder read as PICTURE — the `WebVideoProject` v1 draws.
+ *
+ * A route of its own rather than a shape `/project-doc` might also return: the two are
+ * different documents from different compilers (a song has a tempo, a cut has a viewport), and
+ * one route answering either would make "which did I get" a runtime question at every call
+ * site. A `.v1` folder answers here and fails at `/project-doc`; an `.l8` folder the reverse.
+ */
+filesRouter.get(
+  "/video-doc",
+  wrap((req, res) => {
+    try {
+      res.json(req.ws!.videoProjectDoc());
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+filesRouter.get(
+  "/video-errors",
+  wrap((req, res) => res.json(req.ws!.videoProjectErrors())),
 );
 
 /**

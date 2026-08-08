@@ -69,7 +69,6 @@ import { RecordingOverlay } from "./components/RecordingOverlay";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
-import { VideoTab } from "./components/VideoTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
 import { useEngineLink } from "./hooks/useEngineLink";
@@ -105,7 +104,6 @@ import { entityFile, fileStem } from "./projectPaths";
 import type { Pane, Panel, View } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import {
-  ALL_PANES,
   DOUBLE_SHIFT_MS,
   MetronomeIcon,
   PANE_META,
@@ -245,7 +243,6 @@ export default function App({
   // The backend command catalogue (canonical name + trailing param names), for the step-by-step palette. Fetched once.
   const [backendCmds, setBackendCmds] = useState<CommandInfo[]>([]);
   const lastActive = useRef<string | null>(null);
-  const autoVideoRef = useRef<string | null>(null);
   const lastShiftAt = useRef(0); // for the double-tap-Shift palette opener
   const pendingPrewrite = useRef<string | null>(null);
 
@@ -384,32 +381,18 @@ export default function App({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The compiled doc's slice of shell state (track order, mixer, video/strudel gates), refetched on reloadKey.
+  // The compiled doc's slice of shell state (track order, mixer, the strudel gate), refetched on reloadKey.
   const {
     trackOrder,
     metronomeOn,
     recInfo,
     docTracks,
-    hasVideo,
     hasStrudel,
     midiSeqRef,
   } = useProjectDoc(reloadKey, {
     // If the currently-armed track lost its sequence, disarm it.
     onMidiSeqs: (seqs) =>
       setMidiArmed((cur) => (cur && !seqs[cur] ? null : cur)),
-    onVideo: (name) => {
-      if (!name) {
-        setFull((f) => (f === "viewport" ? null : f));
-        setView("global");
-        autoVideoRef.current = null;
-        return;
-      }
-      // A video project auto-enters the video view — once per project.
-      if (autoVideoRef.current !== name) {
-        autoVideoRef.current = name;
-        setView("video");
-      }
-    },
   });
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey.
@@ -484,15 +467,16 @@ export default function App({
       setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
       setFull(null);
       setView("global");
-      autoVideoRef.current = null;
     } catch (e) {
       setStatus(`open error: ${(e as Error).message}`);
     }
   }, []);
 
-  // `new project <audio|video> <name>`: the same scaffold `l8 create` runs, via the file service, then open it.
+  // `new project <audio|m9|v1> <name>`: the same scaffold `l8 create` runs, via the file service,
+  // then open it. An m9 set and a v1 cut are created HERE and opened THERE — the file service is the
+  // one thing on the machine that can write a folder, whichever app reads it back.
   const createNewProject = useCallback(
-    async (type: "audio" | "video", name: string) => {
+    async (type: "audio" | "m9" | "v1", name: string) => {
       try {
         setStatus(`creating ${type} project "${name}"…`);
         const { project } = await api.createProject(type, name);
@@ -632,8 +616,7 @@ export default function App({
       const line = s.toLowerCase();
       const UI_EXACT = new Set<string>([
         "global",
-        "video",
-        ...ALL_PANES,
+        ...PANES,
         "focus next",
         "close",
         "select",
@@ -655,14 +638,12 @@ export default function App({
         );
         return true;
       }
-      if (line === "global" || line === "video") {
-        if (line === "video" && !hasVideo) return true;
+      if (line === "global") {
         setView(line);
         setFull(null);
         return true;
       }
-      if ((ALL_PANES as string[]).includes(line)) {
-        if (line === "viewport" && !hasVideo) return true;
+      if ((PANES as string[]).includes(line)) {
         fullscreen(line as Pane);
         return true;
       }
@@ -675,14 +656,14 @@ export default function App({
         setPanel(null);
         return true;
       }
-      // new project <audio|video> <name> — first token the type, the rest the name, so multi-word names work.
+      // new project <audio|m9|v1> <name> — first token the type, the rest the name, so multi-word names work.
       if (line.startsWith("project new")) {
         const rest = s.slice("project new".length).trim();
         const sp = rest.search(/\s/);
         const type = (sp === -1 ? rest : rest.slice(0, sp)).toLowerCase();
         const name = sp === -1 ? "" : rest.slice(sp + 1).trim();
-        if ((type !== "audio" && type !== "video") || !name)
-          setStatus("usage: project new <audio|video> <name>");
+        if ((type !== "audio" && type !== "m9" && type !== "v1") || !name)
+          setStatus("usage: project new <audio|m9|v1> <name>");
         else void createNewProject(type, name);
         return true;
       }
@@ -784,7 +765,6 @@ export default function App({
       fullscreen,
       focusOn,
       focusPane,
-      hasVideo,
       openInEditor,
       armMidiLearn,
       ringPanes,
@@ -863,13 +843,14 @@ export default function App({
     (target: RowTarget) => {
       // Named, not fuzzy-matched: a row knows which folder its file is in, and the score a
       // bare id would win is the one `clips/<id>.yaml` wins too. See projectPaths.
-      const dir = target.kind === "video" ? "video_tracks" : "tracks";
-      const file = entityFile(editorRef.current?.files() ?? [], dir, target.id);
+      const file = entityFile(
+        editorRef.current?.files() ?? [],
+        "tracks",
+        target.id,
+      );
       const path = file && openInEditor(file, false);
-      focusLine.current = `${target.id} — ${path ?? `no ${dir}/ file`}`;
+      focusLine.current = `${target.id} — ${path ?? "no tracks/ file"}`;
       setStatus(focusLine.current);
-      // A video lane is not an engine track — it feeds no chain, so there is nothing to frame.
-      if (target.kind === "video") return;
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
     },
@@ -1304,32 +1285,12 @@ export default function App({
               </MobileMenu>
             ) : (
               <>
-                {/* View toggles — icon-only. */}
+                {/* Pane buttons. The VIEW toggles sat here beside them and are gone: with
+                    picture moved to v1 there is one layout left, and a toggle that is always
+                    on and cannot be turned off is a control in name only. VIEW_META still
+                    holds it — see routes.ts for why the concept outlived the button. */}
                 <nav className="flex items-center gap-1">
-                  {(Object.keys(VIEW_META) as View[])
-                    .filter((v) => v !== "video" || hasVideo)
-                    .map((v) => {
-                      const Icon = VIEW_META[v].icon;
-                      const on = full === null && view === v;
-                      return (
-                        <Button
-                          key={v}
-                          size="icon"
-                          variant={on ? "default" : "ghost"}
-                          aria-pressed={on}
-                          onClick={() => void runCommand(`ui ${v}`)}
-                          title={
-                            v === "video"
-                              ? "Video — editor, timeline and the renderer at once"
-                              : "Global — editor, timeline and the graph at once"
-                          }
-                          aria-label={VIEW_META[v].label}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </Button>
-                      );
-                    })}
-                  {(hasVideo ? ALL_PANES : PANES).map((p) => {
+                  {PANES.map((p) => {
                     const Icon = PANE_META[p].icon;
                     const key = keyForCommand(`ui ${p}`);
                     return (
@@ -1407,7 +1368,7 @@ export default function App({
             <div
               className={cn(
                 "flex min-h-0 min-w-0 flex-1 flex-col",
-                (full === "editor" || full === "viewport") && "hidden",
+                full === "editor" && "hidden",
               )}
             >
               <div
@@ -1516,25 +1477,7 @@ export default function App({
                   onMidiStatus={setStatus}
                 />
               </div>
-
-              {hasVideo && full === null && view === "video" && (
-                <div
-                  {...paneProps("viewport")}
-                  className={cn(
-                    "flex min-h-0 min-w-0 h-1/2 shrink-0",
-                    ringFor("viewport"),
-                  )}
-                >
-                  <VideoTab reloadKey={reloadKey} />
-                </div>
-              )}
             </div>
-
-            {hasVideo && full === "viewport" && (
-              <div className="flex min-h-0 min-w-0 flex-1">
-                <VideoTab reloadKey={reloadKey} />
-              </div>
-            )}
           </div>
 
           {/* bottom split panel — available on every tab, resizable divider */}
@@ -1722,7 +1665,7 @@ export default function App({
             bar's opener (a phone has no double-Shift to summon it with). */}
         {isMobile && (
           <MobileTabBar
-            tabs={(hasVideo ? ALL_PANES : PANES).map((pn) => ({
+            tabs={PANES.map((pn) => ({
               id: pn,
               icon: PANE_META[pn].icon,
               label: PANE_META[pn].label,
