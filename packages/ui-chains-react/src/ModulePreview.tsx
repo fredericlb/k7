@@ -21,6 +21,8 @@ export function ModulePreview({
   params,
   sourceInput,
   onPickSourceInput,
+  sourceArmed,
+  onToggleSourceArm,
 }: {
   /** The host's glyphs — the graph's own requirement, and this only passes them along. */
   icons: ChainsIcons;
@@ -44,6 +46,16 @@ export function ModulePreview({
    */
   sourceInput?: string;
   onPickSourceInput?: (x: number, y: number) => void;
+  /**
+   * Is the source node ARMED — the `A` button its mixer strip has always drawn.
+   *
+   * That button is the one every track node wears, and in a preview it was inert: the strip is
+   * part of `TRACK_UI` and gets drawn whether or not a host wired the callbacks. So it read as
+   * a graph you cannot touch, which is exactly what it was. Here it means "let this input
+   * through", which is the only thing a preview's source can do.
+   */
+  sourceArmed?: boolean;
+  onToggleSourceArm?: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // The camera lives OUTSIDE the graph: the panel unmounts whenever the editor closes, and a
@@ -78,6 +90,26 @@ export function ModulePreview({
         }
         onPickTrackInput={
           onPickSourceInput && ((_id, x, y) => onPickSourceInput(x, y))
+        }
+        // The source's mixer strip. Only `arm` is real here — a preview's source has no volume
+        // to ride and nothing to be muted against — so the other four are left at rest rather
+        // than wired to commands this graph has no way to carry out.
+        trackControls={
+          sourceArmed === undefined
+            ? undefined
+            : {
+                [PREVIEW_SOURCE]: {
+                  volume: 0,
+                  pan: 0.5,
+                  mute: 0,
+                  solo: 0,
+                  arm: sourceArmed ? 1 : 0,
+                },
+              }
+        }
+        onTrackToggle={
+          onToggleSourceArm &&
+          ((_id, control) => control === "arm" && onToggleSourceArm())
         }
       />
     </div>

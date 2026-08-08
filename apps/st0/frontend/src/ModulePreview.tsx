@@ -47,6 +47,8 @@ export function ModulePreview({
   params,
   sourceInput,
   onPickSourceInput,
+  sourceArmed,
+  onToggleSourceArm,
 }: {
   name: string;
   path: string;
@@ -55,6 +57,9 @@ export function ModulePreview({
   /** What the `in` node is fed from, and how to change it — see engine/inputChannels.ts. */
   sourceInput?: string;
   onPickSourceInput?: (x: number, y: number) => void;
+  /** …and its `A`, which is what actually lets the signal through. */
+  sourceArmed?: boolean;
+  onToggleSourceArm?: () => void;
 }) {
   return (
     <SharedPreview
@@ -65,6 +70,8 @@ export function ModulePreview({
       params={params}
       sourceInput={sourceInput}
       onPickSourceInput={onPickSourceInput}
+      sourceArmed={sourceArmed}
+      onToggleSourceArm={onToggleSourceArm}
       // The médiathèque has no command bar. Required by the package rather than defaulted,
       // which is the package saying out loud that a node's command menu does nothing here.
       command={(line) => {

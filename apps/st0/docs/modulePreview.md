@@ -112,6 +112,30 @@ pastille : on clique, on choisit une entrée de l'interface, et ce qu'on joue ar
 le module, monitoré. Le panneau bouge et le traitement s'entend, ce qui est la seule façon de
 savoir ce qu'un module fait.
 
+### Deux contrôles, parce que ce sont deux questions
+
+Le nœud source porte une **bande de mixage** depuis toujours — `TRACK_UI`, ses M / S / **A** et
+ses deux potards — dessinée que l'hôte ait câblé les rappels ou non. Dans un aperçu, ils étaient
+inertes : le graphe se lisait donc comme étant en lecture seule, ce qu'il était.
+
+Le `A` est câblé maintenant, et c'est **lui** qui laisse passer l'entrée. La pastille à côté dit
+**laquelle**. Les deux états sont distincts parce que les questions le sont : désarmer garde le
+choix, donc retrouver la guitare est un clic et pas un aller-retour dans le menu — c'est
+exactement pourquoi une console a un bouton d'armement plutôt qu'un câble à débrancher.
+
+Armer sans avoir choisi ouvre le menu : ce serait un clic sans rien à faire. Et choisir arme,
+parce que désigner l'entrée de sa guitare, c'est demander à l'entendre ; `aucune` désarme.
+
+Les deux sont **aussi** dans le pied de page de l'éditeur, et ce n'est pas décoratif : un nœud
+ne dessine son en-tête et ses widgets qu'au-delà d'un zoom de 0.6 (`far`, dans DomChains), et le
+panneau d'aperçu ne fait que 30 % d'une colonne. Un contrôle qu'il faut zoomer pour trouver se
+lit comme un contrôle absent.
+
+Désarmé, le document ne porte **aucun canal** plutôt qu'un `monitor: "off"` : le moteur libère
+alors l'entrée de la piste, et rien sur la machine ne reste à tenir une interface dont il ne se
+sert pas — le mode de monitoring est une propriété du PÉRIPHÉRIQUE, partagée avec ce qui est
+dessus (voir `EngineHost::applyTrackInput`).
+
 Côté document, c'est deux champs sur la piste d'aperçu :
 
 ```
