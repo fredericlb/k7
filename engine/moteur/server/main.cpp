@@ -572,9 +572,19 @@ int main(int argc, char** argv) {
     std::mutex listenersMx;
     std::unordered_map<const ix::WebSocket*, std::string> listeners;
 
+    // Which sockets DRIVE a session — a surface somebody is looking at, as opposed to the file
+    // service, which holds one per session for as long as the machine is up. Declared on hello
+    // (`{"role":"driver"}`), so a client that says nothing is not one and nothing changes for it.
+    //
+    // Same map shape and the same mutex as `listeners` above, and for the same reason: IXWebSocket
+    // runs each connection's callback on its own thread. A socket may drive only one session —
+    // every surface opens one per session already (see file-service/engineLink.ts, "ONE SOCKET PER
+    // SESSION"), so this is the arrangement rather than a restriction.
+    std::unordered_map<const ix::WebSocket*, std::string> drivers;
+
     server.setOnClientMessageCallback(
         [&host, &broadcast, &broadcastTo, &loggedMx, &loggedConns, &listenersMx, &listeners,
-         engineId, engineToken](
+         &drivers, engineId, engineToken](
             std::shared_ptr<ix::ConnectionState> conn,
             ix::WebSocket& ws, const ix::WebSocketMessagePtr& msg) {
             // Who is talking to us: the TUI, the web backend and the CLI all connect here, and an arrival or a drop explains
@@ -615,6 +625,16 @@ int main(int argc, char** argv) {
                                         [&](const auto& e) { return e.second == sid; });
                         if (!anyLeft)
                             host.post([&host, sid] { host.enableBroadcast(sid, false); });
+                    }
+
+                    // A DRIVER leaving is the other half, and the one that frees a project. Under
+                    // the same lock, for the same ordering reason: two threads that computed
+                    // "arrived" and "left" in one order and queued them in the other would leave
+                    // a live session counted as abandoned.
+                    if (auto d = drivers.find(&ws); d != drivers.end()) {
+                        const std::string sid = d->second;
+                        drivers.erase(d);
+                        host.post([&host, sid] { host.removeDriver(sid); });
                     }
                 }
                 bool announced;
@@ -1097,8 +1117,10 @@ int main(int argc, char** argv) {
                 //
                 // It carries the audio timing too, because the browser is timing THIS round trip to get the network half
                 // and needs the interface half from the same breath — a second query would measure a second, warmer trip.
-                // Answered off the message thread deliberately: reading the open device is a field read, and posting it
-                // would put the probe behind whatever the engine is doing, turning the ping into a measure of its queue.
+                // Answered off the message thread deliberately: posting it would put the probe behind whatever the engine
+                // is doing, turning the ping into a measure of its queue. That is only SAFE because audioTiming() reads
+                // two atomics the message thread publishes — it used to dereference the live device, which a concurrent
+                // set-audio-device destroys, and this keepalive fires every few seconds on every socket.
                 const auto timing = host.audioTiming();
                 ws.send(json{{"type", "whoami"},
                              {"id", engineId},
@@ -1106,6 +1128,23 @@ int main(int argc, char** argv) {
                              {"bufferSize", timing.bufferFrames},
                              {"sampleRate", timing.sampleRate}}
                             .dump());
+
+                // …and, if this socket says it DRIVES a session, start counting it. Declared here
+                // rather than in a verb of its own because every surface already sends a hello on
+                // every connection — including after a reconnect, which is exactly when the count
+                // has to be restored. Registered ONCE per socket: the browser's keepalive re-sends
+                // whoami every few seconds on a quiet link, and each of those must not be a driver.
+                //
+                // A client that says nothing is not a driver, which is what keeps the file service
+                // (and the tray, and every probe) out of the count. See docs/sessions.md.
+                if (j.value("role", std::string{}) == "driver") {
+                    bool isNew;
+                    {
+                        std::lock_guard<std::mutex> lk(listenersMx);
+                        isNew = drivers.emplace(&ws, session).second;
+                    }
+                    if (isNew) host.post([&host, session] { host.addDriver(session); });
+                }
             } else {
                 // A message we don't understand is version skew between brain and engine — log it here too, or the only trace
                 // is an error the client may well be ignoring.

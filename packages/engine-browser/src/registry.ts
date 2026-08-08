@@ -20,12 +20,44 @@ export interface EnginePrefs {
  * remembers where playback happens, l8 does not. Defaulted, so an app that keeps nothing
  * else says nothing.
  */
+/** What `select` answers: the secret to renew with, and whom this claim displaced if anyone. */
+export interface ClaimGrant {
+  ok: true;
+  secret: string;
+  tookOver?: { holder: string; engineId: string };
+}
+
+/** A `select` refused because the claim moved on — thrown by the client, carrying who has it. */
+export class ClaimLost extends Error {
+  constructor(readonly heldBy: string) {
+    super(
+      heldBy
+        ? `this project is now open by ${heldBy}`
+        : "this project was taken over",
+    );
+    this.name = "ClaimLost";
+  }
+}
+
 export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
   list(): Promise<E[]>;
-  select(id: string, token: string, latencyMs: number): Promise<{ ok: true }>;
-  /** The engine's own token, same as `select`: dropping someone else's lease is not something
-   *  a session alone should buy. See @studio/engine-registry's router. */
-  release(id: string, token: string): boolean;
+  /**
+   * Claim an engine for a project, or renew a claim already held.
+   *
+   * `secret` absent = an OPEN, which always wins. `secret` present = a renewal, which is refused
+   * with `ClaimLost` if somebody has taken the project since. Those must stay distinguishable, or
+   * a displaced tab renews its way back in and the two fight for ever.
+   */
+  select(
+    id: string,
+    token: string,
+    latencyMs: number,
+    project: string | null,
+    secret?: string,
+  ): Promise<ClaimGrant>;
+  /** The CLAIM's secret, not the engine token: a goodbye may only drop the claim it holds.
+   *  See @studio/engine-registry's router. */
+  release(id: string, secret: string): boolean;
   prefs(): Promise<P>;
   /**
    * WHOLESALE — the router REPLACES, it does not merge.
@@ -63,24 +95,31 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   return {
     list: async () => json<E[]>(await fetch(`${base}/api/engines`), "engines"),
 
-    /** Take or RENEW the lease, verifying the token server-side. Idempotent by design — the
-     *  holder re-POSTs it every ENGINE_ASSIGN_RENEW_MS, because "in use" expires on its own. */
-    select: async (id, token, latencyMs) =>
-      json<{ ok: true }>(
-        await fetch(`${base}/api/engine/select`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ id, token, latencyMs }),
-        }),
-        "select",
-      ),
+    /** Take or RENEW the claim, verifying the token server-side. The holder re-POSTs it every
+     *  ENGINE_ASSIGN_RENEW_MS, because "in use" expires on its own. */
+    async select(id, token, latencyMs, project, secret) {
+      const res = await fetch(`${base}/api/engine/select`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, token, latencyMs, project, secret }),
+      });
+      // 409 is not a fault and must not read as one: the request was fine, the project moved.
+      // Its own type, so a caller can tell "let go and say so" from "the network is down".
+      if (res.status === 409) {
+        const body = (await res.json().catch(() => ({}))) as {
+          heldBy?: string;
+        };
+        throw new ClaimLost(body.heldBy ?? "");
+      }
+      return json<ClaimGrant>(res, "select");
+    },
 
-    /** The lease's goodbye, as a BEACON so it survives the tab closing — a fetch there is
+    /** The claim's goodbye, as a BEACON so it survives the tab closing — a fetch there is
      *  cancelled with the page. Best-effort by nature, which is why the TTL exists behind it. */
-    release: (id, token) =>
+    release: (id, secret) =>
       navigator.sendBeacon(
         `${base}/api/engine/release`,
-        new Blob([JSON.stringify({ id, token })], {
+        new Blob([JSON.stringify({ id, secret })], {
           type: "application/json",
         }),
       ),

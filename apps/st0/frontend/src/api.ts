@@ -24,7 +24,6 @@ import {
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
-import type { ChannelLabel } from "./engine/inputChannels";
 import { mediatekModuleRefs } from "./moduleRefs";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
@@ -255,31 +254,11 @@ export const engineMachine = {
     return lines ?? [];
   },
 
-  /**
-   * The machine's own preferences — its interface, and the LABELS it gives that interface's
-   * channels ("arm", "overheads"). Global to the machine, not to any workspace.
-   *
-   * Asked of the machine and not of this backend for the usual reason: the file is
-   * `~/.studio/preferences.yaml` beside the engine, and st0 is hosted elsewhere. Labels only
-   * — how many inputs the interface actually has comes from the engine's device list, which
-   * is the side that has it open. See engine/inputChannels.ts.
-   */
-  preferences: async (
-    fileBase: string,
-    token: string,
-  ): Promise<{ channels: { in: ChannelLabel[] } }> => {
-    const res = await fetch(`${fileBase}/preferences`, {
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-      },
-    });
-    const prefs = await json<{ channels?: { in?: ChannelLabel[] } }>(
-      res,
-      "preferences",
-    );
-    return { channels: { in: prefs.channels?.in ?? [] } };
-  },
+  // The machine's channel LABELS ("arm", "overheads") were read here, for the one screen that
+  // routed a live input: the module builder's audition. Both are gone — a module is auditioned
+  // in l8 now, where the input belongs to the project's own track and the file service already
+  // reads `~/.studio/preferences.yaml` for it. Nothing here asked for that file for any other
+  // reason, so the route is simply not called from the médiathèque any more.
 
   /**
    * What this machine's engine has scanned.

@@ -89,6 +89,7 @@ void MixerPlugin::updateCoefficients(float lowDb, float midDb, float highDb)
 
 void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
+    const juce::ScopedNoDenormals noDenormals;   // see GraphDspPlugin::applyToBuffer
     if (ctx.destBuffer == nullptr) return;
     auto& buffer = *ctx.destBuffer;
     const int numChans = juce::jmin(buffer.getNumChannels(), 2);

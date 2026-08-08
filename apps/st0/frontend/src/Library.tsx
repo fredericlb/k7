@@ -59,11 +59,11 @@ import { assetNodes, folderAt } from "./assetTree";
 import { ChainEditor } from "./ChainEditor";
 import { EngineStatusBar } from "./EngineStatusBar";
 import { EnginePage } from "./engine/EnginePage";
-import { EngineList, EnginePicker } from "./engine/EnginePicker";
-import { ModuleParams } from "./engine/ModuleParams";
+import { EnginePicker } from "./engine/EnginePicker";
+
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { FindSongs } from "./FindSongs";
-import { ModuleEditor } from "./ModuleEditor";
+import { ModuleView } from "./ModuleView";
 import { OtherApps } from "./OtherApps";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { MiniPlayer } from "./playback/MiniPlayer";
@@ -991,40 +991,13 @@ export function Library() {
 
             Not over the EDITOR, which has always been reachable past this gate — a deep link
             opened one before the gate existed, and the builder says for itself, in its
-            footer, that an absent engine leaves the plugin's parameters empty. */}
-            {!editing &&
-              section === "modules" &&
-              choice.loaded &&
-              !choice.ready && (
-                <div className="absolute inset-0 z-20 flex items-start justify-center overflow-auto bg-background/95 p-8">
-                  <Card className="w-full max-w-md space-y-3 p-5">
-                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                      <Boxes className="h-4 w-4" /> Un moteur est nécessaire
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Les modules se construisent contre un greffon chargé :
-                      c'est lui qui donne les noms des paramètres, leurs bornes
-                      et ses presets d'usine. Sans moteur, l'éditeur ne peut que
-                      deviner.
-                    </p>
-                    <div className="rounded-md border p-1">
-                      <EngineList
-                        ranked={choice.ranked}
-                        chosenId={choice.chosenId}
-                        onChoose={choice.choose}
-                        onRetry={choice.refresh}
-                      />
-                    </div>
-                    {/* The remembered choice pointing at a machine that is off is the case a bare
-                  "aucun moteur" would hide — say which, so the answer is "turn it on". */}
-                    {choice.chosenId && (
-                      <p className="text-xs text-muted-foreground">
-                        Le moteur retenu ne répond pas depuis ce navigateur.
-                      </p>
-                    )}
-                  </Card>
-                </div>
-              )}
+            footer, that an absent engine leaves the plugin's parameters empty.
+
+            GONE, with the builder it gated. Modules are read-only here now: the catalogue
+            lists them, the tree opens them, and building one happens in l8 — on the bench,
+            where a real project and a real engine mean the plugin is actually loaded. Without
+            a builder there is nothing on this section an engine would improve, so demanding
+            one would be a door in front of an empty room. See ../docs/engine.md. */}
             {/* The zone being explored, as a tree: /songs, /samples or /modules. Same
             component l8 uses for a workspace, fed from the entry paths. */}
             <aside className="w-60 shrink-0 overflow-auto border-r p-2">
@@ -1426,18 +1399,14 @@ export function Library() {
               />
             </aside>
 
-            {/* The editor takes the middle, not the screen. It still wants both halves of what
-            it gets — text and grid, each with its own pane underneath — which is why it is
-            the tree, and only the tree, that stays beside it. */}
+            {/* A module, READ-ONLY, and the way to the bench. The builder was here and is in l8
+            now: only a live plugin can say what its parameters are called, and the médiathèque
+            has no project to load one into. The address is unchanged, so old links still open
+            the module — they land on its text rather than on a builder. */}
             {editing ? (
               <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <ModuleEditor
+                <ModuleView
                   entry={editing.entry}
-                  pane={editing.pane}
-                  // The machine's own preferences — its channel labels — are behind the same
-                  // token as its file service. Handed down like the other editors' rather
-                  // than re-derived: `useEngineChoice` lives here.
-                  engineToken={choice.token}
                   onBack={() => openFile(null)}
                 />
               </main>
@@ -1593,10 +1562,10 @@ export function Library() {
               </main>
             )}
 
-            {/* Only for modules: it is the one family with a plugin behind it, and the engine
-            is the only thing that knows what that plugin's parameters are called. Never
-            beside the editor, which has a parameters pane of its own — two lists of the same
-            thing, and the width belongs to the one you can drag onto a widget. */}
+            {/* Only for modules. It used to carry the plugin's live parameter list, which meant
+            loading the plugin — a one-module throwaway project sent to this tab's engine. That
+            is gone with the builder: a parameter list is a fact about a LOADED plugin, and the
+            place a plugin is loaded is a project. What stays is the way in. */}
             {!editing && section === "modules" && picked ? (
               <aside className="w-96 shrink-0 overflow-auto border-l p-4">
                 <div className="mb-3 flex items-center gap-2">
@@ -1605,16 +1574,20 @@ export function Library() {
                   </span>
                   <Button
                     size="sm"
-                    // The PANEL, which is what people come to this screen for — and the address
-                    // says so, rather than naming the module and hiding which pane is showing.
+                    // The module's own text, read-only. The address is the one it always was,
+                    // so a link kept from before still lands on this module.
                     onClick={() =>
                       openFile(`${relative(picked.path)}/${UI_FILE}`)
                     }
                   >
-                    <Pencil className="mr-1 h-3.5 w-3.5" /> Éditer
+                    <Pencil className="mr-1 h-3.5 w-3.5" /> Ouvrir
                   </Button>
                 </div>
-                <ModuleParams entry={picked} />
+                <p className="text-xs text-muted-foreground">
+                  Les modules se construisent sur le banc, dans l8 : c'est là
+                  qu'un greffon est réellement chargé, donc la seule place où
+                  ses paramètres, leurs bornes et ses presets d'usine existent.
+                </p>
               </aside>
             ) : null}
 

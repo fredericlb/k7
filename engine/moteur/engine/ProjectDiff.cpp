@@ -1,5 +1,7 @@
 #include "ProjectDiff.h"
 
+#include "Warnings.h"   // warn() on a duplicate id — JUCE-free, so the fast test binary can link it
+
 #include <algorithm>
 #include <map>
 #include <sstream>
@@ -37,10 +39,25 @@ std::string keyOf(const PluginDoc& p) {
     return k;
 }
 
+/**
+ * Key a vector for diffing — and SAY SO when two entries answer to the same key.
+ *
+ * `emplace` keeps the first and drops the rest in silence, so a duplicate id became invisible to
+ * every later diff: `populateEdit` iterates the vector and builds it, but nothing can ever update or
+ * remove it incrementally, and `trackById` routes its changes to the first match instead. That is the
+ * same shape as the ring a lane requested twice used to build empty — a duplicate key taking a
+ * different, quiet path. It stays first-wins, because changing which one survives would change what
+ * plays; what changes is that it is now on the record.
+ */
 template <typename T, typename KeyFn>
 std::map<std::string, const T*> index(const std::vector<T>& v, KeyFn key) {
     std::map<std::string, const T*> m;
-    for (const auto& e : v) m.emplace(key(e), &e);
+    for (const auto& e : v) {
+        auto k = key(e);
+        if (!m.emplace(k, &e).second)
+            warn("two entries share the id '" + k +
+                 "' — only the first is diffed, so edits to the other will not be heard");
+    }
     return m;
 }
 

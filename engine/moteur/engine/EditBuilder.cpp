@@ -153,8 +153,11 @@ bool isExternalFormat(const std::string& type) {
 // scan cache, recover its full PluginDescription, and create an ExternalPlugin from it. Null (with a hint) when
 // it isn't cached — the user needs to run a scan. The cache is read once and memoised across an apply.
 te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
+    // The snapshot is held for the whole function: `info` points INTO it, and a background rescan
+    // replaces the memo (PluginScan.h). Losing it here is a use-after-free, not a stale read.
+    const auto infos = cachedPluginInfos();
     const PluginInfo* info = nullptr;
-    for (const auto& i : cachedPluginInfos())
+    for (const auto& i : *infos)
         if (iequals(i.format, p.type) && iequals(i.name, p.name)) {
             info = &i;
             break;
@@ -348,7 +351,8 @@ bool saveVstPreset(te::Plugin& plugin, const juce::File& file) {
 // scan cache as { format:"internal", name:<display>, identifier:<xmlTypeName> }, so match on either and hand
 // back the xmlTypeName; return p.type unchanged when nothing matches and leave the warning to the caller.
 std::string resolveBuiltInType(const std::string& ptype) {
-    for (const auto& i : cachedPluginInfos())
+    const auto infos = cachedPluginInfos();   // a snapshot, for the same reason makeExternalPlugin holds one
+    for (const auto& i : *infos)
         if (i.format == "internal"
             && (iequals(i.name, ptype) || iequals(i.identifier, ptype)))
             return i.identifier;

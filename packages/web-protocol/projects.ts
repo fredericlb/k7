@@ -184,6 +184,45 @@ export function projectBasename(
 }
 
 /**
+ * The module bench's address: `/l8/@banc/modules.l8`.
+ *
+ * A reserved REPOSITORY name, and that is the whole trick. Every other project resolves through
+ * st0 (`GET /api/projects/by-name/:name` → a git URI → a clone on the machine); the bench has no
+ * repository and wants none — it is generated from the médiathèque's catalogue and regenerated
+ * whenever it is opened, so putting it under version control would version a cache.
+ *
+ * `@` cannot begin a git short name, which is the last path segment of an SSH URI without
+ * `.git`, so this can never collide with a real repository. `ProjectGate` sees the sentinel and
+ * takes the other road: no lookup, no clone, one call to the machine that makes the folder.
+ *
+ * Here rather than in st0 because BOTH ends need it spelled the same — st0 writes the link and
+ * the gate reads it — which is the same argument that put the rest of this vocabulary here.
+ */
+export const BENCH_REPO = "@banc";
+/** The folder the bench is generated into, inside its reserved workspace. */
+export const BENCH_PROJECT = "modules.l8";
+/** Whether an address names the bench rather than a repository. */
+export function isBench(repo: string): boolean {
+  return repo === BENCH_REPO;
+}
+
+/**
+ * How a project is NAMED in an engine claim — `<repo>/<projet>`.
+ *
+ * Here rather than in each gate, and beside the address it is derived from, for the same reason
+ * the address itself is here: two surfaces that spell one project differently would each believe
+ * they had it, and the rule "one engine per project" would hold for neither. The repository's
+ * short name and the folder path inside it are exactly what identifies a project across machines
+ * — a workspace path would not, since the same repository is cloned somewhere different on each.
+ *
+ * No app prefix: which app opens a folder is decided by its SUFFIX, so `winter.l8` and
+ * `winter.l8/live.m9` are already two different strings and cannot collide.
+ */
+export function projectClaimKey(l: Launch): string {
+  return `${l.repo}/${l.project}`;
+}
+
+/**
  * Where a project opens — whichever app its folder name claims. This is the link st0 writes.
  *
  * `origin` may be any URL on the studio origin; only its origin is kept, so a caller can pass

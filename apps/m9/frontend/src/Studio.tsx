@@ -16,6 +16,8 @@ import {
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { WebGraph } from "@studio/graph-model";
+import { ProjectTakenOver } from "@studio/project-shell/gate";
+import { projectsUrl } from "@studio/project-shell/launch";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 import type {
@@ -245,6 +247,25 @@ export function Studio({
   // want, so nothing below has to re-root them.
   const nodes = tree as TreeNode[];
 
+  // Somebody opened this set elsewhere, and a set runs on one moteur at a time. Over the whole
+  // app rather than inside Mix: the deck has stopped driving, so Édition and Graphe would be
+  // drawing a project this tab no longer owns — which is exactly the "two services fighting over
+  // one machine" the claim exists to end. See @studio/engine-registry/docs/claim.md.
+  if (deck.phase.k === "taken")
+    return (
+      <ProjectTakenOver
+        heldBy={deck.phase.heldBy}
+        title="Ce set a été ouvert ailleurs"
+        body={(who) =>
+          `${who ? `${who} vient de l'ouvrir` : "Il vient d'être ouvert ailleurs"}, et un projet ne tourne que sur un moteur à la fois — cet onglet a donc cessé de le piloter. Rouvrez-le depuis les projets pour le reprendre.`
+        }
+        back="Retour aux projets"
+        onBack={() => {
+          window.location.href = projectsUrl(window.location.href);
+        }}
+      />
+    );
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex items-center gap-4 border-b px-4 py-2">
@@ -335,13 +356,7 @@ export function Studio({
 
         {/* The graph goes to Mix as well as to Graphe: the desk's bindings name modules by
             the chains' own names, and the graph is where a name becomes a plugin id. */}
-        {view === "mix" && (
-          <MixView
-            engine={engine}
-            deck={deck}
-            set={decks}
-          />
-        )}
+        {view === "mix" && <MixView engine={engine} deck={deck} set={decks} />}
         {view === "edit" && (
           <EditView
             path={file}

@@ -54,6 +54,7 @@ void EngineHost::openAudioDevice() {
     // …then onto the buffer this engine asks for, which is what decides its quality band — see
     // applyPreferredBufferSize. After initialise, because there is no device to ask before it.
     applyPreferredBufferSize(dm.deviceManager);
+    publishAudioTiming();   // what whoami answers with, from now on — see AudioDevices.cpp
     if (auto* dev = dm.deviceManager.getCurrentAudioDevice())
         std::cerr << "[device] '" << dev->getName() << "' open: "
                   << dev->getActiveInputChannels().countNumberOfSetBits() << " in, "
@@ -124,27 +125,48 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     // the playback context allocated — printed once per apply, so a slow first play is diagnosable from the log.
     const double t0 = juce::Time::getMillisecondCounterHiRes();
     impl_->session(session).edit = te::Edit::createSingleTrackEdit(impl_->engine);
+    auto* edit = impl_->session(session).edit.get();
+    auto* tc = impl_->transport(session);
+    if (edit == nullptr || tc == nullptr) {   // every other transport call in this file guards; this one did not
+        studio::warn("could not create an edit for this project");
+        return;
+    }
     const double t1 = juce::Time::getMillisecondCounterHiRes();
-    populateEdit(impl_->engine, *impl_->session(session).edit, doc, baseDir, &impl_->session(session).pluginsById, &impl_->session(session).presetSaveById);
+    populateEdit(impl_->engine, *edit, doc, baseDir, &impl_->session(session).pluginsById, &impl_->session(session).presetSaveById);
     const double t2 = juce::Time::getMillisecondCounterHiRes();
-    impl_->transport(session)->ensureContextAllocated();
-    const double t3 = juce::Time::getMillisecondCounterHiRes();
     buildLevelMeters(session);           // append a metering plugin + client to each track
+    // A fresh Edit starts with no click, so re-assert the metronome flag, or every apply would silence it.
+    applyMetronome(session);
+    const double t3 = juce::Time::getMillisecondCounterHiRes();
+
+    // EVERY graph-invalidating call is above this line, and that ordering is the whole point.
+    // `insertPlugin` reaches Edit::restartPlayback(), which rebuilds the entire graph 1 ms later on
+    // this same thread — so allocating the context first, then adding meters and a click, built it
+    // twice: once here and once after applyFull had already returned and answered `busy:false`.
+    // The second build landed on whichever message-loop turn came next, which in practice was the
+    // one carrying the user's first `play`. That was the freeze. See docs/audit-stabilite.md.
+    tc->ensureContextAllocated();
     const double t4 = juce::Time::getMillisecondCounterHiRes();
-    std::cerr << "[applyFull] createEdit=" << (t1 - t0) << "ms populate=" << (t2 - t1)
-              << "ms ensureContext=" << (t3 - t2) << "ms meters=" << (t4 - t3)
-              << "ms total=" << (t4 - t0) << "ms plugins=" << impl_->session(session).pluginsById.size() << "\n";
+
     impl_->session(session).current = doc;
     impl_->session(session).baseDir = baseDir;
-    // Live inputs last: they need the context ensureContextAllocated() just made, and map ids through `impl_->session(session).current`.
+    // Live inputs need the context ensureContextAllocated() just made, and map ids through `current`.
     applyAllTrackInputs(session, doc);
 
     // Re-attach the record listener to this edit's transport — the previous edit's is gone with its listener list.
     // Defined in Recording.cpp, where the RecordListener type is complete.
     attachRecordListener(session);
 
-    // A fresh Edit starts with no click, so re-assert the metronome flag, or every apply would silence it.
-    applyMetronome(session);
+    // Drain whatever the input pass still queued, HERE, where it is timed and where it happens before
+    // anyone is told the project is ready — rather than on Edit's 1 ms timer, on top of the next message.
+    const double t5 = juce::Time::getMillisecondCounterHiRes();
+    edit->dispatchPendingUpdatesSynchronously();
+    const double t6 = juce::Time::getMillisecondCounterHiRes();
+
+    std::cerr << "[applyFull] createEdit=" << (t1 - t0) << "ms populate=" << (t2 - t1)
+              << "ms meters+click=" << (t3 - t2) << "ms ensureContext=" << (t4 - t3)
+              << "ms inputs=" << (t5 - t4) << "ms settle=" << (t6 - t5)
+              << "ms total=" << (t6 - t0) << "ms plugins=" << impl_->session(session).pluginsById.size() << "\n";
 }
 
 // Append a post-fader LevelMeterPlugin to every audio track and attach the client we poll for VU. Called after
@@ -346,15 +368,31 @@ static te::Edit::CountIn countInModeFor(int bars) {
 void EngineHost::play(const std::string& session) {
     auto* tc = impl_->transport(session);
     if (tc == nullptr) return;
+
+    // `setCountInMode` LOOKS like an Edit property and is not one: Tracktion implements it as
+    // engine.getPropertyStorage().setProperty(SettingID::countInMode, …) — process-global, and flushed
+    // to the %APPDATA%/Studio/Settings.xml this engine otherwise treats as inert (AGENTS.md). Calling it
+    // on every play therefore rewrote that file every time anyone pressed play. Both branches below still
+    // assert the mode they need, so the behaviour is unchanged; only the redundant writes are gone.
+    //
+    // It being engine-global also means two sessions share ONE count-in. That is survivable exactly
+    // because each play sets it, and it is why this must not be hoisted out of the transport calls.
+    const auto setCountIn = [this, &session](te::Edit::CountIn mode) {
+        auto* edit = impl_->session(session).edit.get();
+        if (edit == nullptr || impl_->countInApplied == (int)mode) return;
+        edit->setCountInMode(mode);
+        impl_->countInApplied = (int)mode;
+    };
+
     // A loop always starts from its top, so drop the playhead onto the start; Tracktion wraps back on its own.
     if (tc->looping) tc->setPosition(tc->getLoopRange().getStart());
     if (impl_->session(session).recordEnabled && prepareTakes(session)) {
         // Count-in applies to the record roll only: set it from the project just before recording and clear it on a
         // plain play, so an earlier record's count-in can't linger onto ordinary playback.
-        if (impl_->session(session).edit) impl_->session(session).edit->setCountInMode(countInModeFor(impl_->session(session).current.countIn));
+        setCountIn(countInModeFor(impl_->session(session).current.countIn));
         tc->record(false);
     } else {
-        if (impl_->session(session).edit) impl_->session(session).edit->setCountInMode(te::Edit::CountIn::none);
+        setCountIn(te::Edit::CountIn::none);
         tc->play(false);
     }
 }
@@ -628,6 +666,44 @@ size_t EngineHost::reapEmptySessions(double ttlMs) {
     return gone;
 }
 
+// Creating, like the other verbs a client uses to declare it drives this project: a socket saying
+// "I am driving X" is the moment X starts existing as far as this engine is concerned.
+void EngineHost::addDriver(const std::string& session) {
+    auto& s = impl_->session(session);
+    ++s.drivers;
+    s.noDriverSinceMs = 0.0;   // somebody is here; the clock stops
+    s.lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
+}
+
+// NOT creating: a socket closing must not conjure the session it was on. find() and nothing else.
+void EngineHost::removeDriver(const std::string& session) {
+    auto* s = impl_->find(session);
+    if (s == nullptr || s->drivers <= 0) return;
+    if (--s->drivers == 0) {
+        s->noDriverSinceMs = juce::Time::getMillisecondCounterHiRes();
+        std::cerr << "[sessions] '" << session << "' has no driver — freeing its project in "
+                  << "a moment unless one comes back\n";
+    }
+}
+
+size_t EngineHost::releaseAbandonedProjects(double graceMs) {
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    size_t freed = 0;
+    for (const auto& id : impl_->ids()) {
+        auto* s = impl_->find(id);
+        if (s == nullptr || !s->abandoned(now, graceMs)) continue;
+        // reset() and not drop(): the SESSION survives. A tab that comes back re-sends its
+        // document into the same slot, and anything still keyed on the id — a watch, a
+        // subscription — keeps meaning what it meant.
+        reset(id);
+        s->noDriverSinceMs = 0.0;   // freed once; do not report it again every sweep
+        ++freed;
+        std::cerr << "[sessions] '" << id << "' let go: its last driver left "
+                  << (int)(graceMs / 1000.0) << "s ago\n";
+    }
+    return freed;
+}
+
 // --- Server support ----------------------------------------------------------
 
 namespace {
@@ -642,19 +718,39 @@ public:
         // session's state only to the connections driving it — a listener that got
         // everybody's meters would draw somebody else's song.
         for (const auto& sid : host_.sessionIds()) emit(sid);
-        // Ride this timer rather than add one: the sweep is cheap and the cadence does not matter.
-        if (++ticks_ >= kTicksPerReap) {
+        // Ride this timer rather than add one: both sweeps are cheap.
+        if (++ticks_ >= kTicksPerRelease) {
             ticks_ = 0;
-            host_.reapEmptySessions(kSessionTtlMs);
+            // Abandoned projects first, and on their OWN cadence: a grace of 45 s swept once a
+            // minute would take up to a minute and three quarters, and the whole point is that
+            // closing a tab frees the machine promptly.
+            host_.releaseAbandonedProjects(kDriverGraceMs);
+            if (++releases_ >= kReleasesPerReap) {
+                releases_ = 0;
+                host_.reapEmptySessions(kSessionTtlMs);
+            }
         }
     }
 
 private:
-    // Ten minutes untouched, swept once a minute at the 50 ms tick. Both generous: dropping an
-    // empty session is invisible, so the only cost of waiting is a map entry.
+    // Ten minutes untouched, and dropping an EMPTY session is invisible, so the only cost of
+    // waiting is a map entry.
     static constexpr double kSessionTtlMs = 10 * 60 * 1000.0;
-    static constexpr int kTicksPerReap = 1200;
+    /**
+     * How long a session keeps its project after its last driver went.
+     *
+     * Long enough to survive a reload, a redraw and a flaky minute of Wi-Fi; short enough that
+     * closing a tab and walking to the machine finds it free. Those are the two failures being
+     * traded, and neither is a corner case: a refcount with no grace at all was rejected in
+     * docs/sessions.md precisely because it took a loaded project away on every tab reload.
+     */
+    static constexpr double kDriverGraceMs = 45 * 1000.0;
+    // Every five seconds at the 50 ms tick — a hundredth of the grace, so what a person sees is
+    // the grace and not the sweep.
+    static constexpr int kTicksPerRelease = 100;
+    static constexpr int kReleasesPerReap = 12;   // …and the empty-session sweep once a minute
     int ticks_ = 0;
+    int releases_ = 0;
 
     void emit(const std::string& session) {
         EngineHost::EngineState s;

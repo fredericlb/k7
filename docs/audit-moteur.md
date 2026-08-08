@@ -4,6 +4,11 @@
 mutualisé, ce qui est recopié, et où la fiabilité des connexions cède. Écrit pour être
 exécuté par lots — le plan est en fin de page.
 
+> **L'autre moitié est ailleurs.** Cette page s'arrête à la socket. Ce qui se passe une fois
+> le message arrivé — les fils, le rappel audio, le coût d'un chargement de projet, et le gel
+> de la première lecture — est dans
+> [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md).
+
 ## Périmètre
 
 Trois services parlent vraiment au moteur : **l8**, **m9** et **st0**, chacun par ses deux
@@ -207,7 +212,8 @@ structurellement impossibles les six divergences ci-dessous.
    « hors de portée » jusqu'au rechargement, précisément ce que `relook.ts` existe pour tuer.
    La ligne d'import a été supprimée, pas remplacée par un choix.
 3. **z0 ne prend jamais le bail**, alors que `lease.md:20-27` raconte que deux apps ont livré
-   ce bug indépendamment.
+   ce bug indépendamment. (v1 était dans le même cas ; corrigé au lot 2 bis, où il devenait la
+   seule surface capable d'écraser le projet d'une autre sur la même machine.)
 4. **`assigned` ignoré par 3 gates sur 4** : seul l8 cache un moteur déjà pris.
 5. **`select` avant d'entrer : l8 seul.** Les trois autres entrent sur un jeton non vérifié
    côté serveur.
@@ -357,6 +363,30 @@ seul montage ».
 
 A6 et A10 sont partis avec le lot 0.
 
+### Lot 2 bis — le bail devient un BAIL SUR UN PROJET ✅ FAIT
+
+Hors plan, et venu d'ailleurs : « l'instabilité du moteur » signalée le 8 août 2026 était en
+partie ceci. `select` ne voulait dire que « quelqu'un est sur cette machine » et ne refusait
+personne, donc rien n'empêchait deux personnes d'ouvrir le même projet — ni un second projet
+d'arriver sur une machine dont le service de fichiers ne tient qu'un seul projet actif
+(`engineLink.ts` : *« several browser tabs share it — last write wins »*).
+
+Un bail porte maintenant un projet et un titulaire, et le registre applique trois règles : un
+moteur par projet, un projet par moteur, et un bail sans projet (st0) qui n'entre en conflit
+avec rien. Le nouveau venu gagne ; le perdant l'apprend sur son renouvellement suivant, qui
+reçoit un 409 parce qu'un bail porte un SECRET — sans quoi « le nouveau venu gagne » ferait
+regagner le projet au perdant cinq secondes plus tard, indéfiniment.
+
+Ce que ça règle du présent document : **C3 point 3 pour v1**, qui ne prenait aucun bail et
+était donc la seule surface capable d'écraser silencieusement le projet d'une autre sur la même
+machine ; et **le doublon d'appel** de `l8/EngineGate.tsx:64`, parti puisqu'un `select`
+supplémentaire distribuerait désormais un secret que personne ne garde. z0 ne prend toujours
+pas de bail — il ne pilote pas de projet, mais il pilote un moteur, donc la ligne tient.
+
+Neuf tests de cycle de vie sont arrivés avec (`engine-registry/registry.test.ts`), ce qui
+entame le lot 5 par le bout que §E désigne comme le plus coûteux. Voir
+`packages/engine-registry/docs/claim.md`.
+
 ### Lot 3 — `@studio/engine-gate`
 
 C2 et C3. Le plus gros lot (~770 lignes vers ~400), et celui qui supprime six divergences
@@ -373,6 +403,10 @@ Un faux moteur et un faux registre en mémoire, puis couvrir : reconnexion, repl
 `outbox`, bail, ticket, relais WebSocket. Plus un test de contrat C++ ↔ TS sur la trame
 binaire et sur `PER_SESSION_REPLIES`. C'est le lot qui empêche les trente bugs déjà corrigés
 de revenir.
+
+**Le bail est fait** (lot 2 bis) : `registry.test.ts` couvre l'octroi, le renouvellement, la
+reprise, le refus du perdant, l'expiration sans adieu et la libération par secret. Restent la
+reconnexion, le replay, l'`outbox`, le ticket et le relais WebSocket.
 
 ### Lot 6 — le modèle de confiance
 

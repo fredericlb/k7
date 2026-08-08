@@ -647,6 +647,15 @@ export interface PublicEngine {
   hostname: string;
   addresses: EngineAddresses;
   assigned: boolean; // already selected by someone; hidden from the pick list
+  /**
+   * Who holds it and what they opened on it, when somebody does.
+   *
+   * On the wire because "busy" and "busy with Fred's winter.l8" are not the same screen: an
+   * engine that reads simply unavailable is one people retry, and taking a project over is a
+   * thing you should only do knowing whose it is. Undefined when the engine is free.
+   */
+  heldBy?: string;
+  heldProject?: string;
   // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
   /**

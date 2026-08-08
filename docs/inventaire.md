@@ -165,15 +165,19 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
   `st0/Gate.tsx:33`, `m9/Gate.tsx:76`. Laissé tel quel : cinq blocs de présentation courts, sans
   risque de dérive silencieuse. (`WorkspaceGate` est devenu `ProjectGate` quand st0 a pris les
   dépôts — voir `apps/st0/docs/projects.md`.)
-- **Le stub « pas de barre de commandes »**, trois copies : `m9/chains.tsx:74`,
-  `st0/ChainView.tsx:45`, `st0/ModulePreview.tsx:63`.
-- **Le type `Phase`**, identique : `st0/engine/useModuleEngine.ts:18` ≡ `m9/useEngine.ts:14`.
+- **Le stub « pas de barre de commandes »**, ~~trois copies~~ **deux** : `m9/chains.tsx:74` et
+  `st0/ChainView.tsx:45`. La troisième était dans `st0/ModulePreview.tsx`, parti avec le
+  constructeur (voir `apps/st0/docs/engine.md`).
+- **Le type `Phase`**, identique : `st0/engine/useModuleEngine.ts` ≡ `m9/useEngine.ts` — m9 a
+  gagné un `taken` depuis (`packages/engine-registry/docs/claim.md`), donc les deux ont
+  légèrement divergé, pour une raison.
 - **Le glyphe `piano-16`**, corps SVG identique octet pour octet entre
   `apps/l8/frontend/src/trackIcons.tsx:38` et
   `packages/ui-chains-react/src/moduleIcons.tsx:20`, et son enveloppe `<svg …>` réécrite à la
-  main une troisième et une quatrième fois dans `mediatek/ModulePreview.tsx:23` et
-  `m9/chains.tsx:25`. (Le reste de la duplication des tables de glyphes est argumenté et
-  assumé — voir `moduleIcons.tsx:8`.)
+  main une troisième fois dans `m9/chains.tsx:25`. La quatrième était celle de
+  `mediatek/ModulePreview.tsx` ; ce qu'il en restait vit maintenant seul dans
+  `apps/st0/frontend/src/moduleIcons.tsx`. (Le reste de la duplication des tables de glyphes
+  est argumenté et assumé — voir `moduleIcons.tsx:8`.)
 
 ## 5. Config
 

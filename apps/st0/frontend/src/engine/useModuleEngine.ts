@@ -1,16 +1,13 @@
-// useModuleEngine.ts — the ONE socket to the engine this account chose: it loads a module and
-// answers for its plugin's parameters, and it carries the transport for anything the moteur
-// plays (a chain variant, a master), and the levels at both ends of an audition.
-// See docs/engine.md, docs/playbackTarget.md.
+// useModuleEngine.ts — the ONE socket to the engine this account chose. It carries the
+// transport for anything the moteur plays for the médiathèque: a chain variant, a song, a
+// playlist. It used to load MODULES too — that left with the builder, which is in l8 now,
+// where a plugin can be loaded into a real project. See docs/engine.md, docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
-import { PluginParamsStore } from "@studio/engine-browser/params";
-import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentUser, engines } from "../api";
-import { modulePreviewDoc, previewPluginId } from "./preview";
 
 export type EnginePhase =
   | { k: "looking" }
@@ -53,40 +50,8 @@ export interface ModuleEngine {
    *  The médiathèque is hosted and the moteur opens PATHS, so anything that plays audio has to
    *  find it on that machine's disk. See m9's docs/plumbing.md, which walks the same route. */
   fileBase: string | null;
-  /** Parameter names the loaded plugin reports, or [] before one is loaded. */
-  paramNames: string[];
-  /**
-   * Live parameter VALUES, as an external store the graph subscribes to.
-   *
-   * Not React state: a watched plugin reports its whole set ~20×/s, and holding that here
-   * would re-render the editor to move one knob. See @studio/engine-browser/params.
-   */
-  paramsStore: PluginParamsStore;
-  /** Turn one of the loaded plugin's knobs. `id` is the PluginDoc id (`chain:module`). */
-  setPluginParam: (id: string, name: string, value: number) => void;
-  /** The monitored INPUT's level in dB, and what leaves the module. -100 is nothing —
-   *  which is also what a track with no input reads, since the two look the same. */
-  inputLevel: number;
+  /** What leaves whatever is playing, in dB. -100 is nothing. */
   outputLevel: number;
-  /** What each spans, so a bound widget adopts the real range instead of a 0..1 guess. */
-  paramMeta: Record<string, ParamMeta>;
-  /** Factory presets the loaded plugin offers. Empty for a built-in, which has none. */
-  presets: PresetInfo[];
-  /**
-   * Load a module so the engine can answer for it. Safe to call on every edit.
-   *
-   * `inputChannels` feeds the preview from the machine's interface — 1-based, one for mono
-   * and two for a pair — so a module can be heard treating something you play rather than
-   * only inspected. Empty is the ordinary case. See engine/inputChannels.ts.
-   */
-  preview: (
-    module: string,
-    plugin: { type?: unknown; name?: unknown } | undefined,
-    params?: Record<string, number>,
-    inputChannels?: number[],
-  ) => void;
-  listPresets: (module: string) => void;
-  setPreset: (module: string, sel: { index?: number; path?: string }) => void;
   /**
    * Send a document and start the transport — what a chain preview needs and a module preview
    * does not. It REPLACES whatever this session held, the one-module doc included: the session
@@ -144,18 +109,9 @@ export interface ModuleEngine {
 export function useModuleEngine(engineId?: string): ModuleEngine {
   const [phase, setPhase] = useState<EnginePhase>({ k: "looking" });
   const [fileBase, setFileBase] = useState<string | null>(null);
-  const [paramNames, setParamNames] = useState<string[]>([]);
-  const [paramMeta, setParamMeta] = useState<Record<string, ParamMeta>>({});
-  const [presets, setPresets] = useState<PresetInfo[]>([]);
-  // What the monitored input is doing, and what leaves the module — the two ends of the
-  // audition, in dB. From the engine's own frame: the signal is on another machine, so its
-  // level is a thing only that machine can report.
-  const [inputLevel, setInputLevel] = useState(-100);
+  // What leaves whatever is playing, in dB. From the engine's own frame: the signal is on
+  // another machine, so its level is a thing only that machine can report.
   const [outputLevel, setOutputLevel] = useState(-100);
-  // Live parameter values, as an EXTERNAL store: the engine reports a watched plugin's whole
-  // set ~20×/s, and holding that in React state would re-render the editor to move one knob.
-  // A ref, so it survives every reconnection — the graph subscribes to this object once.
-  const paramsStore = useRef(new PluginParamsStore());
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [warning, setWarning] = useState<EngineWarning | null>(null);
@@ -166,8 +122,6 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
   // Stops the renew loop and says goodbye. Held in a ref because the lease is taken inside an
   // async body, long after the effect returned its cleanup.
   const lease = useRef<(() => void) | null>(null);
-  // The module currently loaded, so a reconnect can put it back.
-  const loaded = useRef<Parameters<ModuleEngine["preview"]> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,13 +138,15 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       // The lease, exactly as l8' EngineGate holds it. A miss is not fatal: it marks the
       // engine in use, it does not grant the connection, which the browser makes itself.
       lease.current?.(); // a previous one, if this effect re-ran on a new choice
-      lease.current = engines.hold(found);
+      // `project: null` — and that is the whole of st0's relationship to the claim. The
+      // médiathèque drives an engine without ever opening a project, so it must not compete for
+      // one: claiming here would take a song away from the l8 tab next door every time somebody
+      // looked at the catalogue. It still holds the ENGINE, which is what marks it in use.
+      lease.current = engines.hold(found, { project: null });
 
-      // A preview is a one-plugin throwaway project, and it used to be sent to the SAME
-      // engine slot l8 had a song in — auditioning a module unloaded the song.
       // Per SERVICE and per PERSON: the médiathèque is hosted, so two people can choose the
-      // same machine, and on a bare "st0" one of them auditioning a module would tear
-      // down the other's preview mid-listen.
+      // same machine, and on a bare "st0" one of them starting a song would tear down the
+      // other's mid-listen. It also keeps this out of the slot l8 has a song in.
       const client = new EngineClient(
         // Measured once here, re-measured before every reconnect: the relayed URL's ticket
         // outlives nothing, and a preview pane stays open far longer than a minute.
@@ -199,14 +155,6 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
         sessionFor(SESSIONS.st0, currentUser()),
       );
       engine.current = client;
-      client.onPluginParams(({ id, params, meta }) => {
-        setParamNames(Object.keys(params));
-        if (meta) setParamMeta(meta);
-        // …and into the store the graph's knobs read, so a widget shows what the plugin
-        // actually holds rather than the file's authored value.
-        if (id) paramsStore.current.set(id, params);
-      });
-      client.onPresets((_module, list) => setPresets(list));
       // The transport, as the engine reports it. Subscribed always and not only while
       // something plays: a session can already be running when this tab connects — the same
       // person left it playing in another one — and a pane that assumed silence would draw a
@@ -214,10 +162,8 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       client.onState((s) => {
         setPlaying(s.playing);
         setPlayhead(s.playhead);
-        // The preview holds exactly ONE track, so its levels are the first of each list.
-        // -100 is the engine's "nothing", which is also what it sends for a track with no
-        // input assigned — the same reading either way, and the same empty meter.
-        setInputLevel(s.inputLevels?.[0] ?? -100);
+        // What the médiathèque plays is one track at a time, so its level is the first of the
+        // list. -100 is the engine's "nothing", and reads as an empty meter either way.
         setOutputLevel(s.levels?.[0] ?? -100);
       });
       // Kept rather than dropped: this is how the engine says a clip could not be opened, and
@@ -227,8 +173,6 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       setClient(client);
       client.connect();
       setPhase({ k: "ready", id: found.engine.id });
-      // A doc asked for before the socket opened is replayed here rather than lost.
-      if (loaded.current) sendPreview(client, ...loaded.current);
     })();
     // No unsubscribe of our own: dispose() drops the client and its callbacks together,
     // and this hook owns the client outright — nobody else holds a reference to it.
@@ -242,39 +186,6 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       setConnected(false);
     };
   }, [attempt, engineId]);
-
-  const preview = useCallback<ModuleEngine["preview"]>(
-    (module, plugin, params, inputChannels) => {
-      loaded.current = [module, plugin, params, inputChannels];
-      const client = engine.current;
-      if (client) sendPreview(client, module, plugin, params);
-    },
-    [],
-  );
-
-  /**
-   * Turn a knob on the loaded plugin.
-   *
-   * Optimistic into the store as well as sent: the engine echoes the whole set back on its own
-   * cadence, and a widget that only ever showed what came back would lag a drag enough to read
-   * as the control snapping backwards under the finger.
-   */
-  const setPluginParam = useCallback(
-    (id: string, name: string, value: number) => {
-      const store = paramsStore.current;
-      store.set(id, { ...(store.getSnapshot()[id] ?? {}), [name]: value });
-      engine.current?.setPluginParam(id, name, value);
-    },
-    [],
-  );
-
-  const listPresets = useCallback((module: string) => {
-    engine.current?.listPresets(module);
-  }, []);
-
-  const setPreset = useCallback<ModuleEngine["setPreset"]>((module, sel) => {
-    engine.current?.setPreset(module, sel);
-  }, []);
 
   // The document first, THEN the verb. A transport verb sent first plays whatever the engine
   // still had loaded — here, the last module preview — which is a second of the wrong sound
@@ -300,9 +211,6 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
 
   const reset = useCallback(() => {
     engine.current?.dropSession();
-    // The module this hook had loaded went with the edit. Forgetting it here keeps a later
-    // reconnect from replaying it over whatever took its place.
-    loaded.current = null;
   }, []);
 
   // Moved locally as well as sent: the state frame is ~20 Hz, so a playhead that only ever
@@ -321,32 +229,11 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
     playing,
     playhead,
     warning,
-    paramNames,
-    paramMeta,
-    paramsStore: paramsStore.current,
-    setPluginParam,
-    inputLevel,
     outputLevel,
-    presets,
-    preview,
-    listPresets,
-    setPreset,
     play,
     stop,
     seek,
     reset,
     retry: () => setAttempt((n) => n + 1),
   };
-}
-
-/** Apply the one-module doc, then ask what the plugin ended up with. */
-function sendPreview(
-  client: EngineClient,
-  module: string,
-  plugin: { type?: unknown; name?: unknown } | undefined,
-  params?: Record<string, number>,
-  inputChannels?: number[],
-): void {
-  client.sendProject(modulePreviewDoc(module, plugin, params, inputChannels));
-  client.getPluginParams(previewPluginId(module));
 }

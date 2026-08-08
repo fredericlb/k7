@@ -24,6 +24,7 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
+import type { PresetInfo } from "@studio/engine-protocol";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
@@ -119,6 +120,9 @@ import { useViewRoute } from "./useViewRoute";
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
+/** One frozen empty list, so a builder with no live plugin does not get a new array per render. */
+const EMPTY_PRESETS: PresetInfo[] = [];
+
 export default function App({
   engineUrl,
   engineLatency,
@@ -153,6 +157,24 @@ export default function App({
   const [builder, setBuilder] = useState<{
     path: string;
     pane: BuilderPane;
+  } | null>(null);
+  /**
+   * The LIVE plugin behind the module the builder is open on, when the open project has one.
+   *
+   * This is what makes the builder more than a text editor: a plugin's parameter names, their
+   * ranges and its factory presets are facts about a LOADED plugin, and the only loaded plugins
+   * are the ones this project instantiates. The médiathèque used to answer by sending the engine
+   * a one-module throwaway project; that only ever worked because it had an engine session with
+   * nothing in it, and it is gone with its builder.
+   *
+   * Matched on the chain step's NAME. An instance named after the module it extends is therefore
+   * the one that lights this up — which is the rule the bench is built around
+   * (apps/st0/docs/banc.md). No match is an ordinary state: the grid still edits, the bindings
+   * are just typed rather than picked.
+   */
+  const [builderPlugin, setBuilderPlugin] = useState<{
+    module: string;
+    pluginId: string;
   } | null>(null);
   // The documentation: an OVERLAY with its own route (/docs), so Back and typing `help` both close it.
   // Read RAW, before the router mounts, so the prefix the router would strip is
@@ -270,6 +292,10 @@ export default function App({
     requestPluginParams,
     setPluginParam,
     watchPluginParams,
+    pluginParamMeta,
+    presets,
+    listPresets,
+    setPreset,
   } = useEngineLink(
     engineUrl,
     userEmail,
@@ -943,6 +969,52 @@ export default function App({
     y: number;
     files: string[];
   } | null>(null);
+  /**
+   * Find the open project's instance of the module the builder just opened, and watch its plugin.
+   *
+   * Read from the compiled graph rather than kept in state, the same way `browseAssets` reads its
+   * choices: the chains can have changed since the last look, and this runs once per builder open.
+   * `watchPluginParams` is what makes the values LIVE — without it the engine reports a plugin's
+   * set once and never again, so a knob turned in the graph would leave the builder showing the
+   * number it happened to see first.
+   */
+  useEffect(() => {
+    if (!builder) return void setBuilderPlugin(null);
+    // ".../<module>/module.yaml" → "<module>". The folder names a module; the file inside it
+    // says which of its three parts is open, which is not what an instance is named after.
+    const module = builder.path.split("/").slice(-2)[0] ?? builder.path;
+    let cancelled = false;
+    void api
+      .graph()
+      .then((g) => {
+        if (cancelled) return;
+        const step = Object.values(g.chains ?? {})
+          .flatMap((c) => c.use ?? [])
+          .find((s) => s.module === module && s.pluginId);
+        setBuilderPlugin(
+          step?.pluginId ? { module, pluginId: step.pluginId } : null,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setBuilderPlugin(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [builder]);
+
+  // …and once one is found, ask for it and keep it coming. Its own effect so the unwatch is
+  // paired with the watch: leaving the builder open on a module for an hour must not leave a
+  // subscription behind on a plugin nothing is drawing.
+  useEffect(() => {
+    if (!builderPlugin) return;
+    const { module, pluginId } = builderPlugin;
+    requestPluginParams(pluginId);
+    watchPluginParams(pluginId, true);
+    listPresets(module);
+    return () => watchPluginParams(pluginId, false);
+  }, [builderPlugin, requestPluginParams, watchPluginParams, listPresets]);
+
   const browseAssets = useCallback(
     (module: string, param: string, x: number, y: number) => {
       // The choices are the MODULE's own assets/ and its ancestors', carried on its node — a
@@ -1917,9 +1989,12 @@ export default function App({
           </RecordingOverlay>
         )}
 
-        {/* The shared module builder (@studio/ui-module-builder), over the whole shell. The module's OWN
-            presets come off its shelf through the store and work here; the plugin's FACTORY banks and its
-            live parameter list need an engine, and this overlay holds no engine link, so it offers neither. */}
+        {/* The shared module builder (@studio/ui-module-builder), over the whole shell.
+            The module's OWN presets come off its shelf through the store. The plugin's FACTORY
+            banks, its parameter NAMES and their ranges come from the engine — and only for a
+            module this project instantiates, because those are facts about a loaded plugin and
+            the loaded plugins are the ones in the chains. `builderPlugin` is that lookup; when it
+            is null the builder is exactly what it always was here, a text and grid editor. */}
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder
@@ -1933,9 +2008,34 @@ export default function App({
               onBack={() => setBuilder(null)}
               onSaved={bumpReload}
               setStatus={setStatus}
-              presets={[]}
-              onListPresets={() => {}}
-              onSetPreset={() => {}}
+              // What the plugin calls its parameters, and what each spans — so a widget adopts the
+              // real range instead of the 0..1 a hand-typed binding falls back to.
+              //
+              // Both off `pluginParamMeta`, which is ordinary React state and therefore re-renders
+              // this when the engine answers. NOT off `pluginParamsStore`: that is an external
+              // store rewritten by the 20 Hz feed, and reading it during render would give whatever
+              // it held on the first frame — empty — and never update. The two carry the same names
+              // anyway; the meta is the half that also carries the ranges.
+              pluginParamNames={
+                builderPlugin
+                  ? Object.keys(pluginParamMeta[builderPlugin.pluginId] ?? {})
+                  : undefined
+              }
+              pluginParamMeta={
+                builderPlugin
+                  ? pluginParamMeta[builderPlugin.pluginId]
+                  : undefined
+              }
+              presets={
+                (builderPlugin && presets[builderPlugin.module]) ||
+                EMPTY_PRESETS
+              }
+              onListPresets={() =>
+                builderPlugin && listPresets(builderPlugin.module)
+              }
+              // The builder passes its own module name; the engine resolves BOTH ends to the same
+              // live instance, so which of the two is sent does not matter — take the builder's.
+              onSetPreset={(module, sel) => setPreset(module, sel)}
               // A save into `_modules` forked: follow the copy, or the next save would fork again.
               onRelocated={(next) => {
                 setBuilder({ path: next, pane: "module" });
@@ -1944,6 +2044,10 @@ export default function App({
               // The module drawn as the card it will be in a chain, under the grid that shapes it.
               // The builder owns the box; the graph needs OUR glyphs and OUR command line, which a
               // shared package cannot invent — hence a slot rather than an import.
+              //
+              // Its knobs are LIVE when a plugin was found: the store and the setter go in
+              // together, because a knob that moves without changing anything is worse than one
+              // that does not move.
               renderPreview={({ ui, params }) => (
                 <ModulePreview
                   icons={STUDIO_ICONS}
@@ -1952,6 +2056,8 @@ export default function App({
                   path={builder.path}
                   ui={ui}
                   params={params}
+                  paramsStore={builderPlugin ? pluginParamsStore : undefined}
+                  onSetParam={builderPlugin ? setPluginParam : undefined}
                 />
               )}
             />

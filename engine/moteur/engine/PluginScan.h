@@ -8,13 +8,22 @@
 #include "EngineHost.h"   // PluginInfo
 #include "EngineTypes.h"  // te::Engine
 
+#include <memory>
 #include <vector>
 
 namespace studio {
 
-// The plugin scan cache parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing the file
-// each time added up on projects with many.
-const std::vector<PluginInfo>& cachedPluginInfos();
+/**
+ * The plugin scan cache parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing
+ * the file each time added up on projects with many.
+ *
+ * A SHARED SNAPSHOT, not a reference into a global. `scanInstalledPlugins` invalidates the memo
+ * from a DETACHED thread while the message thread reads it, and makeExternalPlugin holds a raw
+ * `const PluginInfo*` into the vector across a dozen lines — a background scan finishing mid-apply
+ * therefore freed the buffer under it. Hold the returned pointer for as long as you hold anything
+ * into what it points at, and a rescan lands on the next lookup instead of on this one.
+ */
+std::shared_ptr<const std::vector<PluginInfo>> cachedPluginInfos();
 
 // Register the plugins l8 adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
 // the two Tracktion ships without registering (the convolver, the AirWindows set).

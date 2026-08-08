@@ -6,9 +6,16 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import type { RepoProject, RepoSummary } from "@studio/web-protocol";
-import { projectLabel } from "@studio/web-protocol/projects";
+import {
+  BENCH_PROJECT,
+  BENCH_REPO,
+  launchUrl,
+  projectLabel,
+} from "@studio/web-protocol/projects";
 import {
   CornerDownRight,
+  ExternalLink,
+  FlaskConical,
   FolderGit2,
   Loader2,
   Plus,
@@ -69,6 +76,14 @@ export function RepoList({
   onRefresh: (repo: RepoSummary) => void;
 }) {
   const [uri, setUri] = useState("");
+  // Une ADRESSE, calculée ici comme celle de tout autre projet — le dépôt réservé `@banc`
+  // dit au portail de l8 de prendre l'autre route. Voir packages/web-protocol/projects.ts.
+  const benchHref = launchUrl(
+    window.location.origin,
+    BENCH_REPO,
+    BENCH_PROJECT,
+    "l8",
+  );
   const add = () => {
     const v = uri.trim();
     if (v) {
@@ -95,6 +110,34 @@ export function RepoList({
         >
           <Plus className="h-4 w-4" /> Ajouter
         </Button>
+      </div>
+
+      {/* Le banc d'essai : un projet l8 sans dépôt, régénéré depuis le catalogue à chaque
+          ouverture, où l'on essaie les modules et où on les CONSTRUIT — c'est le seul projet
+          qui écrive dans la médiathèque. Une ancre comme toutes les autres ouvertures de projet
+          ici (voir ../../docs/projects.md), donc ctrl-clic et « copier l'adresse » marchent.
+          Grisé sans machine joignable : il faut une machine pour y récupérer le catalogue. */}
+      <div className="flex items-center gap-3 rounded-md border border-dashed border-border p-3">
+        <FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">Banc d'essai des modules</div>
+          <p className="text-xs text-muted-foreground">
+            Un projet l8 avec le catalogue entier dedans. Câblez un module dans
+            la chaîne pour l'entendre — et ce que vous y modifiez est écrit dans
+            la médiathèque, pas dans une copie.
+          </p>
+        </div>
+        {blocked ? (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {blocked}
+          </span>
+        ) : (
+          <Button variant="secondary" size="sm" asChild>
+            <a href={benchHref} target="_blank" rel="noopener">
+              <ExternalLink className="h-4 w-4" /> Ouvrir
+            </a>
+          </Button>
+        )}
       </div>
 
       {error && (

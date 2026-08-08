@@ -97,6 +97,11 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import { PROJECT_SUFFIXES, projectApp } from "@studio/web-protocol/projects";
+import {
+  benchModulesDir,
+  isBenchProject,
+  pushModuleToMediatek,
+} from "./bench.ts";
 import { buildGraphDoc } from "./graphDoc.ts";
 import {
   type FileChange,
@@ -874,8 +879,42 @@ export class Workspace {
    * forking a whole module to move a knob is precisely the copy nobody wanted. Everything a module IS stays
    * read-only here: the fork is what "read-only" does instead of refusing. See docs/uiLibrary.md.
    */
-  write(rel: string, content: string): { forked?: ForkedModule } {
+  write(
+    rel: string,
+    content: string,
+  ): { forked?: ForkedModule; pushed?: boolean } {
     const abs = this.safePath(rel);
+
+    /**
+     * The BENCH's one exception, and the only place in this service that writes to the
+     * médiathèque.
+     *
+     * Its `modules/` folder is a mirror of the catalogue (bench.ts), so a save there is
+     * ordinary `@project` editing as far as everything else is concerned — no fork, because
+     * there is nothing to fork FROM and nothing to repoint. What is not ordinary is that the
+     * file has to reach the hosted library too, or the edit would live in a folder that is
+     * regenerated from the catalogue on the next open, i.e. it would be quietly discarded.
+     *
+     * Local write first, push after, and the push may fail without failing the save: the bytes
+     * are on this machine either way, and a hosted library that is down must cost the sync, not
+     * the work. See apps/st0/docs/banc.md.
+     */
+    const active = this.activeProject
+      ? join(this.root, this.activeProject)
+      : null;
+    const inBenchModules =
+      active !== null &&
+      isBenchProject(this.root, active) &&
+      abs.startsWith(benchModulesDir(active) + sep);
+    if (inBenchModules && !isBinary(basename(abs))) {
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, content, "utf8");
+      this.invalidateProjectDoc();
+      const rel = relative(benchModulesDir(active), abs).split(sep).join("/");
+      void pushModuleToMediatek(rel, content);
+      return { pushed: true };
+    }
+
     if (isInSharedModules(this.toRel(abs)) && basename(abs) !== UI_FILE) {
       const dir = this.requireActive();
       const forked = forkSharedModule(dir, abs, content);

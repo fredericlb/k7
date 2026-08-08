@@ -151,6 +151,13 @@ std::vector<AudioDeviceInfo> EngineHost::listAudioDevices() {
 // Open a specific interface (input + output); `type` is the backend, and empty means the first one offering the
 // name. Returns false and warns — never crashes — when it isn't among the enumerated devices.
 bool EngineHost::setAudioDevice(const std::string& name, const std::string& type) {
+    // Publish on EVERY exit, success or refusal: the rollback paths below reopen a device too, and
+    // a stale buffer/rate would band the link wrong for as long as nobody switched again.
+    struct PublishOnExit {
+        EngineHost* host;
+        ~PublishOnExit() { host->publishAudioTiming(); }
+    } publishOnExit{this};
+
     auto& dm = impl_->engine.getDeviceManager();
     auto& jdm = dm.deviceManager;
     const juce::String wanted(name);
@@ -238,16 +245,29 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
     return true;
 }
 
+void EngineHost::publishAudioTiming() {
+    auto* dev = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
+    impl_->audioBufferFrames.store(dev ? dev->getCurrentBufferSizeSamples() : 0,
+                                   std::memory_order_relaxed);
+    impl_->audioSampleRate.store(dev ? dev->getCurrentSampleRate() : 0.0,
+                                 std::memory_order_relaxed);
+}
+
 EngineHost::AudioTiming EngineHost::audioTiming() const {
     // What the interface COSTS, for the browsers to band a link into Q1/Q2/Q3 — see
     // packages/web-protocol/quality.ts. Reported rather than computed here because only the
     // device knows it, and it changes whenever one is opened or its buffer is changed.
     //
+    // Read from two ATOMICS rather than from the device. `whoami` answers on the asking socket's
+    // own thread, and this used to dereference the live juce::AudioIODevice* — which
+    // setAudioDevice below destroys and rebuilds. The browser's keepalive sends `whoami` every
+    // few seconds on every socket, so any device switch overlapping one could take the process
+    // down. The fast off-thread reply is kept; only the read moved.
+    //
     // Zeros when nothing is open. That is not "instant": a client reads a zero as "not
     // measured" and says so, rather than crediting an engine with a latency nobody proved.
-    auto* dev = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
-    if (dev == nullptr) return {};
-    return {dev->getCurrentBufferSizeSamples(), dev->getCurrentSampleRate()};
+    return {impl_->audioBufferFrames.load(std::memory_order_relaxed),
+            impl_->audioSampleRate.load(std::memory_order_relaxed)};
 }
 
 std::string EngineHost::outputDeviceName() const {

@@ -173,6 +173,12 @@ export function ensureEngine(
   }
   // The other half of l8' session: this side compiles and sends the project, the browser
   // side drives its transport. Same id or the two steer different projects.
+  //
+  // And deliberately NOT a driver. The engine counts sockets that declare `role: "driver"` on
+  // hello and frees a project 45 s after the last one goes (engine/moteur/docs/sessions.md).
+  // This link is held for as long as the machine is up, so counting it would mean no project
+  // ever looked abandoned — which is the whole point of the count. Saying nothing is what keeps
+  // it out; there is no flag to pass.
   const client = new EngineClient(selectedEngineUrl, session);
   links.set(session, { client, ready: false, lastUsed: Date.now() });
   wireEngine(session, client);

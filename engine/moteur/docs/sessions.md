@@ -140,6 +140,45 @@ almost everything, since most sessions have no audio subscriber. Counting *conne
 take a loaded project away on every tab reload. A session with no live socket may legitimately
 exist; a session holding nothing may not.
 
+**4. A grace on abandonment, which is a refcount with the objection answered.** The three rules
+above share a gap: a project **stays loaded for ever** once nothing releases it. A closed tab
+freed only the audio tap; a laptop that went to sleep freed nothing at all. The machine kept a
+song's worth of plugins instantiated with nobody there, and the only way back was to restart the
+engine — which is a large part of what "the engine is unstable" meant.
+
+So sockets are counted after all, but only the ones that say they are **driving**:
+
+```json
+{ "type": "hello", "role": "driver", "session": "l8:fred_parapluie_org" }
+```
+
+A driver is a surface a person is looking at. Anything that does not say `role` is not one, which
+is what keeps the file service out of the count — it holds a socket per session for as long as
+the machine is up, so counting it would mean no project ever looked abandoned. The tray's polls
+and every reachability probe are out for the same reason, without needing a rule of their own.
+
+When a session's driver count reaches zero the clock starts, and **45 seconds** later the project
+is let go: the transport stops, the Edit and its plugins are freed, and the SESSION stays — so a
+tab that comes back re-sends its document into the same slot and every watch keyed on the id
+still means what it meant.
+
+The grace is the whole design, and it is what answers "a refcount takes a project away on every
+reload": a reload is back in under a second, a redraw in less, and a flaky minute of Wi-Fi is
+covered by the client's own reconnect. What is *not* covered — deliberately — is walking away for
+a minute with the tab closed, because that is indistinguishable from being finished, and the cost
+of guessing wrong is one `POST /open`.
+
+Declared on **hello** rather than in a verb of its own so it cannot be forgotten: every surface
+already sends one on every connection, including after a reconnect, which is exactly the moment
+the count has to be restored. Registered once per socket — the browser's keepalive re-sends
+`whoami` every few seconds on a quiet link, and those must not each be a driver.
+
+> **A reload is not made cheaper by being told about.** An earlier version of this also had the
+> browser send `drop-session` on `pagehide`, so closing a tab freed the machine at once. It was
+> dropped: `pagehide` cannot tell a close from a reload, so every reload would have paid a full
+> graph rebuild — the thing `applyFull` was just reordered to stop doing twice
+> ([audit-stabilite.md](audit-stabilite.md)). The 45 seconds cost nothing and cannot be wrong.
+
 ### The socket side, in the file service
 
 `packages/file-service/src/engineLink.ts` keeps one socket per session and used to prune them

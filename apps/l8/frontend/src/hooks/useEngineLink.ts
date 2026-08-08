@@ -5,7 +5,7 @@
 import { EngineClient, type EngineUrl } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
-import type { ParamMeta } from "@studio/engine-protocol";
+import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
@@ -23,6 +23,10 @@ export interface EngineLink {
   engineWarnings: Record<string, string>;
   /** Param ranges per plugin id — stable while the plugin is loaded (see below). */
   pluginParamMeta: Record<string, Record<string, ParamMeta>>;
+  /** A module's factory presets, by MODULE name — what `list-presets` answers about. */
+  presets: Record<string, PresetInfo[]>;
+  listPresets: (module: string) => void;
+  setPreset: (module: string, sel: { index?: number; path?: string }) => void;
   transport: (a: Parameters<EngineClient["transport"]>[0]) => void;
   seek: (seconds: number) => void;
   requestPluginParams: (id: string) => void;
@@ -54,6 +58,8 @@ export function useEngineLink(
   const [pluginParamMeta, setPluginParamMeta] = useState<
     Record<string, Record<string, ParamMeta>>
   >({});
+  // A module's factory presets, by module name. See listPresets below for why the key is a name.
+  const [presets, setPresets] = useState<Record<string, PresetInfo[]>>({});
 
   useEffect(() => {
     // The client is app-agnostic; the stall breadcrumbs are l8' own instrumentation, so
@@ -83,6 +89,13 @@ export function useEngineLink(
     });
     const offLiveParams = engine.onPluginParamsLive(({ id, params }) =>
       pluginParamsStore.set(id, params),
+    );
+    // Kept by MODULE, since that is what was asked for and what the answer names. Replacing
+    // rather than merging: this arrives in reply to one question about one module, so a stale
+    // list for a module nobody is looking at costs nothing and a merged one would be wrong the
+    // moment two modules share a plugin name.
+    const offPresets = engine.onPresets((module, list) =>
+      setPresets((p) => ({ ...p, [module]: list })),
     );
     const offBusy = engine.onBusy((b) => {
       // A new apply rebuilds every plugin, so the previous load's complaints are stale —
@@ -120,6 +133,7 @@ export function useEngineLink(
       offConn();
       offParams();
       offLiveParams();
+      offPresets();
       offWarning();
       offBusy();
       engine.dispose();
@@ -142,6 +156,22 @@ export function useEngineLink(
   );
   const requestPluginParams = useCallback(
     (id: string) => engineRef.current?.getPluginParams(id),
+    [],
+  );
+  /**
+   * A module's FACTORY presets — the plugin's own program list and its `.vstpreset` files.
+   *
+   * Keyed by module NAME rather than plugin id, because that is what the engine's `list-presets`
+   * takes: it resolves the name to a live instance. Which is the whole constraint — there are no
+   * presets to list for a module this project does not instantiate, since a preset is a fact
+   * about a loaded plugin and nothing else. The builder shows none rather than guessing.
+   */
+  const listPresets = useCallback((module: string) => {
+    engineRef.current?.listPresets(module);
+  }, []);
+  const setPreset = useCallback(
+    (module: string, sel: { index?: number; path?: string }) =>
+      engineRef.current?.setPreset(module, sel),
     [],
   );
   const setPluginParam = useCallback(
@@ -171,6 +201,9 @@ export function useEngineLink(
     engineBusy,
     engineBusyRef,
     pluginParamMeta,
+    presets,
+    listPresets,
+    setPreset,
     transport,
     seek,
     requestPluginParams,

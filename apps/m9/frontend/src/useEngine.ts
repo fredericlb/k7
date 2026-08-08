@@ -8,6 +8,7 @@ import type { RankedEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
+import { parseLaunch, projectClaimKey } from "@studio/project-shell/launch";
 import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentUser, engines } from "./api";
@@ -15,6 +16,8 @@ import { currentUser, engines } from "./api";
 export type Phase =
   | { k: "looking" }
   | { k: "absent" }
+  // Somebody else opened this set. Terminal: the deck stops driving and says who has it.
+  | { k: "taken"; heldBy: string }
   | { k: "ready"; id: string };
 
 /** The transport's position, and the moment it was heard — see the note where it is set. */
@@ -105,7 +108,20 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     // The lease, KEPT rather than taken once: "in use" expires on its own, so a single
     // select lapses mid-set and the machine reads FREE in everyone's picker while this deck
     // is still playing through it. See @studio/engine-browser/docs/lease.md.
-    const drop = engines.hold(chosen);
+    //
+    // It carries the SET this tab was opened on, which is what makes one project run on one
+    // engine. Opening the same set elsewhere takes it from here, and `onLost` is how this deck
+    // hears about it — mid-set, so it must stop rather than quietly play a project it no longer
+    // owns. Null target (no set in the address) claims nothing: that tab is on its way to st0.
+    const target = parseLaunch(
+      window.location.pathname,
+      "m9",
+      import.meta.env.BASE_URL,
+    );
+    const drop = engines.hold(chosen, {
+      project: target ? projectClaimKey(target) : null,
+      onLost: (heldBy) => setPhase({ k: "taken", heldBy }),
+    });
     // Its own session, per SERVICE and per PERSON: a deck runs safely beside l8 on one
     // engine — loading a track no longer replaces whatever song is open there — and two
     // DJs on one machine hold two decks rather than fighting over one.

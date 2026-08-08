@@ -130,9 +130,16 @@ private:
         float s0 = 0.0f;       // per-node state (envelope level, glide's last value)
         bool primed = false;
         juce::IIRFilter filters[2];
+        // biquad: what the coefficients were last computed FROM. Recomputing them every block cost a
+        // sin, a cos and a sqrt for a filter whose knob had not moved — and setCoefficients takes
+        // juce::IIRFilter's spin lock, twice per channel, which the audio thread should not do for nothing.
+        float lastFreq_ = -1.0f;
+        float lastQ_ = -1.0f;
     };
 
     std::vector<Node> nodes_;
+    // Indices into nodes_ of the sample-phase ones, in declared order — see the end of build().
+    std::vector<int> sampleNodes_;
     std::vector<DspGraphParam> params_;
     std::vector<float> regs_;
     // Audio wires: one stereo frame each, live only inside the per-sample loop.
@@ -143,6 +150,9 @@ private:
     std::vector<int> delayWrite_;
     bool hasSamplePhase_ = false;
     bool hasMidiPhase_ = false;
+    // Whether any node is a `mix` — i.e. whether the dry snapshot has to be taken. Answered at build()
+    // because it cannot change afterwards, and process() was asking it per block with a std::any_of.
+    bool hasMix_ = false;
     int numInputs_ = 1;
     int srReg_ = -1;
     double sampleRate_ = 44100.0;
