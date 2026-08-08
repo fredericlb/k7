@@ -8,6 +8,7 @@ import {
   scannedPluginNames,
   scannedPlugins,
 } from "./engineCatalogue";
+import { engineModuleOf } from "./moduleTypes";
 
 // The engine's plugin scan, read as a catalogue of modules — what replaces the folder of
 // generated wrappers `module populate` used to write into `_modules`.
@@ -107,6 +108,21 @@ describe("the catalogue of modules", () => {
       type: "vst3",
       name: "Mini V3",
     });
+  });
+
+  it("names a plugin the same way a browser does", () => {
+    // `engineModuleOf` is the shared rule, and this is what it exists to pin: the médiathèque
+    // resolves `extends: "@engine/…"` in a BROWSER, against the scan reported over the socket,
+    // having no filesystem to read this cache with. A different spelling there would preview a
+    // plugin the compiled document never loads — silence, with a panel drawn over it.
+    const p = { name: "Mini V3", format: "VST3" };
+    scan({ ...p, role: "instrument", instrument: true });
+    const named = engineModuleOf(p);
+    expect(named).toEqual({
+      ref: "@engine/mini-v3",
+      plugin: { type: "vst3", name: "Mini V3" },
+    });
+    expect(engineModules(file)[named?.ref ?? ""].plugin).toEqual(named?.plugin);
   });
 
   it("files a plugin by ROLE, which is what decides its ports", () => {

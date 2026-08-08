@@ -27,22 +27,26 @@ export function baseModuleRefs(plugins: EnginePluginInfo[]): string[] {
 }
 
 /**
- * Those refs, for the engine this screen is on. Empty while none answers.
+ * The catalogue itself, for the engine this screen is on. Empty while none answers.
  *
  * Asked on every (re)connection rather than once: the catalogue is the MACHINE's, so a
  * different engine has a different one, and a rescan on the machine changes it under us.
  * `listPlugins` reads the engine's cache and starts no scan, so the question is cheap.
+ *
+ * The whole list and not just the refs, because two things need it and only one of them is
+ * completion: resolving `extends: "@engine/…"` into a plugin the engine can be asked to LOAD
+ * needs the format beside the name (see resolvePlugin.ts).
  */
-export function useBaseModules(
+export function useEnginePlugins(
   client: EngineClient | null,
   connected: boolean,
-): string[] {
-  const [refs, setRefs] = useState<string[]>([]);
+): EnginePluginInfo[] {
+  const [plugins, setPlugins] = useState<EnginePluginInfo[]>([]);
   useEffect(() => {
-    if (!client) return setRefs([]);
-    const off = client.onPlugins((list) => setRefs(baseModuleRefs(list)));
+    if (!client) return setPlugins([]);
+    const off = client.onPlugins(setPlugins);
     if (connected) client.listPlugins();
     return off;
   }, [client, connected]);
-  return refs;
+  return plugins;
 }

@@ -14,14 +14,15 @@ import { useCallback, useEffect, useState } from "react";
 import { currentUser, engineMachine, library } from "./api";
 import { ChainView } from "./ChainView";
 import { chainSteps, INSTANCES_DIR } from "./chainGraph";
+import { useEnginePlugins } from "./engine/baseModules";
 import {
   bounce,
   cacheRoot,
   chainPreviewDoc,
   type PreviewStep,
   playablePath,
-  stepPlugin,
 } from "./engine/chainPreview";
+import { resolvePluginBlock } from "./engine/resolvePlugin";
 import type { ModuleEngine } from "./engine/useModuleEngine";
 import { usePlayback } from "./playback/PlaybackProvider";
 
@@ -156,6 +157,43 @@ export function SongVariants({
   // can disappear on its own — a sidecar edited down to no variants — and the transport it may
   // be holding is the shared one, so stopping it here would silence the master too.
 
+  // The chosen machine's plugin catalogue, for the resolution below.
+  const scanned = useEnginePlugins(engine.client, engine.connected);
+
+  /**
+   * A chain's steps, each with the plugin it actually loads.
+   *
+   * Through `extends`, and that is the fix rather than a nicety: an INSTANCE declares its
+   * overrides and nothing else — the real library's say `extends: "@mediatek/audio/…"` and a
+   * `params:` block — so reading the file alone found no `plugin:`, and every step of every
+   * variant went to the engine naming nothing to load. The same resolution the module editor
+   * does, and for the same reason: see engine/resolvePlugin.ts.
+   */
+  const stepsOf = useCallback(
+    (c: ResolvedChain): Promise<PreviewStep[]> =>
+      Promise.all(
+        chainSteps(c.text ?? "").map(async (name) => {
+          try {
+            const { content } = await library.readFile(
+              `${c.entry?.path}/${INSTANCES_DIR}/${name}.yaml`,
+            );
+            return {
+              name,
+              plugin: await resolvePluginBlock(content, scanned, (p) =>
+                library.readFile(p).then((m) => m.content),
+              ),
+            };
+          } catch {
+            // An instance the chain names and the folder does not hold. The step is kept, with
+            // no plugin: `enginePlugin` falls back to the name, and a chain that is missing one
+            // treatment should still let you hear the others rather than refusing to play.
+            return { name, plugin: undefined };
+          }
+        }),
+      ),
+    [scanned],
+  );
+
   const toggle = useCallback(
     async (c: ResolvedChain) => {
       if (playing === c.variant.name) {
@@ -164,23 +202,9 @@ export function SongVariants({
       }
       const path = root ? playablePath(root, entry) : null;
       if (!path || !c.text || !c.entry) return;
-      // Each step's `plugin:` block, read from the HOSTED library. Only the audio has to be a
-      // path on the engine's machine; what a module RUNS is data, and it is the same data here.
-      const steps: PreviewStep[] = await Promise.all(
-        chainSteps(c.text).map(async (name) => {
-          try {
-            const { content } = await library.readFile(
-              `${c.entry?.path}/${INSTANCES_DIR}/${name}.yaml`,
-            );
-            return { name, plugin: stepPlugin(content) };
-          } catch {
-            // An instance the chain names and the folder does not hold. The step is kept, with
-            // no plugin: `enginePlugin` falls back to the name, and a chain that is missing one
-            // treatment should still let you hear the others rather than refusing to play.
-            return { name, plugin: undefined };
-          }
-        }),
-      );
+      // Each step's plugin, read from the HOSTED library. Only the audio has to be a path on
+      // the engine's machine; what a module RUNS is data, and it is the same data here.
+      const steps = await stepsOf(c);
       // One engine session plays one thing, so auditioning a variant TAKES the transport from
       // whatever the bar was following. Said out loud rather than left to drift: the bar would
       // otherwise go on reporting a master that stopped being what is audible.
@@ -198,7 +222,7 @@ export function SongVariants({
       );
       setPlaying(c.variant.name);
     },
-    [engine, playback, entry, playing, root],
+    [engine, playback, entry, playing, root, stepsOf],
   );
 
   // --- processing ------------------------------------------------------------------
@@ -222,18 +246,7 @@ export function SongVariants({
     for (const c of chains ?? []) {
       if (!c.text || !c.entry) continue;
       try {
-        const steps: PreviewStep[] = await Promise.all(
-          chainSteps(c.text).map(async (name) => {
-            try {
-              const { content } = await library.readFile(
-                `${c.entry?.path}/${INSTANCES_DIR}/${name}.yaml`,
-              );
-              return { name, plugin: stepPlugin(content) };
-            } catch {
-              return { name, plugin: undefined };
-            }
-          }),
-        );
+        const steps = await stepsOf(c);
         const out = await bounce(
           engine.fileBase,
           currentUser(),
@@ -268,7 +281,7 @@ export function SongVariants({
       }
     }
     setProcessing(false);
-  }, [chains, engine.fileBase, engineToken, entry, root]);
+  }, [chains, engine.fileBase, engineToken, entry, root, stepsOf]);
 
   // AFTER the hooks: an early return above them would change how many run between renders,
   // which React forbids — and a song with no variants is exactly when it would have fired.
