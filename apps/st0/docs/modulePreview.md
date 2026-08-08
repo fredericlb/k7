@@ -67,6 +67,44 @@ Three details:
   `pluginParamsStore` / `setPluginParam` in is what would make it playable, and the address
   being right is what keeps that a small change rather than a rework.
 
+## Le greffon est au bout d'`extends`, pas dans le fichier
+
+Un module dit rarement lui-même ce qu'il charge. Une **face** ne déclare que sa ref
+(`@studio/song`'s engineFace.ts), et une **instance** de chaîne ne déclare que ses
+surcharges — sur la vraie bibliothèque, `instances/bitcrush.yaml` est trois lignes de
+`params:` sous un `extends`.
+
+Lire `plugin:` dans le texte du fichier ne trouvait donc rien, et « rien » ne se distingue pas
+d'un module qui n'a pas de greffon : `enginePlugin` retombe sur le nom du module, le moteur
+reçoit un type vide, et l'écran affiche « le moteur n'a pas encore répondu » à propos d'une
+réponse qui était arrivée. Il avait chargé ce qu'on lui avait demandé, c'est-à-dire rien.
+
+`engine/resolvePlugin.ts` suit la chaîne, sur les **deux** niveaux que st0 peut voir :
+
+| ce que dit `extends:` | comment st0 répond |
+|---|---|
+| rien, mais un `plugin:` est là | ce bloc gagne, à chaque niveau — un module qui déclare son greffon ne demande pas à en hériter |
+| `@mediatek/…` | lit ce module-là par la route fichier et recommence |
+| `@engine/…` | cherche dans le scan que la machine a rapporté par son socket |
+| une ref nue, `@project/…` | rien, et c'est honnête : aucun projet n'est ouvert, il n'y a nulle part où regarder |
+
+Pas de `resolveModule` ici : il lui faut une carte de refs construite depuis un espace de
+travail, et cette app édite une bibliothèque. Les deux niveaux ci-dessus sont exactement ceux
+dont elle dispose.
+
+La règle qui nomme un greffon scanné — `engineModuleOf`, dans `@studio/song/moduleTypes` — est
+**partagée** avec `engineCatalogue`, qui l'applique côté machine sur le cache de scan. Elle
+devait l'être : une orthographe différente ici ferait auditionner un greffon que le document
+compilé ne charge jamais, c'est-à-dire du silence avec un panneau dessiné par-dessus.
+
+Trois écrans faisaient la même lecture naïve et sont passés par là ensemble — le panneau de
+paramètres du catalogue (`ModuleParams`), le constructeur (`ModuleEditor`), et l'aperçu des
+variantes de chaîne (`SongVariants`), dont **chaque étape** partait sans greffon.
+
+Le scan est une **dépendance** et non une précondition de ces effets. Attendre qu'il arrive
+ferait qu'une machine n'ayant jamais scanné n'afficherait rien non plus pour un module `jsdsp`,
+qui nomme son greffon lui-même et n'a que faire d'un catalogue.
+
 ## Why the builder does not own the graph
 
 `ModuleBuilder` is shared with l8, and it takes `renderPreview` rather than importing

@@ -7,7 +7,6 @@ import {
   emptyDoc,
   enginePlugin,
   pluginDoc,
-  readPluginBlock,
   trackDoc,
 } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -135,11 +134,10 @@ export function playablePath(
   return [root, entry.path, master].join(sep);
 }
 
-/** A chain instance's `plugin:` block, from the text of its file. The catalogue says where a
- *  module IS; only the file says what it runs. */
-export function stepPlugin(text: string): PreviewStep["plugin"] {
-  return readPluginBlock(text);
-}
+// `stepPlugin` was here — `readPluginBlock` under another name, reading a chain instance's own
+// `plugin:` block. It is gone because that block is not where an instance's plugin IS: an
+// instance declares its overrides and `extends`, so the answer is a resolution and not a read.
+// See resolvePlugin.ts.
 
 /** What a bounce came back as. `mp3` is false when the machine had no ffmpeg — the render still
  *  happened, in wav, and the caller has to file it under the extension it actually got. */

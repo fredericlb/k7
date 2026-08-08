@@ -20,6 +20,7 @@ import { join } from "node:path";
 import {
   categoryForRole,
   ENGINE_NS,
+  engineModuleOf,
   engineRef,
   MODULE_TYPES,
   slugifyPluginName,
@@ -164,21 +165,24 @@ export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
       file: name,
     };
   for (const p of scannedPlugins(file)) {
-    const slug = slugifyPluginName(p.name);
-    if (!slug) continue;
-    const ref = engineRef(slug);
+    // The ref and the plugin block come from moduleTypes, which is also what the médiathèque's
+    // browser applies to the scan reported over the socket — one rule, so the two cannot spell
+    // the same plugin differently.
+    const named = engineModuleOf(p);
+    if (!named) continue;
+    const { ref, plugin } = named;
     if (out[ref]) continue; // first wins — two scans of one plugin collapse to one module
     const category = categoryForRole(p);
     const meta = MODULE_TYPES[category];
     out[ref] = {
-      plugin: { type: p.format.toLowerCase(), name: p.name },
+      plugin,
       kind: meta.kind,
       // The type's defaults, and only those: a SCANNED plugin has no file to declare ports in.
       // What it really offers is the plugin's business, and the engine is what would know.
       inputs: meta.inputs,
       outputs: meta.outputs,
       category,
-      file: slug,
+      file: slugifyPluginName(p.name),
     };
   }
   return out;

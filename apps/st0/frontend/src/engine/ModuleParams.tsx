@@ -8,24 +8,43 @@ import { Loader2, Plug, PlugZap } from "lucide-react";
 import { useEffect } from "react";
 import { library } from "../api";
 import { useEngine } from "../playback/PlaybackProvider";
-import { readPluginBlock } from "./preview";
+import { useEnginePlugins } from "./baseModules";
+import { resolvePluginBlock } from "./resolvePlugin";
 
 export function ModuleParams({ entry }: { entry: MediatekEntry }) {
-  const { phase, paramNames, paramMeta, preview, retry } = useEngine();
+  const { phase, client, connected, paramNames, paramMeta, preview, retry } =
+    useEngine();
+  const scanned = useEnginePlugins(client, connected);
 
+  /**
+   * Load the module so the engine can answer for it — through `extends`.
+   *
+   * A FACE declares nothing but that ref, so reading its own text found no `plugin:` block and
+   * every one of those modules reported "le moteur n'a pas encore répondu". It had answered:
+   * it was asked to load nothing. See resolvePlugin.ts.
+   *
+   * `scanned` is a dependency and NOT a precondition. Gating on it would have a machine that
+   * has never scanned show nothing for a `jsdsp` module either — one that names its plugin
+   * outright and needs no catalogue at all. Arriving late simply re-runs this.
+   */
   useEffect(() => {
     if (phase.k !== "ready") return;
     let alive = true;
     void library
       .readFile(`${entry.path}/module.yaml`)
-      .then((f) => alive && preview(entry.name, readPluginBlock(f.content)))
+      .then(async (f) => {
+        const plugin = await resolvePluginBlock(f.content, scanned, (p) =>
+          library.readFile(p).then((m) => m.content),
+        );
+        if (alive) preview(entry.name, plugin);
+      })
       .catch(() => {
         /* a module with no readable file simply has no parameters to show */
       });
     return () => {
       alive = false;
     };
-  }, [entry.path, entry.name, phase.k, preview]);
+  }, [entry.path, entry.name, phase.k, scanned, preview]);
 
   if (phase.k === "looking")
     return (

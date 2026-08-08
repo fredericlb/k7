@@ -6,10 +6,10 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { Plug, PlugZap } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { library, moduleStore } from "./api";
-import { useBaseModules } from "./engine/baseModules";
-import { readPluginBlock } from "./engine/preview";
+import { baseModuleRefs, useEnginePlugins } from "./engine/baseModules";
+import { resolvePluginBlock } from "./engine/resolvePlugin";
 import { ModulePreview } from "./ModulePreview";
 import { useEngine } from "./playback/PlaybackProvider";
 
@@ -41,9 +41,11 @@ export function ModuleEditor({
     listPresets,
     setPreset,
   } = useEngine();
-  // What `extends:` may name. Off the ENGINE, because the médiathèque's backend serves a
-  // volume of files and has never seen the plugin scan — see ../docs/completion.md.
-  const baseModules = useBaseModules(client, connected);
+  // The chosen machine's plugin catalogue. Off the ENGINE, because the médiathèque's backend
+  // serves a volume of files and has never seen a plugin scan — see ../docs/completion.md.
+  const scanned = useEnginePlugins(client, connected);
+  // What `extends:` may name.
+  const baseModules = useMemo(() => baseModuleRefs(scanned), [scanned]);
   const [status, setStatus] = useState("");
   const [vimMode, setVimMode] = useState(
     () => localStorage.getItem(VIM_KEY) === "1",
@@ -52,16 +54,29 @@ export function ModuleEditor({
   const [reload, setReload] = useState(0);
   const path = `${entry.path}/module.yaml`;
 
-  // Put the module into the engine as soon as there is one. The page reads the same file
-  // for its text; this second read only wants the `plugin:` block, and is cheap.
+  /**
+   * Put the module into the engine as soon as there is one. The page reads the same file for
+   * its text; this second read only wants the plugin, and is cheap.
+   *
+   * Through `extends`, and that is the whole of it: a FACE declares nothing but that ref (see
+   * @studio/song's engineFace.ts), so reading the text alone found no `plugin:` block, asked
+   * the engine to load nothing, and every one of those modules showed an empty parameter list.
+   *
+   * `scanned` is a dependency and NOT a precondition. Gating on it would have a machine that
+   * has never scanned show nothing for a `jsdsp` module either — one that names its plugin
+   * outright and needs no catalogue at all. Arriving late simply re-runs this.
+   */
   useEffect(() => {
     if (phase.k !== "ready") return;
     let alive = true;
     void library
       .readFile(path)
-      .then((f) => {
+      .then(async (f) => {
+        const plugin = await resolvePluginBlock(f.content, scanned, (p) =>
+          library.readFile(p).then((m) => m.content),
+        );
         if (!alive) return;
-        preview(entry.name, readPluginBlock(f.content));
+        preview(entry.name, plugin);
         listPresets(entry.name);
       })
       .catch(() => {
@@ -70,7 +85,7 @@ export function ModuleEditor({
     return () => {
       alive = false;
     };
-  }, [path, entry.name, phase.k, preview, listPresets, reload]);
+  }, [path, entry.name, phase.k, scanned, preview, listPresets, reload]);
 
   const onSaved = useCallback(() => setReload((n) => n + 1), []);
 

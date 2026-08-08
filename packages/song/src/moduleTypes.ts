@@ -131,6 +131,30 @@ export const ENGINE_NS = "@engine";
 export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
 
 /**
+ * How a scanned plugin becomes a module: the ref that names it, and the `plugin:` block that
+ * says what to load. Null when the name leaves no slug to make a ref out of.
+ *
+ * ONE rule, here, because two tiers apply it and they have to agree exactly. `engineCatalogue`
+ * synthesises the catalogue from the scan cache on the machine; a BROWSER resolves
+ * `extends: "@engine/…"` against the same scan reported over the engine's socket, having no
+ * project loader and no `node:fs`. A browser that spelt the type differently would preview a
+ * plugin the compiled document never loads — silence, with a panel drawn over it.
+ */
+export function engineModuleOf(p: {
+  name: string;
+  format: string;
+}): { ref: string; plugin: { type: string; name: string } } | null {
+  const slug = slugifyPluginName(p.name ?? "");
+  if (!slug) return null;
+  // The FORMAT lowercased, never the role: `module populate` wrote `internal` whenever the
+  // role was "instrument" and mislabelled forty VST3s (see engineCatalogue).
+  return {
+    ref: engineRef(slug),
+    plugin: { type: String(p.format ?? "").toLowerCase(), name: p.name },
+  };
+}
+
+/**
  * The params whose value is a FILE the plugin loads, not a number — named here, beside the
  * rest of the module vocabulary and free of `node:fs`, because three tiers need the same list:
  * the loader resolves them against the module's `assets/`, nodeProject lifts them off the wire
