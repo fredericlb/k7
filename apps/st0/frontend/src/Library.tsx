@@ -27,7 +27,11 @@ import {
   SONG_FILE,
   type SongVariant,
 } from "@studio/mediatek/types";
-import { engineFaceModule, FACE_CATEGORIES } from "@studio/song/engineFace";
+import {
+  engineFaceModule,
+  FACE_CATEGORIES,
+  type FaceablePlugin,
+} from "@studio/song/engineFace";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import type { RepoSummary } from "@studio/web-protocol";
 import {
@@ -390,6 +394,10 @@ export function Library() {
   // the entry paths, which is the whole point, so the service lists it and the tree draws it.
   const [unlisted, setUnlisted] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // What a bulk action just DID. An outcome and not a fault, so it must not be said in the
+  // destructive card next door — "les 252 greffons ont déjà un module ici" is the ordinary
+  // second run of an idempotent pass, and reading it in red would say the opposite.
+  const [notice, setNotice] = useState<string | null>(null);
   // The capture zone's own listing. Held APART from `entries` because it is apart: nothing
   // here is a catalogue entry, and it arrives from its own route.
   const [recordings, setRecordings] = useState<RecordingDay[]>([]);
@@ -508,27 +516,30 @@ export function Library() {
   // Tenue ICI parce que ce composant REND le provider — il est donc au-dessus du contexte, et
   // c'est lui qui porte l'arbre dont le clic droit remplit la file. Voir playback/usePlayQueue.ts.
   const playQueue = usePlayQueue();
-  // What the chosen MACHINE has scanned, flattened across formats — the vocabulary for
-  // "give this plugin a face". It comes from that machine's file service, not from this
-  // app's backend, which is hosted and has no scan cache of its own. Empty is "cannot
-  // say" — an unreachable engine, or an origin it hasn't been told to trust — never
-  // "no plugins", which is why nothing is refused on the strength of an empty list.
-  const [plugins, setPlugins] = useState<string[]>([]);
+  // What the chosen MACHINE has scanned — the vocabulary for "give this plugin a face", and
+  // for filling the library with all of them at once. It comes from that machine's file
+  // service, not from this app's backend, which is hosted and has no scan cache of its own.
+  // Empty is "cannot say" — an unreachable engine, or an origin it hasn't been told to
+  // trust — never "no plugins", which is why nothing is refused on the strength of it.
+  const [scanned, setScanned] = useState<FaceablePlugin[]>([]);
   useEffect(() => {
     if (section !== "modules" || !choice.fileBase || !choice.token)
-      return setPlugins([]);
+      return setScanned([]);
     let alive = true;
     void engineMachine
       .plugins(choice.fileBase, choice.token)
-      .then((byFormat) => {
-        if (alive)
-          setPlugins([...new Set(Object.values(byFormat).flat())].sort());
-      })
-      .catch(() => alive && setPlugins([]));
+      .then((list) => alive && setScanned(list))
+      .catch(() => alive && setScanned([]));
     return () => {
       alive = false;
     };
   }, [section, choice.fileBase, choice.token]);
+  // …and their names, which is all the single-plugin field matches against. Deduplicated
+  // because two formats of one plugin are one name to type.
+  const plugins = useMemo(
+    () => [...new Set(scanned.map((p) => p.name))].sort(),
+    [scanned],
+  );
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
@@ -762,6 +773,7 @@ export function Library() {
     setEntries(null);
     setUnlisted([]);
     setPicked(null);
+    setNotice(null);
     seen.current[section] = "";
   }, [section]);
 
@@ -1261,6 +1273,41 @@ export function Library() {
                               .catch((e: Error) => setError(e.message)),
                         },
                         {
+                          key: "engine-faces-all",
+                          // The count is in the LABEL because this writes without asking again:
+                          // the prompt below names ONE plugin, and an empty answer runs nothing,
+                          // so it cannot serve as a confirmation. What is about to be created
+                          // should be written on the thing you click.
+                          label: () =>
+                            `Ajouter les ${scanned.length} greffons du moteur`,
+                          // On the section's own row only. It fills the whole family — each
+                          // plugin lands under its type and its category — so offering it on a
+                          // folder would suggest it fills THAT folder.
+                          when: (t) =>
+                            section === "modules" &&
+                            !t.path &&
+                            scanned.length > 0,
+                          run: () => {
+                            setNotice("création des modules…");
+                            void library
+                              .addEngineFaces(scanned)
+                              .then(({ created, scanned: n }) => {
+                                // Idempotent, so "nothing created" is the ordinary second run
+                                // and not a failure — it has to read as one.
+                                setNotice(
+                                  created.length
+                                    ? `${created.length} module(s) créé(s) sur ${n} greffons scannés.`
+                                    : `Les ${n} greffons scannés ont déjà un module ici.`,
+                                );
+                                refresh();
+                              })
+                              .catch((e: Error) => {
+                                setNotice(null);
+                                setError(e.message);
+                              });
+                          },
+                        },
+                        {
                           // Only on a CATEGORY folder, which is what makes the category chosen by where
                           // you clicked rather than by a second prompt — and `io` never offers it,
                           // because it is the engine's own IN/OUT and no scanned plugin is one.
@@ -1424,6 +1471,11 @@ export function Library() {
               </main>
             ) : (
               <main className="min-w-0 flex-1 overflow-auto p-6">
+                {notice ? (
+                  <Card className="mb-4 p-4 text-sm text-muted-foreground">
+                    {notice}
+                  </Card>
+                ) : null}
                 {error ? (
                   <Card className="p-4 text-sm text-destructive">{error}</Card>
                 ) : present === false ? (

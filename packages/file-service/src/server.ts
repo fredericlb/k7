@@ -6,7 +6,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { validate, wrap } from "@frediverse/http/route";
-import { scannedPluginNames } from "@studio/engine-client/pluginCache";
+import {
+  scannedPluginNames,
+  scannedPlugins,
+} from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
 import cors from "cors";
 import express from "express";
@@ -224,9 +227,16 @@ app.use(separateRouter);
 // for the same reason — the scan cache is `~/.studio/exts.json`, which belongs to no workspace and
 // no project. `/hints` has carried the same list for a long time, but only alongside a compiled
 // project, which is a thing the médiathèque does not have and will never have: it edits a library.
+//
+// Two shapes of the same answer, and both are used. `pluginNames` is what a name-matching
+// field needs; `plugins` carries the role and the plugin's own category, which is what decides
+// a module's PORTS and where it is filed — the médiathèque gives every scanned plugin a face
+// and cannot do either from a name (see @studio/song's engineFace.ts).
 app.get(
   "/plugins",
-  wrap((_req, res) => res.json({ pluginNames: scannedPluginNames() })),
+  wrap((_req, res) =>
+    res.json({ pluginNames: scannedPluginNames(), plugins: scannedPlugins() }),
+  ),
 );
 
 // There is no /ssh-key here any more. st0 owns the studio's git identity — it generates the
