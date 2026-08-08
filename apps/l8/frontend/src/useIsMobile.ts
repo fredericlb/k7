@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 export const MOBILE_QUERY = "(max-width: 820px), (max-height: 520px)";
 
 export function useIsMobile(): boolean {
-  // Read synchronously: correcting in an effect would build the desktop layout's three panes for one frame.
+  // Read synchronously: correcting in an effect would build the desktop layout's stacked panes for one frame.
   const [isMobile, setIsMobile] = useState(
     () =>
       typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches,

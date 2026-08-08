@@ -9,7 +9,7 @@ rather than a component tree:
 
 | piece | meaning |
 |---|---|
-| `view` | the layout — `global` (editor, timeline, chains at once) or `video` (the viewport takes the bottom-right slot). Mostly derived: opening a project with picture selects `video` on its own. |
+| `view` | the layout — `global` (timeline over chains) or `video` (the viewport takes the lower slot). Mostly derived: opening a project with picture selects `video` on its own. |
 | `full` | which single pane has the whole screen, or `null` for the layout above. |
 | `panel` | the side panel (mixer, graph, docs, logs, editor), independent of both. |
 

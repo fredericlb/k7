@@ -78,10 +78,13 @@ matches before changing it:
 
 ### Layout: panes, not tabs
 
-`App.tsx` shows three panes at once — editor (left), timeline (top-right), chains
-(bottom-right). Each pane is **mounted exactly once, in every layout**. `hidden` takes
-a pane off screen; nothing unmounts. One view, `global` — there was a second, `video`, and
-it left with the picture for `apps/v1`. `full` sits on top of a view to fullscreen one pane.
+`App.tsx` shows two panes at once, stacked full width: the **timeline over the graph**. The
+EDITOR has no slot in either layout — it is fullscreened deliberately (`ui editor`) or arrives
+as a popin when a command sends it to a file (`frontend/docs/shell.md`). Each pane is still
+**mounted exactly once, in every layout**; `hidden` takes one off screen and nothing unmounts,
+which is what lets the editor be restyled into a popin without losing its undo history. Two
+views: `global` (chains graph) and `video` (video compositor). `full` sits on top of a view to
+fullscreen one pane.
 
 The vocabulary is three words, not two, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of three (`editor | timeline | chains`)

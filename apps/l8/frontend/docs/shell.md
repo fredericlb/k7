@@ -41,9 +41,16 @@ used to be a second such renderer; it is the DOM now, and double-mounts harmless
 
 ## The layout (`App.tsx`)
 
-`App` is the l8 web editor itself: the global view — the file editor down the left
-half, the timeline over the chains graph on the right — with the transport controls and
-the pane toggles in the header. It is the wiring and the layout; almost nothing else.
+`App` is the l8 web editor itself: the global view — **the timeline over the chains graph,
+full width** — with the transport controls and the pane toggles in the header. It is the
+wiring and the layout; almost nothing else.
+
+The editor is not in it. It had the left half, which meant every song opened with half the
+screen showing a YAML file you had not asked for, while the two views of the song that are
+*about the song* — where things happen in time, and how the signal flows — shared the other
+half. So the default is the two that answer "what is this song", and the editor is summoned:
+`ui editor` gives it the screen, and a command that sends it to a file opens it as a popin
+(below). It stays mounted throughout, so summoning it costs nothing.
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
@@ -105,11 +112,14 @@ scaling it too would only add dead space under them.
 
 ## A view is a LAYOUT, not a mode
 
-All three panes are mounted always, and always the *same instances*. Three pieces of
-state decide what you see, and none of them mounts or unmounts anything:
+Every pane is mounted always, and always the *same instance* — including the editor, which
+the default layout does not show. Three pieces of state decide what you see, and none of them
+mounts or unmounts anything:
 
 - `full` — which pane gets the whole screen (`null` = the global view)
-- `focus` — which pane gets the keys; Tab walks the focus ring
+- `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`: the two the layout
+  actually shows, so the editor is not on it — and focus left on a pane the layout dropped is
+  snapped back, or the keys would go to something off screen)
 - `panel` — the side panel, independent of both
 
 `f` expands what you are on, Escape backs out. Because nothing is torn down by any of
@@ -117,6 +127,31 @@ that, the state that would be expensive to rebuild — the open file and its und
 the timeline caret, the zoom stack, the graph canvas — simply never moves. This is the
 one invariant to preserve when adding a pane: mount it once, unconditionally, and let the
 tables decide its size.
+
+### The editor POPIN
+
+A command that sends the editor to a file (`ui file`, `edit clip`, `edit sequence`) has to do
+something when the editor pane is off screen. It used to **fullscreen** it, which answered a
+question nobody asked: you wanted the file, and it threw away the timeline or the graph you
+were about to read it against.
+
+It opens as a popin instead — over the layout, on a dimmed backdrop, **without the file tree**,
+because a command already named the one file it is showing.
+
+It is the SAME EditorTab, in the same place in the tree, wearing different classes. That is
+forced by the invariant above and is also what makes it good: the open file, its undo history
+and the CodeMirror instance survive being popped out and put back, because nothing unmounted.
+A second editor would have been a second undo stack.
+
+Three details it needs to be usable:
+
+- **The popin is the active pane** while it is up (`activePane`), or the pane underneath would
+  keep answering the keys.
+- **It closes on a click outside, or the ×** — not on Escape. Escape belongs to the editor: in
+  vim mode it leaves insert mode, and a key that both leaves insert mode and closes the window
+  you are typing in is a trap.
+- **Any change of layout puts it away.** It is a detour to one file, not a place to be, so it is
+  deliberately NOT URL state — a reload lands you in the view, not in the popin.
 
 ## The command palette
 

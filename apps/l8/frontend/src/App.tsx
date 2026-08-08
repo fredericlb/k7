@@ -32,7 +32,7 @@ import {
   type EngineLatency,
   formatLatency,
 } from "@studio/web-protocol/quality";
-import { Circle, Loader2, Pause, Play, Square } from "lucide-react";
+import { Circle, Loader2, Pause, Play, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, moduleStore } from "./api";
 import { STUDIO_ICONS } from "./chainsIcons";
@@ -143,7 +143,8 @@ export default function App({
   const isMobile = useIsMobile();
   const [mobileMenu, setMobileMenu] = useState(false);
   const [view, setView] = useState<View>("global");
-  const [focusPane, setFocusPane] = useState<Pane>("editor");
+  // The timeline, because it is what the default view opens on — see ringPanes.
+  const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
   const [docSel, setDocSel] = useState<DocsSelection>(null);
   // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
@@ -209,6 +210,9 @@ export default function App({
   // Which field the command bar is waiting on, or null. The shell reads it to decide whether a
   // gesture in a pane should ACT or feed the bar — see docs/commandBar.md.
   const [barPending, setBarPending] = useState<CommandPending | null>(null);
+  // The editor as a POPIN: a command sent it to a file while its pane was off screen. It is the
+  // SAME instance, restyled onto the surface — see docs/shell.md.
+  const [editorPopin, setEditorPopin] = useState(false);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -284,6 +288,13 @@ export default function App({
   const openHelp = useCallback(() => setShowHelp(true), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
 
+  // Any change of layout puts the popin away: it is a detour to one file, not a place to be —
+  // and leaving it hanging over a view you deliberately switched to would be the worse surprise.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the layout changing IS the signal.
+  useEffect(() => {
+    setEditorPopin(false);
+  }, [full, view]);
+
   // Optimistic, like the mixer: the editor switches modality on the click and the write's answer settles it.
   const toggleVim = useCallback(async () => {
     const next = !vimMode;
@@ -298,14 +309,18 @@ export default function App({
     }
   }, [vimMode]);
 
-  // The third pane of the current view, and the ring `tab` walks.
+  // The second pane of the current view, and the ring `tab` walks.
+  //
+  // The EDITOR is not in it. The default view is the timeline over the graph, full width; the
+  // editor is reached deliberately (`ui editor`) or arrives as a popin when a command sends it
+  // to a file. That is what `visible("editor")` reads to decide between the two — see
+  // docs/shell.md.
   const thirdPane = VIEW_META[view].third;
-  const ringPanes = useMemo<Pane[]>(
-    () => ["editor", "timeline", thirdPane],
-    [thirdPane],
-  );
+  const ringPanes = useMemo<Pane[]>(() => ["timeline", thirdPane], [thirdPane]);
 
-  const activePane = full ?? focusPane;
+  // The popin IS the active pane while it is up: it is what the keys are for, and the pane
+  // underneath must not also answer them.
+  const activePane = editorPopin ? "editor" : (full ?? focusPane);
   const visible = useCallback(
     (p: Pane) => (full === null ? ringPanes.includes(p) : full === p),
     [full, ringPanes],
@@ -331,6 +346,14 @@ export default function App({
   const paneProps = (p: Pane) => ({
     onPointerDown: () => focusOn(p),
   });
+
+  // Focus can be left on a pane the layout no longer shows — leaving `ui editor` returns to a
+  // view the editor is not in, and `activePane` would then hand the keys to something off
+  // screen while the timeline answered nothing. Snap it back to the ring.
+  useEffect(() => {
+    if (full === null && !ringPanes.includes(focusPane))
+      setFocusPane(ringPanes[0]);
+  }, [full, ringPanes, focusPane]);
 
   const ringFor = (p: Pane) =>
     !full && focusPane === p ? "ring-1 ring-inset ring-primary/50" : undefined;
@@ -542,13 +565,16 @@ export default function App({
             .sort((a, b) => b.score - a.score || a.p.localeCompare(b.p))[0]
             ?.p ?? arg);
       if (reveal) {
-        if (!visible("editor")) fullscreen("editor");
+        // Off screen: bring it up as a POPIN rather than fullscreening the pane. A command that
+        // sends the editor to a file asked for the FILE, not for the view to be rearranged — and
+        // fullscreening it threw away the timeline or graph you were reading it against.
+        if (!visible("editor")) setEditorPopin(true);
         else focusOn("editor");
       }
       editorRef.current?.open(path);
       return path;
     },
-    [visible, fullscreen, focusOn],
+    [visible, focusOn],
   );
 
   // `runCommand` is defined below and calls THIS, so a local command that needs to run a real one
@@ -1335,22 +1361,47 @@ export default function App({
         {/* main: the panes on top, an optional bottom split panel below */}
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
+            {/* The popin's backdrop. Dismisses on a click outside, which is the reliable way out:
+                Escape belongs to the editor (vim leaves insert mode with it) and must not also
+                close the thing you are typing in. */}
+            {editorPopin && (
+              <div
+                className="fixed inset-0 z-40 bg-black/40"
+                onPointerDown={() => setEditorPopin(false)}
+              />
+            )}
             <div
               {...paneProps("editor")}
               className={cn(
                 "flex min-h-0 min-w-0 flex-col",
-                full === "editor"
-                  ? "flex-1"
-                  : full
-                    ? "hidden"
-                    : "w-1/2 shrink-0 border-r border-border",
+                // The SAME element in the same place in the tree, restyled — so the open file,
+                // its undo history and the CodeMirror instance survive being popped out.
+                //
+                // It has no slot in either layout any more: fullscreened, popped in, or away.
+                editorPopin
+                  ? "fixed inset-4 z-50 overflow-hidden rounded-lg border border-border bg-background shadow-2xl sm:inset-x-[12%] sm:inset-y-[8%]"
+                  : full === "editor"
+                    ? "flex-1"
+                    : "hidden",
                 ringFor("editor"),
               )}
             >
+              {editorPopin && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-2 z-10 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  title="Fermer"
+                  onClick={() => setEditorPopin(false)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
               <EditorTab
                 ref={editorRef}
                 active={activePane === "editor"}
-                showTree={full === null || full === "editor"}
+                // Only when it owns the screen. Not in the popin: that is one file, opened by a
+                // command that already named it.
+                showTree={full === "editor"}
                 reloadKey={reloadKey}
                 activeProject={ws?.activeProject ?? null}
                 projectName={project?.name ?? null}
