@@ -9,7 +9,6 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
-import type { MediatekEntry } from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
   Headphones,
@@ -19,10 +18,9 @@ import {
   Square,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../api";
 import { beatPhase } from "../beats";
 import { type DeckId, type DeckLoads, type DeckTempo, MIX_CENTRE } from "../deck";
-import { MIX_VIEW_FILE } from "../mixView";
+import { MIX_VIEW_FILE, SONGS_FILE } from "../mixView";
 import {
   cacheRelPath,
   type FileLink,
@@ -30,18 +28,16 @@ import {
   playablePath,
   service,
 } from "../service";
-import { EMPTY_SET, resolveSet, type SetEntry, type SetList } from "../setList";
+import { resolveSet, type SetEntry, type SetList } from "../setList";
 import type { DeckSet } from "../useDeckSet";
 import { type Playhead, type Deck } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { ChannelStrip } from "./ChannelStrip";
+import { CueButtons } from "./CueButtons";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
-
-/** The set list's file, project-relative. Named once — the name is @studio/song's. */
-const SONGS_FILE = "songs.yaml";
 
 /**
  * A deck's waveform, and the two states that are not one.
@@ -59,15 +55,12 @@ export function MixView({
   engine,
   deck,
   set: decks,
-  project,
 }: {
   engine: RankedEngine<PublicEngine>;
   /** The engine link, held by Studio so both views share one. */
   deck: Deck;
   /** The decks as a document — everything this view shows and every gesture it forwards. */
   set: DeckSet;
-  /** The project this app was opened on, workspace-relative — what the set list belongs to. */
-  project: string;
 }) {
   // Derived, never typed and never stored: the file service is on the chosen engine's host.
   // The identity rides in the shared headers — see service.ts. Both used to be text boxes.
@@ -90,14 +83,17 @@ export function MixView({
         // TWO sources, and the project's is the one that decides what is drawn: songs.yaml
         // says which songs this set is, the cache listing says which of them this machine can
         // play. A song in the set and not in the cache is a line, not an omission.
-        setSet(await readSet(project, cached));
+        //
+        // The file's TEXT comes from the deck document, which is also what writes a cue back
+        // into it — one read, so the list and the cues can never be looking at two versions.
+        setSet(resolveSet(decks.songsText, cached));
         setError(null);
       } catch (e) {
         setSet(null);
         setError((e as Error).message);
       }
     },
-    [project],
+    [decks.songsText],
   );
 
   useEffect(() => {
@@ -240,6 +236,9 @@ export function MixView({
           filter={decks.filterOf("deckA")}
           filterLive={decks.filterLive("deckA")}
           onFilter={(v) => decks.turnFilter("deckA", v)}
+          cues={decks.cuesOf("deckA")}
+          onCueJump={(slot) => decks.jumpCue("deckA", slot)}
+          onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
         />
 
         <DeckSide
@@ -260,6 +259,9 @@ export function MixView({
           filter={decks.filterOf("deckB")}
           filterLive={decks.filterLive("deckB")}
           onFilter={(v) => decks.turnFilter("deckB", v)}
+          cues={decks.cuesOf("deckB")}
+          onCueJump={(slot) => decks.jumpCue("deckB", slot)}
+          onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
         />
       </div>
 
@@ -447,6 +449,9 @@ function DeckSide({
   filter,
   filterLive,
   onFilter,
+  cues,
+  onCueJump,
+  onCueSet,
 }: {
   side: "A" | "B";
   load: DeckLoads[DeckId];
@@ -470,6 +475,10 @@ function DeckSide({
   filter: number | undefined;
   filterLive: boolean;
   onFilter: (value: number) => void;
+  /** This deck's eight cue slots, and the two gestures that move them. */
+  cues: readonly (number | null)[];
+  onCueJump: (slot: number) => void;
+  onCueSet: (slot: number, transportSeconds: number) => void;
 }) {
   const fader = (
     <BpmFader
@@ -517,6 +526,23 @@ function DeckSide({
             problem={wave?.k === "none" ? wave.why : null}
           />
         ) : null}
+        {/* The cues, under the waveform they refer to. Drawn only with a song on the deck:
+            eight buttons over an empty platter are eight things that cannot be pressed. */}
+        {load ? (
+          <CueButtons
+            markers={cues}
+            onJump={onCueJump}
+            onSet={onCueSet}
+            // Read on the way DOWN, and extrapolated: the engine pushes ~20×/s, so the last
+            // number it sent can be 50 ms stale — which on a downbeat is audible.
+            now={() =>
+              playhead.current.seconds +
+              (playing
+                ? (performance.now() - playhead.current.at) / 1000
+                : 0)
+            }
+          />
+        ) : null}
         <div className="w-full truncate text-center text-xs text-muted-foreground">
           {load ? load.title : "rien de chargé"}
         </div>
@@ -524,24 +550,4 @@ function DeckSide({
       {side === "B" ? fader : strip}
     </section>
   );
-}
-
-/**
- * Read the project's set list and resolve it against what the cache holds.
- *
- * A project with no `songs.yaml` reads as ABSENT rather than as an error: an l8 song can be
- * opened here, and a set written before the file existed still opens. The route answers 404
- * for both a missing file and an unreadable one, which is why this cannot tell them apart —
- * and does not need to, since neither is something m9 can fix.
- */
-async function readSet(
-  project: string,
-  cached: MediatekEntry[],
-): Promise<SetList> {
-  const path = project === "." ? SONGS_FILE : `${project}/${SONGS_FILE}`;
-  try {
-    return resolveSet((await api.read(path)).content, cached);
-  } catch {
-    return EMPTY_SET;
-  }
 }
