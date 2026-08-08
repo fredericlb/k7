@@ -195,3 +195,51 @@ describe("a cold module", () => {
     expect(chains()).toContain("s1: []");
   });
 });
+
+// The two trailing optionals are POSITIONAL once both are given, so naming an instance of a
+// module that already exists meant also passing a ref — which is exactly what the refusal was
+// about. That left no way to do an ordinary thing: reuse a module the project already has.
+describe("instancing a module that already exists", () => {
+  it("takes the instance name even when a redundant extends-ref rides along", async () => {
+    await runCommand(
+      "module insert gtr amp audio/amp @engine/chorus lead",
+      host(),
+      "cli",
+    );
+    expect(logs.join(" ")).not.toContain("already exists");
+    // The chain names the INSTANCE file, and the instance landed beside the module.
+    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(chains()).toContain("lead");
+  });
+
+  it("still refuses a ref with no instance to justify it", async () => {
+    // Nothing to do with the ref but ignore it, and ignoring what was typed is how a command
+    // lies. The message names BOTH ways out now, not just dropping the ref.
+    await runCommand(
+      "module insert gtr amp audio/amp @engine/chorus",
+      host(),
+      "cli",
+    );
+    const said = logs.join(" ");
+    expect(said).toContain("already exists");
+    expect(said).toContain("instance name");
+  });
+
+  it("refuses a ref that DISAGREES with what the module extends", async () => {
+    // Redundant is fine; contradictory is not. Instancing cannot re-parent the module, so
+    // proceeding would silently drop the parent that was asked for.
+    writeFileSync(
+      join(dir, "modules", "audio", "amp", "module.yaml"),
+      'extends: "@mediatek/audio/amps/real"\n',
+      "utf8",
+    );
+    await runCommand(
+      "module insert gtr amp audio/amp @engine/other lead",
+      host(),
+      "cli",
+    );
+    const said = logs.join(" ");
+    expect(said).toContain("@mediatek/audio/amps/real");
+    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(false);
+  });
+});
