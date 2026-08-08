@@ -197,7 +197,9 @@ describe("which track a fader stretches", () => {
       { "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" } },
       graphWith([{ module: "eqA", pluginId: "deckA:eqA" }]),
     );
-    expect(stretchTargets(bindings, byDeck, new Set(["deckA:eqA"]))).toEqual({});
+    expect(stretchTargets(bindings, byDeck, new Set(["deckA:eqA"]))).toEqual(
+      {},
+    );
   });
 
   it("STRETCHES when the graph invented an id the document has not got", () => {

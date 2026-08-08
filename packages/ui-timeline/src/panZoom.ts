@@ -87,7 +87,7 @@ export function useHZoom(
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, gutter, min, max, zoomAt, ...deps]);
+  }, [ref, min, max, zoomAt, ...deps]);
 
   return [zoom, setZoom, zoomAt] as const;
 }

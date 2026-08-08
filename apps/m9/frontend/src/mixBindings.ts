@@ -4,8 +4,8 @@
 // See ../../docs/controls.md.
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";
-import { widgetDenorm } from "@studio/ui-chains/graph";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
+import { widgetDenorm } from "@studio/ui-chains/graph";
 import { type MixControl, mixControl } from "./controls";
 import type { DeckId, DeckTempos } from "./deck";
 
