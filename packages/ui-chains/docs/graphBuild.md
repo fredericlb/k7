@@ -73,11 +73,15 @@ past the *last occupied* port and not one past the count, or a module fed only o
 the `a` the reader is looking for.
 
 Outputs do not. All of them show at once, because an output is offered rather than required and
-there is no progression to disclose. Their occupancy is also per NODE rather than per socket: a
-chains file can name a port on the source side (`deck#cue: [ phones ]`), but the derivation
-unions those destinations onto one node and the edge does not record which jack it left from. So
-a module's outputs all read the same — connected when anything leaves it, hollow when nothing
-does, which is the state worth seeing anyway.
+there is no progression to disclose. Their occupancy is per SOCKET, like the inputs': an edge
+records which jack it left from (`sourcePort`), so `deck#cue: [ phones ]` fills the `cue` socket
+and leaves the others hollow.
+
+That was not always so — this page described the earlier state, where the derivation unioned
+those destinations onto one node and a module's outputs all read the same. Two things changed
+with it: the edge carries `sourcePort`, and `link()` keys a cable on the SOCKET rather than the
+pair, so a splitter feeding one target from two outputs draws two cables instead of one drawn
+from whichever jack was seen first.
 
 Three nodes are special and each for its own reason. A **track** has no input jack: what arrives
 on a lane is its clips, and there is no socket to look for. A **sink** is the mirror image. A
@@ -101,8 +105,9 @@ one out of it orange. A video lane puts picture on the wire whatever `trackSigna
 
 A cable **plugs in**. dagre routes to the node's border, which was the right target while a
 cable ended in an arrowhead pointing at a card; `cablePath` moves both ends onto the sockets
-instead — the one the destination NAMES (`crossfade#b`) on the target side, and the first output
-on the source side, because the routing model records no source port. dagre's waypoints in
+instead — the one the destination NAMES (`crossfade#b`) on the target side, and the one the
+edge left from (`sourcePort`) on the source side, falling back to the first output when the
+chains file named none. dagre's waypoints in
 between are untouched, so a send still bends around the module it skips. A short straight lead
 at each end makes the cable leave the plate square instead of curving off it.
 

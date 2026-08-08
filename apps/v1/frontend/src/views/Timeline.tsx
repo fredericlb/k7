@@ -16,15 +16,20 @@ import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
   chooseTick,
   formatClock,
+  nearestTick,
   SECOND_TICKS,
   ticksUpTo,
 } from "@studio/ui-timeline/ticks";
 import type { WebVideoProject, WebVideoTrack } from "@studio/web-protocol";
 import { Eye, EyeOff, Film, Shapes } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /** Seconds per screen at zoom 1 — a whole minute, so a short cut opens fully visible. */
 const FIT_SECONDS = 60;
+
+/** How close to a ruler tick a click has to land to mean it. In PIXELS, so the snap feels the
+ *  same at every zoom rather than grabbing whole seconds when the view is wide. */
+const SNAP_PX = 6;
 /** Never draw a timeline shorter than this: an empty project still needs a ruler to click on. */
 const MIN_SPAN = 10;
 /** A clip with `length: 0` runs to the end of its source, which the browser has not measured
@@ -77,9 +82,23 @@ export function Timeline({
   const ticks = useMemo(() => ticksUpTo(span, step), [span, step]);
   const laneW = span * pxPerSec;
 
-  // Measured rather than assumed: the pane is one half of a split the user drags.
-  const measure = useCallback((el: HTMLDivElement | null) => {
-    if (el) setWidth(el.clientWidth);
+  /**
+   * Measured rather than assumed, and measured AGAIN when it changes.
+   *
+   * A callback ref fires on mount and on unmount, and never in between — so the pane being
+   * one half of a split the user drags is precisely the case it missed: every drag of the
+   * splitter left `pxPerSec` computed against a width the pane no longer had, and the ruler
+   * and the clips drifted apart from the pointer. l8 has watched its own pane this way from
+   * the start; this is the same watch.
+   */
+  const paneRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = paneRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
   }, []);
 
   const x = (sec: number) => sec * pxPerSec;
@@ -212,7 +231,7 @@ export function Timeline({
   };
 
   return (
-    <div ref={measure} className="flex h-full min-h-0 w-full flex-col">
+    <div ref={paneRef} className="flex h-full min-h-0 w-full flex-col">
       <div
         ref={scrollRef}
         className="relative min-h-0 flex-1 overflow-auto bg-background"
@@ -234,7 +253,15 @@ export function Timeline({
               type="button"
               aria-label="scrub"
               className="relative flex-1 cursor-text"
-              onPointerDown={(e) => onSeek(Math.max(0, secAt(e.clientX)))}
+              // Snapped to a line that is actually DRAWN, within a few pixels of it, and
+              // free anywhere else. Clicking a ruler means "that mark", and landing at
+              // 4.03 s beside a 4 s tick reads as the click having missed. l8 has done this
+              // since its ruler grew ticks; `nearestTick` was in this package, tested, and
+              // called by nobody.
+              onPointerDown={(e) => {
+                const raw = Math.max(0, secAt(e.clientX));
+                onSeek(nearestTick(ticks, raw, SNAP_PX / pxPerSec) ?? raw);
+              }}
             >
               {ticks.map((t) => (
                 <span

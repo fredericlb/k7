@@ -1,7 +1,7 @@
 // ModulePreview.tsx — the module being edited, drawn as the card it will be in a chain. The
 // renderer half only: the graph is @studio/ui-chains' modulePreview.ts, and between them runs
 // the same buildGraph → layout → DomChains pipeline the full graph does. Read-only.
-// See docs/modulePreview.md.
+// See apps/st0/docs/modulePreview.md — the page lives with the builder, not here.
 
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import {

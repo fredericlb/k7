@@ -6,6 +6,7 @@
 
 import {
   type RefObject,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -42,6 +43,29 @@ export function useHZoom(
     }
   }, [zoom, ref]);
 
+  /**
+   * Zoom to `next`, keeping whatever is under `clientX` where it is.
+   *
+   * Exposed because the wheel is not the only gesture that zooms: l8's ruler zooms on a
+   * vertical drag, and had copied this arithmetic — the same line, descended from the same
+   * commit — WITHOUT the deferral above. Applied straight away, the new scrollLeft is clamped
+   * by the old scrollWidth, so an anchored zoom drifts. One implementation, both gestures.
+   */
+  const zoomAt = useCallback(
+    (next: number, clientX: number) => {
+      const el = ref.current;
+      const cur = zoomRef.current;
+      if (!el || next === cur) return;
+      // Keep the content under the cursor fixed: scale its x by the zoom ratio and offset the
+      // scroll. The gutter, which doesn't scale, is subtracted and re-added around that.
+      const offsetX = clientX - el.getBoundingClientRect().left;
+      const laneX = el.scrollLeft + offsetX - gutter;
+      pendingLeft.current = gutter + laneX * (next / cur) - offsetX;
+      setZoom(next);
+    },
+    [ref, gutter],
+  );
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -57,19 +81,15 @@ export function useHZoom(
       if (next === cur) return;
       // Keep the content under the cursor fixed: scale its x by the zoom ratio and offset the scroll. The gutter,
       // which doesn't scale, is subtracted and re-added around that.
-      const rect = el.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const laneX = el.scrollLeft + offsetX - gutter;
-      pendingLeft.current = gutter + laneX * (next / cur) - offsetX;
-      setZoom(next);
+      zoomAt(next, e.clientX);
     };
     // Passive:false so preventDefault can stop the browser's page zoom on Ctrl+wheel.
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, gutter, min, max, ...deps]);
+  }, [ref, gutter, min, max, zoomAt, ...deps]);
 
-  return [zoom, setZoom] as const;
+  return [zoom, setZoom, zoomAt] as const;
 }
 
 /**

@@ -8,6 +8,12 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { beatsToPosition } from "@studio/song/timecode";
 import { trackLabel } from "@studio/song/trackKind";
+import {
+  GUTTER_DESKTOP,
+  GUTTER_MOBILE,
+  MARKER_COLOR,
+  ROW_H,
+} from "@studio/ui-timeline/lanes";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
   labelled,
@@ -56,11 +62,10 @@ import type { EditTarget } from "./EditorPanel";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
-// Track-name column width, px. A phone can't spare 140 of ~390, and the names truncate either way.
-const GUTTER_DESKTOP = 140;
-const GUTTER_MOBILE = 84;
-const MARKER_COLOR = "#2f9bff"; // electric blue — timeline markers (lines + labels)
-const ROW_H = 28;
+// The gutter, the row height and the marker colour come from @studio/ui-timeline (see the
+// import above). They were redeclared here with the same values when the package was
+// extracted, which is the drift lanes.ts's own header warns about: two surfaces disagreeing
+// about the gutter is a click landing one column off, read as a rounding bug and not one.
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
 const NATURAL = 4; // beats drawn for a length-0 clip
@@ -332,7 +337,7 @@ export function TimelineTab({
   }, [proj]);
 
   // Wheel zooms past fit and middle-drag pans; the gutter is the fixed name column and does not scale.
-  const [zoomX, setZoomX] = useHZoom(scrollRef, { gutter: GUTTER }, [proj]);
+  const [zoomX, , zoomAtX] = useHZoom(scrollRef, { gutter: GUTTER }, [proj]);
   usePanScroll(scrollRef, [proj]);
 
   // Keep the scroll offset across a pane switch — a display:none box has no layout to hold it. See docs/timeline.md.
@@ -1246,7 +1251,6 @@ export function TimelineTab({
                 let gesture: 0 | 1 | -1 = 0;
                 let dragged = false;
                 const zoomStart = zoomX;
-                const startScrollLeft = scrollRef.current?.scrollLeft ?? 0;
                 const GESTURE_SLOP = 4; // px before committing to a gesture
                 const onMove = (ev: MouseEvent) => {
                   const dx = ev.clientX - startX;
@@ -1266,14 +1270,11 @@ export function TimelineTab({
                       1,
                       Math.min(32, zoomStart * 1.005 ** -dy),
                     );
-                    // Anchor: keep the beat under the cursor fixed after the width change
-                    const offsetX = startX - rect.left;
-                    const laneX = startScrollLeft + offsetX - GUTTER;
-                    setZoomX(next);
-                    if (scrollRef.current) {
-                      scrollRef.current.scrollLeft =
-                        GUTTER + laneX * (next / zoomStart) - offsetX;
-                    }
+                    // Anchor: keep the beat under the cursor fixed after the width change.
+                    // Through the package rather than by hand — the copy that used to live
+                    // here set scrollLeft immediately, so it was clamped by the OLD
+                    // scrollWidth and the anchored beat drifted. See useHZoom's `zoomAt`.
+                    zoomAtX(next, startX);
                   } else {
                     // Horizontal drag → selection
                     if (!dragged && Math.abs(dx) <= GESTURE_SLOP) return;

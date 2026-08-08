@@ -9,6 +9,7 @@
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
+import { formatClock } from "@studio/ui-timeline/ticks";
 import type {
   FileNode,
   GitStatus,
@@ -44,9 +45,15 @@ const VIEWS: { id: ViewId; label: string; icon: typeof Pencil }[] = [
 /** How often the cheap change token is asked for. The document hangs off it. */
 const POLL_MS = 1500;
 
-/** `mm:ss.mm`, the transport readout — finer than the ruler's, because it is a position and not a scale. */
-const clock = (s: number): string =>
-  `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5, "0")}`;
+/**
+ * `m:ss.mm`, the transport readout — finer than the ruler's, because it is a position and not
+ * a scale, which is what the `step` argument says.
+ *
+ * The package's, not a second spelling of it: this app printed `0:05.00` here and `0:05` in
+ * its own ruler, from two functions that disagreed only about how many decimals they felt
+ * like. The shared one also handles a negative position, which this did not.
+ */
+const clock = (s: number): string => formatClock(s, 0.01);
 
 export function Studio({
   project,

@@ -1,7 +1,7 @@
 // ModulePreview.tsx — the médiathèque's glyphs over the SHARED preview
 // (@studio/ui-chains-react/module-preview). The graph and the renderer moved out when l8
 // wanted the same panel; what stays here is the one thing the two apps do not share, which is
-// what a source node looks like. See packages/ui-chains-react/docs/modulePreview.md.
+// what a source node looks like. See ../../docs/modulePreview.md.
 
 import type { ChainsIcons } from "@studio/ui-chains-react";
 import { ModuleIcon, moduleGlyph } from "@studio/ui-chains-react/module-icons";
