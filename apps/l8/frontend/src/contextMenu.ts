@@ -82,8 +82,14 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
         { verb: "track solo", arg: ctx.id },
       ]);
     case "module":
-      // A dangling reference: bypass acts on chains.yaml, so it is the one verb that still works without the module existing.
-      if (ctx.missing) return build([{ verb: "module bypass", arg: ctx.id }]);
+      // A dangling reference: these two are the verbs that still work without the module existing,
+      // because both act on chains.yaml alone. Unlink is the actual REPAIR — it takes the name
+      // nothing answers to out of the run and closes the gap over it.
+      if (ctx.missing)
+        return build([
+          { verb: "module bypass", arg: ctx.id },
+          { verb: "module instance unlink", arg: ctx.id },
+        ]);
       return build([
         { verb: "module open", arg: ctx.id }, // the native plugin UI (external plugins)
         { verb: "module param", arg: ctx.id, needsMore: true },
@@ -92,6 +98,9 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
         ctx.ambient
           ? { verb: "module own", arg: ctx.id }
           : { verb: "ui file", arg: ctx.id }, // open the module's file
+        // Out of the signal path, files untouched. Last because it rewires: everything above
+        // reads or edits the node, this one takes it out of the run.
+        { verb: "module instance unlink", arg: ctx.id },
       ]);
     case "clip":
       // `file` opens the clip that was right-clicked, unlike `edit clip`, which follows the caret. `event remove`/`move`
