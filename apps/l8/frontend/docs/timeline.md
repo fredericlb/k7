@@ -190,6 +190,19 @@ beats away. Nothing touches the file until the commit runs
 built from the same beats the brain's `parsePosition` read the clip's start from (it finds
 the event by start, within 1e-6).
 
+### …unless the command bar is asking for one
+
+If the bar is filling `event move` when the drag starts, the drag **answers it** instead of
+committing (`feedMove`, present only then). Every frame offers the track and both timecodes,
+the release offers them once more, and the drop writes nothing: the line sits in the bar and
+Enter runs it. Drop on another lane and the fourth param is answered too.
+
+The shell decides that — it is the one that knows which command is being filled — and this
+component only reports numbers it already had. `moveArgs` builds them in one place so a live
+frame and its release cannot disagree about which timecode is the `from`. Read
+[commandBar.md](commandBar.md) for the contract; what it buys is being able to *point* at the
+destination instead of typing a timecode.
+
 Move mode is **modal**: every key is swallowed while it is live, and swallowed hard
 (`stopImmediatePropagation` on a capture-phase listener) so Enter and Escape do not also
 reach the shell's rewind/close bindings. Leaving the tab drops the pickup rather than

@@ -517,6 +517,7 @@ export function webCommandList(): CommandInfo[] {
           name: a.name,
           kind: argClass(a),
           hint: argHint(a),
+          optional: a.optional,
         })) ?? [],
     }));
 }

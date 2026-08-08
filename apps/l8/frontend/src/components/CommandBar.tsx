@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { applyOffer, requiredCount, runsAfter } from "../commandFill";
 import type { ArgClass } from "../types";
 
 // A command the palette can build: its canonical name, a joined display label, each translation, and its params.
@@ -25,6 +26,15 @@ export interface PaletteArg {
   name: string;
   kind: ArgClass;
   hint: string;
+  // Trailing params the line runs without — see requiredCount. Tab steps onto one, Enter runs past it.
+  optional?: boolean;
+}
+
+// What the bar is filling right now, so the shell can point a gesture at the field waiting for it.
+export interface CommandPending {
+  canonical: string;
+  wants: string; // the param's name
+  kind: ArgClass;
 }
 
 // One colour per param kind, so a line reads as a coloured sentence: project-owned things cool, typed literals
@@ -58,6 +68,15 @@ const ARG_PLACEHOLDER: Record<ArgClass, string> = {
 export interface CommandBarHandle {
   focus: () => void;
   prewrite: (text: string) => void;
+  /**
+   * Fill params from a gesture elsewhere in the editor, keyed by param NAME.
+   *
+   * `live` means the gesture is still under the pointer: the value is shown and nothing is
+   * validated, so a drag can re-offer on every frame. The closing offer (`live` false) takes
+   * the focus back, because the click that started the gesture took it away and Enter has to
+   * land here.
+   */
+  offer: (values: Record<string, string>, live?: boolean) => void;
 }
 
 // Split an argument string into tokens, honouring "double quotes" so a value with spaces stays one token.
@@ -85,9 +104,11 @@ export const CommandBar = forwardRef<
     onRun: (line: string) => void; // the assembled canonical command line
     onClose?: () => void;
     autoFocus?: boolean;
+    // Which field is waiting, so the shell can route a gesture to it (null between commands).
+    onPending?: (p: CommandPending | null) => void;
   }
 >(function CommandBar(
-  { commands, completeArg, onRun, onClose, autoFocus },
+  { commands, completeArg, onRun, onClose, autoFocus, onPending },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -149,9 +170,33 @@ export const CommandBar = forwardRef<
           el.setSelectionRange(el.value.length, el.value.length),
         );
       },
+      offer: (values: Record<string, string>, live = false) => {
+        // No command picked yet means no field to write to: a gesture cannot choose the verb.
+        if (!command) return;
+        const next = applyOffer(command.args, values, args);
+        if (!next) return;
+        setArgs(next.args);
+        setValue(next.value);
+        // A fed value is not a completion. Leaving the list up would let Enter take a
+        // suggestion instead of the value the gesture just put under the cursor.
+        setSugs([]);
+        setSel(0);
+        if (!live) inputRef.current?.focus();
+      },
     }),
-    [commands],
+    [commands, command, args],
   );
+
+  // Say which field is waiting. The shell routes gestures by this, so it must also say "none"
+  // when the bar closes — a stale pending would keep a drag feeding a bar that is gone.
+  useEffect(() => {
+    onPending?.(
+      command && arg
+        ? { canonical: command.canonical, wants: arg.name, kind: arg.kind }
+        : null,
+    );
+    return () => onPending?.(null);
+  }, [command, arg, onPending]);
 
   // Completion for the active field: commands filter synchronously, params ask completeArg, debounced.
   useEffect(() => {
@@ -196,8 +241,16 @@ export const CommandBar = forwardRef<
     selRef.current?.scrollIntoView({ block: "nearest" });
   }, [selIdx, sugs]);
 
+  // Assemble and dispatch. Split out because three paths reach it: the last param, Enter on an
+  // empty optional field, and a command with no params at all.
+  const runNow = (vals: string[]) => {
+    onRun([command!.canonical, ...vals.map(quoteArg)].join(" ").trim());
+    reset();
+  };
+
   // Validate `chosen` for this field: pick or run a command, or fill a param and advance (running on the last).
-  const commit = (chosen: string) => {
+  // `more` is Tab rather than Enter — "there is another param I want", the one place the two keys differ.
+  const commit = (chosen: string, more = false) => {
     if (phase === "command") {
       const c = chosen.trim();
       if (!c) return;
@@ -224,9 +277,10 @@ export const CommandBar = forwardRef<
     }
     const next = [...args, chosen];
     setValue("");
-    if (next.length >= command!.args.length) {
-      onRun([command!.canonical, ...next.map(quoteArg)].join(" ").trim());
-      reset();
+    // Runnable once every REQUIRED param is in — filling the last one dispatches, which is what
+    // makes a gesture-then-Enter one keystroke. Tab holds the line open for a trailing optional.
+    if (runsAfter(command!.args, next.length, more)) {
+      runNow(next);
     } else {
       setArgs(next);
       setSugs([]); // this param's list, gone; the next param's completions replace it
@@ -235,12 +289,20 @@ export const CommandBar = forwardRef<
   };
 
   // Validate from the completion: the highlighted suggestion, else the raw text on a field with no vocabulary.
-  const commitCurrent = () => {
-    if (sugs.length) commit(sugs[selIdx]);
+  const commitCurrent = (more = false) => {
+    if (sugs.length) commit(sugs[selIdx], more);
     else if (phase === "command") {
       const typed = value.trim();
-      if (typed) commit(typed);
-    } else commit(value);
+      if (typed) commit(typed, more);
+    } else if (
+      // An EMPTY optional field with everything required already answered: the line is complete
+      // as it stands, so Enter runs it rather than passing "" as that param's value.
+      !more &&
+      !value.trim() &&
+      args.length >= requiredCount(command!.args)
+    ) {
+      runNow(args);
+    } else commit(value, more);
   };
 
   const stepBack = () => {
@@ -278,10 +340,12 @@ export const CommandBar = forwardRef<
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          // Enter and Tab are the SAME key: both validate from the completion. Typing only narrows, so there is no fill.
+          // Both validate from the completion — typing only narrows, so there is no fill. They part
+          // company on ONE point: Enter says "that is my line" and runs as soon as every required
+          // param is in, while Tab says "there is more" and steps onto the trailing optional one.
           if (e.key === "Enter" || e.key === "Tab") {
             e.preventDefault();
-            commitCurrent();
+            commitCurrent(e.key === "Tab");
           } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
             // The list renders bottom-first (it opens upward), so ↑ walks FORWARD through it to move visually up.
             if (sugs.length) {
