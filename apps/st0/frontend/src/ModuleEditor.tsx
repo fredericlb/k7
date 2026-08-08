@@ -12,6 +12,7 @@ import {
   baseModuleRefs,
   useEngineInputDevices,
   useEnginePlugins,
+  useInputLevels,
 } from "./engine/baseModules";
 import { InputMeter } from "./engine/InputMeter";
 import { InputPicker } from "./engine/InputPicker";
@@ -111,6 +112,13 @@ export function ModuleEditor({
     () => inputChoices(labels, inputDevices),
     [labels, inputDevices],
   );
+  // Every offered set, metered — but only while the menu is open: the engine enables the
+  // devices it measures, so this is work on the audio thread and it stops with the menu.
+  const meterSets = useMemo(
+    () => choices.map((c) => c.channels).filter((ch) => ch.length > 0),
+    [choices],
+  );
+  const inputLevels = useInputLevels(client, connected, meterSets, !!picking);
   // Bumped on save, so the engine reloads the module and re-reports its parameters.
   const [reload, setReload] = useState(0);
   const path = `${entry.path}/module.yaml`;
@@ -342,6 +350,7 @@ export function ModuleEditor({
           at={picking}
           choices={choices}
           current={inputChannels}
+          levels={inputLevels}
           onPick={pickInput}
           onClose={() => setPicking(null)}
         />

@@ -8,7 +8,7 @@ import type {
   EnginePluginInfo,
 } from "@studio/engine-browser";
 import { engineRef, slugifyPluginName } from "@studio/song/moduleTypes";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * The engine's plugins as module refs — `@engine/neural-amp-modeler`.
@@ -53,6 +53,47 @@ export function useEnginePlugins(
     return off;
   }, [client, connected]);
   return plugins;
+}
+
+/**
+ * The live level of each channel SET asked for, in dB, keyed `"1"` / `"1+2"`.
+ *
+ * Polled only while `active` — the engine ENABLES the devices it measures, so metering twenty
+ * inputs for a menu nobody has open is work on the audio thread for nothing. That is the same
+ * reason `io-levels` is request/reply rather than a field on the state frame.
+ *
+ * This is what turns "which input is my guitar on" from a guess into a glance: on the measured
+ * rig, channel 1 reads 0 dB and channels 3–8 sit at the noise floor.
+ */
+export function useInputLevels(
+  client: EngineClient | null,
+  connected: boolean,
+  sets: number[][],
+  active: boolean,
+): Record<string, number> {
+  const [levels, setLevels] = useState<Record<string, number>>({});
+  // Read through a ref so the poll below is not rebuilt every time the array is rebuilt.
+  const asked = useRef(sets);
+  asked.current = sets;
+  useEffect(() => {
+    if (!client || !connected || !active) return;
+    const off = client.onIoLevels((l) => {
+      const next: Record<string, number> = {};
+      asked.current.forEach((set, i) => {
+        next[set.join("+")] = l.inputs?.[i] ?? -100;
+      });
+      setLevels(next);
+    });
+    const tick = () => client.ioLevels(asked.current);
+    tick();
+    // 8 Hz: fast enough to see a string ring, slow enough that a menu costs nothing.
+    const t = setInterval(tick, 125);
+    return () => {
+      clearInterval(t);
+      off();
+    };
+  }, [client, connected, active]);
+  return levels;
 }
 
 /** Two input layouts describing the same rig — name and channels, in order. */
