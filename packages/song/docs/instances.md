@@ -94,6 +94,24 @@ One flat key space: a chain step naming `lead` must mean exactly one thing. So a
 may not take the name of a module, and `createModuleInstance` refuses it up front. A file
 written by hand that collides is reported as an issue rather than silently winning.
 
+## Instancing one from `module insert` / `module place`
+
+Both take two trailing optionals — `[extends-ref] [instance]` — and they are told apart by
+SHAPE when only one is given (a ref has a slash or an `@`), which is what lets you name an
+instance without inventing a ref. With BOTH given they are positional, and that is where the
+hole was: a module the project already has plus an `extends-ref` was refused outright, so
+naming an instance of it meant also passing a ref, and passing a ref is what the refusal was
+about. Reusing a module you already have — the ordinary case — had no spelling at all.
+
+An instance name now makes the ref **redundant rather than contradictory**: it says "use the
+module that is already there, under this name". Two refusals remain, and both are real:
+
+- a ref with **no instance** to justify it — there is nothing to do with it but ignore it, and
+  ignoring what someone typed is how a command lies;
+- a ref that **disagrees** with what the module already extends. Instancing cannot re-parent a
+  module, so proceeding would silently drop the parent that was asked for. The message names
+  the one it actually has.
+
 ## Not covered by this
 
 The **shared library** still files instances beside a module's `module.yaml`, keyed

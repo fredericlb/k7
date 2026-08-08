@@ -75,6 +75,7 @@ import {
 import { migrateModuleUis } from "@studio/song/uiMigrate";
 import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
 import { setFileValue } from "@studio/song/yaml/edit";
+import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
 import { appendNotes, isPlayableNote } from "@studio/song/yaml/sequenceFile";
 import {
   applyAlternative,
@@ -267,6 +268,24 @@ function coldInsertError(
   return coldPlacementError(g, module, target, before);
 }
 
+/** What a module already on disk extends, or "" — read from its own file rather than through
+ *  the loaders, which walk every library to answer a question about one known folder. */
+function existingExtends(
+  songPath: string,
+  category: string,
+  name: string,
+): string {
+  const folder = join(songPath, "modules", category, name);
+  const file = moduleFileFor(folder, `${category}/${name}`, "module");
+  if (!file) return "";
+  try {
+    const ext = readModuleFile(file).value?.extends;
+    return typeof ext === "string" ? ext : "";
+  } catch {
+    return ""; // unreadable: the caller's other checks still apply, and instancing is harmless
+  }
+}
+
 /**
  * Create the module a `+` picked and hand back the name chains.yaml should use, or the message to show instead.
  *
@@ -288,10 +307,23 @@ function makeModule(
     return { error: `'${target}' is not <category>/<name>` };
   const [category, name] = segs;
   const exists = existsSync(join(songPath, "modules", category, name));
-  if (exists && extendsRef)
-    return {
-      error: `module '${name}' already exists — drop the extends-ref to instance it instead`,
-    };
+  if (exists && extendsRef) {
+    // Naming an INSTANCE makes the ref redundant rather than contradictory: "use the module
+    // that is already there, under this name". Refusing that was a dead end, because the two
+    // optionals are positional once both are given — there was no way to name the instance
+    // without also passing a ref, and passing one is what the refusal was about.
+    const inherits = existingExtends(songPath, category, name);
+    if (!instance)
+      return {
+        error: `module '${name}' already exists — add an instance name to use it, or drop the extends-ref`,
+      };
+    // …unless it names a DIFFERENT parent, which is a real disagreement and not redundancy:
+    // the module cannot be re-parented by instancing it, so acting would ignore what was typed.
+    if (inherits && inherits !== extendsRef)
+      return {
+        error: `module '${name}' extends '${inherits}', not '${extendsRef}' — drop the extends-ref to instance it as it is`,
+      };
+  }
   try {
     const rel = exists
       ? null
