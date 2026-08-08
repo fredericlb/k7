@@ -5,7 +5,7 @@
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
-import { Plug, PlugZap } from "lucide-react";
+import { Mic, Plug, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { engineMachine, library, moduleStore } from "./api";
 import {
@@ -218,6 +218,30 @@ export function ModuleEditor({
               : "aucun moteur — les paramètres du greffon resteront vides"}
           </span>
         )}
+        {/* The input, HERE as well as on the `in` node.
+            The node's chip is the right place to say what feeds the module — it is the thing
+            being fed — but it is only drawn past a zoom of 0.6 (below that a node draws as its
+            name alone, see DomChains' `far`), and the preview box is 30% of a column. A
+            control you have to zoom in to find is one that reads as not being there. */}
+        <button
+          type="button"
+          className="flex items-center gap-1 underline disabled:no-underline disabled:opacity-50"
+          disabled={phase.k !== "ready"}
+          title={
+            phase.k === "ready"
+              ? "Ce que le module écoute — une entrée de l'interface de cette machine"
+              : "Il faut un moteur pour lire une entrée de l'interface"
+          }
+          onClick={(e) =>
+            setPicking({
+              x: e.currentTarget.getBoundingClientRect().left,
+              y: e.currentTarget.getBoundingClientRect().top,
+            })
+          }
+        >
+          <Mic className="h-3.5 w-3.5" />
+          entrée : {inputLabel(inputChannels, choices)}
+        </button>
         <button
           type="button"
           className={vimMode ? "underline" : "underline opacity-50"}

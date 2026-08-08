@@ -112,6 +112,12 @@ pastille : on clique, on choisit une entrée de l'interface, et ce qu'on joue ar
 le module, monitoré. Le panneau bouge et le traitement s'entend, ce qui est la seule façon de
 savoir ce qu'un module fait.
 
+Le même choix est **aussi** dans le pied de page de l'éditeur, et ce n'est pas une redondance
+décorative. La pastille du nœud est le bon endroit pour dire ce qui alimente le module — c'est
+lui qu'on alimente — mais un nœud ne dessine son en-tête qu'au-delà d'un zoom de 0.6 : en
+dessous, il se réduit à son nom (`far`, dans DomChains), et le panneau d'aperçu ne fait que 30 %
+d'une colonne. Un contrôle qu'il faut zoomer pour trouver se lit comme un contrôle absent.
+
 Côté document, c'est deux champs sur la piste d'aperçu :
 
 ```
