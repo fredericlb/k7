@@ -6,7 +6,9 @@
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { loadModules, splitModuleKey } from "@studio/song/loader";
+import { parse as parseYaml } from "yaml";
 import { sharedRoots } from "./moduleFork";
+import type { OnsetEdits } from "./onsets";
 import {
   addNode,
   insertBetween,
@@ -138,6 +140,45 @@ export function setModuleAsset(
   file: string | null,
 ): string {
   return editModuleValue(dir, module, ["params", param], file);
+}
+
+// --- clip files ---------------------------------------------------------------
+
+/**
+ * Write a clip's onset CORRECTIONS — the block that outlives a re-detection (see song/onsets.ts).
+ *
+ * Corrections that cancel out take the key away rather than writing `onsets: {}`: a clip nobody has corrected
+ * must read exactly as it did before anyone opened it, or every take in a session grows an empty block that
+ * says nothing and shows up in every diff.
+ */
+export function setClipOnsets(
+  dir: string,
+  ref: string,
+  edits: OnsetEdits,
+): string {
+  const file = entityFileFor(join(dir, "clips"), "clips", ref);
+  if (!file) throw new Error(`no clip "${ref}" in this project`);
+  const empty = !edits.added?.length && !edits.removed?.length;
+  const before = readFileSync(file.path, "utf8");
+  const after = setModuleValue(before, ["onsets"], empty ? null : edits);
+  if (after !== before) writeFileSync(file.path, after, "utf8");
+  return file.path;
+}
+
+/** A clip's onset corrections as its file holds them — `{}` when it has none. */
+export function clipOnsets(dir: string, ref: string): OnsetEdits {
+  const file = entityFileFor(join(dir, "clips"), "clips", ref);
+  if (!file) return {};
+  try {
+    const raw = parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
+    const o = (raw as { onsets?: OnsetEdits } | null)?.onsets;
+    return {
+      ...(o?.added?.length ? { added: [...o.added] } : {}),
+      ...(o?.removed?.length ? { removed: [...o.removed] } : {}),
+    };
+  } catch {
+    return {}; // a malformed clip file is the loader's error to report, not this reader's
+  }
 }
 
 // --- chains file --------------------------------------------------------------

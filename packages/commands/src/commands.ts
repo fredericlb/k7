@@ -45,11 +45,14 @@ import {
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { trackMixer } from "@studio/song/project";
+import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
 import {
+  clipOnsets,
   deleteModule,
   insertChainStep,
   placeChainNode,
   replaceModuleInChains,
+  setClipOnsets,
   setModuleAsset,
   setModuleBypass,
   setModuleMonitor,
@@ -87,6 +90,7 @@ import {
   pull,
   switchAlternative,
 } from "./git";
+import { DEFAULT_PEAK, normalizeInPlace } from "./normalize";
 import { processWithChain, type Scope } from "./processChain";
 import { freezeTrackRender } from "./render";
 import { describeTimeline, describeTrack } from "./timeline";
@@ -571,6 +575,90 @@ const eqBand = (a: string, h: CommandHost, verb: string, param: string) =>
  * argument may name — and that difference is worth a command each, since it is the promise the
  * noun makes. See processChain.ts and docs/processChain.md.
  */
+/**
+ * `<scope> normalize <target> [peak]` — the material brought to a peak, over itself.
+ *
+ * `peak` is linear (1.0 == full scale) and optional; the default leaves a decibel of headroom, for the
+ * reason DEFAULT_PEAK gives. A reload follows because the FILES changed under the compiler — the clip
+ * definitions did not, so nothing else would notice.
+ */
+async function normalizeCommand(
+  arg: string,
+  h: CommandHost,
+  scope: Scope,
+): Promise<void> {
+  const [target, peakArg] = arg.trim().split(/\s+/).filter(Boolean);
+  if (!target) {
+    h.log([`usage: ${scope} normalize <${scope}> [peak 0–1, default ${DEFAULT_PEAK}]`]);
+    return;
+  }
+  const peak = peakArg === undefined ? DEFAULT_PEAK : Number(peakArg);
+  if (!Number.isFinite(peak)) {
+    h.log([`'${peakArg}' is not a peak — a number over 0 and at most 1`]);
+    return;
+  }
+  const { lines, changed } = normalizeInPlace(
+    h.songPath,
+    h.project(),
+    target,
+    scope,
+    findEngineBinary(),
+    peak,
+    // The same journal hook the bounce uses, so this is one Ctrl+Z away.
+    (abs) => h.snapshot?.(abs),
+  );
+  h.log(lines);
+  if (changed) await h.reload();
+}
+
+/**
+ * `clip onset add|remove|move <clip> <sec…>` — a correction to the detected onsets, in FILE seconds.
+ *
+ * A time within ONSET_MATCH_S of an existing one is understood as that one, which is what lets a person
+ * type an approximate second and lets a re-detection keep answering the same correction. Adding where a
+ * removal sits cancels the removal rather than stacking on it, and vice versa — see song/onsets.ts.
+ */
+async function onsetCommand(
+  arg: string,
+  h: CommandHost,
+  op: "add" | "remove" | "move",
+): Promise<void> {
+  const parts = arg.trim().split(/\s+/).filter(Boolean);
+  const [clip, ...times] = parts;
+  const want = op === "move" ? 2 : 1;
+  const secs = times.slice(0, want).map(Number);
+  if (!clip || secs.length < want || secs.some((s) => !Number.isFinite(s))) {
+    h.log([
+      op === "move"
+        ? "usage: clip onset move <clip> <from-sec> <to-sec>"
+        : `usage: clip onset ${op} <clip> <sec>`,
+    ]);
+    return;
+  }
+  const before = clipOnsets(h.songPath, clip);
+  // The DETECTED set is not read here: the tolerance in song/onsets.ts is what matches a time to an onset,
+  // so a caller that knows the exact detected time gets an exact record and one that guesses still lands.
+  const after =
+    op === "add"
+      ? addOnset(before, secs[0])
+      : op === "remove"
+        ? removeOnset(before, [], secs[0])
+        : moveOnset(before, [], secs[0], secs[1]);
+  try {
+    setClipOnsets(h.songPath, clip, after);
+  } catch (e) {
+    h.log([`clip onset ${op}: ${(e as Error).message}`]);
+    return;
+  }
+  const n = (after.added?.length ?? 0) + (after.removed?.length ?? 0);
+  h.log([
+    n === 0
+      ? `${clip}: onsets back to what the engine detects`
+      : `${clip}: ${after.added?.length ?? 0} added, ${after.removed?.length ?? 0} removed`,
+  ]);
+  await h.reload();
+}
+
 async function processCommand(
   arg: string,
   h: CommandHost,
@@ -617,6 +705,19 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // commands differ only in what their first argument may name, which is what `scope` carries.
   "track.process": (a, h) => processCommand(a, h, "track"),
   "clip.process": (a, h) => processCommand(a, h, "clip"),
+
+  // Peak-normalise the material itself, in place and undoably — the engine has always known how, and
+  // until now nothing asked it. See normalize.ts for why in place is safe and why it is WAV only.
+  "track.normalize": (a, h) => normalizeCommand(a, h, "track"),
+  "clip.normalize": (a, h) => normalizeCommand(a, h, "clip"),
+
+  // --- a clip's onsets ---------------------------------------------------------
+  // Corrections to what the engine detected, kept as a DIFF so they outlive a re-detection at another
+  // sensitivity (song/onsets.ts). Three verbs rather than one that takes a list: each is a thing a person
+  // does, each is one line in the file, and each is one entry in the undo journal.
+  "clip.onset.add": (a, h) => onsetCommand(a, h, "add"),
+  "clip.onset.remove": (a, h) => onsetCommand(a, h, "remove"),
+  "clip.onset.move": (a, h) => onsetCommand(a, h, "move"),
 
   // --- mixer (shared: TUI + CLI/web) — persisted to the track's file ----------
   "track.mute": (a, h) =>

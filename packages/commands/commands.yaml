@@ -197,6 +197,60 @@
       { name: chain, complete: chains },
     ]
 
+# Peak-normalise the MATERIAL, over itself. `peak` is linear and optional — the default leaves a
+# decibel of headroom. WAV only, because the engine writes WAV whatever it read (see normalize.ts).
+- command: "track normalize"
+  sid: track.normalize
+  help: "bring a track's clips to a peak, in place (e.g. track normalize gtr)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: peak, type: number, optional: true, hint: "0–1 linear, default 0.891 (−1 dBFS)" },
+    ]
+- command: "clip normalize"
+  sid: clip.normalize
+  help: "bring one clip's file to a peak, in place (e.g. clip normalize prise-01)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: peak, type: number, optional: true, hint: "0–1 linear, default 0.891 (−1 dBFS)" },
+    ]
+
+# --- a clip's onsets ---
+# Corrections to what the engine detected, in SECONDS into the source file. Kept as a difference, so
+# they survive re-detecting at another sensitivity — see packages/song/src/onsets.ts. A time within
+# 25 ms of an existing onset means that one, so an approximate second is enough.
+- command: "clip onset add"
+  sid: clip.onset.add
+  help: "mark an onset the detector missed (e.g. clip onset add prise-01 1.25)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: sec, type: number, hint: "seconds into the source file" },
+    ]
+- command: "clip onset remove"
+  sid: clip.onset.remove
+  help: "refuse an onset the detector found (e.g. clip onset remove prise-01 1.25)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: sec, type: number, hint: "seconds into the source file" },
+    ]
+- command: "clip onset move"
+  sid: clip.onset.move
+  help: "move an onset (e.g. clip onset move prise-01 1.25 1.31)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: from-sec, type: number, hint: "the onset to move, in seconds" },
+      { name: to-sec, type: number, hint: "where it belongs, in seconds" },
+    ]
+
 # --- sequences ---
 - { command: "sequence list",  sid: sequence.list,   help: "list MIDI sequences", surfaces: [cli] }
 # Add a note to a sequence. `note` is a name (C4, F#3) or a MIDI number; `start`/`end`
