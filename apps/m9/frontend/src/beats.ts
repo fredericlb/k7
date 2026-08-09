@@ -113,6 +113,20 @@ export function firstBeatAfter(
  * Returned in TIMELINE beats, the unit `ClipDoc.start` is in — the document's own tempo, not
  * either song's.
  */
+/**
+ * The metre everything here assumes, and nowhere measures.
+ *
+ * Nothing in the sidecar says where a bar begins — the analysis finds a tempo, not a time
+ * signature — so the grid's first beat is taken for a downbeat and one in four after it. On
+ * the four-to-the-floor a deck plays most of the time that is right, or right up to a
+ * rotation, and a rotation still gives a bar line every bar.
+ *
+ * ONE number, because the waveform's bar lines and the metronome's accent are the same claim
+ * about the same music: two constants could drift apart and draw a bar the click disagreed
+ * with.
+ */
+export const BEATS_PER_BAR = 4;
+
 export function alignDelay(
   master: { natural: number; target: number; phase?: number },
   slave: { natural: number; target: number; phase?: number },

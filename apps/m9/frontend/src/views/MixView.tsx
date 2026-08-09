@@ -11,6 +11,7 @@ import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import {
+  AudioLines,
   Headphones,
   Link2,
   Play,
@@ -337,6 +338,26 @@ export function MixView({
             {Math.round(mix * 100)}%
           </button>
         </div>
+
+        {/* Next to the transport, because it is about what you HEAR rather than about either
+            deck. Dark unless a single beat exists to click on — one deck, or a sync. */}
+        <Button
+          size="sm"
+          variant={decks.clicking ? "default" : "secondary"}
+          disabled={!ready || !decks.clickDeck}
+          title={
+            !ready
+              ? "aucun moteur sur cette machine"
+              : decks.clickDeck
+                ? `métronome sur le temps de la platine ${decks.clickDeck === "deckA" ? "A" : "B"}`
+                : // The rule, said as the reason it is off rather than as a rule.
+                  "le métronome demande un seul temps : une seule platine chargée, ou les deux synchronisées — et un temps mesuré sur celle qui mène"
+          }
+          onClick={decks.toggleMetronome}
+          aria-pressed={decks.clicking}
+        >
+          <AudioLines className="h-4 w-4" />
+        </Button>
 
         <Button
           size="sm"

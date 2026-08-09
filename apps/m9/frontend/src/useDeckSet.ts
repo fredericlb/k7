@@ -20,6 +20,7 @@ import {
   type DeckTempos,
   DECKS,
   EQ_BANDS,
+  metronomeDeck,
   MIX_CENTRE,
   NO_LOADS,
   nudgedTempos,
@@ -118,6 +119,18 @@ export interface DeckSet {
   filterLive: (deck: DeckId) => boolean;
   /** Can sync do its second half — put the two decks' beats together? */
   canAlign: boolean;
+
+  /**
+   * Which deck's beat a click WOULD follow, or null when the desk cannot offer one.
+   *
+   * Both the button's enabled state and the answer to "on which beat" — one value rather than
+   * two, so the desk cannot draw an available metronome that nothing would click for. See
+   * `metronomeDeck` for the rule.
+   */
+  clickDeck: DeckId | null;
+  /** Is it on? False whenever `clickDeck` is null, whatever was asked for before. */
+  clicking: boolean;
+  toggleMetronome: () => void;
 
   /** songs.yaml as it stands on disk — the set list is resolved from this same read. */
   songsText: string;
@@ -220,6 +233,18 @@ export function useDeckSet(
     [songsText],
   );
   const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
+  /**
+   * Asked for, not necessarily happening. The desk can lose the right to a click under the
+   * button — a second song lands, a sync is let go — and forgetting the request then would
+   * mean re-arming it by hand once the situation allows it again. So the wish is kept and the
+   * possibility is derived; `clicking` is their conjunction.
+   */
+  const [wantsClick, setWantsClick] = useState(false);
+  const clickDeck = useMemo(
+    () => metronomeDeck(loads, tempos, master),
+    [loads, tempos, master],
+  );
+  const click = wantsClick ? clickDeck : null;
 
   // A mirror, read by `commit`. `pointerup` can arrive before React has re-rendered from the
   // last `onChange`, and a `commit` closed over that render's value would send the document
@@ -261,12 +286,22 @@ export function useDeckSet(
   const commit = useCallback(
     (next: DeckTempos = latest.current, on: DeckLoads = loadsRef.current) => {
       if (deck.engine)
-        sendDecks(deck.engine, on, mix, undefined, next, compiled);
+        sendDecks(deck.engine, on, mix, undefined, next, compiled, click);
     },
-    [deck.engine, mix, compiled],
+    [deck.engine, mix, compiled, click],
   );
   const commitRef = useRef(commit);
   commitRef.current = commit;
+
+  // The click is in the DOCUMENT, so switching it on or off — or losing the right to it when a
+  // second song lands — is a re-send and nothing else. Keyed on the deck it follows rather than
+  // on the wish, so arming it while it cannot happen sends nothing.
+  const sentClick = useRef<DeckId | null>(null);
+  useEffect(() => {
+    if (sentClick.current === click) return;
+    sentClick.current = click;
+    commitRef.current();
+  }, [click]);
 
   /**
    * The drag's own sends: at most one per `LIVE_WARP_MS`, always the newest value.
@@ -390,6 +425,9 @@ export function useDeckSet(
     problems: wiring.problems,
     deskError,
     canAlign,
+    clickDeck,
+    clicking: click !== null,
+    toggleMetronome: () => setWantsClick((on) => !on),
 
     eqOf: (deckId) =>
       Object.fromEntries(

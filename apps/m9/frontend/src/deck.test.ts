@@ -13,6 +13,7 @@ import {
   deckGain,
   gainToDb,
   levelId,
+  METRONOME_TRACK,
   MIX_CENTRE,
   NO_LOADS,
   PITCH_RANGE,
@@ -293,9 +294,12 @@ describe("filling the decks into the COMPILED project", () => {
     // are the project's. m9 fills in the one thing the project cannot say — which song.
     const before = compiled();
     const after = withDecks(before, loaded());
-    expect(after.tracks.map((t) => t.id)).toEqual(
-      before.tracks.map((t) => t.id),
-    );
+    // Everything the project declared, in its order — plus the one track m9 appends, which is
+    // a desk control and not part of the set. See `metronomeTrack`.
+    expect(after.tracks.map((t) => t.id)).toEqual([
+      ...before.tracks.map((t) => t.id),
+      METRONOME_TRACK,
+    ]);
     expect(after.tracks[0].plugins).toEqual(before.tracks[0].plugins);
     expect(after.tempo).toBe(before.tempo);
   });
@@ -352,10 +356,24 @@ describe("filling the decks into the COMPILED project", () => {
 describe("the decks' document", () => {
   it("carries BOTH decks, loaded or not, so a load is a diff and not a new track", () => {
     const empty = deckDoc(NO_LOADS);
-    expect(empty.tracks.map((t) => t.id)).toEqual([...DECKS]);
+    expect(empty.tracks.map((t) => t.id)).toEqual([...DECKS, METRONOME_TRACK]);
     // The ids are stable across every state — that is what lets the engine keep playing one
     // deck while the other is loaded underneath it.
-    expect(deckDoc(loaded()).tracks.map((t) => t.id)).toEqual([...DECKS]);
+    expect(deckDoc(loaded()).tracks.map((t) => t.id)).toEqual([
+      ...DECKS,
+      METRONOME_TRACK,
+    ]);
+  });
+
+  it("keeps the metronome's track even when nothing is clicking", () => {
+    // Not tidiness: `ChangeKind::TrackRemoved` is a stub in the engine, so a track dropped from
+    // the document stays in the edit. A metronome that could not be switched off would be a
+    // worse bug than the feature is a feature — so silence is an empty clip list, and clip
+    // removal, which the engine really does implement, is what carries it.
+    const off = deckDoc(loaded()).tracks.at(-1);
+    expect(off?.id).toBe(METRONOME_TRACK);
+    expect(off?.clips).toEqual([]);
+    expect(off?.plugins.length).toBeGreaterThan(0);
   });
 
   it("names the tracks as the PROJECT's chains.yaml names them", () => {

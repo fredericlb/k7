@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { BEATS_PER_BAR } from "./beats";
 import {
   barsIn,
   beatsIn,
-  BEATS_PER_BAR,
   bucketAt,
   type Envelope,
   mmss,

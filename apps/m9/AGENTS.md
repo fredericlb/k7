@@ -78,8 +78,10 @@ mostly "something reads as available when it is not", which no unit test here wo
 One failure mode here is a SOUND, and there is a harness for it. `frontend/scripts/tempo-drag.ts`
 points at a running engine and measures whether moving the BPM fader moves the music, by playing
 a file whose frequency encodes its own position and reading the tone back off the broadcast tap.
-`--raw` drops the correction so the two numbers sit side by side. It drives the real
-`nudgedTempos` and `deckDoc`, so it measures what ships. See `docs/bpm.md`.
+`--raw` drops the correction so the two numbers sit side by side. `frontend/scripts/metronome.ts`
+asks the neighbouring question — whether the click lands ON the deck's beat — by playing a silent
+file so that everything the tap hears is the click. Both drive the real `nudgedTempos` and
+`deckDoc`, so they measure what ships. See `docs/bpm.md` and `docs/metronome.md`.
 
 To reach it at all you need a project: add a repository in st0's Projets section with a folder
 whose name ends in `.m9`, and open it.
