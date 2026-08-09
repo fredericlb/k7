@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  benchChainPath,
+  benchProjectForChain,
   HAS_SCAFFOLD,
   launchUrl,
   PROJECT_SUFFIXES,
@@ -96,5 +98,27 @@ describe("which apps can be CREATED", () => {
     // The Record is what makes a new ProjectApp fail to compile until someone decides.
     for (const app of Object.keys(PROJECT_SUFFIXES))
       expect(HAS_SCAFFOLD, app).toHaveProperty(app);
+  });
+});
+
+describe("a chain opened on the bench", () => {
+  it("is the catalogue path, and comes back as one", () => {
+    const chain = "chains/blindtest/assourdissant/music";
+    expect(benchProjectForChain(chain)).toBe(`${chain}.l8`);
+    expect(benchChainPath(`${chain}.l8`)).toBe(chain);
+  });
+
+  it("is not the module bench, and the module bench is not one", () => {
+    expect(benchChainPath("modules.l8")).toBeNull();
+    expect(benchChainPath("chains.l8")).toBeNull(); // the family folder itself names no chain
+  });
+
+  it("refuses a path that would climb out of the médiathèque", () => {
+    // This is what an ADDRESS says, and the machine joins it onto two roots — the médiathèque
+    // and the workspace. A traversal accepted here would be a folder made outside both.
+    expect(benchChainPath("chains/../../etc/passwd.l8")).toBeNull();
+    expect(benchChainPath("chains/./x.l8")).toBeNull();
+    expect(benchChainPath("chains//x.l8")).toBeNull();
+    expect(benchChainPath("chains/..\\x.l8")).toBeNull();
   });
 });

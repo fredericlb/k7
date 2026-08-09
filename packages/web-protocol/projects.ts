@@ -221,11 +221,22 @@ export function isBench(repo: string): boolean {
 const CHAIN_FAMILY = "chains/";
 const L8 = PROJECT_SUFFIXES.l8;
 
-/** Which médiathèque chain a bench project is a view of — null if it is the module bench. */
+/**
+ * Which médiathèque chain a bench project is a view of — null if it is the module bench.
+ *
+ * The path comes off an ADDRESS anyone can type, and it is then joined onto two roots — the
+ * médiathèque and the workspace. So it is checked here rather than trusted and checked later:
+ * every segment must be an ordinary name, which is what stops `chains/../../…` from naming a
+ * folder outside either. Null, not an exception — it is the same answer as "this is not a chain".
+ */
 export function benchChainPath(project: string): string | null {
   if (!project.startsWith(CHAIN_FAMILY) || !project.endsWith(L8)) return null;
   const path = project.slice(0, -L8.length);
-  return path.length > CHAIN_FAMILY.length ? path : null;
+  if (path.length <= CHAIN_FAMILY.length) return null;
+  const segs = path.split("/");
+  if (segs.some((s) => !s || s === "." || s === ".." || s.includes("\\")))
+    return null;
+  return path;
 }
 
 /** …and the address to open it on, from the catalogue path st0 holds. */
