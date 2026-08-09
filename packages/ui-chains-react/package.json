@@ -11,7 +11,8 @@
     "./module-preview": "./src/ModulePreview.tsx"
   },
   "scripts": {
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@studio/engine-browser": "*",
@@ -21,7 +22,8 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "react": "^19.2.7"
