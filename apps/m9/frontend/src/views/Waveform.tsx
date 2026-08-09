@@ -3,6 +3,7 @@
 // animation frame off the playhead ref — never by React state. See ../../docs/waveform.md.
 
 import { useEffect, useRef } from "react";
+import { type DeckTempo, sourceAt } from "../deck";
 import type { Playhead } from "../useEngine";
 import {
   barsIn,
@@ -32,6 +33,16 @@ export function Waveform({
   envelope,
   playhead,
   playing,
+  /**
+   * This deck's stretch and placement — what turns the transport into a position in the FILE.
+   *
+   * The envelope is measured in source seconds and the playhead counts timeline ones, and the
+   * two have never been the same number: a stretched deck runs at its own rate, a synced one
+   * is delayed, and every deck's clip starts a `TIMELINE_BASE` in. Drawing the raw playhead
+   * against the envelope drew the wrong part of the song, silently and only once a deck had
+   * been touched. `sourceAt` is the same conversion the record's dial and every cue use.
+   */
+  tempo,
   /** Said out loud while the engine is computing a sidecar — several seconds for a long
    *  track, and an empty box would read as "this song has no waveform". */
   analysing,
@@ -42,6 +53,7 @@ export function Waveform({
   envelope: Envelope | null;
   playhead: React.RefObject<Playhead>;
   playing: boolean;
+  tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
 }) {
@@ -76,9 +88,12 @@ export function Waveform({
       // Where we are NOW: the last push plus however long ago it was, but only while
       // running. Stopped, an extrapolation would slide a waveform nobody is playing.
       const p = playhead.current;
-      const at = playing
-        ? p.seconds + Math.max(0, (performance.now() - p.at) / 1000)
-        : p.seconds;
+      const at = sourceAt(
+        playing
+          ? p.seconds + Math.max(0, (performance.now() - p.at) / 1000)
+          : p.seconds,
+        tempo,
+      );
 
       const mid = Math.round(h / 2) + 0.5;
       if (!envelope) {
@@ -143,7 +158,7 @@ export function Waveform({
     return () => cancelAnimationFrame(frame);
     // `playhead` is a ref and `envelope`/`playing` are read fresh on each frame through the
     // closure this effect rebuilds — so the loop restarts only when one of them changes.
-  }, [envelope, playhead, playing]);
+  }, [envelope, playhead, playing, tempo]);
 
   return (
     <div className="relative h-20 w-full overflow-hidden rounded-md bg-muted/40">

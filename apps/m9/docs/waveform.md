@@ -71,12 +71,21 @@ Entre deux pushes, la position est **extrapolée** avec l'horloge locale (`playh
 at)`), sinon un push à 20 Hz donnerait un défilement saccadé à 60 images par seconde. À
 l'arrêt, pas d'extrapolation : elle ferait glisser une waveform que personne ne joue.
 
-## Une seule tête pour les deux platines
+## Une seule tête pour les deux platines, mais deux horloges
 
-Le moteur n'a qu'un transport (voir [mix.md](mix.md)), et les deux clips commencent à 0 dans
-le document — donc la position du transport EST la position dans chaque morceau, et la même
-ref sert les deux bandes. Le jour où les platines auront des transports indépendants, c'est
-cette hypothèse-là qui saute.
+Le moteur n'a qu'un transport (voir [mix.md](mix.md)), donc la même ref sert les deux bandes.
+
+Ce que cette page a longtemps dit ensuite était faux : que la position du transport EST la
+position dans chaque morceau, parce que les deux clips commencent à 0. Ils ne commencent pas à
+0, et ils ne l'ont jamais tous les deux fait — une platine étirée court à son propre rythme,
+une platine synchronisée est retardée pour rejoindre l'autre, et depuis le fader de pitch
+chaque clip démarre une marge dans la timeline ([bpm.md](bpm.md)). Dessiner la tête brute
+contre l'enveloppe dessinait donc le mauvais endroit du morceau, en silence et seulement une
+fois qu'on avait touché à la platine.
+
+La bande convertit maintenant, par le `sourceAt` que le disque et chaque repère utilisent déjà.
+Une seule tête, deux horloges de fichier. Le jour où les platines auront des transports
+indépendants, c'est la ref partagée qui saute, pas la conversion.
 
 ## Les mesures, en orange plus épais
 

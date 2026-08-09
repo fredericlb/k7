@@ -58,6 +58,24 @@ export const DOC_TEMPO = 120;
 export const PITCH_RANGE = 0.16;
 
 /**
+ * How far into the timeline a deck's clip is placed when nothing has moved it — the HEADROOM
+ * a pitch fader needs, in seconds.
+ *
+ * Slowing a deck down means the same music must now take longer to reach where it already is,
+ * which is only expressible by starting its clip EARLIER (see `slipAfter`). A timeline that
+ * begins at zero has nowhere earlier to go, so a deck slowed even slightly would need a
+ * negative start — which the engine does accept, but which then maps a cue near the top of the
+ * song to a negative transport the engine clamps, silently sending that cue somewhere else.
+ *
+ * Ten minutes covers an hour-long track bent the full ±16 %, and costs nothing: the timeline
+ * is m9's own and holds nothing but these two clips. The one thing it does cost is that the
+ * transport no longer starts where the music does, which is why loading the first song seeks
+ * here — and why every surface reads the FILE's clock through `sourceAt` rather than the
+ * transport's.
+ */
+export const TIMELINE_BASE = 600;
+
+/**
  * The module a deck's tempo BELONGS to, and the param the fader is.
  *
  * The project says this outright: `example.m9`'s chains put an instance of the médiathèque's
@@ -95,6 +113,16 @@ export interface DeckTempo {
    * deck the rest of the time. Derived by `syncedTempos`, never stored — see `alignDelay`.
    */
   align?: number;
+  /**
+   * How far this deck's clip has slid, in SECONDS, so that changing its tempo did not move
+   * the music. Accumulated by `slipAfter`; see it for why this exists at all.
+   *
+   * Unlike `align` this is STORED, because it is a history: it is where the fader has already
+   * carried this deck, and re-deriving it from the current tempo is impossible — the same
+   * tempo reached by two different routes leaves the record in two different places, exactly
+   * as it does on a real deck.
+   */
+  slip?: number;
 }
 
 export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
@@ -186,14 +214,73 @@ export function sourceAt(transport: number, tempo: DeckTempo | undefined): numbe
 
 /** How fast the file is playing, as a multiplier of its own clock. 1 when nothing says. */
 function playRatio(tempo: DeckTempo | undefined): number {
-  const n = tempo?.natural ?? 0;
-  const t = tempo?.target ?? 0;
-  return n > 0 && t > 0 ? n / t : 1;
+  return ratioOf(tempo?.natural ?? 0, tempo?.target ?? 0);
 }
 
-/** Where the clip starts on the timeline, in seconds — sync's alignment, in its own units. */
-function startSeconds(tempo: DeckTempo | undefined): number {
-  return ((tempo?.align ?? 0) * 60) / DOC_TEMPO;
+/**
+ * Where the clip starts on the timeline, in seconds — the base, sync's alignment, and the slip.
+ *
+ * Three terms because they are three different facts: the headroom every deck gets, where sync
+ * put this one to meet the other's beats, and how far its own fader has carried it since.
+ */
+export function startSeconds(tempo: DeckTempo | undefined): number {
+  return (
+    TIMELINE_BASE + ((tempo?.align ?? 0) * 60) / DOC_TEMPO + (tempo?.slip ?? 0)
+  );
+}
+
+/** Where a deck's clip sits, in the BEATS the document places clips in. */
+export function clipStartBeats(tempo: DeckTempo | undefined): number {
+  return (startSeconds(tempo) * DOC_TEMPO) / 60;
+}
+
+/**
+ * The slip a deck must take on so that changing its tempo does not move the MUSIC.
+ *
+ * This is the whole of what a pitch fader is. On a real deck the platter changes speed and the
+ * needle stays in its groove; the record does not jump. Here the deck is a clip on a timeline
+ * and the transport is a position on that timeline, so re-stretching the clip changes which
+ * source second sits under the playhead — and unless the clip moves with it, the music leaps.
+ * Measured before this existed: one step of a +8 % drag ate **980 ms** of the track, and a
+ * whole drag ate a full second, delivered as a lurch per step. See ../docs/bpm.md.
+ *
+ * The correction's SHAPE is why it holds up. Keeping source `s` under transport `T` means
+ * `T = start + s·ratio` before and after, so `start` moves by `s·(before − after)` and `T`
+ * never appears. What that buys is accuracy: the only estimate involved is where the deck is
+ * in the file, and it enters MULTIPLIED by the ratio change — about a hundredth. A playhead
+ * 50 ms stale therefore costs half a millisecond, where seeking the transport to a computed
+ * position would have paid the whole 50 ms back as a stumble. Seeking would also have been
+ * wrong twice over: there is one transport and two decks, so moving it to hold one deck still
+ * would throw the other.
+ *
+ * `align` is subtracted for the same reason it is added to the start: dragging the MASTER of a
+ * sync changes what the slave must be delayed by, and a delay that changes under a deck is a
+ * deck that jumps. Absorbed here, that side effect becomes invisible — while pressing sync
+ * itself is left alone, because putting the grids together is exactly a deliberate move.
+ *
+ * Never past the start of the timeline. `TIMELINE_BASE` is sized so that clamp is unreachable
+ * in practice; it is here because a fader that runs to 10 BPM can ask for anything.
+ */
+export function slipAfter(
+  before: DeckTempo,
+  after: DeckTempo,
+  sourceSeconds: number,
+): number {
+  const alignOf = (t: DeckTempo) => ((t.align ?? 0) * 60) / DOC_TEMPO;
+  const moved =
+    sourceSeconds *
+      (ratioOf(before.natural, before.target) -
+        ratioOf(after.natural, after.target)) -
+    (alignOf(after) - alignOf(before));
+  return Math.max(
+    (before.slip ?? 0) + moved,
+    -TIMELINE_BASE - alignOf(after),
+  );
+}
+
+/** The stretch, as a multiplier of the file's own clock. 1 when either end is unknown. */
+function ratioOf(natural: number, target: number): number {
+  return natural > 0 && target > 0 ? natural / target : 1;
 }
 
 /**
@@ -315,9 +402,9 @@ export function withDecks(
             type: "audio",
             name: load.title,
             source: load.path,
-            // Where sync's beat alignment lands: under a beat of delay, so this deck's grid
-            // meets the other's. Zero for the master and for every unsynced deck.
-            ...(tempo?.align ? { start: tempo.align } : {}),
+            // The headroom, sync's beat alignment and the fader's slip, in one number — see
+            // `startSeconds`. Always present now: the base is never zero.
+            start: clipStartBeats(tempo),
             ...(warp
               ? {
                   warp: { algorithm: warp.algorithm, markers: warp.markers },
@@ -360,7 +447,7 @@ export function deckDoc(
                 type: "audio",
                 name: load.title,
                 source: load.path,
-                ...(tempos[deck]?.align ? { start: tempos[deck]?.align } : {}),
+                start: clipStartBeats(tempos[deck]),
                 // Both or neither: the markers say how the source maps onto the timeline and
                 // `length` says how much timeline it takes. Warping without the length would
                 // leave the clip claiming its unstretched span.
@@ -464,6 +551,50 @@ export function sendDecks(
  * Nothing here CANCELS sync — that is the view's business, because it happens on a gesture
  * (a hand on the slave's knob) rather than on a value. See `nudge` in MixView.
  */
+/**
+ * The faders after one has been moved — targets AND the slip each deck takes on for it.
+ *
+ * The gesture, as opposed to the derivation: `syncedTempos` is recomputed from scratch on every
+ * render and must therefore stay free of history, while a slip is history and can only be
+ * accumulated where the hand actually moved something. Both live here so that the pair stays
+ * consistent — what a deck ends up stretched by, and what it slid to keep its music still.
+ */
+export function nudgedTempos(
+  faders: DeckTempos,
+  master: DeckId | null,
+  /**
+   * Who leads AFTER this gesture — `null` when a hand on the slave's fader has just cancelled
+   * the sync. Separate from `master` on purpose: what a deck was PLAYING at a moment ago is
+   * read with the sync still on, and reading it with the sync already off would compute the
+   * slip against a tempo the deck never had.
+   */
+  nextMaster: DeckId | null,
+  deck: DeckId,
+  bpm: number,
+  sourceOf: (deck: DeckId) => number,
+): DeckTempos {
+  if (!faders[deck]) return faders;
+  const before = syncedTempos(faders, master);
+  const moved: DeckTempos = { ...faders, [deck]: { ...faders[deck], target: bpm } };
+  const after = syncedTempos(moved, nextMaster);
+  const out: DeckTempos = { ...moved };
+  // BOTH decks, not just the one under the hand: a synced slave is handed the master's number,
+  // so a drag on the master re-stretches the slave too, and a re-stretch that nothing corrects
+  // is a deck that jumps. A deck whose stretch and delay both came out unchanged is left
+  // strictly alone, so an unloaded or unsynced deck never grows a slip out of nothing.
+  for (const d of DECKS) {
+    const b = before[d];
+    const a = after[d];
+    if (!b || !a || (b.target === a.target && b.align === a.align)) continue;
+    // Only the SLIP is written back. `target` on a slave is the master's, handed over by the
+    // derivation each render; storing it would leave the slave holding a number that was never
+    // its own the moment sync is let go.
+    const stored = out[d];
+    if (stored) out[d] = { ...stored, slip: slipAfter(b, a, sourceOf(d)) };
+  }
+  return out;
+}
+
 export function syncedTempos(
   tempos: DeckTempos,
   master: DeckId | null,

@@ -544,6 +544,8 @@ function DeckSide({
             envelope={wave?.k === "ready" ? wave.env : null}
             playhead={playhead}
             playing={playing}
+            // The same conversion the record above uses — see `Waveform`'s `tempo`.
+            tempo={tempo}
             analysing={wave?.k === "loading"}
             problem={wave?.k === "none" ? wave.why : null}
           />

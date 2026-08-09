@@ -3,7 +3,17 @@
 // every cue on it is wrong, quietly and only on that deck.
 
 import { describe, expect, it } from "vitest";
-import { CUE_COLOURS, type DeckTempo, sourceAt, transportAt } from "./deck";
+import {
+  CUE_COLOURS,
+  type DeckTempo,
+  sourceAt,
+  TIMELINE_BASE,
+  transportAt,
+} from "./deck";
+
+/** Every transport number below is measured from where a deck's clip actually sits — see
+ *  `TIMELINE_BASE`. The FILE's numbers are absolute; the timeline's never were. */
+const on = (seconds: number) => TIMELINE_BASE + seconds;
 
 const at = (natural: number, target: number, align?: number): DeckTempo => ({
   natural,
@@ -14,21 +24,21 @@ const at = (natural: number, target: number, align?: number): DeckTempo => ({
 
 describe("where a cue lands on the transport", () => {
   it("is the same number when nothing is stretched", () => {
-    expect(transportAt(48, at(120, 120))).toBeCloseTo(48);
-    expect(sourceAt(48, at(120, 120))).toBeCloseTo(48);
+    expect(transportAt(48, at(120, 120))).toBeCloseTo(on(48));
+    expect(sourceAt(on(48), at(120, 120))).toBeCloseTo(48);
   });
 
   it("moves EARLIER on a deck that has been sped up", () => {
     // The whole point. A song of 120 played at 150 runs at 0.8× its own clock, so its 60 s
     // mark arrives at 48 s. A cue stored as "48 s on the transport" would be the drop today
     // and a bar early tomorrow.
-    expect(transportAt(60, at(120, 150))).toBeCloseTo(48);
-    expect(sourceAt(48, at(120, 150))).toBeCloseTo(60);
+    expect(transportAt(60, at(120, 150))).toBeCloseTo(on(48));
+    expect(sourceAt(on(48), at(120, 150))).toBeCloseTo(60);
   });
 
   it("moves LATER on a deck that has been slowed down", () => {
-    expect(transportAt(60, at(120, 96))).toBeCloseTo(75);
-    expect(sourceAt(75, at(120, 96))).toBeCloseTo(60);
+    expect(transportAt(60, at(120, 96))).toBeCloseTo(on(75));
+    expect(sourceAt(on(75), at(120, 96))).toBeCloseTo(60);
   });
 
   it("carries sync's alignment with it", () => {
@@ -36,8 +46,8 @@ describe("where a cue lands on the transport", () => {
     // by the alignment on exactly the deck somebody has just beat-matched — the one they are
     // about to drop.
     const t = at(120, 120, 1); // one document beat at 120 bpm = 0.5 s
-    expect(transportAt(60, t)).toBeCloseTo(60.5);
-    expect(sourceAt(60.5, t)).toBeCloseTo(60);
+    expect(transportAt(60, t)).toBeCloseTo(on(60.5));
+    expect(sourceAt(on(60.5), t)).toBeCloseTo(60);
   });
 
   it("round-trips, which is what dropping a cue and pressing it needs", () => {
@@ -49,15 +59,23 @@ describe("where a cue lands on the transport", () => {
   it("passes the number through when the song has no tempo yet", () => {
     // The seconds between the load and the analysis landing. Inventing a ratio there would
     // place a cue by a number nobody measured.
-    expect(transportAt(30, undefined)).toBeCloseTo(30);
-    expect(transportAt(30, at(0, 0))).toBeCloseTo(30);
-    expect(sourceAt(30, undefined)).toBeCloseTo(30);
+    expect(transportAt(30, undefined)).toBeCloseTo(on(30));
+    expect(transportAt(30, at(0, 0))).toBeCloseTo(on(30));
+    expect(sourceAt(on(30), undefined)).toBeCloseTo(30);
   });
 
   it("never answers before the start of the file", () => {
     // A deck aligned late can put the transport BEFORE its own clip. Negative is not a place
     // in a file, and `seek` would clamp it anyway — saying 0 is the honest version.
     expect(sourceAt(0, at(120, 120, 4))).toBe(0);
+  });
+
+  it("carries the SLIP too, so a fader that moved does not move the cues", () => {
+    // The slip is where the pitch fader has already carried this deck. A cue that ignored it
+    // would drift by exactly as much as the deck had been nudged — on the deck being nudged.
+    const t: DeckTempo = { natural: 120, seconds: 300, target: 120, slip: -2.5 };
+    expect(transportAt(60, t)).toBeCloseTo(on(57.5));
+    expect(sourceAt(on(57.5), t)).toBeCloseTo(60);
   });
 });
 

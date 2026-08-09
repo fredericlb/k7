@@ -75,5 +75,11 @@ the deck document, the graph builder and the view routing — pure logic, **noth
 For the gate, the lease and the engine picking, run it and watch: this app's failures are
 mostly "something reads as available when it is not", which no unit test here would catch.
 
+One failure mode here is a SOUND, and there is a harness for it. `frontend/scripts/tempo-drag.ts`
+points at a running engine and measures whether moving the BPM fader moves the music, by playing
+a file whose frequency encodes its own position and reading the tone back off the broadcast tap.
+`--raw` drops the correction so the two numbers sit side by side. It drives the real
+`nudgedTempos` and `deckDoc`, so it measures what ships. See `docs/bpm.md`.
+
 To reach it at all you need a project: add a repository in st0's Projets section with a folder
 whose name ends in `.m9`, and open it.

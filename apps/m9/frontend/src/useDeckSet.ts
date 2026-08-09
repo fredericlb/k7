@@ -22,10 +22,12 @@ import {
   EQ_BANDS,
   MIX_CENTRE,
   NO_LOADS,
+  nudgedTempos,
   pushCrossfade,
   sendDecks,
   sourceAt,
   syncedTempos,
+  TIMELINE_BASE,
   transportAt,
 } from "./deck";
 import {
@@ -60,6 +62,19 @@ import type { Deck } from "./useEngine";
 const LIVE_WARP_MS = 120;
 
 /**
+ * How far a deck's tempo must have moved since the last one for the drag to send another.
+ *
+ * A warp change is a clip rebuild, and a rebuild costs a stretcher restart — measured at about
+ * 20 ms of smear even when the tempo barely moves. So a step too small to HEAR is pure cost:
+ * 0.05 BPM at 120 is four hundredths of a percent, under a cent of pitch, and nobody has ever
+ * heard one. What this buys is the end of a careful drag, where the hand moves in tenths and
+ * would otherwise ask for eight rebuilds a second to say nothing.
+ *
+ * The release is exempt — see `release` — so the value let go of always lands whole.
+ */
+const LIVE_WARP_BPM = 0.05;
+
+/**
  * How long after the last tempo a gesture from the GRAPH is considered over.
  *
  * The desk knows: a fader sends `pointerup`. The graph's knob does not report a release to its
@@ -67,6 +82,20 @@ const LIVE_WARP_MS = 120;
  * enough that the exact value it was let go on lands promptly.
  */
 const GRAPH_SETTLE_MS = 250;
+
+/** Has any deck's tempo moved far enough since the last send to be worth a clip rebuild? */
+function worthARebuild(sent: DeckTempos, now: DeckTempos): boolean {
+  return DECKS.some((d) => {
+    const a = sent[d];
+    const b = now[d];
+    if (!a || !b) return a !== b; // a deck appearing or leaving is not a fader movement
+    return (
+      Math.abs(a.target - b.target) >= LIVE_WARP_BPM ||
+      a.natural !== b.natural ||
+      a.align !== b.align
+    );
+  });
+}
 
 export interface DeckSet {
   loads: DeckLoads;
@@ -222,6 +251,9 @@ export function useDeckSet(
   const temposRef = useRef(tempos);
   temposRef.current = tempos;
   const dragging = useRef(false);
+  /** What the engine was last told to stretch by — the drag compares against this, not against
+   *  the previous frame, so a hand creeping in hundredths still eventually crosses. */
+  const sentRef = useRef<DeckTempos>({});
   const lastWarp = useRef(0);
   const warpTimer = useRef<number | null>(null);
   const settle = useRef<number | null>(null);
@@ -249,6 +281,8 @@ export function useDeckSet(
     warpTimer.current = window.setTimeout(() => {
       warpTimer.current = null;
       lastWarp.current = Date.now();
+      if (!worthARebuild(sentRef.current, temposRef.current)) return;
+      sentRef.current = temposRef.current;
       commitRef.current();
     }, wait);
   }, [stretches]);
@@ -307,21 +341,44 @@ export function useDeckSet(
     [deck.engine, bindingFor, plugins],
   );
 
+  /**
+   * Where each deck is in its FILE, right now — extrapolated between the engine's pushes.
+   *
+   * `slipAfter` needs this and nothing else. The playhead arrives ~20×/s so the newest one can
+   * be 50 ms old, which would matter to anything computing an absolute position from it; here
+   * it is multiplied by a ratio change of about a hundredth, so the same staleness is worth
+   * half a millisecond. Carrying it forward anyway costs one subtraction.
+   */
+  const sourceOf = useCallback(
+    (deckId: DeckId) => {
+      const p = deck.playhead.current;
+      const at =
+        p.seconds + (deck.playing ? (performance.now() - p.at) / 1000 : 0);
+      return sourceAt(at, temposRef.current[deckId]);
+    },
+    [deck.playhead, deck.playing],
+  );
+
   const nudge = useCallback(
     (deckId: DeckId, bpm: number) => {
       dragging.current = true;
       if (master && master !== deckId) setMaster(null);
-      setFaders((f) => {
-        const t = f[deckId];
-        return t ? { ...f, [deckId]: { ...t, target: bpm } } : f;
-      });
+      // Through `nudgedTempos` rather than by writing `target`: moving a fader also moves where
+      // the deck's clip has to SIT, or the music jumps — see `slipAfter`. Both masters are
+      // handed over because a hand on the slave's fader cancels the sync, and what the decks
+      // were playing at a moment ago is only readable with it still on.
+      const next = master && master !== deckId ? null : master;
+      setFaders((f) => nudgedTempos(f, master, next, deckId, bpm, sourceOf));
     },
-    [master],
+    [master, sourceOf],
   );
 
   const release = useCallback(() => {
     dragging.current = false;
     lastWarp.current = Date.now();
+    // Unconditional, unlike the drag's own sends: the value let go of is the one that must be
+    // true afterwards, however small the last movement was.
+    sentRef.current = temposRef.current;
     commitRef.current();
   }, []);
 
@@ -398,9 +455,16 @@ export function useDeckSet(
 
     putOn: (deckId, load) => {
       setDeskError(null);
+      const empty = !loadsRef.current.deckA && !loadsRef.current.deckB;
       const next: DeckLoads = { ...loadsRef.current, [deckId]: load };
       setLoads(next);
       commitRef.current(latest.current, next);
+      // The FIRST song moves the transport to where the music is. A deck's clip does not start
+      // at zero — it starts a `TIMELINE_BASE` in, so that slowing it down has somewhere earlier
+      // to go — and a transport left at zero would play ten minutes of nothing. Only when both
+      // decks were empty: doing it on the second load would yank the deck already playing back
+      // to its top.
+      if (empty && deck.engine) deck.engine.seek(TIMELINE_BASE);
     },
     clearTempo: (deckId) =>
       setFaders((f) => ({ ...f, [deckId]: undefined })),
