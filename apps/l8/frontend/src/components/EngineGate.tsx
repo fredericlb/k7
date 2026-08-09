@@ -24,7 +24,12 @@ type Phase =
   | { k: "picking" }
   | { k: "chosen"; engine: RankedEngine }
   // Somebody else opened this project. A terminal state on purpose: see ProjectTakenOver.
-  | { k: "taken"; heldBy: string; why: ClaimLostReason; tookFor: string | null };
+  | {
+      k: "taken";
+      heldBy: string;
+      why: ClaimLostReason;
+      tookFor: string | null;
+    };
 
 export function EngineGate() {
   const [phase, setPhase] = useState<Phase>({ k: "loading" });
