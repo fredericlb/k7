@@ -5,6 +5,7 @@
 import { useEffect, useRef } from "react";
 import type { Playhead } from "../useEngine";
 import {
+  barsIn,
   beatsIn,
   bucketAt,
   type Envelope,
@@ -18,6 +19,9 @@ import {
 /** Yellow for the grid, grey for what the engine actually heard. The beats are inferred and
  *  the transients are measured, so the louder colour goes to the thing you mix on. */
 const BEAT = "#facc15";
+/** The downbeat, and deliberately a different HUE rather than a brighter yellow: at a
+ *  glance you are counting bars, not reading which yellow is which. */
+const BAR = "#f97316";
 const TRANSIENT = "rgba(148,163,184,0.55)";
 const PLAYHEAD = "#f8fafc";
 
@@ -103,6 +107,13 @@ export function Waveform({
       ctx.fillStyle = BEAT;
       for (const b of beatsIn(envelope, from, to))
         ctx.fillRect(Math.round(xPx(b)), 0, 1, h);
+
+      // --- and the BARS over those, wider: what you count is bars, not beats -----------
+      // Drawn after, so a downbeat is orange rather than a yellow line with orange either
+      // side of it. Two pixels and centred on the beat it replaces.
+      ctx.fillStyle = BAR;
+      for (const b of barsIn(envelope, from, to))
+        ctx.fillRect(Math.round(xPx(b)) - 1, 0, 2, h);
 
       // --- the playhead, dead centre and never anywhere else --------------------------
       ctx.fillStyle = PLAYHEAD;

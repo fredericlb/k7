@@ -77,3 +77,20 @@ Le moteur n'a qu'un transport (voir [mix.md](mix.md)), et les deux clips commenc
 le document — donc la position du transport EST la position dans chaque morceau, et la même
 ref sert les deux bandes. Le jour où les platines auront des transports indépendants, c'est
 cette hypothèse-là qui saute.
+
+## Les mesures, en orange plus épais
+
+Une ligne tous les quatre temps, plus large que les jaunes et d'une **teinte différente** : d'un
+coup d'œil on compte des mesures, on ne lit pas quel jaune est lequel. Dessinées APRÈS les
+temps, donc un temps fort est orange plutôt qu'une ligne jaune bordée d'orange.
+
+**4/4 est supposé, pas détecté.** Rien dans le sidecar ne dit où commence une mesure, et
+l'analyse mesure un tempo et non une métrique. Le premier temps de la grille est donc pris pour
+un temps fort, et un sur quatre ensuite. Sur le quatre-à-la-mesure qu'une platine joue la
+plupart du temps, c'est juste — ou à une rotation près, et une rotation donne quand même une
+ligne par mesure pour compter, ce à quoi une barre de mesure SERT. Sur du 3 ou du 7, c'est de la
+décoration, et le code le dit plutôt que de faire semblant.
+
+`barsIn` et `beatsIn` passent par la même grille et le même ancrage : une grille de mesures avec
+son propre ancrage dériverait contre les lignes jaunes qu'elle est censée souligner. Un test le
+fige — chaque barre tombe SUR un temps, jamais entre deux.

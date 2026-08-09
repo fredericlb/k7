@@ -548,17 +548,16 @@ function DeckSide({
             problem={wave?.k === "none" ? wave.why : null}
           />
         ) : null}
-        {/* The cues, under the waveform they refer to. Drawn only with a song on the deck:
-            eight buttons over an empty platter are eight things that cannot be pressed. */}
-        {load ? (
-          <CueButtons
-            markers={cues}
-            onJump={onCueJump}
-            onSet={onCueSet}
-            // Read on the way DOWN — see `transportNow`.
-            now={transportNow}
-          />
-        ) : null}
+        {/* The cues, under the waveform they refer to — and drawn on an empty deck too, so
+            the desk does not reshuffle itself the moment a song lands. */}
+        <CueButtons
+          markers={cues}
+          onJump={onCueJump}
+          onSet={onCueSet}
+          // Read on the way DOWN — see `transportNow`.
+          now={transportNow}
+          disabled={!load}
+        />
         <div className="w-full truncate text-center text-xs text-muted-foreground">
           {load ? load.title : "rien de chargé"}
         </div>

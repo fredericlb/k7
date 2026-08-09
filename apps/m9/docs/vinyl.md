@@ -52,11 +52,15 @@ Sans longueur connue — les secondes entre le chargement et l'arrivée de l'ana
 reste vide et les repères ne sont pas dessinés. Un cercle qui tournerait à une vitesse déduite
 d'une durée inventée ne voudrait rien dire.
 
-## Les repères, en couleur de leur bouton
+## Les repères sont des RAYONS
 
-Chaque repère est un cercle posé sur un anneau intérieur, à l'angle de son moment, dans **la
-couleur de son bouton** — le 3 est de la même couleur ici, sur le bouton, sur les deux platines
-et sur tous les morceaux. C'est ce qui permet de voir qu'on approche du repère 3 sans rien lire.
+Chaque repère est une ligne du **centre au bord**, à l'angle de son moment, dans **la couleur de
+son bouton** — le 3 est de la même couleur ici, sur le bouton, sur les deux platines et sur tous
+les morceaux. C'est ce qui permet de voir qu'on approche du repère 3 sans rien lire.
 
-Un liseré sombre les détache : posés sur un vinyle presque noir et sur un secteur clair, ils
-doivent rester lisibles des deux côtés du bord qui avance.
+Un rayon plutôt qu'un point sur un anneau, et ce n'est pas décoratif : un point, il faut le
+chercher ; une ligne traverse toute la face, donc le bord du secteur qui arrive dessus se voit
+sans le guetter. Et deux repères à une seconde d'intervalle restent deux lignes au lieu de
+fusionner en une tache.
+
+L'étiquette couvre le tiers intérieur, là où un disque garde son propre centre de toute façon.

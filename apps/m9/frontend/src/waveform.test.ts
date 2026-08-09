@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  barsIn,
   beatsIn,
+  BEATS_PER_BAR,
   bucketAt,
   type Envelope,
   mmss,
@@ -135,5 +137,48 @@ describe("the transients", () => {
 
   it("include both edges", () => {
     expect(transientsIn(env(), 1, 1.5)).toEqual([1, 1.5]);
+  });
+});
+
+describe("the bar lines", () => {
+  // A grid on the beat at 120 bpm — a beat every 0.5 s, a bar every 2 s.
+  const env = (over: Partial<Envelope> = {}): Envelope =>
+    ({
+      sampleRate: 48000,
+      channels: 2,
+      frames: 0,
+      seconds: 300,
+      peak: [],
+      rms: [],
+      transients: Array.from({ length: 64 }, (_, i) => i * 0.5),
+      sensitivity: 2,
+      bpm: 120,
+      ...over,
+    }) as Envelope;
+
+  it("falls on every fourth beat", () => {
+    // 4/4 is ASSUMED — nothing in the sidecar carries a metre — so the first beat of the grid
+    // is taken as a downbeat and every fourth after it follows.
+    const bars = barsIn(env(), 0, 8);
+    expect(bars).toHaveLength(5); // 0, 2, 4, 6, 8
+    for (const [i, b] of bars.entries()) expect(b).toBeCloseTo(i * BEATS_PER_BAR * 0.5, 6);
+  });
+
+  it("sits ON beats, never between them", () => {
+    // The one way this could look right and be wrong: a bar grid with its own anchor would
+    // drift against the yellow lines it is supposed to pick out.
+    const beats = beatsIn(env(), 0, 8);
+    for (const b of barsIn(env(), 0, 8))
+      expect(beats.some((x) => Math.abs(x - b) < 1e-6)).toBe(true);
+  });
+
+  it("draws none at all without a tempo", () => {
+    // Same rule as the beats: a grid at a guessed 120 would be a confident lie, and no lines
+    // reads correctly as "the tempo is not known".
+    expect(barsIn(env({ bpm: 0 }), 0, 8)).toEqual([]);
+  });
+
+  it("is capped, so a bad tempo cannot ask for thousands", () => {
+    expect(barsIn(env({ bpm: 20000 }), 0, 600).length).toBeLessThanOrEqual(128);
   });
 });

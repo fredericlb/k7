@@ -4,14 +4,13 @@
 
 import { useEffect, useRef } from "react";
 import { CUE_COLOURS } from "../deck";
-import { pointOnDial, progressOf, wedgePath } from "../dial";
+import { CENTRE, pointOnDial, progressOf, wedgePath } from "../dial";
 
 /** Where the grooves sit, as fractions of the radius — dense at the rim, sparse toward the label. */
 const GROOVES = [0.97, 0.93, 0.89, 0.85, 0.8, 0.75, 0.69, 0.63, 0.57];
 
-/** The disc the progress fills, and the ring the cues sit on — both inside the rim. */
+/** The disc the progress fills. The cues are RADII across the same disc — see below. */
 const FILL_R = 49;
-const CUE_R = 40;
 
 export function Vinyl({
   side,
@@ -117,18 +116,24 @@ export function Vinyl({
         {/* Empty at 0, the whole disc at 1. Translucent, because what it covers is the part
             of the record that has GONE BY — the grooves stay legible under it. */}
         <path ref={wedge} d="" fill="#ffffff" fillOpacity={0.12} />
+        {/* A cue is a RADIUS, centre to rim, not a dot on a ring. A dot has to be found; a
+            line crosses the whole face, so the edge of the wedge arriving at one is visible
+            without looking for it — and two cues a second apart stay two lines rather than
+            merging into one blob. The label covers the inner third, which is where a record
+            keeps its own centre anyway. */}
         {markers.map((m, i) =>
           m == null || !(length > 0) ? null : (
-            <circle
+            <line
               // biome-ignore lint/suspicious/noArrayIndexKey: the slot IS the identity — a cue
               // is a fixed button, not a row that can reorder.
               key={i}
-              cx={pointOnDial(progressOf(m, length), CUE_R).x}
-              cy={pointOnDial(progressOf(m, length), CUE_R).y}
-              r={2.4}
-              fill={CUE_COLOURS[i % CUE_COLOURS.length]}
-              stroke="#0b0b0e"
-              strokeWidth={0.8}
+              x1={CENTRE}
+              y1={CENTRE}
+              x2={pointOnDial(progressOf(m, length), FILL_R).x}
+              y2={pointOnDial(progressOf(m, length), FILL_R).y}
+              stroke={CUE_COLOURS[i % CUE_COLOURS.length]}
+              strokeWidth={1.1}
+              strokeLinecap="round"
             />
           ),
         )}
