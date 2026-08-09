@@ -106,9 +106,9 @@
 # The name is optional everywhere: an unnamed variant is known by its position, which is what
 # makes trying a second arrangement cost nothing to name. The timeline's lane header has the
 # same three actions in a dropdown.
-- command: "track alternative new"
-  sid: track.alt.new
-  help: "add an empty alternative to a track and switch to it (e.g. track alternative new gtr doux)"
+- command: "track alternative create"
+  sid: track.alt.create
+  help: "add an empty alternative to a track and play it (e.g. track alternative create gtr doux)"
   surfaces: [cli]
   args:
     [
@@ -126,15 +126,17 @@
       { name: track, complete: tracks },
       { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
     ]
-# Switching is the frequent one, so it is the bare verb.
-- command: "track alternative"
-  sid: track.alt.switch
-  help: "play another of a track's alternatives (e.g. track alternative gtr doux)"
+# Named rather than left as the bare verb: `select` and `create` say what they do, and a bare
+# `track alternative gtr doux` reads like a declaration rather than a move. With no name, it
+# lists what the track has.
+- command: "track alternative select"
+  sid: track.alt.select
+  help: "play another of a track's alternatives (e.g. track alternative select gtr doux)"
   surfaces: [cli]
   args:
     [
       { name: track, complete: tracks },
-      { name: name, complete: trackAlternatives },
+      { name: name, optional: true, complete: trackAlternatives },
     ]
 
 # --- recording ---
