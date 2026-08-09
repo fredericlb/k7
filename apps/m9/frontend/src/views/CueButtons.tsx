@@ -24,6 +24,7 @@ function Cue({
   onJump,
   onSet,
   now,
+  disabled,
 }: {
   slot: number;
   /** Where this cue is, in SOURCE seconds, or null for an empty button. */
@@ -33,6 +34,8 @@ function Cue({
   onSet: (transportSeconds: number) => void;
   /** Where the transport is, RIGHT NOW. Called on the way down, never after. */
   now: () => number;
+  /** No song on this deck. Drawn anyway — see `CueButtons`. */
+  disabled: boolean;
 }) {
   const timer = useRef<number | null>(null);
   const fired = useRef(false);
@@ -49,6 +52,7 @@ function Cue({
   useEffect(() => clear, []);
 
   const down = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (disabled) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     fired.current = false;
     began.current = now();
@@ -71,9 +75,10 @@ function Cue({
   return (
     <button
       type="button"
+      disabled={disabled}
       className={`h-7 flex-1 rounded border font-mono text-[10px] tabular-nums transition-transform ${
         holding ? "scale-95" : ""
-      }`}
+      } ${disabled ? "opacity-40" : ""}`}
       style={
         at === null
           ? { background: "#ffffff", color: "#111827", borderColor: "#d1d5db" }
@@ -87,9 +92,11 @@ function Cue({
       // land in the middle of setting one.
       onContextMenu={(e) => e.preventDefault()}
       title={
-        at === null
-          ? `repère ${slot + 1} — appui long pour le poser ici`
-          : `repère ${slot + 1} à ${mmss(at)} — appui court pour y aller, long pour le redéfinir`
+        disabled
+          ? `repère ${slot + 1} — il faut un morceau sur cette platine`
+          : at === null
+            ? `repère ${slot + 1} — appui long pour le poser ici`
+            : `repère ${slot + 1} à ${mmss(at)} — appui court pour y aller, long pour le redéfinir`
       }
     >
       {slot + 1}
@@ -109,12 +116,18 @@ function mmss(seconds: number): string {
  * White until something is on them, then the button's own colour — a colour per BUTTON and not
  * per cue, so slot 3 looks like slot 3 on both decks and on every song. That is what lets a
  * hand find one without reading.
+ *
+ * Drawn on an EMPTY deck too, greyed. A desk whose controls appeared and vanished with what is
+ * loaded is a desk that moves under your hands: the row would push the title up and the strip
+ * down the moment a song landed, and the eight positions a hand is learning would not be there
+ * to learn. Greyed says "not yet"; absent says "look for it".
  */
 export function CueButtons({
   markers,
   onJump,
   onSet,
   now,
+  disabled,
 }: {
   /** Eight slots, positional. `null` — or a missing tail — is an empty button. */
   markers: readonly (number | null)[];
@@ -122,6 +135,8 @@ export function CueButtons({
   onSet: (slot: number, transportSeconds: number) => void;
   /** Where the transport is, right now — see `Cue`. */
   now: () => number;
+  /** No song on this deck: the row is drawn, and refuses both gestures. */
+  disabled: boolean;
 }) {
   return (
     <div className="flex w-full gap-1">
@@ -135,6 +150,7 @@ export function CueButtons({
           onJump={() => onJump(i)}
           onSet={(seconds) => onSet(i, seconds)}
           now={now}
+          disabled={disabled}
         />
       ))}
     </div>

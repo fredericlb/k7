@@ -4,6 +4,12 @@ Huit boutons sous chaque waveform. **Appui court** : la tête de lecture saute a
 **Appui long** (1 s) : le repère est posé. Blanc tant qu'il est vide, sa couleur une fois
 assigné.
 
+Les huit boutons sont là **même sans morceau**, simplement grisés. Un pupitre dont les
+commandes apparaissent et disparaissent avec ce qui est chargé est un pupitre qui bouge sous les
+mains : la rangée pousserait le titre vers le haut et la tranche vers le bas à l'instant où un
+morceau atterrit, et les huit positions qu'une main est en train d'apprendre ne seraient pas là
+pour être apprises. Grisé dit « pas encore » ; absent dit « cherche-le ».
+
 ## Le geste, et où il pose exactement
 
 Le repère est posé **à l'instant où le doigt s'est posé**, pas à l'instant où la seconde

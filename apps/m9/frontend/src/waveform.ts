@@ -68,10 +68,9 @@ export function bucketAt(env: Envelope, seconds: number): number | null {
  * carries a downbeat — `song.yaml` has a `bpm` a person may correct, and no offset. A grid
  * anchored at 0 would be wrong for every track with a lead-in, which is most of them.
  *
- * So the anchor is the first transient the engine found: the first onset is the best
- * available guess at where the music starts, and on a track that opens on the beat it is
- * exactly right. When a real first-beat offset lands in the sidecar, `anchor` is the one
- * argument that changes.
+ * So the anchor is `beatPhase` — the circular mean of every onset, folded onto one beat. It
+ * was the first transient once, which is one measurement: a click in a quiet intro moved the
+ * whole grid. And it is the number the DECK aligns against, so what you see is what you hear.
  *
  * Returns nothing at all when there is no tempo — a grid drawn at a guessed 120 would be a
  * confident lie, and no yellow lines reads correctly as "the tempo is not known".
@@ -83,8 +82,41 @@ export function beatsIn(
   /** Hard ceiling, so a bad tempo on a long window cannot ask for a million lines. */
   max = 512,
 ): number[] {
+  return gridIn(env, from, to, 1, max);
+}
+
+/**
+ * The BAR lines in the window — every fourth beat, because 4/4 is assumed.
+ *
+ * Assumed and not detected: nothing in the sidecar says where a bar begins, and the analysis
+ * measures a tempo rather than a metre. So the first beat of the grid is taken as a downbeat
+ * and every fourth after it follows. On the four-to-the-floor a deck mostly plays that is right
+ * or a rotation away from right, and a rotation still gives you a line every bar to count from —
+ * which is what a bar line is FOR. On anything in 3 or 7 it is decoration, and it says so here
+ * rather than pretending.
+ */
+export function barsIn(
+  env: Envelope,
+  from: number,
+  to: number,
+  max = 128,
+): number[] {
+  return gridIn(env, from, to, BEATS_PER_BAR, max);
+}
+
+/** The metre this view draws. One number, so the beat grid and the bar grid cannot disagree. */
+export const BEATS_PER_BAR = 4;
+
+/** Every `every`-th beat inside the window, from the deck's own grid. */
+function gridIn(
+  env: Envelope,
+  from: number,
+  to: number,
+  every: number,
+  max: number,
+): number[] {
   if (!(env.bpm > 0) || !(to > from)) return [];
-  const period = 60 / env.bpm;
+  const period = (60 / env.bpm) * every;
   if (!(period > 0) || !Number.isFinite(period)) return [];
   // The grid the DECK uses, not a guess of this view's own: one onset was the anchor here
   // until a stray click in a quiet intro moved every line drawn from it. `beatPhase` averages
