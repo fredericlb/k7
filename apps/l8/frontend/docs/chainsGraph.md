@@ -16,7 +16,9 @@ supply, and `packages/ui-chains/docs/graphBuild.md` for the layout half.
 ## The camera
 
 Framing is the fiddliest part of this component, and every rule below is a bug already paid
-for once.
+for once. How the camera *moves* — that it is not React state, the frame loop, why a pan is
+instant and a zoom glides — is the package's own
+[camera.md](../../../../packages/ui-chains-react/docs/camera.md).
 
 - **`fitKey`, not the graph object.** The graph is a fresh object on every refetch, so
   keying the fit on it threw away the user's pan and zoom whenever they bypassed a module or
@@ -39,8 +41,9 @@ for once.
 - **The camera persists between mounts.** The graph is unmounted whenever its pane is
   hidden (a `display:none` host has no size), which would otherwise discard pan and zoom on
   every switch between the studio layout and the dedicated view. The owner holds the ref;
-  this component reads it once on mount and writes every change back — but **only once a fit
-  has actually happened**. The pre-fit value is the identity camera `{0,0,1}`, and saving
+  this component reads it once on mount and writes it back whenever the camera is placed or a
+  gesture settles — but **only once a fit has actually happened**. The pre-fit value is the
+  identity camera `{0,0,1}`, and saving
   that is indistinguishable from a camera the user chose: the next mount would read it, skip
   the fit, and draw at 1:1 from the origin.
 - Framing a chain the user picked in the sidebar counts as their choice too, so a later

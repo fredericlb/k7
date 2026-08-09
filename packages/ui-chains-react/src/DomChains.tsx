@@ -56,6 +56,17 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  applyCam,
+  approach,
+  type Cam,
+  clampZoom,
+  type Lod,
+  lodFor,
+  sameLod,
+  wheelFactor,
+  zoomAbout,
+} from "./camera";
 
 /**
  * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
@@ -164,12 +175,7 @@ const CTRL: Record<string, string> = {
 // A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
 const EMPTY_ORDER: string[] = [];
 
-// Camera constants carried over verbatim from the WebGL renderer, so the feel is identical.
-const MIN_ZOOM = 0.2;
-const MAX_ZOOM = 4;
 const DRAG_SLOP = 4; // px of movement before a press becomes a pan (so a pan never selects)
-const WIDGET_MIN_SCALE = 0.6; // below this the widget grid is dropped (unreadable anyway)
-const LABEL_MIN_SCALE = 0.4; // …and below this the text goes too
 const DRAG_TRAVEL_PX = 150; // screen px of vertical drag that sweep a control's whole range
 const DRAG_FINE = 0.25; // shift-held multiplier for a fine adjustment
 
@@ -1860,17 +1866,50 @@ export function DomChains({
   // Live plugin params from the external store — subscribing here re-renders only the graph on a param frame.
   const pluginParams = usePluginParams(pluginParamsStore ?? EMPTY_PARAMS_STORE);
   const hostRef = useRef<HTMLDivElement>(null);
-  const [cam, setCam] = useState(
-    () => camStore?.current ?? { x: 0, y: 0, k: 1 },
-  );
+  const worldRef = useRef<HTMLDivElement>(null);
+  // The camera lives OUTSIDE React, and that is the point: nothing in the render reads x or y,
+  // so a pan that went through state re-rendered every node on every pointer event for a
+  // translation the compositor could have done alone. `cam` is what is on screen, `goal` where
+  // a gesture is taking it — the same thing while panning, apart only while a zoom glides.
+  const cam = useRef<Cam>({ ...(camStore?.current ?? { x: 0, y: 0, k: 1 }) });
+  const goal = useRef<Cam>({ ...cam.current });
+  // The point a zoom holds still: where the wheel was, in host coordinates.
+  const anchor = useRef({ px: 0, py: 0 });
+  const kick = useRef<() => void>(() => {});
   // Has the graph been framed? A saved camera means the user already has a view, so it starts true.
   const fitted = useRef(camStore?.current != null);
   // Has the USER taken the camera? Separate from `fitted` — see docs/chainsGraph.md.
   const userMoved = useRef(camStore?.current != null);
-  useEffect(() => {
-    // Persist ONLY after a real fit: the identity camera is indistinguishable from one the user chose.
-    if (camStore && fitted.current) camStore.current = cam;
-  }, [cam, camStore]);
+  const camStoreRef = useRef(camStore);
+  camStoreRef.current = camStore;
+  // What the drawing takes from the camera, and all it takes (see camera.ts). Committed only
+  // when one of the three actually differs, which above WIDGET_MIN_SCALE is never.
+  const [lod, setLod] = useState<Lod>(() => lodFor(cam.current.k));
+  const lodRef = useRef(lod);
+  // Persist ONLY after a real fit: the identity camera is indistinguishable from one the user chose.
+  const persist = () => {
+    const store = camStoreRef.current;
+    if (store && fitted.current) store.current = { ...cam.current };
+  };
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  // Put the camera somewhere outright — a fit or a chain selection, not a gesture: there is
+  // nothing to chase, so it lands whole in one frame.
+  const place = (c: Cam) => {
+    Object.assign(cam.current, c);
+    Object.assign(goal.current, c);
+    applyCam(worldRef.current, cam.current);
+    const next = lodFor(cam.current.k);
+    if (!sameLod(next, lodRef.current)) {
+      lodRef.current = next;
+      setLod(next);
+    }
+    persist();
+  };
+  // A camera restored from the store is never placed by a fit, so it needs this one write.
+  useLayoutEffect(() => {
+    applyCam(worldRef.current, cam.current);
+  }, []);
   const [panning, setPanning] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   // Optimistic values the hand set, outranking the incoming frame until it catches up.
@@ -1961,16 +2000,14 @@ export function DomChains({
     // "height" frames the HEIGHT and lets the width run off the side, which is pannable. A row of
     // channel strips wants that: fitting both axes means the strips get smaller with every track
     // the song gains, and a mixer you cannot read is worse than one you have to scroll.
-    const k = Math.min(
-      MAX_ZOOM,
-      Math.max(
-        MIN_ZOOM,
-        fitAxis === "height"
-          ? (sh / graph.height) * pad
-          : Math.min((sw / graph.width) * pad, (sh / graph.height) * pad),
-      ),
+    const k = clampZoom(
+      fitAxis === "height"
+        ? (sh / graph.height) * pad
+        : Math.min((sw / graph.width) * pad, (sh / graph.height) * pad),
     );
-    setCam({
+    // Framed, so from here the camera is worth remembering — `place` persists it.
+    fitted.current = true;
+    place({
       k,
       // Height-fitted content usually overflows; pin it to the left edge rather than centring it
       // off screen, so the first strip is the one you see.
@@ -2021,19 +2058,17 @@ export function DomChains({
     const bw = maxX - minX;
     const bh = maxY - minY;
     const pad = 0.9;
-    const k = Math.min(
-      MAX_ZOOM,
-      Math.max(MIN_ZOOM, Math.min((sw / bw) * pad, (sh / bh) * pad)),
-    );
+    const k = clampZoom(Math.min((sw / bw) * pad, (sh / bh) * pad));
     if (panOnly) {
       // Keep the zoom from the chain fit; only adjust translation to center the target.
-      setCam((prev) => ({
-        ...prev,
-        x: sw / 2 - (panOnly.x + panOnly.w / 2) * prev.k,
-        y: sh / 2 - (panOnly.y + panOnly.h / 2) * prev.k,
-      }));
+      const cur = cam.current;
+      place({
+        k: cur.k,
+        x: sw / 2 - (panOnly.x + panOnly.w / 2) * cur.k,
+        y: sh / 2 - (panOnly.y + panOnly.h / 2) * cur.k,
+      });
     } else {
-      setCam({
+      place({
         k,
         x: (sw - bw * k) / 2 - minX * k,
         y: (sh - bh * k) / 2 - minY * k,
@@ -2162,7 +2197,10 @@ export function DomChains({
         setPanning(true);
         setHovered(null);
         userMoved.current = true; // the camera is theirs now — stop auto-framing
-        setCam((c) => ({ ...c, x: p.cx + nx, y: p.cy + ny }));
+        // Both, and no glide: a drag under a finger has nothing to catch up to.
+        cam.current.x = goal.current.x = p.cx + nx;
+        cam.current.y = goal.current.y = p.cy + ny;
+        kick.current();
       }
     };
     const up = () => {
@@ -2197,37 +2235,84 @@ export function DomChains({
 
   const onPointerDown = (e: React.PointerEvent) => {
     // A widget's own pointerdown stops here, so this fires for the canvas or a node body: a press that moves pans.
+    // Grabbing the canvas also ends any zoom still in flight — it stops where it got to, rather
+    // than sliding on under a hand that is now steering.
+    goal.current.k = cam.current.k;
     pan.current = {
       sx: e.clientX,
       sy: e.clientY,
-      cx: cam.x,
-      cy: cam.y,
+      cx: cam.current.x,
+      cy: cam.current.y,
       moved: 0,
     };
   };
-  const onWheel = (e: React.WheelEvent) => {
-    const host = hostRef.current;
-    if (!host) return;
-    const r = host.getBoundingClientRect();
-    const px = e.clientX - r.left;
-    const py = e.clientY - r.top;
-    userMoved.current = true; // as above: a deliberate zoom outranks any auto-fit
-    setCam((c) => {
-      const k = Math.min(
-        MAX_ZOOM,
-        Math.max(MIN_ZOOM, c.k * Math.exp(-e.deltaY * 0.001)),
-      );
-      const f = k / c.k;
-      return { k, x: px - (px - c.x) * f, y: py - (py - c.y) * f };
-    });
-  };
-  // Wheel needs a non-passive native listener to preventDefault the page scroll.
+
+  /**
+   * The camera loop and the wheel, bound once — see docs/camera.md.
+   *
+   * Everything here writes the transform onto the element and reads only refs, so a pan or a
+   * zoom costs no React work at all until the LOD changes. The loop runs while a gesture is
+   * live and stops when the camera settles: an idle graph schedules no frames.
+   */
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const h = (e: WheelEvent) => e.preventDefault();
-    host.addEventListener("wheel", h, { passive: false });
-    return () => host.removeEventListener("wheel", h);
+    let raf = 0;
+    let last = 0;
+    const step = (t: number) => {
+      // Clamped: a backgrounded tab hands back one enormous dt, which would land the glide in
+      // a single jump — the one frame where smoothing is most visible for being absent.
+      const dt = last ? Math.min(100, t - last) : 16;
+      last = t;
+      const c = cam.current;
+      const g = goal.current;
+      let moving = pan.current != null;
+      if (c.k !== g.k) {
+        // Within a thousandth of the goal, land on it — an exponential never quite arrives.
+        const near = Math.abs(g.k - c.k) <= c.k * 1e-3;
+        const k = near ? g.k : c.k + (g.k - c.k) * approach(dt);
+        Object.assign(c, zoomAbout(c, k, anchor.current.px, anchor.current.py));
+        Object.assign(g, { x: c.x, y: c.y });
+        moving = moving || !near;
+      }
+      applyCam(worldRef.current, c);
+      const next = lodFor(c.k);
+      if (!sameLod(next, lodRef.current)) {
+        lodRef.current = next;
+        setLod(next);
+      }
+      if (moving) raf = requestAnimationFrame(step);
+      else {
+        raf = 0;
+        last = 0;
+        persistRef.current(); // settled — this is the camera worth remembering
+      }
+    };
+    kick.current = () => {
+      if (!raf) {
+        last = 0;
+        raf = requestAnimationFrame(step);
+      }
+    };
+    // Non-passive, both to stop the page scrolling under it and because this IS the handler:
+    // a React onWheel would allocate a synthetic event per notch, and a trackpad sends many.
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = host.getBoundingClientRect();
+      anchor.current = { px: e.clientX - r.left, py: e.clientY - r.top };
+      userMoved.current = true; // a deliberate zoom outranks any auto-fit
+      // Multiplied onto the GOAL, not onto what is on screen: spinning the wheel faster then
+      // stacks up instead of each notch being swallowed by the one still gliding.
+      goal.current.k = clampZoom(
+        goal.current.k * wheelFactor(e.deltaY, e.deltaMode, host.clientHeight),
+      );
+      kick.current();
+    };
+    host.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      host.removeEventListener("wheel", wheel);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   // --- node + widget actions ---------------------------------------------------------
@@ -2376,12 +2461,12 @@ export function DomChains({
     cb.current.onCanvasInsert?.(e.clientX, e.clientY);
   };
 
-  const showWidgets = cam.k >= WIDGET_MIN_SCALE;
-  const showLabels = cam.k >= LABEL_MIN_SCALE;
+  const showWidgets = lod.widgets;
+  const showLabels = lod.labels;
   // Too far for the widgets ⇒ nodes draw as a fitted name instead (see Node's far branch).
   const far = !showWidgets;
-  // Thicken cables as the camera pulls back, growing the stroke ~inversely with zoom (capped), so width holds.
-  const linkBoost = Math.min(3, Math.max(1, WIDGET_MIN_SCALE / cam.k));
+  // Thicker cables as the camera pulls back, so their width on screen holds (see lodFor).
+  const linkBoost = lod.boost;
 
   /**
    * Where the meters read their levels. The host's store when it drives an engine; an inert one
@@ -2404,16 +2489,12 @@ export function DomChains({
           ref={hostRef}
           className={`dgx${panning ? " panning" : ""}`}
           onPointerDown={onPointerDown}
-          onWheel={onWheel}
           onContextMenu={canvasMenu}
           style={{ cursor: hovered ? "pointer" : undefined }}
         >
-          <div
-            className="dgx-world"
-            style={{
-              transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.k})`,
-            }}
-          >
+          {/* No `transform` here on purpose: the camera is written onto this element by the
+              frame loop, so React re-rendering the graph never fights a gesture for it. */}
+          <div className="dgx-world" ref={worldRef}>
             <svg
               className="dgx-cables"
               width={graph.width}
