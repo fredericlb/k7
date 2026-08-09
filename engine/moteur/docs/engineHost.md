@@ -58,6 +58,48 @@ does nothing; the two paths have to be tested apart.
 The cost is a clip re-insert per change, so a control that retimes a clip should commit on
 release rather than per pixel — which is what m9's fader does.
 
+### Adding a plugin does not rebuild the song
+
+`needsFullRebuild()` used to list `PluginAdded`, so putting one module in a chain threw the
+whole Edit away and built another from the document — every plugin instantiated again, the
+31 that had not changed along with the 1 that had. Measured on a real 32-plugin song:
+
+| | |
+|---|---|
+| full rebuild, cold | **4397 ms** (`populate` 4338) |
+| full rebuild, warm | 694–1161 ms |
+| **incremental insert** | **6 ms** |
+
+The transport is dead for all of it, because this is the thread that also reads it. It was
+the answer to "why does adding a module freeze the engine".
+
+`apply()`'s `PluginAdded` case creates the one plugin with the same `addPlugin()` the build
+path uses, and inserts it into the live track. The position is read off the LIVE plugin
+list, not from the document's index, and that distinction is the whole of the correctness:
+a waveform tap is also a plugin in that list — `watchWaveform` inserts one beside the module
+it watches — so a document index lands in the wrong place the moment a waveform widget is
+open. It finds the doc plugin that PRECEDES the new one and inserts after it.
+
+Everything it cannot place exactly where a rebuild would, it hands to a rebuild:
+
+- the plugin declares a **sidechain** (its second input is wired by a pass that runs after
+  every track exists, against itemIDs this path has no equivalent for);
+- the same diff **adds or removes a track** (`trackById` resolves by index, so the document
+  and the Edit are briefly out of step and the plugin would land on the wrong lane);
+- the track carries a **waveform tap** (ambiguous position, as above);
+- the preceding plugin is not in the live list (nothing to anchor to).
+
+`PluginRemoved` still rebuilds, so replacing a module — which surfaces as remove + add —
+still pays for one. That is the next one worth doing.
+
+**What is verified, and what is not.** The policy is unit-tested (`ProjectDiff_test.cpp`),
+and the timings above are measured against the real project, inserting both at the end of a
+chain and in the middle. The resulting chain ORDER is not: `pluginInstanceInfos` iterates a
+map keyed by id, so no engine surface reports the order a track's plugins actually sit in,
+and nothing renders it. It is right by construction — `populateEdit` inserts doc plugins at
+increasing indices, so "after the previous one" is the same position — and by the fallbacks
+above. Ordering is audible, so it is worth listening to once after touching this.
+
 ## Session state lives here, and only here
 
 Arming, the global record enable and the loop region are **not** song state: they live in

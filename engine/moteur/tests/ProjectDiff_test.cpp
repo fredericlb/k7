@@ -166,6 +166,53 @@ void diff_plugin_swap_is_replace_and_rebuild() {
     CHECK(needsFullRebuild(d));
 }
 
+// Adding a plugin is the one thing people do to a chain all day, and it must NOT rebuild: a full rebuild
+// re-instantiates every plugin in the song — measured at 4.4 s on a 32-plugin project against 6 ms for the
+// incremental insert. apply()'s PluginAdded case falls back to a rebuild when the live graph is not in the
+// shape it assumes, so this rule only has to be right about the DOCUMENT.
+void diff_plugin_add_is_incremental() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "FX");
+        t.plugins.push_back(mkPlugin("t1:b1", "vst3", "Reverb"));
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks[0].plugins.push_back(mkPlugin("t1:b2", "4osc", "4OSC"));
+
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::PluginAdded));
+    CHECK(!hasKind(d, ChangeKind::PluginRemoved));
+    CHECK(!needsFullRebuild(d));
+}
+
+// …with two exceptions, both about what the incremental insert cannot place correctly. A SIDECHAINED plugin
+// is wired by a pass that runs once every track exists; and a track added in the same diff shifts the
+// index trackById resolves through, so the plugin would land on the wrong lane.
+void diff_plugin_add_rebuilds_when_it_must() {
+    ProjectDoc base;
+    {
+        auto t = mkTrack("t1", "FX");
+        t.plugins.push_back(mkPlugin("t1:b1", "vst3", "Reverb"));
+        base.tracks.push_back(t);
+    }
+
+    ProjectDoc sidechained = base;
+    {
+        auto p = mkPlugin("t1:b2", "4osc", "4OSC");
+        p.sidechainFrom = "t2";
+        sidechained.tracks[0].plugins.push_back(p);
+    }
+    CHECK(needsFullRebuild(diff(base, sidechained)));
+
+    ProjectDoc alsoNewTrack = base;
+    alsoNewTrack.tracks[0].plugins.push_back(mkPlugin("t1:b2", "4osc", "4OSC"));
+    alsoNewTrack.tracks.push_back(mkTrack("t2", "Bass"));
+    const auto d = diff(base, alsoNewTrack);
+    CHECK(hasKind(d, ChangeKind::TrackAdded));
+    CHECK(needsFullRebuild(d));
+}
+
 // Moving a clip (same id, new start) is a ClipMoved, not remove+add.
 void diff_clip_moved() {
     ProjectDoc a;
@@ -240,6 +287,8 @@ int main() {
     RUN(diff_track_params_in_place);
     RUN(diff_plugin_param_drift_is_incremental);
     RUN(diff_plugin_swap_is_replace_and_rebuild);
+    RUN(diff_plugin_add_is_incremental);
+    RUN(diff_plugin_add_rebuilds_when_it_must);
     RUN(diff_clip_moved);
     RUN(diff_clip_retimed_by_every_field);
     RUN(diff_removals_before_adds);
