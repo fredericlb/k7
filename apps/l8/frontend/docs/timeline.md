@@ -163,6 +163,29 @@ generated lane has no file and no chain of its own, so it names its **group**.
 A header selection survives playback, as every caret position now does — see "The caret and
 the playhead are independent" above.
 
+## A lane's alternatives
+
+A track can hold several arrangements and play one (`apps/l8/docs/21-syntax-tracks.md` has the
+file format). The arrow at the left of the gutter lists them, switches, and starts another —
+empty, or as a copy of the one playing.
+
+It sits **first in the row**, before the meters and the name, because it is about the lane as a
+whole rather than about its sound; and the name of the current variant is drawn beside it only
+when it is **not** the first. That asymmetry is the point: every track keeps the gutter width it
+always had, and the one lane showing you something other than its `clips:` says so before you
+read its name. A lane whose clips appeared to have vanished, with nothing on screen explaining
+it, is the failure this avoids.
+
+Like every other edit here, the component reports intent and the shell runs the command
+(`onPickAlternative` / `onNewAlternative` → `track alternative …`). It has to be `runCommand`
+and not `quietCommand`: switching replaces the lane's whole clip list, so the timeline must
+re-read the project rather than patch a field.
+
+A **generated** lane gets no arrow at all. Its clips are the pattern scheduler's look-ahead,
+rewritten every tick, so there is nothing there to keep a variant of. Neither does a **frozen**
+one: it plays a render of one arrangement, so offering to switch would put the picker and the
+speakers at odds — the command refuses it too, and says to unfreeze first.
+
 ## The `v` rectangle
 
 An anchor (where `v` was pressed) and a head (what the arrows move), exactly like a vim

@@ -24,6 +24,7 @@ import {
   runWebCommand,
   startEngineForActive,
   strudelOrbitTracks,
+  takeJustRecorded,
   unloadEngine,
   unloadEngineIfServing,
   webCommandList,
@@ -48,7 +49,10 @@ filesRouter.get(
   wrap((req, res) => {
     // Idempotent while the engine is idle, so plugin instantiation overlaps the browser's remaining startup.
     prewarmEngineForActive(req.ws!);
-    res.json(req.ws!.workspaceInfo());
+    // The last take rides this poll rather than getting a route: the browser cannot work the clip's id
+    // out for itself — the engine sends a file path and this service chooses the name — and it is asking
+    // here every two seconds already. See takeJustRecorded.
+    res.json({ ...req.ws!.workspaceInfo(), lastTake: takeJustRecorded() });
   }),
 );
 

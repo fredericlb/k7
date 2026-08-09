@@ -56,7 +56,12 @@ import {
 } from "./project";
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
+import {
+  currentAlternativeIndex,
+  trackAlternatives,
+} from "./trackAlternatives";
 import { sortTracksByKind } from "./trackKind";
+import type { Track } from "./yaml/trackSchema";
 
 // A placement -> a resolved ClipDoc. `start`/`loop` are 1-based positions, the rest 0-based durations.
 function placementToClip(
@@ -309,6 +314,28 @@ function normMonitor(v: unknown): string {
 // Input trim in dB. Non-finite (or absent) is unity — a gain the file can't state is not a reason to change one.
 function normGain(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+/**
+ * A track's alternatives, as the compiled doc carries them — names, and which one is playing.
+ *
+ * Absent unless there are at least two: a track with one arrangement has nothing to choose
+ * between, and saying so on every track of every song would put a field nobody reads on the wire
+ * and in every fixture.
+ */
+function alternativesOf(t: unknown): {
+  alternatives?: string[];
+  alternative?: string;
+} {
+  // The tracks map holds loosely-typed raw entries; the two readers below only ever look at
+  // `type`, `clips` and `alternatives`, which the schema has already validated on the way in.
+  const track = t as Track;
+  const all = trackAlternatives(track);
+  if (all.length < 2) return {};
+  return {
+    alternatives: all.map((a) => a.name),
+    alternative: all[currentAlternativeIndex(track)].name,
+  };
 }
 
 export function compileNodeProject(dir: string): ProjectDoc {
@@ -720,6 +747,9 @@ export function compileNodeProject(dir: string): ProjectDoc {
       // the same way they did before. The freeze boundary the render stops at needs no computing either — a
       // bus's modules were never on this track's plugin list; they live on the bus's own return track, so
       // "up to OUT or to a module with several inputs" is simply what `trackPlugins[id]` already means.
+      // The variants, for the surfaces that offer them. `clips` below is already the chosen
+      // one — resolved at load (loader.ts), so nothing here or downstream has to know.
+      ...alternativesOf(t),
       clips: frozen[id]
         ? [frozenClip(id, frozen[id] as string)]
         : (t.clips ?? []).map((p) =>

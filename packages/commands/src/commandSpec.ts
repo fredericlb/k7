@@ -65,6 +65,12 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
     ...h.baseModules.filter((r) => r.startsWith("@")),
   ],
   tracks: (h) => h.project().tracks.map((t) => t.id),
+  // Every alternative name in the song, deduped. Not the named track's alone: a provider is
+  // handed the host and not the half-typed line, so it cannot know which track was just named.
+  // The handler checks against the real track, which is where a wrong name has to be caught.
+  trackAlternatives: (h) => [
+    ...new Set(h.project().tracks.flatMap((t) => t.alternatives ?? [])),
+  ],
   // The branches you can switch to — every local one EXCEPT the one you are on, which is
   // not a destination. Best-effort: no repo means nothing to offer, not an error.
   alternatives: (h) => {
@@ -245,6 +251,7 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // A named thing picked from a closed list — the same shape the palette renders for any
   // other choice. Not "file": an alternative is a branch, and nothing on disk.
   alternatives: "choice",
+  trackAlternatives: "choice",
   // A clip id and an audio path are both material, and the palette colours material as a file —
   // the same answer `sequenceFiles` gets, whose ids are likewise entities rather than paths.
   clipTargets: "file",
@@ -269,6 +276,8 @@ export function argClass(a: ArgSpec): ArgClass {
 // What each provider offers, at PROVIDER level: "a sequence" and "an audio file" are different answers.
 const PROVIDER_HINT: Record<ProviderName, string> = {
   alternatives: "an existing alternative — the one you are on is not offered",
+  trackAlternatives:
+    "one of this track's alternatives — unnamed ones answer to their number",
   tracks: "a track of this project",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",

@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { benchFiles, scaffoldBench } from "./scaffoldBench";
+import { BENCH_EDGES, benchFiles, scaffoldBench } from "./scaffoldBench";
 import { ProjectFileSchema } from "./yaml/projectSchema";
 
 describe("the module bench", () => {
@@ -59,5 +59,20 @@ describe("the module bench", () => {
       },
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it("is the furniture BENCH_EDGES names", () => {
+    // The chain translation renames `@in`/`@out` into these three. A scaffold that stopped
+    // writing one of them would not fail here by itself — it would fail by silently saving a
+    // rewritten chain back to the médiathèque, which nothing else would catch.
+    const files = benchFiles("banc");
+    expect(files[`tracks/${BENCH_EDGES.track}.yaml`]).toBeDefined();
+    expect(files[`modules/io/${BENCH_EDGES.out}/module.yaml`]).toBeDefined();
+    expect(
+      files[`modules/audio/${BENCH_EDGES.strip}/module.yaml`],
+    ).toBeDefined();
+    expect(files["chains.yaml"]).toContain(
+      `${BENCH_EDGES.strip}: [ ${BENCH_EDGES.out} ]`,
+    );
   });
 });

@@ -207,6 +207,44 @@ export function isBench(repo: string): boolean {
 }
 
 /**
+ * A CHAIN on the bench: `/l8/@banc/chains/blindtest/assourdissant/…​.l8`.
+ *
+ * The same workbench, opened on something else — so it takes the same road, and the address's
+ * project part is what says which. The catalogue path IS the project path with `.l8` on the end,
+ * which is why there is no lookup table and no marker file: st0 writes the link from the chain
+ * it is showing, the file service reads the chain back out of it, and neither can drift from
+ * the other. Same argument that put `@banc` itself here.
+ *
+ * `chains/` is the family folder in the médiathèque, so a chain's path always begins with it and
+ * nothing else can be mistaken for one.
+ */
+const CHAIN_FAMILY = "chains/";
+const L8 = PROJECT_SUFFIXES.l8;
+
+/**
+ * Which médiathèque chain a bench project is a view of — null if it is the module bench.
+ *
+ * The path comes off an ADDRESS anyone can type, and it is then joined onto two roots — the
+ * médiathèque and the workspace. So it is checked here rather than trusted and checked later:
+ * every segment must be an ordinary name, which is what stops `chains/../../…` from naming a
+ * folder outside either. Null, not an exception — it is the same answer as "this is not a chain".
+ */
+export function benchChainPath(project: string): string | null {
+  if (!project.startsWith(CHAIN_FAMILY) || !project.endsWith(L8)) return null;
+  const path = project.slice(0, -L8.length);
+  if (path.length <= CHAIN_FAMILY.length) return null;
+  const segs = path.split("/");
+  if (segs.some((s) => !s || s === "." || s === ".." || s.includes("\\")))
+    return null;
+  return path;
+}
+
+/** …and the address to open it on, from the catalogue path st0 holds. */
+export function benchProjectForChain(chainPath: string): string {
+  return `${chainPath}${L8}`;
+}
+
+/**
  * How a project is NAMED in an engine claim — `<repo>/<projet>`.
  *
  * Here rather than in each gate, and beside the address it is derived from, for the same reason

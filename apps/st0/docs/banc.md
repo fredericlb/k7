@@ -97,6 +97,72 @@ heure à déboguer quelque chose qui n'existe plus.
 Ce qui **survit** à la régénération est ce qui est à vous : `chains.yaml`, `tracks/` et
 `instances/`. C'est-à-dire exactement ce que vous câblez.
 
+## Ouvrir une CHAÎNE dessus
+
+Même banc, même bouton, autre chose dessus. Depuis l'écran d'une chaîne de la médiathèque,
+« Ouvrir sur le banc » mène à `/l8/@banc/chains/<chemin>.l8` — le chemin du catalogue, avec
+`.l8` au bout. C'est toute l'adresse : elle porte la chaîne, la machine la relit, et aucun des
+deux bouts ne tient de table de correspondance qui pourrait dériver de l'autre
+(`benchChainPath`, dans `@studio/web-protocol/projects`).
+
+L'argument est celui du module. Une chaîne est un routage qu'on **entend** ; l'éditer contre
+rien, c'est faire la moitié du travail. Sur le banc elle a les modules du catalogue à portée,
+une piste où poser de la matière, et un vrai moteur derrière.
+
+### La traduction des bords
+
+Une chaîne partagée va de `@in` à `@out` : elle décrit un traitement et ne dit rien de ce qui le
+traverse. Un projet l8 n'a ni l'un ni l'autre — il a une piste, une tranche, une sortie. Les
+deux fichiers ont sinon exactement la même forme, donc l'ouverture ne **convertit** rien : elle
+renomme les deux bords, et la sauvegarde les renomme dans l'autre sens.
+
+| dans la médiathèque | sur le banc |
+|---|---|
+| `"@in": [ … ]` sous `tracks:` | `banc: [ … ]` — la piste |
+| une destination `"@out"` | `mixer`, puis `mixer: [ OUT ]` |
+
+Les deux sens vivent dans un seul fichier, `packages/song/src/benchChain.ts`, sous un même jeu
+de tests d'aller-retour : séparés ils dériveraient, et une dérive ici veut dire une chaîne
+partagée qu'on a silencieusement réécrite. `packages/file-service/src/benchChainProject.test.ts`
+refait le tour complet par le disque, parce que c'est le seul chemin du service qui écrit dans un
+catalogue **partagé**.
+
+La tranche n'est ajoutée que si quelque chose l'atteint : une chaîne `@in → @out` ne repart donc
+pas avec un meuble qu'elle n'a jamais traversé. Et le bloc de commentaires du haut est préservé à
+part — `formatChains` réémet un document canonique, ce qui rend l'aller-retour démontrable et
+mangerait tous les commentaires ; or celui du haut porte ce que la chaîne EST.
+
+### Ce qui est refusé
+
+Une chaîne qui a déjà un nœud appelé `mixer`, `OUT` ou `banc` ne s'ouvre pas, et le message le
+dit. La sauvegarde retirerait la tranche du banc et emporterait le module de la chaîne avec
+elle ; renommer d'office changerait la chaîne qu'on est venu éditer. Le portail l'affiche comme
+un projet introuvable — la phrase du service est toute l'explication.
+
+### Ce qui revient, et ce qui reste
+
+`chains.yaml` (retraduit) et `instances/` repartent vers `chains/<chemin>/` de la médiathèque.
+Le reste — `project.yaml`, `tracks/`, le miroir `modules/` — est le meuble du banc et n'a rien à
+faire dans une chaîne que d'autres projets chargent.
+
+Contrairement à un module, l'écriture touche AUSSI le cache local et pas seulement la
+bibliothèque hébergée. Le banc réécrit `chains.yaml` depuis le cache à chaque ouverture : sur une
+machine sans bibliothèque hébergée — là où le cache EST la bibliothèque — une sauvegarde
+seulement poussée serait jetée par l'ouverture suivante.
+
+> Au passage : `write()` recollait le projet actif, **déjà absolu**, sur la racine de l'espace de
+> travail. `<racine>/<racine>/<projet>` n'est sous aucune écriture, donc la remontée d'un module
+> vers le catalogue ne se déclenchait jamais. Corrigé, et tenu par un test.
+
+### À vérifier dans un navigateur
+
+- ouvrir une chaîne de la médiathèque sur le banc → le graphe montre la piste, le module, la
+  tranche, la sortie ;
+- insérer un module, sauvegarder, revenir dans st0 → la chaîne montre le module, entre `@in` et
+  `@out`, et son en-tête est intact ;
+- rouvrir le banc sur la même chaîne → ce qu'on a câblé est là ;
+- ouvrir une chaîne qui nomme un `mixer` → refus lisible, et rien de créé.
+
 ## Ce qu'il n'est pas
 
 - **Pas un dépôt git.** Il n'a pas d'URI, il ne se clone pas, il ne se pousse pas. Le mettre

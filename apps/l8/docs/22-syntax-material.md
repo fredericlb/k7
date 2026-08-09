@@ -82,6 +82,36 @@ points:
   - { time: "5:1:1", value: 0 }
 ```
 
+## clips/<id>.yaml — corrected onsets
+
+The engine detects onsets in the audio itself — the transient marks the slicer cuts on, and the grey
+lines a clip draws. One threshold governs the whole file, so raising it finds more of them and lowering
+it finds fewer. This block is for the ones it still gets wrong.
+
+```yaml schema=Clip
+source: clips/prise-01.wav
+onsets:
+  added: [1.24]        # a hit the detector missed, in SECONDS into the file
+  removed: [3.51]      # something it marked that is not a hit
+```
+
+What is stored is the **difference**, not the resulting list, and that is the point: the detected set is
+rebuilt whenever the audio or the threshold changes, so a finished list would go stale the moment you
+moved the sensitivity — and moving it is what the sensitivity is for. A correction outlives every
+re-detection, because it says "there is also one here" and "there is not one there" rather than "here is
+the answer".
+
+Moving an onset is a removal and an addition, which is what moving it is. A time within 25 ms of an
+existing onset means that one, so an approximate second is enough — and a hit re-detected a few
+milliseconds away is still the hit you refused.
+
+Seconds into the file, never a timecode: an onset is a fact about the material, and would slide out from
+under it if it were musical and you edited the tempo.
+
+The recorder writes these for you — the review screen at the end of a take draws the onsets over the
+waveform and lets you drag, add and remove them — and `clip onset add|remove|move` is the same edit from
+the command bar.
+
 ## clips/<id>.yaml — warped
 
 A stretch map carried over from an imported DAW project. `markers` pairs [timeline beat, source second], monotonic, at least two — the clip follows the song tempo instead of its own. Written by the importer; rarely authored by hand.

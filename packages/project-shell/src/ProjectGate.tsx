@@ -226,7 +226,22 @@ export function ProjectGate({
             phase: strings.benchFetching ?? "",
             percent: null,
           });
-          const bench = await projectApi.openBench();
+          // The project part goes with it: the SAME bench opens on the catalogue or on one
+          // médiathèque chain, and the address is what says which.
+          let bench: { workspace: string; project: string };
+          try {
+            bench = await projectApi.openBench(project);
+          } catch (e) {
+            if (cancelled) return;
+            // 409: a chain this machine has not got, or one whose own names collide with the
+            // bench's furniture. The service's sentence IS the explanation — the same treatment
+            // a project the repository does not hold gets, for the same reason.
+            if ((e as { status?: number }).status === 409) {
+              setPhase({ k: "missing", message: (e as Error).message });
+              return;
+            }
+            throw e;
+          }
           if (cancelled) return;
           configure(userEmail, bench.workspace);
           await projectApi.open(bench.project);

@@ -51,12 +51,13 @@ export const projectApi = {
    * slow the first time (a full modules sync), which is why it replaces the clone's progress
    * screen rather than being asked for silently. See apps/st0/docs/banc.md.
    */
-  openBench: () =>
-    fsend<{ workspace: string; project: string }>(
-      "POST",
-      "/workspaces/bench",
-      {},
-    ),
+  openBench: (project?: string) =>
+    fsend<{ workspace: string; project: string }>("POST", "/workspaces/bench", {
+      // What the address named, handed over as it was written: `chains/<path>.l8` opens the
+      // bench on that médiathèque chain, anything else on the catalogue at large. The machine
+      // decides, because the machine is what holds the médiathèque.
+      project,
+    }),
 
   // --- The open project ---------------------------------------------------------
   workspace: () => fget<WorkspaceInfo>("/workspace"),

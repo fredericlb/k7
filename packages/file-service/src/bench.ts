@@ -1,6 +1,7 @@
-// bench.ts — the module bench: a generated `.l8` project whose `modules/` folder IS the
-// médiathèque's, and the one project whose module saves are written back to the catalogue
-// instead of forking a copy. Rationale and the alternatives rejected: apps/st0/docs/banc.md.
+// bench.ts — the workbench: a generated `.l8` project whose `modules/` folder IS the
+// médiathèque's, and the one project whose saves are written back to the catalogue instead of
+// forking a copy. Opened on the catalogue at large, or on ONE chain — same bench either way.
+// Rationale and the alternatives rejected: apps/st0/docs/banc.md.
 
 import {
   cpSync,
@@ -8,13 +9,24 @@ import {
   linkSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 import { remoteWriter } from "@studio/mediatek/remote";
-import { mediatekDirFor } from "@studio/song/mediatekRoot";
-import { scaffoldBench } from "@studio/song/scaffoldBench";
-import { BENCH_PROJECT } from "@studio/web-protocol/projects";
+import {
+  benchChainCollision,
+  CHAIN_FILE,
+  chainToBench,
+} from "@studio/song/benchChain";
+import { mediatekDirFor, mediatekRoot } from "@studio/song/mediatekRoot";
+import { BENCH_EDGES, scaffoldBench } from "@studio/song/scaffoldBench";
+import {
+  BENCH_PROJECT,
+  benchChainPath,
+  benchProjectForChain,
+} from "@studio/web-protocol/projects";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { slugify, workspaceRoot } from "./slug.ts";
 
@@ -78,12 +90,15 @@ export function ensureBench(userEmail: string): {
   workspace: string;
   project: string;
 } {
-  const dir = join(
-    workspaceRoot(slugify(userEmail), BENCH_WORKSPACE),
-    BENCH_PROJECT,
-  );
+  ensureBenchProject(userEmail, BENCH_PROJECT);
+  return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };
+}
+
+/** The scaffold and the catalogue mirror both benches share. Answers the project folder. */
+function ensureBenchProject(userEmail: string, project: string): string {
+  const dir = join(workspaceRoot(slugify(userEmail), BENCH_WORKSPACE), project);
   const first = !existsSync(join(dir, "project.yaml"));
-  if (first) scaffoldBench(dir, "banc");
+  if (first) scaffoldBench(dir, basename(project, ".l8"));
 
   // The modules, every time. Removed first so a module DELETED from the catalogue disappears
   // here too — a stale one would still resolve, still compile, and still play, which is how you
@@ -96,8 +111,8 @@ export function ensureBench(userEmail: string): {
     for (const entry of readdirSync(modules, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       for (const mod of readdirSync(join(modules, entry.name))) {
-        if (entry.name === "io" && mod === "OUT") continue;
-        if (entry.name === "audio" && mod === "mixer") continue;
+        if (entry.name === "io" && mod === BENCH_EDGES.out) continue;
+        if (entry.name === "audio" && mod === BENCH_EDGES.strip) continue;
         rmSync(join(modules, entry.name, mod), {
           recursive: true,
           force: true,
@@ -106,14 +121,63 @@ export function ensureBench(userEmail: string): {
     }
     mirror(catalogue, modules);
   }
-  return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };
+  return dir;
 }
 
-/** Is this workspace + project the bench? What decides whether a module save writes through. */
+/**
+ * The same bench, opened on ONE médiathèque chain — `@banc/chains/<path>.l8`.
+ *
+ * The chain is not COPIED into a project so much as read as one: `chains.yaml` is the catalogue's
+ * file with its two boundary nodes translated into the bench's furniture (`@studio/song/benchChain`),
+ * and `instances/` is the chain's own settings, which is the other half of what a chain is.
+ *
+ * Rewritten from the catalogue on every open, exactly as the modules are and for the same
+ * reason: this is a VIEW of a shared chain, and a stale one would have you editing something
+ * nobody else can see. Nothing here is yours to keep — what you wire IS the chain, and it goes
+ * back where it came from when you save it.
+ *
+ * Refuses, rather than guesses, when the chain has a node named like the bench's own furniture:
+ * see `benchChainCollision`. The message is the user's, so the route hands it over as a 409.
+ */
+export function ensureChainBench(
+  userEmail: string,
+  chainPath: string,
+): { workspace: string; project: string } {
+  const source = join(mediatekRoot(), chainPath);
+  const chainsFile = join(source, CHAIN_FILE);
+  if (!existsSync(chainsFile))
+    throw new Error(`no chain at ${chainPath} in this machine's médiathèque`);
+  const text = readFileSync(chainsFile, "utf8");
+  const clash = benchChainCollision(text, BENCH_EDGES);
+  if (clash) throw new Error(clash);
+
+  const project = benchProjectForChain(chainPath);
+  const dir = ensureBenchProject(userEmail, project);
+  writeFileSync(join(dir, CHAIN_FILE), chainToBench(text, BENCH_EDGES));
+
+  // The instances, which are flat and named by their file in both places — the médiathèque's
+  // chain folder and an l8 project use the same shape, which is why this is a copy and not a
+  // conversion. Emptied first, so an instance dropped from the chain does not linger.
+  const instances = join(dir, "instances");
+  rmSync(instances, { recursive: true, force: true });
+  if (existsSync(join(source, "instances")))
+    cpSync(join(source, "instances"), instances, { recursive: true });
+
+  return { workspace: BENCH_WORKSPACE, project };
+}
+
+/** Is this workspace + project the bench? What decides whether a save writes through. */
 export function isBenchProject(root: string, projectDir: string): boolean {
-  return (
-    basename(root) === BENCH_WORKSPACE && basename(projectDir) === BENCH_PROJECT
-  );
+  // The WORKSPACE is what is reserved, so every project in it is a bench — the module bench and
+  // one folder per chain opened. Naming the project here instead would have made the chain
+  // benches ordinary projects, whose module saves fork instead of reaching the catalogue.
+  return basename(root) === BENCH_WORKSPACE;
+}
+
+/** Which chain a bench project is a view of, from the project path — null for the module bench. */
+export function benchChainOf(root: string, projectRel: string): string | null {
+  if (basename(root) !== BENCH_WORKSPACE) return null;
+  return benchChainPath(projectRel.split(sep).join("/"));
 }
 
 /**
@@ -136,6 +200,42 @@ export async function pushModuleToMediatek(
   try {
     await remoteWriter({ base, token: mediatekToken() ?? undefined }).put(
       `modules/${rel}`,
+      content,
+    );
+  } catch (e) {
+    console.warn(
+      `[bench] saved locally, but the médiathèque refused it: ${(e as Error).message}`,
+    );
+  }
+}
+
+/**
+ * Push a file the chain bench just saved back to the chain it is a view of.
+ *
+ * `rel` is the path inside the chain folder — `chains.yaml`, or `instances/<name>.yaml` — and it
+ * arrives ALREADY translated back into `@in`/`@out`, because only the caller knows which file
+ * needed translating. This one just carries bytes.
+ *
+ * The local cache is written as well as the hosted library, which is the difference from
+ * `pushModuleToMediatek` and is deliberate: the bench rewrites `chains.yaml` from the cache on
+ * every open, so on a machine with no hosted library configured — where the cache IS the library
+ * — a push-only save would be discarded by the very next open. With a library configured the
+ * two land the same bytes, and the next pull re-fetches over them.
+ */
+export async function pushChainToMediatek(
+  chainPath: string,
+  rel: string,
+  content: string,
+): Promise<void> {
+  const local = join(mediatekRoot(), chainPath, rel);
+  mkdirSync(dirname(local), { recursive: true });
+  writeFileSync(local, content, "utf8");
+
+  const base = mediatekBase();
+  if (!base) return;
+  try {
+    await remoteWriter({ base, token: mediatekToken() ?? undefined }).put(
+      `${chainPath}/${rel}`,
       content,
     );
   } catch (e) {

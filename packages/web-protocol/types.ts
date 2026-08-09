@@ -49,6 +49,10 @@ export interface WorkspaceInfo {
   rootIsProject: boolean;
   activeProject: string | null; // workspace-relative ("." for the root), or null
   projects: string[]; // workspace-relative project dirs
+  // The clip the recorder wrote most recently, so a surface can offer to review it. Rides this poll
+  // because only the file service learns the id — the engine reports a FILE — and it stays set until
+  // there is another take: whether it has been looked at belongs to the client.
+  lastTake?: { clip: string; track: string } | null;
 }
 
 // Where the workspace's repo stands vs upstream, for the share badge (mirrors @studio/commands/git).
@@ -244,7 +248,14 @@ export interface WebWaveform {
   clipBeats: number; // beats the region spans
   grid: WebWaveformGrid[];
   warpMarks: WebWarpMark[]; // stretch markers, in region seconds (empty == not warped)
-  transients: number[]; // display seconds where transients are detected
+  // Display seconds where the onsets ARE — what the engine detected, with the clip's corrections already
+  // applied. Every surface reads this one and therefore agrees; only an editor needs the two below.
+  transients: number[];
+  // The same list before the corrections, and the corrections themselves (in FILE seconds, as the clip
+  // stores them). An onset editor needs both: to tell a detected onset from a hand-placed one, and to name
+  // a removal by the time the DETECTOR gave it rather than by wherever the pointer was. See song/onsets.ts.
+  detected?: number[];
+  onsetEdits?: { added?: number[]; removed?: number[] };
 }
 
 // Audition one sample through the engine: a media path, a clip id, or a slice window in seconds into a source.
@@ -306,6 +317,11 @@ export interface WebTrack {
   // is built that render is already the track's one clip and `plugins` is empty — this is here so the timeline can
   // say why a lane it won't let you edit looks the way it does.
   frozen?: string;
+  // The clip list's VARIANTS — every name in order, and the one that is playing. Both absent
+  // when the track has a single arrangement, which is every track until somebody adds one: the
+  // timeline's picker reads that as the list of one it draws. See apps/l8/docs/22-syntax-material.md.
+  alternatives?: string[];
+  alternative?: string;
 }
 // A group track (mirrors GroupDoc): clipless, drawn as a header with its member tracks indented under it.
 export interface WebGroup {

@@ -72,6 +72,7 @@ import {
 import { RecordingBand } from "./components/RecordingBand";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
+import { TakeReview } from "./components/TakeReview";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
@@ -207,6 +208,10 @@ export default function App({
   } | null>(null);
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [ws, setWs] = useState<WorkspaceInfo | null>(null);
+  // The take this tab has already dismissed. The server keeps naming the last one for ever — "the
+  // last take" stays true until there is another — so what makes the review appear ONCE is this, and
+  // a genuinely new take has a different id and shows up on its own.
+  const [reviewedTake, setReviewedTake] = useState<string | null>(null);
   // The engine's live state as an EXTERNAL store, so a component re-renders only when its own slice changes.
   const store = useRef(new EngineStore()).current;
   const playing = useStoreState(store, (s) => s.playing);
@@ -1279,6 +1284,16 @@ export default function App({
 
   const waitingForEngine = !!ws?.activeProject && !engineReady;
 
+  // The take to review: the newest one the file service has written, until this tab dismisses it.
+  // Never while a take is ROLLING — the band owns that slot, and the clip being reviewed would be the
+  // previous take, which is not what anyone is looking at.
+  const reviewTake =
+    ws?.lastTake &&
+    ws.lastTake.clip !== reviewedTake &&
+    !(recordEnabled && playing)
+      ? ws.lastTake
+      : null;
+
   // Everything that makes the transport unable to answer, as one flag — because to whoever is reaching for Play
   // the two causes are the same fact, and the button has to say so either way.
   //
@@ -1581,6 +1596,16 @@ export default function App({
                       `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
                     )
                   }
+                  // The lane header's alternative menu. `runCommand`, not `quietCommand`:
+                  // switching replaces the lane's clips, so the timeline has to re-read.
+                  onPickAlternative={(trackId, name) =>
+                    void runCommand(`track alternative ${trackId} ${name}`)
+                  }
+                  onNewAlternative={(trackId, copy) =>
+                    void runCommand(
+                      `track alternative ${copy ? "copy" : "new"} ${trackId}`,
+                    )
+                  }
                   // While the bar is filling `event move`, the drag ANSWERS it instead of
                   // committing: same gesture, same numbers, but the line is yours to run. The
                   // param names are the command's own — see commands.yaml.
@@ -1734,6 +1759,19 @@ export default function App({
             trackOrder={trackOrder}
             trackNames={recInfo.names}
             onStop={() => transport("stop")}
+          />
+        )}
+
+        {/* …and when it stops, the take itself, in the band's place: the same height, so the panes do
+            not jump. It appears because the workspace poll started naming a clip this tab has not
+            reviewed — the file service is the only side that knows the id (see takeJustRecorded) — and
+            it goes when you say so, which is why `reviewedTake` remembers rather than the server. */}
+        {reviewTake && (
+          <TakeReview
+            clip={reviewTake.clip}
+            track={reviewTake.track}
+            command={runCommand}
+            onClose={() => setReviewedTake(reviewTake.clip)}
           />
         )}
 

@@ -97,6 +97,46 @@
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }]
+# --- a track's ALTERNATIVES (variants of its clip list) ---
+# NOT `project alternative` above, which is a git branch. This one is inside ONE track: another
+# take of the same lane, kept beside the first in the same file. `clips:` IS the first of them,
+# so a song that never uses this keeps exactly the file it had, and switching rewrites one line
+# rather than moving clip lists about. See apps/l8/docs/22-syntax-material.md.
+#
+# The name is optional everywhere: an unnamed variant is known by its position, which is what
+# makes trying a second arrangement cost nothing to name. The timeline's lane header has the
+# same three actions in a dropdown.
+- command: "track alternative new"
+  sid: track.alt.new
+  help: "add an empty alternative to a track and switch to it (e.g. track alternative new gtr doux)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
+    ]
+# The other half of the same wish: keep this arrangement, try a change to it. A copy carries
+# every field of every placement, which re-placing them by hand would not.
+- command: "track alternative copy"
+  sid: track.alt.copy
+  help: "add an alternative holding a copy of the one playing, and switch to it"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
+    ]
+# Switching is the frequent one, so it is the bare verb.
+- command: "track alternative"
+  sid: track.alt.switch
+  help: "play another of a track's alternatives (e.g. track alternative gtr doux)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, complete: trackAlternatives },
+    ]
+
 # --- recording ---
 # `rec` toggles a track's record ARM. Unlike mute/solo it writes no file: arming is
 # session state, held only by the engine (which is the one long-lived process the
@@ -195,6 +235,60 @@
     [
       { name: clip, complete: clipTargets },
       { name: chain, complete: chains },
+    ]
+
+# Peak-normalise the MATERIAL, over itself. `peak` is linear and optional — the default leaves a
+# decibel of headroom. WAV only, because the engine writes WAV whatever it read (see normalize.ts).
+- command: "track normalize"
+  sid: track.normalize
+  help: "bring a track's clips to a peak, in place (e.g. track normalize gtr)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: peak, type: number, optional: true, hint: "0–1 linear, default 0.891 (−1 dBFS)" },
+    ]
+- command: "clip normalize"
+  sid: clip.normalize
+  help: "bring one clip's file to a peak, in place (e.g. clip normalize prise-01)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: peak, type: number, optional: true, hint: "0–1 linear, default 0.891 (−1 dBFS)" },
+    ]
+
+# --- a clip's onsets ---
+# Corrections to what the engine detected, in SECONDS into the source file. Kept as a difference, so
+# they survive re-detecting at another sensitivity — see packages/song/src/onsets.ts. A time within
+# 25 ms of an existing onset means that one, so an approximate second is enough.
+- command: "clip onset add"
+  sid: clip.onset.add
+  help: "mark an onset the detector missed (e.g. clip onset add prise-01 1.25)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: sec, type: number, hint: "seconds into the source file" },
+    ]
+- command: "clip onset remove"
+  sid: clip.onset.remove
+  help: "refuse an onset the detector found (e.g. clip onset remove prise-01 1.25)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: sec, type: number, hint: "seconds into the source file" },
+    ]
+- command: "clip onset move"
+  sid: clip.onset.move
+  help: "move an onset (e.g. clip onset move prise-01 1.25 1.31)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: from-sec, type: number, hint: "the onset to move, in seconds" },
+      { name: to-sec, type: number, hint: "where it belongs, in seconds" },
     ]
 
 # --- sequences ---

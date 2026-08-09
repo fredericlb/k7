@@ -36,12 +36,35 @@ const WindowEdge = z.union([
   z.string().regex(TIMECODE, "expected seconds (0.25) or a timecode like 2:0"),
 ]);
 
+/**
+ * Corrections to the onsets the ENGINE detected in this clip's source — not the onsets themselves.
+ *
+ * The detected set is derived data: it lives in the file's `.cache` sidecar, it is tuned by one global
+ * `sensitivity`, and it is rebuilt from scratch whenever the audio's fingerprint changes. Writing a corrected
+ * LIST there would be wiped without a word. Writing the corrected list here instead would go stale the moment
+ * the threshold moved, and the whole point of the threshold is that it moves.
+ *
+ * So what is stored is the DIFFERENCE, and that is what survives a re-detection: the two lists say "there is
+ * also one here" and "there is not one there", and re-detecting at another sensitivity re-answers everything
+ * except those. Moving an onset is a removal plus an addition, which is what moving it in fact is.
+ *
+ * Both are SECONDS into the source file, like `from`/`to` in their bare-number spelling — never a timecode: an
+ * onset is a fact about the material, and would slide under it if it were musical and the tempo were edited.
+ */
+const OnsetEditsSchema = z
+  .object({
+    added: z.array(z.number().min(0)).optional(),
+    removed: z.array(z.number().min(0)).optional(),
+  })
+  .strict();
+
 export const AudioClipSchema = z
   .object({
     source: z.string().min(1),
     from: WindowEdge.optional(), // default: the file's start
     to: WindowEdge.optional(), // default: the file's end
     warp: WarpSchema.optional(),
+    onsets: OnsetEditsSchema.optional(),
   })
   .strict()
   // A backwards window would compile to a clip that plays nothing, which reads as a broken file rather than a

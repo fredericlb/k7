@@ -364,6 +364,19 @@ export function enginePreview(
   ensureEngine()?.preview(file, start, length);
 }
 
+/**
+ * The take this service turned into a clip most recently, for the browser to review.
+ *
+ * Here rather than pushed to the browser, because only this side ever learns the clip's ID: the
+ * engine broadcasts a FILE and a track, and the id is chosen right below, by the code that writes
+ * the clip. The browser polls /workspace anyway, so it costs no round trip of its own — and it is
+ * never cleared, because "the last take" stays true until there is another one. Whether it has been
+ * looked at is the client's business, not this one's.
+ */
+let lastTake: { clip: string; track: string } | null = null;
+export const takeJustRecorded = (): { clip: string; track: string } | null =>
+  lastTake;
+
 function onRecorded(take: RecordedTake): void {
   const ws = currentWs;
   const dir = ws?.activeProjectPath();
@@ -372,6 +385,7 @@ function onRecorded(take: RecordedTake): void {
     const id = addTakeToTrack(dir, ws.cachedProjectDoc(dir), take);
     ws.invalidateProjectDoc();
     loadPatternsFor(ws, dir);
+    lastTake = { clip: id, track: take.track };
     console.log(`[rec] ${take.track}: added clip ${id}`);
   } catch (e) {
     console.error(

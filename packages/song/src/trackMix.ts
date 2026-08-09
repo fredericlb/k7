@@ -13,12 +13,14 @@ import {
 } from "./yaml/materialFile";
 import { entityFileFor, entityFiles } from "./yaml/moduleIO";
 import {
+  addAlternative,
   addPlacement,
   findPlacementAt,
   movePlacementAt,
   placementAt,
   placementValues,
   removePlacementAt,
+  setAlternative,
   setPlacementField,
   setTrackField,
 } from "./yaml/trackFile";
@@ -344,4 +346,46 @@ export function setTrackFields(
     },
     `set ${Object.keys(fields).join(", ")}`,
   );
+}
+
+// --- a track's ALTERNATIVES (see trackAlternatives.ts) -------------------------
+
+/** Switch track `id` to the alternative called `name`. Throws if it has no such one. */
+export function switchTrackAlternative(
+  dir: string,
+  id: string,
+  name: string,
+): void {
+  editTrackStruct(
+    dir,
+    id,
+    (text) => setAlternative(text, name),
+    "switch alternative",
+  );
+}
+
+/**
+ * Add an alternative to track `id` and switch to it; answers the name it got.
+ *
+ * The name comes back rather than being assumed by the caller, because an unnamed one is
+ * numbered HERE, from the file — the only place that knows what is already taken.
+ */
+export function newTrackAlternative(
+  dir: string,
+  id: string,
+  name?: string,
+  opts: { copy?: boolean } = {},
+): string {
+  let chosen = name ?? "";
+  editTrackStruct(
+    dir,
+    id,
+    (text) => {
+      const made = addAlternative(text, name, opts);
+      chosen = made.name;
+      return made.text;
+    },
+    "add an alternative",
+  );
+  return chosen;
 }

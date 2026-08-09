@@ -8,8 +8,10 @@ import { readdirSync, unlinkSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { beatGrid, regionWaveform } from "@studio/commands/waveform";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import { resolveOnsets } from "@studio/song/onsets";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 import { loadAudioClipDoc } from "@studio/song/project";
+import { clipOnsets } from "@studio/song/projectEdit";
 import type { WaveformStatus, WebWaveform } from "@studio/web-protocol";
 import {
   CACHE_EXT,
@@ -160,13 +162,27 @@ export class WaveformOps {
       findEngineBinary(),
       sensitivity,
     );
+    // The clip's own corrections, applied to the DETECTED set before anything maps it into the region: both
+    // are file seconds, and the region mapping is what turns them into the display seconds a surface draws.
+    // Resolved here rather than in each surface, so the slice widget, the clip block and the take review all
+    // draw the same onsets without knowing corrections exist. See song/onsets.ts.
+    const edits = clipOnsets(dir, clipId);
+    const corrected = { ...env, transients: resolveOnsets(env.transients, edits) };
+
     const key = this.wfKey(`${clipId}${whole ? "::whole" : ""}`, buckets);
     // The sensitivity rides in the signature: re-detecting changes the onsets and nothing else, and a memo keyed
-    // only on the fingerprint would keep serving the previous threshold's answer.
-    const sig = `${wfSig(env.fingerprint, clip, p, buckets)}|${env.sensitivity}`;
+    // only on the fingerprint would keep serving the previous threshold's answer. The corrections ride there for
+    // exactly the same reason — moving one onset must not be answered from the memo of the last one.
+    const sig = `${wfSig(env.fingerprint, clip, p, buckets)}|${env.sensitivity}|${JSON.stringify(edits)}`;
     const cached = this.wfCache.get(key);
     if (cached && cached.sig === sig) return cached.data;
-    const data = buildWaveform(env, clip, p, buckets);
+    const data = {
+      ...buildWaveform(corrected, clip, p, buckets),
+      // The raw set, mapped the same way, so an editor can tell which pins it may only refuse and which it
+      // may pick up — and the corrections as the file holds them, in file seconds.
+      detected: buildWaveform(env, clip, p, buckets).transients,
+      onsetEdits: edits,
+    };
     this.wfCache.set(key, { sig, data });
     return data;
   }

@@ -12,6 +12,20 @@ const q = (s: string) => JSON.stringify(s);
 export const BENCH_MARKER = "mediatekBench";
 
 /**
+ * The bench's own furniture, named once.
+ *
+ * The map below writes these names, and `benchChain` translates a shared chain's `@in`/`@out`
+ * into them and back. Exported so the second reader is not a COPY: a bench whose track were
+ * renamed here while the translation still said "banc" would rewrite every chain it saved.
+ * `scaffoldBench.test.ts` holds the two ends together.
+ */
+export const BENCH_EDGES = {
+  track: "banc",
+  out: "OUT",
+  strip: "mixer",
+} as const;
+
+/**
  * The bench's files, keyed by path relative to the project folder.
  *
  * Deliberately almost empty. The catalogue is mirrored INTO `modules/` afterwards, by the file

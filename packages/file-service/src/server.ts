@@ -11,10 +11,11 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import { ensureBench } from "./bench.ts";
+import { ensureBench, ensureChainBench } from "./bench.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
   engineTokenState,
@@ -171,7 +172,10 @@ app.get(
 );
 
 /**
- * The MODULE BENCH — made, or refreshed, and answered as a workspace + project.
+ * The BENCH — made, or refreshed, and answered as a workspace + project.
+ *
+ * On the catalogue at large (`modules.l8`) or on ONE médiathèque chain (`chains/<path>.l8`),
+ * which is the address's project part and the only difference between the two.
  *
  * Its own route rather than a clone, because there is no repository: the bench is generated
  * from the médiathèque's catalogue and regenerated every time it is opened, so putting it under
@@ -185,11 +189,22 @@ app.get(
 app.post(
   "/workspaces/bench",
   wrap(async (req, res) => {
+    // Which project the address named. `chains/<path>.l8` opens the bench on that chain; the
+    // module bench is what no project, or any other name, means. The path is the médiathèque's,
+    // and `benchChainPath` is the one place either end spells that rule.
+    const chain = benchChainPath(String(req.body?.project ?? ""));
     try {
-      await syncMediatekFamily("modules");
-      res.json(ensureBench(req.userEmail!));
+      await syncMediatekFamily(chain ? "chains" : "modules");
+      if (chain) await syncMediatekFamily("modules"); // the chain names them; the bench mirrors them
+      res.json(
+        chain
+          ? ensureChainBench(req.userEmail!, chain)
+          : ensureBench(req.userEmail!),
+      );
     } catch (e) {
-      res.status(500).json({ error: (e as Error).message });
+      // A chain that will not open is the USER's problem to read — no such chain, or a name that
+      // collides with the bench's own furniture — so it is a 409 and not a fault.
+      res.status(chain ? 409 : 500).json({ error: (e as Error).message });
     }
   }),
 );

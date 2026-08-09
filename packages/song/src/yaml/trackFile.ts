@@ -5,6 +5,7 @@
 
 import { isSeq, LineCounter, parseDocument, Scalar, visit } from "yaml";
 import { parsePosition } from "../timecode";
+import { currentAlternative, pickAlternative } from "../trackAlternatives";
 import type { ModuleIssue } from "./moduleFile";
 import {
   TIMECODE,
@@ -85,6 +86,35 @@ function put(
   doc.setIn(path, node);
 }
 
+/**
+ * WHERE this file's clips are: `clips:`, or the alternative currently selected.
+ *
+ * Every edit below goes through this, and that is the whole of what alternatives cost the editing
+ * layer — drag a clip while the second variant is showing and it is the second variant that is
+ * written, not the first. Getting this wrong would not fail loudly: it would quietly edit an
+ * arrangement nobody is looking at, and lose the one they are.
+ *
+ * Read off the DOCUMENT rather than a validated track, for the same reason `placementValues` is:
+ * a file with one bad field elsewhere still has clips you can point at.
+ */
+function clipsPath(doc: ReturnType<typeof parseDocument>): (string | number)[] {
+  const alts = doc.getIn(["alternatives"]);
+  if (!isSeq(alts) || !alts.items.length) return ["clips"];
+  const names = [
+    "1",
+    ...alts.items.map((_it, i) => {
+      const name = doc.getIn(["alternatives", i, "name"]);
+      return name === undefined || name === null ? String(i + 2) : String(name);
+    }),
+  ];
+  const want = doc.getIn(["alternative"]);
+  const at = pickAlternative(
+    names,
+    want === undefined || want === null ? undefined : String(want),
+  );
+  return at === 0 ? ["clips"] : ["alternatives", at - 1, "clips"];
+}
+
 /** Set one field on the track — what a fader or a mute button writes. */
 export function setTrackField(
   text: string,
@@ -101,7 +131,7 @@ export function setTrackField(
 
 /** One placement per line — the shape the file already uses, kept on every write. */
 function flowPlacements(doc: ReturnType<typeof parseDocument>): void {
-  const clips = doc.getIn(["clips"]);
+  const clips = doc.getIn(clipsPath(doc));
   if (!isSeq(clips)) return;
   for (const p of clips.items)
     if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
@@ -111,7 +141,9 @@ function flowPlacements(doc: ReturnType<typeof parseDocument>): void {
 export function findPlacement(text: string, start: string): number {
   const { value } = parseTrack(text);
   if (!value || value.type !== "single") return -1;
-  return (value.clips ?? []).findIndex((p) => p.start === start);
+  // The current alternative's placements, so an index means the same thing here as in the
+  // document edits below — which is what makes `findPlacement` + `movePlacement` a valid pair.
+  return currentAlternative(value).clips.findIndex((p) => p.start === start);
 }
 
 /** Move the placement at `start` to `to` — a clip drag, or `event move`. */
@@ -119,7 +151,7 @@ export function movePlacement(text: string, start: string, to: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
-  doc.setIn(["clips", at, "start"], to);
+  doc.setIn([...clipsPath(doc), at, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -129,7 +161,7 @@ export function removePlacement(text: string, start: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
-  doc.deleteIn(["clips", at]);
+  doc.deleteIn([...clipsPath(doc), at]);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -141,11 +173,12 @@ export function addPlacement(
   placement: { ref: string; start?: string; loop?: number },
 ): string {
   const doc = parseDocument(text, OPTS);
-  const clips = doc.getIn(["clips"]);
+  const at = clipsPath(doc);
+  const clips = doc.getIn(at);
   const node = doc.createNode(placement);
   node.flow = true; // one placement per line, as the file already writes them
   if (isSeq(clips)) clips.items.push(node);
-  else doc.setIn(["clips"], doc.createNode([node]));
+  else doc.setIn(at, doc.createNode([node]));
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -160,10 +193,11 @@ export function findPlacementAt(
   den: number,
 ): number {
   const doc = parseDocument(text, OPTS);
-  const clips = doc.getIn(["clips"]);
+  const at = clipsPath(doc);
+  const clips = doc.getIn(at);
   if (!isSeq(clips)) return -1;
   return clips.items.findIndex((_p, i) => {
-    const start = doc.getIn(["clips", i, "start"]);
+    const start = doc.getIn([...at, i, "start"]);
     try {
       return (
         Math.abs(parsePosition(String(start ?? "1:1:1"), num, den) - beats) <
@@ -181,9 +215,10 @@ export function placementAt(
   index: number,
 ): Record<string, unknown> | null {
   const doc = parseDocument(text, OPTS);
-  const clips = doc.getIn(["clips"]);
+  const at = clipsPath(doc);
+  const clips = doc.getIn(at);
   if (!isSeq(clips) || index < 0 || index >= clips.items.length) return null;
-  return doc.getIn(["clips", index], false) as Record<string, unknown> | null;
+  return doc.getIn([...at, index], false) as Record<string, unknown> | null;
 }
 
 /**
@@ -199,7 +234,7 @@ export function placementAt(
  */
 export function placementValues(text: string): Record<string, unknown>[] {
   const doc = parseDocument(text, OPTS);
-  const clips = doc.getIn(["clips"]);
+  const clips = doc.getIn(clipsPath(doc));
   if (!isSeq(clips)) return [];
   return clips.items.map(
     (it) =>
@@ -213,7 +248,7 @@ export function placementValues(text: string): Record<string, unknown>[] {
 /** Drop the placement at `index`. */
 export function removePlacementAt(text: string, index: number): string {
   const doc = parseDocument(text, OPTS);
-  doc.deleteIn(["clips", index]);
+  doc.deleteIn([...clipsPath(doc), index]);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -229,8 +264,9 @@ export function setPlacementField(
   value: string | number | boolean | undefined,
 ): string {
   const doc = parseDocument(text, OPTS);
-  if (value === undefined) doc.deleteIn(["clips", index, field]);
-  else doc.setIn(["clips", index, field], value);
+  const at = clipsPath(doc);
+  if (value === undefined) doc.deleteIn([...at, index, field]);
+  else doc.setIn([...at, index, field], value);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -242,7 +278,81 @@ export function movePlacementAt(
   to: string,
 ): string {
   const doc = parseDocument(text, OPTS);
-  doc.setIn(["clips", index, "start"], to);
+  doc.setIn([...clipsPath(doc), index, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
+}
+
+// --- the ALTERNATIVES themselves (see ../trackAlternatives.ts) ------------------
+
+/** Every variant's name, in order — `clips:` is the first and is always "1". */
+export function alternativeNames(text: string): string[] {
+  const doc = parseDocument(text, OPTS);
+  const alts = doc.getIn(["alternatives"]);
+  if (!isSeq(alts)) return ["1"];
+  return [
+    "1",
+    ...alts.items.map((_it, i) => {
+      const name = doc.getIn(["alternatives", i, "name"]);
+      return name === undefined || name === null ? String(i + 2) : String(name);
+    }),
+  ];
+}
+
+/**
+ * Switch which variant plays — ONE line rewritten, whatever the clip lists hold.
+ *
+ * That is the point of the format: the arrangements stay where they are, so a switch is a
+ * one-line diff in git and a one-line entry in the undo journal, and nothing can be lost
+ * half-way through moving a clip list from one key to another.
+ *
+ * Back to the first clears the key rather than writing `alternative: 1` — a track that plays its
+ * own `clips:` is a track that says nothing about alternatives, which is how every song that
+ * never uses them stays byte-identical.
+ */
+export function setAlternative(text: string, name: string): string {
+  const names = alternativeNames(text);
+  const at = pickAlternative(names, name);
+  if (names[at] !== name) throw new Error(`no alternative "${name}"`);
+  const doc = parseDocument(text, OPTS);
+  if (at === 0) doc.deleteIn(["alternative"]);
+  else doc.setIn(["alternative"], name);
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
+/**
+ * Add a variant and switch to it. Empty, or a copy of the one currently playing.
+ *
+ * Empty is the default because that is what a second take IS — the lane cleared, ready for
+ * another pass. Copying is the other half of the same wish (keep this arrangement, try a change
+ * to it), and doing it here rather than by hand means the copy carries every field of every
+ * placement, which a re-typed one would not.
+ */
+export function addAlternative(
+  text: string,
+  name?: string,
+  { copy = false }: { copy?: boolean } = {},
+): { text: string; name: string } {
+  const names = alternativeNames(text);
+  const chosen = name ?? String(names.length + 1);
+  if (names.includes(chosen))
+    throw new Error(`this track already has an alternative "${chosen}"`);
+
+  const doc = parseDocument(text, OPTS);
+  // The clips BEFORE the new entry exists, or a copy would copy itself.
+  const clips = copy ? (placementValues(text) as unknown[]) : ([] as unknown[]);
+  const entry: Record<string, unknown> = {};
+  // Named only when the author said one: an unnamed variant is known by its position, and
+  // writing "3" into the file would freeze a name that is meant to follow the order.
+  if (name !== undefined) entry.name = name;
+  entry.clips = clips;
+  const node = doc.createNode(entry);
+  const alts = doc.getIn(["alternatives"]);
+  if (isSeq(alts)) alts.items.push(node);
+  else doc.setIn(["alternatives"], doc.createNode([node]));
+  doc.setIn(["alternative"], chosen);
+  flowPlacements(doc);
+  quoteTimecodes(doc);
+  return { text: doc.toString(OUT), name: chosen };
 }

@@ -33,6 +33,20 @@ export const PlacementSchema = z
   })
   .strict();
 
+/**
+ * One VARIANT of a track's clip list — another take of the same lane.
+ *
+ * The track's own `clips:` is the first variant and is not repeated here; these are the ones
+ * after it. `name` is optional because an unnamed variant is known by its position, which is what
+ * makes trying a second arrangement cost nothing to name. See trackAlternatives.ts.
+ */
+export const AlternativeSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    clips: z.array(PlacementSchema).optional(),
+  })
+  .strict();
+
 // Spread into each kind rather than a base schema: a discriminated union needs the discriminant on the object.
 const base = {
   color: z.string().optional(),
@@ -55,6 +69,13 @@ export const SingleTrackSchema = z
     type: z.literal("single"),
     contentType: z.enum(["audio", "sequences"]).optional(),
     clips: z.array(PlacementSchema).optional(),
+    // The variants of `clips` above, which is itself the first of them. Which one PLAYS is
+    // `alternative`, by name or by 1-based position; absent means the first. A number is
+    // accepted as written, since an unnamed variant is known by one.
+    alternatives: z.array(AlternativeSchema).optional(),
+    alternative: z
+      .union([z.string().min(1), z.number().int().min(1)])
+      .optional(),
     frozen,
     // DEAD, and still accepted, the same bargain `modules_from` gets in projectSchema.ts.
     // It named the video track whose placements this one played the sound of — a link that

@@ -60,6 +60,7 @@ import type { WebProject, WebTrack } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { ClipContent } from "./ClipContent";
 import type { EditTarget } from "./EditorPanel";
+import { TrackAlternatives } from "./TrackAlternatives";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
@@ -381,6 +382,8 @@ export function TimelineTab({
   onFocusRow,
   trackControls,
   onTrackToggle,
+  onPickAlternative,
+  onNewAlternative,
   ref,
 }: {
   active: boolean;
@@ -432,6 +435,10 @@ export function TimelineTab({
   // Per-track mute/solo/arm by track id — the same state the graph's track nodes draw, so the two stay in lockstep.
   trackControls?: Record<string, { mute: number; solo: number; arm: number }>;
   onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
+  // A lane's clip list has VARIANTS (see TrackAlternatives). Reported as intent rather than run
+  // here, the same way a clip move is: the shell owns which command that is and when to reload.
+  onPickAlternative?: (id: string, name: string) => void;
+  onNewAlternative?: (id: string, copy: boolean) => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
   // The ONE live value the body itself needs, and it changes on a keystroke rather than on a
@@ -1714,6 +1721,21 @@ export function TimelineTab({
                     labelled && LABEL_SELECTED,
                   )}
                 >
+                  {/* Which variant of this lane's clips is playing, and how to start another.
+                      First in the row because it is about the lane as a whole, and because a
+                      lane showing a variant has to say so before you read its name. */}
+                  {onPickAlternative &&
+                    onNewAlternative &&
+                    !t.generated &&
+                    !t.frozen && (
+                    <TrackAlternatives
+                      track={t.id}
+                      names={t.alternatives ?? ["1"]}
+                      current={t.alternative ?? "1"}
+                      onPick={(n) => onPickAlternative(t.id, n)}
+                      onAdd={(copy) => onNewAlternative(t.id, copy)}
+                    />
+                  )}
                   {/* Both live meters, subscribing for themselves — see LaneMeter. */}
                   <LaneMeter index={ti} armed={armed} />
                   {/* The instrument its name's prefix asks for ("ge.lead" → a strat),

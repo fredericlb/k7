@@ -17,6 +17,8 @@
     "./preferences": "./src/preferences.ts",
     "./timecode": "./src/timecode.ts",
     "./materialWindow": "./src/materialWindow.ts",
+    "./onsets": "./src/onsets.ts",
+    "./benchChain": "./src/benchChain.ts",
     "./projectEdit": "./src/projectEdit.ts",
     "./curves": "./src/curves.ts",
     "./moduleFork": "./src/moduleFork.ts",
