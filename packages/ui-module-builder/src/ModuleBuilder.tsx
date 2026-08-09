@@ -17,6 +17,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { FILE_PARAMS } from "@studio/song/moduleTypes";
+import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type {
   Hints,
   ModulePresetsFile,
@@ -30,7 +31,6 @@ import {
   LayoutGrid,
   Loader2,
   type LucideIcon,
-  Save,
   SlidersHorizontal,
 } from "lucide-react";
 import {
@@ -84,6 +84,16 @@ const baseName = (p: string | undefined): string | undefined =>
 // answers with the path a file WOULD take, so these are only ever seen for the moment before it does.
 const UI_BASENAME = "ui.yaml";
 const PRESETS_BASENAME = "presets.yaml";
+
+// What the header says where the Save button was. "clean" says nothing: four files on disk is
+// the ordinary state of this screen and does not need announcing.
+const SAVE_LABEL: Record<string, string> = {
+  clean: "",
+  pending: "edited",
+  saving: "saving…",
+  held: "not saved",
+  error: "save failed",
+};
 
 // The preset menu's sections in display order, each with the icon for its source: program bank, OS file.
 const PRESET_GROUPS: {
@@ -158,26 +168,32 @@ export function ModuleBuilder({
   const [ui, setUi] = useState<ModuleUI | null>(null);
   const [parsable, setParsable] = useState(true);
   const [hints, setHints] = useState<Hints | null>(null);
-  const [dirty, setDirty] = useState(false);
+  // What is on disk, one string per file. Every "dirty" below is derived from it and the
+  // buffer rather than being a flag of its own: four flags and four buffers is four chances
+  // for the screen to disagree with the disk, and autosave writes far too often for that.
+  const [savedModule, setSavedModule] = useState("");
+  const [savedUi, setSavedUi] = useState("");
+  const [savedPresets, setSavedPresets] = useState("");
+  const [savedDsp, setSavedDsp] = useState("");
+  const dirty = content != null && content !== savedModule;
   // The module's panel is the `ui.yaml` beside its module file (see uiLibrary.ts), which is what the grid
   // edits. It may not exist yet — the server answers with the path it WOULD take and a blank grid, so the
   // first save creates it through the ordinary write route.
   const [uiFile, setUiFile] = useState<ModuleUiFile | null>(null);
-  const [uiDirty, setUiDirty] = useState(false);
+  const uiDirty = !!uiFile && uiFile.content !== savedUi;
   // …and the third file, the module's named settings. Read as a FILE like the other two, not fetched as a
   // list, because it is one you type into as readily as you click (see moduleUi.ts).
   const [presetFile, setPresetFile] = useState<ModulePresetsFile | null>(null);
-  const [presetsDirty, setPresetsDirty] = useState(false);
+  const presetsDirty = !!presetFile && presetFile.content !== savedPresets;
   // …and the fourth, which only a `plugin: {type: jsdsp}` module has: its own DSP source. Not
   // YAML — the pane below highlights it as such — and fetched only when the module claims one,
   // so an ordinary module never asks its host for a file that is not there.
   const [dspFile, setDspFile] = useState<ModulePresetsFile | null>(null);
-  const [dspDirty, setDspDirty] = useState(false);
+  const dspDirty = !!dspFile && dspFile.content !== savedDsp;
   // Which file the CODE pane shows. Three files, one pane: what the module IS, how it is drawn, and its named
   // settings. The PANEL opens first — it is what the grid beside it edits, and what people come to this screen
   // for. The other two are a tab away.
   const [pane, setPane] = useState<BuilderPane>(initialPane ?? "panel");
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Factory presets need a live plugin instance, so ask only when editing the module itself.
   useEffect(() => {
@@ -212,15 +228,16 @@ export function ModuleBuilder({
   /**
    * Apply a preset from the shelf: stamp its values into the module BUFFER.
    *
-   * An edit and nothing more — no state to push, no engine to ask. It lands unsaved, so it is visible before it
-   * is committed and undone by not saving, which is what makes trying four presets in a row bearable.
+   * An edit and nothing more — no state to push, no engine to ask. It is written like any other
+   * edit, so trying four presets in a row writes four times; Ctrl+Z in the code pane takes each
+   * one back, and l8's journal has them all. It used to be undone by simply not saving, which
+   * was an affordance of the button and went with it.
    */
   const applyShelfPreset = useCallback(
     (name: string) => {
       const values = shelf[name];
       if (!values || content == null) return;
       setContent(applyPresetToText(content, values));
-      setDirty(true);
       setStatus(`preset: ${name}`);
     },
     [shelf, content, setStatus],
@@ -241,14 +258,16 @@ export function ModuleBuilder({
     setContent(null);
     setUiFile(null);
     setPresetFile(null);
-    setDirty(false);
-    setUiDirty(false);
-    setPresetsDirty(false);
     setError(null);
     store
       .read(path)
       // Absent is a buffer, not an error — see ModuleStore.read.
-      .then((text) => alive && setContent(text ?? ""))
+      .then((text) => {
+        if (!alive) return;
+        // An edit that could never be written outlived this screen — give it back, not disk.
+        setContent(recallBuffer(path) ?? text ?? "");
+        setSavedModule(text ?? "");
+      })
       .catch((e) => alive && setError((e as Error).message));
     // The panel is fetched separately and is allowed to fail: a file that isn't a module (a base being edited
     // by path, say) still opens for its text — the grid is just disabled.
@@ -256,15 +275,22 @@ export function ModuleBuilder({
       .moduleUi(path)
       .then((f) => {
         if (!alive) return;
-        setUiFile(f);
-        setUi(readUiFile(f.content));
-        setParsable(!hasMalformedUiFile(f.content));
+        const kept = recallBuffer(f.path);
+        setUiFile(kept == null ? f : { ...f, content: kept });
+        setSavedUi(f.content);
+        setUi(readUiFile(kept ?? f.content));
+        setParsable(!hasMalformedUiFile(kept ?? f.content));
       })
       .catch(() => alive && setParsable(false));
     // The shelf, allowed to fail for the same reason: a file that isn't a module still opens for its text.
     store
       .presets(path)
-      .then((f) => alive && setPresetFile(f))
+      .then((f) => {
+        if (!alive) return;
+        const kept = recallBuffer(f.path);
+        setPresetFile(kept == null ? f : { ...f, content: kept });
+        setSavedPresets(f.content);
+      })
       .catch(() => alive && setPresetFile(null));
     store
       .hints()
@@ -283,7 +309,12 @@ export function ModuleBuilder({
     let alive = true;
     void store
       .jsdsp(path)
-      .then((f) => alive && setDspFile(f))
+      .then((f) => {
+        if (!alive) return;
+        const kept = recallBuffer(f.path);
+        setDspFile(kept == null ? f : { ...f, content: kept });
+        setSavedDsp(f.content);
+      })
       .catch(() => alive && setDspFile(null));
     return () => {
       alive = false;
@@ -295,7 +326,6 @@ export function ModuleBuilder({
     setUi(next);
     setUiFile((f) => (f ? { ...f, content: writeUiFile(f.content, next) } : f));
     setParsable(true);
-    setUiDirty(true);
   }, []);
 
   // A code edit in the PANEL syncs the grid while it still parses, and greys it out rather than misreading it.
@@ -307,107 +337,128 @@ export function ModuleBuilder({
         setUi(readUiFile(text));
         setParsable(true);
       }
-      setUiDirty(true);
       return { ...f, content: text };
     });
   }, []);
 
   // A code edit in the SHELF: no grid to sync, only the dropdown, which reads it fresh each render.
   const onPresetsChange = useCallback((text: string) => {
-    setPresetFile((f) => {
-      if (!f || f.content === text) return f;
-      setPresetsDirty(true);
-      return { ...f, content: text };
-    });
+    setPresetFile((f) =>
+      !f || f.content === text ? f : { ...f, content: text },
+    );
   }, []);
 
   // A code edit in the DSP source: no grid, no dropdown — it is compiled by the loader, not read here.
   const onDspChange = useCallback((text: string) => {
     setDspFile((f) => {
       if (!f || f.content === text) return f;
-      setDspDirty(true);
       return { ...f, content: text };
     });
   }, []);
 
   // A code edit in the MODULE file touches no grid — the panel moved out of it.
   const onCodeChange = useCallback((text: string) => {
-    setContent((c) => {
-      if (c === text) return c;
-      setDirty(true);
-      return text;
-    });
+    setContent((c) => (c === text ? c : text));
   }, []);
 
-  const save = useCallback(async () => {
-    if (content == null) return;
-    setSaving(true);
-    try {
-      // The panel first, and on its own path: it is the ordinary case — the grid is what people come here for.
-      // A panel saves in place wherever it is, shared library included, so nothing can redirect it.
-      if (uiDirty && uiFile) {
-        await store.write(uiFile.path, uiFile.content);
-        setUiDirty(false);
-        setUiFile((f) => (f ? { ...f, exists: true } : f));
-        setStatus(`saved ${uiFile.path}`);
-        onSaved();
-        if (!dirty) return;
-      }
-      // The DSP source, same rule again: it is a file in the module's folder, so it saves there.
-      if (dspDirty && dspFile) {
-        await store.write(dspFile.path, dspFile.content);
-        setDspDirty(false);
-        setDspFile((f) => (f ? { ...f, exists: true } : f));
-        setStatus(`saved ${dspFile.path}`);
-        onSaved();
-        if (!dirty) return;
-      }
-      // The shelf, same rule as the panel: it is the module's own file and saves where the module is.
-      if (presetsDirty && presetFile) {
-        await store.write(presetFile.path, presetFile.content);
-        setPresetsDirty(false);
-        setPresetFile((f) => (f ? { ...f, exists: true } : f));
-        setStatus(`saved ${presetFile.path}`);
-        onSaved();
-        if (!dirty) return;
-      }
-      // The module file CAN be redirected: l8 copies a shared module into the project rather
-      // than writing into the library. The host is told and reopens — following the new path from
-      // here would leave the engine link and the title pointing at the module that was not edited.
-      const landed = await store.write(path, content);
+  /**
+   * Four files, four autosaves — not one save that walks them in order.
+   *
+   * They are four documents on disk with four schemas, and the whole point of the rule is that a
+   * file is written when IT is readable: a half-typed widget in the panel must not stop the
+   * module file being saved, which is exactly what a single button that wrote them in sequence
+   * did. Each one holds its own text back and says so on its own tab.
+   */
+  const writeSidecar = useCallback(
+    async (
+      file: ModulePresetsFile | null,
+      set: (
+        f: (p: ModulePresetsFile | null) => ModulePresetsFile | null,
+      ) => void,
+      text: string,
+    ) => {
+      if (!file) return;
+      // A sidecar saves in place wherever it is, shared library included: nothing redirects it.
+      await store.write(file.path, text);
+      set((f) => (f ? { ...f, exists: true } : f));
+      setStatus(`saved ${file.path}`);
       onSaved();
-      if (landed.path && landed.path !== path) {
-        setDirty(false);
-        setStatus(landed.note ?? `saved ${landed.path}`);
-        onRelocated?.(landed.path);
-        return;
-      }
-      // Read back what landed, as this editor always did on save.
-      try {
-        setContent((await store.read(path)) ?? "");
-      } catch {
-        /* cosmetic */
-      }
-      setDirty(false);
-      setStatus(`saved ${path}`);
-    } catch (e) {
-      setStatus(`save error: ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [
-    store,
-    content,
-    path,
-    uiFile,
-    uiDirty,
-    presetFile,
-    presetsDirty,
-    dirty,
-    onSaved,
-    onRelocated,
-    setStatus,
-  ]);
+    },
+    [store, onSaved, setStatus],
+  );
+
+  const panelSave = useAutosave({
+    path: uiFile?.path ?? null,
+    text: uiFile?.content ?? "",
+    saved: savedUi,
+    write: useCallback(
+      async (text: string) => {
+        await writeSidecar(uiFile, setUiFile, text);
+        setSavedUi(text);
+      },
+      [uiFile, writeSidecar],
+    ),
+  });
+  const dspSave = useAutosave({
+    path: dspFile?.path ?? null,
+    text: dspFile?.content ?? "",
+    saved: savedDsp,
+    write: useCallback(
+      async (text: string) => {
+        await writeSidecar(dspFile, setDspFile, text);
+        setSavedDsp(text);
+      },
+      [dspFile, writeSidecar],
+    ),
+  });
+  const presetsSave = useAutosave({
+    path: presetFile?.path ?? null,
+    text: presetFile?.content ?? "",
+    saved: savedPresets,
+    write: useCallback(
+      async (text: string) => {
+        await writeSidecar(presetFile, setPresetFile, text);
+        setSavedPresets(text);
+      },
+      [presetFile, writeSidecar],
+    ),
+  });
+  const moduleSave = useAutosave({
+    path: content == null ? null : path,
+    text: content ?? "",
+    saved: savedModule,
+    write: useCallback(
+      async (text: string) => {
+        // The module file CAN be redirected: l8 copies a shared module into the project rather
+        // than writing into the library. The host is told and reopens — following the new path
+        // from here would leave the engine link and the title pointing at the module that was
+        // not edited.
+        const landed = await store.write(path, text);
+        setSavedModule(text);
+        onSaved();
+        if (landed.path && landed.path !== path) {
+          setStatus(landed.note ?? `saved ${landed.path}`);
+          onRelocated?.(landed.path);
+          return;
+        }
+        setStatus(`saved ${path}`);
+      },
+      [store, path, onSaved, onRelocated, setStatus],
+    ),
+  });
+
+  // One badge for four files: the loudest thing any of them has to say. Which file it is about
+  // is on its tab, where the name already is.
+  const saveState = loudest([moduleSave, panelSave, dspSave, presetsSave]);
+  // The pane on screen is the one Ctrl+S (and vim's `:w`) means.
+  const paneSave =
+    pane === "panel"
+      ? panelSave
+      : pane === "presets"
+        ? presetsSave
+        : pane === "jsdsp"
+          ? dspSave
+          : moduleSave;
 
   /**
    * The hints the code pane completes against: the store's, plus whatever the host learnt
@@ -551,20 +602,28 @@ export function ModuleBuilder({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button
-            size="sm"
-            // Either file being dirty is unsaved work, and one button saves both.
-            variant={dirty || uiDirty ? "default" : "secondary"}
-            disabled={saving || content == null}
-            onClick={() => void save()}
-          >
-            {saving ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-1 h-4 w-4" />
+          {/* Where the Save button was. Silent while the four files are on disk, amber with the
+              reason while one of them is being held back. */}
+          <span
+            className={cn(
+              "flex min-w-0 items-center gap-1 text-xs",
+              saveState.status === "held" || saveState.status === "error"
+                ? "text-amber-500"
+                : "text-muted-foreground",
             )}
-            Save{dirty || uiDirty ? " *" : ""}
-          </Button>
+            title={saveState.reason ?? undefined}
+          >
+            {saveState.status === "saving" && (
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+            )}
+            <span className="truncate">
+              {SAVE_LABEL[saveState.status]}
+              {(saveState.status === "held" || saveState.status === "error") &&
+              saveState.reason
+                ? ` — ${saveState.reason}`
+                : ""}
+            </span>
+          </span>
         </div>
       </header>
 
@@ -679,7 +738,7 @@ export function ModuleBuilder({
                         ? onDspChange
                         : onCodeChange
                 }
-                onSave={() => void save()}
+                onSave={paneSave.flush}
               />
             </div>
             <ParamsPane rows={paramRows} />

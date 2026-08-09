@@ -4,12 +4,14 @@
 
 import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { ArrowLeft, Loader2, Save, Workflow } from "lucide-react";
+import { ArrowLeft, Loader2, Workflow } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { ChainView } from "./ChainView";
 import { chainNodes, chainsVocabulary } from "./chainsVocabulary";
+import { SaveState } from "./SaveState";
 
 /** The file that IS the chain — the same name and shape a l8 project uses at its root. */
 const CHAINS_FILE = "chains.yaml";
@@ -29,17 +31,22 @@ export function ChainEditor({
   // `meta` is deliberately loose (a listing is family-agnostic), so the count is narrowed here.
   const instances = Number(entry.meta?.instances ?? 0);
   const [content, setContent] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
+  // could leave lying — the same rule the other editors keep.
+  const [saved, setSaved] = useState("");
   const [status, setStatus] = useState("");
 
   useEffect(() => {
     let alive = true;
     setContent(null);
-    setDirty(false);
     void library
       .readFile(path)
-      .then((f) => alive && setContent(f.content))
+      .then((f) => {
+        if (!alive) return;
+        // An edit that could not be written outlived this screen — give it back, not disk.
+        setContent(recallBuffer(path) ?? f.content);
+        setSaved(f.content);
+      })
       .catch((e: Error) => alive && setStatus(e.message));
     return () => {
       alive = false;
@@ -65,20 +72,22 @@ export function ChainEditor({
     [path, nodes],
   );
 
-  const save = useCallback(async () => {
-    if (content == null) return;
-    setSaving(true);
-    try {
-      await library.writeFile(path, content);
-      setDirty(false);
+  // No Save button: written as soon as it is a chains file the compiler could read.
+  const write = useCallback(
+    async (next: string) => {
+      await library.writeFile(path, next);
+      setSaved(next);
       setStatus(`enregistré ${path}`);
       onSaved();
-    } catch (e) {
-      setStatus(`erreur : ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [content, path, onSaved]);
+    },
+    [path, onSaved],
+  );
+  const autosave = useAutosave({
+    path: content == null ? null : path,
+    text: content ?? "",
+    saved,
+    write,
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -94,20 +103,7 @@ export function ChainEditor({
             {path}
           </div>
         </div>
-        <Button
-          size="sm"
-          className="ml-auto"
-          variant={dirty ? "default" : "secondary"}
-          disabled={saving || content == null}
-          onClick={() => void save()}
-        >
-          {saving ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-1 h-4 w-4" />
-          )}
-          Enregistrer{dirty ? " *" : ""}
-        </Button>
+        <SaveState autosave={autosave} className="ml-auto shrink-0" />
       </header>
 
       {content == null ? (
@@ -125,11 +121,8 @@ export function ChainEditor({
               // ./chainsVocabulary.ts.
               vocabulary={vocabulary}
               vimMode={vimMode}
-              onChange={(text) => {
-                setContent(text);
-                setDirty(true);
-              }}
-              onSave={() => void save()}
+              onChange={setContent}
+              onSave={autosave.flush}
             />
           </div>
           <div className="min-h-0 min-w-0 flex-1">

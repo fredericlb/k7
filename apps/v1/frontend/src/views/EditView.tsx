@@ -1,7 +1,7 @@
 // EditView.tsx — the project's files as text, and, for an open `video_tracks/*.yaml`, the
 // readers strip beneath: one small <video> per placement, whose Set From / Set To write that
-// placement's `source_from` / `length` into the BUFFER. Nothing leaves the browser until the
-// author saves, which is why the strip reads the text rather than the compiled document.
+// placement's `source_from` / `length` into the BUFFER. The strip reads the text rather than
+// the compiled document, because the buffer is a step ahead of what the compiler has seen.
 
 import { autocompletion } from "@codemirror/autocomplete";
 import type { Extension } from "@codemirror/state";
@@ -9,18 +9,30 @@ import {
   listVideoPlacements,
   setVideoPlacementField,
 } from "@studio/song/yaml/videoTrackFile";
+import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
 import { projectLanguage } from "@studio/ui-editor/yaml/language";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import type { Hints } from "@studio/web-protocol";
 import CodeMirror from "@uiw/react-codemirror";
-import { Loader2, Save } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import {
   type VideoReader,
   VideoReadersStrip,
 } from "../components/VideoReadersStrip";
+
+// What the toolbar says about the buffer. "clean" says nothing: a file that is saved is the
+// normal state and does not need a badge.
+const SAVE_LABEL: Record<string, string> = {
+  clean: "",
+  pending: "modifié",
+  saving: "enregistrement…",
+  held: "non enregistré",
+  error: "échec de l'enregistrement",
+};
+const HELD = new Set(["held", "error"]);
 
 export function EditView({
   path,
@@ -62,7 +74,9 @@ export function EditView({
       .read(path)
       .then((f) => {
         if (cancelled) return;
-        setText(f.content);
+        // An edit that could never be written — it did not compile — outlived the pane showing
+        // it. Give it back rather than the disk copy, which is not what the author last typed.
+        setText(recallBuffer(path) ?? f.content);
         setSaved(f.content);
       })
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -72,20 +86,19 @@ export function EditView({
     };
   }, [path, reloadKey]);
 
-  const save = useCallback(() => {
-    if (!path) return;
-    setBusy(true);
-    setError(null);
-    void api
-      .write(path, text)
-      .then((r) => {
-        setSaved(text);
-        if (r.forked) setNote(`copié dans le projet : ${r.forked.path}`);
-        onSaved();
-      })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setBusy(false));
-  }, [path, text, onSaved]);
+  // No Save button: the file is written as soon as it is a document the compiler could read.
+  const write = useCallback(
+    async (next: string) => {
+      if (!path) return;
+      setError(null);
+      const r = await api.write(path, next);
+      setSaved(next);
+      if (r.forked) setNote(`copié dans le projet : ${r.forked.path}`);
+      onSaved();
+    },
+    [path, onSaved],
+  );
+  const autosave = useAutosave({ path, text, saved, write });
 
   // YAML only — the project's own language. A file that is not one gets a plain editor rather
   // than completions for fields it does not have.
@@ -130,21 +143,24 @@ export function EditView({
       </div>
     );
 
-  const dirty = text !== saved;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5 text-xs">
         <span className="truncate font-mono">{path}</span>
-        {dirty && <span className="text-amber-500">modifié</span>}
         {busy && <Loader2 className="h-3 w-3 animate-spin" />}
-        <button
-          type="button"
-          className="ml-auto flex items-center gap-1 rounded bg-secondary px-2 py-1 disabled:opacity-50"
-          disabled={!dirty || busy}
-          onClick={save}
+        <span
+          className={`ml-auto shrink-0 truncate ${
+            HELD.has(autosave.status)
+              ? "text-amber-500"
+              : "text-muted-foreground"
+          }`}
+          title={autosave.reason ?? undefined}
         >
-          <Save className="h-3 w-3" /> Enregistrer
-        </button>
+          {SAVE_LABEL[autosave.status]}
+          {autosave.reason && HELD.has(autosave.status)
+            ? ` — ${autosave.reason}`
+            : ""}
+        </span>
       </div>
       {error && (
         <code className="shrink-0 bg-muted px-3 py-1 text-xs text-red-400">
@@ -162,11 +178,12 @@ export function EditView({
           height="100%"
           extensions={extensions}
           onChange={setText}
-          // Ctrl/Cmd+S saves, the one binding worth having before a command bar exists.
+          // Ctrl/Cmd+S still means "now" — it no longer means "at all", and it cannot write
+          // what autosave is holding back: the rule is the document, not who asked.
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "s") {
               e.preventDefault();
-              save();
+              autosave.flush();
             }
           }}
         />

@@ -10,13 +10,34 @@ import {
   playlistStub,
 } from "@studio/mediatek/playlist";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import type { Validity } from "@studio/song/yaml/validate";
+import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { ArrowLeft, ListMusic, Loader2, Save } from "lucide-react";
+import { ArrowLeft, ListMusic, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { PlaylistPane } from "./PlaylistPane";
 import type { PlaybackTarget } from "./playback/targets";
 import { playlistVocabulary } from "./playlistVocabulary";
+import { SaveState } from "./SaveState";
+
+/**
+ * Is this text a playlist?
+ *
+ * The médiathèque's own file, so the project-file router that autosave defaults to knows
+ * nothing about it — `parsePlaylist` is what does, and it already answers null for anything it
+ * cannot read. Reported as a schema failure rather than malformed text so the escape hatch
+ * applies: a playlist already unreadable on disk stays editable.
+ */
+const playlistValidity = (text: string): Validity =>
+  parsePlaylist(text) === null
+    ? {
+        ok: false,
+        issues: [{ path: "", message: "ne se lit pas comme une playlist" }],
+        depth: "schema",
+        malformed: false,
+      }
+    : { ok: true, issues: [], depth: "schema", malformed: false };
 
 /** How often the songs listing is re-read while a playlist is open. The same interval the
  *  catalogue polls at — a morceau filed in another tab should appear here too, and a playlist
@@ -43,8 +64,9 @@ export function PlaylistEditor({
   // throwing away whatever had been typed into it — three times a minute.
   const path = entry.path;
   const [content, setContent] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
+  // could leave lying.
+  const [saved, setSaved] = useState("");
   const [status, setStatus] = useState("");
 
   /**
@@ -80,12 +102,12 @@ export function PlaylistEditor({
   const vocabulary = useMemo(() => playlistVocabulary(songs), [songs]);
 
   // Absent is NOT an error, the way a song's missing sidecar is not: the editor opens on what
-  // the file WOULD say, and the first save creates it through the ordinary write route. An
+  // the file WOULD say, and the first EDIT creates it through the ordinary write route. An
   // EMPTY file is the same case — `POST /folder`'s sibling, "Nouveau fichier…", writes one.
+  // The gabarit is `saved` too, deliberately: opening a playlist must not write it by itself.
   useEffect(() => {
     let alive = true;
     setContent(null);
-    setDirty(false);
     setStatus("");
     const name =
       path
@@ -96,14 +118,20 @@ export function PlaylistEditor({
       .readFile(path)
       .then((f) => {
         if (!alive) return;
-        setContent(f.content.trim() ? f.content : playlistStub(name));
+        const disk = f.content.trim() ? f.content : playlistStub(name);
+        // An edit that could not be written outlived this screen — give it back, not disk.
+        setContent(recallBuffer(path) ?? disk);
+        setSaved(disk);
         if (!f.content.trim())
-          setStatus("fichier vide — enregistrer écrira ce gabarit");
+          setStatus(
+            "fichier vide — la première modification écrira ce gabarit",
+          );
       })
       .catch(() => {
         if (!alive) return;
-        setContent(playlistStub(name));
-        setStatus("pas encore de fichier — enregistrer le créera");
+        setContent(recallBuffer(path) ?? playlistStub(name));
+        setSaved(playlistStub(name));
+        setStatus("pas encore de fichier — la première modification le créera");
       });
     return () => {
       alive = false;
@@ -139,9 +167,9 @@ export function PlaylistEditor({
    * Anything else would be two sources of truth for one document, and the YamlPane on the left
    * would go on showing the old one.
    *
-   * Not saved automatically. Adding is an edit like typing is, and the `Enregistrer *` in the
-   * header is how an edit becomes a file here — a click that wrote to disk while a half-typed
-   * line sat in the buffer would save that too.
+   * Adding is an edit like typing is, so it reaches disk the way typing does: on its own, once
+   * the buffer reads as a playlist. A half-typed line elsewhere in the file holds BOTH back,
+   * which is the point — the file is written whole or not at all.
    */
   const addItem = useCallback(
     (item: PlaylistItem) => {
@@ -152,7 +180,6 @@ export function PlaylistEditor({
       // answer; the pane goes on saying why.
       if (next == null) return;
       setContent(next);
-      setDirty(true);
     },
     [content],
   );
@@ -166,20 +193,23 @@ export function PlaylistEditor({
       : "";
   }, [content]);
 
-  const save = useCallback(async () => {
-    if (content == null) return;
-    setSaving(true);
-    try {
-      await library.writeFile(path, content);
-      setDirty(false);
+  // No Save button: written as soon as the buffer reads as a playlist.
+  const write = useCallback(
+    async (next: string) => {
+      await library.writeFile(path, next);
+      setSaved(next);
       setStatus(`enregistré ${path}`);
       onSaved();
-    } catch (e) {
-      setStatus(`erreur : ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [content, path, onSaved]);
+    },
+    [path, onSaved],
+  );
+  const autosave = useAutosave({
+    path: content == null ? null : path,
+    text: content ?? "",
+    saved,
+    write,
+    validate: (_path, text) => playlistValidity(text),
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -195,20 +225,7 @@ export function PlaylistEditor({
             {path}
           </div>
         </div>
-        <Button
-          size="sm"
-          className="ml-auto"
-          variant={dirty ? "default" : "secondary"}
-          disabled={saving || content == null}
-          onClick={() => void save()}
-        >
-          {saving ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-1 h-4 w-4" />
-          )}
-          Enregistrer{dirty ? " *" : ""}
-        </Button>
+        <SaveState autosave={autosave} className="ml-auto shrink-0" />
       </header>
 
       {content == null ? (
@@ -226,11 +243,8 @@ export function PlaylistEditor({
               // above. See ./playlistVocabulary.ts.
               vocabulary={vocabulary}
               vimMode={vimMode}
-              onChange={(text) => {
-                setContent(text);
-                setDirty(true);
-              }}
-              onSave={() => void save()}
+              onChange={setContent}
+              onSave={autosave.flush}
             />
           </div>
           <div className="min-h-0 min-w-0 flex-1">

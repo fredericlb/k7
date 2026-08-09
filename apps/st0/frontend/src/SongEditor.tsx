@@ -5,12 +5,14 @@
 
 import { Button } from "@frediverse/ui/button";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
+import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { ArrowLeft, Disc3, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Disc3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library } from "./api";
 import { useEngine } from "./playback/PlaybackProvider";
 import type { PlaybackTarget } from "./playback/targets";
+import { SaveState } from "./SaveState";
 import { SongPlayer } from "./SongPlayer";
 import { SongVariants } from "./SongVariants";
 
@@ -61,44 +63,53 @@ export function SongEditor({
   const folder = entry.path;
   const path = `${folder}/${SONG_FILE}`;
   const [content, setContent] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
+  // could leave lying.
+  const [saved, setSaved] = useState("");
   const [status, setStatus] = useState("");
 
   // Absent is NOT an error, the way a module's missing panel is not: the editor opens on what
-  // the file WOULD say, and the first save creates it through the ordinary write route.
+  // the file WOULD say, and the first EDIT creates it through the ordinary write route. The
+  // stub is `saved` too, deliberately — opening a song must not file it by itself.
   useEffect(() => {
     let alive = true;
     setContent(null);
-    setDirty(false);
     setStatus("");
     void library
       .readFile(path)
-      .then((f) => alive && setContent(f.content))
+      .then((f) => {
+        if (!alive) return;
+        // An edit that could not be written outlived this screen — give it back, not disk.
+        setContent(recallBuffer(path) ?? f.content);
+        setSaved(f.content);
+      })
       .catch(() => {
         if (!alive) return;
-        setContent(stub(folder));
-        setStatus("pas encore de sidecar — enregistrer le créera");
+        setContent(recallBuffer(path) ?? stub(folder));
+        setSaved(stub(folder));
+        setStatus("pas encore de sidecar — la première modification le créera");
       });
     return () => {
       alive = false;
     };
   }, [path, folder]);
 
-  const save = useCallback(async () => {
-    if (content == null) return;
-    setSaving(true);
-    try {
-      await library.writeFile(path, content);
-      setDirty(false);
+  // No Save button: written as soon as the sidecar parses.
+  const write = useCallback(
+    async (next: string) => {
+      await library.writeFile(path, next);
+      setSaved(next);
       setStatus(`enregistré ${path}`);
       onSaved();
-    } catch (e) {
-      setStatus(`erreur : ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [content, path, onSaved]);
+    },
+    [path, onSaved],
+  );
+  const autosave = useAutosave({
+    path: content == null ? null : path,
+    text: content ?? "",
+    saved,
+    write,
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -114,20 +125,7 @@ export function SongEditor({
             {path}
           </div>
         </div>
-        <Button
-          size="sm"
-          className="ml-auto"
-          variant={dirty ? "default" : "secondary"}
-          disabled={saving || content == null}
-          onClick={() => void save()}
-        >
-          {saving ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-1 h-4 w-4" />
-          )}
-          Enregistrer{dirty ? " *" : ""}
-        </Button>
+        <SaveState autosave={autosave} className="ml-auto shrink-0" />
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -141,11 +139,8 @@ export function SongEditor({
               path={path}
               content={content}
               vimMode={vimMode}
-              onChange={(text) => {
-                setContent(text);
-                setDirty(true);
-              }}
-              onSave={() => void save()}
+              onChange={setContent}
+              onSave={autosave.flush}
             />
           )}
         </div>

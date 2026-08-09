@@ -60,7 +60,9 @@ Space toggles it from anywhere but a text field. That is the app's only global k
 
 `@studio/ui-editor`'s CodeMirror stack, the same one l8 and m9 mount: the YAML language
 mode, and completions derived from the Zod schemas so the offered fields cannot drift from
-the real ones.
+the real ones. There is no Save button — the file is written as soon as it is a document the
+compiler could read, and held back with the reason while it is not
+([autosave.md](../../../packages/ui-editor/docs/autosave.md)).
 
 For an open `video_tracks/*.yaml` it grows the **readers strip**: one small `<video>` per
 placement, with Set From / Set To writing that placement's `source_from` / `length`.
