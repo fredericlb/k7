@@ -278,13 +278,44 @@ filesRouter.get(
   ),
 );
 const cmdBody = z.object({ line: z.string() });
+/**
+ * Run a verb, and hand back the new GRAPH with it when the project changed.
+ *
+ * A command that writes used to cost three sequential round trips: this one, then `/graph`, then
+ * `/project-doc` — and the last two each rebuild from disk, `buildGraphDoc` through `loadGraph`
+ * and `cachedProjectDoc` through `loadProject`. Measured on a real song (14 tracks, 58 clips,
+ * 30 plugins): 401 ms and 367 ms, and this service is one process, so they queue rather than
+ * overlap. Inserting a module in the chains graph left the canvas showing the old picture for
+ * all of it.
+ *
+ * Building it HERE costs the same 401 ms but spends it inside a request the client is already
+ * waiting on, so the canvas can redraw the moment this returns instead of a fetch and a parse
+ * later. Two things follow for free: `graphDoc()` fills `graphCache`, so a client that ignores
+ * the field — m9, v1 — finds a warm cache on its next `GET /graph` and is faster without
+ * changing; and keying it on the revision keeps `transport play` exactly as cheap as it was.
+ */
 filesRouter.post(
   "/command",
   validate(cmdBody),
   wrap(async (req, res) => {
     const { line } = req.body as z.infer<typeof cmdBody>;
+    const before = req.ws!.revision().rev;
+    const t0 = performance.now();
     // req.userEmail lets commit/pull pin git to this user's deploy key (see makeHost).
-    res.json({ output: await runWebCommand(req.ws!, line, req.userEmail) });
+    const output = await runWebCommand(req.ws!, line, req.userEmail);
+    const ran = performance.now();
+    const rev = req.ws!.revision().rev;
+    const changed = rev !== before;
+    const graph = changed ? req.ws!.graphDoc() : undefined;
+    // One line per WRITING command, in the shape the engine's `[applyFull]` uses: the two halves
+    // of the wait, so "the insert is slow" can be answered without a profiler.
+    if (changed)
+      console.log(
+        `[cmd] ${line.trim().slice(0, 60)} — ran=${(ran - t0).toFixed(0)}ms graph=${(
+          performance.now() - ran
+        ).toFixed(0)}ms`,
+      );
+    res.json({ output, ...(graph ? { graph, rev } : {}) });
   }),
 );
 

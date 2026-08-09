@@ -37,6 +37,7 @@ export function ChainsTab({
   onAssetBrowse,
   onWatchWaveform,
   pendingInsert,
+  seedGraph,
   onPickModule,
   onContextMenu,
   onEdgeInsert,
@@ -68,12 +69,7 @@ export function ChainsTab({
   // Load a library file into a module: `kind` is the asset, `file` library-relative or "none" to clear.
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the library browser for a module's asset field, at viewport coords. */
-  onAssetBrowse?: (
-    module: string,
-    kind: string,
-    x: number,
-    y: number,
-  ) => void;
+  onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap while a waveform widget is on screen. */
   onWatchWaveform?: (
     pluginId: string,
@@ -82,6 +78,16 @@ export function ChainsTab({
   ) => void;
   /** The arrow a module is being created on right now, or null. Drawn as a placeholder until real data lands. */
   pendingInsert?: { before: string; after: string } | null;
+  /**
+   * The graph a writing command already came back with, and its id.
+   *
+   * A command that changes the project makes this pane's `reloadKey` move, and fetching the graph
+   * then costs a round trip plus a ~400 ms rebuild of what the service parsed moments earlier to
+   * answer that very command. An unconsumed seed IS that answer, so we draw it and skip the fetch.
+   * The id is taken once: a reload from anywhere else — a poll, another tab's edit, the undo
+   * journal — must re-fetch rather than redraw a graph that has already been shown.
+   */
+  seedGraph?: { id: number; graph: WebGraph } | null;
   // Lifts the tapped module up to the shell so the Docs panel can follow it.
   onPickModule?: (module: string | null) => void;
   // No "edit this module" here on purpose: a module is a LIBRARY thing — the same file backs every project
@@ -140,7 +146,20 @@ export function ChainsTab({
     fitToFn.current = fn;
   }, []);
 
+  // Through a ref, so the seed is not a dependency of this effect: it arrives in the same update as
+  // the reload it answers, and depending on it would re-run the effect a second time for the same
+  // graph. `consumedSeed` is what makes it a one-shot.
+  const seedRef = useRef(seedGraph);
+  seedRef.current = seedGraph;
+  const consumedSeed = useRef(0);
   useEffect(() => {
+    const seed = seedRef.current;
+    if (seed && seed.id > consumedSeed.current) {
+      consumedSeed.current = seed.id;
+      setGraph(seed.graph);
+      setError(null);
+      return;
+    }
     api
       .graph()
       .then((g) => {

@@ -113,8 +113,18 @@ export const projectApi = {
   commands: () => fget<CommandInfo[]>("/commands"),
   complete: (line: string) =>
     fget<string[]>(`/complete?line=${encodeURIComponent(line)}`),
+  /**
+   * Run a verb. `graph` comes back ONLY when the command changed the project — the service
+   * builds it once inside this request rather than making the caller fetch it (see the route).
+   * Optional on purpose: a host that ignores it behaves exactly as before, and still benefits,
+   * because building it warmed the cache its next `/graph` will hit.
+   */
   command: (line: string) =>
-    fsend<{ output: string[] }>("POST", "/command", { line }),
+    fsend<{ output: string[]; graph?: WebGraph; rev?: string }>(
+      "POST",
+      "/command",
+      { line },
+    ),
 
   // --- The project-wide undo/redo journal, driven by Ctrl+Z / Ctrl+Y ------------
   // `confirm` applies a process step (restoring a bounced file); without it, a process step
