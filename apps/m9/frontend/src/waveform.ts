@@ -18,6 +18,16 @@ export interface Envelope {
   sensitivity: number;
   /** The engine's estimate, or 0 for "none found". A starting point, not an authority. */
   bpm: number;
+  /**
+   * The same envelope split at 200 Hz and 4 kHz — what the COLOUR is drawn from.
+   *
+   * Same bucket space as `peak`, so all four index alike. Optional because a sidecar written
+   * before the engine's v4 has none, and a strip that has them must degrade to a plain
+   * envelope rather than to a blank one.
+   */
+  low?: number[];
+  mid?: number[];
+  high?: number[];
 }
 
 /** How many seconds of song are visible at once. A DJ's window: enough to see the next

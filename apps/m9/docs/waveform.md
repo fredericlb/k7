@@ -94,3 +94,64 @@ décoration, et le code le dit plutôt que de faire semblant.
 `barsIn` et `beatsIn` passent par la même grille et le même ancrage : une grille de mesures avec
 son propre ancrage dériverait contre les lignes jaunes qu'elle est censée souligner. Un test le
 fige — chaque barre tombe SUR un temps, jamais entre deux.
+
+## La couleur dit ce qu'il y a DEDANS
+
+Rouge où est la basse, vert dans la voix, bleu sur les cymbales, et les mélanges entre —
+le vocabulaire d'une platine classique.
+
+Ce n'était pas une question de dessin : l'enveloppe ne portait que `peak` et `rms`, donc
+**aucune** donnée par fréquence. Il a fallu que l'analyse en produise. Le moteur découpe
+maintenant le signal en trois bandes pendant qu'il le lit, et écrit `low` / `mid` / `high` dans
+le sidecar, dans le même espace de buckets que `peak` — un consommateur indexe les quatre
+pareil.
+
+### Le découpage, côté moteur
+
+Deux suiveurs à un pôle, à 200 Hz et 4 kHz, et les trois bandes sont leurs différences :
+
+```
+lpLow  += aLow  * (v - lpLow)     // sous 200 Hz
+lpHigh += aHigh * (v - lpHigh)    // sous 4 kHz
+low = lpLow        mid = lpHigh - lpLow        high = v - lpHigh
+```
+
+Complémentaires **par construction** : `low + mid + high` redonne le signal exactement, donc la
+couleur d'une colonne ne peut pas inventer d'énergie qu'elle n'a pas. Un dessin n'a pas besoin
+de filtres raides — il a besoin que les trois se recomposent.
+
+200 Hz garde le kick et la basse d'un côté ; 4 kHz met les cymbales et le haut d'un charley de
+l'autre ; ce qui reste au milieu est là où vivent les voix et la caisse claire.
+
+Des **pics** par bucket et non des RMS, pour la raison qui vaut déjà pour l'enveloppe
+principale : un kick est une attaque, et le moyenner sur un bucket est précisément la façon de
+perdre ce qu'on voulait montrer.
+
+### Le mélange, côté dessin
+
+**Additif**, et c'est tout le truc. Basse en rouge, médium en vert, aigu en bleu : les mélanger
+est de la lumière ordinaire, donc basse+médium donne jaune-orangé, basse+aigu donne violet, et
+les trois ensemble donnent blanc. Exactement la palette décrite — et elle sort de l'arithmétique
+au lieu d'être une table de cas particuliers que quelqu'un devrait tenir à jour.
+
+Chaque bande est tirée vers sa teinte (le grave vers l'orange, l'aigu vers le violet) mais garde
+un apport **faible** dans les deux canaux qu'elle ne possède pas. Une première tentative donnait
+beaucoup de vert au rouge et au bleu réunis, et basse+aigu ressortait presque blanc au lieu du
+violet attendu : ce qu'une bande apporte aux canaux qui ne sont pas les siens décide si les
+mélanges tombent juste.
+
+Normalisé par la bande la **plus forte**, pas par la somme. Ce qu'une waveform colorée dit est
+quelle bande DOMINE ici, et ça doit se lire pareil dans un passage calme et dans un fort. Avec
+une somme, une colonne qui n'est que basse sortirait au tiers de son intensité et se lirait
+comme un brun boueux.
+
+### Ce que ça coûte
+
+Le sidecar passe en **v4**, et la porte de version est chargée de sens : un sidecar plus ancien
+a une empreinte qui CORRESPOND — l'audio n'a pas changé — donc sans la bump chaque contrôle de
+fraîcheur passerait et le morceau n'obtiendrait jamais ses bandes. Conséquence directe :
+**tous** les morceaux déjà analysés sont ré-analysés à la demande.
+
+Un fichier analysé avant v4 n'a pas de bandes du tout. Sa waveform reste dans le gris d'avant —
+ce qui se lit comme « pas analysé comme ça » plutôt que comme du silence, et c'est pour ça que
+les trois champs sont optionnels de bout en bout.
