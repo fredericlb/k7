@@ -133,9 +133,14 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
       // 409 and not 403: nothing is wrong with this request, the project simply moved on. The
       // client's job is to let go and say so, which is why the holder's name is in the body.
       if (!result.ok)
-        return res
-          .status(409)
-          .json({ error: "project taken", heldBy: result.heldBy });
+        return res.status(409).json({
+          error: "project taken",
+          heldBy: result.heldBy,
+          // Which of the three it was. Without it the browser can only say "opened
+          // elsewhere", which is false two times out of three.
+          lost: result.lost,
+          tookFor: result.tookFor,
+        });
       res.json({
         ok: true,
         secret: result.secret,

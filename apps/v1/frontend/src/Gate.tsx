@@ -9,6 +9,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import type { ClaimLostReason } from "@studio/engine-browser/registry";
 import { ProjectTakenOver } from "@studio/project-shell/gate";
 import {
   parseLaunch,
@@ -27,8 +28,8 @@ type Phase =
   | { k: "anon" }
   | { k: "looking" }
   | { k: "picking"; ranked: RankedEngine<PublicEngine>[] }
-  // Somebody else opened this cut, or took this machine for another project. Terminal.
-  | { k: "taken"; heldBy: string }
+  // The claim is gone. Terminal, and `why` says which of the three so the screen can be exact.
+  | { k: "taken"; heldBy: string; why: ClaimLostReason; tookFor: string | null }
   | { k: "ready"; engine: RankedEngine<PublicEngine> };
 
 /** How good the link is, measured. Null when nothing answered — listed by the registry, out of
@@ -75,7 +76,8 @@ export function Gate() {
     );
     return engines.hold(engine, {
       project: target ? projectClaimKey(target) : null,
-      onLost: (heldBy) => setPhase({ k: "taken", heldBy }),
+      onLost: (heldBy, why) =>
+        setPhase({ k: "taken", heldBy, why: why.reason, tookFor: why.tookFor }),
     });
     // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only in the "ready" branch; depending on the whole phase would re-hold on the state this very effect sets.
   }, [phase.k]);
@@ -99,9 +101,21 @@ export function Gate() {
     return (
       <ProjectTakenOver
         heldBy={phase.heldBy}
-        title="Ce montage a été ouvert ailleurs"
+        title={
+          phase.why === "engine"
+            ? "Un autre projet a pris cette machine"
+            : phase.why === "lapsed"
+              ? "Cet onglet a lâché le montage"
+              : "Ce montage a été ouvert ailleurs"
+        }
+        // Une phrase par CAUSE. L'ancienne les couvrait toutes d'un « ou », faute de savoir
+        // laquelle : le refus le dit maintenant (@studio/engine-registry/docs/claim.md).
         body={(who) =>
-          `${who ? `${who} vient d'ouvrir ce montage` : "Ce montage vient d'être ouvert ailleurs"}, ou de prendre cette machine pour un autre projet — et une machine ne sert qu'un projet à la fois. Cet onglet l'a donc lâché. Rouvrez-le depuis les projets pour le reprendre.`
+          phase.k === "taken" && phase.why === "engine"
+            ? `« ${phase.tookFor ?? "Un autre projet"} » vient d'être ouvert sur cette machine, et une machine ne sert qu'un projet à la fois — cet onglet a donc lâché le montage. Rouvrez-le depuis les projets, ou choisissez une autre machine pour tenir les deux en même temps.`
+            : phase.k === "taken" && phase.why === "lapsed"
+              ? "Personne ne l'a repris : la revendication a simplement expiré, le temps d'une mise en veille ou d'une coupure réseau. Rouvrez-le depuis les projets pour reprendre la main."
+              : `${who ? `${who} vient d'ouvrir ce montage` : "Ce montage vient d'être ouvert ailleurs"}, et un projet ne tourne que sur une machine à la fois. Cet onglet l'a donc lâché. Rouvrez-le depuis les projets pour le reprendre.`
         }
         back="Retour aux projets"
         onBack={() => {

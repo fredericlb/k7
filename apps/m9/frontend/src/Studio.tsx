@@ -247,17 +247,28 @@ export function Studio({
   // want, so nothing below has to re-root them.
   const nodes = tree as TreeNode[];
 
-  // Somebody opened this set elsewhere, and a set runs on one moteur at a time. Over the whole
-  // app rather than inside Mix: the deck has stopped driving, so Édition and Graphe would be
-  // drawing a project this tab no longer owns — which is exactly the "two services fighting over
-  // one machine" the claim exists to end. See @studio/engine-registry/docs/claim.md.
+  // The claim is gone, and this deck has stopped driving. Over the whole app rather than inside
+  // Mix: Édition and Graphe would be drawing a project this tab no longer owns — which is
+  // exactly the "two services fighting over one machine" the claim exists to end. One wording
+  // per REASON, because two of the three are not "opened elsewhere" at all.
+  // See @studio/engine-registry/docs/claim.md.
   if (deck.phase.k === "taken")
     return (
       <ProjectTakenOver
         heldBy={deck.phase.heldBy}
-        title="Ce set a été ouvert ailleurs"
+        title={
+          deck.phase.why === "engine"
+            ? "Un autre projet a pris ce moteur"
+            : deck.phase.why === "lapsed"
+              ? "Cet onglet a lâché le set"
+              : "Ce set a été ouvert ailleurs"
+        }
         body={(who) =>
-          `${who ? `${who} vient de l'ouvrir` : "Il vient d'être ouvert ailleurs"}, et un projet ne tourne que sur un moteur à la fois — cet onglet a donc cessé de le piloter. Rouvrez-le depuis les projets pour le reprendre.`
+          deck.phase.k === "taken" && deck.phase.why === "engine"
+            ? `« ${deck.phase.tookFor ?? "Un autre projet"} » vient d'être ouvert sur le même moteur, et un moteur ne pilote qu'un projet à la fois — cet onglet a donc cessé de piloter le sien. Rouvrez ce set depuis les projets, ou choisissez un autre moteur pour tenir les deux en même temps.`
+            : deck.phase.k === "taken" && deck.phase.why === "lapsed"
+              ? "Personne ne l'a repris : la revendication a simplement expiré, le temps d'une mise en veille ou d'une coupure réseau. Rouvrez-le depuis les projets pour reprendre la main."
+              : `${who ? `${who} vient de l'ouvrir` : "Il vient d'être ouvert ailleurs"}, et un projet ne tourne que sur un moteur à la fois — cet onglet a donc cessé de le piloter. Rouvrez-le depuis les projets pour le reprendre.`
         }
         back="Retour aux projets"
         onBack={() => {

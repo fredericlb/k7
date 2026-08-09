@@ -42,10 +42,30 @@ So the two are told apart by the presence of `secret`:
 | `select` **without** a secret | an OPEN | always granted; mints a secret; displaces whoever held the project, and whoever held a different project on that engine |
 | `select` **with** a secret | a RENEWAL | granted while that secret is still registered; **409** once it is not |
 
-A 409 is not a fault and must not be retried. It is the answer: somebody has the project. The
-holder's name comes back in the body so the screen can say whose it is, and the browser turns it
-into `ClaimLost` (`@studio/engine-browser/registry`) — its own type precisely so a caller can
-tell "let go and say so" from "the network is down", which are opposite reactions.
+A 409 is not a fault and must not be retried. It is the answer, and the browser turns it into
+`ClaimLost` (`@studio/engine-browser/registry`) — its own type precisely so a caller can tell
+"let go and say so" from "the network is down", which are opposite reactions.
+
+### Three refusals, not one
+
+The body carries `lost` alongside `heldBy`, because "somebody has the project" is only one of
+the three ways a renewal comes back refused, and it is the least common:
+
+| `lost` | what happened | body also carries |
+|---|---|---|
+| `project` | the SAME project was opened, here or on another engine | `heldBy` — whose it is now |
+| `engine` | a DIFFERENT project took this engine (the second displacement rule above) | `heldBy`, and `tookFor` naming that project |
+| `lapsed` | nobody took anything: the secret aged out over a sleep or a network gap, or the engine deregistered | nothing — `heldBy` is empty |
+
+They exist because they are three different sentences on screen. l8 said "this project was
+opened elsewhere, and a project runs on one engine at a time" for all three, which is false
+twice out of three — and actively misleading on `engine`, where the honest advice is the
+opposite: pick a second engine and both projects can run. Older backends that answer a bare 409
+still read as `project`, which is what they always meant.
+
+A surface must not retry any of them, `lapsed` included. It looks recoverable and is not: the
+engine may since have been handed to someone else, and a tab that quietly re-claims takes a
+project out from under a person who is driving it.
 
 `release` carries the same secret, not the engine token. A goodbye may only drop the hold it
 actually has: with the engine token, a tab closing a second after being displaced would drop the

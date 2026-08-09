@@ -78,9 +78,28 @@ export type ClaimResult =
       /** Set when this claim displaced somebody — the caller may want to say so. */
       tookOver?: { holder: string; project: string | null };
     }
-  // The caller renewed a claim that is no longer theirs: somebody else opened this project, or
-  // took this machine for another one. There is no retry — the holder lets go and says so.
-  | { ok: false; heldBy: string };
+  /**
+   * The caller renewed a claim that is no longer theirs. There is no retry — the holder lets
+   * go and says so.
+   *
+   * WHY it went is part of the answer, because the three read completely differently to the
+   * person looking at the screen and only one of them is "your project is open elsewhere".
+   * They were one `heldBy` for a while, and a tab displaced by a DIFFERENT project was told
+   * its own had been reopened — which was not true, and left nothing to act on.
+   */
+  | {
+      ok: false;
+      /**
+       * `project` — somebody opened the same project, here or on another machine.
+       * `engine`  — another project took this engine. `tookFor` names it.
+       * `lapsed`  — nobody took anything; this claim simply aged out (a sleep, a gap).
+       */
+      lost: "project" | "engine" | "lapsed";
+      /** Who holds it now. Empty when there is nobody to name — always so for `lapsed`. */
+      heldBy: string;
+      /** For `engine`: the project that took the machine. */
+      tookFor?: string | null;
+    };
 
 export interface EngineRegistry {
   upsert(input: HeartbeatInput): boolean;
@@ -208,20 +227,36 @@ export function createRegistry(): EngineRegistry {
      */
     claim(id, req) {
       const e = get(id);
-      if (!e) return { ok: false, heldBy: "" };
+      // The engine itself is gone from the registry — nobody took anything from us.
+      if (!e) return { ok: false, lost: "lapsed", heldBy: "" };
       const now = Date.now();
       holdersOf(e, now); // prune first, so what follows sees only live holders
 
       if (req.secret !== undefined) {
         const mine = e.holders.get(req.secret);
         if (!mine) {
-          // Gone. Name whoever has the project we were on, when there is one to name.
-          const taker = req.project
+          // Gone — and the three ways that happens are three different things to be told.
+          // Asked in this order because the first is the one that is about YOUR project.
+          const onMyProject = req.project
             ? liveEngines(now)
                 .flatMap((x) => holdersOf(x, now))
                 .find((h) => h.project === req.project)
-            : projectHolderOn(e, now);
-          return { ok: false, heldBy: taker?.holder ?? "" };
+            : undefined;
+          if (onMyProject)
+            return { ok: false, lost: "project", heldBy: onMyProject.holder };
+          // Nobody has our project, but somebody has our engine: a different project took it.
+          // Only if we HAD a project: a project-less holder is never displaced (the rules below
+          // leave it alone), so it can only have lapsed — however busy the engine looks now.
+          const sitting = req.project ? projectHolderOn(e, now) : undefined;
+          if (sitting)
+            return {
+              ok: false,
+              lost: "engine",
+              heldBy: sitting.holder,
+              tookFor: sitting.project,
+            };
+          // Neither. The claim aged out with nobody to replace it — a sleep, a network gap.
+          return { ok: false, lost: "lapsed", heldBy: "" };
         }
         mine.seen = now;
         mine.project = req.project;

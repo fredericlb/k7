@@ -22,12 +22,13 @@ export interface HoldOptions {
   /** The launch address this tab opened — `<repo>/<projet>`. Null for a surface with no project. */
   project: string | null;
   /**
-   * Somebody else opened this project (or this engine) and we no longer hold it.
+   * We no longer hold the claim. `why` says which of the three happened — the surface has to
+   * word them differently, because only one of them is "your project is open elsewhere".
    *
    * Called at most once. The caller is expected to STOP DRIVING and say so — there is no retry,
    * because retrying is how a takeover turns into two tabs trading a project every five seconds.
    */
-  onLost?: (heldBy: string) => void;
+  onLost?: (heldBy: string, why: ClaimLost) => void;
 }
 
 /**
@@ -66,7 +67,7 @@ export function holdEngine(
         if (!(e instanceof ClaimLost)) return;
         done = true;
         clearInterval(timer);
-        opts.onLost?.(e.heldBy);
+        opts.onLost?.(e.heldBy, e);
       },
     );
   };
