@@ -20,6 +20,7 @@ import {
   TEMPO_MODULE,
   TEMPO_PARAM,
   TEMPO_SOURCE_PARAM,
+  TIMELINE_BASE,
   warpFor,
   withDecks,
 } from "./deck";
@@ -323,15 +324,28 @@ describe("filling the decks into the COMPILED project", () => {
   });
 
   it("delays a clip by sync's alignment, and only when there is one", () => {
-    // Where beat alignment actually lands: `start`, in document beats. Under one beat, so it
-    // costs the top of a deck nothing you would notice — and the engine re-inserts the clip
-    // to apply it, which is why it goes out on release rather than per pixel.
+    // Where beat alignment actually lands: `start`, in document beats — on top of the headroom
+    // every deck gets. Under one beat, so it costs the top of a deck nothing you would notice.
+    const base = (TIMELINE_BASE * DOC_TEMPO) / 60;
     const doc = withDecks(compiled(), loaded(), {
       deckB: { natural: 120, seconds: 60, target: 120, align: 0.8 },
     });
-    expect(doc.tracks[1].clips[0].start).toBeCloseTo(0.8);
-    // Deck A was handed no alignment: it starts where it always did.
-    expect(doc.tracks[0].clips[0].start).toBe(0);
+    expect(doc.tracks[1].clips[0].start).toBeCloseTo(base + 0.8);
+    // Deck A was handed no alignment: it sits on the base and nothing else.
+    expect(doc.tracks[0].clips[0].start).toBeCloseTo(base);
+  });
+
+  it("starts every clip a HEADROOM in, so a slowed deck can slide earlier", () => {
+    // The one reason the timeline does not begin where the music does. Slowing a deck means
+    // its clip must start sooner than it does; from zero there is no sooner, and the engine
+    // would take a negative start but then clamp every cue near the top of the song to it.
+    const doc = withDecks(compiled(), loaded(), {
+      deckA: { natural: 120, seconds: 60, target: 120, slip: -30 },
+    });
+    expect(doc.tracks[0].clips[0].start).toBeCloseTo(
+      ((TIMELINE_BASE - 30) * DOC_TEMPO) / 60,
+    );
+    expect(doc.tracks[0].clips[0].start).toBeGreaterThan(0);
   });
 });
 

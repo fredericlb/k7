@@ -87,6 +87,93 @@ Une platine sans tempo détecté ne mène rien et ne suit rien — il n'y a pas 
 se synchroniser, et en inventer un serait le mensonge confiant qu'on évite partout ici. Les
 deux boutons sont désactivés tant que les deux platines n'ont pas de tempo.
 
+## Bouger le tempo ne doit pas bouger la MUSIQUE
+
+C'est ce qu'une platine fait sans y penser : on change la vitesse du plateau, l'aiguille reste
+dans son sillon. Le disque ne saute pas. Ici la platine est un clip sur une timeline et le
+transport est une position sur cette timeline — donc ré-étirer le clip change **quelle seconde
+du fichier se trouve sous la tête de lecture**, et si le clip ne bouge pas avec, la musique
+saute.
+
+Mesuré avant que ça n'existe, avec une source dont la fréquence encode sa propre position (le
+banc ci-dessous) : **un seul pas d'un glissement de +8 % mangeait 980 ms du morceau**, et un
+glissement complet en mangeait une seconde pleine, livrée en une secousse par pas. Aucun
+silence, aucun clic — le morceau bondissait simplement en avant. C'est ça, « abrupt ».
+
+Le montant n'est pas mystérieux : à 8 % près de la cible, la position dans le fichier saute de
+8 % de là où on en est. À douze secondes du début ça fait un tiers de mesure ; à trois minutes,
+quatorze secondes.
+
+### La correction, et pourquoi elle a cette forme-là
+
+Tenir la seconde `s` du fichier sous la seconde `T` du transport veut dire `T = début + s·ratio`
+avant **et** après. D'où :
+
+```
+début' = début + s · (ratio_avant − ratio_après)
+```
+
+et `T` **disparaît**. C'est tout l'intérêt. La seule estimation qui reste est *où on en est dans
+le fichier*, et elle entre **multipliée par l'écart de ratio** — de l'ordre du centième. Une
+tête de lecture vieille de 50 ms coûte donc une demi-milliseconde. Calculer au contraire une
+nouvelle position de transport et y sauter aurait rendu ces 50 ms telles quelles, en bafouillage.
+
+Et `seek` aurait été faux deux fois : **il n'y a qu'un transport pour deux platines**. Déplacer
+le transport pour tenir une platine immobile jetterait l'autre. La correction est donc par clip,
+et elle vit dans le document — un seul message, rien qui puisse arriver dans le désordre.
+
+`slip` est **stocké**, contrairement à `align` qui est redérivé à chaque rendu. Parce que c'est
+une histoire : le même tempo atteint par deux chemins ne laisse pas le disque au même endroit,
+exactement comme sur une vraie platine.
+
+### La marge au début de la timeline
+
+Ralentir demande que le clip commence **plus tôt**. Depuis zéro, il n'y a pas de plus tôt : le
+moteur accepte bien un `start` négatif (mesuré), mais un repère près du début du morceau tombe
+alors sur un transport négatif que le moteur ramène à zéro — le repère envoie ailleurs, en
+silence.
+
+D'où `TIMELINE_BASE` : chaque clip de platine démarre **dix minutes** dans la timeline. Ça
+couvre une heure de morceau pliée de ±16 %, ça ne coûte rien (la timeline n'appartient qu'à m9
+et ne porte que ces deux clips), et c'est la même valeur pour les deux platines, donc elles
+partent toujours ensemble. Le prix est que le transport ne commence plus où la musique commence
+— c'est pourquoi charger le premier morceau y saute, et pourquoi la waveform lit maintenant
+`sourceAt` au lieu du transport brut (elle dessinait le mauvais endroit du morceau dès qu'une
+platine était étirée, silencieusement).
+
+### Le sync est concerné aussi
+
+Le retard que le sync impose à l'esclave est **fonction du tempo**. Tirer le fader du maître le
+change donc, sous une platine que la main n'a jamais touchée. Un retard qui bouge sous une
+platine est une platine qui saute — la correction absorbe ce déplacement-là en plus du sien.
+Appuyer sur SYNC, lui, est laissé tranquille : mettre les grilles ensemble est précisément un
+déplacement voulu.
+
+### Le banc
+
+`apps/m9/frontend/scripts/tempo-drag.ts`, pointé sur un moteur qui tourne. C'est la question
+qu'un test unitaire ne peut pas trancher, parce que la réponse est un son.
+
+Il joue un fichier dont la **fréquence dit la position** — 300 Hz + 80 Hz par seconde. Comme
+`elastique` préserve la hauteur, l'étirement ne déplace pas le ton : ce qu'on entend dit de
+quelle seconde du fichier ça vient, indépendamment de la vitesse. Une secousse devient un
+palier dans ce nombre, et la dérive totale se lit en comparant où on est arrivé à où une
+lecture ordinaire aurait mené, en intégrant la suite des vitesses.
+
+Il appelle le **vrai** `nudgedTempos` et le **vrai** `deckDoc`, donc il mesure ce qui part en
+production et pas une imitation. `--raw` jette la correction et garde tout le reste, ce qui
+donne les deux chiffres côte à côte :
+
+| glissement de 8 pas | musique mangée |
+|---|---|
+| sans la correction | **1008 ms** |
+| avec, vers le haut | 19 ms |
+| avec, vers le bas | 17 ms |
+
+Ce qui reste — quelques dizaines de millisecondes — est le redémarrage du moteur d'étirement à
+chaque reconstruction du clip, mesuré à ~20 ms même quand le tempo ne bouge presque pas. C'est
+un plancher du mécanisme, pas une dérive : il ne s'accumule pas.
+
 ## Pendant le glissement, mais pas à chaque pixel
 
 Le crossfade bouge à chaque pixel parce que c'est un **paramètre de plugin** :
@@ -98,6 +185,14 @@ bégayer.
 
 Donc le document part **cadencé** : au plus une fois par `LIVE_WARP_MS` (120 ms), et toujours
 avec la dernière valeur. Le tempo suit la main au lieu d'arriver à la fin.
+
+Et pas seulement cadencé : **seuillé en valeur** aussi. Une reconstruction de clip coûte un
+redémarrage du moteur d'étirement — ~20 ms de bavure mesurées même pour un changement inaudible
+— donc un pas trop petit pour s'entendre est du coût pur. En dessous de `LIVE_WARP_BPM`
+(0,05 BPM, soit quatre centièmes de pour cent à 120, moins d'un cent de hauteur) rien ne part.
+Ce que ça rattrape, c'est la fin d'un glissement soigneux, quand la main avance par dixièmes et
+demanderait sinon huit reconstructions par seconde pour ne rien dire. Le relâchement est
+exempté : la valeur qu'on lâche doit être vraie, si petit qu'ait été le dernier mouvement.
 
 C'est un *throttle*, délibérément pas un *debounce* : un debounce annule son échéance à chaque
 nouvelle valeur, donc un glissement continu n'enverrait rien tant que la main ne s'arrête pas
