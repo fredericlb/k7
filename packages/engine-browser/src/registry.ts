@@ -27,13 +27,32 @@ export interface ClaimGrant {
   tookOver?: { holder: string; engineId: string };
 }
 
-/** A `select` refused because the claim moved on — thrown by the client, carrying who has it. */
+/**
+ * Why a claim stopped being ours. Three answers, because a surface that can only say one of
+ * them says the wrong one most of the time.
+ *
+ * `project` — the same project was opened, here or elsewhere.
+ * `engine`  — a DIFFERENT project took this engine; `tookFor` names it.
+ * `lapsed`  — nobody took anything; the claim aged out.
+ */
+export type ClaimLostReason = "project" | "engine" | "lapsed";
+
+/** A `select` refused because the claim moved on — thrown by the client, carrying why. */
 export class ClaimLost extends Error {
-  constructor(readonly heldBy: string) {
+  constructor(
+    readonly heldBy: string,
+    readonly reason: ClaimLostReason = "project",
+    /** For `engine`: the project that took the machine, when the server named it. */
+    readonly tookFor: string | null = null,
+  ) {
     super(
-      heldBy
-        ? `this project is now open by ${heldBy}`
-        : "this project was taken over",
+      reason === "engine"
+        ? `this engine is now driving ${tookFor ?? "another project"}`
+        : reason === "lapsed"
+          ? "this claim lapsed"
+          : heldBy
+            ? `this project is now open by ${heldBy}`
+            : "this project was taken over",
     );
     this.name = "ClaimLost";
   }
@@ -108,8 +127,15 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
       if (res.status === 409) {
         const body = (await res.json().catch(() => ({}))) as {
           heldBy?: string;
+          lost?: ClaimLostReason;
+          tookFor?: string | null;
         };
-        throw new ClaimLost(body.heldBy ?? "");
+        // Defaulting to `project` keeps an older backend's bare 409 reading as it always did.
+        throw new ClaimLost(
+          body.heldBy ?? "",
+          body.lost ?? "project",
+          body.tookFor ?? null,
+        );
       }
       return json<ClaimGrant>(res, "select");
     },

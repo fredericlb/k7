@@ -5,6 +5,7 @@
 import { EngineClient } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";
 import type { RankedEngine } from "@studio/engine-browser/probe";
+import type { ClaimLostReason } from "@studio/engine-browser/registry";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
@@ -16,8 +17,8 @@ import { currentUser, engines } from "./api";
 export type Phase =
   | { k: "looking" }
   | { k: "absent" }
-  // Somebody else opened this set. Terminal: the deck stops driving and says who has it.
-  | { k: "taken"; heldBy: string }
+  // The claim is gone. Terminal: the deck stops driving and says WHICH of the three happened.
+  | { k: "taken"; heldBy: string; why: ClaimLostReason; tookFor: string | null }
   | { k: "ready"; id: string };
 
 /** The transport's position, and the moment it was heard — see the note where it is set. */
@@ -120,7 +121,8 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     );
     const drop = engines.hold(chosen, {
       project: target ? projectClaimKey(target) : null,
-      onLost: (heldBy) => setPhase({ k: "taken", heldBy }),
+      onLost: (heldBy, why) =>
+        setPhase({ k: "taken", heldBy, why: why.reason, tookFor: why.tookFor }),
     });
     // Its own session, per SERVICE and per PERSON: a deck runs safely beside l8 on one
     // engine — loading a track no longer replaces whatever song is open there — and two

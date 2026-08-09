@@ -173,6 +173,98 @@ describe("the engine claim", () => {
     expect(row?.heldProject).toBe("band/winter.l8");
   });
 
+  /**
+   * The three refusals are three different sentences on screen, and telling them apart is the
+   * whole point of `lost`: l8 used to say "this project was opened elsewhere" for all three,
+   * which is false twice out of three. See docs/claim.md.
+   */
+  describe("says WHY the claim is gone", () => {
+    it("`project` — the same project, taken by somebody else", () => {
+      const mine = grant(reg.claim("e1", { project: "p", holder: "alice" }));
+      grant(reg.claim("e2", { project: "p", holder: "bob" }));
+
+      const r = reg.claim("e1", {
+        project: "p",
+        holder: "alice",
+        secret: mine.secret,
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.lost).toBe("project");
+      expect(r.heldBy).toBe("bob");
+    });
+
+    it("`engine` — a DIFFERENT project took the machine, and it is named", () => {
+      const mine = grant(
+        reg.claim("e1", { project: "band/winter.l8", holder: "alice" }),
+      );
+      grant(reg.claim("e1", { project: "band/leclip.v1", holder: "bob" }));
+
+      const r = reg.claim("e1", {
+        project: "band/winter.l8",
+        holder: "alice",
+        secret: mine.secret,
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      // Naming it is what lets the tab offer "pick another engine" instead of a wrong apology.
+      expect(r.lost).toBe("engine");
+      expect(r.heldBy).toBe("bob");
+      expect(r.tookFor).toBe("band/leclip.v1");
+    });
+
+    it("`lapsed` — nobody took anything; the claim just aged out", () => {
+      const mine = grant(reg.claim("e1", { project: "p", holder: "alice" }));
+
+      // A sleep, or a network gap longer than the TTL. The engine is still beating.
+      vi.advanceTimersByTime(ENGINE_ASSIGN_TTL_MS + 1);
+      beat(reg, "e1");
+
+      const r = reg.claim("e1", {
+        project: "p",
+        holder: "alice",
+        secret: mine.secret,
+      });
+      // An open would be granted here; a RENEWAL is refused, because the secret is stale.
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.lost).toBe("lapsed");
+      expect(r.heldBy).toBe("");
+    });
+
+    it("`lapsed` for a project-LESS holder, however busy the engine has since become", () => {
+      const catalogue = grant(reg.claim("e1", { project: null, holder: "a" }));
+      vi.advanceTimersByTime(ENGINE_ASSIGN_TTL_MS + 1);
+      beat(reg, "e1");
+      grant(reg.claim("e1", { project: "band/winter.l8", holder: "b" }));
+
+      const r = reg.claim("e1", {
+        project: null,
+        holder: "a",
+        secret: catalogue.secret,
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      // NOT `engine`: st0 sitting beside a song is legal, so that song never took anything
+      // from it. Only the TTL did. Telling st0 a project evicted it would be an invented cause.
+      expect(r.lost).toBe("lapsed");
+    });
+
+    it("`lapsed` too when the engine itself went away — nobody displaced us", () => {
+      const mine = grant(reg.claim("e1", { project: "p", holder: "alice" }));
+      reg.remove("e1", "tok-e1");
+
+      const r = reg.claim("e1", {
+        project: "p",
+        holder: "alice",
+        secret: mine.secret,
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.lost).toBe("lapsed");
+    });
+  });
+
   it("keeps holders across a heartbeat — an engine beats every 5s, a claim lives 15", () => {
     const g = grant(reg.claim("e1", { project: "p", holder: "alice" }));
     beat(reg, "e1");
