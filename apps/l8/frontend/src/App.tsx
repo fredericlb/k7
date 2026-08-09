@@ -116,7 +116,12 @@ import {
   TransportClock,
   VIEW_META,
 } from "./shellMeta";
-import type { CommandInfo, ProjectInfo, WorkspaceInfo } from "./types";
+import type {
+  CommandInfo,
+  ProjectInfo,
+  WebGraph,
+  WorkspaceInfo,
+} from "./types";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
 
@@ -845,6 +850,19 @@ export default function App({
   // name into the bar. pendingInsert.current is set at pick time and lives until the splice; this is the
   // narrower window the canvas should draw a placeholder for.
   const [insertingAt, setInsertingAt] = useState<PendingInsert | null>(null);
+  // The graph a writing command handed back. The canvas draws it instead of fetching, which takes
+  // a round trip and a ~400 ms re-parse of what the service just parsed — see the `/command` route
+  // and ChainsTab's `seedGraph`.
+  //
+  // Carries an id rather than a reload key: half a dozen things bump that key (a poll, a save, the
+  // undo journal), so pairing them would mean keeping a counter in step with all of them. An id the
+  // consumer takes ONCE says the only thing that matters — this graph is newer than what you have,
+  // and nobody has drawn it yet.
+  const seedId = useRef(0);
+  const [seedGraph, setSeedGraph] = useState<{
+    id: number;
+    graph: WebGraph;
+  } | null>(null);
   const freezeTarget = useCallback((line: string): string | null => {
     const m = /^track\s+freeze\s+(\S+)/.exec(line.trim());
     if (!m) return null;
@@ -861,12 +879,24 @@ export default function App({
       if (runLocalCommand(s)) return;
       const willFreeze = freezeTarget(s);
       if (willFreeze) setFreezing(willFreeze);
+      // CONSUMED, not just read: the pick arms this and only the command that follows it is an
+      // insert. Left armed — which it was — every later command drew a pending node on that same
+      // stale arrow, so the spinner people saw belonged to the transport key they pressed
+      // afterwards rather than to the module they had added.
       const willInsert = pendingInsert.current;
+      pendingInsert.current = null;
       if (willInsert) setInsertingAt(willInsert);
       try {
-        const { output } = await api.command(s);
+        const { output, graph } = await api.command(s);
         setStatus(output.length ? output.join("  ·  ") : `ran: ${s}`);
         for (const o of output) pushLog("info", o);
+        // The graph the service built while we waited, present only when the command changed
+        // something. Handed to the canvas so it draws this instead of fetching and re-parsing what
+        // the service has just parsed — see ChainsTab's `seedGraph`.
+        if (graph) {
+          seedId.current += 1;
+          setSeedGraph({ id: seedId.current, graph });
+        }
         setReloadKey((k) => k + 1);
       } catch (e) {
         setStatus(`command error: ${(e as Error).message}`);
@@ -874,6 +904,10 @@ export default function App({
       } finally {
         // finally, not after the await: a freeze that fails still has to give the app back.
         if (willFreeze) setFreezing(null);
+        // The placeholder comes down in the same update that carries the new graph, so the two
+        // swap in one frame. That is what changed: the reply used to be the START of the wait —
+        // the canvas then spent a fetch and a 400 ms parse still showing the old picture, with
+        // the spinner already gone — and now it is the end of it.
         if (willInsert) setInsertingAt(null);
       }
     },
@@ -1609,6 +1643,7 @@ export default function App({
                   onEdgeInsert={insertIntoChain}
                   onCanvasInsert={placeInGraph}
                   pendingInsert={insertingAt}
+                  seedGraph={seedGraph}
                   onPickModule={(mod) =>
                     mod && setDocSel({ kind: "module", id: mod })
                   }

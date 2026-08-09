@@ -163,3 +163,41 @@ canvas under the overhanging half) instead of the button.
 
 Window-level pointer listeners are bound once and read the latest callbacks through refs, so
 they never re-subscribe. A movement threshold is what keeps a pan from also selecting.
+
+## Adding a module: what the wait is, and what covers it
+
+Dropping a module on an arrow writes two files and then waits on a recompile. Measured on a
+real song — 14 tracks, 58 clips, 30 plugins — the recompiles are the wait:
+
+| | median |
+|---|---|
+| `loadProject`, behind `GET /project-doc` | 367 ms |
+| `buildGraphDoc`, behind `GET /graph` | 401 ms |
+
+The client used to pay both, in that order, *after* `POST /command` had already returned —
+and the file service is one process, so they queue rather than overlap. So the canvas sat on
+the old picture for the better part of a second with nothing to explain it.
+
+`POST /command` now builds the graph itself when the command moved the revision, and returns
+it. The same 401 ms is spent, but inside a request the client is already waiting on, and the
+canvas redraws when the reply lands instead of a fetch and a parse later. Two things fall out
+of it: `graphDoc()` fills the service's `graphCache`, so a host that ignores the new field —
+m9, v1 — finds a warm cache on its next `GET /graph`; and keying it on the revision keeps
+non-writing commands (`transport play`) exactly as cheap as they were.
+
+### The placeholder is a one-shot, and so is the seed
+
+Two rules, both of which were broken and each of which reads as "the spinner is wrong":
+
+- **The pending marker is consumed.** `App.tsx` arms `pendingInsert` when the module is
+  picked and `runCommand` clears it as it takes it. Left armed — which it was — every later
+  command drew a placeholder on that same stale arrow, so the spinner you saw belonged to the
+  transport key you pressed afterwards, not to the module you added.
+- **The seed is taken once.** The graph from a command carries an id, and the canvas records
+  the highest it has drawn. A reload from anywhere else — a poll, another tab, the undo
+  journal — must re-fetch rather than redraw a graph already on screen. Pairing it with the
+  reload key instead would mean keeping a counter in step with the half-dozen places that
+  bump it.
+
+The engine's own apply still follows, so audio catches up a moment after the picture. That is
+the right order: the click was about the graph.
