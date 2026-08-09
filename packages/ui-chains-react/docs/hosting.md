@@ -2,9 +2,14 @@
 
 ## What this package is, and what it is not
 
-`DomChains` is the RENDERER: HTML nodes, one SVG cable layer, the camera, the widgets,
+`DomChains` is the RENDERER: HTML nodes over a canvas of signal cables, an SVG layer between
+them for what does not move (labels, automation arrows, hit paths), the camera, the widgets,
 the interaction. It draws what `@studio/ui-chains` laid out and knows nothing about where
 a graph came from.
+
+A host owes the cable canvas nothing — it sizes itself off the graph host and draws itself
+outside React — but it does need the host to give `DomChains` a real size, as `fit()` already
+did. See `@studio/ui-chains`' `docs/wobble.md` for why the cables are not DOM any more.
 
 What stays in each app is the **shell**: fetching `/graph`, the reload polling, the chain
 list beside the canvas, the parked camera (a graph unmounts with its pane, so the camera

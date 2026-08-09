@@ -1,4 +1,5 @@
-// DomChains.tsx — the Chains routing graph, drawn as HTML nodes + an SVG cable layer.
+// DomChains.tsx — the Chains routing graph: HTML nodes over a canvas of signal cables,
+// with an SVG layer between them for the labels, the arrows and the hit paths.
 // It consumes the same laid-out graph the old Pixi renderer did (dagre still owns the
 // layout); only the DRAWING is React, which buys real type, CSS effects and a DOM a test
 // can read. Shared by the Chains tab and the Graph panel — mount it only where it has a
@@ -24,6 +25,15 @@ import type {
   WebWidget,
 } from "@studio/graph-model";
 import {
+  type CableDraw,
+  drawCables,
+  newScratch,
+  WOBBLE_FPS,
+  WOBBLE_HZ,
+  WOBBLE_MAX_SAMPLES,
+  WOBBLE_STEP,
+} from "@studio/ui-chains/cableCanvas";
+import {
   type AutoTarget,
   arrowPoints,
   autoTarget,
@@ -33,7 +43,6 @@ import {
   insertFor,
   midByArc,
   smoothPath,
-  smoothPathXY,
 } from "@studio/ui-chains/cables";
 import {
   cablePath,
@@ -176,16 +185,11 @@ const LABEL_MIN_SCALE = 0.4; // …and below this the text goes too
 const DRAG_TRAVEL_PX = 150; // screen px of vertical drag that sweep a control's whole range
 const DRAG_FINE = 0.25; // shift-held multiplier for a fine adjustment
 
-// Cable wobble — a travelling sine on a live cable. Amplitudes are WORLD units, so they scale with zoom.
-const WOBBLE_AMP = 2.5; // peak perpendicular displacement, world px
-const WOBBLE_WAVELENGTH = 40; // world px between crests
-const WOBBLE_HZ = 1.2; // crests per second travelling down the cable
-const WOBBLE_STEP = 8; // densify a segment to ~this spacing so the curve is smooth
-const WOBBLE_MAX_SAMPLES = 96; // cap per edge, so a very long cable can't explode the point count
-
 // One injected stylesheet, scoped under `.dgx`, so the component drops into any host.
 const CSS = `
-.dgx { position:relative; width:100%; height:100%; overflow:hidden; cursor:grab; user-select:none;
+/* contain:paint says outright what overflow:hidden already made true — nothing here draws
+   outside the host — which keeps the graph's display list off the rest of the page. */
+.dgx { position:relative; width:100%; height:100%; overflow:hidden; contain:paint; cursor:grab; user-select:none;
   background:
     radial-gradient(circle at 1px 1px, #201f26 1px, transparent 0) 0 0 / 24px 24px,
     radial-gradient(1100px 560px at 60% -10%, #141319 0%, #0d0d0f 60%);
@@ -193,12 +197,14 @@ const CSS = `
   --sand:${SAND}; --mauve:${MAUVE}; --card:#17161b; --line:#2c2c33; --dim:#9a968c; --faint:#64615a; }
 .dgx.panning { cursor:grabbing; }
 .dgx-world { position:absolute; top:0; left:0; transform-origin:0 0; }
-/* The cable layer is non-interactive except its hit paths + insert buttons, so empty
-   space passes pointer events through to the canvas (panning) and the nodes below. */
+/* This layer is non-interactive except its hit paths + insert buttons, so empty space passes
+   pointer events through to the host (panning) and the nodes below. */
 .dgx-cables { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
+/* The signal cables' own layer, under the SVG and the nodes. Never a pointer target: hit
+   testing stays on .dgx-hit, which is SVG and follows the cable at rest. */
+.dgx-cablecv { position:absolute; inset:0; pointer-events:none; }
 .dgx-cbl-shadow { fill:none; stroke:#000; stroke-opacity:.5; stroke-linecap:round; stroke-linejoin:round; }
 .dgx-cbl { fill:none; stroke-linecap:round; stroke-linejoin:round; }
-.dgx-cbl.audio { stroke:var(--sand); stroke-width:2.2; }
 .dgx-cbl.auto  { stroke:var(--mauve); stroke-width:1.8; stroke-dasharray:5 4; }
 .dgx-hit { fill:none; stroke:transparent; stroke-width:14; cursor:pointer; pointer-events:stroke; }
 .dgx-ins-line { fill:none; stroke:#3b82f6; stroke-width:2.5; stroke-linecap:round; }
@@ -1705,13 +1711,13 @@ function NodeInner({
 // Memoised: with `ch` and every handler stable, a pan or a param frame re-renders no card at all.
 const Node = memo(NodeInner);
 
-// The SVG cable layer. React renders the cables at REST; the wobble is then driven by
-// writing `d` straight onto the two path nodes from a rAF, so a playing song costs no
-// reconciliation and no allocation per frame (see wobbleD).
+// The SVG layer OVER the cable canvas: everything about a cable that does not move — its
+// label, the automation arrows, and the hit paths the insert `+` hangs off. The signal
+// cables themselves are drawn by DomChains onto a canvas; see @studio/ui-chains'
+// docs/wobble.md for why they left the DOM.
 function CablesInner({
   signal,
   auto,
-  live,
   showLabels,
   boost,
   hovered,
@@ -1720,7 +1726,6 @@ function CablesInner({
 }: {
   signal: EdgeGeom[];
   auto: AutoTarget[];
-  live: Set<string>;
   showLabels: boolean;
   // World-unit stroke multiplier that grows as the camera pulls back, keeping on-screen thickness constant.
   boost: number;
@@ -1729,111 +1734,31 @@ function CablesInner({
   // The pointer position travels with it: the `+` opens a picker, which must land where you clicked.
   onInsert: (info: EdgeInsert, x: number, y: number) => void;
 }) {
-  const anyLive = live.size > 0;
-  const k = (Math.PI * 2) / WOBBLE_WAVELENGTH;
-
-  // The wobbling `d`, displaced into a reused FLAT buffer. Called once per live cable per
-  // frame, and the only thing it allocates is the string setAttribute needs — see
-  // @studio/ui-chains' docs/wobble.md for what this cost before, and what it still costs.
-  const buf = useRef(new Float64Array(WOBBLE_MAX_SAMPLES * 2));
-  const wobbleD = (g: EdgeGeom, phase: number): string => {
-    const n = g.samples.length;
-    // maxSamples is a target, not a ceiling — a many-waypoint cable gets one sample per segment.
-    if (n * 2 > buf.current.length) buf.current = new Float64Array(n * 2);
-    const xy = buf.current;
-    for (let i = 0; i < n; i++) {
-      const p = g.samples[i];
-      const u = g.len > 0 ? p.s / g.len : 0;
-      const off =
-        WOBBLE_AMP * Math.sin(Math.PI * u) * Math.sin(k * p.s - phase);
-      xy[i * 2] = p.x + p.nx * off;
-      xy[i * 2 + 1] = p.y + p.ny * off;
-    }
-    return smoothPathXY(xy, n);
-  };
-
-  // The per-frame update writes to the DOM directly, never through state. A cable's
-  // ripple is an animation, not information the rest of the tree needs — the same
-  // reasoning that keeps `playhead` out of App.
-  //
-  // Only the two paths move. The arrow and the label do not: the envelope is
-  // sin(pi*u), which is 0 at both ends, so a cable's endpoints sit exactly where the
-  // still cable's do and the arrowhead never has to be redrawn.
-  const liveRefs = useRef(
-    new Map<string, { cable: SVGPathElement; shadow: SVGPathElement }>(),
-  ).current;
-  useEffect(() => {
-    if (!anyLive) return;
-    let raf = 0;
-    let phase = 0;
-    let last = performance.now();
-    const tick = (now: number) => {
-      phase += Math.PI * 2 * WOBBLE_HZ * ((now - last) / 1000);
-      last = now;
-      for (const g of signal) {
-        if (!live.has(g.id)) continue;
-        const els = liveRefs.get(g.id);
-        if (!els) continue;
-        const d = wobbleD(g, phase);
-        els.cable.setAttribute("d", d);
-        els.shadow.setAttribute("d", d);
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  });
-
   return (
     <>
-      {/* signal cables */}
+      {/* A signal cable's NAME — the cable itself is on the canvas underneath, and its label
+          stays here because text is the one thing a canvas draws worse.
+
+          No arrowhead, then or now: a cable ends in a PLUG, and the plug is the socket it
+          disappears into — the nodes paint over this layer, so the last few pixels are hidden by
+          the plate and the cable reads as seated. An arrow was the right mark while the cable
+          pointed at a card and had nowhere in particular to land. Direction is not lost with it:
+          the graph is laid out top to bottom, inputs on a card's top edge and outputs on its
+          bottom, so which way a cable runs is read off where it lands. */}
       {signal.map((g) => {
-        // Rendered at REST. A live cable's `d` is then overwritten each frame by the rAF
-        // above; React re-renders this only when the graph itself changes.
         const pts = g.base;
-        if (pts.length < 2) return null;
-        const d = smoothPath(pts);
-        const mid =
-          showLabels && g.label ? pts[Math.floor(pts.length / 2)] : null;
-        // Colour by what the cable CARRIES, live or not — tinting live cables orange made everything look like audio.
-        const cableColor = cableColorFor(g.signal);
-        const hold =
-          (which: "cable" | "shadow") => (el: SVGPathElement | null) => {
-            const cur = liveRefs.get(g.id) ?? ({} as never);
-            if (el) liveRefs.set(g.id, { ...cur, [which]: el });
-            else liveRefs.delete(g.id);
-          };
+        if (!showLabels || !g.label || pts.length < 2) return null;
+        const mid = pts[Math.floor(pts.length / 2)];
         return (
-          <g key={g.id}>
-            <path
-              ref={hold("shadow")}
-              className="dgx-cbl-shadow"
-              d={d}
-              strokeWidth={4.4 * boost}
-            />
-            <path
-              ref={hold("cable")}
-              className="dgx-cbl"
-              d={d}
-              style={{ strokeWidth: 2.2 * boost, stroke: cableColor }}
-            />
-            {/* No arrowhead. A cable ends in a PLUG, and the plug is the socket it disappears
-                into — the node paints over this layer, so the last few pixels are hidden by the
-                plate and the cable reads as seated. An arrow was the right mark while the cable
-                pointed at a card and had nowhere in particular to land. Direction is not lost
-                with it: the graph is laid out top to bottom, inputs on a card's top edge and
-                outputs on its bottom, so which way a cable runs is read off where it lands. */}
-            {mid && (
-              <text
-                className="dgx-clab"
-                x={mid.x}
-                y={mid.y - 6}
-                textAnchor="middle"
-              >
-                {g.label}
-              </text>
-            )}
-          </g>
+          <text
+            key={g.id}
+            className="dgx-clab"
+            x={mid.x}
+            y={mid.y - 6}
+            textAnchor="middle"
+          >
+            {g.label}
+          </text>
         );
       })}
 
@@ -2147,6 +2072,88 @@ export function DomChains({
     [model.signal, activeTracks],
   );
 
+  // --- the cable canvas ------------------------------------------------------------
+  // Thicken cables as the camera pulls back, growing the stroke ~inversely with zoom (capped), so width holds.
+  const linkBoost = Math.min(3, Math.max(1, WIDGET_MIN_SCALE / cam.k));
+
+  // Colour by what a cable CARRIES, live or not — tinting live cables orange made everything look like audio.
+  const cableDraws = useMemo<CableDraw[]>(
+    () =>
+      model.signal.map((g) => ({
+        geom: g,
+        color: cableColorFor(g.signal),
+        live: live.has(g.id),
+      })),
+    [model.signal, live],
+  );
+
+  const cvRef = useRef<HTMLCanvasElement>(null);
+  const scratch = useRef(newScratch()).current;
+  const phase = useRef(0);
+  // The host's size, from the ResizeObserver below rather than read off the DOM: a layout read
+  // inside the draw would flush style on every frame, which is the kind of cost this change exists to remove.
+  const hostSize = useRef({ w: 0, h: 0 });
+  // Reassigned every render, like `fit` below, so the rAF and the observer always draw the
+  // CURRENT camera and cables without either of them being a dependency.
+  const paint = useRef<() => void>(() => {});
+  paint.current = () => {
+    const cv = cvRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.round(hostSize.current.w * dpr);
+    const height = Math.round(hostSize.current.h * dpr);
+    if (!width || !height) return;
+    // Resizing the backing store also clears it, so only do it when it actually changed —
+    // and doing it here is what keeps the canvas sharp when the window moves to another screen.
+    if (cv.width !== width || cv.height !== height) {
+      cv.width = width;
+      cv.height = height;
+    }
+    drawCables(
+      ctx,
+      {
+        width,
+        height,
+        cam,
+        dpr,
+        cables: cableDraws,
+        phase: phase.current,
+        boost: linkBoost,
+      },
+      scratch,
+    );
+  };
+
+  // A camera or graph change redraws AT ONCE, in a layout effect, so the canvas and
+  // `.dgx-world`'s transform land in the same frame — throttle this and a pan visibly tears
+  // the cables away from their sockets.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are the frame's inputs, not values this body reads — `paint` was reassigned with them during the render, so listing them here IS the redraw trigger.
+  useLayoutEffect(() => {
+    paint.current();
+  }, [cableDraws, cam, linkBoost]);
+
+  // The ripple, on its own clock. It is an ornament at WOBBLE_HZ, so it is capped well below
+  // the screen's rate, and it stops dead when nothing carries signal — a still graph then
+  // leaves its last frame on the canvas and costs nothing at all.
+  useEffect(() => {
+    if (live.size === 0) return;
+    let raf = 0;
+    let lastAt = performance.now();
+    const step = 1000 / WOBBLE_FPS;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (now - lastAt < step) return;
+      // By REAL elapsed time, not by a fixed increment, so capping the rate slows nothing down.
+      phase.current += Math.PI * 2 * WOBBLE_HZ * ((now - lastAt) / 1000);
+      lastAt = now;
+      paint.current();
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [live]);
+
   // --- fit: frame the whole graph to the host, on graph change and on resize ---------
   // Returns whether it actually framed: with no host size or extents there is nothing to fit, so the caller retries.
   const fit = useRef<() => boolean>(() => false);
@@ -2201,7 +2208,12 @@ export function DomChains({
     const host = hostRef.current;
     if (!host) return;
     // Only until the first successful fit: the host starts at zero size, but later resizes must not re-frame.
-    const ro = new ResizeObserver(() => {
+    const ro = new ResizeObserver(([entry]) => {
+      // The cable canvas is sized from here, and redrawn — it is not in the flow, so nothing
+      // else would tell it the host got bigger.
+      const box = entry?.contentRect;
+      if (box) hostSize.current = { w: box.width, h: box.height };
+      paint.current();
       // Keep re-framing while the camera is still ours — the host settles for a while after the first fit.
       if (userMoved.current) return;
       if (fit.current()) fitted.current = true;
@@ -2664,8 +2676,6 @@ export function DomChains({
   const showLabels = cam.k >= LABEL_MIN_SCALE;
   // Too far for the widgets ⇒ nodes draw as a fitted name instead (see Node's far branch).
   const far = !showWidgets;
-  // Thicken cables as the camera pulls back, growing the stroke ~inversely with zoom (capped), so width holds.
-  const linkBoost = Math.min(3, Math.max(1, WIDGET_MIN_SCALE / cam.k));
 
   /**
    * Where the meters read their levels. The host's store when it drives an engine; an inert one
@@ -2692,6 +2702,10 @@ export function DomChains({
           onContextMenu={canvasMenu}
           style={{ cursor: hovered ? "pointer" : undefined }}
         >
+          {/* The signal cables. OUTSIDE `.dgx-world` on purpose: that element carries the
+              camera as a CSS transform, and a canvas scaled by CSS goes blurry — so the camera
+              is applied to the 2D context instead and this stays at the host's own resolution. */}
+          <canvas ref={cvRef} className="dgx-cablecv" />
           <div
             className="dgx-world"
             style={{
@@ -2706,7 +2720,6 @@ export function DomChains({
               <Cables
                 signal={model.signal}
                 auto={model.auto}
-                live={live}
                 showLabels={showLabels}
                 boost={linkBoost}
                 hovered={hovered}

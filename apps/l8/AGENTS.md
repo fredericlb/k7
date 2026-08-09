@@ -121,9 +121,11 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   save can come back saying it landed somewhere else. The catalogue itself is still the
   médiathèque's (`MEDIATEK_URL`); this edits the modules a project can see.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
-  `DomChains.tsx` for drawing: HTML nodes plus one SVG cable layer. **Never hand-roll layout
-  or edge routing.** dagre owns both; the renderer consumes its numbers. Pan/zoom is one CSS
-  transform on the `.dgx-world` wrapper. Both halves live outside this app because the
+  `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer
+  between them for the labels, the automation arrows and the hit paths. **Never hand-roll
+  layout or edge routing.** dagre owns both; the renderer consumes its numbers. Pan/zoom is one
+  CSS transform on the `.dgx-world` wrapper — and the cable canvas is deliberately OUTSIDE that
+  wrapper, taking the same camera on its 2D context, because a canvas scaled by CSS goes blurry. Both halves live outside this app because the
   médiathèque and the decks draw the same view — see that package's `docs/hosting.md` for
   what a host owes it. l8 is the demanding host: the command bar, context menu and edge
   inserts are optional props the other two pass nothing for.
