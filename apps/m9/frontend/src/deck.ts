@@ -12,8 +12,12 @@ import {
   trackDoc,
   VOLUME_DB,
 } from "@studio/engine-protocol/build";
-import type { ProjectDoc } from "@studio/engine-protocol/project";
-import { alignDelay } from "./beats";
+import type {
+  ClipDoc,
+  ProjectDoc,
+  TrackDoc,
+} from "@studio/engine-protocol/project";
+import { alignDelay, BEATS_PER_BAR } from "./beats";
 import type { DeckModule } from "./graph";
 
 /**
@@ -386,10 +390,15 @@ export function withDecks(
   compiled: ProjectDoc,
   loads: DeckLoads,
   tempos: DeckTempos = {},
+  /** Which deck's beat the click follows, or null for no click — see `metronomeDeck`. */
+  click: DeckId | null = null,
 ): ProjectDoc {
   return {
     ...compiled,
-    tracks: compiled.tracks.map((track) => {
+    // The click is APPENDED, not declared: it is a desk control, not part of the set. The
+    // project's own tracks are still the project's business, and it is the one track here
+    // whose id `chains.yaml` never mentions.
+    tracks: [...compiled.tracks, metronomeTrack(click ? tempos[click] : undefined, !!click)].map((track) => {
       const load = loads[track.id as DeckId];
       if (!load) return track;
       const tempo = tempos[track.id as DeckId];
@@ -431,11 +440,15 @@ export function deckDoc(
   mix: number = MIX_CENTRE,
   modules: Partial<Record<DeckId, DeckModule[]>> = {},
   tempos: DeckTempos = {},
+  click: DeckId | null = null,
 ): ProjectDoc {
   return emptyDoc({
     name: "m9",
     tempo: DOC_TEMPO,
-    tracks: DECKS.map((deck) => {
+    // Appended, like `withDecks` does it: the decks keep their places, so nothing that counts
+    // tracks has to learn about a control that is not one of them.
+    tracks: [
+      ...DECKS.map((deck) => {
       const load = loads[deck];
       const warp = tempos[deck] && warpFor(tempos[deck]);
       return trackDoc(deck, {
@@ -483,7 +496,129 @@ export function deckDoc(
           }),
         ],
       });
-    }),
+      }),
+      metronomeTrack(click ? tempos[click] : undefined, !!click),
+    ],
+  });
+}
+
+/** The track the click lives on. Always in the document — see `metronomeTrack`. */
+export const METRONOME_TRACK = "metronome";
+
+/** How loud the click sits under the music, in dB on its own strip. */
+export const METRONOME_DB = -6;
+
+/**
+ * WHICH deck's beat the metronome would follow, or null when it cannot be offered.
+ *
+ * The rule the desk shows and this decides: a click needs ONE beat to be about. With a single
+ * deck loaded that is that deck; with two, only a sync makes one of them speak for both, and
+ * the master is the one that does. Two decks running free have two beats and no single click
+ * can be on both — which is why the button goes dark rather than picking a side.
+ *
+ * It also needs the beat to have been MEASURED. A tempo without a phase says how often a beat
+ * happens and not which moment is one, and a click on the wrong half of the beat is not a
+ * degraded metronome — it is a wrong one you would beat-match against. `beats.ts` already
+ * refuses to publish a phase it cannot defend; this refuses to guess past that.
+ */
+export function metronomeDeck(
+  loads: DeckLoads,
+  tempos: DeckTempos,
+  master: DeckId | null,
+): DeckId | null {
+  const on = DECKS.filter((d) => loads[d]);
+  const deck = on.length === 1 ? on[0] : master && loads[master] ? master : null;
+  if (!deck) return null;
+  const t = tempos[deck];
+  return t && t.natural > 0 && t.target > 0 && t.phase !== undefined ? deck : null;
+}
+
+/**
+ * The click, as a track the engine plays — NOT the engine's own metronome.
+ *
+ * `settings.metronome` clicks on the DOCUMENT's grid: beats of `DOC_TEMPO`, counted from
+ * transport zero. m9's document tempo is fixed on purpose (two decks, two BPMs) and a deck's
+ * music sits ten minutes in at a tempo of its own, with its first beat wherever the recording
+ * put it. Those two grids have no reason to meet, so that click would flam against the music —
+ * worse than none, because you would beat-match to it.
+ *
+ * Setting the document's tempo to the deck's would fix the SPACING and not the phase, and the
+ * phase cannot be fixed that way either: holding the music still through a tempo change moves
+ * the song's downbeat by `(where you are − where the beat is) × the change in stretch`, which
+ * at two minutes in is some twenty beats' worth. The alignment would survive one drag step.
+ *
+ * So the notes are placed here instead, in document beats used purely as a unit of TIME: one
+ * bar at the deck's own tempo, starting on the song's own downbeat, looped to the end of the
+ * song. The document's tempo is never touched and the decks are never moved.
+ *
+ * The track is in the document whether the click is on or not, and silence is an empty clip
+ * list. Not tidiness: `ChangeKind::TrackRemoved` is a stub in the engine, so a track taken out
+ * of the document stays in the edit — and a metronome that cannot be switched off is a worse
+ * bug than the feature is a feature. Clip removal, which this leans on instead, is real.
+ *
+ * See ../docs/metronome.md.
+ */
+export function metronomeTrack(
+  tempo: DeckTempo | undefined,
+  on: boolean,
+): TrackDoc {
+  const bar = tempo && on ? clickBar(tempo) : null;
+  return trackDoc(METRONOME_TRACK, {
+    name: "métronome",
+    clips: bar ? [bar] : [],
+    plugins: [
+      pluginDoc({
+        id: `${METRONOME_TRACK}:synth`,
+        type: "4osc",
+        name: "click",
+        // A click is an envelope, not a waveform: instant on, gone in thirty milliseconds,
+        // nothing sustained. The pitch is the note's, so the downbeat is simply higher.
+        params: {
+          "Amp Attack": 0.001,
+          "Amp Decay": 0.03,
+          "Amp Sustain": 0,
+          "Amp Release": 0.03,
+          "Filter Amount": 0,
+        },
+        role: "instrument",
+      }),
+      pluginDoc({
+        id: `${METRONOME_TRACK}:level`,
+        type: MIXER_PLUGIN,
+        name: "métronome level",
+        params: { Volume: METRONOME_DB },
+      }),
+    ],
+  });
+}
+
+/** One looping bar of clicks, placed on the song's own downbeat. */
+function clickBar(tempo: DeckTempo): ClipDoc {
+  const toBeats = (seconds: number) => (seconds * DOC_TEMPO) / 60;
+  // Document beats are a unit of TIME here and nothing more: one beat of the DECK is however
+  // many of them it takes to last 60/target seconds.
+  const beat = DOC_TEMPO / tempo.target;
+  const from = transportAt(tempo.phase ?? 0, tempo);
+  // To the end of the song and no further, so the click stops when the record does.
+  const span = Math.max(beat, toBeats(transportAt(tempo.seconds, tempo) - from));
+  return clipDoc({
+    id: `${METRONOME_TRACK}-clip`,
+    type: "midi",
+    name: "click",
+    start: toBeats(from),
+    length: span,
+    // Four notes and a loop rather than one per beat for the whole song: the clip is rebuilt on
+    // every step of a tempo drag, and a six-minute track is a thousand notes to re-send.
+    loopStart: 0,
+    loopEnd: BEATS_PER_BAR * beat,
+    notes: Array.from({ length: BEATS_PER_BAR }, (_, i) => ({
+      time: i * beat,
+      duration: beat / 4,
+      key: i === 0 ? 96 : 89, // the bar's first beat sounds different — that IS the feature
+      vel: i === 0 ? 1 : 0.7,
+      rel: 0,
+      channel: 1,
+    })),
   });
 }
 
@@ -521,11 +656,12 @@ export function sendDecks(
   modules?: Partial<Record<DeckId, DeckModule[]>>,
   tempos?: DeckTempos,
   compiled?: ProjectDoc | null,
+  click: DeckId | null = null,
 ): void {
   engine.sendProject(
     compiled
-      ? withDecks(compiled, loads, tempos)
-      : deckDoc(loads, mix, modules, tempos),
+      ? withDecks(compiled, loads, tempos, click)
+      : deckDoc(loads, mix, modules, tempos, click),
   );
 }
 

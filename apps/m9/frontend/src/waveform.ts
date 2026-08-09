@@ -2,7 +2,7 @@
 // on screen, where a second lands in pixels, and where the beats are. No canvas, no React, so
 // the parts that decide what you SEE are testable. See docs/waveform.md.
 
-import { beatPhase, firstBeatAfter } from "./beats";
+import { BEATS_PER_BAR, beatPhase, firstBeatAfter } from "./beats";
 
 /** What the file service hands back for one cached song (@studio/commands/waveform's shape). */
 export interface Envelope {
@@ -113,9 +113,6 @@ export function barsIn(
 ): number[] {
   return gridIn(env, from, to, BEATS_PER_BAR, max);
 }
-
-/** The metre this view draws. One number, so the beat grid and the bar grid cannot disagree. */
-export const BEATS_PER_BAR = 4;
 
 /** Every `every`-th beat inside the window, from the deck's own grid. */
 function gridIn(

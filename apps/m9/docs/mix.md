@@ -21,7 +21,9 @@ bord extérieur, le fader de tempo, et aux deux bouts de la barre du bas les bou
 [bpm.md](bpm.md). Sur le bord intérieur, la tranche : l'EQ ([eq.md](eq.md)) et le filtre
 ([filter.md](filter.md)). Sous la waveform, les huit repères — appui court pour y aller, long
 pour les poser : [cues.md](cues.md). **Un clic au centre d'un vinyle** ouvre le sélecteur de
-morceaux : [songBrowser.md](songBrowser.md).
+morceaux : [songBrowser.md](songBrowser.md). À côté du transport, le métronome, qui n'est
+proposé que lorsqu'il n'y a qu'un temps — une seule platine, ou deux synchronisées :
+[metronome.md](metronome.md).
 
 Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue le `songs.yaml`
 de ce projet — c'est que le pupitre veut la largeur. Les fichiers, c'est l'Édition.
