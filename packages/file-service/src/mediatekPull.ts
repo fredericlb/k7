@@ -132,7 +132,7 @@ export async function pullOnce(): Promise<void> {
  * Never throws, same as `pullOnce`: an unreachable library must cost the refresh, not the open.
  */
 export async function syncMediatekFamily(
-  family: "modules" | "songs",
+  family: "modules" | "songs" | "chains",
 ): Promise<void> {
   const base = mediatekBase();
   if (!base) return;

@@ -6,7 +6,12 @@ import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { ArrowLeft, Loader2, Workflow } from "lucide-react";
+import {
+  BENCH_REPO,
+  benchProjectForChain,
+  launchUrl,
+} from "@studio/web-protocol/projects";
+import { ArrowLeft, ExternalLink, Loader2, Workflow } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { ChainView } from "./ChainView";
@@ -104,6 +109,23 @@ export function ChainEditor({
           </div>
         </div>
         <SaveState autosave={autosave} className="ml-auto shrink-0" />
+        {/* The same argument the module screen makes, and the same bench: a chain is a routing
+            you HEAR, so editing it against nothing was always half the job. l8 opens it with
+            the médiathèque's modules in reach and writes back here when you save. */}
+        <a
+          className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+          href={launchUrl(
+            window.location.origin,
+            BENCH_REPO,
+            benchProjectForChain(entry.path),
+            "l8",
+          )}
+          target="_blank"
+          rel="noopener"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Ouvrir sur le banc
+        </a>
       </header>
 
       {content == null ? (

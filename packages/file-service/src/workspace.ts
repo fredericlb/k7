@@ -39,6 +39,7 @@ import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
+import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
@@ -75,6 +76,7 @@ import {
   trackMixer,
 } from "@studio/song/project";
 import { projectTypeIssues } from "@studio/song/projectType";
+import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import { isInSharedModules } from "@studio/song/sharedFolders";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
@@ -98,8 +100,10 @@ import type {
 } from "@studio/web-protocol";
 import { PROJECT_SUFFIXES, projectApp } from "@studio/web-protocol/projects";
 import {
+  benchChainOf,
   benchModulesDir,
   isBenchProject,
+  pushChainToMediatek,
   pushModuleToMediatek,
 } from "./bench.ts";
 import { buildGraphDoc } from "./graphDoc.ts";
@@ -899,9 +903,10 @@ export class Workspace {
      * are on this machine either way, and a hosted library that is down must cost the sync, not
      * the work. See apps/st0/docs/banc.md.
      */
-    const active = this.activeProject
-      ? join(this.root, this.activeProject)
-      : null;
+    // The active project ABSOLUTE, which is how it is held — it was joined onto the root here,
+    // and `<root>/<root>/<project>` is a folder no write is ever under, so the module
+    // write-through below could not fire at all. See apps/st0/docs/banc.md.
+    const active = this.activeProject;
     const inBenchModules =
       active !== null &&
       isBenchProject(this.root, active) &&
@@ -928,6 +933,29 @@ export class Workspace {
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content, "utf8");
     this.invalidateProjectDoc();
+
+    /**
+     * The CHAIN bench's write-through, after the ordinary write rather than instead of it.
+     *
+     * A chain bench is a view of one médiathèque chain (bench.ts), so the two files that ARE the
+     * chain go back to it: `chains.yaml`, translated at the edges the way it was translated on
+     * the way in, and the flat `instances/` beside it. Everything else in the folder — the
+     * project, the track, the modules mirror — is the bench's own furniture and stays here.
+     *
+     * Local write first and the push after, for the same reason a module save does it: the bytes
+     * are on this machine either way, and a library that is down must cost the sync, not the work.
+     */
+    const chain = active && benchChainOf(this.root, this.toRel(active));
+    if (chain) {
+      const rel = relative(active, abs).split(sep).join("/");
+      const back =
+        rel === CHAIN_FILE
+          ? chainFromBench(content, BENCH_EDGES)
+          : rel.startsWith("instances/")
+            ? content
+            : null;
+      if (back !== null) void pushChainToMediatek(chain, rel, back);
+    }
     return {};
   }
 

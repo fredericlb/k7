@@ -8,11 +8,15 @@
 // The pair has to be exactly reversible or saving damages the chain, so both directions live here,
 // beside each other, under one set of round-trip tests. See apps/st0/docs/banc.md.
 
-import { type ChainsFile, formatChains, parseChains } from "./yaml/chainsFile";
+import { formatChains, parseChains } from "./yaml/chainsFile";
+import type { ChainsFile } from "./yaml/chainsSchema";
 
 /** The boundary nodes a shared chain is written between. */
 export const CHAIN_IN = "@in";
 export const CHAIN_OUT = "@out";
+
+/** The file this translates, named once — a chain folder and an l8 project both hold one. */
+export const CHAIN_FILE = "chains.yaml";
 
 /** What the bench scaffold calls its own furniture — see scaffoldBench. */
 export interface BenchEdges {
@@ -35,7 +39,10 @@ export interface BenchEdges {
 function splitHeader(text: string): { header: string; body: string } {
   const lines = text.split(/\r?\n/);
   let i = 0;
-  while (i < lines.length && (lines[i].startsWith("#") || lines[i].trim() === ""))
+  while (
+    i < lines.length &&
+    (lines[i].startsWith("#") || lines[i].trim() === "")
+  )
     i++;
   // Trailing blank lines belong to the gap, not the header.
   const head = lines.slice(0, i);
@@ -48,11 +55,15 @@ const rename = (dests: string[], from: string, to: string): string[] =>
 
 function mapFile(
   file: ChainsFile,
-  fn: (section: "tracks" | "modules", node: string, dests: string[]) => [string, string[]] | null,
+  fn: (
+    section: "tracks" | "modules",
+    node: string,
+    dests: string[],
+  ) => [string, string[]] | null,
 ): ChainsFile {
   const out: ChainsFile = {};
   for (const section of ["tracks", "modules"] as const) {
-    const entries = Object.entries(file[section] ?? {});
+    const entries = Object.entries(file[section] ?? {}) as [string, string[]][];
     if (!entries.length) continue;
     const next: Record<string, string[]> = {};
     for (const [node, dests] of entries) {
@@ -107,10 +118,12 @@ export function chainToBench(text: string, edges: BenchEdges): string {
   // The strip is spliced only when something reaches it, so a chain that was `@in → @out` does not
   // grow furniture it never routed through.
   if (edges.strip) {
-    const reaches = Object.values(moved.modules ?? {})
-      .concat(Object.values(moved.tracks ?? {}))
-      .some((d) => d.includes(edges.strip as string));
-    if (reaches) moved.modules = { ...moved.modules, [edges.strip]: [edges.out] };
+    const strip = edges.strip;
+    const reaches = [
+      ...Object.values(moved.modules ?? {}),
+      ...Object.values(moved.tracks ?? {}),
+    ].some((d: string[]) => d.includes(strip));
+    if (reaches) moved.modules = { ...moved.modules, [strip]: [edges.out] };
   }
   return formatChains(moved, header);
 }
