@@ -18,6 +18,19 @@ export interface FileEnvelope {
   transients: number[]; // onsets in FILE seconds, detected by the engine at this file's own resolution
   sensitivity: number; // the threshold those onsets were found with — per source, and sticky (docs/waveformCache.md)
   bpm: number; // the engine's tempo estimate, or 0 for "none found". A starting point, not an authority.
+  /**
+   * The same envelope split into three bands, for COLOUR — the way a DJ player draws a track.
+   *
+   * Peaks per bucket, in the SAME bucket space as `peak`, so a consumer indexes all four the
+   * same way. Split at 200 Hz and 4 kHz by complementary one-poles, so `low + mid + high` sums
+   * back to the signal and a column's colour cannot invent energy it has not got.
+   *
+   * Optional because a sidecar written before v4 has none, and a surface that has them should
+   * degrade to a plain envelope rather than to a blank one.
+   */
+  low?: number[];
+  mid?: number[];
+  high?: number[];
 }
 
 // A warp marker in DISPLAY seconds: `orig` where the source point is drawn, `target` where its beat lands — so

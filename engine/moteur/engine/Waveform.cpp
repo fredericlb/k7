@@ -1,5 +1,5 @@
 // Waveform.cpp — `--waveform <file> [<sensitivity>]`: decode an audio file into a placement-independent
-// peak+RMS envelope, detect its transient onsets and estimate its tempo, and cache all of it as
+// peak+RMS envelope and a three-band one, detect its transient onsets and estimate its tempo, and cache as
 // `{file}.cache`, stamped with a fingerprint the file service recomputes byte-for-byte.
 // Region slicing and the bar/beat grid stay in Node. See docs/cliModes.md.
 
@@ -21,6 +21,15 @@ namespace {
 
 // One envelope bucket per this many source frames, capped: a long file coarsens rather than growing without
 // limit, while short one-shots keep near-full detail.
+// The two corners that split the envelope into three bands, for COLOUR rather than for sound.
+// 200 Hz keeps kick and bass on one side; 4 kHz puts cymbals and the top of a hi-hat on the
+// other; what is left in the middle is where voices and snares live. A drawing does not need
+// steep filters — it needs the three to be complementary, which one-poles are by construction:
+// low + mid + high sums back to the signal exactly, so a column's colour cannot invent energy.
+constexpr double kBandLowHz = 200.0;
+constexpr double kBandHighHz = 4000.0;
+constexpr double kTwoPi = 6.283185307179586;
+
 constexpr std::int64_t kFramesPerBucket = 256;
 constexpr std::int64_t kMaxBuckets = 8192;
 constexpr int kReadBlock = 1 << 16;  // frames per decode block
@@ -238,6 +247,18 @@ int writeWaveformCache(const std::string& audioPath, double transientSensitivity
     std::vector<float> peak(static_cast<std::size_t>(buckets), 0.0f);
     std::vector<double> sumSq(static_cast<std::size_t>(buckets), 0.0);
     std::vector<std::int64_t> count(static_cast<std::size_t>(buckets), 0);
+    // One peak per band per bucket — what a coloured waveform is drawn from. Peaks and not RMS
+    // for the same reason the main envelope uses them: a kick is an attack, and averaging it
+    // over a bucket is exactly how you lose the thing you were trying to show.
+    std::vector<float> lowPk(static_cast<std::size_t>(buckets), 0.0f);
+    std::vector<float> midPk(static_cast<std::size_t>(buckets), 0.0f);
+    std::vector<float> highPk(static_cast<std::size_t>(buckets), 0.0f);
+    // Two one-pole followers, and the three bands are their differences. State carried across
+    // read blocks, so a band does not restart at every 64k frames.
+    const float aLow = static_cast<float>(1.0 - std::exp(-kTwoPi * kBandLowHz / sampleRate));
+    const float aHigh = static_cast<float>(1.0 - std::exp(-kTwoPi * kBandHighHz / sampleRate));
+    float lpLow = 0.0f;
+    float lpHigh = 0.0f;
     const double framesPerBucket = frames > 0
         ? static_cast<double>(frames) / static_cast<double>(buckets)
         : 1.0;
@@ -263,6 +284,19 @@ int writeWaveformCache(const std::string& audioPath, double transientSensitivity
             if (b >= buckets) b = buckets - 1;
             const float a = std::fabs(v);
             if (a > peak[static_cast<std::size_t>(b)]) peak[static_cast<std::size_t>(b)] = a;
+
+            // The split. `lpLow` is everything under 200 Hz, `lpHigh` everything under 4 k, so
+            // the middle is one subtraction and the top is another — and the three add back up
+            // to `v` exactly.
+            lpLow += aLow * (v - lpLow);
+            lpHigh += aHigh * (v - lpHigh);
+            const std::size_t bi = static_cast<std::size_t>(b);
+            const float lo = std::fabs(lpLow);
+            const float md = std::fabs(lpHigh - lpLow);
+            const float hi = std::fabs(v - lpHigh);
+            if (lo > lowPk[bi]) lowPk[bi] = lo;
+            if (md > midPk[bi]) midPk[bi] = md;
+            if (hi > highPk[bi]) highPk[bi] = hi;
             sumSq[static_cast<std::size_t>(b)] += static_cast<double>(v) * v;
             ++count[static_cast<std::size_t>(b)];
 
@@ -285,10 +319,10 @@ int writeWaveformCache(const std::string& audioPath, double transientSensitivity
     // the engine library, which otherwise keeps none.
     std::string out;
     out.reserve(static_cast<std::size_t>(buckets) * 14 + 256);
-    // v2 added `transients` + `sensitivity`, v3 added `bpm`. The Node side REQUIRES the current version
-    // (waveformCache.ts): an older sidecar has a matching fingerprint and would otherwise read as fresh
-    // forever, missing whatever the bump added.
-    out += "{\"v\":3,\"fingerprint\":\"";
+    // v2 added `transients` + `sensitivity`, v3 added `bpm`, v4 added the three band envelopes. The Node
+    // side REQUIRES the current version (waveformCache.ts): an older sidecar has a matching fingerprint and
+    // would otherwise read as fresh forever, missing whatever the bump added.
+    out += "{\"v\":4,\"fingerprint\":\"";
     out += fileFingerprint(audioPath);
     out += "\",\"sampleRate\":";
     out += std::to_string(static_cast<long long>(std::llround(sampleRate)));
@@ -312,6 +346,23 @@ int writeWaveformCache(const std::string& audioPath, double transientSensitivity
             ? static_cast<float>(std::sqrt(sumSq[b] / static_cast<double>(count[b])))
             : 0.0f;
         appendFixed(out, rms);
+    }
+    // The three bands, in the same bucket space as `peak` — so a consumer indexes all four the same way.
+    // Their names are what they are for: a waveform coloured by what is IN it, the way a DJ player draws one.
+    out += "],\"low\":[";
+    for (std::size_t b = 0; b < lowPk.size(); ++b) {
+        if (b) out += ',';
+        appendFixed(out, lowPk[b]);
+    }
+    out += "],\"mid\":[";
+    for (std::size_t b = 0; b < midPk.size(); ++b) {
+        if (b) out += ',';
+        appendFixed(out, midPk[b]);
+    }
+    out += "],\"high\":[";
+    for (std::size_t b = 0; b < highPk.size(); ++b) {
+        if (b) out += ',';
+        appendFixed(out, highPk[b]);
     }
     // 0 means "no tempo found" — silence, one sustained note, free time. Never a guess: this is the number
     // every later grid would trust.

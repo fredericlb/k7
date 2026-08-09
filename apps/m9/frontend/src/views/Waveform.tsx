@@ -15,9 +15,12 @@ import {
   WINDOW_SECONDS,
   xOf,
 } from "../waveform";
+import { bandsAt, columnColour } from "../spectrumColour";
 
 /** Yellow for the grid, grey for what the engine actually heard. The beats are inferred and
  *  the transients are measured, so the louder colour goes to the thing you mix on. */
+/** What a column with no band analysis is drawn in — the envelope as it always was. */
+const PLAIN = "rgb(148,163,184)";
 const BEAT = "#facc15";
 /** The downbeat, and deliberately a different HUE rather than a brighter yellow: at a
  *  glance you are counting bars, not reading which yellow is which. */
@@ -87,12 +90,17 @@ export function Waveform({
       const [from, to] = viewWindow(at);
       const xPx = (s: number) => xOf(s, at) * w;
 
-      // --- the envelope, one column per pixel -----------------------------------------
-      ctx.fillStyle = "rgba(148,163,184,0.85)";
+      // --- the envelope, one column per pixel, COLOURED BY WHAT IS IN IT ---------------
+      // Red where the bass is, green through the voice, blue at the cymbals, and the blends in
+      // between — the vocabulary a DJ player draws in. The colour is set per column because
+      // that IS the information; a file analysed before the bands existed keeps the plain grey,
+      // which reads as "not analysed that way" rather than as silence. See spectrumColour.ts.
       for (let px = 0; px < w; px++) {
         const seconds = from + (px / w) * WINDOW_SECONDS;
         const i = bucketAt(envelope, seconds);
         if (i === null) continue; // before the start or past the end: drawn as nothing
+        const bands = bandsAt(envelope, i);
+        ctx.fillStyle = bands ? columnColour(bands, PLAIN) : PLAIN;
         const amp = envelope.peak[i] ?? 0;
         const half = Math.max(0.5, amp * (h / 2 - 1));
         ctx.fillRect(px, mid - half, 1, half * 2);

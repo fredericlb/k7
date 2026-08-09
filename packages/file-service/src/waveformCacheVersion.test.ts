@@ -43,9 +43,10 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("the sidecar version gate", () => {
   it("treats every superseded version as stale, fingerprint or no fingerprint", () => {
-    // v2 is the case that matters today: it has transients but no bpm, and a matching
-    // fingerprint, so nothing else would ever ask for it to be rebuilt.
-    for (const v of [1, 2]) {
+    // v3 is the case that matters today: it has a bpm but none of the band envelopes a
+    // coloured waveform is drawn from, and a matching fingerprint — so nothing else would ever
+    // ask for it to be rebuilt, and every track would stay grey for ever.
+    for (const v of [1, 2, 3]) {
       sidecar({ v, transients: [0.05], sensitivity: 2 });
       expect(staleWaveformSources([audio]), `v${v}`).toEqual([audio]);
     }
@@ -57,12 +58,12 @@ describe("the sidecar version gate", () => {
   });
 
   it("accepts the current version", () => {
-    sidecar({ v: 3, transients: [0.05], sensitivity: 2, bpm: 120 });
+    sidecar({ v: 4, transients: [0.05], sensitivity: 2, bpm: 120 });
     expect(staleWaveformSources([audio])).toEqual([]);
   });
 
   it("still rebuilds a current sidecar whose fingerprint no longer matches", () => {
-    sidecar({ v: 3, transients: [], sensitivity: 2, bpm: 0 });
+    sidecar({ v: 4, transients: [], sensitivity: 2, bpm: 0 });
     writeFileSync(audio, Buffer.from("RIFF....WAVEfmt DIFFERENT payload"));
     expect(staleWaveformSources([audio])).toEqual([audio]);
   });
@@ -70,13 +71,13 @@ describe("the sidecar version gate", () => {
 
 describe("storedSensitivity", () => {
   it("reads the threshold a sidecar was built with", () => {
-    sidecar({ v: 3, transients: [], sensitivity: 3.5, bpm: 0 });
+    sidecar({ v: 4, transients: [], sensitivity: 3.5, bpm: 0 });
     expect(storedSensitivity(audio)).toBe(3.5);
   });
 
   it("reads it from a sidecar whose fingerprint has gone STALE", () => {
     // The whole point: re-recording a take must not silently reset a tuned threshold.
-    sidecar({ v: 3, transients: [], sensitivity: 3.5, bpm: 0 });
+    sidecar({ v: 4, transients: [], sensitivity: 3.5, bpm: 0 });
     writeFileSync(audio, Buffer.from("RIFF....WAVEfmt DIFFERENT payload"));
     expect(storedSensitivity(audio)).toBe(3.5);
   });

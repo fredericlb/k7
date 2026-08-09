@@ -71,19 +71,23 @@ interface CacheFile {
   transients?: number[];
   sensitivity?: number;
   bpm?: number;
+  low?: number[];
+  mid?: number[];
+  high?: number[];
 }
 
 /** The default transient threshold — mirrors `kDefaultTransientSensitivity` in EngineHost.h. */
 export const DEFAULT_TRANSIENT_SENSITIVITY = 2;
 
 /**
- * The oldest sidecar shape still usable. v2 added `transients` + `sensitivity`, v3 added `bpm`.
+ * The oldest sidecar shape still usable. v2 added `transients` + `sensitivity`, v3 added `bpm`, v4 added the
+ * three band envelopes a coloured waveform is drawn from.
  *
  * Gating on this is load-bearing, not tidiness: an older sidecar carries a MATCHING fingerprint — the audio has
  * not changed — so every freshness check would pass and the file would never get whatever the bump added.
  * Raise it with every field added on the engine side, or the field silently never arrives.
  */
-const MIN_CACHE_VERSION = 3;
+const MIN_CACHE_VERSION = 4;
 
 function readSidecar(source: string): FileEnvelope | null {
   try {
@@ -106,6 +110,11 @@ function readSidecar(source: string): FileEnvelope | null {
         sensitivity: c.sensitivity ?? DEFAULT_TRANSIENT_SENSITIVITY,
         // 0 is the engine's "no tempo found", and it stays 0 rather than becoming a guess.
         bpm: c.bpm ?? 0,
+        // Absent rather than empty when the engine did not write them: a surface reads "not
+        // analysed that way" and draws a plain envelope, where [] would read as silence.
+        ...(c.low ? { low: c.low } : {}),
+        ...(c.mid ? { mid: c.mid } : {}),
+        ...(c.high ? { high: c.high } : {}),
       };
   } catch {
     /* missing / unreadable / malformed — treat as no cache */
