@@ -1,7 +1,8 @@
-// RecordingOverlay.tsx — the fullscreen surface shown WHILE recording: a live waveform per
-// armed track, a minimap of where the take sits, and a timer counting the pre-roll then the
-// beats. The waveform is built from the same ~20 Hz inputLevels the meters use, accumulated
-// and drawn off the store directly so the canvas updates without re-rendering the overlay.
+// RecordingBand.tsx — what is on screen WHILE a take rolls: a live waveform per armed track
+// over a bar/beat grid, and a timer counting the pre-roll then the beats. A BAND in the
+// shell's column, WAVE_HEIGHT tall — the panes keep the rest and stay live. The waveform is
+// built from the same ~20 Hz inputLevels the meters use, drawn off the store directly so the
+// canvas updates without re-rendering the band.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -11,11 +12,18 @@ import {
   useEngineStore,
 } from "@studio/engine-browser/store";
 import { Circle, Square } from "lucide-react";
-import { type ReactNode, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { beatLines, windowStart } from "../recordingWindow";
 
-// The envelope is capped and then scrolls; at ~20 Hz that is ~200s, so most takes never scroll at all.
-const MAX_BUCKETS = 4000;
+// The envelope is capped and then scrolls; at ~20 Hz that is ~200s, well past the window.
+const MAX_FRAMES = 4000;
+const WAVE_HEIGHT = 200; // px of canvas, whatever the shell's height
+// How much of the take is on screen, in BARS — so the grid keeps its spacing at any tempo.
+const WINDOW_BARS = 8;
 const REC_COLOR = "#ef4444"; // red-500, matching the arm/record accent
+// The same two the clip editor's ruler uses: bars readable, beats a rule behind the take.
+const BAR_LINE = "rgba(120,180,255,0.45)";
+const BEAT_LINE = "rgba(255,255,255,0.10)";
 
 // One input dB reading mapped to a 0..1 bar height, through the same range as the meters.
 function dbToLevel(db: number): number {
@@ -23,52 +31,72 @@ function dbToLevel(db: number): number {
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }
 
-export function RecordingOverlay({
+// Escape stops the take — unless it is answering a field, now that the shell behind stays live.
+function editable(el: EventTarget | null): boolean {
+  const n = el as HTMLElement | null;
+  if (!n?.tagName) return false;
+  return (
+    n.tagName === "INPUT" ||
+    n.tagName === "TEXTAREA" ||
+    n.isContentEditable === true
+  );
+}
+
+export function RecordingBand({
   tempo,
   beatsPerBar,
   countIn,
   trackOrder,
   trackNames,
   onStop,
-  children,
 }: {
   tempo: number;
   // Quarter-note beats per bar (the project's time-sig numerator), for the count-in math.
   beatsPerBar: number;
-  // Count-in length in bars (0 == none) — the overlay counts this down before the take.
+  // Count-in length in bars (0 == none) — the band counts this down before the take.
   countIn: number;
   // The engine level index order, so an armed track id maps to its inputLevels slot.
   trackOrder: string[];
   trackNames: Record<string, string>;
   onStop: () => void;
-  // The minimap strip (rendered by App, which owns its props), shown under the waveform.
-  children?: ReactNode;
 }) {
   const store = useEngineStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Per-track envelopes and the armed ids in refs, fed off the store, so the frame loop never re-renders this.
+  // The take, in refs so the frame loop never re-renders this: one beat position per engine
+  // frame, and one level per frame per track, index-aligned with it.
+  const framesRef = useRef<number[]>([]);
   const envRef = useRef<Map<string, number[]>>(new Map());
   const armedRef = useRef<string[]>([]);
 
   useEffect(() => {
-    // Append one bucket per armed track on every engine frame.
+    // Append one frame on every engine push: where the playhead is, and what each track hears.
     const unsub = store.subscribe(() => {
       const s = store.getSnapshot();
       armedRef.current = s.armed;
+      const n = framesRef.current.length;
+      framesRef.current.push((s.playhead * tempo) / 60);
       for (const id of s.armed) {
-        const i = trackOrder.indexOf(id);
-        const db = i >= 0 ? (s.inputLevels[i] ?? -Infinity) : -Infinity;
         let buf = envRef.current.get(id);
+        // Armed mid-take: pad back to this frame, so its envelope starts where it was armed
+        // and not at the left edge, which would put it a bar or two ahead of the others.
         if (!buf) {
-          buf = [];
+          buf = new Array<number>(n).fill(0);
           envRef.current.set(id, buf);
         }
+        const i = trackOrder.indexOf(id);
+        const db = i >= 0 ? (s.inputLevels[i] ?? -Infinity) : -Infinity;
         buf.push(dbToLevel(db));
-        if (buf.length > MAX_BUCKETS) buf.shift();
+      }
+      // Disarmed mid-take: keep filling silence, or the indices stop meaning the same frame.
+      for (const buf of envRef.current.values())
+        if (buf.length === n) buf.push(0);
+      if (framesRef.current.length > MAX_FRAMES) {
+        framesRef.current.shift();
+        for (const buf of envRef.current.values()) buf.shift();
       }
     });
 
-    // Draw the accumulated envelopes, one stacked row per armed track, on a rAF loop.
+    // Draw the grid, then the accumulated envelopes, one stacked row per armed track, on a rAF loop.
     let raf = 0;
     const draw = () => {
       const cv = canvasRef.current;
@@ -87,20 +115,48 @@ export function RecordingOverlay({
         if (ctx) {
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.clearRect(0, 0, w, h);
+
+          const frames = framesRef.current;
+          const bpb = Math.max(1, beatsPerBar);
+          const win = WINDOW_BARS * bpb;
+          const first = frames[0] ?? 0;
+          const last = frames[frames.length - 1] ?? first;
+          const t0 = windowStart(first, last, win);
+          const xOf = (b: number) => ((b - t0) / win) * w;
+
+          // The grid spans the WHOLE width, ahead of the take too: it is the ruler the take is
+          // being written onto, and seeing the next bar arrive is most of what it is for.
+          ctx.lineWidth = 1;
+          for (const g of beatLines(t0, win, bpb, w)) {
+            const x = Math.round(xOf(g.beat)) + 0.5;
+            ctx.strokeStyle = g.bar ? BAR_LINE : BEAT_LINE;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+            ctx.stroke();
+          }
+
           const ids = armedRef.current.length
             ? armedRef.current
             : [...envRef.current.keys()];
           const rows = Math.max(1, ids.length);
           const rowH = h / rows;
-          const bw = Math.max(1, w / MAX_BUCKETS);
+          // Proportional: in a 200px band a fixed gap swallows a row whole once four tracks are armed.
+          const gap = Math.min(24, rowH * 0.25);
+          const step =
+            frames.length > 1 ? (last - first) / (frames.length - 1) : 0;
+          const bw = Math.max(1, (step / win) * w);
           ctx.fillStyle = REC_COLOR;
           ids.forEach((id, r) => {
             const buf = envRef.current.get(id);
             if (!buf) return;
             const cy = r * rowH + rowH / 2;
-            for (let i = 0; i < buf.length; i++) {
-              const bh = Math.max(1, buf[i] * (rowH - 24));
-              ctx.fillRect((i / MAX_BUCKETS) * w, cy - bh / 2, bw, bh);
+            const n = Math.min(buf.length, frames.length);
+            for (let i = 0; i < n; i++) {
+              const x = xOf(frames[i]);
+              if (x < -bw || x > w) continue; // scrolled off the left
+              const bh = Math.max(1, buf[i] * (rowH - gap));
+              ctx.fillRect(x, cy - bh / 2, bw, bh);
             }
           });
         }
@@ -112,12 +168,12 @@ export function RecordingOverlay({
       unsub();
       cancelAnimationFrame(raf);
     };
-  }, [store, trackOrder]);
+  }, [store, trackOrder, tempo, beatsPerBar]);
 
-  // Esc stops the take, captured here so it reads as "leave the recording surface" while the overlay is up.
+  // Esc stops the take, captured so it reads as "leave the take" wherever the pointer went.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !editable(e.target)) {
         e.preventDefault();
         e.stopPropagation();
         onStop();
@@ -144,16 +200,16 @@ export function RecordingOverlay({
   const armedNames = armedRef.current.map((id) => trackNames[id] ?? id);
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-background/98">
+    <div className="shrink-0 border-t border-border bg-background">
       {/* top: state + timer */}
-      <div className="flex items-center gap-4 border-b border-border px-6 py-3">
+      <div className="flex items-center gap-4 border-b border-border px-6 py-2">
         <Circle className="h-4 w-4 animate-pulse fill-red-500 text-red-500" />
         {inCountIn ? (
           <div className="flex items-baseline gap-3">
             <span className="text-sm uppercase tracking-wider text-muted-foreground">
               Count-in
             </span>
-            <span className="font-mono text-3xl tabular-nums text-red-400">
+            <span className="font-mono text-2xl tabular-nums text-red-400">
               {Math.max(0, targetBeat - curBeat)}
             </span>
           </div>
@@ -162,7 +218,7 @@ export function RecordingOverlay({
             <span className="text-sm uppercase tracking-wider text-red-400">
               Recording
             </span>
-            <span className="font-mono text-3xl tabular-nums">
+            <span className="font-mono text-2xl tabular-nums">
               {bar}:{beatInBar}
             </span>
             <span className="text-sm text-muted-foreground">
@@ -186,13 +242,14 @@ export function RecordingOverlay({
         </Button>
       </div>
 
-      {/* the live input waveform, filling the middle */}
-      <div className="min-h-0 flex-1 p-4">
-        <canvas ref={canvasRef} className="h-full w-full" />
+      {/* the live input waveform — a fixed height, so the panes above lose exactly this much */}
+      <div className="px-4 py-2">
+        <canvas
+          ref={canvasRef}
+          className="w-full"
+          style={{ height: WAVE_HEIGHT }}
+        />
       </div>
-
-      {/* the minimap strip — where the take sits in the song */}
-      <div className="border-t border-border">{children}</div>
     </div>
   );
 }

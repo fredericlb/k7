@@ -69,7 +69,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { RecordingOverlay } from "./components/RecordingOverlay";
+import { RecordingBand } from "./components/RecordingBand";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
@@ -1688,6 +1688,20 @@ export default function App({
           )}
         </div>
 
+        {/* Recording — up whenever a take is actually rolling (record enabled AND the transport
+            playing). A BAND in the column, not a cover: it takes its height off the panes and
+            leaves them on screen, because what you watch while playing is the arrangement. */}
+        {recordEnabled && playing && (
+          <RecordingBand
+            tempo={recInfo.tempo}
+            beatsPerBar={recInfo.beatsPerBar}
+            countIn={recInfo.countIn}
+            trackOrder={trackOrder}
+            trackNames={recInfo.names}
+            onStop={() => transport("stop")}
+          />
+        )}
+
         <footer
           className={cn(
             "flex items-center border-t border-border text-muted-foreground",
@@ -1974,33 +1988,9 @@ export default function App({
         {/* Freezing a track: the one modal wait in the app. See FreezeOverlay for why this one earns it. */}
         {freezing && <FreezeOverlay track={freezing} />}
 
-        {/* Recording surface — up whenever a take is actually rolling (record enabled AND
-            the transport playing). Its own overlay, above the shell, closed by stopping. */}
-        {recordEnabled && playing && (
-          <RecordingOverlay
-            tempo={recInfo.tempo}
-            beatsPerBar={recInfo.beatsPerBar}
-            countIn={recInfo.countIn}
-            trackOrder={trackOrder}
-            trackNames={recInfo.names}
-            onStop={() => transport("stop")}
-          >
-            <Minimap
-              reloadKey={reloadKey}
-              orbit={orbit}
-              caret={caret}
-              highlight={openItem}
-              onSeek={seek}
-            />
-          </RecordingOverlay>
-        )}
-
-        {/* The shared module builder (@studio/ui-module-builder), over the whole shell.
-            The module's OWN presets come off its shelf through the store. The plugin's FACTORY
-            banks, its parameter NAMES and their ranges come from the engine — and only for a
-            module this project instantiates, because those are facts about a loaded plugin and
-            the loaded plugins are the ones in the chains. `builderPlugin` is that lookup; when it
-            is null the builder is exactly what it always was here, a text and grid editor. */}
+        {/* The shared module builder (@studio/ui-module-builder), over the whole shell. The module's OWN
+            presets come off its shelf through the store and work here; the plugin's FACTORY banks and its
+            live parameter list need an engine, and this overlay holds no engine link, so it offers neither. */}
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder

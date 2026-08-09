@@ -110,6 +110,46 @@ elbow room, not bigger controls: the grid inside a card is a fixed cell size (`w
 so the extra width is space beside the controls, and the height is deliberately left alone —
 scaling it too would only add dead space under them.
 
+### Recording is a BAND, not a cover
+
+`RecordingBand` is up whenever a take is actually rolling — record enabled **and** the
+transport playing. It sits in the column between the panes and the status bar, 200px of
+canvas plus its own header, and the panes lose exactly that much.
+
+It used to be `absolute inset-0`, a fullscreen surface with the waveform stretched to
+whatever was left. That answered the wrong question. A rolling take is the moment you most
+want the arrangement in front of you — where the playhead is, which bar is coming, what the
+clip you are punching into looks like — and the one thing that surface showed instead was a
+level envelope, at whatever height the window happened to have. The band gives that envelope
+a size someone chose and gives the rest back.
+
+Two consequences fall out of the shell staying live behind it:
+
+- the minimap the band used to carry as a child is gone. The shell's own is right below it
+  now that the band is in the column, and two of them was one too many. On a phone that
+  means no minimap while recording, since the shell's is desktop-only — a phone that has
+  just given 200px to a canvas has none to spare for a second view of the same thing;
+- **Escape** still stops the take, but no longer when it is answering a field. It is a
+  capture-phase listener, so without that check it would eat the Escape that closes the
+  command bar — which you can now reach while recording.
+
+#### The waveform's x axis is musical time
+
+`recordingWindow.ts` owns it, and it is what makes the bar/beat rules mean anything. The
+band keeps one **beat position per engine frame** beside the levels, so x is beats, not
+buckets: `WINDOW_BARS` (8) of the take are on screen at any tempo, filling from the left
+until the take outgrows the window and then scrolling with the newest frame at the right
+edge. Bars are drawn brighter than beats, in the clip editor's two colours, and the beats
+drop out below `MIN_BEAT_PX` — the same thinning, for the same reason.
+
+The x axis used to be the bucket index over a fixed 4000-bucket cap, i.e. ~200s of tape
+squeezed into the width whether or not the take was 4 seconds long. A grid on THAT axis is
+a line every three pixels at 120bpm: a wash, not a ruler. The rules are why the axis changed.
+
+One thing the alignment bought on the way: a track armed **mid-take** has its buffer padded
+back to the frame it was armed at, so its envelope starts where it started instead of at
+the left edge, a bar or two ahead of everyone else's.
+
 ## A view is a LAYOUT, not a mode
 
 Every pane is mounted always, and always the *same instance* — including the editor, which
