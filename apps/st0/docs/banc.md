@@ -14,16 +14,27 @@ Une piste, une tranche, une sortie. Le reste est à câbler, et c'est l'exercice
 ```yaml
 # chains.yaml
 tracks:
-  banc: [ tape-delay, mixer ]
+  banc: [ amps/neural-amp-modeler, mixer ]
 modules:
-  tape-delay: [ mixer ]
+  amps/neural-amp-modeler: [ mixer ]
   mixer: [ OUT ]
 ```
 
-Le nom est celui du **dossier** du module. Pas d'instance à créer : une instance sert à avoir
-deux exemplaires d'un module réglés différemment, et un banc n'en a pas besoin — d'ailleurs
-il ne pourrait pas, un nom d'instance ne pouvant pas être celui d'un module du projet, et ici
-tous les modules du catalogue en sont.
+Le nom est le chemin du module **sous son dossier de type** : `tape-delay` pour
+`modules/audio/tape-delay/`, `amps/neural-amp-modeler` pour
+`modules/audio/amps/neural-amp-modeler/`, qui est rangé d'un cran plus loin. La médiathèque
+range son catalogue comme ça, et le banc en est le miroir.
+
+> Ce niveau de rangement était supporté par les bibliothèques partagées (`readModuleTree`) et
+> **pas** par le `modules/` propre à un projet (`loadModules`), qui sautait en silence un dossier
+> sans `module.yaml`. Un module rangé n'était donc pas une erreur : il n'était simplement pas là,
+> et chaque symptôme parlait d'autre chose — une chaîne nommant un module « que ce projet n'a
+> pas », un 400 de `/module-ui` sur un fichier bien visible dans l'arbre. Les deux marcheurs
+> s'accordent depuis (`packages/song/src/filedModules.test.ts`).
+
+Pas d'instance à créer : une instance sert à avoir deux exemplaires d'un module réglés
+différemment, et un banc n'en a pas besoin — d'ailleurs il ne pourrait pas, un nom d'instance
+ne pouvant pas être celui d'un module du projet, et ici tous les modules du catalogue en sont.
 
 Pour entendre autre chose que du silence, il faut une source : un clip déposé sur la piste, ou
 une entrée live — un dossier `modules/io/guitare/` avec `io: in`, `channel: [1]` et

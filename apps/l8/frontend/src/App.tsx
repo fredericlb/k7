@@ -27,6 +27,9 @@ import {
 import type { PresetInfo } from "@studio/engine-protocol";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
+// The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
+// loader in behind it.
+import { moduleKeyFromPath } from "@studio/song/moduleTypes";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import {
@@ -980,9 +983,12 @@ export default function App({
    */
   useEffect(() => {
     if (!builder) return void setBuilderPlugin(null);
-    // ".../<module>/module.yaml" → "<module>". The folder names a module; the file inside it
-    // says which of its three parts is open, which is not what an instance is named after.
-    const module = builder.path.split("/").slice(-2)[0] ?? builder.path;
+    // The key a chain would write, which is everything between the type folder and the file —
+    // `amps/neural-amp-modeler`, not `neural-amp-modeler`. Shared with the loader that files it
+    // (`@studio/song/moduleTypes`), because a lookup that spelled it differently would report
+    // "this project has no such module" about a module plainly in the tree.
+    const module = moduleKeyFromPath(builder.path);
+    if (!module) return void setBuilderPlugin(null);
     let cancelled = false;
     void api
       .graph()

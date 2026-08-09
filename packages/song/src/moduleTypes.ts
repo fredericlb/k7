@@ -218,6 +218,33 @@ export const moduleKey = (module: string, instance?: string): string =>
 export const moduleRefOf = (type: string, name: string): string =>
   MODULE_TYPES[type]?.kind === "io" ? name : `${type}/${name}`;
 
+/**
+ * The chain KEY of the module a path points into — what `loadModules` files it under.
+ *
+ * `…/modules/audio/reverb/module.yaml` → `reverb`
+ * `…/modules/audio/amps/neural-amp-modeler/ui.yaml` → `amps/neural-amp-modeler`
+ *
+ * Everything between the type folder and the filename, because a module may be FILED one level
+ * deep (which is how the médiathèque lays its catalogue out, and therefore how the bench's own
+ * `modules/` looks). Taking the folder immediately above the file instead gives `neural-amp-modeler`
+ * — a name no chain uses and no lookup finds, which reads as "this project has no such module"
+ * about a module plainly in the tree.
+ *
+ * Null when the path names no module. In this leaf rather than in the loader so a BROWSER can
+ * ask: `@studio/song/loader` opens `node:fs` on import, and this is a question about a string.
+ */
+export function moduleKeyFromPath(path: string): string | null {
+  const segs = path.split(/[\\/]+/);
+  // The LAST `modules/`, so a workspace-relative path (`song.l8/modules/…`) and an absolute one
+  // both land on the same segment.
+  const at = segs.lastIndexOf("modules");
+  if (at < 0) return null;
+  const rest = segs.slice(at + 1);
+  // <type> … <file>: at least a type, a module folder and a file.
+  if (rest.length < 3 || !MODULE_TYPES[rest[0]]) return null;
+  return rest.slice(1, -1).join("/");
+}
+
 // "synth:lead" -> {module, instance}, splitting on the FIRST separator so it stays total on any key.
 export function splitModuleKey(key: string): {
   module: string;

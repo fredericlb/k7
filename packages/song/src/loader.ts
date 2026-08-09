@@ -374,9 +374,44 @@ export function loadModules(
   for (const [type, meta] of Object.entries(MODULE_TYPES)) {
     const abs = join(bdir, type);
     if (!existsSync(abs) || !statSync(abs).isDirectory()) continue;
-    for (const name of readdirSync(abs)) {
-      const folder = join(abs, name);
+    /**
+     * The module folders under one type, ONE level of filing allowed — `audio/reverb` and
+     * `audio/amps/neural-amp-modeler` both, with the second keyed `amps/neural-amp-modeler`.
+     *
+     * `readModuleTree` has always done exactly this for the shared libraries, and the
+     * médiathèque files its catalogue that way. A project's own `modules/` did not, and a
+     * folder with no `module.yaml` in it was simply skipped — so a nested module was not an
+     * error, it just was not there. Every symptom then described something else: a chain
+     * naming a module "this project doesn't have", a catalogue short a few rows, and — for
+     * the module bench, whose `modules/` IS the catalogue — a builder answering 400 for a
+     * file sitting right in the tree.
+     *
+     * Two walkers over one vocabulary had to agree; this is the one that was behind.
+     */
+    const folders: { name: string; folder: string }[] = [];
+    for (const entry of readdirSync(abs)) {
+      const folder = join(abs, entry);
       if (!statSync(folder).isDirectory()) continue;
+      if (moduleFileFor(folder, `modules/${type}/${entry}`, "module")) {
+        folders.push({ name: entry, folder });
+        continue;
+      }
+      // No module file: a FILING folder, one level only. Its own leaves are the modules.
+      for (const leaf of readdirSync(folder)) {
+        const leafFolder = join(folder, leaf);
+        if (!statSync(leafFolder).isDirectory()) continue;
+        if (
+          !moduleFileFor(
+            leafFolder,
+            `modules/${type}/${entry}/${leaf}`,
+            "module",
+          )
+        )
+          continue;
+        folders.push({ name: `${entry}/${leaf}`, folder: leafFolder });
+      }
+    }
+    for (const { name, folder } of folders) {
       const relDir = `modules/${type}/${name}`;
       // A module folder is its `module.yaml` and nothing else now. Uses of a module are
       // files in the project's flat `instances/` — see the pass below and docs/instances.md.
@@ -395,9 +430,13 @@ export function loadModules(
         value: Record<string, unknown>,
         instance?: string,
       ): LoadedModule => {
+        // The module's OWN folder name, which is the last segment of `name` — a filed module
+        // is keyed `amps/neural-amp-modeler` and its preset sits beside its module.yaml as
+        // `neural-amp-modeler.vstpreset`, not under a further `amps/` that is not there.
+        const leaf = name.slice(name.lastIndexOf("/") + 1);
         // Own preset wins, else the generic's — so a UI edit on one instance never touches a sibling's.
-        const own = join(folder, `${instance ?? name}.vstpreset`);
-        const generic = join(folder, `${name}.vstpreset`);
+        const own = join(folder, `${instance ?? leaf}.vstpreset`);
+        const generic = join(folder, `${leaf}.vstpreset`);
         const preset = existsSync(own)
           ? own
           : existsSync(generic)
