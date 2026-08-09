@@ -202,10 +202,13 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
 }
 
 bool needsFullRebuild(const ProjectDiff& d) {
-    // PluginRemoved still rebuilds wholesale — correctness over speed, as this whole rule used to say. A swap
-    // surfaces as PluginRemoved + PluginAdded, so replacing a module still takes the slow path.
+    // Neither adding nor removing a plugin rebuilds any more, and a swap — which surfaces as PluginRemoved +
+    // PluginAdded, removals first — is therefore incremental too.
     //
-    // PluginAdded no longer does, and that is the difference between adding a module in a second and in four.
+    // REMOVING mattered for a reason of its own, beyond the seconds: a rebuild replaces the Edit, so it replaces
+    // the transport with it, and playback stops. Unlinking a module while the song plays used to stop the song.
+    //
+    // ADDING is the difference between putting a module in a chain in a second and in four.
     // A full rebuild throws the Edit away and builds a new one from the document, so EVERY plugin is
     // instantiated again: measured on a real song, `populate` took 4026 ms of a 4169 ms apply to put back the
     // 31 plugins that had not changed, with the transport dead throughout. apply() now creates the one new
@@ -220,9 +223,11 @@ bool needsFullRebuild(const ProjectDiff& d) {
     // plugin by name, and rebuilding for a param change re-instantiated every plugin on each tweak — the
     // difference between a control that can be dragged and one that can't. Known gap: diff() walks the NEW
     // params, so a DELETED one emits nothing and the live plugin keeps its value until the next full rebuild.
-    // A track added or removed in the SAME diff excludes the incremental add too, and for a reason that is not
-    // about plugins at all: trackById maps a doc track to the engine track at the same INDEX, so while the loop
-    // is still adding tracks the two are briefly out of step, and the plugin would land on the wrong lane.
+
+    // A track added or removed in the SAME diff excludes the incremental ADD, and for a reason that is not about
+    // plugins at all: trackById maps a doc track to the engine track at the same INDEX, so while the loop is
+    // still adding tracks the two are briefly out of step, and the plugin would land on the wrong lane. The
+    // remove path does not care — it finds its plugin by id, never by track position.
     bool tracksMoved = false;
     for (const auto& c : d)
         if (c.kind == ChangeKind::TrackAdded || c.kind == ChangeKind::TrackRemoved) tracksMoved = true;
@@ -230,7 +235,6 @@ bool needsFullRebuild(const ProjectDiff& d) {
     for (const auto& c : d)
         switch (c.kind) {
             case ChangeKind::SampleRateChanged:
-            case ChangeKind::PluginRemoved:
                 return true;
             case ChangeKind::PluginAdded:
                 if (tracksMoved) return true;

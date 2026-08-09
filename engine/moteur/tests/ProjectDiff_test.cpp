@@ -149,7 +149,9 @@ void diff_plugin_param_drift_is_incremental() {
 }
 
 // Swapping the plugin (same module id, different name/type) is a REPLACE, not "same plugin whose params
-// drifted", and must force a rebuild.
+// drifted": it must come out as remove + add, so the old instance goes and a new one is built. It no longer
+// forces a rebuild — with both halves incremental, and removals emitted before adds, the pair does the job
+// in place: the old plugin leaves the chain and the new one is inserted after whatever still precedes it.
 void diff_plugin_swap_is_replace_and_rebuild() {
     ProjectDoc a;
     {
@@ -163,7 +165,9 @@ void diff_plugin_swap_is_replace_and_rebuild() {
     const auto d = diff(a, b);
     CHECK(hasKind(d, ChangeKind::PluginRemoved));
     CHECK(hasKind(d, ChangeKind::PluginAdded));
-    CHECK(needsFullRebuild(d));
+    CHECK(!needsFullRebuild(d));
+    // The order is what makes the pair safe in place, and it is asserted by diff_removals_before_adds too.
+    CHECK(d.front().kind == ChangeKind::PluginRemoved);
 }
 
 // Adding a plugin is the one thing people do to a chain all day, and it must NOT rebuild: a full rebuild
@@ -183,6 +187,24 @@ void diff_plugin_add_is_incremental() {
     const auto d = diff(a, b);
     CHECK(hasKind(d, ChangeKind::PluginAdded));
     CHECK(!hasKind(d, ChangeKind::PluginRemoved));
+    CHECK(!needsFullRebuild(d));
+}
+
+// Removing one does not rebuild either, and that one is not about speed: a rebuild replaces the Edit, and the
+// transport with it, so unlinking a module while the song played used to stop the song.
+void diff_plugin_remove_is_incremental() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "FX");
+        t.plugins.push_back(mkPlugin("t1:b1", "vst3", "Reverb"));
+        t.plugins.push_back(mkPlugin("t1:b2", "4osc", "4OSC"));
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks[0].plugins.pop_back();
+
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::PluginRemoved));
     CHECK(!needsFullRebuild(d));
 }
 
@@ -288,6 +310,7 @@ int main() {
     RUN(diff_plugin_param_drift_is_incremental);
     RUN(diff_plugin_swap_is_replace_and_rebuild);
     RUN(diff_plugin_add_is_incremental);
+    RUN(diff_plugin_remove_is_incremental);
     RUN(diff_plugin_add_rebuilds_when_it_must);
     RUN(diff_clip_moved);
     RUN(diff_clip_retimed_by_every_field);

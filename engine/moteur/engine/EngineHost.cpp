@@ -330,9 +330,41 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
             case ChangeKind::TrackRemoved:
                 // te::deleteRegionOfTracks / edit.deleteTrack(*t) — needs the Track (not just AudioTrack) and an undo transaction.
                 break;
-            case ChangeKind::PluginRemoved:
-                // plugin->deleteFromParent();
+            /**
+             * Take the one plugin out of the LIVE chain, which is what unlinking a module is.
+             *
+             * This rebuilt the whole Edit until now, and a rebuild replaces the Edit — so it replaces the
+             * TRANSPORT with it, and playback stops. That is the entire bug report: "unlinking an instance stops
+             * playback". Removing it in place leaves everything else, including what is rolling, untouched.
+             *
+             * `deleteFromParent` on a plugin in a playing chain is not new here — disableWaveformTap has always
+             * pulled its tap out that way.
+             */
+            case ChangeKind::PluginRemoved: {
+                if (!c.plugin) break;
+                auto& s = impl_->session(session);
+                auto it = s.pluginsById.find(c.plugin->id);
+                // Absent from the graph: it never instantiated (a missing VST warns at load). Nothing to remove,
+                // and a rebuild would produce the same nothing more slowly.
+                if (it == s.pluginsById.end() || it->second == nullptr) {
+                    s.pluginsById.erase(c.plugin->id);
+                    break;
+                }
+                // Its own waveform taps go WITH it: they sit either side of this plugin in the list, and left
+                // behind they would measure its neighbours while claiming to be its input and output.
+                for (const char* side : {"input", "output"})
+                    disableWaveformTap(session, c.plugin->id, side);
+                // The editor window points at the plugin, so it closes first — the same order teardownProjectState
+                // observes for exactly this reason.
+                s.pluginWindows.erase(c.plugin->id);
+                it->second->deleteFromParent();
+                s.pluginsById.erase(it);
+                s.presetSaveById.erase(c.plugin->id);
+                s.lastSavedState.erase(c.plugin->id);
+                // watchedParams is deliberately NOT cleared: a client's interest in an id outlives the plugin
+                // behind it, exactly as it does across a rebuild.
                 break;
+            }
             case ChangeKind::PluginParamChanged:
                 // diff() emits one of these per differing parameter, keyed by the same display name applyPluginParams() and
                 // namedParams() use, so the value round-trips by name. An id absent from the running edit means the plugin
