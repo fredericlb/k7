@@ -126,9 +126,6 @@ const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 /** One frozen empty list, so a builder with no live plugin does not get a new array per render. */
 const EMPTY_PRESETS: PresetInfo[] = [];
 
-/** Paint containment for the two panes — one object, so neither gets a new style per render. */
-const PANE_CONTAIN = { contain: "paint" } as const;
-
 export default function App({
   engineUrl,
   engineLatency,
@@ -1516,10 +1513,6 @@ export default function App({
             >
               <div
                 {...paneProps("timeline")}
-                // Both panes are mounted at once and both repaint during playback. `contain:paint`
-                // says neither ever draws outside its own box — true already, since each scrolls
-                // internally — so a frame in one cannot cost a display list over the other.
-                style={PANE_CONTAIN}
                 className={cn(
                   "flex min-h-0 min-w-0",
                   full === "timeline"
@@ -1586,7 +1579,6 @@ export default function App({
               </div>
               <div
                 {...paneProps("chains")}
-                style={PANE_CONTAIN}
                 className={cn(
                   "flex min-h-0 min-w-0",
                   full === "chains"

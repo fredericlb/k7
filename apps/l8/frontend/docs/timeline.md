@@ -70,10 +70,16 @@ DOM to move one line.
 So the rule, and the three things that follow it:
 
 - **`Playhead`** subscribes to `s.playhead` and holds the one absolutely-positioned div it
-  moves. Its geometry arrives as numbers, so it re-renders on a frame and on nothing else.
+  moves. Its geometry arrives as numbers, so it re-renders on a frame and on nothing else. It
+  is parked at the lane's left edge and **translated** from there rather than re-`left`-ed,
+  with `will-change: transform`: a position is layout, a transform is not, and one node moving
+  for a whole song is what promotion exists for. The `Minimap`'s playhead does the same, and
+  its box spans the full width so a percentage translate means a percentage of the minimap.
 - **`LaneMeter`** subscribes per lane to `s.levels[i]` / `s.inputLevels[i]`, rounded to whole
   dB — a bar 0.4 dB different is the same bar, and rounding turns "changed" into "changed
-  visibly". A silent lane costs nothing while a loud one plays.
+  visibly". A silent lane costs nothing while a loud one plays. Its two bars are **scaled**,
+  not resized, for the reason the playhead is translated; see `@studio/engine-browser`'s
+  `docs/meters.md`, which also records what a `height` transition on a 20 Hz signal cost.
 - **`armed`** is the one live value the body reads, through `arrayEq`, because it changes on a
   keystroke rather than on a frame.
 

@@ -300,9 +300,15 @@ export function PianoRoll({
                 />
               )}
               {playX >= 0 && (
+                // Translated rather than re-`left`-ed, as the timeline's is: a transport that
+                // moves 20 times a second should not be laying anything out.
                 <div
-                  className="pointer-events-none absolute top-0 z-10 w-px bg-white/80"
-                  style={{ left: playX, height: gridH }}
+                  className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-white/80"
+                  style={{
+                    transform: `translateX(${playX}px)`,
+                    willChange: "transform",
+                    height: gridH,
+                  }}
                 />
               )}
             </div>

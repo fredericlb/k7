@@ -90,6 +90,18 @@ const ACTIVE_FLOOR_DB = -60;
 export const INPUT_VU_MIN_DB = -60;
 export const INPUT_VU_MAX_DB = 6;
 
+/**
+ * Quantise a 0..1 meter position to 200 steps.
+ *
+ * These selectors return a FRACTION, and an unrounded one differs on essentially every frame,
+ * so `Object.is` never stopped a re-render and a silent track cost exactly as much as a loud
+ * one. 200 steps is finer than half a percent of the tallest bar any of these draw — the
+ * number is unchanged on screen, and a steady signal now re-renders nothing. TimelineTab's
+ * LaneMeter has rounded its dB for this reason all along; the graph's meters did not. Round
+ * HERE and not in the component — this result is what Object.is compares. See docs/meters.md.
+ */
+const vuStep = (t: number): number => Math.round(t * 200) / 200;
+
 // ONE track's live input level, or null when unarmed — a per-node subscription, so a moving input re-renders the
 // bar rather than the graph. Returning a plain number|null keeps Object.is steady while it doesn't change.
 export function useInputLevel(trackId: string, order: string[]): number | null {
@@ -99,7 +111,7 @@ export function useInputLevel(trackId: string, order: string[]): number | null {
     if (i < 0) return null;
     const db = s.inputLevels[i] ?? -Infinity;
     const t = (db - INPUT_VU_MIN_DB) / (INPUT_VU_MAX_DB - INPUT_VU_MIN_DB);
-    return t < 0 ? 0 : t > 1 ? 1 : t;
+    return vuStep(t < 0 ? 0 : t > 1 ? 1 : t);
   });
 }
 
@@ -114,7 +126,7 @@ export function useTrackLevel(trackId: string, order: string[]): number | null {
     const db = s.levels[i] ?? Number.NEGATIVE_INFINITY;
     if (!Number.isFinite(db)) return 0;
     const t = (db - INPUT_VU_MIN_DB) / (INPUT_VU_MAX_DB - INPUT_VU_MIN_DB);
-    return t < 0 ? 0 : t > 1 ? 1 : t;
+    return vuStep(t < 0 ? 0 : t > 1 ? 1 : t);
   });
 }
 

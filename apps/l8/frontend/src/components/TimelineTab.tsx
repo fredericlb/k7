@@ -130,9 +130,18 @@ function Playhead({
   // edge it isn't actually at.
   if (beat < beatLo || beat > beatHi) return null;
   return (
+    // Parked at the lane's left edge and TRANSLATED from there, rather than re-`left`-ed: a
+    // position is layout and a transform is not, so the transport moves this line without
+    // relaying it out 20 times a second. `will-change` earns its keep on exactly this kind of
+    // element — one node, moving continuously for as long as the song plays.
     <div
       className="pointer-events-none absolute top-0 z-20 w-px bg-white/80"
-      style={{ left: left0 + (beat - beatLo) * ppb, height }}
+      style={{
+        left: left0,
+        transform: `translateX(${(beat - beatLo) * ppb}px)`,
+        willChange: "transform",
+        height,
+      }}
     />
   );
 }
@@ -163,9 +172,12 @@ function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
       {/* live VU: a faint green fill across the name header, its width the track's output
           level. Behind the label — the content spans are `relative`, so they paint over
           this absolutely-placed bar. */}
+      {/* Scaled from the left, not resized: a flat block of colour draws the same either way, and
+          a width would reflow this every time the engine speaks. See @studio/engine-browser's
+          docs/meters.md. */}
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 bg-emerald-500/20"
-        style={{ width: `${vuFill(out)}%` }}
+        className="pointer-events-none absolute inset-y-0 left-0 w-full origin-left bg-emerald-500/20"
+        style={{ transform: `scaleX(${vuFill(out) / 100})` }}
       />
       {/* armed input meter: a thin red bar pinned to the bottom edge, its fill the live
           input level. The faint track shows the bar's extent even at silence, so an
@@ -173,8 +185,8 @@ function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
       {armed && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-red-500/20">
           <div
-            className="h-full bg-red-500"
-            style={{ width: `${vuFill(input)}%` }}
+            className="h-full w-full origin-left bg-red-500"
+            style={{ transform: `scaleX(${vuFill(input) / 100})` }}
           />
         </div>
       )}
