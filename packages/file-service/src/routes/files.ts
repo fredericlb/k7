@@ -619,6 +619,16 @@ filesRouter.get(
   "/waveforms/status",
   wrap((req, res) => res.json(req.ws!.waveformStatus())),
 );
+// Give the machine back. The batch runs a SECOND engine process to decode audio, and a surface
+// that is playing wants those cores — l8 calls this when the transport starts and prewarms again
+// when it stops. Sidecars already written stay written, so resuming costs only what was in flight.
+filesRouter.post(
+  "/waveforms/cancel",
+  wrap((req, res) => {
+    req.ws!.cancelPrewarm();
+    res.json(req.ws!.waveformStatus());
+  }),
+);
 filesRouter.post(
   "/waveforms/clear",
   wrap((req, res) => {
