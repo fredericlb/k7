@@ -176,10 +176,16 @@ export function Minimap({
         </>
       )}
 
-      {/* live playhead */}
+      {/* Live playhead. The line is the element's LEFT EDGE — the box is full width and gets
+          translated, because a percentage translate is a percentage of the element's own width,
+          which is the minimap's only when the element spans it. Worth the indirection: the
+          transport then moves this without a layout, and the row already clips. */}
       <div
-        className="pointer-events-none absolute inset-y-0 w-px bg-white"
-        style={{ left: pct(playBeat) }}
+        className="pointer-events-none absolute inset-y-0 left-0 w-full border-white border-l"
+        style={{
+          transform: `translateX(${pct(playBeat)})`,
+          willChange: "transform",
+        }}
       />
     </div>
   );

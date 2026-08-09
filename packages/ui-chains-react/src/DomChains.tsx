@@ -387,7 +387,8 @@ const CSS = `
    restarted before it ever finished — the bar never reached its own value and trailed a frame
    behind for ever. A height cannot run on the compositor either, so each restart cost a
    restyle, a reflow and a display-list entry. See @studio/engine-browser's docs/meters.md. */
-.dgx-fmeter i { position:absolute; left:0; right:0; top:0; display:block; background:#08080b; }
+.dgx-fmeter i { position:absolute; inset:0; display:block; background:#08080b;
+  transform-origin:top; }
 .dgx-fader .rail { position:relative; width:7px; border-radius:4px; background:#08080b;
   border:1px solid #212129; }
 /* Ticks OUTSIDE the rail, one per 10% of the throw — what makes it read as a strip rather than a progress bar. */
@@ -1260,10 +1261,15 @@ function InputMeterBar({
         background: "rgba(239,68,68,0.22)", // red-500 @ 22%
       }}
     >
+      {/* Scaled, not resized: the fill is a plain block of colour, so scaleX draws the identical
+          pixels while changing no geometry — a width would reflow this element every frame the
+          engine speaks. See @studio/engine-browser's docs/meters.md. */}
       <div
         style={{
           height: "100%",
-          width: `${level * 100}%`,
+          width: "100%",
+          transform: `scaleX(${level})`,
+          transformOrigin: "left",
           background: CTRL["@arm"], // red-500, matching the arm control
         }}
       />
@@ -1284,8 +1290,9 @@ function FaderMeter({ trackId, order }: { trackId: string; order: string[] }) {
   if (t === null) return null;
   return (
     <div className="dgx-fmeter">
-      {/* The SHADE, not the fill: it covers the ramp from the top down to the level. */}
-      <i style={{ height: `${(1 - t) * 100}%` }} />
+      {/* The SHADE, not the fill: it covers the ramp from the top down to the level. Scaled from
+          the top rather than resized — same block of black, no geometry to redo. */}
+      <i style={{ transform: `scaleY(${1 - t})` }} />
     </div>
   );
 }

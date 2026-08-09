@@ -50,3 +50,28 @@ with a comment saying so — the graph's own meters simply never got the same tr
 
 Round in the **selector**, not in the component. The selector's result is what `Object.is`
 compares; rounding after the hook has returned is rounding a value that already re-rendered.
+
+## Scale the bar, never resize it
+
+Every meter here is a flat block of colour, so `transform: scaleX()` from the left (or
+`scaleY()` from the top, for the fader's shade) draws pixel-for-pixel what a `width` or a
+`height` did — and a transform is not layout. The elements all carry a fixed `width: 100%` /
+`inset: 0` and a `transform-origin` now, with only the scale factor coming from the frame.
+
+The same reasoning moves the transports: `TimelineTab`'s `Playhead`, the `Minimap`'s and
+`PianoRoll`'s are parked at their left edge and **translated** rather than re-`left`-ed. Those
+three also carry `will-change: transform`, which the meters deliberately do not — a playhead is
+one node moving continuously for as long as a song plays, which is exactly what promotion is
+for, while there is one meter per lane and per node and promoting each would trade a cheap
+problem for a layer explosion.
+
+What this does **not** buy is a frame without a new display list. Gecko runs a property on the
+compositor for a CSS animation or transition, not for a transform an effect writes; a
+JS-driven change still ships a new WebRender scene. What it buys is that the scene costs no
+reflow and invalidates a smaller region — the picture cache stops throwing away tiles around
+every bar that twitched.
+
+Two sliders inside the widget grid (`w.type === "slider"` and the fader's `fill`/`cap`) still
+write `width`/`height`/`top` percentages. They are driven by **plugin parameter** frames rather
+than by the engine's state frame, so they only move under automation or a drag, and no profile
+has yet put them in the path. Same shape, same fix, when one does.
