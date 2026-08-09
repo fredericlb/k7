@@ -108,8 +108,20 @@ export function useProjectErrors(reloadKey: number): {
   return { projectErrors, diagnostics };
 }
 
-/** Waveforms are cached + prewarmed on the backend; this kicks it and tracks progress. */
-export function useWarmWaveforms(reloadKey: number): WaveformStatus {
+/**
+ * Waveforms are cached + prewarmed on the backend; this kicks it and tracks progress.
+ *
+ * It steps aside for the transport. The batch runs a SECOND engine process to decode every
+ * stale source, on the same machine as the engine that is playing, and the two competing for
+ * cores is what made the playhead stutter through the first playback of a session — the only
+ * one that pays, since the sidecars are cached after it. So: never start while playing, and
+ * cancel an in-flight batch the moment the transport does. Whatever was already written stays
+ * written, so stopping and resuming costs only the file that was mid-decode.
+ */
+export function useWarmWaveforms(
+  reloadKey: number,
+  playing: boolean,
+): WaveformStatus {
   const [warm, setWarm] = useState<WaveformStatus>({
     warming: false,
     done: 0,
@@ -136,8 +148,15 @@ export function useWarmWaveforms(reloadKey: number): WaveformStatus {
     }
   }, []);
   useEffect(() => {
+    if (playing) return; // the machine is busy making sound; ask again when it stops
     void warmWaveforms();
-  }, [reloadKey, warmWaveforms]);
+  }, [reloadKey, warmWaveforms, playing]);
+  // Kill the batch on the transport's edge. The polling loop above ends on its own: a cancelled
+  // prewarm reports `warming: false`, which is exactly what the loop waits for.
+  useEffect(() => {
+    if (!playing) return;
+    void api.cancelWaveformPrewarm().catch(() => {});
+  }, [playing]);
   return warm;
 }
 

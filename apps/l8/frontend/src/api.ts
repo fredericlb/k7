@@ -242,6 +242,10 @@ export const api = {
   prewarmWaveforms: () =>
     fsend<WaveformStatus>("POST", "/waveforms/prewarm", {}),
   waveformStatus: () => fget<WaveformStatus>("/waveforms/status"),
+  // Stop the batch: it decodes audio in a second engine process, which is not what the machine
+  // should be doing while the transport plays. See useWarmWaveforms.
+  cancelWaveformPrewarm: () =>
+    fsend<WaveformStatus>("POST", "/waveforms/cancel", {}),
 
   // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
   // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.

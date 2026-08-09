@@ -498,7 +498,7 @@ export default function App({
   const { gitStatus, refreshGitStatus } = useGitStatus();
   const orbit = useOrbit(hasStrudel);
   const { projectErrors, diagnostics } = useProjectErrors(reloadKey);
-  const warm = useWarmWaveforms(reloadKey);
+  const warm = useWarmWaveforms(reloadKey, playing);
 
   // After a commit/pull: refresh the badge, repaint the view, and refetch the workspace — a pull can add projects.
   const onRepoChanged = useCallback(() => {
