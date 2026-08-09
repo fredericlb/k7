@@ -90,6 +90,7 @@ import {
 import { useProjectDelete, useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
 import { useTrackControls } from "./hooks/useTrackControls";
+import { useLocale } from "./i18n";
 import {
   blurOnClick,
   type ConditionCtx,
@@ -103,7 +104,7 @@ import {
   modulePlaceCommand,
   type PendingInsert,
 } from "./moduleInsert";
-import { buildPaletteCommands, makeCompleteArg } from "./palette";
+import { buildPaletteCommands, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
 import { entityFile, fileStem } from "./projectPaths";
 import type { Pane, Panel, View } from "./routes";
@@ -1305,12 +1306,17 @@ export default function App({
   const transportWaiting = engineBusy || waitingForEngine;
 
   // The step-by-step palette's command catalogue and per-argument completion.
+  // Which language the palette speaks — the descriptions are the only translated part of a
+  // command, its name being an identifier (see commandI18n.ts).
+  const { locale } = useLocale();
+  // The locale is a dependency: each command's description is resolved once, when the
+  // catalogue is built, so switching language rebuilds the list the palette matches on.
   const paletteCommands = useMemo(
-    () => buildPaletteCommands(backendCmds),
-    [backendCmds],
+    () => buildPaletteCommands(backendCmds, locale),
+    [backendCmds, locale],
   );
-  const completeArg = useMemo(
-    () => makeCompleteArg(() => editorRef.current?.files() ?? []),
+  const listArg = useMemo(
+    () => makeListArg(() => editorRef.current?.files() ?? []),
     [],
   );
 
@@ -1599,7 +1605,9 @@ export default function App({
                   // The lane header's alternative menu. `runCommand`, not `quietCommand`:
                   // switching replaces the lane's clips, so the timeline has to re-read.
                   onPickAlternative={(trackId, name) =>
-                    void runCommand(`track alternative select ${trackId} ${name}`)
+                    void runCommand(
+                      `track alternative select ${trackId} ${name}`,
+                    )
                   }
                   onNewAlternative={(trackId, copy) =>
                     void runCommand(
@@ -1912,7 +1920,7 @@ export default function App({
               <CommandBar
                 ref={cmdRef}
                 commands={paletteCommands}
-                completeArg={completeArg}
+                listArg={listArg}
                 onRun={(line) => void runCommand(line)}
                 onClose={() => cmdRef.current?.blur()}
                 onPending={setBarPending}
@@ -1956,7 +1964,7 @@ export default function App({
               <CommandBar
                 ref={cmdRef}
                 commands={paletteCommands}
-                completeArg={completeArg}
+                listArg={listArg}
                 onRun={(line) => {
                   void runCommand(line);
                   setPaletteOpen(false);

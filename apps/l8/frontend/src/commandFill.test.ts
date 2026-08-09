@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { applyOffer, requiredCount, runsAfter, wantsKind } from "./commandFill";
+import {
+  applyOffer,
+  canRun,
+  emptyValues,
+  firstMissing,
+  lineArgs,
+  nextField,
+  requiredCount,
+  wantsKind,
+} from "./commandFill";
 import type { PaletteArg } from "./components/CommandBar";
 
 const arg = (
@@ -32,13 +41,12 @@ describe("requiredCount", () => {
   });
 
   it("is zero when they are ALL optional — the line runs bare", () => {
-    // `track new audio` with no name: the handler picks audio-N, which is the documented behaviour.
-    expect(requiredCount([arg("name", "text", true)])).toBe(0);
+    expect(
+      requiredCount([arg("a", "text", true), arg("b", "text", true)]),
+    ).toBe(0);
   });
 
   it("only drops a TRAILING run — an optional param before a required one still counts", () => {
-    // Skipping it would shift the next value into its place, so the command would receive an
-    // answer for a param nobody gave. Required is the index after the last mandatory one.
     expect(requiredCount([arg("a"), arg("b", "text", true), arg("c")])).toBe(3);
   });
 
@@ -47,21 +55,67 @@ describe("requiredCount", () => {
   });
 });
 
+describe("canRun", () => {
+  it("waits for every required answer", () => {
+    expect(canRun(MOVE, ["gtr", "", "", ""])).toBe(false);
+    expect(canRun(MOVE, ["gtr", "1:1:1", "", ""])).toBe(false);
+  });
+
+  it("runs with the trailing optional left blank — blank IS the answer there", () => {
+    expect(canRun(MOVE, ["gtr", "1:1:1", "5:1:1", ""])).toBe(true);
+  });
+
+  it("treats whitespace as unanswered", () => {
+    expect(canRun(MOVE, ["gtr", "1:1:1", "   ", ""])).toBe(false);
+  });
+
+  it("runs a command with no params at all", () => {
+    expect(canRun([], [])).toBe(true);
+  });
+});
+
+describe("lineArgs", () => {
+  it("drops the trailing blanks so an unanswered optional is not passed as empty", () => {
+    expect(lineArgs(["gtr", "1:1:1", "5:1:1", ""])).toEqual([
+      "gtr",
+      "1:1:1",
+      "5:1:1",
+    ]);
+  });
+
+  it("KEEPS a blank in the middle, which would otherwise shift the params after it", () => {
+    // `canRun` is what stops this line being dispatched; spelling it right is this one's job.
+    expect(lineArgs(["gtr", "", "5:1:1"])).toEqual(["gtr", "", "5:1:1"]);
+  });
+});
+
+describe("moving between fields", () => {
+  it("stops at the last one, so Tab cannot walk off the form", () => {
+    expect(nextField(MOVE, 0)).toBe(1);
+    expect(nextField(MOVE, 3)).toBe(3);
+  });
+
+  it("names the first question still unanswered", () => {
+    expect(firstMissing(MOVE, emptyValues(MOVE))).toBe(0);
+    expect(firstMissing(MOVE, ["gtr", "", "", ""])).toBe(1);
+    // The optional one is never "missing" — the form would never look finished.
+    expect(firstMissing(MOVE, ["gtr", "1:1:1", "5:1:1", ""])).toBe(-1);
+  });
+});
+
 describe("applyOffer", () => {
-  it("fills the fields before the last one it knows and puts that one in the input", () => {
-    // The drag knows three of the four: the line reads `event move gtr 1:1:1` and the input
-    // carries the timecode that moves under the pointer.
+  it("fills every field the gesture knows, and the keys follow the last of them", () => {
     expect(
       applyOffer(
         MOVE,
         { track: "gtr", timecode: "1:1:1", newTimecode: "5:1:1" },
-        [],
+        emptyValues(MOVE),
+        0,
       ),
-    ).toEqual({ args: ["gtr", "1:1:1"], value: "5:1:1" });
+    ).toEqual({ values: ["gtr", "1:1:1", "5:1:1", ""], active: 2 });
   });
 
-  it("puts a trailing optional in the input when the gesture knows it", () => {
-    // Dropped on ANOTHER lane: the fourth param is answered too, so it is the one being edited.
+  it("puts the keys on a trailing optional when the gesture knows it", () => {
     expect(
       applyOffer(
         MOVE,
@@ -71,116 +125,81 @@ describe("applyOffer", () => {
           newTimecode: "5:1:1",
           toTrack: "gtr2",
         },
-        [],
+        emptyValues(MOVE),
+        0,
       ),
-    ).toEqual({ args: ["gtr", "1:1:1", "5:1:1"], value: "gtr2" });
+    ).toEqual({ values: ["gtr", "1:1:1", "5:1:1", "gtr2"], active: 3 });
   });
 
-  it("never rewrites an answer already given — it fills FORWARD from the open field", () => {
-    // `event move ge.rythm` typed by hand, then the clip dragged: the track you chose stays,
-    // and the gesture answers the two timecodes after it. Replacing `ge.rythm` with whatever
-    // clip the pointer happened to touch would be the opposite of answering a question.
+  it("never rewrites an answer BEHIND the keys — it fills forward", () => {
+    // The track was chosen by hand and the keyboard has moved past it; the drag touched
+    // another lane, and must not silently replace what was chosen.
     expect(
       applyOffer(
         MOVE,
         { track: "other", timecode: "1:1:1", newTimecode: "5:1:1" },
-        ["ge.rythm"],
+        ["gtr", "", "", ""],
+        1,
       ),
-    ).toEqual({ args: ["ge.rythm", "1:1:1"], value: "5:1:1" });
+    ).toEqual({ values: ["gtr", "1:1:1", "5:1:1", ""], active: 2 });
   });
 
-  it("returns null when everything it knows is already answered", () => {
-    // Nothing left to say: the fields it could fill are behind the open one.
-    expect(
-      applyOffer(MOVE, { track: "gtr" }, ["ge.rythm", "1:1:1"]),
-    ).toBeNull();
+  it("returns null when everything it knows is behind the keys", () => {
+    expect(applyOffer(MOVE, { track: "gtr" }, ["gtr", "", "", ""], 1)).toBe(
+      null,
+    );
   });
 
   it("returns null when the offer names nothing this command asks for", () => {
-    // A gesture and a command with nothing to say to each other — the common case, not an error.
-    expect(applyOffer(MOVE, { module: "reverb" }, [])).toBeNull();
+    expect(applyOffer(MOVE, { module: "reverb" }, emptyValues(MOVE), 0)).toBe(
+      null,
+    );
   });
 
   it("is empty-safe on a command with no params", () => {
-    expect(applyOffer([], { track: "gtr" }, [])).toBeNull();
+    expect(applyOffer([], { track: "gtr" }, [], 0)).toBe(null);
   });
 });
 
 describe("wantsKind", () => {
-  it("matches the class the OPEN field declares", () => {
-    // `event move ge.rythm` → the field open is `timecode`, so a ruler click belongs in it.
+  it("matches the class the field with the keys declares", () => {
     expect(wantsKind(MOVE, 1, "timecode")).toBe(true);
+    expect(wantsKind(MOVE, 0, "track")).toBe(true);
   });
 
-  it("refuses a value the open field did not ask for", () => {
-    // Field 0 is a track: a timecode landing there would be a stray click writing nonsense.
+  it("refuses a value that field did not ask for", () => {
     expect(wantsKind(MOVE, 0, "timecode")).toBe(false);
   });
 
-  it("refuses once every field is answered", () => {
-    expect(wantsKind(MOVE, 4, "timecode")).toBe(false);
-  });
-});
-
-// Typed by hand as far as the timecode, then answered by pointing — the second half of the
-// gesture story: the ruler knows a timecode and nothing about which command wanted one.
-describe("a ruler click answering the open field", () => {
-  it("lands in the timecode `event move ge.rythm` is waiting for", () => {
-    const filled = ["ge.rythm"];
-    expect(wantsKind(MOVE, filled.length, "timecode")).toBe(true);
-    // …and answering it leaves one required param, so this is not yet the last Enter.
-    expect(runsAfter(MOVE, filled.length + 1, false)).toBe(false);
-  });
-
-  it("completes the line when it answers the LAST required field", () => {
-    const filled = ["ge.rythm", "1:1:1"];
-    expect(wantsKind(MOVE, filled.length, "timecode")).toBe(true);
-    expect(runsAfter(MOVE, filled.length + 1, false)).toBe(true);
-  });
-});
-
-describe("runsAfter", () => {
-  it("dispatches once the required params are in, without waiting for the optional one", () => {
-    expect(runsAfter(MOVE, 3, false)).toBe(true);
-  });
-
-  it("holds the line open for Tab, so the optional param stays reachable", () => {
-    expect(runsAfter(MOVE, 3, false)).toBe(true);
-    expect(runsAfter(MOVE, 3, true)).toBe(false);
-  });
-
-  it("dispatches on the very last param even under Tab — there is nothing left to step to", () => {
-    expect(runsAfter(MOVE, 4, true)).toBe(true);
-  });
-
-  it("does not dispatch while a required param is missing", () => {
-    expect(runsAfter(MOVE, 2, false)).toBe(false);
+  it("refuses a field that does not exist", () => {
+    expect(wantsKind(MOVE, 9, "track")).toBe(false);
   });
 });
 
 // The gesture the whole thing was built for, traced end to end: trigger `event move`, drag a
 // clip within its lane, press Enter. The claim under test is ONE keystroke, not two.
-describe("a clip drag answering the bar", () => {
+describe("a clip drag answering the form", () => {
   const drag = (toTc: string) =>
     applyOffer(
       MOVE,
       { track: "gtr", timecode: "1:1:1", newTimecode: toTc },
-      [],
+      emptyValues(MOVE),
+      0,
     );
 
-  it("shows the moving timecode in the field while the pointer is down", () => {
-    // Three frames of a drag: the line in front stays still, one field rewrites.
+  it("rewrites one field per frame while the pointer is down", () => {
     for (const tc of ["2:1:1", "4:1:1", "5:1:1"])
-      expect(drag(tc)).toEqual({ args: ["gtr", "1:1:1"], value: tc });
+      expect(drag(tc)).toEqual({
+        values: ["gtr", "1:1:1", tc, ""],
+        active: 2,
+      });
   });
 
   it("runs on a single Enter when the drag ends", () => {
     const fed = drag("5:1:1")!;
-    // Enter validates the field being shown…
-    const filled = [...fed.args, fed.value];
-    expect(filled).toEqual(["gtr", "1:1:1", "5:1:1"]);
-    // …and that completes the line, because `toTrack` is optional and was not offered.
-    expect(runsAfter(MOVE, filled.length, false)).toBe(true);
+    // Every required field is answered, so Enter is "that is my line" and not "next question".
+    expect(canRun(MOVE, fed.values)).toBe(true);
+    expect(lineArgs(fed.values)).toEqual(["gtr", "1:1:1", "5:1:1"]);
   });
 
   it("also runs on a single Enter after a drop on ANOTHER lane", () => {
@@ -192,10 +211,18 @@ describe("a clip drag answering the bar", () => {
         newTimecode: "5:1:1",
         toTrack: "gtr2",
       },
-      [],
+      emptyValues(MOVE),
+      0,
     )!;
-    const filled = [...fed.args, fed.value];
-    expect(filled).toEqual(["gtr", "1:1:1", "5:1:1", "gtr2"]);
-    expect(runsAfter(MOVE, filled.length, false)).toBe(true);
+    expect(canRun(MOVE, fed.values)).toBe(true);
+    expect(lineArgs(fed.values)).toEqual(["gtr", "1:1:1", "5:1:1", "gtr2"]);
+  });
+
+  it("still runs when a ruler click answers the field the keys are on", () => {
+    // The other inlet: a click that knows a timecode and not a command.
+    const values = ["gtr", "1:1:1", "", ""];
+    expect(wantsKind(MOVE, 2, "timecode")).toBe(true);
+    values[2] = "5:1:1";
+    expect(canRun(MOVE, values)).toBe(true);
   });
 });

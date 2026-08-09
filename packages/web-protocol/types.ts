@@ -399,6 +399,10 @@ export interface CommandArg {
 export interface CommandInfo {
   command: string;
   help?: string;
+  // One sentence on what the command DOES, per language — what the palette lists and matches
+  // on. The command name stays the CLI's in every language; only the sentence is translated,
+  // because a name is an identifier and a sentence is an explanation.
+  readable?: { en: string; fr: string };
   args: CommandArg[];
 }
 

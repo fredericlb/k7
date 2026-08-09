@@ -589,6 +589,7 @@ export function webCommandList(): CommandInfo[] {
     .map((c) => ({
       command: c.command,
       help: c.help,
+      readable: c.readable,
       // The trailing user args in order, each with the class of thing it names, so the palette can colour its field.
       args:
         c.args?.map((a) => ({
