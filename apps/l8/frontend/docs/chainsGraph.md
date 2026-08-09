@@ -177,9 +177,12 @@ real song — 14 tracks, 58 clips, 30 plugins — the recompiles are the wait:
 | `loadProject`, behind `GET /project-doc` | 367 ms |
 | `buildGraphDoc`, behind `GET /graph` | 401 ms |
 
-The client used to pay both, in that order, *after* `POST /command` had already returned —
-and the file service is one process, so they queue rather than overlap. So the canvas sat on
-the old picture for the better part of a second with nothing to explain it.
+Of those two, the client used to pay the **graph** one after `POST /command` had already
+returned: the canvas sat on the old picture for a round trip plus 401 ms, with nothing to
+explain it. Not both — an earlier version of this page said both, and that was wrong. The
+command's own `h.reload()` calls `cachedProjectDoc`, so the project doc is re-parsed and
+re-cached *inside* the command, and the client's `/project-doc` fetch is a cache hit. The
+367 ms is real, but it is paid before the reply, not after it.
 
 `POST /command` now builds the graph itself when the command moved the revision, and returns
 it. The same 401 ms is spent, but inside a request the client is already waiting on, and the
