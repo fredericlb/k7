@@ -97,6 +97,46 @@
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }]
+# --- a track's ALTERNATIVES (variants of its clip list) ---
+# NOT `project alternative` above, which is a git branch. This one is inside ONE track: another
+# take of the same lane, kept beside the first in the same file. `clips:` IS the first of them,
+# so a song that never uses this keeps exactly the file it had, and switching rewrites one line
+# rather than moving clip lists about. See apps/l8/docs/22-syntax-material.md.
+#
+# The name is optional everywhere: an unnamed variant is known by its position, which is what
+# makes trying a second arrangement cost nothing to name. The timeline's lane header has the
+# same three actions in a dropdown.
+- command: "track alternative new"
+  sid: track.alt.new
+  help: "add an empty alternative to a track and switch to it (e.g. track alternative new gtr doux)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
+    ]
+# The other half of the same wish: keep this arrangement, try a change to it. A copy carries
+# every field of every placement, which re-placing them by hand would not.
+- command: "track alternative copy"
+  sid: track.alt.copy
+  help: "add an alternative holding a copy of the one playing, and switch to it"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
+    ]
+# Switching is the frequent one, so it is the bare verb.
+- command: "track alternative"
+  sid: track.alt.switch
+  help: "play another of a track's alternatives (e.g. track alternative gtr doux)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, complete: trackAlternatives },
+    ]
+
 # --- recording ---
 # `rec` toggles a track's record ARM. Unlike mute/solo it writes no file: arming is
 # session state, held only by the engine (which is the one long-lived process the

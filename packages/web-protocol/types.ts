@@ -317,6 +317,11 @@ export interface WebTrack {
   // is built that render is already the track's one clip and `plugins` is empty — this is here so the timeline can
   // say why a lane it won't let you edit looks the way it does.
   frozen?: string;
+  // The clip list's VARIANTS — every name in order, and the one that is playing. Both absent
+  // when the track has a single arrangement, which is every track until somebody adds one: the
+  // timeline's picker reads that as the list of one it draws. See apps/l8/docs/22-syntax-material.md.
+  alternatives?: string[];
+  alternative?: string;
 }
 // A group track (mirrors GroupDoc): clipless, drawn as a header with its member tracks indented under it.
 export interface WebGroup {

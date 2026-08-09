@@ -70,9 +70,9 @@ import {
   type PickerModule,
 } from "./components/ModulePicker";
 import { RecordingBand } from "./components/RecordingBand";
-import { TakeReview } from "./components/TakeReview";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
+import { TakeReview } from "./components/TakeReview";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
@@ -1288,7 +1288,9 @@ export default function App({
   // Never while a take is ROLLING — the band owns that slot, and the clip being reviewed would be the
   // previous take, which is not what anyone is looking at.
   const reviewTake =
-    ws?.lastTake && ws.lastTake.clip !== reviewedTake && !(recordEnabled && playing)
+    ws?.lastTake &&
+    ws.lastTake.clip !== reviewedTake &&
+    !(recordEnabled && playing)
       ? ws.lastTake
       : null;
 
@@ -1592,6 +1594,16 @@ export default function App({
                   onResizeEvent={(trackId, fromTc, startTc, endTc) =>
                     void runCommand(
                       `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
+                    )
+                  }
+                  // The lane header's alternative menu. `runCommand`, not `quietCommand`:
+                  // switching replaces the lane's clips, so the timeline has to re-read.
+                  onPickAlternative={(trackId, name) =>
+                    void runCommand(`track alternative ${trackId} ${name}`)
+                  }
+                  onNewAlternative={(trackId, copy) =>
+                    void runCommand(
+                      `track alternative ${copy ? "copy" : "new"} ${trackId}`,
                     )
                   }
                   // While the bar is filling `event move`, the drag ANSWERS it instead of

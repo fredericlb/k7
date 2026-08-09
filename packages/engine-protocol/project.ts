@@ -137,6 +137,12 @@ export interface TrackDoc {
   // too — by the time the doc reaches it the render is already the track's one clip and the plugins are gone (see
   // nodeProject). It is here so a surface can say WHY a lane it can't edit looks the way it does.
   frozen?: string;
+  // The track's clip-list VARIANTS, when it has more than one: every name in order, and which of
+  // them `clips` above was resolved from. Ignored by the engine — it is handed the arrangement
+  // that plays and has no use for the others — and here so a surface can offer the choice.
+  // See packages/song/src/trackAlternatives.ts.
+  alternatives?: string[];
+  alternative?: string;
 }
 
 // A group track: it holds no material, so the engine plays no lane for it, but surfaces draw it over its members.

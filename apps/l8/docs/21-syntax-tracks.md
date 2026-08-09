@@ -44,6 +44,52 @@ clips:
   - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
 ```
 
+## tracks/<id>.yaml — alternatives
+
+A lane can hold several arrangements and play one of them. Another take of the same part, a
+chorus with the double and one without, a version you want back if the new one turns out worse —
+they live side by side in the same file, and switching between them is one line.
+
+**`clips:` is the first alternative.** The others go under `alternatives:`, and `alternative:`
+says which is playing — by name, or by position when it has none. Leave `alternative:` out and
+the track plays its own `clips:`, which is why a song that never uses this keeps exactly the file
+it always had.
+
+Names are optional. An unnamed one answers to its number, counting `clips:` as 1 — so the first
+entry under `alternatives:` is "2". A name wins over a number, so a variant you deliberately call
+`2` is the one `alternative: 2` selects. A name that matches nothing falls back to the first
+rather than silencing the lane.
+
+The first alternative cannot be named: it has nowhere to carry one. It is always "1".
+
+```yaml schema=Track
+type: single
+contentType: audio
+alternative: doux        # which one plays; absent = the clips below
+clips:
+  - { ref: gtr-A, start: "1:1:1" }
+alternatives:
+  - name: doux           # unnamed, it would answer to "2"
+    clips:
+      - { ref: gtr-B, start: "1:1:1" }
+  - clips: []            # "3" — an empty take, waiting for a pass
+```
+
+Everything you do to a lane goes to the alternative that is playing: drag a clip while the
+second is up and it is the second that changes, and the first is exactly where you left it.
+
+From the timeline, the arrow at the left of the lane's header lists them and switches; its
+bottom two entries start another, empty or as a copy of the one playing. The lane says which
+variant it is on beside that arrow whenever it is not the first — otherwise a lane whose clips
+"went missing" would look like a bug.
+
+From the command bar, `track alternative <track> <name>` switches, `track alternative new
+<track> [name]` adds an empty one and `track alternative copy <track> [name]` adds a copy. With
+no name at all, `track alternative <track>` lists what the track has.
+
+There is no command to delete one: it is three lines of YAML, and removing it by hand is both
+clearer and reversible in the editor's own undo.
+
 ## tracks/<id>.yaml — frozen
 
 Freezing a track bounces it through its own modules and plays that render instead, so an amp sim or a heavy synth costs nothing until you want to edit it again. Run `track freeze <track>` to freeze, and again to unfreeze — it is a toggle, like mute and solo. Playback stops while the render is made.

@@ -35,6 +35,7 @@ import {
 } from "@studio/song/loader";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
+import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
 import {
   clearChannelLabel,
   formatAudioDevice,
@@ -45,7 +46,6 @@ import {
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { trackMixer } from "@studio/song/project";
-import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
 import {
   clipOnsets,
   deleteModule,
@@ -69,11 +69,13 @@ import {
   MIN_GAIN_DB,
   movePlacementToTrack,
   moveTrackPlacement,
+  newTrackAlternative,
   panToLabel,
   removeTrackPlacement,
   resizeTrackPlacement,
   setTrackFields,
   setTrackPlacementDisabled,
+  switchTrackAlternative,
   type TrackFields,
 } from "@studio/song/trackMix";
 import { migrateModuleUis } from "@studio/song/uiMigrate";
@@ -437,6 +439,61 @@ type MixFields = Omit<TrackFields, "frozen">;
 
 // A mixer edit: resolve the track (or group), compute its new fields, write them to its file, then re-send.
 // `groups: true` opts a verb in — only mute/solo, which fold onto the members; gain/pan would write a dead field.
+/**
+ * The shared front half of the three `track alternative` verbs: resolve the track, refuse the
+ * ones that hold no clips, report the failure once.
+ *
+ * A group and a strudel lane are named apart, because "no track" would send you hunting a typo
+ * in a name that is right — the same reason `mixMutate` says which kind of thing you named.
+ */
+async function withAlternativeTrack(
+  a: string,
+  h: CommandHost,
+  usage: string,
+  run: (
+    t: ProjectDoc["tracks"][number],
+    name: string | undefined,
+  ) => Promise<void>,
+): Promise<void> {
+  const [id, name] = a.trim().split(/\s+/).filter(Boolean);
+  if (!id) {
+    h.log([`usage: ${usage}`]);
+    return;
+  }
+  const p = h.project();
+  const matches = (x: { id: string; name: string }) =>
+    x.id === id || x.name === id;
+  const t = p.tracks.find(matches);
+  if (!t) {
+    h.log([
+      p.groups.some(matches)
+        ? `"${id}" is a group — alternatives belong to a track, which is what holds clips`
+        : `no track "${id}"`,
+    ]);
+    return;
+  }
+  if (t.generated) {
+    h.log([
+      `'${t.id}' is a strudel track — its clips are streamed by the pattern, so there is nothing to keep a variant of`,
+    ]);
+    return;
+  }
+  // A frozen lane plays its RENDER, and the render is of one arrangement. Switching would leave
+  // the picker saying one thing and the speakers playing another, which is the one failure this
+  // control exists to prevent — so it is refused, with the way out named.
+  if (t.frozen) {
+    h.log([
+      `'${t.id}' is frozen — it plays a render of one arrangement, so run 'track freeze ${t.id}' before changing which one`,
+    ]);
+    return;
+  }
+  try {
+    await run(t, name);
+  } catch (e) {
+    h.log([`track alternative: ${(e as Error).message}`]);
+  }
+}
+
 async function mixMutate(
   a: string,
   h: CommandHost,
@@ -589,7 +646,9 @@ async function normalizeCommand(
 ): Promise<void> {
   const [target, peakArg] = arg.trim().split(/\s+/).filter(Boolean);
   if (!target) {
-    h.log([`usage: ${scope} normalize <${scope}> [peak 0–1, default ${DEFAULT_PEAK}]`]);
+    h.log([
+      `usage: ${scope} normalize <${scope}> [peak 0–1, default ${DEFAULT_PEAK}]`,
+    ]);
     return;
   }
   const peak = peakArg === undefined ? DEFAULT_PEAK : Number(peakArg);
@@ -770,6 +829,62 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   // track freeze <track> — bounce the track through its own modules and play THAT until it is unfrozen again.
   // A toggle, like mute and solo, because it is the same kind of thing: one state of one track, flipped.
+  /**
+   * The three alternative verbs, which are one operation each on ONE track's file.
+   *
+   * All of them end in `h.reload()` rather than `applyProject` with a patched doc: switching
+   * changes the whole clip list, so there is nothing cheap to diff — re-reading the project is
+   * both simpler and what the engine has to be told anyway.
+   */
+  "track.alt.switch": (a, h) =>
+    withAlternativeTrack(
+      a,
+      h,
+      "track alternative <track> <name>",
+      async (t, name) => {
+        if (!name) {
+          // The list is the useful answer to "which ones are there?", so a bare call says it.
+          h.log([
+            t.alternatives?.length
+              ? `${t.id}: ${t.alternatives.map((n) => (n === t.alternative ? `[${n}]` : n)).join("  ")}`
+              : `${t.id} has one arrangement — 'track alternative new ${t.id}' starts a second`,
+          ]);
+          return;
+        }
+        switchTrackAlternative(h.songPath, t.id, name);
+        h.log([`${t.id}: playing alternative '${name}'`]);
+        await h.reload();
+      },
+    ),
+
+  "track.alt.new": (a, h) =>
+    withAlternativeTrack(
+      a,
+      h,
+      "track alternative new <track> [name]",
+      async (t, name) => {
+        const made = newTrackAlternative(h.songPath, t.id, name);
+        h.log([`${t.id}: alternative '${made}' — empty, and playing`]);
+        await h.reload();
+      },
+    ),
+
+  "track.alt.copy": (a, h) =>
+    withAlternativeTrack(
+      a,
+      h,
+      "track alternative copy <track> [name]",
+      async (t, name) => {
+        const made = newTrackAlternative(h.songPath, t.id, name, {
+          copy: true,
+        });
+        h.log([
+          `${t.id}: alternative '${made}' — a copy of the one that was playing`,
+        ]);
+        await h.reload();
+      },
+    ),
+
   "track.freeze": async (a, h) => {
     const id = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!id) {

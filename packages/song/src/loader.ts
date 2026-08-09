@@ -40,6 +40,7 @@ import type {
   RawVideoTrack,
 } from "./rawDoc";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
+import { resolveTrackClips } from "./trackAlternatives";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
 import { setFileValue } from "./yaml/edit";
@@ -785,6 +786,12 @@ function readEntityFile(
   if (sub === "tracks") {
     const { value, issues: found } = parseTrack(text);
     issues.push(...found.map((i) => formatIssue(file.rel, i)));
+    // The ONE place a track's alternatives are resolved: `clips` becomes the variant that plays,
+    // and everything downstream — the compiler, the engine, every clip command — reads a track
+    // with one clip list, as it always has. The variants themselves ride along untouched, for the
+    // surfaces that offer the choice. See trackAlternatives.ts.
+    if (value && value.type === "single" && value.alternatives?.length)
+      return { ...value, clips: resolveTrackClips(value) };
     return value;
   }
   return parseYaml(text, { version: "1.2" });

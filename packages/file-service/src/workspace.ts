@@ -281,6 +281,8 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
     docs: t.docs,
     todos: t.todos,
     frozen: t.frozen,
+    alternatives: t.alternatives,
+    alternative: t.alternative,
   }));
 }
 
