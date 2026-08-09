@@ -22,15 +22,34 @@ describe("a module node", () => {
 
   it("offers it on a DANGLING node too, where it is the actual repair", () => {
     // A name nothing answers to: there is no file to open and no param to set, but taking it
-    // out of the run and closing the gap needs no module to exist. Both verbs here touch only
-    // chains.yaml, which is why they are the two that survive `missing`.
+    // out of the run and closing the gap needs no module to exist. Every verb here touches only
+    // chains.yaml, which is why these are the ones that survive `missing` — `module replace`
+    // included: it creates the new module and rewrites the reference, and never opens the old.
     const lines = commands(
       contextMenu({ kind: "module", id: "gone", missing: true }),
     );
     expect(lines).toEqual([
       "module bypass gone",
+      "module replace gone ", // trailing space: the new module is still owed
       "module instance unlink gone",
     ]);
+  });
+
+  it("offers replace above unlink: one keeps the node in the run, the other does not", () => {
+    const lines = commands(contextMenu({ kind: "module", id: "lead" }));
+    expect(lines).toContain("module replace lead ");
+    expect(lines.indexOf("module replace lead ")).toBeLessThan(
+      lines.indexOf("module instance unlink lead"),
+    );
+  });
+
+  it("leaves replace waiting for the module it swaps in", () => {
+    // The line is pre-written with a trailing space and stops there: the second argument is the
+    // user's to pick, and the bar completes it from the catalogue.
+    const item = contextMenu({ kind: "module", id: "lead" }).find((m) =>
+      m.command.startsWith("module replace"),
+    );
+    expect(item?.command).toBe("module replace lead ");
   });
 
   it("still offers `module own` rather than a file for an engine module", () => {

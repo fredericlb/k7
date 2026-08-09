@@ -82,12 +82,16 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
         { verb: "track solo", arg: ctx.id },
       ]);
     case "module":
-      // A dangling reference: these two are the verbs that still work without the module existing,
-      // because both act on chains.yaml alone. Unlink is the actual REPAIR — it takes the name
-      // nothing answers to out of the run and closes the gap over it.
+      // A dangling reference: these are the verbs that still work without the module existing,
+      // because each acts on chains.yaml alone. Two of them REPAIR it, and they differ in what
+      // survives — replace keeps the node and everything feeding it, unlink closes the gap over it.
       if (ctx.missing)
         return build([
           { verb: "module bypass", arg: ctx.id },
+          // The repair that KEEPS the node: `module replace` reads chains.yaml, so it needs no file
+          // behind the old name — it swaps the name nothing answers to for one that exists and leaves
+          // everything that fed it wired to the new one. Above unlink for that reason.
+          { verb: "module replace", arg: ctx.id, needsMore: true },
           { verb: "module instance unlink", arg: ctx.id },
         ]);
       return build([
@@ -98,8 +102,12 @@ export function contextMenu(ctx: MenuCtx): MenuItem[] {
         ctx.ambient
           ? { verb: "module own", arg: ctx.id }
           : { verb: "ui file", arg: ctx.id }, // open the module's file
-        // Out of the signal path, files untouched. Last because it rewires: everything above
-        // reads or edits the node, this one takes it out of the run.
+        // The two that REWIRE, last and in this order, because everything above only reads or edits
+        // the node. Replace swaps what sits here and leaves everything feeding it wired to the new
+        // one; unlink takes the node out of the run altogether, files untouched. Replace carries
+        // `needsMore` because the module to swap in is still owed — the bar completes it from the
+        // catalogue (`categories` in commands.yaml).
+        { verb: "module replace", arg: ctx.id, needsMore: true },
         { verb: "module instance unlink", arg: ctx.id },
       ]);
     case "clip":
