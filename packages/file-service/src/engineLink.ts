@@ -81,6 +81,18 @@ function wireEngine(session: string, e: EngineClient): void {
     } catch {
       /* no/invalid preferences — keep the system default */
     }
+    // Re-send the project this session was serving. A fresh socket can mean a fresh ENGINE —
+    // it crashed and the supervisor respawned it — and that engine holds no session at all,
+    // while `engineProject` below still says we are serving one. Nothing then re-sent it: the
+    // 2 s /workspace poll takes `prewarmEngineForActive`'s early return, the browser shows a
+    // project the engine has never heard of, and the transport does nothing for ever. Observed
+    // exactly that: the file service naming an active project against an engine reporting
+    // `loaded=false, 0 tracks`, unstuck only by an explicit /open.
+    //
+    // Cheap to do unconditionally: the engine DIFFS what arrives, so a reconnect to an engine
+    // that still has it answers "no changes (project already current)".
+    if (currentWs && engineProject && sessionOf(currentWs) === session)
+      sendActiveProject(currentWs, engineProject);
   });
   e.on("close", () => {
     const l = links.get(session);

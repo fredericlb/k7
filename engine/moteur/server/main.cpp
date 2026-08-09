@@ -706,7 +706,16 @@ int main(int argc, char** argv) {
                     // then execute every queued click at once. Sent inside the posted lambda, so it marks when the work starts.
                     broadcastTo(session, json{{"type", "busy"}, {"busy", true}});
 
+                    // Timed whichever path it takes. `[applyFull]` has always printed its phases, so a rebuild
+                    // could be explained and an INCREMENTAL apply could not — and now that adding a plugin is
+                    // incremental, the fast path is the one worth watching. Printed with the changes below.
+                    // std::chrono and not juce::Time: this file is the JUCE-free half (see EngineHost.h).
+                    const auto applyT0 = std::chrono::steady_clock::now();
                     const auto changes = host.apply(session, doc, "");   // paths are absolute
+                    const double applyMs =
+                        std::chrono::duration<double, std::milli>(
+                            std::chrono::steady_clock::now() - applyT0)
+                            .count();
                     json r{{"type", "applied"}, {"changes", json::array()}};
                     std::vector<std::string> described;
                     described.reserve(changes.size());
@@ -723,7 +732,8 @@ int main(int argc, char** argv) {
                         std::cerr << "[applied] no changes (project already current)\n";
                     } else {
                         constexpr size_t kMaxLogged = 12;
-                        std::cerr << "[applied] " << described.size() << " change(s)\n";
+                        std::cerr << "[applied] " << described.size() << " change(s) in "
+                                  << applyMs << "ms\n";
                         for (size_t i = 0; i < described.size() && i < kMaxLogged; ++i)
                             std::cerr << "    " << described[i] << "\n";
                         if (described.size() > kMaxLogged)

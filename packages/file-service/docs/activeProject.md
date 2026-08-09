@@ -58,3 +58,28 @@ Every word of that is true and none of it is the problem. So `setActiveProject` 
 existence **before** the name rule and says what actually happened, and `isProjectDir` itself
 requires a directory — which also stops a stale `.studio-active` marker (a project deleted
 outside the service) from being restored at construction.
+
+## The engine may have forgotten, and only it knows
+
+`engineProject` is this process's note of what the ENGINE is serving, and the engine is a
+different process that can restart under us. When it does — it crashed, the supervisor
+respawned it — the new one holds no session at all, while the note still says we are serving
+a project. Nothing then re-sends it: `prewarmEngineForActive` takes its early return on every
+2 s `/workspace` poll precisely because the note is set. The browser shows a project the
+engine has never heard of, and the transport does nothing, for ever, until an explicit
+`/open`.
+
+Measured, not reasoned: with the file service reporting `activeProject: 01.danse.l8`, the
+engine reported `loaded=false, tracks=0` — and still did 45 seconds after a respawn, with the
+poll running throughout. One `POST /open` brought back all 14 tracks.
+
+So the socket's `open` re-sends the project this session was serving. A fresh socket is the
+one moment we learn the engine may be fresh too, and it is cheap to act on: the engine DIFFS
+what arrives, so reconnecting to an engine that still has the project answers "no changes
+(project already current)".
+
+It does not make `engineProject` honest — it is still one process's belief about another's
+state, and a session emptied *without* the socket dropping would still strand it. Reconciling
+properly means asking the engine what it holds rather than remembering what we sent. That is
+the fix this one defers, and the reason to prefer it is the same reason this bug was hard to
+see: the note and the truth drift silently, and nothing anywhere reports the difference.
