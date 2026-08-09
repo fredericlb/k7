@@ -11,6 +11,7 @@ import type {
   WebTrack,
   WorkspaceInfo,
 } from "../types";
+import { useRevision } from "./useRevision";
 
 /**
  * The repo's ahead/behind for the share badge. A network op on the server (it fetches),
@@ -74,6 +75,8 @@ export function useOrbit(hasStrudel: boolean): WebTrack[] {
  * /revision is a file walk (~2ms) that answers "has anything changed" — so the check
  * runs once per edit instead of thirty times a minute while you read. `reloadKey`
  * still forces a pass: an action can change the answer without changing a source.
+ *
+ * The token itself is polled once for the whole app (`useRevision`), not once per consumer.
  */
 export function useProjectErrors(reloadKey: number): {
   projectErrors: number;
@@ -81,39 +84,27 @@ export function useProjectErrors(reloadKey: number): {
 } {
   const [projectErrors, setErrorCount] = useState(0);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
+  const rev = useRevision();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a TRIGGER, not a value this body reads — an action can change the answer without changing a source, and dropping it would stop noticing that.
   useEffect(() => {
+    if (rev === null) return; // no token read yet — nothing has changed that we know of
     let alive = true;
-    let seen: string | null = null;
-    const fetchErrors = () =>
-      api
-        .projectErrors()
-        .then((r) => {
-          if (!alive) return;
-          setErrorCount(r.errors.length);
-          setDiagnostics(r.diagnostics);
-        })
-        .catch(() => {
-          if (!alive) return;
-          setErrorCount(0);
-          setDiagnostics([]);
-        });
-    const tick = async () => {
-      try {
-        const { rev } = await api.revision();
-        if (!alive || rev === seen) return;
-        seen = rev;
-      } catch {
-        return; // file service unreachable — keep what we have, retry next tick
-      }
-      await fetchErrors();
-    };
-    void tick();
-    const id = setInterval(tick, 2000);
+    api
+      .projectErrors()
+      .then((r) => {
+        if (!alive) return;
+        setErrorCount(r.errors.length);
+        setDiagnostics(r.diagnostics);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setErrorCount(0);
+        setDiagnostics([]);
+      });
     return () => {
       alive = false;
-      clearInterval(id);
     };
-  }, [reloadKey]);
+  }, [rev, reloadKey]);
   return { projectErrors, diagnostics };
 }
 

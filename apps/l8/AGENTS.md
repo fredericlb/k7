@@ -191,6 +191,12 @@ who chooses. There is **no global session file**; the workspace is the scope.
 Any number of tabs may drive the same workspace concurrently. Last write wins; each
 tab's polls (`workspace`/`project`/`tree` on 2s/700ms intervals) reconcile the view.
 
+Anything gated on "has a file changed" reads the `/revision` token through
+`hooks/useRevision.ts`, which polls it **once per tab** however many consumers there are —
+never on a timer of its own. Two hooks each running their own 2s timer over the same route was
+the same request twice a second, and every request is real work for whatever sits between the
+browser and the service.
+
 ## Key conventions
 
 - **The engine never parses song files.** It only receives compiled JSON. Swap this

@@ -14,10 +14,11 @@
 //
 // Gated on /revision, the same ~2 ms change token the diagnostics poll uses, rather than re-reading the file on a
 // timer: the token moves for OUR writes and for edits made outside the app (a git pull, another editor), which
-// is exactly the set of events worth reacting to.
+// is exactly the set of events worth reacting to. The token is polled ONCE for the whole app — see useRevision.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { useRevision } from "./useRevision";
 
 /**
  * What to do about a file that has changed underneath the editor. Pure, and separated out for the same reason
@@ -79,9 +80,11 @@ export function useDiskSync({
   // the next tick, but a further change on disk is a new question.
   const dismissed = useRef<string | null>(null);
 
+  const rev = useRevision();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a TRIGGER, not a value this body reads — a command just ran and its write must be noticed now, whether or not the token moved.
   useEffect(() => {
+    if (rev === null) return; // no token read yet — nothing has changed that we know of
     let alive = true;
-    let seen: string | null = null;
 
     const check = async () => {
       const s = state.current;
@@ -122,26 +125,13 @@ export function useDiskSync({
       }
     };
 
-    const tick = async () => {
-      try {
-        const { rev } = await api.revision();
-        if (!alive || rev === seen) return;
-        seen = rev;
-      } catch {
-        return;
-      }
-      await check();
-    };
-
-    void tick();
-    const id = setInterval(tick, 2000);
+    void check();
     return () => {
       alive = false;
-      clearInterval(id);
     };
-    // reloadKey re-arms deliberately: a command just ran, and its write should be noticed now rather than in up
-    // to two seconds. `seen` resets with it, which forces the next tick to read.
-  }, [reloadKey]);
+    // reloadKey is a dependency deliberately: a command just ran, and its write should be noticed now rather than
+    // waiting for the token to move — an action can change the answer without changing a source.
+  }, [rev, reloadKey]);
 
   // A different file is a different question — never carry a decision across.
   useEffect(() => {
