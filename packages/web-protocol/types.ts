@@ -49,6 +49,10 @@ export interface WorkspaceInfo {
   rootIsProject: boolean;
   activeProject: string | null; // workspace-relative ("." for the root), or null
   projects: string[]; // workspace-relative project dirs
+  // The clip the recorder wrote most recently, so a surface can offer to review it. Rides this poll
+  // because only the file service learns the id — the engine reports a FILE — and it stays set until
+  // there is another take: whether it has been looked at belongs to the client.
+  lastTake?: { clip: string; track: string } | null;
 }
 
 // Where the workspace's repo stands vs upstream, for the share badge (mirrors @studio/commands/git).

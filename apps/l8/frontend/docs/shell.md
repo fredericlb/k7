@@ -123,6 +123,36 @@ clip you are punching into looks like — and the one thing that surface showed 
 level envelope, at whatever height the window happened to have. The band gives that envelope
 a size someone chose and gives the rest back.
 
+### …and when it stops, the take takes its place
+
+`TakeReview` occupies the same slot at the same height, so stopping does not resize the shell:
+the waveform of what was just recorded, under the project's bars and beats, with the onsets over
+it. Three things are done from there — the threshold that finds the onsets, the onsets themselves,
+and normalising the file — and all three are the same three you could type into the bar.
+
+**Every edit is a command.** The screen holds no state the file does not: it runs `clip onset
+add|remove|move` or `clip normalize`, re-reads `/waveform`, and draws the answer. That is what
+makes each one a single Ctrl+Z (the web host journals commands), and it is why the corrections
+survive the sensitivity slider — the resolving happens in the file service, over what the clip
+stores, not in this component's memory. See `packages/song/src/onsets.ts`.
+
+**The ruler is free.** `WebWaveformGrid` and `@studio/ui-waveform`'s `WaveformGrid` are the same
+three fields, so `gridLines={wf.grid}` is the whole of it — the endpoint already computed the
+bar/beat lines for the clip editor.
+
+**Which clip it is comes from the file service, not the engine.** The engine broadcasts a finished
+take as a FILE and a track; the id is chosen by whatever writes the clip, which is
+`onRecorded` in `engineLink.ts`. So it rides the `/workspace` poll as `lastTake`, and the server
+never clears it — "the last take" stays true until there is another. Whether it has been *looked
+at* is this tab's business, which is why dismissing is local state.
+
+**A click on the canvas adds an onset**, a click on a mark takes it away. That is a deliberate
+overload of `onSeek`, which normally means "you pointed at this second": there is nothing to seek
+on a take that is not playing, and this screen exists to place those marks. What it does not do is
+DRAG one — `@studio/ui-waveform` draws markers but does not move them, and teaching it to would be
+a change to a component k7 also draws. Moving an onset is a remove and an add, which is what the
+model says it is anyway; `clip onset move` does it in one line from the bar.
+
 Two consequences fall out of the shell staying live behind it:
 
 - the minimap the band used to carry as a child is gone. The shell's own is right below it
