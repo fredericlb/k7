@@ -383,8 +383,11 @@ const CSS = `
 .dgx-fmeter { position:relative; width:5px; border-radius:3px; border:1px solid #212129; overflow:hidden;
   flex:none; background:linear-gradient(to top,
     #10b981 0%, #10b981 81.8%, #fbbf24 81.8%, #fbbf24 90.9%, #ef4444 90.9%, #ef4444 100%); }
-.dgx-fmeter i { position:absolute; left:0; right:0; top:0; display:block; background:#08080b;
-  transition:height .06s linear; }
+/* NO transition on the shade. Levels arrive every 50ms and this was a 60ms ease, so it was
+   restarted before it ever finished — the bar never reached its own value and trailed a frame
+   behind for ever. A height cannot run on the compositor either, so each restart cost a
+   restyle, a reflow and a display-list entry. See @studio/engine-browser's docs/meters.md. */
+.dgx-fmeter i { position:absolute; left:0; right:0; top:0; display:block; background:#08080b; }
 .dgx-fader .rail { position:relative; width:7px; border-radius:4px; background:#08080b;
   border:1px solid #212129; }
 /* Ticks OUTSIDE the rail, one per 10% of the throw — what makes it read as a strip rather than a progress bar. */
