@@ -177,7 +177,7 @@ read its name. A lane whose clips appeared to have vanished, with nothing on scr
 it, is the failure this avoids.
 
 Like every other edit here, the component reports intent and the shell runs the command
-(`onPickAlternative` / `onNewAlternative` → `track alternative …`). It has to be `runCommand`
+(`onPickAlternative` / `onNewAlternative` → `track alternative select|create|copy …`). It has to be `runCommand`
 and not `quietCommand`: switching replaces the lane's whole clip list, so the timeline must
 re-read the project rather than patch a field.
 

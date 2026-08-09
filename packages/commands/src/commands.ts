@@ -836,18 +836,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * changes the whole clip list, so there is nothing cheap to diff — re-reading the project is
    * both simpler and what the engine has to be told anyway.
    */
-  "track.alt.switch": (a, h) =>
+  "track.alt.select": (a, h) =>
     withAlternativeTrack(
       a,
       h,
-      "track alternative <track> <name>",
+      "track alternative select <track> [name]",
       async (t, name) => {
         if (!name) {
           // The list is the useful answer to "which ones are there?", so a bare call says it.
           h.log([
             t.alternatives?.length
               ? `${t.id}: ${t.alternatives.map((n) => (n === t.alternative ? `[${n}]` : n)).join("  ")}`
-              : `${t.id} has one arrangement — 'track alternative new ${t.id}' starts a second`,
+              : `${t.id} has one arrangement — 'track alternative create ${t.id}' starts a second`,
           ]);
           return;
         }
@@ -857,11 +857,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       },
     ),
 
-  "track.alt.new": (a, h) =>
+  "track.alt.create": (a, h) =>
     withAlternativeTrack(
       a,
       h,
-      "track alternative new <track> [name]",
+      "track alternative create <track> [name]",
       async (t, name) => {
         const made = newTrackAlternative(h.songPath, t.id, name);
         h.log([`${t.id}: alternative '${made}' — empty, and playing`]);

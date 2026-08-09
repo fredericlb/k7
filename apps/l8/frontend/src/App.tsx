@@ -1599,11 +1599,11 @@ export default function App({
                   // The lane header's alternative menu. `runCommand`, not `quietCommand`:
                   // switching replaces the lane's clips, so the timeline has to re-read.
                   onPickAlternative={(trackId, name) =>
-                    void runCommand(`track alternative ${trackId} ${name}`)
+                    void runCommand(`track alternative select ${trackId} ${name}`)
                   }
                   onNewAlternative={(trackId, copy) =>
                     void runCommand(
-                      `track alternative ${copy ? "copy" : "new"} ${trackId}`,
+                      `track alternative ${copy ? "copy" : "create"} ${trackId}`,
                     )
                   }
                   // While the bar is filling `event move`, the drag ANSWERS it instead of

@@ -83,9 +83,13 @@ bottom two entries start another, empty or as a copy of the one playing. The lan
 variant it is on beside that arrow whenever it is not the first — otherwise a lane whose clips
 "went missing" would look like a bug.
 
-From the command bar, `track alternative <track> <name>` switches, `track alternative new
-<track> [name]` adds an empty one and `track alternative copy <track> [name]` adds a copy. With
-no name at all, `track alternative <track>` lists what the track has.
+From the command bar, `track alternative select <track> <name>` switches, `track alternative
+create <track> [name]` adds an empty one and `track alternative copy <track> [name]` adds a
+copy. With no name at all, `track alternative select <track>` lists what the track has.
+
+The track is named because a command has no caret to read one off — the same reason `track mute`
+takes one. From the keyboard the shell fills it in (`{caret_track}` in `keys.ts`), and from the
+lane's own menu it is already known.
 
 There is no command to delete one: it is three lines of YAML, and removing it by hand is both
 clearer and reversible in the editor's own undo.

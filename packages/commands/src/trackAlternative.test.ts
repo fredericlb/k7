@@ -91,13 +91,13 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("track alternative", () => {
   it("says a track has one arrangement rather than drawing a menu of one", async () => {
-    await run("track alternative gtr");
+    await run("track alternative select gtr");
     expect(logs.join(" ")).toContain("one arrangement");
     expect(trackFile()).not.toContain("alternatives");
   });
 
   it("adds an empty one, switches to it, and the compiler agrees the lane is empty", async () => {
-    await run("track alternative new gtr");
+    await run("track alternative create gtr");
     expect(logs.join(" ")).toContain("'2'");
     expect(gtr().clips).toEqual([]);
     expect(gtr().alternatives).toEqual(["1", "2"]);
@@ -106,10 +106,10 @@ describe("track alternative", () => {
   });
 
   it("keeps the first arrangement while the second is playing", async () => {
-    await run("track alternative new gtr doux");
+    await run("track alternative create gtr doux");
     // Nothing was taken away from the track — the point of the format.
     expect(trackFile()).toContain("ref: riff");
-    await run("track alternative gtr 1");
+    await run("track alternative select gtr 1");
     expect(gtr().clips.map((c) => c.id)).toEqual(["riff"]);
   });
 
@@ -118,31 +118,31 @@ describe("track alternative", () => {
     expect(gtr().clips.map((c) => c.id)).toEqual(["riff"]);
     expect(gtr().alternative).toBe("2");
     // Two variants of the same material, which is what a copy is for.
-    await run("track alternative gtr 1");
+    await run("track alternative select gtr 1");
     expect(gtr().clips.map((c) => c.id)).toEqual(["riff"]);
   });
 
   it("lists them, marking the one playing, when no name is given", async () => {
-    await run("track alternative new gtr doux");
+    await run("track alternative create gtr doux");
     logs.length = 0;
-    await run("track alternative gtr");
+    await run("track alternative select gtr");
     expect(logs.join(" ")).toContain("[doux]");
   });
 
   it("refuses a name the track hasn't got, and changes nothing", async () => {
-    await run("track alternative gtr rock");
+    await run("track alternative select gtr rock");
     expect(logs.join(" ")).toContain("rock");
     expect(trackFile()).not.toContain("alternative:");
     expect(reloads).toBe(0);
   });
 
   it("names the mistake when what you named is not a track at all", async () => {
-    await run("track alternative new nope");
+    await run("track alternative create nope");
     expect(logs.join(" ")).toContain('no track "nope"');
   });
 
   it("refuses while the lane is frozen, because the render is of ONE arrangement", async () => {
-    await run("track alternative new gtr doux");
+    await run("track alternative create gtr doux");
     writeFileSync(
       join(dir, "tracks", "gtr.yaml"),
       `${trackFile()}frozen: tracks/gtr.wav\n`,
@@ -150,15 +150,15 @@ describe("track alternative", () => {
     );
     wav(join(dir, "tracks", "gtr.wav"));
     logs.length = 0;
-    await run("track alternative gtr 1");
+    await run("track alternative select gtr 1");
     expect(logs.join(" ")).toContain("frozen");
     // Still on the one the render was made of.
     expect(gtr().alternative).toBe("doux");
   });
 
   it("clears the pointer when the first is selected back", async () => {
-    await run("track alternative new gtr");
-    await run("track alternative gtr 1");
+    await run("track alternative create gtr");
+    await run("track alternative select gtr 1");
     // `alternative:` gone, `alternatives:` kept — a track playing its own clips says nothing.
     expect(trackFile()).not.toContain("alternative: ");
     expect(trackFile()).toContain("alternatives:");
