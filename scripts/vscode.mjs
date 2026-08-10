@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// vscode.mjs — VS Code in the browser at https://studio.test/dev, served by the
+// vscode.mjs — VS Code in the browser at https://st0.priv.frediver.se/dev, served by the
 // `code serve-web` that ships with the installed editor. A ROOT turbo task (`//#vscode`),
 // joined into `npm run dev` by scripts/dev.mjs naming it explicitly — a package filter
 // cannot reach the root. Also runnable alone as `npm run vscode`. See docs/dev.md.
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-const PORT = 8798; // free: the Caddyfile claims 3001-3006, 5173, 5223-5225, 8080, 8787-8796
+const PORT = 8798; // free: the proxy routes 3001-3006, 5173, 5223-5225, 8080, 8787-8796
 const BASE_PATH = "/dev";
 
 /**
@@ -36,18 +36,18 @@ function portFree(port) {
 if (!(await portFree(PORT))) {
   console.log(
     `  port ${PORT} is already in use — not starting a second editor.\n` +
-      `  If https://studio.test${BASE_PATH}/ does not answer, an orphaned server is holding it:\n` +
+      `  If https://st0.priv.frediver.se${BASE_PATH}/ does not answer, an orphaned server is holding it:\n` +
       "  find it with `Get-NetTCPConnection -LocalPort 8798` and stop that process tree.",
   );
   process.exit(0);
 }
 
-console.log(`  VS Code web → https://studio.test${BASE_PATH}/\n`);
+console.log(`  VS Code web → https://st0.priv.frediver.se${BASE_PATH}/\n`);
 
 // No connection token. That is a decision, not an oversight: this is a dev-only config on an
-// open-source repo, and the owner accepts that anyone who can reach studio.test gets an editor
-// — which is a shell on the repo root, Caddy having no `bind` (commons/caddy/global.caddy).
-// `--host 127.0.0.1` stays because it costs nothing and keeps Caddy the only way in.
+// open-source repo, and the owner accepts that anyone who can reach st0.priv.frediver.se gets an editor
+// — which is a shell on the repo root, the proxy answering on every interface.
+// `--host 127.0.0.1` stays because it costs nothing and keeps the proxy the only way in.
 // To put auth back: drop `--without-connection-token` and add
 // `--connection-token-file <path>`; serve-web then trades `?tkn=` for a 7-day cookie.
 const code = spawn(
@@ -58,7 +58,7 @@ const code = spawn(
     String(PORT),
     "--host",
     "127.0.0.1",
-    // Caddy does not strip /dev — same asymmetry as the SPAs, so the server must see it.
+    // the proxy does not strip /dev — same asymmetry as the SPAs, so the server must see it.
     "--server-base-path",
     BASE_PATH,
     "--without-connection-token",

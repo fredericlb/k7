@@ -7,9 +7,9 @@ l'est plus : **le login d'un compte appartient à st0**, et pas par goût de l'u
 
 ## Ce qui a cassé
 
-`redirectUriFor` construit `<origine><X-Forwarded-Prefix>/auth/callback`. Le Caddyfile
+`redirectUriFor` construit `<origine><X-Forwarded-Prefix>/auth/callback`. Le proxy config
 posait `X-Forwarded-Prefix: /z0` sur le backend du jeu — là et nulle part ailleurs — pour
-que z0 nomme `https://studio.test/z0/auth/callback` au lieu de la racine, qui est à st0.
+que z0 nomme `https://st0.priv.frediver.se/z0/auth/callback` au lieu de la racine, qui est à st0.
 
 Sauf que le client OAuth n'a qu'**une** redirect_uri enregistrée, celle sans préfixe.
 Demandez l'autre et l'IdP refuse avant d'afficher quoi que ce soit :
@@ -21,7 +21,7 @@ error_hint=The 'redirect_uri' parameter does not match any of the
 
 Donc toute connexion à un compte mourait à l'`authorization endpoint` — l'éditeur, mais
 aussi le presenter, le monitor et la remote, qui empruntent tous ce `/z0/auth/login`.
-Le contrôle qui le prouve : la même requête avec `https://studio.test/auth/callback` passe
+Le contrôle qui le prouve : la même requête avec `https://st0.priv.frediver.se/auth/callback` passe
 la validation et échoue plus loin, sur la longueur du `state`.
 
 La leçon est structurelle, pas accidentelle : **un service monté sous un chemin ne peut

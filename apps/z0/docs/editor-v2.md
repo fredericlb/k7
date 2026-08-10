@@ -50,7 +50,7 @@ partagé existe pour empêcher.
 
 ## L'adresse
 
-`studio.test/z0/editor-v2/<dépôt>/<session.z0>` — le vocabulaire d'adresse de
+`st0.priv.frediver.se/z0/editor-v2/<dépôt>/<session.z0>` — le vocabulaire d'adresse de
 `@studio/web-protocol/projects`, avec un segment de plus que l8 et m9. C'est ce que
 `PROJECT_MOUNTS` dit : l8 et m9 **sont** leur service, alors que z0 est sept SPA derrière un
 préfixe et une seule d'entre elles ouvre un projet.
@@ -86,4 +86,4 @@ Les suites ici ne montent rien, donc voici ce qu'un test vert ne dit pas :
 ## Ce qui vient ensuite
 
 Éditer. Puis remplacer l'éditeur Grist, qui gardera son `/z0/editor` jusque-là : basculer, ce
-sera changer `PROJECT_MOUNTS.z0` et les deux `handle` du Caddyfile.
+sera changer `PROJECT_MOUNTS.z0` et les deux `handle` du proxy config.

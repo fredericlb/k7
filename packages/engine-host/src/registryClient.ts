@@ -55,7 +55,7 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
  * The hosted médiathèque this machine caches, derived rather than configured.
  *
  * Every service sits on ONE origin at a FIXED path (`SERVICE_PATHS`), so the registry URLs
- * already resolved above carry the only thing that varies — `https://studio.test/l8` and
+ * already resolved above carry the only thing that varies — `https://st0.priv.frediver.se/l8` and
  * `https://studio.frediver.se/l8` differ by their origin and nothing else. Asking for the
  * library's URL as well made a second, hand-typed copy of a fact already on disk, which is
  * exactly how a machine ends up heartbeating to one studio and syncing from another.

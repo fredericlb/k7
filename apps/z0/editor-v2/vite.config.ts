@@ -1,6 +1,7 @@
 import { defineAppConfig } from "@frediverse/vite-config";
+import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-// The v2 editor, at studio.test/z0/editor-v2. It is the odd SPA of the seven: it does not
+// The v2 editor, at st0.priv.frediver.se/z0/editor-v2. It is the odd SPA of the seven: it does not
 // talk to z0's backend at all. What it opens is a git repository the médiathèque owns, on the
 // machine the account works from — so its `/api` and `/auth` are ST0's, at the origin root,
 // like l8's and m9's. `backendPort` therefore names st0 (8795), not z0's 8080.
@@ -14,7 +15,9 @@ export default defineAppConfig({
   // st0 owns `/auth/*` for the whole origin, and this SPA signs in with the studio session
   // like l8 and m9 — not with the game's `bt_session`, which models a guest with no account.
   proxyPaths: ["/auth"],
-  host: "studio.test",
+  host: DEV_HOST,
+  // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+  extend: { server: { allowedHosts: LEGACY_DEV_HOSTS } },
   // Dev runs under WSL against /mnt/c, where inotify never fires (same as l8 and m9).
   poll: true,
 });

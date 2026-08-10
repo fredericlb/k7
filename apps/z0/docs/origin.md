@@ -6,7 +6,7 @@ on its own reads like an arbitrary choice.
 
 ## Why the prefix is stripped for the API and not for the SPAs
 
-The repo-root `Caddyfile` handles z0 in three blocks, and the order matters because
+The repo-root `proxy config` handles z0 in three blocks, and the order matters because
 `handle` blocks are mutually exclusive and matched top to bottom.
 
 - `/z0/api/*` — prefix **stripped**. The backend keeps seeing `/api/...` exactly as it

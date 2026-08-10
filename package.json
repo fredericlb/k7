@@ -38,7 +38,6 @@
     "dev": "node scripts/dev.mjs",
     "dev:native": "node scripts/dev-native.mjs",
     "clean": "rm -rf node_modules .turbo commons/packages/*/node_modules commons/dev/*/node_modules packages/*/node_modules apps/*/node_modules apps/*/*/node_modules apps/*/*/*/node_modules",
-    "caddy": "node commons/scripts/caddy.mjs",
     "tokens": "node scripts/tokens.mjs",
     "commons:sync": "git submodule update --remote --merge commons",
     "build": "turbo run build",

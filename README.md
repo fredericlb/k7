@@ -4,12 +4,12 @@ The music and stage apps of the frediverse.
 
 | app | what it is | dev site |
 |---|---|---|
-| `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `studio.test/k7` |
-| `apps/l8` | text-first DAW — the web editor | `studio.test/l8` |
-| `apps/st0` | the media library — songs, samples, modules, chains, playlists; the studio's home page | `studio.test` |
+| `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `st0.priv.frediver.se/k7` |
+| `apps/l8` | text-first DAW — the web editor | `st0.priv.frediver.se/l8` |
+| `apps/st0` | the media library — songs, samples, modules, chains, playlists; the studio's home page | `st0.priv.frediver.se` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/capot` | the Tauri tray that supervises the engine | — |
-| `apps/z0` | blind-test game — six SPAs behind one origin | `studio.test/z0` |
+| `apps/z0` | blind-test game — six SPAs behind one origin | `st0.priv.frediver.se/z0` |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
@@ -28,9 +28,12 @@ If you already cloned without it: `git submodule update --init`.
 ```bash
 npm ci
 cp env.example.yaml env.yaml   # then fill in the secrets
-npm run caddy                  # one Caddy serves studio AND phare — see commons/docs/caddy.md
 npm run dev                    # every app, plus the engine and the tray
 ```
+
+The studio answers at **https://st0.priv.frediver.se** — one origin, one path per service.
+Nothing here terminates TLS: the name resolves to the LAN server, which reverse-proxies to
+the dev servers. See [docs/dev.md](docs/dev.md).
 
 `npm run dev` runs the whole studio as one turbo session — every app's frontend and
 backend, plus a task that builds the C++ engine and the Tauri tray, launches the tray,

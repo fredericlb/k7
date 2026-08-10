@@ -106,8 +106,8 @@ describe("which médiathèque this machine caches", () => {
     expect(mediatekUrlFor(["https://studio.frediver.se/l8"])).toBe(
       "https://studio.frediver.se",
     );
-    expect(mediatekUrlFor(["https://studio.test/l8"])).toBe(
-      "https://studio.test",
+    expect(mediatekUrlFor(["https://st0.priv.frediver.se/l8"])).toBe(
+      "https://st0.priv.frediver.se",
     );
   });
 

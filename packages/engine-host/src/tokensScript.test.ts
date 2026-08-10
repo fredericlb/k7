@@ -80,7 +80,7 @@ describe("the tokens script", () => {
 
   it("writes k7's loopback URL, since a checkout cannot use the fixed one", () => {
     // The service's address is fixed and defaulted in code; a CHECKOUT is the exception,
-    // because node does not trust Caddy's local CA (UNABLE_TO_GET_ISSUER_CERT_LOCALLY).
+    // because the public name goes out to the LAN proxy and straight back for nothing.
     run();
     // Against the table, not a literal: the script carries its own copy of the port (a .mjs
     // cannot import a .ts), so this is what stops the two from drifting apart.

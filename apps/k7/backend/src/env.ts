@@ -14,9 +14,9 @@ const raw = defineEnv(
     // one origin, so there is nothing to choose and a deployment sets nothing.
     //
     // A CHECKOUT is the exception, and `npm run tokens` writes it: everything is behind
-    // Caddy's `tls internal` there, whose local CA node does not trust, so this
+    // a private CA there, whose local CA node does not trust, so this
     // server-to-server call takes the loopback port instead (verified: fetching
-    // https://studio.test from node fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY, in the
+    // https://st0.priv.frediver.se from node fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY, in the
     // browser beside it works). See docs/tokens.md.
     MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "st0")),
     // Written by `npm run tokens` too — signed with the médiathèque's own API_TOKEN_SECRET,

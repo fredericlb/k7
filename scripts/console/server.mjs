@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// server.mjs — the shared terminals at https://studio.test/console: PowerShell TABS
+// server.mjs — the shared terminals at https://st0.priv.frediver.se/console: PowerShell TABS
 // in ConPTYs this service owns, so they survive their viewers; every browser sees
 // the same tabs and types into the same shells (a `claude` session in one outlives
 // the tab that launched it). The Tilt UI runs the dev session and has no stdin; this
@@ -17,7 +17,7 @@ import { WebSocketServer } from "ws";
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..");
 
-const PORT = 8797; // free: the Caddyfile claims 3001-3006, 5173, 5223-5225, 8080, 8787-8796, 8798
+const PORT = 8797; // free: the proxy routes 3001-3006, 5173, 5223-5225, 8080, 8787-8796, 8798
 const BASE = "/console";
 const SCROLLBACK_CAP = 1 << 20; // ~1 MiB of raw PTY output per tab, enough for a post-mortem
 const MAX_TABS = 12; // a runaway "+" should not fork-bomb the machine
@@ -305,10 +305,10 @@ http.on("error", (e) => {
   process.exit(1);
 });
 
-// `--host 127.0.0.1` spirit: Caddy is the only way in, same stance as vscode.mjs.
+// `--host 127.0.0.1` spirit: the proxy is the only way in, same stance as vscode.mjs.
 http.listen(PORT, "127.0.0.1", () => {
   console.log(
-    `  console → https://studio.test${BASE}/  (shells: ${Object.keys(SHELLS).join(", ")})`,
+    `  console → https://st0.priv.frediver.se${BASE}/  (shells: ${Object.keys(SHELLS).join(", ")})`,
   );
   createSession();
 });

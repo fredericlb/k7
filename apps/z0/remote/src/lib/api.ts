@@ -1,7 +1,7 @@
 import { createApiClient } from "@frediverse/api-client";
 
 // Single-origin: the SPA is served under its own path prefix and the backend at
-// /api on the same host (Caddy in dev, the image's nginx in prod), so paths stay
+// /api on the same host (the LAN proxy in dev, the image's nginx in prod), so paths stay
 // relative — there is no API origin to configure.
 //
 // basePath is the SERVICE prefix, not the SPA's: z0 is mounted at /z0

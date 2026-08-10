@@ -77,7 +77,7 @@ terminated », dans un navigateur, à propos d'un téléchargement entre deux se
 qui survit au trajet retour à travers HTTP jusqu'à un navigateur. On lit maintenant :
 
 ```
-mediatek GET https://studio.test/api/mediatek/file songs/…/original.flac:
+mediatek GET https://st0.priv.frediver.se/api/mediatek/file songs/…/original.flac:
   terminated ← other side closed (UND_ERR_SOCKET)
 ```
 
@@ -90,7 +90,7 @@ Ce que disent les causes les plus courantes :
 | cause | ce qui s'est passé |
 |---|---|
 | `other side closed (UND_ERR_SOCKET)` | l'hôte a fermé avant la fin du corps annoncé — souvent un service redémarré en plein téléchargement, ce qu'un `tilt` fait à chaque sauvegarde |
-| `unable to verify the first certificate` | le `tls internal` de Caddy sur un checkout : node ne connaît pas cette autorité |
+| `unable to verify the first certificate` | une autorité que node ne connaît pas — un proxy local à CA privée devant le service |
 | `ECONNREFUSED` | personne n'écoute à cette adresse |
 | `UND_ERR_BODY_TIMEOUT` | le corps a cessé d'arriver sans que la connexion tombe |
 

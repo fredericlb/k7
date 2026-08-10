@@ -1,4 +1,5 @@
 import { defineAppConfig } from "@frediverse/vite-config";
+import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
 // m9 now has a backend, and 8796 is a REAL port: it holds the login, this service's
 // engine registry, and which machine the account DJs from. That port used to be reserved
@@ -17,9 +18,11 @@ export default defineAppConfig({
   base: "/m9/",
   // The engine relay. `/api` is proxied already, but only a declared wsPath gets `ws: true`,
   // and without it an `upgrade` dies here rather than reaching the backend. Invisible behind
-  // Caddy, which routes /m9/api straight to :8796. See packages/engine-registry/docs/proxy.md.
+  // the proxy, which routes /m9/api straight to :8796. See packages/engine-registry/docs/proxy.md.
   wsPaths: ["/api/engine"],
-  host: "studio.test",
+  host: DEV_HOST,
+  // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+  extend: { server: { allowedHosts: LEGACY_DEV_HOSTS } },
   // Dev runs under WSL against /mnt/c, where inotify never fires (same as l8).
   poll: true,
 });

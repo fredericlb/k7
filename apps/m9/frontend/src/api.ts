@@ -7,7 +7,7 @@ import { engineAccess } from "@studio/engine-browser/access";
 import { projectApi } from "@studio/project-shell/project";
 import type { PublicEngine } from "@studio/web-protocol";
 
-// The app is mounted under a path (studio.test/<service>), so every backend
+// The app is mounted under a path (st0.priv.frediver.se/<service>), so every backend
 // path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
 // here so the literals keep reading as paths.
 // Exported because the engine probe needs it too: the relay answers under this same prefix.

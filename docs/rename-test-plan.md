@@ -254,7 +254,7 @@ si le menu affiche `build dev` au lieu d'un horodatage, c'est normal hors CI.
 
 ## Phase 4 — la médiathèque (`apps/mediatek`)
 
-Premier consommateur du socle. Port **5224**, backend **8795**, via `https://studio.test/mediatek`.
+Premier consommateur du socle. Port **5224**, backend **8795**, via `https://st0.priv.frediver.se/mediatek`.
 
 ```bash
 npm run dev --workspace mediatek
@@ -291,7 +291,7 @@ attendez-vous à un vrai login, comme pour k7 et obscura.
 
 ## Phase 5 — pistes (`apps/pistes`)
 
-Frontend **5223**, backend **8789**, via `https://studio.test/pistes`.
+Frontend **5223**, backend **8789**, via `https://st0.priv.frediver.se/pistes`.
 
 ```bash
 npm run dev --workspace pistes

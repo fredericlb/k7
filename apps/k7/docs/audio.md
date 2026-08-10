@@ -166,10 +166,10 @@ enveloppe — et les fichiers de partition (`Songs.SheetFiles`), qui ne sont pas
 `MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — st0 sert la racine de
 l'origine, donc c'est `https://studio.frediver.se` tout court :
 une origine, un chemin par service, donc un déploiement n'a rien à choisir. Un **checkout** est
-l'exception, et c'est le script qui l'écrit : tout y est derrière le `tls internal` de Caddy, dont
-Node ne connaît pas l'autorité — vérifié, une requête vers `https://studio.test` échoue en
-`UNABLE_TO_GET_ISSUER_CERT_LOCALLY` depuis Node alors qu'elle passe dans le navigateur d'à côté —
-donc cet appel de serveur à serveur prend le port en loopback (`http://127.0.0.1:8795`).
+l'exception, et c'est le script qui l'écrit : le nom public sort jusqu'au proxy du LAN pour
+revenir aussitôt sur cette machine, et tombe dès que ce proxy est injoignable alors que les deux
+services vont bien — donc cet appel de serveur à serveur prend le port en loopback
+(`http://127.0.0.1:8795`).
 
 `MEDIATEK_TOKEN` n'a pas de défaut, et sans lui la bibliothèque répond 401 : ses routes sont
 derrière une session ou un jeton, jamais ouvertes. Le script le frappe hors ligne, signé avec

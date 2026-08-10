@@ -19,7 +19,7 @@ import type {
   WebWaveform,
 } from "./types";
 
-// The app is mounted under a path (studio.test/l8), so every backend path
+// The app is mounted under a path (st0.priv.frediver.se/l8), so every backend path
 // below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed here
 // so the literals keep reading as paths.
 // Exported because the engine probe needs it too: the relay answers under this same prefix.
@@ -95,7 +95,7 @@ export const api = {
   // A GETTER, not a constant: it must capture where you are when you click, and
   // `return_to` is the name the OIDC package reads (a `redirect` param is ignored).
   // Without it login falls back to APP_ROOT — which used to be this app because it
-  // owned the origin, and is now the bare studio.test that belongs to nobody.
+  // owned the origin, and is now the bare st0.priv.frediver.se that belongs to nobody.
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
     return `/auth/login?return_to=${encodeURIComponent(here)}`;

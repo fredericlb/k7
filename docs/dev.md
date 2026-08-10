@@ -1,13 +1,34 @@
 # `npm run dev` — the whole studio in one command
 
 ```bash
-npm run caddy                 # in another terminal, once — https://studio.test
 npm run dev                   # every app + the engine + the tray + the browser editor
 npm run dev -- --typecheck    # …and the packages' tsc --watch feedback
 npm run dev -- --no-native    # web only: no engine, no tray
 npm run dev -- --no-vscode    # without the browser editor at /dev
 npm run dev:native            # only the engine and the tray
 ```
+
+## Where it answers
+
+**`https://st0.priv.frediver.se`** — one origin, one path per service (`/l8`, `/m9`, `/v1`,
+`/k7`, `/z0`), with st0 answering the root. The same shape production has under
+`studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
+
+Nothing on this workstation terminates TLS any more. The name resolves to the **LAN server**,
+which reverse-proxies to the dev servers here. So there is no edge to start, no `npm run
+caddy`, and no certificate to trust — which is what the old setup cost: `studio.test` was
+`127.0.0.1` in every machine's hosts file, fronted by a local Caddy whose `tls internal` CA
+each browser had to be told about, and which node never trusted at all.
+
+Two leftovers, both of which end:
+
+- **`studio.test` still answers**, because a local Caddy may still be running on 127.0.0.1.
+  Every vite config therefore still accepts that Host — `scripts/dev-hosts.mjs` says why, and
+  a dev server answers **403** to any name not on its list, so that file is what makes the
+  studio reachable at all.
+- **The Tilt UI has not moved**: it is at `https://studio.test:10351`, and
+  `st0.priv.frediver.se:10351` does not answer. `/dev-status` redirects to the latter, so it
+  currently leads nowhere.
 
 It is **one** turbo run, so the session looks like every other `dev` in this repo:
 turbo.json's `tui`, tasks on the left, the focused task's log on the right. The native
@@ -36,7 +57,7 @@ on its own — no ordering to get right.
 
 ## The browser editor — a ROOT task in the session
 
-`npm run dev` also starts VS Code in the browser at **https://studio.test/dev**, and it is
+`npm run dev` also starts VS Code in the browser at **https://st0.priv.frediver.se/dev**, and it is
 the one task that does not arrive through the filter list. It cannot: `workspacePackages()`
 reads the `workspaces` globs and the root is not one of them, so a `//#…` task is
 unreachable by any `--filter=<package>`. `dev.mjs` therefore names it outright:
@@ -65,23 +86,22 @@ joined this way — it is a gallery you open on purpose, not something to have r
 nothing to install and no `code-server` (which on Windows means WSL). Two flags carry the
 whole integration:
 
-- `--server-base-path /dev`, so Caddy's `/dev` handle does **not** strip the prefix — the
-  same asymmetry the Caddyfile explains for the SPAs, and for the same reason.
-- `--without-connection-token`, so `https://studio.test/dev` opens with no handshake.
+- `--server-base-path /dev`, so the proxy's `/dev` route does **not** strip the prefix — the
+  same asymmetry the SPAs need, and for the same reason: the server must keep seeing the
+  prefix it serves its assets under, while an API route must not.
+- `--without-connection-token`, so `https://st0.priv.frediver.se/dev` opens with no handshake.
 
 **No auth is a decision, and worth stating plainly** so nobody "fixes" it by accident or
 copies the pattern somewhere it does not belong. What is served is the repo root *with a
-terminal*, and Caddy has no `bind` in `commons/caddy/global.caddy`, so it answers on every
-interface: anyone who can reach `studio.test` gets a shell on this machine. That is
+terminal*: anyone who can reach `st0.priv.frediver.se` gets a shell on this machine. That is
 accepted here — a dev-only config on an open-source repo — and nowhere else.
-`--host 127.0.0.1` still stands, because it costs nothing and keeps Caddy the only door.
+`--host 127.0.0.1` still stands, because it costs nothing and keeps the proxy the only door.
 
 To put auth back, swap `--without-connection-token` for `--connection-token-file <path>`.
 `serve-web` then answers `403` to a bare `/dev` and expects the `?tkn=…` URL it prints
 once; it trades that for a `vscode-tkn` cookie good for seven days. The stronger option, if
-this ever leaves a dev machine, is a Caddy `forward_auth` against st0's backend (which
-owns `/auth`) so the
-studio session gates it.
+this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at st0's
+backend (which owns `/auth`) so the studio session gates it.
 
 The first run downloads a server build (~100 MB) and answers `202` with a self-reloading
 "please wait" page until it is done.
@@ -101,11 +121,11 @@ starts first serves, and the other says so and goes green.
 
 An editor that is a task inside `npm run dev` dies with it, which remotely means losing
 the only door at the exact moment you need it. `npm run remote:install` inverts that:
-four Windows logon tasks bring up Caddy, the editor, the **dev session under Tilt**
-(each server its own restartable resource, web UI at **https://studio.test:10351**
-— or **/dev-status**, which redirects there —
+three Windows logon tasks bring up the editor, the **dev session under Tilt**
+(each server its own restartable resource, web UI still at **https://studio.test:10351** —
+**/dev-status** redirects to the new name, which does not answer on that port yet —
 `Tiltfile` derived from the same workspace rules as this file's filter list) and a
-**shared shell** at **https://studio.test/console**. While `studio-tilt` runs, do
+**shared shell** at **https://st0.priv.frediver.se/console**. While `studio-tilt` runs, do
 **not** also run `npm run dev` in a terminal: the session already exists, and a second
 would fight it for every port. The whole design — and why ttyd was rejected — is in
 [remote.md](remote.md).

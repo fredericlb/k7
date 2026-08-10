@@ -40,4 +40,4 @@ wire.
 
 `engine` is a `SECTION_IDS` entry with no header tab: only the cog links to it,
 and `routes.test.ts` pins both the round-trip and the no-collision rule
-(`/console` and `/dev-status` joined the paths Caddy claims above st0).
+(`/console` and `/dev-status` joined the paths the proxy claims above st0).

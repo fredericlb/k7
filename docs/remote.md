@@ -2,35 +2,39 @@
 
 Working on the studio from elsewhere used to hang on one thread: the browser editor
 at `/dev` was a task **inside** `npm run dev`. If turbo crashed, the editor died with
-it — the only door closed exactly when you needed it. The fix is an inversion: four
+it — the only door closed exactly when you needed it. The fix is an inversion: three
 services that come up with the machine and survive independently of each other,
 installed as Windows logon tasks by `scripts/remote.mjs` — and the dev session
 itself run by an orchestrator with a web UI, so "see what broke and restart it" is a
 button in a browser, not a terminal you no longer have.
 
+The way in is no longer one of them. `https://st0.priv.frediver.se` resolves to the
+**LAN server**, which reverse-proxies to these ports; nothing this workstation starts
+terminates TLS any more, so the door stays open even when everything below has crashed.
+That is strictly better than the local Caddy it replaced, which was itself a logon task
+and could take the door down with it.
+
 | what | where | task |
 |---|---|---|
-| Caddy, the one way in | `https://studio.test` | `studio-caddy` |
 | the browser editor | `/dev` | `studio-vscode` |
-| the dev session, per-task | `https://studio.test:10351` (Tilt UI; `/dev-status` redirects there) | `studio-tilt` |
+| the dev session, per-task | `https://studio.test:10351` (Tilt UI — the one thing still on the old name; `/dev-status` redirects to the new one, which does not answer on that port) | `studio-tilt` |
 | a shared shell | `/console` | `studio-console` |
 
 ## The logon tasks
 
 ```bash
-npm run remote:install     # register the four tasks + start them
+npm run remote:install     # register the three tasks + start them
 npm run remote:status      # task states + who is actually serving
-npm run remote:uninstall   # unregister and stop them (the detached Caddy is left running)
+npm run remote:uninstall   # unregister and stop them
 ```
 
-They are launched through `scripts/hidden.vbs` so a boot does not open four console
+They are launched through `scripts/hidden.vbs` so a boot does not open three console
 windows. `remote.mjs run <name>` is the wrapper the tasks actually execute: it
 relaunches a dead service with a backoff (5 s doubling to 5 min, reset after a
 minute of good service) and appends everything to `%TEMP%\studio-remote-<name>.log`.
 The pidfile next to the log is how `uninstall` finds the tree to kill — and it
 verifies the pid's command line first, so a stale file can never shoot a recycled
-pid. `studio-caddy` is the exception: `caddy.mjs` is a one-shot that detaches the
-real Caddy (or reloads a live one) and exits, so it is not looped.
+pid.
 
 Two deliberate settings:
 
@@ -47,7 +51,7 @@ Two deliberate settings:
 TUI cannot restart one of them. The session therefore runs under
 **[Tilt](https://tilt.dev)** (`tilt up`, the `studio-tilt` task): each dev server is
 a `local_resource` with its own status, its own filterable logs, and its own restart
-button in the web UI at `https://studio.test:10351`. The native monitor
+button in the web UI at `https://st0.priv.frediver.se:10351`. The native monitor
 (`dev:native`, the moteur + tray rebuild loop) is a resource like the others, so a
 broken engine build is a red row with readable logs instead of a dead session.
 
@@ -60,11 +64,12 @@ terminal, but not beside a running Tilt: one session at a time, and
 `remote:install` refuses to start `studio-tilt` while port 5224 (st0's vite) shows
 one already running by hand.
 
-The UI cannot live under a path prefix (its SPA loads `/static/*` absolute and
-`tilt up` has no base-path flag), so the Caddyfile gives it a **port** on the same
-hostname (`studio.test:10351`) rather than a path — no new DNS name, same internal
-CA — and **`/dev-status` redirects there** as the memorable name. From a terminal,
-`tilt trigger <resource>` does what the button does.
+The UI cannot live under a path prefix (its SPA loads `/static/*` absolute and `tilt up`
+has no base-path flag), so it gets a **port** rather than a path, and `/dev-status`
+redirects there as the memorable name. That redirect currently points at
+`st0.priv.frediver.se:10351`, which does not answer — the UI is still only at
+`https://studio.test:10351`, the last thing the move has not carried over. From a
+terminal, `tilt trigger <resource>` does what the button does.
 
 ## The shared terminals — `/console`
 
@@ -108,23 +113,27 @@ with node-pty and xterm.js, the bricks VS Code itself is made of.
 
 ## Auth
 
-`/dev`, `/console` and `:10351` are **unauthenticated, on purpose**, under the
-stance the Caddyfile states for `/dev`: a dev-only choice on an open-source repo,
-acceptable because Caddy is reachable only where the dev machine is, and nowhere
-else. Everything binds `127.0.0.1`, so Caddy is the only way in. The day any of it
-leaves the dev machine, the remedy is a Caddy `forward_auth` against st0's backend,
-which owns `/auth` for the origin.
+`/dev`, `/console` and `:10351` are **unauthenticated, on purpose**: a dev-only choice on
+an open-source repo, acceptable because the proxy is reachable only from the LAN, and
+nowhere else. Everything binds `127.0.0.1`, so the proxy is the only way in. The day any
+of it leaves the dev network, the remedy is a forward-auth rule on the proxy pointed at
+st0's backend, which owns `/auth` for the origin.
 
 ## Reaching it from another machine
 
-A LAN machine needs two things this machine's hosts file and trust store already
-have: `192.168.x.x studio.test` in its own hosts file, and Caddy's internal root
-CA (`%APPDATA%\Caddy\pki\authorities\local\root.crt`) installed — in Firefox's OWN
-certificate store, which ignores Windows'. A manually-accepted certificate warning
-is NOT enough for WebSockets, and neither is HTTP/3: browsers that negotiated QUIC
-lost their WebSockets (pages fine, `ws` dead), which is why the Caddyfile strips
-`Alt-Svc`. A browser that cached the old advertisement clings to h3 until a full
-restart.
+Nothing to do: `st0.priv.frediver.se` is a real name with a real certificate, so any
+machine that can reach the LAN server just opens it.
+
+This is the whole reason the move happened, and the list it replaces is worth keeping as
+a warning about what a `.test` name behind an internal CA costs. Every machine needed
+`192.168.x.x studio.test` in its own hosts file **and** Caddy's root CA
+(`%APPDATA%\Caddy\pki\authorities\local\root.crt`) installed — in Firefox's OWN
+certificate store, which ignores Windows'. A manually-accepted certificate warning was
+NOT enough for WebSockets. Nor was HTTP/3: browsers that negotiated QUIC lost their
+WebSockets (pages fine, `ws` dead), so the Caddy config stripped `Alt-Svc`, and a browser
+that had cached the old advertisement clung to h3 until a full restart. Node never trusted
+that CA at all, which is why a backend calling another service still uses `SERVICE_PORTS`
+on localhost rather than the public URL.
 
 ## When something is wrong
 

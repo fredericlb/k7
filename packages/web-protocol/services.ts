@@ -5,9 +5,9 @@
 /**
  * The path each service is mounted at, under the studio origin.
  *
- * FIXED, and that is the point: `studio.test/l8` in dev and
+ * FIXED, and that is the point: `st0.priv.frediver.se/l8` in dev and
  * `studio.frediver.se/l8` in production differ by their ORIGIN and nothing else. The
- * Caddyfile mirrors what the production edge does — strip the prefix off the API routes, keep
+ * proxy config mirrors what the production edge does — strip the prefix off the API routes, keep
  * it on the SPA's — so a service that moved to a host of its own would break the one session
  * cookie the origin carries. There is nothing here to configure.
  *
@@ -36,11 +36,11 @@ export const STUDIO_ORIGIN = "https://studio.frediver.se";
 
 /**
  * Each backend's port on the machine that runs it — the other half of the same fixed table.
- * The Caddyfile proxies to these, and each app's vite config names its own.
+ * The LAN proxy proxies to these, and each app's vite config names its own.
  *
  * A SERVER calling another studio service uses this rather than the public URL, and the reason
- * is not performance: in a checkout everything is behind Caddy's `tls internal`, whose local CA
- * node does not trust, so `https://studio.test/l8` fails with UNABLE_TO_GET_ISSUER_CERT
+ * is not performance: in a checkout everything is behind a private CA, whose local CA
+ * node does not trust, so `https://st0.priv.frediver.se/l8` fails with UNABLE_TO_GET_ISSUER_CERT
  * from a backend while working perfectly in the browser beside it.
  */
 export const SERVICE_PORTS: Record<StudioService, number> = {
@@ -61,7 +61,7 @@ export function localServiceUrl(service: StudioService): string {
  * Where a service is, given the origin it is served from.
  *
  * `origin` may be any URL on that origin — a registry URL a backend advertised
- * (`https://studio.test/l8`), the page's own `location.origin`, whatever the caller has
+ * (`https://st0.priv.frediver.se/l8`), the page's own `location.origin`, whatever the caller has
  * to hand. Everything but the origin is dropped, so no caller has to strip a path first.
  */
 export function serviceUrl(origin: string, service: StudioService): string {
