@@ -207,8 +207,12 @@ const CSS = `
    pointer events through to the host (panning) and the nodes below. */
 .dgx-cables { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
 /* The signal cables' own layer, under the SVG and the nodes. Never a pointer target: hit
-   testing stays on .dgx-hit, which is SVG and follows the cable at rest. */
-.dgx-cablecv { position:absolute; inset:0; pointer-events:none; }
+   testing stays on .dgx-hit, which is SVG and follows the cable at rest.
+   width/height are NOT redundant with inset:0 — a canvas is a REPLACED element, so with an
+   auto width the insets are over-constrained and its INTRINSIC size (the width/height
+   attributes, which we set in DEVICE px) wins. See docs/wobble.md. */
+.dgx-cablecv { position:absolute; inset:0; width:100%; height:100%; display:block;
+  pointer-events:none; }
 .dgx-cbl-shadow { fill:none; stroke:#000; stroke-opacity:.5; stroke-linecap:round; stroke-linejoin:round; }
 .dgx-cbl { fill:none; stroke-linecap:round; stroke-linejoin:round; }
 .dgx-cbl.auto  { stroke:var(--mauve); stroke-width:1.8; stroke-dasharray:5 4; }

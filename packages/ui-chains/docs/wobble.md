@@ -76,6 +76,26 @@ Three details are load-bearing:
 - **The shadow is a second `stroke()`, not a second geometry.** As SVG it was a second element
   with its own `d`, so a live cable paid the serialise-and-reparse round twice.
 
+### The canvas must be given a CSS size in so many words
+
+`setTransform(dpr·k, …)` is only the right transform if one canvas pixel is `1/dpr` CSS px —
+that is, if the element's CSS box is exactly the host's box while its backing store is `dpr`
+times that. The backing store is set from `hostSize`; the CSS box was left to
+`position:absolute; inset:0`, and **that does not size a canvas**.
+
+A canvas is a *replaced* element, like an `<img>`: with `width:auto` the two insets are
+over-constrained, one of them is dropped, and the used width is the element's **intrinsic**
+width — its `width` attribute, which we set in DEVICE pixels. So on a `dpr` of 1 the CSS box
+came out exactly right by coincidence, and on a Retina Mac it came out twice the host: every
+cable was drawn at twice its screen position, the ones that landed outside the host were
+clipped away by `overflow:hidden`, and the survivors sat visibly off their sockets. It reads
+as a browser bug — it was reported as one, on macOS Firefox — but nothing about it is
+Firefox's or macOS's: it is every display whose `devicePixelRatio` is not 1, which is why a
+Windows dev machine at 100 % never showed it.
+
+The fix is one line: `width:100%; height:100%` alongside the insets, so the CSS box is the
+host's box by construction rather than by arithmetic.
+
 The labels, the automation cables and the hit paths stayed in SVG. They do not move, so they
 cost nothing per frame — and text is the one thing a canvas would draw worse.
 
