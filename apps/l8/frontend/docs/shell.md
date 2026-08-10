@@ -203,31 +203,63 @@ All three write to the same buffer. A note drawn in the roll makes the file dirt
 keystroke does, so switching to Text shows the line you just drew and one Save writes it
 whichever way you made the change.
 
-### A sequence's notes where the GRAPH is
+### The GRAPH SLOT — what takes the graph's place
 
-`sequence edit roll <sequence>` and `sequence edit tracker <sequence>` put one of the two grids
-in the chains slot, until the × puts the graph back. That is where a grid has room: the
-timeline stays above it, which is what you read a sequence against.
+The chains slot holds the graph, or one of two other things, until the × puts the graph back.
+That is where they have room: the timeline stays above, which is what you read either of them
+against.
+
+| what | opened by |
+|---|---|
+| a sequence's note grid | `sequence edit roll <sequence>` / `sequence edit tracker <sequence>` |
+| a clip's content — the waveform for audio, the piano roll for a sequence | clicking the clip in the timeline |
+
+**One state (`graphSlot`), not two flags.** They cannot both be there, so a union says so: two
+booleans would have had to agree about which wins, and the × would have had to work out which
+one it was closing.
+
+The two rows can both show a piano roll, and they are **not the same one**. The grid draws a
+sequence FILE's `notes:` array (`@studio/ui-editor`, shared with st0, editing the text). The
+clip view draws a PLACED clip's compiled notes (l8's own `PianoRoll`, with the transport's
+playhead on it). Same picture, different subject — one is a file, the other is a placement.
 
 Four decisions worth keeping:
 
 - **It is not route state.** `routes.ts` carries the LAYOUT — which panes, which is
-  fullscreened, which panel. This names a FILE, and no file is in the URL: the editor's open
-  one is not either.
-- **The command makes its slot visible** (`full: null`, `view: global`) before opening. A grid
-  drawn behind a fullscreened timeline is a command that reported success and did nothing.
+  fullscreened, which panel. Both of these name a FILE, and no file is in the URL: the editor's
+  open one is not either.
+- **Whatever opens it makes the slot visible** (`full: null`, `view: global`). A view drawn
+  behind a fullscreened timeline is a gesture that reported success and did nothing.
 - **`ChainsTab` is HIDDEN beside it, not unmounted** — exactly what happens when the pane is off
   screen, `active` false being what already stops it drawing. It holds the MIDI runtime the whole
   shell reaches for (`midi.md`), so unmounting it would take `ui midi learn` away for as long as
-  a grid was open. This is the pane invariant above, seen from inside one pane.
-- **Every edit is written**, unlike the popin's tabs. This pane has no buffer and no Save
+  the slot was busy. This is the pane invariant above, seen from inside one pane.
+- **A grid writes every edit**, unlike the popin's tabs. That pane has no buffer and no Save
   button to lose an edit from, and a grid edit is one whole gesture — a note drawn, a step
   typed — so there is nothing a Save would usefully batch. It is the same choice the
   timeline's own roll makes when it runs `sequence note new` on a drawn note.
 
-The commands are bare-named rather than `ui …` because they name a sequence and open an editor
-that WRITES to it — the same reason `event move` and `transport record` are bare. The `ui`
-namespace's promise is that a command touches no file.
+The two commands are bare-named rather than `ui …` because they name a sequence and open an
+editor that WRITES to it — the same reason `event move` and `transport record` are bare. The
+`ui` namespace's promise is that a command touches no file.
+
+#### A CLICK on a clip, which is a press that never moved
+
+The timeline already tracked that (`DRAG_SLOP`), to tell a drag from a right-click. A click used
+to fall through to `commitMove`, which found a move of zero beats and answered "move cancelled —
+no change": a refusal, for a gesture that had asked for nothing. It now shows the clip instead.
+
+Two consequences of putting the click there rather than on the clip element:
+
+- **A frozen or generated lane's clip opens too.** Neither can be MOVED — there is no `clips:`
+  entry for a move to rewrite, a frozen clip being a render rather than a placement — so the
+  press used to be dropped before it was even tracked. Seeing one asks nothing of the disk, and
+  a frozen lane's render is exactly the thing you want to look at.
+- **A pending `event move` still wins.** If the command bar is collecting that move, the click
+  answers the bar as it always did; showing the clip is what happens when nothing was asked.
+
+What it draws is `ClipView`, the same component the Editor bottom panel shows — so audio and
+MIDI are told apart in one place and the two surfaces cannot come to disagree about a clip.
 
 ## The command palette
 

@@ -39,6 +39,7 @@ import { canonicalizeCommand } from "./commandI18n";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
 import { ChainsTab } from "./components/ChainsTab";
+import { ClipView, type EditTarget } from "./components/ClipView";
 import {
   CommandBar,
   type CommandBarHandle,
@@ -47,7 +48,7 @@ import {
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { DocsPanel, type DocsSelection } from "./components/DocsPanel";
-import { EditorPanel, type EditTarget } from "./components/EditorPanel";
+import { EditorPanel } from "./components/EditorPanel";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { FreezeOverlay } from "./components/FreezeOverlay";
@@ -216,13 +217,21 @@ export default function App({
   // The editor as a POPIN: a command sent it to a file while its pane was off screen. It is the
   // SAME instance, restyled onto the surface — see docs/shell.md.
   const [editorPopin, setEditorPopin] = useState(false);
-  // A sequence's notes in the chains slot, or null for the graph. NOT route state: `routes.ts`
-  // carries the LAYOUT, and this names a file — the same reason the editor's open file is not
-  // in the URL either. See docs/shell.md.
-  const [seqGrid, setSeqGrid] = useState<{
-    path: string;
-    view: SeqView;
-  } | null>(null);
+  /**
+   * What the chains slot is showing INSTEAD of the graph, or null for the graph itself.
+   *
+   * Two occupants, one state, because they cannot both be there: a sequence's note grid
+   * (`sequence edit roll|tracker`) and a clicked clip's content. Two separate flags would have
+   * had to agree about which wins, and the × would have had to know which one it was closing.
+   *
+   * NOT route state: `routes.ts` carries the LAYOUT, and both of these name a file — the same
+   * reason the editor's open file is not in the URL either. See docs/shell.md.
+   */
+  const [graphSlot, setGraphSlot] = useState<
+    | { kind: "grid"; path: string; view: SeqView }
+    | { kind: "clip"; target: EditTarget }
+    | null
+  >(null);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -813,7 +822,7 @@ export default function App({
           // behind a fullscreened timeline is a command that reported success and did nothing.
           setFull(null);
           setView("global");
-          setSeqGrid({ path, view: seq.view });
+          setGraphSlot({ kind: "grid", path, view: seq.view });
         }
         return true;
       }
@@ -1516,6 +1525,14 @@ export default function App({
                   orbit={orbit}
                   setStatus={setStatus}
                   onEditTarget={setEditTarget}
+                  // A clicked clip shows its content where the graph is — the waveform for
+                  // audio, the piano roll for a sequence. It also makes the slot visible, since
+                  // a view drawn behind a fullscreened timeline is a click that did nothing.
+                  onOpenClip={(t) => {
+                    setFull(null);
+                    setView("global");
+                    setGraphSlot({ kind: "clip", target: t });
+                  }}
                   onCaret={setCaret}
                   onView={setTlView}
                   onContextMenu={openContextMenu}
@@ -1576,20 +1593,20 @@ export default function App({
                   ringFor("chains"),
                 )}
               >
-                {/* A sequence's notes take the graph's PLACE, not its mount: ChainsTab is
-                    hidden beside the grid, exactly as it is when the pane is off screen. It
-                    holds the MIDI runtime the whole shell reaches for (`ui midi learn`, see
-                    docs/midi.md), and unmounting it here would take that away for as long as a
-                    grid is open. `active` false is what already stops it drawing. */}
+                {/* Whatever the slot holds takes the graph's PLACE, not its mount: ChainsTab is
+                    hidden beside it, exactly as it is when the pane is off screen. It holds the
+                    MIDI runtime the whole shell reaches for (`ui midi learn`, see docs/midi.md),
+                    and unmounting it here would take that away for as long as a clip or a grid
+                    is open. `active` false is what already stops it drawing. */}
                 <div
                   className={cn(
                     "flex min-h-0 min-w-0 flex-1",
-                    seqGrid && "hidden",
+                    graphSlot && "hidden",
                   )}
                 >
                   <ChainsTab
                     reloadKey={reloadKey}
-                    active={visible("chains") && !seqGrid}
+                    active={visible("chains") && !graphSlot}
                     showList={full === "chains"}
                     trackOrder={trackOrder}
                     command={quietCommand}
@@ -1622,14 +1639,25 @@ export default function App({
                     onMidiStatus={setStatus}
                   />
                 </div>
-                {seqGrid && (
+                {graphSlot?.kind === "grid" && (
                   <SeqGridPane
-                    path={seqGrid.path}
-                    view={seqGrid.view}
-                    onClose={() => setSeqGrid(null)}
+                    path={graphSlot.path}
+                    view={graphSlot.view}
+                    onClose={() => setGraphSlot(null)}
                     onChanged={bumpReload}
                     setStatus={setStatus}
                   />
+                )}
+                {/* A clicked clip's content. `ClipView` draws its own header and ✕ — the same
+                    component the Editor bottom panel shows, so audio and MIDI are told apart in
+                    one place and the two surfaces cannot come to disagree about a clip. */}
+                {graphSlot?.kind === "clip" && (
+                  <div className="flex min-h-0 min-w-0 flex-1">
+                    <ClipView
+                      target={graphSlot.target}
+                      onClose={() => setGraphSlot(null)}
+                    />
+                  </div>
                 )}
               </div>
 

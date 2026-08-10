@@ -1,7 +1,8 @@
 // PianoRoll.tsx — a piano-roll view/editor of a MIDI clip, opening ZOOMED TO FIT its notes
 // without being bounded by them: all 128 keys exist and the timeline runs past the content.
 // Left-click-drag draws a note (press = pitch + start, release = end) via `sequence note
-// new`; wheel zooms time, middle-drag pans. Opened as the timeline's bottom split pane.
+// new`; a pinch zooms time, a plain wheel and a middle-drag pan. Drawn by the Editor bottom
+// panel and, when a clip is clicked, where the graph is (ClipView).
 
 import { useEngineState } from "@studio/engine-browser/store";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -173,7 +174,7 @@ export function PianoRoll({
           {notes.length} notes · {Math.round(contentEnd)} beats
           {onCreateNote && (
             <span className="ml-2 text-muted-foreground/70">
-              · drag to draw · wheel zoom · middle-drag pan
+              · drag to draw · pinch to zoom · middle-drag pan
             </span>
           )}
         </span>
