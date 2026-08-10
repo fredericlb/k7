@@ -1,7 +1,9 @@
-// usePanZoom.ts — navigation for the media panes, which scale to FIT by default (so there
-// is nothing to scroll until you zoom). useHZoom scales horizontally on a PINCH, anchored so
-// the point under the cursor stays put; usePanScroll pans on a MIDDLE-mouse drag — not
-// Space-drag, because Space is the app's transport toggle everywhere.
+// panZoom.ts — navigation for the media panes, which scale to FIT by default (so there is
+// nothing to scroll until you zoom). useHZoom scales horizontally, anchored so the point under
+// the cursor stays put — by trackpad PINCH, by Cmd/Ctrl+wheel and by two fingers, but NOT by a
+// plain wheel, which is the pan (see isZoomWheel); usePanScroll pans on a MIDDLE-mouse drag —
+// not Space-drag, because Space is the transport toggle in every app that mounts these.
+// Unit-free on purpose: the caller multiplies its own lane width, in beats or in seconds.
 
 import {
   type RefObject,
@@ -13,7 +15,7 @@ import {
 } from "react";
 
 const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(shi, v));
+  Math.max(lo, Math.min(hi, v));
 
 /**
  * Which gesture a wheel event IS: a zoom, or a pan.
@@ -28,6 +30,30 @@ const clamp = (v: number, lo: number, hi: number) =>
  * here scrolls and that one translates, so the rule is shared but not the code.
  */
 const isZoomWheel = (e: WheelEvent): boolean => e.ctrlKey || e.metaKey;
+
+/** One wheel notch's worth of zoom. A whole step, because a notch is a discrete decision. */
+const WHEEL_STEP = 1.15;
+
+/**
+ * How much one wheel event zooms — and why a pinch cannot share the notch's answer.
+ *
+ * A mouse wheel arrives as ONE event per detent, with a large delta nobody reads the size of, so
+ * a fixed step per event is exactly right. A trackpad PINCH arrives as Ctrl+wheel: a stream of
+ * small continuous deltas, dozens a second. Given the notch's fixed step that stream multiplied
+ * 1.15 per event and slammed into the zoom limit before the fingers had finished moving — which
+ * is how "pinch does not work" is really spelled. Scaled BY the delta it tracks the fingers.
+ *
+ * The delta is clamped first: a browser that reports a pinch in hundreds rather than in units
+ * would otherwise jump a decade in one event.
+ *
+ * The graph keeps its own (`@studio/ui-chains/zoomGesture`) because its NOTCH branch differs —
+ * it scales by the delta where this one takes a step — and an arrangement package importing the
+ * graph's would be the wrong way round. Both are tested; neither can drift in silence.
+ */
+export function wheelFactor(delta: number, pinch: boolean): number {
+  if (!pinch) return delta < 0 ? WHEEL_STEP : 1 / WHEEL_STEP;
+  return Math.exp(-clamp(delta, -50, 50) * 0.01);
+}
 
 /**
  * Horizontal zoom for a scroll container, driven by the mouse wheel. Returns the current
@@ -87,7 +113,8 @@ export function useHZoom(
       // scroll is the pan — with the momentum, the axis locking and the rubber-banding a
       // hand-rolled scrollLeft would have to counterfeit, and on both axes at once.
       if (!isZoomWheel(e)) return;
-      // preventDefault stops the browser zooming the whole PAGE on the same gesture.
+      // preventDefault stops the page moving, and the browser zooming the whole PAGE on the
+      // same gesture — its own Ctrl+wheel zoom is exactly the gesture we just claimed.
       e.preventDefault();
       const cur = zoomRef.current;
       // Favour the dominant axis: a pinch is deltaY, but Ctrl held on a horizontal wheel is
@@ -95,7 +122,11 @@ export function useHZoom(
       const delta =
         Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       if (delta === 0) return;
-      const next = clamp(cur * (delta < 0 ? 1.15 : 1 / 1.15), min, max);
+      // `e.ctrlKey` and not `isZoomWheel(e)`: the guard above says WHETHER to zoom, this says
+      // how much, and the two disagree on purpose. A ctrl-wheel is a trackpad pinch — a stream
+      // of small deltas, scaled continuously — while Cmd+wheel is a Mac mouse, one notch per
+      // detent. Both reach here; only the first is a pinch.
+      const next = clamp(cur * wheelFactor(delta, e.ctrlKey), min, max);
       if (next === cur) return;
       // Keep the content under the cursor fixed: scale its x by the zoom ratio and offset the scroll. The gutter,
       // which doesn't scale, is subtracted and re-added around that.
@@ -104,7 +135,56 @@ export function useHZoom(
     // Passive:false so preventDefault can stop the browser's page zoom on the pinch. A plain
     // wheel returns before that and scrolls as it always would.
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+
+    /**
+     * Two fingers on a touchscreen, where there is no wheel at all.
+     *
+     * Touch events rather than pointer events, deliberately: this container SCROLLS, and the
+     * browser claims a pointer the moment it decides a drag is a scroll — a pinch woven into
+     * the pointer flow dies to a `pointercancel` half-way through. A non-passive `touchmove`
+     * that preventDefaults for the length of the gesture is what holds the browser off.
+     *
+     * Measured against the zoom the gesture STARTED from, not frame to frame: a ratio of ratios
+     * accumulates rounding, and pinching out then back in would not return where it began.
+     */
+    let pinch: { dist: number; zoom: number } | null = null;
+    const spread = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const centre = (t: TouchList) => (t[0].clientX + t[1].clientX) / 2;
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2)
+        pinch = { dist: spread(e.touches), zoom: zoomRef.current };
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const d = spread(e.touches);
+      if (d <= 0) return;
+      zoomAt(clamp(pinch.zoom * (d / pinch.dist), min, max), centre(e.touches));
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinch = null;
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+
+    // Panning stays the browser's — it scrolls this container far better than we would — but
+    // the pinch is ours, and `pan-x pan-y` is the value that says exactly that. Set here rather
+    // than left to each caller's stylesheet: a surface that mounts this hook and forgets the
+    // rule gets a gesture the browser silently swallows, with nothing on screen to explain it.
+    const hadTouchAction = el.style.touchAction;
+    el.style.touchAction = "pan-x pan-y";
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+      el.style.touchAction = hadTouchAction;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref, min, max, zoomAt, ...deps]);
 

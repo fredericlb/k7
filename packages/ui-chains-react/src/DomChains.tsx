@@ -55,6 +55,7 @@ import {
   widgetNorm,
   widgetRect,
 } from "@studio/ui-chains/graph";
+import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 import { Snowflake } from "lucide-react";
 import {
   createContext,
@@ -197,7 +198,10 @@ const DRAG_FINE = 0.25; // shift-held multiplier for a fine adjustment
 const CSS = `
 /* contain:paint says outright what overflow:hidden already made true — nothing here draws
    outside the host — which keeps the graph's display list off the rest of the page. */
-.dgx { position:relative; width:100%; height:100%; overflow:hidden; contain:paint; cursor:grab; user-select:none;
+/* touch-action:none — this surface pans and zooms itself. Left to the browser, a one-finger
+   drag scrolls the PAGE and cancels the pan mid-gesture, and two fingers zoom the page instead
+   of the graph. Nothing here scrolls, so there is nothing to hand back. */
+.dgx { position:relative; width:100%; height:100%; overflow:hidden; contain:paint; cursor:grab; user-select:none; touch-action:none;
   background:
     radial-gradient(circle at 1px 1px, #201f26 1px, transparent 0) 0 0 / 24px 24px,
     radial-gradient(1100px 560px at 60% -10%, #141319 0%, #0d0d0f 60%);
@@ -2540,7 +2544,7 @@ export function DomChains({
   };
 
   /**
-   * The camera loop and the wheel, bound once — see docs/camera.md.
+   * The camera loop, the wheel and the two-finger pinch, bound once — see docs/camera.md.
    *
    * Everything here writes the transform onto the element and reads only refs, so a pan or a
    * zoom costs no React work at all until the LOD changes. The loop runs while a gesture is
@@ -2597,9 +2601,11 @@ export function DomChains({
         anchor.current = { px: e.clientX - r.left, py: e.clientY - r.top };
         // Multiplied onto the GOAL, not onto what is on screen: pinching faster then stacks up
         // instead of each step being swallowed by the one still gliding.
+        // `e.ctrlKey` marks a trackpad PINCH, whose stream of small deltas needs a rate of its
+        // own — a notch's would make it crawl. Cmd+wheel is a mouse and keeps the notch's.
         goal.current.k = clampZoom(
           goal.current.k *
-            wheelFactor(e.deltaY, e.deltaMode, host.clientHeight),
+            wheelFactor(e.deltaY, e.deltaMode, host.clientHeight, e.ctrlKey),
         );
       } else {
         // Two fingers sliding. The camera moves WITH them, 1:1 and with no glide — the same rule
@@ -2614,8 +2620,55 @@ export function DomChains({
       kick.current();
     };
     host.addEventListener("wheel", wheel, { passive: false });
+
+    /**
+     * Two fingers, where there is no wheel at all.
+     *
+     * Touch events rather than the pointer flow above: that flow drives node drags, widget drags
+     * and cable draws, and a second finger arriving mid-gesture would be read as a second drag.
+     * Here the rule is simply "two fingers means zoom" — the pan in progress is dropped.
+     *
+     * Measured from the camera the gesture STARTED on rather than frame to frame, because a
+     * ratio of ratios accumulates rounding: pinch out and back in, and you would not land where
+     * you began. Written straight onto `cam` with no glide — the fingers are the animation.
+     */
+    let pinch: { dist: number; k: number; x: number; y: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      pan.current = null; // a pinch is not a pan, whatever the first finger had started
+      setPanning(false);
+      pinch = { dist: spreadOf(e.touches[0], e.touches[1]), ...cam.current };
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const d = spreadOf(e.touches[0], e.touches[1]);
+      if (d <= 0) return;
+      const r = host.getBoundingClientRect();
+      const px = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+      const py = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+      userMoved.current = true;
+      const k = clampZoom(pinch.k * pinchFactor(pinch.dist, d));
+      // From the gesture's OWN starting camera, not from what is on screen — `zoomAbout` reads
+      // the camera it is given, so handing it `pinch` is what makes the whole gesture absolute.
+      Object.assign(cam.current, zoomAbout(pinch, k, px, py));
+      Object.assign(goal.current, cam.current);
+      kick.current();
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinch = null;
+    };
+    host.addEventListener("touchstart", onTouchStart, { passive: false });
+    host.addEventListener("touchmove", onTouchMove, { passive: false });
+    host.addEventListener("touchend", onTouchEnd);
+    host.addEventListener("touchcancel", onTouchEnd);
+
     return () => {
       host.removeEventListener("wheel", wheel);
+      host.removeEventListener("touchstart", onTouchStart);
+      host.removeEventListener("touchmove", onTouchMove);
+      host.removeEventListener("touchend", onTouchEnd);
+      host.removeEventListener("touchcancel", onTouchEnd);
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);

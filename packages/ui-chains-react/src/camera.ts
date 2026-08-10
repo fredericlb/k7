@@ -3,6 +3,8 @@
 // back from all that. DomChains owns the element and the frame loop; this owns the numbers,
 // which is the half worth pinning down — see docs/camera.md.
 
+import { wheelZoomFactor } from "@studio/ui-chains/zoomGesture";
+
 export interface Cam {
   x: number;
   y: number;
@@ -15,8 +17,6 @@ export const MAX_ZOOM = 4;
 export const WIDGET_MIN_SCALE = 0.6; // below this the widget grid is dropped (unreadable anyway)
 export const LABEL_MIN_SCALE = 0.4; // …and below this the text goes too
 
-// Zoom per pixel of wheel travel, exponential so a notch is the same RATIO at any zoom.
-const ZOOM_RATE = 0.001;
 // A line, in pixels, for the browsers that measure a wheel in lines rather than pixels.
 const LINE_PX = 16;
 // Half of the remaining distance to the goal, covered in this long. Expressed in TIME, so the
@@ -60,14 +60,24 @@ export function wheelPixels(
   return delta;
 }
 
-// One wheel event as a zoom FACTOR, to multiply the goal by — exponential, so a notch is the
-// same ratio at any zoom.
+/**
+ * One wheel event as a zoom FACTOR, to multiply the goal by.
+ *
+ * Two steps, and they answer different questions. `wheelPixels` normalises the UNITS, because a
+ * browser may report a wheel in lines or in pages; `wheelZoomFactor` then decides the RATE, and
+ * a trackpad pinch cannot share a notch's — a notch is one event with a large delta, a pinch is
+ * dozens of small ones a second, so the same coefficient makes a pinch crawl.
+ *
+ * The rate lives in `@studio/ui-chains/zoomGesture` rather than here because that is the half of
+ * the graph with tests, and because the arrangement panes settle the same question the same way.
+ */
 export function wheelFactor(
   deltaY: number,
   deltaMode: number,
   viewportPx: number,
+  pinch = false,
 ): number {
-  return Math.exp(-wheelPixels(deltaY, deltaMode, viewportPx) * ZOOM_RATE);
+  return wheelZoomFactor(wheelPixels(deltaY, deltaMode, viewportPx), pinch);
 }
 
 /**

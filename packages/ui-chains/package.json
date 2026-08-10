@@ -8,7 +8,8 @@
     "./graph": "./src/graph.ts",
     "./cables": "./src/cables.ts",
     "./cableCanvas": "./src/cableCanvas.ts",
-    "./modulePreview": "./src/modulePreview.ts"
+    "./modulePreview": "./src/modulePreview.ts",
+    "./zoomGesture": "./src/zoomGesture.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
