@@ -121,7 +121,7 @@ curl -X POST \
   -H "Authorization: Bearer $STUDIO_TOKEN" \
   -H "content-type: application/octet-stream" \
   --data-binary @take.mp3 \
-  "https://studio.test/api/mediatek/recording?filename=take.mp3&at=2026-08-03T21:05:07"
+  "https://st0.priv.frediver.se/api/mediatek/recording?filename=take.mp3&at=2026-08-03T21:05:07"
 # → { "ok": true, "path": "recordings/2026-08-03/21-05-07.mp3", "day": "…", "name": "…" }
 ```
 

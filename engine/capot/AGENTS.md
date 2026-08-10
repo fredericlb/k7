@@ -88,7 +88,7 @@ only asks it to. That migration is done, not pending.
 ## reqwest and trust roots
 
 `reqwest` uses **NATIVE OS trust roots**, not the bundled webpki set. A web UI added from
-the tray is routinely fronted by a local proxy with a private CA (Caddy's `tls internal`
+the tray is routinely fronted by a local proxy with a private CA (a private CA
 for a `.test` host), which lives in the OS store and nowhere else. With webpki-only roots
 the heartbeat handshake fails and the engine silently never appears in that UI's picker.
 

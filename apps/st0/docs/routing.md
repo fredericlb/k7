@@ -63,7 +63,7 @@ would be declared, so reading it here means re-prefixing the app is a one-line c
 than a hunt. Today it reads `/`, and `routes.ts` is written as if the app owned the origin —
 which it now does, literally.
 
-**One address is not st0's**, and Caddy claims it above the catch-all: `/l8`, `/m9`, `/k7`,
+**One address is not st0's**, and the proxy claims it above the catch-all: `/l8`, `/m9`, `/k7`,
 `/z0` and `/dev` belong to the other services. A section named after one of those would be
 unreachable — the edge would never hand the request here. The section ids are safe today,
 and `routes.test.ts` now asserts it rather than leaving it to be remembered.

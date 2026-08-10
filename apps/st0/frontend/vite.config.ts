@@ -1,6 +1,7 @@
 import { defineAppConfig } from "@frediverse/vite-config";
+import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-// Served at the ROOT of studio.test, against its OWN backend: the library is hosted, so
+// Served at the ROOT of st0.priv.frediver.se, against its OWN backend: the library is hosted, so
 // /api and /auth both go to :8795 and nothing here talks to a local service. The cache the
 // moteur plays from is a separate concern this app never reads.
 //
@@ -15,9 +16,11 @@ export default defineAppConfig({
   proxyPaths: ["/auth"],
   // The engine relay. `/api` is proxied already, but only a declared wsPath gets `ws: true`,
   // and without it an `upgrade` dies here rather than reaching the backend. Invisible behind
-  // Caddy, which routes /api straight to :8795. See packages/engine-registry/docs/proxy.md.
+  // the proxy, which routes /api straight to :8795. See packages/engine-registry/docs/proxy.md.
   wsPaths: ["/api/engine"],
-  host: "studio.test",
+  host: DEV_HOST,
+  // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+  extend: { server: { allowedHosts: LEGACY_DEV_HOSTS } },
   // Dev runs under WSL against /mnt/c, where inotify never fires (same as l8).
   poll: true,
 });

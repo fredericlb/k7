@@ -72,7 +72,7 @@ is the trade the scheme makes, and it is why the secret is per service rather th
 | `m9` | `/m9` |
 
 st0's empty path is a real entry rather than a special case at each call site, and it is why
-`/auth/*` belongs to st0: the registered `redirect_uri` has no prefix either. The Caddyfile
+`/auth/*` belongs to st0: the registered `redirect_uri` has no prefix either. The dev proxy
 mirrors what the production edge does, so dev and production differ by the origin and nothing
 else.
 
@@ -93,10 +93,16 @@ not read any more, and can be deleted by hand or left where it is.
 
 ### The one exception, and the script writes it
 
-In a **checkout** everything sits behind Caddy's `tls internal`, whose local CA node does not
-trust: a backend fetching `https://studio.test` fails with
-`UNABLE_TO_GET_ISSUER_CERT_LOCALLY` while the browser beside it works. So a server-to-server hop
-takes the loopback port instead — `SERVICE_PORTS` in the same table, `localServiceUrl()`.
+A server-to-server hop takes the loopback port rather than the public URL — `SERVICE_PORTS` in
+the same table, `localServiceUrl()`. It would send a call from one backend out to the LAN
+server and straight back for no reason, and it would fail outright the moment the proxy is
+unreachable while both services are up and fine.
+
+It used to fail for a blunter reason, worth remembering if a `.test` name ever comes back:
+behind Caddy's `tls internal`, node did not trust the local CA, so a backend fetching the
+origin got `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` while the browser beside it worked. That
+particular trap is gone — `st0.priv.frediver.se` has a publicly valid certificate — but the
+loopback hop is right regardless.
 
 `npm run tokens` writes that line (`k7-backend.MEDIATEK_URL`) when the file has none, so it is
 still true that nobody types a URL. It never overwrites one: a checkout pointed somewhere

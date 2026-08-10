@@ -6,7 +6,7 @@
 /** The seven things the header offers, plus two sections with NO TAB, each reached by a button
  *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
  *  des morceaux », opened from Morceaux). `recordings` and `projects` are sections and not
- *  families — see Library.tsx. A section id may not collide with a path Caddy claims above
+ *  families — see Library.tsx. A section id may not collide with a path the proxy claims above
  *  st0's catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see
  *  docs/routing.md. */
 export const SECTION_IDS = [

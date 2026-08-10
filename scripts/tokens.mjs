@@ -34,7 +34,7 @@ const TRAY_SETTINGS = join(homedir(), ".studio", "engine-tray.json");
  *
  * `devUrl` is the one URL anything here still writes, and only into a checkout: a service is
  * at a FIXED path under one origin, which is what every caller defaults to, but in a checkout
- * that origin is behind Caddy's `tls internal` and node does not trust its CA. So a
+ * that origin goes out to the LAN proxy and straight back for nothing. So a
  * server-to-server hop takes the loopback port, and this writes it so nobody types a URL.
  */
 const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.st0

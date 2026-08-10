@@ -26,16 +26,16 @@ presentational components and types, plus `account.ts`, which is where signing i
 lives now that the rule has two halves (see below). Source-only, compiled by each consumer,
 like `@frediverse/ui`.
 
-Each SPA's vite `base` is its full public path, so the Caddyfile does **not** strip the prefix
+Each SPA's vite `base` is its full public path, so the LAN proxy does **not** strip the prefix
 for them; it does for the API. That asymmetry is explained at the top of the repo-root
-`Caddyfile` and is not a style choice.
+`proxy config` and is not a style choice.
 
 ## What makes z0 different
 
 **Its own session cookie — for guests, and only guests.** `bt_session`
 (`backend/src/auth/session.ts`) carries the kinds the studio session cannot model: a
 blind-test player is a **guest with no account**. But z0 no longer runs an OIDC flow. It
-used to, on its own backend, with the Caddyfile setting `X-Forwarded-Prefix` for it and
+used to, on its own backend, with the LAN proxy setting `X-Forwarded-Prefix` for it and
 nowhere else so `redirectUriFor` would name `/z0/auth/callback` — and the IdP has only the
 **prefixless** callback registered, so every account login was refused at the authorization
 endpoint. A service under a path cannot own a flow here; st0 can, having no prefix. So

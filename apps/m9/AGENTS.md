@@ -4,7 +4,7 @@
 chosen from st0's Projets section — and shows three views: **Mix**, **Édition**, **Graphe**.
 It was `platines` until the rename, and the decks are still what Mix draws.
 
-Dev ports: **frontend 5225, backend 8796**, served at `https://studio.test/m9`.
+Dev ports: **frontend 5225, backend 8796**, served at `https://st0.priv.frediver.se/m9`.
 
 | workspace | role |
 |---|---|

@@ -13,8 +13,8 @@ the whole audio side. Two workspaces live here:
 | `frontend` (`l8-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
 | `backend` (`l8-backend`) | Express — **the engine registry only**, plus verifying the session st0 mints. It has no file routes and no auth routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
 
-Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://studio.test/l8`
-by the repo-root Caddyfile.
+Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://st0.priv.frediver.se/l8`
+by the LAN reverse proxy.
 
 ## The browser talks to THREE servers
 
@@ -38,7 +38,7 @@ until logged in. Auth falls back to a "Dev User" stub when no `OIDC_*` env is se
 login is still mandatory.
 
 **`/auth/*` belongs to st0, not to this backend.** Everything is served under one host
-(`studio.test/<service>`), so there is one session cookie — `studio.sid`, signed with the
+(`st0.priv.frediver.se/<service>`), so there is one session cookie — `studio.sid`, signed with the
 `SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register with the IdP.
 That `redirect_uri` is `<origin>/auth/callback`, with **no prefix**, so it can only be served
 by the service that has no prefix: st0, which answers the origin root. This backend owned it
@@ -148,7 +148,7 @@ a `registry.ts` here.
 - Browser-facing registry routes (`/api/engines`, `/api/engine/*`) require a session.
 - Engine-facing routes (`/api/registry/{heartbeat,deregister}`) stay open — that is the
   supervisor, authenticated by its own token.
-- The Vite dev server proxies `/api` to the backend, and **not** `/auth` — Caddy sends
+- The Vite dev server proxies `/api` to the backend, and **not** `/auth` — the proxy sends
   that to st0 origin-wide, so a proxy here would forward to routes that no longer exist.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.

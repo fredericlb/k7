@@ -5,7 +5,7 @@
 # the shared entrypoint: it deliberately *supervises* and restarts its backend
 # rather than taking the container down with it (see docker/entrypoint.sh).
 #
-# Layout served by nginx (docker/nginx.conf), matching the dev Caddyfile:
+# Layout served by nginx (docker/nginx.conf), matching the dev proxy:
 #   /           online      /buzzer  buzzer     /remote  remote
 #   /editor     editor      /presenter presenter  /monitor monitor
 #   /api        backend (prefix stripped), plus /auth /audio /ws

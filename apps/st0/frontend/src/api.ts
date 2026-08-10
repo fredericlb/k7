@@ -29,7 +29,7 @@ import { mediatekModuleRefs } from "./moduleRefs";
 // bundle: the preference SHAPE belongs beside the code that merges it.
 import type { St0Prefs } from "./prefs";
 
-// The app is mounted under a path (studio.test/<service>), so every backend
+// The app is mounted under a path (st0.priv.frediver.se/<service>), so every backend
 // path below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed
 // here so the literals keep reading as paths.
 // Exported because the engine probe needs it too: the relay answers under this same prefix.

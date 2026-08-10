@@ -25,9 +25,9 @@ says where each studio service is mounted.
 z0's is written out in `OtherApps.tsx` instead, and that is not an oversight. `SERVICE_PATHS`
 is keyed by `StudioService`, which is the set of services that **share st0's session** — the
 type also indexes `SERVICE_PORTS`, and a backend uses it to reach another backend. z0 has its
-own login and its own `/z0/auth/callback` (see the Caddyfile), so it is not one of those.
+own login and its own `/z0/auth/callback` (see the LAN proxy), so it is not one of those.
 Adding it to that table to save one string would claim a session and a port it does not have.
-Its path is fixed all the same, by the same Caddyfile — it just is not that table's business.
+Its path is fixed all the same, by the same proxy config — it just is not that table's business.
 
 ## A new tab
 

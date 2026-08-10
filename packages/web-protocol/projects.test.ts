@@ -67,23 +67,23 @@ describe("projectLabel", () => {
 
 describe("launchUrl", () => {
   it("sends each app to its own service, under one origin", () => {
-    const o = "https://studio.test";
+    const o = "https://st0.priv.frediver.se";
     expect(launchUrl(o, "band", "winter.l8", "l8")).toBe(
-      "https://studio.test/l8/band/winter.l8",
+      "https://st0.priv.frediver.se/l8/band/winter.l8",
     );
     expect(launchUrl(o, "band", "live.m9", "m9")).toBe(
-      "https://studio.test/m9/band/live.m9",
+      "https://st0.priv.frediver.se/m9/band/live.m9",
     );
     expect(launchUrl(o, "band", "le clip.v1", "v1")).toBe(
-      "https://studio.test/v1/band/le%20clip.v1",
+      "https://st0.priv.frediver.se/v1/band/le%20clip.v1",
     );
   });
 
   it("keeps only the origin of whatever URL it is handed", () => {
     // Callers pass `window.location.href`, which carries a path of its own.
     expect(
-      launchUrl("https://studio.test/projects?x=1", "b", "c.v1", "v1"),
-    ).toBe("https://studio.test/v1/b/c.v1");
+      launchUrl("https://st0.priv.frediver.se/projects?x=1", "b", "c.v1", "v1"),
+    ).toBe("https://st0.priv.frediver.se/v1/b/c.v1");
   });
 });
 

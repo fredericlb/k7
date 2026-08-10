@@ -134,7 +134,7 @@ app.use(cors);
 // It used to mount login + callback: z0 ran its own OIDC flow, on its own
 // backend, so that a player could be a guest with no account. The guests
 // survived; the flow did not. `redirectUriFor` named
-// <origin>/z0/auth/callback (the Caddyfile set X-Forwarded-Prefix for exactly
+// <origin>/z0/auth/callback (the LAN proxy set X-Forwarded-Prefix for exactly
 // that), and the IdP has only the prefixless callback registered on this
 // client — so every account login died at the authorization endpoint with
 // "the 'redirect_uri' parameter does not match any of the pre-registered

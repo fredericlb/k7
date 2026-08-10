@@ -46,9 +46,9 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
 /**
  * Where inside its service the app that opens a project is mounted.
  *
- * Empty for l8, m9 and v1, which ARE their service: `studio.test/l8/<repo>/<project>`. z0 is six
+ * Empty for l8, m9 and v1, which ARE their service: `st0.priv.frediver.se/l8/<repo>/<project>`. z0 is six
  * SPAs behind one prefix and only one of them opens a project, so its address has to name the
- * SPA too — `studio.test/z0/editor-v2/<repo>/<project.z0>`.
+ * SPA too — `st0.priv.frediver.se/z0/editor-v2/<repo>/<project.z0>`.
  *
  * It belongs here rather than in st0's link builder for the reason the suffixes do: the
  * address is a contract between the side that WRITES it and the side that parses it back, and

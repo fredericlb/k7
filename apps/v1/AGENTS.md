@@ -4,7 +4,7 @@
 repository, chosen from st0's Projets section — and shows two views: **Montage** (the
 viewport over a timeline) and **Édition** (the YAML behind it).
 
-Dev ports: **frontend 5226, backend 8790**, served at `https://studio.test/v1`.
+Dev ports: **frontend 5226, backend 8790**, served at `https://st0.priv.frediver.se/v1`.
 
 | workspace | role |
 |---|---|

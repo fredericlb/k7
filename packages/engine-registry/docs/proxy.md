@@ -35,7 +35,7 @@ Le navigateur ne compose plus d'adresse LAN du tout. Il ouvre un `wss://` vers *
 qu'il a déjà chargée**, et c'est le backend qui compose vers le moteur :
 
 ```
-navigateur ──wss://studio.test/l8/api/engine/<id>/ws──▶ backend l8 ──ws://127.0.0.1:8765──▶ moteur
+navigateur ──wss://st0.priv.frediver.se/l8/api/engine/<id>/ws──▶ backend l8 ──ws://127.0.0.1:8765──▶ moteur
 ```
 
 Le backend n'est pas un contexte sécurisé : il appelle qui il veut. Il essaie la loopback

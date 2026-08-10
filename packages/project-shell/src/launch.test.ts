@@ -105,14 +105,14 @@ describe("projectBasename", () => {
 
 describe("launchUrl", () => {
   it("names one project in one repository, as a path", () => {
-    expect(launchUrl("https://studio.test", "songs", "a/b.l8", "l8")).toBe(
-      "https://studio.test/l8/songs/a/b.l8",
+    expect(launchUrl("https://st0.priv.frediver.se", "songs", "a/b.l8", "l8")).toBe(
+      "https://st0.priv.frediver.se/l8/songs/a/b.l8",
     );
   });
 
   it("sends an m9 project to m9", () => {
-    expect(launchUrl("https://studio.test", "band", "live.m9", "m9")).toBe(
-      "https://studio.test/m9/band/live.m9",
+    expect(launchUrl("https://st0.priv.frediver.se", "band", "live.m9", "m9")).toBe(
+      "https://st0.priv.frediver.se/m9/band/live.m9",
     );
   });
 
@@ -121,13 +121,13 @@ describe("launchUrl", () => {
   // ends ever disagreed about that segment.
   it("sends a z0 session to the editor, not to the game's apex", () => {
     expect(
-      launchUrl("https://studio.test", "lemo_mante", "session-2304.z0", "z0"),
-    ).toBe("https://studio.test/z0/editor-v2/lemo_mante/session-2304.z0");
+      launchUrl("https://st0.priv.frediver.se", "lemo_mante", "session-2304.z0", "z0"),
+    ).toBe("https://st0.priv.frediver.se/z0/editor-v2/lemo_mante/session-2304.z0");
   });
 
   it("round-trips a z0 session through the editor's own base", () => {
     const url = new URL(
-      launchUrl("https://studio.test", "lemo_mante", "a/party.z0", "z0"),
+      launchUrl("https://st0.priv.frediver.se", "lemo_mante", "a/party.z0", "z0"),
     );
     expect(parseLaunch(url.pathname, "z0", "/z0/editor-v2/")).toEqual({
       repo: "lemo_mante",
@@ -137,13 +137,13 @@ describe("launchUrl", () => {
 
   it("keeps only the origin, whatever URL it is handed", () => {
     expect(
-      launchUrl("https://studio.test/projects/abc", "band", "a.l8", "l8"),
-    ).toBe("https://studio.test/l8/band/a.l8");
+      launchUrl("https://st0.priv.frediver.se/projects/abc", "band", "a.l8", "l8"),
+    ).toBe("https://st0.priv.frediver.se/l8/band/a.l8");
   });
 
   it("escapes a name a path could not otherwise carry", () => {
-    expect(launchUrl("https://studio.test", "my band", "a song.l8", "l8")).toBe(
-      "https://studio.test/l8/my%20band/a%20song.l8",
+    expect(launchUrl("https://st0.priv.frediver.se", "my band", "a song.l8", "l8")).toBe(
+      "https://st0.priv.frediver.se/l8/my%20band/a%20song.l8",
     );
   });
 
@@ -151,12 +151,12 @@ describe("launchUrl", () => {
   it("round-trips through parseLaunch", () => {
     const repo = "lemo mante";
     const project = "songs/a b/c.l8";
-    const url = new URL(launchUrl("https://studio.test", repo, project, "l8"));
+    const url = new URL(launchUrl("https://st0.priv.frediver.se", repo, project, "l8"));
     expect(parseLaunch(url.pathname, "l8", L8)).toEqual({ repo, project });
   });
 
   it("round-trips a repository that is itself the project", () => {
-    const url = new URL(launchUrl("https://studio.test", "solo", ".", "l8"));
+    const url = new URL(launchUrl("https://st0.priv.frediver.se", "solo", ".", "l8"));
     expect(url.pathname).toBe("/l8/solo");
     expect(parseLaunch(url.pathname, "l8", L8)).toEqual({
       repo: "solo",
@@ -167,8 +167,8 @@ describe("launchUrl", () => {
 
 describe("projectsUrl", () => {
   it("is st0's Projets section, which answers the origin root", () => {
-    expect(projectsUrl("https://studio.test/l8/band/a.l8")).toBe(
-      "https://studio.test/projects",
+    expect(projectsUrl("https://st0.priv.frediver.se/l8/band/a.l8")).toBe(
+      "https://st0.priv.frediver.se/projects",
     );
   });
 });

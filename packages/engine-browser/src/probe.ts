@@ -62,7 +62,7 @@ export function isReachable<E extends ProbeTarget>(
  *
  * Ensuite ce qu'on mesure. Sur toute machine autre que celle du moteur, les candidats directs
  * sont refusés par le navigateur (une page HTTPS n'ouvre pas de `ws://`), donc la seule voie
- * praticable est le RELAIS : page → Caddy → backend → moteur. Juger ce chemin-là au budget
+ * praticable est le RELAIS : page → proxy → backend → moteur. Juger ce chemin-là au budget
  * d'un aller-retour en loopback, c'est déclarer injoignable ce qui n'est que plus long — et
  * `unreachable` n'est pas une latence lente, c'est un état à part qui cache le moteur.
  */

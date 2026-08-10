@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// remote.mjs — remote survival: Windows logon tasks so Caddy, the browser editor
-// (vscode.mjs), the dev session (tilt up) and the shared shell (console/server.mjs)
-// come up with the machine, each OUTSIDE the others — no crash takes the door with
-// it. `install | uninstall | status | run <name>`; `run` is the tasks' keep-alive
-// wrapper, with logs in the tmpdir. See docs/remote.md.
+// remote.mjs — remote survival: Windows logon tasks so the browser editor (vscode.mjs),
+// the dev session (tilt up) and the shared shell (console/server.mjs) come up with the
+// machine, each OUTSIDE the others — no crash takes the others with it.
+// `install | uninstall | status | run <name>`; `run` is the tasks' keep-alive wrapper,
+// with logs in the tmpdir. See docs/remote.md.
 
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -22,11 +22,12 @@ import { fileURLToPath } from "node:url";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// `loop` = keep-alive: relaunch on exit with backoff. caddy.mjs is a one-shot that
-// detaches the real Caddy (or reloads a live one) and exits, so looping it would spin.
+// `loop` = keep-alive: relaunch on exit with backoff.
 // `node:` scripts run under process.execPath; `tilt` is an exe found on the user PATH.
+//
+// No edge here any more: the LAN server reverse-proxies to these ports, so nothing this
+// workstation starts terminates TLS. Caddy used to be the first entry — see docs/dev.md.
 const SERVICES = {
-  caddy: { node: join("commons", "scripts", "caddy.mjs"), loop: false },
   vscode: { node: join("scripts", "vscode.mjs"), loop: true },
   tilt: { cmd: "tilt", args: ["up", "--port", "10350"], loop: true },
   console: { node: join("scripts", "console", "server.mjs"), loop: true },
@@ -152,7 +153,6 @@ function uninstall() {
   // Kill only processes whose command line proves they are ours — a stale pidfile
   // must never take an unrelated process down with a recycled pid. taskkill /T takes
   // the whole tree: serve-web, the console PTY and whatever npm run dev spawned.
-  // The detached Caddy is deliberately left running (`caddy stop` if wanted).
   const lines = ["$ErrorActionPreference = 'Continue'"];
   for (const name of Object.keys(SERVICES)) {
     lines.push(
@@ -185,7 +185,6 @@ async function status() {
       "  no studio-* task registered — run `npm run remote:install`",
   );
   for (const [label, port] of [
-    ["caddy admin", 2019],
     ["vscode  (/dev)", 8798],
     ["tilt    (:10351)", 10350],
     ["console (/console)", 8797],
@@ -209,7 +208,7 @@ else if (process.platform !== "win32") {
 else if (verb === "status") await status();
 else {
   console.error(
-    "usage: remote.mjs install | uninstall | status | run <caddy|vscode|console>",
+    "usage: remote.mjs install | uninstall | status | run <vscode|tilt|console>",
   );
   process.exit(1);
 }
