@@ -27,25 +27,47 @@ export const clampZoom = (k: number): number =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
 
 /**
- * One wheel event as a zoom FACTOR, to multiply the goal by.
+ * Which gesture a wheel event IS: a zoom, or a pan.
  *
- * `deltaMode` is why this is not a one-liner: a wheel is measured in pixels almost everywhere,
- * in LINES by Firefox, and in pages in the rare full-page mode. Reading deltaY raw means the
- * same notch zooms by e^-0.1 in Chrome and e^-0.003 in Firefox — which does not read as "slower
- * there", it reads as the wheel being broken.
+ * On a Mac trackpad — and on a Windows precision touchpad — a PINCH arrives as a wheel event
+ * with `ctrlKey` set, synthesised by the browser; two fingers sliding arrive as a plain wheel
+ * carrying deltaX and deltaY. There is no other signal, and that is the whole distinction.
+ *
+ * It is also why a plain wheel no longer zooms. A trackpad has no way to say "scroll" other
+ * than the plain wheel, so keeping zoom there is what made every attempt to pan a Mac trackpad
+ * zoom instead. `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
  */
+export const isZoomWheel = (e: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+}): boolean => e.ctrlKey || e.metaKey;
+
+/**
+ * One wheel delta in PIXELS.
+ *
+ * `deltaMode` is why this exists: a wheel is measured in pixels almost everywhere, in LINES by
+ * Firefox, and in pages in the rare full-page mode. Reading a delta raw means the same notch
+ * moves 100 units in Chrome and 3 in Firefox — which does not read as "slower there", it reads
+ * as the wheel being broken.
+ */
+export function wheelPixels(
+  delta: number,
+  deltaMode: number,
+  viewportPx: number,
+): number {
+  if (deltaMode === 1) return delta * LINE_PX;
+  if (deltaMode === 2) return delta * viewportPx;
+  return delta;
+}
+
+// One wheel event as a zoom FACTOR, to multiply the goal by — exponential, so a notch is the
+// same ratio at any zoom.
 export function wheelFactor(
   deltaY: number,
   deltaMode: number,
   viewportPx: number,
 ): number {
-  const px =
-    deltaMode === 1
-      ? deltaY * LINE_PX
-      : deltaMode === 2
-        ? deltaY * viewportPx
-        : deltaY;
-  return Math.exp(-px * ZOOM_RATE);
+  return Math.exp(-wheelPixels(deltaY, deltaMode, viewportPx) * ZOOM_RATE);
 }
 
 /**

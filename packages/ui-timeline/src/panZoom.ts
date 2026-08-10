@@ -1,8 +1,7 @@
-// panZoom.ts — navigation for the media panes, which scale to FIT by default (so there
-// is nothing to scroll until you zoom). useHZoom scales horizontally, anchored so the
-// point under the cursor stays put; usePanScroll pans on a MIDDLE-mouse drag — not
-// Space-drag, because Space is the transport toggle in every app that mounts these.
-// Unit-free on purpose: the caller multiplies its own lane width, in beats or in seconds.
+// usePanZoom.ts — navigation for the media panes, which scale to FIT by default (so there
+// is nothing to scroll until you zoom). useHZoom scales horizontally on a PINCH, anchored so
+// the point under the cursor stays put; usePanScroll pans on a MIDDLE-mouse drag — not
+// Space-drag, because Space is the app's transport toggle everywhere.
 
 import {
   type RefObject,
@@ -14,7 +13,21 @@ import {
 } from "react";
 
 const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v));
+  Math.max(lo, Math.min(shi, v));
+
+/**
+ * Which gesture a wheel event IS: a zoom, or a pan.
+ *
+ * On a Mac trackpad — and on a Windows precision touchpad — a PINCH arrives as a wheel event
+ * with `ctrlKey` set, synthesised by the browser; two fingers sliding arrive as a plain wheel.
+ * There is no other signal, and it is why a plain wheel no longer zooms here: a trackpad has no
+ * way to say "scroll" other than the plain wheel, so keeping zoom on it made every attempt to
+ * pan zoom instead. `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
+ *
+ * The chains graph draws the same line, in its own camera (`@studio/ui-chains-react`): a pane
+ * here scrolls and that one translates, so the rule is shared but not the code.
+ */
+const isZoomWheel = (e: WheelEvent): boolean => e.ctrlKey || e.metaKey;
 
 /**
  * Horizontal zoom for a scroll container, driven by the mouse wheel. Returns the current
@@ -70,10 +83,15 @@ export function useHZoom(
     const el = ref.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      // The wheel zooms (a trackpad pinch arrives as Ctrl+wheel and folds in); preventDefault stops the page moving.
+      // Only a pinch zooms. Two fingers sliding are handed BACK to the browser, whose native
+      // scroll is the pan — with the momentum, the axis locking and the rubber-banding a
+      // hand-rolled scrollLeft would have to counterfeit, and on both axes at once.
+      if (!isZoomWheel(e)) return;
+      // preventDefault stops the browser zooming the whole PAGE on the same gesture.
       e.preventDefault();
       const cur = zoomRef.current;
-      // Favour the dominant axis so a horizontal-wheel / shift-wheel still zooms.
+      // Favour the dominant axis: a pinch is deltaY, but Ctrl held on a horizontal wheel is
+      // still someone asking to zoom.
       const delta =
         Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       if (delta === 0) return;
@@ -83,7 +101,8 @@ export function useHZoom(
       // which doesn't scale, is subtracted and re-added around that.
       zoomAt(next, e.clientX);
     };
-    // Passive:false so preventDefault can stop the browser's page zoom on Ctrl+wheel.
+    // Passive:false so preventDefault can stop the browser's page zoom on the pinch. A plain
+    // wheel returns before that and scrolls as it always would.
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -72,10 +72,12 @@ import {
   approach,
   type Cam,
   clampZoom,
+  isZoomWheel,
   type Lod,
   lodFor,
   sameLod,
   wheelFactor,
+  wheelPixels,
   zoomAbout,
 } from "./camera";
 
@@ -2589,14 +2591,26 @@ export function DomChains({
     // a React onWheel would allocate a synthetic event per notch, and a trackpad sends many.
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
-      const r = host.getBoundingClientRect();
-      anchor.current = { px: e.clientX - r.left, py: e.clientY - r.top };
-      userMoved.current = true; // a deliberate zoom outranks any auto-fit
-      // Multiplied onto the GOAL, not onto what is on screen: spinning the wheel faster then
-      // stacks up instead of each notch being swallowed by the one still gliding.
-      goal.current.k = clampZoom(
-        goal.current.k * wheelFactor(e.deltaY, e.deltaMode, host.clientHeight),
-      );
+      userMoved.current = true; // either way, the camera is theirs now — stop auto-framing
+      if (isZoomWheel(e)) {
+        const r = host.getBoundingClientRect();
+        anchor.current = { px: e.clientX - r.left, py: e.clientY - r.top };
+        // Multiplied onto the GOAL, not onto what is on screen: pinching faster then stacks up
+        // instead of each step being swallowed by the one still gliding.
+        goal.current.k = clampZoom(
+          goal.current.k *
+            wheelFactor(e.deltaY, e.deltaMode, host.clientHeight),
+        );
+      } else {
+        // Two fingers sliding. The camera moves WITH them, 1:1 and with no glide — the same rule
+        // a drag follows, because both are a hand pushing the world about and easing that is lag.
+        // The deltas are screen pixels and so is the translation, which is why no zoom is in this.
+        const c = cam.current;
+        const g = goal.current;
+        g.k = c.k; // a slide takes over from any zoom still in flight, as a pointer-down does
+        c.x = g.x = g.x - wheelPixels(e.deltaX, e.deltaMode, host.clientWidth);
+        c.y = g.y = g.y - wheelPixels(e.deltaY, e.deltaMode, host.clientHeight);
+      }
       kick.current();
     };
     host.addEventListener("wheel", wheel, { passive: false });
