@@ -48,6 +48,7 @@ import {
   CommandBar,
   type CommandBarHandle,
   type CommandPending,
+  type PaletteCommand,
 } from "./components/CommandBar";
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
@@ -104,9 +105,10 @@ import {
   modulePlaceCommand,
   type PendingInsert,
 } from "./moduleInsert";
-import { buildPaletteCommands, makeListArg } from "./palette";
+import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
 import { entityFile, fileStem } from "./projectPaths";
+import { rememberCommand } from "./recentCommands";
 import type { Pane, Panel, View } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import {
@@ -624,6 +626,9 @@ export default function App({
   // `runCommand` is defined below and calls THIS, so a local command that needs to run a real one
   // reaches it through a ref rather than closing over it.
   const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
+  // The palette's catalogue, for the one thing `runCommand` needs from it: which command a line
+  // runs, so it can be remembered. A ref because the catalogue is built further down.
+  const paletteRef = useRef<PaletteCommand[]>([]);
 
   /**
    * Arm MIDI learn on one param: the next control change from any attached controller binds to it.
@@ -882,6 +887,11 @@ export default function App({
       if (!line.trim()) return;
       pushLog("cmd", `› ${line.trim()}`);
       const s = canonicalizeCommand(line);
+      // Here rather than in the bar, because this is where EVERY command passes: the palette,
+      // a key binding, a context menu. What you reach for by shortcut is still what you reach
+      // for, and the palette should offer it first when you do come looking. Through a ref, so
+      // this callback does not have to be rebuilt every time the catalogue is.
+      rememberCommand(commandNameOf(s, paletteRef.current));
       if (runLocalCommand(s)) return;
       const willFreeze = freezeTarget(s);
       if (willFreeze) setFreezing(willFreeze);
@@ -1315,6 +1325,7 @@ export default function App({
     () => buildPaletteCommands(backendCmds, locale),
     [backendCmds, locale],
   );
+  paletteRef.current = paletteCommands;
   const listArg = useMemo(
     () => makeListArg(() => editorRef.current?.files() ?? []),
     [],

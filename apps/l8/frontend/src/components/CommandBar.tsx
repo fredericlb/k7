@@ -5,7 +5,8 @@
 // Both halves match the same way, with the shell's one fuzzy matcher: the command list against
 // each command's readable description AND its name, a field's list against that param's whole
 // vocabulary. Nothing here matches by prefix — "rythm" has to find `ge.rythm`, and "mute a
-// track" has to find `track mute`.
+// track" has to find `track mute`. Commands you have run lately are nudged up the list
+// (recentCommands.ts), and nothing is listed at all until a character is typed.
 
 import {
   forwardRef,
@@ -24,6 +25,7 @@ import {
   wantsKind,
 } from "../commandFill";
 import { rankCommands, rankValues } from "../palette";
+import { recentCommands } from "../recentCommands";
 import type { ArgClass } from "../types";
 import { CommandParams } from "./CommandParams";
 
@@ -145,7 +147,11 @@ export const CommandBar = forwardRef<
   const latest = useRef(0); // guard against out-of-order async vocabularies
 
   const arg = command ? (command.args[active] ?? null) : null;
-  const matches = command ? [] : rankCommands(commands, value);
+  // NOTHING is listed until a character is typed. The catalogue is ninety rows: opening on the
+  // whole of it puts a wall over the minimap every time the bar takes the focus, and a list you
+  // did not ask for is a list you have to dismiss. One letter is the whole cost of asking.
+  const query = command ? "" : value.trim();
+  const matches = query ? rankCommands(commands, value, recentCommands()) : [];
   // The form's own typing goes in its field, so the bar's query is only ever the command's.
   const suggestions = command ? rankValues(vocab, values[active] ?? "") : [];
   const list: readonly unknown[] = command ? suggestions : matches;
