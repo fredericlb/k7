@@ -42,8 +42,15 @@ export function QueueButton() {
         </Button>
       </DropdownMenuTrigger>
 
-      {/* Aligné à la fin et vers le haut : la barre est en bas de l'écran. */}
-      <DropdownMenuContent align="end" side="top" className="w-96">
+      {/* Aligné à la fin et vers le haut : la barre est en bas de l'écran.
+          La largeur est plafonnée par la FENÊTRE : 384 px déborde d'un écran de téléphone,
+          et une liste de lecture qu'on ne peut pas atteindre par la droite est une liste
+          dont on ne peut retirer aucune ligne. */}
+      <DropdownMenuContent
+        align="end"
+        side="top"
+        className="w-[min(24rem,calc(100vw-1.5rem))]"
+      >
         <DropdownMenuLabel>
           À suivre{queue.length ? ` — ${queue.length}` : ""}
         </DropdownMenuLabel>

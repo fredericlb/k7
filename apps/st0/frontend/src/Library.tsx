@@ -39,16 +39,13 @@ import {
   AudioLines,
   Boxes,
   Disc3,
-  FolderGit2,
+  FolderTree,
   ListMusic,
   Loader2,
   LogOut,
-  type LucideIcon,
-  Mic,
   Pencil,
   Search,
   Settings,
-  Waves,
   Workflow,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -81,34 +78,11 @@ import {
   PROJECTS_SECTION,
   type SectionId,
 } from "./routes";
+import { SectionNav } from "./SectionNav";
 import { SongEditor } from "./SongEditor";
 import { takesOf } from "./songTakes";
 import { sortNodes } from "./treeOrder";
 import { useLibraryRoute } from "./useLibraryRoute";
-
-/**
- * The header's tabs: the repositories, then the five families and the raw capture zone.
- *
- * PROJECTS leads because it is what the app OPENS on (`DEFAULT_SECTION` in routes.ts), and a
- * tab strip whose first tab is not the landing screen reads as a mistake. It is also the
- * section furthest from the volume: it is not on it at all — a repository belongs to a
- * person, this service never makes a working copy of one, and its listing comes from
- * `/api/projects` rather than from the catalogue. See ../../docs/projects.md.
- *
- * RECORDINGS is a section and NOT a family either — it is a folder at the library root, it
- * holds no catalogue entries, and it has no listing to ask `/list` for. It sits here because
- * the screen is organised by what you are looking at, and what you are looking at is a fifth
- * thing. See packages/mediatek/docs/recordings.md.
- */
-const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
-  { id: PROJECTS_SECTION, label: "Projets", icon: FolderGit2 },
-  { id: "songs", label: "Morceaux", icon: Disc3 },
-  { id: "samples", label: "Samples", icon: Waves },
-  { id: "modules", label: "Modules", icon: Boxes },
-  { id: "chains", label: "Chaînes", icon: Workflow },
-  { id: "playlists", label: "Playlists", icon: ListMusic },
-  { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
-];
 
 /** The five that ARE families — the only ids `/list` and `/manifest` accept. Subtracted rather
  *  than listed, so a new family is one entry in `SECTION_IDS`; the cost is that every section
@@ -381,6 +355,17 @@ export function Library() {
   // par un bouton depuis Morceaux, qui dessine bord à bord. Rien de ce qu'elle montre n'est sur
   // le volume non plus : l'historique vient de `/api/hunt`. Voir ../../docs/hunt.md.
   const isFind = section === "find";
+  /**
+   * Y a-t-il un arbre à côté ? Les trois sections ci-dessus dessinent toute la largeur
+   * elles-mêmes, parce que rien de ce qu'elles montrent n'est sur le volume.
+   *
+   * Dérivé ici et non dans la branche qui le rend, parce que l'EN-TÊTE en a besoin : c'est
+   * lui qui porte le bouton du tiroir, et il est au-dessus de la branche.
+   */
+  const hasTree = !isProjects && !isEngine && !isFind;
+  // Le tiroir de l'arborescence sur écran étroit. Fermé au départ : sur un téléphone, ce
+  // qu'on veut voir en arrivant est le contenu, pas la façon d'y naviguer.
+  const [treeOpen, setTreeOpen] = useState(false);
   // Whether the TREE may write. Two sections say no, for two different reasons: `songs/`
   // has a shape deduced from tags — a folder made by hand there is not a badly filed
   // song, it is an invisible one — and a capture is named by the clock, so a renamed one
@@ -483,7 +468,12 @@ export function Library() {
     [entries, section],
   );
   /** Open the builder on one of a module's files, or close it. The URL is the only writer. */
-  const openFile = useCallback((rel: string | null) => setFile(rel), []);
+  const openFile = useCallback((rel: string | null) => {
+    setFile(rel);
+    // Le tiroir se referme sur ce qu'on vient d'ouvrir : il recouvre l'écran, et le laisser
+    // ouvert cacherait exactement ce qu'on a demandé à voir.
+    setTreeOpen(false);
+  }, []);
   /**
    * What the tree is opened down to. STICKY, and that is the point: `reveal` re-seeds the whole
    * expansion whenever its value CHANGES, so letting it fall back to null on closing the editor
@@ -774,6 +764,7 @@ export function Library() {
     setUnlisted([]);
     setPicked(null);
     setNotice(null);
+    setTreeOpen(false);
     seen.current[section] = "";
   }, [section]);
 
@@ -844,33 +835,33 @@ export function Library() {
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* The families moved from the side to the header, where l8 puts its views: the
           side is worth more as the current zone's tree than as three fixed buttons. */}
-        <header className="flex items-center gap-4 border-b px-6 py-2">
-          <span className="text-lg font-semibold tracking-tight">st0</span>
-          <nav className="flex items-center gap-1">
-            {SECTIONS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                // Rien à vider ici : changer de section suffit, et l'effet qui suit
-                // `section` s'en charge — y compris quand c'est le bouton « précédent » ou un
-                // lien profond qui en change, ce que ce gestionnaire ne voit pas.
-                onClick={() => setSection(id)}
-                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${
-                  section === id
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{label}</span>
-                <span className="tabular-nums text-xs">{counts[id] ?? 0}</span>
-              </button>
-            ))}
-          </nav>
+        <header className="flex items-center gap-2 border-b px-3 py-2 sm:gap-4 sm:px-6">
+          {/* Le titre disparaît en premier : sur un écran étroit, savoir DANS QUELLE section
+              on est vaut plus que savoir quelle app on regarde — le nom de la section est
+              juste à côté du hamburger. */}
+          <span className="hidden text-lg font-semibold tracking-tight sm:inline">
+            st0
+          </span>
+          <SectionNav section={section} counts={counts} onPick={setSection} />
+          {/* L'arborescence, sur écran étroit seulement : elle occupe 240 px fixes, ce qui ne
+              laisse rien au contenu sur un téléphone. Elle devient un tiroir, et ce bouton est
+              la seule façon de l'ouvrir. Absent là où il n'y en a pas — les dépôts, le moteur
+              et la recherche dessinent toute la largeur eux-mêmes. */}
+          {hasTree ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden"
+              aria-label="Arborescence"
+              onClick={() => setTreeOpen(true)}
+            >
+              <FolderTree className="h-5 w-5" />
+            </Button>
+          ) : null}
           {/* Chaque section que l'arbre ne sait pas écrire a son bouton ici : les morceaux
             parce que leur arborescence est déduite des tags, les enregistrements parce qu'un
             enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md. */}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
             {section === "songs" ? (
               <>
                 {/* À côté d'« Ajouter », pas à sa place : déposer un fichier qu'on a déjà et
@@ -882,7 +873,10 @@ export function Library() {
                   size="sm"
                   onClick={() => setSection("find")}
                 >
-                  <Search className="mr-1 h-4 w-4" /> Trouver des morceaux
+                  {/* L'icône seule quand la place manque : le bouton reste atteignable, et
+                      c'est la phrase qui coûte les cent pixels dont l'en-tête manque. */}
+                  <Search className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Trouver des morceaux</span>
                 </Button>
                 <AddSong onDone={refresh} engine={choice} />
               </>
@@ -890,7 +884,9 @@ export function Library() {
             {isZone ? (
               <AddRecording onDone={refresh} onError={setError} />
             ) : null}
-            <span className="text-xs tabular-nums text-muted-foreground">
+            {/* La version part avant tout le reste : c'est la seule chose ici dont on n'a
+                jamais besoin dans l'instant. */}
+            <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
               {VERSION}
             </span>
           </div>
@@ -1025,9 +1021,30 @@ export function Library() {
                   </Card>
                 </div>
               )}
+            {/* Le voile du tiroir. Il ferme au clic, et il n'existe qu'ouvert : un élément
+                invisible qui couvre l'écran est un élément qui avale les clics. */}
+            {treeOpen && (
+              <button
+                type="button"
+                aria-label="Fermer l'arborescence"
+                className="fixed inset-0 z-30 bg-black/50 md:hidden"
+                onClick={() => setTreeOpen(false)}
+              />
+            )}
             {/* The zone being explored, as a tree: /songs, /samples or /modules. Same
-            component l8 uses for a workspace, fed from the entry paths. */}
-            <aside className="w-60 shrink-0 overflow-auto border-r p-2">
+            component l8 uses for a workspace, fed from the entry paths.
+
+            En colonne dès qu'il y a la place, en TIROIR quand il n'y en a pas : 240 px fixes
+            ne laissent rien au contenu sur un téléphone. Le même balisage dans les deux cas —
+            l'extraire dans un composant à part pour le rendre deux fois aurait dupliqué les
+            deux cents lignes d'actions qu'il porte. */}
+            <aside
+              className={`shrink-0 overflow-auto border-r p-2 md:static md:z-auto md:block md:w-60 md:translate-x-0 ${
+                treeOpen
+                  ? "fixed inset-y-0 left-0 z-40 w-72 bg-background shadow-xl"
+                  : "hidden"
+              }`}
+            >
               <input
                 ref={pickRef}
                 type="file"
@@ -1474,7 +1491,7 @@ export function Library() {
                 />
               </main>
             ) : (
-              <main className="min-w-0 flex-1 overflow-auto p-6">
+              <main className="min-w-0 flex-1 overflow-auto p-3 sm:p-6">
                 {notice ? (
                   <Card className="mb-4 p-4 text-sm text-muted-foreground">
                     {notice}
@@ -1598,7 +1615,10 @@ export function Library() {
             beside the editor, which has a parameters pane of its own — two lists of the same
             thing, and the width belongs to the one you can drag onto a widget. */}
             {!editing && section === "modules" && picked ? (
-              <aside className="w-96 shrink-0 overflow-auto border-l p-4">
+              // Caché sous `lg` : 384 px de plus à côté de l'arbre et du contenu, il
+              // n'y a pas d'écran étroit où les trois tiennent. Ce qu'il montre est
+              // atteignable en ouvrant le module.
+              <aside className="hidden w-96 shrink-0 overflow-auto border-l p-4 lg:block">
                 <div className="mb-3 flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                     {picked.name}

@@ -216,8 +216,10 @@ export function PlaylistEditor({
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> chargement…
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1">
-          <div className="min-h-0 w-1/2 shrink-0 border-r border-border">
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          {/* Côte à côte dès qu'il y a la place, EMPILÉ sinon : deux moitiés d'un
+              écran de téléphone font deux colonnes où rien ne tient. */}
+          <div className="min-h-0 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0 h-1/2">
             <YamlPane
               path={path}
               content={content}

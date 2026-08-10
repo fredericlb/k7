@@ -130,8 +130,10 @@ export function SongEditor({
         </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="min-h-0 w-1/2 shrink-0 border-r border-border">
+      {/* Côte à côte dès qu'il y a la place, EMPILÉ sinon : deux moitiés d'un écran
+          de téléphone font deux colonnes où rien ne tient. */}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div className="min-h-0 h-1/2 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
           {content == null ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> chargement…
