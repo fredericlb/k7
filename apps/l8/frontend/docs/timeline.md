@@ -247,6 +247,26 @@ within; the drawing may be wider. Live pattern lanes deliberately do **not** ext
 their clips are the scheduler's look-ahead, so following them would grow the timeline a bar
 at a time as playback runs.
 
+## Clicking an event
+
+A click on a clip parks the caret **over it**: the `v` rectangle, anchored at the event's first
+beat and headed at its last, on that event's lane. The caret is one cell, so covering something
+eight beats long is the rectangle or nothing.
+
+That makes a click a starting point rather than a dead end. Everything the caret and the
+selection already drive now applies to the thing you pointed at: `z` frames it, Shift+L loops
+it, `m` picks it up, `m`/`s` act on its lane, and the Editor panel follows the caret onto its
+file. None of that needed writing — it is what the caret was already for.
+
+A length-0 placement is covered as it is DRAWN, over its natural four beats, not over the zero
+its file states. A caret stopping short of the block it is meant to be on would read as a
+rounding bug.
+
+Two things it deliberately does not do. It fires on the pointer coming back UP without having
+moved — a drag is a move and ends as one. And it is skipped entirely while the command bar is
+filling `event move`: there, a click on a clip is how you say *which* clip, and answering the
+question you asked for beats a selection you did not.
+
 ## Moving a clip
 
 One `Move` state serves both flows, so they cannot disagree about what is in hand, and both
@@ -343,6 +363,18 @@ keyboard nudge never changes lane at all.
 
 Generated lanes are excluded from all of this: their clips are the scheduler's look-ahead,
 rewritten every tick and backed by no file, so there is no `start:` to rewrite.
+
+## The name column is wider here than in v1
+
+`GUTTER_DESKTOP` in `@studio/ui-timeline` is sized for what v1 puts in one: a name. This app's
+gutter carries an alternatives arrow, two meters, an instrument icon, the name and three
+toggles, which had left the name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
+
+Local rather than pushed into the shared package, because the width is a property of what a
+surface PUTS in the column: v1 would be paying viewport for controls it does not draw. What must
+not drift is this app's own idea of it — the caret's "left of the first beat" test and
+`useHZoom`'s anchor maths both subtract the same `GUTTER` variable, and two numbers there is a
+click landing one column off, which reads as a rounding bug and is not one.
 
 ## What a track key aims at
 
