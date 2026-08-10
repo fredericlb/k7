@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPaletteCommands,
+  commandNameOf,
   LOCAL_COMMANDS,
   LOCAL_READABLE,
   rankCommands,
@@ -143,5 +144,51 @@ describe("finding a param's value the same way", () => {
 
   it("answers nothing rather than everything for a miss", () => {
     expect(rankValues(TRACKS, "qqq")).toEqual([]);
+  });
+});
+
+describe("what you used lately comes first", () => {
+  const recent = (q: string, used: string[]) =>
+    rankCommands(build(), q, used).map((c) => c.canonical);
+
+  it("lifts a command you have run over an equally good match you have not", () => {
+    // "track" matches both of these about as well; the one you ran last wins.
+    expect(recent("track", [])[0]).not.toBe("track freeze");
+    expect(recent("track", ["track freeze"])[0]).toBe("track freeze");
+  });
+
+  it("decays down the history, so the last thing you did beats the tenth", () => {
+    const used = ["marker new", ...Array(8).fill("x"), "track freeze"];
+    expect(recent("track", used)[0]).toBe("track freeze");
+    // …and the fresher one wins when both match.
+    expect(recent("a", ["track freeze", "marker new"])[0]).toBe("track freeze");
+  });
+
+  it("is a NUDGE, not an override — a clearly better match still wins", () => {
+    // The history says `transport play`; the query plainly says the other one.
+    expect(recent("Mute or unmute", ["transport play"])[0]).toBe("track mute");
+  });
+
+  it("never invents a match: history cannot make a command appear", () => {
+    expect(recent("zzzz", ["track mute"])).toEqual([]);
+  });
+
+  it("ignores a remembered command the catalogue no longer has", () => {
+    expect(() => recent("track", ["gone forever"])).not.toThrow();
+  });
+});
+
+describe("which command a line ran", () => {
+  const all = build();
+
+  it("takes the LONGEST name, as the dispatcher does", () => {
+    expect(commandNameOf("track mute gtr", all)).toBe("track mute");
+    expect(commandNameOf("track mute", all)).toBe("track mute");
+  });
+
+  it("answers null for a line that names no command", () => {
+    expect(commandNameOf("wat is this", all)).toBe(null);
+    // A name that merely STARTS the same is not a match — `track mutex` is not `track mute`.
+    expect(commandNameOf("track mutex", all)).toBe(null);
   });
 });

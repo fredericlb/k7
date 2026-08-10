@@ -11,6 +11,7 @@ import {
 } from "./commandI18n";
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
 import { fuzzyScore } from "./fuzzy";
+import { MAX_RECENT } from "./recentCommands";
 import { PANES } from "./shellMeta";
 import type { CommandInfo } from "./types";
 
@@ -205,25 +206,77 @@ export function buildPaletteCommands(
 export function rankCommands(
   commands: readonly PaletteCommand[],
   query: string,
+  recent: readonly string[] = [],
   limit = 30,
 ): PaletteCommand[] {
   const q = query.trim();
   if (!q) return commands.slice(0, limit);
-  return commands
-    .map((c) => ({
-      c,
-      // The name scores slightly higher on a tie: someone typing "mute" means the command.
-      score: Math.max(
-        fuzzyScore(q, c.readable),
-        fuzzyScore(q, c.canonical) + 0.5,
-      ),
-    }))
-    .filter((x) => x.score >= 0)
-    .sort(
-      (a, b) => b.score - a.score || a.c.canonical.localeCompare(b.c.canonical),
+  return (
+    commands
+      .map((c) => ({
+        c,
+        // The name scores slightly higher on a tie: someone typing "mute" means the command.
+        score: Math.max(
+          fuzzyScore(q, c.readable),
+          fuzzyScore(q, c.canonical) + 0.5,
+        ),
+      }))
+      // Filtered BEFORE the bonus, and that order is the whole safety of it: `fuzzyScore` says
+      // "no match" with -1, and a recent command given four points for nothing would surface on a
+      // query it does not match at all. History reorders what matched; it never invents a match.
+      .filter((x) => x.score >= 0)
+      .map((x) => ({
+        ...x,
+        score: x.score + recencyBonus(x.c.canonical, recent),
+      }))
+      .sort(
+        (a, b) =>
+          b.score - a.score || a.c.canonical.localeCompare(b.c.canonical),
+      )
+      .slice(0, limit)
+      .map((x) => x.c)
+  );
+}
+
+/**
+ * What having used a command lately is worth, added to its match score.
+ *
+ * A NUDGE and not an override, which is the whole design of it. `fuzzyScore` gives roughly four
+ * points per matched character, so four points is about one letter's worth: enough to lift a
+ * command you use daily above an equally good match you have never run, and not nearly enough
+ * to put a poor match above a good one. A palette that answered with your history instead of
+ * with your query would be worse than one with no history at all.
+ *
+ * It decays down the list, so the thing you just did outranks the thing you did ten commands
+ * ago, and the twelfth is worth almost nothing — which is how it forgets without a clock.
+ */
+function recencyBonus(canonical: string, recent: readonly string[]): number {
+  const i = recent.indexOf(canonical);
+  return i < 0 ? 0 : RECENT_BONUS * (1 - i / MAX_RECENT);
+}
+
+const RECENT_BONUS = 4;
+
+/**
+ * Which command a canonical LINE runs — the longest name that prefixes it, or null.
+ *
+ * Longest, exactly as the dispatcher picks it (`runCommand` in commandSpec.ts), or `module list`
+ * would claim a line that `module list plugins` is going to run and the history would remember
+ * the wrong one.
+ */
+export function commandNameOf(
+  line: string,
+  commands: readonly PaletteCommand[],
+): string | null {
+  const s = line.trim();
+  let best: string | null = null;
+  for (const c of commands)
+    if (
+      (s === c.canonical || s.startsWith(`${c.canonical} `)) &&
+      (!best || c.canonical.length > best.length)
     )
-    .slice(0, limit)
-    .map((x) => x.c);
+      best = c.canonical;
+  return best;
 }
 
 /** A param's candidate values, ranked the same way. Empty query keeps the provider's order. */

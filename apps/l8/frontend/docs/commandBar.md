@@ -41,6 +41,39 @@ already use, so "type a few letters" behaves the same wherever the shell searche
 Both ranking functions are pure and live in `palette.ts`, which is what makes the claim
 testable in a repo that mounts no components.
 
+### What you used lately comes first
+
+A command you have run recently gets a bonus on its match score (`recencyBonus`), decaying down
+a twelve-entry history kept in localStorage (`recentCommands.ts`) — per browser and not per
+project, because it is a habit and habits travel between songs.
+
+It is a **nudge, not an override**, and the number says so: `fuzzyScore` gives roughly four
+points per matched character, and the freshest entry is worth four. Enough to lift a command you
+use daily above an equally good match you have never run; nowhere near enough to put a poor
+match above a good one. A palette that answered with your history instead of with your query
+would be worse than one with no history at all.
+
+The bonus is added **after** the no-match filter, and that order is the whole safety of it:
+`fuzzyScore` says "no match" with `-1`, so a recent command handed four points for nothing would
+surface on a query it does not match at all. History reorders what matched; it never invents a
+match. (That was a real bug, caught by the test that says so.)
+
+What is remembered is recorded in the shell's `runCommand`, where EVERY command passes — the
+palette, a key binding, a context menu. What you reach for by shortcut is still what you reach
+for, and the palette should offer it first when you do come looking for it.
+
+### Nothing is listed until you type
+
+The command list opens on the first character, not on focus. The catalogue is ninety rows:
+opening on the whole of it puts a wall over the minimap every time the bar takes the keyboard,
+and a list you did not ask for is a list you have to dismiss. One letter is the whole cost of
+asking for it.
+
+A parameter's field is the other way round, deliberately: its list is there as soon as the field
+opens, because you cannot type the first letter of a track you have not been shown. The
+difference is that one is a vocabulary you are being offered and the other is a catalogue you
+are searching.
+
 ### The parameters, in the corner
 
 `CommandParams` is a panel, not a step: **every question is on screen at once**, and an answer
