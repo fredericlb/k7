@@ -20,7 +20,8 @@ cannot disagree about what gets written.
 
 ## Learn
 
-Picking "midi learn" pre-writes the command; Enter arms it; the next control change binds. That
+Picking "bind this param to the next controller knob you touch" pre-writes `ui midi learn
+<module> <param>`; Enter arms it; the next control change binds. That
 is one Enter more than a bare menu action would be, and it is deliberate: **the menu pre-writes a
 command and never runs one** (see `contextMenu.ts`), so the gesture stays typeable and stays
 visible before it happens.

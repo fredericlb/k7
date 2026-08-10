@@ -963,6 +963,10 @@ export default function App({
       pendingPrewrite.current = null;
     }
   }, [paletteOpen]);
+  // The catalogue in a ref: the menu reads it at open time, and threading it as a dependency
+  // would rebuild every pane's onContextMenu the moment the commands land.
+  const cmdCatalogue = useRef<CommandInfo[]>([]);
+  cmdCatalogue.current = backendCmds;
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
     // A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so:
     // the namespace is the catalogue's own and nothing on disk declares it. Derived here rather than carried
@@ -972,7 +976,7 @@ export default function App({
       ctx.kind === "module" && ctx.id.startsWith("@engine/")
         ? { ...ctx, ambient: true }
         : ctx;
-    const items = contextMenu(full);
+    const items = contextMenu(full, cmdCatalogue.current);
     if (items.length) setMenu({ items, x, y });
   }, []);
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.

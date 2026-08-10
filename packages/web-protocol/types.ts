@@ -372,9 +372,28 @@ export type ArgClass =
   | "number"
   | "note"
   | "text";
+// The named provider an argument completes from — the PRECISE type of thing it names, where
+// `kind` is only the colour it is drawn in: `file` is a clip AND a sequence AND a module asset,
+// and `module` is also a category. Absent for a scalar or a literal set. Mirrors the PROVIDERS
+// keys in packages/commands/src/commandSpec.ts, where a test fails if the two drift.
+export type ArgProvider =
+  | "alternatives"
+  | "assetFiles"
+  | "audioFiles"
+  | "baseModules"
+  | "categories"
+  | "chains"
+  | "clipTargets"
+  | "markerNames"
+  | "modules"
+  | "sequenceFiles"
+  | "tracks";
 export interface CommandArg {
   name: string;
   kind: ArgClass;
+  // What this argument NAMES, when the answer comes off the project. The right-click menu matches
+  // on it to offer every command the clicked thing can answer — see l8's contextMenu.ts.
+  provider?: ArgProvider;
   // One line on what this argument accepts; empty when there is nothing to promise, and the palette shows no clue.
   hint: string;
   // TRAILING args only: the line runs without it, so a form knows when it has collected enough.

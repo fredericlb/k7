@@ -61,6 +61,7 @@ matches before changing it:
 | `chainsGraph.md` | the chains renderer and its camera rules |
 | `timeline.md` | the keyboard-driven arrangement view |
 | `commandBar.md` | the step-by-step palette and module picker |
+| `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
 

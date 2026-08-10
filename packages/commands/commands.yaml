@@ -461,7 +461,7 @@
 # every INSTANCE of it plays by the same one. `none` in place of the channel unbinds.
 - command: "module cc"
   sid: module.cc
-  help: "bind a MIDI CC to a module's param (module cc synth Cutoff 1 74), or `none` to unbind"
+  help: "bind a MIDI CC to a module's param, or `none` to unbind (e.g. module cc synth Cutoff 1 74)"
   surfaces: [cli]
   args:
     [
