@@ -140,8 +140,25 @@ The phone keeps the popin, opened from the tab bar. It has no minimap to sit und
 permanent prompt would cost the band a phone has least of — the same trade that keeps the
 minimap off it.
 
-Both forms are the same component, mounted once either way, and neither ever autofocuses: a
-shell that opened with the keyboard captured could not be typed into.
+Both forms are the same component. The phone's opens focused, because you opened it on purpose
+from the tab bar; the docked one never takes the keyboard by itself, since a shell that started
+with it captured could not be typed into.
+
+### On a phone it goes away when it loses the keyboard
+
+A popin over a phone screen is most of the screen: leaving it up after you have tapped past it
+costs the pane you tapped *into*. The docked bar has no reason to do this and does not.
+
+**Unless the parameter panel is open.** While the bar is asking a command's questions it is not
+idle, whatever the command field's focus says — so the dismissal reads `barPending`, the same
+signal the shell already uses to route a gesture to the field that is waiting.
+
+The bar REPORTS the focus (`onFocusChange`) and the shell decides, because what losing it means
+is the shell's business: a popin on a phone, a permanent strip on a wide screen. And it waits a
+moment rather than acting on the blur itself — picking a command takes the keyboard from the
+command field and hands it to the parameter form one render later, so closing in between would
+dismiss the bar at the exact moment it was about to ask you something. The timer re-reads
+`barPending` when it fires, for the same reason.
 
 ## A gesture can answer a field
 
