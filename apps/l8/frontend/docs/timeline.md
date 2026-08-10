@@ -364,6 +364,37 @@ keyboard nudge never changes lane at all.
 Generated lanes are excluded from all of this: their clips are the scheduler's look-ahead,
 rewritten every tick and backed by no file, so there is no `start:` to rewrite.
 
+## Zooming with two fingers
+
+Three gestures reach the same anchored zoom (`useHZoom` in `@studio/ui-timeline`), and they do
+not scale alike:
+
+- a **wheel notch** is one event and a discrete decision, so it takes a whole step (15%),
+  whatever delta the browser puts on it;
+- a **trackpad pinch** arrives as Ctrl+wheel — a stream of small continuous deltas, dozens a
+  second. Given the notch's step it multiplied 1.15 per event and hit the zoom limit before the
+  fingers had finished moving, which is how "pinch does not work" was really spelled. It scales
+  BY the delta now, clamped so a browser reporting a pinch in hundreds cannot jump a decade in
+  one event;
+- **two fingers on a touchscreen** produce no wheel at all. They are read from touch events, and
+  measured against the spread the gesture STARTED at rather than frame to frame — a ratio of
+  ratios accumulates rounding, and pinching out and back in would not return where it began.
+
+Touch events rather than pointer events, deliberately: this container scrolls, and the browser
+claims a pointer the moment it decides a drag is a scroll, so a pinch woven into the pointer flow
+dies to a `pointercancel` half-way through. A non-passive `touchmove` that preventDefaults for
+the length of the gesture is what holds the browser off.
+
+The hook also sets `touch-action: pan-x pan-y` on the container itself. Panning stays the
+browser's — it scrolls this far better than we would — and that value says exactly that while
+taking the pinch back. Set by the hook rather than left to each caller's stylesheet, because a
+surface that mounts it and forgets the rule gets a gesture the browser silently swallows, with
+nothing on screen to explain it.
+
+`wheelFactor` is exported and tested. The graph keeps its own (`@studio/ui-chains/zoomGesture`)
+because its notch branch differs — it scales by the delta where this one steps — and an
+arrangement package importing the graph's would be the wrong way round.
+
 ## The name column is wider here than in v1
 
 `GUTTER_DESKTOP` in `@studio/ui-timeline` is sized for what v1 puts in one: a name. This app's

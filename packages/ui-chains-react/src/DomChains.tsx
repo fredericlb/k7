@@ -55,6 +55,11 @@ import {
   widgetNorm,
   widgetRect,
 } from "@studio/ui-chains/graph";
+import {
+  pinchFactor,
+  spreadOf,
+  wheelZoomFactor,
+} from "@studio/ui-chains/zoomGesture";
 import { Snowflake } from "lucide-react";
 import {
   createContext,
@@ -179,6 +184,7 @@ const EMPTY_ORDER: string[] = [];
 // Camera constants carried over verbatim from the WebGL renderer, so the feel is identical.
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
+
 const DRAG_SLOP = 4; // px of movement before a press becomes a pan (so a pan never selects)
 const WIDGET_MIN_SCALE = 0.6; // below this the widget grid is dropped (unreadable anyway)
 const LABEL_MIN_SCALE = 0.4; // …and below this the text goes too
@@ -189,7 +195,10 @@ const DRAG_FINE = 0.25; // shift-held multiplier for a fine adjustment
 const CSS = `
 /* contain:paint says outright what overflow:hidden already made true — nothing here draws
    outside the host — which keeps the graph's display list off the rest of the page. */
-.dgx { position:relative; width:100%; height:100%; overflow:hidden; contain:paint; cursor:grab; user-select:none;
+/* touch-action:none — this surface pans and zooms itself. Left to the browser, a one-finger
+   drag scrolls the PAGE and cancels the pan mid-gesture, and two fingers zoom the page instead
+   of the graph. Nothing here scrolls, so there is nothing to hand back. */
+.dgx { position:relative; width:100%; height:100%; overflow:hidden; contain:paint; cursor:grab; user-select:none; touch-action:none;
   background:
     radial-gradient(circle at 1px 1px, #201f26 1px, transparent 0) 0 0 / 24px 24px,
     radial-gradient(1100px 560px at 60% -10%, #141319 0%, #0d0d0f 60%);
@@ -1998,6 +2007,10 @@ export function DomChains({
   const [cam, setCam] = useState(
     () => camStore?.current ?? { x: 0, y: 0, k: 1 },
   );
+  // The live camera for the native gesture listeners, which are bound once and would otherwise
+  // read the camera as it was on their first render.
+  const camRef = useRef(cam);
+  camRef.current = cam;
   // Has the graph been framed? A saved camera means the user already has a view, so it starts true.
   const fitted = useRef(camStore?.current != null);
   // Has the USER taken the camera? Separate from `fitted` — see docs/chainsGraph.md.
@@ -2471,6 +2484,72 @@ export function DomChains({
     };
   }, []);
 
+  /**
+   * Scale by `f` about a point in HOST coordinates, keeping what is under it where it is.
+   *
+   * One place, because three gestures reach it now — wheel, trackpad pinch, two fingers — and
+   * the anchor arithmetic is the part that reads as a bug when it drifts: the graph slides out
+   * from under the cursor instead of growing around it.
+   */
+  const zoomAround = useCallback((px: number, py: number, f: number) => {
+    setCam((c) => {
+      const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, c.k * f));
+      const g = k / c.k;
+      return { k, x: px - (px - c.x) * g, y: py - (py - c.y) * g };
+    });
+  }, []);
+
+  /**
+   * Two fingers, where there is no wheel at all.
+   *
+   * Touch events rather than the pointer flow above: that flow drives node drags, widget drags
+   * and cable draws, and a second finger arriving mid-gesture would be read as a second drag.
+   * Here the rule is simply "two fingers means zoom" — the pan in progress is dropped, and the
+   * gesture is measured from the camera it STARTED on rather than frame to frame, so pinching
+   * out and back in returns exactly where it began.
+   */
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let pinch: { dist: number; k: number; x: number; y: number } | null = null;
+    const spread = (t: TouchList) => spreadOf(t[0], t[1]);
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      pan.current = null; // a pinch is not a pan, whatever the first finger had started
+      setPanning(false);
+      pinch = { dist: spread(e.touches), ...camRef.current };
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const d = spread(e.touches);
+      if (d <= 0) return;
+      const r = host.getBoundingClientRect();
+      const px = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+      const py = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+      const k = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, pinch.k * pinchFactor(pinch.dist, d)),
+      );
+      const g = k / pinch.k;
+      userMoved.current = true;
+      setCam({ k, x: px - (px - pinch.x) * g, y: py - (py - pinch.y) * g });
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinch = null;
+    };
+    host.addEventListener("touchstart", onStart, { passive: true });
+    host.addEventListener("touchmove", onMove, { passive: false });
+    host.addEventListener("touchend", onEnd);
+    host.addEventListener("touchcancel", onEnd);
+    return () => {
+      host.removeEventListener("touchstart", onStart);
+      host.removeEventListener("touchmove", onMove);
+      host.removeEventListener("touchend", onEnd);
+      host.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+
   const onPointerDown = (e: React.PointerEvent) => {
     // A widget's own pointerdown stops here, so this fires for the canvas or a node body: a press that moves pans.
     pan.current = {
@@ -2488,14 +2567,7 @@ export function DomChains({
     const px = e.clientX - r.left;
     const py = e.clientY - r.top;
     userMoved.current = true; // as above: a deliberate zoom outranks any auto-fit
-    setCam((c) => {
-      const k = Math.min(
-        MAX_ZOOM,
-        Math.max(MIN_ZOOM, c.k * Math.exp(-e.deltaY * 0.001)),
-      );
-      const f = k / c.k;
-      return { k, x: px - (px - c.x) * f, y: py - (py - c.y) * f };
-    });
+    zoomAround(px, py, wheelZoomFactor(e.deltaY, e.ctrlKey));
   };
   // Wheel needs a non-passive native listener to preventDefault the page scroll.
   useEffect(() => {

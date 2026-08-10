@@ -201,3 +201,24 @@ Two rules, both of which were broken and each of which reads as "the spinner is 
 
 The engine's own apply still follows, so audio catches up a moment after the picture. That is
 the right order: the click was about the graph.
+
+## Zooming: wheel, trackpad pinch, two fingers
+
+The camera scales about a point in host coordinates, and three gestures reach that one piece of
+arithmetic (`zoomAround`) — the anchor is what reads as a bug when it drifts, the graph sliding
+out from under the cursor instead of growing around it.
+
+A wheel notch reports a delta in the hundreds, and `0.001` turns that into ~10% a notch. A
+trackpad pinch arrives as Ctrl+wheel with small continuous deltas, where that same coefficient
+gave a fraction of a percent each — the "very slow" of two fingers on a trackpad. It gets ten
+times the coefficient (`wheelZoomFactor` in `@studio/ui-chains/zoomGesture`, tested there), which
+leaves the wheel exactly as it was.
+
+Two fingers on a touchscreen are read from touch events rather than through the pointer flow:
+that flow drives node drags, widget drags and cable draws, and a second finger arriving mid-drag
+would be read as a second drag. Here the rule is simply "two fingers means zoom" — the pan in
+progress is dropped, and the gesture is measured from the camera it STARTED on.
+
+`.dgx` carries `touch-action: none`. This surface pans and zooms itself and scrolls nothing, so
+there is nothing to hand back to the browser; without it a one-finger drag scrolled the page and
+cancelled the pan mid-gesture, and two fingers zoomed the page instead of the graph.
