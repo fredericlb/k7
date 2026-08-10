@@ -59,20 +59,40 @@ the canvas cancels the glide where it got to: you are steering now, it should no
 frame** with that frame's own zoom, not once from the two ends — which is what stops the graph
 drifting under the pointer during the glide and snapping back at the end.
 
+## The wheel is a PAN. The pinch is the zoom.
+
+`isZoomWheel` is the whole rule: `ctrlKey` (or `metaKey`) means zoom, anything else means pan.
+
+That is not a preference, it is the only signal there is. On a Mac trackpad — and on a Windows
+precision touchpad — a **pinch** arrives as a wheel event with `ctrlKey` set, synthesised by the
+browser; **two fingers sliding** arrive as a plain wheel with `deltaX`/`deltaY`, indistinguishable
+from a mouse wheel. A trackpad has no third thing to send. So as long as the plain wheel zoomed,
+every attempt to pan a Mac trackpad zoomed instead, which is exactly what it did here until
+10 August 2026.
+
+The cost is stated plainly: **a mouse wheel now pans**, and zooming with a mouse means holding
+Ctrl. That is the Figma / Miro / Maps arrangement, and it is the price of the trackpad working
+at all — there is no rule that gives a plain wheel to zoom and to pan at once.
+
+Panning moves the camera **with the fingers, 1:1, with no glide** — the same rule a drag follows
+(above), because both are a hand pushing the world about and easing that is lag. A slide also
+cancels a zoom still in flight, exactly as a pointer-down does. The deltas are screen pixels and
+so is the translation, which is why no zoom enters that arithmetic.
+
 ## `deltaMode` is not optional
 
 A wheel is measured in pixels almost everywhere, in **lines** by Firefox, and in pages in the
-rare full-page mode. Reading `deltaY` raw means one notch zooms by `e^-0.1` in Chrome and
-`e^-0.003` in Firefox: a 30× difference, which does not read as "slower there", it reads as the
-wheel being broken. `wheelFactor` normalises all three.
+rare full-page mode. Reading a delta raw means one notch moves 100 units in Chrome and 3 in
+Firefox: a 30× difference, which does not read as "slower there", it reads as the wheel being
+broken. `wheelPixels` normalises all three, and `wheelFactor` is that in an exponent.
 
 The listener is native and `passive: false` — it must `preventDefault` the page scroll anyway,
 and being the handler itself avoids a React synthetic event per notch, of which a trackpad
 sends a great many.
 
-## What is deliberately NOT here
+## The same rule, elsewhere
 
-**The wheel still zooms, and is not remapped to pan.** Figma pans on wheel and zooms on
-ctrl+wheel; this graph has always zoomed, and changing what the wheel means is a different
-request from making it smooth. Pinch on a trackpad arrives as ctrl+wheel and so already zooms,
-through the same path.
+l8's timeline, piano roll and waveform draw the same line in `usePanZoom.ts`, but not with this
+code: those are **scroll containers**, so their pan is the browser's own — a plain wheel is
+simply handed back, momentum and axis locking included, and only the pinch is intercepted. A
+pane scrolls; this one translates. Shared rule, different mechanism.

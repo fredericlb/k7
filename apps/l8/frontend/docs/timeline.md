@@ -145,6 +145,26 @@ A zoom is a mode you can forget you are in — the lanes look normal, they just 
 somewhere other than beat 1 — so the status line says so on every line and names the way
 out.
 
+## The wheel pans, the pinch zooms
+
+`useHZoom` (`usePanZoom.ts`) intercepts a wheel event only when `ctrlKey` or `metaKey` is set.
+A **pinch** on a Mac trackpad — and on a Windows precision touchpad — arrives exactly that way,
+synthesised by the browser; **two fingers sliding** arrive as a plain wheel, indistinguishable
+from a mouse wheel. There is no third signal, so while the plain wheel zoomed, every attempt to
+pan a trackpad zoomed the timeline instead.
+
+A plain wheel is now handed straight **back to the browser** rather than pan being re-implemented
+on `scrollLeft`: the pane is already an `overflow-auto` scroller, so the native scroll is the
+pan — both axes at once, with momentum, axis locking and rubber-banding for free. The cost is
+that a mouse wheel scrolls instead of zooming, and zooming with a mouse means holding Ctrl.
+
+`overscroll-behavior: none` sits on the root (`index.css`) because of this: a pane that has hit
+its end no longer preventDefaults, and without it the leftover scroll bounces the whole shell.
+
+The piano roll and the waveform take the same hook, so they behave the same. The chains graph
+draws the same line in its own camera — it translates rather than scrolls, so the rule is shared
+and the code is not (`packages/ui-chains-react/docs/camera.md`).
+
 ## Fit to pane, not scroll
 
 The view's beat range fills the pane **exactly**: the beat width is derived from the pane

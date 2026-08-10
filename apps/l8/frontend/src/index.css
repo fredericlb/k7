@@ -30,6 +30,10 @@
     height: 100%;
     margin: 0;
     color-scheme: dark;
+    /* A pane's scroll no longer preventDefaults a two-finger slide — that slide IS the pan now
+       (usePanZoom.ts). A pane that has hit its end must not hand the rest to the page, which on
+       a Mac answers with a rubber-band bounce of the whole shell. */
+    overscroll-behavior: none;
   }
   body {
     background: var(--sh-background);

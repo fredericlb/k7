@@ -8,14 +8,44 @@ import {
   approach,
   type Cam,
   clampZoom,
+  isZoomWheel,
   lodFor,
   MAX_ZOOM,
   MIN_ZOOM,
   sameLod,
   wheelFactor,
+  wheelPixels,
   ZOOM_HALF_LIFE,
   zoomAbout,
 } from "./camera";
+
+describe("isZoomWheel", () => {
+  it("calls a PINCH a zoom — that is how a trackpad sends one", () => {
+    // The browser synthesises ctrlKey for a pinch on a Mac trackpad and on a Windows precision
+    // touchpad. It is the only signal there is.
+    expect(isZoomWheel({ ctrlKey: true, metaKey: false })).toBe(true);
+    expect(isZoomWheel({ ctrlKey: false, metaKey: true })).toBe(true);
+  });
+
+  it("calls a plain wheel a PAN, which is the whole change", () => {
+    // Two fingers sliding arrive exactly like a mouse wheel. Zooming on that is what made every
+    // attempt to pan a Mac trackpad zoom instead — so the plain wheel gives up zoom.
+    expect(isZoomWheel({ ctrlKey: false, metaKey: false })).toBe(false);
+  });
+});
+
+describe("wheelPixels", () => {
+  it("reads a delta the same however the browser measured it", () => {
+    // Chrome sends pixels, Firefox sends the same gesture as lines; a page is the viewport.
+    expect(wheelPixels(100, 0, 800)).toBe(100);
+    expect(wheelPixels(100 / 16, 1, 800)).toBeCloseTo(100, 10);
+    expect(wheelPixels(1, 2, 800)).toBe(800);
+  });
+
+  it("keeps the sign, because it is a direction and not an amount", () => {
+    expect(wheelPixels(-3, 1, 800)).toBe(-48);
+  });
+});
 
 describe("wheelFactor", () => {
   it("reads a notch the same however the browser measured it", () => {
