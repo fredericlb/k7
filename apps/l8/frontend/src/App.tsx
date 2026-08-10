@@ -254,6 +254,40 @@ export default function App({
   // Which field the command bar is waiting on, or null. The shell reads it to decide whether a
   // gesture in a pane should ACT or feed the bar — see docs/commandBar.md.
   const [barPending, setBarPending] = useState<CommandPending | null>(null);
+  // …and read LIVE by the phone's dismiss timer below, which fires after the state that would
+  // have told it not to.
+  const barPendingRef = useRef<CommandPending | null>(null);
+  barPendingRef.current = barPending;
+
+  /**
+   * The PHONE's bar goes away when it loses the keyboard. The desktop's is docked and stays.
+   *
+   * A popin over a phone screen is most of the screen: leaving it up after you have tapped past
+   * it costs the pane you tapped INTO, and there is no minimap row for it to live under.
+   *
+   * Two guards, and both are load-bearing. It waits a moment rather than closing on the blur
+   * itself, because picking a command takes the keyboard from this field and gives it to the
+   * parameter form one render later — closing in between would dismiss the bar at the exact
+   * moment it was about to ask you something. And it re-reads `barPending` when the timer
+   * fires: while the parameter popin is open the bar is not idle, whatever the command field's
+   * focus says.
+   */
+  const dismiss = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onBarFocusChange = useCallback(
+    (focused: boolean) => {
+      if (dismiss.current) {
+        clearTimeout(dismiss.current);
+        dismiss.current = null;
+      }
+      if (docked || focused) return;
+      dismiss.current = setTimeout(() => {
+        dismiss.current = null;
+        if (!barPendingRef.current) setPaletteOpen(false);
+      }, 150);
+    },
+    [docked],
+  );
+  useEffect(() => () => clearTimeout(dismiss.current ?? undefined), []);
   // The editor as a POPIN: a command sent it to a file while its pane was off screen. It is the
   // SAME instance, restyled onto the surface — see docs/shell.md.
   const [editorPopin, setEditorPopin] = useState(false);
@@ -2039,6 +2073,7 @@ export default function App({
                 }}
                 onClose={() => setPaletteOpen(false)}
                 onPending={setBarPending}
+                onFocusChange={onBarFocusChange}
                 autoFocus
               />
             </div>

@@ -123,9 +123,19 @@ export const CommandBar = forwardRef<
     autoFocus?: boolean;
     // Which field is waiting, so the shell can route a gesture to it (null between commands).
     onPending?: (p: CommandPending | null) => void;
+    /**
+     * Whether the COMMAND field has the keyboard.
+     *
+     * Reported rather than acted on, because what losing it means is the shell's to decide: on a
+     * phone the bar is a popin and goes away, on a wide screen it is a docked strip that stays.
+     * The parameter form's own fields are deliberately not reported — while it is open the bar
+     * is not what has the keyboard, and saying "unfocused" would be answering a different
+     * question from the one the shell is asking.
+     */
+    onFocusChange?: (focused: boolean) => void;
   }
 >(function CommandBar(
-  { commands, listArg, onRun, onClose, autoFocus, onPending },
+  { commands, listArg, onRun, onClose, autoFocus, onPending, onFocusChange },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -387,8 +397,14 @@ export const CommandBar = forwardRef<
             setValue(e.target.value);
             setSel(0);
           }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onFocus={() => {
+            setFocused(true);
+            onFocusChange?.(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            onFocusChange?.(false);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === "Tab") {
               e.preventDefault();
