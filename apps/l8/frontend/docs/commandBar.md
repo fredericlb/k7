@@ -1,48 +1,85 @@
 # The command palette and the module picker
 
-## `CommandBar.tsx` — a step-by-step form
+## `CommandBar.tsx` — one question, then a form
 
-It fills a command one field at a time. First it asks for the COMMAND: type to filter,
-↑/↓ to move, Enter/Tab (or click) to validate. Then it asks for each PARAM in turn, with
-completion for that param; Enter/Tab validates the field and moves to the next, and
-validating the LAST param runs the command. A command with no params runs as soon as
-it's picked.
+The bar asks ONE thing: **what do you want done**. You answer in your own words, it lists
+SENTENCES, and the parameters that command needs are asked afterwards, in their own small panel
+(`CommandParams.tsx`) in the bottom-right corner. A command with no parameters runs as soon as
+it is picked.
 
-### Completion IS the validation
+### It lists what a command DOES, not what it is called
 
-Whenever the field has suggestions, Enter and Tab both take the HIGHLIGHTED one — they
-are the only way to validate a field or move to the next argument. Typing narrows the
-list, it doesn't commit; so a half-typed command can never dispatch as a bogus line, and
-a param that has a vocabulary can only be filled from it.
+Every command carries a `readable` description — one sentence, in English and in French. The
+backend's are in [`commands.yaml`](../../../../packages/commands/commands.yaml) and the shell's
+own are in `LOCAL_READABLE` (`palette.ts`); `commandSpec.test.ts` fails if a command ships
+without one, in either language, and `palette.test.ts` fails if a shell command does.
 
-Only a field with NO suggestions (a dB number, a marker name — args with no completion
-provider) takes the typed text verbatim.
+The command's NAME is not translated and never will be: a name is an identifier, the CLI's, and
+one spelling everywhere is what lets a menu pre-write a line, a key binding dispatch one, and a
+person read the same thing in the docs (see `commandI18n.ts`). What is translated is the
+explanation. So each row shows the sentence on the left and the name on the right, where a
+palette you have used before puts the keybinding — and typing either finds the row.
 
-### Enter runs, Tab keeps going
+That is the whole reason for the change. "Mute a track" was reachable only by knowing the word
+`track`, and `track mute` is the third of twenty commands starting with `track`. A person
+knows what they want done before they know what it is called.
 
-Enter and Tab are otherwise the same key, and they part company on one point.
+### Everything is matched FUZZILY, with the shell's one matcher
+
+`fuzzyScore` (`fuzzy.ts`) is the same subsequence rule the file picker and the module search
+already use, so "type a few letters" behaves the same wherever the shell searches.
+
+- **Commands** are scored against their sentence *and* their name, best of the two, so both
+  roads lead to the same row. The name gets a small bonus on a tie: someone typing `mute`
+  means the command.
+- **A parameter's values** are scored the same way, in the browser. The field's whole
+  vocabulary is fetched ONCE when the field opens (`makeListArg`) instead of asking the backend
+  to narrow it on every keystroke. Two things come of that: `rythm` finds `ge.rythm`, which a
+  prefix filter cannot; and a question costs one round trip rather than one per letter, on a
+  service that is a single Node process and queues what it is asked.
+
+Both ranking functions are pure and live in `palette.ts`, which is what makes the claim
+testable in a repo that mounts no components.
+
+### The parameters, in the corner
+
+`CommandParams` is a panel, not a step: **every question is on screen at once**, and an answer
+given three fields ago can be changed without unwinding the ones after it. It holds no state —
+the command, the answers and the gesture inlets all live in `CommandBar`, because two
+components with two copies of that would be two commands.
+
+- **Tab** goes to the next question. On a field showing suggestions it takes the highlighted
+  one first, so completion is still the validation, and then steps on.
+- **Enter** means "that is my line": it runs as soon as every required parameter is answered.
+  When one is missing it moves there instead of refusing silently. On a field showing
+  suggestions it takes the highlighted one, as Tab does.
+- **Escape** drops the list, and a second Escape abandons the command and gives the bar back.
+
+Bottom-right, small, and over nothing you would be pointing at: the bar is the bottom strip,
+the timeline and the graph fill the middle, and the corner is the one place a panel can sit
+while a gesture elsewhere answers one of its fields.
 
 A command may declare trailing params it runs without (`optional: true` in `commands.yaml` —
 see [that package's page](../../../../packages/commands/docs/optionalArgs.md)). `requiredCount`
-counts the params up to the last mandatory one, and **Enter dispatches as soon as those are
-answered**: it means "that is my line". **Tab** means "there is more", and steps onto the
-trailing optional param instead. Enter on an empty optional field runs the line as it stands
-rather than passing `""` as that param's value.
+counts up to the last mandatory one and `canRun` asks whether those are answered; a trailing
+optional left blank is not an omission, it is the answer "not that". Without this the bar could
+not run `event move` at all: its fourth param moves the clip to another track and is usually
+not wanted, but `args.length` said four.
 
-Without this the bar could not run `event move` at all. Its fourth param moves the clip to
-another track and is usually not wanted, but `args.length` said four, so the form waited
-forever for an answer the command did not need. The old catalogue said "optional" in the
-hint's prose, which a person could read and the form could not.
+A blank in the MIDDLE is kept as an empty token by `lineArgs`, because dropping it would shift
+every param after it one place left and the command would read a track name as a timecode.
+`canRun` is what stops such a line being dispatched at all.
 
-### The list only shows while the field has the keys
+### The command list only shows while the bar has the keys
 
 A completion list is part of the field you are typing in, so it goes when the focus does.
 
 That follows from the bar not being modal: answering a param by reaching into a pane takes the
 focus away, and the list would otherwise sit parked over the timeline you just clicked —
-covering the thing the gesture was about. A suggestion's own `onMouseDown` preventDefaults, so
-picking one does not blur first and pull the list out from under the click, and a pointer-down
-anywhere on the bar puts the focus back in the field rather than dismissing it.
+covering the thing the gesture was about. It is load-bearing now that the bar is docked: the
+catalogue is non-empty from the moment it loads, so "are there matches" would leave thirty rows
+hanging over the minimap for ever. A row commits on `mousedown` and preventDefaults to keep the
+focus, so the blur that closes the list can never be the one that was about to pick from it.
 
 ## It is NOT modal
 
@@ -114,8 +151,9 @@ not written yet.
 re-offers on every frame. The closing offer takes the focus back — the click that began the
 gesture took it away, and Enter has to land in the bar.
 
-`applyOffer` puts the highest param the gesture knows in the INPUT and fills everything before
-it, so a live drag rewrites one field while the line in front of it stays still. A param the
+`applyOffer` writes every field the gesture knows from the active one forward, and the keyboard
+follows to the last of them — so a live drag rewrites one field while the answers in front of
+it stay still, and the next Enter is about the value the gesture just put down. A param the
 offer skips keeps what is already there rather than being blanked, or a second gesture that
 knew less would quietly erase an answer the first one gave.
 
@@ -129,25 +167,20 @@ because nothing in this app mounts a component.
 
 ### Presentation
 
-The validated command and the params filled so far are shown as a prefix before the
-input, so the growing line stays visible. Backspace on an empty field steps back to the
-previous one (its value returns to the input for editing).
+While the form is open the bar shows WHAT is being filled — the sentence, with the canonical
+name beside it — and takes no typing: the questions have their own fields, and a second input
+in the bar would compete for the keys. Clicking it abandons the command and gives the bar back.
 
-Each param KIND has its own colour (`ARG_COLOR`) — worn by the field being typed, by its
-suggestions, and by the value once filled — so the growing line tells you what it is
-asking for before you read the prompt.
+Each param KIND has its own colour (`ARG_COLOR`) — worn by the active field, its label and its
+suggestions — so a question tells you what it is asking for before you read the prompt.
 
-The bar sits at the bottom of the window, so the suggestion list opens UPWARD and is
-rendered bottom-first: the highlighted entry sits right above the input (where the eye
-already is) and ↑ walks away from it, the way a shell completion list reads.
+The bar sits at the bottom of the window, so the command list opens UPWARD and is rendered
+bottom-first: the best match sits right above the input (where the eye already is) and ↑ walks
+away from it, the way a shell completion list reads.
 
-The list is shown only while the input has **focus**, and that condition is load-bearing now
-that the bar is docked. `sugs` is non-empty from the moment the catalogue loads — the command
-phase filters the whole vocabulary — so "are there suggestions" left thirty rows hanging over
-the minimap for ever. It went unnoticed for exactly as long as the bar was something you
-opened. Taking a suggestion is safe under this rule because the list commits on `mousedown`
-and preventDefaults to keep the focus, so the blur that closes the list can never be the one
-that was about to pick from it.
+Both the list and the parameter panel are PORTALLED to the body. The bar is a flex row in the
+shell's bottom strip; a panel that size inside it would be clipped or would push the input
+around, which is the same lesson the timeline's lane menu learned from its gutter.
 
 ## `ModulePicker.tsx` — "which module?"
 

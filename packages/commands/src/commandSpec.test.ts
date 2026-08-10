@@ -253,3 +253,56 @@ describe("commands.yaml is well-formed against the providers", () => {
     expect(mute).toEqual([]);
   });
 });
+
+/**
+ * The palette LISTS these sentences and matches on them, so a command without one is a command
+ * nobody can find by describing what they want — which is the whole point of the surface. The
+ * catalogue is the only place that knows a command exists, so it is the only place that can
+ * notice the sentence is missing.
+ */
+describe("readable descriptions", () => {
+  const specs = loadCommandSpecs();
+
+  it("exist in both languages for every command", () => {
+    const missing = specs
+      .filter((c) => !c.readable?.en?.trim() || !c.readable?.fr?.trim())
+      .map((c) => c.command);
+    expect(missing, "commands with no readable description").toEqual([]);
+  });
+
+  it("are sentences rather than the command name again", () => {
+    // A description that merely echoes the name teaches nothing and matches the same letters
+    // the name already matches — two rows saying one thing.
+    const echoes = specs
+      .filter((c) => c.readable?.en.toLowerCase() === c.command.toLowerCase())
+      .map((c) => c.command);
+    expect(echoes).toEqual([]);
+    for (const c of specs) {
+      expect(c.readable?.en.length, c.command).toBeGreaterThan(8);
+      expect(c.readable?.fr.length, c.command).toBeGreaterThan(8);
+    }
+  });
+
+  it("carry no example and no full stop, unlike `help`", () => {
+    // `help` is the CLI's fuller line and carries "(e.g. …)"; this one is scanned in a list,
+    // where an example is noise and a trailing stop is a row of ragged dots.
+    for (const c of specs)
+      for (const text of [c.readable?.en ?? "", c.readable?.fr ?? ""]) {
+        expect(text, c.command).not.toMatch(/e\.g\.|\(ex/i);
+        expect(text, c.command).not.toMatch(/\.$/);
+      }
+  });
+
+  it("say a different thing for every command", () => {
+    // Two commands with one sentence are two rows a person cannot choose between.
+    const seen = new Map<string, string>();
+    const clashes: string[] = [];
+    for (const c of specs) {
+      const key = (c.readable?.en ?? "").toLowerCase();
+      const first = seen.get(key);
+      if (first) clashes.push(`${first} / ${c.command}`);
+      else seen.set(key, c.command);
+    }
+    expect(clashes).toEqual([]);
+  });
+});

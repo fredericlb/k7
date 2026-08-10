@@ -44,10 +44,18 @@ export interface ArgSpec {
   // reader and not the palette — so a form could never know it had collected enough. See docs/optionalArgs.md.
   optional?: boolean;
 }
+/** What a command does, as a sentence, in each language a surface can be asked for. */
+export interface ReadableDescription {
+  en: string;
+  fr: string;
+}
+
 export interface CommandSpec {
   command: string; // the typed prefix (may contain spaces/colons)
   sid: string;
   help?: string;
+  // The palette's line, and what it fuzzy-matches on. See commands.yaml's header.
+  readable?: ReadableDescription;
   surfaces: Surface[];
   with?: string[]; // fixed leading args passed to the handler (e.g. module list vst -> ["vst"])
   args?: ArgSpec[]; // trailing user args (for completion)
@@ -191,6 +199,12 @@ export function loadCommandSpecs(): CommandSpec[] {
         command: String(c.command),
         sid: String(c.sid),
         help: c.help ? String(c.help) : undefined,
+        // Both languages or neither: a half-translated sentence would show a French list with
+        // one English row in it, which reads as a bug rather than as a missing translation.
+        readable:
+          c.readable?.en && c.readable?.fr
+            ? { en: String(c.readable.en), fr: String(c.readable.fr) }
+            : undefined,
         // An entry that names no surfaces runs everywhere.
         surfaces: Array.isArray(c.surfaces)
           ? (c.surfaces as Surface[])

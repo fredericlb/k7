@@ -1,7 +1,12 @@
-// commandFill.ts — the pure half of the command bar's form: how many params a line really
-// needs before it can run, and where a gesture's values land in its fields. Split out of
-// CommandBar.tsx because nothing in this app mounts a component in tests.
-// See docs/commandBar.md.
+// commandFill.ts — the pure half of the command bar's parameter FORM: how many params a line
+// really needs before it can run, whether it can run yet, and where a gesture's values land in
+// its fields. Split out of CommandBar.tsx because nothing in this app mounts a component in
+// tests. See docs/commandBar.md.
+//
+// The model is a form, not a queue: `values` has one slot per param — "" meaning unanswered —
+// and `active` is the field with the keyboard. It was a queue (params answered in order, one
+// input) until the params moved into their own popin, where they are all on screen at once and
+// Tab walks between them; a queue cannot express "go back and change the second one".
 
 import type { PaletteArg } from "./components/CommandBar";
 import type { ArgClass } from "./types";
@@ -19,18 +24,58 @@ export function requiredCount(args: readonly PaletteArg[]): number {
   return n;
 }
 
+/** A fresh, empty answer sheet — one slot per param, so a field can be filled out of order. */
+export function emptyValues(args: readonly PaletteArg[]): string[] {
+  return args.map(() => "");
+}
+
 /**
- * Whether a line with `filled` params answered is ready to dispatch.
+ * Whether the line can be dispatched as it stands: every required param answered.
  *
- * `more` is Tab rather than Enter — "there is another param I want" — which is the one point
- * the two keys differ on, and the only way to reach a trailing optional param.
+ * A trailing optional one left blank is not an omission, it is the answer "not that" — which is
+ * why `event move` runs on three params although its fourth exists.
  */
-export function runsAfter(
+export function canRun(
   args: readonly PaletteArg[],
-  filled: number,
-  more: boolean,
+  values: readonly string[],
 ): boolean {
-  return filled >= args.length || (!more && filled >= requiredCount(args));
+  const need = requiredCount(args);
+  for (let i = 0; i < need; i++) if (!values[i]?.trim()) return false;
+  return true;
+}
+
+/**
+ * The line's arguments, trailing blanks dropped.
+ *
+ * A blank in the MIDDLE is kept as an empty token — it would otherwise shift the params after
+ * it one place left, and the command would read someone's track name as a timecode. `canRun`
+ * is what stops that line being dispatched at all; this only decides how it is spelled.
+ */
+export function lineArgs(values: readonly string[]): string[] {
+  const out = [...values];
+  while (out.length && !out[out.length - 1]?.trim()) out.pop();
+  return out.map((v) => v ?? "");
+}
+
+/** The next field after `from` — the last one stays put, so Tab cannot walk off the form. */
+export function nextField(args: readonly PaletteArg[], from: number): number {
+  return Math.min(from + 1, Math.max(0, args.length - 1));
+}
+
+/**
+ * The first field still unanswered, or -1 when the form is complete.
+ *
+ * What Enter uses when the line is not runnable yet: it moves to the question that is actually
+ * missing rather than refusing silently, which is the difference between a form that guides and
+ * a form that sulks.
+ */
+export function firstMissing(
+  args: readonly PaletteArg[],
+  values: readonly string[],
+): number {
+  const need = requiredCount(args);
+  for (let i = 0; i < need; i++) if (!values[i]?.trim()) return i;
+  return -1;
 }
 
 /**
@@ -40,34 +85,37 @@ export function runsAfter(
  * command happens to ask for it — a clip drag knows a track and two timecodes whatever order
  * `event move` lists them in.
  *
- * It fills FORWARD ONLY, from the field currently open. An answer you have already given is
- * never rewritten: type `event move ge.rythm` and the drag fills the timecodes after it,
- * leaving your track alone. Without that rule the gesture would silently replace a param you
- * chose with the one it happened to touch, which is the opposite of answering a question.
+ * It fills FORWARD ONLY, from the field with the keyboard. An answer you have already given is
+ * never rewritten: type `event move` , put ge.rythm in its track field, and the drag fills the
+ * timecodes after it, leaving your track alone. Without that rule the gesture would silently
+ * replace a param you chose with the one it happened to touch, which is the opposite of
+ * answering a question.
  *
- * The highest param it knows goes in the INPUT and the ones between are filled, so a live drag
- * rewrites one field while the line in front of it stays still.
+ * The keyboard follows to the highest field it filled, so the next Enter is about the value the
+ * gesture just put down.
  *
- * Returns null when the offer names nothing still being asked — a gesture and a command with
- * nothing to say to each other, which is the common case and not an error.
+ * Returns null when the offer names nothing this form is still asking for — a gesture and a
+ * command with nothing to say to each other, which is the common case and not an error.
  */
 export function applyOffer(
   args: readonly PaletteArg[],
-  values: Readonly<Record<string, string>>,
-  filled: readonly string[],
-): { args: string[]; value: string } | null {
-  const from = filled.length;
+  offered: Readonly<Record<string, string>>,
+  values: readonly string[],
+  active: number,
+): { values: string[]; active: number } | null {
+  const out = [...values];
   let hi = -1;
-  for (let i = from; i < args.length; i++)
-    if (values[args[i].name] !== undefined) hi = i;
-  if (hi < 0) return null;
-  const out = [...filled];
-  for (let i = from; i < hi; i++) out.push(values[args[i].name] ?? "");
-  return { args: out, value: values[args[hi].name] ?? "" };
+  for (let i = Math.max(0, active); i < args.length; i++) {
+    const v = offered[args[i].name];
+    if (v === undefined) continue;
+    out[i] = v;
+    hi = i;
+  }
+  return hi < 0 ? null : { values: out, active: hi };
 }
 
 /**
- * Whether the field currently open is asking for `kind`.
+ * Whether the field with the keyboard is asking for `kind`.
  *
  * The inlet for a gesture that knows a VALUE and not a command: a click on the ruler produces a
  * timecode and has no idea which param wants one. Matching on the class the field already
@@ -75,8 +123,8 @@ export function applyOffer(
  */
 export function wantsKind(
   args: readonly PaletteArg[],
-  filled: number,
+  active: number,
   kind: ArgClass,
 ): boolean {
-  return args[filled]?.kind === kind;
+  return args[active]?.kind === kind;
 }

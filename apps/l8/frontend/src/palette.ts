@@ -1,6 +1,7 @@
-// palette.ts — the shell's own command catalogue for the palette, and per-argument
-// completion. Extracted from App.tsx: everything here is a pure function of the
-// backend's catalogue plus a `files()` getter, no shell state.
+// palette.ts — the shell's own command catalogue for the palette, its readable
+// descriptions, the fuzzy ranking the bar lists by, and each argument's vocabulary.
+// Extracted from App.tsx: everything here is a pure function of the backend's catalogue
+// plus a `files()` getter, no shell state. See docs/commandBar.md.
 
 import { api } from "./api";
 import {
@@ -41,7 +42,97 @@ export const LOCAL_COMMANDS = [
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
 ];
 
-// The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field.
+/**
+ * What the shell's OWN commands do, as a sentence, in each language.
+ *
+ * The backend's 69 carry theirs in `commands.yaml`; these nineteen exist only in this app, so
+ * this is their catalogue entry. Same rules: imperative, no example, no full stop — the palette
+ * lists them side by side and a reader cannot tell which half a row came from, nor should they.
+ */
+export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
+  "ui file": {
+    en: "Open a file of this project in the editor",
+    fr: "Ouvrir un fichier de ce projet dans l'éditeur",
+  },
+  "ui global": {
+    en: "Show the timeline and the chains together",
+    fr: "Afficher la timeline et les chaînes ensemble",
+  },
+  "ui editor": {
+    en: "Fullscreen the editor",
+    fr: "Passer l'éditeur en plein écran",
+  },
+  "ui timeline": {
+    en: "Fullscreen the timeline",
+    fr: "Passer la timeline en plein écran",
+  },
+  "ui chains": {
+    en: "Fullscreen the chains graph",
+    fr: "Passer le graphe des chaînes en plein écran",
+  },
+  "ui focus next": {
+    en: "Move the keyboard to the next pane",
+    fr: "Donner le clavier au panneau suivant",
+  },
+  "ui close": {
+    en: "Close the bottom panel",
+    fr: "Fermer le panneau du bas",
+  },
+  "project new": { en: "Create a new project", fr: "Créer un nouveau projet" },
+  "project delete": { en: "Delete a project", fr: "Supprimer un projet" },
+  "ui edit sequence": {
+    en: "Open a MIDI sequence in the editor",
+    fr: "Ouvrir une séquence MIDI dans l'éditeur",
+  },
+  "ui edit clip": {
+    en: "Open an audio clip's file in the editor",
+    fr: "Ouvrir le fichier d'un clip audio dans l'éditeur",
+  },
+  "ui midi learn": {
+    en: "Learn a MIDI control for a module's parameter",
+    fr: "Apprendre un contrôle MIDI pour un paramètre de module",
+  },
+  "ui select": {
+    en: "Switch between the caret and a selection",
+    fr: "Basculer entre le curseur et une sélection",
+  },
+  "ui zoom": {
+    en: "Frame the timeline on the selection",
+    fr: "Cadrer la timeline sur la sélection",
+  },
+  "ui zoom out": {
+    en: "Zoom back out one step",
+    fr: "Revenir d'un cran en arrière",
+  },
+  "ui zoom reset": {
+    en: "Show the whole song",
+    fr: "Afficher tout le morceau",
+  },
+  "transport locate": {
+    en: "Move the playhead to the caret",
+    fr: "Placer la tête de lecture sur le curseur",
+  },
+  "transport loop": {
+    en: "Loop the selection, or clear the loop",
+    fr: "Boucler la sélection, ou annuler la boucle",
+  },
+  "transport record": {
+    en: "Turn the global record enable on or off",
+    fr: "Activer ou désactiver l'enregistrement global",
+  },
+  // Also in the backend's catalogue, and filtered out of the list when it is reachable. Kept
+  // here so the row is still described when it is not — an undescribed row is an unfindable one.
+  "event move": {
+    en: "Move a clip to another position or track",
+    fr: "Déplacer un clip à une autre position ou piste",
+  },
+  "ui help": {
+    en: "Show the help: commands, keys and file syntax",
+    fr: "Afficher l'aide : commandes, touches et syntaxe des fichiers",
+  },
+};
+
+// The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field
 export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui file": [{ name: "path", kind: "file", hint: "a file of this project" }],
   // `type` is the fixed audio|m9|v1 choice completed below in makeCompleteArg.
@@ -64,51 +155,115 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
 };
 
-/** The palette's full catalogue: the backend's commands plus the shell's own. */
+/**
+ * The palette's full catalogue: the backend's commands plus the shell's own.
+ *
+ * `locale` resolves each description ONCE, here, so the bar holds a sentence and not a table to
+ * choose from — matching, listing and the popin's title all read the same string, and a command
+ * whose language changed simply arrives as a new catalogue.
+ *
+ * A command with no description falls back to its own name. That is a catalogue bug (the
+ * commands package fails its tests without one), and showing the name is how it stays visible
+ * rather than becoming an unfindable blank row.
+ */
 export function buildPaletteCommands(
   backendCmds: CommandInfo[],
+  locale: string,
 ): PaletteCommand[] {
-  const mk = (canonical: string, args: PaletteArg[]): PaletteCommand => ({
+  const lang = locale.startsWith("fr") ? "fr" : "en";
+  const mk = (
+    canonical: string,
+    args: PaletteArg[],
+    readable?: { en: string; fr: string },
+  ): PaletteCommand => ({
     canonical,
     label: commandLabel(canonical),
     names: commandTranslations(canonical),
+    readable: readable?.[lang] || canonical,
     args,
   });
-  const backend = backendCmds.map((c) => mk(c.command, c.args));
+  const backend = backendCmds.map((c) => mk(c.command, c.args, c.readable));
   const locals = LOCAL_COMMANDS.filter(
     (c) => !backendCmds.some((b) => b.command === c),
-  ).map((c) => mk(c, LOCAL_ARGS[c] ?? []));
+  ).map((c) => mk(c, LOCAL_ARGS[c] ?? [], LOCAL_READABLE[c]));
   return [...backend, ...locals];
 }
 
 /**
- * Completion for one param of a command, given the ones already filled. `file`'s path
- * completes against the open project's files (the `files` getter); everything else asks
- * the backend for the assembled line and lifts out the token at this position.
+ * The catalogue, ranked against what has been typed. THE list the bar draws.
+ *
+ * Matched on the SENTENCE and on the command's name, best of the two: a person who knows the
+ * verb types the verb, and a person who knows what they want types what they want. Both roads
+ * lead to the same row, which is the whole reason the descriptions exist.
+ *
+ * `fuzzyScore` is the shell's one matcher (fuzzy.ts) — the same subsequence rule the file
+ * picker and the module search use, so "type a few letters" behaves the same everywhere.
+ *
+ * An empty query keeps the catalogue's own order: it groups by area (tracks, then modules, then
+ * transport), which is more useful to scan than an alphabet.
  */
-export function makeCompleteArg(files: () => string[]) {
-  return async (
-    command: string,
-    priorArgs: string[],
-    partial: string,
-  ): Promise<string[]> => {
+export function rankCommands(
+  commands: readonly PaletteCommand[],
+  query: string,
+  limit = 30,
+): PaletteCommand[] {
+  const q = query.trim();
+  if (!q) return commands.slice(0, limit);
+  return commands
+    .map((c) => ({
+      c,
+      // The name scores slightly higher on a tie: someone typing "mute" means the command.
+      score: Math.max(
+        fuzzyScore(q, c.readable),
+        fuzzyScore(q, c.canonical) + 0.5,
+      ),
+    }))
+    .filter((x) => x.score >= 0)
+    .sort(
+      (a, b) => b.score - a.score || a.c.canonical.localeCompare(b.c.canonical),
+    )
+    .slice(0, limit)
+    .map((x) => x.c);
+}
+
+/** A param's candidate values, ranked the same way. Empty query keeps the provider's order. */
+export function rankValues(
+  values: readonly string[],
+  query: string,
+  limit = 30,
+): string[] {
+  const q = query.trim();
+  if (!q) return values.slice(0, limit);
+  return values
+    .map((v) => ({ v, score: fuzzyScore(q, v) }))
+    .filter((x) => x.score >= 0)
+    .sort((a, b) => b.score - a.score || a.v.localeCompare(b.v))
+    .slice(0, limit)
+    .map((x) => x.v);
+}
+
+/**
+ * One param's WHOLE vocabulary, given the params before it. `file`'s paths come from the open
+ * project (the `files` getter); everything else asks the backend for the assembled line and
+ * lifts out the token at this position.
+ *
+ * The list is fetched whole and ranked in the browser (`rankValues`), rather than asking the
+ * backend to narrow it on every keystroke. Two things come of that. The match is FUZZY, like
+ * everywhere else the shell searches — the backend's `completions` narrows by prefix, which
+ * cannot find `ge.rythm` from "rythm". And a field costs one round trip instead of one per
+ * letter, on a service that is a single Node process and queues what it is asked.
+ */
+export function makeListArg(files: () => string[]) {
+  return async (command: string, priorArgs: string[]): Promise<string[]> => {
     const canonical = canonicalizeCommand(command);
+    const partial = ""; // the whole vocabulary; the ranking is the browser's
     // `new project`'s first arg is a fixed choice the backend knows nothing about, so offer it
     // here. `m9` is a SET — two decks and a crossfade — and `v1` a CUT — a viewport and its
     // lanes; both land as folders this app cannot open. They are offered anyway because the
     // workspace is one clone and l8 is where the command bar is.
     if (canonical === "new project" && priorArgs.length === 0)
-      return ["audio", "m9", "v1"].filter((t) =>
-        t.startsWith(partial.toLowerCase()),
-      );
-    if (canonical === "file" && priorArgs.length === 0) {
-      return files()
-        .map((p) => ({ p, score: partial ? fuzzyScore(partial, p) : 0 }))
-        .filter((x) => x.score >= 0)
-        .sort((a, b) => b.score - a.score || a.p.localeCompare(b.p))
-        .slice(0, 8)
-        .map((x) => x.p);
-    }
+      return ["audio", "m9", "v1"];
+    if (canonical === "file" && priorArgs.length === 0) return files();
     // The line MUST end with a space, even for an empty partial: that space is how `completions` tells "complete the
     // next argument" from "still typing a command name", and without it the palette offered commands, not values.
     const line = [canonical, ...priorArgs, partial].join(" ");
