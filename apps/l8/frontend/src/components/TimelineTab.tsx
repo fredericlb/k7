@@ -68,6 +68,21 @@ const PX_PER_BEAT = 24;
 // import above). They were redeclared here with the same values when the package was
 // extracted, which is the drift lanes.ts's own header warns about: two surfaces disagreeing
 // about the gutter is a click landing one column off, read as a rounding bug and not one.
+/**
+ * The name column, 30% wider here than the shared default.
+ *
+ * `GUTTER_DESKTOP` is sized for what v1 puts in one — a name. This one carries an alternatives
+ * arrow, two meters, an instrument icon, the name and three toggles, so the name was down to a
+ * few characters and a title had nowhere to go. Local rather than pushed into `@studio/ui-timeline`
+ * because the width is a property of what a surface PUTS in the column, and v1 would only be
+ * paying viewport for controls it does not draw.
+ *
+ * What must not drift is this app's own idea of it: the caret's "left of the first beat" test and
+ * useHZoom's anchor maths both subtract the same `GUTTER` variable, and two numbers there is a
+ * click landing one column off (see @studio/ui-timeline's lanes.ts).
+ */
+const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
+
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
 const NATURAL = 4; // beats drawn for a length-0 clip
@@ -551,7 +566,7 @@ export function TimelineTab({
   const scrollRef = useRef<HTMLDivElement>(null);
   // Shadows the module constants below, so layout, zoom maths and playhead offset all follow one value.
   const isMobile = useIsMobile();
-  const GUTTER = isMobile ? GUTTER_MOBILE : GUTTER_DESKTOP;
+  const GUTTER = isMobile ? GUTTER_MOBILE : GUTTER_WIDE;
   const [paneW, setPaneW] = useState(0);
   useEffect(() => {
     const el = scrollRef.current;
@@ -953,11 +968,45 @@ export function TimelineTab({
     [laneAtPoint, moveArgs],
   );
 
+  /**
+   * Put the caret ON the event that was clicked, covering it.
+   *
+   * The caret is one cell, so covering something that spans eight beats is the `v` rectangle —
+   * the same selection the keyboard builds, anchored at the event's first beat and headed at its
+   * last. That is what makes a click a starting point rather than a dead end: `z` frames it,
+   * Shift+L loops it, `m` picks it up, and the Editor panel follows the caret onto its file.
+   *
+   * A length-0 placement draws NATURAL beats wide, so it is covered as it is drawn — a caret
+   * that stopped short of the block it is meant to be over would read as a rounding bug.
+   *
+   * Clamped, because a clip can begin before the zoomed view does; an unclamped head would put
+   * the selection somewhere the keys cannot walk back from.
+   */
+  const coverClip = useCallback(
+    (m: Move) => {
+      const row: RowKey = `track:${m.trackId}`;
+      const len = m.length > 0 ? m.length : NATURAL;
+      const lo = clampCell({ row, beat: Math.floor(m.origStart) });
+      const hi = clampCell({
+        row,
+        beat: Math.max(lo.beat, Math.ceil(m.origStart + len) - 1),
+      });
+      setCaret(clampCaret({ row, beat: lo.beat }));
+      setSel({ anchor: lo, head: hi });
+    },
+    [clampCell, clampCaret],
+  );
+
   const endClipDrag = useCallback(() => {
     if (!dragRef.current) return;
+    const moved = dragRef.current.moved;
     dragRef.current = null;
     // Answering the bar is NOT committing. The line is filled and sits there waiting for enter,
     // so the drop writes nothing to disk — which is what makes the gesture safe to try.
+    //
+    // BEFORE the click branch below, and deliberately: while the bar is filling `event move`, a
+    // click on a clip is how you say WHICH one, and answering that is worth more than a
+    // selection you did not ask for.
     const feed = feedMoveRef.current;
     const m = moveRef.current;
     if (feed && m) {
@@ -967,8 +1016,14 @@ export function TimelineTab({
       setStatus("event move — enter runs it, esc drops the line");
       return;
     }
+    // A CLICK — the pointer went down on the event and never moved. Park the caret over it.
+    if (!moved && m) {
+      coverClip(m);
+      setMove(null);
+      return;
+    }
     commitMoveRef.current();
-  }, [moveArgs, setStatus]);
+  }, [moveArgs, setStatus, coverClip]);
 
   // Drop the clip as an `event move` between 1-based timecodes; a zero net move just cancels. See docs/timeline.md.
   const commitMove = useCallback(() => {
@@ -1728,14 +1783,14 @@ export function TimelineTab({
                     onNewAlternative &&
                     !t.generated &&
                     !t.frozen && (
-                    <TrackAlternatives
-                      track={t.id}
-                      names={t.alternatives ?? ["1"]}
-                      current={t.alternative ?? "1"}
-                      onPick={(n) => onPickAlternative(t.id, n)}
-                      onAdd={(copy) => onNewAlternative(t.id, copy)}
-                    />
-                  )}
+                      <TrackAlternatives
+                        track={t.id}
+                        names={t.alternatives ?? ["1"]}
+                        current={t.alternative ?? "1"}
+                        onPick={(n) => onPickAlternative(t.id, n)}
+                        onAdd={(copy) => onNewAlternative(t.id, copy)}
+                      />
+                    )}
                   {/* Both live meters, subscribing for themselves — see LaneMeter. */}
                   <LaneMeter index={ti} armed={armed} />
                   {/* The instrument its name's prefix asks for ("ge.lead" → a strat),
@@ -1928,7 +1983,7 @@ export function TimelineTab({
                           <div
                             // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                             key={`${c.id}-${i}`}
-                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? " · stretched" : ""} — drag to move`}
+                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? " · stretched" : ""} — click to select, drag to move`}
                             // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                             onPointerDown={(e) => beginClipDrag(e, t, c)}
                             onPointerMove={onClipDragMove}
