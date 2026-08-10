@@ -756,7 +756,7 @@
   readable:
     en: "Bind a MIDI control to a module's parameter"
     fr: "Associer un contrôle MIDI à un paramètre de module"
-  help: "bind a MIDI CC to a module's param (module cc synth Cutoff 1 74), or `none` to unbind"
+  help: "bind a MIDI CC to a module's param, or `none` to unbind (e.g. module cc synth Cutoff 1 74)"
   surfaces: [cli]
   args:
     [

@@ -62,7 +62,9 @@ export interface CommandSpec {
 }
 
 // Named completion providers referenced by commands.yaml `complete:`, reading live state off the host.
-const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
+// `satisfies`, not an annotation: an annotation widened the keys to `string`, which made
+// ProviderName `string` too — so `PROVIDER_CLASS` checked nothing and the wire could not name one.
+const PROVIDERS = {
   baseModules: (h) => h.baseModules,
   // The module category folders, each with a trailing "/" so completing drops you ready to type the name.
   categories: () => Object.keys(MODULE_TYPES).map((c) => `${c}/`),
@@ -99,7 +101,9 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
   // refuses one by name: `track process` is the command for those. Clip ids were dropped from a
   // list like this once, back when the command reading it resolved only a track or a path, and
   // the rule that did it stands unchanged — never offer what the command would reject.
-  clipTargets: (h) => [
+  // Annotated because it reaches into PROVIDERS for `audioFiles`: inferring it would need the
+  // map's own type, which is what is being inferred.
+  clipTargets: (h): string[] => [
     ...new Set(
       h
         .project()
@@ -180,7 +184,7 @@ const PROVIDERS: Record<string, (h: CommandHost) => string[]> = {
     walk(h.songPath);
     return files;
   },
-};
+} satisfies Record<string, (h: CommandHost) => string[]>;
 
 // commands.yaml ships beside the package root; this module is src/commandSpec.ts.
 function commandsPath(): string {

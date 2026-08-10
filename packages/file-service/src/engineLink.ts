@@ -602,11 +602,13 @@ export function webCommandList(): CommandInfo[] {
       command: c.command,
       help: c.help,
       readable: c.readable,
-      // The trailing user args in order, each with the class of thing it names, so the palette can colour its field.
+      // The trailing user args in order, each with the class of thing it names, so the palette can colour its
+      // field — and the PROVIDER it completes from, which is the precise type a context menu matches on.
       args:
         c.args?.map((a) => ({
           name: a.name,
           kind: argClass(a),
+          provider: a.complete,
           hint: argHint(a),
           optional: a.optional,
         })) ?? [],

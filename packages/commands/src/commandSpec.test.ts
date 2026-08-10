@@ -240,6 +240,26 @@ describe("commands.yaml is well-formed against the providers", () => {
     ]);
   });
 
+  it("names every completion provider on the wire too", () => {
+    // A class says what COLOUR a field is; the provider says what the argument actually names,
+    // and that is what l8's right-click menu matches on to offer a track its own commands and
+    // not a sequence's. A provider added here and not there is one the menu can never see.
+    const contract = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../../web-protocol/types.ts",
+      ),
+      "utf8",
+    );
+    const union = contract.match(/export type ArgProvider =([\s\S]*?);/)?.[1];
+    expect(
+      union,
+      "ArgProvider not found in web-protocol/types.ts",
+    ).toBeTruthy();
+    const onWire = [...union!.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]);
+    expect(onWire.slice().sort()).toEqual([...PROVIDER_NAMES].sort());
+  });
+
   it("tells you what every argument accepts", () => {
     // The palette shows this clue beside the field. A provider-backed or scalar argument
     // gets one for free; a free-text one has to write its own `hint`, because "text" on
