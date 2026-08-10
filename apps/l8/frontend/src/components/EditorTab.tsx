@@ -12,6 +12,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
 import { parsePosition } from "@studio/song/timecode";
 import {
+  FileText,
   FolderTree,
   Grid3x3,
   LayoutGrid,
@@ -40,6 +41,7 @@ import {
   moduleFileOf,
   readScalarField,
 } from "../projectPaths";
+import type { SeqView } from "../sequenceEdit";
 import type {
   Diagnostic,
   FileContent,
@@ -55,10 +57,11 @@ import {
   setVideoPlacementField,
 } from "../videoPlacements";
 import { Breadcrumb } from "./Breadcrumb";
-import { EditorPane, type SeqView } from "./EditorPane";
+import { EditorPane } from "./EditorPane";
 import type { EditTarget } from "./EditorPanel";
 import { FileTree } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
+import { SeqGrid } from "./SeqGrid";
 import { UploadProgress } from "./UploadProgress";
 import type { VideoReader } from "./VideoReadersStrip";
 
@@ -75,6 +78,23 @@ export interface EditorHandle {
   localUndo: () => boolean;
   localRedo: () => boolean;
 }
+
+// The popin's three views of a sequence, in the order they read: the file, then its notes twice.
+const SEQ_TABS = [
+  { id: "text", label: "Text", icon: FileText, title: "the file itself" },
+  {
+    id: "roll",
+    label: "Roll",
+    icon: Piano,
+    title: "its notes as a piano roll",
+  },
+  {
+    id: "tracker",
+    label: "Tracker",
+    icon: Grid3x3,
+    title: "its notes as a tracker (arrows move, keys type notes)",
+  },
+] as const;
 
 // Flatten the tree to openable text paths — binaries can't be shown, which also drops .dawproject archives.
 function textFiles(nodes: FileNode[]): string[] {
@@ -191,6 +211,7 @@ const EMPTY_HINTS: Hints = {
 export function EditorTab({
   active,
   showTree,
+  popin,
   reloadKey,
   activeProject,
   projectName,
@@ -209,6 +230,10 @@ export function EditorTab({
   // Render the file-tree sidebar. On whenever the editor pane is on screen in the layout, and
   // OFF in the popin — that one is a single file a command already named. See docs/shell.md.
   showTree: boolean;
+  // Popped out over the shell, on one file a command named. The mirror of `showTree` today, but
+  // not the same question — this one asks "is this a glance at one thing", and it is what puts a
+  // sequence's grids on tabs here and nowhere else.
+  popin: boolean;
   reloadKey: number;
   activeProject: string | null;
   // The whole project's load findings; the editor draws the open file's inline. Refreshed by App's 2s vet poll.
@@ -236,8 +261,10 @@ export function EditorTab({
   // The live CodeMirror view, forwarded by EditorPane — read for the Ctrl+Z arbitration below.
   const cmViewRef = useRef<EditorView | null>(null);
   const [dirty, setDirty] = useState(false);
-  // How inline notes are shown — text, piano roll, or tracker. Per-tab; clicking the active view drops back to text.
-  const [seqView, setSeqView] = useState<SeqView>("none");
+  // Which tab of a sequence is open in the POPIN — its text, or one of the two note grids.
+  // Only there: fullscreened, this pane is the text editor and the grids have their own home
+  // in the main view (`sequence edit roll|tracker`, see docs/noteGrids.md).
+  const [tab, setTab] = useState<"text" | SeqView>("text");
   // The audio clip this clips/*.yaml links to: it docks at the bottom of the CODE pane, not the shared panel.
   const [audioClip, setAudioClip] = useState<{
     project: WebProject;
@@ -886,11 +913,11 @@ export function EditorTab({
   );
 
   const editable = !!file && !file.binary;
-  // The view toggles only make sense on a sequence file (they show its notes).
+  // The grid tabs only make sense on a sequence file (they show its notes).
   const isSeq = !!file && isSeqFile(file.path);
-  // Clicking the active view again turns it off (back to text); clicking the other switches straight to it.
-  const toggleView = (v: Exclude<SeqView, "none">) =>
-    setSeqView((cur) => (cur === v ? "none" : v));
+  // Which grid is showing, or null for the text. Everything else — a fullscreen pane, a file
+  // with no notes in it, a binary — falls back to the editor without the tabs deciding.
+  const grid = popin && isSeq && editable && tab !== "text" ? tab : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -909,37 +936,36 @@ export function EditorTab({
           onOpenProject={onOpenProject}
         />
         <div className="flex-1" />
-        {isSeq && (
-          <>
-            <Button
-              size="sm"
-              variant={seqView === "roll" ? "default" : "secondary"}
-              aria-pressed={seqView === "roll"}
-              title={
-                seqView === "roll"
-                  ? "piano roll on"
-                  : "show notes as a piano roll"
-              }
-              onClick={() => toggleView("roll")}
-            >
-              <Piano className="mr-1 h-4 w-4" />
-              Roll
-            </Button>
-            <Button
-              size="sm"
-              variant={seqView === "tracker" ? "default" : "secondary"}
-              aria-pressed={seqView === "tracker"}
-              title={
-                seqView === "tracker"
-                  ? "tracker on"
-                  : "show notes as a tracker (arrows move, keys type notes)"
-              }
-              onClick={() => toggleView("tracker")}
-            >
-              <Grid3x3 className="mr-1 h-4 w-4" />
-              Tracker
-            </Button>
-          </>
+        {/* A sequence in the POPIN gets its three views as tabs — text and the two grids as
+            peers. A popin is opened BY a command that named this sequence, so it is the one
+            place where "look at its notes" is the likely next thing; the fullscreen pane is
+            the text editor, and the main view is where a grid gets room. */}
+        {popin && isSeq && (
+          <div
+            role="tablist"
+            aria-label="sequence views"
+            className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+          >
+            {SEQ_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                title={t.title}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
+                  tab === t.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+                onClick={() => setTab(t.id)}
+              >
+                <t.icon className="h-3.5 w-3.5" />
+                {t.label}
+              </button>
+            ))}
+          </div>
         )}
         {/* A module is the one file with a second editor worth offering: the builder draws its panel.
             A BUTTON and not a redirected click — opening `module.yaml` must still open its text, which is
@@ -1047,36 +1073,51 @@ export function EditorTab({
           </aside>
         )}
         <main className="min-w-0 flex-1 overflow-hidden">
-          <EditorPane
-            file={file}
-            onEditorView={(v) => {
-              cmViewRef.current = v;
-            }}
-            hints={hints}
-            vimMode={vimMode}
-            seqView={seqView}
-            audioClip={audioClip}
-            preview={preview}
-            onClosePreview={() => setPreview(null)}
-            onChange={(v) => {
-              if (file) {
+          {/* A grid edit lands in the SAME buffer a keystroke does — dirty flag, Save button and
+              all — so switching tabs mid-edit shows the text you just drew, and one Save writes
+              whichever way you made the change. */}
+          {grid && file ? (
+            <SeqGrid
+              view={grid}
+              content={file.content}
+              racks={hints.racks}
+              resetKey={file.path}
+              onChange={(v) => {
                 setFile({ ...file, content: v });
                 setDirty(true);
-              }
-            }}
-            onSave={save}
-            onOpenEntity={open}
-            onPreview={handlePreview}
-            // A slice-rack module.yaml → inline per-symbol waveform editors in the code.
-            sliceRack={sliceRack}
-            // The open file's load errors, drawn inline as squiggles.
-            diagnostics={fileDiagnostics}
-            // An open video_tracks/*.yaml → per-placement <video> readers with Set From / Set To buttons.
-            videoReaders={videoReaders}
-            onVideoSetFrom={setVideoFrom}
-            onVideoSetTo={setVideoTo}
-            onCloseVideoReaders={() => setVideoReaders(null)}
-          />
+              }}
+            />
+          ) : (
+            <EditorPane
+              file={file}
+              onEditorView={(v) => {
+                cmViewRef.current = v;
+              }}
+              hints={hints}
+              vimMode={vimMode}
+              audioClip={audioClip}
+              preview={preview}
+              onClosePreview={() => setPreview(null)}
+              onChange={(v) => {
+                if (file) {
+                  setFile({ ...file, content: v });
+                  setDirty(true);
+                }
+              }}
+              onSave={save}
+              onOpenEntity={open}
+              onPreview={handlePreview}
+              // A slice-rack module.yaml → inline per-symbol waveform editors in the code.
+              sliceRack={sliceRack}
+              // The open file's load errors, drawn inline as squiggles.
+              diagnostics={fileDiagnostics}
+              // An open video_tracks/*.yaml → per-placement <video> readers with Set From / Set To buttons.
+              videoReaders={videoReaders}
+              onVideoSetFrom={setVideoFrom}
+              onVideoSetTo={setVideoTo}
+              onCloseVideoReaders={() => setVideoReaders(null)}
+            />
+          )}
         </main>
       </div>
     </div>

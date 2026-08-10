@@ -65,6 +65,7 @@ import {
   type PickerModule,
 } from "./components/ModulePicker";
 import { RecordingBand } from "./components/RecordingBand";
+import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
@@ -103,6 +104,7 @@ import { m } from "./paraglide/messages.js";
 import { entityFile, fileStem } from "./projectPaths";
 import type { Pane, Panel, View } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
+import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   ALL_PANES,
   DOUBLE_SHIFT_MS,
@@ -214,6 +216,13 @@ export default function App({
   // The editor as a POPIN: a command sent it to a file while its pane was off screen. It is the
   // SAME instance, restyled onto the surface — see docs/shell.md.
   const [editorPopin, setEditorPopin] = useState(false);
+  // A sequence's notes in the chains slot, or null for the graph. NOT route state: `routes.ts`
+  // carries the LAYOUT, and this names a file — the same reason the editor's open file is not
+  // in the URL either. See docs/shell.md.
+  const [seqGrid, setSeqGrid] = useState<{
+    path: string;
+    view: SeqView;
+  } | null>(null);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -788,6 +797,26 @@ export default function App({
         timelineRef.current?.startMove();
         return true;
       }
+      // `sequence edit roll|tracker <sequence>` — its notes where the graph is. Bare-named, not
+      // under `ui`: that namespace promises a command touches no file, and these open an editor
+      // that writes to the sequence they name, the way `event move` does to a placement.
+      const seq = parseSeqEdit(s);
+      if (seq) {
+        const path = resolveSequence(
+          seq.name,
+          editorRef.current?.files() ?? [],
+        );
+        if (!seq.name) setStatus(`usage: sequence edit ${seq.view} <sequence>`);
+        else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
+        else {
+          // The chains slot is where it goes, so make sure the slot is on screen: a grid drawn
+          // behind a fullscreened timeline is a command that reported success and did nothing.
+          setFull(null);
+          setView("global");
+          setSeqGrid({ path, view: seq.view });
+        }
+        return true;
+      }
       // e on a clip opens its own definition — the name fuzzy-resolves to sequences/<id>.yaml or clips/<id>.yaml.
       if (line.startsWith("edit sequence ")) {
         openInEditor(s.slice("edit sequence ".length).trim());
@@ -821,6 +850,8 @@ export default function App({
       midiSeqRef,
       store,
       createNewProject,
+      setFull,
+      setView,
     ],
   );
 
@@ -1440,6 +1471,7 @@ export default function App({
                 // Only when it owns the screen. Not in the popin: that is one file, opened by a
                 // command that already named it.
                 showTree={full === "editor"}
+                popin={editorPopin}
                 reloadKey={reloadKey}
                 activeProject={ws?.activeProject ?? null}
                 projectName={project?.name ?? null}
@@ -1540,40 +1572,61 @@ export default function App({
                   ringFor("chains"),
                 )}
               >
-                <ChainsTab
-                  reloadKey={reloadKey}
-                  active={visible("chains")}
-                  showList={full === "chains"}
-                  trackOrder={trackOrder}
-                  command={quietCommand}
-                  onBypassModule={(mod) =>
-                    void runCommand(`module bypass ${mod}`)
-                  }
-                  engineWarnings={engineWarnings}
-                  onAssetBrowse={browseAssets}
-                  onWatchWaveform={watchWaveform}
-                  onSetModuleAsset={(mod, kind, f) =>
-                    void runCommand(`module ${kind} ${mod} ${f}`)
-                  }
-                  onContextMenu={openContextMenu}
-                  onEdgeInsert={insertIntoChain}
-                  onCanvasInsert={placeInGraph}
-                  pendingInsert={insertingAt}
-                  onPickModule={(mod) =>
-                    mod && setDocSel({ kind: "module", id: mod })
-                  }
-                  pluginParamsStore={pluginParamsStore}
-                  requestPluginParams={requestPluginParams}
-                  watchPluginParams={watchPluginParams}
-                  setPluginParam={setPluginParam}
-                  trackControls={trackControls}
-                  onTrackToggle={onTrackToggle}
-                  onTrackSet={onTrackSet}
-                  focus={graphFocus}
-                  onFocused={reportFramed}
-                  midiRef={chainsMidiRef}
-                  onMidiStatus={setStatus}
-                />
+                {/* A sequence's notes take the graph's PLACE, not its mount: ChainsTab is
+                    hidden beside the grid, exactly as it is when the pane is off screen. It
+                    holds the MIDI runtime the whole shell reaches for (`ui midi learn`, see
+                    docs/midi.md), and unmounting it here would take that away for as long as a
+                    grid is open. `active` false is what already stops it drawing. */}
+                <div
+                  className={cn(
+                    "flex min-h-0 min-w-0 flex-1",
+                    seqGrid && "hidden",
+                  )}
+                >
+                  <ChainsTab
+                    reloadKey={reloadKey}
+                    active={visible("chains") && !seqGrid}
+                    showList={full === "chains"}
+                    trackOrder={trackOrder}
+                    command={quietCommand}
+                    onBypassModule={(mod) =>
+                      void runCommand(`module bypass ${mod}`)
+                    }
+                    engineWarnings={engineWarnings}
+                    onAssetBrowse={browseAssets}
+                    onWatchWaveform={watchWaveform}
+                    onSetModuleAsset={(mod, kind, f) =>
+                      void runCommand(`module ${kind} ${mod} ${f}`)
+                    }
+                    onContextMenu={openContextMenu}
+                    onEdgeInsert={insertIntoChain}
+                    onCanvasInsert={placeInGraph}
+                    pendingInsert={insertingAt}
+                    onPickModule={(mod) =>
+                      mod && setDocSel({ kind: "module", id: mod })
+                    }
+                    pluginParamsStore={pluginParamsStore}
+                    requestPluginParams={requestPluginParams}
+                    watchPluginParams={watchPluginParams}
+                    setPluginParam={setPluginParam}
+                    trackControls={trackControls}
+                    onTrackToggle={onTrackToggle}
+                    onTrackSet={onTrackSet}
+                    focus={graphFocus}
+                    onFocused={reportFramed}
+                    midiRef={chainsMidiRef}
+                    onMidiStatus={setStatus}
+                  />
+                </div>
+                {seqGrid && (
+                  <SeqGridPane
+                    path={seqGrid.path}
+                    view={seqGrid.view}
+                    onClose={() => setSeqGrid(null)}
+                    onChanged={bumpReload}
+                    setStatus={setStatus}
+                  />
+                )}
               </div>
 
               {hasVideo && full === null && view === "video" && (

@@ -193,6 +193,42 @@ Three details it needs to be usable:
 - **Any change of layout puts it away.** It is a detour to one file, not a place to be, so it is
   deliberately NOT URL state — a reload lands you in the view, not in the popin.
 
+#### A sequence in the popin has TABS
+
+Text / Roll / Tracker, and only here. A popin was opened by a command that named this
+sequence, so "now show me its notes" is the likely next thing; a fullscreen editor pane is the
+text editor, and a grid wants more room than a popin has to give.
+
+All three write to the same buffer. A note drawn in the roll makes the file dirty exactly as a
+keystroke does, so switching to Text shows the line you just drew and one Save writes it
+whichever way you made the change.
+
+### A sequence's notes where the GRAPH is
+
+`sequence edit roll <sequence>` and `sequence edit tracker <sequence>` put one of the two grids
+in the chains slot, until the × puts the graph back. That is where a grid has room: the
+timeline stays above it, which is what you read a sequence against.
+
+Four decisions worth keeping:
+
+- **It is not route state.** `routes.ts` carries the LAYOUT — which panes, which is
+  fullscreened, which panel. This names a FILE, and no file is in the URL: the editor's open
+  one is not either.
+- **The command makes its slot visible** (`full: null`, `view: global`) before opening. A grid
+  drawn behind a fullscreened timeline is a command that reported success and did nothing.
+- **`ChainsTab` is HIDDEN beside it, not unmounted** — exactly what happens when the pane is off
+  screen, `active` false being what already stops it drawing. It holds the MIDI runtime the whole
+  shell reaches for (`midi.md`), so unmounting it would take `ui midi learn` away for as long as
+  a grid was open. This is the pane invariant above, seen from inside one pane.
+- **Every edit is written**, unlike the popin's tabs. This pane has no buffer and no Save
+  button to lose an edit from, and a grid edit is one whole gesture — a note drawn, a step
+  typed — so there is nothing a Save would usefully batch. It is the same choice the
+  timeline's own roll makes when it runs `sequence note new` on a drawn note.
+
+The commands are bare-named rather than `ui …` because they name a sequence and open an editor
+that WRITES to it — the same reason `event move` and `transport record` are bare. The `ui`
+namespace's promise is that a command touches no file.
+
 ## The command palette
 
 A double-tap of Shift opens the palette (IntelliJ style). It runs the brain's shared

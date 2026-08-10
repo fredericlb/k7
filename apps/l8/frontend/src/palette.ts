@@ -26,6 +26,10 @@ export const LOCAL_COMMANDS = [
   "project delete", // recycle a project folder (confirmed via a dialog)
   "ui edit sequence", // open a MIDI sequence's file in the editor
   "ui edit clip", // open an audio clip's file in the editor
+  // A sequence's notes where the graph is, until the × puts the graph back. Bare-named: they
+  // name a sequence and open an editor that WRITES to it, which is the line `ui` draws.
+  "sequence edit roll",
+  "sequence edit tracker",
   // Arm MIDI learn on a module's param: the next control change from any attached controller
   // binds to it, and the binding is then written by `module cc`. A UI command because the
   // LISTENING is the browser's; the map it ends up writing is the brain's.
@@ -62,6 +66,12 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
   "ui edit clip": [
     { name: "name", kind: "file", hint: "a clip of this project" },
+  ],
+  "sequence edit roll": [
+    { name: "sequence", kind: "file", hint: "a sequence of this project" },
+  ],
+  "sequence edit tracker": [
+    { name: "sequence", kind: "file", hint: "a sequence of this project" },
   ],
 };
 

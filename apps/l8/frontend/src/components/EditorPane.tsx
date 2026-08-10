@@ -4,10 +4,6 @@ import { type Extension, Prec } from "@codemirror/state";
 import { type EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
-import {
-  mountSeqGrid,
-  type SeqGridController,
-} from "@studio/ui-editor/tracker/plugin";
 import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
 import { projectEntityLinks } from "@studio/ui-editor/yaml/entityLinks";
 import { projectLanguage } from "@studio/ui-editor/yaml/language";
@@ -17,7 +13,6 @@ import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
-import { isSeqFile } from "../projectPaths";
 import {
   type SliceEnvelope,
   sliceWaveformWidgets,
@@ -32,17 +27,10 @@ import type {
 import { type VideoReader, VideoReadersStrip } from "./VideoReadersStrip";
 import { WaveformView } from "./WaveformView";
 
-// A sequence file — its inline notes can be shown as an in-editor piano roll or tracker.
-const isSequenceFile = isSeqFile;
-
-// How inline notes are shown: text, piano roll, or tracker. A grid REPLACES the code view rather than embedding.
-export type SeqView = "none" | "roll" | "tracker";
-
 export function EditorPane({
   file,
   hints,
   vimMode,
-  seqView,
   audioClip,
   preview,
   onClosePreview,
@@ -61,7 +49,6 @@ export function EditorPane({
   file: FileContent | null;
   hints: Hints;
   vimMode: boolean;
-  seqView: SeqView;
   // The clip whose waveform docks at the bottom of the CODE pane, so you read a clip's text under its waveform.
   audioClip: {
     project: WebProject;
@@ -140,7 +127,6 @@ export function EditorPane({
   // A project file — the ones that get the language mode, completion, links and lint.
   const isProjectFile = !!file && /\.ya?ml$/i.test(file.path);
   const isStrudel = !!file && file.path.endsWith(".strudel");
-  const isSeq = !!file && isSequenceFile(file.path);
   const extensions = useMemo<Extension[]>(() => {
     const ext: Extension[] = [];
     // Prec.highest: our extensions are concatenated AFTER basicSetup's, whose keymap would otherwise outrank vim's.
@@ -169,7 +155,6 @@ export function EditorPane({
       if (onPreview) ext.push(projectPreviewGutter(onPreview));
       // A slice-rack module.yaml: a waveform under each symbol line, its window highlighted and its edges draggable.
       if (sliceSource && sliceEnv) ext.push(sliceWaveformWidgets(sliceEnv));
-      // The grid views are NOT CodeMirror extensions: they replace the editor with a standalone pane, hiding the text.
     } else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
     return ext;
   }, [
@@ -189,34 +174,6 @@ export function EditorPane({
     if (cmRef.current?.view) refreshLint(cmRef.current.view);
   }, [diagnostics]);
 
-  // The grid is mounted imperatively into a host div — plain DOM factories, kept out of CodeMirror deliberately.
-  const showGrid = isSeq && seqView !== "none";
-  const gridHost = useRef<HTMLDivElement>(null);
-  const gridCtrl = useRef<SeqGridController | null>(null);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const filePath = file?.path;
-  useEffect(() => {
-    if (!showGrid || !gridHost.current || !file || file.binary) return;
-    const ctrl = mountSeqGrid(gridHost.current, {
-      view: seqView === "tracker" ? "tracker" : "roll",
-      content: file.content,
-      racks: hints.racks,
-      onChange: (c) => onChangeRef.current(c),
-    });
-    gridCtrl.current = ctrl;
-    return () => {
-      ctrl.destroy();
-      gridCtrl.current = null;
-    };
-    // NOT file.content: re-mounting on every edit would drop the tracker's cursor; the effect below syncs it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showGrid, seqView, filePath, hints.racks]);
-  // Feed new content (a grid edit that flowed back, or a save reformat) to the live grid.
-  useEffect(() => {
-    if (showGrid && file) gridCtrl.current?.update(file.content);
-  }, [showGrid, file?.content]);
-
   if (!file)
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -230,7 +187,7 @@ export function EditorPane({
       </div>
     );
 
-  const editor = (
+  const body = (
     <CodeMirror
       ref={cmRef}
       value={file.content}
@@ -243,13 +200,6 @@ export function EditorPane({
       onChange={onChange}
       onCreateEditor={(view) => onEditorView?.(view)}
     />
-  );
-
-  // A roll/tracker replaces the whole code view: render the grid host in place of CodeMirror, hiding the text.
-  const body = showGrid ? (
-    <div ref={gridHost} className="h-full w-full" />
-  ) : (
-    editor
   );
 
   // An audio clip's waveform docks HERE, pinned to the bottom of the code pane (the editor is position:relative).

@@ -6,15 +6,33 @@ the WHOLE new note list, which `notes.ts` serializes straight back into the file
 
 ## `plugin.ts` — the mounting mechanism
 
-Find the `notes:` array and replace it, in place, with an interactive grid — the same
-replace-decoration code-folding uses, so the wrapper text stays visible around it.
+Two mountings, and only the second has callers.
 
-A grid edit dispatches a transaction rewriting the list text via `renderNotes`, which
-flows through the editor's normal onChange → dirty → Save path: no new save channel, and
-the file on disk is exactly what the compiler reads back.
+**`mountSeqGrid(container, opts)`** renders a grid into a plain filling element, with no
+CodeMirror anywhere near it. It takes the file's content and hands back the WHOLE next
+content with the note list rewritten, and re-rendering is driven from OUTSIDE it
+(`controller.update`) — so an edit and an external reformat share one path, with no
+re-entrant rebuild in the middle of an event. This is what every host uses.
 
-Each view is a plain `Extension` — `EditorPane` pushes at most one, only for sequence
-files — so with neither, the file is ordinary text.
+**`rollGridPlugin` / `trackerPlugin`** are the same grids as CodeMirror `Extension`s,
+replacing the `notes:` array *in place* with a replace-decoration so the wrapper text
+stays visible around it. Nobody calls them (see `docs/inventaire.md`). They are kept
+because that property — the YAML around the grid still readable — is one `mountSeqGrid`
+does not have, so this is a question of who calls, not of whether it works.
+
+## Where a host puts them
+
+This package renders a grid; it decides nothing about where. In l8 there are three homes,
+and the split is deliberate:
+
+| where | what persists an edit |
+|---|---|
+| the **chains slot** in the main view, opened by `sequence edit roll\|tracker <sequence>` and closed by its × | written straight to the file, per edit |
+| the **editor popin's tabs** — Text / Roll / Tracker, on a sequence | into the editor's buffer: dirty flag, Save button, one path with the text |
+| st0 / anywhere else drawing a sequence | its own |
+
+The fullscreen editor pane has neither, on purpose: it is the text editor, and a grid
+wants the room the main view has. See `apps/l8/frontend/docs/shell.md`.
 
 ## `TrackerGrid.ts` — the tracker view
 
@@ -31,8 +49,8 @@ caller-owned `ctx` the plugin keeps across rebuilds, not in this DOM.
 
 ## `RollGrid.ts` — the piano-roll view
 
-Mounted into a standalone pane by `plugin.ts`'s `mountSeqGrid`, filling the whole editor.
-Time runs left→right, pitch top→bottom, one lane per semitone. A left gutter names each
+Mounted into a standalone pane by `plugin.ts`'s `mountSeqGrid`, filling whatever it is
+given. Time runs left→right, pitch top→bottom, one lane per semitone. A left gutter names each
 pitch (the piano keys); a top ruler numbers the bars.
 
 The note area FILLS the pane — l8, gridlines and notes are positioned in PERCENTAGES

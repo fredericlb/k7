@@ -38,11 +38,19 @@ const VIEW_COMMANDS: { command: string; help: string }[] = [
   },
   {
     command: "ui edit sequence",
-    help: "open a MIDI sequence's piano roll in the file editor",
+    help: "open a MIDI sequence's file in the editor (its grids are tabs there)",
   },
   {
     command: "ui edit clip",
     help: "open an audio clip's waveform in the file editor",
+  },
+  {
+    command: "sequence edit roll",
+    help: "a sequence's notes as a piano roll, where the graph is (× puts the graph back)",
+  },
+  {
+    command: "sequence edit tracker",
+    help: "the same, as a tracker — arrows move, keys type notes",
   },
   {
     command: "ui select",
