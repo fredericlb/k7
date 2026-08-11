@@ -1675,9 +1675,7 @@ export default function App({
               )}
               // Stop above the floating minimap rather than over it. Inline, because it is a
               // measurement — see `stripH`; the class above sets the other three edges.
-              style={
-                editorPopin && stripH ? { bottom: stripH + 8 } : undefined
-              }
+              style={editorPopin && stripH ? { bottom: stripH + 8 } : undefined}
             >
               {editorPopin && (
                 <button
