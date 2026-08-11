@@ -331,17 +331,25 @@ would be wrong for most songs.
 ## What a click in the timeline does to the pane below
 
 The lower pane holds the chains graph, and a clicked clip's content takes its **place** (the
-graph stays mounted, hidden — it owns the MIDI runtime). Three gestures move that slot, and
-they are symmetric on purpose:
+graph stays mounted, hidden — it owns the MIDI runtime). Two gestures move that slot, and they
+are symmetric on purpose:
 
 - **a clip** — its content opens there. The caret parks on it too, which is what fills the
   Editor bottom panel; the slot is the one thing the caret cannot say, so it is told outright.
 - **the bare lane** — the caret moves to where you clicked, nothing is under it any more, and
   the slot goes back to the graph. What a click opened, a click on nothing closes; otherwise a
   clip sits parked there until you find its ✕.
-- **expanding the timeline** — the slot is emptied, not merely hidden. It lives in the pane the
-  timeline covers, so fullscreening already takes it off screen, but it used to stay SET and
-  coming back landed you on a clip opened three gestures ago instead of the graph.
+**Expanding the lanes takes the pane away entirely.** The Expand button in the timeline's
+toolbar grows every lane to show what is inside its clips — waveforms, notes — and that height
+is precisely what the pane below is holding. So while it is on, the timeline gets the whole
+view and the lower pane is `hidden`, on the same terms as `full timeline`. Looking at a chain
+is not what you are doing while you are looking inside a clip.
+
+That state lives in `TimelineTab` (it is the timeline's own toolbar) and reaches the shell
+through `onView`, beside `selecting` / `zoomed` / `loop` — one channel for "what state is the
+timeline in", rather than a second prop that could disagree with it. `hidden` and not
+unmounted, as everywhere else here: `ChainsTab` owns the MIDI runtime the whole shell reaches
+for ([midi.md](midi.md)).
 
 The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare
 lane; clips stop propagation, so they never reach the lane's handler at all.

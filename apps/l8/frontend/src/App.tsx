@@ -235,6 +235,7 @@ export default function App({
     selecting: false,
     zoomed: false,
     loop: false,
+    expanded: false,
   });
   const [settingsScreen, setSettingsScreen] = useState<SettingsScreen | null>(
     null,
@@ -394,18 +395,6 @@ export default function App({
     setEditorPopin(false);
   }, [full, view]);
 
-  /**
-   * Expanding the timeline empties the slot, rather than merely hiding it.
-   *
-   * The slot lives in the pane the timeline covers, so fullscreening the timeline already takes
-   * it off screen — but it stayed SET, and coming back landed you on the clip you had opened
-   * three gestures ago instead of the graph. Asking for the timeline alone is asking to be done
-   * with what was under it.
-   */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `full` reaching "timeline" IS the signal.
-  useEffect(() => {
-    if (full === "timeline") setGraphSlot(null);
-  }, [full]);
 
   // Optimistic, like the mixer: the editor switches modality on the click and the write's answer settles it.
   const toggleVim = useCallback(async () => {
@@ -1719,7 +1708,9 @@ export default function App({
                 {...paneProps("timeline")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  full === "timeline"
+                  // Expanded lanes take the whole height, exactly as `full timeline` does: the
+                  // pane below has stood down for them — see where `tlView.expanded` is read.
+                  full === "timeline" || (full === null && tlView.expanded)
                     ? "flex-1"
                     : full === "chains"
                       ? "hidden"
@@ -1811,8 +1802,14 @@ export default function App({
                   "flex min-h-0 min-w-0",
                   full === "chains"
                     ? "flex-1"
-                    : full === "timeline" ||
-                        (full === null && view !== "global")
+                    : // …and it stands down for EXPANDED lanes on the same terms. Expanding is
+                      // asking to see inside the clips — waveforms, notes — which is exactly the
+                      // height this pane is holding, and looking at a chain is not what you are
+                      // doing while you do that. `hidden`, not unmounted: ChainsTab owns the MIDI
+                      // runtime the whole shell reaches for (docs/midi.md).
+                      full === "timeline" ||
+                        (full === null && view !== "global") ||
+                        (full === null && tlView.expanded)
                       ? "hidden"
                       : "h-1/2 shrink-0",
                   ringFor("chains"),
