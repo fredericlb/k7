@@ -56,7 +56,7 @@ import { assetNodes, folderAt } from "./assetTree";
 import { ChainEditor } from "./ChainEditor";
 import { EngineStatusBar } from "./EngineStatusBar";
 import { EnginePage } from "./engine/EnginePage";
-import { EnginePicker } from "./engine/EnginePicker";
+import { EngineList, EnginePicker } from "./engine/EnginePicker";
 
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { FindSongs } from "./FindSongs";
