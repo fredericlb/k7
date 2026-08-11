@@ -37,8 +37,6 @@ export function PianoRoll({
   // Draw a note via `sequence note new`; absent, the roll is read-only (no known sequence to write to).
   onCreateNote?: (key: number, startBeat: number, endBeat: number) => void;
 }) {
-  // Playhead from the store (see WaveformView) so only the roll re-renders per frame.
-  const playhead = useEngineState((s) => s.playhead);
   const notes = clip.notes;
   const barBeats = Math.max(1, project.timeSigNumerator || 4);
 
@@ -100,9 +98,6 @@ export function PianoRoll({
     el.scrollLeft = 0; // content starts at beat 0
   }, [clip.id, availH, rowH, fitHiK]);
 
-  const localBeat = (playhead * project.tempo) / 60 - clip.start;
-  const playX =
-    localBeat >= 0 && localBeat <= canvasBeats ? localBeat * ppb : -1;
   const bars = Array.from(
     { length: Math.floor(canvasBeats / barBeats) + 1 },
     (_, i) => i,
@@ -303,22 +298,54 @@ export function PianoRoll({
                   }}
                 />
               )}
-              {playX >= 0 && (
-                // Translated rather than re-`left`-ed, as the timeline's is: a transport that
-                // moves 20 times a second should not be laying anything out.
-                <div
-                  className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-white/80"
-                  style={{
-                    transform: `translateX(${playX}px)`,
-                    willChange: "transform",
-                    height: gridH,
-                  }}
-                />
-              )}
+              <RollPlayhead
+                tempo={project.tempo}
+                clipStart={clip.start}
+                canvasBeats={canvasBeats}
+                ppb={ppb}
+                height={gridH}
+              />
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The transport line, and the only part of the roll that knows the transport.
+ *
+ * Held apart from the body for the same reason the timeline holds its own apart: the body draws
+ * 128 key rows, the black-key stripes, the octave lines and a div per bar before it draws a
+ * single note, and reading the playhead up there reconciled all of it 20 times a second. It is
+ * translated rather than re-`left`-ed — a transport that moves 20 times a second should not be
+ * laying anything out.
+ */
+function RollPlayhead({
+  tempo,
+  clipStart,
+  canvasBeats,
+  ppb,
+  height,
+}: {
+  tempo: number;
+  clipStart: number;
+  canvasBeats: number;
+  ppb: number;
+  height: number;
+}) {
+  const playhead = useEngineState((s) => s.playhead);
+  const localBeat = (playhead * tempo) / 60 - clipStart;
+  if (localBeat < 0 || localBeat > canvasBeats) return null; // the transport is outside this clip
+  return (
+    <div
+      className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-white/80"
+      style={{
+        transform: `translateX(${localBeat * ppb}px)`,
+        willChange: "transform",
+        height,
+      }}
+    />
   );
 }

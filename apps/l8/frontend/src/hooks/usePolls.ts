@@ -38,6 +38,16 @@ export function useGitStatus(): {
 }
 
 /**
+ * Whether two answers from the pattern clock say the same thing.
+ *
+ * By serialisation rather than a field-by-field compare, on purpose: `WebTrack` is a wide shape
+ * that grows, and a hand-rolled equality would quietly stop noticing whatever was added last.
+ * A few generated lanes stringified once every 700 ms is nothing beside the render it prevents.
+ */
+const sameTracks = (a: WebTrack[], b: WebTrack[]): boolean =>
+  a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
+
+/**
  * The pattern clock's live lanes — polled only in a song that HAS a strudel track.
  * Without one the clock can never produce a lane, so the poll would ask for an empty
  * list forever. Clearing on the way out matters: a project switch from a strudel song
@@ -51,10 +61,16 @@ export function useOrbit(hasStrudel: boolean): WebTrack[] {
       return;
     }
     let alive = true;
+    // Only when they actually CHANGED. This lands a fresh array 1.4 times a second, and the
+    // timeline derives its whole row list from it — so an unchanged answer used to rebuild
+    // every lane and every clip, playing or not.
     const tick = () =>
       api
         .strudelTracks()
-        .then((t) => alive && setOrbit(t))
+        .then((t) => {
+          if (!alive) return;
+          setOrbit((prev) => (sameTracks(prev, t) ? prev : t));
+        })
         .catch(() => {});
     void tick();
     const id = setInterval(tick, 700);

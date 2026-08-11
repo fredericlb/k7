@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   labelled,
   labelMinPx,
@@ -43,15 +43,89 @@ const DB_GRID = [0, -20, -40, -60, -80, -100];
 const HANDLE_HIT = 9; // px from an edge that counts as grabbing its handle
 const MIN_DUR = 0.1; // shortest allowed moment (s)
 const GRID_DASH = [3, 4]; // the bar/beat rule's dash: on 3px, off 4px
+const ENV_UNPLAYED = "150, 150, 163"; // grey — the material as a whole
+const ENV_PLAYED = "139, 92, 246"; // accent purple — left of the playhead
 
-export function Waveform({
+// Stable defaults: a fresh `[]` per render is a new identity, which fired the draw effect on
+// EVERY render of the host, playhead frame or not.
+const NO_EVENTS: DetectedEvent[] = [];
+const NO_ANNOTATIONS: Annotation[] = [];
+const NO_MARKERS: Marker[] = [];
+const NO_GRID: WaveformGrid[] = [];
+
+const ampToDb = (amp: number): number =>
+  amp > 0 ? 20 * Math.log10(amp) : MIN_DB;
+
+// The dB scale, absolute: MIN_DB at the bottom, 0 dB (full scale) at the top. The envelope
+// stores linear RMS where 1.0 == full scale.
+const dbToYIn = (db: number, h: number): number => {
+  const norm = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
+  return h - norm * h;
+};
+
+/**
+ * One envelope contour rasterised onto a canvas of its own.
+ *
+ * It is the same picture on every frame — ~`width` quadratic segments, twice, plus a gradient —
+ * and it used to be traced from scratch 20 times a second because the playhead shares the draw
+ * effect. Drawn once here and blitted; see docs/layers.md.
+ */
+function envelopeLayer(
+  ys: number[],
+  width: number,
+  height: number,
+  dpr: number,
+  rgb: string,
+): HTMLCanvasElement {
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(1, Math.round(width * dpr));
+  cv.height = Math.max(1, Math.round(height * dpr));
+  const ctx = cv.getContext("2d");
+  if (!ctx || width < 2) return cv;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Smooth curve through the points via quadratic segments to the midpoints.
+  const contour = () => {
+    for (let x = 0; x < width - 1; x++) {
+      const xc = (x + x + 1) / 2;
+      const yc = (ys[x] + ys[x + 1]) / 2;
+      ctx.quadraticCurveTo(x, ys[x], xc, yc);
+    }
+    ctx.lineTo(width - 1, ys[width - 1]);
+  };
+
+  // A soft filled area…
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+  ctx.lineTo(0, ys[0]);
+  contour();
+  ctx.lineTo(width - 1, height);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, `rgba(${rgb}, 0.22)`);
+  grad.addColorStop(1, `rgba(${rgb}, 0)`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // …under a top line.
+  ctx.beginPath();
+  ctx.moveTo(0, ys[0]);
+  contour();
+  ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
+  ctx.lineWidth = 1;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  return cv;
+}
+
+function WaveformInner({
   envelope,
   duration,
   threshold,
-  events = [],
-  annotations = [],
-  markers = [],
-  gridLines = [],
+  events = NO_EVENTS,
+  annotations = NO_ANNOTATIONS,
+  markers = NO_MARKERS,
+  gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
   currentTime,
   selection = null,
@@ -88,6 +162,75 @@ export function Waveform({
     duration || (envelope.samples.length * envelope.intervalMs) / 1000;
   const timeToX = (t: number) => (total > 0 ? (t / total) * width : 0);
   const xToTime = (x: number) => (width > 0 ? (x / width) * total : 0);
+  const dbToY = (db: number) => dbToYIn(db, HEIGHT);
+
+  // Taken apart from the object so an unstable `envelope` literal — which is what a host
+  // building `{intervalMs, samples}` inline hands us — cannot invalidate the work below.
+  const samples = envelope.samples;
+  const intervalMs = envelope.intervalMs;
+
+  /**
+   * One y per pixel column: interpolate when zoomed in, average when zoomed out.
+   *
+   * A smoothing pass over every sample, then a pass over every pixel — both of which used to
+   * run on each playhead frame, because they lived in the effect the transport also drives.
+   * Neither depends on the transport.
+   */
+  const ys = useMemo(() => {
+    const n = samples.length;
+    const dt = intervalMs / 1000;
+    const toTime = (x: number) => (width > 0 ? (x / width) * total : 0);
+    // dB per sample, lightly averaged to take the edge off single-sample spikes.
+    const R = 1; // smoothing radius, in samples
+    const sdb = new Array<number>(n);
+    for (let i = 0; i < n; i++) {
+      let sum = 0;
+      let cnt = 0;
+      for (let k = i - R; k <= i + R; k++) {
+        if (k >= 0 && k < n) {
+          sum += ampToDb(samples[k]);
+          cnt++;
+        }
+      }
+      sdb[i] = cnt ? sum / cnt : MIN_DB;
+    }
+    const out = new Array<number>(Math.max(1, width));
+    for (let px = 0; px < width; px++) {
+      const a = toTime(px) / dt;
+      const b = toTime(px + 1) / dt;
+      let db: number;
+      if (b - a >= 1) {
+        const i0 = Math.max(0, Math.floor(a));
+        const i1 = Math.min(n, Math.ceil(b));
+        let sum = 0;
+        let cnt = 0;
+        for (let i = i0; i < i1; i++) {
+          sum += sdb[i];
+          cnt++;
+        }
+        db = cnt ? sum / cnt : MIN_DB;
+      } else {
+        const c = (a + b) / 2;
+        const i = Math.floor(c);
+        const f = c - i;
+        const v0 = sdb[Math.max(0, Math.min(n - 1, i))];
+        const v1 = sdb[Math.max(0, Math.min(n - 1, i + 1))];
+        db = v0 + (v1 - v0) * f;
+      }
+      out[px] = dbToYIn(db, HEIGHT);
+    }
+    return out;
+  }, [samples, intervalMs, width, total, HEIGHT]);
+
+  // The two contours, rasterised once each. The DPR is read here rather than tracked: a screen
+  // change without a resize leaves them scaled until the next one, which is the cheap trade.
+  const layers = useMemo(() => {
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      unplayed: envelopeLayer(ys, width, HEIGHT, dpr, ENV_UNPLAYED),
+      played: envelopeLayer(ys, width, HEIGHT, dpr, ENV_PLAYED),
+    };
+  }, [ys, width, HEIGHT]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -102,14 +245,6 @@ export function Waveform({
     // Background
     ctx.fillStyle = "#1b1c22";
     ctx.fillRect(0, 0, width, HEIGHT);
-
-    // Absolute dBFS scale: MIN_DB at the bottom, 0 dB (full scale) at the top.
-    // The envelope stores linear RMS where 1.0 == full scale.
-    const ampToDb = (amp: number) => (amp > 0 ? 20 * Math.log10(amp) : MIN_DB);
-    const dbToY = (db: number) => {
-      const norm = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
-      return HEIGHT - norm * HEIGHT;
-    };
 
     // dB grid lines (labels drawn last, on top)
     ctx.lineWidth = 1;
@@ -156,95 +291,18 @@ export function Waveform({
       ctx.fillRect(x0, 0, Math.max(2, x1 - x0), HEIGHT);
     }
 
-    // Level envelope on the dB scale, drawn as a smooth filled area.
-    const n = envelope.samples.length;
-    const dt = envelope.intervalMs / 1000;
-
-    // dB per sample, lightly averaged to take the edge off single-sample spikes.
-    const R = 1; // smoothing radius, in samples
-    const sdb = new Array<number>(n);
-    for (let i = 0; i < n; i++) {
-      let sum = 0;
-      let cnt = 0;
-      for (let k = i - R; k <= i + R; k++) {
-        if (k >= 0 && k < n) {
-          sum += ampToDb(envelope.samples[k]);
-          cnt++;
-        }
-      }
-      sdb[i] = cnt ? sum / cnt : MIN_DB;
-    }
-
-    // One y per pixel column: interpolate when zoomed in, average when zoomed out.
-    const ys = new Array<number>(Math.max(1, width));
-    for (let px = 0; px < width; px++) {
-      const a = xToTime(px) / dt;
-      const b = xToTime(px + 1) / dt;
-      let db: number;
-      if (b - a >= 1) {
-        const i0 = Math.max(0, Math.floor(a));
-        const i1 = Math.min(n, Math.ceil(b));
-        let sum = 0;
-        let cnt = 0;
-        for (let i = i0; i < i1; i++) {
-          sum += sdb[i];
-          cnt++;
-        }
-        db = cnt ? sum / cnt : MIN_DB;
-      } else {
-        const c = (a + b) / 2;
-        const i = Math.floor(c);
-        const f = c - i;
-        const v0 = sdb[Math.max(0, Math.min(n - 1, i))];
-        const v1 = sdb[Math.max(0, Math.min(n - 1, i + 1))];
-        db = v0 + (v1 - v0) * f;
-      }
-      ys[px] = dbToY(db);
-    }
-
-    // Smooth curve through the points via quadratic segments to the midpoints.
-    const contour = () => {
-      for (let x = 0; x < width - 1; x++) {
-        const xc = (x + x + 1) / 2;
-        const yc = (ys[x] + ys[x + 1]) / 2;
-        ctx.quadraticCurveTo(x, ys[x], xc, yc);
-      }
-      ctx.lineTo(width - 1, ys[width - 1]);
-    };
-
-    // Draw the envelope in a colour, as a soft filled area + top line.
-    const drawEnvelope = (rgb: string) => {
-      ctx.beginPath();
-      ctx.moveTo(0, HEIGHT);
-      ctx.lineTo(0, ys[0]);
-      contour();
-      ctx.lineTo(width - 1, HEIGHT);
-      ctx.closePath();
-      const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-      grad.addColorStop(0, `rgba(${rgb}, 0.22)`);
-      grad.addColorStop(1, `rgba(${rgb}, 0)`);
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(0, ys[0]);
-      contour();
-      ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
-      ctx.lineWidth = 1;
-      ctx.lineJoin = "round";
-      ctx.stroke();
-    };
-
-    // Unplayed portion in grey; played portion (left of playhead) in the accent
-    // purple — the SoundCloud-style progress fill.
-    drawEnvelope("150, 150, 163");
+    // Unplayed portion in grey; played portion (left of playhead) in the accent purple — the
+    // SoundCloud-style progress fill. Both are pre-rasterised, so a frame costs two blits
+    // rather than two traced contours, and the draw ORDER is unchanged: everything below still
+    // lands on top of the fill.
+    ctx.drawImage(layers.unplayed, 0, 0, width, HEIGHT);
     const playX = timeToX(currentTime);
     if (playX > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, playX, HEIGHT);
       ctx.clip();
-      drawEnvelope("139, 92, 246");
+      ctx.drawImage(layers.played, 0, 0, width, HEIGHT);
       ctx.restore();
     }
 
@@ -370,7 +428,7 @@ export function Waveform({
   }, [
     width,
     height,
-    envelope,
+    layers,
     threshold,
     events,
     annotations,
@@ -494,3 +552,10 @@ export function Waveform({
     </div>
   );
 }
+
+/**
+ * Memoised, because the host that draws it under a clip editor re-renders on things this
+ * component does not care about. Its props must be stable for that to bite: an inline
+ * `envelope={{…}}` or a fresh `events={[]}` defeats it — see the module-level defaults above.
+ */
+export const Waveform = memo(WaveformInner);

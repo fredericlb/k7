@@ -8,7 +8,6 @@ import {
   type PluginParamsStore,
   usePluginParams,
 } from "@studio/engine-browser/params";
-import { useActiveTracks } from "@studio/engine-browser/store";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import {
   alignModuleRank,
@@ -153,7 +152,6 @@ export function ChainsTab({
   /** Say what a learn is waiting for, or what it captured. */
   onMidiStatus?: (line: string) => void;
 }) {
-  const activeTracks = useActiveTracks(trackOrder);
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -617,7 +615,6 @@ export function ChainsTab({
             row={(alignModules?.length ?? 0) > 0}
             graph={shown}
             selected={selected}
-            activeTracks={activeTracks}
             trackOrder={trackOrder}
             onSelect={selectFromGraph}
             onPickModule={onPickModule}

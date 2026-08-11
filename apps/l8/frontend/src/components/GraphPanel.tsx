@@ -5,7 +5,6 @@
 // The track comes from the caret, so the panel has no selection state of its own.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
-import { useActiveTracks } from "@studio/engine-browser/store";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { type Cam, DomChains } from "@studio/ui-chains-react";
@@ -60,7 +59,6 @@ export function GraphPanel({
     value: number,
   ) => void;
 }) {
-  const activeTracks = useActiveTracks(trackOrder);
   // Parked HERE, because App mounts this panel conditionally: it is torn down every time the
   // panel is closed, and a camera held inside it would be a fresh frame on every reopen. Same
   // rule as ChainsTab's, and the reason DomChains takes the ref rather than owning it.
@@ -101,7 +99,6 @@ export function GraphPanel({
         icons={STUDIO_ICONS}
         graph={laid}
         selected={selected}
-        activeTracks={activeTracks}
         trackOrder={trackOrder}
         onSelect={setSelected}
         onContextMenu={onContextMenu}
