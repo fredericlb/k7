@@ -70,6 +70,10 @@ The shared rank is the **deepest** of theirs, never a shallower one — pulling 
 put it above modules that feed it, and an edge that has to climb is a cable drawn backwards.
 Sinks are pushed past the row for the same reason.
 
+The camera pulls back a fifth from a perfect fit (`ROW_ZOOM_OUT`). A row framed exactly fills
+the pane edge to edge and reads as a wall: the strips are the subject, but what feeds them is
+the sentence, and a little air is what says the row belongs to a graph.
+
 One rank puts them on a line; it does not give that line a rhythm. dagre spaces a rank by what
 is ABOVE it, so a track carrying a send has a wider column and pushes its mixer away from its
 neighbour — a scattered row rather than a console. `spaceModulesEvenly` then re-spaces them

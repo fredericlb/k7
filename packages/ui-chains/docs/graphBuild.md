@@ -197,6 +197,17 @@ chains, sinks one past the deepest module, and chain pass-through nodes at 1. Ta
 *maximum* position matters for a shared module — at index 0 in chain A and 2 in chain B it
 ranks after both, so chain A's full pipeline is still respected.
 
+**Every track ends up on one line, at the top.** They carry `rank: 0`, and dagre overrides it —
+the ranker is free to push a source down to shorten the edges below it, so a song whose chains
+have different depths scatters its tracks over as many lines as it has depths. Measured at SIX
+on a fifteen-track song, one of them sitting BELOW the mixers it fed, and a source that is not
+on the source line reads as a module. `layout` therefore moves them, after dagre, onto the
+topmost of their own y values.
+
+Only the y. Their x is dagre's, so the gap between two tracks varies with what hangs underneath
+— which is right: they are the tops of chains of different widths, not a rank of identical
+strips like the mixer row.
+
 Layout is **top→bottom** layered. dagre's routed edge points are computed and then **not used**
 — see the cable section above for why a straight line beats a bend here. dagre returns node
 centres; we store top-left (what a renderer wants), and an edge keeps its two ends only so a

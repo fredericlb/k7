@@ -1093,11 +1093,32 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
   }
   dagre.layout(g);
 
-  const outNodes: GraphNode[] = nodes.map((n) => {
+  const placed: GraphNode[] = nodes.map((n) => {
     const { x, y } = g.node(n.id);
     // dagre returns a node's CENTRE; everything downstream wants its top-left.
     return { ...n, x: x - n.w / 2, y: y - n.h / 2 };
   });
+
+  /**
+   * Every TRACK on one line, at the top.
+   *
+   * They already carry `rank: 0`, and dagre overrides it: the ranker is free to push a source
+   * down to shorten the edges below it, so a song with chains of different lengths scatters its
+   * tracks over as many lines as it has chain depths — measured at SIX on a fifteen-track song,
+   * one of them sitting BELOW the mixers it feeds. A source that is not on the source line reads
+   * as a module.
+   *
+   * Only the y moves. The x is dagre's, so the spacing between two of them varies with what
+   * hangs underneath — which is right: they are not a rank of identical strips, they are the
+   * tops of chains of different widths.
+   */
+  const trackY = placed.reduce(
+    (top, n) => (n.kind === "track" ? Math.min(top, n.y) : top),
+    Number.POSITIVE_INFINITY,
+  );
+  const outNodes: GraphNode[] = Number.isFinite(trackY)
+    ? placed.map((n) => (n.kind === "track" ? { ...n, y: trackY } : n))
+    : placed;
   const outEdges: GraphEdge[] = raw.map((e) => ({
     id: e.id,
     source: e.source,

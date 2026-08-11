@@ -711,6 +711,51 @@ describe("an input wired to a track", () => {
   });
 });
 
+describe("layout puts every track on one line", () => {
+  // Tracks carry `rank: 0` and dagre overrides it: the ranker pushes a source down to shorten
+  // the edges below it, so chains of different depths scatter their tracks over as many lines.
+  // Measured at SIX lines on a fifteen-track song, one of them BELOW the mixers it fed.
+  const uneven = graph(
+    {
+      long: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "eq" }, { module: "mx-vox" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      short: {
+        from: "bass",
+        use: [{ module: "mx-bass" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox", "bass"],
+  );
+
+  it("gives them ONE y, whatever hangs under each", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges);
+    const tracks = laid.nodes.filter((n) => n.kind === "track");
+    expect(tracks.length).toBe(2);
+    expect(new Set(tracks.map((n) => n.y)).size).toBe(1);
+  });
+
+  it("puts that line at the TOP — a source is not below what it feeds", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges);
+    const trackY = laid.nodes.find((n) => n.kind === "track")?.y ?? 0;
+    for (const n of laid.nodes.filter((x) => x.kind === "module"))
+      expect(n.y).toBeGreaterThanOrEqual(trackY);
+  });
+
+  it("leaves the x alone — their spacing follows what hangs under them", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges);
+    const xs = laid.nodes.filter((n) => n.kind === "track").map((n) => n.x);
+    // Two tracks, two different columns: this aligns a line, it does not build a rank.
+    expect(new Set(xs).size).toBe(2);
+  });
+});
+
 describe("headerFontPx", () => {
   // A card is only as wide as its panel's grid now, so a fixed header size left seventeen
   // identically-shaped mixers all reading "vo_j…". The name is fitted instead.

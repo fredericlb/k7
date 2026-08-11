@@ -1942,11 +1942,25 @@ export interface ChainsCamApi {
   set: (c: Cam) => void;
 }
 
-export type FitToFn = (
-  nodes: GraphNode[],
-  panOnly?: GraphNode,
-  axis?: "both" | "height",
-) => boolean;
+export interface FitToOpts {
+  /** Keep the zoom this fit computed and only CENTRE on this node — used to walk a chain. */
+  panOnly?: GraphNode;
+  /**
+   * `"height"` fills the height and lets the set run off the right, where it pans — for a ROW,
+   * where fitting both axes divides the pane between however many members it has and the scale
+   * falls with each one. Below WIDGET_MIN_SCALE the widget grid is dropped altogether, so a wide
+   * enough row would frame to a rank of bare name cards.
+   */
+  axis?: "both" | "height";
+  /**
+   * Multiply the fitted zoom. Below 1 it pulls BACK from a perfect fit, which is what a view
+   * wants when the set it framed is the subject and not the whole story — the mixer row asks for
+   * 0.8, so the cards that feed the strips stay in the frame around them.
+   */
+  zoom?: number;
+}
+
+export type FitToFn = (nodes: GraphNode[], opts?: FitToOpts) => boolean;
 
 export function DomChains({
   icons,
@@ -2362,11 +2376,8 @@ export function DomChains({
 
   // --- fitTo: frame a subset of nodes (chain selection from the sidebar) ---------
   const fitTo = useRef<FitToFn>(() => false);
-  fitTo.current = (
-    nodes: GraphNode[],
-    panOnly?: GraphNode,
-    axis: "both" | "height" = "both",
-  ) => {
+  fitTo.current = (nodes: GraphNode[], opts: FitToOpts = {}) => {
+    const { panOnly, axis = "both", zoom = 1 } = opts;
     const host = hostRef.current;
     if (!host || !nodes.length) return false;
     const sw = host.clientWidth;
@@ -2383,9 +2394,9 @@ export function DomChains({
     const bh = maxY - minY;
     const pad = 0.9;
     const k = clampZoom(
-      axis === "height"
+      (axis === "height"
         ? (sh / bh) * pad
-        : Math.min((sw / bw) * pad, (sh / bh) * pad),
+        : Math.min((sw / bw) * pad, (sh / bh) * pad)) * zoom,
     );
     if (panOnly) {
       // Keep the zoom from the chain fit; only adjust translation to center the target.
@@ -2411,10 +2422,11 @@ export function DomChains({
     return true;
   };
   useEffect(() => {
-    // The whole signature is forwarded: an axis dropped here is a caller silently getting
-    // fit-both, which is the bug this parameter exists to prevent.
+    // One options object forwarded whole. It was three positionals, and the axis got dropped in
+    // this very line — a caller silently getting fit-both, which is the bug the parameter exists
+    // to prevent. An object cannot be half-forwarded by accident.
     onCamReady?.({
-      fitTo: (nodes, panOnly, axis) => fitTo.current(nodes, panOnly, axis),
+      fitTo: (nodes, opts) => fitTo.current(nodes, opts),
       get: () => ({ ...cam.current }),
       // Placed outright, no glide: putting a camera BACK is not a gesture to animate — the view
       // you left should be the view you return to, at once.
