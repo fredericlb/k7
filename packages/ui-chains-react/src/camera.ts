@@ -33,14 +33,55 @@ export const clampZoom = (k: number): number =>
  * with `ctrlKey` set, synthesised by the browser; two fingers sliding arrive as a plain wheel
  * carrying deltaX and deltaY. There is no other signal, and that is the whole distinction.
  *
- * It is also why a plain wheel no longer zooms. A trackpad has no way to say "scroll" other
- * than the plain wheel, so keeping zoom there is what made every attempt to pan a Mac trackpad
- * zoom instead. `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
+ * `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
+ *
+ * A plain wheel is answered by `isMouseWheel` below: on a SURFACE it slides the view, on a
+ * MOUSE it zooms.
  */
 export const isZoomWheel = (e: {
   ctrlKey: boolean;
   metaKey: boolean;
 }): boolean => e.ctrlKey || e.metaKey;
+
+/** Below this, a pixel-mode delta is a finger rather than a detent. A notch is ~100 (Chrome). */
+const MOUSE_NOTCH_MIN = 40;
+
+/**
+ * A mouse WHEEL rather than a surface — two fingers on a trackpad, a touchscreen's inertia.
+ *
+ * They arrive as the same event and mean opposite things: a wheel is a detent, discrete, and
+ * the natural thing for it to do on a graph is ZOOM; a trackpad slide is a hand pushing the
+ * view about, and zooming there is what made every attempt to pan a Mac trackpad zoom instead.
+ * So the two are told apart rather than legislated over.
+ *
+ * Three signals, most reliable first:
+ *
+ * 1. `deltaMode` other than pixels — lines or pages. Only a real wheel is ever reported that
+ *    way (Firefox does it for mice), so it settles the question on its own.
+ * 2. `wheelDeltaY`, the legacy field Chrome and Safari still carry. A mouse reports it in
+ *    multiples of 120 — the detent, from the Windows API that named it — while a trackpad
+ *    reports three times its pixel delta, which lands on 120 only by accident. This is what
+ *    separates a Mac trackpad from a Mac mouse, and nothing standard does.
+ * 3. Failing both (Firefox in pixel mode), the shape of the delta: a notch is integral, has no
+ *    horizontal component, and is LARGE, where a finger's is small and often fractional.
+ *
+ * Wrong in one direction only, by design: an unrecognised device is treated as a surface, so it
+ * keeps the behaviour that was there before. A trackpad that zooms is a broken trackpad; a
+ * mouse that pans is merely a mouse that does not zoom yet.
+ */
+export function isMouseWheel(e: {
+  deltaX: number;
+  deltaY: number;
+  deltaMode: number;
+  wheelDeltaY?: number;
+}): boolean {
+  if (e.deltaMode !== 0) return true;
+  const legacy = e.wheelDeltaY;
+  if (typeof legacy === "number" && legacy !== 0)
+    return Math.abs(legacy) % 120 === 0;
+  if (e.deltaX !== 0) return false;
+  return Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= MOUSE_NOTCH_MIN;
+}
 
 /**
  * One wheel delta in PIXELS.

@@ -220,6 +220,29 @@ gave a fraction of a percent each — the "very slow" of two fingers on a trackp
 times the coefficient (`wheelZoomFactor` in `@studio/ui-chains/zoomGesture`, tested there), which
 leaves the wheel exactly as it was.
 
+### A wheel and a trackpad send the same event and mean opposite things
+
+A plain wheel **zooms**; two fingers sliding on a surface **pan**. They arrive as the same
+`wheel` event, so the two are told apart rather than legislated over — `isMouseWheel` in
+`camera.ts`, tested there. Three signals, most reliable first: a `deltaMode` of lines or pages
+(only a real wheel is reported that way); the legacy `wheelDeltaY`, which a mouse reports in
+multiples of 120 and a trackpad does not — this is what separates a Mac trackpad from a Mac
+mouse, and nothing standard does; failing both, the delta's shape, a notch being integral,
+vertical only and large where a finger's is small and often fractional.
+
+It is wrong in one direction only, on purpose. An unrecognised device is read as a **surface**,
+so it keeps the behaviour that was there before: a trackpad that zooms when you meant to pan is
+a broken trackpad, while a mouse that pans is merely a mouse that does not zoom yet. Mobile
+never reaches any of this — a touchscreen sends touch events, handled below.
+
+### The mixer row navigates differently, because it IS a row
+
+While the graph is arranged as a row (`row`, from the mixer view), the wheel walks **along** it
+instead of zooming, and nothing pans vertically — dragging included. There is one line of cards
+and everything above or below it is empty, so a gesture that could slide the line off the top
+has one useful direction out of two. A mouse has no horizontal delta to offer, so its notch
+drives x here; the cards, the cables and the zoom itself are untouched.
+
 Two fingers on a touchscreen are read from touch events rather than through the pointer flow:
 that flow drives node drags, widget drags and cable draws, and a second finger arriving mid-drag
 would be read as a second drag. Here the rule is simply "two fingers means zoom" — the pan in
