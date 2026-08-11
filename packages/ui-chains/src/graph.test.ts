@@ -767,7 +767,9 @@ describe("layout puts every rank on its own row", () => {
     let prevBottom = Number.NEGATIVE_INFINITY;
     for (const r of rows) {
       const of = l.nodes.filter((n) => rank.get(n.id) === r);
-      expect(Math.min(...of.map((n) => n.y))).toBeGreaterThanOrEqual(prevBottom);
+      expect(Math.min(...of.map((n) => n.y))).toBeGreaterThanOrEqual(
+        prevBottom,
+      );
       prevBottom = Math.max(...of.map((n) => n.y + n.h));
     }
   });
