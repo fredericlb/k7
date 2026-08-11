@@ -394,6 +394,19 @@ export default function App({
     setEditorPopin(false);
   }, [full, view]);
 
+  /**
+   * Expanding the timeline empties the slot, rather than merely hiding it.
+   *
+   * The slot lives in the pane the timeline covers, so fullscreening the timeline already takes
+   * it off screen — but it stayed SET, and coming back landed you on the clip you had opened
+   * three gestures ago instead of the graph. Asking for the timeline alone is asking to be done
+   * with what was under it.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `full` reaching "timeline" IS the signal.
+  useEffect(() => {
+    if (full === "timeline") setGraphSlot(null);
+  }, [full]);
+
   // Optimistic, like the mixer: the editor switches modality on the click and the write's answer settles it.
   const toggleVim = useCallback(async () => {
     const next = !vimMode;
@@ -445,6 +458,27 @@ export default function App({
   const timelineVisible = visible("timeline");
   const minimapFloating = docked && editorPopin;
   const minimapDocked = docked && !timelineVisible && !editorPopin;
+
+  /**
+   * How tall the floating strip is, so the popin can stop ABOVE it instead of over it.
+   *
+   * Measured rather than guessed: the minimap sizes itself to the track count (up to `MAX_H`),
+   * so any constant here would be wrong for most songs — too small and the popin covers the
+   * transport, too large and it floats over a gap.
+   */
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const [stripH, setStripH] = useState(0);
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) {
+      setStripH(0);
+      return;
+    }
+    const ro = new ResizeObserver(() => setStripH(el.offsetHeight));
+    ro.observe(el);
+    setStripH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [minimapFloating]);
 
   const focusOn = useCallback(
     (p: Pane) => {
@@ -1639,6 +1673,11 @@ export default function App({
                     : "hidden",
                 ringFor("editor"),
               )}
+              // Stop above the floating minimap rather than over it. Inline, because it is a
+              // measurement — see `stripH`; the class above sets the other three edges.
+              style={
+                editorPopin && stripH ? { bottom: stripH + 8 } : undefined
+              }
             >
               {editorPopin && (
                 <button
@@ -1705,6 +1744,10 @@ export default function App({
                     setView("global");
                     setGraphSlot({ kind: "clip", target: t });
                   }}
+                  // …and the bare lane puts the graph back. Symmetric on purpose: what a click
+                  // opened, a click on nothing closes, rather than leaving a clip parked in the
+                  // slot until you find its ✕.
+                  onEmptyClick={() => setGraphSlot(null)}
                   onCaret={setCaret}
                   onView={setTlView}
                   onContextMenu={openContextMenu}
@@ -2085,34 +2128,40 @@ export default function App({
           </>
         )}
 
-        {/* The minimap again, over the popin that hid the timeline — pinned to the bottom of the
-            WINDOW, under the popin's own lower edge, with a mini transport above it.
+        {/* The minimap again, over the popin that hid the timeline — the full width of the
+            window at its very bottom, with a mini transport above it.
+
+            FULL WIDTH and not a centred card, because the minimap maps the whole song to the
+            width it is given: narrow it and the arrangement is squeezed into a strip less
+            legible than the one it stands in for, and the two views of the same song no longer
+            agree about where a bar is.
+
+            It does not overlap the popin. The popin's bottom is pushed up by `stripH` above —
+            they share the bottom of the screen rather than fighting for it, which is why this
+            can be a plain bar with no shadow or rounding: nothing floats over anything.
 
             Last in the tree on purpose: it shares the popin panel's z-50, so painting order is
             what puts it in front. It sits outside the backdrop, so scrubbing it does not read as
-            the click-outside that dismisses the popin.
-
-            `pointer-events-none` on the wrapper and back on for the bar itself: the strip is only
-            as wide as it needs to be, and the dead space beside it must stay a click on the
-            backdrop — which is the way out of the popin. */}
+            the click-outside that dismisses the popin. */}
         {minimapFloating && (
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-2">
-            <div className="pointer-events-auto w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-background/95 shadow-2xl backdrop-blur">
-              <MiniTransport
-                playing={playing}
-                waiting={transportWaiting}
-                tempo={recInfo.tempo}
-                beatsPerBar={recInfo.beatsPerBar}
-                onToggle={() => transport(playing ? "stop" : "play")}
-              />
-              <Minimap
-                reloadKey={reloadKey}
-                orbit={orbit}
-                caret={caret}
-                highlight={openItem}
-                onSeek={seek}
-              />
-            </div>
+          <div
+            ref={stripRef}
+            className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background"
+          >
+            <MiniTransport
+              playing={playing}
+              waiting={transportWaiting}
+              tempo={recInfo.tempo}
+              beatsPerBar={recInfo.beatsPerBar}
+              onToggle={() => transport(playing ? "stop" : "play")}
+            />
+            <Minimap
+              reloadKey={reloadKey}
+              orbit={orbit}
+              caret={caret}
+              highlight={openItem}
+              onSeek={seek}
+            />
           </div>
         )}
 
