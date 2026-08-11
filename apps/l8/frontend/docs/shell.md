@@ -291,10 +291,40 @@ Two consequences of putting the click there rather than on the clip element:
 What it draws is `ClipView`, the same component the Editor bottom panel shows — so audio and
 MIDI are told apart in one place and the two surfaces cannot come to disagree about a clip.
 
+## The minimap is not always there
+
+It is a **second view of the timeline**, and that decides where it may appear. While the
+timeline itself is on screen the minimap shows what is already there, in less detail, for a
+band of height the arrangement could have had — so it is not drawn at all. It comes back the
+moment the timeline is hidden: fullscreen another pane and it docks above the command bar,
+where it always used to live.
+
+The popin is the case the docked strip cannot serve. It covers the layout, so the minimap has
+to come **over** it or not at all — and there it stops being a convenience: a screen with no
+visible timeline is one where you have lost the song. That is why the floating one carries a
+**mini transport** (play/pause and the clock) and the docked one does not — over a popin,
+seeing where you are is worth nothing if you cannot start the tape.
+
+Three rules, all in `App.tsx` beside `visible`:
+
+| what is on screen | the minimap |
+|---|---|
+| the timeline (the default layout, and `full timeline`) | none — it would say what the timeline already says |
+| another pane fullscreened | docked, above the command bar |
+| the editor **popin** | floating, pinned to the bottom of the window, with the mini transport |
+
+Only the editor popin. The builder, the docs and the settings are **pages** that take the
+whole window and are about something other than this song — and the builder's overlay holds no
+engine link at all, so a transport over it would be a row of dead buttons.
+
+The floating strip sits outside the popin's backdrop, so scrubbing it is not the click-outside
+that dismisses the popin; the dead space beside it stays a click on the backdrop, which is the
+way out.
+
 ## The command palette
 ## The command bar
 
-It is the last row of the shell, under the minimap and full width — always there, not
+It is the last row of the shell, under the minimap when there is one, full width — always there, not
 summoned. A double-tap of Shift jumps to it and Escape hands the keyboard back. It runs the
 brain's shared commands — the same ones `l8 cmd` runs on the CLI — so the UI adds no command
 vocabulary of its own: pick a command, fill its parameters, Enter runs it. The catalogue
