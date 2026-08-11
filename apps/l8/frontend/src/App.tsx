@@ -1942,17 +1942,17 @@ export default function App({
                     itself, and the same cards the graph draws. */}
                 {graphSlot?.kind === "trackModules" && (
                   <TrackModulesPane
-                      trackId={graphSlot.trackId}
-                      reloadKey={reloadKey}
-                      command={quietCommand}
-                      trackOrder={trackOrder}
-                      pluginParamsStore={pluginParamsStore}
-                      requestPluginParams={requestPluginParams}
-                      watchPluginParams={watchPluginParams}
-                      setPluginParam={setPluginParam}
-                      trackControls={trackControls}
-                      onContextMenu={openContextMenu}
-                      engineWarnings={engineWarnings}
+                    trackId={graphSlot.trackId}
+                    reloadKey={reloadKey}
+                    command={quietCommand}
+                    trackOrder={trackOrder}
+                    pluginParamsStore={pluginParamsStore}
+                    requestPluginParams={requestPluginParams}
+                    watchPluginParams={watchPluginParams}
+                    setPluginParam={setPluginParam}
+                    trackControls={trackControls}
+                    onContextMenu={openContextMenu}
+                    engineWarnings={engineWarnings}
                     onClose={() => setGraphSlot(null)}
                   />
                 )}

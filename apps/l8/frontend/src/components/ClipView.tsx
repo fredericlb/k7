@@ -77,7 +77,9 @@ function SeqRoll({
         project={project ?? FALLBACK_PROJECT}
         clip={clip}
         onCreateNote={
-          onCreateNote ? (k, t0, t1) => onCreateNote(name, k, t0, t1) : undefined
+          onCreateNote
+            ? (k, t0, t1) => onCreateNote(name, k, t0, t1)
+            : undefined
         }
       />
     </div>

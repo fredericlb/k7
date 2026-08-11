@@ -235,66 +235,66 @@ export function RecordingPane({
       bar={
         <>
           <Circle
-          className={cn(
-            "h-4 w-4",
-            rolling
-              ? "animate-pulse fill-red-500 text-red-500"
-              : "fill-muted-foreground/40 text-muted-foreground/40",
+            className={cn(
+              "h-4 w-4",
+              rolling
+                ? "animate-pulse fill-red-500 text-red-500"
+                : "fill-muted-foreground/40 text-muted-foreground/40",
+            )}
+          />
+          {!rolling ? (
+            <div className="flex items-baseline gap-3">
+              <span className="text-sm uppercase tracking-wider text-muted-foreground">
+                Take
+              </span>
+              <span className="font-mono text-2xl tabular-nums">
+                {takeBeats.current}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                beats recorded
+              </span>
+            </div>
+          ) : inCountIn ? (
+            <div className="flex items-baseline gap-3">
+              <span className="text-sm uppercase tracking-wider text-muted-foreground">
+                Count-in
+              </span>
+              <span className="font-mono text-2xl tabular-nums text-red-400">
+                {Math.max(0, targetBeat - curBeat)}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-3">
+              <span className="text-sm uppercase tracking-wider text-red-400">
+                Recording
+              </span>
+              <span className="font-mono text-2xl tabular-nums">
+                {bar}:{beatInBar}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {recordedBeats} beats
+              </span>
+            </div>
           )}
-        />
-        {!rolling ? (
-          <div className="flex items-baseline gap-3">
-            <span className="text-sm uppercase tracking-wider text-muted-foreground">
-              Take
-            </span>
-            <span className="font-mono text-2xl tabular-nums">
-              {takeBeats.current}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              beats recorded
-            </span>
-          </div>
-        ) : inCountIn ? (
-          <div className="flex items-baseline gap-3">
-            <span className="text-sm uppercase tracking-wider text-muted-foreground">
-              Count-in
-            </span>
-            <span className="font-mono text-2xl tabular-nums text-red-400">
-              {Math.max(0, targetBeat - curBeat)}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-baseline gap-3">
-            <span className="text-sm uppercase tracking-wider text-red-400">
-              Recording
-            </span>
-            <span className="font-mono text-2xl tabular-nums">
-              {bar}:{beatInBar}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {recordedBeats} beats
-            </span>
-          </div>
-        )}
-        <span className="ml-2 truncate text-sm text-muted-foreground">
-          {armedNames.length
-            ? armedNames.join(", ")
-            : rolling
-              ? "no armed tracks — arm one with A / r"
-              : ""}
-        </span>
-        {rolling && (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="ml-auto"
-            onClick={onStop}
-            title="Stop recording (Esc)"
-          >
-            <Square className="mr-1 h-3 w-3" /> Stop
-          </Button>
-        )}
-      </>
+          <span className="ml-2 truncate text-sm text-muted-foreground">
+            {armedNames.length
+              ? armedNames.join(", ")
+              : rolling
+                ? "no armed tracks — arm one with A / r"
+                : ""}
+          </span>
+          {rolling && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="ml-auto"
+              onClick={onStop}
+              title="Stop recording (Esc)"
+            >
+              <Square className="mr-1 h-3 w-3" /> Stop
+            </Button>
+          )}
+        </>
       }
     >
       {/* the input waveform, filling the slot — it is bounded by the slot now, where it used to

@@ -10,10 +10,10 @@ import { DomChains } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import { GraphSlotPane } from "./GraphSlotPane";
 import type { MenuCtx } from "../contextMenu";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
+import { GraphSlotPane } from "./GraphSlotPane";
 
 /** Cards are drawn 1.5× the width their grid asks for — read side by side, a card sized exactly
  *  to its controls reads as cramped. Elbow room, not bigger controls: see moduleRow. */
