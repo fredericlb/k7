@@ -117,9 +117,9 @@ import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   DOUBLE_SHIFT_MS,
   MetronomeIcon,
+  MiniTransport,
   PANE_META,
   PANEL_META,
-  MiniTransport,
   PANES,
   TransportClock,
   VIEW_META,
