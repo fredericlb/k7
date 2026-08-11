@@ -898,10 +898,14 @@ private:
         const bool idle = !s.playing && !s.recordEnabled && s.armedTracks.empty() &&
                           !host_.sessionWatched(session) && allSilent(s.trackLevelsDb) &&
                           allSilent(s.trackInputLevelsDb);
+        // Counting up to the divisor and back to zero, not modulo a counter that only grows:
+        // this runs for as long as the engine does.
         if (!idle)
             idleTicks_[session] = 0;
-        else if (++idleTicks_[session] % kIdleDivisor != 0)
+        else if (++idleTicks_[session] < kIdleDivisor)
             return;   // …and nothing is drained or pumped: an idle session has no tap and no watch
+        else
+            idleTicks_[session] = 0;
 
         s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
         cb_(s);
