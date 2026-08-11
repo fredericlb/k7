@@ -8,6 +8,7 @@ import {
   approach,
   type Cam,
   clampZoom,
+  frameOriginX,
   isZoomWheel,
   lodFor,
   MAX_ZOOM,
@@ -154,5 +155,27 @@ describe("applyCam", () => {
     applyCam(el, { x: 12.5, y: -3, k: 0.75 });
     expect(el.style.transform).toBe("translate(12.5px,-3px) scale(0.75)");
     expect(() => applyCam(null, { x: 0, y: 0, k: 1 })).not.toThrow();
+  });
+});
+
+describe("frameOriginX", () => {
+  // The mixer row is the case this exists for: a rank of strips wider than the pane. Centred,
+  // its middle is on screen and BOTH ends are off — and the first channel is the one you look
+  // for to know where you are.
+  const PAD = 0.9;
+
+  it("centres a frame that fits across", () => {
+    expect(frameOriginX(1000, 400, PAD, false)).toBe(300);
+  });
+
+  it("puts a spilling frame hard left, inside the pad's margin", () => {
+    expect(frameOriginX(1000, 4000, PAD, true)).toBeCloseTo(50);
+  });
+
+  it("would have hidden the first card had it centred", () => {
+    // Same numbers, centred: the content starts off the left edge, so everything before the
+    // middle of the row is outside the pane. That is the bug this rule exists for.
+    expect(frameOriginX(1000, 4000, PAD, false)).toBeLessThan(0);
+    expect(frameOriginX(1000, 4000, PAD, true)).toBeGreaterThan(0);
   });
 });

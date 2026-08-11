@@ -73,6 +73,7 @@ import {
   approach,
   type Cam,
   clampZoom,
+  frameOriginX,
   isZoomWheel,
   type Lod,
   lodFor,
@@ -1899,6 +1900,20 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
  * members it has and the scale falls with each one. Below WIDGET_MIN_SCALE the widget grid is
  * dropped altogether, so a wide enough row would frame to a rank of bare name cards.
  */
+/**
+ * The camera, for a host that has to put it back.
+ *
+ * `fitTo` frames a set of nodes; `get`/`set` are for a view that TAKES the camera and owes it
+ * afterwards — the mixer arrangement borrows it to show the row, and hands it back when it
+ * closes. Reading the live camera rather than the parked one (`camStore`, written only when a
+ * glide settles) is the difference between restoring where you were and where you last stopped.
+ */
+export interface ChainsCamApi {
+  fitTo: FitToFn;
+  get: () => Cam;
+  set: (c: Cam) => void;
+}
+
 export type FitToFn = (
   nodes: GraphNode[],
   panOnly?: GraphNode,
@@ -1916,7 +1931,7 @@ export function DomChains({
   onContextMenu,
   onEdgeInsert,
   onCanvasInsert,
-  onFitToReady,
+  onCamReady,
   camStore,
   engineWarnings,
   fitKey,
@@ -1951,7 +1966,8 @@ export function DomChains({
   onEdgeInsert?: (info: EdgeInsert, x: number, y: number) => void;
   /** Right-click on EMPTY canvas — a pick lands in the graph wired to nothing. */
   onCanvasInsert?: (x: number, y: number) => void;
-  onFitToReady?: (fitTo: FitToFn) => void;
+  /** Hands the camera up, once mounted — see ChainsCamApi. */
+  onCamReady?: (cam: ChainsCamApi) => void;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
   camStore?: CamStore;
   /** Engine load problems by PluginDoc id — a node badges itself from this. */
@@ -2339,9 +2355,15 @@ export function DomChains({
         y: sh / 2 - (panOnly.y + panOnly.h / 2) * cur.k,
       });
     } else {
+      // Centred, EXCEPT a row that does not fit across: centring a rank of strips wider than the
+      // pane puts its middle on screen and hides the first channel, which is the one you look for
+      // to know where you are. Left-aligned then, with the same margin the pad allows, and the
+      // tail runs off the right where it pans.
+      const spills = axis === "height" && bw * k > sw;
+      const originX = frameOriginX(sw, bw * k, pad, spills);
       place({
         k,
-        x: (sw - bw * k) / 2 - minX * k,
+        x: originX - minX * k,
         y: (sh - bh * k) / 2 - minY * k,
       });
     }
@@ -2350,10 +2372,17 @@ export function DomChains({
   useEffect(() => {
     // The whole signature is forwarded: an axis dropped here is a caller silently getting
     // fit-both, which is the bug this parameter exists to prevent.
-    onFitToReady?.((nodes, panOnly, axis) =>
-      fitTo.current(nodes, panOnly, axis),
-    );
-  }, [onFitToReady]);
+    onCamReady?.({
+      fitTo: (nodes, panOnly, axis) => fitTo.current(nodes, panOnly, axis),
+      get: () => ({ ...cam.current }),
+      // Placed outright, no glide: putting a camera BACK is not a gesture to animate — the view
+      // you left should be the view you return to, at once.
+      set: (c) => {
+        userMoved.current = true;
+        place(c);
+      },
+    });
+  }, [onCamReady]);
 
   // --- reconcile optimistic overrides as fresh engine/track frames arrive ------------
   const drag = useRef<{

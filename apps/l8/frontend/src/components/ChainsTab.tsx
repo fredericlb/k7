@@ -17,7 +17,11 @@ import {
   spaceModulesEvenly,
   subgraphForTrack,
 } from "@studio/ui-chains/graph";
-import { type Cam, DomChains, type FitToFn } from "@studio/ui-chains-react";
+import {
+  type Cam,
+  type ChainsCamApi,
+  DomChains,
+} from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -151,14 +155,14 @@ export function ChainsTab({
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const fitToFn = useRef<FitToFn | null>(null);
+  const camApi = useRef<ChainsCamApi | null>(null);
   // The camera is parked HERE because this stays mounted while DomChains is torn down with its pane.
   const camStore = useRef<Cam | null>(null);
   const isMobile = useIsMobile();
   const [listOpen, setListOpen] = useState(false);
 
-  const handleFitToReady = useCallback((fn: FitToFn) => {
-    fitToFn.current = fn;
+  const handleCamReady = useCallback((api: ChainsCamApi) => {
+    camApi.current = api;
   }, []);
 
   // Through a ref, so the seed is not a dependency of this effect: it arrives in the same update as
@@ -377,7 +381,7 @@ export function ChainsTab({
     const nodes = new Map<string, GraphNode>();
     for (const name of chains)
       for (const n of chainNodes(name)) nodes.set(n.id, n);
-    if (nodes.size) fitToFn.current?.([...nodes.values()]);
+    if (nodes.size) camApi.current?.fitTo([...nodes.values()]);
     // Open them in the sidebar too, so the list reads as being about this track.
     if (chains.length) setExpanded((prev) => new Set([...prev, ...chains]));
     onFocused?.(chains.length);
@@ -393,11 +397,18 @@ export function ChainsTab({
    */
   const rowKey = (alignModules ?? []).join("|");
   const rowFramed = useRef<string | null>(null);
+  /** Where the camera was before the row took it, so closing the view gives it back. */
+  const camBeforeRow = useRef<Cam | null>(null);
   useEffect(() => {
     if (!laid || !active) return;
     if (rowFramed.current === rowKey) return;
     if (!rowKey) {
-      rowFramed.current = rowKey; // leaving the view: nothing to frame, and that is done
+      rowFramed.current = rowKey;
+      // Leaving: put the camera back where it was. The row borrowed it to show itself; a view
+      // you close should leave you where you were, not where it had taken you.
+      const back = camBeforeRow.current;
+      camBeforeRow.current = null;
+      if (back) camApi.current?.set(back);
       return;
     }
     const wanted = new Set(rowKey.split("|"));
@@ -409,8 +420,14 @@ export function ChainsTab({
     // Marked done only if it ACTUALLY framed. A pane that is still hidden has no size, and
     // recording that attempt would spend the one chance this key ever gets: the view would open
     // on whatever the camera was showing, which reads as a button that does nothing.
-    if (nodes.length && fitToFn.current?.(nodes, undefined, "height"))
+    if (!nodes.length) return;
+    const was = camApi.current?.get();
+    if (camApi.current?.fitTo(nodes, undefined, "height")) {
       rowFramed.current = rowKey;
+      // Remembered only once the frame actually happened, and only the FIRST time in: a re-run
+      // that saved the row's own camera would hand that back as if it were where you had been.
+      if (was && !camBeforeRow.current) camBeforeRow.current = was;
+    }
   }, [rowKey, laid, active]);
 
   // Scroll the selected row in, keyed on `expanded` too — the row doesn't exist until its group opens.
@@ -509,7 +526,7 @@ export function ChainsTab({
                         return next;
                       });
                       setSelected(willSelect ? name : null);
-                      if (willSelect) fitToFn.current?.(chainNodes(name));
+                      if (willSelect) camApi.current?.fitTo(chainNodes(name));
                       if (isMobile && willSelect) setListOpen(false);
                     }}
                     className={`flex w-full items-center gap-1 truncate rounded px-2 py-1 text-left font-mono text-xs text-foreground hover:bg-accent ${isSelected ? "bg-accent" : ""}`}
@@ -542,7 +559,7 @@ export function ChainsTab({
                                       n.module === step.module,
                                   );
                                   if (modNode)
-                                    fitToFn.current?.(nodes, modNode);
+                                    camApi.current?.fitTo(nodes, modNode);
                                 }
                               }}
                               className={`min-w-0 flex-1 truncate rounded py-0.5 pl-7 pr-1 text-left font-mono text-xs text-muted-foreground hover:bg-accent hover:text-foreground ${modSelected ? "bg-accent text-foreground" : ""}`}
@@ -591,7 +608,7 @@ export function ChainsTab({
             onContextMenu={onContextMenu}
             onEdgeInsert={onEdgeInsert}
             onCanvasInsert={onCanvasInsert}
-            onFitToReady={handleFitToReady}
+            onCamReady={handleCamReady}
             camStore={camStore}
             command={command}
             onBypassModule={bypassModule}
