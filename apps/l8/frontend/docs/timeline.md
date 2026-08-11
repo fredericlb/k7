@@ -137,10 +137,12 @@ zoom is how you reach a finer position, and the furthest a click can move from t
 is half a column. A *drag* on the ruler is unchanged: it still sweeps a selection over whole
 beat cells.
 
-One cost to know: this is one DOM node per tick, on top of the one the ruler already draws,
-and the component re-renders on every playhead frame. At the deepest zoom on a long song
-that is ~1000 nodes becoming ~2000. Memoizing would mean hoisting the whole ruler geometry
-above two early returns; it was not worth that for a 2× on a cost the ruler already paid.
+One cost to know: this is one DOM node per tick, on top of the one the ruler already draws —
+at the deepest zoom on a long song, ~1000 nodes becoming ~2000. It is a cost paid on a
+re-render, **not** on a playhead frame: `Grid` and `RulerTicks` are memoised and the body no
+longer subscribes to the transport at all (see "Live state is drawn by LEAVES" above). What
+remains unmemoised inside them is the geometry above their two early returns, which would have
+bought a 2× on a cost the ruler already paid.
 
 ## Clicking a header
 

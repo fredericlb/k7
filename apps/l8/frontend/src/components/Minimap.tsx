@@ -35,8 +35,6 @@ export function Minimap({
   highlight?: MinimapItem | null;
   onSeek: (seconds: number) => void;
 }) {
-  // Playhead from the store — only the minimap re-renders as it moves, not the app shell.
-  const playhead = useEngineState((s) => s.playhead);
   const [proj, setProj] = useState<WebProject | null>(null);
   useEffect(() => {
     api
@@ -79,7 +77,6 @@ export function Minimap({
 
   if (!proj || rows.length === 0) return null; // nothing to overview yet
 
-  const playBeat = (playhead * proj.tempo) / 60;
   const caretRow = caret ? rowIndexOf(rows, caret.row) : -1;
   const onLabel = !!caret && caret.beat < 0; // the row is selected, not a beat
   const hlTrack = highlight?.kind === "track" ? highlight.id : null;
@@ -176,17 +173,38 @@ export function Minimap({
         </>
       )}
 
-      {/* Live playhead. The line is the element's LEFT EDGE — the box is full width and gets
-          translated, because a percentage translate is a percentage of the element's own width,
-          which is the minimap's only when the element spans it. Worth the indirection: the
-          transport then moves this without a layout, and the row already clips. */}
-      <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-full border-white border-l"
-        style={{
-          transform: `translateX(${pct(playBeat)})`,
-          willChange: "transform",
-        }}
-      />
+      <MinimapPlayhead totalBeats={totalBeats} tempo={proj.tempo} />
     </div>
+  );
+}
+
+/**
+ * The live playhead, and the ONLY thing here that knows the transport.
+ *
+ * The subscription sits in this leaf rather than in the body above, which is the rule the
+ * timeline already follows (`TimelineTab`'s `Playhead`): the body draws one div per row and one
+ * per CLIP, and reading the playhead up there reconciled all of them 20 times a second to move
+ * a single line. See `docs/timeline.md`.
+ *
+ * The line is the element's LEFT EDGE — the box is full width and gets translated, because a
+ * percentage translate is a percentage of the element's own width, which is the minimap's only
+ * when the element spans it. Worth the indirection: the transport then moves this without a
+ * layout, and the row already clips.
+ */
+function MinimapPlayhead({
+  totalBeats,
+  tempo,
+}: {
+  totalBeats: number;
+  tempo: number;
+}) {
+  const playhead = useEngineState((s) => s.playhead);
+  const beat = (playhead * (tempo || 120)) / 60;
+  const pct = Math.max(0, Math.min(100, (beat / totalBeats) * 100));
+  return (
+    <div
+      className="pointer-events-none absolute inset-y-0 left-0 w-full border-white border-l"
+      style={{ transform: `translateX(${pct}%)`, willChange: "transform" }}
+    />
   );
 }

@@ -75,3 +75,28 @@ Two sliders inside the widget grid (`w.type === "slider"` and the fader's `fill`
 write `width`/`height`/`top` percentages. They are driven by **plugin parameter** frames rather
 than by the engine's state frame, so they only move under automation or a drag, and no profile
 has yet put them in the path. Same shape, same fix, when one does.
+
+## The cheapest frame is the one nobody is told about
+
+Everything above makes a frame cheap. The next question is whether it needed sending at all,
+and for a stopped transport over silent tracks the answer is no — yet a frame still went out
+every 50 ms, was parsed, and had every subscriber's selector run over it to conclude that
+nothing had moved. That is N selector runs, twenty times a second, to say nothing.
+
+It is now stopped at **both ends**, on purpose, because the two halves fix different failures:
+
+- **`EngineStore.set` drops a frame identical to the one it holds** (`sameFrame`). One pass over
+  the frame — scalars, then the three arrays element-wise, then the waveform map by key —
+  replaces every subscriber's pass over it. This is the half that works against *any* engine,
+  including one that has not been updated, and it is also what covers the case where the engine
+  is busy but this particular frame happens to repeat.
+- **The engine drops to 4 Hz while a session is idle** (`StateTimer::emit`, `kIdleDivisor`).
+  Idle means: not playing, not record-enabled, nothing armed, no waveform tap, no watched
+  plugin parameter, and every level under −60 dB. That last clause is not redundant — an
+  *audition* sounds without the transport rolling, and a monitored input moves a meter while it
+  does. This is the half that also saves the serialisation and the socket traffic, which no
+  amount of browser-side cleverness can.
+
+The floor is 4 Hz rather than nothing so that a change made from another tab still lands within
+250 ms. Neither half delays a real change: the moment anything is happening, the idle test fails
+and the frame differs, so both gates open on the same tick.

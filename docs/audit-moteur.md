@@ -354,6 +354,13 @@ Deux écarts au plan, tous deux assumés :
   onglet qui revient l'instant où le moteur est redevenu joignable — ce que `useRelook` a déjà
   eu à corriger une fois.
 
+**La trame d'état n'arrive plus à 20 Hz quand rien ne se passe** — un tick sur cinq, soit 4 Hz,
+pour une session ni en lecture, ni armée, ni surveillée, dont tous les niveaux sont sous −60 dB
+(`engine/moteur/docs/protocol.md`). Cela ne touche pas ce lot, et pour la raison qui est écrite
+juste au-dessus : le chien de garde sonde par `whoami` et non en comptant les trames, donc il ne
+peut pas lire un ralentissement comme une socket morte. Une session au ralenti reste d'ailleurs
+bavarde — 4 Hz n'est pas le silence sur lequel la sonde part.
+
 ### Lot 2 — `mountEngineRegistry` ✅ FAIT
 
 C1, plus les dérives de A9 qu'il supprime par construction : `ENGINE_BODY_LIMIT`,

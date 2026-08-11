@@ -29,11 +29,51 @@ export class EngineStore {
     };
   };
 
-  // Called on every state frame: replace the snapshot and poke subscribers, whose selectors decide on re-rendering.
+  // Called on every state frame: replace the snapshot and poke subscribers, whose selectors decide
+  // on re-rendering — unless the frame says exactly what the last one said, which is what an idle
+  // engine sends 20 times a second. See docs/meters.md.
   set = (s: EngineState): void => {
+    if (sameFrame(this.state, s)) return;
     this.state = s;
     for (const l of this.listeners) l();
   };
+}
+
+/**
+ * Whether two frames say the same thing.
+ *
+ * The engine pushes one every 50 ms whether or not anything is happening, and every subscriber's
+ * selector then runs to conclude nothing changed — N selector runs, 20 times a second, for a
+ * stopped transport over silent tracks. One pass over the frame replaces all of them.
+ *
+ * Deliberately not deep on the envelopes: a waveform tap sends fresh arrays whenever it sends
+ * anything at all, so comparing their contents would be work spent proving they differ.
+ */
+function sameFrame(a: EngineState, b: EngineState): boolean {
+  if (a === b) return true;
+  if (
+    a.playing !== b.playing ||
+    a.playhead !== b.playhead ||
+    a.recordEnabled !== b.recordEnabled
+  )
+    return false;
+  if (
+    !arrayEq(a.levels, b.levels) ||
+    !arrayEq(a.inputLevels, b.inputLevels) ||
+    !arrayEq(a.armed, b.armed)
+  )
+    return false;
+  const ka = Object.keys(a.waveform);
+  const kb = Object.keys(b.waveform);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    const va = a.waveform[k];
+    const vb = b.waveform[k];
+    // Same array, or both drained empty — anything else is new material.
+    if (va !== vb && !(vb !== undefined && va.length === 0 && vb.length === 0))
+      return false;
+  }
+  return true;
 }
 
 const EngineStoreContext = createContext<EngineStore | null>(null);
@@ -130,12 +170,21 @@ export function useTrackLevel(trackId: string, order: string[]): number | null {
   });
 }
 
-// The ids above the silence floor, with membership equality — so it re-renders when a track crosses, not per tick.
-export function useActiveTracks(trackOrder: string[]): string[] {
-  return useEngineState((s) => {
-    const ids: string[] = [];
-    for (let i = 0; i < trackOrder.length; i++)
-      if ((s.levels[i] ?? -Infinity) > ACTIVE_FLOOR_DB) ids.push(trackOrder[i]);
-    return ids;
-  }, arrayEq);
+/**
+ * The ids above the silence floor, as a PURE function of a frame.
+ *
+ * Deliberately not a hook. Its one consumer is the chains renderer's cable canvas, which reads
+ * it 20 times a second off a raw subscription and repaints — a hook would have made every
+ * crossing of the floor a re-render of the whole graph, and on percussive material tracks cross
+ * it several times a second. See ui-chains-react/docs/liveCables.md.
+ */
+export function activeTrackIds(
+  s: EngineState,
+  trackOrder: readonly string[],
+): string[] {
+  const ids: string[] = [];
+  for (let i = 0; i < trackOrder.length; i++)
+    if ((s.levels[i] ?? Number.NEGATIVE_INFINITY) > ACTIVE_FLOOR_DB)
+      ids.push(trackOrder[i]);
+  return ids;
 }

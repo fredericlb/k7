@@ -114,6 +114,15 @@ public:
     // This session's record enable: play() records its armed tracks only while this is on. Message-thread only.
     void setRecordEnabled(const std::string& session, bool on);
     bool recordEnabled(const std::string& session) const;
+    /**
+     * Whether anything is WATCHING this session — a waveform tap in the chain, or a plugin whose
+     * parameters a client asked to follow.
+     *
+     * Read by the state timer to decide whether a frame is worth sending at full rate: those two
+     * are the things that carry new numbers even when the transport is stopped and nothing sounds.
+     * See docs/protocol.md.
+     */
+    bool sessionWatched(const std::string& session) const;
     void seek(const std::string& session, double seconds); // move the playhead to an absolute position (clamped at 0)
     // Set the transport loop [start, end) in seconds and turn looping on or off; playback wraps engine-side, and
     // play() drops the playhead onto the start first. Message-thread only.

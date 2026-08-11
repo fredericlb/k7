@@ -7,7 +7,7 @@
 import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
@@ -32,8 +32,6 @@ export function WaveformView({
   // Docked in the editor there is nothing to close (the strip lives and dies with the file), so the header drops it.
   onClose?: () => void;
 }) {
-  // The playhead comes from the store, so a frame re-renders the waveform rather than its whole editor pane.
-  const playhead = useEngineState((s) => s.playhead);
   const [wf, setWf] = useState<WebWaveform | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,12 +124,12 @@ export function WaveformView({
     };
   }, [clip.id, whole]);
 
-  // The arrangement playhead expressed in the clip's local seconds (−1 → off-screen).
-  const localBeat = (playhead * project.tempo) / 60 - clip.start;
-  const currentTime =
-    wf && localBeat >= 0 && localBeat <= wf.clipBeats
-      ? (localBeat * 60) / project.tempo
-      : -1;
+  // One identity per decode: Waveform is memoised, and an inline literal here would be a new
+  // object on every render of this pane, which is exactly what memo cannot see through.
+  const envelope = useMemo(
+    () => (wf ? { intervalMs: wf.intervalMs, samples: wf.rms } : null),
+    [wf],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border bg-background">
@@ -174,13 +172,17 @@ export function WaveformView({
             className="relative"
             style={{ width: `${zoomX * 100}%` }}
           >
-            <Waveform
-              envelope={{ intervalMs: wf.intervalMs, samples: wf.rms }}
-              duration={wf.seconds}
-              height={bodyH || undefined}
-              currentTime={currentTime}
-              gridLines={wf.grid}
-            />
+            {envelope && (
+              <ClipWaveform
+                envelope={envelope}
+                duration={wf.seconds}
+                height={bodyH || undefined}
+                gridLines={wf.grid}
+                tempo={project.tempo}
+                clipStart={clip.start}
+                clipBeats={wf.clipBeats}
+              />
+            )}
             {sliceRanges && wf.seconds > 0 && (
               // z-10 so windows and handles sit above the canvas, which captures the pointer for scrubbing.
               <div className="pointer-events-none absolute inset-0 z-10">
@@ -332,5 +334,46 @@ export function WaveformView({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The canvas, and the only thing in this pane that knows the transport.
+ *
+ * `currentTime` has to reach the canvas — the progress fill and the playhead are drawn on it —
+ * so the subscription cannot leave for a sibling the way the timeline's did. What it CAN do is
+ * stop dragging the rest of the pane with it: the slice windows, the transient markers and the
+ * warp marks are all above this canvas and none of them move with the transport.
+ */
+function ClipWaveform({
+  envelope,
+  duration,
+  height,
+  gridLines,
+  tempo,
+  clipStart,
+  clipBeats,
+}: {
+  envelope: { intervalMs: number; samples: number[] };
+  duration: number;
+  height?: number;
+  gridLines: WebWaveform["grid"];
+  tempo: number;
+  clipStart: number;
+  clipBeats: number;
+}) {
+  const playhead = useEngineState((s) => s.playhead);
+  // The arrangement playhead in the clip's local seconds (−1 → outside this clip).
+  const localBeat = (playhead * tempo) / 60 - clipStart;
+  const currentTime =
+    localBeat >= 0 && localBeat <= clipBeats ? (localBeat * 60) / tempo : -1;
+  return (
+    <Waveform
+      envelope={envelope}
+      duration={duration}
+      height={height}
+      currentTime={currentTime}
+      gridLines={gridLines}
+    />
   );
 }

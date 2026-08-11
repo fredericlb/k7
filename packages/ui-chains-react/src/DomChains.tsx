@@ -11,9 +11,10 @@ import {
   usePluginParamValue,
 } from "@studio/engine-browser/params";
 import {
+  activeTrackIds,
+  arrayEq,
   EngineStore,
   EngineStoreProvider,
-  useEngineState,
   useEngineStoreOrNull,
   useInputLevel,
   useTrackLevel,
@@ -192,6 +193,8 @@ const CTRL: Record<string, string> = {
 
 // A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
 const EMPTY_ORDER: string[] = [];
+// The same for "no cable carries signal" — never mutated, always replaced.
+const EMPTY_LIVE: Set<string> = new Set();
 
 const DRAG_SLOP = 4; // px of movement before a press becomes a pan (so a pan never selects)
 const DRAG_TRAVEL_PX = 150; // screen px of vertical drag that sweep a control's whole range
@@ -868,6 +871,10 @@ function TabsWidget({
   );
 }
 
+// Module-level so "no envelope" is one identity: a fresh [] per read would look like a change every frame.
+const NO_ENVELOPE: WaveformEnvelope[] = [];
+const NOOP = (): void => {};
+
 // A waveform widget: a real-time min/max envelope on a <canvas>, off the frame's waveform map for this module.
 function WaveformWidget({
   n,
@@ -889,12 +896,33 @@ function WaveformWidget({
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
   // The waveform key is pluginId:side (e.g. "chain:module:output").
   const key = tap?.id && tap.side ? `${tap.id}:${tap.side}` : null;
-  const envelope = useEngineState(
-    (s) => (key ? (s.waveform[key] ?? []) : []),
-    (a, b) => a === b || (a.length === b.length && a.length === 0),
-  );
-  const envelopeRef = useRef<WaveformEnvelope[]>([]);
-  envelopeRef.current = envelope;
+
+  // The envelope reaches the canvas through a REF off a RAW subscription, never through
+  // useEngineState — see docs/waveformWidget.md for the three things that were wrong here.
+  const store = useEngineStoreOrNull();
+  const envelopeRef = useRef<WaveformEnvelope[]>(NO_ENVELOPE);
+  const dirtyRef = useRef(true);
+  // Set by the draw effect; the subscription below pokes it to restart a stopped loop.
+  const wakeRef = useRef<() => void>(NOOP);
+
+  useEffect(() => {
+    if (!store) return;
+    // Read on subscribe too: a widget mounted (or repointed at another tap) between two
+    // frames must not keep drawing the previous one until the next frame lands.
+    const read = (): void => {
+      const env = key
+        ? (store.getSnapshot().waveform[key] ?? NO_ENVELOPE)
+        : NO_ENVELOPE;
+      if (env === envelopeRef.current) return;
+      // A module with no tap sends nothing, and empty-after-empty is not a repaint.
+      if (env.length === 0 && envelopeRef.current.length === 0) return;
+      envelopeRef.current = env;
+      dirtyRef.current = true;
+      wakeRef.current();
+    };
+    read();
+    return store.subscribe(read);
+  }, [store, key]);
 
   // The tap is the ENGINE's, and inserting one costs it a plugin in the chain — so it is
   // placed while this widget is on screen and removed when it leaves. Nothing did this,
@@ -912,34 +940,42 @@ function WaveformWidget({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // The box comes from a ResizeObserver, exactly as the cable canvas takes its host size:
+    // measuring inside the draw flushes style on every frame, per widget on screen.
+    let W = 0;
+    let H = 0;
+    let appliedDpr = 0;
     let raf = 0;
-    const draw = () => {
+    let last = 0;
+    const minDt = 1000 / WOBBLE_FPS;
+
+    const paint = (): void => {
       const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
       if (
-        canvas.width !== rect.width * dpr ||
-        canvas.height !== rect.height * dpr
+        appliedDpr !== dpr ||
+        canvas.width !== W * dpr ||
+        canvas.height !== H * dpr
       ) {
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        // setTransform, not scale: resizing resets the matrix, so scale() would compound.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        appliedDpr = dpr;
       }
-      const W = rect.width;
-      const H = rect.height;
       ctx.clearRect(0, 0, W, H);
       const env = envelopeRef.current;
+      const mid = H / 2;
       if (env.length === 0) {
         // No data — draw a flat center line.
         ctx.strokeStyle = "rgba(200,160,106,0.25)";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, H / 2);
-        ctx.lineTo(W, H / 2);
+        ctx.moveTo(0, mid);
+        ctx.lineTo(W, mid);
         ctx.stroke();
-        raf = requestAnimationFrame(draw);
         return;
       }
-      const mid = H / 2;
       // Fill envelope: min..max → top..bottom (Y axis: 0 = top, H = bottom).
       ctx.fillStyle = "rgba(200,160,106,0.15)";
       ctx.beginPath();
@@ -966,10 +1002,42 @@ function WaveformWidget({
       ctx.moveTo(0, mid);
       ctx.lineTo(W, mid);
       ctx.stroke();
-      raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+
+    // Started by an envelope, stopped by stillness — the rule the camera and the ripple
+    // already follow. A widget on a silent module schedules no frames at all.
+    const tick = (now: number): void => {
+      raf = 0;
+      if (!dirtyRef.current || W <= 0 || H <= 0) return;
+      if (now - last < minDt) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      last = now;
+      dirtyRef.current = false;
+      paint();
+    };
+    const wake = (): void => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+    wakeRef.current = wake;
+
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      W = box.width;
+      H = box.height;
+      dirtyRef.current = true;
+      wake();
+    });
+    ro.observe(canvas);
+    wake(); // the observer's first callback is async; a mounted widget still owes one paint
+
+    return () => {
+      ro.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+      wakeRef.current = NOOP;
+    };
   }, []);
 
   return (
@@ -1966,7 +2034,6 @@ export function DomChains({
   icons,
   graph,
   selected,
-  activeTracks,
   trackOrder,
   onSelect,
   onPickModule,
@@ -2000,8 +2067,13 @@ export function DomChains({
   icons: ChainsIcons;
   graph: LaidOutGraph;
   selected: string | null;
-  activeTracks?: string[];
-  // The engine level index order, threaded to each track node — the levels themselves never flow through here.
+  /**
+   * The engine level index order, threaded to each track node.
+   *
+   * The levels themselves never flow through here — and neither does WHICH tracks are audible:
+   * this renderer subscribes for that itself, off the host's store, because it moves 20 times a
+   * second and only the cable canvas reads it. See docs/liveCables.md.
+   */
   trackOrder?: string[];
   onSelect: (c: string | null) => void;
   onPickModule?: (module: string | null) => void;
@@ -2216,10 +2288,22 @@ export function DomChains({
     return { byId, signal, auto };
   }, [graph]);
 
-  const live = useMemo(
-    () => computeLive(model.signal, activeTracks ?? []),
-    [model.signal, activeTracks],
-  );
+  // --- what carries signal: refs, not state ----------------------------------------
+  // Liveness comes from the engine's meters and is read by the cable CANVAS and nothing else —
+  // no node, no widget, no SVG layer. So it never enters the render: a track crossing the
+  // silence floor repaints the canvas and re-renders zero components. It used to be a prop fed
+  // by a hook, and on percussive material that was the whole graph several times a second.
+  // See docs/liveCables.md.
+  // Read here as well as at the bottom, where it decides which store the METERS get: liveness
+  // has to subscribe from the host's own, and an inert one simply never notifies.
+  const hostStore = useEngineStoreOrNull();
+  const liveRef = useRef<Set<string>>(EMPTY_LIVE);
+  const activeRef = useRef<string[]>(EMPTY_ORDER);
+  const cableDrawsRef = useRef<CableDraw[]>([]);
+  const rebuildCables = useRef<() => void>(NOOP);
+  const applyLive = useRef<() => void>(NOOP);
+  // Set by the ripple effect below; poked whenever liveness changes, to start a stopped loop.
+  const rippleRef = useRef<() => void>(NOOP);
 
   // --- the cable canvas ------------------------------------------------------------
   // Thicker cables as the camera pulls back, so their width on screen holds. Taken from the LOD
@@ -2228,16 +2312,25 @@ export function DomChains({
   // the cables change width whenever one redraws and the other does not.
   const linkBoost = lod.boost;
 
+  // Both reassigned every render, like `paint` and `fit`, so they always see the CURRENT edges
+  // without the subscription that calls them having the graph as a dependency.
   // Colour by what a cable CARRIES, live or not — tinting live cables orange made everything look like audio.
-  const cableDraws = useMemo<CableDraw[]>(
-    () =>
-      model.signal.map((g) => ({
-        geom: g,
-        color: cableColorFor(g.signal),
-        live: live.has(g.id),
-      })),
-    [model.signal, live],
-  );
+  rebuildCables.current = () => {
+    const live = liveRef.current;
+    cableDrawsRef.current = model.signal.map((g) => ({
+      geom: g,
+      color: cableColorFor(g.signal),
+      live: live.has(g.id),
+    }));
+  };
+  // The liveness set is keyed by EDGE, so it is recomputed from the track ids against the
+  // current edges — which is why a graph change goes through here too, not just a meter frame.
+  applyLive.current = () => {
+    liveRef.current = computeLive(model.signal, activeRef.current);
+    rebuildCables.current();
+    paintRef.current();
+    rippleRef.current();
+  };
 
   const cvRef = useRef<HTMLCanvasElement>(null);
   const scratch = useRef(newScratch()).current;
@@ -2271,7 +2364,7 @@ export function DomChains({
         // `cam.current`, not `cam`: the camera is a REF now, mutated in place by the frame loop.
         cam: cam.current,
         dpr,
-        cables: cableDraws,
+        cables: cableDrawsRef.current,
         phase: phase.current,
         boost: linkBoost,
       },
@@ -2283,20 +2376,24 @@ export function DomChains({
   // in the same frame. The CAMERA is not in here any more and must not be: it left React with
   // the pan and the zoom, so it never re-renders — the loop repaints instead, right after it
   // writes the transform, which is what keeps the cables on their sockets through a gesture.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: these are the frame's inputs, not values this body reads — `paintRef` was reassigned with them during the render, so listing them here IS the redraw trigger.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are the frame's inputs, not values this body reads — the refs above were reassigned with them during the render, so listing them here IS the redraw trigger.
   useLayoutEffect(() => {
-    paintRef.current();
-  }, [cableDraws, linkBoost]);
+    applyLive.current();
+  }, [model.signal, linkBoost]);
 
   // The ripple, on its own clock. It is an ornament at WOBBLE_HZ, so it is capped well below
   // the screen's rate, and it stops dead when nothing carries signal — a still graph then
-  // leaves its last frame on the canvas and costs nothing at all.
+  // leaves its last frame on the canvas and costs nothing at all. Mounted ONCE and steered by
+  // `liveRef`, because liveness no longer re-renders anything for an effect to depend on.
   useEffect(() => {
-    if (live.size === 0) return;
     let raf = 0;
-    let lastAt = performance.now();
+    let lastAt = 0;
     const step = 1000 / WOBBLE_FPS;
     const tick = (now: number) => {
+      if (liveRef.current.size === 0) {
+        raf = 0; // nothing carries signal any more: stop, and let `sync` restart us
+        return;
+      }
       raf = requestAnimationFrame(tick);
       if (now - lastAt < step) return;
       // By REAL elapsed time, not by a fixed increment, so capping the rate slows nothing down.
@@ -2304,9 +2401,33 @@ export function DomChains({
       lastAt = now;
       paintRef.current();
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [live]);
+    const sync = () => {
+      if (raf || liveRef.current.size === 0) return;
+      lastAt = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
+    rippleRef.current = sync;
+    sync();
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      rippleRef.current = NOOP;
+    };
+  }, []);
+
+  // The meters, straight off the store into `activeRef` — the one subscription in this file that
+  // is not a leaf's, and the reason a crossing costs a repaint instead of a render.
+  useEffect(() => {
+    if (!hostStore) return;
+    const order = trackOrder ?? EMPTY_ORDER;
+    const read = (): void => {
+      const ids = activeTrackIds(hostStore.getSnapshot(), order);
+      if (arrayEq(ids, activeRef.current)) return;
+      activeRef.current = ids;
+      applyLive.current();
+    };
+    read();
+    return hostStore.subscribe(read);
+  }, [hostStore, trackOrder]);
 
   // --- fit: frame the whole graph to the host, on graph change and on resize ---------
   // Returns whether it actually framed: with no host size or extents there is nothing to fit, so the caller retries.
@@ -2989,7 +3110,7 @@ export function DomChains({
    */
   const ownStore = useRef<EngineStore | null>(null);
   ownStore.current ??= new EngineStore();
-  const meterStore = useEngineStoreOrNull() ?? ownStore.current;
+  const meterStore = hostStore ?? ownStore.current;
 
   return (
     <EngineStoreProvider value={meterStore}>

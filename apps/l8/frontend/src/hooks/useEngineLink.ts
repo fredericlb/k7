@@ -77,8 +77,13 @@ export function useEngineLink(
       sessionFor(SESSIONS.l8, userEmail),
     );
     engineRef.current = engine;
+    // "Ready" is a one-way latch, so it is set ONCE. React bails out on the identical value, but
+    // it still entered the scheduler 20 times a second to get there.
+    let ready = false;
     const offState = engine.onState((s) => {
       store.set(s); // external store — subscribers re-render on the slice they read
+      if (ready) return;
+      ready = true;
       setEngineReady(true);
     });
     const offParams = engine.onPluginParams(({ id, params, meta }) => {
@@ -115,7 +120,11 @@ export function useEngineLink(
     });
     const offConn = engine.onConnected((c) => {
       setConnected(c);
-      if (!c) setEngineReady(false);
+      // …and re-open the latch above, or a reconnected engine would never read ready again.
+      if (!c) {
+        ready = false;
+        setEngineReady(false);
+      }
       // A socket that drops mid-apply never delivers busy:false, so the flag belongs to the connection, not a message.
       if (!c) {
         engineBusyRef.current = false;

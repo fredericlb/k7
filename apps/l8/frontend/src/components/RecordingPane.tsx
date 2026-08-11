@@ -112,23 +112,33 @@ export function RecordingPane({
       }
     });
 
+    // The box comes from a ResizeObserver: reading clientWidth/clientHeight in the loop was two
+    // layout flushes per SCREEN frame, paid even on the frames the dirty flag then skipped.
+    let w = 0;
+    let h = 0;
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      w = box.width;
+      h = box.height;
+      dirtyRef.current = true; // a resize clears the canvas: it has to be drawn again
+    });
+    if (canvasRef.current) ro.observe(canvasRef.current);
+
     // Draw the grid, then the accumulated envelopes, one stacked row per armed track, on a rAF loop.
     let raf = 0;
     const draw = () => {
       const cv = canvasRef.current;
-      if (cv) {
+      if (cv && dirtyRef.current && w > 0 && h > 0) {
         const dpr = window.devicePixelRatio || 1;
-        const w = cv.clientWidth;
-        const h = cv.clientHeight;
         if (
           cv.width !== Math.round(w * dpr) ||
           cv.height !== Math.round(h * dpr)
         ) {
           cv.width = Math.round(w * dpr);
           cv.height = Math.round(h * dpr);
-          dirtyRef.current = true; // a resize clears the canvas: it has to be drawn again
         }
-        const ctx = dirtyRef.current ? cv.getContext("2d") : null;
+        const ctx = cv.getContext("2d");
         if (ctx) {
           dirtyRef.current = false;
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -184,6 +194,7 @@ export function RecordingPane({
     raf = requestAnimationFrame(draw);
     return () => {
       unsub();
+      ro.disconnect();
       cancelAnimationFrame(raf);
     };
   }, [store, trackOrder, tempo, beatsPerBar]);

@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -490,6 +491,12 @@ bool EngineHost::recordEnabled(const std::string& session) const {
     return s != nullptr && s->recordEnabled;
 }
 
+// find(), not session(): asking whether a session is being watched must not conjure one.
+bool EngineHost::sessionWatched(const std::string& session) const {
+    auto* s = impl_->find(session);
+    return s != nullptr && (!s->waveformPlugins.empty() || !s->watchedParams.empty());
+}
+
 // Project the doc's metronome flag onto the Edit's click track, reading impl_->session(session).current — the single source of truth,
 // which every apply path sets first. Emphasise-bars stays on always: the bar's first beat sounding different
 // IS the feature, not a separate toggle.
@@ -799,7 +806,16 @@ public:
         // ONE FRAME PER SESSION. Each carries the id it describes, so main.cpp can send a
         // session's state only to the connections driving it — a listener that got
         // everybody's meters would draw somebody else's song.
-        for (const auto& sid : host_.sessionIds()) emit(sid);
+        const auto ids = host_.sessionIds();
+        for (const auto& sid : ids) emit(sid);
+        // Forget the idle counters of sessions that went, so the map tracks what exists.
+        if (idleTicks_.size() > ids.size())
+            for (auto it = idleTicks_.begin(); it != idleTicks_.end();) {
+                if (std::find(ids.begin(), ids.end(), it->first) == ids.end())
+                    it = idleTicks_.erase(it);
+                else
+                    ++it;
+            }
         // Ride this timer rather than add one: both sweeps are cheap.
         if (++ticks_ >= kTicksPerRelease) {
             ticks_ = 0;
@@ -831,8 +847,27 @@ private:
     // the grace and not the sweep.
     static constexpr int kTicksPerRelease = 100;
     static constexpr int kReleasesPerReap = 12;   // …and the empty-session sweep once a minute
+    /**
+     * How many ticks an IDLE session skips before it sends one anyway.
+     *
+     * A frame went out every 50 ms whether or not anything was happening, and a browser paid for
+     * all of it: parse, then every subscriber's selector, twenty times a second, to conclude that
+     * a stopped transport over silent tracks still says nothing. Five ticks is 4 Hz — slow enough
+     * to disappear from a profile, quick enough that a change made from another tab still shows
+     * up before anyone reaches for the mouse. See docs/protocol.md.
+     */
+    static constexpr int kIdleDivisor = 5;
+    // The floor under which a track reads as silent — the same −60 dB the surfaces call silence.
+    static constexpr double kSilenceDb = -60.0;
     int ticks_ = 0;
     int releases_ = 0;
+    std::map<std::string, int> idleTicks_;
+
+    static bool allSilent(const std::vector<float>& db) {
+        for (float v : db)
+            if (v > kSilenceDb) return false;
+        return true;
+    }
 
     void emit(const std::string& session) {
         EngineHost::EngineState s;
@@ -850,6 +885,28 @@ private:
         // is the channel every surface already watches, so a tab connecting mid-session sees it without asking.
         s.armedTracks = host_.armedTracks(session);
         s.recordEnabled = host_.recordEnabled(session);
+
+        /**
+         * Nothing is happening in this session, so most of these frames are not sent.
+         *
+         * Everything above is cheap to read; what costs is what comes after — serialising the
+         * frame, pushing it down every socket, and then a browser parsing it and running every
+         * subscriber's selector over it. That was paid twenty times a second for a stopped
+         * transport over silent tracks. The levels are in the test because an AUDITION sounds
+         * without the transport rolling, and a monitored input moves a meter while it does.
+         */
+        const bool idle = !s.playing && !s.recordEnabled && s.armedTracks.empty() &&
+                          !host_.sessionWatched(session) && allSilent(s.trackLevelsDb) &&
+                          allSilent(s.trackInputLevelsDb);
+        // Counting up to the divisor and back to zero, not modulo a counter that only grows:
+        // this runs for as long as the engine does.
+        if (!idle)
+            idleTicks_[session] = 0;
+        else if (++idleTicks_[session] < kIdleDivisor)
+            return;   // …and nothing is drained or pumped: an idle session has no tap and no watch
+        else
+            idleTicks_[session] = 0;
+
         s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
         cb_(s);
         // Watched params ride the same tick rather than their own timer: both are "what is the engine holding", and one
