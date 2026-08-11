@@ -1061,6 +1061,83 @@ export function moduleRow(
   };
 }
 
+/** dagre's `marginx`/`marginy`, and the breathing room the measured extent adds back. */
+const GRAPH_MARGIN = 16;
+/** The gap between one rank's row and the next — dagre's `ranksep`, and the stack's below. */
+const RANK_SEP = 70;
+/** …and between two siblings side by side, which the row sweep re-uses to part a collision. */
+const NODE_SEP = 60;
+
+/**
+ * Put every node on the LINE OF ITS OWN RANK, after dagre has placed them.
+ *
+ * The ranks are already computed and handed to dagre (`n.rank`, in buildGraph), and dagre treats
+ * them as a suggestion: its `longest-path` ranker pushes a node as LATE as it can, hugging the
+ * sink below it. Measured on a fifteen-track song: rank 1 spread over SIX lines, from y=16 to
+ * y=1380 — a first-in-chain module sitting on the mixer line, at the bottom of a column it
+ * should have been at the top of. Which is exactly what a stretched chain looks like when the
+ * mixers are pinned deep and the one module above them is dragged down to meet them.
+ *
+ * So the rank is made to mean what it says: one row per rank, in order, each as high as the
+ * highest thing dagre put there — and never overlapping the row above, which is the one thing a
+ * naive snap gets wrong. Rows are stacked with `RANK_SEP` between them, the same gap dagre used.
+ *
+ * Only the y. The x is dagre's throughout, so the spacing along a row varies with what hangs
+ * under each column — right for the tracks and the modules, which are the tops and middles of
+ * chains of different widths. The mixer row asks for even spacing separately
+ * (`spaceModulesEvenly`), because a rank of channel strips is the one place it is wanted.
+ *
+ * A node with no rank keeps the y dagre gave it: nothing here claims to know better.
+ *
+ * The rows are then SWEPT for collisions, and that is not an afterthought: dagre places x
+ * assuming its own y, so two nodes it put on different lines may share a column, and collapsing
+ * them onto one row is what makes them overlap. Measured: one such pair on a fifteen-track song,
+ * a module nested inside another. The sweep walks each row left to right and pushes whatever
+ * would land on its neighbour past it, by the same `nodesep` dagre separates siblings with.
+ */
+function snapToRankRows(
+  placed: GraphNode[],
+  // The ranks live on the RAW nodes — `GraphNode` is what a renderer gets, and a rank is an
+  // instruction to the layout, not a fact about the drawing.
+  rankOf: Map<string, number>,
+): GraphNode[] {
+  const ranks = [...new Set(rankOf.values())].sort((a, b) => a - b);
+  if (!ranks.length) return placed;
+
+  const rowY = new Map<number, number>();
+  let floor = Number.NEGATIVE_INFINITY;
+  for (const r of ranks) {
+    const of = placed.filter((n) => rankOf.get(n.id) === r);
+    if (!of.length) continue;
+    const y = Math.max(Math.min(...of.map((n) => n.y)), floor);
+    rowY.set(r, y);
+    floor = y + Math.max(...of.map((n) => n.h)) + RANK_SEP;
+  }
+  const snapped = placed.map((n) => {
+    const r = rankOf.get(n.id);
+    const y = r == null ? undefined : rowY.get(r);
+    return y == null ? n : { ...n, y };
+  });
+
+  const moved = new Map<string, number>();
+  for (const r of ranks) {
+    const row = snapped
+      .filter((n) => rankOf.get(n.id) === r)
+      .sort((a, b) => a.x - b.x);
+    let right = Number.NEGATIVE_INFINITY;
+    for (const n of row) {
+      const x = Math.max(n.x, right);
+      if (x !== n.x) moved.set(n.id, x);
+      right = x + n.w + NODE_SEP;
+    }
+  }
+  return moved.size
+    ? snapped.map((n) =>
+        moved.has(n.id) ? { ...n, x: moved.get(n.id) as number } : n,
+      )
+    : snapped;
+}
+
 // Position with dagre and KEEP its routed edge points, so a send that skips a column bends around the module.
 // dagre returns centres; we store top-left, while edge points stay in the same absolute graph space.
 export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
@@ -1073,11 +1150,11 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
     rankdir: "TB",
     ranker: "longest-path",
     align: "UL",
-    nodesep: 60,
-    ranksep: 70,
+    nodesep: NODE_SEP,
+    ranksep: RANK_SEP,
     edgesep: 24,
-    marginx: 16,
-    marginy: 16,
+    marginx: GRAPH_MARGIN,
+    marginy: GRAPH_MARGIN,
   });
   g.setDefaultEdgeLabel(() => ({}));
   // dagre must know each node's REAL size: a size it wasn't told is a node its neighbours overlap.
@@ -1099,26 +1176,14 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
     return { ...n, x: x - n.w / 2, y: y - n.h / 2 };
   });
 
-  /**
-   * Every TRACK on one line, at the top.
-   *
-   * They already carry `rank: 0`, and dagre overrides it: the ranker is free to push a source
-   * down to shorten the edges below it, so a song with chains of different lengths scatters its
-   * tracks over as many lines as it has chain depths — measured at SIX on a fifteen-track song,
-   * one of them sitting BELOW the mixers it feeds. A source that is not on the source line reads
-   * as a module.
-   *
-   * Only the y moves. The x is dagre's, so the spacing between two of them varies with what
-   * hangs underneath — which is right: they are not a rank of identical strips, they are the
-   * tops of chains of different widths.
-   */
-  const trackY = placed.reduce(
-    (top, n) => (n.kind === "track" ? Math.min(top, n.y) : top),
-    Number.POSITIVE_INFINITY,
+  const outNodes = snapToRankRows(
+    placed,
+    new Map(
+      nodes.flatMap((n) =>
+        typeof n.rank === "number" ? [[n.id, n.rank] as const] : [],
+      ),
+    ),
   );
-  const outNodes: GraphNode[] = Number.isFinite(trackY)
-    ? placed.map((n) => (n.kind === "track" ? { ...n, y: trackY } : n))
-    : placed;
   const outEdges: GraphEdge[] = raw.map((e) => ({
     id: e.id,
     source: e.source,
@@ -1133,15 +1198,19 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
     sourcePort: e.sourcePort, // the mirror, and it drops the same way if forgotten here
     points: g.edge(e.source, e.target, e.id)?.points ?? [],
   }));
-  // dagre reports -Infinity for an empty graph, which `?? 0` never caught and `if (!width)` passed — and framing to
-  // it left the view invisible but "already framed". An empty layout has no extent: say 0. See docs/graphBuild.md.
-  const { width, height } = g.graph();
-  const extent = (v: number | undefined): number =>
-    typeof v === "number" && Number.isFinite(v) ? v : 0;
+  // Measured on the NODES, not read off dagre. `snapToRankRows` moves them after dagre has
+  // reported its own extent, so that figure describes a picture that no longer exists — 488px
+  // short on a fifteen-track song, which is the bottom of the graph missing from every fit.
+  //
+  // An empty layout has no extent: say 0. It used to say -Infinity, which `?? 0` never caught
+  // and `if (!width)` passed, so the view framed to infinity and reported success — invisible,
+  // and convinced it was already framed. See docs/graphBuild.md.
+  const extent = (of: (n: GraphNode) => number): number =>
+    outNodes.length ? Math.max(...outNodes.map(of)) + GRAPH_MARGIN : 0;
   return {
     nodes: outNodes,
     edges: outEdges,
-    width: extent(width),
-    height: extent(height),
+    width: extent((n) => n.x + n.w),
+    height: extent((n) => n.y + n.h),
   };
 }
