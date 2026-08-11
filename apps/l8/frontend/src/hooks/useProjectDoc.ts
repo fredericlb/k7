@@ -3,6 +3,7 @@
 // the engine meters index by, the mixer state for the track-node controls, and the
 // recording overlay's fields. Extracted from App.tsx; behaviour unchanged.
 
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { mixerModules } from "../mixerStrips";
@@ -35,6 +36,16 @@ export interface ProjectDocState {
   /** The modules the Mixer view lines up, in track order — `mixerStrips.ts` decides which. */
   mixerStrips: string[];
   hasStrudel: boolean;
+  /**
+   * Which of l8's two shapes the open project has — `live` means the shell draws the graph alone.
+   *
+   * `arrangement` until the first doc lands, which is the honest default: it is what a project
+   * that says nothing is, and it is what all but one of them are. The cost is that a LIVE project
+   * shows an empty timeline for the one frame between mount and the doc's arrival. Paid here
+   * rather than by holding the whole shell back on a fetch, and see docs/projectMode.md for the
+   * pre-render carrier that would remove it.
+   */
+  mode: ProjectMode;
   /** The MIDI sequence each track carries ({seqId, start-in-beats}), by track id. */
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
 }
@@ -61,6 +72,7 @@ export function useProjectDoc(
   // Off the SAME doc, so the row and the faders can never be one reload apart.
   const [mixerStrips, setMixerStrips] = useState<string[]>([]);
   const [hasStrudel, setHasStrudel] = useState(false);
+  const [mode, setMode] = useState<ProjectMode>("arrangement");
   const midiSeqRef = useRef<Record<string, { seqId: string; start: number }>>(
     {},
   );
@@ -106,6 +118,7 @@ export function useProjectDoc(
           })),
         );
         setHasStrudel(!!p.strudel);
+        setMode(p.mode);
       })
       .catch(() => {
         // No doc: reset what is derived from it.
@@ -113,6 +126,9 @@ export function useProjectDoc(
         setHasStrudel(false);
         setDocTracks([]);
         setMixerStrips([]);
+        // NOT the mode. A doc that failed to compile says nothing about the folder's shape, and
+        // snapping a live project back to a timeline on a transient error would move the screen
+        // under someone who was only mid-edit in chains.yaml.
       });
     return () => {
       alive = false;
@@ -126,6 +142,7 @@ export function useProjectDoc(
     docTracks,
     mixerStrips,
     hasStrudel,
+    mode,
     midiSeqRef,
   };
 }

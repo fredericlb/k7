@@ -1617,6 +1617,7 @@ export class Workspace {
       metronome: p.settings.metronome,
       countIn: p.settings.countIn,
       strudel: p.strudel,
+      mode: p.mode,
       markers: p.markers.map((m) => ({ beat: m.beat, name: m.name, tc: m.tc })),
     };
   }

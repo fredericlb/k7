@@ -15,6 +15,22 @@ The song header: tempo, rate, meter — plus what the song borrows from outside 
 # repository IS the project and there is no suffix to read.
 type: l8
 
+# Which of l8's two shapes this project has, within the `l8` dialect above.
+#
+# `arrangement` is a song: a timeline, clips placed in bars, a transport that
+# rolls through it. It is the default and it is what every project written
+# before this line existed is, so it can be left out.
+#
+# `live` is a RIG: no timeline at all. Nothing is placed in time, so l8 draws
+# the chains graph on the whole screen and drops the arrangement with it — the
+# timeline pane, the transport, the minimap. What you get is the signal path
+# and the command bar. The module bench (`/l8/@banc/modules.l8`) is one.
+#
+# Both shapes keep the same files: tracks are still what a chain starts from,
+# and a module is still edited by opening its file — right-click a node in the
+# graph and the editor comes up over it.
+project_type: arrangement
+
 project:
   name: my-song
   tempo: 120

@@ -37,13 +37,16 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   chains: { icon: Workflow, label: "Chains" },
 };
 
-// The layouts, and the pane each puts in the bottom-right slot. One of them since picture left.
-// The two layouts, and the pane each puts UNDER the timeline.
+// The layouts and the pane each puts in its main slot. `global` stacks the timeline over that
+// pane; `live` has no timeline to stack, so the same pane simply takes the window. Which panes
+// each shows — and which it may fullscreen — is `VIEW_PANES` in routes.ts; these are the icons.
+// A live layout is never OFFERED: it is what the open project is, so nothing here draws a toggle.
 export const VIEW_META: Record<
   View,
   { icon: LucideIcon; label: string; third: Pane }
 > = {
   global: { icon: LayoutGrid, label: "Global", third: "chains" },
+  live: { icon: Workflow, label: "Live", third: "chains" },
 };
 
 // The bottom panels: `graph` is the caret track's path, `docs` its notes, `logs` both.

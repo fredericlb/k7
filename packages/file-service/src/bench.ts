@@ -21,7 +21,9 @@ import {
   chainToBench,
 } from "@studio/song/benchChain";
 import { mediatekDirFor, mediatekRoot } from "@studio/song/mediatekRoot";
+import { projectModeOf } from "@studio/song/projectMode";
 import { BENCH_EDGES, scaffoldBench } from "@studio/song/scaffoldBench";
+import { setFileValue } from "@studio/song/yaml/edit";
 import {
   BENCH_PROJECT,
   benchChainPath,
@@ -94,11 +96,35 @@ export function ensureBench(userEmail: string): {
   return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };
 }
 
+/**
+ * Bring a bench made before `live` existed forward, in place.
+ *
+ * The folder is regenerated on every open but `project.yaml` is NOT — it is written once, and
+ * `chains.yaml`/`tracks/`/`instances/` are deliberately what survives (see `ensureBench`). So a
+ * bench that already existed would keep saying "arrangement" forever and open with a timeline
+ * over the graph, which is the one shape a bench has never been.
+ *
+ * Comment-preserving and idempotent: `setFileValue` rewrites the document rather than the text,
+ * so the French header the scaffold wrote is still there afterwards, and a bench already saying
+ * `live` is not touched at all.
+ */
+function ensureLive(projectFile: string): void {
+  try {
+    if (projectModeOf(dirname(projectFile)) === "live") return;
+    setFileValue(projectFile, ["project_type"], "live");
+  } catch {
+    // A bench whose header will not parse is the compile's problem to report, with a line
+    // number. Failing the OPEN here would leave no way to reach the editor that fixes it.
+  }
+}
+
 /** The scaffold and the catalogue mirror both benches share. Answers the project folder. */
 function ensureBenchProject(userEmail: string, project: string): string {
   const dir = join(workspaceRoot(slugify(userEmail), BENCH_WORKSPACE), project);
-  const first = !existsSync(join(dir, "project.yaml"));
+  const projectFile = join(dir, "project.yaml");
+  const first = !existsSync(projectFile);
   if (first) scaffoldBench(dir, basename(project, ".l8"));
+  else ensureLive(projectFile);
 
   // The modules, every time. Removed first so a module DELETED from the catalogue disappears
   // here too — a stale one would still resolve, still compile, and still play, which is how you

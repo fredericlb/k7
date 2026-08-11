@@ -3,6 +3,7 @@
 // up is what once put `libraries_from` at the top level doing nothing. `markers` keys
 // are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
 
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { z } from "zod";
 import { TIMECODE } from "./trackSchema";
@@ -89,6 +90,44 @@ const _everyAppIsAType: _EveryAppIsAType = true;
 void _everyAppIsAType;
 
 /**
+ * What an l8 project is WORKED as — a song arranged in time, or a rig that is only a graph.
+ *
+ * A SECOND axis, orthogonal to `type` above: that one says which app opens the folder, this one
+ * says which of l8's two shapes the folder has. The two never substitute for each other — every
+ * value here is legal in an `.l8` folder and in no other dialect.
+ *
+ * `arrangement` is every song ever written here, which is why the key is optional and its absence
+ * means `arrangement`. A required key would turn every existing project into one that will not
+ * open, and this object's parent is `.strict()`.
+ *
+ * `live` is a project with **no timeline**: nothing is placed in time, so there is no arrangement
+ * to scroll and l8 draws the chains graph alone. The module bench is the generated example
+ * (`scaffoldBench.ts`) — apps/st0/docs/banc.md already describes exactly that shape, down to
+ * "pas un morceau": a track, a chain, an output, and nothing arranged.
+ *
+ * Named `ProjectMode` in TypeScript and `project_type` in YAML, deliberately. `ProjectType` is
+ * taken above by the dialect and two types of that name would be read as one; `project_type` is
+ * what this is called from the outside — the project's type, within l8. Full rationale:
+ * docs/projectMode.md.
+ */
+export const PROJECT_MODES = [
+  "arrangement",
+  "live",
+] as const satisfies readonly ProjectMode[];
+export type { ProjectMode };
+
+/** Compile-time exhaustiveness: a mode missing from the list above makes this `never`. */
+type _EveryModeIsListed =
+  Exclude<ProjectMode, (typeof PROJECT_MODES)[number]> extends never
+    ? true
+    : never;
+const _everyModeIsListed: _EveryModeIsListed = true;
+void _everyModeIsListed;
+
+/** What a folder that says nothing is: every project written before `live` existed. */
+export const DEFAULT_PROJECT_MODE: ProjectMode = "arrangement";
+
+/**
  * v1's marker key: a WALL-CLOCK position — `90`, `12.5`, `1:30`, `1:30.5`.
  *
  * A superset of TIMECODE where it overlaps, which is the point: `"90"` and `"1:30"` are legal
@@ -111,6 +150,11 @@ export const ProjectFileSchema = z
     // The folder's SUFFIX stays authoritative (see projectType.ts): this is written down so
     // a reader — and a loader handed an absolute path with no name to read — knows too.
     type: z.enum(PROJECT_TYPES).optional(),
+    // A ROOT sibling for the SAME reason `type` is, and it is the same kind of fact: which
+    // entities the folder is allowed to hold. A live project has no arrangement, so this is not
+    // one of the song's settings any more than the dialect is — putting it in `project:` beside
+    // `tempo` would say it were a knob on a song rather than what the folder is.
+    project_type: z.enum(PROJECT_MODES).optional(),
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
     markers: z // timeline markers: a position -> its label
       .record(

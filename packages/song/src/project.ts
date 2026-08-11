@@ -26,6 +26,7 @@ import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 import { parsePosition } from "./timecode";
+import { DEFAULT_PROJECT_MODE } from "./yaml/projectSchema";
 
 export type * from "@studio/engine-protocol/project";
 
@@ -221,6 +222,9 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
     tracks: activeTracks,
     groups,
     strudel: false, // …nor a pattern lane: algo/ is a folder a single-file song hasn't got
+    // Always an arrangement: `live` is a FOLDER's shape, declared in project.yaml's root, and a
+    // single-file song has no such root to declare it in. Nothing can author one.
+    mode: DEFAULT_PROJECT_MODE,
     markers: parseMarkers(doc.markers, num, den),
     settings: parseSettings(doc.settings),
   };

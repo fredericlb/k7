@@ -25,6 +25,9 @@ const FALLBACK_PROJECT: WebProject = {
   timeSigNumerator: 4,
   timeSigDenominator: 4,
   strudel: false,
+  // Only the tempo and the signature are read off this; the shape of the project says nothing
+  // about how one clip's roll is drawn. `arrangement` because it is the default everywhere else.
+  mode: "arrangement",
   tracks: [],
   groups: [],
   metronome: false,
