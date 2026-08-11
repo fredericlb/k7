@@ -24,13 +24,21 @@ export const KEYS: Record<string, Binding> = {
   f: { if: "focus_pane", command: "ui {focus_pane}" },
   // Tab cycles which pane owns the keys, taking Tab from focus traversal — hence the skip-a-focused-control rule.
   tab: "ui focus next",
+  // Space is the transport wherever you are, short of a text editor: App's listener lets it
+  // through a focused button/link/select where it stands aside for every other key.
   space: "transport toggle",
   enter: "transport rewind",
   // t locates the transport to the timeline caret; quiet on a label, which is a row rather than a beat.
   t: "transport locate",
-  // Esc backs out one layer, first match winning: a fullscreen pane shadows `close` until it is gone.
+  // Esc backs out ONE layer, first match winning, outermost thing on screen first: a popin
+  // shadows the graph slot, which shadows a fullscreen pane, which shadows the bottom panel.
   // `{current_view}` returns you to the layout you were in, the way `f` interpolates `{focus_pane}`.
-  esc: [{ if: "fullscreen", command: "ui {current_view}" }, "ui close"],
+  esc: [
+    { if: "popin", command: "ui popin close" },
+    { if: "graph_slot", command: "ui slot close" },
+    { if: "fullscreen", command: "ui {current_view}" },
+    "ui close",
+  ],
   // m is context-sensitive like `e`: on a clip it names the bare `event move` (the timeline's move mode),
   // otherwise it mutes `caret_track` — unset with no track, so the key resolves to nothing rather than an empty arg.
   m: [
@@ -82,17 +90,16 @@ export function keyToken(e: KeyboardEvent): string | null {
  * Drop focus after a MOUSE activation of a momentary button (M/S/A, transport, a
  * toolbar toggle). Pass it as the button's `onClick` alongside its real handler.
  *
- * Space is the transport, globally — but the browser gives a focused `<button>` first
- * refusal on it, and App's key handler deliberately stands aside for BUTTON so that a
- * control someone TABBED to still activates on Space (that's the platform contract, and
- * breaking it would strand keyboard users). The two are only in conflict for a button
- * reached by pointer: it keeps focus after the click, and every later Space re-toggles
- * it instead of starting playback.
+ * This is no longer what saves Space: the shell now takes Space off a focused button
+ * outright, because "Space plays" has to hold wherever the last click happened to land
+ * (see App's listener). What it still saves is every OTHER single-key binding — `1`,
+ * `m`, `s`, `f` — which the listener does stand aside for while a control has focus, so
+ * a button reached by pointer would otherwise swallow them all.
  *
- * Blurring on click cuts exactly that case and nothing else — a Tab-focus is never
- * followed by a click, so the keyboard path is untouched. Not `preventDefault` on
- * pointerdown: that suppresses focus by suppressing the compatibility mouse events,
- * which is both less obvious and more browser-dependent.
+ * Blurring on click cuts exactly the pointer case — a Tab-focus is never followed by a
+ * click, so the keyboard path is untouched. Not `preventDefault` on pointerdown: that
+ * suppresses focus by suppressing the compatibility mouse events, which is both less
+ * obvious and more browser-dependent.
  */
 export const blurOnClick = (e: { currentTarget: HTMLElement }): void =>
   e.currentTarget.blur();

@@ -269,6 +269,72 @@ the timeline caret, the zoom stack, the graph canvas — simply never moves. Thi
 one invariant to preserve when adding a pane: mount it once, unconditionally, and let the
 tables decide its size.
 
+### Escape backs out ONE layer, outermost first
+
+`esc` in `src/keys.ts` is an ordered list and the first match wins, which is what makes the
+key mean "back out of the thing in front of me" rather than one fixed action:
+
+| if there is… | Escape does | command |
+|---|---|---|
+| an overlay in front | closes the topmost one | `ui popin close` |
+| …else a graph slot | puts the chains graph back | `ui slot close` |
+| …else a fullscreened pane | returns to the layout | `ui {current_view}` |
+| …else | closes the bottom panel | `ui close` |
+
+The ladder only works if each rung is **exclusive**, and that is the whole reason
+[`src/popins.ts`](../src/popins.ts) exists. Several overlays answer Escape themselves with a
+plain bubble-phase `window` listener and no `stopPropagation` — the header's alternative menu, a
+lane's alternatives, the phone's hamburger, the help page — and Radix's dialogs do the same. The
+shell's own listener is on `window` too, so both fire on the one keypress. That was survivable
+while the shell's fallback merely closed the bottom panel; the moment Escape started closing the
+graph slot, dismissing a dropdown would have thrown away the clip or the take you had open
+behind it.
+
+So an overlay **registers** while it is up (`usePopin(open, close)`) and the shell reads the
+registry as its `popin` condition. Two things fall out of it, both deliberate:
+
+- **Registering is not the same as being closed by the shell.** An overlay that already closes
+  itself keeps doing so; the registration exists to make the shell's binding resolve to
+  `ui popin close` and stop there. Closing twice is closing once, and `closeTopPopin` never
+  pops the entry itself — the owner deregisters through its effect's cleanup when it actually
+  goes away, so a closer that is refused leaves the stack as it found it.
+- **A stack, not a count.** "The current popin" is the last one opened, so a menu opened over a
+  dialog is what Escape reaches first.
+
+Three things deliberately do NOT take part. The **pickers** (module, asset — both `TreePicker`)
+and the **context menu** already listen in the *capture* phase and swallow the key outright, so
+the shell never sees it. The **settings screens and the module builder** are pages that own the
+whole surface: the listener returns early for them, exactly as it always did for settings, so no
+binding of any kind reaches the layout underneath. And **`RecordingPane`** keeps Escape for
+stopping a rolling take, which is neither a popin nor a slot but a transport action.
+
+### Space is the transport, wherever the last click landed
+
+The same listener decides this, and it draws a line the old one did not. It used to stand aside
+for `INPUT`, `TEXTAREA`, `BUTTON`, `A`, `SELECT` and anything `contentEditable` — one list, every
+key. Two of those groups want different things:
+
+- **Typing** — a field, or CodeMirror — owns every key it is given, Space included. That is what
+  makes it a text editor, and nothing here may touch it. Unchanged.
+- **A focused control** — a button, a link, a select — keeps the keys the platform gives it,
+  except **Space** and **Escape**. Space, because "press Space to play" has to hold whatever you
+  clicked last: a button reached by pointer keeps focus, and the transport failing because you
+  had just clicked Mute is the bug. Escape, because a focused button does nothing with it, and
+  Escape's first job is now to close the overlay that button is sitting in. **Enter** still
+  activates a focused button, so a control reached by Tab is still operable from the keyboard.
+
+`blurOnClick` (`keys.ts`) stays, and its job is now narrower: it hands back every *other*
+single-key binding — `1`, `m`, `s`, `f` — after a mouse click, which the listener still lets a
+focused control keep.
+
+One thing Space deliberately does **not** do here: take the direct route. It resolves to
+`transport toggle`, which goes through `runCommand` to the file service like any other command,
+while the header's play button sends `play`/`stop` straight over the engine WebSocket. The
+WebSocket path *drops* a transport verb while the engine is applying a change
+(`useEngineLink.ts`), which is right for a button you can see is disabled and wrong for a key
+whose whole promise is that it always works. The two paths are worth knowing about; they are not
+the same path, and this one is the one that cannot be silently dropped.
+
 ### The editor POPIN
 
 A command that sends the editor to a file (`ui file`, `edit clip`, `edit sequence`) has to do
@@ -288,9 +354,16 @@ Three details it needs to be usable:
 
 - **The popin is the active pane** while it is up (`activePane`), or the pane underneath would
   keep answering the keys.
-- **It closes on a click outside, or the ×** — not on Escape. Escape belongs to the editor: in
-  vim mode it leaves insert mode, and a key that both leaves insert mode and closes the window
-  you are typing in is a trap.
+- **It closes on a click outside, the ×, or Escape** — see the Escape ladder below. Escape used
+  to be deliberately excluded here, on the argument that it belongs to the editor: in vim mode it
+  leaves insert mode, and a key that both leaves insert mode and closes the window you are typing
+  in is a trap. That argument was right and it still holds — it is just already paid for
+  somewhere else. The shell's key listener stands aside for a text editor (CodeMirror is
+  `contentEditable`), so an Escape typed *into* the file never reaches the shell at all: vim gets
+  it, insert mode ends, the popin stays. What reaches the shell is an Escape pressed from outside
+  the text — the roll or tracker tab, a toolbar button, the backdrop — where nothing else wants
+  it and "close this" is the only reading left. A sequence popin *opens* on its roll, so that is
+  the common case rather than the exotic one.
 - **Any change of layout puts it away.** It is a detour to one file, not a place to be, so it is
   deliberately NOT URL state — a reload lands you in the view, not in the popin.
 

@@ -7,6 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
 import { type LucideIcon, Menu, Terminal, X } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { usePopin } from "../popins";
 
 export function MobileMenu({
   open,
@@ -18,6 +19,8 @@ export function MobileMenu({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Registered while open so the shell's Esc stops here (see popins.ts).
+  usePopin(open, () => onOpenChange(false));
   // Close on outside press or Escape. Pointerdown, so a press that starts outside and drags in still closes it.
   useEffect(() => {
     if (!open) return;

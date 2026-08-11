@@ -14,6 +14,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { Check, GitBranch } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { usePopin } from "../popins";
 import type { Alternatives } from "../types";
 
 export function AlternativePicker({
@@ -38,6 +39,11 @@ export function AlternativePicker({
       alive = false;
     };
   }, [reloadKey]);
+
+  // Registered while open so the shell's Esc stops at this menu: it closes itself below, and
+  // without the registration the same keypress would go on to close whatever the graph slot was
+  // holding behind it. Closing twice is closing once. See popins.ts.
+  usePopin(open, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;

@@ -108,6 +108,7 @@ import {
 } from "./moduleInsert";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
+import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
 import type { Pane, Panel, View } from "./routes";
@@ -294,6 +295,12 @@ export default function App({
   // The editor as a POPIN: a command sent it to a file while its pane was off screen. It is the
   // SAME instance, restyled onto the surface — see docs/shell.md.
   const [editorPopin, setEditorPopin] = useState(false);
+  // It is a popin in the registry's sense too, so Esc closes it and stops there. Its own vim
+  // keeps Escape while you are TYPING in it — the listener stands aside for a code editor — so
+  // the key still leaves insert mode and only reaches here from outside the text.
+  usePopin(editorPopin, () => setEditorPopin(false));
+  // Whether ANY overlay is up, this shell's or a component's own. Drives the `popin` condition.
+  const anyPopin = useAnyPopin();
   /**
    * What the chains slot is showing INSTEAD of the graph, or null for the graph itself.
    *
@@ -346,6 +353,13 @@ export default function App({
     label: string;
     resolve: (ok: boolean) => void;
   } | null>(null);
+  // Registered like the other dialogs: Radix dismisses it on Escape without swallowing the key.
+  // Refusing IS an answer here, so the closer resolves the promise rather than dropping it.
+  usePopin(!!undoConfirm, () => {
+    if (!undoConfirm) return;
+    undoConfirm.resolve(false);
+    setUndoConfirm(null);
+  });
   const confirmProcess = useCallback(
     (files: string[], label: string) =>
       new Promise<boolean>((resolve) =>
@@ -695,7 +709,10 @@ export default function App({
     [openProject, pushLog],
   );
 
-  // The import (.dawproject) and delete-project dialog flows.
+  // The import (.dawproject) and delete-project dialog flows. Both are Radix dialogs, which
+  // answer Escape themselves but let it go on propagating — so they register here too, or the
+  // key that dismissed the dialog would also close the graph slot behind it. Not while BUSY:
+  // an import in flight has nothing to cancel, and its dialog is a progress report.
   const imp = useProjectImport({ openProject, onStatus: setStatus });
   const del = useProjectDelete({
     onStatus: setStatus,
@@ -705,6 +722,8 @@ export default function App({
       bumpReload();
     },
   });
+  usePopin(!!imp.importPath && !imp.importing, imp.cancelImport);
+  usePopin(!!del.deletePath && !del.deleting, del.cancelDelete);
 
   // Follow a project switch made under us (another tab, the CLI).
   useActiveProjectFollow({
@@ -830,6 +849,8 @@ export default function App({
         ...PANES,
         "focus next",
         "close",
+        "popin close",
+        "slot close",
         "select",
         "zoom",
         "zoom out",
@@ -865,6 +886,18 @@ export default function App({
       }
       if (line === "close") {
         setPanel(null);
+        return true;
+      }
+      // Close the topmost overlay — whoever registered it, this shell or a component of its
+      // own. Handled either way: Esc only names this while one IS up, and a command typed at
+      // the bar with nothing open has simply asked for something that is already true.
+      if (line === "popin close") {
+        closeTopPopin();
+        return true;
+      }
+      // Put the graph back. The occupants' ✕ does exactly this — see GraphSlotPane.
+      if (line === "slot close") {
+        setGraphSlot(null);
         return true;
       }
       // new project <audio|m9|v1> <name> — first token the type, the rest the name, so multi-word names work.
@@ -1362,6 +1395,11 @@ export default function App({
     const cond: ConditionCtx = {};
     cond.focus_pane = focusPane;
     cond.current_view = view;
+    // The two layers Esc backs out of before it touches the layout. `popin` counts every
+    // registered overlay, not just this shell's own: one that closes ITSELF still has to
+    // shadow the slot, or one Escape would close two things. See popins.ts.
+    if (anyPopin) cond.popin = "1";
+    if (graphSlot) cond.graph_slot = "1";
     if (full) cond.fullscreen = "1";
     if (caret?.trackId) cond.caret_track = caret.trackId;
     if (tlView.selecting) cond.timeline_selection = "1";
@@ -1375,24 +1413,45 @@ export default function App({
       else cond.hover_audio_clip = editTarget.clip.name;
     }
     return cond;
-  }, [caret, editTarget, tlView, focusPane, full, view]);
+  }, [anyPopin, caret, editTarget, graphSlot, tlView, focusPane, full, view]);
 
   // Global keys. Every binding names a command and runs through runCommand.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // A settings screen owns the surface: the panes its bindings would act on are hidden.
-      if (settingsScreen) return;
+      // A settings screen or the builder owns the surface: the panes these bindings would act
+      // on are hidden behind it, and Esc must not reach past it to close the slot underneath.
+      if (settingsScreen || builder) return;
       const el = e.target as HTMLElement | null;
-      if (
-        el &&
+      // Two different reasons to stand aside, and only one of them holds for Space.
+      //
+      // TYPING — a field or a code editor — owns every key it is given, Space included; that is
+      // what makes it a text editor. Nothing here may touch it.
+      //
+      // A CONTROL with focus (a button, a link, a select) is a different case: it keeps the keys
+      // the platform gives it, but two of them come back here.
+      //
+      // Space, because it has to be the transport wherever the last click landed — a button
+      // reached by pointer keeps focus, and "Space plays" failing because you had just clicked
+      // Mute is the bug this rule exists to kill. Escape, because a focused button does nothing
+      // with it at all, and Esc's first job is now to close the overlay that button is sitting
+      // in. Enter still activates the button, so a control tabbed to is still reachable from the
+      // keyboard. Every other key still belongs to the control — `blurOnClick` (keys.ts) is what
+      // hands those back after a mouse click.
+      const typing =
+        !!el &&
         (el.tagName === "INPUT" ||
           el.tagName === "TEXTAREA" ||
-          el.tagName === "BUTTON" ||
+          el.isContentEditable);
+      if (typing) return;
+      const control =
+        !!el &&
+        (el.tagName === "BUTTON" ||
           el.tagName === "A" ||
-          el.tagName === "SELECT" ||
-          el.isContentEditable)
-      )
-        return;
+          el.tagName === "SELECT");
+      if (control) {
+        const t = keyToken(e);
+        if (t !== "space" && t !== "esc") return;
+      }
       // The command bar: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a held Shift.
       // Docked, it FOCUSES the bar that is already there; on the phone it still opens the popin.
       // (Never the other way: this branch is unreachable from inside the bar, which is an input.)
@@ -1429,7 +1488,7 @@ export default function App({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [conditions, docked, runCommand, settingsScreen]);
+  }, [builder, conditions, docked, runCommand, settingsScreen]);
 
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
   // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor

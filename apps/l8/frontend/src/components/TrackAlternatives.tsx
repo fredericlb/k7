@@ -13,6 +13,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { Check, ChevronDown, Copy, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePopin } from "../popins";
 
 export function TrackAlternatives({
   track,
@@ -52,6 +53,10 @@ export function TrackAlternatives({
           : below,
     });
   }, [names.length]);
+
+  // Registered while open so the shell's Esc stops at this menu rather than closing it AND the
+  // graph slot behind it on one keypress. See popins.ts.
+  usePopin(open, () => setAt(null));
 
   // Closes on a click anywhere else or on Escape — the same pair the header's picker uses. The
   // timeout is what stops the click that OPENED it from closing it again on the same gesture.
