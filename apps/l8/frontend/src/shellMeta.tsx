@@ -12,7 +12,6 @@ import {
   type LucideIcon,
   NotebookText,
   Pause,
-  Piano,
   Play,
   ScrollText,
   SlidersVertical,
@@ -47,11 +46,14 @@ export const VIEW_META: Record<
   global: { icon: LayoutGrid, label: "Global", third: "chains" },
 };
 
-// The bottom panels: `editor` is the clip editor, `graph` the caret track's path, `logs` both.
-// The MIXER is not among them any more — a rank of strips is a view of the graph, and it is
-// drawn where the graph is. Its button sits beside these all the same; see App.tsx.
+// The bottom panels: `graph` is the caret track's path, `docs` its notes, `logs` both.
+//
+// Two things left this row rather than being added to it. The MIXER is a view of the graph and
+// is drawn where the graph is; its button sits beside these all the same (see App.tsx). The
+// EDITOR panel drew a clip's contents, which the graph's own slot now does — the same
+// `ClipView`, with the pane's height instead of a band's, so keeping the panel was showing the
+// same roll twice and inviting the two to disagree.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
-  editor: { icon: Piano, label: "Editor" },
   graph: { icon: Workflow, label: "Graph" },
   docs: { icon: NotebookText, label: "Docs" },
   logs: { icon: ScrollText, label: "Logs" },

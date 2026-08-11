@@ -48,6 +48,7 @@ import {
   cablePath,
   type EdgeInsert,
   type GraphNode,
+  headerFontPx,
   type LaidOutGraph,
   PORT_PLATE,
   type TrackControlValues,
@@ -269,6 +270,9 @@ const CSS = `
 .dgx-empty.stub { color:#f87171; white-space:normal; line-height:1.35; }
 .dgx-tri { width:8px; height:8px; border-radius:3px; background:var(--accent);
   box-shadow:0 0 8px -1px color-mix(in srgb,var(--accent) 70%,transparent); flex:none; }
+/* The size here is the CEILING and the fallback; the real one is set inline per card, fitted to
+   the name (headerFontPx). The ellipsis stays as the last resort: the fit is floored, so a name
+   long enough still gets cut rather than shrunk into a smudge. */
 .dgx-nm { font-size:12.5px; font-weight:560; letter-spacing:-.005em; flex:1;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* The instrument glyph on a track node: its own centred line above the name, at both
@@ -1249,6 +1253,22 @@ function fitFont(label: string, w: number, h: number): number {
   return Math.max(8, Math.min(byWidth, h * 0.6));
 }
 
+/**
+ * What the header actually leaves the NAME, in px — the card less everything beside it.
+ *
+ * The numbers are `.dgx-hd`'s own, above: 10px of padding each side, a 7px gap, a 13px glyph or
+ * an 8px dot leading it, and the padding-right a corner button adds (`pbtn`/`bbtn`). Repeated
+ * here because the layout is flex and the real figure only exists after a reflow, which is
+ * exactly what a per-card measurement would cost. If the CSS moves, this moves with it.
+ */
+function headerNameW(n: GraphNode, hasGlyph: boolean): number {
+  const HD_PAD = 10;
+  const HD_GAP = 7;
+  const lead = hasGlyph ? 13 : 8;
+  const corner = n.module && n.hasNativePluginUI ? 26 : 0;
+  return Math.max(16, n.w - HD_PAD * 2 - lead - HD_GAP - corner);
+}
+
 // The glyph's height on the far card, taken from the NODE: it sits on its own line, so it needs a share of height.
 const farIconPx = (w: number, h: number): number =>
   Math.min(h * 0.34, w * 0.34);
@@ -1537,9 +1557,16 @@ function NodeInner({
             className="dgx-ticon"
           />
         )}
-        {/* The name ellipses, and a card is now only as wide as its panel's grid — a 2-column strip is 84px, which
-            is a few characters. The title attribute is what keeps 17 identically-shaped strips tellable apart. */}
-        <span className={`dgx-nm${flagCls}`} title={n.label}>
+        {/* The name is SIZED to fit rather than ellipsed: a card is only as wide as its panel's
+            grid, and at a fixed 12.5px seventeen identically-shaped mixers all read "vo_j…".
+            What is left for it is the card less the header's padding, the leading glyph or dot,
+            and the room a corner button takes out of the right — see headerFontPx. `title`
+            stays: a name floored at the minimum can still be shorter than the truth. */}
+        <span
+          className={`dgx-nm${flagCls}`}
+          title={n.label}
+          style={{ fontSize: headerFontPx(n.label, headerNameW(n, hasGlyph)) }}
+        >
           {n.label}
         </span>
         {/* The flag moved to the content area (it explains the missing options down

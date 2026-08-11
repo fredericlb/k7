@@ -59,7 +59,7 @@ import { TrackIcon, trackIcon } from "../trackIcons";
 import type { WebProject, WebTrack } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { ClipContent } from "./ClipContent";
-import type { EditTarget } from "./EditorPanel";
+import type { EditTarget } from "./ClipView";
 import { TrackAlternatives } from "./TrackAlternatives";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.

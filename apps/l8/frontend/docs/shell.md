@@ -225,6 +225,18 @@ One thing the alignment bought on the way: a track armed **mid-take** has its bu
 back to the frame it was armed at, so its envelope starts where it started instead of at
 the left edge, a bar or two ahead of everyone else's.
 
+### The piano roll left the bottom panel
+
+There used to be an **Editor** panel showing the clip under the caret. It drew `ClipView`, which
+is exactly what the graph's slot draws now — the same component, with the pane's height instead
+of a resizable band's. Keeping both was the same roll twice, on two surfaces that could come to
+disagree about which clip you meant, and the panel was the worse of the two: shorter, and
+answering the caret rather than the click.
+
+`editTarget` did NOT go with it. The caret still reports what it is over, because the command
+conditions read it — `hover_midi_sequence` and `hover_audio_clip` are what let a command know
+which clip you mean without you naming it. What went is the drawing.
+
 ## A view is a LAYOUT, not a mode
 
 Every pane is mounted always, and always the *same instance* — including the editor, which
@@ -345,7 +357,7 @@ Two consequences of putting the click there rather than on the clip element:
 - **A pending `event move` still wins.** If the command bar is collecting that move, the click
   answers the bar as it always did; showing the clip is what happens when nothing was asked.
 
-What it draws is `ClipView`, the same component the Editor bottom panel shows — so audio and
+What it draws is `ClipView` — so audio and
 MIDI are told apart in one place and the two surfaces cannot come to disagree about a clip.
 
 ## The minimap is not always there
@@ -392,7 +404,8 @@ graph stays mounted, hidden — it owns the MIDI runtime). Two gestures move tha
 are symmetric on purpose:
 
 - **a clip** — its content opens there. The caret parks on it too, which is what fills the
-  Editor bottom panel; the slot is the one thing the caret cannot say, so it is told outright.
+  command conditions (`hover_midi_sequence`); the slot is what SHOWS it, and a click is what
+  the caret cannot say on its own, so the slot is told outright.
 - **the bare lane** — the caret moves to where you clicked, nothing is under it any more, and
   the slot goes back to the graph. What a click opened, a click on nothing closes; otherwise a
   clip sits parked there until you find its ✕.
