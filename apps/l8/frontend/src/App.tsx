@@ -395,7 +395,6 @@ export default function App({
     setEditorPopin(false);
   }, [full, view]);
 
-
   // Optimistic, like the mixer: the editor switches modality on the click and the write's answer settles it.
   const toggleVim = useCallback(async () => {
     const next = !vimMode;
