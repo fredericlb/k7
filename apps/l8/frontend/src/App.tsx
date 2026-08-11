@@ -1932,19 +1932,16 @@ export default function App({
                     component the Editor bottom panel shows, so audio and MIDI are told apart in
                     one place and the two surfaces cannot come to disagree about a clip. */}
                 {graphSlot?.kind === "clip" && (
-                  <div className="flex min-h-0 min-w-0 flex-1">
-                    <ClipView
-                      target={graphSlot.target}
-                      onClose={() => setGraphSlot(null)}
-                    />
-                  </div>
+                  <ClipView
+                    target={graphSlot.target}
+                    onClose={() => setGraphSlot(null)}
+                  />
                 )}
                 {/* One lane's whole signal path, read left to right. `moduleRow` lays it out —
                     the same function the mixer row used before it became a rank of the graph
                     itself, and the same cards the graph draws. */}
                 {graphSlot?.kind === "trackModules" && (
-                  <div className="flex min-h-0 min-w-0 flex-1">
-                    <TrackModulesPane
+                  <TrackModulesPane
                       trackId={graphSlot.trackId}
                       reloadKey={reloadKey}
                       command={quietCommand}
@@ -1956,9 +1953,8 @@ export default function App({
                       trackControls={trackControls}
                       onContextMenu={openContextMenu}
                       engineWarnings={engineWarnings}
-                      onClose={() => setGraphSlot(null)}
-                    />
-                  </div>
+                    onClose={() => setGraphSlot(null)}
+                  />
                 )}
                 {/* The take. `rolling` is what freezes it rather than what mounts it: the pane
                     outlives the take, and closing is the ×, not the Stop. */}

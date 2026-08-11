@@ -7,10 +7,10 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
-import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { GraphSlotPane } from "./GraphSlotPane";
 import type { MenuCtx } from "../contextMenu";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
@@ -102,75 +102,44 @@ export function TrackModulesPane({
     };
   }, [pluginIds, watchPluginParams]);
 
-  /** The strip across the top: what this is, and the ✕ that puts the graph back. */
-  const Bar = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
-      <span className="font-medium text-foreground">{trackId}</span>
-      <span>· {children}</span>
-      <button
-        type="button"
-        className="ml-auto rounded p-1 hover:bg-accent hover:text-foreground"
-        title="Close — back to the graph"
-        aria-label="Close this track's modules"
-        onClick={onClose}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
+  // Every state keeps the frame, so the ✕ is reachable even when there is nothing to draw — a
+  // view you cannot close is worse than a view that is empty.
+  const frame = (note: React.ReactNode, body: React.ReactNode = null) => (
+    <GraphSlotPane title={trackId} note={note} onClose={onClose}>
+      {body}
+    </GraphSlotPane>
   );
 
-  // Every state keeps the bar, so the ✕ is reachable even when there is nothing to draw — a view
-  // you cannot close is worse than a view that is empty.
-  if (error)
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col">
-        <Bar>
-          <span className="text-red-500">{error}</span>
-        </Bar>
-      </div>
-    );
-  if (!laid)
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col">
-        <Bar>{m["common.loading"]()}</Bar>
-      </div>
-    );
+  if (error) return frame(<span className="text-red-500">{error}</span>);
+  if (!laid) return frame(m["common.loading"]());
   if (!laid.nodes.length)
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col">
-        <Bar>this lane reaches no module — nothing to show</Bar>
-      </div>
-    );
+    return frame("this lane reaches no module — nothing to show");
 
-  return (
-    <div className="flex h-full min-h-0 w-full flex-col">
-      <Bar>
-        {laid.nodes.length} module{laid.nodes.length > 1 ? "s" : ""}, in signal
-        order · the modules' own panels
-      </Bar>
-      <div className="min-h-0 flex-1">
-        <DomChains
-          icons={STUDIO_ICONS}
-          graph={laid}
-          selected={selected}
-          onSelect={setSelected}
-          trackOrder={trackOrder}
-          // Re-frame when the ROW changes, not on every refetch: a param landing must not take
-          // the camera back from wherever it was panned.
-          fitKey={modules.join("|")}
-          // Fill the HEIGHT and let the row run off the right, which pans. Fitting both axes
-          // would shrink every card as the lane gains modules — see docs/shell.md's measurements.
-          fitAxis="height"
-          // A row is read across: the wheel walks along it and nothing pans vertically.
-          row
-          command={command}
-          onContextMenu={onContextMenu}
-          engineWarnings={engineWarnings}
-          pluginParamsStore={pluginParamsStore}
-          setPluginParam={setPluginParam}
-          trackControls={trackControls}
-        />
-      </div>
-    </div>
+  return frame(
+    <>
+      {laid.nodes.length} module{laid.nodes.length > 1 ? "s" : ""}, in signal
+      order · the modules' own panels
+    </>,
+    <DomChains
+      icons={STUDIO_ICONS}
+      graph={laid}
+      selected={selected}
+      onSelect={setSelected}
+      trackOrder={trackOrder}
+      // Re-frame when the ROW changes, not on every refetch: a param landing must not take the
+      // camera back from wherever it was panned.
+      fitKey={modules.join("|")}
+      // Fill the HEIGHT and let the row run off the right, which pans. Fitting both axes would
+      // shrink every card as the lane gains modules — see docs/shell.md's measurements.
+      fitAxis="height"
+      // A row is read across: the wheel walks along it and nothing pans vertically.
+      row
+      command={command}
+      onContextMenu={onContextMenu}
+      engineWarnings={engineWarnings}
+      pluginParamsStore={pluginParamsStore}
+      setPluginParam={setPluginParam}
+      trackControls={trackControls}
+    />,
   );
 }

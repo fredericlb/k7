@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { fileStem } from "../projectPaths";
 import type { WebClip, WebNote, WebProject } from "../types";
+import { GraphSlotPane } from "./GraphSlotPane";
 import { PianoRoll } from "./PianoRoll";
 import { WaveformView } from "./WaveformView";
 
@@ -35,12 +36,10 @@ const FALLBACK_PROJECT: WebProject = {
 function SeqRoll({
   path,
   content,
-  onClose,
   onCreateNote,
 }: {
   path: string;
   content: string;
-  onClose: () => void;
   onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
 }) {
   const [project, setProject] = useState<WebProject | null>(null);
@@ -73,19 +72,14 @@ function SeqRoll({
   };
 
   return (
-    <div className="relative flex h-full min-h-0 flex-1">
-      <div className="min-h-0 flex-1">
-        <PianoRoll
-          project={project ?? FALLBACK_PROJECT}
-          clip={clip}
-          onClose={onClose}
-          onCreateNote={
-            onCreateNote
-              ? (k, t0, t1) => onCreateNote(name, k, t0, t1)
-              : undefined
-          }
-        />
-      </div>
+    <div className="h-full min-h-0">
+      <PianoRoll
+        project={project ?? FALLBACK_PROJECT}
+        clip={clip}
+        onCreateNote={
+          onCreateNote ? (k, t0, t1) => onCreateNote(name, k, t0, t1) : undefined
+        }
+      />
     </div>
   );
 }
@@ -100,27 +94,33 @@ export function ClipView({
   // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
   onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
 }) {
-  if (target.kind === "seq")
-    return (
-      <SeqRoll
-        path={target.path}
-        content={target.content}
-        onClose={onClose}
-        onCreateNote={onCreateNote}
-      />
-    );
-  const clip = target.clip;
-  const seqId = clip.name || clip.id;
-  return clip.type === "midi" ? (
-    <PianoRoll
-      project={target.project}
-      clip={clip}
-      onClose={onClose}
-      onCreateNote={
-        onCreateNote ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1) : undefined
-      }
-    />
-  ) : (
-    <WaveformView project={target.project} clip={clip} onClose={onClose} />
+  const clip = target.kind === "seq" ? null : target.clip;
+  const seqId = clip ? clip.name || clip.id : "";
+  // No title bar: each of the three leaves draws its own header already — the roll says what it
+  // is and how to draw a note, the waveform names the file — and a second row above it would say
+  // the same thing twice. The frame contributes the shell and one floating ✕, which is what this
+  // component used to hand down to `PianoRoll` to draw for it.
+  return (
+    <GraphSlotPane onClose={onClose}>
+      {target.kind === "seq" ? (
+        <SeqRoll
+          path={target.path}
+          content={target.content}
+          onCreateNote={onCreateNote}
+        />
+      ) : clip?.type === "midi" ? (
+        <PianoRoll
+          project={target.project}
+          clip={clip}
+          onCreateNote={
+            onCreateNote
+              ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1)
+              : undefined
+          }
+        />
+      ) : (
+        clip && <WaveformView project={target.project} clip={clip} />
+      )}
+    </GraphSlotPane>
   );
 }
