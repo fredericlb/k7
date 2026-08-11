@@ -101,10 +101,10 @@ inside studio".
 **Windows only** — on macOS and Linux everything is simpler: edit and build in the
 same world, run `npm run dev`, and none of the following applies.
 
-On the Windows dev machine the worlds are split: **editing** (claude, nvim…) lives
-in WSL — the default shell of the `/console` tabs — while **every build and every
-dev server belongs to Tilt** on the Windows side (`tilt up`, one resource per
-server, UI at https://st0.priv.frediver.se:10351). So never build by hand there: save (or
-`tilt trigger <resource>`), wait for Tilt to finish, then read
+On the Windows dev machine, **editing** (claude, nvim…) happens in the
+`console.priv.frediver.se` tabs — Git Bash by default — while
+**every build and every dev server belongs to Tilt** (`npm run dev` = `tilt up`, one
+resource per server, UI at http://localhost:10350). So never build by hand there:
+save (or `tilt trigger <resource>`), wait for Tilt to finish, then read
 `tilt get uiresources` / `tilt logs <resource>` to see if something is wrong. The
 tray is not used in dev: the engine is self-sufficient. See docs/remote.md.

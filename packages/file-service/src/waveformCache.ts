@@ -191,16 +191,49 @@ export async function ensureFileEnvelope(
 
 // Drop the memo for one source (or all) when it changed underneath us, so the next request re-checks the sidecar.
 export function invalidateEnvelope(source?: string): void {
-  if (source) memo.delete(source);
-  else memo.clear();
+  if (source) {
+    memo.delete(source);
+    freshMemo.delete(source);
+  } else {
+    memo.clear();
+    freshMemo.clear();
+  }
 }
 
 // --- batch (re)generation ----------------------------------------------------------
 
+/** Size+mtime of a source and of its sidecar — the pair a "still fresh" verdict was made about. */
+function pairStamp(source: string): string | null {
+  try {
+    const a = statSync(source);
+    const b = statSync(cachePath(source));
+    return `${a.size}:${a.mtimeMs}|${b.size}:${b.mtimeMs}`;
+  } catch {
+    return null; // no sidecar (or no source) — nothing to trust
+  }
+}
+
+/**
+ * Sources judged fresh, against the stamp of the two files that were compared. Only YES is
+ * remembered: a stale one is about to be rebuilt anyway, and remembering NO would need clearing.
+ *
+ * The check itself reads the whole sidecar and 128 kB of the audio to hash it, so a project of
+ * 110 takes spent ~190 ms answering "nothing to do" — and l8's browser asks on every command,
+ * on the same single process that is compiling the answer to that command. The fingerprint is
+ * still what DECIDES; this only skips asking again about two files neither of which has moved,
+ * which is the gate `ensureFileEnvelope`'s memo right below already stands on.
+ */
+const freshMemo = new Map<string, string>();
+
 // Is `source`'s sidecar present and still matching the file's current content?
 function cacheFresh(source: string): boolean {
+  const stamp = pairStamp(source);
+  if (stamp && freshMemo.get(source) === stamp) return true;
   const c = readSidecar(source);
-  return !!c && c.fingerprint === fileFingerprint(source);
+  const ok = !!c && c.fingerprint === fileFingerprint(source);
+  if (ok && stamp) freshMemo.set(source, stamp);
+  else freshMemo.delete(source);
+  return ok;
 }
 
 // The distinct sources whose sidecar is missing or stale — the work a prewarm actually needs; a missing file drops.

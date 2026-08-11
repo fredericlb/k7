@@ -19,10 +19,6 @@
       "cache": false,
       "persistent": true
     },
-    "//#vscode": {
-      "cache": false,
-      "persistent": true
-    },
     "//#build-storybook": {
       "outputs": ["storybook-static/**"]
     }

@@ -116,7 +116,15 @@ writing. `waveformCacheVersion.test.ts` pins it.
    re-read the sidecar and re-fingerprint the file every time. Keyed by source path; a
    changed mtime drops the entry (the fingerprint is authoritative, but mtime is the
    cheap first gate). Cleared implicitly by process lifetime.
-2. **The sidecars** — the durable cache.
+2. **The freshness verdict** — `cacheFresh` reads the whole sidecar and hashes 128 kB of the
+   audio, so `staleWaveformSources` over a project of 110 takes spent ~190 ms answering
+   "nothing to do". l8's browser asks for a prewarm after every command, on the same single
+   process that is compiling that command's answer. A source judged fresh is remembered against
+   the size+mtime of BOTH files, so the next ask is two `stat`s. Only YES is remembered: a
+   stale source is about to be rebuilt anyway. The fingerprint still DECIDES — this only skips
+   asking again about two files neither of which has moved, which is the gate layer 1 already
+   stands on.
+3. **The sidecars** — the durable cache.
 
 `ensureFileEnvelope` takes the fast path (memo, or a sidecar whose fingerprint still
 matches) and otherwise spawns the engine to decode and rewrite. It throws when the

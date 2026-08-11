@@ -61,6 +61,31 @@ makes our own write visible inside a single timestamp tick.
 The token describes the ACTIVE project. Both caches take a `dir` because building takes
 one, not because a second project can sit in them.
 
+`hints()` is the third, added later and for the same reason: it is a pure read of the folder,
+and l8 asks for it after EVERY command — the editor pane is mounted in every layout and
+refreshes its tree and its completion vocabulary together, so a command that never touched a
+file the editor is showing still rebuilt the tracks, the clips, the per-plugin params and the
+path map. 150 ms on a real song, on the one process that is also compiling the answer to that
+command.
+
+## `recordChange` re-reads only what moved
+
+The undo journal diffs the project's text files before and after a mutation, which is two
+whole-folder walks per command — 180 small YAML files read 360 times to journal the one line a
+command rewrote. The "before" image is also almost always the "after" image of the command
+before it.
+
+So `snapshotText` keeps the last walk's content, keyed by path, beside each file's size+mtime,
+and re-reads only the files whose stamp moved. The gate is the one `snapshotBinMeta` has always
+trusted for binaries; the walk itself still happens, so a file created or deleted out of band is
+still seen.
+
+`diffBin` had a sharper version of the same problem, and it was a plain mistake rather than a
+trade: it read every binary's bytes BEFORE deciding whether the diff could use them. A song with
+650 MB of takes in `clips/` read all of it to journal one line of YAML, on every command. The
+bytes are now read only for a file the mutation created, or one it snapshotted — which is
+exactly the set the journal can act on.
+
 ## Windows handle discipline
 
 Deleting a project moves its whole folder to the recycle bin, and on Windows a directory

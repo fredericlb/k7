@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// remote.mjs — remote survival: Windows logon tasks so the browser editor (vscode.mjs),
-// the dev session (tilt up) and the shared shell (console/server.mjs) come up with the
-// machine, each OUTSIDE the others — no crash takes the others with it.
+// remote.mjs — remote survival: Windows logon tasks so the browser editor (vscode.mjs)
+// and the shared shell (console/server.mjs) come up with the machine, each OUTSIDE the
+// dev session (`npm run dev`, Tilt) — no crash takes the door down with it.
 // `install | uninstall | status | run <name>`; `run` is the tasks' keep-alive wrapper,
 // with logs in the tmpdir. See docs/remote.md.
 
@@ -23,13 +23,13 @@ import { fileURLToPath } from "node:url";
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // `loop` = keep-alive: relaunch on exit with backoff.
-// `node:` scripts run under process.execPath; `tilt` is an exe found on the user PATH.
+// `node:` scripts run under process.execPath.
 //
 // No edge here any more: the LAN server reverse-proxies to these ports, so nothing this
-// workstation starts terminates TLS. Caddy used to be the first entry — see docs/dev.md.
+// workstation starts terminates TLS. Caddy used to be the first entry, the dev session
+// under Tilt (`studio-tilt`) the second — that one is `npm run dev` now. See docs/dev.md.
 const SERVICES = {
   vscode: { node: join("scripts", "vscode.mjs"), loop: true },
-  tilt: { cmd: "tilt", args: ["up", "--port", "10350"], loop: true },
   console: { node: join("scripts", "console", "server.mjs"), loop: true },
 };
 
@@ -66,13 +66,11 @@ async function run(name) {
   const out = openSync(logFile(name), "a");
   writeFileSync(pidFile(name), String(process.pid));
   let backoff = 5_000;
-  const [cmd, args] = svc.node
-    ? [process.execPath, [join(repo, svc.node)]]
-    : [svc.cmd, svc.args];
+  const [cmd, args] = [process.execPath, [join(repo, svc.node)]];
   for (;;) {
     writeSync(
       out,
-      `\n[${new Date().toISOString()}] studio-remote: starting ${svc.node ?? svc.cmd}\n`,
+      `\n[${new Date().toISOString()}] studio-remote: starting ${svc.node}\n`,
     );
     const started = Date.now();
     const code = await new Promise((resolve) => {
@@ -127,19 +125,9 @@ function install() {
   return Object.keys(SERVICES);
 }
 
-/** Start the tasks now — except tilt when a dev session already runs by hand. */
+/** Start the tasks now. */
 async function startNow() {
-  // 5224 is st0's vite server, the surest sign of a live dev session (turbo or an
-  // earlier tilt): starting tilt then would spawn a SECOND one and fight every port.
-  const devRunning = !(await portFree(5224));
   for (const name of Object.keys(SERVICES)) {
-    if (name === "tilt" && devRunning) {
-      console.log(
-        "  a dev session is already running (port 5224) — studio-tilt is registered\n" +
-          "  but NOT started. Stop your session, then: Start-ScheduledTask studio-tilt",
-      );
-      continue;
-    }
     const r = ps(`Start-ScheduledTask -TaskName '${taskName(name)}'`);
     console.log(
       r.status === 0
@@ -185,9 +173,8 @@ async function status() {
       "  no studio-* task registered — run `npm run remote:install`",
   );
   for (const [label, port] of [
-    ["vscode  (/dev)", 8798],
-    ["tilt    (:10351)", 10350],
-    ["console (/console)", 8797],
+    ["vscode  (code.priv.frediver.se)", 8798],
+    ["console (console.priv.frediver.se)", 8797],
   ])
     console.log(
       `  ${label}: ${(await portFree(port)) ? "NOT serving" : `serving on ${port}`}`,
@@ -208,7 +195,7 @@ else if (process.platform !== "win32") {
 else if (verb === "status") await status();
 else {
   console.error(
-    "usage: remote.mjs install | uninstall | status | run <vscode|tilt|console>",
+    "usage: remote.mjs install | uninstall | status | run <vscode|console>",
   );
   process.exit(1);
 }

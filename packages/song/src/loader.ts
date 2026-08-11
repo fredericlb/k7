@@ -18,6 +18,7 @@ import type { ZodType } from "zod";
 import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
 import { loadControllerLibrary } from "./controller";
 import { engineModules, engineRef } from "./engineCatalogue";
+import { cachedForModules } from "./moduleCache";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
 import {
   categoryForRole,
@@ -363,11 +364,16 @@ function readModuleTree(
   }
 }
 
-// Load a project's modules into a { name: module } map, generic + instances both keyed in (see docs/loader.md).
-export function loadModules(
-  dir: string,
-  validate = false, // off by default — see docs/loader.md ("loadModules internals")
-): Record<string, LoadedModule> {
+/** What one read of `modules/` + `instances/` produced: the map, and the two things `validate` judges. */
+interface ModulesRead {
+  out: Record<string, LoadedModule>;
+  /** AS AUTHORED — what validatePlugins reads, kept so a cached read can still be validated. */
+  raw: { rel: string; module: Record<string, unknown> }[];
+  yamlIssues: string[];
+}
+
+// Read a project's modules into a { name: module } map, generic + instances both keyed in (see docs/loader.md).
+function readModules(dir: string): ModulesRead {
   const out: Record<string, LoadedModule> = {};
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
   const yamlIssues: string[] = []; // held rather than thrown at once, so a load reports every bad file
@@ -469,14 +475,55 @@ export function loadModules(
     }
   }
   loadInstances(dir, out, raw, yamlIssues);
-  if (validate) {
-    if (yamlIssues.length)
-      // callers already treat "invalid module(s)" as fatal and show it
-      throw new Error(`invalid module(s):\n  ${yamlIssues.join("\n  ")}`);
-    validatePlugins(raw);
-  }
   applyUiLibrary(dir, out, (m) => moduleOwnRefs(m));
+  return { out, raw, yamlIssues };
+}
+
+/**
+ * A fresh map of fresh modules, so a cached read never leaves this file.
+ *
+ * Callers ADD to the map they are handed (`ioPorts` files the project's own io modules into it),
+ * and both loaders STAMP panels onto the modules they hand back — `applyUiLibrary` writes `ui`
+ * and `cc` in place, by two different rules. Sharing either would let one caller's overlay decide
+ * what the next one sees. Aliases survive: a module filed under two refs stays one object, which
+ * is what `loadModuleRefs` has always keyed a bare and a `@project/` ref as.
+ */
+function cloneModules(
+  src: Record<string, LoadedModule>,
+): Record<string, LoadedModule> {
+  const seen = new Map<LoadedModule, LoadedModule>();
+  const out: Record<string, LoadedModule> = {};
+  for (const [key, m] of Object.entries(src)) {
+    let copy = seen.get(m);
+    if (!copy) {
+      copy = { ...m };
+      seen.set(m, copy);
+    }
+    out[key] = copy;
+  }
   return out;
+}
+
+/**
+ * A project's modules, keyed by the name a chain writes.
+ *
+ * The READ is memoised on the module folders' stamp (moduleCache.ts); `validate` is not, because
+ * it is a judgement on what was read and costs nothing once the files are parsed. That is also
+ * why the two flavours share one cache entry: they load exactly the same thing and differ only
+ * in whether a bad file is fatal here or reported downstream.
+ */
+export function loadModules(
+  dir: string,
+  validate = false, // off by default — see docs/loader.md ("loadModules internals")
+): Record<string, LoadedModule> {
+  const read = cachedForModules(dir, "modules", () => readModules(dir));
+  if (validate) {
+    if (read.yamlIssues.length)
+      // callers already treat "invalid module(s)" as fatal and show it
+      throw new Error(`invalid module(s):\n  ${read.yamlIssues.join("\n  ")}`);
+    validatePlugins(read.raw);
+  }
+  return cloneModules(read.out);
 }
 
 /** The project's uses of modules: `instances/<name>.yaml`, flat, filename IS the name. */
@@ -932,17 +979,44 @@ function jsDspFileFor(
     : undefined;
 }
 
-// Every module referenceable by REF — keyed "type/name", "@namespace/type/name", or a bare io name.
+/**
+ * Every module referenceable by REF — keyed "type/name", "@namespace/type/name", or a bare io name.
+ *
+ * Memoised on the module folders' stamp (moduleCache.ts), because this is the expensive half of
+ * every compile: a project on this machine reads ~700 YAML files here, and both `loadProject` and
+ * `loadGraph` want it, as do the errors and the hints behind one command. An INJECTED catalogue is
+ * never cached — that is a test naming its own vocabulary, and it is the argument the stamp cannot
+ * see. `issues` is cached with the map and replayed, so a caller that reports still reports.
+ */
 export function loadModuleRefs(
   dir: string,
   // The ENGINE's own modules — injected so a test can ask for a project's vocabulary and
   // nothing else. It is AMBIENT state: what this machine's engine offers, read from its
   // scan cache. The same reason ioPorts takes its preferences rather than loading them.
-  catalogue: Record<string, LoadedModule> = engineModules(),
+  catalogue?: Record<string, LoadedModule>,
   // Where a library module that would not read is reported — see readModuleTree and
   // libraryModuleIssues. Optional because almost every caller wants the vocabulary and
   // nothing else; the ones that REPORT pass an array.
   issues: Diagnostic[] = [],
+): Record<string, LoadedModule> {
+  if (catalogue === undefined) {
+    const hit = cachedForModules(dir, "refs", () => {
+      const found: Diagnostic[] = [];
+      return {
+        out: readModuleRefs(dir, engineModules(), found),
+        issues: found,
+      };
+    });
+    issues.push(...hit.issues);
+    return cloneModules(hit.out);
+  }
+  return readModuleRefs(dir, catalogue, issues);
+}
+
+function readModuleRefs(
+  dir: string,
+  catalogue: Record<string, LoadedModule>,
+  issues: Diagnostic[],
 ): Record<string, LoadedModule> {
   // The catalogue first, so anything on disk overrides it: a project or a library may
   // define `@engine/x`, and the thing you can edit should win over the thing you cannot.

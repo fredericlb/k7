@@ -1,12 +1,13 @@
 # Remote — keeping a hand on the machine when the dev session dies
 
 Working on the studio from elsewhere used to hang on one thread: the browser editor
-at `/dev` was a task **inside** `npm run dev`. If turbo crashed, the editor died with
-it — the only door closed exactly when you needed it. The fix is an inversion: three
-services that come up with the machine and survive independently of each other,
-installed as Windows logon tasks by `scripts/remote.mjs` — and the dev session
-itself run by an orchestrator with a web UI, so "see what broke and restart it" is a
-button in a browser, not a terminal you no longer have.
+at `/dev` was a task **inside** `npm run dev`. If the session crashed, the editor died
+with it — the only door closed exactly when you needed it. The fix is an inversion:
+two services that come up with the machine and survive independently of each other,
+installed as Windows logon tasks by `scripts/remote.mjs` — while the dev session
+(`npm run dev`, Tilt) is started from either of them and runs under an orchestrator
+with a web UI, so "see what broke and restart it" is a button in a browser, not a
+terminal you no longer have.
 
 The way in is no longer one of them. `https://st0.priv.frediver.se` resolves to the
 **LAN server**, which reverse-proxies to these ports; nothing this workstation starts
@@ -16,19 +17,31 @@ and could take the door down with it.
 
 | what | where | task |
 |---|---|---|
-| the browser editor | `/dev` | `studio-vscode` |
-| the dev session, per-task | `https://studio.test:10351` (Tilt UI — the one thing still on the old name; `/dev-status` redirects to the new one, which does not answer on that port) | `studio-tilt` |
-| a shared shell | `/console` | `studio-console` |
+| the browser editor | `https://code.priv.frediver.se` | `studio-vscode` |
+| a shared shell | `https://console.priv.frediver.se` | `studio-console` |
+
+Each is its **own origin**, routed by hostname on the LAN proxy (`code.priv.frediver.se`
+→ :8798, `console.priv.frediver.se` → :8797, nothing to strip — both servers answer at
+`/`), and both start in the **user's home**, with **Git Bash** as the default shell.
+Subdomains of the owned zone on purpose: real names get real
+certificates, the whole reason the studio left `studio.test` — a made-up or
+HSTS-preloaded TLD (`.dev`…) would mean an internal CA all over again, and VS Code web
+needs a secure context (service workers), so plain HTTP is not an option either.
+
+The dev session is **not** one of them any more: `studio-tilt` is gone, and
+`npm run dev` (which *is* `tilt up`) is run by hand — typically inside a
+`console.priv.frediver.se` tab, whose PTYs the console service owns, so the session survives
+every browser.
 
 ## The logon tasks
 
 ```bash
-npm run remote:install     # register the three tasks + start them
+npm run remote:install     # register the two tasks + start them
 npm run remote:status      # task states + who is actually serving
 npm run remote:uninstall   # unregister and stop them
 ```
 
-They are launched through `scripts/hidden.vbs` so a boot does not open three console
+They are launched through `scripts/hidden.vbs` so a boot does not open console
 windows. `remote.mjs run <name>` is the wrapper the tasks actually execute: it
 relaunches a dead service with a backoff (5 s doubling to 5 min, reset after a
 minute of good service) and appends everything to `%TEMP%\studio-remote-<name>.log`.
@@ -41,37 +54,34 @@ Two deliberate settings:
 - **`ExecutionTimeLimit` is zero** — Task Scheduler's default silently stops any
   task after 72 hours, which for a keep-alive service is a scheduled outage.
 - **The trigger is at logon, not at boot**: a boot task needs stored credentials or
-  session-0 acrobatics for processes that want the user profile (`code` and `tilt`
-  live in the user's PATH; the tray's VSTs want the interactive session anyway).
-  The machine must auto-login or be logged in once; that is the shape of a dev box.
+  session-0 acrobatics for processes that want the user profile (`code` lives in the
+  user's PATH; the tray's VSTs want the interactive session anyway). The machine must
+  auto-login or be logged in once; that is the shape of a dev box.
 
-## The dev session — Tilt
+## The dev session — `npm run dev`, i.e. Tilt
 
-`turbo run dev` is one process: seventeen servers live and die together, and the
-TUI cannot restart one of them. The session therefore runs under
-**[Tilt](https://tilt.dev)** (`tilt up`, the `studio-tilt` task): each dev server is
-a `local_resource` with its own status, its own filterable logs, and its own restart
-button in the web UI at `https://st0.priv.frediver.se:10351`. The native monitor
+One TUI process meant seventeen servers living and dying together, with no way to
+restart just one. The session therefore runs under **[Tilt](https://tilt.dev)**:
+`npm run dev` is `tilt up --port 10350` (`scripts/dev.mjs`, which also refuses to
+start a second session and stops the detached tray on the way out). Each dev server
+is a `local_resource` with its own status, its own filterable logs, and its own
+restart button in the web UI at `http://localhost:10350`. The native monitor
 (`dev:native`, the moteur + tray rebuild loop) is a resource like the others, so a
 broken engine build is a red row with readable logs instead of a dead session.
 
-The `Tiltfile` derives the resource list by running `scripts/tilt-tasks.mjs` — the
-same rules as `scripts/dev.mjs` (a package joins by having a `dev` script; the tray,
-the aggregators and the tsc watchers are dropped for dev.mjs's stated reasons) — so
-a new app still joins by existing. turbo keeps `build` and `test`: Tilt only
-replaces the dev *session*. `npm run dev` (the turbo TUI) still works for a local
-terminal, but not beside a running Tilt: one session at a time, and
-`remote:install` refuses to start `studio-tilt` while port 5224 (st0's vite) shows
-one already running by hand.
+The `Tiltfile` derives the resource list by running `scripts/tilt-tasks.mjs` (a
+package joins by having a `dev` script; the tray, the aggregators and the tsc
+watchers are dropped — docs/dev.md's "The task list" says why), so a new app still
+joins by existing. turbo keeps `build` and `test`: Tilt only owns the dev *session*.
 
 The UI cannot live under a path prefix (its SPA loads `/static/*` absolute and `tilt up`
 has no base-path flag), so it gets a **port** rather than a path, and `/dev-status`
-redirects there as the memorable name. That redirect currently points at
-`st0.priv.frediver.se:10351`, which does not answer — the UI is still only at
-`https://studio.test:10351`, the last thing the move has not carried over. From a
-terminal, `tilt trigger <resource>` does what the button does.
+redirects there as the memorable name. That redirect points at
+`st0.priv.frediver.se:10351`, which answers nothing until the LAN proxy forwards that
+port — locally the UI is `http://localhost:10350`. From a terminal,
+`tilt trigger <resource>` does what the button does.
 
-## The shared terminals — `/console`
+## The shared terminals — `console.priv.frediver.se`
 
 The Tilt UI has no stdin. `scripts/console/server.mjs` is the terminal-shaped
 companion: **PowerShell tabs in ConPTYs the service owns** (node-pty, the terminal
@@ -87,12 +97,11 @@ runaway “+” should not fork-bomb the machine. **Clicking the tab one is alre
 renames it** — a mouse reads that as a double-click, a phone gets the same gesture
 without a long-press; the name (24 chars, blank restores `id·shell`) lives with the
 session, so it survives a *Relancer* and every viewer sees it. Each new tab picks
-its flavor from the shells the server detected at startup — PowerShell, Git Bash,
-WSL — via the selector beside “+”, on the right of the bar just before the transport
-buttons (hidden when there is only one); all of them start in the repo
-(wsl sees it as `/mnt/…`, and a wsl with no distro prints its own error). **WSL is
-the default** when present: editing (claude, nvim) lives there, while builds stay
-on the Windows side under Tilt.
+its flavor from the shells the server detected at startup — PowerShell, Git Bash —
+via the selector beside “+”, on the right of the bar just before the transport
+buttons (hidden when there is only one); all of them start in the **user's home**.
+**Git Bash is the default** when present; builds stay on the Windows side under
+Tilt either way.
 `STUDIO_CONSOLE_CMD` overrides the default (tests use this).
 
 One consequence of *shared* worth knowing: a tab has one size, and the last device
@@ -113,11 +122,12 @@ with node-pty and xterm.js, the bricks VS Code itself is made of.
 
 ## Auth
 
-`/dev`, `/console` and `:10351` are **unauthenticated, on purpose**: a dev-only choice on
-an open-source repo, acceptable because the proxy is reachable only from the LAN, and
-nowhere else. Everything binds `127.0.0.1`, so the proxy is the only way in. The day any
-of it leaves the dev network, the remedy is a forward-auth rule on the proxy pointed at
-st0's backend, which owns `/auth` for the origin.
+`code.priv.frediver.se`, `console.priv.frediver.se` and the Tilt UI are **unauthenticated, on purpose**: a dev-only choice on
+an open-source repo, acceptable because nothing here is reachable from outside the LAN.
+The trust boundary IS the LAN: the proxy (traefik) lives on another machine, so the
+console and the editor bind `0.0.0.0` — their ports answer any LAN peer, proxied or
+not. The day any of it leaves the dev network, the remedy is a forward-auth rule on
+the proxy pointed at st0's backend, which owns `/auth` for the origin.
 
 ## Reaching it from another machine
 
@@ -138,8 +148,8 @@ on localhost rather than the public URL.
 ## When something is wrong
 
 ```bash
-npm run remote:status                     # task states + ports 2019 / 8798 / 10350 / 8797
-Get-Content $env:TEMP\studio-remote-tilt.log -Tail 50
+npm run remote:status                     # task states + ports 8798 / 8797
 tilt get uiresources                      # per-resource runtime status, from any terminal
-Get-NetTCPConnection -LocalPort 10350     # who holds the Tilt port
+tilt logs <resource>                      # one resource's log, from any terminal
+Get-NetTCPConnection -LocalPort 10350     # who holds the Tilt port (the dev session)
 ```

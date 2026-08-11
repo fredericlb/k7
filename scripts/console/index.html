@@ -8,9 +8,7 @@
     <meta charset="utf-8" />
     <title>studio — console</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <!-- Absolute: at /console (no trailing slash) a relative href resolves to the
-         origin root, which is st0's catch-all answering HTML. -->
-    <link rel="stylesheet" href="/console/xterm.css" />
+    <link rel="stylesheet" href="/xterm.css" />
     <style>
       html,
       body {
@@ -152,8 +150,8 @@
       <button type="button" data-seq="&#27;[D">←</button>
       <button type="button" data-seq="&#27;[C">→</button>
     </div>
-    <script src="/console/xterm.js"></script>
-    <script src="/console/addon-fit.js"></script>
+    <script src="/xterm.js"></script>
+    <script src="/addon-fit.js"></script>
     <script>
       const $ = (id) => document.getElementById(id);
       const term = new Terminal({

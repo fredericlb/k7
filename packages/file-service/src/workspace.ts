@@ -356,13 +356,18 @@ function diffBin(
     ...pre.keys(),
   ])) {
     const existedBefore = before.has(path);
-    const afterBytes = after.has(path) ? readBytes(path) : null;
+    // Read the bytes only where they can end up in the journal — a file the mutation created,
+    // or one it snapshotted. Reading first and deciding after meant every command read every
+    // binary in the project: a song with 650 MB of takes in `clips/` paid all of it to journal
+    // one rewritten line of YAML, and paid it again on the next command.
     if (!existedBefore) {
+      const afterBytes = after.has(path) ? readBytes(path) : null;
       if (afterBytes) blobs.push({ path, before: null, after: afterBytes }); // created
       continue;
     }
     const preBytes = pre.get(path);
     if (!preBytes) continue; // existed but no pre-image — nothing to restore to
+    const afterBytes = after.has(path) ? readBytes(path) : null;
     if (afterBytes === null || !preBytes.equals(afterBytes))
       blobs.push({ path, before: preBytes, after: afterBytes });
   }
@@ -376,6 +381,8 @@ export class Workspace {
   readonly rootIsProject: boolean;
   private activeProject: string | null;
   private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
+  // The last snapshotText walk, so the next one only re-reads what moved. See snapshotText.
+  private textCache = new Map<string, { stamp: string; text: string }>();
   // The v1 compile's own cache — see cachedVideoDoc for why it is not a branch inside the one above.
   private videoCache: {
     dir: string;
@@ -718,9 +725,23 @@ export class Workspace {
     return result;
   }
 
-  // Every text file's content, keyed by workspace-relative path — the before/after images a diff compares.
+  /**
+   * Every text file's content, keyed by workspace-relative path — the before/after images a diff
+   * compares.
+   *
+   * Only files that MOVED are re-read: each one's size+mtime is checked against the last walk's,
+   * and the content is carried over when it matches. Every command took two of these walks — one
+   * before the mutation and one after — so a song of 180 small YAML files read 360 of them to
+   * journal the one line a command rewrote, and the "before" image is almost always the "after"
+   * image of the command before it.
+   *
+   * The gate is the one `snapshotBinMeta` already trusts for binaries: a write that kept both the
+   * size and the sub-millisecond mtime would be missed, which no real write does.
+   */
   private snapshotText(dir: string): Map<string, string> {
     const out = new Map<string, string>();
+    // Built fresh so a deleted file leaves the cache with it, rather than lingering for ever.
+    const seen = new Map<string, { stamp: string; text: string }>();
     const walk = (abs: string): void => {
       let entries: Dirent[];
       try {
@@ -733,8 +754,15 @@ export class Workspace {
         const p = join(abs, e.name);
         if (e.isDirectory()) walk(p);
         else if (!isBinary(e.name)) {
+          const rel = this.toRel(p);
           try {
-            out.set(this.toRel(p), readFileSync(p, "utf8"));
+            const s = statSync(p);
+            const stamp = `${s.size}:${s.mtimeMs}`;
+            const hit = this.textCache.get(rel);
+            const text =
+              hit?.stamp === stamp ? hit.text : readFileSync(p, "utf8");
+            out.set(rel, text);
+            seen.set(rel, { stamp, text });
           } catch {
             /* unreadable — treated as absent */
           }
@@ -742,6 +770,7 @@ export class Workspace {
       }
     };
     walk(dir);
+    this.textCache = seen;
     return out;
   }
 
@@ -1309,14 +1338,29 @@ export class Workspace {
     }
   }
 
+  /**
+   * The editor's completion vocabulary, memoised on the revision exactly as the graph is.
+   *
+   * A pure read of the project folder, and l8 asks for it after EVERY command — the editor pane
+   * is mounted in every layout and refreshes with the tree — so a track's alternative switch was
+   * paying a full rebuild of the tracks, clips, params and path map for a pane that may not even
+   * be on screen. Same token as `graphDoc`, so an out-of-band edit still moves it.
+   */
+  private hintsCache: { dir: string; rev: string; hints: Hints } | null = null;
+
   hints(): Hints {
     try {
       const dir = this.requireActive();
-      return {
+      const { rev } = this.revision();
+      const hit = this.hintsCache;
+      if (hit && hit.dir === dir && hit.rev === rev) return hit.hints;
+      const hints = {
         ...projectHints(dir),
         pluginNames: scannedPluginNames(),
         projectRoot: dir,
       };
+      this.hintsCache = { dir, rev, hints };
+      return hints;
     } catch {
       return {
         baseModules: [],

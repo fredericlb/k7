@@ -1,24 +1,23 @@
 #!/usr/bin/env node
-// server.mjs — the shared terminals at https://st0.priv.frediver.se/console: PowerShell TABS
-// in ConPTYs this service owns, so they survive their viewers; every browser sees
-// the same tabs and types into the same shells (a `claude` session in one outlives
-// the tab that launched it). The Tilt UI runs the dev session and has no stdin; this
-// page is its terminal-shaped companion (logon task, remote.mjs). See docs/remote.md.
+// server.mjs — the shared terminals at https://console.priv.frediver.se (its own origin, served at
+// the root): PowerShell TABS in ConPTYs this service owns, so they survive their
+// viewers; every browser sees the same tabs and types into the same shells (a `claude`
+// session in one outlives the tab that launched it). The Tilt UI runs the dev session
+// and has no stdin; this page is its terminal-shaped companion. See docs/remote.md.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pty from "node-pty";
 import { WebSocketServer } from "ws";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repo = join(here, "..", "..");
 
 const PORT = 8797; // free: the proxy routes 3001-3006, 5173, 5223-5225, 8080, 8787-8796, 8798
-const BASE = "/console";
 const SCROLLBACK_CAP = 1 << 20; // ~1 MiB of raw PTY output per tab, enough for a post-mortem
 const MAX_TABS = 12; // a runaway "+" should not fork-bomb the machine
 const MAX_NAME = 24; // a tab label the bar can still show
@@ -43,9 +42,7 @@ function findGitBash() {
 
 // Every shell found on the machine is offered as a tab flavor, spawned DIRECTLY
 // (file + args, no cmd.exe in between: a quoted path through `cmd /c` is a quoting
-// lottery). All keep the repo as cwd: powershell inherits it, Git Bash's `-i -l`
-// profile does not cd away from it, and wsl translates it to /mnt/…. A wsl without
-// a distro prints its own error in the tab.
+// lottery). All start in the user's home (see CWD below).
 function detectShells() {
   if (process.platform !== "win32") {
     const sh = process.env.SHELL ?? "/bin/sh";
@@ -61,12 +58,6 @@ function detectShells() {
   const gitBash = findGitBash();
   if (gitBash)
     shells.bash = { file: gitBash, args: ["-i", "-l"], display: "git bash" };
-  if (existsSync("C:\\Windows\\System32\\wsl.exe"))
-    shells.wsl = {
-      file: "C:\\Windows\\System32\\wsl.exe",
-      args: [],
-      display: "wsl",
-    };
   return shells;
 }
 const SHELLS = detectShells();
@@ -78,12 +69,15 @@ if (customCmd)
     process.platform === "win32"
       ? { file: "cmd.exe", args: ["/c", customCmd], display: customCmd }
       : { file: "/bin/sh", args: ["-c", customCmd], display: customCmd };
-// wsl first: the editing tools (claude, nvim) live there; builds belong to Tilt.
+// Git Bash first when present.
 const DEFAULT_SHELL = customCmd
   ? "custom"
-  : SHELLS.wsl
-    ? "wsl"
+  : SHELLS.bash
+    ? "bash"
     : Object.keys(SHELLS)[0];
+
+// Where every tab starts: the user's home.
+const CWD = homedir();
 
 // A session is one shared PTY: every attached client sees and types into the same
 // shell. Sizes are shared too — the last device to (re)attach or resize wins.
@@ -130,7 +124,7 @@ function start(s) {
   const spec = SHELLS[s.shell];
   s.child = pty.spawn(spec.file, spec.args, {
     name: "xterm-256color",
-    cwd: repo,
+    cwd: CWD,
     env: process.env,
     cols: s.size.cols,
     rows: s.size.rows,
@@ -219,15 +213,12 @@ function attach(ws, id) {
 
 const require = createRequire(import.meta.url);
 const ASSETS = {
-  [`${BASE}/xterm.js`]: [
+  "/xterm.js": [
     require.resolve("@xterm/xterm/lib/xterm.js"),
     "text/javascript",
   ],
-  [`${BASE}/xterm.css`]: [
-    require.resolve("@xterm/xterm/css/xterm.css"),
-    "text/css",
-  ],
-  [`${BASE}/addon-fit.js`]: [
+  "/xterm.css": [require.resolve("@xterm/xterm/css/xterm.css"), "text/css"],
+  "/addon-fit.js": [
     require.resolve("@xterm/addon-fit/lib/addon-fit.js"),
     "text/javascript",
   ],
@@ -236,10 +227,7 @@ const page = readFileSync(join(here, "index.html"));
 
 const http = createServer((req, res) => {
   const path = req.url.split("?")[0];
-  if (path === BASE) {
-    // Redirect to the slashed form so any relative URL resolves under /console/.
-    res.writeHead(301, { location: `${BASE}/` }).end();
-  } else if (path === `${BASE}/`) {
+  if (path === "/") {
     res
       .writeHead(200, { "content-type": "text/html; charset=utf-8" })
       .end(page);
@@ -251,7 +239,7 @@ const http = createServer((req, res) => {
   }
 });
 
-const wss = new WebSocketServer({ server: http, path: `${BASE}/ws` });
+const wss = new WebSocketServer({ server: http, path: "/ws" });
 wss.on("connection", (ws) => {
   clients.add(ws);
   send(ws, tabsMsg()); // the client picks a tab and asks to attach
@@ -305,10 +293,12 @@ http.on("error", (e) => {
   process.exit(1);
 });
 
-// `--host 127.0.0.1` spirit: the proxy is the only way in, same stance as vscode.mjs.
-http.listen(PORT, "127.0.0.1", () => {
+// 0.0.0.0, NOT loopback: the LAN proxy (traefik, on another machine) reaches this
+// port over the network — a 127.0.0.1 bind answers it "connection refused". The LAN
+// is the trust boundary, per the no-auth decision in docs/remote.md.
+http.listen(PORT, "0.0.0.0", () => {
   console.log(
-    `  console → https://st0.priv.frediver.se${BASE}/  (shells: ${Object.keys(SHELLS).join(", ")})`,
+    `  console → https://console.priv.frediver.se/  (shells: ${Object.keys(SHELLS).join(", ")}; cwd: ${CWD})`,
   );
   createSession();
 });

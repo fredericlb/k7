@@ -78,7 +78,12 @@ module, so what it loads travels with it. See `docs/moduleAssets.md` for the who
 - **`validate`** defaults to `false` because the generator itself reads modules to BUILD
   the schema overlay (schemaGen/hints); validating there would make a project's modules
   unloadable whenever their own schema was stale, with no way back. The load paths that
-  feed the engine (`loadGraph`, `compileNodeProject`) turn it on.
+  feed the engine (`loadGraph`, `compileNodeProject`) turn it on. It is a judgement on what
+  was READ, which is why the two flavours share one cache entry — see below.
+- **The read is memoised**, here and in `loadModuleRefs`, on a stamp of the folders they walk.
+  This is the expensive half of every compile and the half that changes least; a command in l8
+  wanted it four to six times over. `docs/moduleCache.md` has the measurement, what the stamp
+  covers, the two rules a caller has to keep — and the tempting variant that is wrong.
 
 ## Plugin validation rules
 

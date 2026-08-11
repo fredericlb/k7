@@ -1,24 +1,24 @@
 #!/usr/bin/env node
-// vscode.mjs — VS Code in the browser at https://st0.priv.frediver.se/dev, served by the
-// `code serve-web` that ships with the installed editor. A ROOT turbo task (`//#vscode`),
-// joined into `npm run dev` by scripts/dev.mjs naming it explicitly — a package filter
-// cannot reach the root. Also runnable alone as `npm run vscode`. See docs/dev.md.
+// vscode.mjs — VS Code in the browser at https://code.priv.frediver.se (its own origin,
+// served at the root, opening on the user's home with Git Bash as its terminal), by the
+// `code serve-web` that ships with the installed editor. NOT part of the dev session —
+// it is the door that must survive it: the studio-vscode logon task (scripts/remote.mjs)
+// runs it on the dev box, and `npm run vscode` runs it alone. See docs/dev.md.
 
 import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const PORT = 8798; // free: the proxy routes 3001-3006, 5173, 5223-5225, 8080, 8787-8796
-const BASE_PATH = "/dev";
+const HOME = homedir();
 
 /**
  * Check the port before spawning.
  *
  * `serve-web` prints "could not start server on the given host/port" and then exits **0**,
- * so without this a busy port gives a green turbo task and nothing serving.
+ * so without this a busy port looks like success with nothing serving.
  */
 function portFree(port) {
   return new Promise((resolve) => {
@@ -36,18 +36,43 @@ function portFree(port) {
 if (!(await portFree(PORT))) {
   console.log(
     `  port ${PORT} is already in use — not starting a second editor.\n` +
-      `  If https://st0.priv.frediver.se${BASE_PATH}/ does not answer, an orphaned server is holding it:\n` +
+      "  If https://code.priv.frediver.se/ does not answer, an orphaned server is holding it:\n" +
       "  find it with `Get-NetTCPConnection -LocalPort 8798` and stop that process tree.",
   );
   process.exit(0);
 }
 
-console.log(`  VS Code web → https://st0.priv.frediver.se${BASE_PATH}/\n`);
+// The integrated terminal defaults to Git Bash. serve-web reads the server's own
+// Machine settings (~/.vscode-server/data/Machine/settings.json), so the choice is
+// made there — merged, not overwritten: the file may hold hand-made settings too.
+const machineSettings = join(
+  HOME,
+  ".vscode-server",
+  "data",
+  "Machine",
+  "settings.json",
+);
+try {
+  let settings = {};
+  if (existsSync(machineSettings))
+    settings = JSON.parse(readFileSync(machineSettings, "utf8"));
+  if (settings["terminal.integrated.defaultProfile.windows"] !== "Git Bash") {
+    settings["terminal.integrated.defaultProfile.windows"] = "Git Bash";
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, `${JSON.stringify(settings, null, 2)}\n`);
+  }
+} catch (e) {
+  console.error(`  could not set the default terminal profile: ${e.message}`);
+}
+
+console.log(
+  `  VS Code web → https://code.priv.frediver.se/  (folder: ${HOME})\n`,
+);
 
 // No connection token. That is a decision, not an oversight: this is a dev-only config on an
-// open-source repo, and the owner accepts that anyone who can reach st0.priv.frediver.se gets an editor
-// — which is a shell on the repo root, the proxy answering on every interface.
-// `--host 127.0.0.1` stays because it costs nothing and keeps the proxy the only way in.
+// open-source repo, and the owner accepts that anyone who can reach code.priv.frediver.se gets an editor
+// — which is a shell on this machine. `--host 0.0.0.0` because the LAN proxy (traefik)
+// is another machine and reaches this port over the network; the LAN is the trust boundary.
 // To put auth back: drop `--without-connection-token` and add
 // `--connection-token-file <path>`; serve-web then trades `?tkn=` for a 7-day cookie.
 const code = spawn(
@@ -57,17 +82,14 @@ const code = spawn(
     "--port",
     String(PORT),
     "--host",
-    "127.0.0.1",
-    // the proxy does not strip /dev — same asymmetry as the SPAs, so the server must see it.
-    "--server-base-path",
-    BASE_PATH,
+    "0.0.0.0",
     "--without-connection-token",
     "--accept-server-license-terms",
     "--default-folder",
-    repo,
+    HOME,
   ],
   {
-    cwd: repo,
+    // No cwd: the folder the editor opens is --default-folder, nothing reads the cwd.
     stdio: "inherit",
     shell: process.platform === "win32", // `code` is a .cmd shim here
   },

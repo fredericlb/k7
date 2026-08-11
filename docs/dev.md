@@ -1,11 +1,10 @@
 # `npm run dev` — the whole studio in one command
 
 ```bash
-npm run dev                   # every app + the engine + the tray + the browser editor
-npm run dev -- --typecheck    # …and the packages' tsc --watch feedback
-npm run dev -- --no-native    # web only: no engine, no tray
-npm run dev -- --no-vscode    # without the browser editor at /dev
-npm run dev:native            # only the engine and the tray
+npm run dev                        # every app + the engine + the tray, under Tilt
+npm run dev -- native st0-frontend # only the named Tilt resources
+npm run dev:native                 # only the engine and the tray, no Tilt
+npm run vscode                     # the browser editor at /dev, on its own
 ```
 
 ## Where it answers
@@ -22,63 +21,59 @@ each browser had to be told about, and which node never trusted at all.
 
 Two leftovers, both of which end:
 
-- **`studio.test` still answers**, because a local Caddy may still be running on 127.0.0.1.
-  Every vite config therefore still accepts that Host — `scripts/dev-hosts.mjs` says why, and
-  a dev server answers **403** to any name not on its list, so that file is what makes the
-  studio reachable at all.
-- **The Tilt UI has not moved**: it is at `https://studio.test:10351`, and
-  `st0.priv.frediver.se:10351` does not answer. `/dev-status` redirects to the latter, so it
-  currently leads nowhere.
+- **`studio.test` no longer answers here** — no local Caddy runs any more — but the name
+  may linger in hosts files, and the LAN proxy may still forward with `Host: studio.test`.
+  Every vite config therefore still accepts that Host — `scripts/dev-hosts.mjs` says why,
+  and a dev server answers **403** to any name not on its list, so that file is what makes
+  the studio reachable at all.
+- **The Tilt UI is local only**: `http://localhost:10350` on the workstation.
+  `/dev-status` redirects to `st0.priv.frediver.se:10351`, which does not answer until
+  the LAN proxy forwards that port.
 
-It is **one** turbo run, so the session looks like every other `dev` in this repo:
-turbo.json's `tui`, tasks on the left, the focused task's log on the right. The native
-side is a task in that list like any other — see below for what it takes to make it one.
+The session runs under **[Tilt](https://tilt.dev)**: `npm run dev` is `tilt up --port
+10350`, so each dev server is its own restartable resource — status, filterable logs
+and a restart button in the web UI at **http://localhost:10350**; from a terminal,
+`tilt trigger <resource>` does what the button does. A crash paints one row red instead
+of taking the session down, which one TUI process could never do. `dev.mjs` itself adds
+only two things: it refuses to start when port 10350 is already held (one session at a
+time — a second would fight the first for every dev port), and it stops the detached
+tray on the way out. Extra args are handed to `tilt up`, so a resource-name list runs a
+subset. The native side is a resource in that list like any other — see below for what
+it takes to make it one.
 
-## The filter list
+## The task list
 
-`scripts/dev.mjs` exists for one reason: to derive the filters instead of spelling out
-seventeen of them, so a new app joins by existing. It runs over every workspace package
-that has a `dev` script and drops three kinds, each for a reason:
+`scripts/tilt-tasks.mjs` exists for one reason: to derive the resource list (as JSON,
+read by the `Tiltfile`) instead of spelling out seventeen entries, so a new app joins by
+existing. It runs over every workspace package that has a `dev` script and drops three
+kinds, each for a reason:
 
 - **`capot`**, whose `dev` is `tauri dev` — the tool for a human watching a terminal.
   Here it would fight the native monitor for the same single-instance tray.
 - **the `apps/<x>` aggregators**, whose `dev` is itself `turbo run dev --filter=…` over
-  their own children. Turbo would run the parent *and* the children, starting every
-  server twice.
-- **`tsc --noEmit --watch`**, the packages' typecheck watchers. Six more panes for
-  feedback each app's own `npm run dev` still gives you, so they are behind
-  `--typecheck`.
+  their own children. Running the parent *and* the children would start every server
+  twice.
+- **`tsc --noEmit --watch`**, the packages' typecheck watchers. Six more rows for
+  feedback each app's own `npm run dev` still gives you.
+
+turbo keeps `build` and `test` — Tilt only owns the dev session.
 
 The **file service** is in the list deliberately. In dev the tray's supervisor does not
 spawn one (`fileservice.rs`), because `@studio/file-service`'s own `tsx watch` owns port
-8770 and a second would fight it for the port. If the tray comes up before turbo does,
-the supervisor's file-service watch notices within two seconds and the icon goes green
-on its own — no ordering to get right.
+8770 and a second would fight it for the port. If the tray comes up before the session
+does, the supervisor's file-service watch notices within two seconds and the icon goes
+green on its own — no ordering to get right.
 
-## The browser editor — a ROOT task in the session
+## The browser editor — outside the session, on purpose
 
-`npm run dev` also starts VS Code in the browser at **https://st0.priv.frediver.se/dev**, and it is
-the one task that does not arrive through the filter list. It cannot: `workspacePackages()`
-reads the `workspaces` globs and the root is not one of them, so a `//#…` task is
-unreachable by any `--filter=<package>`. `dev.mjs` therefore names it outright:
-
-```
-turbo run dev vscode --filter=<each app> … --filter=//
-```
-
-Two task names, and `//` (the root package) added to the filters. This does **not** recurse
-back into `npm run dev`, even though the root's own `dev` script is this file: turbo runs
-only tasks it has a definition for, and there is no `//#dev` in `turbo.json` — only
-`//#vscode`. Check it with `turbo run dev vscode --dry` before changing any of it.
-
-```bash
-npm run dev                   # …including the editor
-npm run dev -- --no-vscode    # without it (a fresh clone pays a ~100 MB download once)
-npm run vscode                # just the editor
-```
-
-`storybook` is the other root task (`npm run storybook`, :6006) and is deliberately *not*
-joined this way — it is a gallery you open on purpose, not something to have running.
+VS Code in the browser at **https://code.priv.frediver.se** (its own origin, opening on
+the user's home, terminal defaulting to Git Bash)
+is *not* a resource in the dev session: an editor inside the session dies with it,
+which remotely means losing the only door at the exact moment you need it. On the dev
+box it is the **`studio-vscode` logon task** (see [remote.md](remote.md)); anywhere
+else, `npm run vscode` starts it alone. `storybook` (`npm run storybook`, :6006) is
+likewise its own command — a gallery you open on purpose, not something to have
+running.
 
 ### How the editor task works
 
@@ -86,19 +81,22 @@ joined this way — it is a gallery you open on purpose, not something to have r
 nothing to install and no `code-server` (which on Windows means WSL). Two flags carry the
 whole integration:
 
-- `--server-base-path /dev`, so the proxy's `/dev` route does **not** strip the prefix — the
-  same asymmetry the SPAs need, and for the same reason: the server must keep seeing the
-  prefix it serves its assets under, while an API route must not.
-- `--without-connection-token`, so `https://st0.priv.frediver.se/dev` opens with no handshake.
+- `--default-folder`, pointed at the **user's home** — and the integrated terminal
+  defaults to **Git Bash**, which the script pins in the server's Machine settings
+  (`~/.vscode-server/data/Machine/settings.json`, merged, never overwritten). No
+  `--server-base-path`: `code.priv.frediver.se` is a whole origin, so the server serves
+  at `/` and the proxy strips nothing.
+- `--without-connection-token`, so `https://code.priv.frediver.se` opens with no handshake.
 
 **No auth is a decision, and worth stating plainly** so nobody "fixes" it by accident or
-copies the pattern somewhere it does not belong. What is served is the repo root *with a
-terminal*: anyone who can reach `st0.priv.frediver.se` gets a shell on this machine. That is
+copies the pattern somewhere it does not belong. What is served is a browsable filesystem
+*with a terminal*: anyone who can reach `code.priv.frediver.se` gets a shell on this machine. That is
 accepted here — a dev-only config on an open-source repo — and nowhere else.
-`--host 127.0.0.1` still stands, because it costs nothing and keeps the proxy the only door.
+`--host 0.0.0.0`, because the LAN proxy (traefik) is another machine and reaches this
+port over the network; the LAN is the trust boundary.
 
 To put auth back, swap `--without-connection-token` for `--connection-token-file <path>`.
-`serve-web` then answers `403` to a bare `/dev` and expects the `?tkn=…` URL it prints
+`serve-web` then answers `403` to a bare `code.priv.frediver.se` and expects the `?tkn=…` URL it prints
 once; it trades that for a `vscode-tkn` cookie good for seven days. The stronger option, if
 this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at st0's
 backend (which owns `/auth`) so the studio session gates it.
@@ -107,28 +105,22 @@ The first run downloads a server build (~100 MB) and answers `202` with a self-r
 "please wait" page until it is done.
 
 A busy port is reported and treated as **success**. `serve-web` exits 0 when it cannot
-bind, so the script checks the port itself — but inside `npm run dev` an editor already
-serving that URL is the goal met, and failing there would paint one task red in a session
-that is otherwise fine. The case worth knowing: a killed `serve-web` leaves a child holding
-the socket, so the port can be busy with nothing useful behind it. The message says as
+bind, so the script checks the port itself — and an editor already serving that URL is
+the goal met, which is what lets the **`studio-vscode` logon task** and a by-hand
+`npm run vscode` coexist: whichever starts first serves, and the other says so and
+exits clean. The case worth knowing: a killed `serve-web` leaves a child holding the
+socket, so the port can be busy with nothing useful behind it. The message says as
 much, and `Get-NetTCPConnection -LocalPort 8798` finds the process tree to stop.
 
-The busy-port-is-success rule is also what lets the **`studio-vscode` logon task** own
-this same editor when the remote layer is installed (see below): whichever of the two
-starts first serves, and the other says so and goes green.
+## Working remotely — `code.priv.frediver.se`, `console.priv.frediver.se` and the logon tasks
 
-## Working remotely — Tilt, `/console` and the logon tasks
-
-An editor that is a task inside `npm run dev` dies with it, which remotely means losing
-the only door at the exact moment you need it. `npm run remote:install` inverts that:
-three Windows logon tasks bring up the editor, the **dev session under Tilt**
-(each server its own restartable resource, web UI still at **https://studio.test:10351** —
-**/dev-status** redirects to the new name, which does not answer on that port yet —
-`Tiltfile` derived from the same workspace rules as this file's filter list) and a
-**shared shell** at **https://st0.priv.frediver.se/console**. While `studio-tilt` runs, do
-**not** also run `npm run dev` in a terminal: the session already exists, and a second
-would fight it for every port. The whole design — and why ttyd was rejected — is in
-[remote.md](remote.md).
+The dev session is something you start and stop; the *door* must not be. `npm run
+remote:install` registers two Windows logon tasks that survive the session: the
+**browser editor** at **https://code.priv.frediver.se** and the **shared shell** at
+**https://console.priv.frediver.se** — where `npm run dev` is typically launched when working
+remotely. Both are their own origins, routed by hostname on the LAN proxy, and both
+start in the **user's home** with Git Bash as the default shell. The whole design —
+and why ttyd was rejected — is in [remote.md](remote.md).
 
 ## The native task — `scripts/dev-native.mjs`
 
@@ -187,7 +179,7 @@ silently run the engine you had before a `git pull`.
 
 The tray is launched **detached** (`start-engine.mjs`), so it outlives the process that
 started it. `dev-native.mjs` stops every tray on `SIGINT`/`SIGTERM` and again at startup,
-and `dev.mjs` repeats it after turbo is gone — the TUI may end a task too abruptly for
+and `dev.mjs` repeats it after Tilt is gone — a resource may be ended too abruptly for
 its own handler to run, and an orphaned menu-bar icon with no session to explain it is
 the one leak worth being sure about. If one ever escapes anyway:
 

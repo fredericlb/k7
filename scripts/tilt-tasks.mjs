@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// tilt-tasks.mjs — the dev-session task list as JSON, for the Tiltfile: the same
-// derivation as scripts/dev.mjs (a package joins by having a `dev` script; the
-// tray, the aggregators and the tsc watchers are dropped, for dev.mjs's reasons).
-// Part of the Tilt trial — see docs/dev.md.
+// tilt-tasks.mjs — the dev-session task list as JSON, for the Tiltfile: a package
+// joins by having a `dev` script; dropped are the tray (`tauri dev` would fight the
+// native monitor for the single-instance tray), the `apps/<x>` aggregators (their
+// `dev` re-runs their children — every server twice) and the tsc --watch panes.
+// The reasons are docs/dev.md's "The task list".
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
