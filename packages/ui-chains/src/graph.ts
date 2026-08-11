@@ -106,6 +106,34 @@ export function subgraphForTrack(graph: WebGraph, track: string): WebGraph {
   };
 }
 
+/**
+ * The modules one track's signal reaches, in the order it reaches them.
+ *
+ * Chain by chain from the track's own, then step by step inside each — which is the order the
+ * song is written in, and the only one that means anything to a reader. De-duplicated, because a
+ * module shared between two of the track's chains is one module: drawing it twice would offer
+ * two sets of controls for one thing.
+ *
+ * Off `subgraphForTrack`, so a send that leaves the track's own chain is included exactly as it
+ * is when the graph frames a track. What this adds is the ORDER, which a node set does not carry.
+ */
+export function trackModules(graph: WebGraph, track: string): string[] {
+  const sub = subgraphForTrack(graph, track);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  // The track's own chain first when there is one, so the row starts where the signal does.
+  const names = Object.keys(sub.chains).sort((a, b) =>
+    sub.chains[a].from === track ? -1 : sub.chains[b].from === track ? 1 : 0,
+  );
+  for (const name of names)
+    for (const step of sub.chains[name].use ?? []) {
+      if (!step.module || seen.has(step.module)) continue;
+      seen.add(step.module);
+      out.push(step.module);
+    }
+  return out;
+}
+
 export type Kind = "track" | "module" | "chain" | "sink" | "curve";
 
 /**
