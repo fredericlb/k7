@@ -89,6 +89,11 @@ could see an overlap.
 The camera then frames those nodes, which is what "zoomed in" means here. It frames on the way
 IN only: coming back to the plain graph leaves the camera where you had panned it.
 
+That framing is the whole visible effect, so it must not be allowed to fail quietly. `fitTo`
+answers whether it ACTUALLY framed — a pane still hidden has no size and frames nothing — and
+the view records the attempt as done only then. Recording a frame that never happened spends
+the one chance that key ever gets, and the result is a button that appears to do nothing.
+
 Which modules are strips is the project's answer, not the package's — `mixerStrips.ts` reads it
 off the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never
 be one reload apart.

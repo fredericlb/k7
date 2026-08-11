@@ -451,6 +451,20 @@ export default function App({
    * the whole window and are about something other than this song — the builder's own overlay
    * holds no engine link at all, so a transport over it would be a set of dead buttons.
    */
+  /**
+   * Is the chains pane off screen? ONE answer, read by the class that hides it and by the
+   * `active` it is handed.
+   *
+   * They were two, and they disagreed the day expanded lanes started hiding the pane: the CSS
+   * hid it while `active` still said yes, so ChainsTab went on believing it was on screen and
+   * framed its camera against a canvas of zero size — a frame that silently does nothing.
+   * Anything that takes this pane away has to say so in one place.
+   */
+  const chainsOffScreen =
+    full === "timeline" ||
+    (full === null && view !== "global") ||
+    (full === null && tlView.expanded);
+
   const timelineVisible = visible("timeline");
   const minimapFloating = docked && editorPopin;
   const minimapDocked = docked && !timelineVisible && !editorPopin;
@@ -1808,18 +1822,7 @@ export default function App({
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  full === "chains"
-                    ? "flex-1"
-                    : // …and it stands down for EXPANDED lanes on the same terms. Expanding is
-                      // asking to see inside the clips — waveforms, notes — which is exactly the
-                      // height this pane is holding, and looking at a chain is not what you are
-                      // doing while you do that. `hidden`, not unmounted: ChainsTab owns the MIDI
-                      // runtime the whole shell reaches for (docs/midi.md).
-                      full === "timeline" ||
-                        (full === null && view !== "global") ||
-                        (full === null && tlView.expanded)
-                      ? "hidden"
-                      : "h-1/2 shrink-0",
+                  full === "chains" ? "flex-1" : chainsOffScreen ? "hidden" : "h-1/2 shrink-0",
                   ringFor("chains"),
                 )}
               >
@@ -1836,7 +1839,7 @@ export default function App({
                 >
                   <ChainsTab
                     reloadKey={reloadKey}
-                    active={visible("chains") && !graphSlot}
+                    active={!chainsOffScreen && !graphSlot}
                     showList={full === "chains"}
                     trackOrder={trackOrder}
                     command={quietCommand}
