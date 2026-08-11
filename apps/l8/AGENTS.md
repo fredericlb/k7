@@ -90,9 +90,9 @@ fullscreen one pane.
 
 The vocabulary is three words, not two, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of three (`editor | timeline | chains`)
-and is what `full` fullscreens. A **panel** is one of four (`editor | graph | docs | logs`)
-and is what the editor column shows — the MIXER is not among them: it is a view of the graph,
-drawn in the graph's pane. A **view** is the arrangement of panes. All three are URL state (`src/hooks/useViewRoute.ts`); see
+and is what `full` fullscreens. A **panel** is one of three (`graph | docs | logs`) and is what
+the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
+drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. A **view** is the arrangement of panes. All three are URL state (`src/hooks/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
 
 ### Commands are the CLI's, verbatim

@@ -54,7 +54,6 @@ import {
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { DocsPanel, type DocsSelection } from "./components/DocsPanel";
-import { EditorPanel } from "./components/EditorPanel";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { FreezeOverlay } from "./components/FreezeOverlay";
@@ -1960,12 +1959,6 @@ export default function App({
                 className="min-h-0 shrink-0 overflow-hidden border-t border-border bg-background"
                 style={{ height: panelH }}
               >
-                {panel === "editor" && (
-                  <EditorPanel
-                    target={editTarget}
-                    onClose={() => setPanel(null)}
-                  />
-                )}
                 {panel === "graph" && (
                   <GraphPanel
                     reloadKey={reloadKey}

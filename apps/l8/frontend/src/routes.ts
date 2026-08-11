@@ -14,7 +14,7 @@ export type Pane = "editor" | "timeline" | "chains";
  * the assumption across twenty call sites for a saving of one field.
  */
 export type View = "global";
-export type Panel = "editor" | "graph" | "docs" | "logs";
+export type Panel = "graph" | "docs" | "logs";
 
 /** The part of the shell's state the URL carries. */
 export interface RouteState {
@@ -25,7 +25,7 @@ export interface RouteState {
 }
 
 const PANES: Pane[] = ["editor", "timeline", "chains"];
-const PANELS: Panel[] = ["editor", "graph", "docs", "logs"];
+const PANELS: Panel[] = ["graph", "docs", "logs"];
 
 const isPane = (s: string): s is Pane => (PANES as string[]).includes(s);
 const isPanel = (s: string): s is Panel => (PANELS as string[]).includes(s);

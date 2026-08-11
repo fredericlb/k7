@@ -341,6 +341,34 @@ export const CELL = 36;
 export const UI_PAD = 6;
 export const UI_HEADER = 38;
 
+/**
+ * The font size a node's header name needs to be READ WHOLE, in px.
+ *
+ * The header used to ellipse at a fixed 12.5px, which was fine while every card was NODE_W —
+ * and stopped being fine when a card became only as wide as its panel's grid. A two-column
+ * strip is 84px, a few characters, so seventeen identically-shaped mixers all read "vo_j…".
+ * A name you cannot read is a card you have to hover to identify.
+ *
+ * Estimated from the glyph count rather than measured: this runs for every node on every
+ * layout, and a DOM measurement per card is a reflow per card. `GLYPH_W` is the average
+ * advance of the header's face at 1px — it is an average, so a name of all `m`s still
+ * ellipses and a name of all `i`s is left smaller than it had to be. Both are better than
+ * the fixed size they replace.
+ *
+ * Never LARGER than the size it had, only smaller: this is about fitting a long name, not
+ * about blowing up a short one, and a card whose title grew would look like a different kind
+ * of card. Floored too — below `HEADER_MIN_PX` it is a smudge, and an ellipsis is honester.
+ */
+export const HEADER_MAX_PX = 12.5; // .dgx-nm's size today, and the ceiling
+export const HEADER_MIN_PX = 7.5;
+const GLYPH_W = 0.55; // average advance per px of font size, for the header's face
+
+export function headerFontPx(label: string, availableW: number): number {
+  const n = Math.max(1, label.length);
+  const byWidth = availableW / (n * GLYPH_W);
+  return Math.max(HEADER_MIN_PX, Math.min(HEADER_MAX_PX, byWidth));
+}
+
 // How big a node must be to hold `ui`; falls back to the plain size, so a project with no UIs lays out as before.
 export function nodeSize(ui?: WebModuleUI): { w: number; h: number } {
   if (!ui?.cols || !ui?.rows) return { w: NODE_W, h: NODE_H };

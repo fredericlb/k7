@@ -4,6 +4,9 @@ import {
   alignModuleRank,
   buildGraph,
   CELL,
+  HEADER_MAX_PX,
+  HEADER_MIN_PX,
+  headerFontPx,
   layout,
   moduleRow,
   NODE_H,
@@ -705,6 +708,39 @@ describe("an input wired to a track", () => {
     const from = edges.find((e) => e.source === "mod:IN:in-2");
     expect(from?.target).toBe("trk:gtr");
     expect(from?.target).not.toBe("mod:wah");
+  });
+});
+
+describe("headerFontPx", () => {
+  // A card is only as wide as its panel's grid now, so a fixed header size left seventeen
+  // identically-shaped mixers all reading "vo_j…". The name is fitted instead.
+  it("leaves a short name at the ceiling — this shrinks, it does not enlarge", () => {
+    expect(headerFontPx("eq", 200)).toBe(HEADER_MAX_PX);
+  });
+
+  it("shrinks a long name until it fits, rather than cutting it", () => {
+    const wide = headerFontPx("vo_jo-mixer", 200);
+    const narrow = headerFontPx("vo_jo-mixer", 60);
+    expect(narrow).toBeLessThan(wide);
+    expect(narrow).toBeGreaterThanOrEqual(HEADER_MIN_PX);
+  });
+
+  it("is monotonic in the NAME too: a longer one never gets a bigger size", () => {
+    const sizes = ["a", "abcd", "abcdefgh", "abcdefghijklmnop"].map((n) =>
+      headerFontPx(n, 84),
+    );
+    for (let i = 1; i < sizes.length; i++)
+      expect(sizes[i]).toBeLessThanOrEqual(sizes[i - 1]);
+  });
+
+  it("floors rather than vanishing — a smudge is worse than an ellipsis", () => {
+    expect(headerFontPx("a-very-long-module-name-indeed", 20)).toBe(
+      HEADER_MIN_PX,
+    );
+  });
+
+  it("survives an empty label without dividing by zero", () => {
+    expect(Number.isFinite(headerFontPx("", 84))).toBe(true);
   });
 });
 

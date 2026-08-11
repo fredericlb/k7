@@ -57,7 +57,7 @@ import type {
 import { useIsMobile } from "../useIsMobile";
 import { Breadcrumb } from "./Breadcrumb";
 import { EditorPane } from "./EditorPane";
-import type { EditTarget } from "./EditorPanel";
+import type { EditTarget } from "./ClipView";
 import { FileTree } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
 import { SeqGrid } from "./SeqGrid";
