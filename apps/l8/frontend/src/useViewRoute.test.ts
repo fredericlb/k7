@@ -80,10 +80,10 @@ describe("a deep link", () => {
   });
 
   it("carries the side panel with it", () => {
-    const r = settle(GLOBAL, "/timeline?panel=mixer");
+    const r = settle(GLOBAL, "/timeline?panel=logs");
     expect(r.state.full).toBe("timeline");
-    expect(r.state.panel).toBe("mixer");
-    expect(r.path).toBe("/timeline?panel=mixer");
+    expect(r.state.panel).toBe("logs");
+    expect(r.path).toBe("/timeline?panel=logs");
   });
 
   it("settles on every screen the table can name", () => {

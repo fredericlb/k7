@@ -23,7 +23,7 @@ describe("toPath", () => {
   });
 
   it("carries the panel as a query on any screen", () => {
-    expect(toPath(st({ panel: "mixer" }))).toBe("/?panel=mixer");
+    expect(toPath(st({ panel: "editor" }))).toBe("/?panel=editor");
     expect(toPath(st({ full: "chains", panel: "logs" }))).toBe(
       "/chains?panel=logs",
     );
@@ -36,7 +36,7 @@ describe("fromLocation", () => {
     for (const s of [
       st(),
       st({ full: "editor" }),
-      st({ full: "chains", panel: "mixer" }),
+      st({ full: "chains", panel: "editor" }),
       st({ help: true }),
       st({ panel: "logs" }),
     ]) {
@@ -77,7 +77,7 @@ describe("sameRoute", () => {
     expect(sameRoute(st({ full: "editor" }), st({ full: "editor" }))).toBe(
       true,
     );
-    expect(sameRoute(st({ panel: "mixer" }), st({ panel: "logs" }))).toBe(
+    expect(sameRoute(st({ panel: "editor" }), st({ panel: "logs" }))).toBe(
       false,
     );
   });

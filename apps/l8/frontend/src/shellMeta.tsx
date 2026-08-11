@@ -47,14 +47,18 @@ export const VIEW_META: Record<
   global: { icon: LayoutGrid, label: "Global", third: "chains" },
 };
 
-// The bottom panels: `editor` is the clip editor, `mixer` the strips, `graph` the caret track's path, `logs` both.
+// The bottom panels: `editor` is the clip editor, `graph` the caret track's path, `logs` both.
+// The MIXER is not among them any more — a rank of strips is a view of the graph, and it is
+// drawn where the graph is. Its button sits beside these all the same; see App.tsx.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
   editor: { icon: Piano, label: "Editor" },
-  mixer: { icon: SlidersVertical, label: "Mixer" },
   graph: { icon: Workflow, label: "Graph" },
   docs: { icon: NotebookText, label: "Docs" },
   logs: { icon: ScrollText, label: "Logs" },
 };
+
+/** The mixer's icon, still needed though it left PANEL_META — its button now opens a graph view. */
+export const MixerIcon = SlidersVertical;
 
 // The moving clock, its OWN component so the ~20 Hz playhead re-renders one <span>. Needs <EngineStoreProvider>.
 export function TransportClock({
