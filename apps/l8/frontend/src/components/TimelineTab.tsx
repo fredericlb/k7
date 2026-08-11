@@ -385,6 +385,7 @@ export function TimelineTab({
   orbit,
   setStatus,
   onEditTarget,
+  onOpenClip,
   onCaret,
   onView,
   onContextMenu,
@@ -407,6 +408,9 @@ export function TimelineTab({
   orbit: WebTrack[];
   setStatus: (s: string) => void;
   onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
+  // A clip was CLICKED — a press that never moved. The shell shows its content where the graph
+  // is; the caret-driven `onEditTarget` above is a different question, answered continuously.
+  onOpenClip?: (t: EditTarget) => void;
   // The caret: its position (the minimap draws it) and the track it is on (m/s act on that track by name).
   onCaret: (c: Caret & { trackId: string | null }) => void;
   // Whether a selection or zoom is live, so z / shift+z / 0 can be conditional bindings rather than dead commands.
@@ -792,6 +796,10 @@ export function TimelineTab({
     y: number;
     ppb: number;
     moved: boolean;
+    // WHICH clip is under the press, carried here rather than read back off `move`: a lane whose
+    // clip cannot be moved sets no `move` at all, and a click on it still has to know what it hit.
+    trackId: string;
+    clipId: string;
   } | null>(null);
   // Below this the gesture is a click, not a drag — same 4px the ruler's gestures use.
   const DRAG_SLOP = 4;
@@ -812,10 +820,8 @@ export function TimelineTab({
       track: WebTrack,
       c: WebProject["tracks"][0]["clips"][0],
     ) => {
-      // LEFT button, the one you already have on the clip. Never a generated lane — it has no file.
-      // A FROZEN lane is out too: its one clip is a render, not a placement, and there is no `clips:` entry in the
-      // track's file for a move to rewrite. Its real material is still in there, waiting for the unfreeze.
-      if (e.button !== 0 || track.generated || track.frozen) return;
+      // LEFT button, the one you already have on the clip.
+      if (e.button !== 0) return;
       e.stopPropagation();
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       dragRef.current = {
@@ -823,7 +829,16 @@ export function TimelineTab({
         y: e.clientY,
         ppb: ppbRef.current,
         moved: false,
+        trackId: track.id,
+        clipId: c.id,
       };
+      // No MOVE on a generated lane — it has no file. A FROZEN lane is out too: its one clip is
+      // a render, not a placement, and there is no `clips:` entry in the track's file for a move
+      // to rewrite. Its real material is still in there, waiting for the unfreeze.
+      //
+      // The press is tracked either way, because a CLICK is a request to SEE the clip and that
+      // asks nothing of the disk — a frozen lane's render is exactly the thing you want to look at.
+      if (track.generated || track.frozen) return;
       setSel(null);
       setMove({
         trackId: track.id,
@@ -998,8 +1013,8 @@ export function TimelineTab({
   );
 
   const endClipDrag = useCallback(() => {
-    if (!dragRef.current) return;
-    const moved = dragRef.current.moved;
+    const d = dragRef.current;
+    if (!d) return;
     dragRef.current = null;
     // Answering the bar is NOT committing. The line is filled and sits there waiting for enter,
     // so the drop writes nothing to disk — which is what makes the gesture safe to try.
@@ -1016,14 +1031,26 @@ export function TimelineTab({
       setStatus("event move — enter runs it, esc drops the line");
       return;
     }
-    // A CLICK — the pointer went down on the event and never moved. Park the caret over it.
-    if (!moved && m) {
+    // A press that never passed the slop is a CLICK. It used to reach commitMove, which found a
+    // move of zero beats and said "move cancelled — no change": a refusal, for a gesture that
+    // had asked for nothing.
+    //
+    // Parking the caret over the clip is what SHOWS it: `clipUnderCaret` above answers
+    // `onEditTarget` continuously, so the Editor panel follows the caret without being told.
+    // The graph slot is the one thing the caret cannot say — it is a click, not a position —
+    // so that one is told outright.
+    if (!d.moved && m) {
       coverClip(m);
+      const p = projRef.current;
+      const clip = p?.tracks
+        .find((t) => t.id === d.trackId)
+        ?.clips.find((c) => c.id === d.clipId);
       setMove(null);
+      if (p && clip) onOpenClip?.({ kind: "clip", project: p, clip });
       return;
     }
     commitMoveRef.current();
-  }, [moveArgs, setStatus, coverClip]);
+  }, [moveArgs, setStatus, coverClip, onOpenClip]);
 
   // Drop the clip as an `event move` between 1-based timecodes; a zero net move just cancels. See docs/timeline.md.
   const commitMove = useCallback(() => {
