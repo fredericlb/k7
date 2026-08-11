@@ -23,7 +23,7 @@ nothing that renders a message may live above it.
 
 `BrowserRouter` sits *outside* the gates. The URL names a **screen of the editor**, and the
 gates are conditions for reaching it rather than places of their own — so a deep link like
-`/timeline?panel=mixer` survives them: you sign in, pick an engine, and land where the link
+`/timeline?panel=logs` survives them: you sign in, pick an engine, and land where the link
 pointed.
 
 ### React.StrictMode is deliberately NOT used
@@ -54,11 +54,25 @@ half. So the default is the two that answer "what is this song", and the editor 
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
-### The Mixer panel draws the graph's strips, not its own
+### The Mixer is a view of the graph, not a panel
+
+It used to be one of the bottom panels; it is not any more. A rank of channel strips **is**
+the graph, seen a particular way, so it is drawn where the graph is — as a `graphSlot`, beside
+a clicked clip's content and a sequence grid, taking the chains pane's place while it is up.
+Its button still sits with the panel buttons, so the hand that knew where the Mixer was finds
+it, but it toggles that slot rather than a panel.
+
+That move is what makes it readable. The bottom panel was a resizable band a couple of hundred
+pixels tall; the graph's pane is half the window, and `fitAxis="height"` fills it — so a fader
+gets the vertical throw it wants and the row runs off to the right, which pans. Fitting both
+axes instead would shrink every strip as the song gains tracks, and a mixer you cannot read is
+worse than one you have to scroll.
 
 `MixerTab` has no controls of its own. It is the row of MIXER MODULES the song actually
 has — the module each track ends on (`trackMixer`, by plugin type) — drawn as the very
-cards the chains view draws, side by side, in track order.
+cards the chains view draws, side by side, in track order. `moduleRow` (in `@studio/ui-chains`)
+gives them their even spacing, with no dagre and no cables: there is nothing to route between
+channels, and the ORDER is the song's, which is not a thing a layout engine should choose.
 
 It used to hand-roll a strip per track: a VU, a fader, a pan slider, M and S. That was a
 second implementation of a channel strip, and it drifted from the one the module's own
@@ -339,6 +353,11 @@ are symmetric on purpose:
 - **the bare lane** — the caret moves to where you clicked, nothing is under it any more, and
   the slot goes back to the graph. What a click opened, a click on nothing closes; otherwise a
   clip sits parked there until you find its ✕.
+
+The **Mixer button** moves the same slot, from outside the timeline — see above. A sequence
+grid (`sequence edit roll|tracker`) is the fourth thing that can hold it. One slot and not four
+flags, so nothing has to agree about which wins and the ✕ always knows what it is closing.
+
 **Expanding the lanes takes the pane away entirely.** The Expand button in the timeline's
 toolbar grows every lane to show what is inside its clips — waveforms, notes — and that height
 is precisely what the pane below is holding. So while it is on, the timeline gets the whole

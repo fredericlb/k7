@@ -1,11 +1,13 @@
-// MixerTab.tsx — the graph's channel strips, side by side. Every module a track ends on (its
-// MIXER, see @studio/song's trackMixer) drawn as the card the chains view draws, in the song's
-// track order. Nothing here is hand-rolled: a strip's controls are its module's own panel.
+// MixerTab.tsx — the channel strips, side by side, drawn where the GRAPH is. Every module a
+// track ends on (its MIXER, see @studio/song's trackMixer) as the card the chains view draws,
+// in the song's track order. Nothing here is hand-rolled: a strip's controls are its module's
+// own panel, and `moduleRow` gives them their even spacing. See docs/shell.md.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
+import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
@@ -29,6 +31,7 @@ export function MixerTab({
   trackControls,
   onContextMenu,
   engineWarnings,
+  onClose,
 }: {
   reloadKey: number;
   command: (line: string) => void | Promise<void>;
@@ -42,6 +45,9 @@ export function MixerTab({
   trackControls?: Record<string, TrackControlValues>;
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   engineWarnings?: Record<string, string>;
+  /** Put the graph back. Present because the mixer is a view of the graph's pane, and every
+   *  other thing that takes that place closes the same way. */
+  onClose?: () => void;
 }) {
   const [proj, setProj] = useState<WebProject | null>(null);
   const [graph, setGraph] = useState<WebGraph | null>(null);
@@ -102,7 +108,7 @@ export function MixerTab({
     );
 
   return (
-    // h-full: fill the bottom panel's (resizable) height, so the canvas frames to it.
+    // h-full: fill the pane it was given, so the canvas frames to it.
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">Mixer</span>
@@ -110,6 +116,17 @@ export function MixerTab({
           · {laid.nodes.length} strip{laid.nodes.length > 1 ? "s" : ""}, in
           track order · the modules' own panels
         </span>
+        {onClose && (
+          <button
+            type="button"
+            className="ml-auto rounded p-1 hover:bg-accent hover:text-foreground"
+            title="Close — back to the graph"
+            aria-label="Close the mixer"
+            onClick={onClose}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1">
         <DomChains

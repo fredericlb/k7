@@ -119,6 +119,7 @@ import {
   MetronomeIcon,
   MiniTransport,
   PANE_META,
+  MixerIcon,
   PANEL_META,
   PANES,
   TransportClock,
@@ -307,6 +308,10 @@ export default function App({
   const [graphSlot, setGraphSlot] = useState<
     | { kind: "grid"; path: string; view: SeqView }
     | { kind: "clip"; target: EditTarget }
+    // The mixer: every module a track ends on, side by side. A VIEW of the graph and not a
+    // panel of its own, which is why it lands here — the strips are the same cards the graph
+    // draws, and drawing them in the graph's place gives them the height a fader wants.
+    | { kind: "mixer" }
     | null
   >(null);
   const timelineRef = useRef<TimelineHandle>(null);
@@ -1881,6 +1886,26 @@ export default function App({
                     />
                   </div>
                 )}
+                {/* The mixer: `moduleRow` lines the strips up here, evenly spaced and without
+                    cables, and this pane's height is what makes them readable — a fader wants
+                    the vertical room the bottom panel never had. */}
+                {graphSlot?.kind === "mixer" && (
+                  <div className="flex min-h-0 min-w-0 flex-1">
+                    <MixerTab
+                      reloadKey={reloadKey}
+                      command={quietCommand}
+                      trackOrder={trackOrder}
+                      pluginParamsStore={pluginParamsStore}
+                      requestPluginParams={requestPluginParams}
+                      watchPluginParams={watchPluginParams}
+                      setPluginParam={setPluginParam}
+                      trackControls={trackControls}
+                      onContextMenu={openContextMenu}
+                      engineWarnings={engineWarnings}
+                      onClose={() => setGraphSlot(null)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1900,20 +1925,6 @@ export default function App({
                   <EditorPanel
                     target={editTarget}
                     onClose={() => setPanel(null)}
-                  />
-                )}
-                {panel === "mixer" && (
-                  <MixerTab
-                    reloadKey={reloadKey}
-                    command={quietCommand}
-                    trackOrder={trackOrder}
-                    pluginParamsStore={pluginParamsStore}
-                    requestPluginParams={requestPluginParams}
-                    watchPluginParams={watchPluginParams}
-                    setPluginParam={setPluginParam}
-                    trackControls={trackControls}
-                    onContextMenu={openContextMenu}
-                    engineWarnings={engineWarnings}
                   />
                 )}
                 {panel === "graph" && (
@@ -2066,6 +2077,25 @@ export default function App({
             </Button>
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
             <nav className="flex items-center gap-1">
+              {/* The mixer, beside the panel buttons but not one of them: it opens a VIEW of the
+                  graph, where the strips get the height a fader wants. Same place in the row, so
+                  the hand that knew where the Mixer button was still finds it. Like a clicked
+                  clip, it makes its own slot visible — a view drawn behind a fullscreened
+                  timeline is a click that did nothing. */}
+              <Button
+                size="icon-xs"
+                variant={graphSlot?.kind === "mixer" ? "default" : "ghost"}
+                onClick={() => {
+                  if (graphSlot?.kind === "mixer") return setGraphSlot(null);
+                  setFull(null);
+                  setGraphSlot({ kind: "mixer" });
+                }}
+                title="Mixer view"
+                aria-label="Mixer view"
+                aria-pressed={graphSlot?.kind === "mixer"}
+              >
+                <MixerIcon className="h-3.5 w-3.5" />
+              </Button>
               {(Object.keys(PANEL_META) as Panel[]).map((p) => {
                 const Icon = PANEL_META[p].icon;
                 return (
