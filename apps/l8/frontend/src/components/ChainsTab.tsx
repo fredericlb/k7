@@ -35,6 +35,9 @@ import {
 import type { WebGraph } from "../types";
 import { useIsMobile } from "../useIsMobile";
 
+/** The mixer row is framed a fifth SMALLER than a perfect fit — see where it is used. */
+const ROW_ZOOM_OUT = 0.8;
+
 export function ChainsTab({
   reloadKey,
   active,
@@ -426,7 +429,10 @@ export function ChainsTab({
     // on whatever the camera was showing, which reads as a button that does nothing.
     if (!nodes.length) return;
     const was = camApi.current?.get();
-    if (camApi.current?.fitTo(nodes, undefined, "height")) {
+    // …and pulled BACK a fifth from a perfect fit. A row framed exactly fills the pane edge to
+    // edge, which reads as a wall: the strips are the subject, but what feeds them is the
+    // sentence, and a little air is what says the row belongs to a graph.
+    if (camApi.current?.fitTo(nodes, { axis: "height", zoom: ROW_ZOOM_OUT })) {
       rowFramed.current = rowKey;
       // Remembered only once the frame actually happened, and only the FIRST time in: a re-run
       // that saved the row's own camera would hand that back as if it were where you had been.
@@ -563,7 +569,9 @@ export function ChainsTab({
                                       n.module === step.module,
                                   );
                                   if (modNode)
-                                    camApi.current?.fitTo(nodes, modNode);
+                                    camApi.current?.fitTo(nodes, {
+                                      panOnly: modNode,
+                                    });
                                 }
                               }}
                               className={`min-w-0 flex-1 truncate rounded py-0.5 pl-7 pr-1 text-left font-mono text-xs text-muted-foreground hover:bg-accent hover:text-foreground ${modSelected ? "bg-accent text-foreground" : ""}`}
