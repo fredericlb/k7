@@ -1,7 +1,7 @@
-// TakeReview.tsx — the take you just recorded, once the transport stops: its waveform under the
-// project's bar/beat ruler, the onsets over it as marks you can add and refuse, the threshold that
-// finds them, and one button to bring the file up to level. Replaces RecordingBand in the same slot,
-// so what was a live band becomes the thing you look at afterwards.
+// TakeReview.tsx — the take you just recorded, once the transport stops: the FILE the service
+// wrote, its waveform under the project's bar/beat ruler, the onsets over it as marks you can add
+// and refuse, the threshold that finds them, and one button to bring it up to level. Sits in the
+// column, beside RecordingPane's live view of the same take — see docs/shell.md on why both.
 
 import { Button } from "@frediverse/ui/button";
 import { Waveform } from "@studio/ui-waveform";
@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { WebWaveform } from "../types";
 
-const WAVE_HEIGHT = 200; // the band RecordingBand used, so stopping does not resize the shell
+const WAVE_HEIGHT = 200; // a fixed band in the column, so stopping does not resize the shell
 const BUCKETS = 1200;
 // The bounds the file service clamps to anyway (see the /waveform route) — repeated here so the
 // slider cannot ask for something that comes back silently adjusted.
