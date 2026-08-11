@@ -1822,7 +1822,11 @@ export default function App({
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  full === "chains" ? "flex-1" : chainsOffScreen ? "hidden" : "h-1/2 shrink-0",
+                  full === "chains"
+                    ? "flex-1"
+                    : chainsOffScreen
+                      ? "hidden"
+                      : "h-1/2 shrink-0",
                   ringFor("chains"),
                 )}
               >
