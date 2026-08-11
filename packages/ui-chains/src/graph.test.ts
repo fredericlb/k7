@@ -711,6 +711,96 @@ describe("an input wired to a track", () => {
   });
 });
 
+describe("layout puts every rank on its own row", () => {
+  // The ranks are computed in buildGraph and handed to dagre, which treats them as a hint: its
+  // longest-path ranker pushes a node as LATE as it can, hugging the sink below. Measured on a
+  // fifteen-track song: rank 1 spread over SIX lines, from y=16 to y=1380 — a first-in-chain
+  // module sitting on the mixer line, at the bottom of a column it belongs at the top of.
+  const deepAndShallow = graph(
+    {
+      long: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "eq" }, { module: "verb" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      short: {
+        from: "bass",
+        use: [{ module: "drive" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox", "bass"],
+  );
+
+  const laid = () => {
+    const { nodes, edges } = buildGraph(deepAndShallow);
+    const rank = new Map(nodes.map((n) => [n.id, n.rank]));
+    return { l: layout(nodes, edges), rank };
+  };
+
+  it("gives each rank ONE y", () => {
+    const { l, rank } = laid();
+    const rows = new Map<number, Set<number>>();
+    for (const n of l.nodes) {
+      const r = rank.get(n.id);
+      if (r == null) continue;
+      if (!rows.has(r)) rows.set(r, new Set());
+      (rows.get(r) as Set<number>).add(n.y);
+    }
+    for (const [, ys] of rows) expect(ys.size).toBe(1);
+  });
+
+  it("puts the short chain's module at the TOP, beside the deep one's first", () => {
+    const { l } = laid();
+    const y = (mod: string) => l.nodes.find((n) => n.module === mod)?.y ?? 0;
+    // `drive` is first in its chain and `comp` is first in the other: same rank, same row —
+    // rather than dragged down to meet the mixer its own chain reaches in one step.
+    expect(y("drive")).toBe(y("comp"));
+    expect(y("drive")).toBeLessThan(y("verb"));
+  });
+
+  it("keeps the rows in order and never lets one sit on the one above", () => {
+    const { l, rank } = laid();
+    const rows = [...new Set(l.nodes.map((n) => rank.get(n.id)))]
+      .filter((r): r is number => r != null)
+      .sort((a, b) => a - b);
+    let prevBottom = Number.NEGATIVE_INFINITY;
+    for (const r of rows) {
+      const of = l.nodes.filter((n) => rank.get(n.id) === r);
+      expect(Math.min(...of.map((n) => n.y))).toBeGreaterThanOrEqual(prevBottom);
+      prevBottom = Math.max(...of.map((n) => n.y + n.h));
+    }
+  });
+
+  it("parts two nodes the collapse would have stacked", () => {
+    // dagre places x assuming its own y: two nodes it put on different lines may share a
+    // column, and collapsing them onto one row is what makes them overlap. Measured: one such
+    // pair on a fifteen-track song, a module nested inside another.
+    const { l } = laid();
+    const a = l.nodes;
+    for (let i = 0; i < a.length; i++)
+      for (let j = i + 1; j < a.length; j++)
+        expect(
+          a[i].x < a[j].x + a[j].w &&
+            a[j].x < a[i].x + a[i].w &&
+            a[i].y < a[j].y + a[j].h &&
+            a[j].y < a[i].y + a[i].h,
+        ).toBe(false);
+  });
+
+  it("reports an extent that covers where the nodes ACTUALLY are", () => {
+    // dagre's own figure describes the picture before the rows moved — 488px short on a
+    // fifteen-track song, which is the bottom of the graph missing from every fit.
+    const { l } = laid();
+    expect(l.width).toBeGreaterThanOrEqual(
+      Math.max(...l.nodes.map((n) => n.x + n.w)),
+    );
+    expect(l.height).toBeGreaterThanOrEqual(
+      Math.max(...l.nodes.map((n) => n.y + n.h)),
+    );
+  });
+});
+
 describe("layout puts every track on one line", () => {
   // Tracks carry `rank: 0` and dagre overrides it: the ranker pushes a source down to shorten
   // the edges below it, so chains of different depths scatter their tracks over as many lines.
@@ -848,13 +938,17 @@ describe("spaceModulesEvenly", () => {
   // A shared rank puts the strips on one LINE; this is what gives that line one RHYTHM. dagre
   // spaces a rank by what feeds it, so a track with a wide chain pushes its mixer away from its
   // neighbour — which reads as a scattered row rather than a console.
-  // vox carries a SEND as well as its own path, so its column is wider than one card. That is
-  // what makes dagre space this rank unevenly, and it is the shape a real song has.
+  // vox carries a SEND as well as its own path, and its compressor draws a WIDE panel, so its
+  // column is much wider than one card. That is what makes dagre space this rank unevenly, and
+  // it is the shape a real song has — measured there at gaps of 152/136/356/116.
   const uneven = graph(
     {
       a: {
         from: "vox",
-        use: [{ module: "comp" }, { module: "mx-vox" }],
+        use: [
+          { module: "comp", ui: { cols: 8, rows: 2, widgets: {} } },
+          { module: "mx-vox" },
+        ],
         out: [
           { to: "OUT", gain: 1 },
           { to: "reverb", gain: 0.3 },
@@ -904,12 +998,13 @@ describe("spaceModulesEvenly", () => {
     return out;
   };
 
-  it("leaves the SAME gap between every pair, whatever feeds them", () => {
-    const { nodes, edges } = buildGraph(uneven);
-    const before = layout(alignModuleRank(nodes, row), edges);
-    // The fixture has to be uneven, or this test would pass without the function under test.
-    expect(new Set(gapsOf(before)).size).toBeGreaterThan(1);
-    expect(new Set(gapsOf(laidRow())).size).toBe(1);
+  it("leaves the SAME gap between every pair, and it is the STRIP's", () => {
+    // One distinct gap, and it is 24 — `STRIP_GAP`, tighter than the 60 `layout` parts
+    // colliding siblings with. The number is the assertion: on a graph small enough for every
+    // strip to collide, the row sweep alone already produces ONE gap, so "all gaps equal" would
+    // pass with this function removed. On a real song they do not collide — measured there at
+    // 152/136/356/116 before, 24 after — and it is the only thing that closes them up.
+    expect(gapsOf(laidRow())).toEqual([24, 24, 24]);
   });
 
   it("orders them as ASKED, not as the graph laid them out", () => {

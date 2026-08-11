@@ -197,16 +197,31 @@ chains, sinks one past the deepest module, and chain pass-through nodes at 1. Ta
 *maximum* position matters for a shared module — at index 0 in chain A and 2 in chain B it
 ranks after both, so chain A's full pipeline is still respected.
 
-**Every track ends up on one line, at the top.** They carry `rank: 0`, and dagre overrides it —
-the ranker is free to push a source down to shorten the edges below it, so a song whose chains
-have different depths scatters its tracks over as many lines as it has depths. Measured at SIX
-on a fifteen-track song, one of them sitting BELOW the mixers it fed, and a source that is not
-on the source line reads as a module. `layout` therefore moves them, after dagre, onto the
-topmost of their own y values.
+**Every rank ends up on its own row**, and that is `layout`'s doing rather than dagre's. The
+ranks are computed here and handed over; dagre treats them as a hint. Its `longest-path` ranker
+pushes a node as LATE as it can, hugging the sink below it, so on a fifteen-track song rank 1
+was spread over SIX lines, from y=16 to y=1380 — a first-in-chain module sitting on the mixer
+line, at the bottom of a column it belongs at the top of. That is what a stretched chain looks
+like: the mixers pinned deep, and the one module above them dragged down to meet them.
 
-Only the y. Their x is dagre's, so the gap between two tracks varies with what hangs underneath
-— which is right: they are the tops of chains of different widths, not a rank of identical
-strips like the mixer row.
+So `snapToRankRows` makes the rank mean what it says. One row per rank, in order, each as high
+as the highest thing dagre put there and never overlapping the row above. Tracks are rank 0, so
+the source line falls out of the same rule rather than needing one of its own.
+
+Two things follow, and both were found by measuring rather than by reasoning:
+
+- **The rows are swept for collisions.** dagre places x assuming its own y, so two nodes it put
+  on different lines may share a column — collapsing them onto one row is what makes them
+  overlap. One such pair on that same song, a module nested inside another. Each row is walked
+  left to right and anything landing on its neighbour is pushed past it by `nodesep`.
+- **The extent is measured on the nodes**, not read off dagre. Its figure describes the picture
+  before the rows moved: 488px short there, which is the bottom of the graph missing from every
+  camera fit.
+
+Only the y is legislated. The x stays dagre's, so the gap along a row varies with what hangs
+under each column — right for tracks and modules, which are the tops and middles of chains of
+different widths. The mixer row asks for even spacing separately (`spaceModulesEvenly`), because
+a rank of channel strips is the one place it is wanted.
 
 Layout is **top→bottom** layered. dagre's routed edge points are computed and then **not used**
 — see the cable section above for why a straight line beats a bend here. dagre returns node
