@@ -414,6 +414,21 @@ are symmetric on purpose:
   the slot goes back to the graph. What a click opened, a click on nothing closes; otherwise a
   clip sits parked there until you find its ✕.
 
+### Double-clicking a lane's header lays its modules out in a row
+
+The gutter has always been the row's handle: a click selects it, a double-click focuses it —
+opening its `tracks/<id>.yaml` and framing the chains it feeds. It now also opens **one lane's
+whole signal path**, side by side, over the graph: `trackModules` walks the same reach the
+framing uses (`subgraphForTrack`, so a send out of the lane's own chain is in it) and adds the
+ORDER a node set does not carry, then `moduleRow` lays it out.
+
+That is the function the mixer used before the mixer became a rank of the graph itself. It went
+to [inventaire.md](../../../../docs/inventaire.md) with no caller, on the argument that another
+surface would want a bare rank of cards; this is that surface.
+
+The framing still happens underneath, deliberately: closing the row with its ✕ leaves the graph
+already framed on the track it was about, which is where you would have wanted to be anyway.
+
 A sequence grid (`sequence edit roll|tracker`) is the third thing that can hold that slot. One
 slot and not three flags, so nothing has to agree about which wins and the ✕ always knows what
 it is closing. The **Mixer button** is not one of them — it rearranges the graph rather than

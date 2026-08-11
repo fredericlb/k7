@@ -74,6 +74,7 @@ import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { TakeReview } from "./components/TakeReview";
+import { TrackModulesPane } from "./components/TrackModulesPane";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
@@ -308,6 +309,9 @@ export default function App({
     | { kind: "grid"; path: string; view: SeqView }
     | { kind: "clip"; target: EditTarget }
     | { kind: "recording" }
+    // One track's modules, side by side — its whole signal path read left to right, opened by a
+    // double-click on the lane's header. See docs/shell.md.
+    | { kind: "trackModules"; trackId: string }
     | null
   >(null);
   /**
@@ -1116,6 +1120,11 @@ export default function App({
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
+      // …and the lane's modules, side by side, OVER the graph. The framing above still happens:
+      // closing this row leaves the graph already framed on the track it was about, which is
+      // where you would have wanted to be anyway.
+      if (target.kind === "track")
+        setGraphSlot({ kind: "trackModules", trackId: target.id });
     },
     [openInEditor],
   );
@@ -1926,6 +1935,27 @@ export default function App({
                   <div className="flex min-h-0 min-w-0 flex-1">
                     <ClipView
                       target={graphSlot.target}
+                      onClose={() => setGraphSlot(null)}
+                    />
+                  </div>
+                )}
+                {/* One lane's whole signal path, read left to right. `moduleRow` lays it out —
+                    the same function the mixer row used before it became a rank of the graph
+                    itself, and the same cards the graph draws. */}
+                {graphSlot?.kind === "trackModules" && (
+                  <div className="flex min-h-0 min-w-0 flex-1">
+                    <TrackModulesPane
+                      trackId={graphSlot.trackId}
+                      reloadKey={reloadKey}
+                      command={quietCommand}
+                      trackOrder={trackOrder}
+                      pluginParamsStore={pluginParamsStore}
+                      requestPluginParams={requestPluginParams}
+                      watchPluginParams={watchPluginParams}
+                      setPluginParam={setPluginParam}
+                      trackControls={trackControls}
+                      onContextMenu={openContextMenu}
+                      engineWarnings={engineWarnings}
                       onClose={() => setGraphSlot(null)}
                     />
                   </div>

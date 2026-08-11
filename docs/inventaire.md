@@ -236,11 +236,10 @@ Le mixer a quitté le panneau du bas pour devenir un **arrangement du graphe** :
 sont tirées sur un même rang (`alignModuleRank`) au lieu d'être redessinées ailleurs. Deux
 choses perdent leur appelant au passage.
 
-`moduleRow` (`packages/ui-chains/src/graph.ts`) posait une rangée de cartes nues, sans dagre et
-sans prises. Plus personne ne l'appelle en production ; ses tests, eux, restent verts. Gardée
-plutôt que supprimée parce qu'elle est testée, documentée, et qu'elle répond à une question
-qu'un autre hôte peut se reposer — la médiathèque dessine déjà des cartes isolées. Si rien ne
-la reprend, c'est elle qu'on retire, avec `STRIP_GAP` et `ROW_MARGIN`.
+`moduleRow` (`packages/ui-chains/src/graph.ts`) a **retrouvé un appelant** : le double-clic sur
+l'en-tête d'une piste ouvre ses modules en rangée horizontale (`TrackModulesPane`). C'était
+l'argument pour la garder plutôt que la supprimer quand le mixer a cessé de s'en servir — une
+question qu'un autre hôte pouvait se reposer. Rayée d'ici.
 
 `apps/l8/frontend/src/mixerStrips.ts` garde son appelant : `useProjectDoc` lit la liste des
 tranches par lui. C'est `MixerTab.tsx` qui a disparu — supprimé, pas laissé mort.
