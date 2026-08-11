@@ -82,6 +82,28 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "busy", busy: true\|false }` | the message thread is (un)blocked by an apply |
 | `{ type: "error", message }` | |
 
+### The state frame slows to 4 Hz when a session is idle
+
+`~20 Hz` is the rate while something is happening. `StateTimer` still ticks every 50 ms — the
+abandoned-project and empty-session sweeps ride it — but it only *sends* one tick in five while
+a session is **idle**, which means all of:
+
+- not playing, not record-enabled, nothing armed;
+- no waveform tap in the chain and no watched plugin parameter (`sessionWatched`) — those two
+  carry new numbers even with the transport stopped;
+- every output and input level under **−60 dB**. This clause is not implied by the first: an
+  *audition* sounds without the transport rolling, and a monitored input moves a meter while it
+  does.
+
+The frame was going out every 50 ms regardless, and a browser paid for all of it — parse, then
+every subscriber's selector, to conclude nothing had moved. 4 Hz is slow enough to leave a
+profile and quick enough that a change made from another tab lands within 250 ms. Nothing is
+drained or pumped on a skipped tick, which is safe precisely because a tap or a watch is what
+makes a session non-idle.
+
+A client must not read the cadence as a signal: it is not a heartbeat, and
+`packages/engine-browser`'s store drops an identical frame anyway (`docs/meters.md`).
+
 ## server -> client, BINARY
 
 One message type, and the only binary this socket carries: a frame of master audio, sent

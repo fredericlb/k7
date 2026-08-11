@@ -39,6 +39,16 @@ async-initialised WebGL renderer cannot be made double-mount-safe cheaply, and t
 is a real user-facing cost. So the dev check is forgone here on purpose. (The chains graph
 used to be a second such renderer; it is the DOM now, and double-mounts harmlessly.)
 
+### …and the Profiler is behind a flag, for a related reason
+
+`main.tsx` can wrap the tree in a `<Profiler>` feeding `freezeWatchdog`'s `reportCommit`, so a
+stall report can say which COMMIT it was and not merely how long it lasted. Only commits over
+the watchdog's threshold are kept — but the instrumentation bills **every** commit in the
+subtree to find them, and this tree commits on meter frames. It is therefore off unless asked
+for: `?profile=1`, or `studio.profile` in localStorage so it survives the reloads an
+investigation takes. `installFreezeWatchdog()` itself stays unconditional — the heartbeat and
+the `longtask` observer are cheap and are what turn "it froze" into evidence at all.
+
 ## The layout (`App.tsx`)
 
 `App` is the l8 web editor itself: the global view — **the timeline over the chains graph,
@@ -505,6 +515,15 @@ visible changed. They live in an external store (`engineStore.ts`, and `pluginPa
 for plugin parameters) instead, and components subscribe to just the slice they draw — so
 a state frame re-renders the meters, not the tree. Keep it that way: pulling a live value
 into `App` state costs a full render per frame.
+
+**"The slice they draw" means a LEAF draws it.** Moving the subscription off `App` is only half
+the rule, and the half that is easy to satisfy by accident: a subscription held at the top of
+any component re-renders everything that component draws. `Minimap`, `PianoRoll` and
+`WaveformView` each read `s.playhead` in their body and so reconciled a row per clip, 128 key
+rows, and a whole canvas twenty times a second — and they do it **off screen too**, because
+every pane here is mounted exactly once and merely `hidden`. Each has a playhead leaf now, the
+shape `TimelineTab` has used since the frame-rate driver came out of it
+([`timeline.md`](timeline.md)).
 
 The bar takes focus on a **double-tap of Shift**: two lone Shift presses within
 `DOUBLE_SHIFT_MS` with no other key between them. `e.repeat` filters out the auto-repeat
