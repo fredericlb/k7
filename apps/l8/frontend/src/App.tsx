@@ -119,6 +119,7 @@ import {
   MetronomeIcon,
   PANE_META,
   PANEL_META,
+  MiniTransport,
   PANES,
   TransportClock,
   VIEW_META,
@@ -423,6 +424,27 @@ export default function App({
     (p: Pane) => (full === null ? ringPanes.includes(p) : full === p),
     [full, ringPanes],
   );
+
+  /**
+   * Where the minimap goes — docked at the bottom of the shell, floating over a popin, or
+   * nowhere at all. See docs/shell.md.
+   *
+   * It is a SECOND VIEW of the timeline, so while the timeline itself is on screen it shows
+   * what is already there, in less detail, for a band of height the arrangement could have had.
+   * It earns its place exactly when the timeline is hidden.
+   *
+   * The popin is the case the docked strip cannot serve: it covers the layout, so the minimap
+   * has to come OVER it or not at all — and there it stops being a convenience, because a
+   * screen with no visible timeline is one where you have lost the song. Which is why the
+   * floating one carries a transport and the docked one does not.
+   *
+   * Only the editor popin, not the builder, the docs or the settings: those are PAGES that take
+   * the whole window and are about something other than this song — the builder's own overlay
+   * holds no engine link at all, so a transport over it would be a set of dead buttons.
+   */
+  const timelineVisible = visible("timeline");
+  const minimapFloating = docked && editorPopin;
+  const minimapDocked = docked && !timelineVisible && !editorPopin;
 
   const focusOn = useCallback(
     (p: Pane) => {
@@ -2026,8 +2048,8 @@ export default function App({
           </div>
         </footer>
 
-        {/* The bottom of the window, in one piece: the minimap — the whole arrangement at a
-            glance, click to move the playhead — and the command bar under it, full width.
+        {/* The bottom of the window: the minimap — the whole arrangement at a glance, click to
+            move the playhead — and the command bar under it, full width.
 
             Desktop only, both for the same reason: they are a second view of the timeline and a
             permanent prompt, and the vertical band they cost is the one thing a phone has least
@@ -2036,16 +2058,20 @@ export default function App({
             The bar is DOCKED rather than summoned: it is where you type, so it is always there,
             the way a terminal's prompt is. It never autofocuses — a shell that opened with the
             keyboard captured could not be typed into — so double-Shift focuses it and Escape
-            hands the keys back. See docs/commandBar.md. */}
+            hands the keys back. See docs/commandBar.md.
+
+            The minimap comes and goes with `minimapDocked` — see where it is computed. */}
         {docked && (
           <>
-            <Minimap
-              reloadKey={reloadKey}
-              orbit={orbit}
-              caret={caret}
-              highlight={openItem}
-              onSeek={seek}
-            />
+            {minimapDocked && (
+              <Minimap
+                reloadKey={reloadKey}
+                orbit={orbit}
+                caret={caret}
+                highlight={openItem}
+                onSeek={seek}
+              />
+            )}
             <div className="flex shrink-0 items-center border-t border-border bg-popover px-3 py-2">
               <CommandBar
                 ref={cmdRef}
@@ -2057,6 +2083,37 @@ export default function App({
               />
             </div>
           </>
+        )}
+
+        {/* The minimap again, over the popin that hid the timeline — pinned to the bottom of the
+            WINDOW, under the popin's own lower edge, with a mini transport above it.
+
+            Last in the tree on purpose: it shares the popin panel's z-50, so painting order is
+            what puts it in front. It sits outside the backdrop, so scrubbing it does not read as
+            the click-outside that dismisses the popin.
+
+            `pointer-events-none` on the wrapper and back on for the bar itself: the strip is only
+            as wide as it needs to be, and the dead space beside it must stay a click on the
+            backdrop — which is the way out of the popin. */}
+        {minimapFloating && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-2">
+            <div className="pointer-events-auto w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-background/95 shadow-2xl backdrop-blur">
+              <MiniTransport
+                playing={playing}
+                waiting={transportWaiting}
+                tempo={recInfo.tempo}
+                beatsPerBar={recInfo.beatsPerBar}
+                onToggle={() => transport(playing ? "stop" : "play")}
+              />
+              <Minimap
+                reloadKey={reloadKey}
+                orbit={orbit}
+                caret={caret}
+                highlight={openItem}
+                onSeek={seek}
+              />
+            </div>
+          </div>
         )}
 
         {/* The tab bar takes the minimap's place — one tab per pane, plus the command

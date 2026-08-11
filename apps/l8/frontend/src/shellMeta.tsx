@@ -1,19 +1,24 @@
-// shellMeta.tsx — the shell's static tables (panes, views, panels: icon + label) and the
-// two tiny presentational pieces the header uses (the transport clock, the metronome
-// glyph). Extracted from App.tsx so the shell reads as wiring, not tables.
+// shellMeta.tsx — the shell's static tables (panes, views, panels: icon + label) and the small
+// presentational pieces built on them: the transport clock, the metronome glyph, and the
+// mini transport the floating minimap carries. Extracted from App.tsx so the shell reads as
+// wiring, not tables.
 
 import { useEngineState } from "@studio/engine-browser/store";
 import {
   AudioWaveform,
   FileCode,
   LayoutGrid,
+  Loader2,
   type LucideIcon,
   NotebookText,
+  Pause,
   Piano,
+  Play,
   ScrollText,
   SlidersVertical,
   Workflow,
 } from "lucide-react";
+import { m } from "./paraglide/messages.js";
 import type { Pane, Panel, View } from "./routes";
 
 // The three panes, not tabs: the global view shows all three, and a "view" is a LAYOUT over the same instances.
@@ -72,6 +77,65 @@ export function TransportClock({
       <span className="mx-1 text-border">·</span>
       {bar}:{beatInBar}
     </span>
+  );
+}
+
+/**
+ * The transport, reduced to what you need when the shell is hidden behind something.
+ *
+ * Play/pause and the clock, and deliberately nothing else: stop, rewind, record and the
+ * metronome all belong to a session you are looking at, and this rides over a popin that is
+ * covering it. One BUTTON for the two states, as the header's does — and it sends `stop` to
+ * pause, because that is what the engine understands and having two spellings of pause in one
+ * app is how they come to disagree.
+ */
+export function MiniTransport({
+  playing,
+  waiting,
+  tempo,
+  beatsPerBar,
+  onToggle,
+}: {
+  playing: boolean;
+  /** The engine is still loading the project: it can answer no transport yet. */
+  waiting: boolean;
+  tempo: number;
+  beatsPerBar: number;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b border-border bg-popover px-2 py-1">
+      <button
+        type="button"
+        disabled={waiting}
+        onClick={onToggle}
+        title={
+          waiting
+            ? m["status.engineStarting"]()
+            : playing
+              ? m["transport.pause"]()
+              : m["transport.play"]()
+        }
+        aria-label={
+          waiting
+            ? m["status.engineStarting"]()
+            : playing
+              ? m["transport.pause"]()
+              : m["transport.play"]()
+        }
+        aria-busy={waiting}
+        className="flex h-6 w-6 items-center justify-center rounded text-foreground hover:bg-accent disabled:opacity-50"
+      >
+        {waiting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : playing ? (
+          <Pause className="h-3.5 w-3.5" />
+        ) : (
+          <Play className="h-3.5 w-3.5" />
+        )}
+      </button>
+      <TransportClock tempo={tempo} beatsPerBar={beatsPerBar} />
+    </div>
   );
 }
 
