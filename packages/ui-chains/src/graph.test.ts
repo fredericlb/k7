@@ -6,11 +6,11 @@ import {
   CELL,
   layout,
   moduleRow,
-  spaceModulesEvenly,
   NODE_H,
   NODE_MIN_W,
   NODE_W,
   nodeSize,
+  spaceModulesEvenly,
   subgraphForTrack,
   UI_PAD,
   widgetDenorm,
@@ -841,7 +841,9 @@ describe("spaceModulesEvenly", () => {
     const { nodes, edges } = buildGraph(uneven);
     const before = layout(alignModuleRank(nodes, row), edges);
     const was = Math.min(
-      ...before.nodes.filter((n) => n.module?.startsWith("mx-")).map((n) => n.x),
+      ...before.nodes
+        .filter((n) => n.module?.startsWith("mx-"))
+        .map((n) => n.x),
     );
     const after = spaceModulesEvenly(before, row);
     expect(Math.min(...row.map((m) => pick(after, m)?.x ?? 0))).toBe(was);
@@ -864,7 +866,9 @@ describe("spaceModulesEvenly", () => {
     const { nodes, edges } = buildGraph(uneven);
     const before = layout(alignModuleRank(nodes, row), edges);
     const after = spaceModulesEvenly(before, row);
-    const right = Math.max(...row.map((m) => (pick(after, m)?.x ?? 0) + (pick(after, m)?.w ?? 0)));
+    const right = Math.max(
+      ...row.map((m) => (pick(after, m)?.x ?? 0) + (pick(after, m)?.w ?? 0)),
+    );
     expect(after.width).toBeGreaterThanOrEqual(right);
   });
 });
