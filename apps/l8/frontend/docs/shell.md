@@ -94,6 +94,16 @@ answers whether it ACTUALLY framed — a pane still hidden has no size and frame
 the view records the attempt as done only then. Recording a frame that never happened spends
 the one chance that key ever gets, and the result is a button that appears to do nothing.
 
+It frames the row **left-aligned**, not centred (`frameOriginX`). A rank wider than the pane,
+centred, puts its middle on screen and hides both ends — and the first channel is the one you
+look for to know where you are. The tail runs off the right, where it pans.
+
+And it **gives the camera back**. Opening the view remembers where the camera was and closing it
+puts it there, through `ChainsCamApi` — a view that borrows the camera to show itself owes it
+afterwards, or every visit to the mixer costs you your place in the graph. Remembered on the way
+in only, and only once the frame actually happened: saving the row's own camera on a re-run
+would hand that back as if it were where you had been.
+
 Which modules are strips is the project's answer, not the package's — `mixerStrips.ts` reads it
 off the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never
 be one reload apart.

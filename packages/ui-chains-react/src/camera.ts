@@ -81,6 +81,23 @@ export function wheelFactor(
 }
 
 /**
+ * Where a frame's content starts across the pane: centred, or hard LEFT when it spills.
+ *
+ * Centring a set wider than the pane puts its middle on screen and hides both ends — and for a
+ * rank of channel strips the first one is precisely what you look for to know where you are. So
+ * a spilling set is left-aligned, inside the same margin the pad allows, and its tail runs off
+ * the right where it pans.
+ */
+export function frameOriginX(
+  paneW: number,
+  contentW: number,
+  pad: number,
+  spills: boolean,
+): number {
+  return spills ? (paneW * (1 - pad)) / 2 : (paneW - contentW) / 2;
+}
+
+/**
  * Zoom to `k` keeping the world point under (px, py) under it.
  *
  * Applied on EVERY frame of a glide with that frame's own zoom, not once from the ends — which
