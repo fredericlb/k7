@@ -418,7 +418,14 @@ export function TimelineTab({
   // The caret: its position (the minimap draws it) and the track it is on (m/s act on that track by name).
   onCaret: (c: Caret & { trackId: string | null }) => void;
   // Whether a selection or zoom is live, so z / shift+z / 0 can be conditional bindings rather than dead commands.
-  onView: (v: { selecting: boolean; zoomed: boolean; loop: boolean }) => void;
+  // What state the timeline is in, for the key conditions — and for `expanded`, which the SHELL
+  // acts on: tall lanes need the height the pane below is holding. See docs/shell.md.
+  onView: (v: {
+    selecting: boolean;
+    zoomed: boolean;
+    loop: boolean;
+    expanded: boolean;
+  }) => void;
   // Right-click: report what is under the cursor and where, so the shell can open its menu (see contextMenu.ts).
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   // Move the transport, in seconds — the same engine seek the minimap's click uses.
@@ -1270,8 +1277,14 @@ export function TimelineTab({
   );
 
   useEffect(
-    () => onView({ selecting: !!sel, zoomed: zoom.length > 0, loop: !!loop }),
-    [sel, zoom, loop, onView],
+    () =>
+      onView({
+        selecting: !!sel,
+        zoomed: zoom.length > 0,
+        loop: !!loop,
+        expanded,
+      }),
+    [sel, zoom, loop, expanded, onView],
   );
 
   // Leaving the tab drops the pickup, rather than stranding a move whose keys no longer reach it.
