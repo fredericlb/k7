@@ -9,6 +9,7 @@ import {
   type Cam,
   clampZoom,
   frameOriginX,
+  isMouseWheel,
   isZoomWheel,
   lodFor,
   MAX_ZOOM,
@@ -177,5 +178,43 @@ describe("frameOriginX", () => {
     // middle of the row is outside the pane. That is the bug this rule exists for.
     expect(frameOriginX(1000, 4000, PAD, false)).toBeLessThan(0);
     expect(frameOriginX(1000, 4000, PAD, true)).toBeGreaterThan(0);
+  });
+});
+
+describe("isMouseWheel", () => {
+  // A wheel and a trackpad send the same event and mean opposite things: a detent wants to
+  // ZOOM the graph, a two-finger slide wants to push it about. Getting this wrong in the
+  // trackpad's direction is the worse failure — a trackpad that zooms when you try to pan —
+  // so an unrecognised device is read as a surface and keeps the old behaviour.
+  const ev = (o: Partial<Parameters<typeof isMouseWheel>[0]>) => ({
+    deltaX: 0,
+    deltaY: 0,
+    deltaMode: 0,
+    ...o,
+  });
+
+  it("reads lines or pages as a wheel — nothing else reports those", () => {
+    expect(isMouseWheel(ev({ deltaY: 3, deltaMode: 1 }))).toBe(true);
+    expect(isMouseWheel(ev({ deltaY: 1, deltaMode: 2 }))).toBe(true);
+  });
+
+  it("separates a Mac MOUSE from a Mac TRACKPAD by the legacy 120s", () => {
+    // Chrome/Safari still carry wheelDeltaY: a detent is a multiple of 120, a trackpad reports
+    // three times its pixel delta and lands there only by accident.
+    expect(isMouseWheel(ev({ deltaY: 100, wheelDeltaY: -120 }))).toBe(true);
+    expect(isMouseWheel(ev({ deltaY: 4, wheelDeltaY: -12 }))).toBe(false);
+    expect(isMouseWheel(ev({ deltaY: 1.5, wheelDeltaY: -4.5 }))).toBe(false);
+  });
+
+  it("falls back on the delta's SHAPE where the legacy field is absent", () => {
+    // Firefox in pixel mode. A notch is integral, vertical only, and large.
+    expect(isMouseWheel(ev({ deltaY: 120 }))).toBe(true);
+    expect(isMouseWheel(ev({ deltaY: 6 }))).toBe(false); // too small: a finger
+    expect(isMouseWheel(ev({ deltaY: 60.5 }))).toBe(false); // fractional: a finger
+    expect(isMouseWheel(ev({ deltaY: 100, deltaX: 8 }))).toBe(false); // sideways: a surface
+  });
+
+  it("calls a still surface a surface, not a wheel", () => {
+    expect(isMouseWheel(ev({}))).toBe(false);
   });
 });

@@ -599,6 +599,10 @@ export function ChainsTab({
         {active && (
           <DomChains
             icons={STUDIO_ICONS}
+            // The mixer arrangement is a ROW: the wheel walks along it and nothing pans
+            // vertically. Derived from the same list that made it a row, so the two cannot
+            // disagree about which view is on.
+            row={(alignModules?.length ?? 0) > 0}
             graph={shown}
             selected={selected}
             activeTracks={activeTracks}

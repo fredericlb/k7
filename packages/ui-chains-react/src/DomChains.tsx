@@ -74,6 +74,7 @@ import {
   type Cam,
   clampZoom,
   frameOriginX,
+  isMouseWheel,
   isZoomWheel,
   type Lod,
   lodFor,
@@ -1932,6 +1933,7 @@ export function DomChains({
   onEdgeInsert,
   onCanvasInsert,
   onCamReady,
+  row,
   camStore,
   engineWarnings,
   fitKey,
@@ -1968,6 +1970,14 @@ export function DomChains({
   onCanvasInsert?: (x: number, y: number) => void;
   /** Hands the camera up, once mounted — see ChainsCamApi. */
   onCamReady?: (cam: ChainsCamApi) => void;
+  /**
+   * This graph is arranged as a ROW to be read across — l8's mixer view.
+   *
+   * It changes what the navigation MEANS rather than what it looks like: the wheel walks along
+   * the row instead of zooming, and nothing pans vertically, because there is one line of cards
+   * and everything above or below it is empty. The cards, the cables and the zoom are untouched.
+   */
+  row?: boolean;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
   camStore?: CamStore;
   /** Engine load problems by PluginDoc id — a node badges itself from this. */
@@ -2050,6 +2060,10 @@ export function DomChains({
   // The point a zoom holds still: where the wheel was, in host coordinates.
   const anchor = useRef({ px: 0, py: 0 });
   const kick = useRef<() => void>(() => {});
+  // Through a ref: the wheel and the pan are bound once, and would otherwise read `row` as it
+  // was on their first render — the mixer view would never reach them.
+  const rowRef = useRef(row);
+  rowRef.current = row;
   // Redraws the cable canvas. Declared here rather than beside its body further down because
   // everything that moves the camera has to call it: the canvas sits OUTSIDE `.dgx-world`, so
   // the CSS transform that pans the nodes moves nothing on it — see docs/camera.md.
@@ -2550,9 +2564,11 @@ export function DomChains({
         setPanning(true);
         setHovered(null);
         userMoved.current = true; // the camera is theirs now — stop auto-framing
-        // Both, and no glide: a drag under a finger has nothing to catch up to.
+        // Both, and no glide: a drag under a finger has nothing to catch up to. Both, unless the
+        // graph is a row — then there is nowhere to go vertically and a drag that slid the line
+        // off the top would be a gesture with only one useful direction out of two.
         cam.current.x = goal.current.x = p.cx + nx;
-        cam.current.y = goal.current.y = p.cy + ny;
+        if (!rowRef.current) cam.current.y = goal.current.y = p.cy + ny;
         kick.current();
       }
     };
@@ -2653,7 +2669,17 @@ export function DomChains({
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
       userMoved.current = true; // either way, the camera is theirs now — stop auto-framing
-      if (isZoomWheel(e)) {
+      if (rowRef.current) {
+        // A ROW is read across, so the wheel walks along it and nothing moves vertically —
+        // there is only one line of cards, and a view that drifts off it is a view of nothing.
+        // Whatever the device says: a mouse has no deltaX to offer, so its notch drives x here.
+        const c = cam.current;
+        const g = goal.current;
+        g.k = c.k;
+        c.x = g.x =
+          g.x -
+          wheelPixels(e.deltaX || e.deltaY, e.deltaMode, host.clientWidth);
+      } else if (isZoomWheel(e) || isMouseWheel(e)) {
         const r = host.getBoundingClientRect();
         anchor.current = { px: e.clientX - r.left, py: e.clientY - r.top };
         // Multiplied onto the GOAL, not onto what is on screen: pinching faster then stacks up
@@ -2665,9 +2691,10 @@ export function DomChains({
             wheelFactor(e.deltaY, e.deltaMode, host.clientHeight, e.ctrlKey),
         );
       } else {
-        // Two fingers sliding. The camera moves WITH them, 1:1 and with no glide — the same rule
-        // a drag follows, because both are a hand pushing the world about and easing that is lag.
-        // The deltas are screen pixels and so is the translation, which is why no zoom is in this.
+        // Two fingers on a SURFACE. The camera moves WITH them, 1:1 and with no glide — the same
+        // rule a drag follows, because both are a hand pushing the world about and easing that is
+        // lag. The deltas are screen pixels and so is the translation, which is why no zoom is in
+        // this. A mouse never lands here: `isMouseWheel` sent its notch to the zoom above.
         const c = cam.current;
         const g = goal.current;
         g.k = c.k; // a slide takes over from any zoom still in flight, as a pointer-down does
