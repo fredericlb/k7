@@ -2063,14 +2063,19 @@ export default function App({
             </Button>
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
             <nav className="flex items-center gap-1">
-              {/* The mixer, beside the panel buttons but not one of them: it opens a VIEW of the
-                  graph, where the strips get the height a fader wants. Same place in the row, so
-                  the hand that knew where the Mixer button was still finds it. Like a clicked
-                  clip, it makes its own slot visible — a view drawn behind a fullscreened
-                  timeline is a click that did nothing. */}
+              {/* The mixer, beside the panel buttons but not one of them: it REARRANGES the graph,
+                  pulling every strip onto one evenly spaced rank. Same place in the row, so the
+                  hand that knew where the Mixer button was still finds it.
+
+                  DEAD when the song has no strip, and saying so rather than answering a click with
+                  nothing: a strip is a module of plugin type `Mixer` at the end of a track, and a
+                  song can perfectly well have none — most of the examples here do. That silence is
+                  what the bottom panel used to break with a line of text, and dropping the panel
+                  dropped the only thing that explained an empty mixer. */}
               <Button
                 size="icon-xs"
                 variant={mixerView ? "default" : "ghost"}
+                disabled={mixerStrips.length === 0}
                 onClick={() => {
                   // Turning it ON also clears whatever had taken the graph's place, or the
                   // rearranged graph would be laid out behind a clip nobody asked to keep.
@@ -2078,8 +2083,19 @@ export default function App({
                   setGraphSlot(null);
                   setFull(null);
                   setMixerView(true);
+                  setStatus(
+                    mixerStrips.length === 1
+                      ? "mixer view — this song has ONE strip, so there is nothing to line up"
+                      : `mixer view — ${mixerStrips.length} strips lined up`,
+                  );
                 }}
-                title="Mixer view — line every strip up in the graph"
+                title={
+                  mixerStrips.length === 0
+                    ? "No strip in this song: a strip is a Mixer module at the end of a track"
+                    : mixerStrips.length === 1
+                      ? "One strip — the view frames it, but there is nothing to line up"
+                      : `Mixer view — line up this song's ${mixerStrips.length} strips`
+                }
                 aria-label="Mixer view"
                 aria-pressed={mixerView}
               >

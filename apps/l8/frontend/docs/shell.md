@@ -93,6 +93,14 @@ Which modules are strips is the project's answer, not the package's — `mixerSt
 off the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never
 be one reload apart.
 
+**A song can have no strips at all, and most do not.** A strip is a module of plugin type
+`Mixer` (`trackMixer`, `MIXER_PLUGIN`) at the end of a track, and nothing puts one there for
+you — of the songs in a default workspace, none has two. So the button is **disabled** when the
+count is zero and says why in its tooltip, and clicking it with one strip sets a status line
+saying there is nothing to line up. That silence is what the bottom panel used to break with a
+line of text, and dropping the panel dropped the only thing that explained an empty mixer: a
+control that answers a click with nothing is worse than one that is visibly unavailable.
+
 The cards themselves were never hand-rolled, and that is why this works at all. A strip's
 controls are its module's own panel — the very card the graph draws. There used to be a
 hand-rolled strip per track: a VU, a fader, a pan slider, M and S. That was a
