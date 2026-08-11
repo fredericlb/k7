@@ -1,23 +1,23 @@
-// RecordingBand.tsx — what is on screen WHILE a take rolls: a live waveform per armed track
-// over a bar/beat grid, and a timer counting the pre-roll then the beats. A BAND in the
-// shell's column, WAVE_HEIGHT tall — the panes keep the rest and stay live. The waveform is
-// built from the same ~20 Hz inputLevels the meters use, drawn off the store directly so the
-// canvas updates without re-rendering the band.
+// RecordingPane.tsx — a take, live and afterwards: a waveform per armed track over a bar/beat
+// grid, and a timer counting the pre-roll then the beats. It takes the GRAPH's place like the
+// note grids and the clip views do, and STAYS when the take ends — what you just played is
+// what you want to look at — until the × puts the graph back. The waveform is built from the
+// same ~20 Hz inputLevels the meters use, drawn off the store so the canvas needs no re-render.
 
 import { Button } from "@frediverse/ui/button";
+import { cn } from "@frediverse/ui/lib/utils";
 import {
   INPUT_VU_MAX_DB,
   INPUT_VU_MIN_DB,
   useEngineState,
   useEngineStore,
 } from "@studio/engine-browser/store";
-import { Circle, Square } from "lucide-react";
+import { Circle, Square, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { beatLines, windowStart } from "../recordingWindow";
 
 // The envelope is capped and then scrolls; at ~20 Hz that is ~200s, well past the window.
 const MAX_FRAMES = 4000;
-const WAVE_HEIGHT = 200; // px of canvas, whatever the shell's height
 // How much of the take is on screen, in BARS — so the grid keeps its spacing at any tempo.
 const WINDOW_BARS = 8;
 const REC_COLOR = "#ef4444"; // red-500, matching the arm/record accent
@@ -31,7 +31,7 @@ function dbToLevel(db: number): number {
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }
 
-// Escape stops the take — unless it is answering a field, now that the shell behind stays live.
+// Escape stops the take — unless it is answering a field, since the shell behind stays live.
 function editable(el: EventTarget | null): boolean {
   const n = el as HTMLElement | null;
   if (!n?.tagName) return false;
@@ -42,26 +42,39 @@ function editable(el: EventTarget | null): boolean {
   );
 }
 
-export function RecordingBand({
+export function RecordingPane({
   tempo,
   beatsPerBar,
   countIn,
   trackOrder,
   trackNames,
+  rolling,
   onStop,
+  onClose,
 }: {
   tempo: number;
   // Quarter-note beats per bar (the project's time-sig numerator), for the count-in math.
   beatsPerBar: number;
-  // Count-in length in bars (0 == none) — the band counts this down before the take.
+  // Count-in length in bars (0 == none) — the pane counts this down before the take.
   countIn: number;
   // The engine level index order, so an armed track id maps to its inputLevels slot.
   trackOrder: string[];
   trackNames: Record<string, string>;
+  // Is a take actually rolling? False FREEZES the take rather than closing it: the engine keeps
+  // pushing frames when the transport is stopped, and appending them would scroll what was just
+  // played off the left for no reason.
+  rolling: boolean;
   onStop: () => void;
+  onClose: () => void;
 }) {
   const store = useEngineStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Read in the frame loop, which is bound once and must not be rebound on a transport change.
+  const rollingRef = useRef(rolling);
+  rollingRef.current = rolling;
+  // Nothing new to draw: the loop keeps its slot but does no work, so a frozen take is not
+  // redrawn 60 times a second for the length of time you leave it open.
+  const dirtyRef = useRef(true);
   // The take, in refs so the frame loop never re-renders this: one beat position per engine
   // frame, and one level per frame per track, index-aligned with it.
   const framesRef = useRef<number[]>([]);
@@ -73,6 +86,8 @@ export function RecordingBand({
     const unsub = store.subscribe(() => {
       const s = store.getSnapshot();
       armedRef.current = s.armed;
+      if (!rollingRef.current) return; // the take is over — it is a picture now, not a recording
+      dirtyRef.current = true;
       const n = framesRef.current.length;
       framesRef.current.push((s.playhead * tempo) / 60);
       for (const id of s.armed) {
@@ -110,9 +125,11 @@ export function RecordingBand({
         ) {
           cv.width = Math.round(w * dpr);
           cv.height = Math.round(h * dpr);
+          dirtyRef.current = true; // a resize clears the canvas: it has to be drawn again
         }
-        const ctx = cv.getContext("2d");
+        const ctx = dirtyRef.current ? cv.getContext("2d") : null;
         if (ctx) {
+          dirtyRef.current = false;
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.clearRect(0, 0, w, h);
 
@@ -141,7 +158,7 @@ export function RecordingBand({
             : [...envRef.current.keys()];
           const rows = Math.max(1, ids.length);
           const rowH = h / rows;
-          // Proportional: in a 200px band a fixed gap swallows a row whole once four tracks are armed.
+          // Proportional: a fixed gap swallows a row whole once four tracks share a short pane.
           const gap = Math.min(24, rowH * 0.25);
           const step =
             frames.length > 1 ? (last - first) / (frames.length - 1) : 0;
@@ -171,7 +188,10 @@ export function RecordingBand({
   }, [store, trackOrder, tempo, beatsPerBar]);
 
   // Esc stops the take, captured so it reads as "leave the take" wherever the pointer went.
+  // Bound only while one is ROLLING: once it is over, Escape belongs to the shell again — this
+  // pane is then just a picture, and taking the key for it would be taking it for nothing.
   useEffect(() => {
+    if (!rolling) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !editable(e.target)) {
         e.preventDefault();
@@ -181,7 +201,7 @@ export function RecordingBand({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onStop]);
+  }, [onStop, rolling]);
 
   // The timer re-renders on whole beats: the first frame is the pre-roll start, the take begins countInBeats later.
   const curBeat = useEngineState((s) =>
@@ -198,13 +218,37 @@ export function RecordingBand({
   const bar = Math.floor(recordedBeats / bpb) + 1;
   const beatInBar = (recordedBeats % bpb) + 1;
   const armedNames = armedRef.current.map((id) => trackNames[id] ?? id);
+  // How long the take ran, kept from the last rolling frame. The counter above reads the LIVE
+  // playhead, which goes back to wherever the transport left it the moment recording ends —
+  // so once it is over, the length has to be remembered rather than recomputed.
+  const takeBeats = useRef(0);
+  if (rolling) takeBeats.current = recordedBeats;
 
   return (
-    <div className="shrink-0 border-t border-border bg-background">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
       {/* top: state + timer */}
       <div className="flex items-center gap-4 border-b border-border px-6 py-2">
-        <Circle className="h-4 w-4 animate-pulse fill-red-500 text-red-500" />
-        {inCountIn ? (
+        <Circle
+          className={cn(
+            "h-4 w-4",
+            rolling
+              ? "animate-pulse fill-red-500 text-red-500"
+              : "fill-muted-foreground/40 text-muted-foreground/40",
+          )}
+        />
+        {!rolling ? (
+          <div className="flex items-baseline gap-3">
+            <span className="text-sm uppercase tracking-wider text-muted-foreground">
+              Take
+            </span>
+            <span className="font-mono text-2xl tabular-nums">
+              {takeBeats.current}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              beats recorded
+            </span>
+          </div>
+        ) : inCountIn ? (
           <div className="flex items-baseline gap-3">
             <span className="text-sm uppercase tracking-wider text-muted-foreground">
               Count-in
@@ -229,26 +273,39 @@ export function RecordingBand({
         <span className="ml-2 truncate text-sm text-muted-foreground">
           {armedNames.length
             ? armedNames.join(", ")
-            : "no armed tracks — arm one with A / r"}
+            : rolling
+              ? "no armed tracks — arm one with A / r"
+              : ""}
         </span>
+        {rolling && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="ml-auto"
+            onClick={onStop}
+            title="Stop recording (Esc)"
+          >
+            <Square className="mr-1 h-3 w-3" /> Stop
+          </Button>
+        )}
+        {/* Closing is not stopping: the × puts the graph back and leaves the take rolling, which
+            is why it sits beside Stop rather than instead of it. */}
         <Button
-          size="sm"
-          variant="secondary"
-          className="ml-auto"
-          onClick={onStop}
-          title="Stop recording (Esc)"
+          size="icon-xs"
+          variant="ghost"
+          className={rolling ? "" : "ml-auto"}
+          onClick={onClose}
+          title="back to the graph"
+          aria-label="back to the graph"
         >
-          <Square className="mr-1 h-3 w-3" /> Stop
+          <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* the live input waveform — a fixed height, so the panes above lose exactly this much */}
-      <div className="px-4 py-2">
-        <canvas
-          ref={canvasRef}
-          className="w-full"
-          style={{ height: WAVE_HEIGHT }}
-        />
+      {/* the input waveform, filling the slot — it is bounded by the slot now, where it used to
+          be a band in the column and had to name its own height to stay out of the way */}
+      <div className="min-h-0 flex-1 px-4 py-2">
+        <canvas ref={canvasRef} className="h-full w-full" />
       </div>
     </div>
   );

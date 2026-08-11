@@ -65,7 +65,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { RecordingBand } from "./components/RecordingBand";
+import { RecordingPane } from "./components/RecordingPane";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
@@ -220,18 +220,31 @@ export default function App({
   /**
    * What the chains slot is showing INSTEAD of the graph, or null for the graph itself.
    *
-   * Two occupants, one state, because they cannot both be there: a sequence's note grid
-   * (`sequence edit roll|tracker`) and a clicked clip's content. Two separate flags would have
-   * had to agree about which wins, and the × would have had to know which one it was closing.
+   * Three occupants, one state, because they cannot be there together: a sequence's note grid
+   * (`sequence edit roll|tracker`), a clicked clip's content, and the take being recorded.
+   * Separate flags would have had to agree about which wins, and the × would have had to work
+   * out which one it was closing.
    *
-   * NOT route state: `routes.ts` carries the LAYOUT, and both of these name a file — the same
-   * reason the editor's open file is not in the URL either. See docs/shell.md.
+   * NOT route state: `routes.ts` carries the LAYOUT, and these name a file or a moment — the
+   * same reason the editor's open file is not in the URL either. See docs/shell.md.
    */
   const [graphSlot, setGraphSlot] = useState<
     | { kind: "grid"; path: string; view: SeqView }
     | { kind: "clip"; target: EditTarget }
+    | { kind: "recording" }
     | null
   >(null);
+  // A take starts rolling (record enabled AND the transport playing): show it. It is deliberately
+  // one-way — the pane STAYS when the take ends, because what you just played is exactly what you
+  // want to look at, and only the × puts the graph back. Whatever the slot held is evicted: while
+  // a take rolls, the take is the thing.
+  const rolling = recordEnabled && playing;
+  useEffect(() => {
+    if (rolling)
+      setGraphSlot((s) =>
+        s?.kind === "recording" ? s : { kind: "recording" },
+      );
+  }, [rolling]);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -1614,8 +1627,8 @@ export default function App({
                 {/* Whatever the slot holds takes the graph's PLACE, not its mount: ChainsTab is
                     hidden beside it, exactly as it is when the pane is off screen. It holds the
                     MIDI runtime the whole shell reaches for (`ui midi learn`, see docs/midi.md),
-                    and unmounting it here would take that away for as long as a clip or a grid
-                    is open. `active` false is what already stops it drawing. */}
+                    and unmounting it here would take that away for as long as the slot was busy.
+                    `active` false is what already stops it drawing. */}
                 <div
                   className={cn(
                     "flex min-h-0 min-w-0 flex-1",
@@ -1676,6 +1689,20 @@ export default function App({
                       onClose={() => setGraphSlot(null)}
                     />
                   </div>
+                )}
+                {/* The take. `rolling` is what freezes it rather than what mounts it: the pane
+                    outlives the take, and closing is the ×, not the Stop. */}
+                {graphSlot?.kind === "recording" && (
+                  <RecordingPane
+                    tempo={recInfo.tempo}
+                    beatsPerBar={recInfo.beatsPerBar}
+                    countIn={recInfo.countIn}
+                    trackOrder={trackOrder}
+                    trackNames={recInfo.names}
+                    rolling={rolling}
+                    onStop={() => transport("stop")}
+                    onClose={() => setGraphSlot(null)}
+                  />
                 )}
               </div>
 
@@ -1753,20 +1780,6 @@ export default function App({
             </>
           )}
         </div>
-
-        {/* Recording — up whenever a take is actually rolling (record enabled AND the transport
-            playing). A BAND in the column, not a cover: it takes its height off the panes and
-            leaves them on screen, because what you watch while playing is the arrangement. */}
-        {recordEnabled && playing && (
-          <RecordingBand
-            tempo={recInfo.tempo}
-            beatsPerBar={recInfo.beatsPerBar}
-            countIn={recInfo.countIn}
-            trackOrder={trackOrder}
-            trackNames={recInfo.names}
-            onStop={() => transport("stop")}
-          />
-        )}
 
         <footer
           className={cn(

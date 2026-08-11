@@ -1,4 +1,4 @@
-// The x axis of the recording band: which slice of the take is on screen, and where the
+// The x axis of the recording pane: which slice of the take is on screen, and where the
 // bar/beat rules fall inside it. The axis is MUSICAL time, not level buckets — a beat is
 // always the same distance, which is the only thing that makes a grid legible while the
 // levels arrive at whatever rate the engine sends them.
