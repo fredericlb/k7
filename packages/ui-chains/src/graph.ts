@@ -866,6 +866,41 @@ export function buildGraph(graph: WebGraph): {
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
+/**
+ * Pull the named modules onto ONE rank, so they line up as a row in the graph they already live in.
+ *
+ * The mixer view is this and nothing else: the same graph, the same cables, the same cards — only
+ * the ranks move. Every track ends on a mixer, but a track with a longer chain ends DEEPER, so by
+ * default the mixers sit on a staircase and no zoom shows them all. Given a shared rank, dagre
+ * lays them side by side, evenly spaced by its own `nodesep`, and re-ranks whatever has to move
+ * to keep every edge pointing down the page.
+ *
+ * The shared rank is the DEEPEST of theirs, never a shallower one: pulling a mixer up would put it
+ * above modules that feed it, and an edge that has to climb is a cable drawn backwards.
+ *
+ * Sinks are pushed past it for the same reason — they carry a rank of their own, computed before
+ * this ran, which the move can leave sitting above the row that feeds them.
+ *
+ * Returns a new array; the input nodes are not touched, so the plain layout stays available to
+ * anything drawing the same graph beside this one.
+ */
+export function alignModuleRank(
+  nodes: RawNode[],
+  modules: readonly string[],
+): RawNode[] {
+  const wanted = new Set(modules);
+  const inRow = nodes.filter((n) => n.module && wanted.has(n.module));
+  // Nothing to align: one strip is already a row, and none at all leaves the graph as it was.
+  if (inRow.length < 2) return nodes;
+  const shared = inRow.reduce((r, n) => Math.max(r, n.rank ?? 0), 0);
+  return nodes.map((n) => {
+    if (n.module && wanted.has(n.module)) return { ...n, rank: shared };
+    if (n.kind === "sink" && (n.rank ?? 0) <= shared)
+      return { ...n, rank: shared + 1 };
+    return n;
+  });
+}
+
 /** The gap between two strips in a mixer row, px. Wider than dagre's `nodesep` on purpose: these
  *  cards are read as a rank of separate channels, not as a chain that flows. */
 const STRIP_GAP = 24;

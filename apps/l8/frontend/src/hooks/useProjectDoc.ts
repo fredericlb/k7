@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { mixerModules } from "../mixerStrips";
 
 export interface RecInfo {
   tempo: number;
@@ -31,6 +32,8 @@ export interface ProjectDocState {
   metronomeOn: boolean;
   recInfo: RecInfo;
   docTracks: DocTrack[];
+  /** The modules the Mixer view lines up, in track order — `mixerStrips.ts` decides which. */
+  mixerStrips: string[];
   hasStrudel: boolean;
   /** The MIDI sequence each track carries ({seqId, start-in-beats}), by track id. */
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
@@ -55,6 +58,8 @@ export function useProjectDoc(
     names: {},
   });
   const [docTracks, setDocTracks] = useState<DocTrack[]>([]);
+  // Off the SAME doc, so the row and the faders can never be one reload apart.
+  const [mixerStrips, setMixerStrips] = useState<string[]>([]);
   const [hasStrudel, setHasStrudel] = useState(false);
   const midiSeqRef = useRef<Record<string, { seqId: string; start: number }>>(
     {},
@@ -86,6 +91,7 @@ export function useProjectDoc(
         }
         midiSeqRef.current = seqByTrack;
         optsRef.current.onMidiSeqs(seqByTrack);
+        setMixerStrips(mixerModules(p));
         setDocTracks(
           p.tracks.map((t) => ({
             id: t.id,
@@ -106,6 +112,7 @@ export function useProjectDoc(
         if (!alive) return;
         setHasStrudel(false);
         setDocTracks([]);
+        setMixerStrips([]);
       });
     return () => {
       alive = false;
@@ -117,6 +124,7 @@ export function useProjectDoc(
     metronomeOn,
     recInfo,
     docTracks,
+    mixerStrips,
     hasStrudel,
     midiSeqRef,
   };

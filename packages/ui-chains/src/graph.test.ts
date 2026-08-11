@@ -4,6 +4,7 @@ import {
   buildGraph,
   CELL,
   layout,
+  alignModuleRank,
   moduleRow,
   NODE_H,
   NODE_MIN_W,
@@ -703,6 +704,61 @@ describe("an input wired to a track", () => {
     const from = edges.find((e) => e.source === "mod:IN:in-2");
     expect(from?.target).toBe("trk:gtr");
     expect(from?.target).not.toBe("mod:wah");
+  });
+});
+
+describe("alignModuleRank", () => {
+  // The Mixer VIEW: the same graph, the same cables, the strips pulled onto one rank so a single
+  // frame holds them all. Chains of different lengths are the whole point — that is what puts the
+  // mixers on a staircase in the first place.
+  const uneven = graph(
+    {
+      a: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "mx-vox" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      b: {
+        from: "bass",
+        use: [{ module: "mx-bass" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox", "bass"],
+  );
+
+  const rankOf = (nodes: ReturnType<typeof buildGraph>["nodes"], mod: string) =>
+    nodes.find((n) => n.module === mod)?.rank;
+
+  it("leaves the graph alone when fewer than two of the names are in it", () => {
+    const { nodes } = buildGraph(uneven);
+    expect(alignModuleRank(nodes, ["mx-vox"])).toBe(nodes);
+    expect(alignModuleRank(nodes, [])).toBe(nodes);
+    expect(alignModuleRank(nodes, ["nope", "gone"])).toBe(nodes);
+  });
+
+  it("puts them on ONE rank — the deepest, never a shallower one", () => {
+    const { nodes } = buildGraph(uneven);
+    const before = rankOf(nodes, "mx-vox");
+    expect(before).toBeGreaterThan(rankOf(nodes, "mx-bass") ?? 0); // the staircase
+    const out = alignModuleRank(nodes, ["mx-vox", "mx-bass"]);
+    expect(rankOf(out, "mx-bass")).toBe(before);
+    expect(rankOf(out, "mx-vox")).toBe(before);
+  });
+
+  it("pushes the sink past the row, so no cable has to climb", () => {
+    const { nodes } = buildGraph(uneven);
+    const out = alignModuleRank(nodes, ["mx-vox", "mx-bass"]);
+    const shared = rankOf(out, "mx-vox") ?? 0;
+    for (const n of out.filter((x) => x.kind === "sink"))
+      expect(n.rank ?? 0).toBeGreaterThan(shared);
+  });
+
+  it("does not touch the nodes it was given", () => {
+    const { nodes } = buildGraph(uneven);
+    const was = rankOf(nodes, "mx-bass");
+    alignModuleRank(nodes, ["mx-vox", "mx-bass"]);
+    expect(rankOf(nodes, "mx-bass")).toBe(was);
   });
 });
 

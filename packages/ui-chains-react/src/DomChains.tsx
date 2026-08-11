@@ -1889,7 +1889,17 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
   }
 }
 
-export type FitToFn = (nodes: GraphNode[], panOnly?: GraphNode) => void;
+/**
+ * Frame these nodes. `axis: "height"` fills the height and lets the set run off the right,
+ * where it pans — for a ROW, where fitting both axes divides the pane between however many
+ * members it has and the scale falls with each one. Below WIDGET_MIN_SCALE the widget grid is
+ * dropped altogether, so a wide enough row would frame to a rank of bare name cards.
+ */
+export type FitToFn = (
+  nodes: GraphNode[],
+  panOnly?: GraphNode,
+  axis?: "both" | "height",
+) => void;
 
 export function DomChains({
   icons,
@@ -2291,7 +2301,11 @@ export function DomChains({
 
   // --- fitTo: frame a subset of nodes (chain selection from the sidebar) ---------
   const fitTo = useRef<FitToFn>(() => {});
-  fitTo.current = (nodes: GraphNode[], panOnly?: GraphNode) => {
+  fitTo.current = (
+    nodes: GraphNode[],
+    panOnly?: GraphNode,
+    axis: "both" | "height" = "both",
+  ) => {
     const host = hostRef.current;
     if (!host || !nodes.length) return;
     // Framing a chain the user picked is their choice too: a later resize must not throw it away.
@@ -2306,7 +2320,11 @@ export function DomChains({
     const bw = maxX - minX;
     const bh = maxY - minY;
     const pad = 0.9;
-    const k = clampZoom(Math.min((sw / bw) * pad, (sh / bh) * pad));
+    const k = clampZoom(
+      axis === "height"
+        ? (sh / bh) * pad
+        : Math.min((sw / bw) * pad, (sh / bh) * pad),
+    );
     if (panOnly) {
       // Keep the zoom from the chain fit; only adjust translation to center the target.
       const cur = cam.current;

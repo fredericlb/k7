@@ -10,7 +10,12 @@ import {
 } from "@studio/engine-browser/params";
 import { useActiveTracks } from "@studio/engine-browser/store";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
-import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
+import {
+  alignModuleRank,
+  buildGraph,
+  layout,
+  subgraphForTrack,
+} from "@studio/ui-chains/graph";
 import { type Cam, DomChains, type FitToFn } from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -51,6 +56,7 @@ export function ChainsTab({
   onTrackSet,
   focus,
   onFocused,
+  alignModules,
   midiRef,
   onMidiStatus,
 }: {
@@ -119,6 +125,14 @@ export function ChainsTab({
   focus?: { id: string; nonce: number } | null;
   /** How many chains that framing found — so the shell's status line can say when it was none. */
   onFocused?: (chains: number) => void;
+  /**
+   * Modules to pull onto ONE rank, and frame the camera on — the mixer view, and nothing else.
+   *
+   * A list rather than a flag: the shell knows which modules are the strips (`mixerStrips.ts`
+   * reads it off the compiled project) and this package must not have to guess. Empty or absent
+   * leaves the graph exactly as it lays out on its own.
+   */
+  alignModules?: readonly string[];
   /**
    * Where the shell reaches MIDI learn from.
    *
@@ -197,8 +211,10 @@ export function ChainsTab({
   const laid = useMemo(() => {
     if (!graph) return null;
     const { nodes, edges } = buildGraph(graph);
-    return layout(nodes, edges);
-  }, [graph]);
+    // The mixer view is a RANK change, not another graph: same nodes, same cables, the strips
+    // pulled onto one row so a single frame holds them all. See @studio/ui-chains' alignModuleRank.
+    return layout(alignModuleRank(nodes, alignModules ?? []), edges);
+  }, [graph, alignModules]);
 
   // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this
   // costs nothing and cannot move the picture under the pointer.
@@ -363,6 +379,29 @@ export function ChainsTab({
     if (chains.length) setExpanded((prev) => new Set([...prev, ...chains]));
     onFocused?.(chains.length);
   }, [focus, graph, laid, active, chainNodes, onFocused]);
+
+  /**
+   * Frame the aligned row when the mixer view opens — and only then.
+   *
+   * Keyed on the LIST, so turning it on frames and turning it off leaves the camera alone: coming
+   * back from the mixer to the plain graph is not an invitation to re-frame a view you had panned.
+   * Off screen it waits, exactly as `focus` does — a display:none canvas has no size and fitTo
+   * would frame to zero.
+   */
+  const rowKey = (alignModules ?? []).join("|");
+  const rowFramed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!laid || !active) return;
+    if (rowFramed.current === rowKey) return;
+    rowFramed.current = rowKey;
+    if (!rowKey) return; // leaving the view: nothing to frame
+    const wanted = new Set(rowKey.split("|"));
+    const nodes = laid.nodes.filter((n) => n.module && wanted.has(n.module));
+    // On the HEIGHT: a row framed on both axes shrinks with every strip the song gains, and
+    // below WIDGET_MIN_SCALE the cards lose their widgets — a mixer of bare names. Let it run
+    // off the right instead, where it pans.
+    if (nodes.length) fitToFn.current?.(nodes, undefined, "height");
+  }, [rowKey, laid, active]);
 
   // Scroll the selected row in, keyed on `expanded` too — the row doesn't exist until its group opens.
   const selectedRowRef = useRef<HTMLButtonElement | null>(null);
