@@ -2,15 +2,37 @@
 
 Two rules, and everything else follows from them.
 
-**An entry PRE-WRITES a command line into the bar. It never runs one.** So the menu adds no
-vocabulary: every row is text you could have typed, the arguments it fills are the command's
-own, and a gesture you learn in the menu is a gesture you can type next time. It is also why
-there is no confirm step anywhere in here — nothing has happened yet.
+**Every entry IS a command line.** The menu adds no vocabulary: every row is text you could have
+typed, the arguments it fills are the command's own, and a gesture you learn in the menu is a
+gesture you can type next time.
 
 **The list is DERIVED, not chosen.** The clicked thing says what TYPE it is; every command in
 the catalogue whose leading arguments are exactly that is offered. Right-clicking a track
 offers the sixteen commands that take a track, and the seventeenth appears the day it is
 written in `commands.yaml`.
+
+## Run it, or ask for the rest
+
+`MenuItem.complete` says whether the click already filled every argument, and the host acts on
+that: a finished line **runs**, an unfinished one goes to the **command bar** with the caret
+where the next value goes.
+
+The bar is a form for COLLECTING arguments. An entry the click answered in full has none left
+to collect, so opening the bar over it asked a question with no blanks in it and waited for an
+Enter that could only mean yes. It was never a confirm step — nothing in this app asks twice —
+and what a command changes is undone by Ctrl+Z, because every command runs inside the same
+journal (`workspace.recordChange`).
+
+So `track mute gtr` goes; `track gain gtr ` asks for the dB. Roughly a third of the rows run.
+The ones worth knowing, because they change something and go at once: `module delete`,
+`event remove`, `marker delete`, `module instance unlink`, `track freeze` and `module own`.
+
+`complete` is **stated, not sniffed** off the trailing space on `command`. That space is a caret
+position; whether a line is finished is a different question, and two questions must not share
+one accident of formatting. A test pins that the two nevertheless always agree.
+
+A row that will ask shows a trailing `…` beside its line, so which is which is visible before
+you pick.
 
 ## Why the provider, and not the class
 
@@ -41,10 +63,10 @@ of that shape ever appears it will be the thing to look at.
 
 ## The rows say what the command DOES
 
-The label is the catalogue's `help` — what it does — and the line it will pre-write sits beside
-it, muted. The line stays because the menu's whole contract is that it writes into the bar;
-hiding what lands there would make the gesture opaque. Command names used to be the label, and
-`module bypass` twice over said nothing you did not already know from having right-clicked it.
+The label is the catalogue's `help` — what it does — and the line sits beside it, muted. The line
+stays because a pick either runs it or writes it into the bar, and hiding which line that is
+would make the gesture opaque. Command names used to be the label, and `module bypass` twice over
+said nothing you did not already know from having right-clicked it.
 
 The `(e.g. …)` tail is stripped, and only that. It answers "how do I type this", which the
 pre-written line answers better by being the line. Every other parenthetical — a value list,

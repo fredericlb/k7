@@ -20,11 +20,15 @@ cannot disagree about what gets written.
 
 ## Learn
 
-Picking "bind this param to the next controller knob you touch" pre-writes `ui midi learn
-<module> <param>`; Enter arms it; the next control change binds. That
-is one Enter more than a bare menu action would be, and it is deliberate: **the menu pre-writes a
-command and never runs one** (see `contextMenu.ts`), so the gesture stays typeable and stays
-visible before it happens.
+Picking "bind this param to the next controller knob you touch" runs `ui midi learn <module>
+<param>` and arms it; the next control change binds. The right-click already named both
+arguments, so there is nothing for the command bar to collect and the menu goes straight there
+(see `contextMenu.md`).
+
+It used to pre-write the line and wait for an Enter, on the grounds that a menu should never act.
+The Enter was doing no work: arming a learn changes nothing until a knob moves, and the next
+paragraph is why moving one is safe. What survives from that rule is the part that mattered —
+the gesture is still a COMMAND, typeable and logged, and not a menu action of its own.
 
 The message that teaches it is **swallowed**, not also actuated. The knob you wiggle is usually
 already mapped to something else, and moving that something while assigning is a surprise you

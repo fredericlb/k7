@@ -169,6 +169,62 @@ One thing the old bottom panel had and this does not: it drew its cards at 1.5×
 their grid asked for, elbow room that a rank of strips read better with. Here the cards are the
 graph's own, at the graph's own size — they are the same nodes, which is the point.
 
+### Recording is a PANE, and it outlives the take
+
+`RecordingPane` goes into the graph slot (below) when a take starts rolling — record enabled
+**and** the transport playing — and **stays when the take ends**, until the × puts the graph
+back. What you just played is exactly what you want to look at, and a view that vanished on
+the last beat took it away at the moment it became worth reading.
+
+It was a fullscreen `absolute inset-0` surface first, then a fixed 200px band in the column.
+Both were answers to "how much room may this have", and the slot answers it better by not
+being a special case: it is bounded by the same half-pane the note grids and the clip views
+get, so the canvas simply fills what it is given and the timeline stays above it.
+
+Four things follow:
+
+- **`rolling` freezes it, it does not mount it.** The engine keeps pushing frames after the
+  transport stops, and appending those would scroll what was just played off the left. So the
+  pane stops appending and becomes a picture; the frame loop keeps its slot but skips the
+  drawing until something changes.
+- **The length is remembered, not recomputed.** The live counter reads the playhead, which
+  goes back to wherever the transport left it the moment recording ends.
+- **Closing is not stopping.** The × puts the graph back and leaves the take rolling, which is
+  why it sits beside Stop rather than instead of it.
+- **Escape** stops the take, and only while one is rolling — once it is over, the key belongs
+  to the shell again. It skips a field being typed in: a capture-phase listener without that
+  check eats the Escape that closes the command bar.
+
+The minimap the fullscreen version carried as a child is gone: the shell's own sits at the
+bottom of the column, and two of them was one too many. On a phone that means no minimap while
+recording, since the shell's is desktop-only.
+
+**`TakeReview` is still there, and the two now both appear after a take.** They are not the
+same view and neither does the other's work: the pane is the LIVE monitor, drawn from the
+~20 Hz meter frames, and it outlives the take; the review reads the FILE the service wrote —
+its waveform under the project's ruler, the onsets you add or refuse, the threshold that finds
+them, the button that brings it up to level. The pane arrived while the review was being
+written, on a branch that predated it, so neither knows about the other. Deciding which owns
+the moment after Stop — or whether the review belongs in the slot too, replacing the pane as it
+once replaced the band — is a design call this merge deliberately did not make on its own.
+
+#### The waveform's x axis is musical time
+
+`recordingWindow.ts` owns it, and it is what makes the bar/beat rules mean anything. The
+pane keeps one **beat position per engine frame** beside the levels, so x is beats, not
+buckets: `WINDOW_BARS` (8) of the take are on screen at any tempo, filling from the left
+until the take outgrows the window and then scrolling with the newest frame at the right
+edge. Bars are drawn brighter than beats, in the clip editor's two colours, and the beats
+drop out below `MIN_BEAT_PX` — the same thinning, for the same reason.
+
+The x axis used to be the bucket index over a fixed 4000-bucket cap, i.e. ~200s of tape
+squeezed into the width whether or not the take was 4 seconds long. A grid on THAT axis is
+a line every three pixels at 120bpm: a wash, not a ruler. The rules are why the axis changed.
+
+One thing the alignment bought on the way: a track armed **mid-take** has its buffer padded
+back to the frame it was armed at, so its envelope starts where it started instead of at
+the left edge, a bar or two ahead of everyone else's.
+
 ## A view is a LAYOUT, not a mode
 
 Every pane is mounted always, and always the *same instance* — including the editor, which
@@ -222,20 +278,32 @@ All three write to the same buffer. A note drawn in the roll makes the file dirt
 keystroke does, so switching to Text shows the line you just drew and one Save writes it
 whichever way you made the change.
 
+**A sequence opens on the ROLL**, not on its text. A command sent the editor here naming this
+sequence; its notes are what that was about, and the YAML is one tab away. The tab is chosen per
+FILE — keyed on the path — so each newly opened one is answered for what it is rather than
+inheriting the last one's tab. That does mean opening a second sequence while you were in
+Tracker puts you back on Roll; "the first view is the roll" is the rule that asks for it. It is a
+layout effect, so the swap lands before the paint instead of flashing the text editor for a
+frame.
+
 ### The GRAPH SLOT — what takes the graph's place
 
-The chains slot holds the graph, or one of two other things, until the × puts the graph back.
-That is where they have room: the timeline stays above, which is what you read either of them
+The chains slot holds the graph, or one of three other things, until the × puts the graph back.
+That is where they have room: the timeline stays above, which is what you read any of them
 against.
 
 | what | opened by |
 |---|---|
 | a sequence's note grid | `sequence edit roll <sequence>` / `sequence edit tracker <sequence>` |
 | a clip's content — the waveform for audio, the piano roll for a sequence | clicking the clip in the timeline |
+| the take being recorded, and the take just recorded | a take starting to roll (above) |
 
-**One state (`graphSlot`), not two flags.** They cannot both be there, so a union says so: two
-booleans would have had to agree about which wins, and the × would have had to work out which
-one it was closing.
+**One state (`graphSlot`), not three flags.** They cannot be there together, so a union says so:
+separate booleans would have had to agree about which wins, and the × would have had to work out
+which one it was closing.
+
+A rolling take **evicts** whatever the slot held. That is not arbitration, it is the one case
+where something other than a click opens the slot, and while a take rolls the take is the thing.
 
 The two rows can both show a piano roll, and they are **not the same one**. The grid draws a
 sequence FILE's `notes:` array (`@studio/ui-editor`, shared with st0, editing the text). The

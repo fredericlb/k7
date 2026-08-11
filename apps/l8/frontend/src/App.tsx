@@ -70,7 +70,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { RecordingBand } from "./components/RecordingBand";
+import { RecordingPane } from "./components/RecordingPane";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
@@ -297,16 +297,18 @@ export default function App({
   /**
    * What the chains slot is showing INSTEAD of the graph, or null for the graph itself.
    *
-   * Two occupants, one state, because they cannot both be there: a sequence's note grid
-   * (`sequence edit roll|tracker`) and a clicked clip's content. Two separate flags would have
-   * had to agree about which wins, and the × would have had to know which one it was closing.
+   * Three occupants, one state, because they cannot be there together: a sequence's note grid
+   * (`sequence edit roll|tracker`), a clicked clip's content, and the take being recorded.
+   * Separate flags would have had to agree about which wins, and the × would have had to work
+   * out which one it was closing.
    *
-   * NOT route state: `routes.ts` carries the LAYOUT, and both of these name a file — the same
-   * reason the editor's open file is not in the URL either. See docs/shell.md.
+   * NOT route state: `routes.ts` carries the LAYOUT, and these name a file or a moment — the
+   * same reason the editor's open file is not in the URL either. See docs/shell.md.
    */
   const [graphSlot, setGraphSlot] = useState<
     | { kind: "grid"; path: string; view: SeqView }
     | { kind: "clip"; target: EditTarget }
+    | { kind: "recording" }
     | null
   >(null);
   /**
@@ -317,6 +319,18 @@ export default function App({
    * says whether to ask for it.
    */
   const [mixerView, setMixerView] = useState(false);
+
+  // A take starts rolling (record enabled AND the transport playing): show it. It is deliberately
+  // one-way — the pane STAYS when the take ends, because what you just played is exactly what you
+  // want to look at, and only the × puts the graph back. Whatever the slot held is evicted: while
+  // a take rolls, the take is the thing.
+  const rolling = recordEnabled && playing;
+  useEffect(() => {
+    if (rolling)
+      setGraphSlot((s) =>
+        s?.kind === "recording" ? s : { kind: "recording" },
+      );
+  }, [rolling]);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -1140,6 +1154,24 @@ export default function App({
       pendingPrewrite.current = null;
     }
   }, [paletteOpen]);
+  /**
+   * A pick from the right-click menu.
+   *
+   * The bar is a form for COLLECTING arguments. An entry the click already answered in full has
+   * none left to collect, so opening the bar over it would ask a question with no blanks in it
+   * and wait for an Enter that could only mean yes. Those run.
+   *
+   * It is not a confirm step, and was never doing that job: nothing here asks twice, and what a
+   * command changed is undone by Ctrl+Z like any other (the journal wraps every command). What
+   * still opens the bar is exactly what still needs typing.
+   */
+  const pickMenuItem = useCallback(
+    (item: MenuItem) => {
+      if (item.complete) void runCommandRef.current(item.command);
+      else prewriteCommand(item.command);
+    },
+    [prewriteCommand],
+  );
   // The catalogue in a ref: the menu reads it at open time, and threading it as a dependency
   // would rebuild every pane's onContextMenu the moment the commands land.
   const cmdCatalogue = useRef<CommandInfo[]>([]);
@@ -1833,8 +1865,8 @@ export default function App({
                 {/* Whatever the slot holds takes the graph's PLACE, not its mount: ChainsTab is
                     hidden beside it, exactly as it is when the pane is off screen. It holds the
                     MIDI runtime the whole shell reaches for (`ui midi learn`, see docs/midi.md),
-                    and unmounting it here would take that away for as long as a clip or a grid
-                    is open. `active` false is what already stops it drawing. */}
+                    and unmounting it here would take that away for as long as the slot was busy.
+                    `active` false is what already stops it drawing. */}
                 <div
                   className={cn(
                     "flex min-h-0 min-w-0 flex-1",
@@ -1899,6 +1931,20 @@ export default function App({
                     />
                   </div>
                 )}
+                {/* The take. `rolling` is what freezes it rather than what mounts it: the pane
+                    outlives the take, and closing is the ×, not the Stop. */}
+                {graphSlot?.kind === "recording" && (
+                  <RecordingPane
+                    tempo={recInfo.tempo}
+                    beatsPerBar={recInfo.beatsPerBar}
+                    countIn={recInfo.countIn}
+                    trackOrder={trackOrder}
+                    trackNames={recInfo.names}
+                    rolling={rolling}
+                    onStop={() => transport("stop")}
+                    onClose={() => setGraphSlot(null)}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -1949,24 +1995,12 @@ export default function App({
           )}
         </div>
 
-        {/* Recording — up whenever a take is actually rolling (record enabled AND the transport
-            playing). A BAND in the column, not a cover: it takes its height off the panes and
-            leaves them on screen, because what you watch while playing is the arrangement. */}
-        {recordEnabled && playing && (
-          <RecordingBand
-            tempo={recInfo.tempo}
-            beatsPerBar={recInfo.beatsPerBar}
-            countIn={recInfo.countIn}
-            trackOrder={trackOrder}
-            trackNames={recInfo.names}
-            onStop={() => transport("stop")}
-          />
-        )}
-
-        {/* …and when it stops, the take itself, in the band's place: the same height, so the panes do
-            not jump. It appears because the workspace poll started naming a clip this tab has not
-            reviewed — the file service is the only side that knows the id (see takeJustRecorded) — and
-            it goes when you say so, which is why `reviewedTake` remembers rather than the server. */}
+        {/* The take, once it has stopped: the FILE this time — its waveform under the project's
+            ruler, the onsets you add or refuse, the threshold that finds them, and the button that
+            brings it up to level. Kept when the recording view became a pane: the pane is the live
+            monitor and outlives the take, this is the editing step on what landed on disk, and
+            neither does the other's work. They do both appear at once after a take — see
+            docs/shell.md. */}
         {reviewTake && (
           <TakeReview
             clip={reviewTake.clip}
@@ -2256,7 +2290,7 @@ export default function App({
             items={menu.items}
             x={menu.x}
             y={menu.y}
-            onPick={prewriteCommand}
+            onPick={pickMenuItem}
             onClose={() => setMenu(null)}
           />
         )}

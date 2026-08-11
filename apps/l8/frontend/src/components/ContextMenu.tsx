@@ -16,7 +16,9 @@ export function ContextMenu({
   items: MenuItem[];
   x: number; // viewport coords of the click
   y: number;
-  onPick: (command: string) => void;
+  // The WHOLE item, not its line: whether every argument is already filled decides whether the
+  // host runs it or hands it to the bar, and only the item knows (see contextMenu.ts).
+  onPick: (item: MenuItem) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -72,18 +74,22 @@ export function ContextMenu({
           key={it.command}
           type="button"
           role="menuitem"
-          title={it.command}
+          title={
+            it.complete ? `runs: ${it.command}` : `fills the bar: ${it.command}`
+          }
           onClick={() => {
-            onPick(it.command);
+            onPick(it);
             onClose();
           }}
           className="flex w-full items-baseline justify-between gap-6 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
         >
-          {/* What it DOES leads. The line it pre-writes stays beside it, muted: the menu's whole
-              contract is that it writes into the bar, and hiding what lands there is opaque. */}
+          {/* What it DOES leads. The line stays beside it, muted, because hiding what a pick is
+              about to run — or write into the bar — is opaque. The trailing … is the difference
+              between the two: an item still owing an argument asks for it, the rest just go. */}
           <span className="min-w-0 flex-1">{it.label}</span>
           <span className="shrink-0 truncate font-mono text-xs text-muted-foreground">
-            {it.command}
+            {it.command.trimEnd()}
+            {it.complete ? "" : " …"}
           </span>
         </button>
       ))}

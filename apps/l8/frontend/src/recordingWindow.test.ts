@@ -1,4 +1,4 @@
-// The recording band's x axis: it fills before it scrolls, and its grid stays a grid.
+// The recording pane's x axis: it fills before it scrolls, and its grid stays a grid.
 
 import { describe, expect, it } from "vitest";
 import { beatLines, windowStart } from "./recordingWindow";
