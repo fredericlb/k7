@@ -1,10 +1,10 @@
 import type { WebGraph, WebWidget } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";
 import {
+  alignModuleRank,
   buildGraph,
   CELL,
   layout,
-  alignModuleRank,
   moduleRow,
   NODE_H,
   NODE_MIN_W,
