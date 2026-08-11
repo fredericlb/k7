@@ -283,7 +283,7 @@ describe("the ruler and its markers", () => {
 });
 
 describe("the menu's contract", () => {
-  it("carries a label and a line, and nothing else", () => {
+  it("carries a label, a line, and whether the line is finished — nothing else", () => {
     // No handlers, no ids to dispatch on: every entry is text the bar could have been typed into,
     // which is what stops the menu growing a vocabulary of its own.
     for (const ctx of [
@@ -296,8 +296,29 @@ describe("the menu's contract", () => {
         expect(typeof item.command).toBe("string");
         expect(item.command.length).toBeGreaterThan(0);
         expect(item.label.length).toBeGreaterThan(0);
-        expect(Object.keys(item).sort()).toEqual(["command", "label"]);
+        expect(Object.keys(item).sort()).toEqual([
+          "command",
+          "complete",
+          "label",
+        ]);
       }
+  });
+
+  it("says which lines are finished, so the host knows what to RUN", () => {
+    // The host runs a finished line and opens the bar on an unfinished one. `complete` is stated
+    // rather than sniffed off the trailing space, which is only a caret position.
+    const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
+    const by = (line: string) =>
+      menu.find((i) => i.command.trimEnd() === line)?.complete;
+    expect(by("track mute gtr")).toBe(true); // nothing left to ask
+    expect(by("track gain gtr")).toBe(false); // a dB is
+    expect(by("event move gtr")).toBe(false);
+  });
+
+  it("never calls a line finished while it still ends in a space", () => {
+    // The two must agree: one of them decides what runs, and the other is what the caret sees.
+    for (const item of contextMenu({ kind: "track", id: "gtr" }, CATALOGUE))
+      expect(item.complete).toBe(!item.command.endsWith(" "));
   });
 
   it("falls back to the command's name when the catalogue has no line for it", () => {
@@ -308,6 +329,7 @@ describe("the menu's contract", () => {
       {
         label: "open the track's own file, tracks/<id>.yaml",
         command: "ui file gtr",
+        complete: true,
       },
     ]);
   });

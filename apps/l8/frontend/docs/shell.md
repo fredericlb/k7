@@ -203,6 +203,14 @@ All three write to the same buffer. A note drawn in the roll makes the file dirt
 keystroke does, so switching to Text shows the line you just drew and one Save writes it
 whichever way you made the change.
 
+**A sequence opens on the ROLL**, not on its text. A command sent the editor here naming this
+sequence; its notes are what that was about, and the YAML is one tab away. The tab is chosen per
+FILE — keyed on the path — so each newly opened one is answered for what it is rather than
+inheriting the last one's tab. That does mean opening a second sequence while you were in
+Tracker puts you back on Roll; "the first view is the roll" is the rule that asks for it. It is a
+layout effect, so the swap lands before the paint instead of flashing the text editor for a
+frame.
+
 ### The GRAPH SLOT — what takes the graph's place
 
 The chains slot holds the graph, or one of two other things, until the × puts the graph back.

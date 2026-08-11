@@ -1,7 +1,8 @@
-// contextMenu.ts — the right-click entries for a timeline/graph entity. Each PRE-WRITES a
-// command into the bar and never runs one. The list is DERIVED from the command catalogue:
-// whatever was clicked says which type it can answer for, and every command whose leading
-// arguments are exactly that is offered. See docs/contextMenu.md.
+// contextMenu.ts — the right-click entries for a timeline/graph entity. Every entry IS a command
+// line: one the click already filled runs, one still owing an argument goes to the bar. The list
+// is DERIVED from the command catalogue — whatever was clicked says which type it can answer
+// for, and every command whose leading arguments are exactly that is offered. See
+// docs/contextMenu.md.
 
 import { localizeCommand, localizeCommandLine } from "./commandI18n";
 import type { ArgClass, ArgProvider, CommandInfo } from "./types";
@@ -41,10 +42,18 @@ interface Entry {
   help?: string;
 }
 
-// A displayable menu item: what the command DOES, and the localized line to pre-write.
+/**
+ * A displayable menu item: what the command DOES, and the localized line it stands for.
+ *
+ * `complete` says every argument is already filled from what was clicked — so there is nothing
+ * for the bar to collect, and the host RUNS the line instead of pre-writing it. Read it here
+ * rather than sniffing the trailing space off `command`: the space is a caret position, and
+ * two different questions must not share one accident of formatting.
+ */
 export interface MenuItem {
   label: string;
   command: string;
+  complete: boolean;
 }
 
 /**
@@ -116,6 +125,7 @@ const build = (commands: CommandInfo[], entries: Entry[]): MenuItem[] =>
       // would make that opaque.
       label: readable(help) || localizeCommand(e.verb),
       command: localizeCommandLine(line) + (e.needsMore ? " " : ""),
+      complete: !e.needsMore,
     };
   });
 

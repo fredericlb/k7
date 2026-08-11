@@ -24,6 +24,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -390,6 +391,21 @@ export function EditorTab({
 
   // A gutter ▶ handler with a STABLE identity: an inline arrow would reconfigure CodeMirror on every keystroke.
   const filePath = file?.path ?? "";
+
+  /**
+   * A sequence opens on its NOTES. In the popin, the roll is what you came for — a command sent
+   * the editor here naming this sequence, and its text is one tab away.
+   *
+   * Keyed on the PATH, so each newly opened file is answered for what it is rather than
+   * inheriting the last one's tab. The cost is that opening a second sequence while you were in
+   * Tracker returns you to Roll; "the first view is the roll" is the rule that asks for it.
+   *
+   * A LAYOUT effect, so the swap lands before the paint: with a passive one the text editor
+   * shows for a frame and is replaced, which reads as a flicker on every sequence you open.
+   */
+  useLayoutEffect(() => {
+    setTab(filePath && isSeqFile(filePath) ? "roll" : "text");
+  }, [filePath]);
 
   // The open file's findings, matched by the project-relative path the loader reports; memoized so typing is cheap.
   const fileDiagnostics = useMemo<Diagnostic[]>(() => {

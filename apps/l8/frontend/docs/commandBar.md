@@ -125,9 +125,10 @@ already is) and ↑ walks away from it, the way a shell completion list reads.
 
 ## `ModulePicker.tsx` — "which module?"
 
-Opened by the `+` on a graph arrow, before the command bar sees anything. Like
-`ContextMenu`, it only PRE-WRITES: the command bar stays the single place where things
-actually happen.
+Opened by the `+` on a graph arrow, before the command bar sees anything. It only PRE-WRITES,
+and unlike `ContextMenu` — which runs a line the click already filled — that is not a rule but
+the shape of the thing: picking a module answers ONE of `module insert`'s arguments, and the
+rest still has to be typed.
 
 The first level is where a module COMES FROM:
 

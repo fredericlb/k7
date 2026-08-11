@@ -972,6 +972,24 @@ export default function App({
       pendingPrewrite.current = null;
     }
   }, [paletteOpen]);
+  /**
+   * A pick from the right-click menu.
+   *
+   * The bar is a form for COLLECTING arguments. An entry the click already answered in full has
+   * none left to collect, so opening the bar over it would ask a question with no blanks in it
+   * and wait for an Enter that could only mean yes. Those run.
+   *
+   * It is not a confirm step, and was never doing that job: nothing here asks twice, and what a
+   * command changed is undone by Ctrl+Z like any other (the journal wraps every command). What
+   * still opens the bar is exactly what still needs typing.
+   */
+  const pickMenuItem = useCallback(
+    (item: MenuItem) => {
+      if (item.complete) void runCommandRef.current(item.command);
+      else prewriteCommand(item.command);
+    },
+    [prewriteCommand],
+  );
   // The catalogue in a ref: the menu reads it at open time, and threading it as a dependency
   // would rebuild every pane's onContextMenu the moment the commands land.
   const cmdCatalogue = useRef<CommandInfo[]>([]);
@@ -1930,7 +1948,7 @@ export default function App({
             items={menu.items}
             x={menu.x}
             y={menu.y}
-            onPick={prewriteCommand}
+            onPick={pickMenuItem}
             onClose={() => setMenu(null)}
           />
         )}
