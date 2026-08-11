@@ -885,17 +885,14 @@ describe("spaceModulesEvenly", () => {
     expect(Math.min(...row.map((m) => pick(after, m)?.x ?? 0))).toBe(was);
   });
 
-  it("drops the stale waypoints of every cable touching a moved card", () => {
+  it("leaves the cables alone — a moved card takes its own with it", () => {
     const { nodes, edges } = buildGraph(uneven);
     const before = layout(alignModuleRank(nodes, row), edges);
     const after = spaceModulesEvenly(before, row);
-    const movedIds = new Set(
-      after.nodes.filter((n) => n.module?.startsWith("mx-")).map((n) => n.id),
-    );
-    for (const e of after.edges)
-      if (movedIds.has(e.source) || movedIds.has(e.target))
-        // Its ends are re-derived from the sockets; a bend around a card that has moved is not.
-        expect(e.points.length).toBeLessThanOrEqual(2);
+    // `cablePath` draws a straight line and reads BOTH ends off the nodes, so re-spacing a card
+    // re-routes its cable for free. This used to strip dagre's waypoints by hand, back when they
+    // were the route; touching an edge now would only invent a second opinion about where it goes.
+    expect(after.edges).toBe(before.edges);
   });
 
   it("widens the graph when the row runs past what dagre measured", () => {
