@@ -64,7 +64,6 @@ import { ImportDialog } from "./components/ImportDialog";
 import { IoPanel } from "./components/IoPanel";
 import { LogsPanel } from "./components/LogsPanel";
 import { Minimap, type MinimapItem } from "./components/Minimap";
-import { MixerTab } from "./components/MixerTab";
 import { MobileMenu, MobileTabBar } from "./components/MobileChrome";
 import {
   type ModulePick,
@@ -308,12 +307,16 @@ export default function App({
   const [graphSlot, setGraphSlot] = useState<
     | { kind: "grid"; path: string; view: SeqView }
     | { kind: "clip"; target: EditTarget }
-    // The mixer: every module a track ends on, side by side. A VIEW of the graph and not a
-    // panel of its own, which is why it lands here — the strips are the same cards the graph
-    // draws, and drawing them in the graph's place gives them the height a fader wants.
-    | { kind: "mixer" }
     | null
   >(null);
+  /**
+   * The mixer view: the SAME graph, with every strip pulled onto one rank.
+   *
+   * A boolean and not a slot, because nothing takes the graph's place — only its ranks move
+   * (`alignModuleRank`). Which modules are strips is the project's answer, read below; this just
+   * says whether to ask for it.
+   */
+  const [mixerView, setMixerView] = useState(false);
   const timelineRef = useRef<TimelineHandle>(null);
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
@@ -557,6 +560,7 @@ export default function App({
     metronomeOn,
     recInfo,
     docTracks,
+    mixerStrips,
     hasStrudel,
     midiSeqRef,
   } = useProjectDoc(reloadKey, {
@@ -1862,6 +1866,8 @@ export default function App({
                     onTrackSet={onTrackSet}
                     focus={graphFocus}
                     onFocused={reportFramed}
+                    // The mixer view, which is a rank change on this same graph — see mixerView.
+                    alignModules={mixerView ? mixerStrips : undefined}
                     midiRef={chainsMidiRef}
                     onMidiStatus={setStatus}
                   />
@@ -1882,26 +1888,6 @@ export default function App({
                   <div className="flex min-h-0 min-w-0 flex-1">
                     <ClipView
                       target={graphSlot.target}
-                      onClose={() => setGraphSlot(null)}
-                    />
-                  </div>
-                )}
-                {/* The mixer: `moduleRow` lines the strips up here, evenly spaced and without
-                    cables, and this pane's height is what makes them readable — a fader wants
-                    the vertical room the bottom panel never had. */}
-                {graphSlot?.kind === "mixer" && (
-                  <div className="flex min-h-0 min-w-0 flex-1">
-                    <MixerTab
-                      reloadKey={reloadKey}
-                      command={quietCommand}
-                      trackOrder={trackOrder}
-                      pluginParamsStore={pluginParamsStore}
-                      requestPluginParams={requestPluginParams}
-                      watchPluginParams={watchPluginParams}
-                      setPluginParam={setPluginParam}
-                      trackControls={trackControls}
-                      onContextMenu={openContextMenu}
-                      engineWarnings={engineWarnings}
                       onClose={() => setGraphSlot(null)}
                     />
                   </div>
@@ -2084,15 +2070,18 @@ export default function App({
                   timeline is a click that did nothing. */}
               <Button
                 size="icon-xs"
-                variant={graphSlot?.kind === "mixer" ? "default" : "ghost"}
+                variant={mixerView ? "default" : "ghost"}
                 onClick={() => {
-                  if (graphSlot?.kind === "mixer") return setGraphSlot(null);
+                  // Turning it ON also clears whatever had taken the graph's place, or the
+                  // rearranged graph would be laid out behind a clip nobody asked to keep.
+                  if (mixerView) return setMixerView(false);
+                  setGraphSlot(null);
                   setFull(null);
-                  setGraphSlot({ kind: "mixer" });
+                  setMixerView(true);
                 }}
-                title="Mixer view"
+                title="Mixer view — line every strip up in the graph"
                 aria-label="Mixer view"
-                aria-pressed={graphSlot?.kind === "mixer"}
+                aria-pressed={mixerView}
               >
                 <MixerIcon className="h-3.5 w-3.5" />
               </Button>

@@ -54,37 +54,41 @@ half. So the default is the two that answer "what is this song", and the editor 
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
-### The Mixer is a view of the graph, not a panel
+### The Mixer is an ARRANGEMENT of the graph, not a panel
 
-It used to be one of the bottom panels; it is not any more. A rank of channel strips **is**
-the graph, seen a particular way, so it is drawn where the graph is — as a `graphSlot`, beside
-a clicked clip's content and a sequence grid, taking the chains pane's place while it is up.
-Its button still sits with the panel buttons, so the hand that knew where the Mixer was finds
-it, but it toggles that slot rather than a panel.
+It used to be one of the bottom panels; it is not any more. And it is not a second picture
+either: it is **the same graph** — same nodes, same cards, same cables — with the strips pulled
+onto one rank.
 
-That move is what makes it readable. The bottom panel was a resizable band a couple of hundred
-pixels tall; the graph's pane is half the window, and `fitAxis="height"` fills it — so a fader
-gets the vertical throw it wants and the row runs off to the right, which pans. Fitting both
-axes instead would shrink every strip as the song gains tracks, and a mixer you cannot read is
-worse than one you have to scroll.
+Every track ends on a mixer module (`trackMixer`, by plugin type), but a track with a longer
+chain ends DEEPER, so by default the mixers sit on a staircase and no zoom shows them all. Give
+them a shared rank and dagre lays them side by side, evenly spaced by its own `nodesep`, and
+re-ranks whatever has to move to keep every edge pointing down the page. That is the whole
+mechanism: `alignModuleRank` in `@studio/ui-chains`, applied between `buildGraph` and `layout`.
 
-`MixerTab` has no controls of its own. It is the row of MIXER MODULES the song actually
-has — the module each track ends on (`trackMixer`, by plugin type) — drawn as the very
-cards the chains view draws, side by side, in track order. `moduleRow` (in `@studio/ui-chains`)
-gives them their even spacing, with no dagre and no cables: there is nothing to route between
-channels, and the ORDER is the song's, which is not a thing a layout engine should choose.
+The shared rank is the **deepest** of theirs, never a shallower one — pulling a mixer up would
+put it above modules that feed it, and an edge that has to climb is a cable drawn backwards.
+Sinks are pushed past the row for the same reason.
 
-It used to hand-roll a strip per track: a VU, a fader, a pan slider, M and S. That was a
+The camera then frames those nodes, which is what "zoomed in" means here. It frames on the way
+IN only: coming back to the plain graph leaves the camera where you had panned it.
+
+Which modules are strips is the project's answer, not the package's — `mixerStrips.ts` reads it
+off the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never
+be one reload apart.
+
+The cards themselves were never hand-rolled, and that is why this works at all. A strip's
+controls are its module's own panel — the very card the graph draws. There used to be a
+hand-rolled strip per track: a VU, a fader, a pan slider, M and S. That was a
 second implementation of a channel strip, and it drifted from the one the module's own
 `ui.yaml` declares — a module could grow a knob and the panel would never show it. Now
 whatever the mixer module's panel says IS the mixer, and the two cannot disagree because
-they are the same component.
+they are the same card in the same graph.
 
 Three consequences, all of them the design rather than gaps:
 
 - **A track with no mixer module has no strip.** It is not "at unity" — it is a track with
-  nowhere to put a level, which is what the panel should say rather than draw a dead fader.
-  A song where no track ends on a mixer shows a line saying so.
+  nowhere to put a level, and no card of its own to show. It simply is not in the row.
 - **Mute and solo are not here.** They were never the strip's — they are the track's, and
   they live on the timeline (`m`/`s`) and on the graph's track nodes.
 - **Two tracks sharing a strip draw one card.** In practice the compiler makes such a strip
@@ -92,22 +96,25 @@ Three consequences, all of them the design rather than gaps:
   because two cards for one value would be two controls fighting.
 
 Two sources, because neither answers alone: the compiled project says *which* modules are
-strips and in what order (the graph doc does not carry a plugin type), and the graph says
-what each one looks like. `moduleRow` (in `@studio/ui-chains`) then places them — no dagre,
-since there is nothing to route and the order is the song's, not a layout engine's.
+strips (the graph doc does not carry a plugin type), and the graph says what each one looks
+like and what feeds it.
 
-It also drops each card's **sockets**. The row has no edges by construction, so every jack on it
-would plug into nothing — furniture, and on a rank of strips, furniture *between* them. The
-routing that makes a socket mean something is the chains view's job; go there to see what feeds a
-strip.
+The **sockets stay**, and the cables with them. That is the difference from the row this
+replaced, which drew the strips alone and dropped every jack because it had no edges to plug
+them into. Here you can see what reaches a fader without leaving the view — which is most of
+why the mixer belongs in the graph rather than beside it.
 
-#### It fills the HEIGHT, and the row pans
+`moduleRow` in `@studio/ui-chains` still exists and still lays a bare rank of cards out; it has
+no caller since the mixer moved. Listed in [inventaire.md](../../../../docs/inventaire.md)
+rather than deleted, because it is tested and the decision to drop it is not this change's.
 
-`fitAxis="height"`, not the default fit-both. This is not a preference: fitting both axes
-divides the panel between however many strips the song has, and the camera scale falls with
+#### It frames the HEIGHT, and the row pans
+
+`fitTo(..., "height")`, not the default fit-both. This is not a preference: fitting both axes
+divides the pane between however many strips the song has, and the camera scale falls with
 every track added. Below `WIDGET_MIN_SCALE` (0.6) the renderer drops the widget grid
-altogether — so a busy song's mixer would show a rank of bare name cards, which is the one
-thing this panel must not do. Measured on a 1200×280 panel with a 3×6 strip grid:
+altogether — so a busy song's mixer would frame to a rank of bare name cards, which is the one
+thing this view must not do. Measured on a 1200×280 pane with a 3×6 strip grid:
 
 | strips | fit-both | fit-height |
 |---|---|---|
@@ -115,84 +122,13 @@ thing this panel must not do. Measured on a 1200×280 panel with a 3×6 strip gr
 | 8 | k 0.66, card 119×175 | k 0.85, card 152×225 |
 | 12 | **k 0.44 — widgets dropped** | k 0.85, card 152×225 |
 
-Filling the height instead keeps every strip the same readable size whatever the track
-count, and lets the row run off the right, where it pans. A mixer you have to scroll beats
-one you cannot read.
+Framing the height instead keeps every strip the same readable size whatever the track count,
+and lets the row run off the right, where it pans. A mixer you have to scroll beats one you
+cannot read.
 
-The cards are drawn at **1.5× the width their grid asks for** (`STRIP_WIDTH_SCALE`). That is
-elbow room, not bigger controls: the grid inside a card is a fixed cell size (`widgetRect`),
-so the extra width is space beside the controls, and the height is deliberately left alone —
-scaling it too would only add dead space under them.
-
-### Recording is a BAND, not a cover
-
-`RecordingBand` is up whenever a take is actually rolling — record enabled **and** the
-transport playing. It sits in the column between the panes and the status bar, 200px of
-canvas plus its own header, and the panes lose exactly that much.
-
-It used to be `absolute inset-0`, a fullscreen surface with the waveform stretched to
-whatever was left. That answered the wrong question. A rolling take is the moment you most
-want the arrangement in front of you — where the playhead is, which bar is coming, what the
-clip you are punching into looks like — and the one thing that surface showed instead was a
-level envelope, at whatever height the window happened to have. The band gives that envelope
-a size someone chose and gives the rest back.
-
-### …and when it stops, the take takes its place
-
-`TakeReview` occupies the same slot at the same height, so stopping does not resize the shell:
-the waveform of what was just recorded, under the project's bars and beats, with the onsets over
-it. Three things are done from there — the threshold that finds the onsets, the onsets themselves,
-and normalising the file — and all three are the same three you could type into the bar.
-
-**Every edit is a command.** The screen holds no state the file does not: it runs `clip onset
-add|remove|move` or `clip normalize`, re-reads `/waveform`, and draws the answer. That is what
-makes each one a single Ctrl+Z (the web host journals commands), and it is why the corrections
-survive the sensitivity slider — the resolving happens in the file service, over what the clip
-stores, not in this component's memory. See `packages/song/src/onsets.ts`.
-
-**The ruler is free.** `WebWaveformGrid` and `@studio/ui-waveform`'s `WaveformGrid` are the same
-three fields, so `gridLines={wf.grid}` is the whole of it — the endpoint already computed the
-bar/beat lines for the clip editor.
-
-**Which clip it is comes from the file service, not the engine.** The engine broadcasts a finished
-take as a FILE and a track; the id is chosen by whatever writes the clip, which is
-`onRecorded` in `engineLink.ts`. So it rides the `/workspace` poll as `lastTake`, and the server
-never clears it — "the last take" stays true until there is another. Whether it has been *looked
-at* is this tab's business, which is why dismissing is local state.
-
-**A click on the canvas adds an onset**, a click on a mark takes it away. That is a deliberate
-overload of `onSeek`, which normally means "you pointed at this second": there is nothing to seek
-on a take that is not playing, and this screen exists to place those marks. What it does not do is
-DRAG one — `@studio/ui-waveform` draws markers but does not move them, and teaching it to would be
-a change to a component k7 also draws. Moving an onset is a remove and an add, which is what the
-model says it is anyway; `clip onset move` does it in one line from the bar.
-
-Two consequences fall out of the shell staying live behind it:
-
-- the minimap the band used to carry as a child is gone. The shell's own is right below it
-  now that the band is in the column, and two of them was one too many. On a phone that
-  means no minimap while recording, since the shell's is desktop-only — a phone that has
-  just given 200px to a canvas has none to spare for a second view of the same thing;
-- **Escape** still stops the take, but no longer when it is answering a field. It is a
-  capture-phase listener, so without that check it would eat the Escape that closes the
-  command bar — which you can now reach while recording.
-
-#### The waveform's x axis is musical time
-
-`recordingWindow.ts` owns it, and it is what makes the bar/beat rules mean anything. The
-band keeps one **beat position per engine frame** beside the levels, so x is beats, not
-buckets: `WINDOW_BARS` (8) of the take are on screen at any tempo, filling from the left
-until the take outgrows the window and then scrolling with the newest frame at the right
-edge. Bars are drawn brighter than beats, in the clip editor's two colours, and the beats
-drop out below `MIN_BEAT_PX` — the same thinning, for the same reason.
-
-The x axis used to be the bucket index over a fixed 4000-bucket cap, i.e. ~200s of tape
-squeezed into the width whether or not the take was 4 seconds long. A grid on THAT axis is
-a line every three pixels at 120bpm: a wash, not a ruler. The rules are why the axis changed.
-
-One thing the alignment bought on the way: a track armed **mid-take** has its buffer padded
-back to the frame it was armed at, so its envelope starts where it started instead of at
-the left edge, a bar or two ahead of everyone else's.
+One thing the old bottom panel had and this does not: it drew its cards at 1.5× the width
+their grid asked for, elbow room that a rank of strips read better with. Here the cards are the
+graph's own, at the graph's own size — they are the same nodes, which is the point.
 
 ## A view is a LAYOUT, not a mode
 
@@ -354,9 +290,10 @@ are symmetric on purpose:
   the slot goes back to the graph. What a click opened, a click on nothing closes; otherwise a
   clip sits parked there until you find its ✕.
 
-The **Mixer button** moves the same slot, from outside the timeline — see above. A sequence
-grid (`sequence edit roll|tracker`) is the fourth thing that can hold it. One slot and not four
-flags, so nothing has to agree about which wins and the ✕ always knows what it is closing.
+A sequence grid (`sequence edit roll|tracker`) is the third thing that can hold that slot. One
+slot and not three flags, so nothing has to agree about which wins and the ✕ always knows what
+it is closing. The **Mixer button** is not one of them — it rearranges the graph rather than
+replacing it, which is why it clears the slot on its way in.
 
 **Expanding the lanes takes the pane away entirely.** The Expand button in the timeline's
 toolbar grows every lane to show what is inside its clips — waveforms, notes — and that height
