@@ -32,7 +32,8 @@ export function PianoRoll({
 }: {
   project: WebProject;
   clip: WebClip;
-  onClose: () => void;
+  /** Absent when the frame around it owns the closing — see GraphSlotPane. */
+  onClose?: () => void;
   // Draw a note via `sequence note new`; absent, the roll is read-only (no known sequence to write to).
   onCreateNote?: (key: number, startBeat: number, endBeat: number) => void;
 }) {
@@ -178,13 +179,15 @@ export function PianoRoll({
             </span>
           )}
         </span>
-        <button
-          onClick={onClose}
-          title={m["editor.closeHint"]()}
-          className="ml-auto rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          close ✕
-        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            title={m["editor.closeHint"]()}
+            className="ml-auto rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            close ✕
+          </button>
+        )}
       </div>
 
       <div ref={bodyRef} className="relative min-h-0 flex-1 overflow-auto">

@@ -445,6 +445,28 @@ the wrong edge is worse than no plug.
 the pane, so one height means every card is the height of the view rather than the tallest being
 it alone — and a ragged bottom reads as cards of different importance.
 
+### One frame for everything that takes the slot
+
+`GraphSlotPane` is the shell, the title bar and the ✕. The occupants supply a body and what to
+call it, and nothing else about the chrome.
+
+It was written four times before that, and the four had drifted: four different root shells —
+`relative flex h-full min-h-0 flex-1`, `flex min-h-0 min-w-0 flex-1 flex-col`, the same plus a
+background, and a fourth with `w-full` — three title bars at three type scales, and a ✕ that in
+one case was not in the occupant at all but inside `PianoRoll`, which is a leaf two of them
+draw. The tell was in `App.tsx`: two of the four mounts needed a compensating `<div>` around
+them because their root did not fill the pane on its own. That is drift patched at the call
+site, and every new occupant paid it again.
+
+Three ways to wear it, because the occupants genuinely differ:
+
+- **`title` (+ `note`)** — a name, a detail, the ✕. The plain case.
+- **`bar`** — a strip of your own, for a header that carries CONTROLS rather than a label: the
+  recording pane counts beats and offers Stop. The ✕ is still the frame's, added last with
+  `ml-auto`, which reproduces both of that pane's layouts without it having to say so.
+- **neither** — no bar, and the ✕ floats over the top-right corner. A clip's contents draw their
+  own header already; a second row above it would say the same thing twice.
+
 A sequence grid (`sequence edit roll|tracker`) is the third thing that can hold that slot. One
 slot and not three flags, so nothing has to agree about which wins and the ✕ always knows what
 it is closing. The **Mixer button** is not one of them — it rearranges the graph rather than

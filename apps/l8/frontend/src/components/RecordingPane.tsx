@@ -12,9 +12,10 @@ import {
   useEngineState,
   useEngineStore,
 } from "@studio/engine-browser/store";
-import { Circle, Square, X } from "lucide-react";
+import { Circle, Square } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { beatLines, windowStart } from "../recordingWindow";
+import { GraphSlotPane } from "./GraphSlotPane";
 
 // The envelope is capped and then scrolls; at ~20 Hz that is ~200s, well past the window.
 const MAX_FRAMES = 4000;
@@ -225,10 +226,15 @@ export function RecordingPane({
   if (rolling) takeBeats.current = recordedBeats;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-      {/* top: state + timer */}
-      <div className="flex items-center gap-4 border-b border-border px-6 py-2">
-        <Circle
+    <GraphSlotPane
+      onClose={onClose}
+      // Its own strip rather than a title: this header carries CONTROLS — the take's state, its
+      // beat count, and Stop. The frame adds the ✕ after them, with `ml-auto`, which reproduces
+      // both layouts: with Stop present that button absorbs the space first and the ✕ follows it;
+      // without, the ✕ takes it. Closing is not stopping — see below.
+      bar={
+        <>
+          <Circle
           className={cn(
             "h-4 w-4",
             rolling
@@ -288,25 +294,16 @@ export function RecordingPane({
             <Square className="mr-1 h-3 w-3" /> Stop
           </Button>
         )}
-        {/* Closing is not stopping: the × puts the graph back and leaves the take rolling, which
-            is why it sits beside Stop rather than instead of it. */}
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className={rolling ? "" : "ml-auto"}
-          onClick={onClose}
-          title="back to the graph"
-          aria-label="back to the graph"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
+      </>
+      }
+    >
       {/* the input waveform, filling the slot — it is bounded by the slot now, where it used to
-          be a band in the column and had to name its own height to stay out of the way */}
-      <div className="min-h-0 flex-1 px-4 py-2">
+          be a band in the column and had to name its own height to stay out of the way.
+          Closing is not stopping: the frame's ✕ puts the graph back and leaves the take rolling,
+          which is why it sits beside Stop rather than instead of it. */}
+      <div className="h-full min-h-0 px-4 py-2">
         <canvas ref={canvasRef} className="h-full w-full" />
       </div>
-    </div>
+    </GraphSlotPane>
   );
 }

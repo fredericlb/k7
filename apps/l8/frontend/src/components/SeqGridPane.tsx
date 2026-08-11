@@ -3,13 +3,13 @@
 // Unlike the popin's tabs, this one owns the file: it reads it once and WRITES every edit,
 // the way the timeline's roll already commits a drawn note. See docs/noteGrids.md.
 
-import { Button } from "@frediverse/ui/button";
-import { Grid3x3, Piano, X } from "lucide-react";
+import { Grid3x3, Piano } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { fileStem } from "../projectPaths";
 import type { SeqView } from "../sequenceEdit";
 import type { Hints } from "../types";
+import { GraphSlotPane } from "./GraphSlotPane";
 import { SeqGrid } from "./SeqGrid";
 
 export function SeqGridPane({
@@ -63,26 +63,20 @@ export function SeqGridPane({
 
   const Icon = view === "tracker" ? Grid3x3 : Piano;
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-sm">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{fileStem(path)}</span>
-        <span className="text-xs text-muted-foreground">
-          {view === "tracker" ? "tracker" : "piano roll"}
-        </span>
-        <span className="truncate text-xs text-muted-foreground">{path}</span>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className="ml-auto"
-          title="back to the graph"
-          aria-label="back to the graph"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+    <GraphSlotPane
+      onClose={onClose}
+      // Its own strip: a glyph for the grid's kind, the stem, and the path in full. The frame
+      // adds the ✕ after it.
+      bar={
+        <>
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium text-foreground">{fileStem(path)}</span>
+          <span>{view === "tracker" ? "tracker" : "piano roll"}</span>
+          <span className="truncate">{path}</span>
+        </>
+      }
+    >
+      <div className="h-full min-h-0 overflow-auto">
         {error ? (
           <div className="p-4 text-sm text-destructive">{error}</div>
         ) : content === null ? (
@@ -97,6 +91,6 @@ export function SeqGridPane({
           />
         )}
       </div>
-    </div>
+    </GraphSlotPane>
   );
 }
