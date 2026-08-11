@@ -167,6 +167,14 @@ export interface GraphNode extends Carried, Flags {
    *  renderer because how many a node shows depends on what is wired to it, which is a fact
    *  about the graph and not about the DOM. Not from the step: it depends on what is wired. */
   jacks?: { in: Jack[]; out: Jack[] };
+  /**
+   * This node sits in a row read ACROSS, not in a column read down — `moduleRow`'s doing.
+   *
+   * All it changes is where a cable meets it: sockets on the left and right edges instead of the
+   * top and bottom. It is on the node rather than on the graph because `cablePath` is handed two
+   * nodes and no graph, and a cable's shape is a fact about its ends.
+   */
+  flow?: "across";
   // The node's size, per-node because a module's UI decides it — dagre is told these and reserves the real space.
   w: number;
   h: number;
@@ -270,8 +278,16 @@ export interface GraphEdge {
 export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
   const count = Math.max(1, (n.jacks?.[side] ?? []).length);
   const i = Math.min(Math.max(0, index), count - 1);
-  // Signal runs down, so inputs sit on the TOP edge and outputs on the bottom, spread across
-  // the card's width. It was the left and right edges while the layout ran left to right.
+  // A row read ACROSS meets its cables on the sides: out of the right edge, into the left. The
+  // top and bottom would send a cable diving under the card and back up to its neighbour, for a
+  // signal that is travelling sideways.
+  if (n.flow === "across")
+    return {
+      x: side === "in" ? n.x - PORT_PLATE / 2 : n.x + n.w + PORT_PLATE / 2,
+      y: n.y + (n.h * (i + 1)) / (count + 1),
+    };
+  // Otherwise signal runs down, so inputs sit on the TOP edge and outputs on the bottom, spread
+  // across the card's width. It was the left and right edges while the layout ran left to right.
   return {
     x: n.x + (n.w * (i + 1)) / (count + 1),
     y: side === "in" ? n.y - PORT_PLATE / 2 : n.y + n.h + PORT_PLATE / 2,
@@ -1058,32 +1074,83 @@ const ROW_MARGIN = 16; // matches layout()'s marginx/marginy, so the two frame a
 export function moduleRow(
   graph: WebGraph,
   modules: string[],
-  /** Widen each card by this much. The GRID inside it is a fixed cell size and stays where it is,
-   *  so this is elbow room around the controls rather than bigger controls — the Mixer asks for
-   *  1.5, where strips are read side by side and a tight card reads as cramped. */
-  widthScale = 1,
+  opts: {
+    /** Widen each card by this much. The GRID inside it is a fixed cell size and stays where it
+     *  is, so this is elbow room around the controls rather than bigger controls — a row of
+     *  strips read side by side asks for 1.5, where a tight card reads as cramped. */
+    widthScale?: number;
+    /**
+     * Carry the CABLES between these modules, and meet them on the sides.
+     *
+     * Off for a rank of channel strips: nothing runs between two channels, so every socket would
+     * be a plug into nothing — furniture, and furniture between the strips at that. On for one
+     * lane's signal path, where the cables ARE the subject: they say what feeds what, and a send
+     * that skips a module shows as the longer cable it is.
+     *
+     * The edges are the graph's own, kept where both ends are in the row. Nothing is invented
+     * between neighbours: two cards side by side with no cable between them is the truth about a
+     * lane whose chains do not touch.
+     */
+    links?: boolean;
+  } = {},
 ): LaidOutGraph {
-  const { nodes } = buildGraph(graph);
+  const { widthScale = 1, links = false } = opts;
+  const { nodes, edges } = buildGraph(graph);
   const byModule = new Map<string, (typeof nodes)[number]>();
   for (const n of nodes)
     if (n.kind === "module" && n.module && !byModule.has(n.module))
       byModule.set(n.module, n);
 
+  const picked = modules
+    .map((name) => byModule.get(name))
+    .filter((n): n is (typeof nodes)[number] => !!n);
+  // One height for the whole row, the tallest card's. A ragged bottom reads as cards of
+  // different importance, and the camera fits the row's height to the view — so with one height
+  // every card IS the height of the view rather than the tallest one being it alone.
+  const tallest = picked.reduce((h, n) => Math.max(h, n.h), 0);
+
   const out: GraphNode[] = [];
+  const inRow = new Set<string>();
   let x = ROW_MARGIN;
-  for (const name of modules) {
-    const n = byModule.get(name);
-    if (!n) continue;
+  for (const n of picked) {
     const w = Math.round(n.w * widthScale);
-    // No sockets: this row has no edges, so every jack on it would lead nowhere. A plug that
-    // plugs into nothing is furniture, and on a rank of strips it is furniture between them.
-    out.push({ ...n, w, x, y: ROW_MARGIN, jacks: undefined });
+    inRow.add(n.id);
+    out.push({
+      ...n,
+      w,
+      h: tallest,
+      x,
+      y: ROW_MARGIN,
+      // Sockets are never PLATED here: the plates are CSS-pinned to the top and bottom edges, and
+      // this row meets its cables on the sides. `flow` is what moves the cable's ends; drawing a
+      // plug on the wrong edge would be worse than drawing none.
+      jacks: undefined,
+      ...(links ? { flow: "across" as const } : {}),
+    });
     x += w + STRIP_GAP;
   }
-  const tallest = out.reduce((h, n) => Math.max(h, n.h), 0);
   return {
     nodes: out,
-    edges: [],
+    edges: links
+      ? edges
+          .filter((e) => inRow.has(e.source) && inRow.has(e.target))
+          .map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            label: e.label,
+            automation: e.automation,
+            signal: e.signal,
+            targetPort: e.targetPort,
+            sourcePort: e.sourcePort,
+            // Two points, which `cablePath` replaces with the sockets it computes from the nodes.
+            // A row has no dagre route to inherit and wants none: it draws straight.
+            points: [
+              { x: 0, y: 0 },
+              { x: 0, y: 0 },
+            ],
+          }))
+      : [],
     width: out.length ? x - STRIP_GAP + ROW_MARGIN : 0,
     height: out.length ? tallest + ROW_MARGIN * 2 : 0,
   };
