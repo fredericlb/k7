@@ -5,6 +5,7 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { RepoProject, RepoSummary } from "@studio/web-protocol";
 import {
   BENCH_PROJECT,
@@ -63,6 +64,8 @@ export function RepoList({
     repo: RepoSummary,
     folder: string,
     onStep: (s: string) => void,
+    /** l8 seulement : `arrangement` ou `live`. Voir NewProject. */
+    mode?: ProjectMode,
   ) => Promise<void>;
   onDelete: (
     repo: RepoSummary,
@@ -209,7 +212,9 @@ export function RepoList({
                       projet est une opération SUR ce dépôt, pas sur la liste. */}
                   <NewProject
                     blocked={blocked}
-                    onCreate={(folder, onStep) => onCreate(r, folder, onStep)}
+                    onCreate={(folder, onStep, mode) =>
+                      onCreate(r, folder, onStep, mode)
+                    }
                   />
                   <Button
                     variant="ghost"

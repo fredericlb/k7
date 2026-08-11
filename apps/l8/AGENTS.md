@@ -85,8 +85,15 @@ EDITOR has no slot in either layout — it is fullscreened deliberately (`ui edi
 as a popin when a command sends it to a file (`frontend/docs/shell.md`). Each pane is still
 **mounted exactly once, in every layout**; `hidden` takes one off screen and nothing unmounts,
 which is what lets the editor be restyled into a popin without losing its undo history. Two
-views: `global` (chains graph) and `video` (video compositor). `full` sits on top of a view to
-fullscreen one pane.
+views: `global` (the timeline over the chains graph) and `live` (the graph alone). `full` sits on
+top of a view to fullscreen one pane.
+
+**`view` is the one piece of screen state nobody chooses.** It is what the open PROJECT is —
+`project.yaml`'s `project_type`, `arrangement` or `live` — and a live project has no timeline at
+all, so the transport, the minimap and the pane buttons go with it. `VIEW_PANES` in `src/routes.ts`
+says what each layout does with the panes, and its empty `fullscreen` list for `live` is what
+closes the header buttons, the number keys, `ui <pane>` and the mobile tabs in one place. Read
+`packages/song/docs/projectMode.md` before touching any of it.
 
 The vocabulary is three words, not two, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of three (`editor | timeline | chains`)

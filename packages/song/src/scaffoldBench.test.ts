@@ -8,7 +8,13 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { BENCH_EDGES, benchFiles, scaffoldBench } from "./scaffoldBench";
+import { projectModeOf } from "./projectMode";
+import {
+  BENCH_EDGES,
+  BENCH_MODE_LINE,
+  benchFiles,
+  scaffoldBench,
+} from "./scaffoldBench";
 import { ProjectFileSchema } from "./yaml/projectSchema";
 
 describe("the module bench", () => {
@@ -46,6 +52,17 @@ describe("the module bench", () => {
     // it would make the bench the one project that refuses to open.
     const raw = readFileSync(join(dir, "project.yaml"), "utf8");
     expect(raw).toContain("mediatekBench: true");
+  });
+
+  it("is a LIVE project — a graph, and no timeline", () => {
+    // banc.md said this before the field existed: « pas un morceau ». Nothing is arranged and
+    // nothing is recorded here, so a bench that opened with a timeline over the graph would be
+    // giving half the window to a pane that can never have anything in it.
+    expect(readFileSync(join(dir, "project.yaml"), "utf8")).toContain(
+      BENCH_MODE_LINE,
+    );
+    expect(projectModeOf(dir)).toBe("live");
+    expect(compileNodeProject(dir).mode).toBe("live");
   });
 
   it("is a project.yaml the schema accepts", () => {

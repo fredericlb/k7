@@ -75,6 +75,7 @@ import {
   loadProject,
   trackMixer,
 } from "@studio/song/project";
+import type { ProjectMode } from "@studio/song/projectMode";
 import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import { isInSharedModules } from "@studio/song/sharedFolders";
@@ -599,8 +600,9 @@ export class Workspace {
   createProject(
     type: "audio" | "m9" | "v1",
     rawName: string,
+    mode?: ProjectMode,
   ): { project: string } {
-    return createProjectIn(this.lifecycleHost(), type, rawName);
+    return createProjectIn(this.lifecycleHost(), type, rawName, mode);
   }
 
   // --- compiled-project cache ------------------------------------------------

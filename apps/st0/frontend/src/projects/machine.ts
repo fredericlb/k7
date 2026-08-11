@@ -2,6 +2,7 @@
 // est bare, sans blobs, et balayé au bout de quinze jours. La copie qu'on committe vit là-bas,
 // et le file-service sait déjà la faire. Voir ../../docs/projects.md.
 
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import { engineMachine } from "../api";
 import { commitOutcome } from "./commitOutcome";
 
@@ -104,6 +105,8 @@ export async function createProjectOnMachine(
   uri: string,
   folder: string,
   onStep: (s: string) => void,
+  /** l8 seulement : une chanson avec timeline, ou un rig live. Absent = `arrangement`. */
+  mode?: ProjectMode,
 ): Promise<{ project: string; gripe: string | null }> {
   const workspace = await ensureWorkspace(m, uri, onStep);
   onStep(`création de ${folder}…`);
@@ -112,6 +115,7 @@ export async function createProjectOnMachine(
     m.token,
     workspace,
     folder,
+    mode,
   );
   onStep("commit et envoi…");
   return {

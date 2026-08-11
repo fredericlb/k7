@@ -4,6 +4,7 @@
 
 import { engineAccess } from "@studio/engine-browser/access";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
 import type { FaceablePlugin } from "@studio/song/engineFace";
@@ -349,12 +350,18 @@ export const engineMachine = {
    * projectLifecycle.ts, quel gabarit y est écrit. C'est pourquoi `type` reste « audio » ici
    * sans que ce soit un bug : le nom gagne, et c'est nous qui l'avons construit. Il ne sert
    * qu'au cas où le nom ne réclame rien, ce qui n'arrive pas depuis ce dialogue.
+   *
+   * `mode` est le seul réglage qui ne peut PAS voyager par le nom, et c'est pour ça qu'il est un
+   * champ à part : `arrangement` et `live` habitent tous deux un dossier `.l8` et s'ouvrent tous
+   * deux dans l8 — le suffixe dit quelle application, celui-ci dit laquelle de ses deux formes.
+   * Omis pour m9 et v1, dont les gabarits n'ont pas cet axe.
    */
   createProject: async (
     fileBase: string,
     token: string,
     workspace: string,
     name: string,
+    mode?: ProjectMode,
   ): Promise<string> => {
     const { project } = await json<{ project: string }>(
       await fetch(`${fileBase}/project/create`, {
@@ -364,7 +371,7 @@ export const engineMachine = {
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ type: "audio", name }),
+        body: JSON.stringify({ type: "audio", name, mode }),
       }),
       "création",
     );

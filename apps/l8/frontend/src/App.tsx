@@ -110,7 +110,7 @@ import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
-import { type Pane, type Panel, type View, VIEW_PANES } from "./routes";
+import { type Pane, type Panel, VIEW_PANES, type View } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
@@ -1640,72 +1640,72 @@ export default function App({
               record would arm a lane with nowhere to put a take. Sound still reaches the
               engine, played by what is wired in the graph. See docs/projectMode.md. */}
           {!live && (
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              size="icon"
-              variant={playing ? "default" : "secondary"}
-              // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
-              disabled={transportWaiting}
-              onClick={(e) => {
-                transport(playing ? "stop" : "play");
-                blurOnClick(e);
-              }}
-              title={
-                transportWaiting
-                  ? "Loading this project — the engine can't answer the transport yet"
-                  : playing
-                    ? m["transport.pause"]()
-                    : m["transport.play"]()
-              }
-              aria-label={
-                transportWaiting
-                  ? "loading the project"
-                  : playing
-                    ? m["transport.pause"]()
-                    : m["transport.play"]()
-              }
-              aria-busy={transportWaiting}
-            >
-              {transportWaiting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : playing ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={(e) => {
-                transport("stop");
-                transport("rewind");
-                blurOnClick(e);
-              }}
-              title={m["transport.stop"]()}
-            >
-              <Square className="h-4 w-4" />
-            </Button>
-            <TransportClock
-              tempo={recInfo.tempo}
-              beatsPerBar={recInfo.beatsPerBar}
-            />
-            <Button
-              size="icon"
-              variant={recordEnabled ? "default" : "secondary"}
-              aria-pressed={recordEnabled}
-              onClick={(e) => {
-                engineRef.current?.setRecordEnabled(!recordEnabled);
-                blurOnClick(e);
-              }}
-              title={m["transport.record"]()}
-              aria-label={m["transport.record"]()}
-            >
-              <Circle
-                className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                size="icon"
+                variant={playing ? "default" : "secondary"}
+                // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
+                disabled={transportWaiting}
+                onClick={(e) => {
+                  transport(playing ? "stop" : "play");
+                  blurOnClick(e);
+                }}
+                title={
+                  transportWaiting
+                    ? "Loading this project — the engine can't answer the transport yet"
+                    : playing
+                      ? m["transport.pause"]()
+                      : m["transport.play"]()
+                }
+                aria-label={
+                  transportWaiting
+                    ? "loading the project"
+                    : playing
+                      ? m["transport.pause"]()
+                      : m["transport.play"]()
+                }
+                aria-busy={transportWaiting}
+              >
+                {transportWaiting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : playing ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  transport("stop");
+                  transport("rewind");
+                  blurOnClick(e);
+                }}
+                title={m["transport.stop"]()}
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+              <TransportClock
+                tempo={recInfo.tempo}
+                beatsPerBar={recInfo.beatsPerBar}
               />
-            </Button>
-          </div>
+              <Button
+                size="icon"
+                variant={recordEnabled ? "default" : "secondary"}
+                aria-pressed={recordEnabled}
+                onClick={(e) => {
+                  engineRef.current?.setRecordEnabled(!recordEnabled);
+                  blurOnClick(e);
+                }}
+                title={m["transport.record"]()}
+                aria-label={m["transport.record"]()}
+              >
+                <Circle
+                  className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
+                />
+              </Button>
+            </div>
           )}
 
           {/* right: view toggles + menus, balancing the left so the centre stays centred */}

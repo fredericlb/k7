@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import {
   type ProjectApp,
   SCAFFOLDED_APPS,
@@ -33,13 +34,37 @@ const APPS = SCAFFOLDED_APPS;
 
 /** Une ligne pour dire ce qu'on est en train de créer — le suffixe seul ne le dit pas. */
 const WHAT: Record<ProjectApp, string> = {
-  l8: "l'éditeur complet, avec la timeline",
+  l8: "l'éditeur complet",
   m9: "mix, édition et graphe — sans la timeline",
   v1: "le montage : un viewport et ses pistes, en secondes",
   // Jamais affiché (z0 n'est pas dans APPS), mais le Record force à répondre pour chaque app :
   // c'est ce qui fera échouer la compilation le jour où z0 gagne un gabarit.
   z0: "un blind-test",
 };
+
+/**
+ * Les deux formes d'un projet l8 — un second choix, et seulement pour l8.
+ *
+ * Il ne peut pas passer par le menu du dessus : celui-là choisit le SUFFIXE, donc l'application
+ * qui ouvrira le dossier, et les deux formes habitent le même `.l8` et s'ouvrent dans la même
+ * application. Deux rangées, donc, parce que ce sont deux questions.
+ *
+ * Attention à la ligne de m9 juste au-dessus : « sans la timeline » y décrit une AUTRE
+ * application. Ici, `live` est l8 sans sa timeline, et ce qui les sépare est que m9 a des platines
+ * et une liste de morceaux là où un projet live n'a que son graphe.
+ */
+const MODES: { id: ProjectMode; label: string; what: string }[] = [
+  {
+    id: "arrangement",
+    label: "arrangement",
+    what: "une chanson : la timeline au-dessus du graphe",
+  },
+  {
+    id: "live",
+    label: "live",
+    what: "un rig : le graphe seul, pas de timeline",
+  },
+];
 
 export function NewProject({
   /** Pourquoi c'est impossible, ou "" — une machine hors ligne est l'état ordinaire. */
@@ -48,12 +73,20 @@ export function NewProject({
 }: {
   blocked: string;
   /** Rend la main quand c'est fait. `onStep` sert à raconter l'attente : cloner un dépôt prend
-   *  des dizaines de secondes, et un écran qui ne dit rien pendant ce temps semble figé. */
-  onCreate: (folder: string, onStep: (s: string) => void) => Promise<void>;
+   *  des dizaines de secondes, et un écran qui ne dit rien pendant ce temps semble figé.
+   *  `mode` n'est envoyé que pour l8 — voir MODES. */
+  onCreate: (
+    folder: string,
+    onStep: (s: string) => void,
+    mode?: ProjectMode,
+  ) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [app, setApp] = useState<ProjectApp>("l8");
+  // Gardé en dehors de `app` : revenir à l8 après un détour par m9 retrouve la forme choisie,
+  // plutôt que de la remettre en silence sur `arrangement`.
+  const [mode, setMode] = useState<ProjectMode>("arrangement");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
@@ -65,7 +98,9 @@ export function NewProject({
     setBusy(true);
     setError("");
     setStep("");
-    void onCreate(folder, setStep)
+    // Seulement pour l8 : m9 et v1 n'ont pas cet axe, et leur envoyer une valeur donnerait à
+    // croire que le service en fait quelque chose.
+    void onCreate(folder, setStep, app === "l8" ? mode : undefined)
       .then(() => {
         setOpen(false);
         setName("");
@@ -117,6 +152,28 @@ export function NewProject({
               ))}
               <span className="text-xs text-muted-foreground">{WHAT[app]}</span>
             </div>
+
+            {/* La forme, pour l8 seulement. Absente pour m9 et v1 plutôt que grisée : une rangée
+                grise invite à se demander ce qu'on a mal fait, alors qu'il n'y a rien à choisir. */}
+            {app === "l8" && (
+              <div className="flex items-center gap-2">
+                {MODES.map((md) => (
+                  <Button
+                    key={md.id}
+                    type="button"
+                    size="sm"
+                    variant={mode === md.id ? "default" : "secondary"}
+                    disabled={busy}
+                    onClick={() => setMode(md.id)}
+                  >
+                    {md.label}
+                  </Button>
+                ))}
+                <span className="text-xs text-muted-foreground">
+                  {MODES.find((md) => md.id === mode)?.what}
+                </span>
+              </div>
+            )}
 
             <Input
               autoFocus

@@ -177,6 +177,17 @@ seulement poussée serait jetée par l'ouverture suivante.
 - **Pas un morceau.** Rien n'y est arrangé, rien n'y est enregistré (`recordDir` n'y est pas
   posé, la piste n'a pas de clip). Ce qu'on veut garder d'un essai, on le garde dans le module.
 
+  Ça a fini par avoir un nom : le banc est un projet **`live`** (`project_type: live` dans son
+  `project.yaml`), c'est-à-dire un projet l8 sans timeline. l8 l'ouvre donc sur le graphe des
+  chaînes, plein écran, sans transport ni minimap — ce qui est exactement ce que ce paragraphe
+  décrivait avant que le champ existe. Le module s'édite depuis le graphe : clic droit sur un
+  nœud, son `module.yaml` s'ouvre par-dessus, et le bouton **Builder** de cette barre d'outils
+  ouvre le constructeur. Voir [packages/song/docs/projectMode.md](../../../packages/song/docs/projectMode.md).
+
+  Les bancs déjà créés sont repris à l'ouverture : le dossier est régénéré à chaque fois, mais
+  `project.yaml` ne l'est pas — il n'est écrit qu'une fois — donc `ensureBenchProject` y ajoute
+  la ligne si elle manque, en préservant les commentaires.
+
 ## Ce qu'il faut vérifier dans un navigateur
 
 Rien de tout ceci n'est couvert par une suite verte — `scaffoldBench.test.ts` ne pin que le fait
