@@ -70,6 +70,22 @@ The shared rank is the **deepest** of theirs, never a shallower one — pulling 
 put it above modules that feed it, and an edge that has to climb is a cable drawn backwards.
 Sinks are pushed past the row for the same reason.
 
+One rank puts them on a line; it does not give that line a rhythm. dagre spaces a rank by what
+is ABOVE it, so a track carrying a send has a wider column and pushes its mixer away from its
+neighbour — a scattered row rather than a console. `spaceModulesEvenly` then re-spaces them
+along x with one constant gap, in the song's track order, starting where the row already began.
+
+What that costs is upstream, and it is meant to: the chains feeding the row stop being straight
+columns. The dagre waypoints of every cable touching a moved card are dropped with it — they
+described a bend around a card that has since moved, and a stale bend is worse than none.
+`cablePath` re-derives both ENDS from the nodes themselves, so what is left is a clean lead out
+of one socket and into the next.
+
+Known limit: a non-mixer node that happens to sit on the shared rank is not moved out of the
+row's way. In practice the row packs TIGHTER than dagre spaced it (gap 24 against `nodesep` 60),
+so it shrinks leftward rather than sprawling — but a song that puts something else at that depth
+could see an overlap.
+
 The camera then frames those nodes, which is what "zoomed in" means here. It frames on the way
 IN only: coming back to the plain graph leaves the camera where you had panned it.
 

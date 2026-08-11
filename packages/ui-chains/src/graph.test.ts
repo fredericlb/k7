@@ -6,6 +6,7 @@ import {
   CELL,
   layout,
   moduleRow,
+  spaceModulesEvenly,
   NODE_H,
   NODE_MIN_W,
   NODE_W,
@@ -759,6 +760,112 @@ describe("alignModuleRank", () => {
     const was = rankOf(nodes, "mx-bass");
     alignModuleRank(nodes, ["mx-vox", "mx-bass"]);
     expect(rankOf(nodes, "mx-bass")).toBe(was);
+  });
+});
+
+describe("spaceModulesEvenly", () => {
+  // A shared rank puts the strips on one LINE; this is what gives that line one RHYTHM. dagre
+  // spaces a rank by what feeds it, so a track with a wide chain pushes its mixer away from its
+  // neighbour — which reads as a scattered row rather than a console.
+  // vox carries a SEND as well as its own path, so its column is wider than one card. That is
+  // what makes dagre space this rank unevenly, and it is the shape a real song has.
+  const uneven = graph(
+    {
+      a: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "mx-vox" }],
+        out: [
+          { to: "OUT", gain: 1 },
+          { to: "reverb", gain: 0.3 },
+        ],
+      },
+      reverb: {
+        use: [{ module: "conv" }, { module: "mx-verb" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      b: {
+        from: "bass",
+        use: [{ module: "mx-bass" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      c: {
+        from: "gtr",
+        use: [{ module: "mx-gtr" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox", "bass", "gtr"],
+  );
+
+  const row = ["mx-vox", "mx-verb", "mx-bass", "mx-gtr"];
+  const laidRow = () => {
+    const { nodes, edges } = buildGraph(uneven);
+    return spaceModulesEvenly(layout(alignModuleRank(nodes, row), edges), row);
+  };
+  const pick = (l: ReturnType<typeof laidRow>, mod: string) =>
+    l.nodes.find((n) => n.module === mod);
+
+  it("leaves the graph alone when fewer than two of the names are in it", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges);
+    expect(spaceModulesEvenly(laid, ["mx-vox"])).toBe(laid);
+    expect(spaceModulesEvenly(laid, [])).toBe(laid);
+  });
+
+  const gapsOf = (l: ReturnType<typeof laidRow>) => {
+    const out: number[] = [];
+    const sorted = row
+      .map((m) => pick(l, m))
+      .filter((n): n is NonNullable<typeof n> => !!n)
+      .sort((a, b) => a.x - b.x);
+    for (let i = 1; i < sorted.length; i++)
+      out.push(sorted[i].x - (sorted[i - 1].x + sorted[i - 1].w));
+    return out;
+  };
+
+  it("leaves the SAME gap between every pair, whatever feeds them", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const before = layout(alignModuleRank(nodes, row), edges);
+    // The fixture has to be uneven, or this test would pass without the function under test.
+    expect(new Set(gapsOf(before)).size).toBeGreaterThan(1);
+    expect(new Set(gapsOf(laidRow())).size).toBe(1);
+  });
+
+  it("orders them as ASKED, not as the graph laid them out", () => {
+    const l = laidRow();
+    const xs = row.map((m) => pick(l, m)?.x ?? 0);
+    expect([...xs]).toEqual([...xs].sort((a, b) => a - b));
+  });
+
+  it("starts where the row already began, rather than at the origin", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const before = layout(alignModuleRank(nodes, row), edges);
+    const was = Math.min(
+      ...before.nodes.filter((n) => n.module?.startsWith("mx-")).map((n) => n.x),
+    );
+    const after = spaceModulesEvenly(before, row);
+    expect(Math.min(...row.map((m) => pick(after, m)?.x ?? 0))).toBe(was);
+  });
+
+  it("drops the stale waypoints of every cable touching a moved card", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const before = layout(alignModuleRank(nodes, row), edges);
+    const after = spaceModulesEvenly(before, row);
+    const movedIds = new Set(
+      after.nodes.filter((n) => n.module?.startsWith("mx-")).map((n) => n.id),
+    );
+    for (const e of after.edges)
+      if (movedIds.has(e.source) || movedIds.has(e.target))
+        // Its ends are re-derived from the sockets; a bend around a card that has moved is not.
+        expect(e.points.length).toBeLessThanOrEqual(2);
+  });
+
+  it("widens the graph when the row runs past what dagre measured", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const before = layout(alignModuleRank(nodes, row), edges);
+    const after = spaceModulesEvenly(before, row);
+    const right = Math.max(...row.map((m) => (pick(after, m)?.x ?? 0) + (pick(after, m)?.w ?? 0)));
+    expect(after.width).toBeGreaterThanOrEqual(right);
   });
 });
 

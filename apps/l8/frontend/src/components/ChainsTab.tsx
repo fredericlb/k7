@@ -14,6 +14,7 @@ import {
   alignModuleRank,
   buildGraph,
   layout,
+  spaceModulesEvenly,
   subgraphForTrack,
 } from "@studio/ui-chains/graph";
 import { type Cam, DomChains, type FitToFn } from "@studio/ui-chains-react";
@@ -211,9 +212,11 @@ export function ChainsTab({
   const laid = useMemo(() => {
     if (!graph) return null;
     const { nodes, edges } = buildGraph(graph);
-    // The mixer view is a RANK change, not another graph: same nodes, same cables, the strips
-    // pulled onto one row so a single frame holds them all. See @studio/ui-chains' alignModuleRank.
-    return layout(alignModuleRank(nodes, alignModules ?? []), edges);
+    // The mixer view is an ARRANGEMENT of this same graph: same nodes, same cables. One rank
+    // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
+    // dagre would otherwise space them by whatever feeds them. See @studio/ui-chains.
+    const row = alignModules ?? [];
+    return spaceModulesEvenly(layout(alignModuleRank(nodes, row), edges), row);
   }, [graph, alignModules]);
 
   // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this

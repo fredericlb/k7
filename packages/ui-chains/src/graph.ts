@@ -901,6 +901,62 @@ export function alignModuleRank(
   });
 }
 
+/**
+ * Re-space the named modules evenly along x, AFTER dagre has laid the graph out.
+ *
+ * `alignModuleRank` puts them on one line; this gives them one rhythm. dagre spaces a rank by
+ * what is above it — a track with a wide chain pushes its mixer away from its neighbour — so a
+ * shared rank alone still reads as a scattered line rather than a console. Here the gap between
+ * two strips is the same gap, whatever feeds them.
+ *
+ * The ORDER is the caller's, the song's track order, for the same reason `moduleRow` takes it:
+ * a console's channels are numbered by the song, not by where a layout engine happened to put
+ * them. Equal GAP and not equal pitch, because the cards are not all the same width and it is
+ * the space between them the eye reads as regular.
+ *
+ * What this costs is upstream: the chains that feed the row are no longer straight columns, and
+ * they are not meant to be. So the dagre waypoints of every cable touching a moved card are
+ * dropped — they described a bend around a card that has since moved, and a stale bend is worse
+ * than no bend. `cablePath` re-derives both ENDS from the nodes themselves, so what remains is a
+ * clean lead out of the socket and into the next.
+ */
+export function spaceModulesEvenly(
+  laid: LaidOutGraph,
+  modules: readonly string[],
+): LaidOutGraph {
+  const byModule = new Map<string, GraphNode>();
+  for (const n of laid.nodes)
+    if (n.module && !byModule.has(n.module)) byModule.set(n.module, n);
+  const row = modules
+    .map((name) => byModule.get(name))
+    .filter((n): n is GraphNode => !!n);
+  if (row.length < 2) return laid;
+
+  // Start where the row already begins, so turning the view on slides the cards together rather
+  // than carrying them off to the origin.
+  let x = Math.min(...row.map((n) => n.x));
+  const moved = new Map<string, number>();
+  for (const n of row) {
+    moved.set(n.id, x);
+    x += n.w + STRIP_GAP;
+  }
+  const right = x - STRIP_GAP;
+
+  return {
+    nodes: laid.nodes.map((n) =>
+      moved.has(n.id) ? { ...n, x: moved.get(n.id) as number } : n,
+    ),
+    edges: laid.edges.map((e) =>
+      // Only a routed cable has waypoints to drop; two points are already just its ends.
+      e.points.length > 2 && (moved.has(e.source) || moved.has(e.target))
+        ? { ...e, points: [e.points[0], e.points[e.points.length - 1]] }
+        : e,
+    ),
+    width: Math.max(laid.width, right + ROW_MARGIN),
+    height: laid.height,
+  };
+}
+
 /** The gap between two strips in a mixer row, px. Wider than dagre's `nodesep` on purpose: these
  *  cards are read as a rank of separate channels, not as a chain that flows. */
 const STRIP_GAP = 24;
