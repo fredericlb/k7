@@ -318,8 +318,33 @@ whole window and are about something other than this song — and the builder's 
 engine link at all, so a transport over it would be a row of dead buttons.
 
 The floating strip sits outside the popin's backdrop, so scrubbing it is not the click-outside
-that dismisses the popin; the dead space beside it stays a click on the backdrop, which is the
-way out.
+that dismisses the popin.
+
+It is **full width**, and that is not decoration: the minimap maps the whole song to the width
+it is given, so a centred card would squeeze the arrangement into a strip less legible than the
+timeline it stands in for — and the two views of the same song would stop agreeing about where
+a bar is. It does not overlap the popin either. The popin's bottom edge is pushed up by the
+strip's measured height, so the two share the bottom of the screen instead of fighting for it.
+Measured, not a constant: the minimap sizes itself to the track count, so any fixed number
+would be wrong for most songs.
+
+## What a click in the timeline does to the pane below
+
+The lower pane holds the chains graph, and a clicked clip's content takes its **place** (the
+graph stays mounted, hidden — it owns the MIDI runtime). Three gestures move that slot, and
+they are symmetric on purpose:
+
+- **a clip** — its content opens there. The caret parks on it too, which is what fills the
+  Editor bottom panel; the slot is the one thing the caret cannot say, so it is told outright.
+- **the bare lane** — the caret moves to where you clicked, nothing is under it any more, and
+  the slot goes back to the graph. What a click opened, a click on nothing closes; otherwise a
+  clip sits parked there until you find its ✕.
+- **expanding the timeline** — the slot is emptied, not merely hidden. It lives in the pane the
+  timeline covers, so fullscreening already takes it off screen, but it used to stay SET and
+  coming back landed you on a clip opened three gestures ago instead of the graph.
+
+The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare
+lane; clips stop propagation, so they never reach the lane's handler at all.
 
 ## The command palette
 ## The command bar

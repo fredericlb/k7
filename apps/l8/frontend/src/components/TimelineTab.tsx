@@ -386,6 +386,7 @@ export function TimelineTab({
   setStatus,
   onEditTarget,
   onOpenClip,
+  onEmptyClick,
   onCaret,
   onView,
   onContextMenu,
@@ -411,6 +412,9 @@ export function TimelineTab({
   // A clip was CLICKED — a press that never moved. The shell shows its content where the graph
   // is; the caret-driven `onEditTarget` above is a different question, answered continuously.
   onOpenClip?: (t: EditTarget) => void;
+  // The bare lane was clicked — no clip. The counterpart of `onOpenClip`: the shell puts the
+  // graph back where a clip's content had gone. The caret has already moved off the clip.
+  onEmptyClick?: () => void;
   // The caret: its position (the minimap draws it) and the track it is on (m/s act on that track by name).
   onCaret: (c: Caret & { trackId: string | null }) => void;
   // Whether a selection or zoom is live, so z / shift+z / 0 can be conditional bindings rather than dead commands.
@@ -1902,6 +1906,32 @@ export function TimelineTab({
                 <div
                   // Hit-tested by a clip drag (laneAtPoint), rather than re-deriving row geometry there.
                   data-lane-track={t.id}
+                  /**
+                   * A click on the BARE lane — no clip under it.
+                   *
+                   * It puts the caret there, and that is the whole mechanism: nothing is under
+                   * the caret any more, so `clipUnderCaret` goes null, `onEditTarget` reports
+                   * null, and whatever a clip had opened closes. `onEmptyClick` only tells the
+                   * shell to put the graph back, which is the one thing the caret cannot say.
+                   *
+                   * Clips bubble to here — they do not stop the event — so `dragRef` is the
+                   * test: their own pointerdown has already run and filled it. Checking the
+                   * TARGET as well catches the overlays that are not pointer-transparent.
+                   */
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    if (dragRef.current) return; // a clip took this press
+                    if (e.target !== e.currentTarget) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const beat = Math.floor(
+                      beatLo + (e.clientX - rect.left) / ppb,
+                    );
+                    setSel(null);
+                    setCaret(
+                      clampCaret({ row: `track:${t.id}` as RowKey, beat }),
+                    );
+                    onEmptyClick?.();
+                  }}
                   className={cn(
                     "relative overflow-hidden",
                     // The lane a dragged clip would land on, while it is a legal target.
@@ -1931,7 +1961,9 @@ export function TimelineTab({
                       (the rectangle IS the caret then, with two ends) */}
                   {onRow && !labelled && !selBox && (
                     <div
-                      className="absolute top-0 h-full bg-primary/25 outline outline-1 outline-primary"
+                      // pointer-events-none: it is a mark, not a target — and a press landing on
+                      // it must read as a press on the bare lane, which is what moves the caret.
+                      className="pointer-events-none absolute top-0 h-full bg-primary/25 outline outline-1 outline-primary"
                       style={{ left: x(caret.beat), width: ppb }}
                     />
                   )}
