@@ -103,13 +103,29 @@ A cable carries what its **source** emits: a track's `contentType`, or the upstr
 type folder. An instrument takes midi and emits audio, so the cable into it is blue and the
 one out of it orange. A video lane puts picture on the wire whatever `trackSignals` says.
 
-A cable **plugs in**. dagre routes to the node's border, which was the right target while a
-cable ended in an arrowhead pointing at a card; `cablePath` moves both ends onto the sockets
-instead — the one the destination NAMES (`crossfade#b`) on the target side, and the one the
-edge left from (`sourcePort`) on the source side, falling back to the first output when the
-chains file named none. dagre's waypoints in
-between are untouched, so a send still bends around the module it skips. A short straight lead
-at each end makes the cable leave the plate square instead of curving off it.
+**The main output is not drawn** — `drawMainOut`, which l8's song graph turns off. Reaching the
+sound card is what the END of a chain means there: a mixer sits at it and its whole job is the
+level going out, so a card saying "OUT" adds a node, an edge and a rank to every chain in the
+song to repeat what the shape already says. Only OUT: any other destination the graph cannot
+account for as a track, a chain or a used module is still drawn as a sink, because that name has
+nowhere else to appear.
+
+It stays ON by default, because the other pictures built from this pipeline are not songs. The
+module preview is one module between a source and a sink, with no mixer in it to imply anything,
+and there the sink is what says which way the signal runs. st0's chain view and m9's graph also
+still draw it — one argument each if they should follow l8.
+
+A cable **plugs in**, and runs **straight**. dagre routes to the node's border, which was the
+right target while a cable ended in an arrowhead pointing at a card; `cablePath` moves both ends
+onto the sockets instead — the one the destination NAMES (`crossfade#b`) on the target side, and
+the one the edge left from (`sourcePort`) on the source side, falling back to the first output
+when the chains file named none.
+
+Its waypoints are **dropped**. They used to be kept, so a send bent around the module it
+skipped — the right answer for a flow chart and the wrong one for a patch bay. A rack's cables
+run straight between plugs and cross where they cross, and reading one is following its ANGLE
+out of a socket, which a bend destroys. dagre still places the nodes; only the routing is ours.
+The short leads that used to square each exit went with the curve they existed to fight.
 
 There is **no arrowhead** on a signal cable. The plug is the socket it disappears into — the
 nodes paint over the cable layer, so the last few pixels are hidden by the plate and the cable
@@ -181,10 +197,10 @@ chains, sinks one past the deepest module, and chain pass-through nodes at 1. Ta
 *maximum* position matters for a shared module — at index 0 in chain A and 2 in chain B it
 ranks after both, so chain A's full pipeline is still respected.
 
-Layout is **top→bottom** layered, and **dagre's routed edge points are kept**, so a send that
-skips a stage bends around the module in between instead of slicing through it. dagre
-returns node centres; we store top-left (what a renderer wants) while the edge points stay
-in the same absolute graph space.
+Layout is **top→bottom** layered. dagre's routed edge points are computed and then **not used**
+— see the cable section above for why a straight line beats a bend here. dagre returns node
+centres; we store top-left (what a renderer wants), and an edge keeps its two ends only so a
+renderer can still draw something for a node it cannot find.
 
 The direction is a `rankdir`, and three things follow it: `nodesep` and `ranksep` swap axes
 (siblings are now side by side, stages one under the next, so the numbers swapped with them),

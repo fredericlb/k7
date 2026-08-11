@@ -251,16 +251,18 @@ export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
 }
 
 /**
- * A cable's polyline: dagre's routing with both ends moved onto the SOCKETS they plug into.
+ * A cable's polyline: a STRAIGHT line from the socket it leaves to the socket it plugs into.
  *
- * dagre routes to the node's BORDER, which was right while a cable ended in an arrowhead pointing at a card.
- * A cable ends in a plug, and a plug goes in a hole — so the endpoints are replaced and a short straight lead
- * is added at each, which is what makes it leave the plate square instead of curving off it at an angle. The
- * waypoints in between are dagre's, untouched: it is what keeps a send bending around the module it skips.
+ * dagre's waypoints are deliberately dropped. They bent a cable around the card it skipped, which
+ * is the right answer for a flow chart and the wrong one for a patch bay: a rack's cables run
+ * straight between plugs and cross where they cross, and reading one is following its ANGLE from
+ * a socket, which a bend destroys. dagre still places the nodes; only the routing is ours.
  *
- * Both sockets are the ones the cable NAMES — `crossfade#b` for the jack it arrives at, `sep#vocals` for the
- * one it leaves — each matched against that node's jack list. A name that matches nothing falls back to the
- * first jack rather than dropping the cable: an unroutable edge is still an edge worth seeing.
+ * The endpoints are the sockets rather than dagre's border points, which is what makes a cable
+ * look plugged in. Both are the ones the cable NAMES — `crossfade#b` for the jack it arrives at,
+ * `sep#vocals` for the one it leaves — each matched against that node's jack list. A name that
+ * matches nothing falls back to the first jack rather than dropping the cable: an unroutable edge
+ * is still an edge worth seeing.
  */
 export function cablePath(
   e: GraphEdge,
@@ -269,7 +271,6 @@ export function cablePath(
 ): Pt[] {
   const pts = e.points;
   if (pts.length < 2) return pts;
-  const mid = pts.slice(1, -1);
   const fromIndex = e.sourcePort
     ? (src?.jacks?.out.findIndex((j) => j.name === e.sourcePort) ?? -1)
     : 0;
@@ -282,16 +283,10 @@ export function cablePath(
   const to = tgt
     ? jackPoint(tgt, "in", toIndex < 0 ? 0 : toIndex)
     : pts[pts.length - 1];
-  // The short straight lead leaves each plate square, so a cable looks plugged in rather than
-  // curving off the socket. Down out of the source, down into the target — on Y, since the
-  // sockets moved to the top and bottom edges.
-  return [
-    from,
-    { x: from.x, y: from.y + PORT_LEAD },
-    ...mid,
-    { x: to.x, y: to.y - PORT_LEAD },
-    to,
-  ];
+  // Two points, so every consumer draws a line: `smoothPath` emits a plain `L` at this length
+  // and the canvas's flatten walks the segment. There is nothing left to curve THROUGH, which is
+  // the point — the leads that used to square the exit only existed to fight the curve.
+  return [from, to];
 }
 
 export interface LaidOutGraph {
@@ -319,6 +314,13 @@ export interface TrackControlValues {
 }
 
 // A node with no UI is this big; one with a UI is sized by its grid. Header + content always, so even "No Options" fits.
+/**
+ * The main output, as a chain's `out.to` spells it — and the ONE destination the graph does not
+ * draw. See where it is skipped in `buildGraph`. Taken literally elsewhere too (`nodeProject`'s
+ * isSink, `@studio/song`'s graph), which is why it is a bare name rather than a shape.
+ */
+export const MAIN_OUT = "OUT";
+
 export const NODE_W = 160;
 export const NODE_H = 70;
 
@@ -333,6 +335,7 @@ export const NODE_MIN_W = 72;
 export const PORT_PLATE = 13;
 // How far a cable runs straight out of a socket before it starts bending, so it leaves the plate square on
 // the way a real one does. Purely cosmetic, and small enough not to fight dagre's routing.
+/** Unused since cables went straight — the lead only existed to square a curve's exit. */
 export const PORT_LEAD = 16;
 
 // Module-UI grid geometry in graph units, shared with the renderer so hit areas and drawing agree by construction.
@@ -500,7 +503,24 @@ function curveSubLabel(curve: WebCurve): string {
 }
 
 // Build nodes and unpositioned edges from the chain graph, mirroring the signal path. See docs/graphBuild.md.
-export function buildGraph(graph: WebGraph): {
+export function buildGraph(
+  graph: WebGraph,
+  opts: {
+    /**
+     * Draw a card for the main output. The DEFAULT, and l8's song graph is what turns it off.
+     *
+     * In a song, reaching the card is what the end of a chain means — a mixer sits there and
+     * its whole job is the level going out — so a node saying "OUT" adds a card, an edge and a
+     * rank to every chain to repeat what the shape already says. l8 therefore asks for it to be
+     * left out (`ChainsTab`).
+     *
+     * On by default all the same, because the other pictures built from this are not songs: the
+     * module preview is one module between a source and a sink, with no mixer in it to imply
+     * anything, and there the sink is what says which way the signal runs.
+     */
+    drawMainOut?: boolean;
+  } = {},
+): {
   nodes: RawNode[];
   edges: RawEdge[];
 } {
@@ -766,6 +786,14 @@ export function buildGraph(graph: WebGraph): {
       // jack. Split before any of the tests below, or a ported ref matches none of them and
       // falls through to `sinkId`, inventing a sink node called "crossfade#b".
       const { node: toNode, port: toPort } = splitPort(o.to);
+      // OUT is not drawn. Reaching the card is what the END of a chain MEANS — a mixer sits
+      // there and its whole job is the level going out — so a card saying "OUT" adds a node,
+      // an edge and a rank to every chain in the song to repeat what the shape already says.
+      // The routing is untouched: this is the picture, and the engine reads the compiled doc.
+      //
+      // Only OUT. A destination that is not a track, a chain or a used module is still drawn as
+      // a sink, because THAT one is a name the graph cannot otherwise account for.
+      if (toNode === MAIN_OUT && opts.drawMainOut === false) continue;
       const to = isTrack(toNode)
         ? trackId(toNode)
         : isChain(toNode)
@@ -943,10 +971,10 @@ export function alignModuleRank(
  * the space between them the eye reads as regular.
  *
  * What this costs is upstream: the chains that feed the row are no longer straight columns, and
- * they are not meant to be. So the dagre waypoints of every cable touching a moved card are
- * dropped — they described a bend around a card that has since moved, and a stale bend is worse
- * than no bend. `cablePath` re-derives both ENDS from the nodes themselves, so what remains is a
- * clean lead out of the socket and into the next.
+ * they are not meant to be. Nothing has to be done about their cables — `cablePath` draws a
+ * straight line between the two sockets and reads the nodes for both ends, so a card that moves
+ * takes its cable with it. This used to drop dagre's waypoints by hand, back when they were the
+ * route and a moved card left them describing a bend around nothing.
  */
 export function spaceModulesEvenly(
   laid: LaidOutGraph,
@@ -974,12 +1002,7 @@ export function spaceModulesEvenly(
     nodes: laid.nodes.map((n) =>
       moved.has(n.id) ? { ...n, x: moved.get(n.id) as number } : n,
     ),
-    edges: laid.edges.map((e) =>
-      // Only a routed cable has waypoints to drop; two points are already just its ends.
-      e.points.length > 2 && (moved.has(e.source) || moved.has(e.target))
-        ? { ...e, points: [e.points[0], e.points[e.points.length - 1]] }
-        : e,
-    ),
+    edges: laid.edges,
     width: Math.max(laid.width, right + ROW_MARGIN),
     height: laid.height,
   };

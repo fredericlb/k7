@@ -215,7 +215,11 @@ export function ChainsTab({
 
   const laid = useMemo(() => {
     if (!graph) return null;
-    const { nodes, edges } = buildGraph(graph);
+    // No OUT card. Reaching the sound card is what the END of a chain means here — a mixer sits
+    // there and its whole job is the level going out — so a node saying "OUT" would add a card,
+    // an edge and a rank to every chain in the song to repeat what the shape already says.
+    // The routing is untouched: this is the picture, and the engine reads the compiled doc.
+    const { nodes, edges } = buildGraph(graph, { drawMainOut: false });
     // The mixer view is an ARRANGEMENT of this same graph: same nodes, same cables. One rank
     // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
     // dagre would otherwise space them by whatever feeds them. See @studio/ui-chains.

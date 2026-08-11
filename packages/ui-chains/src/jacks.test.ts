@@ -282,16 +282,19 @@ describe("where a cable plugs in", () => {
       src,
       twoIn,
     );
-    // A lead at each end, in line with its socket: the bend starts after the plug, not on it.
-    // Vertical now — out of the bottom of the source, into the top of the target.
-    expect(path[1].x).toBe(path[0].x);
-    expect(path[1].y).toBeGreaterThan(path[0].y);
-    expect(path[path.length - 2].x).toBe(path[path.length - 1].x);
-    expect(path[path.length - 2].y).toBeLessThan(path[path.length - 1].y);
+    // Two points and nothing between them: a cable runs STRAIGHT from one socket to the other.
+    // The leads that used to square each exit only existed to fight the curve that is now gone.
+    expect(path).toHaveLength(2);
+    // …and both ends are the SOCKETS, not the border points dagre routed to. That is what makes
+    // a cable look plugged in, and it is the only part of dagre's route still used.
+    expect(path[0]).toEqual(jackPoint(src, "out", 0));
+    expect(path[1]).toEqual(jackPoint(twoIn, "in", 0));
   });
 
-  it("keeps dagre's waypoints in between", () => {
-    // The bends are what make a send skirt the module it skips; only the ENDS move.
+  it("drops dagre's waypoints — a patch bay's cables do not skirt anything", () => {
+    // They used to be kept, so a send bent around the module it skipped. That is the right
+    // answer for a flow chart and the wrong one for a rack: reading a cable is following its
+    // ANGLE out of a socket, and a bend destroys that. dagre still places the nodes.
     const bend = { x: 20, y: 400 };
     const path = cablePath(
       {
@@ -303,7 +306,8 @@ describe("where a cable plugs in", () => {
       undefined,
       twoIn,
     );
-    expect(path).toContainEqual(bend);
+    expect(path).not.toContainEqual(bend);
+    expect(path).toHaveLength(2);
   });
 
   it("falls back to dagre's own end when a node is missing", () => {
