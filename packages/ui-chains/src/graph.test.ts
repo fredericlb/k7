@@ -7,6 +7,7 @@ import {
   HEADER_MAX_PX,
   HEADER_MIN_PX,
   headerFontPx,
+  jackPoint,
   layout,
   moduleRow,
   NODE_H,
@@ -1191,6 +1192,90 @@ describe("moduleRow", () => {
   });
 });
 
+describe("moduleRow with links", () => {
+  // One lane's signal path: the cables are the subject, so they are carried — and the row is read
+  // ACROSS, so they meet the cards on the sides rather than diving under one to reach the next.
+  const lane = graph(
+    {
+      vox: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "eq" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox"],
+  );
+
+  it("carries the graph's own cables between the cards it kept", () => {
+    const row = moduleRow(lane, ["comp", "eq"], { links: true });
+    expect(row.edges).toHaveLength(1);
+    expect(row.edges[0]).toMatchObject({
+      source: "mod:comp",
+      target: "mod:eq",
+    });
+  });
+
+  it("keeps none of them when links are off — the strips rank asks for that", () => {
+    expect(moduleRow(lane, ["comp", "eq"]).edges).toEqual([]);
+  });
+
+  it("invents nothing between neighbours the graph does not join", () => {
+    // Two cards side by side with no cable between them is the truth about a lane whose chains
+    // do not touch. A row that drew one anyway would assert a routing that is not there.
+    const apart = graph(
+      {
+        a: {
+          from: "vox",
+          use: [{ module: "one" }],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+        b: {
+          from: "vox",
+          use: [{ module: "two" }],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      ["vox"],
+    );
+    expect(moduleRow(apart, ["one", "two"], { links: true }).edges).toEqual([]);
+  });
+
+  it("meets its cables on the SIDES, not the top and bottom", () => {
+    const row = moduleRow(lane, ["comp", "eq"], { links: true });
+    const [a, b] = row.nodes;
+    const out = jackPoint(a, "out", 0);
+    const into = jackPoint(b, "in", 0);
+    // Out of the right edge, into the left, both at mid-height — a cable travelling sideways.
+    expect(out.x).toBeGreaterThan(a.x + a.w);
+    expect(into.x).toBeLessThan(b.x);
+    expect(out.y).toBeCloseTo(a.y + a.h / 2);
+    expect(into.y).toBeCloseTo(b.y + b.h / 2);
+  });
+
+  it("gives every card the SAME height, so none of them is short", () => {
+    // The camera fits the row's height to the view, so one height means every card is the
+    // height of the view rather than the tallest one being it alone.
+    const tall = graph(
+      {
+        vox: {
+          from: "vox",
+          use: [
+            { module: "comp", ui: { cols: 2, rows: 4, widgets: {} } },
+            { module: "eq" },
+          ],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      ["vox"],
+    );
+    const hs = moduleRow(tall, ["comp", "eq"], { links: true }).nodes.map(
+      (n) => n.h,
+    );
+    expect(new Set(hs).size).toBe(1);
+    expect(hs[0]).toBe(Math.max(...hs));
+  });
+});
+
 describe("moduleRow width scale", () => {
   const one = graph(
     {
@@ -1212,13 +1297,13 @@ describe("moduleRow width scale", () => {
     // Elbow room, not bigger controls: the grid inside is a fixed cell size (widgetRect), so the
     // height must not move or the card would gain dead space below the controls too.
     const plain = moduleRow(one, ["mx-vox"]).nodes[0];
-    const wide = moduleRow(one, ["mx-vox"], 1.5).nodes[0];
+    const wide = moduleRow(one, ["mx-vox"], { widthScale: 1.5 }).nodes[0];
     expect(wide.w).toBe(Math.round(plain.w * 1.5));
     expect(wide.h).toBe(plain.h);
   });
 
   it("spaces the row by the WIDENED width, so cards still cannot overlap", () => {
-    const row = moduleRow(one, ["mx-vox", "mx-bass"], 1.5);
+    const row = moduleRow(one, ["mx-vox", "mx-bass"], { widthScale: 1.5 });
     const [first, second] = row.nodes;
     expect(second.x).toBeGreaterThanOrEqual(first.x + first.w);
     expect(row.width).toBeGreaterThan(second.x + second.w - 1);
@@ -1226,7 +1311,7 @@ describe("moduleRow width scale", () => {
 
   it("defaults to the card's own width", () => {
     expect(moduleRow(one, ["mx-vox"]).nodes[0].w).toBe(
-      moduleRow(one, ["mx-vox"], 1).nodes[0].w,
+      moduleRow(one, ["mx-vox"], { widthScale: 1 }).nodes[0].w,
     );
   });
 });

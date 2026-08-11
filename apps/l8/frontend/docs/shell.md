@@ -429,6 +429,22 @@ surface would want a bare rank of cards; this is that surface.
 The framing still happens underneath, deliberately: closing the row with its ✕ leaves the graph
 already framed on the track it was about, which is where you would have wanted to be anyway.
 
+**The cables are drawn here, and they are the graph's own.** A rank of channel strips wants none
+— nothing runs between two channels, so every socket would be a plug into nothing — but a lane's
+signal path is exactly the question "what feeds what", and a send that skips a module shows as
+the longer cable it is. Nothing is invented between neighbours: two cards side by side with no
+cable between them is the truth about a lane whose chains do not touch.
+
+They meet the cards on the **sides**, out of the right edge and into the left, because a row is
+read across: the top and bottom would send a cable diving under a card to reach the one beside
+it. That is `flow: "across"` on the node — it moves where a cable ENDS and nothing else. The
+socket plates stay undrawn, since they are CSS-pinned to the top and bottom edges and a plug on
+the wrong edge is worse than no plug.
+
+**Every card is given the same height**, the tallest one's. The camera fits the row's height to
+the pane, so one height means every card is the height of the view rather than the tallest being
+it alone — and a ragged bottom reads as cards of different importance.
+
 A sequence grid (`sequence edit roll|tracker`) is the third thing that can hold that slot. One
 slot and not three flags, so nothing has to agree about which wins and the ✕ always knows what
 it is closing. The **Mixer button** is not one of them — it rearranges the graph rather than

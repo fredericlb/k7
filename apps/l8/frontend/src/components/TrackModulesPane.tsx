@@ -70,7 +70,16 @@ export function TrackModulesPane({
     [graph, trackId],
   );
   const laid = useMemo(
-    () => (graph ? moduleRow(graph, modules, CARD_WIDTH_SCALE) : null),
+    () =>
+      graph
+        ? moduleRow(graph, modules, {
+            widthScale: CARD_WIDTH_SCALE,
+            // The cables ARE the subject here: this is one lane's signal path, and what feeds
+            // what is the whole point of reading it. They meet the cards on the SIDES, because
+            // the row is read across — see `flow` in @studio/ui-chains.
+            links: true,
+          })
+        : null,
     [graph, modules],
   );
 
