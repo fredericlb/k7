@@ -1094,7 +1094,11 @@ describe("trackModules", () => {
   it("draws a shared module once", () => {
     const shared = graph(
       {
-        a: { from: "vox", use: [{ module: "glue" }], out: [{ to: "b", gain: 1 }] },
+        a: {
+          from: "vox",
+          use: [{ module: "glue" }],
+          out: [{ to: "b", gain: 1 }],
+        },
         b: { use: [{ module: "glue" }], out: [{ to: "OUT", gain: 1 }] },
       },
       ["vox"],
