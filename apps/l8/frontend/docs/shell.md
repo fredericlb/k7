@@ -89,9 +89,22 @@ could see an overlap.
 The camera then frames those nodes, which is what "zoomed in" means here. It frames on the way
 IN only: coming back to the plain graph leaves the camera where you had panned it.
 
+That framing is the whole visible effect, so it must not be allowed to fail quietly. `fitTo`
+answers whether it ACTUALLY framed — a pane still hidden has no size and frames nothing — and
+the view records the attempt as done only then. Recording a frame that never happened spends
+the one chance that key ever gets, and the result is a button that appears to do nothing.
+
 Which modules are strips is the project's answer, not the package's — `mixerStrips.ts` reads it
 off the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never
 be one reload apart.
+
+**A song can have no strips at all, and most do not.** A strip is a module of plugin type
+`Mixer` (`trackMixer`, `MIXER_PLUGIN`) at the end of a track, and nothing puts one there for
+you — of the songs in a default workspace, none has two. So the button is **disabled** when the
+count is zero and says why in its tooltip, and clicking it with one strip sets a status line
+saying there is nothing to line up. That silence is what the bottom panel used to break with a
+line of text, and dropping the panel dropped the only thing that explained an empty mixer: a
+control that answers a click with nothing is worse than one that is visibly unavailable.
 
 The cards themselves were never hand-rolled, and that is why this works at all. A strip's
 controls are its module's own panel — the very card the graph draws. There used to be a

@@ -396,14 +396,21 @@ export function ChainsTab({
   useEffect(() => {
     if (!laid || !active) return;
     if (rowFramed.current === rowKey) return;
-    rowFramed.current = rowKey;
-    if (!rowKey) return; // leaving the view: nothing to frame
+    if (!rowKey) {
+      rowFramed.current = rowKey; // leaving the view: nothing to frame, and that is done
+      return;
+    }
     const wanted = new Set(rowKey.split("|"));
     const nodes = laid.nodes.filter((n) => n.module && wanted.has(n.module));
     // On the HEIGHT: a row framed on both axes shrinks with every strip the song gains, and
     // below WIDGET_MIN_SCALE the cards lose their widgets — a mixer of bare names. Let it run
     // off the right instead, where it pans.
-    if (nodes.length) fitToFn.current?.(nodes, undefined, "height");
+    //
+    // Marked done only if it ACTUALLY framed. A pane that is still hidden has no size, and
+    // recording that attempt would spend the one chance this key ever gets: the view would open
+    // on whatever the camera was showing, which reads as a button that does nothing.
+    if (nodes.length && fitToFn.current?.(nodes, undefined, "height"))
+      rowFramed.current = rowKey;
   }, [rowKey, laid, active]);
 
   // Scroll the selected row in, keyed on `expanded` too — the row doesn't exist until its group opens.

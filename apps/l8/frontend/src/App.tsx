@@ -451,6 +451,20 @@ export default function App({
    * the whole window and are about something other than this song — the builder's own overlay
    * holds no engine link at all, so a transport over it would be a set of dead buttons.
    */
+  /**
+   * Is the chains pane off screen? ONE answer, read by the class that hides it and by the
+   * `active` it is handed.
+   *
+   * They were two, and they disagreed the day expanded lanes started hiding the pane: the CSS
+   * hid it while `active` still said yes, so ChainsTab went on believing it was on screen and
+   * framed its camera against a canvas of zero size — a frame that silently does nothing.
+   * Anything that takes this pane away has to say so in one place.
+   */
+  const chainsOffScreen =
+    full === "timeline" ||
+    (full === null && view !== "global") ||
+    (full === null && tlView.expanded);
+
   const timelineVisible = visible("timeline");
   const minimapFloating = docked && editorPopin;
   const minimapDocked = docked && !timelineVisible && !editorPopin;
@@ -1808,18 +1822,7 @@ export default function App({
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  full === "chains"
-                    ? "flex-1"
-                    : // …and it stands down for EXPANDED lanes on the same terms. Expanding is
-                      // asking to see inside the clips — waveforms, notes — which is exactly the
-                      // height this pane is holding, and looking at a chain is not what you are
-                      // doing while you do that. `hidden`, not unmounted: ChainsTab owns the MIDI
-                      // runtime the whole shell reaches for (docs/midi.md).
-                      full === "timeline" ||
-                        (full === null && view !== "global") ||
-                        (full === null && tlView.expanded)
-                      ? "hidden"
-                      : "h-1/2 shrink-0",
+                  full === "chains" ? "flex-1" : chainsOffScreen ? "hidden" : "h-1/2 shrink-0",
                   ringFor("chains"),
                 )}
               >
@@ -1836,7 +1839,7 @@ export default function App({
                 >
                   <ChainsTab
                     reloadKey={reloadKey}
-                    active={visible("chains") && !graphSlot}
+                    active={!chainsOffScreen && !graphSlot}
                     showList={full === "chains"}
                     trackOrder={trackOrder}
                     command={quietCommand}
@@ -2063,14 +2066,19 @@ export default function App({
             </Button>
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
             <nav className="flex items-center gap-1">
-              {/* The mixer, beside the panel buttons but not one of them: it opens a VIEW of the
-                  graph, where the strips get the height a fader wants. Same place in the row, so
-                  the hand that knew where the Mixer button was still finds it. Like a clicked
-                  clip, it makes its own slot visible — a view drawn behind a fullscreened
-                  timeline is a click that did nothing. */}
+              {/* The mixer, beside the panel buttons but not one of them: it REARRANGES the graph,
+                  pulling every strip onto one evenly spaced rank. Same place in the row, so the
+                  hand that knew where the Mixer button was still finds it.
+
+                  DEAD when the song has no strip, and saying so rather than answering a click with
+                  nothing: a strip is a module of plugin type `Mixer` at the end of a track, and a
+                  song can perfectly well have none — most of the examples here do. That silence is
+                  what the bottom panel used to break with a line of text, and dropping the panel
+                  dropped the only thing that explained an empty mixer. */}
               <Button
                 size="icon-xs"
                 variant={mixerView ? "default" : "ghost"}
+                disabled={mixerStrips.length === 0}
                 onClick={() => {
                   // Turning it ON also clears whatever had taken the graph's place, or the
                   // rearranged graph would be laid out behind a clip nobody asked to keep.
@@ -2078,8 +2086,19 @@ export default function App({
                   setGraphSlot(null);
                   setFull(null);
                   setMixerView(true);
+                  setStatus(
+                    mixerStrips.length === 1
+                      ? "mixer view — this song has ONE strip, so there is nothing to line up"
+                      : `mixer view — ${mixerStrips.length} strips lined up`,
+                  );
                 }}
-                title="Mixer view — line every strip up in the graph"
+                title={
+                  mixerStrips.length === 0
+                    ? "No strip in this song: a strip is a Mixer module at the end of a track"
+                    : mixerStrips.length === 1
+                      ? "One strip — the view frames it, but there is nothing to line up"
+                      : `Mixer view — line up this song's ${mixerStrips.length} strips`
+                }
                 aria-label="Mixer view"
                 aria-pressed={mixerView}
               >

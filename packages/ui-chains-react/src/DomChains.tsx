@@ -1890,7 +1890,11 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
 }
 
 /**
- * Frame these nodes. `axis: "height"` fills the height and lets the set run off the right,
+ * Frame these nodes. Answers whether it actually framed: a host with no size yet — a pane still
+ * hidden, a canvas one render early — frames nothing, and a caller that recorded that as done
+ * would never try again. Ask, and retry on the next render.
+ *
+ * `axis: "height"` fills the height and lets the set run off the right,
  * where it pans — for a ROW, where fitting both axes divides the pane between however many
  * members it has and the scale falls with each one. Below WIDGET_MIN_SCALE the widget grid is
  * dropped altogether, so a wide enough row would frame to a rank of bare name cards.
@@ -1899,7 +1903,7 @@ export type FitToFn = (
   nodes: GraphNode[],
   panOnly?: GraphNode,
   axis?: "both" | "height",
-) => void;
+) => boolean;
 
 export function DomChains({
   icons,
@@ -2300,19 +2304,20 @@ export function DomChains({
   }, []);
 
   // --- fitTo: frame a subset of nodes (chain selection from the sidebar) ---------
-  const fitTo = useRef<FitToFn>(() => {});
+  const fitTo = useRef<FitToFn>(() => false);
   fitTo.current = (
     nodes: GraphNode[],
     panOnly?: GraphNode,
     axis: "both" | "height" = "both",
   ) => {
     const host = hostRef.current;
-    if (!host || !nodes.length) return;
-    // Framing a chain the user picked is their choice too: a later resize must not throw it away.
-    userMoved.current = true;
+    if (!host || !nodes.length) return false;
     const sw = host.clientWidth;
     const sh = host.clientHeight;
-    if (!sw || !sh) return;
+    if (!sw || !sh) return false;
+    // Framing a chain the user picked is their choice too: a later resize must not throw it away.
+    // AFTER the size checks, so a frame that did not happen does not claim the camera either.
+    userMoved.current = true;
     const minX = Math.min(...nodes.map((n) => n.x));
     const minY = Math.min(...nodes.map((n) => n.y));
     const maxX = Math.max(...nodes.map((n) => n.x + n.w));
@@ -2340,9 +2345,14 @@ export function DomChains({
         y: (sh - bh * k) / 2 - minY * k,
       });
     }
+    return true;
   };
   useEffect(() => {
-    onFitToReady?.((nodes, panOnly) => fitTo.current(nodes, panOnly));
+    // The whole signature is forwarded: an axis dropped here is a caller silently getting
+    // fit-both, which is the bug this parameter exists to prevent.
+    onFitToReady?.((nodes, panOnly, axis) =>
+      fitTo.current(nodes, panOnly, axis),
+    );
   }, [onFitToReady]);
 
   // --- reconcile optimistic overrides as fresh engine/track frames arrive ------------
