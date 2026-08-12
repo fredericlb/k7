@@ -53,14 +53,17 @@ function Knob({
   const [lo, hi] = range;
   // Full travel in 160 px: fine enough to place a small move, short enough to reach the ends.
   const PIXELS = 160;
-  const round = (v: number) => Math.min(hi, Math.max(lo, Math.round(v / step) * step));
+  const round = (v: number) =>
+    Math.min(hi, Math.max(lo, Math.round(v / step) * step));
   const drag = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const startY = e.clientY;
     const startValue = value;
     const move = (ev: PointerEvent) =>
-      onChange(round(startValue + ((startY - ev.clientY) / PIXELS) * (hi - lo)));
+      onChange(
+        round(startValue + ((startY - ev.clientY) / PIXELS) * (hi - lo)),
+      );
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -92,8 +95,10 @@ function Knob({
         onKeyDown={(e) => {
           if (disabled) return;
           const by = (hi - lo) / 80;
-          if (e.key === "ArrowUp" || e.key === "ArrowRight") onChange(round(value + by));
-          else if (e.key === "ArrowDown" || e.key === "ArrowLeft") onChange(round(value - by));
+          if (e.key === "ArrowUp" || e.key === "ArrowRight")
+            onChange(round(value + by));
+          else if (e.key === "ArrowDown" || e.key === "ArrowLeft")
+            onChange(round(value - by));
           else if (e.key === "Home") onChange(0);
           else return;
           e.preventDefault();
@@ -141,7 +146,9 @@ function Knob({
       {/* The number, and only when it is NOT at rest: a column of knobs all reading "0" is
           noise, and what a glance wants is which one somebody has touched. */}
       <span className="h-3 font-mono text-[9px] tabular-nums leading-none">
-        {rest ? "" : `${value > 0 ? "+" : ""}${value.toFixed(step < 1 ? 1 : 0)}${unit}`}
+        {rest
+          ? ""
+          : `${value > 0 ? "+" : ""}${value.toFixed(step < 1 ? 1 : 0)}${unit}`}
       </span>
     </div>
   );

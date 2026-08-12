@@ -27,6 +27,7 @@ import {
   MIX_CENTRE,
   sourceAt,
 } from "../deck";
+import type { Deck, Playhead } from "../engine";
 import { MIX_VIEW_FILE, SONGS_FILE } from "../mixView";
 import {
   cacheRelPath,
@@ -37,7 +38,6 @@ import {
 } from "../service";
 import { resolveSet, type SetEntry, type SetList } from "../setList";
 import type { DeckSet } from "../useDeckSet";
-import { type Playhead, type Deck } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { ChannelStrip } from "./ChannelStrip";
@@ -181,7 +181,10 @@ export function MixView({
       {/* Anything wrong, across the top. It used to sit in the middle column with the set
           list; the list has gone to the record's own browser, and a fault is not something to
           hide in a column that no longer exists. */}
-      {error || decks.deskError || set?.issues.length || decks.problems.length ? (
+      {error ||
+      decks.deskError ||
+      set?.issues.length ||
+      decks.problems.length ? (
         <div className="flex shrink-0 flex-col gap-2 px-4 pt-4">
           {/* This view's own trouble — the catalogue, a song with no audio — and the DESK's,
               which the deck document raises and which outlives this tab. Two sources, one card

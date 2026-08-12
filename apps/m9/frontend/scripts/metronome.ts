@@ -15,20 +15,21 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import WebSocket from "ws";
 import {
   type DeckLoads,
   type DeckTempos,
   deckDoc,
-  metronomeDeck,
   MIX_CENTRE,
+  metronomeDeck,
   nudgedTempos,
   sourceAt,
   TIMELINE_BASE,
   transportAt,
-} from "../src/deck";
+} from "@studio/ui-turntables/deck";
+import WebSocket from "ws";
 
-const url = process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
+const url =
+  process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
 const SESSION = "m9:metronome";
 const RATE = 48000;
 const SECONDS = 60;
@@ -66,7 +67,12 @@ function asEngineSees(path: string): string {
 }
 
 const loads: DeckLoads = {
-  deckA: { id: "silence", title: "silence", artist: null, path: asEngineSees(silence()) },
+  deckA: {
+    id: "silence",
+    title: "silence",
+    artist: null,
+    path: asEngineSees(silence()),
+  },
   deckB: null,
 };
 let tempos: DeckTempos = {
@@ -95,7 +101,9 @@ const sourceOf = () =>
 const push = () => {
   const click = metronomeDeck(loads, tempos, null);
   if (!click) {
-    console.log("metronomeDeck refused — one deck with a measured beat should qualify");
+    console.log(
+      "metronomeDeck refused — one deck with a measured beat should qualify",
+    );
     process.exit(1);
   }
   send({ type: "project", doc: deckDoc(loads, MIX_CENTRE, {}, tempos, click) });
@@ -183,12 +191,19 @@ function finish() {
     const first = transportAt(t.phase ?? 0, t);
     return { period, first };
   };
-  const before = gridOf({ natural: NATURAL, seconds: SECONDS, target: NATURAL, phase: PHASE });
+  const before = gridOf({
+    natural: NATURAL,
+    seconds: SECONDS,
+    target: NATURAL,
+    phase: PHASE,
+  });
   const after = gridOf(tempos.deckA!); // slip and all, as the drag left it
   const split = changedAt / RATE;
   // Capture time -> transport time, from the first click, which is on a beat by construction.
   const offset =
-    onsets[0] - (before.first + Math.round((onsets[0] - before.first) / before.period) * before.period);
+    onsets[0] -
+    (before.first +
+      Math.round((onsets[0] - before.first) / before.period) * before.period);
 
   const check = (list: number[], g: { period: number; first: number }) => {
     let worst = 0;

@@ -5,23 +5,23 @@
 import { usePluginParams } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
+import { projectApi as api } from "@studio/project-shell/project";
+import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import {
   parseSongs,
   songMarkers,
   withMarkers,
 } from "@studio/song/yaml/songsFile";
-import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
 import {
+  DECKS,
   type DeckId,
   type DeckLoads,
   type DeckTempo,
   type DeckTempos,
-  DECKS,
   EQ_BANDS,
-  metronomeDeck,
   MIX_CENTRE,
+  metronomeDeck,
   NO_LOADS,
   nudgedTempos,
   pushCrossfade,
@@ -31,6 +31,7 @@ import {
   TIMELINE_BASE,
   transportAt,
 } from "./deck";
+import type { Deck } from "./engine";
 import {
   type BindingProblem,
   controlDriving,
@@ -49,7 +50,6 @@ import {
   SONGS_FILE,
   writeSongsText,
 } from "./mixView";
-import type { Deck } from "./useEngine";
 
 /**
  * How often a tempo may reach the engine WHILE a control is moving.
@@ -478,7 +478,9 @@ export function useDeckSet(
       void writeSongsText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would leave
         // a cue that is there until the next reload and then is not.
-        setDeskError(`le repère n'a pas pu être écrit dans ${SONGS_FILE} : ${e.message}`),
+        setDeskError(
+          `le repère n'a pas pu être écrit dans ${SONGS_FILE} : ${e.message}`,
+        ),
       );
     },
 
@@ -504,8 +506,7 @@ export function useDeckSet(
       // to its top.
       if (empty && deck.engine) deck.engine.seek(TIMELINE_BASE);
     },
-    clearTempo: (deckId) =>
-      setFaders((f) => ({ ...f, [deckId]: undefined })),
+    clearTempo: (deckId) => setFaders((f) => ({ ...f, [deckId]: undefined })),
     measured: (deckId, tempo) => {
       const merged = { ...fadersRef.current, [deckId]: tempo };
       setFaders(merged);

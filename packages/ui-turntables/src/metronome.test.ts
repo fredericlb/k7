@@ -15,7 +15,12 @@ import {
   transportAt,
 } from "./deck";
 
-const song = (id: string) => ({ id, title: id, artist: null, path: `/m/${id}.wav` });
+const song = (id: string) => ({
+  id,
+  title: id,
+  artist: null,
+  path: `/m/${id}.wav`,
+});
 const tempo = (over: Partial<DeckTempo> = {}): DeckTempo => ({
   natural: 128,
   seconds: 300,
@@ -34,19 +39,27 @@ describe("whether the desk can offer a click at all", () => {
     // Not a limitation to work around: two records at two tempos have two beats, and a click
     // on one of them is a click against the other. The button goes dark rather than pick.
     const loads: DeckLoads = { deckA: song("a"), deckB: song("b") };
-    const tempos: DeckTempos = { deckA: tempo(), deckB: tempo({ natural: 174 }) };
+    const tempos: DeckTempos = {
+      deckA: tempo(),
+      deckB: tempo({ natural: 174 }),
+    };
     expect(metronomeDeck(loads, tempos, null)).toBeNull();
   });
 
   it("follows the MASTER once the two are synced", () => {
     const loads: DeckLoads = { deckA: song("a"), deckB: song("b") };
-    const tempos: DeckTempos = { deckA: tempo(), deckB: tempo({ natural: 174 }) };
+    const tempos: DeckTempos = {
+      deckA: tempo(),
+      deckB: tempo({ natural: 174 }),
+    };
     expect(metronomeDeck(loads, tempos, "deckB")).toBe("deckB");
   });
 
   it("refuses a deck whose tempo is not known yet", () => {
     const loads: DeckLoads = { ...NO_LOADS, deckA: song("a") };
-    expect(metronomeDeck(loads, { deckA: tempo({ natural: 0 }) }, null)).toBeNull();
+    expect(
+      metronomeDeck(loads, { deckA: tempo({ natural: 0 }) }, null),
+    ).toBeNull();
     expect(metronomeDeck(loads, {}, null)).toBeNull();
   });
 
@@ -55,7 +68,9 @@ describe("whether the desk can offer a click at all", () => {
     // phase it cannot defend, and a click on the wrong half of the beat is not a degraded
     // metronome — it is a wrong one, and you would beat-match to it.
     const loads: DeckLoads = { ...NO_LOADS, deckA: song("a") };
-    expect(metronomeDeck(loads, { deckA: tempo({ phase: undefined }) }, null)).toBeNull();
+    expect(
+      metronomeDeck(loads, { deckA: tempo({ phase: undefined }) }, null),
+    ).toBeNull();
   });
 
   it("refuses when nothing is loaded", () => {
@@ -92,7 +107,10 @@ describe("the click track itself", () => {
     // already in it — the click follows the record rather than the timeline.
     const t = tempo({ target: 136, slip: -3.5, align: 0.8 });
     const clip = metronomeTrack(t, true).clips[0];
-    expect((clip.start * 60) / DOC_TEMPO).toBeCloseTo(transportAt(t.phase ?? 0, t), 9);
+    expect((clip.start * 60) / DOC_TEMPO).toBeCloseTo(
+      transportAt(t.phase ?? 0, t),
+      9,
+    );
   });
 
   it("is one looping bar rather than a note per beat", () => {

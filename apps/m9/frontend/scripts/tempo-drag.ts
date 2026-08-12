@@ -13,10 +13,9 @@
 // script runs under WSL and the engine does not: the engine opens file paths, so a Linux tmpdir
 // is a file it cannot see. Unset, an ordinary tmpdir is right and nothing below applies.
 
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import WebSocket from "ws";
 import {
   type DeckLoads,
   type DeckTempos,
@@ -24,9 +23,11 @@ import {
   nudgedTempos,
   sourceAt,
   TIMELINE_BASE,
-} from "../src/deck";
+} from "@studio/ui-turntables/deck";
+import WebSocket from "ws";
 
-const url = process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
+const url =
+  process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
 const RAW = process.argv.includes("--raw");
 const SESSION = "m9:tempo-drag";
 
@@ -124,7 +125,12 @@ function peakHz(x: Float32Array): number {
 // --- drive ------------------------------------------------------------------------------
 const source = chirp();
 const loads: DeckLoads = {
-  deckA: { id: "chirp", title: "chirp", artist: null, path: asEngineSees(source) },
+  deckA: {
+    id: "chirp",
+    title: "chirp",
+    artist: null,
+    path: asEngineSees(source),
+  },
   deckB: null,
 };
 
@@ -133,7 +139,9 @@ ws.binaryType = "arraybuffer";
 const send = (m: Record<string, unknown>) =>
   ws.send(JSON.stringify({ ...m, session: SESSION }));
 
-let faders: DeckTempos = { deckA: { natural: NATURAL, seconds: SECONDS, target: NATURAL } };
+let faders: DeckTempos = {
+  deckA: { natural: NATURAL, seconds: SECONDS, target: NATURAL },
+};
 let transport = 0;
 let heardAt = 0;
 let playing = false;
@@ -148,7 +156,8 @@ const sourceOf = () =>
     faders.deckA,
   );
 
-const push = () => send({ type: "project", doc: deckDoc(loads, 0, {}, faders) });
+const push = () =>
+  send({ type: "project", doc: deckDoc(loads, 0, {}, faders) });
 
 ws.on("open", () => {
   push();
@@ -199,9 +208,7 @@ function step() {
   const next = nudgedTempos(faders, null, null, "deckA", target, sourceOf);
   // `--raw` keeps the new tempo and throws the slip away: the fader as it behaved before this
   // was measured, so the two runs differ in exactly one thing.
-  faders = RAW
-    ? { deckA: { ...faders.deckA!, target } }
-    : next;
+  faders = RAW ? { deckA: { ...faders.deckA!, target } } : next;
   push();
   marks.push({ sample: total, rate: target / NATURAL });
   setTimeout(done < STEPS ? step : finish, done < STEPS ? STEP_MS : 4000);
@@ -225,7 +232,10 @@ function finish() {
     const w = buf.subarray(i, i + 4096);
     let peak = 0;
     for (const v of w) peak = Math.max(peak, Math.abs(v));
-    pts.push({ t: i / RATE, src: peak < 2e-4 ? null : (peakHz(w) - F0) / SLOPE });
+    pts.push({
+      t: i / RATE,
+      src: peak < 2e-4 ? null : (peakHz(w) - F0) / SLOPE,
+    });
   }
   const first = marks[0].sample / RATE;
   const last = marks[marks.length - 1].sample / RATE;
@@ -236,7 +246,8 @@ function finish() {
   };
   const nearest = (t: number) =>
     pts.reduce<{ t: number; src: number | null } | null>(
-      (b, p) => (p.src !== null && (!b || Math.abs(p.t - t) < Math.abs(b.t - t)) ? p : b),
+      (b, p) =>
+        p.src !== null && (!b || Math.abs(p.t - t) < Math.abs(b.t - t)) ? p : b,
       null,
     );
   const a = nearest(first - 0.5);

@@ -4,7 +4,8 @@
 
 import { useEffect, useRef } from "react";
 import { type DeckTempo, sourceAt } from "../deck";
-import type { Playhead } from "../useEngine";
+import type { Playhead } from "../engine";
+import { bandsAt, columnColour } from "../spectrumColour";
 import {
   barsIn,
   beatsIn,
@@ -16,7 +17,6 @@ import {
   WINDOW_SECONDS,
   xOf,
 } from "../waveform";
-import { bandsAt, columnColour } from "../spectrumColour";
 
 /** Yellow for the grid, grey for what the engine actually heard. The beats are inferred and
  *  the transients are measured, so the louder colour goes to the thing you mix on. */

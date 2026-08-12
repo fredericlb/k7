@@ -22,6 +22,7 @@
     "@studio/ui-chains": "*",
     "@studio/ui-chains-react": "*",
     "@studio/ui-editor": "*",
+    "@studio/ui-turntables": "*",
     "@studio/web-protocol": "*",
     "@uiw/react-codemirror": "^4.23.0",
     "lucide-react": "^1.24.0",
