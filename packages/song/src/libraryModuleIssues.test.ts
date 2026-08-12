@@ -83,7 +83,11 @@ describe("a library module that will not read", () => {
     sharedModule("audio/broken", BAD);
     sharedModule("audio/fine", GOOD);
     const refs = loadModuleRefs(dir, {});
-    expect(Object.keys(refs)).toEqual(["@workspace/audio/fine"]);
+    // `@studio/…` is dropped for the same reason `{}` is passed as the catalogue: this asks
+    // what the FILES define, and the built-in doc module is there whatever is on disk.
+    expect(Object.keys(refs).filter((r) => !r.startsWith("@studio/"))).toEqual([
+      "@workspace/audio/fine",
+    ]);
     expect(libraryModuleIssues(dir)).toHaveLength(1);
   });
 

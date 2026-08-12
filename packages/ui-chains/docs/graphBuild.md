@@ -57,6 +57,35 @@ A **video lane** gets one control. For picture, "mute" means hidden, and there i
 record arm, gain or pan to offer — a full strip there would be four controls that do
 nothing.
 
+## …and the clips the lane holds
+
+Under the controls, a track node lists **what is on the lane** — the clip refs, in playing
+order. The graph said where a track's signal *goes* and never what it *plays*, so "which take
+is on this lane" was a question about the lane that you had to leave the lane to answer.
+
+The list comes from `WebGraph.trackClips`, which the file service fills from the compiled
+track's `placements` and **sorts by position**: authored order is whatever someone typed, and a
+track file may name a clip at bar 9 before one at bar 3.
+
+Three rules, each paying for itself:
+
+- **A lane with no clips gets nothing** — no empty list, no heading. A node that has grown to
+  say "0 clips" has grown to tell you nothing. Groups and strudel lanes hold no placements at
+  all, so they never get one either.
+- **The height is computed before layout** (`clipsOf`, added to `nodeSize`'s), because dagre is
+  told the size and reserves the space. A list added after layout would spill out of the card.
+  The **width is untouched**: a card is as wide as its mixer grid, and a long clip name is
+  ellipsed rather than allowed to push a whole rank sideways.
+- **Past `CLIP_LIST_MAX` (6) the rest is counted, not listed** (`+4`). A lane with sixty takes
+  would otherwise be a node taller than the window, and this is a picture of the ROUTING — the
+  timeline is where a full clip list belongs.
+
+A **missing** clip is drawn red. It is the state this list is best at catching: on a routing
+diagram, a lane pointing at material that is not there looks exactly like a full one.
+
+The list is hidden at far zoom with the widgets, for the same reason they are — at that scale a
+column of clip refs is a grey smear.
+
 ## Ports
 
 A node's sockets are decided here, not in the renderer: how many show depends on what is wired

@@ -280,8 +280,8 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
       type: pl.type,
       name: pl.name,
     })),
-    docs: t.docs,
-    todos: t.todos,
+    // `docs`/`todos` were copied here for the Docs panel. Gone with it — a note is a doc
+    // module on the graph now. See packages/song/docs/docModules.md.
     frozen: t.frozen,
     alternatives: t.alternatives,
     alternative: t.alternative,

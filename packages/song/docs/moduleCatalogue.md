@@ -15,7 +15,7 @@ So the builder moved — twice. First to l8' settings panel, and then out of l8 
 `apps/st0` now, where the modules themselves do. The settings entry that used to open it is a link out.
 
 `moduleCatalogue` stays, and is still useful, because it answers a different question: it lists what **this
-workspace** can name in a chain, which is what the module picker and the docs panel read. What it no longer
+workspace** can name in a chain, which is what the module picker reads. What it no longer
 does is feed a builder.
 
 ## What is listed

@@ -206,19 +206,37 @@ export function buildGraphDoc(dir: string): WebGraph {
     for (const s of chains[name].use)
       if (g.modules[s.module]?.io === "in") s.tap = { id, side: "input" };
   }
+  // A note's TEXT, per module, so the renderer can draw it on the node. It used to be
+  // `{docs, todos}` for a bottom panel that aggregated everybody's notes; a note is its own
+  // node now (an instance of `@studio/doc`), and only a doc module ever carries one.
+  // Keyed by DOC modules and nothing else, so its keys ARE the project's notes — which is what
+  // lets a surface find them without a second field saying "this one is a note". `content ?? ""`
+  // rather than skipping an empty one: a note somebody has not written yet is still a note, and
+  // dropping it here would make it vanish from the graph instead of drawing empty.
   const modules: WebGraph["modules"] = {};
   for (const [name, m] of Object.entries(g.modules))
-    modules[name] = { docs: m.docs, todos: m.todos };
+    if (m.kind === "doc") modules[name] = { content: m.content ?? "" };
   const trackColors: Record<string, string> = {};
   // What a track puts on the wire: a sequences track feeds MIDI to the chain's instrument, an audio one audio.
   const trackSignals: WebGraph["trackSignals"] = {};
   // loadGraph has already cleared `frozen` on any track whose render went missing, so this is the state the
   // compiled doc will agree with rather than what the yaml claims.
   const frozenTracks: string[] = [];
+  // What each lane HOLDS, so its node can list it. Sorted by position, which is the order it
+  // plays in and the order a reader expects — `placements` is authored order, and a track file
+  // may perfectly well name a clip at bar 9 before one at bar 3.
+  const trackClips: NonNullable<WebGraph["trackClips"]> = {};
   for (const [id, t] of Object.entries(g.tracks)) {
     if (t.color) trackColors[id] = t.color;
     trackSignals[id] = t.contentType === "sequences" ? "midi" : "audio";
     if (t.frozen) frozenTracks.push(id);
+    // Only what a lane really holds: a group has members and a strudel lane streams, and both
+    // carry an empty `placements` — so an entry for either would be a promise of a list that
+    // is always empty.
+    if (t.placements.length)
+      trackClips[id] = [...t.placements]
+        .sort((a, b) => a.start - b.start)
+        .map((p) => ({ ref: p.ref, start: p.start, kind: p.kind }));
   }
   return {
     chains,
@@ -226,6 +244,7 @@ export function buildGraphDoc(dir: string): WebGraph {
     videoTracks: Object.keys(g.videoTracks),
     trackColors,
     trackSignals,
+    ...(Object.keys(trackClips).length ? { trackClips } : {}),
     ...(frozenTracks.length ? { frozenTracks } : {}),
     modules,
     curves: Object.keys(usedCurves).length ? usedCurves : undefined,

@@ -8,6 +8,7 @@ import {
   type PluginParamsStore,
   usePluginParams,
 } from "@studio/engine-browser/params";
+import { splitPort } from "@studio/graph-model";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import {
   alignModuleRank,
@@ -50,7 +51,8 @@ export function ChainsTab({
   onWatchWaveform,
   pendingInsert,
   seedGraph,
-  onPickModule,
+  showDocs,
+  onDocCount,
   onContextMenu,
   onEdgeInsert,
   onCanvasInsert,
@@ -101,8 +103,17 @@ export function ChainsTab({
    * journal — must re-fetch rather than redraw a graph that has already been shown.
    */
   seedGraph?: { id: number; graph: WebGraph } | null;
-  // Lifts the tapped module up to the shell so the Docs panel can follow it.
-  onPickModule?: (module: string | null) => void;
+  /**
+   * Whether to DRAW the project's notes — its doc modules.
+   *
+   * Off by default, and the shell's to decide: a note is wired into the chain it is about, so
+   * showing every one all the time would put prose in the middle of the signal path. Filtered
+   * here rather than in the renderer because it is a question about this project's graph, and
+   * `DomChains` draws whatever graph it is given.
+   */
+  showDocs?: boolean;
+  /** How many notes the project has, reported up — the shell's button is in the footer. */
+  onDocCount?: (n: number) => void;
   // No "edit this module" here on purpose: a module is a LIBRARY thing — the same file backs every project
   // that names it — so its builder lives in the médiathèque, not in one song's graph.
   // Right-click a node → the shell opens its context menu.
@@ -214,19 +225,58 @@ export function ChainsTab({
     [onBypassModule],
   );
 
+  /**
+   * The project's NOTES, by name. `graph.modules` is keyed by doc modules and nothing else
+   * (see graphDoc.ts), so its keys ARE the notes — no second field says which nodes are prose.
+   */
+  const docNames = useMemo(
+    () => new Set(Object.keys(graph?.modules ?? {})),
+    [graph],
+  );
+  useEffect(() => onDocCount?.(docNames.size), [docNames, onDocCount]);
+
+  /**
+   * The graph as it is DRAWN: without the notes, unless the shell asked for them.
+   *
+   * Filtered before `buildGraph` rather than after layout, which is the whole reason this is
+   * its own memo: dagre ranks what it is given, so hiding a node afterwards would leave the
+   * hole it was laid out into — a gap in the signal path where a note used to be.
+   *
+   * A note is dropped from BOTH places it can appear: a step in a chain's `use`, and the `to`
+   * of an `out` when a run ends on one. Missing the second would draw a cable to nothing.
+   */
+  const drawn = useMemo(() => {
+    if (!graph || showDocs || docNames.size === 0) return graph;
+    return {
+      ...graph,
+      chains: Object.fromEntries(
+        Object.entries(graph.chains).map(([name, c]) => [
+          name,
+          {
+            ...c,
+            use: c.use.filter((s) => !docNames.has(s.module)),
+            out: (c.out ?? []).filter(
+              (o) => !docNames.has(splitPort(o.to).node),
+            ),
+          },
+        ]),
+      ),
+    };
+  }, [graph, showDocs, docNames]);
+
   const laid = useMemo(() => {
-    if (!graph) return null;
+    if (!drawn) return null;
     // No OUT card. Reaching the sound card is what the END of a chain means here — a mixer sits
     // there and its whole job is the level going out — so a node saying "OUT" would add a card,
     // an edge and a rank to every chain in the song to repeat what the shape already says.
     // The routing is untouched: this is the picture, and the engine reads the compiled doc.
-    const { nodes, edges } = buildGraph(graph, { drawMainOut: false });
+    const { nodes, edges } = buildGraph(drawn, { drawMainOut: false });
     // The mixer view is an ARRANGEMENT of this same graph: same nodes, same cables. One rank
     // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
     // dagre would otherwise space them by whatever feeds them. See @studio/ui-chains.
     const row = alignModules ?? [];
     return spaceModulesEvenly(layout(alignModuleRank(nodes, row), edges), row);
-  }, [graph, alignModules]);
+  }, [drawn, alignModules]);
 
   // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this
   // costs nothing and cannot move the picture under the pointer.
@@ -617,7 +667,6 @@ export function ChainsTab({
             selected={selected}
             trackOrder={trackOrder}
             onSelect={selectFromGraph}
-            onPickModule={onPickModule}
             onContextMenu={onContextMenu}
             onEdgeInsert={onEdgeInsert}
             onCanvasInsert={onCanvasInsert}

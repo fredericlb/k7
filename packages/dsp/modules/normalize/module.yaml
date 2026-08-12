@@ -16,6 +16,6 @@ params:
   # The measured peak of the input, in dBFS, written by the cold pass. 0 until it has run —
   # which makes the module attenuate rather than boost, the harmless direction to be wrong in.
   Peak: 0
-docs: >-
-  Peak normalisation. Measures the loudest sample of the whole file and applies the gain that
-  puts it at Target. Only works on a file input: live, there is nothing to measure yet.
+# In a paragraph: peak normalisation. Measures the loudest sample of the whole file and applies
+# the gain that puts it at Target. Only works on a file input — live, there is nothing to
+# measure yet. (Was `docs:`; the field is gone, see packages/song/docs/docModules.md.)

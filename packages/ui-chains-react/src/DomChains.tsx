@@ -362,6 +362,28 @@ const CSS = `
   box-shadow:0 1px 4px rgba(0,0,0,.45); }
 .dgx-fbtn svg { width:11px; height:11px; }
 /* The frost itself: a wash over the node, under its contents, so the node still reads while reading as inert. */
+
+/* A track's CLIPS, listed under its controls. Rows rather than a paragraph: the eye scans a
+   lane's contents down, and each row is one clip whose name is ellipsed rather than wrapped —
+   a card is only as wide as its grid, and a wrapped name would push the list past its box.
+   A missing clip is red because a lane pointing at material that is not there is the one state
+   this list exists to catch. See CLIP_LIST_MAX in @studio/ui-chains for the counted overflow. */
+.dgx-clips { position:absolute; left:0; right:0; bottom:0; padding:0 7px 6px;
+  display:flex; flex-direction:column; gap:1px; overflow:hidden; }
+.dgx-clip { display:flex; align-items:center; height:14px; font-size:10px; line-height:14px;
+  color:var(--fg); opacity:.72; }
+.dgx-clip-nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dgx-clip.missing { color:#ef4444; opacity:1; }
+.dgx-clip.more { opacity:.5; font-style:italic; }
+
+/* A NOTE — a doc module. Deliberately unlike every other card: no accent bar, no header, a
+   paper tint and a dashed edge, so prose is never mistaken for something in the signal path.
+   It is still a node (it ranks and takes a cable), it just does not look like a device. */
+.dgx-note { --accent:var(--mauve); border-style:dashed;
+  background:color-mix(in srgb, var(--mauve) 7%, var(--card)); }
+.dgx-note-body { padding:10px; font-size:11.5px; line-height:17px;
+  white-space:pre-wrap; overflow-wrap:anywhere; overflow:hidden;
+  color:var(--fg); opacity:.86; }
 .dgx-node.frozen { background-image:linear-gradient(rgba(125,211,252,.12), rgba(125,211,252,.12)); }
 /* The module being created: a node drawn where it will land, saying only that something is on its way. Dashed,
    because a solid border would claim it exists. */
@@ -1561,6 +1583,39 @@ function NodeInner({
       </div>
     );
 
+  /**
+   * A NOTE: a doc module, drawn as its text and nothing else.
+   *
+   * Before the LOD branch on purpose. Every other card drops to its name when the camera pulls
+   * back, because widgets stop being readable and the name is what is left; a note has no
+   * widgets and its text IS the card, so shrinking it to the instance's filename would replace
+   * the only thing worth reading with the one thing that is not.
+   *
+   * No jacks drawn either: a note takes one input and gives nothing back, and a socket on a
+   * comment invites a wire out of it. The cable INTO it is the ordinary one — that is what says
+   * which part of the chain the note is about. See @studio/song's docs/docModules.md.
+   */
+  if (n.note !== undefined)
+    return (
+      <div
+        className={`${cls} dgx-note`}
+        style={{
+          left: n.x,
+          top: n.y,
+          width: n.w,
+          height: n.h,
+          opacity: n.dim ? 0.5 : 1,
+        }}
+        onClick={() => onTapNode(n)}
+        onContextMenu={(e) => onContext(n, e)}
+        title={n.label}
+      >
+        {/* `pre-wrap`: the author's own line breaks are the shape of the note, and a long line
+            still wraps inside the width `noteSize` reserved for it. */}
+        <div className="dgx-note-body">{n.note}</div>
+      </div>
+    );
+
   // Far LOD: widgets are unreadable at this zoom, so the whole card becomes the name, sized to fill it.
   if (far) {
     const label = n.label || (n.kind === "sink" ? "OUT" : n.kind);
@@ -1866,6 +1921,33 @@ function NodeInner({
         // No grid and no content: keep the card's shape and say what is missing. A flagged module says WHY, in red.
         <div className={`dgx-empty${flagCls}`}>{flagText ?? "No Options"}</div>
       )}
+      {/* What this lane HOLDS, under its controls. Only on a track, only when it holds
+          something, and only once the widgets are legible — at far zoom the card is its name
+          and a list of clip refs would be a grey smear.
+
+          A "missing" clip is called out: a lane pointing at material that is not there looks
+          exactly like a full one otherwise, which is the failure this list is best at catching.
+          The count line replaces the tail rather than extending it — see CLIP_LIST_MAX. */}
+      {n.kind === "track" && n.clips?.length && showWidgets ? (
+        <div className="dgx-clips">
+          {n.clips.map((c) => (
+            <div
+              key={`${c.ref}@${c.start}`}
+              className={`dgx-clip${c.kind === "missing" ? " missing" : ""}`}
+              title={
+                c.kind === "missing"
+                  ? `${c.ref} — no such clip in this project`
+                  : `${c.ref} (${c.kind})`
+              }
+            >
+              <span className="dgx-clip-nm">{c.ref}</span>
+            </div>
+          ))}
+          {n.clipsMore ? (
+            <div className="dgx-clip more">+{n.clipsMore}</div>
+          ) : null}
+        </div>
+      ) : null}
       {armBar}
     </div>
   );

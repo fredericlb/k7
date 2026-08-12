@@ -272,8 +272,20 @@ export const ModuleSchema = z
     gain: z.number().optional(),
     ui: UISchema.optional(),
     automations: z.array(AutomationSchema).optional(), // curves driving this module's params
-    docs: z.string().optional(),
-    todos: z.array(z.string()).optional(),
+    /**
+     * A NOTE on the graph — the whole of what a doc module carries.
+     *
+     * Multiline free text, shown as it is written on the node itself. It replaces the `docs:`
+     * and `todos:` fields that used to sit here and on tracks: those were only ever readable in
+     * a bottom panel, which meant a note about a module lived somewhere you had to go and look,
+     * next to notes about everything else. A note is now a THING IN THE GRAPH, wired from what
+     * it is about, and read where you are already looking.
+     *
+     * It belongs to an INSTANCE in practice — every note is an instance of `@studio/doc` — but
+     * it is declared on the module like any other setting, because that is what makes an
+     * instance able to override it. See docs/docModules.md.
+     */
+    content: z.string().optional(),
   })
   .strict(); // an unknown key is a typo — silently ignoring `paramz:` is worse than saying so
 

@@ -735,7 +735,6 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "color": "",
       "contentType": "notes",
       "disabled": false,
-      "docs": "The rising C-major scale intro. Placeholder line until the real melody is written.",
       "generated": false,
       "group": "",
       "id": "melody",
@@ -761,10 +760,6 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "role": "regular",
       "sends": [],
       "solo": false,
-      "todos": [
-        "Write the actual melody",
-        "Decide whether it doubles the bass",
-      ],
     },
     {
       "automation": [],

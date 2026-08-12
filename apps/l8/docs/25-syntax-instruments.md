@@ -9,8 +9,6 @@ A module — its own folder named for the module (the folder IS the name; there'
 plugin:
   type: internal
   name: 4osc
-# docs: "the lead voice"
-# todos: ["try a longer release"]
 # params:
 #   Filter Freq: 69
 #   nam: "jcm800.nam"      # a file the module carries, in its own assets/ folder
@@ -18,6 +16,38 @@ plugin:
 # modules/io/OUT/module.yaml — the stereo-output sink
 io: out
 ```
+
+### A note on the graph
+
+A **doc module** is a note: one input, no output, and one field — `content`, free multiline text
+drawn on the node exactly as you write it. Wire it from whatever it is about, and it says so
+where you are already looking.
+
+Every note is an **instance of `@studio/doc`**, which is built in: there is no module file to
+create, so a note costs one file — its instance.
+
+```yaml schema=Module
+# instances/notes-amp.yaml — one note
+extends: "@studio/doc"
+content: |
+  Le NAM tire fort : -6 dB avant,
+  sinon ça écrête sur les attaques.
+```
+
+…then wire it in `chains.yaml`, like anything else:
+
+```
+modules:
+  ampli: [ reverb, notes-amp ]
+```
+
+Notes are **hidden by default** and shown by the note button in the footer, beside the mixer —
+they sit in the signal path, so drawing them always would put prose in the middle of the thing
+you are trying to read.
+
+> This replaced the `docs:` and `todos:` fields modules and tracks used to carry, and the Docs
+> panel that was their only reader. A file carrying one of them will no longer open: move the
+> prose into a `#` comment, or into a note if it is about the signal.
 
 An `io: in` module is a live interface input instead. It carries `channel:` — a channel number, a pair for a stereo input, or one of the labels from your preferences — plus two optional settings for what the input does before anything else sees it. It names no track: an input lands on the track at the head of the run it sits in, so one module can be shared by every project in a workspace. See [Chains](#syntax-chains).
 

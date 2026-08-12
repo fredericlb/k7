@@ -47,8 +47,10 @@ describe("derived module fields", () => {
       "gain", // the other thing an input does to its signal, beside whether you hear it
       "ui",
       "automations",
-      "docs",
-      "todos",
+      // `docs` and `todos` sat here. They are gone with the Docs panel that was their only
+      // reader: a note is a doc module on the graph now, and `content` is its text — the whole
+      // of what a doc module carries. See docs/docModules.md.
+      "content",
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));

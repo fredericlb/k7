@@ -4,6 +4,7 @@
 // an assembler is now a compile error rather than an `undefined` that flows to the engine.
 
 import type { ProjectMode } from "@studio/engine-protocol/project";
+import type { ModuleKind } from "./moduleTypes";
 
 /** One entry of a track's `clips:` list — a placement of a clip/sequence by ref. */
 export interface RawPlacement {
@@ -138,11 +139,11 @@ export interface LoadedModule {
   track?: unknown; // io "in" only
   monitor?: unknown; // io "in" only
   gain?: unknown; // io "in" only — interface trim in dB
-  docs?: unknown;
-  todos?: unknown;
+  // A NOTE's text, on a doc module. `docs`/`todos` were here and are gone — see moduleSchema.
+  content?: unknown;
   automations?: unknown;
   // -- added by the loader ------------------------------------------------------
-  kind: "io" | "plugin"; // from the type folder (MODULE_TYPES)
+  kind: ModuleKind; // from the type folder (MODULE_TYPES)
   // The module's ports: its OWN when it declares them, else its type folder's defaults. Both
   // resolved by the loader, so nothing downstream has to know which of the two it got.
   // See docs/ports.md.

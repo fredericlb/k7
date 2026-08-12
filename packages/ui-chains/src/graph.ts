@@ -175,6 +175,25 @@ export interface GraphNode extends Carried, Flags {
    * nodes and no graph, and a cable's shape is a fact about its ends.
    */
   flow?: "across";
+  /**
+   * This node is a NOTE, and this is its text — a doc module's `content`, drawn as written.
+   *
+   * On the node rather than looked up by the renderer because a node already carries everything
+   * needed to draw it, and because the SIZE below is computed from this text: dagre has to be
+   * told how much room the prose needs before anything is drawn. See `noteSize`.
+   */
+  note?: string;
+  /**
+   * TRACK only: the clips this lane holds, in playing order — listed under its mixer controls.
+   *
+   * On the node for the same reason `note` is: the size below is computed from it, so dagre has
+   * to be told how much room the list needs before anything is drawn. Trimmed to `CLIP_LIST_MAX`
+   * with the overflow counted (`clipsMore`) rather than shown — a lane with sixty clips would
+   * otherwise be a node taller than the window, and the graph is a picture of the ROUTING.
+   */
+  clips?: { ref: string; start: number; kind: "audio" | "midi" | "missing" }[];
+  /** How many clips did not fit in `clips`. 0 when the list is complete. */
+  clipsMore?: number;
   // The node's size, per-node because a module's UI decides it — dagre is told these and reserves the real space.
   w: number;
   h: number;
@@ -414,6 +433,89 @@ export function headerFontPx(label: string, availableW: number): number {
   const n = Math.max(1, label.length);
   const byWidth = availableW / (n * GLYPH_W);
   return Math.max(HEADER_MIN_PX, Math.min(HEADER_MAX_PX, byWidth));
+}
+
+// --- notes (doc modules) ---------------------------------------------------------
+
+/** A note's text metrics: monospace-ish, and the box it needs. See @studio/song's docs/docModules.md. */
+const NOTE_CHAR_W = 6.6; // one glyph at the size the renderer draws a note
+const NOTE_LINE_H = 17;
+const NOTE_PAD = 10;
+const NOTE_MIN_W = 140;
+const NOTE_MAX_W = 320; // past this a note is a document, and it wraps instead of widening
+
+/**
+ * How big a NOTE has to be to show its text — dagre is told this, so a note reserves real space
+ * rather than overlapping the chain it is about.
+ *
+ * Wrapped at `NOTE_MAX_W` rather than widened without limit: one long paragraph would otherwise
+ * push every rank of the graph sideways to make room for prose, which is the opposite of what a
+ * note is for. The height then follows the WRAPPED line count, so the box fits what is drawn.
+ */
+export function noteSize(text: string): { w: number; h: number } {
+  const lines = (text || "").split("\n");
+  const widest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+  const w = Math.max(
+    NOTE_MIN_W,
+    Math.min(NOTE_MAX_W, widest * NOTE_CHAR_W + NOTE_PAD * 2),
+  );
+  const perLine = Math.max(1, Math.floor((w - NOTE_PAD * 2) / NOTE_CHAR_W));
+  // Every authored line takes at least one drawn line, and a long one takes as many as it wraps to.
+  const drawn = lines.reduce(
+    (n, l) => n + Math.max(1, Math.ceil(l.length / perLine)),
+    0,
+  );
+  return { w, h: Math.max(NODE_H, drawn * NOTE_LINE_H + NOTE_PAD * 2) };
+}
+
+// --- a track's clip list (see docs/graphBuild.md) --------------------------------
+
+/** How many clips a track node lists before it starts counting the rest instead. */
+export const CLIP_LIST_MAX = 6;
+const CLIP_ROW_H = 15;
+const CLIP_LIST_PAD = 6;
+
+/**
+ * The clip list of a TRACK node, and the extra height it needs — spread in beside its size.
+ *
+ * The height ADDS to the mixer grid's rather than replacing it: a track node draws its five
+ * controls and then what the lane holds, so both have to fit. A lane with no clips gets nothing
+ * at all — not an empty list and not a heading — because a node that says "0 clips" is a node
+ * that has grown to tell you nothing.
+ */
+function clipsOf(
+  graph: WebGraph,
+  track: string,
+  base: { w: number; h: number },
+): Partial<GraphNode> {
+  const all = graph.trackClips?.[track];
+  if (!all?.length) return {};
+  const clips = all.slice(0, CLIP_LIST_MAX);
+  const more = all.length - clips.length;
+  // The overflow line costs a row too, when there is one.
+  const rows = clips.length + (more > 0 ? 1 : 0);
+  return {
+    clips,
+    ...(more > 0 ? { clipsMore: more } : {}),
+    w: base.w,
+    h: base.h + CLIP_LIST_PAD + rows * CLIP_ROW_H,
+  };
+}
+
+/**
+ * The note bits of a module node, or nothing — spread into the node beside its size.
+ *
+ * A module is a note exactly when the graph's `modules` map holds it: that map is keyed by DOC
+ * modules and nothing else (see the file service's graphDoc.ts), so asking it is the whole test.
+ */
+function noteOf(
+  g: WebGraph,
+  module: string,
+): { note: string; w: number; h: number } | Record<string, never> {
+  const meta = g.modules?.[module];
+  if (!meta || meta.content === undefined) return {};
+  const text = meta.content;
+  return { note: text, ...noteSize(text) };
 }
 
 // How big a node must be to hold `ui`; falls back to the plain size, so a project with no UIs lays out as before.
@@ -732,6 +834,10 @@ export function buildGraph(
         // is what let `assetChoices` reach the browser and stop short of the node.
         ...carryStep(s),
         ...nodeSize(s.ui), // a module with a UI is as big as its grid needs
+        // …and a NOTE is as big as its text. `g.modules` is keyed by doc modules alone, so a
+        // hit here IS "this node is a note" — no second field, and no lookup table to keep in
+        // step with one. The size overrides the one above: a note has no widget grid.
+        ...noteOf(graph, s.module),
       });
       // Track the maximum position this module occupies across all chains.
       moduleRank.set(mid, Math.max(moduleRank.get(mid) ?? 0, i));
@@ -806,6 +912,10 @@ export function buildGraph(
           hasNativePluginUI: false,
           ui, // the mixer controls; values arrive via setTrackControls
           ...nodeSize(ui), // grow the node to fit its grid
+          // …and again to fit what the lane HOLDS. A routing diagram that showed where a
+          // track's signal goes but never what it plays made you open the timeline to answer
+          // "which take is on this lane" — a question about the lane, asked at the lane.
+          ...clipsOf(graph, c.from, nodeSize(ui)),
         });
         // A sequences track puts MIDI on the wire, an audio one audio, and a video lane picture whatever trackSignals says.
         link(

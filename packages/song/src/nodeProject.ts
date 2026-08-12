@@ -765,11 +765,9 @@ export function compileNodeProject(dir: string): ProjectDoc {
         : (trackPlugins[id] ?? []),
       sends: trackSends[id] ?? [],
       automation: [],
-      // Carried through for surfaces, omitted when unset so they never widen the playable model.
-      ...(typeof t.docs === "string" ? { docs: t.docs } : {}),
-      ...(Array.isArray(t.todos)
-        ? { todos: t.todos.map(String).filter((s) => s) }
-        : {}),
+      // `docs`/`todos` were carried through here for the Docs panel. Both are gone: a note is a
+      // doc module on the graph now, and the track schema refuses the fields outright — so this
+      // could only ever have copied something nothing can author. See docs/docModules.md.
       ...(frozen[id] ? { frozen: frozen[id] as string } : {}),
     }),
   );

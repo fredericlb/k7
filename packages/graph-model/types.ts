@@ -151,10 +151,16 @@ export interface WebChain {
   enabled?: boolean; // whole-chain bypass
   out: WebOut[];
 }
-// Per-module metadata off the signal path (notes, to-dos), keyed by the name a chain step's `module` references.
+/**
+ * Per-module metadata off the signal path, keyed by the name a chain step's `module` references.
+ *
+ * One field, and it belongs to DOC modules: the note's text, drawn on the node as written. It
+ * was `{docs, todos}` on every module, for a bottom panel that listed everybody's notes in one
+ * place; a note is its own node now — an instance of `@studio/doc`, wired from what it is about
+ * — so the text is read where you are already looking. See `@studio/song`'s docs/docModules.md.
+ */
 export interface WebModuleMeta {
-  docs?: string;
-  todos?: string[];
+  content?: string;
 }
 /**
  * How a routing graph names a PORT on a node: `crossfade#b`.
@@ -184,6 +190,21 @@ export function splitPort(ref: string): { node: string; port?: string } {
 export const portRef = (node: string, port?: string): string =>
   port ? `${node}${PORT_SEP}${port}` : node;
 
+/**
+ * One clip a track holds, as the GRAPH needs it — enough to list it on the track's node.
+ *
+ * A trim of the compiled `Placement`: no `loop`, because a node lists WHAT is on a lane and the
+ * timeline is where how-many-passes is read. `kind` is here because "missing" is the one thing
+ * about a clip a routing diagram must say out loud — a lane pointing at material that is not
+ * there looks identical to a full one otherwise.
+ */
+export interface WebTrackClip {
+  ref: string;
+  /** Beats from the start of the song. Sorted on, so the list reads in playing order. */
+  start: number;
+  kind: "audio" | "midi" | "missing";
+}
+
 export interface WebGraph {
   chains: Record<string, WebChain>;
   tracks: string[]; // track ids, for resolving `from`
@@ -193,12 +214,17 @@ export interface WebGraph {
   trackSignals?: Record<string, WebSignal>;
   // Per-track display colour by track id — the timeline's colour. Absent when the track authors none.
   trackColors?: Record<string, string>;
+  // What each track HOLDS, by track id, in playing order — listed on the track's own node so the
+  // graph says what a lane plays and not only where its signal goes. Absent for a lane with no
+  // clips, and for a group or a strudel lane, which hold no placements at all.
+  trackClips?: Record<string, WebTrackClip[]>;
   // The ids of tracks currently FROZEN: playing a render of themselves. The graph marks their lane and every
   // module downstream of it, because those modules are in the render and no longer run — and a node you can still
   // click a knob on had better not be one the engine stopped listening to.
   frozenTracks?: string[];
-  // Every module's notes/checklist by name — always populated by the backend, so the Docs panel is complete.
-  // Optional because the layout-only subgraphs feeding dagre carry geometry, not docs.
+  // The note text of every module that has one, by name — so the renderer can draw it on the
+  // node. Only doc modules carry one, so this is empty for almost every project.
+  // Optional because the layout-only subgraphs feeding dagre carry geometry, not notes.
   modules?: Record<string, WebModuleMeta>;
   // Every curve a module binds, keyed by id — its shape, for the node's label. An unreferenced curve draws nothing.
   curves?: Record<string, WebCurve>;

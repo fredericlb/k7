@@ -17,4 +17,5 @@ params:
   # The graph's own parameter, by its display name — that is how a param finds its plugin
   # (see applyPluginParams). Centred: both decks at once, which is what makes the demo audible.
   Mix: 0.5
-docs: A two-input crossfade. Mix at 0 is deck A alone, at 1 deck B alone, at 0.5 both at half.
+# A two-input crossfade. Mix at 0 is deck A alone, at 1 deck B alone, at 0.5 both at half.
+# (Was `docs:`. To say this on the GRAPH, wire this module into an instance of `@studio/doc`.)

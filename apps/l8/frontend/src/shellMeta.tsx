@@ -10,7 +10,6 @@ import {
   LayoutGrid,
   Loader2,
   type LucideIcon,
-  NotebookText,
   Pause,
   Play,
   ScrollText,
@@ -49,7 +48,10 @@ export const VIEW_META: Record<
   live: { icon: Workflow, label: "Live", third: "chains" },
 };
 
-// The bottom panels: `graph` is the caret track's path, `docs` its notes, `logs` both.
+// The bottom panels: `graph` is the caret track's path, `logs` what happened.
+//
+// `docs` was a third — a project's notes and to-dos in one list. A note is a doc module in the
+// GRAPH now, toggled beside the mixer, so there is nothing left for a panel to aggregate.
 //
 // Two things left this row rather than being added to it. The MIXER is a view of the graph and
 // is drawn where the graph is; its button sits beside these all the same (see App.tsx). The
@@ -58,7 +60,6 @@ export const VIEW_META: Record<
 // same roll twice and inviting the two to disagree.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
   graph: { icon: Workflow, label: "Graph" },
-  docs: { icon: NotebookText, label: "Docs" },
   logs: { icon: ScrollText, label: "Logs" },
 };
 

@@ -66,15 +66,42 @@ export interface PortDef {
  * KIND of signal leaves (one word, used for cable colour), while a port is a place something can
  * be wired to. One output is the overwhelming default, and naming it lets the rest be named too.
  */
+/**
+ * What a module IS, at the coarsest level — which decides what happens to it at the wire.
+ *
+ * Three, not two. `plugin` becomes something the engine loads; `io` is an edge of the signal
+ * (a source or a sink); `doc` is neither and is the point of the third value: it is drawn on
+ * the graph and never reaches the engine at all. Calling a doc an `io` sink would have been
+ * cheaper by one union member and would have made every "is this a sink" test answer yes about
+ * a note somebody wrote — including the ones that decide what a chain ENDS on.
+ */
+export type ModuleKind = "io" | "plugin" | "doc";
+
 export const MODULE_TYPES: Record<
   string,
   {
-    kind: "io" | "plugin";
+    kind: ModuleKind;
     inputs: PortDef[];
     outputs: PortDef[];
   }
 > = {
   io: { kind: "io", inputs: [], outputs: [] },
+  /**
+   * A note on the graph. ONE input, NO output — see docs/docModules.md.
+   *
+   * The input is what attaches it: a note is wired from whatever it is about, so `ampli:
+   * [ reverb, notes ]` says "this note is about the amp". No output, because a note is where a
+   * run stops being signal — anything downstream of it would be documentation feeding audio.
+   *
+   * `audio` is the port type and it is not a claim about the note: nothing is carried, and the
+   * graph refuses no wire into it (see `docPortType`). It is the type that draws the ordinary
+   * cable, which is what a reader expects to see going into a comment about an audio chain.
+   */
+  docs: {
+    kind: "doc",
+    inputs: [{ name: "in", type: "audio", mandatory: false }],
+    outputs: [],
+  },
   instruments: {
     kind: "plugin",
     inputs: [{ name: "midi", type: "midi" }],
@@ -196,6 +223,29 @@ export const isFileParam = (name: string): name is FileParam =>
  * being offline. See docs/coldModules.md.
  */
 export const OFFLINE_TYPE = "offline";
+
+// --- the doc module (see docs/docModules.md) -------------------------------------
+
+/**
+ * `@studio/doc` — the module every note on the graph is an INSTANCE of.
+ *
+ * It names no folder, exactly as `@engine/nam` names none (docs/moduleNamespaces.md): there is
+ * one doc module for the whole studio and nothing to scaffold, so a note costs one file — its
+ * instance — and nothing else. It is the second module in the repo that exists without a file,
+ * and the first that exists without an engine behind it either.
+ *
+ * A note is an instance because that is what an instance IS here: one USE of a module with its
+ * own settings. Two notes are two instances of one module for the same reason two 4OSCs are.
+ * Their setting happens to be text (`content`) rather than a number.
+ *
+ * `@studio` is its own level and not `@engine`, deliberately: the engine never hears of this.
+ */
+export const STUDIO_NS = "@studio";
+export const DOC_CATEGORY = "docs";
+export const DOC_REF = `${STUDIO_NS}/doc`;
+
+/** Is this what a note extends? The one spelling of the ref, so a typo cannot half-work. */
+export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
 
 // --- ports (see docs/ports.md) --------------------------------------------------
 
