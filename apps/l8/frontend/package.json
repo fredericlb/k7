@@ -30,6 +30,7 @@
     "@studio/ui-editor": "*",
     "@studio/ui-module-builder": "*",
     "@studio/ui-timeline": "*",
+    "@studio/ui-turntables": "*",
     "@studio/ui-waveform": "*",
     "@studio/web-protocol": "*",
     "@uiw/react-codemirror": "^4.23.0",
