@@ -86,7 +86,8 @@ function mirror(from: string, to: string): void {
  * REGENERATED on every open rather than kept: the catalogue is what it is a view of, and a
  * bench that had drifted from it would be worse than no bench — you would be editing a module
  * that is not the one anybody else sees. What survives a regeneration is the part that is
- * yours: `chains.yaml`, `instances/` and `tracks/`, which is exactly what you wire.
+ * yours: `chains.yaml` and `instances/`, which is exactly what you wire (the lane is an
+ * instance too now — see packages/song/docs/trackModules.md).
  */
 export function ensureBench(userEmail: string): {
   workspace: string;
@@ -100,7 +101,7 @@ export function ensureBench(userEmail: string): {
  * Bring a bench made before `live` existed forward, in place.
  *
  * The folder is regenerated on every open but `project.yaml` is NOT — it is written once, and
- * `chains.yaml`/`tracks/`/`instances/` are deliberately what survives (see `ensureBench`). So a
+ * `chains.yaml`/`instances/` are deliberately what survives (see `ensureBench`). So a
  * bench that already existed would keep saying "arrangement" forever and open with a timeline
  * over the graph, which is the one shape a bench has never been.
  *

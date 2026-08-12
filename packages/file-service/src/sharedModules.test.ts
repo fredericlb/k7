@@ -37,7 +37,7 @@ beforeEach(() => {
   });
   writeFileSync(
     join(proj, "chains.yaml"),
-    'tracks:\n  bs.lead: [ "@workspace/audio/delay/tape-delay" ]\nmodules:\n  "@workspace/audio/delay/tape-delay": [ OUT ]\n',
+    'modules:\n  bs.lead: [ "@workspace/audio/delay/tape-delay" ]\n  "@workspace/audio/delay/tape-delay": [ OUT ]\n',
     "utf8",
   );
   ws = new Workspace(root);

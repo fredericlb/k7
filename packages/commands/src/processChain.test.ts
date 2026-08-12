@@ -64,15 +64,15 @@ function song(): string {
   put(
     d,
     "chains.yaml",
-    "tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ strip ]\n  strip: [ OUT ]\n",
+    "modules:\n  gtr: [ amp ]\n  amp: [ strip ]\n  strip: [ OUT ]\n",
   );
   mkdirSync(join(d, "clips"), { recursive: true });
   wav(join(d, "clips", "riff.wav"));
   put(d, "clips/riff.yaml", "# hand-written\nsource: clips/riff.wav\n");
   put(
     d,
-    "tracks/gtr.yaml",
-    'type: single\ncontentType: audio\nclips:\n  - { ref: riff, start: "1:1" }\n',
+    "instances/gtr.yaml",
+    'extends: "@studio/audio-track"\nclips:\n  - { ref: riff, start: "1:1" }\n',
   );
   put(
     d,
@@ -100,7 +100,7 @@ function mediatek(): string {
   put(
     d,
     "chains/live/vocal-strip/chains.yaml",
-    'tracks:\n  "@in": [ hp ]\nmodules:\n  hp: [ air ]\n  air: [ "@out" ]\n',
+    'modules:\n  "@in": [ hp ]\n  hp: [ air ]\n  air: [ "@out" ]\n',
   );
   put(
     d,
@@ -152,7 +152,7 @@ describe("resolving a chain of the project", () => {
     put(
       dir,
       "chains.yaml",
-      "tracks:\n  gtr: [ strip ]\nmodules:\n  strip: [ OUT ]\n",
+      "modules:\n  gtr: [ strip ]\n  strip: [ OUT ]\n",
     );
     expect(() => resolveChain(dir, loadProject(dir), "gtr")).toThrow(
       /no treatment to apply/,
@@ -242,7 +242,7 @@ describe("what a target names", () => {
   });
 
   it("refuses a track with nothing to process", () => {
-    put(dir, "tracks/empty.yaml", "type: single\ncontentType: audio\n");
+    put(dir, "instances/empty.yaml", 'extends: "@studio/audio-track"\n');
     expect(() =>
       resolveTargets(dir, loadProject(dir), "empty", "track"),
     ).toThrow(/no audio clips/);

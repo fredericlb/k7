@@ -3,7 +3,7 @@
 // runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
@@ -69,14 +69,10 @@ import {
   MIN_GAIN_DB,
   movePlacementToTrack,
   moveTrackPlacement,
-  newTrackAlternative,
   panToLabel,
   removeTrackPlacement,
   resizeTrackPlacement,
-  setTrackFields,
   setTrackPlacementDisabled,
-  switchTrackAlternative,
-  type TrackFields,
 } from "@studio/song/trackMix";
 import { migrateModuleUis } from "@studio/song/uiMigrate";
 import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
@@ -94,12 +90,7 @@ import {
 } from "./git";
 import { DEFAULT_PEAK, normalizeInPlace } from "./normalize";
 import { processWithChain, type Scope } from "./processChain";
-import { freezeTrackRender } from "./render";
 import { describeTimeline, describeTrack } from "./timeline";
-
-// Where a freeze render lands: beside the track's own file, named for it. `tracks/melody.wav` sits next to
-// `tracks/melody.yaml`, so which render belongs to which track needs no explaining.
-const FROZEN_DIR = "tracks";
 
 export type TransportAction = "play" | "stop" | "toggle" | "rewind";
 
@@ -217,13 +208,10 @@ function arrowError(
   const file = loadChains(songPath, loadProjectRoot(songPath, true), true) as
     | ChainsFile
     | undefined;
-  const dests = file?.tracks?.[before] ?? file?.modules?.[before];
+  const dests = file?.modules?.[before];
   if (!dests)
     return `no node "${before}" in chains.yaml (nodes: ${
-      [
-        ...Object.keys(file?.tracks ?? {}),
-        ...Object.keys(file?.modules ?? {}),
-      ].join(", ") || "none"
+      Object.keys(file?.modules ?? {}).join(", ") || "none"
     })`;
   if (!dests.includes(after))
     return `'${before}' does not feed '${after}' (it feeds: ${dests.join(", ") || "nothing"})`;
@@ -429,121 +417,55 @@ async function newTrack(
   }
 }
 
-// What a mixer edit can address. A group is authored as a track and shares mute/solo, but has no lane of its own.
-type MixTarget = Pick<TrackDoc, "id" | "name" | "mute" | "solo">;
+// What a mute/solo can address. A group is a lane too — one that carries no signal — and both are
+// silenced the same way, by name, in `chains.yaml`'s `bypassed:`.
+type MixTarget = Pick<TrackDoc, "id" | "name" | "mute">;
 
-// The mixer's own subset of the writable track fields. `frozen` is written the same way but is not a mixer move:
-// it names a file rather than setting a level, it can be null (the unfreeze), and mixMutate spreads what it gets
-// straight onto a TrackDoc, where a null would not belong.
-type MixFields = Omit<TrackFields, "frozen">;
-
-// A mixer edit: resolve the track (or group), compute its new fields, write them to its file, then re-send.
-// `groups: true` opts a verb in — only mute/solo, which fold onto the members; gain/pan would write a dead field.
 /**
- * The shared front half of the three `track alternative` verbs: resolve the track, refuse the
- * ones that hold no clips, report the failure once.
+ * Silence (or un-silence) a set of lanes, and push the result.
  *
- * A group and a strudel lane are named apart, because "no track" would send you hunting a typo
- * in a name that is right — the same reason `mixMutate` says which kind of thing you named.
+ * A lane's mute IS its module's bypass — one state, in the one place a bypass is written
+ * (packages/song/docs/trackModules.md). `track mute` and `track solo` are both this: mute toggles
+ * the lane named, solo bypasses every OTHER one. Nothing is stored for solo, which is why it is
+ * spelled as the set of mutes it produces rather than as a flag of its own.
+ *
+ * The doc is mutated and pushed rather than reloaded, so a mixer move stays snappy.
  */
-async function withAlternativeTrack(
-  a: string,
+async function setLaneBypass(
   h: CommandHost,
-  usage: string,
-  run: (
-    t: ProjectDoc["tracks"][number],
-    name: string | undefined,
-  ) => Promise<void>,
+  want: Map<string, boolean>,
+  line: string,
 ): Promise<void> {
-  const [id, name] = a.trim().split(/\s+/).filter(Boolean);
-  if (!id) {
-    h.log([`usage: ${usage}`]);
-    return;
-  }
   const p = h.project();
-  const matches = (x: { id: string; name: string }) =>
-    x.id === id || x.name === id;
-  const t = p.tracks.find(matches);
-  if (!t) {
-    h.log([
-      p.groups.some(matches)
-        ? `"${id}" is a group — alternatives belong to a track, which is what holds clips`
-        : `no track "${id}"`,
-    ]);
-    return;
-  }
-  if (t.generated) {
-    h.log([
-      `'${t.id}' is a strudel track — its clips are streamed by the pattern, so there is nothing to keep a variant of`,
-    ]);
-    return;
-  }
-  // A frozen lane plays its RENDER, and the render is of one arrangement. Switching would leave
-  // the picker saying one thing and the speakers playing another, which is the one failure this
-  // control exists to prevent — so it is refused, with the way out named.
-  if (t.frozen) {
-    h.log([
-      `'${t.id}' is frozen — it plays a render of one arrangement, so run 'track freeze ${t.id}' before changing which one`,
-    ]);
-    return;
-  }
-  try {
-    await run(t, name);
-  } catch (e) {
-    h.log([`track alternative: ${(e as Error).message}`]);
-  }
+  for (const [id, bypassed] of want) setModuleBypass(h.songPath, id, bypassed);
+  await h.applyProject({
+    ...p,
+    tracks: p.tracks.map((x) =>
+      want.has(x.id) ? { ...x, mute: want.get(x.id) as boolean } : x,
+    ),
+    groups: p.groups.map((x) =>
+      want.has(x.id) ? { ...x, mute: want.get(x.id) as boolean } : x,
+    ),
+  });
+  h.log([line]);
 }
 
-async function mixMutate(
-  a: string,
-  h: CommandHost,
-  verb: string,
-  fields: (t: MixTarget, args: string[]) => MixFields,
-  describe: (t: MixTarget, f: MixFields) => string,
-  { groups = false }: { groups?: boolean } = {},
-): Promise<void> {
-  const [id, ...rest] = a.trim().split(/\s+/).filter(Boolean);
+/** Resolve a `track mute`/`track solo` argument to a lane or a group, or report why not. */
+function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
+  const id = a.trim().split(/\s+/).filter(Boolean)[0];
   if (!id) {
-    h.log([`usage: ${verb} <${groups ? "track|group" : "track"}> …`]);
-    return;
+    h.log([`usage: ${verb} <track|group>`]);
+    return null;
   }
   const p = h.project();
   const matches = (x: { id: string; name: string }) =>
     x.id === id || x.name === id;
-  const t = p.tracks.find(matches);
-  const g = groups ? p.groups.find(matches) : undefined;
-  const target: MixTarget | undefined = t ?? g;
+  const target = p.tracks.find(matches) ?? p.groups.find(matches);
   if (!target) {
-    // Naming a group a verb can't take is a different mistake from naming nothing — say which, or you hunt a typo.
-    h.log([
-      !groups && p.groups.some(matches)
-        ? `"${id}" is a group — ${verb} takes a track (a group carries mute/solo only)`
-        : `no track "${id}"`,
-    ]);
-    return;
+    h.log([`no track "${id}"`]);
+    return null;
   }
-  try {
-    const f = fields(target, rest);
-    // Persist, then push the mutated doc as a cheap diff rather than reloading the project, so mixer moves stay snappy.
-    const np: ProjectDoc = t
-      ? {
-          ...p,
-          tracks: p.tracks.map((x) => (x.id === t.id ? { ...x, ...f } : x)),
-        }
-      : {
-          ...p,
-          groups: p.groups.map((x) =>
-            x.id === target.id
-              ? { ...x, mute: f.mute ?? x.mute, solo: f.solo ?? x.solo }
-              : x,
-          ),
-        };
-    setTrackFields(h.songPath, target.id, f);
-    await h.applyProject(np);
-    h.log([describe(target, f)]);
-  } catch (e) {
-    h.log([`${verb} failed: ${(e as Error).message}`]);
-  }
+  return target;
 }
 
 // --- the channel strip -------------------------------------------------------
@@ -779,24 +701,39 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "clip.onset.move": (a, h) => onsetCommand(a, h, "move"),
 
   // --- mixer (shared: TUI + CLI/web) — persisted to the track's file ----------
-  "track.mute": (a, h) =>
-    mixMutate(
-      a,
+  "track.mute": async (a, h) => {
+    const t = mixTarget(a, h, "mute");
+    if (!t) return;
+    const bypassed = !t.mute;
+    await setLaneBypass(
       h,
-      "mute",
-      (t) => ({ mute: !t.mute }),
-      (t, f) => `${t.id}: ${f.mute ? "muted" : "unmuted"}`,
-      { groups: true },
-    ),
-  "track.solo": (a, h) =>
-    mixMutate(
-      a,
+      new Map([[t.id, bypassed]]),
+      `${t.id}: ${bypassed ? "muted" : "unmuted"}`,
+    );
+  },
+  /**
+   * Solo, derived: bypass every OTHER lane, or lift it when they already are.
+   *
+   * Nothing on disk says "soloed" — a lane carries no flag and `chains.yaml` has no second list
+   * beside `bypassed:`. Solo IS the set of mutes it produces, which is why turning it off simply
+   * un-bypasses everything: there is no prior state to restore, and inventing a memory of one
+   * would be a second source of truth for what you can already see.
+   */
+  "track.solo": async (a, h) => {
+    const t = mixTarget(a, h, "solo");
+    if (!t) return;
+    const p = h.project();
+    const others = [...p.tracks, ...p.groups].filter((x) => x.id !== t.id);
+    const on = others.some((x) => !x.mute) || t.mute;
+    await setLaneBypass(
       h,
-      "solo",
-      (t) => ({ solo: !t.solo }),
-      (t, f) => `${t.id}: solo ${f.solo ? "on" : "off"}`,
-      { groups: true },
-    ),
+      new Map([
+        [t.id, false],
+        ...others.map((x) => [x.id, on] as [string, boolean]),
+      ]),
+      `${t.id}: solo ${on ? "on" : "off"}`,
+    );
+  },
   "track.gain": (a, h) =>
     stripParam(
       a,
@@ -827,125 +764,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "track.mid": (a, h) => eqBand(a, h, "mid", "Mid"),
   "track.high": (a, h) => eqBand(a, h, "high", "High"),
 
-  // track freeze <track> — bounce the track through its own modules and play THAT until it is unfrozen again.
-  // A toggle, like mute and solo, because it is the same kind of thing: one state of one track, flipped.
-  /**
-   * The three alternative verbs, which are one operation each on ONE track's file.
-   *
-   * All of them end in `h.reload()` rather than `applyProject` with a patched doc: switching
-   * changes the whole clip list, so there is nothing cheap to diff — re-reading the project is
-   * both simpler and what the engine has to be told anyway.
-   */
-  "track.alt.select": (a, h) =>
-    withAlternativeTrack(
-      a,
-      h,
-      "track alternative select <track> [name]",
-      async (t, name) => {
-        if (!name) {
-          // The list is the useful answer to "which ones are there?", so a bare call says it.
-          h.log([
-            t.alternatives?.length
-              ? `${t.id}: ${t.alternatives.map((n) => (n === t.alternative ? `[${n}]` : n)).join("  ")}`
-              : `${t.id} has one arrangement — 'track alternative create ${t.id}' starts a second`,
-          ]);
-          return;
-        }
-        switchTrackAlternative(h.songPath, t.id, name);
-        h.log([`${t.id}: playing alternative '${name}'`]);
-        await h.reload();
-      },
-    ),
-
-  "track.alt.create": (a, h) =>
-    withAlternativeTrack(
-      a,
-      h,
-      "track alternative create <track> [name]",
-      async (t, name) => {
-        const made = newTrackAlternative(h.songPath, t.id, name);
-        h.log([`${t.id}: alternative '${made}' — empty, and playing`]);
-        await h.reload();
-      },
-    ),
-
-  "track.alt.copy": (a, h) =>
-    withAlternativeTrack(
-      a,
-      h,
-      "track alternative copy <track> [name]",
-      async (t, name) => {
-        const made = newTrackAlternative(h.songPath, t.id, name, {
-          copy: true,
-        });
-        h.log([
-          `${t.id}: alternative '${made}' — a copy of the one that was playing`,
-        ]);
-        await h.reload();
-      },
-    ),
-
-  "track.freeze": async (a, h) => {
-    const id = a.trim().split(/\s+/).filter(Boolean)[0];
-    if (!id) {
-      h.log(["usage: track freeze <track>"]);
-      return;
-    }
-    const p = h.project();
-    const track = p.tracks.find((t) => t.id === id || t.name === id);
-    if (!track) {
-      h.log([
-        p.groups.some((g) => g.id === id || g.name === id)
-          ? `"${id}" is a group — freeze takes a track (a group computes nothing of its own to render)`
-          : `no track "${id}"`,
-      ]);
-      return;
-    }
-    // A strudel lane's material is streamed by PatternClock while the transport rolls; a stopped one has no clips
-    // at all, so its render would be a file of silence. Said plainly rather than discovered as an empty freeze.
-    if (track.generated) {
-      h.log([
-        `'${track.id}' is a strudel track — its material only exists while it plays, so it can't be frozen`,
-      ]);
-      return;
-    }
-
-    const render = join(h.songPath, FROZEN_DIR, `${track.id}.wav`);
-    if (track.frozen) {
-      // Unfreeze: the attribute goes, and so does the render. Leaving it would mean a dead file in the project's
-      // own folder, staged by the next `project commit` and stale the moment a module changes.
-      setTrackFields(h.songPath, track.id, { frozen: null });
-      rmSync(render, { force: true });
-      h.log([`${track.id}: unfrozen — its modules are live again`]);
-      await h.reload();
-      return;
-    }
-
-    const engine = findEngineBinary();
-    if (!engine) {
-      h.log([
-        "freeze failed: studio-moteur binary not found (build the engine)",
-      ]);
-      return;
-    }
-    // Stopped first: the render runs in its own engine process, but it reads the same sources the live one is
-    // playing, and a freeze that lands mid-playback swaps the track's contents under a rolling transport.
-    await h.transport("stop");
-    try {
-      freezeTrackRender(engine, p, track.name, render);
-    } catch (e) {
-      h.log([`freeze failed: ${(e as Error).message}`]);
-      return;
-    }
-    setTrackFields(h.songPath, track.id, {
-      frozen: `${FROZEN_DIR}/${track.id}.wav`,
-    });
-    const modules = track.plugins.length;
-    h.log([
-      `${track.id}: frozen to ${FROZEN_DIR}/${track.id}.wav${modules ? ` (${modules} module${modules > 1 ? "s" : ""} baked in)` : ""} — gain, pan and sends stay live`,
-    ]);
-    await h.reload();
-  },
+  // `track alternative select|create|copy` and `track freeze` were here. Both are gone with the
+  // fields they wrote (`alternatives:`, `frozen:`), to be replaced by another mechanism later —
+  // see packages/song/docs/trackModules.md.
 
   // event move <track> <timecode> <newTimecode> — a surgical rewrite of that placement's `start:` alone.
   "event.move": async (a, h) => {

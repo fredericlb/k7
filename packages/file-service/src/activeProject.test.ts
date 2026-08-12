@@ -57,7 +57,7 @@ describe("the tree is rooted at the active project", () => {
   it("shows only the open project's own files once one is open", () => {
     ws.setActiveProject("song.l8");
     const shown = names();
-    expect(shown).toContain("tracks");
+    expect(shown).toContain("instances");
     expect(shown).toContain("project.yaml");
     // The rest of the clone is the REPOSITORY, not the song.
     expect(shown).not.toContain("other.l8");

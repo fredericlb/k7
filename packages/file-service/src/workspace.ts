@@ -974,7 +974,12 @@ export class Workspace {
      * A chain bench is a view of one médiathèque chain (bench.ts), so the two files that ARE the
      * chain go back to it: `chains.yaml`, translated at the edges the way it was translated on
      * the way in, and the flat `instances/` beside it. Everything else in the folder — the
-     * project, the track, the modules mirror — is the bench's own furniture and stays here.
+     * project, the modules mirror — is the bench's own furniture and stays here.
+     *
+     * The bench's LANE is in `instances/` too now, and is furniture: it is somewhere to put
+     * material while you listen, and has no business in a chain other projects load. It is kept
+     * back by NAME, which is the only thing that tells it apart — `chainToBench` puts `@in` under
+     * that name on the way in, and `chainFromBench` turns it back.
      *
      * Local write first and the push after, for the same reason a module save does it: the bytes
      * are on this machine either way, and a library that is down must cost the sync, not the work.
@@ -985,7 +990,8 @@ export class Workspace {
       const back =
         rel === CHAIN_FILE
           ? chainFromBench(content, BENCH_EDGES)
-          : rel.startsWith("instances/")
+          : rel.startsWith("instances/") &&
+              rel !== `instances/${BENCH_EDGES.track}.yaml`
             ? content
             : null;
       if (back !== null) void pushChainToMediatek(chain, rel, back);

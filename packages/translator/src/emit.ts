@@ -255,14 +255,18 @@ const isMixed = (t: TrackOut): boolean => {
 };
 
 function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
-  // No `name` field: the FILE names the track, and `t.name` drives the slug, so the display name is that slug.
+  // No `name` field: the FILE names the lane, and `t.name` drives the slug, so the display name is that slug.
+  //
+  // A lane is an INSTANCE of one of the five built-in track modules now, so `type:` and
+  // `contentType:` are one `extends:` — which signal it carries is what it extends. Its mute is
+  // its module's bypass and goes to chains.yaml, not here. See packages/song/docs/trackModules.md.
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
-  value.type = "single";
-  value.contentType = contentTypeOf(t);
-  value.mute = t.mute ?? false;
+  value.extends =
+    contentTypeOf(t) === "sequences"
+      ? "@studio/sequence-track"
+      : "@studio/audio-track";
   value.clips = placements;
-  // A track is its OWN entity — a flat mapping in tracks/<slug>.yaml, like a module file, one placement per line.
   return yamlText(value, [["clips"]]);
 }
 
@@ -490,7 +494,7 @@ export function emitFolder(
     if (!isBus) {
       if (isMixed(t)) mixedTracks.push(slug);
       writeFile(
-        join(outDir, `tracks/${slug}.yaml`),
+        join(outDir, `instances/${slug}.yaml`),
         trackText(t, emitArrangement(t, slug)),
       );
       trackFiles++;
@@ -551,10 +555,17 @@ export function emitFolder(
     (n, d) => n + d.out.filter((o) => o.gain != null && o.gain !== 1).length,
     0,
   );
+  // ONE map, lanes first: a lane is a module too (packages/song/docs/trackModules.md), and
+  // putting the runs' sources at the top is what makes the file read the way the signal flows.
+  const chainNodes = { ...chainTracks, ...chainModules };
   const seg: Record<string, unknown> = {};
-  if (Object.keys(chainTracks).length) seg.tracks = chainTracks;
-  if (Object.keys(chainModules).length) seg.modules = chainModules;
-  if (bypassed.length) seg.bypassed = bypassed;
+  if (Object.keys(chainNodes).length) seg.modules = chainNodes;
+  // A lane the import found MUTED is bypassed, which is where a lane's mute lives now.
+  const muted = song.tracks
+    .filter((t) => t.mute && slugOf.has(t.id) && !busChains.has(slugOf.get(t.id) as string))
+    .map((t) => slugOf.get(t.id) as string);
+  const allBypassed = [...bypassed, ...muted];
+  if (allBypassed.length) seg.bypassed = allBypassed;
   writeFile(
     join(outDir, "chains.yaml"),
     yamlText(
@@ -565,11 +576,7 @@ export function emitFolder(
             `WHERE the signal goes, not how much of it. Trim them on the bus's own module.`
         : undefined,
       // One node per line, its destinations a flow sequence — the canonical form.
-      [
-        ...Object.keys(chainTracks).map((k) => ["tracks", k]),
-        ...Object.keys(chainModules).map((k) => ["modules", k]),
-        ["bypassed"],
-      ],
+      [...Object.keys(chainNodes).map((k) => ["modules", k]), ["bypassed"]],
     ),
   );
 

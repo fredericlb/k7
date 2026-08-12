@@ -2,7 +2,6 @@
 // the material, tracks arrange them, modules wrap a plugin or rack, and chains route a track through modules to
 // the OUT sink. Chains are DERIVED from chains.yaml's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
 
-import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { WebOut } from "@studio/graph-model";
@@ -34,7 +33,6 @@ import type {
   RawPlugin,
   RawProjectRoot,
   RawSequence,
-  RawTrack,
   RawVideoTrack,
 } from "./rawDoc";
 import { parsePosition } from "./timecode";

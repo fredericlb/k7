@@ -30,13 +30,13 @@ const inputStep = () => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-inwidget-"));
   proj = join(root, "song");
-  mkdirSync(join(proj, "tracks"), { recursive: true });
+  mkdirSync(join(proj, "instances"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), {
     project: { name: "song", modules_from: ["../_modules"] },
   });
   writeFileSync(
-    join(proj, "tracks", "gtr.yaml"),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(proj, "instances", "gtr.yaml"),
+    'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
   writeModule(proj, "audio", "amp", {
@@ -50,7 +50,7 @@ beforeEach(() => {
     "channel: [2]\n",
   );
   chains(
-    `tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ OUT ]\n  "${IN}": [ gtr ]\n`,
+    `modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  "${IN}": [ gtr ]\n`,
   );
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -104,14 +104,14 @@ describe("a live input's waveform", () => {
   it("has none when the lane runs no plugins", () => {
     // Better than pointing at a plugin that isn't there: the widget draws its empty box,
     // which is honest, instead of listening to a key nothing writes.
-    chains(`tracks:\n  gtr: [ OUT ]\nmodules:\n  "${IN}": [ gtr ]\n`);
+    chains(`modules:\n  gtr: [ OUT ]\n  "${IN}": [ gtr ]\n`);
     expect(inputStep()?.tap).toBe(undefined);
   });
 
   it("follows the input when it sits INSIDE the lane's run instead", () => {
     // The other way of wiring one, which the migration writes. Same lane, same tap.
     chains(
-      `tracks:\n  gtr: [ "${IN}" ]\nmodules:\n  "${IN}": [ amp ]\n  amp: [ OUT ]\n`,
+      `modules:\n  gtr: [ "${IN}" ]\n  "${IN}": [ amp ]\n  amp: [ OUT ]\n`,
     );
     expect(inputStep()?.tap).toEqual({ id: "gtr:amp", side: "input" });
   });

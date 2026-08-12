@@ -57,9 +57,13 @@ export function renderMixdown(
 }
 
 /**
- * Bounce ONE track through its own modules to `outWav` — the render a frozen track then plays instead of
- * computing itself. Same short-lived separate engine as a mixdown, for the same reason: the live one is busy
- * being an instrument.
+ * Bounce ONE track through its own modules to `outWav`.
+ *
+ * NOTHING CALLS THIS TODAY. Freezing is gone with the `frozen:` field it wrote — to be replaced
+ * by another mechanism later (packages/song/docs/trackModules.md) — and this is the half that
+ * does not depend on where the state was kept: the engine invocation and, above all, the
+ * neutralisation, which is the part that is silent when it is wrong. Kept for that, and listed in
+ * docs/inventaire.md so it is not mistaken for live code.
  *
  * The doc is neutralised here rather than by the caller, because getting it wrong is silent. A frozen track keeps
  * its STRIP live — its mixer module survives the freeze, which is the whole point of freezing rather than

@@ -135,12 +135,12 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
           "category": "instruments",
           "emits": "audio",
           "hasNativePluginUI": false,
-          "module": "pad",
+          "module": "synth-pad",
           "params": {
             "Filter Freq": 40,
             "Level": -12,
           },
-          "pluginId": "pad:pad",
+          "pluginId": "pad:synth-pad",
           "stub": false,
           "ui": {
             "cols": 4,

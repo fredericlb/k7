@@ -21,9 +21,8 @@ import { runCommand } from "./commandSpec";
 
 let dir: string;
 
-const CHAINS = `tracks:
+const CHAINS = `modules:
   gtr: [ amp ]
-modules:
   amp: [ cab ]
   cab: [ OUT ]
 `;
@@ -37,10 +36,10 @@ function song(): string {
     "utf8",
   );
   writeFileSync(join(d, "chains.yaml"), CHAINS, "utf8");
-  mkdirSync(join(d, "tracks"), { recursive: true });
+  mkdirSync(join(d, "instances"), { recursive: true });
   writeFileSync(
-    join(d, "tracks", "gtr.yaml"),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(d, "instances", "gtr.yaml"),
+    'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
   for (const m of ["amp", "cab"]) {

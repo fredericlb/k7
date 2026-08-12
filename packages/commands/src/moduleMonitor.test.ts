@@ -36,7 +36,7 @@ const localFile = () => join(dir, "modules", "io", "desk", "module.yaml");
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-monitor-"));
   dir = join(root, "song");
-  mkdirSync(join(dir, "tracks"), { recursive: true });
+  mkdirSync(join(dir, "instances"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n  modules_from:\n    - ../_modules\n",
@@ -44,12 +44,12 @@ beforeEach(() => {
   );
   writeFileSync(
     join(dir, "chains.yaml"),
-    `tracks:\n  gtr: [ OUT ]\nmodules:\n  "${IN}": [ gtr ]\n`,
+    `modules:\n  gtr: [ OUT ]\n  "${IN}": [ gtr ]\n`,
     "utf8",
   );
   writeFileSync(
-    join(dir, "tracks", "gtr.yaml"),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(dir, "instances", "gtr.yaml"),
+    'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
   // A local io module too, so the shared path is shown to be a BRANCH and not the only one.

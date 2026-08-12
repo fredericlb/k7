@@ -18,19 +18,19 @@ let ws: Workspace;
 
 // gtr -> steps[0] -> … -> OUT, as segments: one node per line, destinations in flow.
 const chains = (...steps: string[]) =>
-  `tracks:\n  gtr: [ ${steps[0] ?? "OUT"} ]\nmodules:\n${steps
+  `modules:\n  gtr: [ ${steps[0] ?? "OUT"} ]\n${steps
     .map((s, i) => `  ${s}: [ ${steps[i + 1] ?? "OUT"} ]\n`)
     .join("")}`;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-gcache-"));
   proj = join(root, "song.l8");
-  mkdirSync(join(proj, "tracks"), { recursive: true });
+  mkdirSync(join(proj, "instances"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(join(proj, "chains.yaml"), chains("amp"), "utf8");
   writeFileSync(
-    join(proj, "tracks", "gtr.yaml"),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(proj, "instances", "gtr.yaml"),
+    'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
   for (const m of ["amp", "cab"])

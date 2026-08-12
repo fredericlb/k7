@@ -21,7 +21,7 @@ beforeEach(() => {
   const proj = join(root, "song.l8");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(join(proj, "chains.yaml"), "tracks: {}\nmodules: {}\n", "utf8");
+  writeFileSync(join(proj, "chains.yaml"), "modules: {}\n", "utf8");
   writeYaml(join(proj, "modules/audio/reverb/module.yaml"), {
     plugin: { type: "vst3", name: "R" },
   });

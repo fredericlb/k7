@@ -42,14 +42,14 @@ function song(): string {
   writeFileSync(
     join(d, "chains.yaml"),
     // Two tracks meeting at `cab`: deleting it has to rejoin BOTH of them to what it fed.
-    "tracks:\n  gtr: [ amp ]\n  bass: [ cab ]\nmodules:\n  amp: [ cab ]\n  cab: [ OUT ]\n",
+    "modules:\n  gtr: [ amp ]\n  bass: [ cab ]\n  amp: [ cab ]\n  cab: [ OUT ]\n",
     "utf8",
   );
-  mkdirSync(join(d, "tracks"), { recursive: true });
+  mkdirSync(join(d, "instances"), { recursive: true });
   for (const t of ["gtr", "bass"])
     writeFileSync(
-      join(d, "tracks", `${t}.yaml`),
-      "type: single\ncontentType: audio\nclips: []\n",
+      join(d, "instances", `${t}.yaml`),
+      'extends: "@studio/audio-track"\nclips: []\n',
       "utf8",
     );
   for (const m of ["amp", "cab"]) {
@@ -172,11 +172,14 @@ describe("module instance unlink", () => {
     expect(existsSync(modDir("amp"))).toBe(true);
   });
 
-  it("refuses a TRACK — a chain starts there, so there is nothing to splice around", async () => {
-    const before = chains();
+  it("unlinks a LANE now, and leaves its file on disk", async () => {
+    // It used to be refused: a chain STARTED at a track, so there was nothing feeding it to
+    // rejoin to what it fed. A lane is a module now (packages/song/docs/trackModules.md), so
+    // the splice is well defined — the lane leaves the signal path and keeps its clips, which
+    // is exactly what unlinking means everywhere else.
     await runCommand("module instance unlink gtr", host(), "cli");
-    expect(logs.join(" ")).toContain("track");
-    expect(chains()).toBe(before);
+    expect(chains()).not.toContain("gtr:");
+    expect(existsSync(join(dir, "instances", "gtr.yaml"))).toBe(true);
   });
 
   it("refuses a name the chains do not have, rather than quietly writing nothing", async () => {

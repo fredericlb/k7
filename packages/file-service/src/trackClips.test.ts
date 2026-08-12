@@ -13,7 +13,7 @@ let dir: string;
 /** A one-lane project whose track holds `clips`, at the given time signature. */
 function project(clips: string, sig = "4/4"): string {
   const p = join(dir, "song.l8");
-  mkdirSync(join(p, "tracks"), { recursive: true });
+  mkdirSync(join(p, "instances"), { recursive: true });
   mkdirSync(join(p, "clips"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
   writeFileSync(
@@ -21,10 +21,10 @@ function project(clips: string, sig = "4/4"): string {
     `project:\n  name: "song"\n  tempo: 120\n  timeSignature: "${sig}"\n`,
   );
   writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
-  writeFileSync(join(p, "chains.yaml"), "tracks:\n  gtr: [ OUT ]\n");
+  writeFileSync(join(p, "chains.yaml"), "modules:\n  gtr: [ OUT ]\n");
   writeFileSync(
-    join(p, "tracks", "gtr.yaml"),
-    `type: single\ncontentType: audio\nclips:\n${clips}`,
+    join(p, "instances", "gtr.yaml"),
+    `extends: "@studio/audio-track"\nclips:\n${clips}`,
   );
   // Two clips the lane can name. `source` is what makes one audio rather than missing.
   for (const id of ["verse", "chorus"])

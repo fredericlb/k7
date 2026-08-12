@@ -38,14 +38,13 @@ import {
   slugifyPluginName,
   splitModuleKey,
 } from "./moduleTypes";
-import { type Lane, lanesOf, trackModules } from "./trackModule";
 import type {
   LoadedModule,
   RawProjectRoot,
   RawRack,
-  RawTrack,
   RawVideoTrack,
 } from "./rawDoc";
+import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";

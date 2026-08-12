@@ -24,9 +24,8 @@ const CHAIN = "chains/live/vocals";
 
 // A chain as the médiathèque holds one: a header saying what it IS, and `@in → module → @out`.
 const SOURCE = `# Voix live — compresseur puis réverbe.
-tracks:
-  "@in": [ comp ]
 modules:
+  "@in": [ comp ]
   comp: [ "@out" ]
 `;
 
@@ -111,7 +110,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     // strip, which is the bench's stand-in for `@out`.
     ws.write(
       `${project}/chains.yaml`,
-      "tracks:\n  banc: [ comp ]\nmodules:\n  comp: [ reverb ]\n  reverb: [ mixer ]\n  mixer: [ OUT ]\n",
+      "modules:\n  banc: [ comp ]\n  comp: [ reverb ]\n  reverb: [ mixer ]\n  mixer: [ OUT ]\n",
     );
     const back = readFileSync(join(mediatek, CHAIN, "chains.yaml"), "utf8");
     expect(back).toContain("comp: [ reverb ]");
@@ -133,10 +132,16 @@ describe("a médiathèque chain, opened on the bench", () => {
       readFileSync(join(mediatek, CHAIN, "instances", "comp.yaml"), "utf8"),
     ).toContain("Ratio: 8");
 
-    // The track is the BENCH's — somewhere to put material — and has no business in a chain
-    // other projects load. Nothing about it should reach the catalogue.
-    ws.write(`${project}/tracks/banc.yaml`, "type: single\nclips: []\n");
-    expect(existsSync(join(mediatek, CHAIN, "tracks"))).toBe(false);
+    // The bench's LANE is somewhere to put material, and has no business in a chain other
+    // projects load. It is an instance like the module above, so what keeps it here is its
+    // NAME — the bench's own furniture — rather than which folder it sits in.
+    ws.write(
+      `${project}/instances/banc.yaml`,
+      'extends: "@studio/audio-track"\nclips: []\n',
+    );
+    expect(
+      existsSync(join(mediatek, CHAIN, "instances", "banc.yaml")),
+    ).toBe(false);
   });
 
   it("takes a module save as the bench's, which is what `pushed` says", () => {
@@ -160,7 +165,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     mkdirSync(join(mediatek, "chains/odd"), { recursive: true });
     writeFileSync(
       join(mediatek, "chains/odd/chains.yaml"),
-      'tracks:\n  "@in": [ mixer ]\nmodules:\n  mixer: [ "@out" ]\n',
+      'modules:\n  "@in": [ mixer ]\n  mixer: [ "@out" ]\n',
       "utf8",
     );
     expect(() => ensureChainBench(EMAIL, "chains/odd")).toThrow(/mixer/);

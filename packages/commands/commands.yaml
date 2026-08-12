@@ -148,56 +148,9 @@
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }]
-# --- a track's ALTERNATIVES (variants of its clip list) ---
-# NOT `project alternative` above, which is a git branch. This one is inside ONE track: another
-# take of the same lane, kept beside the first in the same file. `clips:` IS the first of them,
-# so a song that never uses this keeps exactly the file it had, and switching rewrites one line
-# rather than moving clip lists about. See apps/l8/docs/22-syntax-material.md.
-#
-# The name is optional everywhere: an unnamed variant is known by its position, which is what
-# makes trying a second arrangement cost nothing to name. The timeline's lane header has the
-# same three actions in a dropdown.
-- command: "track alternative create"
-  sid: track.alt.create
-  readable:
-    en: "Create an empty alternative for a track"
-    fr: "Créer une alternative vide pour une piste"
-  help: "add an empty alternative to a track and play it (e.g. track alternative create gtr doux)"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
-    ]
-# The other half of the same wish: keep this arrangement, try a change to it. A copy carries
-# every field of every placement, which re-placing them by hand would not.
-- command: "track alternative copy"
-  sid: track.alt.copy
-  readable:
-    en: "Copy a track's arrangement into a new alternative"
-    fr: "Copier l'arrangement d'une piste dans une nouvelle alternative"
-  help: "add an alternative holding a copy of the one playing, and switch to it"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
-    ]
-# Named rather than left as the bare verb: `select` and `create` say what they do, and a bare
-# `track alternative gtr doux` reads like a declaration rather than a move. With no name, it
-# lists what the track has.
-- command: "track alternative select"
-  sid: track.alt.select
-  readable:
-    en: "Play another of a track's alternatives"
-    fr: "Jouer une autre alternative d'une piste"
-  help: "play another of a track's alternatives (e.g. track alternative select gtr doux)"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: name, optional: true, complete: trackAlternatives },
-    ]
+# `track alternative create|copy|select` and `track freeze` were here. Both are gone with the
+# fields they wrote — `alternatives:` and `frozen:` — to be replaced by another mechanism later.
+# See packages/song/docs/trackModules.md.
 
 # --- recording ---
 # `rec` toggles a track's record ARM. Unlike mute/solo it writes no file: arming is
@@ -205,19 +158,6 @@
 # CLI and the web share) and gone when it exits. A track with no input can't be
 # armed — there'd be nothing to capture. Armed tracks record when the transport
 # rolls, so there is no separate "record" verb: you arm, then you play.
-# `track freeze` toggles, like mute and solo. Freezing bounces the track through its own
-# modules and plays that render instead — the CPU cost of an amp sim or a big synth goes
-# away, and comes back the moment you unfreeze. Its gain, pan and sends stay live (they are
-# neutralised in the render, so they apply exactly once), but its material and its modules
-# are locked: they are already in the wav. Unfreezing deletes the render.
-- command: "track freeze"
-  sid: track.freeze
-  readable:
-    en: "Freeze or unfreeze a track"
-    fr: "Geler ou dégeler une piste"
-  help: "toggle a track's freeze — bounce it through its modules and play that instead"
-  surfaces: [cli]
-  args: [{ name: track, complete: tracks }]
 
 - command: "track rec"
   sid: track.rec

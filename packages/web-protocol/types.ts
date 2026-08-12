@@ -403,7 +403,6 @@ export type ArgProvider =
   | "markerNames"
   | "modules"
   | "sequenceFiles"
-  | "trackAlternatives"
   | "tracks";
 export interface CommandArg {
   name: string;

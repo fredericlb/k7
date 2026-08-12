@@ -132,7 +132,7 @@ describe("the emitted folder is a loadable project", () => {
     // chains.yaml must be SEGMENTS — an import that wrote a format the loader doesn't
     // take produced a project that wouldn't open at all. One node per line, as the app
     // writes them.
-    expect(read("chains.yaml")).toMatch(/tracks:\n\s+\S+: \[ /);
+    expect(read("chains.yaml")).toMatch(/modules:\n\s+\S+: \[ /);
     const g = loadGraph(dir);
     expect(Object.keys(g.chains).sort()).toEqual(["drums", "vox"]);
     expect(g.chains.vox.use.map((s) => s.module)).toEqual(["reverb:vox"]);
@@ -183,7 +183,7 @@ describe("what comes out is the arrangement that went in", () => {
       sourceFrom: 0.25,
       sourceTo: 4.25,
     });
-    expect(read("tracks/vox.yaml")).not.toContain("length");
+    expect(read("instances/vox.yaml")).not.toContain("length");
   });
 
   it("QUOTES every timecode it writes", () => {
@@ -191,7 +191,7 @@ describe("what comes out is the arrangement that went in", () => {
     // emitter shares the brain's quoter so the two can't disagree about which fields —
     // including the window, which is timecodes in a file that also holds bare numbers.
     emitFolder(dir, song([clipTrack()]), { "a.wav": new Uint8Array([82]) });
-    const track = read("tracks/vox.yaml");
+    const track = read("instances/vox.yaml");
     expect(track).toMatch(/start: "[\d:]+"/);
     expect(track).not.toMatch(/start: \d+:/); // never bare
     const clip = read("clips/vox_0.yaml");

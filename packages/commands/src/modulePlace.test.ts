@@ -40,13 +40,13 @@ beforeEach(() => {
   );
   writeFileSync(
     join(dir, "chains.yaml"),
-    "tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ OUT ]\n",
+    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
     "utf8",
   );
-  mkdirSync(join(dir, "tracks"), { recursive: true });
+  mkdirSync(join(dir, "instances"), { recursive: true });
   writeFileSync(
-    join(dir, "tracks", "gtr.yaml"),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(dir, "instances", "gtr.yaml"),
+    'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
   mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
@@ -178,7 +178,7 @@ describe("a cold module", () => {
     );
     writeFileSync(
       join(dir, "chains.yaml"),
-      "tracks:\n  gtr: [ take ]\nmodules:\n  take: [ amp ]\n  amp: [ OUT ]\n",
+      "modules:\n  gtr: [ take ]\n  take: [ amp ]\n  amp: [ OUT ]\n",
       "utf8",
     );
     await runCommand("module insert take amp audio/squash s1", host(), "cli");
