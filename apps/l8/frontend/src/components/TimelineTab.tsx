@@ -25,7 +25,6 @@ import {
 import {
   Music,
   Repeat,
-  Snowflake,
   StretchVertical,
   Timer,
   Volume2,
@@ -60,7 +59,6 @@ import type { WebProject, WebTrack } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { ClipContent } from "./ClipContent";
 import type { EditTarget } from "./ClipView";
-import { TrackAlternatives } from "./TrackAlternatives";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
@@ -399,8 +397,6 @@ export function TimelineTab({
   onFocusRow,
   trackControls,
   onTrackToggle,
-  onPickAlternative,
-  onNewAlternative,
   ref,
 }: {
   active: boolean;
@@ -465,10 +461,6 @@ export function TimelineTab({
   // Per-track mute/solo/arm by track id — the same state the graph's track nodes draw, so the two stay in lockstep.
   trackControls?: Record<string, { mute: number; solo: number; arm: number }>;
   onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
-  // A lane's clip list has VARIANTS (see TrackAlternatives). Reported as intent rather than run
-  // here, the same way a clip move is: the shell owns which command that is and when to reload.
-  onPickAlternative?: (id: string, name: string) => void;
-  onNewAlternative?: (id: string, copy: boolean) => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
   // The ONE live value the body itself needs, and it changes on a keystroke rather than on a
@@ -843,13 +835,10 @@ export function TimelineTab({
         trackId: track.id,
         clipId: c.id,
       };
-      // No MOVE on a generated lane — it has no file. A FROZEN lane is out too: its one clip is
-      // a render, not a placement, and there is no `clips:` entry in the track's file for a move
-      // to rewrite. Its real material is still in there, waiting for the unfreeze.
-      //
-      // The press is tracked either way, because a CLICK is a request to SEE the clip and that
-      // asks nothing of the disk — a frozen lane's render is exactly the thing you want to look at.
-      if (track.generated || track.frozen) return;
+      // No MOVE on a generated lane: its clips are streamed by the pattern, so there is no
+      // `clips:` entry in its file to rewrite. The press is tracked either way, because a CLICK
+      // is a request to SEE the clip and that asks nothing of the disk.
+      if (track.generated) return;
       setSel(null);
       setMove({
         trackId: track.id,
@@ -1820,21 +1809,9 @@ export function TimelineTab({
                     labelled && LABEL_SELECTED,
                   )}
                 >
-                  {/* Which variant of this lane's clips is playing, and how to start another.
-                      First in the row because it is about the lane as a whole, and because a
-                      lane showing a variant has to say so before you read its name. */}
-                  {onPickAlternative &&
-                    onNewAlternative &&
-                    !t.generated &&
-                    !t.frozen && (
-                      <TrackAlternatives
-                        track={t.id}
-                        names={t.alternatives ?? ["1"]}
-                        current={t.alternative ?? "1"}
-                        onPick={(n) => onPickAlternative(t.id, n)}
-                        onAdd={(copy) => onNewAlternative(t.id, copy)}
-                      />
-                    )}
+                  {/* The alternative picker was here. Alternatives are gone with the field
+                      they read, to be replaced by another mechanism later — see
+                      packages/song/docs/trackModules.md. */}
                   {/* Both live meters, subscribing for themselves — see LaneMeter. */}
                   <LaneMeter index={ti} armed={armed} />
                   {/* The instrument its name's prefix asks for ("ge.lead" → a strat),
@@ -1848,8 +1825,6 @@ export function TimelineTab({
                       t.name,
                       trackIcon(t.name)?.label,
                       armed && "record-armed; records on play",
-                      t.frozen &&
-                        "frozen: playing a render of its modules — gain, pan and sends still work; run `track freeze` again to edit it",
                     ]
                       .filter(Boolean)
                       .join(" — ")}
@@ -1871,14 +1846,8 @@ export function TimelineTab({
                         "3.ge." in the text spends the gutter's width on what the row
                         has just shown you. */}
                     <span className="truncate">{trackLabel(t.name)}</span>
-                    {/* Frozen: the lane plays a render, so nothing on it is editable and its modules are asleep.
-                        Beside the name rather than among the m/s/a buttons — those toggle, and this one reports. */}
-                    {t.frozen && (
-                      <Snowflake
-                        className="h-3 w-3 shrink-0 text-sky-400"
-                        aria-label="frozen"
-                      />
-                    )}
+                    {/* A snowflake reported a FROZEN lane here. Freezing is gone with the
+                        field it read — see packages/song/docs/trackModules.md. */}
                   </span>
                   {/* [m]ute / [s]olo / [a]rm — the same controls the chains graph's track
                       nodes carry. stopPropagation so a tap toggles without also moving
@@ -1955,13 +1924,8 @@ export function TimelineTab({
                   )}
                   style={{ width: laneW }}
                 >
-                  {/* frozen: a cold wash over the whole lane, under everything else, so the render still reads as a
-                      clip while the lane reads as untouchable. pointer-events-none — the caret and the track's own
-                      context menu (which is how you unfreeze) must still work; what's blocked is editing, and that
-                      is blocked at the drag and the clip menu, where the mistake would actually be made. */}
-                  {t.frozen && (
-                    <div className="pointer-events-none absolute inset-0 bg-sky-400/10" />
-                  )}
+                  {/* A cold wash marked a FROZEN lane here. Gone with the field it read — see
+                      packages/song/docs/trackModules.md. */}
                   {/* record-armed: the whole lane goes red. Bottom of the stack, so
                     the VU, the caret and the clips all still read on top of it.
                     Comes from the engine's state frame, not the project — arming is
@@ -2064,10 +2028,6 @@ export function TimelineTab({
                             // Right-click a clip → the clip's own commands; stop the event so the lane's track menu doesn't also fire.
                             onContextMenu={(e) => {
                               e.preventDefault();
-                              // A frozen lane's clip is a render, so none of a clip's commands apply to it. The event
-                              // is NOT stopped here, so the lane's own track menu opens instead — which is where
-                              // "unfreeze" lives, and the only thing worth offering on it.
-                              if (t.frozen) return;
                               e.stopPropagation();
                               onContextMenu?.(
                                 {
@@ -2116,10 +2076,8 @@ export function TimelineTab({
                           >
                             {/* Edge handles. Narrow strips inside the block's own ends,
                                 so they never overlap the neighbouring event and the body
-                                between them still drags the whole clip. Frozen lanes get
-                                none: their clip is a render, not a placement. */}
-                            {!t.frozen &&
-                              (["start", "end"] as const).map((edge) => (
+                                between them still drags the whole clip. */}
+                            {(["start", "end"] as const).map((edge) => (
                                 <div
                                   key={edge}
                                   className={cn(
@@ -2158,7 +2116,7 @@ export function TimelineTab({
                                       : "drag to move this event's end"
                                   }
                                 />
-                              ))}
+                            ))}
                             <div className="flex items-center gap-0.5 leading-tight">
                               {/* Kind at a glance: a note for MIDI/sequence clips, a speaker
                                 for audio. */}

@@ -20,7 +20,6 @@ import {
   SettingsSchema,
 } from "@studio/song/yaml/projectSchema";
 import { SurfaceSchema } from "@studio/song/yaml/surfaceSchema";
-import { TrackSchema } from "@studio/song/yaml/trackSchema";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import type { z } from "zod";
@@ -32,7 +31,8 @@ const SCHEMAS: Record<string, z.ZodType> = {
   ProjectFile: ProjectFileSchema,
   Settings: SettingsSchema,
   Surface: SurfaceSchema,
-  Track: TrackSchema,
+  // No `Track`: a lane is an INSTANCE of a `@studio/…-track` module, so its examples declare
+  // `schema=Module` like every other instance. See packages/song/docs/trackModules.md.
   Clip: ClipSchema,
   Sequence: SequenceSchema,
   Curve: CurveSchema,

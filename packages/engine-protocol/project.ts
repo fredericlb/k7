@@ -146,16 +146,9 @@ export interface TrackDoc {
   // `docs` / `todos` were here — authored notes carried through for a panel that listed them.
   // Gone with that panel: a note is a doc module on the graph (`@studio/doc`), which is not a
   // track's business and never reaches the engine. See packages/song/docs/docModules.md.
-  // Set while the track is frozen: the render it plays instead of its material, absolute. The engine ignores this
-  // too — by the time the doc reaches it the render is already the track's one clip and the plugins are gone (see
-  // nodeProject). It is here so a surface can say WHY a lane it can't edit looks the way it does.
-  frozen?: string;
-  // The track's clip-list VARIANTS, when it has more than one: every name in order, and which of
-  // them `clips` above was resolved from. Ignored by the engine — it is handed the arrangement
-  // that plays and has no use for the others — and here so a surface can offer the choice.
-  // See packages/song/src/trackAlternatives.ts.
-  alternatives?: string[];
-  alternative?: string;
+  // `frozen`, `alternatives` and `alternative` were here, all three ignored by the engine and
+  // carried only so a surface could draw them. They are gone with the fields they came from, to
+  // be replaced by another mechanism later — see packages/song/docs/trackModules.md.
 }
 
 // A group track: it holds no material, so the engine plays no lane for it, but surfaces draw it over its members.

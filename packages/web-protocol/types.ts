@@ -313,15 +313,9 @@ export interface WebTrack {
   plugins: WebPlugin[];
   // `docs` / `todos` were here, for the Docs panel. Both are gone with it — a note is a doc
   // module on the graph now (`@studio/doc`). See packages/song/docs/docModules.md.
-  // Set while the track is FROZEN: the render it plays instead of its own material, absolute. By the time the doc
-  // is built that render is already the track's one clip and `plugins` is empty — this is here so the timeline can
-  // say why a lane it won't let you edit looks the way it does.
-  frozen?: string;
-  // The clip list's VARIANTS — every name in order, and the one that is playing. Both absent
-  // when the track has a single arrangement, which is every track until somebody adds one: the
-  // timeline's picker reads that as the list of one it draws. See apps/l8/docs/22-syntax-material.md.
-  alternatives?: string[];
-  alternative?: string;
+  // `frozen`, `alternatives` and `alternative` were here, for the timeline's lane header. All
+  // three are gone with the fields they came from, to be replaced by another mechanism later —
+  // see packages/song/docs/trackModules.md.
 }
 // A group track (mirrors GroupDoc): clipless, drawn as a header with its member tracks indented under it.
 export interface WebGroup {

@@ -23,9 +23,6 @@ export interface DocTrack {
   pan: number;
   mute: boolean;
   solo: boolean;
-  // Set while the track plays a render of itself. `track freeze` is a toggle, so this is what tells the two
-  // directions apart before the command runs — only the freezing one takes a render's worth of time.
-  frozen: boolean;
 }
 
 export interface ProjectDocState {
@@ -114,7 +111,6 @@ export function useProjectDoc(
             pan: ((t.mixer?.pan ?? 0) + 1) / 2,
             mute: t.mute,
             solo: t.solo,
-            frozen: !!t.frozen,
           })),
         );
         setHasStrudel(!!p.strudel);

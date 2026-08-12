@@ -249,9 +249,8 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   const trackColors: Record<string, string> = {};
   // What a track puts on the wire: a sequences track feeds MIDI to the chain's instrument, an audio one audio.
   const trackSignals: WebGraph["trackSignals"] = {};
-  // loadGraph has already cleared `frozen` on any track whose render went missing, so this is the state the
-  // compiled doc will agree with rather than what the yaml claims.
-  const frozenTracks: string[] = [];
+  // `frozenTracks` was built here. Freezing is gone with the field it read — see
+  // packages/song/docs/trackModules.md.
   // The song's meter, for spelling a clip's position. Defaulted the way every other reader of
   // this field defaults it: a header that says nothing is 4/4.
   const [sigNum, sigDen] = (() => {
@@ -265,7 +264,6 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   for (const [id, t] of Object.entries(g.tracks)) {
     if (t.color) trackColors[id] = t.color;
     trackSignals[id] = t.contentType === "sequences" ? "midi" : "audio";
-    if (t.frozen) frozenTracks.push(id);
     // Only what a lane really holds: a group has members and a strudel lane streams, and both
     // carry an empty `placements` — so an entry for either would be a promise of a list that
     // is always empty.
@@ -300,7 +298,6 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     trackColors,
     trackSignals,
     ...(Object.keys(trackClips).length ? { trackClips } : {}),
-    ...(frozenTracks.length ? { frozenTracks } : {}),
     modules,
     curves: Object.keys(usedCurves).length ? usedCurves : undefined,
     warnings: g.warnings,

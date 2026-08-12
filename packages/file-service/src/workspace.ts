@@ -281,10 +281,8 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
       name: pl.name,
     })),
     // `docs`/`todos` were copied here for the Docs panel. Gone with it — a note is a doc
-    // module on the graph now. See packages/song/docs/docModules.md.
-    frozen: t.frozen,
-    alternatives: t.alternatives,
-    alternative: t.alternative,
+    // module on the graph now. See packages/song/docs/docModules.md. `frozen`, `alternatives`
+    // and `alternative` followed, with the fields they came from (docs/trackModules.md).
   }));
 }
 

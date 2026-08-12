@@ -3,9 +3,8 @@ import { chainNodes, chainsVocabulary } from "./chainsVocabulary";
 
 // A real médiathèque template, shape and all: one pseudo-track feeding the first module,
 // each module naming the next, the last one leaving through `@out`.
-const CHAIN = `tracks:
+const CHAIN = `modules:
   "@in": [ wobble ]
-modules:
   wobble: [ bitcrush ]
   bitcrush: [ "@out" ]
 `;
@@ -17,7 +16,8 @@ const values = (keyPath: string[], field: string) =>
 
 describe("chainNodes", () => {
   it("reads the nodes the template declares", () => {
-    expect(chainNodes(CHAIN)).toEqual(["wobble", "bitcrush"]);
+    // `@in` is a node like the rest now — one `modules:` map, so the template's source is in it.
+    expect(chainNodes(CHAIN)).toEqual(["@in", "wobble", "bitcrush"]);
   });
 
   it("says null while the text is half-typed", () => {
@@ -31,6 +31,7 @@ describe("the chains vocabulary", () => {
   it("offers a node's destinations under `modules:`", () => {
     // The key is the node's own name, so what is completed is where its signal goes.
     expect(values(["modules"], "wobble")).toEqual([
+      "@in",
       "wobble",
       "bitcrush",
       "@out",
@@ -38,18 +39,18 @@ describe("the chains vocabulary", () => {
   });
 
   it("offers the same for the template's input", () => {
-    expect(values(["tracks"], "@in")).toContain("wobble");
+    expect(values(["modules"], "@in")).toContain("wobble");
   });
 
   it("offers modules for `bypassed`, and not the sink", () => {
     // A sink has nothing to pass through, so it does not belong in a list of things the
     // signal skips.
-    expect(values([], "bypassed")).toEqual(["wobble", "bitcrush"]);
+    expect(values([], "bypassed")).toEqual(["@in", "wobble", "bitcrush"]);
     expect(values(["bypassed"], "0")).not.toContain("@out");
   });
 
-  it("keeps the file's three sections from the schema", () => {
-    expect(vocab.fieldsAt([])).toEqual(["tracks", "modules", "bypassed"]);
+  it("keeps the file's two sections from the schema", () => {
+    expect(vocab.fieldsAt([])).toEqual(["modules", "bypassed"]);
     // Inside one, the keys are node names — a vocabulary the schema cannot invent.
     expect(vocab.fieldsAt(["modules"])).toEqual([]);
   });

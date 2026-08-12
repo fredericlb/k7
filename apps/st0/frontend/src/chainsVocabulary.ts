@@ -45,9 +45,10 @@ export function chainsVocabulary(
   return {
     fieldsAt: base.fieldsAt,
     valuesAt: (keyPath, field) => {
-      // Under `tracks:`/`modules:` the "field" is a NODE's own name and the values are its
-      // destinations — positional, exactly as l8's hints are for the same file.
-      if (keyPath[0] === "tracks" || keyPath[0] === "modules") return dests;
+      // Under `modules:` the "field" is a NODE's own name and the values are its destinations —
+      // positional, exactly as l8's hints are for the same file. One map: a lane is a module too
+      // (packages/song/docs/trackModules.md), and a template's `@in` is in it like the rest.
+      if (keyPath[0] === "modules") return dests;
       // What the signal passes through untouched: a module and nothing else. `@out` is not
       // one — a sink has nothing to bypass.
       if (field === "bypassed" || keyPath[0] === "bypassed") return declared;

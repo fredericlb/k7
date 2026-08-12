@@ -64,7 +64,6 @@ import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
-import { FreezeOverlay } from "./components/FreezeOverlay";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
@@ -1162,9 +1161,8 @@ export default function App({
     ],
   );
 
-  // The track a `track freeze` is about to RENDER, or null. Only that direction of the toggle takes time — an
-  // unfreeze is a line removed from a file — so the overlay goes up for one of the two and not the other.
-  const [freezing, setFreezing] = useState<string | null>(null);
+  // A `freezing` state and its modal overlay were here. Freezing is gone with the field it wrote
+  // — see packages/song/docs/trackModules.md.
   // The arrow a module is being created on, while the command RUNS — not while the user is still typing the
   // name into the bar. pendingInsert.current is set at pick time and lives until the splice; this is the
   // narrower window the canvas should draw a placeholder for.
@@ -1182,13 +1180,6 @@ export default function App({
     id: number;
     graph: WebGraph;
   } | null>(null);
-  const freezeTarget = useCallback((line: string): string | null => {
-    const m = /^track\s+freeze\s+(\S+)/.exec(line.trim());
-    if (!m) return null;
-    const t = docTracksRef.current.find((x) => x.id === m[1]);
-    return t && !t.frozen ? t.id : null;
-  }, []);
-
   // Every command — typed or bound to a key — comes through here.
   const runCommand = useCallback(
     async (line: string) => {
@@ -1201,8 +1192,6 @@ export default function App({
       // this callback does not have to be rebuilt every time the catalogue is.
       rememberCommand(commandNameOf(s, paletteRef.current));
       if (runLocalCommand(s)) return;
-      const willFreeze = freezeTarget(s);
-      if (willFreeze) setFreezing(willFreeze);
       // CONSUMED, not just read: the pick arms this and only the command that follows it is an
       // insert. Left armed — which it was — every later command drew a pending node on that same
       // stale arrow, so the spinner people saw belonged to the transport key they pressed
@@ -1226,8 +1215,6 @@ export default function App({
         setStatus(`command error: ${(e as Error).message}`);
         pushLog("error", (e as Error).message);
       } finally {
-        // finally, not after the await: a freeze that fails still has to give the app back.
-        if (willFreeze) setFreezing(null);
         // The placeholder comes down in the same update that carries the new graph, so the two
         // swap in one frame. That is what changed: the reply used to be the START of the wait —
         // the canvas then spent a fetch and a 400 ms parse still showing the old picture, with
@@ -1235,7 +1222,7 @@ export default function App({
         if (willInsert) setInsertingAt(null);
       }
     },
-    [freezeTarget, pushLog, runLocalCommand],
+    [pushLog, runLocalCommand],
   );
   runCommandRef.current = runCommand;
 
@@ -2042,18 +2029,6 @@ export default function App({
                       `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
                     )
                   }
-                  // The lane header's alternative menu. `runCommand`, not `quietCommand`:
-                  // switching replaces the lane's clips, so the timeline has to re-read.
-                  onPickAlternative={(trackId, name) =>
-                    void runCommand(
-                      `track alternative select ${trackId} ${name}`,
-                    )
-                  }
-                  onNewAlternative={(trackId, copy) =>
-                    void runCommand(
-                      `track alternative ${copy ? "copy" : "create"} ${trackId}`,
-                    )
-                  }
                   // While the bar is filling `event move`, the drag ANSWERS it instead of
                   // committing: same gesture, same numbers, but the line is yours to run. The
                   // param names are the command's own — see commands.yaml.
@@ -2701,9 +2676,6 @@ export default function App({
             />
           </div>
         )}
-
-        {/* Freezing a track: the one modal wait in the app. See FreezeOverlay for why this one earns it. */}
-        {freezing && <FreezeOverlay track={freezing} />}
 
         {/* The shared module builder (@studio/ui-module-builder), over the whole shell. The module's OWN
             presets come off its shelf through the store and work here; the plugin's FACTORY banks and its

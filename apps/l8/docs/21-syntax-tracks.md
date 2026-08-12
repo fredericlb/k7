@@ -1,28 +1,46 @@
 # Tracks
 
-## tracks/<id>.yaml — audio
+A track is a **module**. It lives in `instances/<name>.yaml` like every other use of a module,
+and what it `extends` says what kind of lane it is. There is no `tracks/` folder.
 
-A single track of positioned audio clips. Times are bars:beats:ticks.
+Five built-in modules, and none of them has a file anywhere — they belong to the studio, so a
+lane costs exactly one file, its own:
 
-A track has no `volume` and no `pan`. They were the one part of its sound that lived outside its chain — nothing
-could be placed after them, and the graph could not show where they applied. A level is a MODULE now: put a
-`mixer` at the end of the track's chain and set its `Volume`, `Pan` and three tone bands (see Instruments).
-`mute` and `solo` stay here, because they are relationships between tracks rather than a stage in one signal.
+| extends | carries | its clips come from |
+|---|---|---|
+| `@studio/audio-track` | audio | `clips:` |
+| `@studio/sequence-track` | notes | `clips:` |
+| `@studio/audio-strudel-track` | audio | `strudel:` |
+| `@studio/sequence-strudel-track` | notes | `strudel:` |
+| `@studio/group-track` | nothing — it is a relationship | nothing |
 
-A placement says WHERE a clip goes and HOW MANY TIMES — nothing about what it plays. How long it sounds comes
-from the material's own `from`/`to` window (see Material), multiplied by `loop`. There is no `length` and no
-`offset` here: trimming belongs to the clip, so every placement of it plays the same thing and no two lines can
-disagree about what that is.
+Five because there were always two questions, and `type: single | group | strudel` beside
+`contentType: audio | sequences` only ever asked one of them at a time. What signal a lane
+carries and where its clips come from are both read off one `extends:` now, and neither can go
+missing or disagree with the other.
 
-```yaml schema=Track
-type: single
-contentType: audio
+A track has no `volume` and no `pan`. They were the one part of its sound that lived outside its
+chain — nothing could be placed after them, and the graph could not show where they applied. A
+level is a MODULE now: put a `mixer` at the end of the track's chain and set its `Volume`, `Pan`
+and three tone bands (see Instruments).
+
+**And no `mute` either.** A lane is a module, so it has the bypass button every module node
+carries, and that is its mute: one name in `chains.yaml`'s `bypassed:` (see Chains). On a source,
+bypass reads as *produces nothing* rather than *passes through untouched* — which is what muting
+a lane has always meant. Solo is not written down at all: the surface derives it by bypassing
+every other lane.
+
+A placement says WHERE a clip goes and HOW MANY TIMES — nothing about what it plays. How long it
+sounds comes from the material's own `from`/`to` window (see Material), multiplied by `loop`.
+There is no `length` and no `offset` here: trimming belongs to the clip, so every placement of it
+plays the same thing and no two lines can disagree about what that is.
+
+## instances/<name>.yaml — audio
+
+```yaml schema=Module
+extends: "@studio/audio-track"
 # color: "#c8a97e"   # the lane's colour, and its icon's in the timeline
-# mute: false
-# solo: false
 # disabled: true     # excluded from the render entirely, chains and all
-# docs: "the main groove"
-# todos: ["swap the snare"]
 clips:
   - { ref: kick, start: "1:1:1" }
   - { ref: snare, start: "2:1:1", loop: 4 }   # four passes of the snare's window, back to back
@@ -32,117 +50,64 @@ clips:
 # 1:1:1 is already a string — but under 1.1 it is the number 3661.
 ```
 
-## tracks/<id>.yaml — MIDI
+## instances/<name>.yaml — MIDI
 
-A single track of sequence refs — a sequences track never holds audio.
+A lane of sequence refs. A sequence lane never holds audio: which of the two it carries is what
+it extends, and a module has one output port.
 
-```yaml schema=Track
-type: single
-contentType: sequences
+```yaml schema=Module
+extends: "@studio/sequence-track"
 clips:
   - { ref: melody, start: "1:1:1" }
   - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
 ```
 
-## tracks/<id>.yaml — alternatives
+## instances/<name>.yaml — group
 
-A lane can hold several arrangements and play one of them. Another take of the same part, a
-chorus with the double and one without, a version you want back if the new one turns out worse —
-they live side by side in the same file, and switching between them is one line.
+No material and no signal of its own — only the member lane names it nests.
 
-**`clips:` is the first alternative.** The others go under `alternatives:`, and `alternative:`
-says which is playing — by name, or by position when it has none. Leave `alternative:` out and
-the track plays its own `clips:`, which is why a song that never uses this keeps exactly the file
-it always had.
-
-Names are optional. An unnamed one answers to its number, counting `clips:` as 1 — so the first
-entry under `alternatives:` is "2". A name wins over a number, so a variant you deliberately call
-`2` is the one `alternative: 2` selects. A name that matches nothing falls back to the first
-rather than silencing the lane.
-
-The first alternative cannot be named: it has nowhere to carry one. It is always "1".
-
-```yaml schema=Track
-type: single
-contentType: audio
-alternative: doux        # which one plays; absent = the clips below
-clips:
-  - { ref: gtr-A, start: "1:1:1" }
-alternatives:
-  - name: doux           # unnamed, it would answer to "2"
-    clips:
-      - { ref: gtr-B, start: "1:1:1" }
-  - clips: []            # "3" — an empty take, waiting for a pass
-```
-
-Everything you do to a lane goes to the alternative that is playing: drag a clip while the
-second is up and it is the second that changes, and the first is exactly where you left it.
-
-From the timeline, the arrow at the left of the lane's header lists them and switches; its
-bottom two entries start another, empty or as a copy of the one playing. The lane says which
-variant it is on beside that arrow whenever it is not the first — otherwise a lane whose clips
-"went missing" would look like a bug.
-
-From the command bar, `track alternative select <track> <name>` switches, `track alternative
-create <track> [name]` adds an empty one and `track alternative copy <track> [name]` adds a
-copy. With no name at all, `track alternative select <track>` lists what the track has.
-
-The track is named because a command has no caret to read one off — the same reason `track mute`
-takes one. From the keyboard the shell fills it in (`{caret_track}` in `keys.ts`), and from the
-lane's own menu it is already known.
-
-There is no command to delete one: it is three lines of YAML, and removing it by hand is both
-clearer and reversible in the editor's own undo.
-
-## tracks/<id>.yaml — frozen
-
-Freezing a track bounces it through its own modules and plays that render instead, so an amp sim or a heavy synth costs nothing until you want to edit it again. Run `track freeze <track>` to freeze, and again to unfreeze — it is a toggle, like mute and solo. Playback stops while the render is made.
-
-The render goes in `tracks/`, named for the track, and `frozen:` points at it. While it is set the track plays that file and its modules are gone from what the engine builds — they are already inside the wav, which is why they show a snowflake and refuse to be edited. What stays live is the STRIP: the track's mixer module is the one thing a freeze does not bake in, along with mute, solo and the track's sends. The render was bounced with every knob on that module flattened, so it applies exactly once, on playback — a frozen lane you cannot set the level of would not be a mix.
-
-The freeze stops where the track stops. A chain's modules belong to the track that feeds them, so a bus — anything several chains route into — is never baked; it keeps running on the render's output like it did on the live one.
-
-Unfreezing removes both the attribute and the render. A `frozen:` naming a file that isn't there is not an error either: the track simply plays live, which is what a fresh clone of a project does when the wav wasn't committed.
-
-```yaml schema=Track
-type: single
-contentType: sequences
-frozen: tracks/melody.wav   # written by `track freeze melody`; delete it and the track plays live again
-clips:
-  - { ref: melody, start: "1:1:1" }
-```
-
-## tracks/<id>.yaml — `video_source`, which no longer does anything
-
-An audio track used to be able to take its material from a VIDEO track — inheriting its
-placements and playing their audio, so a shot and its sound could not drift apart. Picture
-now lives in its own kind of project, a `.v1` folder cut in seconds, and that link cannot
-cross the gap.
-
-The key is still **accepted**, so a song that has one still opens; it is simply read by
-nothing, and the line can be deleted. A track carrying it authors its own `clips` again.
-
-```yaml schema=Track
-type: single
-contentType: audio
-video_source: main   # dead — delete it, and place the clips here instead
-```
-
-## tracks/<id>.yaml — group
-
-No material of its own — only the member track ids it nests.
-
-```yaml schema=Track
-type: group
+```yaml schema=Module
+extends: "@studio/group-track"
 tracks: [pad, kit]
 ```
 
-## tracks/<id>.yaml — strudel
+## instances/<name>.yaml — strudel
 
-Streams one algo/ pattern; the id (or name) picks the lane by its .label. contentType decides how events read: sequences = MIDI notes, audio = sample one-shots.
+Streams one `algo/` pattern; the lane's name picks the part by its `.label`. Which of the two
+strudel modules it extends decides how the events read: `@studio/sequence-strudel-track` makes
+them MIDI notes for the chain's instrument, `@studio/audio-strudel-track` makes them sample
+one-shots.
 
-```yaml schema=Track
-type: strudel
+```yaml schema=Module
+extends: "@studio/sequence-strudel-track"
 strudel: algo/pattern.strudel
-contentType: sequences
 ```
+
+## One name space
+
+A lane and a module share one set of names, because they are the same kind of thing. A chain
+step naming `lead` must mean exactly one node, so a lane may not be called what a module is
+called — which in practice means a lane and the synth it feeds need different names:
+
+```yaml exempt="two files, shown together"
+# instances/melody.yaml     -> the lane
+# instances/synth-melody.yaml -> the 4OSC it plays through
+```
+
+That is the one thing to know when moving an old project over: a track and its instrument that
+happened to share a name now have to be told apart.
+
+## What went away
+
+`type:` and `contentType:` are gone — one `extends:` says both. So are `mute:` and `solo:` (see
+above), and three others, each to be replaced by another mechanism later rather than
+reimplemented in place:
+
+- **`alternatives:` / `alternative:`** — a lane's clip list had variants, and one of them played.
+- **`frozen:`** — a lane could play a render of itself instead of computing it.
+- **`video_source:`** — an audio track could take its placements from a video track, back when
+  picture lived in the same project. It has been read by nothing since picture became its own
+  `.v1` folder.
+
+All five schemas are `.strict()`, so a file still carrying any of them says so by name and by
+line rather than being read and dropped.

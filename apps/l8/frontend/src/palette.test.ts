@@ -33,11 +33,7 @@ const CATALOGUE: CommandInfo[] = [
     "Add a marker to the timeline",
     "Ajouter un repère sur la timeline",
   ),
-  cmd(
-    "track freeze",
-    "Freeze or unfreeze a track",
-    "Geler ou dégeler une piste",
-  ),
+  cmd("track color", "Recolour a track", "Recolorer une piste"),
 ];
 
 const build = (locale = "en") => buildPaletteCommands(CATALOGUE, locale);
@@ -100,9 +96,9 @@ describe("finding a command by describing it", () => {
   });
 
   it("puts the command whose NAME was typed first", () => {
-    // Typing a verb means the verb: "track freeze" beats a description that merely contains
+    // Typing a verb means the verb: "track color" beats a description that merely contains
     // the same letters.
-    expect(names("track freeze")[0]).toBe("track freeze");
+    expect(names("track color")[0]).toBe("track color");
   });
 
   it("lists the whole catalogue when nothing is typed", () => {
@@ -153,15 +149,15 @@ describe("what you used lately comes first", () => {
 
   it("lifts a command you have run over an equally good match you have not", () => {
     // "track" matches both of these about as well; the one you ran last wins.
-    expect(recent("track", [])[0]).not.toBe("track freeze");
-    expect(recent("track", ["track freeze"])[0]).toBe("track freeze");
+    expect(recent("track", [])[0]).not.toBe("track color");
+    expect(recent("track", ["track color"])[0]).toBe("track color");
   });
 
   it("decays down the history, so the last thing you did beats the tenth", () => {
-    const used = ["marker new", ...Array(8).fill("x"), "track freeze"];
-    expect(recent("track", used)[0]).toBe("track freeze");
+    const used = ["marker new", ...Array(8).fill("x"), "track color"];
+    expect(recent("track", used)[0]).toBe("track color");
     // …and the fresher one wins when both match.
-    expect(recent("a", ["track freeze", "marker new"])[0]).toBe("track freeze");
+    expect(recent("a", ["track color", "marker new"])[0]).toBe("track color");
   });
 
   it("is a NUDGE, not an override — a clearly better match still wins", () => {
