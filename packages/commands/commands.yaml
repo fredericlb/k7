@@ -650,6 +650,56 @@
   help: "bypass a module so it passes sound through untouched (bare: toggles)"
   surfaces: [cli]
   args: [{ name: module, complete: modules }, { name: state, values: [on, off] }]
+# --- a module's ALTERNATIVES (its other attribute sets) ---
+# NOT `project alternative`, which is a git branch, and not a PRESET, which is a starting point
+# you stamp into the module's params. This is a set of attributes the module can be switched
+# BETWEEN: both survive, one is on, and switching is one line of its own file. Any field a
+# module has may differ — params, a lane's clips, even the plugin. See
+# packages/song/docs/alternatives.md.
+#
+# The name is optional everywhere: an unnamed one answers to its position, counting the module's
+# own fields as 1. The ⋮ button on a node's corner runs these three.
+- command: "module alternative create"
+  sid: module.alt.create
+  readable:
+    en: "Create an empty alternative for a module"
+    fr: "Créer une alternative vide pour un module"
+  help: "add an empty alternative to a module and switch to it (e.g. module alternative create ampli crunch)"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
+    ]
+# The other half of the same wish: keep this set, try a change to it. A copy carries what the
+# CURRENT set states, which re-typing it by hand would get wrong.
+- command: "module alternative copy"
+  sid: module.alt.copy
+  readable:
+    en: "Copy a module's settings into a new alternative"
+    fr: "Copier les réglages d'un module dans une nouvelle alternative"
+  help: "add an alternative holding a copy of the one that is on, and switch to it"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
+    ]
+# Named rather than left as the bare verb: `select` and `create` say what they do, and a bare
+# `module alternative ampli crunch` reads like a declaration rather than a move. With no name, it
+# lists what the module has.
+- command: "module alternative select"
+  sid: module.alt.select
+  readable:
+    en: "Switch a module to another of its alternatives"
+    fr: "Basculer un module sur une autre de ses alternatives"
+  help: "switch a module to another of its alternatives (e.g. module alternative select ampli crunch)"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: name, optional: true, complete: moduleAlternatives },
+    ]
 # Point a file-valued param at one of the module's own assets — a .nam model in
 # modules/<category>/<module>/assets/. The panel's dropdown runs this when you pick a file;
 # `none` clears it. The file is written and the project reloaded: the plugin reads its file

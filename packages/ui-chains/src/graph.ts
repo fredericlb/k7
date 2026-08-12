@@ -38,6 +38,11 @@ const CARRIED = [
   "pluginId",
   "monitor",
   "tap",
+  // The module's other attribute sets, and which is on. Carried rather than consumed: the node
+  // draws a menu from them, and they arrive only when there is more than one to pick — so a node
+  // with none grows no button. See packages/song/docs/alternatives.md.
+  "alternatives",
+  "alternative",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */
@@ -156,10 +161,8 @@ export interface GraphNode extends Carried, Flags {
   dim: boolean; // bypassed (module or whole chain)
   module?: string; // the module instance name (for the nativePluginUI open)
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through
-  // Frozen: on a track, it plays a render of itself; on a module, it is INSIDE that render and so is not running
-  // at all. Not `dim` — a bypassed module is still built and can be un-bypassed on the spot, while a frozen one
-  // does not exist for the engine until the track is unfrozen.
-  frozen?: boolean;
+  // A `frozen` flag was here, marking a lane playing a render of itself and every module inside
+  // that render. Gone with the field it read — see packages/song/docs/trackModules.md.
   // A node that does not exist yet: the module being created right now, drawn where it will land. It is not in
   // any graph the server has — the canvas inserts it on the click and drops it when real data arrives.
   pending?: boolean;
@@ -778,37 +781,16 @@ export function buildGraph(
       existing.chains = [...merged];
       // The sub line names the chains sharing this module, so it must follow the MERGE, not the first insertion.
       existing.sub = merged.size > 1 ? [...merged].join(", ") : undefined;
-      // …and so must `frozen`, for the same reason and with worse consequences: it answers "is EVERY chain of
-      // this module frozen", and at first insertion only one of them is known. A reverb shared by a frozen track
-      // and a live one arrived frozen and stayed that way, greyed out while it was still processing the live one.
-      existing.frozen = moduleFrozen(existing.chains);
     }
     return id;
   };
   // The maximum step index a module holds across chains, so a shared one ranks after every pipeline it is in.
   const moduleRank = new Map<string, number>();
 
-  // --- frozen ---------------------------------------------------------------
-  // A frozen track's chain is already inside its render, so the engine never builds those plugins: the nodes have
-  // to say so, or the graph offers knobs on modules nothing is listening to.
-  const frozenTracks = new Set(graph.frozenTracks ?? []);
+  // The FROZEN pass was here — which lanes played a render of themselves, and which modules were
+  // therefore inside it. Freezing is gone with the field it read (packages/song/docs/trackModules.md).
   // Once for the whole graph, so every lane's mini timeline is drawn against the same ruler.
   const clipSpan = clipSpanOf(graph);
-  // A chain is frozen when the track feeding it is — following `from` through chain-feeds-chain, since a chain
-  // sourced from a frozen one carries that render and nothing else. `seen` guards a cycle, same as exitSignal.
-  const chainFrozen = (chain: string, seen = new Set<string>()): boolean => {
-    const c = graph.chains[chain];
-    if (!c || !c.from || seen.has(chain)) return false;
-    seen.add(chain);
-    if (frozenTracks.has(c.from)) return true;
-    return c.from !== chain && isChain(c.from) && !isTrack(c.from)
-      ? chainFrozen(c.from, seen)
-      : false;
-  };
-  // …and a MODULE is frozen only when EVERY chain it sits in is. A module shared between a frozen track and a live
-  // one still runs for the live one, and marking it asleep would be a plain lie about a node you can still edit.
-  const moduleFrozen = (chains: string[]) =>
-    chains.length > 0 && chains.every((n) => chainFrozen(n));
   /**
    * Add a connection once — but "once" is per SOCKET, not per pair.
    *
@@ -908,7 +890,6 @@ export function buildGraph(
         dim: !chainOn || s.enabled === false,
         // Distinct from `dim`, which also covers a whole chain: this is THIS step's bypass, which its button flips.
         bypassed: s.enabled === false,
-        frozen: moduleFrozen(chains),
         module: s.module,
         // Everything the step itself says, in one move — see CARRIED/FLAGS. Listing them here
         // is what let `assetChoices` reach the browser and stop short of the node.
@@ -983,7 +964,10 @@ export function buildGraph(
           kind: "track",
           video,
           color: graph.trackColors?.[c.from],
-          frozen: frozenTracks.has(c.from),
+          // A lane is a module instance, so it is addressable like one — which is what the
+          // alternatives menu on its card acts through. See packages/song/docs/alternatives.md.
+          module: c.from,
+          ...(graph.trackAlternatives?.[c.from] ?? {}),
           dim: false,
           missing: false,
           stub: false,
@@ -1070,7 +1054,8 @@ export function buildGraph(
       kind: "track",
       video,
       color: graph.trackColors?.[id],
-      frozen: frozenTracks.has(id),
+      module: id,
+      ...(graph.trackAlternatives?.[id] ?? {}),
       dim: false,
       missing: false,
       stub: false,

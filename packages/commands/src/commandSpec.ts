@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { alternativesOf } from "@studio/song/alternatives";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import {
   assetLookup,
@@ -75,6 +76,30 @@ const PROVIDERS = {
     ...h.baseModules.filter((r) => r.startsWith("@")),
   ],
   tracks: (h) => h.project().tracks.map((t) => t.id),
+  /**
+   * Every alternative name in the project, deduped. Not the named module's alone: a provider is
+   * handed the host and not the half-typed line, so it cannot know which module was just named.
+   * The handler checks against the real module, which is where a wrong name has to be caught.
+   *
+   * Off `loadModules` and not `loadGraph`: this reads the module FILES and nothing else, where
+   * the graph would also read every clip, sequence and curve to answer a question about names.
+   */
+  moduleAlternatives: (h) => {
+    if (!h.songPath) return [];
+    try {
+      return [
+        ...new Set(
+          Object.values(loadModules(h.songPath)).flatMap((m) =>
+            alternativesOf(m)
+              .slice(1)
+              .map((a) => a.name),
+          ),
+        ),
+      ];
+    } catch {
+      return []; // an unreadable module folder costs the completion, not the command
+    }
+  },
   // The branches you can switch to — every local one EXCEPT the one you are on, which is
   // not a destination. Best-effort: no repo means nothing to offer, not an error.
   alternatives: (h) => {
@@ -263,6 +288,7 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // A named thing picked from a closed list — the same shape the palette renders for any
   // other choice. Not "file": an alternative is a branch, and nothing on disk.
   alternatives: "choice",
+  moduleAlternatives: "choice",
   // A clip id and an audio path are both material, and the palette colours material as a file —
   // the same answer `sequenceFiles` gets, whose ids are likewise entities rather than paths.
   clipTargets: "file",
@@ -287,6 +313,8 @@ export function argClass(a: ArgSpec): ArgClass {
 // What each provider offers, at PROVIDER level: "a sequence" and "an audio file" are different answers.
 const PROVIDER_HINT: Record<ProviderName, string> = {
   alternatives: "an existing alternative — the one you are on is not offered",
+  moduleAlternatives:
+    "one of this module's alternatives — unnamed ones answer to their number",
   tracks: "a track of this project",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",

@@ -9,6 +9,8 @@
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
     "./yaml/moduleSchema": "./src/yaml/moduleSchema.ts",
     "./yaml/moduleFile": "./src/yaml/moduleFile.ts",
+    "./yaml/alternativeFile": "./src/yaml/alternativeFile.ts",
+    "./alternatives": "./src/alternatives.ts",
     "./yaml/placementSchema": "./src/yaml/placementSchema.ts",
     "./yaml/entitySchemas": "./src/yaml/entitySchemas.ts",
     "./yaml/projectSchema": "./src/yaml/projectSchema.ts",

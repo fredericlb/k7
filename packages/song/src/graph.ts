@@ -5,6 +5,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { WebOut } from "@studio/graph-model";
+import { alternativesOf, currentAlternative } from "./alternatives";
 import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
 import {
   exportSub,
@@ -254,6 +255,16 @@ export interface Module {
   // arrowing into the module. No engine meaning yet (the first automation slice is the
   // model + its picture). Absent when the module automates nothing.
   automations?: Automation[];
+  /**
+   * The module's other attribute SETS, in order, and which one is ON.
+   *
+   * Carried AFTER the merge, deliberately: the fields above are already the chosen set, and
+   * these say what could be chosen instead. A surface draws the list from them and needs no
+   * second read of the file. Absent when the module has only its own — which is every module
+   * until somebody adds one, so no node grows a menu it has nothing to put in.
+   */
+  alternatives?: string[];
+  alternative?: string;
 }
 // One automation binding: a curve id driving a named param (mirrors #Automation).
 export interface Automation {
@@ -562,6 +573,15 @@ export function buildGraph(
     // carry and only a bottom panel could show; this one is drawn on the node itself.
     content: typeof b?.content === "string" ? b.content : undefined,
     automations: normAutomations(b?.automations),
+    // Only when there is a CHOICE: one entry is the module's own fields, which is not a menu.
+    ...(() => {
+      const all = alternativesOf(b);
+      if (all.length < 2) return {};
+      return {
+        alternatives: all.map((a) => a.name),
+        alternative: all[currentAlternative(b)].name,
+      };
+    })(),
   });
 
   // Video lanes, as the graph/timeline read them. No `disabled` counterpart: a video

@@ -204,113 +204,154 @@ export const AutomationSchema = z
   .object({ param: z.string().min(1), curve: z.string().min(1) })
   .strict();
 
+/**
+ * Everything a module says about ITSELF — every field but `extends` and the alternatives.
+ *
+ * Its own object because an ALTERNATIVE is a module partial: the same fields, minus the two
+ * that say where a module comes from. Written once and spread into both schemas below, so a
+ * field added to a module is a field an alternative can set, without anyone remembering to.
+ * See docs/alternatives.md.
+ */
+const MODULE_FIELDS = {
+  // Deliberately open — a plugin's shape is the ENGINE's business, matched as strings against its scan cache.
+  plugin: z
+    .looseObject({
+      type: z.string().optional(),
+      name: z.string().optional(),
+    })
+    .optional(),
+  // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the
+  // graph reads rather than re-listing them.
+  // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the
+  // graph reads rather than re-listing them.
+  io: z.enum(["out", "in", "video_out", "file"]).optional(),
+  // The module's own PORTS, overriding the defaults its type folder gives (MODULE_TYPES).
+  //
+  // Declared here because the folder says what a module IS, not how many wires it takes: a
+  // crossfade is an audio effect like any other and needs two audio inputs, which was
+  // unsayable while the folder was the only source. A module that declares neither keeps its
+  // type's ports, which is every module written so far. See docs/ports.md.
+  inputs: z.array(PortSchema).optional(),
+  outputs: z.array(PortSchema).optional(),
+  type: z
+    .enum(["plugin", "rack", "video_effect", "video_transition"])
+    .optional(), // NOT .default() — the loader applies it (moduleFile.ts) so the file stays as terse as authored
+  // A param is a NUMBER, except the few the plugin steers with a file it loads — `nam` names
+  // a .nam model in this module's own `assets/`. It sits in params: because that is what it
+  // is, one of the plugin's controls shown in the panel beside Input and Output; its own
+  // top-level field made it a second kind of thing to find, edit and merge. Only the
+  // file-valued ones are strings (moduleTypes.FILE_PARAMS), and nodeProject lifts them out
+  // before the wire, which stays numeric. See docs/moduleAssets.md.
+  params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
+  rack: RackSchema.optional(),
+  // A COLD module: one that only works on material already on disk, because it has to know the
+  // whole of its input before it can produce any of it. Normalisation is the plain case — the
+  // gain depends on the loudest sample, which may be the last one. Not "expensive": a cold
+  // module run live would not be slow, it would be wrong, since the answer does not exist yet.
+  //
+  // A property of the MODULE, so it is inherited by every use of it (deliberately not in
+  // moduleResolve's OWN_ONLY — an instance of a cold module is cold). See docs/coldModules.md.
+  cold: z.boolean().optional(),
+  // NOTE: there is no `jsdsp:` field. A module whose DSP is its own source says so with
+  // `plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement
+  // instead of two that had to agree. See loader.ts's jsDspFileFor.
+  // An io "in" module says WHICH interface input it is, and nothing about where the
+  // signal goes: the chain it sits in already names the track. (It used to carry a
+  // `track:` too, which meant a shared input module — one per physical input, filed in
+  // a workspace's _modules by `module populate` — had nowhere to put a binding that is
+  // per-project by nature.)
+  channel: InputSchema.optional(),
+  // An io "file" module reads an audio FILE instead of an interface channel. Project-relative,
+  // and named `source` for the same reason a clip's audio is: it is the same fact. (`file` was
+  // the obvious spelling and is taken — the loader writes the module's FOLDER name there, so
+  // an authored `file:` was silently overwritten by it.) It may be ABSENT, and that is the
+  // useful case rather than an oversight: a chain template's input names none, because the
+  // template is generic and whoever applies it supplies the audio — a song hands over its
+  // master. See docs/fileInput.md.
+  source: z.string().optional(),
+  // Whether you hear the input while it plays. A BOOLEAN is the everyday answer — `monitor: true` is what a
+  // person writing this file means — and the three-state spelling stays because "auto" is neither: it means
+  // audible only once the track is armed, which is the default and cannot be said with a boolean.
+  monitor: z.union([z.boolean(), z.enum(["off", "auto", "on"])]).optional(),
+  // Input trim, in dB, applied at the interface before anything else sees the signal. 0 is unity; a guitar
+  // into a line input usually wants some, a hot synth wants less. Not a plugin's `params:` — there is no
+  // plugin here, the input IS the module.
+  gain: z.number().optional(),
+  ui: UISchema.optional(),
+  automations: z.array(AutomationSchema).optional(), // curves driving this module's params
+  /**
+   * A NOTE on the graph — the whole of what a doc module carries.
+   *
+   * Multiline free text, shown as it is written on the node itself. It replaces the `docs:`
+   * and `todos:` fields that used to sit here and on tracks: those were only ever readable in
+   * a bottom panel, which meant a note about a module lived somewhere you had to go and look,
+   * next to notes about everything else. A note is now a THING IN THE GRAPH, wired from what
+   * it is about, and read where you are already looking.
+   *
+   * It belongs to an INSTANCE in practice — every note is an instance of `@studio/doc` — but
+   * it is declared on the module like any other setting, because that is what makes an
+   * instance able to override it. See docs/docModules.md.
+   */
+  content: z.string().optional(),
+
+  // --- a LANE's own fields (see docs/trackModules.md) ------------------------------
+  //
+  // Accepted on any module, meaningful only on one that extends a `@studio/…-track`. The
+  // schema deliberately does not police that: it validates ONE file, and which module a name
+  // extends is a question about the whole project. `graph.ts`'s validate() reports a `clips:`
+  // on a reverb, exactly as it reports a `channel:` on something that is not an input — same
+  // rule, same place.
+
+  // The placements on this lane: what plays, where, and how many times.
+  clips: z.array(PlacementSchema).optional(),
+  // The lane's colour, and its icon's in the timeline.
+  color: z.string().optional(),
+  // Excluded from the render entirely, chains and all — distinct from bypassing it, which
+  // silences the lane while leaving it in the project's shape.
+  disabled: z.boolean().optional(),
+  // A GROUP lane's members, by instance name. It holds no material of its own.
+  tracks: z.array(z.string()).optional(),
+  // A GENERATED lane's pattern: its clips are filled while the transport rolls, so this stands
+  // where `clips:` would. Which of the two a lane may write is decided by what it extends — an
+  // authored lane has no pattern, a generated one has no placements.
+  strudel: z
+    .string()
+    .regex(/^algo\/.+\.strudel$/, "expected algo/<name>.strudel")
+    .optional(),
+};
+
+/**
+ * One ALTERNATIVE: a named set of attributes this module can be switched to.
+ *
+ * The same flat struct a module is, minus `extends` (an alternative belongs to the module it
+ * sits in — it cannot re-parent it) and minus the alternatives themselves (one level, so there
+ * is no tree to reason about). It normally states only what it CHANGES, exactly as an instance
+ * does over the module it extends — the merge is the same one. See docs/alternatives.md.
+ *
+ * `name` is optional because an unnamed one is known by its position, which is what makes
+ * trying a second set of settings cost nothing to name.
+ */
+export const AlternativeSchema = z
+  .object({ name: z.string().min(1).optional(), ...MODULE_FIELDS })
+  .strict();
+
+export type Alternative = z.infer<typeof AlternativeSchema>;
+
 export const ModuleSchema = z
   .object({
     extends: z.string().optional(),
-    // Deliberately open — a plugin's shape is the ENGINE's business, matched as strings against its scan cache.
-    plugin: z
-      .looseObject({
-        type: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the
-    // graph reads rather than re-listing them.
-    // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the
-    // graph reads rather than re-listing them.
-    io: z.enum(["out", "in", "video_out", "file"]).optional(),
-    // The module's own PORTS, overriding the defaults its type folder gives (MODULE_TYPES).
-    //
-    // Declared here because the folder says what a module IS, not how many wires it takes: a
-    // crossfade is an audio effect like any other and needs two audio inputs, which was
-    // unsayable while the folder was the only source. A module that declares neither keeps its
-    // type's ports, which is every module written so far. See docs/ports.md.
-    inputs: z.array(PortSchema).optional(),
-    outputs: z.array(PortSchema).optional(),
-    type: z
-      .enum(["plugin", "rack", "video_effect", "video_transition"])
-      .optional(), // NOT .default() — the loader applies it (moduleFile.ts) so the file stays as terse as authored
-    // A param is a NUMBER, except the few the plugin steers with a file it loads — `nam` names
-    // a .nam model in this module's own `assets/`. It sits in params: because that is what it
-    // is, one of the plugin's controls shown in the panel beside Input and Output; its own
-    // top-level field made it a second kind of thing to find, edit and merge. Only the
-    // file-valued ones are strings (moduleTypes.FILE_PARAMS), and nodeProject lifts them out
-    // before the wire, which stays numeric. See docs/moduleAssets.md.
-    params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
-    rack: RackSchema.optional(),
-    // A COLD module: one that only works on material already on disk, because it has to know the
-    // whole of its input before it can produce any of it. Normalisation is the plain case — the
-    // gain depends on the loudest sample, which may be the last one. Not "expensive": a cold
-    // module run live would not be slow, it would be wrong, since the answer does not exist yet.
-    //
-    // A property of the MODULE, so it is inherited by every use of it (deliberately not in
-    // moduleResolve's OWN_ONLY — an instance of a cold module is cold). See docs/coldModules.md.
-    cold: z.boolean().optional(),
-    // NOTE: there is no `jsdsp:` field. A module whose DSP is its own source says so with
-    // `plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement
-    // instead of two that had to agree. See loader.ts's jsDspFileFor.
-    // An io "in" module says WHICH interface input it is, and nothing about where the
-    // signal goes: the chain it sits in already names the track. (It used to carry a
-    // `track:` too, which meant a shared input module — one per physical input, filed in
-    // a workspace's _modules by `module populate` — had nowhere to put a binding that is
-    // per-project by nature.)
-    channel: InputSchema.optional(),
-    // An io "file" module reads an audio FILE instead of an interface channel. Project-relative,
-    // and named `source` for the same reason a clip's audio is: it is the same fact. (`file` was
-    // the obvious spelling and is taken — the loader writes the module's FOLDER name there, so
-    // an authored `file:` was silently overwritten by it.) It may be ABSENT, and that is the
-    // useful case rather than an oversight: a chain template's input names none, because the
-    // template is generic and whoever applies it supplies the audio — a song hands over its
-    // master. See docs/fileInput.md.
-    source: z.string().optional(),
-    // Whether you hear the input while it plays. A BOOLEAN is the everyday answer — `monitor: true` is what a
-    // person writing this file means — and the three-state spelling stays because "auto" is neither: it means
-    // audible only once the track is armed, which is the default and cannot be said with a boolean.
-    monitor: z.union([z.boolean(), z.enum(["off", "auto", "on"])]).optional(),
-    // Input trim, in dB, applied at the interface before anything else sees the signal. 0 is unity; a guitar
-    // into a line input usually wants some, a hot synth wants less. Not a plugin's `params:` — there is no
-    // plugin here, the input IS the module.
-    gain: z.number().optional(),
-    ui: UISchema.optional(),
-    automations: z.array(AutomationSchema).optional(), // curves driving this module's params
+    ...MODULE_FIELDS,
     /**
-     * A NOTE on the graph — the whole of what a doc module carries.
+     * The module's other attribute SETS, and which of them is on.
      *
-     * Multiline free text, shown as it is written on the node itself. It replaces the `docs:`
-     * and `todos:` fields that used to sit here and on tracks: those were only ever readable in
-     * a bottom panel, which meant a note about a module lived somewhere you had to go and look,
-     * next to notes about everything else. A note is now a THING IN THE GRAPH, wired from what
-     * it is about, and read where you are already looking.
-     *
-     * It belongs to an INSTANCE in practice — every note is an instance of `@studio/doc` — but
-     * it is declared on the module like any other setting, because that is what makes an
-     * instance able to override it. See docs/docModules.md.
+     * The module's own fields above are the first alternative and are not repeated here; these
+     * are the ones after it. `alternative` picks one, by name or by 1-based position, and absent
+     * means the first — which is why a project that never uses this keeps exactly the file it
+     * had. See docs/alternatives.md.
      */
-    content: z.string().optional(),
-
-    // --- a LANE's own fields (see docs/trackModules.md) ------------------------------
-    //
-    // Accepted on any module, meaningful only on one that extends a `@studio/…-track`. The
-    // schema deliberately does not police that: it validates ONE file, and which module a name
-    // extends is a question about the whole project. `graph.ts`'s validate() reports a `clips:`
-    // on a reverb, exactly as it reports a `channel:` on something that is not an input — same
-    // rule, same place.
-
-    // The placements on this lane: what plays, where, and how many times.
-    clips: z.array(PlacementSchema).optional(),
-    // The lane's colour, and its icon's in the timeline.
-    color: z.string().optional(),
-    // Excluded from the render entirely, chains and all — distinct from bypassing it, which
-    // silences the lane while leaving it in the project's shape.
-    disabled: z.boolean().optional(),
-    // A GROUP lane's members, by instance name. It holds no material of its own.
-    tracks: z.array(z.string()).optional(),
-    // A GENERATED lane's pattern: its clips are filled while the transport rolls, so this stands
-    // where `clips:` would. Which of the two a lane may write is decided by what it extends — an
-    // authored lane has no pattern, a generated one has no placements.
-    strudel: z
-      .string()
-      .regex(/^algo\/.+\.strudel$/, "expected algo/<name>.strudel")
+    alternatives: z.array(AlternativeSchema).optional(),
+    alternative: z
+      .union([z.string().min(1), z.number().int().min(1)])
       .optional(),
   })
   .strict(); // an unknown key is a typo — silently ignoring `paramz:` is worse than saying so

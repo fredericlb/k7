@@ -3,7 +3,6 @@
 // plugin scan cache); extracted from workspace.ts, where it was the class's largest
 // method with no instance state at all.
 
-import { join } from "node:path";
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
 import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
@@ -183,6 +182,10 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           // `ui` because it is keyed the same way — by the widget's `bind` — and read in the same
           // place: the graph is where a knob is drawn, so it is where a knob learns its control.
           cc: module?.cc,
+          // The other attribute sets this module could be switched to. Absent unless there is a
+          // choice — `graph.ts` only fills them past one. See packages/song/docs/alternatives.md.
+          alternatives: module?.alternatives,
+          alternative: module?.alternative,
           params: module?.params ?? {},
           // The engine's address for this step — and ONLY when the engine will really have
           // one. `offline` is the exception `known` above hides: the compiler recognises it
@@ -251,6 +254,9 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   const trackSignals: WebGraph["trackSignals"] = {};
   // `frozenTracks` was built here. Freezing is gone with the field it read — see
   // packages/song/docs/trackModules.md.
+  // A lane's other attribute sets, from the module it IS. Only past one: a list of one is not a
+  // choice, and a node with nothing to pick from should grow no menu.
+  const trackAlternatives: NonNullable<WebGraph["trackAlternatives"]> = {};
   // The song's meter, for spelling a clip's position. Defaulted the way every other reader of
   // this field defaults it: a header that says nothing is 4/4.
   const [sigNum, sigDen] = (() => {
@@ -264,6 +270,12 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   for (const [id, t] of Object.entries(g.tracks)) {
     if (t.color) trackColors[id] = t.color;
     trackSignals[id] = t.contentType === "sequences" ? "midi" : "audio";
+    const lane = g.modules[id];
+    if (lane?.alternatives && lane.alternative)
+      trackAlternatives[id] = {
+        alternatives: lane.alternatives,
+        alternative: lane.alternative,
+      };
     // Only what a lane really holds: a group has members and a strudel lane streams, and both
     // carry an empty `placements` — so an entry for either would be a promise of a list that
     // is always empty.
@@ -298,6 +310,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     trackColors,
     trackSignals,
     ...(Object.keys(trackClips).length ? { trackClips } : {}),
+    ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     modules,
     curves: Object.keys(usedCurves).length ? usedCurves : undefined,
     warnings: g.warnings,

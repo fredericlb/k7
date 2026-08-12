@@ -59,7 +59,6 @@ import {
   widgetRect,
 } from "@studio/ui-chains/graph";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
-import { Snowflake } from "lucide-react";
 import {
   createContext,
   memo,
@@ -332,21 +331,18 @@ const CSS = `
    The overhang is safe: dagre keeps nodes 40px apart (nodesep) and ranks 100px, and
    nothing between here and .dgx (the pane) clips, so 8px over the edge can't collide
    with a neighbour or get cut. It sits above the card's own shadow via z-index. */
-.dgx-pbtn { position:absolute; top:-8px; right:-8px; z-index:2;
+/* The corner CLUSTER. Every bubble is the same disc; what differs is which SLOT it takes,
+   counted from the corner leftwards (--slot; 17px wide + 3px of air = 20px apart). One rule
+   instead of a .paired variant per pair: there are three of these now (alternatives, bypass,
+   plugin UI) and a variant per combination is where a fourth would have gone wrong. */
+.dgx-cbtn { position:absolute; top:-8px; right:calc(-8px + var(--slot,0) * 20px); z-index:2;
   width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
   cursor:pointer; color:var(--dim); background:var(--card); border:1px solid var(--line);
   box-shadow:0 1px 4px rgba(0,0,0,.45); }
-.dgx-pbtn:hover { color:#e7e6ea; border-color:var(--sand); }
-/* Bypass, the plugin bubble's twin. The .paired variant shifts it clear of that one (17px wide +
-   3px of air) so the two straddle the corner side by side; alone it takes the corner
-   itself. Lit amber when ON, because a bypassed module still LOOKS like a module — the
+.dgx-cbtn:hover { color:#e7e6ea; border-color:var(--sand); }
+/* Bypass is lit amber when ON, because a bypassed module still LOOKS like a module — the
    node dims, but dim also means "the whole chain is off", so the state needs its own
    mark. */
-.dgx-bbtn { position:absolute; top:-8px; right:-8px; z-index:2;
-  width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
-  cursor:pointer; color:var(--dim); background:var(--card); border:1px solid var(--line);
-  box-shadow:0 1px 4px rgba(0,0,0,.45); }
-.dgx-bbtn.paired { right:12px; }
 /* A load problem the ENGINE reported for this plugin — a model it refused, a plugin it could not create. The
    node is otherwise healthy-looking, which is the whole trouble: it sits in the chain and does nothing. Amber
    and on the free corner (both right-hand ones are the plugin/bypass bubbles); the message is its tooltip. */
@@ -354,15 +350,8 @@ const CSS = `
   width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
   cursor:help; color:#0d0d0f; background:#f59e0b; border:1px solid #f59e0b;
   box-shadow:0 1px 4px rgba(0,0,0,.45); font:bold 11px/1 ui-sans-serif,system-ui; }
-/* FROZEN — this node is inside a track's render, so the engine never built it. Cold blue, on the bottom-left
-   corner (the top-left one is the engine's warning badge, and the two can be true at once: a module can have
-   failed to load and then been frozen with the failure baked in). */
-.dgx-fbtn { position:absolute; bottom:-8px; left:-8px; z-index:2;
-  width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
-  cursor:help; color:#0d0d0f; background:#7dd3fc; border:1px solid #7dd3fc;
-  box-shadow:0 1px 4px rgba(0,0,0,.45); }
-.dgx-fbtn svg { width:11px; height:11px; }
-/* The frost itself: a wash over the node, under its contents, so the node still reads while reading as inert. */
+/* A FROZEN badge sat on the bottom-left corner, and a frost wash over the node. Both are gone
+   with the field they read — packages/song/docs/trackModules.md. */
 
 /* A track's CLIPS, listed under its controls. Rows rather than a paragraph: the eye scans a
    lane's contents down, and each row is one clip whose name is ellipsed rather than wrapped —
@@ -423,18 +412,24 @@ const CSS = `
 .dgx-spin { width:18px; height:18px; margin:auto; border-radius:50%;
   border:2px solid var(--line); border-top-color:var(--sand); animation:dgx-rot .8s linear infinite; }
 @keyframes dgx-rot { to { transform:rotate(360deg); } }
-.dgx-bbtn:hover { color:#e7e6ea; border-color:var(--sand); }
 .dgx-bbtn.on { color:#0d0d0f; background:#f59e0b; border-color:#f59e0b; }
 /* The universal bypass mark: a circle broken at the top by a vertical stroke. */
 .dgx-bbtn i { width:7px; height:7px; border:1.4px solid currentColor; border-radius:50%;
   position:relative; }
 .dgx-bbtn i::after { content:""; position:absolute; left:50%; top:-3px;
   width:1.4px; height:5px; background:currentColor; transform:translateX(-50%); }
-/* The bubble's lower-left quarter still overlaps the header's corner, so a long name
-   needs to stop short of it — less than when it sat fully inside. */
-.dgx-hd.pbtn { padding-right:14px; }
-.dgx-hd.bbtn { padding-right:26px; }
+/* The bubbles' lower-left quarters still overlap the header's corner, so a long name needs to
+   stop short of them — 14px for the first, 12px more for each one further left. Driven by
+   --corners, the same count the buttons are placed from, so the name and the cluster cannot
+   disagree about how many there are. */
+.dgx-hd { padding-right:calc(10px + max(0px, (var(--corners,0) * 12px) + 2px)); }
 .dgx-pbtn i { width:9px; height:1.4px; background:currentColor; box-shadow:0 3px currentColor,0 -3px currentColor; }
+/* Alternatives: the module's other attribute sets. Three dots, the everyday "there is more here"
+   mark, and lit like bypass when a set OTHER than the module's own is on — a node running a
+   variant looks exactly like one running its own fields, and that is the thing worth marking. */
+.dgx-abtn.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); }
+.dgx-abtn i { width:3px; height:3px; border-radius:50%; background:currentColor;
+  box-shadow:0 -4px currentColor, 0 4px currentColor; }
 
 /* A PORT: a socket in a little plate stepped off the card's edge, the way a mini-jack is panel
    mounted. The plate is what makes it read as hardware — a bare dot on a border reads as a
@@ -1420,12 +1415,39 @@ function fitFont(label: string, w: number, h: number): number {
  * here because the layout is flex and the real figure only exists after a reflow, which is
  * exactly what a per-card measurement would cost. If the CSS moves, this moves with it.
  */
-function headerNameW(n: GraphNode, hasGlyph: boolean): number {
+function headerNameW(n: GraphNode, hasGlyph: boolean, corners: number): number {
   const HD_PAD = 10;
   const HD_GAP = 7;
   const lead = hasGlyph ? 13 : 8;
-  const corner = n.module && n.hasNativePluginUI ? 26 : 0;
+  // The same figure `.dgx-hd`'s padding-right uses, from the same count — 12px per bubble plus
+  // the 2px the first one hangs past them. It read `hasNativePluginUI ? 26 : 0` before, which
+  // was wrong twice over: a module with a bypass bubble and no native UI reserved nothing, and a
+  // node with one bubble reserved room for two.
+  const corner = corners ? corners * 12 + 2 : 0;
   return Math.max(16, n.w - HD_PAD * 2 - lead - HD_GAP - corner);
+}
+
+/** One corner bubble, in the order they sit: the corner first, then leftwards. */
+export type CornerButton = "plugin" | "bypass" | "alternatives";
+
+/**
+ * Which bubbles a node's corner shows.
+ *
+ * ONE list, because three things read it — the buttons, the header's padding, and how much room
+ * `headerNameW` leaves the name. They disagreed before this existed: a module with a bypass
+ * bubble but no native plugin UI got no padding at all, so a long name ran under it.
+ *
+ * `alternatives` appears on any node that COULD carry them (any module instance, a lane
+ * included), not only on one that already has some — creating the first has to start somewhere,
+ * and that somewhere is the node. A note is left out: it is drawn as prose with no header to
+ * hang a bubble off.
+ */
+function cornerButtons(n: GraphNode, canPickAlt: boolean): CornerButton[] {
+  const out: CornerButton[] = [];
+  if (n.hasNativePluginUI && n.module) out.push("plugin");
+  if (n.kind === "module" && n.module) out.push("bypass");
+  if (canPickAlt && n.module && n.note === undefined) out.push("alternatives");
+  return out;
 }
 
 // The glyph's height on the far card, taken from the NODE: it sits on its own line, so it needs a share of height.
@@ -1504,6 +1526,7 @@ function NodeInner({
   onContext,
   onOpenPlugin,
   onBypass,
+  onAlternatives,
   warning,
   onDragStart,
   onTapWidget,
@@ -1527,6 +1550,10 @@ function NodeInner({
   onContext: (n: GraphNode, e: React.MouseEvent) => void;
   onOpenPlugin: (module: string) => void;
   onBypass: (module: string) => void;
+  /** The ⋮ bubble was clicked: open THIS host's alternatives menu at those viewport coords.
+   *  Optional, and the button exists only when it is given — st0's bench and m9's desk pass
+   *  nothing and get no menu, the way they pass no command bar. */
+  onAlternatives?: (n: GraphNode, at: { x: number; y: number }) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
   warning?: string;
   onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
@@ -1560,6 +1587,10 @@ function NodeInner({
         : undefined;
   // Does this node draw a glyph? Decides whether the accent dot steps aside and the far card reserves height.
   const hasGlyph = n.kind === "track" || !!moduleGlyph(iconCategory, n.missing);
+  // The corner cluster, decided once: the buttons below, the header's padding and the width the
+  // name is measured against all read this same list.
+  const corners = cornerButtons(n, !!onAlternatives);
+  const slot = (b: CornerButton) => corners.indexOf(b);
   const sel =
     (!!n.chain && n.chain === selected) ||
     (!!n.chains && !!selected && n.chains.includes(selected)) ||
@@ -1581,7 +1612,6 @@ function NodeInner({
     `k-${red ? "stub" : n.kind}`,
     "tappable",
     sel ? "sel" : "",
-    n.frozen ? "frozen" : "",
     n.pending ? "pending" : "",
     far ? "far" : "", // far ⇒ name only; every other LOD draws header + content
   ]
@@ -1735,9 +1765,8 @@ function NodeInner({
       onContextMenu={(e) => onContext(n, e)}
     >
       <div
-        className={`dgx-hd${n.hasNativePluginUI && n.module ? " pbtn" : ""}${
-          n.kind === "module" && n.module && n.hasNativePluginUI ? " bbtn" : ""
-        }`}
+        className="dgx-hd"
+        style={{ "--corners": corners.length } as React.CSSProperties}
       >
         {/* The accent dot marks identity on a node with no glyph of its own. Where one
             IS drawn it leads the row instead, saying the node's kind rather than just
@@ -1760,7 +1789,12 @@ function NodeInner({
         <span
           className={`dgx-nm${flagCls}`}
           title={n.label}
-          style={{ fontSize: headerFontPx(n.label, headerNameW(n, hasGlyph)) }}
+          style={{
+            fontSize: headerFontPx(
+              n.label,
+              headerNameW(n, hasGlyph, corners.length),
+            ),
+          }}
         >
           {n.label}
         </span>
@@ -1792,10 +1826,10 @@ function NodeInner({
           than the last item in the header row: it acts on the PLUGIN, not on the
           title, and in the row it was competing for width with exactly the names that
           need it most — an external plugin's, which is the only kind that has one. */}
-      {/* …and not while frozen: there is no live plugin behind a baked module, so the engine has no window to open. */}
-      {n.hasNativePluginUI && n.module && !n.frozen && (
+      {corners.includes("plugin") && (
         <span
-          className="dgx-pbtn"
+          className="dgx-cbtn dgx-pbtn"
+          style={{ "--slot": slot("plugin") } as React.CSSProperties}
           title="Open native plugin UI"
           // Keep the press off the pane, as a widget's does — otherwise it arms a pan and the click never reaches the button.
           onPointerDown={(e) => e.stopPropagation()}
@@ -1808,18 +1842,41 @@ function NodeInner({
         </span>
       )}
 
-      {/* Bypass — a module still in the path but passing its input through untouched.
-          Sits beside the plugin bubble, offset left by however much room that one takes
-          when it is there, so the pair reads as one cluster on the corner and a module
-          without a native UI still gets its bypass in the same place. */}
-      {n.kind === "module" && n.module && !n.frozen && (
+      {/* Bypass — a module still in the path but passing its input through untouched. On a LANE
+          it would read as "produces nothing", which is that lane's mute; lanes carry theirs on
+          the mixer strip in the card instead, so the bubble stays a module's. */}
+      {corners.includes("bypass") && (
         <span
-          className={`dgx-bbtn${n.bypassed ? " on" : ""}${n.hasNativePluginUI ? " paired" : ""}`}
+          className={`dgx-cbtn dgx-bbtn${n.bypassed ? " on" : ""}`}
+          style={{ "--slot": slot("bypass") } as React.CSSProperties}
           title={n.bypassed ? "Bypassed — click to re-enable" : "Bypass"}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             onBypass(n.module!);
+          }}
+        >
+          <i />
+        </span>
+      )}
+
+      {/* The module's other attribute SETS. Reported with the click's viewport coords rather
+          than drawn here, exactly as a widget's library browser is: the menu is the HOST's, so
+          it can offer its own wording, its own commands and its own undo — and a graph that drew
+          one would be a graph that owned a popup. See packages/song/docs/alternatives.md. */}
+      {corners.includes("alternatives") && (
+        <span
+          className={`dgx-cbtn dgx-abtn${n.alternative && n.alternative !== "1" ? " on" : ""}`}
+          style={{ "--slot": slot("alternatives") } as React.CSSProperties}
+          title={
+            n.alternative && n.alternative !== "1"
+              ? `Alternative "${n.alternative}" — click to switch`
+              : "Alternatives"
+          }
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAlternatives?.(n, { x: e.clientX, y: e.clientY });
           }}
         >
           <i />
@@ -1839,24 +1896,9 @@ function NodeInner({
         </span>
       )}
 
-      {/* Frozen: on a track, it is playing a render of itself; on a module, it is INSIDE that render and the
-          engine never built it. Worth its own badge rather than folding into `dim`, because the two mean opposite
-          things about what a click will do — a bypassed module is live and one click from audible, a frozen one
-          is not there at all until the track thaws. */}
-      {n.frozen && (
-        <span
-          className="dgx-fbtn"
-          role="img"
-          aria-label="frozen"
-          title={
-            n.kind === "track"
-              ? "Frozen — playing a render of itself. Gain, pan and sends still work; `track freeze` again to edit it."
-              : "Frozen — this module is inside its track's render and is not running. Unfreeze the track to change it."
-          }
-        >
-          <Snowflake />
-        </span>
-      )}
+      {/* A snowflake badge marked a FROZEN node here — a lane playing a render of itself, or a
+          module inside that render. Gone with the field it read; see
+          packages/song/docs/trackModules.md. */}
 
       {/* Ports. Which sockets show is decided in graph.ts (`jacksFor`) — it depends on what is
           wired to the node, which is a fact about the graph rather than about the DOM. Here we
@@ -2264,6 +2306,7 @@ export function DomChains({
   fitAxis = "both",
   command,
   onBypassModule,
+  onAlternatives,
   onSetModuleAsset,
   onAssetBrowse,
   onLibraryBrowse,
@@ -2333,6 +2376,15 @@ export function DomChains({
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
+  /**
+   * The ⋮ bubble on a node's corner: open THIS host's alternatives menu there.
+   *
+   * Optional, and the bubble exists only when it is given — one of the props l8 passes and the
+   * médiathèque's bench and m9's desk do not, like the command bar and the edge inserts. The
+   * menu is the host's because it offers the host's commands and lands in the host's undo; a
+   * graph that drew one would be a graph that owned a popup. See docs/hosting.md.
+   */
+  onAlternatives?: (n: GraphNode, at: { x: number; y: number }) => void;
   // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
@@ -2460,6 +2512,7 @@ export function DomChains({
     onCanvasInsert,
     command,
     onBypassModule,
+    onAlternatives,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -2477,6 +2530,7 @@ export function DomChains({
     onCanvasInsert,
     command,
     onBypassModule,
+    onAlternatives,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -3039,10 +3093,8 @@ export function DomChains({
     (n: GraphNode, w: WebWidget, e: React.PointerEvent) => {
       const ch = chRef.current;
       e.stopPropagation(); // don't select the node or start a pan
-      // A frozen MODULE's plugin does not exist in the engine — the render replaced it — so a knob here would
-      // move, send a param set into the void, and be discarded on the next reload. A frozen TRACK is different:
-      // its node's widgets are the mixer strip, and gain/pan/mute are exactly what stays live.
-      if (n.frozen && n.kind === "module") return;
+      // A FROZEN module's knobs were refused here, its plugin having been replaced by a render.
+      // Freezing is gone — see packages/song/docs/trackModules.md.
       const tgt = widgetTarget(n, w, ch.offlineChannel);
       if (!tgt) return;
       const v = widgetValue(n, w, ch);
@@ -3382,6 +3434,13 @@ export function DomChains({
     (module: string) => cb.current.onBypassModule?.(module),
     [],
   );
+  // The node only ASKS: the menu is a viewport-positioned overlay, so it is the shell's to
+  // render — the same arrangement the widget browser and the `+` on an arrow already have.
+  const pickAlternative = useCallback(
+    (n: GraphNode, at: { x: number; y: number }) =>
+      cb.current.onAlternatives?.(n, at),
+    [],
+  );
   // The widget only ASKS: the browser popup is a viewport-positioned overlay, so it is the
   // shell's to render, exactly as the `+` on an arrow works. What comes back is written by
   // the shell too — an asset loads when the plugin is BUILT, so there is nothing optimistic
@@ -3591,6 +3650,7 @@ export function DomChains({
                 onContext={contextNode}
                 onOpenPlugin={openPlugin}
                 onBypass={bypassModule}
+                onAlternatives={onAlternatives ? pickAlternative : undefined}
                 warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
                 onDragStart={beginDrag}
                 onTapWidget={tapWidget}

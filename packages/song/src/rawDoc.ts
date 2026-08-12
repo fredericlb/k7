@@ -142,6 +142,11 @@ export interface LoadedModule {
   // A NOTE's text, on a doc module. `docs`/`todos` were here and are gone — see moduleSchema.
   content?: unknown;
   automations?: unknown;
+  // The module's other attribute SETS, and which is on. Its own fields ARE the first, so these
+  // are the ones after it — see docs/alternatives.md. They survive resolution deliberately: what
+  // a surface lists is what the file says, not what it was collapsed to.
+  alternatives?: unknown;
+  alternative?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
   clips?: unknown; // the placements on this lane — where its material goes, and how many times
   color?: unknown; // the lane's colour, and its icon's in the timeline

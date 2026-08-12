@@ -120,6 +120,15 @@ export interface WebChainStep {
   params?: Record<string, number | string>;
   // The engine's PluginDoc id (`chain:module`) — what set-plugin-param addresses. Only for a real plugin.
   pluginId?: string;
+  /**
+   * The module's other attribute SETS, in order, and which one is on.
+   *
+   * Sent only when there is a CHOICE — one entry is the module's own fields, which is not a menu,
+   * and a node with nothing to pick from should grow no button. `params`/`ui` above are already
+   * the CHOSEN set; these say what could be chosen instead. See packages/song/docs/alternatives.md.
+   */
+  alternatives?: string[];
+  alternative?: string;
   // io "in" only: whether the interface signal is audible. A module FIELD, not a param — which is why a widget
   // bound to it needs a target of its own (see widgetTarget's "module" kind).
   monitor?: "off" | "auto" | "on";
@@ -240,10 +249,18 @@ export interface WebGraph {
   // graph says what a lane plays and not only where its signal goes. Absent for a lane with no
   // clips, and for a group or a strudel lane, which hold no placements at all.
   trackClips?: Record<string, WebTrackClip[]>;
-  // The ids of tracks currently FROZEN: playing a render of themselves. The graph marks their lane and every
-  // module downstream of it, because those modules are in the render and no longer run — and a node you can still
-  // click a knob on had better not be one the engine stopped listening to.
-  frozenTracks?: string[];
+  /**
+   * A lane's other attribute SETS, by lane name — the same pair a module step carries.
+   *
+   * Its own map for the reason `trackColors` and `trackClips` are theirs: a lane's node is built
+   * from the graph's track side rather than from a chain step, so what it draws has to arrive
+   * there. (That the two sides still exist at all is the seam to collapse next — a lane IS a
+   * module instance now, and this is the fourth channel saying so the long way round.)
+   */
+  trackAlternatives?: Record<
+    string,
+    { alternatives: string[]; alternative: string }
+  >;
   // The note text of every module that has one, by name — so the renderer can draw it on the
   // node. Only doc modules carry one, so this is empty for almost every project.
   // Optional because the layout-only subgraphs feeding dagre carry geometry, not notes.

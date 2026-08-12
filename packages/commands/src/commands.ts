@@ -50,8 +50,11 @@ import {
   clipOnsets,
   deleteModule,
   insertChainStep,
+  moduleAlternatives,
+  newModuleAlternative,
   placeChainNode,
   replaceModuleInChains,
+  selectModuleAlternative,
   setClipOnsets,
   setModuleAsset,
   setModuleBypass,
@@ -448,6 +451,35 @@ async function setLaneBypass(
     ),
   });
   h.log([line]);
+}
+
+// --- a module's alternatives (see packages/song/docs/alternatives.md) ---------
+//
+// The names are read off the module's own FILE rather than off the compiled doc: an alternative
+// may change any field, so the doc carries the chosen one collapsed in and has nothing left to
+// say about the others.
+
+/** `module alternative create|copy` — one shape, one difference. */
+async function moduleAltAdd(
+  a: string,
+  h: CommandHost,
+  copy: boolean,
+): Promise<void> {
+  const verb = copy ? "copy" : "create";
+  const [module, name] = a.trim().split(/\s+/).filter(Boolean);
+  if (!module) {
+    h.log([`usage: module alternative ${verb} <module> [name]`]);
+    return;
+  }
+  try {
+    const made = newModuleAlternative(h.songPath, module, name, { copy });
+    h.log([
+      `${module}: alternative '${made.name}' — ${copy ? "a copy of the one that was on" : "empty, and running"}`,
+    ]);
+    await h.reload();
+  } catch (e) {
+    h.log([`module alternative ${verb}: ${(e as Error).message}`]);
+  }
 }
 
 /** Resolve a `track mute`/`track solo` argument to a lane or a group, or report why not. */
@@ -1364,6 +1396,42 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`module ${param} failed: ${(e as Error).message}`]);
     }
   },
+
+  /**
+   * The three alternative verbs, one operation each on ONE module's file.
+   *
+   * All of them end in `h.reload()` rather than `applyProject` with a patched doc: a set may
+   * change any field — the plugin, the panel, a lane's whole clip list — so there is nothing
+   * cheap to diff, and re-reading is both simpler and what the engine has to be told anyway.
+   * See packages/song/docs/alternatives.md.
+   */
+  "module.alt.select": async (a, h) => {
+    const [module, name] = a.trim().split(/\s+/).filter(Boolean);
+    if (!module) {
+      h.log(["usage: module alternative select <module> [name]"]);
+      return;
+    }
+    try {
+      const { names, current } = moduleAlternatives(h.songPath, module);
+      if (!name) {
+        // The list is the useful answer to "which ones are there?", so a bare call says it.
+        h.log([
+          names.length > 1
+            ? `${module}: ${names.map((n) => (n === current ? `[${n}]` : n)).join("  ")}`
+            : `${module} has one set of settings — 'module alternative create ${module}' starts a second`,
+        ]);
+        return;
+      }
+      selectModuleAlternative(h.songPath, module, name);
+      h.log([`${module}: running alternative '${name}'`]);
+      await h.reload();
+    } catch (e) {
+      h.log([`module alternative: ${(e as Error).message}`]);
+    }
+  },
+
+  "module.alt.create": (a, h) => moduleAltAdd(a, h, false),
+  "module.alt.copy": (a, h) => moduleAltAdd(a, h, true),
 
   "module.param": async (a, h) => {
     const m = /^(\S+)\s+(.+?)\s+(\S+)$/.exec(a.trim());

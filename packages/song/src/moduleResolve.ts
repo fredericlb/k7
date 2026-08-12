@@ -5,6 +5,7 @@
 // drifted. Resolving is now a step you pass THROUGH — the brand on ResolvedModule means a
 // consumer cannot take a raw module by accident. See docs/moduleResolve.md.
 
+import { applyAlternative } from "./alternatives";
 import { resolveModuleAssetIn } from "./assetPath";
 import type {
   InstrumentType,
@@ -119,23 +120,44 @@ export function mergeAuthored(
 }
 
 /**
- * `m` with its whole `extends` ancestry folded in, deepest first.
+ * `m` with its whole ancestry folded in and its selected ALTERNATIVE applied.
  *
- * Cycle-guarded by ref: a chain that loops stops at the repeat and resolves what it read
- * so far, because a bad `extends` should cost the inheritance, not the project. A ref that
- * names nothing is likewise not an error here — validate() is what reports it.
+ * Two steps, and the order is the point: `extends` is folded first, then the one selected
+ * attribute set is merged over the result. So an alternative always wins — it is the last thing
+ * said about the module — and it can pick from a list its PARENT declared, which is how a shared
+ * amp offers `clean`/`crunch` and each instance chooses.
+ *
+ * The alternative is applied ONCE, at the outermost module, which is why the recursion below
+ * calls `foldExtends` and not this. Applying it at every level would mean a parent's own choice
+ * was merged in before the child's, and `base + clean + crunch` is not what `alternative: crunch`
+ * says. See docs/alternatives.md.
  */
 export function resolveModule(
   m: LoadedModule,
   byRef: Record<string, LoadedModule>,
   seen: Set<string> = new Set(),
 ): ResolvedModule {
+  return applyAlternative(foldExtends(m, byRef, seen));
+}
+
+/**
+ * The `extends` half, deepest first.
+ *
+ * Cycle-guarded by ref: a chain that loops stops at the repeat and resolves what it read
+ * so far, because a bad `extends` should cost the inheritance, not the project. A ref that
+ * names nothing is likewise not an error here — validate() is what reports it.
+ */
+function foldExtends(
+  m: LoadedModule,
+  byRef: Record<string, LoadedModule>,
+  seen: Set<string>,
+): ResolvedModule {
   const ref = m.extends ? String(m.extends) : "";
   const parent = ref && !seen.has(ref) ? byRef[ref] : undefined;
   if (!parent) return m as ResolvedModule;
   seen.add(ref);
   const merged = mergeAuthored(
-    resolveModule(parent, byRef, seen) as unknown as Record<string, unknown>,
+    foldExtends(parent, byRef, seen) as unknown as Record<string, unknown>,
     m as unknown as Record<string, unknown>,
   ) as unknown as ResolvedModule;
   return withInheritedAssets(merged, m, byRef);

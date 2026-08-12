@@ -396,6 +396,7 @@ export type ArgProvider =
   | "clipTargets"
   | "markerNames"
   | "modules"
+  | "moduleAlternatives"
   | "sequenceFiles"
   | "tracks";
 export interface CommandArg {

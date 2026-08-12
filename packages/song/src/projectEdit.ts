@@ -7,8 +7,14 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { loadModules, splitModuleKey } from "@studio/song/loader";
 import { parse as parseYaml } from "yaml";
+import { currentAlternative } from "./alternatives";
 import { sharedRoots } from "./moduleFork";
 import type { OnsetEdits } from "./onsets";
+import {
+  addAlternative,
+  alternativeNames,
+  setAlternative,
+} from "./yaml/alternativeFile";
 import {
   addNode,
   insertBetween,
@@ -109,6 +115,56 @@ export function setModuleParam(
   value: number,
 ): string {
   return editModuleValue(dir, module, ["params", name], value);
+}
+
+/**
+ * What a module's file says its attribute SETS are called, and which is on.
+ *
+ * Off the FILE rather than off the compiled doc: an alternative may change any field, so the doc
+ * carries the chosen one already merged in and has nothing left to say about the others. Here
+ * beside the writers so `moduleFileOf` stays private — one place knows where a module's file is.
+ */
+export function moduleAlternatives(
+  dir: string,
+  module: string,
+): { names: string[]; current: string } {
+  const text = readFileSync(moduleFileOf(dir, module).path, "utf8");
+  const names = alternativeNames(text);
+  return {
+    names,
+    current:
+      names[currentAlternative(parseYaml(text, { version: "1.2" }) ?? {})],
+  };
+}
+
+/**
+ * Switch a module to another of its attribute SETS, by name. Answers the file that changed.
+ *
+ * Through `editModuleFile` like every other module edit, so it resolves an instance to its own
+ * file and a `synth:lead` to the one beside its generic. See docs/alternatives.md.
+ */
+export function selectModuleAlternative(
+  dir: string,
+  module: string,
+  name: string,
+): string {
+  return editModuleFile(dir, module, (text) => setAlternative(text, name));
+}
+
+/** Add one and switch to it — empty, or a copy of the set that is on. Answers the name it got. */
+export function newModuleAlternative(
+  dir: string,
+  module: string,
+  name?: string,
+  opts: { copy?: boolean } = {},
+): { path: string; name: string } {
+  let chosen = name ?? "";
+  const path = editModuleFile(dir, module, (text) => {
+    const made = addAlternative(text, name, opts);
+    chosen = made.name;
+    return made.text;
+  });
+  return { path, name: chosen };
 }
 
 /**
