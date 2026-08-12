@@ -100,7 +100,7 @@ describe("fromLocation", () => {
 
   it("tolerates trailing and doubled slashes", () => {
     expect(fromLocation("/timeline/", "", "global").full).toBe("timeline");
-    // `/video` was a real address until picture left for v1; it still lands somewhere usable.
+    // `/video` is an alias for the frame; without one declared it lands on the layout.
     expect(fromLocation("//video//", "", "global")).toEqual(st());
   });
 

@@ -72,8 +72,8 @@ See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md)
 
 **The VIEWPORT is the second of those**, `surfaces/viewport.yaml`, and it sits above the
 timeline in the same column. Its mounting rule is the one that matters: it owns a WebGL context
-and one `<video>` per layer, so it is hidden and never unmounted — exactly the invariant the
-editor's undo history relies on, paid for a much more expensive thing. See
+and one `<video>` per layer, so it is hidden and never unmounted — the same invariant the
+editor's undo history relies on, protecting something more expensive. See
 [picture.md](picture.md).
 
 The editor is not in it. It had the left half, which meant every song opened with half the

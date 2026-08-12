@@ -10,8 +10,8 @@ Two surfaces are involved, both `split` (`packages/song/docs/surfaces.md`):
 | `timeline` | the lanes — audio and picture, one grid, in the pane ring |
 | `viewport` | the composited frame, WebGL, against the engine's playhead |
 
-There is **no separate picture timeline**. That was the whole of why picture became its own
-app for a while, and the ruler is what settled it.
+There is **no separate picture timeline**. One grid draws both, and the ruler is what makes that
+readable.
 
 ## The ruler reads either unit
 
@@ -58,10 +58,6 @@ The left edge writing **three** fields is the interesting one, and each is load-
 - `length` moves by that delta the other way, or the **tail slides** and the gesture is a move
   wearing a trim's clothes.
 
-That second one is a bug this drag shipped with in its previous life: only the first two were
-written, while the ghost drew a shortened shot — so the picture disagreed with the file, and
-you found out on the reload.
-
 A `length: 0` placement needs its extent pinned for a second reason on top — the source's own
 length would otherwise undo the trim on the next compile — and it is the same write, so it is
 not a special case.
@@ -88,8 +84,7 @@ dispatched through `@studio/commands`, which owns the verb. A picture placement 
 is no verb for one, so `App.applyVideoEdit` reads the lane's file, applies every field of the
 gesture to one buffer with `setVideoPlacementField`, and writes it once.
 
-That is a real asymmetry and worth knowing before you look for `picture move` in the
-catalogue. Two consequences follow:
+There is no `picture move` in the catalogue to look for. Two consequences follow:
 
 - **no context menu on a picture lane.** The menu is derived from the command catalogue, and
   an empty menu is worse than none.
@@ -115,8 +110,8 @@ selector would re-render the pane at ~20 Hz) and feeds them to an `EngineClock`,
 interpolates with a wall clock between frames and announces a discontinuity so the driver can
 hard-seek every `<video>`.
 
-`@studio/ui-eyes` knows nothing about any of that: it takes a `SeekingClock`. That seam is why
-picture has changed hosts twice without the renderer changing.
+`@studio/ui-eyes` knows nothing about any of that: it takes a `SeekingClock`, so the renderer is
+independent of where its time comes from.
 
 The scene is rebuilt only when the DOCUMENT changes, never on a playhead frame — it owns a GL
 context and a `<video>` per layer.

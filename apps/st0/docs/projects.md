@@ -19,12 +19,10 @@ propre travail. Le catalogue est ce dont un projet *se sert* — il est à un on
 z0 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle entière. Un dossier sans
 suffixe n'est pas un projet, même s'il contient un `project.yaml`.
 
-Il y en a eu deux autres, et chacun avait son application. `.v1` était un montage — une
-pellicule sans son ; `.m9` était un set de platines. Aucun des deux n'existe plus, et aucun n'a
-emporté quoi que ce soit : une chanson porte ses propres pistes vidéo et sa surface `viewport`
-(`packages/song/docs/picture.md`), et un set est un projet l8 sans arrangement qui porte un
-`songs.yaml` et une surface `turntables` (`packages/song/docs/setProject.md`). Ce qui était
-trois sortes de dossier est une sorte et trois **formes**.
+Deux suffixes, parce que deux applications ouvrent un projet. Tout ce qu'un projet l8 peut
+ÊTRE est une **forme** à l'intérieur de `.l8` plutôt qu'une sorte de dossier : une chanson
+porte ses pistes vidéo et sa surface `viewport` (`packages/song/docs/picture.md`), un set porte
+son `songs.yaml` et sa surface `turntables` (`packages/song/docs/setProject.md`).
 
 **st0 ne fait jamais de copie de travail.** Il tient un miroir *bare* et *sans blobs* de
 chaque dépôt, uniquement pour répondre « qu'est-ce qu'il y a dedans ». La copie qu'on édite,
@@ -220,9 +218,10 @@ décide de tout.
 ### Posséder un suffixe et pouvoir être créé sont deux questions
 
 `ProjectApp` vaut `"l8" | "z0"` — k7 n'a pas de projets. Mais le menu ne reflète PAS ce type :
-il reflète `SCAFFOLDED_APPS`, et la différence est un bug qui a vécu. Il ne reste d'ailleurs
-qu'une application à proposer, donc le menu offre désormais les trois **formes** d'un projet l8
-plutôt qu'une liste d'applications — voir `PROJECT_SHAPES` dans `@studio/song`.
+il reflète `SCAFFOLDED_APPS`, et confondre les deux fabrique un dossier dont le suffixe dit une
+chose et le contenu une autre. Une seule application y figure, donc le menu offre les trois
+**formes** d'un projet l8 plutôt qu'une liste d'applications — voir `PROJECT_SHAPES` dans
+`@studio/song`.
 
 Créer demande un **gabarit** — une carte de fichiers que le file-service sait écrire
 (`createProjectIn`, et les modules `scaffold*` de `@studio/song`). z0 possède bien les

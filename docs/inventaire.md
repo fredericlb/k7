@@ -1,7 +1,6 @@
 # Inventaire du code mort, dupliqué et construit d'avance
 
-Relevé du 4 août 2026, après le renommage `platines → m9`, **révisé le même jour après l'audit de
-cohérence**. Le constat reste un constat : ce qui a été traité depuis est marqué RÉSOLU sur place
+Relevé après l'audit de cohérence. Le constat reste un constat : ce qui a été traité depuis est marqué RÉSOLU sur place
 plutôt que retiré, pour que la ligne garde son historique. Chaque entrée porte de quoi trancher.
 
 > **Lisez le §0 avant de supprimer quoi que ce soit.** Un balayage automatique a déjà classé
@@ -14,20 +13,19 @@ plutôt que retiré, pour que la ligne garde son historique. Chaque entrée port
   tables MIME divergées **dans des formes incompatibles**. Le vocabulaire (familles, extensions,
   bornes de recherche) vit désormais dans `@studio/mediatek` ; le routage reste délibérément
   dupliqué, les deux sémantiques de 404 n'étant pas les mêmes. Voir `packages/mediatek/docs/mime.md`.
-- **Le client `engines`** recopié entre st0 et m9 (36 lignes, commentaires compris) →
-  `@studio/engine-browser/registry`. **l8 ne l'avait pas suivi** et gardait sa propre copie des
-  cinq routes dans `api.ts` ; il passe par `@studio/engine-browser/access` comme les deux
-  autres, et ses `get`/`send` same-origin sont partis avec (le registre en était le seul
+- **Le client `engines`**, recopié service par service (36 lignes, commentaires compris) →
+  `@studio/engine-browser/registry`. Tout le monde passe par `@studio/engine-browser/access`,
+  et les `get`/`send` same-origin de l8 sont partis avec (le registre en était le seul
   appelant). Voir `packages/engine-browser/docs/access.md`.
-- **La séquence « lister → préférence → sonder → choisir »**, écrite trois fois (l8
-  `EngineGate`, m9 `Gate`, st0 `useEngineChoice` + `useModuleEngine`) → `engines.find()`.
+- **La séquence « lister → préférence → sonder → choisir »**, écrite plusieurs fois (l8
+  `EngineGate`, st0 `useEngineChoice` + `useModuleEngine`) → `engines.find()`.
 - **`chooseEngine` refait à la main dans l8** (`EngineGate.tsx`), qui oubliait le filtre
   `&& r.token` et le raccourci « un seul moteur joignable » → il appelle le partagé.
 - **`TIER_LABEL` en triple** : déjà résolu avant l'audit, tout le monde passe par `formatLatency`.
 - **Le commentaire orphelin** de `apps/st0/frontend/src/api.ts` (il documentait un objet déplacé
   30 lignes plus bas) : supprimé.
 
-Reste **non traité, et c'est un choix** : `where()` (`m9/Gate.tsx`, `st0/EnginePicker.tsx`,
+Reste **non traité, et c'est un choix** : `where()` (`st0/EnginePicker.tsx`,
 `st0/EngineStatusBar.tsx`) est deux lignes identiques dont le seul foyer naturel serait
 `packages/web-protocol/quality.ts`, à côté de `formatLatency` — mais ce paquet ne contient
 aujourd'hui **aucune chaîne d'interface en français**, et `« hors de portée »` y ferait entrer
@@ -111,7 +109,7 @@ sous-chemin réellement importé (`file-service/src/{cors,pendingOrigins}.ts`).
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts:216` | remplacé par le registre. Il ne reste que de la prose, qui en parle **au passé** (`engine-registry/docs/shared.md:11`) — `apps/st0/docs/deploy.md` le donnait encore au présent et a été corrigé le 5 août 2026. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
 | type `Signal` | `packages/dsp/src/index.ts:48` | marqué `@deprecated`, plus aucun usage. |
 | script `"serve"` | `apps/l8/frontend/package.json:7` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
-| export `AuthUser` | `apps/st0/frontend/src/api.ts:22`, `apps/m9/frontend/src/api.ts:12` | exporté, jamais importé. Seul celui de l8 est consommé. |
+| export `AuthUser` | `apps/st0/frontend/src/api.ts:22` | exporté, jamais importé. Seul celui de l8 est consommé. |
 | `evict.ts` | `packages/mediatek/src/` | atteignable seulement par l'export mort `./evict` et son propre test. |
 | `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts:228,238` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Personne ne les appelle : les trois hôtes des grilles passent tous par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles étaient déjà orphelines avant que l8 déplace ses grilles (10 août 2026) ; ce n'est donc pas ce déplacement qui les a tuées. Elles gardent une vraie propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille — d'où le fait de les laisser : c'est *qui appelle* qu'il faut trancher. |
 | mode CLI `--normalize` | `engine/moteur/engine/NormalizeClips.cpp`, documenté dans `engine/moteur/docs/cliModes.md` | **Depuis le 5 août 2026** : son unique appelant était la commande `clip normalize` de l8, remplacée par `track process` / `clip process` (voir `packages/commands/docs/processChain.md`). Le mode est laissé en place — il est autonome, testé par un smoke-run, et « normaliser un lot de clips avec un gain commun » reste une chose que le moteur seul sait faire. À supprimer seulement si personne ne le rebranche : la question est *qui appelle*, pas *est-ce que ça marche*. |
@@ -137,46 +135,30 @@ des dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fich
 
 **Le client d'auth, en trois copies, dont une seule a le correctif.** l8 utilise un
 **getter** pour `loginUrl` (`apps/l8/frontend/src/api.ts:193`) — *« un GETTER, pas une
-constante : il doit capturer où vous êtes au moment du clic »*. mediatek (`api.ts:75`) et m9
+constante : il doit capturer où vous êtes au moment du clic »*. mediatek (`api.ts:75`)
 (`api.ts:37`) utilisent une **constante** évaluée à l'import. Le commentaire expliquant
 pourquoi la constante est fausse a été copié ; le correctif non.
 `AuthUser` a dérivé aussi : l8 a `email?: string | null` et `groups?: string[]`, les deux
 autres non.
 
 **`chooseEngine` adopté par tous sauf l8.** `packages/engine-browser/src/choose.ts` dit
-avoir été extrait *« parce que c'est la même question dans chaque service »*. mediatek et m9
+avoir été extrait *« parce que c'est la même question dans chaque service »*. mediatek
 l'importent ; `apps/l8/frontend/src/components/EngineGate.tsx:85` refait le calcul à la
 main — `chooseEngine` moins le filtre `&& r.token` et moins le raccourci « un seul moteur
 joignable n'est pas une question ».
 
-**`categoryOf` de m9 est une copie affaiblie.** `apps/m9/frontend/src/graph.ts:66` mappe un
-chemin de module vers sa catégorie par `split("/")[1]` à index fixe — ce qui casse sur
-`_modules/` et sur les chemins imbriqués — et lui manque l'alias historique `midi`. La version
-solide est `moduleCategoryOf` dans `packages/ui-chains/src/modulePreview.ts:41`, dont m9 dépend
-déjà. La justification historique de la duplication (*« le seul foyer commun serait
-`@studio/mediatek`, la bibliothèque côté Node »*) est morte avec `moduleGraph.ts`.
-
 ### Cosmétique, mais réelle
 
 - **Le libellé de tier**, identique au caractère près, commentaire compris :
-  `apps/m9/frontend/src/Gate.tsx:22` ≡ `apps/st0/frontend/src/engine/EnginePicker.tsx:12`.
-  l8 a la même table en `TIER_LABEL` (`EngineSelect.tsx:11`), via paraglide — donc c'est
-  déjà la troisième. Foyer naturel : à côté de `chooseEngine`.
-- **Le spinner plein écran**, cinq copies du même bloc : `l8/{AuthGate,EngineGate,ProjectGate}`,
-  `st0/Gate.tsx:33`, `m9/Gate.tsx:76`. Laissé tel quel : cinq blocs de présentation courts, sans
-  risque de dérive silencieuse. (`WorkspaceGate` est devenu `ProjectGate` quand st0 a pris les
-  dépôts — voir `apps/st0/docs/projects.md`.)
-- **Le stub « pas de barre de commandes »**, ~~trois copies~~ **deux** : `m9/chains.tsx:74` et
-  `st0/ChainView.tsx:45`. La troisième était dans `st0/ModulePreview.tsx`, parti avec le
-  constructeur (voir `apps/st0/docs/engine.md`).
-- **Le type `Phase`**, identique : `st0/engine/useModuleEngine.ts` ≡ `m9/useEngine.ts` — m9 a
-  gagné un `taken` depuis (`packages/engine-registry/docs/claim.md`), donc les deux ont
-  légèrement divergé, pour une raison.
+  `apps/st0/frontend/src/engine/EnginePicker.tsx:12`. l8 a la même table en `TIER_LABEL`
+  (`EngineSelect.tsx:11`), via paraglide. Foyer naturel : à côté de `chooseEngine`.
+- **Le spinner plein écran**, quatre copies du même bloc :
+  `l8/{AuthGate,EngineGate,ProjectGate}` et `st0/Gate.tsx:33`. Laissé tel quel : des blocs de
+  présentation courts, sans risque de dérive silencieuse.
+- **Le stub « pas de barre de commandes »** : `st0/ChainView.tsx:45`.
 - **Le glyphe `piano-16`**, corps SVG identique octet pour octet entre
   `apps/l8/frontend/src/trackIcons.tsx:38` et
-  `packages/ui-chains-react/src/moduleIcons.tsx:20`, et son enveloppe `<svg …>` réécrite à la
-  main une troisième fois dans `m9/chains.tsx:25`. La quatrième était celle de
-  `mediatek/ModulePreview.tsx` ; ce qu'il en restait vit maintenant seul dans
+  `packages/ui-chains-react/src/moduleIcons.tsx:20`. Ce qu'il en restait ailleurs vit seul dans
   `apps/st0/frontend/src/moduleIcons.tsx`. (Le reste de la duplication des tables de glyphes
   est argumenté et assumé — voir `moduleIcons.tsx:8`.)
 
@@ -185,9 +167,9 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 | constat | où |
 |---|---|
 | **Un test qui ne tourne jamais.** `emitNodes.test.ts` existe, le paquet n'a aucun script `test`, donc `turbo run test` l'ignore. Seul paquet dans ce cas. | `packages/translator/` |
-| `vitest` lancé sans être déclaré — ne se résout que par hoisting. mediatek et m9 le déclarent. | `apps/l8/frontend/package.json` |
-| Cinq `turbo.json` d'app **strictement identiques** au bloc `tasks.dev` de la racine : ils ne surchargent rien. | `apps/{k7,l8,m9,st0,z0}/turbo.json` |
-| Pas de section `m9-backend` ; le port 8796 est en dur dans le serveur alors que k7 et mediatek déclarent le leur. `STUDIO_PREFS_DIR` n'est documenté nulle part. | `env.example.yaml` |
+| `vitest` lancé sans être déclaré — ne se résout que par hoisting. mediatek le déclare. | `apps/l8/frontend/package.json` |
+| Les `turbo.json` d'app **strictement identiques** au bloc `tasks.dev` de la racine : ils ne surchargent rien. | `apps/{k7,l8,st0,z0}/turbo.json` |
+| `STUDIO_PREFS_DIR` n'est documenté nulle part. | `env.example.yaml` |
 | Lus dans le code, absents de l'exemple : `STUDIO_REGISTRY_URL` (18 lectures), `K7_URL`, `K7_TOKEN`. | — |
 | Importé sans être déclaré : `@studio/engine-protocol` par `file-service` et `web-protocol` (qui n'a **aucun** bloc `dependencies`), `yaml` par `translator` et `ui-editor`. | — |
 | Déclaré sans être importé : `zod`, `@types/express` en devDeps. | `packages/web-protocol` |
@@ -195,40 +177,28 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 
 ## 6. Petits nettoyages sûrs
 
-- **Ternaire mort** : `apps/m9/frontend/src/graph.ts:60` — `warnings: song ? [] : []`, les deux
-  branches identiques. C'est le **seul** usage du paramètre `song` de `deckGraph`, que
-  `chains.tsx:56` passe pourtant dans un `useMemo` : chaque changement de morceau force un
-  re-layout complet du graphe pour rien.
 - **Commentaire tronqué en pleine phrase** : `packages/ui-chains-react/src/moduleIcons.tsx:5`
   s'arrête sur « keyed by CATEGORY rather than a ».
 
-## 6 bis. Décroché par la refonte de Mix (6 août 2026), et gardé exprès
+## 6 bis. La chaîne d'effets par platine
 
-La vue Mix est devenue un pupitre — deux vinyles et un crossfader — et la chaîne d'effets
-d'une platine n'y a plus de place. Rien ne monte donc plus :
+Mix est un pupitre — deux vinyles et un crossfader — et la chaîne d'effets d'une platine n'y a
+pas de place. `deckGraph` et `categoryOf` (`packages/ui-turntables/src/graph.ts`) ne sont donc
+montés par rien.
 
-| symbole | fichier |
-|---|---|
-| `ChainsPanel` | `apps/m9/frontend/src/chains.tsx` |
-| `deckGraph`, `categoryOf` | `apps/m9/frontend/src/graph.ts` |
-
-**Non supprimés, et c'est un choix** : les trois marchent, `graph.test.ts` les couvre
-toujours, et la chaîne par platine fait partie des options annoncées comme revenant. Ce qui
-leur manquait quand il n'y avait qu'une platine — savoir *laquelle* ils dessinent — est un
-paramètre maintenant. `M9_ICONS`, dans le même fichier, reste utilisé par `GraphView`.
+**Non supprimés, et c'est un choix** : ils marchent, `graph.test.ts` les couvre, et la chaîne
+par platine fait partie des options annoncées. `deckGraph` prend le paramètre qui lui manquait —
+savoir *laquelle* des platines il dessine. `M9_ICONS`, dans le même fichier, sert à `GraphView`.
 
 Inscrit ici plutôt que laissé silencieux : c'est la différence entre un état connu et de la
 pourriture. Voir [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
-
-Le « ternaire mort » du §6 ci-dessus tient toujours, et `deckGraph` a désormais un troisième
-paramètre : si la chaîne par platine ne revient pas, c'est ce bloc-là qu'on supprime en entier.
 
 ## 7. Ce que le renommage a laissé dans le généré
 
 Sans effet, disparaît au prochain build : `engine/capot/src-tauri/resources/file-service.mjs`,
 `src-tauri/target/{debug,release}/resources/file-service.mjs`, et une quarantaine d'entrées
 `.turbo/cache/*-manifest.json`. La vérité de source est
-`packages/engine-protocol/sessions.ts`, qui dit bien `l8 / st0 / m9`.
+`packages/engine-protocol/sessions.ts`, qui dit bien `l8 / st0`.
 
 ## 8. Ce que le mixer a laissé en partant du panneau
 

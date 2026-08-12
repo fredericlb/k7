@@ -14,8 +14,8 @@ describe("parseLaunch", () => {
   });
 
   it("is null for an address outside this app's mount", () => {
-    // /m9's address is not l8's to read, and neither is a stray path on the origin.
-    expect(parseLaunch("/m9/songs/a.m9", "l8", L8)).toBe(null);
+    // /z0's address is not l8's to read, and neither is a stray path on the origin.
+    expect(parseLaunch("/z0/songs/a.z0", "l8", L8)).toBe(null);
     expect(parseLaunch("/projects", "l8", L8)).toBe(null);
   });
 
@@ -45,8 +45,7 @@ describe("parseLaunch", () => {
   });
 
   it("reads each app's OWN suffix, so a nested project belongs to the app that claims it", () => {
-    // A `.z0` inside a `.l8` is a real arrangement — see git-repos/src/mirror.ts. It used to be
-    // a `.m9` set nested in a song; the suffix went with the app, the rule did not.
+    // A `.z0` inside a `.l8` is a real arrangement — see git-repos/src/mirror.ts.
     const path = "/z0/editor-v2/band/winter.l8/partie.z0";
     expect(parseLaunch(path, "z0", "/z0/editor-v2/")).toEqual({
       repo: "band",
@@ -167,7 +166,7 @@ describe("launchUrl", () => {
     ).toBe("https://st0.priv.frediver.se/l8/my%20band/a%20song.l8");
   });
 
-  // The property that matters: st0 writes these, l8 and m9 read them back.
+  // The property that matters: st0 writes these, the apps read them back.
   it("round-trips through parseLaunch", () => {
     const repo = "lemo mante";
     const project = "songs/a b/c.l8";

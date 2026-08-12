@@ -22,17 +22,16 @@ until one is open. It stacks like `help` — over the layout, which is untouched
 
 A **`split`** surface is not in this table at all, and that is the point of the word: it is *in*
 the layout rather than over it, so it has no address of its own and never appears in `surface`.
-There are two — the timeline and the viewport. What they do reach is the pane list below, which
-is why that stopped being a constant.
+There are two — the timeline and the viewport. What they reach is the pane list below, which is
+a function of what the project declares rather than a constant.
 
 ### The layout is the project's, not the user's
 
-`view` has always been mostly derived — a `video` layout used to be selected by "this project has
-picture". That fact is a PANE now rather than a layout: the project declares a `viewport`
-surface, and the layout list did not have to grow a row for it. `live` is the same shape of fact
-taken to the end: `project.yaml`'s `project_type` says whether the folder is a song or a rig, and
-a rig has no timeline to show. So there is no toggle, `ui global` typed at a live project is
-refused out loud, and `viewPanes` (in `routes.ts`) is what each layout does with the panes:
+`view` is derived: `project.yaml`'s `project_type` says whether the folder is a song or a rig,
+and a rig has no timeline to show. So there is no toggle, `ui global` typed at a live project is
+refused out loud, and `viewPanes` (in `routes.ts`) is what each layout does with the panes.
+Whether a project draws picture is a PANE rather than a layout — the `viewport` surface — so
+the layout list stays at two:
 
 ```ts
 viewPanes("global", true,  false) // { ring: ["timeline", "chains"],             fullscreen: ["editor", …ring] }
@@ -42,13 +41,13 @@ viewPanes("live",   _,     false) // { ring: ["chains"],                        
 viewPanes("live",   _,     true)  // { ring: ["viewport", "chains"],             fullscreen: […ring] }
 ```
 
-A **function**, not the table it was, because two of the panes are surfaces the project declares
-rather than panes the shell hands out. The second and third arguments are those declarations, and
-they have to reach here: a list naming a pane nothing will mount is a screen that cannot be drawn.
+A **function**, because two of the panes are surfaces the project declares rather than panes the
+shell hands out. The second and third arguments are those declarations, and they have to reach
+here: a list naming a pane nothing will mount is a screen that cannot be drawn.
 
 The ring is built TOP-DOWN, in the order the panes are stacked on screen — the number keys and
 the mobile tabs read it, so a ring that disagreed with the column would make `2` land somewhere
-the eye did not expect. And a rig that declares a viewport gets its fullscreens back: `live`'s
+the eye did not expect. And a rig that declares a viewport has its fullscreens: `live`'s
 empty list is about having ONE pane, not about being a rig.
 
 That empty `fullscreen` is load-bearing. The header buttons, the number keys, `ui <pane>` and the

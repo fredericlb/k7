@@ -2,8 +2,8 @@
 // `surfaces/`. It turns the declaration into the component that draws it and hands that
 // component the engine, the decks and the mapping. The desk itself is @studio/ui-turntables.
 //
-// The split between the two halves is the load-bearing part and it is m9's, arrived at the hard
-// way: see the header on `open` below, and packages/song/docs/surfaces.md.
+// The split between the two halves is the load-bearing part: see the header on `open` below,
+// and packages/song/docs/surfaces.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { WebGraph } from "@studio/graph-model";
@@ -29,14 +29,14 @@ export function SurfaceTab({
   /** Workspace-relative, as every file route here takes it. */
   project: string;
   /**
-   * Whether its screen is showing. The component is MOUNTED either way.
+   * Whether its screen is showing. The component is MOUNTED either way, which is the whole
+   * point of this prop.
    *
-   * That is the whole point of this prop, and it is a bug m9 shipped before l8 did. A desk's
-   * document — what is loaded, where the crossfader is, what each deck plays at — is not the
-   * screen's, and a set does not stop existing when you go and look at the graph. While the
-   * hooks below lived behind `openSurface &&`, a trip to the chains view re-centred the
-   * crossfader and flattened the EQ while the SOUND stayed where you put it, and the graph had
-   * no engine to ask so its knobs showed the number the file declares.
+   * A desk's document — what is loaded, where the crossfader is, what each deck plays at — is
+   * not the screen's, and a set does not stop existing when you go and look at the graph. Hold
+   * the hooks below behind `openSurface &&` and a trip to the chains view re-centres the
+   * crossfader and flattens the EQ while the SOUND stays where you put it, while the graph has
+   * no engine to ask and shows the number the file declares.
    *
    * So: the document is mounted for as long as the project declares the surface, and only the
    * drawing is conditional. See packages/ui-turntables/docs/deckSet.md.

@@ -82,9 +82,9 @@ export class FrameClock implements Clock {
  * device whose sample position the picture must agree with, where inventing an engine to keep
  * time would be a whole process running to hold a number.
  *
- * Currently UNUSED in this repo: l8 hosts the renderer and l8 has an engine, so the picture
- * follows `EngineClock`. Kept because the seam is the point — the compositor cannot tell which
- * clock it has, and that is what let picture move hosts twice without the renderer changing.
+ * UNUSED in this repo: l8 hosts the renderer and has an engine, so the picture follows
+ * `EngineClock`. Kept because the seam is the point — the compositor cannot tell which clock it
+ * has, which is what keeps the renderer independent of where its time comes from.
  *
  * `Date.now()` and nothing else: the drift this cannot have is against an audio clock that
  * is not there. What it MUST still do is announce its own discontinuities, which is why

@@ -428,11 +428,10 @@ export function compileNodeProject(dir: string): ProjectDoc {
         `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
       );
 
-  // A `video_tracks/` folder was REFUSED here, on the grounds that an l8 song had no picture
-  // and the lanes would be read by nothing. A song has picture again — the same folder compiles
-  // twice, and `loadVideoProject` is the compile that reads them (docs/picture.md). This one
-  // says nothing about them, which is exactly the property that keeps the frame out of the
-  // document the C++ engine is handed.
+  // `video_tracks/` is deliberately unchecked here: the same folder compiles twice, and
+  // `loadVideoProject` is the compile that reads picture (docs/picture.md). This one says
+  // nothing about it, which is what keeps the frame out of the document the C++ engine is
+  // handed.
 
   if (refErrs.length)
     throw new Error(`unresolved reference(s):\n  - ${refErrs.join("\n  - ")}`);
@@ -838,9 +837,8 @@ export function compileNodeProject(dir: string): ProjectDoc {
   // video_tracks.ts against a wall clock this compiler has no use for. Two documents rather
   // than one with a section stripped on the way out — see docs/picture.md.
   //
-  // What has not come back is `video_source`, an audio track inheriting a video lane's
-  // placements so a shot and its sound could not drift. The folders are one again, so it COULD
-  // exist; it is simply not written yet.
+  // `video_source` — an audio lane inheriting a video lane's placements, so a shot and its sound
+  // cannot drift — is sayable in this shape and is not written.
 
   return {
     name: String(proj.name ?? "untitled"),

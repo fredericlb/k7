@@ -39,7 +39,7 @@ beforeEach(() => {
   // An ordinary `.l8` folder: a set is a SHAPE of l8 project, not a kind of its own.
   dir = join(mkdtempSync(join(tmpdir(), "td-set-")), "winter.l8");
 
-  // A set is no longer self-contained: it NAMES the médiathèque's modules instead of copying
+  // A set is not self-contained: it NAMES the médiathèque's modules instead of copying
   // them in, so resolving its chains needs one. `STUDIO_MEDIATEK` is how the machine's
   // library is pointed elsewhere (mediatekRoot.ts), which is exactly what a test needs.
   mediatek = mkdtempSync(join(tmpdir(), "td-mediatek-"));
@@ -164,9 +164,9 @@ describe("a scaffolded set", () => {
 
   it("declares what the desk's controls drive, instead of hardcoding it", () => {
     scaffoldSet(dir, "winter");
-    // The crossfader used to reach a level in m9's own code, with nothing saying so. It names
-    // the crossfade module's own `Mix` here, and each tempo fader its own deck's node —
-    // which a module-owned controller.yaml could not have said, since both decks share one.
+    // The crossfader names the crossfade module's own `Mix`, and each tempo fader its own
+    // deck's node — which a module-owned controller.yaml could not say, since both decks
+    // share one module.
     expect(deskMapping(dir)).toEqual({
       crossfade: { module: "crossfade", param: "Mix" },
       "deckA.tempo": { module: "tempoA", param: "Target BPM" },
@@ -229,9 +229,8 @@ describe("a scaffolded set", () => {
   });
 
   it("is an ordinary l8 project with no arrangement", () => {
-    // A set used to be its own dialect, in a `.m9` folder, opened by its own app. It is a SHAPE
-    // now: `project_type: live` says there is no timeline, and the `turntables` surface beside
-    // it says there is a desk. Nothing else distinguishes it, which is what let the app go.
+    // A set is a SHAPE, not a dialect: `project_type: live` says there is no timeline, and the
+    // `turntables` surface beside it says there is a desk. Nothing else distinguishes one.
     scaffoldSet(dir, "winter");
     expect(projectTypeOf(dir)).toBe("l8");
     expect(projectModeOf(dir)).toBe("live");

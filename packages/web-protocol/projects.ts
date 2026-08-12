@@ -12,12 +12,10 @@ export type ProjectApp = Extract<StudioService, "l8" | "z0">;
 /**
  * The suffix each app claims.
  *
- * There were two more. `.v1` was a project that was only picture, and `.m9` one that was only a
- * DJ set — and each had an app of its own to open it. Both are gone, and neither took a
- * capability with it: a song carries `video_tracks/` and a `viewport` surface, and a set is a
- * song with no arrangement carrying `songs.yaml` and a `turntables` surface. What used to be
- * three kinds of folder is one kind and three SHAPES (`PROJECT_SHAPES` in `@studio/song`).
- * See packages/song/docs/picture.md and docs/setProject.md.
+ * Two of them, because two apps open a project. Everything an l8 project can BE is a shape
+ * inside `.l8` rather than a folder kind of its own: a song carries `video_tracks/` and a
+ * `viewport` surface, and a set carries `songs.yaml` and a `turntables` surface
+ * (`PROJECT_SHAPES` in `@studio/song`). See packages/song/docs/picture.md and setProject.md.
  */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
   l8: ".l8",

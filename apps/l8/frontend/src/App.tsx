@@ -473,12 +473,12 @@ export default function App({
   /**
    * The project's ARRANGEMENT, if it declares one: a `split` surface of type `timeline`.
    *
-   * This is what puts the timeline on screen now — it used to be there for being a pane the
-   * shell had. A project that declares none opens on its graph, and `surfaceIssues` says so
-   * beside its other diagnostics rather than leaving the absence to be guessed at.
+   * This is what puts the timeline on screen. A project that declares none opens on its graph,
+   * and `surfaceIssues` says so beside its other diagnostics rather than leaving the absence to
+   * be guessed at.
    *
    * The list arrives a moment after the shell, so this is false for a frame or two on open —
-   * the same flash `mode` already pays, and paid in the same place (docs/projectMode.md).
+   * the same flash `mode` pays, and paid in the same place (docs/projectMode.md).
    */
   const timelineSurface = useMemo(
     () =>
@@ -529,8 +529,8 @@ export default function App({
    * fields (three on a length-0 shot) describing a single drag; writing them separately would be
    * two reads of the same file, the second built on the text before the first.
    *
-   * Not a COMMAND, unlike every audio edit this shell makes, and that asymmetry is real: the CLI
-   * has no verb for a picture placement. See apps/l8/frontend/docs/picture.md.
+   * Not a COMMAND, unlike every audio edit this shell makes: the CLI has no verb for a picture
+   * placement. See apps/l8/frontend/docs/picture.md.
    */
   const applyVideoEdit = useCallback(
     async (trackId: string, edits: VideoEdit[]) => {
@@ -2014,10 +2014,10 @@ export default function App({
               </MobileMenu>
             ) : (
               <>
-                {/* Pane buttons. The VIEW toggles sat here beside them and are gone: with
-                    picture moved to v1 there is one layout left to CHOOSE, and a toggle that is
-                    always on and cannot be turned off is a control in name only. `live` did not
-                    bring them back — it is what the project IS, not a layout you pick.
+                {/* Pane buttons, and no VIEW toggles beside them: there is one layout to
+                    CHOOSE, and a toggle that is always on and cannot be turned off is a control
+                    in name only. `live` is not one either — it is what the project IS, not a
+                    layout you pick.
 
                     The row is drawn from the LAYOUT's fullscreenable set, not from PANES: in
                     `live` that set is empty and the nav disappears with it, because its one pane
@@ -2522,7 +2522,7 @@ export default function App({
           {/* How good this engine link is — Q1/Q2/Q3 off the measured latency. In the status
               bar because it is a property of the SESSION, not of a screen: it decides what you
               can do here (see @studio/web-protocol/quality), and it is the same line the
-              médiathèque and m9 show. */}
+              médiathèque shows. */}
           <span
             className="ml-auto shrink-0 whitespace-nowrap font-mono tabular-nums"
             title={
@@ -2829,12 +2829,12 @@ export default function App({
         {/* Every SCREEN surface the project declares, mounted for as long as it is open — and
             drawing only the one whose id is in the address.
 
-            Mounted, not conditional, and that is a rule this shell learned twice. A desk holds a
-            DOCUMENT — the loaded songs, the crossfader, the six EQ knobs, the compiled project —
-            and a set does not stop existing because you went to look at the graph. While these
-            lived behind `openSurface &&`, a round trip re-centred the crossfader and flattened
-            the EQ while the sound stayed where you put it. `SurfaceTab` owns that split: hooks
-            above the line, screen below it. See packages/ui-turntables/docs/deckSet.md. */}
+            Mounted, not conditional. A desk holds a DOCUMENT — the loaded songs, the crossfader,
+            the six EQ knobs, the compiled project — and a set does not stop existing because you
+            went to look at the graph. Behind `openSurface &&`, a round trip would re-centre the
+            crossfader and flatten the EQ while the sound stayed where you put it. `SurfaceTab`
+            owns that split: hooks above the line, screen below it.
+            See packages/ui-turntables/docs/deckSet.md. */}
         {screenSurfaces.map((s) => (
           <SurfaceTab
             key={s.id}

@@ -460,9 +460,8 @@ export interface WebProject {
 
 // --- PICTURE: the same folder, read again ----------------------------------------
 // Nothing here is a beat: a shot is cut against the wall clock. A separate document and not a
-// section of WebProject, which is what keeps the frame out of what the C++ engine is handed —
-// a `withoutVideo` step used to strip it at the one choke point, and a document with a section
-// deleted before it is sent describes two things.
+// section of WebProject, which is what keeps the frame out of what the C++ engine is handed
+// without anything having to strip it on the way.
 // See packages/song/docs/picture.md.
 
 /** A named point on the picture's ruler. `sec` is its position; `tc` the `m:ss.mmm` it is stored under (the delete key). */

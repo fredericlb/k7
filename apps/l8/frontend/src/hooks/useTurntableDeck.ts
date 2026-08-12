@@ -1,8 +1,7 @@
 // useTurntableDeck.ts — l8's engine link, seen as the desk's `Deck`. The one thing
-// @studio/ui-turntables asks of a host, and the one place hosts ever differed: m9 obtained an
-// engine of its own (its registry, its session, its lease), while l8 already has one by the
-// time a surface can exist. l8 is the only host now, and the seam stays anyway — it is what
-// let the desk change hosts at all. See packages/ui-turntables/docs/hosting.md.
+// @studio/ui-turntables asks of a host, and the one place a host's own arrangements show:
+// obtaining an engine is the app's business, and l8 already has one by the time a surface can
+// exist. See packages/ui-turntables/docs/hosting.md.
 
 import type { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
@@ -91,9 +90,8 @@ export function useTurntableDeck({
    * What each `offline` module is set to, by module name.
    *
    * The desk's own value, lent to whatever else draws it — a tempo compiles to no plugin, so
-   * the engine has nothing to report and no address to report it under. In m9 this lives on the
-   * engine hook because Mix is unmounted whenever the graph is on screen; in l8 the surface is
-   * unmounted the same way, so it lives here for the same reason.
+   * the engine has nothing to report and no address to report it under. It lives here rather
+   * than in the surface because the surface's SCREEN is unmounted whenever it is closed.
    */
   const [moduleParams, setModuleParams] = useState<
     Record<string, Record<string, number>>
@@ -109,7 +107,7 @@ export function useTurntableDeck({
 
   return useMemo<Deck>(
     () => ({
-      // Two states, not m9's four. `absent` and `taken` describe PICKING an engine from a
+      // Two states, not the four `Deck` allows. `absent` and `taken` describe PICKING an engine from a
       // registry, which l8's gate has already done — a surface cannot be on screen without one.
       // Collapsing them here rather than in the package is the point of the seam.
       phase: engineReady

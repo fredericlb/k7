@@ -39,8 +39,8 @@ function clip(id: string, source: string): void {
 
 describe("a scaffolded l8 song", () => {
   it("carries picture, compiled from the same folder as its sound", () => {
-    // The point of the whole change: one scaffold, one folder, two compiles. A new song has an
-    // audio lane AND a lane of picture, and neither needed a different KIND of project.
+    // One scaffold, one folder, two compiles: a new song has an audio lane AND a lane of
+    // picture, without either needing a different KIND of project.
     scaffold(dir, "demo");
     const doc = loadVideoProject(dir);
 
@@ -54,9 +54,8 @@ describe("a scaffolded l8 song", () => {
   });
 
   it("says nothing about tempo, which the OTHER compile of the same folder owns", () => {
-    // The two documents describe one folder and share no field. This is what replaced the
-    // `withoutVideo` step that used to strip picture out of a ProjectDoc on the way to the
-    // engine — a document with a section deleted before it is sent describes two things.
+    // The two documents describe one folder and share no field, which is what keeps picture
+    // out of the engine's document without anything having to strip it on the way.
     scaffold(dir, "demo");
     const doc = loadVideoProject(dir) as unknown as Record<string, unknown>;
     expect(doc.tempo).toBeUndefined();

@@ -37,11 +37,9 @@ export const ProjectSettingsSchema = z
     // them as a warning instead, naming the lines to delete.
     modules_from: z.array(z.string()).optional(),
     libraries_from: z.array(z.string()).optional(),
-    // DEAD in the same sense, and it has been dead through two moves: `video: true` gated a
-    // fourth pane when l8 first drew picture. What draws the frame now is a `surfaces/` file
-    // (docs/surfaces.md), and what says a song HAS picture is `video_tracks/` existing — a
-    // boolean that agreed with neither would just be a third answer. Kept because every song
-    // that ever had picture carries the line.
+    // DEAD in the same sense, and accepted for the same reason. What draws the frame is a
+    // `surfaces/` file (docs/surfaces.md), and what says a song HAS picture is `video_tracks/`
+    // existing — a boolean agreeing with neither would just be a third answer.
     video: z.boolean().optional(),
     // PICTURE's, and read only by the picture compile — the frame its lanes draw into and their
     // draw order, bottom first. They sit in the SHARED settings tier because one schema
@@ -138,13 +136,11 @@ export const DEFAULT_PROJECT_MODE: ProjectMode = "arrangement";
  * | `live` | `live` | the same signal path with the arrangement taken out |
  * | `set` | `live` | two decks meeting at a crossfade, `songs.yaml`, a `turntables` surface |
  *
- * So a set is not a fourth kind of project and not a third mode: it is a rig that declares a
- * desk and carries a set list. Which is exactly why `.m9` stopped needing to be a folder
- * suffix, and why nothing had to be invented to let l8 open one — see docs/setProject.md.
+ * So a set is not a kind of project and not a third mode: it is a rig that declares a desk and
+ * carries a set list. See docs/setProject.md.
  *
- * The distinction is worth two names because the collapse is what went wrong before: while
- * "which app opens this" and "which shape is it" were one field, st0 sent `type: "audio"` and
- * got an l8 song written inside a `.m9` folder.
+ * The two names stay apart because they answer different questions, and a single field
+ * answering both would have to lie about one of them.
  */
 export const PROJECT_SHAPES = ["audio", "live", "set"] as const;
 export type ProjectShape = (typeof PROJECT_SHAPES)[number];

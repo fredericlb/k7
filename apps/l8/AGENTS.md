@@ -116,9 +116,9 @@ load-bearing, since it owns a GL context and a `<video>` per layer.
 **Both are MOUNTED for as long as the project declares them**; only the drawing is conditional.
 A desk's document — the loaded songs, the crossfader, the six EQ knobs — is not its screen, and
 a set does not stop existing because you went to look at the graph. `SurfaceTab` owns that
-split: hooks above a line, screen below it. Getting it wrong re-centres the crossfader on every
-round trip while the sound stays where you put it, which is a bug this repo has now shipped
-twice — see `packages/ui-turntables/docs/deckSet.md`.
+split: hooks above a line, screen below it. Get it wrong and the crossfader re-centres on every
+round trip while the sound stays where you put it — see
+`packages/ui-turntables/docs/deckSet.md`.
 
 A component with no mapping is reported on the surface itself, not by refusing the project.
 Read `packages/song/docs/surfaces.md`.

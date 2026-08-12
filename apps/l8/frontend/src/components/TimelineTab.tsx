@@ -233,12 +233,12 @@ const tickBeats = (
  * What the ruler is READING IN. Not what the song is placed in — that is always beats.
  *
  * A song's positions are musical and a `video_tracks/` placement's are wall-clock, and one
- * surface now carries both. The two are exactly convertible here (one `tempo:`, no tempo map),
- * so nothing is lost either way round — but a cut is read in minutes and seconds, and a ruler
- * that could only count bars made picture unreadable however accurately it was drawn.
+ * surface carries both. The two are exactly convertible here (one `tempo:`, no tempo map), so
+ * nothing is lost either way round — but a cut is read in minutes and seconds, and a ruler that
+ * could only count bars makes picture unreadable however accurately it is drawn.
  *
  * A per-SESSION toggle, deliberately not a project setting: which unit you want depends on what
- * you are doing this minute, not on what the song is. See docs/timeline.md.
+ * you are doing this minute, not on what the song is. See docs/picture.md.
  */
 export type RulerMode = "bars" | "seconds";
 
@@ -506,8 +506,7 @@ export function videoDragTo(
  *   `source_from` by the same delta as the head moved, or the frame under the new edge is not
  *     the frame that was there — never below zero, there is nothing before the file;
  *   `length` by that delta the other way, or the TAIL slides and the gesture is a move wearing
- *     a trim's clothes. Writing only the first two is the bug this drag shipped with in its
- *     previous life: the ghost drew a shortened shot and the file got a moved one.
+ *     a trim's clothes.
  * A length-0 shot needs the extent pinned for a second reason on top — its own source would
  * otherwise undo the trim on the next compile — and it is the same write, so no special case.
  */
@@ -1166,8 +1165,7 @@ export function TimelineTab({
 
   // --- dragging a PICTURE placement ---------------------------------------------
   /**
-   * The three drags a shot takes, told apart by where the press landed — the gesture v1 had,
-   * on this grid instead of its own.
+   * The three drags a shot takes, told apart by where the press landed.
    *
    * | grab | writes | why |
    * |---|---|---|
@@ -2155,10 +2153,10 @@ export function TimelineTab({
 
             /**
              * A PICTURE lane. Its placements are decimal seconds and this grid is beats, which
-             * is exactly convertible here (one `tempo:`, no tempo map) — so unlike the read-only
-             * lane l8 used to draw, these can be dragged. What the ruler is reading in decides
-             * what they snap to; what the FILE holds is always seconds, so re-typing `tempo:`
-             * slides the grid under the cut rather than moving it. See docs/timeline.md.
+             * is exactly convertible here (one `tempo:`, no tempo map), so they can be dragged.
+             * What the ruler is reading in decides what they snap to; what the FILE holds is
+             * always seconds, so re-typing `tempo:` slides the grid under the cut rather than
+             * moving it. See docs/picture.md.
              */
             if (row.kind === "video") {
               const vt = row.track;

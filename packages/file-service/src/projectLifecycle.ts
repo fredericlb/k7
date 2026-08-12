@@ -132,7 +132,7 @@ export function importProjectInto(
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
  * relative path. This is the web command bar's `new project <shape> <name>`.
  *
- * Every one of them is an `.l8` folder now, and `shape` picks the file map:
+ * Every one of them is an `.l8` folder, and `shape` picks the file map:
  *
  * | shape | what it writes |
  * |---|---|
@@ -140,11 +140,9 @@ export function importProjectInto(
  * | `live` | a rig: the same signal path with the arrangement taken out |
  * | `set` | two decks meeting at a crossfade, a set list, and a `turntables` surface |
  *
- * There were two other KINDS of folder once, `.m9` and `.v1`, each with an app of its own.
- * Both are gone and neither took a capability with it: a cut is a song carrying
- * `video_tracks/`, and a set is a song carrying `songs.yaml` and a desk. What used to be
- * three project kinds is one kind and three shapes — which is what `project_type` already
- * was for. See packages/song/docs/setProject.md and docs/picture.md.
+ * One kind of folder, three shapes. A cut is a song carrying `video_tracks/`, and a set is a
+ * song carrying `songs.yaml` and a desk — neither needs a folder kind of its own. See
+ * packages/song/docs/setProject.md and docs/picture.md.
  *
  * The name is sanitised to a single top-level segment (no separators, no leading dot
  * that would hide it) so it always lands directly under the root. Refuses to write over

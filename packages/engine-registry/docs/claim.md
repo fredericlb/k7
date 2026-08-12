@@ -89,7 +89,6 @@ prevents.
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
 | l8 | `<repo>/<projet>` from the address | `EngineGate` shows "opened elsewhere" and stops driving |
-| m9 | the `.m9` set from the address | `Studio` replaces the whole app, not just Mix — Édition and Graphe would otherwise keep editing a project this tab no longer owns |
 | st0 | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in

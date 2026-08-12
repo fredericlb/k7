@@ -62,28 +62,24 @@ reported by whoever draws the panel, against the list it actually has. A `type` 
 a blank screen with no explanation — so it is refused at the schema, by name, with the list of
 what there is.
 
-`layout` is separate from `type` because the alternatives are already visible: the same
-turntables could be a PANEL beside the graph or a band under the timeline. Those are layouts,
-not types. Keeping the two axes apart from the first file means adding the second layout does
-not have to re-cut the first — which is exactly what `split` then did.
+`layout` is separate from `type` because the alternatives are real: the same turntables could be
+a PANEL beside the graph or a band under the timeline. Those are layouts, not types. Two axes
+means a new layout does not re-cut the type list, and vice versa.
 
 ## The arrangement is one of these
 
-The timeline used to need no declaring: it was a PANE the shell had, and a project got one for
-being a project. It is a `type: timeline` surface now, and a song says it wants an arrangement the
-same way a set says it wants a desk.
+The timeline is a `type: timeline` surface: a song says it wants an arrangement the same way a
+set says it wants a desk.
 
 **There is no implicit one.** A folder with no timeline surface opens on its graph — its clips are
-still on disk, its lanes still compile, nothing draws them. That absence is the one worth a
-sentence, so `surfaceIssues` raises a **warning** (not an error: the project is valid, it opens,
-and the editor you would add the file in is inside it). A `live` project is silent — a rig has no
+still on disk, its lanes still compile, nothing draws them. That absence is worth a sentence, so
+`surfaceIssues` raises a **warning** (not an error: the project is valid, it opens, and the
+editor you would add the file in is inside it). A `live` project is silent — a rig has no
 arrangement, which is what `project_type` says ([projectMode.md](projectMode.md)).
 
 ## …and so is the frame
 
-`type: viewport` is the same story, told twice. The picture pane was l8's once, gated on a
-`video: true` in `project.yaml`; then it left for an app of its own; now it is a surface, and a
-song asks for it exactly as it asks for its arrangement.
+`type: viewport` is the picture: a song asks for it exactly as it asks for its arrangement.
 
 It gets the **same warning from the other side**: a folder holding `video_tracks/` and declaring
 no viewport compiles its lanes, draws them on the timeline, and composites them nowhere. That
@@ -94,9 +90,9 @@ working. A song with no `video_tracks/` is silent, the way a rig is about its ti
 
 The sharpest version of the "`split` is not `view` drawn smaller" argument below. A viewport
 owns a **WebGL context and one `<video>` element per layer**, and neither is state a host can
-hold for it the way it holds a desk's document: they belong to the DOM the screen draws. So a
-viewport as a `view` would tear both down every time you looked at something else and rebuild
-them — with a decoder flush and a visible hitch — every time you came back.
+hold for it the way it holds a desk's document: they belong to the DOM the screen draws. As a
+`view` it would tear both down whenever you looked at something else and rebuild them — with a
+decoder flush and a visible hitch — whenever you came back.
 
 Getting the picture big is `full` (its number key, or `ui viewport`), which is the pane ring
 doing its job rather than a second mounting rule.
@@ -118,20 +114,19 @@ one grid that can be read in two units beats two grids that must be kept in step
 | in the pane ring | no | yes — number keys, `ui <pane>`, `full`, the mobile tabs |
 | reached by | a header button, `/surface/<id>` | it is already there |
 
-Note the row says **drawn**, not *mounted*, and that word cost a bug twice.
+The row says **drawn**, not *mounted*, and the difference is load-bearing.
 
 A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the crossfader, the six
 EQ knobs and a compiled project; a set does not stop existing because you went to look at the
 graph. So `SurfaceTab` splits the two — the hooks above a line, the screen below it — and stays
 mounted for as long as the project declares the surface, drawing only when its id is in the
-address. m9 learned this by holding the state in its Mix view; l8 then learned it again by
-holding it behind `openSurface &&`, and both times the symptom was the same: a round trip
-re-centred the crossfader and flattened the EQ while the sound stayed where you put it. See
+address. Hold the document in the screen instead and a round trip re-centres the crossfader and
+flattens the EQ while the sound stays where you put it. See
 [../../ui-turntables/docs/deckSet.md](../../ui-turntables/docs/deckSet.md).
 
-A `split` surface never had the question: the timeline holds a caret and a zoom stack, and the
-viewport a GL context and a `<video>` per layer — cheap to keep, maddening to rebuild, which is
-the invariant the panes already obey (`apps/l8/frontend/docs/shell.md`).
+A `split` surface does not raise the question: the timeline holds a caret and a zoom stack, and
+the viewport a GL context and a `<video>` per layer — cheap to keep, maddening to rebuild, which
+is the invariant the panes obey (`apps/l8/frontend/docs/shell.md`).
 
 That is also why a `split` surface gets **no header button** and cannot be named by
 `/surface/<id>`: it is not a screen you open, so a button that "opened" it would name a place
@@ -209,23 +204,21 @@ screen. One bad surface does not take the good ones down with it.
 
 *(This section is about a `view` surface. A `split` one is in the layout — see the table above.)*
 
-`RouteState.surface` is its own field, beside `help`, and **not** a member of `Pane`. A pane is
-one of three the shell has always had and the layout says what each does with them; a surface is
+`RouteState.surface` is its own field, beside `help`, and **not** a member of `Pane`. The panes
+are a closed union the shell declares and the layout says what each does with them; a surface is
 declared by the project, so the list is not knowable until one is open and a union could not name
 it.
 
-### What `split` cost the layout table
+### The layout table is a function
 
-`VIEW_PANES` was a constant — a row per layout, each naming its panes. It is `viewPanes(view,
-timeline)` now, because one of the three panes stopped being the shell's to assume: a project that
-declares no timeline surface has no arrangement, and every list that named one was naming a pane
-that will not be mounted. The same flag reaches `fromLocation`, so `/timeline` typed at such a
-project falls through to the layout instead of parsing into a screen that cannot be drawn — which
-is the rule `live` already had, arriving from the other side.
+`viewPanes(view, timeline, viewport)`, not a constant, because two of the panes are the
+project's to declare: one that declares no timeline surface has no arrangement, and a list
+naming one would name a pane that will not be mounted. The same flags reach `fromLocation`, so
+`/timeline` typed at such a project falls through to the layout instead of parsing into a screen
+that cannot be drawn — the same rule `live` follows, arriving from the other side.
 
 The surface list lands a moment after the shell, so there is **one frame with no timeline** on
-open, exactly as `mode` already flashes ([projectMode.md](projectMode.md)) and paid in the same
-place.
+open, as `mode` also flashes ([projectMode.md](projectMode.md)) and for the same reason.
 
 So it behaves like the help page: it comes over the layout, which is left exactly as it was
 underneath — the timeline keeps its caret and the graph its camera. The address is
@@ -235,42 +228,31 @@ deep link and quietly drop you on the layout. The screen resolves it when the li
 so if there is no such file.
 
 It is DRAWN only while open, unlike the panes — but its component is mounted for as long as the
-project declares it, because the document behind a desk outlives the screen showing it. That
-distinction is the one the table above spends a paragraph on, and it is the same invariant the
-panes obey rather than an exception to it.
+project declares it, because the document behind a desk outlives the screen showing it. That is
+the same invariant the panes obey rather than an exception to it.
 
-## The first type: `turntables`
+## `turntables`
 
-m9's desk, drawn by `@studio/ui-turntables` — the same component m9 mounts, extracted for this.
-Its one seam is the engine (`./engine`), which l8 satisfies from the link its shell already
-holds; see that package's [docs/hosting.md](../../ui-turntables/docs/hosting.md).
+The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./engine`), which l8
+satisfies from the link its shell already holds; see that package's
+[docs/hosting.md](../../ui-turntables/docs/hosting.md).
 
 A turntables surface plays a **set**: `songs.yaml` at the project root, read through
-`@studio/song/yaml/songsFile`. Nothing about that file is m9-shaped — it names médiathèque songs
-— so an `.l8` folder with a `songs.yaml` beside its `surfaces/` is a set, in the same words, and
-bringing the desk to l8 required inventing no set-list concept for l8.
+`@studio/song/yaml/songsFile`. That file names médiathèque songs and nothing about it is
+desk-specific, so an `.l8` folder with a `songs.yaml` beside its `surfaces/` is a set
+([setProject.md](setProject.md)).
 
 ### One writer for one engine
 
 The desk drives the engine by **sending a whole `ProjectDoc`**: `sendDecks` takes the compiled
 project (`GET /engine-doc`), fills the decks' clips into it (`withDecks`) and plays the result.
-In m9 that goes straight out of the browser's socket, because m9's browser is the only thing that
-ever hands that engine a document.
 
-In l8 it is not. **The file service loads l8's project into the engine itself** — which is why
-`projectApi.engineDoc()` carries the note "l8 never calls it". A surface makes l8 call it, so for
-one commit there were two writers for one engine and whichever wrote last won: a save during a set
-dropped the decks' clips, a deck gesture undid a change the service had just applied.
-
-**The file service is now the only writer**, and `Deck.sendProject` is the seam that says so:
-
-| host | who writes | how |
-|---|---|---|
-| m9 | the browser, alone | `engine.sendProject` — unchanged |
-| l8 | the file service, alone | `POST /engine/project`, forwarded on the service's own link |
-
-Taking a `Deck` rather than an `EngineClient` is what let this be a parameter instead of a fork:
-`sendDecks` no longer knows what a socket is, and each host answers for itself.
+**The file service is the only writer**, because it is what loads l8's project into the engine
+in the first place. Two writers for one engine means whichever wrote last wins: a save during a
+set drops the decks' clips, a deck gesture undoes a change the service just applied.
+`Deck.sendProject` is the seam that keeps it to one — l8 posts to `POST /engine/project`, which
+the service forwards on its own link. Taking a `Deck` rather than an `EngineClient` is what
+makes this a parameter rather than a fork: `sendDecks` knows nothing about a socket.
 
 #### The ordering rule, in one place
 
@@ -285,5 +267,5 @@ disk-driven push uses — a strudel lane still overlays its events onto it. Whil
 | a different project is served | **dropped** | a document naming the previous set's tracks must not play over the next project |
 | the engine is unloaded | **dropped** | nothing is being served |
 
-`clientProject.test.ts` pins all four. What is still unobserved is the *screen*: the rule is
-tested, the desk in l8 has not been watched running.
+`clientProject.test.ts` pins all four. The rule is tested; the *screen* is not — nothing here
+mounts a component, so the desk has to be watched running.

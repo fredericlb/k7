@@ -16,11 +16,9 @@ describe("projectApp", () => {
     expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
-  it("no longer knows `.v1` or `.m9` — both are shapes of an l8 project now", () => {
-    // Each suffix meant "this folder is ONLY one thing": only picture, only a set. Neither is
-    // true any more. A `.l8` carries `video_tracks/` and a `viewport` surface, or `songs.yaml`
-    // and a `turntables` surface — so the two kinds had nothing left to distinguish, and the
-    // apps that opened them had nothing left to do. See @studio/song's PROJECT_SHAPES.
+  it("does not know `.v1` or `.m9` — both are shapes of an l8 project", () => {
+    // Neither names a folder kind: a `.l8` carries `video_tracks/` and a `viewport` surface,
+    // or `songs.yaml` and a `turntables` surface. See @studio/song's PROJECT_SHAPES.
     expect(projectApp("le clip.v1")).toBe(null);
     expect(projectApp("prise v1.v1")).toBe(null);
     expect(projectApp("myset.m9")).toBe(null);

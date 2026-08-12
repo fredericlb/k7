@@ -452,14 +452,13 @@ no lane of its own.
 ## Video lanes, and the ruler's second unit
 
 A video placement is cut in **seconds** against the wall clock while a song's lanes are placed
-in bars. Both are drawn here, on one grid, and the placements are **editable** — which they
-were not, for a while, and the reason is worth keeping: the objection was never the maths (one
-`tempo:`, no tempo map, so seconds ↔ beats is exact and reversible) but that a grid you could
-only read in bars made picture unreadable however accurately it was drawn.
+in bars. Both are drawn here, on one grid, and both are editable: there is one `tempo:` and no
+tempo map, so seconds ↔ beats is exact and reversible.
 
-So the ruler reads either unit — the clock button in the header — and a drag snaps to whichever
-ticks are on screen. The full account, including the three drags and why a placement is not a
-command, is in [picture.md](picture.md).
+The ruler reads either unit — the clock button in the header — and a drag snaps to whichever
+ticks are on screen. A grid readable only in bars would make picture unreadable however
+accurately it was drawn, which is what that button is for. The full account, including the
+three drags and why a placement is not a command, is in [picture.md](picture.md).
 
 `rulerTicks` is the one function behind both modes. It returns ticks positioned in BEATS, the
 surface's only coordinate, each carrying its own label and weight, so `Grid` and `RulerTicks`

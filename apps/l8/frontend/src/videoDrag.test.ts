@@ -56,8 +56,8 @@ describe("trimming the head", () => {
   const head = (over = {}) => shot({ mode: "in" as const, ...over });
 
   it("keeps the TAIL where it is", () => {
-    // The one this drag used to get wrong: writing start and source_from alone slid the whole
-    // shot later instead of shortening it, so the cut after it moved too.
+    // Writing start and source_from alone would slide the whole shot later instead of
+    // shortening it, and the cut after it would move too.
     const next = videoDragTo(head(), 2, free);
     expect(next.start).toBe(6);
     expect(next.length).toBe(4);
@@ -138,7 +138,7 @@ describe("a drag that changed nothing writes nothing", () => {
     expect(videoDragIsStill(full({ ...shot(), start: 5 }))).toBe(false);
   });
 
-  it("is still when the tail came back — measured against the DRAWN extent", () => {
+  it("is still when the tail returns to where it was — measured against the DRAWN extent", () => {
     // A length-0 shot's live length becomes the 4s placeholder the moment it is dragged, so
     // comparing against `origLength` (0) would call an unmoved tail a change and write 4.
     const back = videoDragTo(

@@ -63,9 +63,9 @@ async function json<T>(res: Response, what: string): Promise<T> {
 
 /**
  * Everything this browser does to reach an engine: the registry's five routes, the probe, the
- * choice and the lease — bound to `/l8` once. This app spelled the five routes out by hand
- * while st0 and m9 already shared them, which is precisely the drift
- * `@studio/engine-browser/registry` was extracted to stop. See that package's docs/access.md.
+ * choice and the lease — bound to `/l8` once. One object rather than five hand-spelled routes,
+ * which is the drift `@studio/engine-browser/registry` exists to stop. See that package's
+ * docs/access.md.
  */
 export const engines = engineAccess<PublicEngine>(BASE, json);
 

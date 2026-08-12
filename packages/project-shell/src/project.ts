@@ -1,7 +1,7 @@
 // project.ts — the file-service routes every project app needs: resolving a repository to a
 // workspace on this machine, the tree and the files in it, the compiled views the engine and
 // the graph are drawn from, and the repository's git. l8 spreads this into its own client and
-// adds what only it has (timeline, waveforms, video); m9 uses it as it stands.
+// adds what only it has (timeline, waveforms, video); z0's editor uses it as it stands.
 
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
@@ -73,8 +73,7 @@ export const projectApi = {
    *
    * Through the file service rather than out of the app's socket so that ONE thing writes to the
    * engine: the service already loads l8's project itself, and a second writer meant whichever
-   * pushed last won. m9 does not call this — its browser IS the only writer there, so its desk
-   * sends directly. See packages/song/docs/surfaces.md.
+   * pushed last would win. See packages/song/docs/surfaces.md.
    */
   sendEngineProject: (doc: ProjectDoc) =>
     fsend<{ ok: true }>("POST", "/engine/project", { doc }),
@@ -82,9 +81,8 @@ export const projectApi = {
   // --- Derived views. A cheap token changes when the sources do; poll it, not these. ---
   revision: () => fget<{ rev: string }>("/revision"),
   projectDoc: () => fget<WebProject>("/project-doc"),
-  // The compiled document the ENGINE takes, for an app that drives one itself — m9 fills its
-  // decks' clips into this and sends it. l8 never calls it: the file service plays l8's project
-  // on its own machine, so l8 has no document to hold.
+  // The compiled document the ENGINE takes, for a surface that drives one itself: the desk
+  // fills its decks' clips into this and hands the result back through `sendEngineProject`.
   engineDoc: () => fget<ProjectDoc>("/engine-doc"),
   // The same folder read as PICTURE. Two compilers over one folder, not one route with a flag:
   // a song has a tempo and its picture has a viewport, and neither document has a field for the

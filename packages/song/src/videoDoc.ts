@@ -1,8 +1,7 @@
 // videoDoc.ts — the PICTURE document: what a song's `video_tracks/` compile to. Every time in
 // it is a decimal second, because a shot is cut against the wall clock and not a bar line.
-// It lived in @studio/engine-protocol once, and never reached the C++ engine even then — a
-// stripping step existed for exactly that. Being its own document is what retires that step.
-// Full rationale: docs/picture.md.
+// Its own document rather than a section of ProjectDoc, which is what keeps the frame out of
+// everything the C++ engine is handed. Full rationale: docs/picture.md.
 
 // A placed shot. `source` is ABSOLUTE — the same rule a ClipDoc's is: whoever renders knows
 // nothing about where the project folder sits.

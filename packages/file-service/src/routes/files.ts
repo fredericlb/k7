@@ -247,12 +247,11 @@ filesRouter.post(
 // Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
   /**
-   * Which file map to write: a song, a rig, or a set. ONE field, where there were two.
+   * Which file map to write: a song, a rig, or a set.
    *
-   * `type` and `mode` used to sit side by side here — the first answering "which app opens
-   * this" and the second "which of l8's two shapes". There is one app now, so the first
-   * question has no answers left and the second absorbed it. See projectLifecycle.ts, and
-   * `PROJECT_SHAPES` for why a set is a shape rather than a mode.
+   * One field, because there is one question. Every project is an `.l8` folder, so "which app
+   * opens this" has no answers to arbitrate; what is left is which scaffold runs. See
+   * projectLifecycle.ts, and `PROJECT_SHAPES` for why a set is a shape rather than a mode.
    */
   shape: z.enum(PROJECT_SHAPES),
   name: z.string().min(1),
@@ -329,7 +328,7 @@ const cmdBody = z.object({ line: z.string() });
  * Building it HERE costs the same 401 ms but spends it inside a request the client is already
  * waiting on, so the canvas can redraw the moment this returns instead of a fetch and a parse
  * later. Two things follow for free: `graphDoc()` fills `graphCache`, so a client that ignores
- * the field — m9 — finds a warm cache on its next `GET /graph` and is faster without
+ * the field finds a warm cache on its next `GET /graph` and is faster without
  * changing; and keying it on the revision keeps `transport play` exactly as cheap as it was.
  */
 filesRouter.post(
@@ -540,7 +539,7 @@ filesRouter.get(
  * The compiled `ProjectDoc` — what the ENGINE is given, not the shape a timeline draws.
  *
  * `/project-doc` above returns the web view: tracks and clips arranged for a screen. This one
- * is the document itself, plugins and baked DSP graphs included, and it exists because m9
+ * is the document itself, plugins and baked DSP graphs included, and it exists because the desk
  * plays a project it did not compile. Its decks' songs are a live choice rather than an
  * arrangement, so it fills the clips in and sends the result to the engine over its own
  * socket — which needs the real document, not a picture of one.

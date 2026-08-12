@@ -1,8 +1,7 @@
 # A SET — an l8 project with decks instead of an arrangement
 
-An `.l8` folder like any other, read by the same loader out of the same `@studio/song`. It
-is not a dialect and it never really was: it is the node project you already know, with one
-entity fewer and two files more.
+An `.l8` folder like any other, read by the same loader out of the same `@studio/song`. Not a
+dialect: the node project you already know, with one entity fewer and two files more.
 
 | file | what it holds |
 |---|---|
@@ -12,17 +11,15 @@ entity fewer and two files more.
 | `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
 | `surfaces/desk.yaml` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
 
-## It used to be a `.m9`, opened by an app of its own
+## Two files are what make it a set
 
-Two files are the whole of what makes this a set: `songs.yaml`, and a `turntables` surface.
-Neither needs a folder suffix to be found, and neither needs an app — l8 draws the desk from
-its declaration exactly as it draws a timeline or a viewport from theirs.
+`songs.yaml`, and a `turntables` surface. Neither needs a folder suffix to be found and neither
+needs an app of its own: l8 draws the desk from its declaration exactly as it draws a timeline
+or a viewport from theirs.
 
-So the suffix went, and the app with it. What was `views/mix.yaml` is the surface's own
-`mapping:` ([surfaces.md](surfaces.md)) — the declaration and the wiring in one file, which
-leaves a set one file lighter than it was. The desk itself was already shared
-(`@studio/ui-turntables`); what m9 still held was how it *obtained an engine*, and l8 has an
-engine before it has a surface.
+The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
+wiring are one file. The desk itself is `@studio/ui-turntables`, and l8 has an engine before it
+has a surface — which is the whole of what a host owes it.
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
 plays lives in the médiathèque, and what it says about playing it is the graph.
@@ -58,21 +55,20 @@ project** (`"."` — see `packages/project-shell/docs/launch.md`), and then ther
 anywhere. It is also what a reader sees first, and what a loader handed an absolute path
 with no name to read has to go on.
 
-`projectTypeOf` states the order in three lines: suffix, then declaration, then `l8` —
-which is every song written before a second dialect existed, and none of them says so.
+`projectTypeOf` states the order in three lines: suffix, then declaration, then `l8`, which is
+what a folder saying nothing is.
 
-A folder named `.z0` that declares `type: l8` is not resolved silently. It compiles either
-way, because the two signals feed different readers, and that is exactly why it is
-**reported** — `projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is
-accepted and ignored is the failure mode this codebase keeps paying for.
+A folder named `.z0` that declares `type: l8` is not resolved silently. It compiles either way,
+because the two signals feed different readers, and that is exactly why it is **reported** —
+`projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is accepted and ignored
+is worse than one that is refused.
 
-`type: m9` is one of the values the schema now refuses. A set declares nothing at the root:
-it is an `.l8`, and `project_type: live` plus its desk surface are what say what it is.
+The values are `l8` and `z0`. A set declares nothing at the root: it is an `.l8`, and
+`project_type: live` plus its desk surface are what say what it is.
 
-`type` is a ROOT key, beside `trackOrder` and `markers`, and not a `project:` setting. The
-tier inside `project:` is the SONG's own settings — its tempo, its rate. This is a fact
-about the file's dialect. `projectSchema.ts` carries the note about what happened the last
-time those two tiers were confused.
+`type` is a ROOT key, beside `trackOrder` and `markers`, and not a `project:` setting. The tier
+inside `project:` is the SONG's own settings — its tempo, its rate. This is a fact about the
+file's dialect, not a setting of the project.
 
 ## A deck is a lane with no arrangement
 

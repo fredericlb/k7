@@ -160,11 +160,10 @@ export interface GroupDoc {
   solo: boolean;
 }
 
-// PICTURE IS NOT HERE. It used to be — four interfaces and four ProjectDoc fields — and none
-// of it ever reached the C++ engine: a `withoutVideo` step existed purely to take it back off
-// again before the wire. It now belongs to the app that draws it, as @studio/song's videoDoc.ts
-// (compiled) and @studio/web-protocol's WebVideoProject (browser) — a SECOND compile of the
-// same song folder, which is what keeps the frame out of this one. See docs/picture.md.
+// PICTURE IS NOT HERE. It belongs to whoever draws it, as @studio/song's videoDoc.ts (compiled)
+// and @studio/web-protocol's WebVideoProject (browser) — a SECOND compile of the same song
+// folder, which is what keeps the frame out of this one and off the wire. See
+// packages/song/docs/picture.md.
 
 export interface ProjectDoc {
   uuid?: string; // stable song id, generated on first `l8 export`; absent until then

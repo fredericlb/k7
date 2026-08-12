@@ -19,8 +19,8 @@ export { EngineControl } from "./engineControl";
 
 export class EngineClient extends EngineControl {
   // The doc is folded to what the engine plays at this one choke point: withGroupMix resolves groups onto their
-  // members, which the engine has no notion of. A `withoutVideo` sat beside it until picture became a document of
-  // its own, compiled separately from the same folder. Ordering with flush() holds: one socket, one outbox.
+  // members, which the engine has no notion of. Nothing strips picture here: a ProjectDoc carries none.
+  // Ordering with flush() holds: one socket, one outbox.
   sendProject(doc: ProjectDoc): void {
     this.send({ type: "project", doc: withGroupMix(doc) });
   }

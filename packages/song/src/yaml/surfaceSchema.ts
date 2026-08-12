@@ -15,14 +15,9 @@ import { ViewBindingSchema } from "./mixViewSchema";
  * nothing can draw is a project that will open onto an empty screen with no explanation. That
  * is worth refusing at the schema, by name, with the list of what there is.
  *
- * `timeline` is the one that used to need no declaring: the arrangement was a PANE the shell
- * always had, and a project got one for being a project. It is a surface now, so a song says it
- * wants one the same way a set says it wants a desk. See docs/surfaces.md.
- *
- * `viewport` is the one that came BACK. Picture left for an app of its own because a song is
- * placed in bars and a cut in seconds, and one ruler could not draw both without lying — the
- * ruler reads either now (docs/surfaces.md), so the frame is a surface here and a song carries
- * its picture again.
+ * All three are declared the same way: a song says it wants an arrangement exactly as a set says
+ * it wants a desk, or a song with picture says it wants a frame. Nothing is implicit, so a
+ * project that draws none of them opens on its graph and is told why. See docs/surfaces.md.
  */
 export const SURFACE_TYPES = ["turntables", "timeline", "viewport"] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
@@ -51,10 +46,10 @@ export type SurfaceLayout = (typeof SURFACE_LAYOUTS)[number];
  * mounted for as long as the project is open (its caret and its zoom stack outlive being hidden),
  * and joins the pane ring — which is the whole of why the two are separate words.
  *
- * `viewport` is `split` for the sharpest version of that reason in the codebase: it owns a WebGL
- * context and one `<video>` element per layer. A `view` viewport would tear both down every time
- * you looked at something else and rebuild them — with a decoder flush and a visible hitch — every
- * time you came back. `full` is how you get the picture big, which is the pane ring doing its job.
+ * `viewport` is `split` for the sharpest version of that reason: it owns a WebGL context and one
+ * `<video>` element per layer. As a `view` it would tear both down whenever you looked at
+ * something else and rebuild them — with a decoder flush and a visible hitch — whenever you came
+ * back. `full` is how the picture gets big, which is the pane ring doing its job.
  */
 export const SURFACE_LAYOUTS_BY_TYPE: Record<
   SurfaceType,

@@ -147,7 +147,7 @@ function parseCompileError(msg: string): Diagnostic[] {
 }
 
 /**
- * A project is any directory whose NAME claims an app — `mysong.l8`, `myset.m9`, `party.z0`.
+ * A project is any directory whose NAME claims an app — `mysong.l8`, `party.z0`.
  *
  * The name, not a `project.yaml` inside, because st0 has to answer the same question from a
  * bare blobless mirror it has never checked out, where no file can be opened. One rule on both
@@ -863,8 +863,8 @@ export class Workspace {
    * The file tree an editor draws: the ACTIVE PROJECT's own files, not the workspace's.
    *
    * A workspace is one git clone, and a clone holds whatever else the repository holds —
-   * other songs, a `_modules` library, mixdowns, an `orig/` full of foreign sessions. l8 and
-   * m9 are opened ON one project and pick nothing themselves, so showing all of that is
+   * other songs, a `_modules` library, mixdowns, an `orig/` full of foreign sessions. An app is
+   * opened ON one project and picks nothing itself, so showing all of that is
    * showing the repository rather than the song. See docs/activeProject.md.
    *
    * Paths stay workspace-relative, because that is what every other route takes: only the
@@ -1578,7 +1578,7 @@ export class Workspace {
           ...notSupportedModules(dir),
           ...libraryModuleIssues(dir),
           ...deadProjectFields(dir),
-          // A folder named `.m9` that declares `type: l8`, or the reverse. It compiles
+          // A folder named `.z0` that declares `type: l8`, or the reverse. It compiles
           // either way — the two signals feed different readers — which is exactly why it
           // has to be said out loud rather than left for the day someone trusts the file.
           ...projectTypeIssues(dir),
