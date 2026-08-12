@@ -27,7 +27,7 @@ import {
   resolveModule,
   resolveModuleMap,
 } from "./moduleResolve";
-import { isIoSource, splitPort } from "./moduleTypes";
+import { isIoSource, type ModuleKind, splitPort } from "./moduleTypes";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 import type {
   LoadedModule,
@@ -185,7 +185,7 @@ export type InstrumentType = "plugin" | "rack";
 // folder (see MODULE_TYPES); the rest is authored.
 export interface Module {
   extends?: string; // the module this inherits from ("type/name" | "@ns/type/name"); "" when none
-  kind: "io" | "plugin"; // from the type folder
+  kind: ModuleKind; // from the type folder — "plugin", "io", or "doc" (a note; see docModule.ts)
   io?: string; // io modules only: "out" (sink) | "in" (live source)
   plugin?: RawPlugin; // a plugin definition (plugin.type = xmlTypeName / cache id)
   type?: InstrumentType; // "plugin" (default) | "rack"
@@ -233,10 +233,14 @@ export interface Module {
   // on. nodeProject resolves it to physical channels for the engine.
   channel?: string | number[];
   monitor?: "off" | "auto" | "on";
-  // Authored freeform notes and a to-do checklist (see #Module.docs/todos). Carried
-  // through for surfaces (the web Docs panel); no engine meaning. Absent when unset.
-  docs?: string;
-  todos?: string[];
+  // A NOTE's text, on a doc module — multiline, drawn as written on the node itself.
+  //
+  // It replaced `docs` and `todos`, which any module could carry and only the Docs panel could
+  // show. That panel is gone: a note about a module now sits IN the graph, wired from what it
+  // is about, so it is read where you are already looking rather than in a list of everybody's
+  // notes. Absent when unset; no engine meaning, and a doc module never reaches the engine at
+  // all. See docs/docModules.md.
+  content?: string;
   // Automation bindings: which curve (by id, from curves/) drives which param on this
   // module. Carried through for the web graph, which draws each as a curve node
   // arrowing into the module. No engine meaning yet (the first automation slice is the
@@ -591,7 +595,9 @@ export function buildGraph(
   // folder (added by loadModules / readModuleTree); everything else is authored.
   const toModule = (b: ResolvedModule): Module => ({
     extends: b?.extends ? String(b.extends) : undefined,
-    kind: b?.kind === "io" ? "io" : "plugin",
+    // Three now: a `doc` is neither an engine plugin nor an edge of the signal. Read straight
+    // rather than folded to "not io means plugin", which is what made a note compile as one.
+    kind: b?.kind === "io" || b?.kind === "doc" ? b.kind : "plugin",
     io: b?.io ? String(b.io) : undefined,
     plugin: b?.plugin,
     type: normType(b?.type),
@@ -619,10 +625,9 @@ export function buildGraph(
     source: typeof b?.source === "string" && b.source ? b.source : undefined,
     channel: normInput(b?.channel),
     monitor: normMonitor(b?.monitor),
-    docs: typeof b?.docs === "string" ? b.docs : undefined,
-    todos: Array.isArray(b?.todos)
-      ? b.todos.map(String).filter((s) => s)
-      : undefined,
+    // A NOTE's text, on a doc module. It replaced `docs`/`todos`, which every module could
+    // carry and only a bottom panel could show; this one is drawn on the node itself.
+    content: typeof b?.content === "string" ? b.content : undefined,
     automations: normAutomations(b?.automations),
   });
 
@@ -681,7 +686,14 @@ const isSink = (g: GraphDoc, id: string): boolean => {
   // ending each of their chains "is not a chain or io sink".
   if (id === "OUT") return true;
   const m = g.modules[id];
-  return !!m && m.kind === "io" && !isIoSource(m.io);
+  if (!m) return false;
+  // A NOTE ends a run too, and legitimately: a doc module takes one input and gives nothing
+  // back, so a chain routed to it terminates there exactly as it does at an output. Without
+  // this the graph reports every wired note as "not a chain or io sink" — which is a warning
+  // about a comment, on a project that is correct. It is a sink by SHAPE rather than by role,
+  // which is why it is asked here and not folded into the io test below.
+  if (m.kind === "doc") return true;
+  return m.kind === "io" && !isIoSource(m.io);
 };
 /**
  * The other io edge: a LIVE interface source (io: "in").

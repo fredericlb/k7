@@ -206,9 +206,16 @@ export function buildGraphDoc(dir: string): WebGraph {
     for (const s of chains[name].use)
       if (g.modules[s.module]?.io === "in") s.tap = { id, side: "input" };
   }
+  // A note's TEXT, per module, so the renderer can draw it on the node. It used to be
+  // `{docs, todos}` for a bottom panel that aggregated everybody's notes; a note is its own
+  // node now (an instance of `@studio/doc`), and only a doc module ever carries one.
+  // Keyed by DOC modules and nothing else, so its keys ARE the project's notes — which is what
+  // lets a surface find them without a second field saying "this one is a note". `content ?? ""`
+  // rather than skipping an empty one: a note somebody has not written yet is still a note, and
+  // dropping it here would make it vanish from the graph instead of drawing empty.
   const modules: WebGraph["modules"] = {};
   for (const [name, m] of Object.entries(g.modules))
-    modules[name] = { docs: m.docs, todos: m.todos };
+    if (m.kind === "doc") modules[name] = { content: m.content ?? "" };
   const trackColors: Record<string, string> = {};
   // What a track puts on the wire: a sequences track feeds MIDI to the chain's instrument, an audio one audio.
   const trackSignals: WebGraph["trackSignals"] = {};

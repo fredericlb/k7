@@ -26,8 +26,10 @@ params:
   High-shelf freq: 6000
   # Le quatrième filtre, neutralisé par son gain. Sa fréquence n'a plus d'importance.
   Mid gain 2: 0
-docs: >-
-  L'EQ d'une tranche : grave, médium, aigu, en décibels, à plat au centre. Plateau bas à
-  200 Hz, cloche à 1 kHz, plateau haut à 6 kHz — les coupures d'une table de mixage et non
-  celles d'un EQ de mastering. La plage est celle du plugin, ±20 dB : une table coupe plus
-  qu'elle ne remonte, ce qui est un usage et non une limite.
+# En un paragraphe : l'EQ d'une tranche — grave, médium, aigu, en décibels, à plat au centre.
+# Plateau bas à 200 Hz, cloche à 1 kHz, plateau haut à 6 kHz : les coupures d'une table de
+# mixage et non celles d'un EQ de mastering. La plage est celle du plugin, ±20 dB — une table
+# coupe plus qu'elle ne remonte, ce qui est un usage et non une limite.
+#
+# (C'était un `docs:`, que seul le panneau Docs affichait. Le champ n'existe plus : une note
+# est un module doc sur le graphe, et la description d'un module est son en-tête, ici.)

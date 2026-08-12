@@ -111,15 +111,17 @@ describe("this app's vocabulary survives YAML", () => {
     // THE trap. In YAML 1.1 `5:1:1` is 18061 and `on` is `true` — l8 writes both
     // all day (marker timecodes, bypass states). 1.2 is forced in PARSE_OPTIONS; this is
     // what proves it, and what fails the day someone "modernises" that option.
-    const { value } = parseModule("docs: 5:1:1\n");
-    expect(value?.docs).toBe("5:1:1");
+    // `content` is the free-text field now that `docs:` is gone (a note is a doc module) —
+    // same job here: an arbitrary string a human types, which 1.1 would reinterpret.
+    const { value } = parseModule("content: 5:1:1\n");
+    expect(value?.content).toBe("5:1:1");
   });
 
   it("keeps on/off/no as words", () => {
     expect(parseModule("monitor: on\n").value?.monitor).toBe("on");
     expect(parseModule("monitor: off\n").value?.monitor).toBe("off");
     // `no` is a boolean in 1.1 — here it must stay the string a param name could be.
-    expect(parseModule("docs: no\n").value?.docs).toBe("no");
+    expect(parseModule("content: no\n").value?.content).toBe("no");
   });
 
   it("keeps a note name and a param name with spaces", () => {
@@ -128,13 +130,13 @@ describe("this app's vocabulary survives YAML", () => {
 params:
   "Filter Freq": 69
   Transpose - Bypass: 1
-docs: C4
+content: C4
 `),
     );
     expect(issues).toEqual([]);
     expect(value?.params?.["Filter Freq"]).toBe(69);
     expect(value?.params?.["Transpose - Bypass"]).toBe(1);
-    expect(value?.docs).toBe("C4");
+    expect(value?.content).toBe("C4");
   });
 });
 
@@ -194,10 +196,10 @@ ui:
   });
 
   it("adds and removes a key without reformatting", () => {
-    const added = setModuleValue(AUTHORED, ["docs"], "the dirty channel");
-    expect(added).toContain("docs: the dirty channel");
+    const added = setModuleValue(AUTHORED, ["content"], "the dirty channel");
+    expect(added).toContain("content: the dirty channel");
     expect(added).toContain("# amp: the head the whole record goes through.");
-    const removed = setModuleValue(added, ["docs"], null);
+    const removed = setModuleValue(added, ["content"], null);
     expect(removed).toBe(AUTHORED);
   });
 

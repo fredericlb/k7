@@ -53,8 +53,11 @@ const base = {
   mute: z.boolean().optional(),
   solo: z.boolean().optional(),
   disabled: z.boolean().optional(),
-  docs: z.string().optional(),
-  todos: z.array(z.string()).optional(),
+  // `docs:` and `todos:` were here. They are gone, not deprecated: a note is a doc module on
+  // the graph now — an instance of `@studio/doc`, wired from what it is about — and leaving the
+  // fields accepted would have been two ways to write the same thing, one of which nothing
+  // displays. This schema is `.strict()`, so a track still carrying one says so by name and by
+  // line rather than being read and dropped. See packages/song/docs/docModules.md.
 };
 
 // A FROZEN track: the render that stands in for everything the track used to compute, as a project-relative path

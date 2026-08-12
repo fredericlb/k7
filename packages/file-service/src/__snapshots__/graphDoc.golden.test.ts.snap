@@ -24,10 +24,7 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
       ],
     },
   },
-  "modules": {
-    "drumrack": {},
-    "kit": {},
-  },
+  "modules": {},
   "trackColors": {},
   "trackSignals": {
     "beat": "midi",
@@ -188,30 +185,7 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
       "type": "lfo",
     },
   },
-  "modules": {
-    "fourosc": {},
-    "lead": {
-      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
-      "todos": [
-        "Automate the filter cutoff instead of leaving it static",
-        "Try a sub-oscillator an octave down",
-      ],
-    },
-    "pad": {
-      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
-      "todos": [
-        "Automate the filter cutoff instead of leaving it static",
-        "Try a sub-oscillator an octave down",
-      ],
-    },
-    "synth": {
-      "docs": "The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.",
-      "todos": [
-        "Automate the filter cutoff instead of leaving it static",
-        "Try a sub-oscillator an octave down",
-      ],
-    },
-  },
+  "modules": {},
   "trackColors": {},
   "trackSignals": {
     "kit": "audio",

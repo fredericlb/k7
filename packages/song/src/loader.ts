@@ -17,6 +17,7 @@ import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
 import { loadControllerLibrary } from "./controller";
+import { studioModules } from "./docModule";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { cachedForModules } from "./moduleCache";
 import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
@@ -1018,9 +1019,15 @@ function readModuleRefs(
   catalogue: Record<string, LoadedModule>,
   issues: Diagnostic[],
 ): Record<string, LoadedModule> {
-  // The catalogue first, so anything on disk overrides it: a project or a library may
-  // define `@engine/x`, and the thing you can edit should win over the thing you cannot.
-  const out: Record<string, LoadedModule> = { ...catalogue };
+  // The built-ins first, then the catalogue, so anything on disk overrides both: a project or
+  // a library may define `@engine/x`, and the thing you can edit should win over the thing you
+  // cannot. `@studio/doc` is seeded HERE rather than folded into the catalogue argument because
+  // it is not the engine's — callers that pass their own catalogue (tests, scripts) still get
+  // it, which is what "built-in" has to mean for a ref every project may name.
+  const out: Record<string, LoadedModule> = {
+    ...studioModules(),
+    ...catalogue,
+  };
 
   // Re-key by ref; INSTANCES are skipped, since one would silently replace its own generic's key.
   //

@@ -26,7 +26,6 @@ params:
   # HT-Demucs v4, weights stored fp16. Resolved against this module's assets/ first, then the
   # machine's ~/.studio/models — which is where a file this size actually lives.
   onnx: htdemucs_fp16weights.onnx
-docs: >-
-  Splits a mix into drums, bass, other and vocals. Runs offline on a file, never live: the
-  model needs the whole input, and one pass takes minutes. The four stems are written as files
-  beside the source, under stems/.
+# In a paragraph: splits a mix into drums, bass, other and vocals. Runs offline on a file, never
+# live — the model needs the whole input, and one pass takes minutes. The four stems are written
+# as files beside the source, under stems/. (Was `docs:`; see packages/song/docs/docModules.md.)

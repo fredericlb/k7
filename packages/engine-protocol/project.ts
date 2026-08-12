@@ -143,9 +143,9 @@ export interface TrackDoc {
   plugins: PluginDoc[];
   sends: SendDoc[];
   automation: AutomationDoc[];
-  // Authored notes / checklist, carried through for surfaces; the engine ignores both.
-  docs?: string;
-  todos?: string[];
+  // `docs` / `todos` were here — authored notes carried through for a panel that listed them.
+  // Gone with that panel: a note is a doc module on the graph (`@studio/doc`), which is not a
+  // track's business and never reaches the engine. See packages/song/docs/docModules.md.
   // Set while the track is frozen: the render it plays instead of its material, absolute. The engine ignores this
   // too — by the time the doc reaches it the render is already the track's one clip and the plugins are gone (see
   // nodeProject). It is here so a surface can say WHY a lane it can't edit looks the way it does.

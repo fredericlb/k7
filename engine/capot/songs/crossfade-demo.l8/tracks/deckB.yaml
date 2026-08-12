@@ -16,6 +16,7 @@ mute: true
 clips:
   - { ref: snare, start: "1:2:1" }
   - { ref: snare, start: "1:4:1" }
-docs: The B deck — backbeat. It lands on the crossfade's `b` port, which is why its chain ends there and it runs no modules of its own. Muted so it is heard through the crossfade only.
-todos:
-  - Try automating Mix so the two decks trade places over a bar
+# The B deck — backbeat. It lands on the crossfade's `b` port, which is why its chain ends
+# there and it runs no modules of its own. Muted so it is heard through the crossfade only.
+#
+# TODO: try automating Mix so the two decks trade places over a bar.

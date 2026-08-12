@@ -48,7 +48,13 @@ describe("shared module folder: category level", () => {
     // No engine catalogue: this asks what the FILES define, and the machine's scanned
     // plugins would drown a vocabulary of three.
     const refs = loadModuleRefs(project, {});
-    expect(Object.keys(refs).sort()).toEqual([
+    // Minus `@studio/…`, for the same reason the catalogue is `{}`: this asks what the FILES
+    // define, and the built-in doc module answers whatever is on disk.
+    expect(
+      Object.keys(refs)
+        .filter((r) => !r.startsWith("@studio/"))
+        .sort(),
+    ).toEqual([
       "@workspace/audio/delay/adt",
       "@workspace/audio/genome",
       "@workspace/instruments/4osc",

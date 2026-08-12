@@ -341,6 +341,14 @@ const CSS = `
   box-shadow:0 1px 4px rgba(0,0,0,.45); }
 .dgx-fbtn svg { width:11px; height:11px; }
 /* The frost itself: a wash over the node, under its contents, so the node still reads while reading as inert. */
+/* A NOTE — a doc module. Deliberately unlike every other card: no accent bar, no header, a
+   paper tint and a dashed edge, so prose is never mistaken for something in the signal path.
+   It is still a node (it ranks and takes a cable), it just does not look like a device. */
+.dgx-note { --accent:var(--mauve); border-style:dashed;
+  background:color-mix(in srgb, var(--mauve) 7%, var(--card)); }
+.dgx-note-body { padding:10px; font-size:11.5px; line-height:17px;
+  white-space:pre-wrap; overflow-wrap:anywhere; overflow:hidden;
+  color:var(--fg); opacity:.86; }
 .dgx-node.frozen { background-image:linear-gradient(rgba(125,211,252,.12), rgba(125,211,252,.12)); }
 /* The module being created: a node drawn where it will land, saying only that something is on its way. Dashed,
    because a solid border would claim it exists. */
@@ -1520,6 +1528,39 @@ function NodeInner({
         aria-label="creating a module"
       >
         <i className="dgx-spin" />
+      </div>
+    );
+
+  /**
+   * A NOTE: a doc module, drawn as its text and nothing else.
+   *
+   * Before the LOD branch on purpose. Every other card drops to its name when the camera pulls
+   * back, because widgets stop being readable and the name is what is left; a note has no
+   * widgets and its text IS the card, so shrinking it to the instance's filename would replace
+   * the only thing worth reading with the one thing that is not.
+   *
+   * No jacks drawn either: a note takes one input and gives nothing back, and a socket on a
+   * comment invites a wire out of it. The cable INTO it is the ordinary one — that is what says
+   * which part of the chain the note is about. See @studio/song's docs/docModules.md.
+   */
+  if (n.note !== undefined)
+    return (
+      <div
+        className={`${cls} dgx-note`}
+        style={{
+          left: n.x,
+          top: n.y,
+          width: n.w,
+          height: n.h,
+          opacity: n.dim ? 0.5 : 1,
+        }}
+        onClick={() => onTapNode(n)}
+        onContextMenu={(e) => onContext(n, e)}
+        title={n.label}
+      >
+        {/* `pre-wrap`: the author's own line breaks are the shape of the note, and a long line
+            still wraps inside the width `noteSize` reserved for it. */}
+        <div className="dgx-note-body">{n.note}</div>
       </div>
     );
 

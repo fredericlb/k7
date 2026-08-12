@@ -226,10 +226,12 @@ describe("module instances", () => {
     writeInstance(dir, "lead", {
       extends: "@project/instruments/synth",
       params: { "Filter Freq": 90 },
-      docs: "the lead voice",
+      content: "the lead voice",
     });
     const lead = loadModules(dir).lead;
     expect(lead.params?.["Filter Freq"]).toBe(90);
-    expect(lead.docs).toBe("the lead voice");
+    // The per-key override, on a plain scalar field. It is what makes a NOTE work: every doc
+    // node is an instance of `@studio/doc`, and its own `content` is exactly this.
+    expect(lead.content).toBe("the lead voice");
   });
 });

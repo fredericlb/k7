@@ -17,7 +17,10 @@ export type Pane = "editor" | "timeline" | "chains";
  * See packages/song/docs/projectMode.md and docs/shellRouting.md.
  */
 export type View = "global" | "live";
-export type Panel = "graph" | "docs" | "logs";
+// `docs` was a third panel — a project's notes and to-dos, listed in one place. It is gone:
+// a note is a doc module IN the graph now, toggled beside the mixer. See
+// packages/song/docs/docModules.md.
+export type Panel = "graph" | "logs";
 
 /** The part of the shell's state the URL carries. */
 export interface RouteState {
@@ -39,7 +42,7 @@ export interface RouteState {
 }
 
 const PANES: Pane[] = ["editor", "timeline", "chains"];
-const PANELS: Panel[] = ["graph", "docs", "logs"];
+const PANELS: Panel[] = ["graph", "logs"];
 
 /**
  * What each layout does with the panes: the `ring` it shows, and what `full` may fullscreen.

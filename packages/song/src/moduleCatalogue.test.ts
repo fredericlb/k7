@@ -115,9 +115,12 @@ describe("the shared module catalogue", () => {
     const refs = moduleCatalogue(solo).map((m) => m.ref);
     expect(refs).toContain("@engine/IN");
     expect(refs).toContain("@engine/OUT");
-    // …and nothing from a library, since there is none. `@engine` is the one level with no
-    // folder behind it, which is exactly why it still answers here.
-    expect(refs.every((r) => r.startsWith("@engine/"))).toBe(true);
+    // …and nothing from a library, since there is none. The levels with NO folder behind them
+    // are what still answer here: `@engine`, the plugin scan, and `@studio`, which is the doc
+    // module every note is an instance of. `@engine` was the only one until notes arrived.
+    expect(
+      refs.every((r) => r.startsWith("@engine/") || r.startsWith("@studio/")),
+    ).toBe(true);
     rmSync(alone, { recursive: true, force: true });
   });
 });

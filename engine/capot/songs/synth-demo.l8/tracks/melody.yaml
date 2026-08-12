@@ -2,9 +2,10 @@ type: single
 contentType: sequences
 clips:
   - { ref: melody, start: "1:1:1" }
-# Notes + checklist, shown read-only in the web editor's Docs panel when this
-# track is under the timeline caret (and its todos join the Global tab).
-docs: The rising C-major scale intro. Placeholder line until the real melody is written.
-todos:
-  - Write the actual melody
-  - Decide whether it doubles the bass
+# The rising C-major scale intro. Placeholder line until the real melody is written.
+#
+# TODO: write the actual melody; decide whether it doubles the bass.
+#
+# This was a `docs:`/`todos:` pair, read by a Docs panel that no longer exists. A note about
+# something in the SIGNAL is a doc module on the graph now; a note about a track's own file is
+# a comment in that file, which is where a reader of it looks.

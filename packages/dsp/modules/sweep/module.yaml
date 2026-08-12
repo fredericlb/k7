@@ -15,9 +15,10 @@ params:
   # 0 est le neutre, au MILIEU de la course : le potard est signé pour que la position de repos
   # soit au centre plutôt qu'à un bout, comme les gains de l'EQ à côté.
   Sweep: 0
-docs: >-
-  Un filtre de balayage. Vers la gauche un passe-bas descend de 20 kHz à 200 Hz ; vers la
-  droite un passe-haut monte de 20 Hz à 4 kHz. À 0 les deux coins sont hors du matériel, donc
-  l'effet est éteint parce qu'il est INAUDIBLE et non parce qu'il est contourné — ce qui est
-  ce qui permet de l'automater depuis rien. La résonance est fixe et modeste : un pic qui sonne
-  à 200 Hz reprend la marge de manœuvre en plein set.
+# En un paragraphe : un filtre de balayage. Vers la gauche un passe-bas descend de 20 kHz à
+# 200 Hz ; vers la droite un passe-haut monte de 20 Hz à 4 kHz. À 0 les deux coins sont hors du
+# matériel, donc l'effet est éteint parce qu'il est INAUDIBLE et non parce qu'il est contourné —
+# ce qui est ce qui permet de l'automater depuis rien. La résonance est fixe et modeste : un pic
+# qui sonne à 200 Hz reprend la marge de manœuvre en plein set.
+#
+# (C'était un `docs:` ; le champ n'existe plus — voir packages/song/docs/docModules.md.)

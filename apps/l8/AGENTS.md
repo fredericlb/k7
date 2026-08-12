@@ -88,6 +88,14 @@ which is what lets the editor be restyled into a popin without losing its undo h
 views: `global` (the timeline over the chains graph) and `live` (the graph alone). `full` sits on
 top of a view to fullscreen one pane.
 
+**A note is a MODULE, not a panel.** The Docs panel is gone, and with it the `docs:`/`todos:`
+fields modules and tracks carried — both schemas are `.strict()`, so a file still holding one
+refuses to load. A note is an instance of the built-in `@studio/doc`: one input, no output, one
+field (`content`), drawn as written on the graph and wired from whatever it is about. Off by
+default; the note button sits in the footer beside the mixer. Read
+`packages/song/docs/docModules.md`, and `packages/song/scripts/migrateDocFields.ts` is the tool
+that moves an old project's prose into comments.
+
 **A project may declare SURFACES.** An optional `surfaces/` folder, one file per special view —
 `type` (only `turntables` so far: m9's desk, from `@studio/ui-turntables`), `layout` (only
 `view`), and a `mapping` saying which module each of its components moves. Each gets a button at

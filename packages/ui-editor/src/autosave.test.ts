@@ -57,7 +57,7 @@ describe("decideAutosave", () => {
     // is no Save button left to overrule the check with.
     const d = decideAutosave({
       dirty: true,
-      validity: at(MODULE, "paramz: 1\ndocs: hello\n"),
+      validity: at(MODULE, "paramz: 1\ncontent: hello\n"),
       baselineOk: false,
     });
     expect(d.act).toBe("write");

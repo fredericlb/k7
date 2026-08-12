@@ -71,9 +71,10 @@ describe("the graph memo", () => {
   it("notices a project file appearing, not just changing", async () => {
     const before = ws.graphDoc();
     await new Promise((r) => setTimeout(r, 12));
-    writeModule(proj, "audio", "fuzz", {
-      plugin: { type: "internal", name: "Chorus" },
-    });
+    // A NOTE, because `graphDoc().modules` is keyed by doc modules alone now — it was every
+    // module while a Docs panel aggregated their notes. The subject is unchanged: a file that
+    // APPEARS must invalidate the memo, and the map is where a new one can be seen.
+    writeModule(proj, "docs", "fuzz", { content: "watch the gain here" });
     expect(ws.graphDoc()).not.toBe(before);
     expect(ws.graphDoc().modules).toHaveProperty("fuzz");
   });

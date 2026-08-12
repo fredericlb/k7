@@ -150,7 +150,7 @@ The gutter — the name column, on all three kinds of row — is the row's handl
 
 - **click** selects the row. That is not a new kind of selection: it parks the caret on the
   label, exactly where `h` off the view's first beat already puts it, so everything that reads
-  the caret (mute/solo, the Graph and Docs panels, the minimap) follows without being told.
+  the caret (mute/solo, the Graph panel, the minimap) follows without being told.
   A live `v` rectangle is dropped, because its head is somewhere else and leaving one standing
   would draw two selections at once.
 - **double-click** points the *other* panes at the row: the editor opens its file and the

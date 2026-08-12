@@ -28,7 +28,11 @@ describe("toPath", () => {
     expect(toPath(st({ full: "chains", panel: "logs" }))).toBe(
       "/chains?panel=logs",
     );
-    expect(toPath(st({ help: true, panel: "docs" }))).toBe("/docs?panel=docs");
+    // `/docs` is the HELP page and `panel=graph` is a panel — two different things that both
+    // used to be spelled "docs" while a Docs panel existed. Only one is left.
+    expect(toPath(st({ help: true, panel: "graph" }))).toBe(
+      "/docs?panel=graph",
+    );
   });
 
   it("names an open surface", () => {

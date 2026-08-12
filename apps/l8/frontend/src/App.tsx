@@ -36,7 +36,16 @@ import {
   type EngineLatency,
   formatLatency,
 } from "@studio/web-protocol/quality";
-import { Circle, Disc3, Loader2, Pause, Play, Square, X } from "lucide-react";
+import {
+  Circle,
+  Disc3,
+  Loader2,
+  Pause,
+  Play,
+  Square,
+  StickyNote,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, moduleStore } from "./api";
 import { STUDIO_ICONS } from "./chainsIcons";
@@ -53,7 +62,6 @@ import {
 } from "./components/CommandBar";
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
-import { DocsPanel, type DocsSelection } from "./components/DocsPanel";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { FreezeOverlay } from "./components/FreezeOverlay";
@@ -177,7 +185,6 @@ export default function App({
    * `Pane`. It behaves like `help` — over the layout, which is left exactly as it was underneath.
    */
   const [openSurface, setOpenSurface] = useState<string | null>(null);
-  const [docSel, setDocSel] = useState<DocsSelection>(null);
   // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
   // full screen of its own (a code pane, a params list and a widget grid), and the shell's panes are
   // already three. Nothing under it unmounts, so closing it puts the editor back exactly as it was.
@@ -333,6 +340,20 @@ export default function App({
    * says whether to ask for it.
    */
   const [mixerView, setMixerView] = useState(false);
+
+  /**
+   * Whether the graph draws the project's NOTES — its doc modules.
+   *
+   * Off by default and not remembered, exactly like `mixerView` beside it: both are ways of
+   * looking at the one graph rather than places to be, and a shell that reopened holding
+   * somebody's last glance would be deciding what you came to look at.
+   *
+   * `docCount` is reported UP by the pane that has the graph — the button lives in the footer
+   * and the graph is fetched in `ChainsTab`, so the count has to travel. It is what makes the
+   * button honest on a project with no notes, which is nearly all of them.
+   */
+  const [showDocs, setShowDocs] = useState(false);
+  const [docCount, setDocCount] = useState(0);
 
   // A take starts rolling (record enabled AND the transport playing): show it. It is deliberately
   // one-way — the pane STAYS when the take ends, because what you just played is exactly what you
@@ -803,11 +824,9 @@ export default function App({
     },
   });
 
-  // Follow the caret's TRACK into the Docs panel's context.
-  useEffect(() => {
-    const id = caret?.trackId;
-    if (id) setDocSel({ kind: "track", id });
-  }, [caret?.trackId]);
+  // The caret's track used to follow into the Docs panel's context tab. Both are gone: a note
+  // is a doc module in the graph, wired from what it is about, so there is no selection to
+  // track and nothing for it to point at. See packages/song/docs/docModules.md.
 
   /**
    * Open a file in the editor pane, by path or by name.
@@ -2055,9 +2074,11 @@ export default function App({
                     onCanvasInsert={placeInGraph}
                     pendingInsert={insertingAt}
                     seedGraph={seedGraph}
-                    onPickModule={(mod) =>
-                      mod && setDocSel({ kind: "module", id: mod })
-                    }
+                    // The NOTES: whether the graph draws them, and how many it has to draw —
+                    // the count travels up because the button is in the footer and the graph
+                    // is fetched here. See where `showDocs` is declared.
+                    showDocs={showDocs}
+                    onDocCount={setDocCount}
                     pluginParamsStore={pluginParamsStore}
                     requestPluginParams={requestPluginParams}
                     watchPluginParams={watchPluginParams}
@@ -2156,9 +2177,6 @@ export default function App({
                     onTrackToggle={onTrackToggle}
                     onTrackSet={onTrackSet}
                   />
-                )}
-                {panel === "docs" && (
-                  <DocsPanel reloadKey={reloadKey} selection={docSel} />
                 )}
                 {panel === "logs" && (
                   <LogsPanel lines={logs} onClear={clearLogs} />
@@ -2314,6 +2332,34 @@ export default function App({
                 aria-pressed={mixerView}
               >
                 <MixerIcon className="h-3.5 w-3.5" />
+              </Button>
+              {/* The notes, beside the mixer and for the same kind of reason: it changes what the
+                  GRAPH shows rather than opening a panel of its own.
+
+                  OFF by default. A note is wired into the chain it is about, so drawing every one
+                  of them all the time would put prose in the middle of the signal path you are
+                  trying to read — which is the failure the old bottom panel had from the other
+                  side, where the notes were somewhere you had to go and look. This is the
+                  in-between: they are in the graph, and you say when.
+
+                  DEAD when the project has none, like the mixer button above: a click that
+                  toggles nothing on a project with no notes explains nothing. */}
+              <Button
+                size="icon-xs"
+                variant={showDocs ? "default" : "ghost"}
+                disabled={docCount === 0}
+                onClick={() => setShowDocs((on) => !on)}
+                title={
+                  docCount === 0
+                    ? "No notes in this project: a note is an instance of @studio/doc, wired from what it is about"
+                    : showDocs
+                      ? `Hide the ${docCount} note(s) on the graph`
+                      : `Show the ${docCount} note(s) on the graph`
+                }
+                aria-label="Toggle docs"
+                aria-pressed={showDocs}
+              >
+                <StickyNote className="h-3.5 w-3.5" />
               </Button>
               {(Object.keys(PANEL_META) as Panel[]).map((p) => {
                 const Icon = PANEL_META[p].icon;
