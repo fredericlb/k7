@@ -583,6 +583,9 @@ export interface TimelineHandle {
   seekToCaret: () => void;
   toggleLoop: () => void;
   startMove: () => void;
+  // The two header toggles, so `ui ruler` and `ui lanes` reach what the buttons reach.
+  toggleRuler: () => void;
+  toggleLanes: () => void;
 }
 
 export function TimelineTab({
@@ -1588,6 +1591,11 @@ export function TimelineTab({
           `moving ${c.name || c.id} — ←/→ or j/m nudge · enter commit · esc cancel`,
         );
       },
+      // The clock button: bars ⇄ seconds. Both units read the SAME grid — see docs/picture.md.
+      toggleRuler: () =>
+        setRulerMode((m) => (m === "bars" ? "seconds" : "bars")),
+      // The height button: tall lanes draw each clip's waveform or notes.
+      toggleLanes: () => setExpanded((v) => !v),
     }),
     [
       caret,

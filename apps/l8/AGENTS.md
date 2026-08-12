@@ -143,8 +143,15 @@ drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot dra
 The command bar calls `/complete` and `/command` on the **file service**
 (`packages/file-service/src/routes/files.ts`), which dispatch through `@studio/commands`.
 That package owns the SID → handler mapping and is the only place a verb is defined. Add a
-feature there, not here. Web-local commands are only the shell's own view state (tabs,
-close, edit sequence/clip in `LOCAL_COMMANDS`).
+feature there, not here. Web-local commands (`LOCAL_COMMANDS` in `palette.ts`) are what only
+a browser can do: the shell's view state under `ui`, plus the bare-named ones that write
+through a route rather than through a verb — the file tree's own actions, the mixdown, the
+k7 publish, the undo journal.
+
+**Every action on screen is one of them.** No button, menu entry or toggle in this shell is
+unreachable from the command bar; where a button and a command would be two copies of one
+behaviour, the button dispatches the command. `frontend/docs/shell.md` has the table, and
+what is deliberately left out (disclosure, a dialog's own buttons, continuous gestures).
 
 ### Every shortcut names a command (`src/keys.ts`)
 

@@ -66,6 +66,18 @@ describe("the catalogue the palette lists", () => {
     expect(missing).toEqual([]);
   });
 
+  it("keeps every shell description inside the palette's row — 60 chars", () => {
+    // The same cap `commandSpec.test.ts` holds commands.yaml to. It has to be the same number:
+    // the two halves are listed side by side and a reader cannot tell which one a row came
+    // from, so a longer sentence here would be the one row that truncates.
+    const long = Object.entries(LOCAL_READABLE).flatMap(([name, r]) =>
+      (["en", "fr"] as const)
+        .filter((lang) => r[lang].length > 60)
+        .map((lang) => `${name} (${lang}, ${r[lang].length}): ${r[lang]}`),
+    );
+    expect(long, "shell descriptions over 60 characters").toEqual([]);
+  });
+
   it("does not list a shell command the backend already offers", () => {
     const twice = buildPaletteCommands(
       [cmd("event move", "Move a clip", "Déplacer un clip")],
@@ -101,10 +113,12 @@ describe("finding a command by describing it", () => {
     expect(names("track color")[0]).toBe("track color");
   });
 
-  it("lists the whole catalogue when nothing is typed", () => {
-    // Everything the palette holds: the backend's, plus the shell's own.
-    expect(names("")).toHaveLength(build().length);
-    // …in the catalogue's own order, which groups by area rather than by alphabet.
+  it("keeps the catalogue's own order when nothing is typed", () => {
+    // Everything the palette holds — the backend's, then the shell's own — in the catalogue's
+    // own order, which groups by area rather than by alphabet. Capped like any other answer:
+    // the shell's half alone outgrew a screen, and the bar lists nothing until you type anyway.
+    const all = build();
+    expect(names("")).toEqual(all.slice(0, 30).map((c) => c.canonical));
     expect(names("")[0]).toBe("track mute");
   });
 

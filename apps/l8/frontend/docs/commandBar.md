@@ -14,6 +14,12 @@ backend's are in [`commands.yaml`](../../../../packages/commands/commands.yaml) 
 own are in `LOCAL_READABLE` (`palette.ts`); `commandSpec.test.ts` fails if a command ships
 without one, in either language, and `palette.test.ts` fails if a shell command does.
 
+**Sixty characters at most**, in each language, and both test files enforce it. The row is the
+sentence with the command's name at the right of it, so a longer line does not make a longer
+row — it makes a truncated one, or a list that wraps into a wall over the minimap. The cap is
+also what keeps the sentence from drifting back into `help`: it states the ACTION and stops
+there, and every line that ran past sixty was carrying a caveat or a consequence instead.
+
 The command's NAME is not translated and never will be: a name is an identifier, the CLI's, and
 one spelling everywhere is what lets a menu pre-write a line, a key binding dispatch one, and a
 person read the same thing in the docs (see `commandI18n.ts`). What is translated is the
@@ -64,7 +70,7 @@ for, and the palette should offer it first when you do come looking for it.
 
 ### Nothing is listed until you type
 
-The command list opens on the first character, not on focus. The catalogue is ninety rows:
+The command list opens on the first character, not on focus. The catalogue is over a hundred rows:
 opening on the whole of it puts a wall over the minimap every time the bar takes the keyboard,
 and a list you did not ask for is a list you have to dismiss. One letter is the whole cost of
 asking for it.

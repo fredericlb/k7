@@ -15,8 +15,10 @@ import { MAX_RECENT } from "./recentCommands";
 import { PANES } from "./shellMeta";
 import type { CommandInfo } from "./types";
 
-// Everything whose ONLY effect is on the shell lives under `ui` — the namespace promises it writes no file and
-// never moves the transport. `locate`, `loop`, `record`, `new/delete project` and `event move` keep bare names.
+// Everything whose ONLY effect is on the shell lives under `ui` — the namespace promises it touches nothing of
+// the PROJECT and never moves the transport. Not "writes no file": a pin, a language and the vim flag are
+// remembered (localStorage, the account's preferences), and remembering how you like to work is not editing a
+// song. `locate`, `loop`, `record`, `new/delete project`, `event move` and the file-tree verbs keep bare names.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui global", // the layout view — the default, and the only one a project does not derive
@@ -47,14 +49,47 @@ export const LOCAL_COMMANDS = [
   "transport record", // the global record enable (engine session state, over the wire)
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
+  // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
+  "ui mixer", // line the mixer strips up in the graph's pane
+  "ui notes", // draw the project's doc modules on the graph
+  "ui panel", // open one of the bottom panels (graph | logs)
+  "ui surface", // a screen this PROJECT declares — surfaces/, layout: view
+  "ui builder", // the shared module builder, over the shell
+  "ui ruler", // the timeline's ruler: bars or seconds
+  "ui lanes", // tall lanes, showing each clip's waveform or notes
+  "ui logs clear",
+  // The cog menu. All five leave the project alone, which is why they are `ui`.
+  "ui settings editor",
+  "ui settings io",
+  "ui vim", // the editor's modality — the toggle on the settings screen
+  "ui engine", // back to the engine picker
+  "ui workspace quit",
+  "ui logout",
+  "ui language",
+  "ui pin", // a file to the top of the tree, or off it
+  "ui copy path", // the tree's other entry — the path onto the clipboard
+  // Bare-named, because they WRITE — the line `ui` draws (see the head of this list). The undo
+  // journal, the mixdown, the k7 publish, and the file tree's own right-click verbs.
+  "project undo",
+  "project redo",
+  "project export",
+  "project share k7",
+  "project import",
+  "file new",
+  "folder new",
+  "file rename",
+  "file move",
+  "file delete",
+  "file upload",
 ];
 
 /**
  * What the shell's OWN commands do, as a sentence, in each language.
  *
- * The backend's 69 carry theirs in `commands.yaml`; these nineteen exist only in this app, so
- * this is their catalogue entry. Same rules: imperative, no example, no full stop — the palette
- * lists them side by side and a reader cannot tell which half a row came from, nor should they.
+ * The backend's carry theirs in `commands.yaml`; these exist only in this app, so this is their
+ * catalogue entry. Same rules: imperative, no example, no full stop, and **60 characters at
+ * most** in each language — the palette lists them side by side and a reader cannot tell which
+ * half a row came from, nor should they. `palette.test.ts` holds this half to all of it.
  */
 export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui file": {
@@ -157,6 +192,109 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Show a sequence's notes as a tracker",
     fr: "Afficher les notes d'une séquence en tracker",
   },
+  "ui mixer": {
+    en: "Line up the mixer strips",
+    fr: "Aligner les tranches de la console",
+  },
+  "ui notes": {
+    en: "Show or hide the notes on the graph",
+    fr: "Afficher ou masquer les notes du graphe",
+  },
+  "ui panel": {
+    en: "Open a panel at the bottom",
+    fr: "Ouvrir un panneau en bas",
+  },
+  "ui surface": {
+    en: "Open a surface this project declares",
+    fr: "Ouvrir une surface déclarée par le projet",
+  },
+  "ui builder": {
+    en: "Edit a module in the builder",
+    fr: "Modifier un module dans le constructeur",
+  },
+  "ui ruler": {
+    en: "Read the ruler in bars or in seconds",
+    fr: "Lire la règle en mesures ou en secondes",
+  },
+  "ui lanes": {
+    en: "Show what the clips hold, in the lanes",
+    fr: "Afficher le contenu des clips dans les pistes",
+  },
+  "ui logs clear": {
+    en: "Empty the log panel",
+    fr: "Vider le journal",
+  },
+  "ui settings editor": {
+    en: "Open the editor's settings",
+    fr: "Ouvrir les réglages de l'éditeur",
+  },
+  "ui settings io": {
+    en: "Open the audio inputs and outputs",
+    fr: "Ouvrir les entrées et sorties audio",
+  },
+  "ui vim": {
+    en: "Turn the editor's vim mode on or off",
+    fr: "Activer ou désactiver le mode vim de l'éditeur",
+  },
+  "ui engine": {
+    en: "Choose another engine",
+    fr: "Choisir un autre moteur",
+  },
+  "ui workspace quit": {
+    en: "Leave this workspace",
+    fr: "Quitter cet espace de travail",
+  },
+  "ui logout": { en: "Sign out", fr: "Se déconnecter" },
+  "ui language": {
+    en: "Change the interface language",
+    fr: "Changer la langue de l'interface",
+  },
+  "ui pin": {
+    en: "Pin a file to the top of the tree",
+    fr: "Épingler un fichier en haut de l'arbre",
+  },
+  "ui copy path": {
+    en: "Copy a file's path to the clipboard",
+    fr: "Copier le chemin d'un fichier dans le presse-papiers",
+  },
+  "project undo": {
+    en: "Undo the last change",
+    fr: "Annuler la dernière modification",
+  },
+  "project redo": {
+    en: "Redo the change you took back",
+    fr: "Rétablir la modification annulée",
+  },
+  "project export": {
+    en: "Render the mixdown and download it",
+    fr: "Rendre le mixage et le télécharger",
+  },
+  "project share k7": {
+    en: "Publish this song to k7",
+    fr: "Publier ce morceau sur k7",
+  },
+  "project import": {
+    en: "Import a .dawproject or an .als",
+    fr: "Importer un .dawproject ou un .als",
+  },
+  "file new": { en: "Create an empty file", fr: "Créer un fichier vide" },
+  "folder new": { en: "Create a folder", fr: "Créer un dossier" },
+  "file rename": {
+    en: "Rename a file or a folder",
+    fr: "Renommer un fichier ou un dossier",
+  },
+  "file move": {
+    en: "Move a file into another folder",
+    fr: "Déplacer un fichier dans un autre dossier",
+  },
+  "file delete": {
+    en: "Send a file to the recycle bin",
+    fr: "Envoyer un fichier à la corbeille",
+  },
+  "file upload": {
+    en: "Upload files into a folder",
+    fr: "Envoyer des fichiers dans un dossier",
+  },
 };
 
 // The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field
@@ -186,7 +324,67 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "sequence edit tracker": [
     { name: "sequence", kind: "file", hint: "a sequence of this project" },
   ],
+  // The four fixed sets below are completed in makeCompleteArg: none of them is a project's,
+  // so there is nothing for the backend to answer and no round trip to spend asking.
+  "ui panel": [{ name: "panel", kind: "choice", hint: "graph · logs" }],
+  "ui surface": [
+    { name: "surface", kind: "choice", hint: "a surface of this project" },
+  ],
+  "ui language": [{ name: "language", kind: "choice", hint: "en · fr" }],
+  "project export": [{ name: "format", kind: "choice", hint: "wav · mp3" }],
+  "ui builder": [
+    { name: "module", kind: "module", hint: "a module of this project" },
+  ],
+  "ui pin": [{ name: "path", kind: "file", hint: "a file of this project" }],
+  "ui copy path": [
+    { name: "path", kind: "file", hint: "a file or folder of this workspace" },
+  ],
+  "project import": [
+    {
+      name: "path",
+      kind: "file",
+      hint: "a .dawproject or .als of this workspace",
+    },
+  ],
+  // The file verbs take TREE ENTRIES — folders included, and binaries kept. `ui file`'s `path`
+  // above is the narrower list of what the editor can open: renaming a .wav is not opening it.
+  "file new": [
+    { name: "folder", kind: "file", hint: "the folder it goes in" },
+    { name: "name", kind: "text", hint: "the new file's name" },
+  ],
+  "folder new": [
+    { name: "folder", kind: "file", hint: "the folder it goes in" },
+    { name: "name", kind: "text", hint: "the new folder's name" },
+  ],
+  "file rename": [
+    { name: "path", kind: "file", hint: "a file or folder of this workspace" },
+    { name: "name", kind: "text", hint: "its new name — it does not move" },
+  ],
+  "file move": [
+    { name: "path", kind: "file", hint: "a file or folder of this workspace" },
+    { name: "folder", kind: "file", hint: "where it goes" },
+  ],
+  "file delete": [
+    { name: "path", kind: "file", hint: "a file or folder of this workspace" },
+  ],
+  "file upload": [
+    { name: "folder", kind: "file", hint: "where the files land" },
+    { name: "what", kind: "choice", hint: "files · folder" },
+  ],
 };
+
+// The commands whose `path`/`folder` argument names any TREE ENTRY rather than an openable file.
+const ENTRY_COMMANDS = new Set([
+  "file new",
+  "folder new",
+  "file rename",
+  "file move",
+  "file delete",
+  "file upload",
+  "ui pin",
+  "ui copy path",
+  "project import",
+]);
 
 /**
  * The palette's full catalogue: the backend's commands plus the shell's own.
@@ -338,16 +536,42 @@ export function rankValues(
  * cannot find `ge.rythm` from "rythm". And a field costs one round trip instead of one per
  * letter, on a service that is a single Node process and queues what it is asked.
  */
-export function makeListArg(files: () => string[]) {
+export function makeListArg(shell: {
+  /** What the editor can OPEN — `ui file`'s vocabulary. */
+  files: () => string[];
+  /** Every path the tree draws, folders included — what a `file …` verb may name. */
+  entries: () => string[];
+  /** The screens this project declares (`surfaces/`, `layout: view`). */
+  surfaces: () => string[];
+  /** The languages the shell is compiled for. */
+  locales: () => string[];
+}) {
   return async (command: string, priorArgs: string[]): Promise<string[]> => {
     const canonical = canonicalizeCommand(command);
     const partial = ""; // the whole vocabulary; the ranking is the browser's
-    // `new project`'s first arg is a fixed choice the backend knows nothing about, so offer it
+    const first = priorArgs.length === 0;
+    // `project new`'s first arg is a fixed choice the backend knows nothing about, so offer it
     // here: a song, a rig, or a SET — two decks meeting at a crossfade and a list to play
     // through them. All three are `.l8` folders this app opens (@studio/song's PROJECT_SHAPES).
-    if (canonical === "new project" && priorArgs.length === 0)
-      return ["audio", "live", "set"];
-    if (canonical === "file" && priorArgs.length === 0) return files();
+    if (canonical === "project new" && first) return ["audio", "live", "set"];
+    // The shell's other fixed sets. Each is the shell's OWN vocabulary — a panel, a language,
+    // an output format — so asking the backend for it would be a round trip for a literal.
+    if (canonical === "ui panel" && first) return ["graph", "logs"];
+    if (canonical === "ui language" && first) return shell.locales();
+    if (canonical === "project export" && first) return ["wav", "mp3"];
+    if (canonical === "file upload" && !first) return ["files", "folder"];
+    // …and the ones that are the project's, but that only this app can answer.
+    if (canonical === "ui surface" && first) return shell.surfaces();
+    if (canonical === "ui file" && first) return shell.files();
+    if (canonical === "ui builder" && first)
+      return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));
+    if (ENTRY_COMMANDS.has(canonical)) {
+      // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, right above.
+      // Reading it here is what stops a NAME field — `file rename`'s second — being answered
+      // with the whole tree.
+      const arg = LOCAL_ARGS[canonical]?.[priorArgs.length];
+      return arg?.kind === "file" ? shell.entries() : [];
+    }
     // The line MUST end with a space, even for an empty partial: that space is how `completions` tells "complete the
     // next argument" from "still typing a command name", and without it the palette offered commands, not values.
     const line = [canonical, ...priorArgs, partial].join(" ");

@@ -63,7 +63,7 @@ import { useIsMobile } from "../useIsMobile";
 import { Breadcrumb } from "./Breadcrumb";
 import type { EditTarget } from "./ClipView";
 import { EditorPane } from "./EditorPane";
-import { FileTree } from "./FileTree";
+import { FileTree, type FileTreeHandle } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
 import { SeqGrid } from "./SeqGrid";
 import { UploadProgress } from "./UploadProgress";
@@ -81,6 +81,22 @@ export interface EditorHandle {
   localRedoDepth: () => number;
   localUndo: () => boolean;
   localRedo: () => boolean;
+  // The tree's right-click menu, as the shell can reach it: every entry there is a `file …`
+  // command, and this is where those land. Each is the SAME callback the menu item runs, so a
+  // command and a right-click cannot come to mean different things.
+  entries: () => string[];
+  createFile: (dir: string, name: string) => void;
+  createFolder: (dir: string, name: string) => void;
+  rename: (path: string, newName: string) => void;
+  move: (path: string, toDir: string) => void;
+  remove: (path: string, isDir: boolean) => void;
+  // The two the SIDEBAR holds — the pins are its localStorage, the pickers its hidden inputs.
+  // `null`/`false` means it is not on screen (a phone with the tree collapsed, the popin
+  // editor), which the caller reports rather than pretending the action happened.
+  togglePin: (path: string) => boolean | null;
+  pickUpload: (dir: string, folder: boolean) => boolean;
+  /** Is this path a folder? `file …` has to tell "into which" from "which", and only the tree knows. */
+  isDir: (path: string) => boolean;
 }
 
 // The popin's three views of a sequence, in the order they read: the file, then its notes twice.
@@ -108,6 +124,21 @@ function textFiles(nodes: FileNode[]): string[] {
       if (n.dir) {
         if (n.children) walk(n.children);
       } else if (n.kind !== "binary") out.push(n.path);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+// EVERY path the tree holds, folders included and binaries kept — what a `file …` command may
+// name. `textFiles` above answers a narrower question (what the editor can open) and is the
+// vocabulary `ui file` completes against; renaming a .wav is not opening it.
+function allEntries(nodes: FileNode[]): { path: string; dir: boolean }[] {
+  const out: { path: string; dir: boolean }[] = [];
+  const walk = (ns: FileNode[]): void => {
+    for (const n of ns) {
+      out.push({ path: n.path, dir: !!n.dir });
+      if (n.children) walk(n.children);
     }
   };
   walk(nodes);
@@ -283,6 +314,8 @@ export function EditorTab({
   const [file, setFile] = useState<FileContent | null>(null);
   // The live CodeMirror view, forwarded by EditorPane — read for the Ctrl+Z arbitration below.
   const cmViewRef = useRef<EditorView | null>(null);
+  // The sidebar, for the two actions it alone holds — the pins and the OS file pickers.
+  const treeRef = useRef<FileTreeHandle>(null);
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");
@@ -756,8 +789,37 @@ export function EditorTab({
         cmViewRef.current ? redoDepth(cmViewRef.current.state) : 0,
       localUndo: () => (cmViewRef.current ? undo(cmViewRef.current) : false),
       localRedo: () => (cmViewRef.current ? redo(cmViewRef.current) : false),
+      // Unscoped, unlike `files` above: a command may name the workspace root or a sibling
+      // project's folder, and refusing it here would be a second, quieter rule than the
+      // service's — which is the one that actually decides what may be touched.
+      entries: () => allEntries(tree).map((e) => e.path),
+      isDir: (path) => !!allEntries(tree).find((e) => e.path === path)?.dir,
+      createFile: createProjectFile,
+      createFolder,
+      rename: renameEntry,
+      move: moveEntry,
+      remove: deleteEntry,
+      // Through the tree, because the pins and the two file inputs are its own — see FileTreeHandle.
+      togglePin: (path) => treeRef.current?.togglePin(path) ?? null,
+      pickUpload: (dir, folder) => {
+        const t = treeRef.current;
+        if (!t) return false;
+        if (folder) t.pickFolder(dir);
+        else t.pickFiles(dir);
+        return true;
+      },
     }),
-    [open, tree, activeProject, file?.path],
+    [
+      open,
+      tree,
+      activeProject,
+      file?.path,
+      createProjectFile,
+      createFolder,
+      renameEntry,
+      moveEntry,
+      deleteEntry,
+    ],
   );
 
   // The open file follows disk: every command here rewrites YAML, so a buffer read once and never again is a
@@ -1104,6 +1166,7 @@ export function EditorTab({
             )}
           >
             <FileTree
+              ref={treeRef}
               tree={tree}
               activePath={file?.path ?? null}
               activeProject={activeProject}

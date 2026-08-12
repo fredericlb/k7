@@ -1,8 +1,10 @@
 // ShareMenu.tsx — the share dropdown: render the project through the engine (MP3/WAV
-// download, or publish to k7 with per-track stems) and run the shared commit/pull
-// commands on the WHOLE workspace repo. The heavy work happens on the engine host; this
-// kicks it off and reports on the status line. The badge shows commits BEHIND, or a
-// warning when the branch has diverged.
+// download, or publish to k7 with per-track stems) and run commit/pull on the WHOLE workspace
+// repo. The badge shows commits BEHIND, or a warning when the branch has diverged.
+//
+// Every entry is a COMMAND LINE the shell dispatches, not a call of its own: two of them are
+// CLI verbs (`project commit`, `project pull`) and two are the shell's (`project export`,
+// `project share k7`). That is what keeps the menu and the palette saying the same thing.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -13,33 +15,20 @@ import {
   Share2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
 import type { GitStatus } from "../types";
 
-// Save a fetched blob to the user's disk under `filename`.
-function download(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export function ShareMenu({
-  onStatus,
   gitStatus,
-  onRepoChanged,
+  busy,
+  onRun,
 }: {
-  onStatus: (s: string) => void;
   gitStatus: GitStatus | null;
-  // Called after a commit/pull so the shell refreshes the badge, the view and the workspace.
-  onRepoChanged: () => void;
+  /** A render is already running — the menu greys out rather than starting a second. */
+  busy: boolean;
+  /** Run one of the four lines. The shell dispatches it, so the palette remembers it too. */
+  onRun: (command: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,100 +40,6 @@ export function ShareMenu({
     return () => window.removeEventListener("pointerdown", onDown);
   }, [open]);
 
-  const exportMix = async (format: "wav" | "mp3") => {
-    setOpen(false);
-    setBusy(true);
-    onStatus(`rendering ${format.toUpperCase()} mixdown…`);
-    try {
-      const { blob, filename } = await api.exportMix(format);
-      download(blob, filename);
-      onStatus(`exported ${filename}`);
-    } catch (e) {
-      onStatus(`export failed: ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const shareK7 = async () => {
-    setOpen(false);
-    setBusy(true);
-    onStatus("publishing to k7…");
-    try {
-      let res = await api.shareK7();
-      // A song k7 doesn't know yet: ask for artist/title, then publish for real.
-      if (res.needsMeta) {
-        const artist = window.prompt("Artist (new k7 release):", "")?.trim();
-        if (!artist) {
-          onStatus("k7 publish cancelled");
-          return;
-        }
-        const title =
-          window.prompt("Title:", res.defaultTitle || "")?.trim() ||
-          res.defaultTitle ||
-          "";
-        onStatus("publishing to k7…");
-        res = await api.shareK7({ artist, title });
-      }
-      if (res.ok)
-        onStatus(
-          `${res.created ? "created release" : "added a version"}: ${res.title} ` +
-            `(${res.stems ?? 0} stem${res.stems === 1 ? "" : "s"})`,
-        );
-      else onStatus("k7 publish did not complete");
-    } catch (e) {
-      onStatus(`k7 publish failed: ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Stage + commit + push the WHOLE workspace repo; the message is prompted for, the result hits the status line.
-  const commit = async () => {
-    const message = window
-      .prompt("Commit message (stages + pushes the whole repo):", "")
-      ?.trim();
-    if (!message) {
-      onStatus("commit cancelled");
-      return;
-    }
-    setOpen(false);
-    setBusy(true);
-    onStatus("committing…");
-    try {
-      const r = await api.gitCommit(message);
-      if (r.nothingToCommit) onStatus("nothing to commit — the repo is clean");
-      else {
-        const files = `${r.changed} file${r.changed === 1 ? "" : "s"}`;
-        onStatus(
-          `committed ${r.sha} (${files})` +
-            (r.pushed ? " · pushed" : ` · push failed: ${r.pushError}`),
-        );
-      }
-    } catch (e) {
-      onStatus(`commit failed: ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-      onRepoChanged();
-    }
-  };
-
-  // Fast-forward the WHOLE workspace repo from its remote (no active project needed).
-  const pull = async () => {
-    setOpen(false);
-    setBusy(true);
-    onStatus("pulling…");
-    try {
-      const r = await api.gitPull();
-      onStatus(r.upToDate ? "already up to date" : `pulled — ${r.summary}`);
-    } catch (e) {
-      onStatus(`pull failed: ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-      onRepoChanged();
-    }
-  };
-
   // The badge: a warning when the branch diverged (a pull needs a manual merge), else the commits waiting.
   const behind = gitStatus?.tracked ? gitStatus.behind : 0;
   const conflicted = !!gitStatus?.conflicted;
@@ -152,6 +47,19 @@ export function ShareMenu({
 
   const item =
     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50";
+  const run = (command: string) => {
+    setOpen(false);
+    onRun(command);
+  };
+  // `project commit` takes the message as the rest of its line, so the menu asks for one before
+  // dispatching — an empty prompt is a cancelled commit, not a command run with no message.
+  const commit = () => {
+    const message = window
+      .prompt("Commit message (stages + pushes the whole repo):", "")
+      ?.trim();
+    if (message) run(`project commit ${message}`);
+    else setOpen(false);
+  };
 
   return (
     <div ref={ref} className="relative">
@@ -188,15 +96,15 @@ export function ShareMenu({
           <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">
             Version control
           </div>
-          <button
-            className={item}
-            disabled={busy}
-            onClick={() => void commit()}
-          >
+          <button className={item} disabled={busy} onClick={commit}>
             <GitCommitHorizontal className="h-4 w-4 text-muted-foreground" />
             Commit &amp; push…
           </button>
-          <button className={item} disabled={busy} onClick={() => void pull()}>
+          <button
+            className={item}
+            disabled={busy}
+            onClick={() => run("project pull")}
+          >
             <GitPullRequestArrow className="h-4 w-4 text-muted-foreground" />
             Pull
             {conflicted ? (
@@ -214,7 +122,7 @@ export function ShareMenu({
           <button
             className={item}
             disabled={busy}
-            onClick={() => void exportMix("mp3")}
+            onClick={() => run("project export mp3")}
           >
             <Download className="h-4 w-4 text-muted-foreground" />
             Export MP3
@@ -222,7 +130,7 @@ export function ShareMenu({
           <button
             className={item}
             disabled={busy}
-            onClick={() => void exportMix("wav")}
+            onClick={() => run("project export wav")}
           >
             <Download className="h-4 w-4 text-muted-foreground" />
             Export WAV
@@ -231,7 +139,7 @@ export function ShareMenu({
           <button
             className={item}
             disabled={busy}
-            onClick={() => void shareK7()}
+            onClick={() => run("project share k7")}
           >
             <Radio className="h-4 w-4 text-muted-foreground" />
             Share to k7
