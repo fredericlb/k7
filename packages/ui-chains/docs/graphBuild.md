@@ -63,9 +63,27 @@ Under the controls, a track node lists **what is on the lane** — the clip refs
 order. The graph said where a track's signal *goes* and never what it *plays*, so "which take
 is on this lane" was a question about the lane that you had to leave the lane to answer.
 
+Each row is **the position, then the name** — `5:1  chorus`. Where first, because a lane is read
+down its positions and they are what orders the list; a fixed-width column of them with tabular
+figures stays a column however long the names beside it are. The timecode never shrinks and the
+**name** is what gets ellipsed: a truncated name still identifies a clip, a truncated timecode
+says nothing at all.
+
+Rows are separated by a **rule**, and the list by one from the controls above it. A gap alone
+left the short rows reading as one block of text.
+
 The list comes from `WebGraph.trackClips`, which the file service fills from the compiled
 track's `placements` and **sorts by position**: authored order is whatever someone typed, and a
 track file may name a clip at bar 9 before one at bar 3.
+
+`tc` is spelled **there**, with `beatsToPosition`, and not in the browser. Turning beats into
+bars needs the project's meter, and a renderer dividing by four would be right for every song in
+4/4 and wrong for every waltz — which is exactly where nobody would look. One function spells a
+position in this app; the graph carries its answer.
+
+`CLIP_ROW_H` and `CLIP_LIST_PAD` have to track the CSS in `DomChains`: dagre is told the height
+here and draws nothing, so a row taller than the constant reserves too little and the last clip
+spills out of the card.
 
 Three rules, each paying for itself:
 

@@ -202,6 +202,16 @@ export interface WebTrackClip {
   ref: string;
   /** Beats from the start of the song. Sorted on, so the list reads in playing order. */
   start: number;
+  /**
+   * `start` as the song SPELLS it — `5:1:1`, bar:beat:tick, 1-based.
+   *
+   * Formatted where the numbers are (the file service, from the project's time signature)
+   * rather than sent as a signature for the renderer to divide by: `beatsToPosition` is the one
+   * function that spells a position in this app, and a second implementation in the browser
+   * would be a second answer to "where is this clip" — differing on exactly the songs that are
+   * not in 4/4.
+   */
+  tc: string;
   kind: "audio" | "midi" | "missing";
 }
 
