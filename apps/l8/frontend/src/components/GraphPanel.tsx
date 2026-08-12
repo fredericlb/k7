@@ -21,7 +21,7 @@ export function GraphPanel({
   trackOrder,
   command,
   onBypassModule,
-  onAlternatives,
+  onNodeMenu,
   engineWarnings,
   onContextMenu,
   pluginParamsStore,
@@ -37,9 +37,14 @@ export function GraphPanel({
   command: (line: string) => void | Promise<void>;
   // Bypass must RELOAD, unlike `command`'s quiet path, or the canvas keeps drawing the pre-bypass state.
   onBypassModule?: (module: string) => void;
-  /** The ⋮ bubble on a node → the shell opens the module's alternatives menu. */
-  onAlternatives?: (
-    n: { module?: string; alternatives?: string[]; alternative?: string },
+  /** The ⋮ bubble on a node → the shell opens that node's menu (alternatives, freeze). */
+  onNodeMenu?: (
+    n: {
+      module?: string;
+      alternatives?: string[];
+      alternative?: string;
+      frozen?: "at" | "inside";
+    },
     at: { x: number; y: number },
   ) => void;
   /** Engine load problems by plugin id, badged onto the module they concern. */
@@ -113,7 +118,7 @@ export function GraphPanel({
         camStore={camStore}
         command={command}
         onBypassModule={onBypassModule}
-        onAlternatives={onAlternatives}
+        onNodeMenu={onNodeMenu}
         engineWarnings={engineWarnings}
         pluginParamsStore={pluginParamsStore}
         setPluginParam={setPluginParam}

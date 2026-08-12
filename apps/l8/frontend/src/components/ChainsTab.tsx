@@ -45,7 +45,7 @@ export function ChainsTab({
   trackOrder,
   command,
   onBypassModule,
-  onAlternatives,
+  onNodeMenu,
   engineWarnings,
   onSetModuleAsset,
   onAssetBrowse,
@@ -80,10 +80,16 @@ export function ChainsTab({
   // Toggle a module's bypass. The canvas flips the node itself on click and lets the refetch confirm — see
   // pendingBypass; the command no longer reloads the project, so waiting for one would be waiting for nothing.
   onBypassModule?: (module: string) => void;
-  /** The ⋮ bubble on a node: open the module's alternatives menu at those viewport coords.
-   *  Straight through to the renderer — the menu is the SHELL's, like the asset browser. */
-  onAlternatives?: (
-    n: { module?: string; alternatives?: string[]; alternative?: string },
+  /** The ⋮ bubble on a node: open that node's menu at those viewport coords — its alternatives
+   *  and its freeze. Straight through to the renderer: the menu is the SHELL's, like the asset
+   *  browser. */
+  onNodeMenu?: (
+    n: {
+      module?: string;
+      alternatives?: string[];
+      alternative?: string;
+      frozen?: "at" | "inside";
+    },
     at: { x: number; y: number },
   ) => void;
   /** Engine load problems by plugin id, badged onto the module they concern. */
@@ -681,7 +687,7 @@ export function ChainsTab({
             camStore={camStore}
             command={command}
             onBypassModule={bypassModule}
-            onAlternatives={onAlternatives}
+            onNodeMenu={onNodeMenu}
             engineWarnings={engineWarnings}
             onSetModuleAsset={onSetModuleAsset}
             onAssetBrowse={onAssetBrowse}

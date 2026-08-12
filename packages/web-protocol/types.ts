@@ -226,6 +226,14 @@ export interface WebClip {
   // Placed but silenced — the event-level `mute`. Still drawn (dimmed): an event you
   // can't see is a deleted one. The ENGINE is what skips it.
   disabled?: boolean;
+  /**
+   * This clip is a RENDER, not a placement — the lane is frozen and this is what stands in for it.
+   *
+   * Which matters to anything that would edit it: there is no `clips:` entry for a move to
+   * rewrite, and a bar-1 render sitting over a real placement at bar 1 means a drag would move
+   * material the lane is not even showing. See packages/song/docs/freeze.md.
+   */
+  frozen?: boolean;
   notes: WebNote[]; // midi only
 }
 

@@ -6,6 +6,7 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
+  copyFileSync,
   existsSync,
   mkdtempSync,
   readFileSync,
@@ -14,12 +15,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import {
-  loadProject,
-  MIXER_PARAMS,
-  MIXER_PLUGIN,
-  type ProjectDoc,
-} from "@studio/song/project";
+import { loadProject, type ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
 
 // The engine's render manifest: the mixdown plus, with `--stems`, one wav per audible track, relative to out.
@@ -56,65 +52,51 @@ export function renderMixdown(
   }
 }
 
+/** The module a compiled plugin belongs to. Its id is `<chain>:<module>`, and a module name may
+ *  itself hold a colon (`synth:lead`), so the split is on the FIRST one. */
+const pluginModule = (id: string): string => id.slice(id.indexOf(":") + 1);
+
 /**
- * Bounce ONE track through its own modules to `outWav`.
+ * Bounce everything a freeze covers to `outWav` — the upstream closure of one module, at that
+ * module's output.
  *
- * NOTHING CALLS THIS TODAY. Freezing is gone with the `frozen:` field it wrote — to be replaced
- * by another mechanism later (packages/song/docs/trackModules.md) — and this is the half that
- * does not depend on where the state was kept: the engine invocation and, above all, the
- * neutralisation, which is the part that is silent when it is wrong. Kept for that, and listed in
- * docs/inventaire.md so it is not mistaken for live code.
+ * A MIXDOWN of the closure, not a per-track bounce: a freeze point may be a bus several lanes meet
+ * at, and `--freeze --track` renders one track. So the doc is cut down to exactly the plan — those
+ * lanes, those plugins, the sends between them — and rendered whole. What comes out is precisely
+ * what that part of the song was contributing, which is what the render has to stand in for.
  *
- * The doc is neutralised here rather than by the caller, because getting it wrong is silent. A frozen track keeps
- * its STRIP live — its mixer module survives the freeze, which is the whole point of freezing rather than
- * bouncing-and-replacing — so anything that module applies at render time would be applied a second time on
- * playback. Every one of its knobs is flattened, tone included: the strip stays, so none of it may bake in.
- * Mute is cleared for the same reason. Solo is neutralised
- * across the WHOLE song for a different reason: a track that isn't the soloed one renders as silence, and
- * freezing during a solo pass is exactly when you'd reach for it.
+ * Nothing is neutralised, unlike the per-track freeze this replaces. Gain and pan are a `Mixer`
+ * MODULE now: if it is upstream of the point it belongs in the render, and if it is downstream it
+ * is not in the doc at all. The one thing the old code had to flatten by hand is the one thing the
+ * plan already answers. See packages/song/docs/freeze.md.
  */
-export function freezeTrackRender(
+export function freezeUpstreamRender(
   engineBin: string,
   doc: ProjectDoc,
-  trackName: string,
+  plan: { lanes: Set<string>; modules: Set<string> },
   outWav: string,
 ): void {
-  const flat: ProjectDoc = {
+  const kept = doc.tracks.filter(
+    (t) =>
+      plan.lanes.has(t.id) ||
+      t.plugins.some((p) => plan.modules.has(pluginModule(p.id))),
+  );
+  const ids = new Set(kept.map((t) => t.id));
+  const cut: ProjectDoc = {
     ...doc,
-    tracks: doc.tracks.map((t) => ({
+    tracks: kept.map((t) => ({
       ...t,
-      solo: false,
-      ...(t.name === trackName
-        ? {
-            mute: false,
-            plugins: t.plugins.map((p) =>
-              p.type === MIXER_PLUGIN
-                ? {
-                    ...p,
-                    params: Object.fromEntries(MIXER_PARAMS.map((k) => [k, 0])),
-                  }
-                : p,
-            ),
-          }
-        : {}),
+      solo: false, // nothing outside the plan is in the doc, so a solo could only silence the render
+      plugins: t.plugins.filter((p) => plan.modules.has(pluginModule(p.id))),
+      // A send leaving the plan has nowhere to land — its bus is not in this doc — and one
+      // INSIDE it is how the lanes reach the point they are being frozen at.
+      sends: t.sends.filter((s) => ids.has(s.to)),
     })),
   };
   const tmp = mkdtempSync(join(tmpdir(), "tbfreeze-"));
   try {
-    const docFile = join(tmp, "doc.json");
-    writeFileSync(docFile, JSON.stringify(flat));
-    const r = spawnSync(
-      engineBin,
-      ["--freeze", docFile, "--track", trackName, "--out", outWav],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-    );
-    if (r.status !== 0)
-      // The engine's own line says WHICH way it failed (no such track, nothing audible); passing it through beats
-      // an exit code the user then has to go and look up.
-      throw new Error(
-        (r.stderr || "").trim().split(/\r?\n/).filter(Boolean).pop() ||
-          `engine freeze failed (exit ${r.status ?? "?"})`,
-      );
+    const manifest = renderMixdown(engineBin, cut, tmp);
+    copyFileSync(join(tmp, manifest.mix), outWav);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

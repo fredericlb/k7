@@ -162,20 +162,18 @@ down, and a caller that threw it away could not derive the chains it had just wr
 
 ## What went away, to come back another way
 
-`alternatives:`/`alternative:` and `frozen:` are removed rather than reimplemented: both are
-worth having and neither belongs on the lane in the shape it had.
+`alternatives:`/`alternative:` and `frozen:` came off the lane rather than being ported: both are
+worth having and neither belonged on the lane in the shape it had. **Both came back**, generalised
+to the module — which is the same feature arriving where it belongs, a lane being a module now.
 
-**Alternatives came back**, generalised — see [alternatives.md](alternatives.md). They are a
-MODULE's other sets of attributes now, not a lane's other clip lists, which is the same feature
-arriving where it belongs: a lane is a module, so a lane's takes are one use of it. What went with
-the old shape:
-
-- `trackAlternatives.ts`, `TrackAlternatives.tsx`, `track alternative select|create|copy`;
-- `frozenRender`, `frozenTracks` on the graph wire, `GraphNode.frozen`, `FreezeOverlay.tsx`,
-  `track freeze`. `freezeTrackRender` in `@studio/commands` is KEPT and unused — it is the half
-  that does not depend on where the state lived, and its neutralisation pass is the part that is
-  silent when it is wrong. It is listed in `docs/inventaire.md` so it is not mistaken for live
-  code.
+- [alternatives.md](alternatives.md) — a MODULE's other sets of attributes, not a lane's other clip
+  lists. Gone with the old shape: `trackAlternatives.ts`, `TrackAlternatives.tsx`,
+  `track alternative select|create|copy`.
+- [freeze.md](freeze.md) — a render standing in for everything UPSTREAM of a module, that module
+  included, rather than for one lane and its own modules. Gone with the old shape: `frozenRender`,
+  `frozenTracks` on the graph wire, `FreezeOverlay.tsx`, `track freeze`, and `freezeTrackRender`,
+  whose neutralisation pass the new one does not need — gain and pan are a module now, so where
+  they sit relative to the freeze point already says whether they bake in.
 
 `contentType` and `video_source` are simply gone: the first is what the module type says, and the
 second has been read by nothing since picture became its own `.v1` project.

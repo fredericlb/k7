@@ -265,6 +265,15 @@ export interface Module {
    */
   alternatives?: string[];
   alternative?: string;
+  /**
+   * The render standing in for everything upstream of this module, itself included — a
+   * project-relative path, absent unless the module is a freeze point.
+   *
+   * Carried on the model rather than read off the file by each caller, because three of them ask:
+   * the compiler (which lanes fall silent), the graph doc (which nodes wear the badge), and the
+   * command (is this a freeze or a thaw). See docs/freeze.md.
+   */
+  frozen?: string;
 }
 // One automation binding: a curve id driving a named param (mirrors #Automation).
 export interface Automation {
@@ -572,6 +581,8 @@ export function buildGraph(
     // A NOTE's text, on a doc module. It replaced `docs`/`todos`, which every module could
     // carry and only a bottom panel could show; this one is drawn on the node itself.
     content: typeof b?.content === "string" ? b.content : undefined,
+    // The render this module is frozen to, if it is. A path, so an empty string is no freeze.
+    frozen: typeof b?.frozen === "string" && b.frozen ? b.frozen : undefined,
     automations: normAutomations(b?.automations),
     // Only when there is a CHOICE: one entry is the module's own fields, which is not a menu.
     ...(() => {

@@ -59,6 +59,9 @@ describe("derived module fields", () => {
       "disabled",
       "tracks",
       "strudel",
+      // FROZEN at this module: the render standing in for everything upstream of it. A module
+      // field like the rest, so an alternative may carry its own. See docs/freeze.md.
+      "frozen",
       // …and the module's other attribute SETS. Last, because they are the one pair that is
       // ABOUT the fields above rather than one of them. See docs/alternatives.md.
       "alternatives",

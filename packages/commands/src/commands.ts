@@ -3,8 +3,14 @@
 // runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
   AudioDeviceInfo,
@@ -13,6 +19,7 @@ import type {
 import { migrateChains } from "@studio/song/chainsMigrate";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import { createCurveFile } from "@studio/song/curves";
+import { freezeBlockedBy, freezePlans } from "@studio/song/freeze";
 import {
   coldPlacementError,
   describeGraph,
@@ -58,6 +65,7 @@ import {
   setClipOnsets,
   setModuleAsset,
   setModuleBypass,
+  setModuleFrozen,
   setModuleMonitor,
   setModuleParam,
   unlinkChainNode,
@@ -93,7 +101,14 @@ import {
 } from "./git";
 import { DEFAULT_PEAK, normalizeInPlace } from "./normalize";
 import { processWithChain, type Scope } from "./processChain";
+import { freezeUpstreamRender } from "./render";
 import { describeTimeline, describeTrack } from "./timeline";
+
+// Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
+// module's own file — an instance's folder is `instances/`, shared by every instance in the song,
+// and a module from a catalogue has a folder shared by every song. A render belongs to THIS
+// project, so it lives where the project can see all of them at once.
+const FROZEN_DIR = "renders";
 
 export type TransportAction = "play" | "stop" | "toggle" | "rewind";
 
@@ -796,9 +811,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "track.mid": (a, h) => eqBand(a, h, "mid", "Mid"),
   "track.high": (a, h) => eqBand(a, h, "high", "High"),
 
-  // `track alternative select|create|copy` and `track freeze` were here. Both are gone with the
-  // fields they wrote (`alternatives:`, `frozen:`), to be replaced by another mechanism later —
-  // see packages/song/docs/trackModules.md.
+  // `track alternative select|create|copy` and `track freeze` were here. Both are module verbs
+  // now, because a lane IS a module: `module alternative *` and `module freeze` reach a lane and
+  // a reverb by the same name. See packages/song/docs/trackModules.md.
 
   // event move <track> <timecode> <newTimecode> — a surgical rewrite of that placement's `start:` alone.
   "event.move": async (a, h) => {
@@ -1432,6 +1447,96 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   "module.alt.create": (a, h) => moduleAltAdd(a, h, false),
   "module.alt.copy": (a, h) => moduleAltAdd(a, h, true),
+
+  /**
+   * Freeze at a module — a TOGGLE, because a freeze has exactly two states and the file says
+   * which one it is in.
+   *
+   * Everything upstream of the module, itself included, is bounced to one wav and plays as that
+   * wav until it is thawed. The refusals are the interesting half and all come before the engine
+   * is even looked for: see packages/song/docs/freeze.md.
+   */
+  "module.freeze": async (a, h) => {
+    const module = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!module) {
+      h.log(["usage: module freeze <module>"]);
+      return;
+    }
+    const g = loadGraph(h.songPath);
+    const isLane = (n: string) => !!g.tracks[n];
+    const current = g.modules[module]?.frozen;
+    if (typeof current === "string" && current) {
+      // Unfreeze: the attribute goes, and so does the render. Leaving it would mean a dead file in
+      // the project's own folder, staged by the next `project commit` and stale the moment a
+      // module changes.
+      setModuleFrozen(h.songPath, module, null);
+      rmSync(join(h.songPath, current), { force: true });
+      h.log([`${module}: unfrozen — everything upstream is live again`]);
+      await h.reload();
+      return;
+    }
+    const why = freezeBlockedBy(g.chains, module);
+    if (why) {
+      h.log([`freeze: ${why}`]);
+      return;
+    }
+    const render = `${FROZEN_DIR}/${module.replace(/[:/]/g, "-")}.wav`;
+    const plan = freezePlans(g.chains, [[module, render]], isLane)[0];
+    // A strudel lane's material is streamed by PatternClock while the transport rolls; a stopped
+    // one has no clips at all, so the render would be a file of silence. Said plainly rather than
+    // discovered as an empty freeze.
+    const generated = [...plan.lanes].filter(
+      (n) => g.tracks[n]?.type === "strudel",
+    );
+    if (generated.length) {
+      h.log([
+        `freeze: '${generated[0]}' is a strudel lane — its material only exists while it plays, so it can't be baked`,
+      ]);
+      return;
+    }
+    const p = h.project();
+    // The track the render will play ON, decided by the COMPILER rather than guessed: a lane is
+    // its own track, and a module is on whichever track its chain compiled onto. A module with no
+    // plugin in the doc (an io module, an offline pass) has no output to take a render at.
+    const owner = isLane(module)
+      ? module
+      : p.tracks.find((t) =>
+          t.plugins.some(
+            (pl) => pl.id.slice(pl.id.indexOf(":") + 1) === module,
+          ),
+        )?.id;
+    if (!owner) {
+      h.log([
+        `freeze: '${module}' compiles to no plugin, so there is no signal at it to render`,
+      ]);
+      return;
+    }
+    const engine = findEngineBinary();
+    if (!engine) {
+      h.log([
+        "freeze failed: studio-moteur binary not found (build the engine)",
+      ]);
+      return;
+    }
+    // Stopped first: the render runs in its own engine process, but it reads the same sources the
+    // live one is playing, and a freeze that lands mid-playback swaps a track's contents under a
+    // rolling transport.
+    await h.transport("stop");
+    const out = join(h.songPath, render);
+    mkdirSync(dirname(out), { recursive: true });
+    try {
+      freezeUpstreamRender(engine, p, plan, out);
+    } catch (e) {
+      h.log([`freeze failed: ${(e as Error).message}`]);
+      return;
+    }
+    setModuleFrozen(h.songPath, module, render);
+    const inside = plan.lanes.size + plan.modules.size - 1;
+    h.log([
+      `${module}: frozen to ${render}${inside ? ` (${inside} node${inside > 1 ? "s" : ""} upstream baked in)` : ""} — everything downstream stays live`,
+    ]);
+    await h.reload();
+  },
 
   "module.param": async (a, h) => {
     const m = /^(\S+)\s+(.+?)\s+(\S+)$/.exec(a.trim());

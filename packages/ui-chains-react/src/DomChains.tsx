@@ -59,6 +59,9 @@ import {
   widgetRect,
 } from "@studio/ui-chains/graph";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
+// The one icon this file draws from a set: the freeze badge. Everything else on a card is a
+// shape built out of CSS, which a snowflake is not.
+import { Snowflake } from "lucide-react";
 import {
   createContext,
   memo,
@@ -350,8 +353,14 @@ const CSS = `
   width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
   cursor:help; color:#0d0d0f; background:#f59e0b; border:1px solid #f59e0b;
   box-shadow:0 1px 4px rgba(0,0,0,.45); font:bold 11px/1 ui-sans-serif,system-ui; }
-/* A FROZEN badge sat on the bottom-left corner, and a frost wash over the node. Both are gone
-   with the field they read — packages/song/docs/trackModules.md. */
+/* FROZEN — this node is baked into a render, so the engine never built it. Cold blue, on the
+   bottom-left corner (the top-left one is the engine's warning badge, and the two can be true at
+   once: a module can have failed to load and then been frozen with the failure baked in). */
+.dgx-fbtn { position:absolute; bottom:-8px; left:-8px; z-index:2;
+  width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
+  cursor:help; color:#0d0d0f; background:#7dd3fc; border:1px solid #7dd3fc;
+  box-shadow:0 1px 4px rgba(0,0,0,.45); }
+.dgx-fbtn svg { width:11px; height:11px; }
 
 /* A track's CLIPS, listed under its controls. Rows rather than a paragraph: the eye scans a
    lane's contents down, and each row is one clip whose name is ellipsed rather than wrapped —
@@ -1428,7 +1437,7 @@ function headerNameW(n: GraphNode, hasGlyph: boolean, corners: number): number {
 }
 
 /** One corner bubble, in the order they sit: the corner first, then leftwards. */
-export type CornerButton = "plugin" | "bypass" | "alternatives";
+export type CornerButton = "plugin" | "bypass" | "menu";
 
 /**
  * Which bubbles a node's corner shows.
@@ -1437,16 +1446,19 @@ export type CornerButton = "plugin" | "bypass" | "alternatives";
  * `headerNameW` leaves the name. They disagreed before this existed: a module with a bypass
  * bubble but no native plugin UI got no padding at all, so a long name ran under it.
  *
- * `alternatives` appears on any node that COULD carry them (any module instance, a lane
- * included), not only on one that already has some — creating the first has to start somewhere,
+ * The ⋮ `menu` appears on any node that COULD use one (any module instance, a lane included), not
+ * only on one that already has alternatives or a freeze — creating either has to start somewhere,
  * and that somewhere is the node. A note is left out: it is drawn as prose with no header to
  * hang a bubble off.
  */
-function cornerButtons(n: GraphNode, canPickAlt: boolean): CornerButton[] {
+function cornerButtons(n: GraphNode, canOpenMenu: boolean): CornerButton[] {
   const out: CornerButton[] = [];
-  if (n.hasNativePluginUI && n.module) out.push("plugin");
-  if (n.kind === "module" && n.module) out.push("bypass");
-  if (canPickAlt && n.module && n.note === undefined) out.push("alternatives");
+  // Neither on a baked module: there is no live plugin behind it, so the engine has no window to
+  // open and nothing to bypass. The ⋮ stays — it is how the freeze is undone.
+  const baked = !!n.frozen && n.kind === "module";
+  if (n.hasNativePluginUI && n.module && !baked) out.push("plugin");
+  if (n.kind === "module" && n.module && !baked) out.push("bypass");
+  if (canOpenMenu && n.module && n.note === undefined) out.push("menu");
   return out;
 }
 
@@ -1526,7 +1538,7 @@ function NodeInner({
   onContext,
   onOpenPlugin,
   onBypass,
-  onAlternatives,
+  onNodeMenu,
   warning,
   onDragStart,
   onTapWidget,
@@ -1550,10 +1562,10 @@ function NodeInner({
   onContext: (n: GraphNode, e: React.MouseEvent) => void;
   onOpenPlugin: (module: string) => void;
   onBypass: (module: string) => void;
-  /** The ⋮ bubble was clicked: open THIS host's alternatives menu at those viewport coords.
+  /** The ⋮ bubble was clicked: open THIS host's menu for the node at those viewport coords.
    *  Optional, and the button exists only when it is given — st0's bench and m9's desk pass
    *  nothing and get no menu, the way they pass no command bar. */
-  onAlternatives?: (n: GraphNode, at: { x: number; y: number }) => void;
+  onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
   warning?: string;
   onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
@@ -1589,7 +1601,7 @@ function NodeInner({
   const hasGlyph = n.kind === "track" || !!moduleGlyph(iconCategory, n.missing);
   // The corner cluster, decided once: the buttons below, the header's padding and the width the
   // name is measured against all read this same list.
-  const corners = cornerButtons(n, !!onAlternatives);
+  const corners = cornerButtons(n, !!onNodeMenu);
   const slot = (b: CornerButton) => corners.indexOf(b);
   const sel =
     (!!n.chain && n.chain === selected) ||
@@ -1612,6 +1624,7 @@ function NodeInner({
     `k-${red ? "stub" : n.kind}`,
     "tappable",
     sel ? "sel" : "",
+    n.frozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
     n.pending ? "pending" : "",
     far ? "far" : "", // far ⇒ name only; every other LOD draws header + content
   ]
@@ -1860,23 +1873,24 @@ function NodeInner({
         </span>
       )}
 
-      {/* The module's other attribute SETS. Reported with the click's viewport coords rather
-          than drawn here, exactly as a widget's library browser is: the menu is the HOST's, so
-          it can offer its own wording, its own commands and its own undo — and a graph that drew
-          one would be a graph that owned a popup. See packages/song/docs/alternatives.md. */}
-      {corners.includes("alternatives") && (
+      {/* The node's own menu: its other attribute SETS, and freezing. Reported with the click's
+          viewport coords rather than drawn here, exactly as a widget's library browser is: the
+          menu is the HOST's, so it can offer its own wording, its own commands and its own undo —
+          and a graph that drew one would be a graph that owned a popup. See
+          packages/song/docs/{alternatives,freeze}.md. */}
+      {corners.includes("menu") && (
         <span
           className={`dgx-cbtn dgx-abtn${n.alternative && n.alternative !== "1" ? " on" : ""}`}
-          style={{ "--slot": slot("alternatives") } as React.CSSProperties}
+          style={{ "--slot": slot("menu") } as React.CSSProperties}
           title={
             n.alternative && n.alternative !== "1"
-              ? `Alternative "${n.alternative}" — click to switch`
-              : "Alternatives"
+              ? `Alternative "${n.alternative}" — click for the node's menu`
+              : "Alternatives, freeze…"
           }
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            onAlternatives?.(n, { x: e.clientX, y: e.clientY });
+            onNodeMenu?.(n, { x: e.clientX, y: e.clientY });
           }}
         >
           <i />
@@ -1896,9 +1910,24 @@ function NodeInner({
         </span>
       )}
 
-      {/* A snowflake badge marked a FROZEN node here — a lane playing a render of itself, or a
-          module inside that render. Gone with the field it read; see
-          packages/song/docs/trackModules.md. */}
+      {/* FROZEN: the point a render was taken at, or a node that render already contains. Its own
+          badge rather than a shade of `dim`, because the two mean opposite things about what a
+          click will do — a bypassed module is live and one click from audible, a frozen one is
+          not there at all until the point is thawed. See packages/song/docs/freeze.md. */}
+      {n.frozen && (
+        <span
+          className="dgx-fbtn"
+          role="img"
+          aria-label="frozen"
+          title={
+            n.frozen === "at"
+              ? "Frozen here — everything upstream is playing as one render. Unfreeze from the ⋮ menu."
+              : "Inside a render — this node is baked and is not running. Unfreeze the point downstream of it."
+          }
+        >
+          <Snowflake />
+        </span>
+      )}
 
       {/* Ports. Which sockets show is decided in graph.ts (`jacksFor`) — it depends on what is
           wired to the node, which is a fact about the graph rather than about the DOM. Here we
@@ -2306,7 +2335,7 @@ export function DomChains({
   fitAxis = "both",
   command,
   onBypassModule,
-  onAlternatives,
+  onNodeMenu,
   onSetModuleAsset,
   onAssetBrowse,
   onLibraryBrowse,
@@ -2377,14 +2406,15 @@ export function DomChains({
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
   /**
-   * The ⋮ bubble on a node's corner: open THIS host's alternatives menu there.
+   * The ⋮ bubble on a node's corner: open THIS host's menu for that node there — its
+   * alternatives, and its freeze.
    *
    * Optional, and the bubble exists only when it is given — one of the props l8 passes and the
    * médiathèque's bench and m9's desk do not, like the command bar and the edge inserts. The
    * menu is the host's because it offers the host's commands and lands in the host's undo; a
    * graph that drew one would be a graph that owned a popup. See docs/hosting.md.
    */
-  onAlternatives?: (n: GraphNode, at: { x: number; y: number }) => void;
+  onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
   // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
@@ -2512,7 +2542,7 @@ export function DomChains({
     onCanvasInsert,
     command,
     onBypassModule,
-    onAlternatives,
+    onNodeMenu,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -2530,7 +2560,7 @@ export function DomChains({
     onCanvasInsert,
     command,
     onBypassModule,
-    onAlternatives,
+    onNodeMenu,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -3093,8 +3123,10 @@ export function DomChains({
     (n: GraphNode, w: WebWidget, e: React.PointerEvent) => {
       const ch = chRef.current;
       e.stopPropagation(); // don't select the node or start a pan
-      // A FROZEN module's knobs were refused here, its plugin having been replaced by a render.
-      // Freezing is gone — see packages/song/docs/trackModules.md.
+      // A frozen MODULE's plugin does not exist in the engine — the render replaced it — so a knob
+      // here would move, send a param set into the void, and be discarded on the next reload. A
+      // frozen LANE is different: its card carries the lane's own controls, not a plugin's.
+      if (n.frozen && n.kind === "module") return;
       const tgt = widgetTarget(n, w, ch.offlineChannel);
       if (!tgt) return;
       const v = widgetValue(n, w, ch);
@@ -3436,9 +3468,9 @@ export function DomChains({
   );
   // The node only ASKS: the menu is a viewport-positioned overlay, so it is the shell's to
   // render — the same arrangement the widget browser and the `+` on an arrow already have.
-  const pickAlternative = useCallback(
+  const openNodeMenu = useCallback(
     (n: GraphNode, at: { x: number; y: number }) =>
-      cb.current.onAlternatives?.(n, at),
+      cb.current.onNodeMenu?.(n, at),
     [],
   );
   // The widget only ASKS: the browser popup is a viewport-positioned overlay, so it is the
@@ -3650,7 +3682,7 @@ export function DomChains({
                 onContext={contextNode}
                 onOpenPlugin={openPlugin}
                 onBypass={bypassModule}
-                onAlternatives={onAlternatives ? pickAlternative : undefined}
+                onNodeMenu={onNodeMenu ? openNodeMenu : undefined}
                 warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
                 onDragStart={beginDrag}
                 onTapWidget={tapWidget}

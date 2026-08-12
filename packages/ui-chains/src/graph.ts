@@ -161,8 +161,13 @@ export interface GraphNode extends Carried, Flags {
   dim: boolean; // bypassed (module or whole chain)
   module?: string; // the module instance name (for the nativePluginUI open)
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through
-  // A `frozen` flag was here, marking a lane playing a render of itself and every module inside
-  // that render. Gone with the field it read — see packages/song/docs/trackModules.md.
+  /**
+   * BAKED into a render: `"at"` the point it was taken at, `"inside"` when the render already
+   * contains this node. Not `dim` — a bypassed module is still built and is one click from
+   * audible, while a frozen one does not exist for the engine at all until the point is thawed.
+   * See packages/song/docs/freeze.md.
+   */
+  frozen?: "at" | "inside";
   // A node that does not exist yet: the module being created right now, drawn where it will land. It is not in
   // any graph the server has — the canvas inserts it on the click and drops it when real data arrives.
   pending?: boolean;
@@ -891,6 +896,10 @@ export function buildGraph(
         // Distinct from `dim`, which also covers a whole chain: this is THIS step's bypass, which its button flips.
         bypassed: s.enabled === false,
         module: s.module,
+        // …and whether it is inside somebody's render. From the graph rather than from the step
+        // for the reason a lane's is: freezing is a fact about the whole signal path, so the one
+        // map answers for a lane and a module alike.
+        ...(graph.frozen?.[s.module] ? { frozen: graph.frozen[s.module] } : {}),
         // Everything the step itself says, in one move — see CARRIED/FLAGS. Listing them here
         // is what let `assetChoices` reach the browser and stop short of the node.
         ...carryStep(s),
@@ -968,6 +977,7 @@ export function buildGraph(
           // alternatives menu on its card acts through. See packages/song/docs/alternatives.md.
           module: c.from,
           ...(graph.trackAlternatives?.[c.from] ?? {}),
+          ...(graph.frozen?.[c.from] ? { frozen: graph.frozen[c.from] } : {}),
           dim: false,
           missing: false,
           stub: false,
@@ -1056,6 +1066,7 @@ export function buildGraph(
       color: graph.trackColors?.[id],
       module: id,
       ...(graph.trackAlternatives?.[id] ?? {}),
+      ...(graph.frozen?.[id] ? { frozen: graph.frozen[id] } : {}),
       dim: false,
       missing: false,
       stub: false,

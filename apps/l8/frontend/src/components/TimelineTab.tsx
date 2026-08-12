@@ -832,7 +832,12 @@ export function TimelineTab({
       // No MOVE on a generated lane: its clips are streamed by the pattern, so there is no
       // `clips:` entry in its file to rewrite. The press is tracked either way, because a CLICK
       // is a request to SEE the clip and that asks nothing of the disk.
-      if (track.generated) return;
+      //
+      // A FROZEN lane's clip is out for the same reason and one worse: it is a render, and the
+      // lane's real placements are still in its file, unlisted here — a drag would rewrite one of
+      // those (the render sits at bar 1, and so does many a first take). See
+      // packages/song/docs/freeze.md.
+      if (track.generated || c.frozen) return;
       setSel(null);
       setMove({
         trackId: track.id,
@@ -1228,6 +1233,7 @@ export function TimelineTab({
         if (caretRow.track.generated) return;
         const c = clipUnderCaret;
         if (!c) return;
+        if (c.frozen) return; // a render, not a placement — see the pointer path above
         setSel(null);
         setMove({
           trackId: caretRow.track.id,

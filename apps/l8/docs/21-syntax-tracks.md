@@ -102,12 +102,13 @@ happened to share a name now have to be told apart.
 `type:` and `contentType:` are gone — one `extends:` says both. So are `mute:` and `solo:` (see
 above).
 
-A lane's **alternatives** are still here, and they belong to every module now rather than to
-lanes alone: `alternatives:` holds other sets of attributes, and for a lane one of those
-attributes is its `clips:`. See Instruments. What is left, each to be replaced by another
-mechanism later rather than reimplemented in place:
+A lane's **alternatives** and its **freeze** are still here, and both belong to every module now
+rather than to lanes alone: `alternatives:` holds other sets of attributes (for a lane, one of
+those attributes is its `clips:`), and `frozen:` names a render standing in for everything
+upstream of the module rather than for that one lane. Both are in Instruments.
 
-- **`frozen:`** — a lane could play a render of itself instead of computing it.
+One field is simply gone:
+
 - **`video_source:`** — an audio track could take its placements from a video track, back when
   picture lived in the same project. It has been read by nothing since picture became its own
   `.v1` folder.

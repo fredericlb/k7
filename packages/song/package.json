@@ -11,6 +11,7 @@
     "./yaml/moduleFile": "./src/yaml/moduleFile.ts",
     "./yaml/alternativeFile": "./src/yaml/alternativeFile.ts",
     "./alternatives": "./src/alternatives.ts",
+    "./freeze": "./src/freeze.ts",
     "./yaml/placementSchema": "./src/yaml/placementSchema.ts",
     "./yaml/entitySchemas": "./src/yaml/entitySchemas.ts",
     "./yaml/projectSchema": "./src/yaml/projectSchema.ts",

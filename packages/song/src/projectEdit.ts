@@ -168,6 +168,28 @@ export function newModuleAlternative(
 }
 
 /**
+ * Point a module at its render, or clear it (`null`). Answers the file that changed.
+ *
+ * Refused on a SHARED module. `frozen:` is a fact about this song's signal path — the render was
+ * bounced from these lanes — and a catalogue module is beside every project at once, so writing it
+ * there would freeze a reverb in songs that have never been rendered. `monitor:` goes the other
+ * way deliberately (an input's audibility describes the desk); this one does not.
+ *
+ * See docs/freeze.md.
+ */
+export function setModuleFrozen(
+  dir: string,
+  module: string,
+  render: string | null,
+): string {
+  if (module.startsWith("@"))
+    throw new Error(
+      `'${module}' comes from a shared catalogue — freeze the instance that uses it, not the module itself`,
+    );
+  return editModuleValue(dir, module, ["frozen"], render);
+}
+
+/**
  * Set a live input's `monitor` — whether the interface signal is audible (`off` | `auto` | `on`).
  *
  * A module FIELD, not a param: an io module has no plugin, so there is nothing to send this to. The engine

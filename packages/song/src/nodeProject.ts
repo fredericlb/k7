@@ -9,6 +9,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bypassedOf } from "./chainsGraph";
 import { bakeCurve, loadCurves } from "./curves";
+import { activeFreezePlans } from "./freeze";
 import {
   type Chain,
   checkChainInputs,
@@ -280,12 +281,24 @@ function readJsDspGraph(source: string): string | undefined {
   }
 }
 
+/**
+ * What a render's clip id ends with, and the test for one — a RESERVED suffix.
+ *
+ * A frozen lane's clip answers to no `clips:` entry: it is a render, not a placement. Anything
+ * that would edit a placement has to know that, and the compiled doc has no other way to say it
+ * (`ClipDoc` is the engine's wire, and the engine has no use for the distinction). So the id is
+ * the marker, and it is declared here rather than sniffed for at the far end. See docs/freeze.md.
+ */
+export const FROZEN_CLIP_SUFFIX = "__frozen";
+export const isFrozenClipId = (id: string): boolean =>
+  id.endsWith(FROZEN_CLIP_SUFFIX);
+
 // The one clip a frozen track plays: the render, from bar 1, for as long as it lasts. `length: 0` is not "empty" —
 // it is how the engine is told to use the file's natural length (see clipPositionFor), which is the only right
 // answer here, since the render was bounced from this very song and already ends where it ends.
 function frozenClip(id: string, source: string): ClipDoc {
   return {
-    id: `${id}__frozen`,
+    id: `${id}${FROZEN_CLIP_SUFFIX}`,
     type: "audio",
     name: `${id} (frozen)`,
     source,
@@ -455,6 +468,34 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const ownerOf = (name: string, c: Chain): string =>
     isTrackFed(c) ? String(c.from) : busChains.has(name) ? name : "";
 
+  // --- FROZEN points (see docs/freeze.md) --------------------------------------
+  //
+  // A module carrying `frozen:` stands in for everything UPSTREAM of it, itself included: those
+  // lanes lose their clips, those modules lose their plugins, and the render becomes the one clip
+  // of the track the frozen module compiles onto.
+  //
+  // A render that is not on disk is not an error, and `activeFreezePlans` is where that is
+  // decided — for both readers of the field at once, so the compiler and the graph cannot
+  // disagree about which nodes are baked.
+  const plans = activeFreezePlans(
+    chains,
+    modulesMap,
+    (n) => n in lanesMap,
+    (r) => existsSync(resolve(dir, r)),
+  );
+  const frozenLanes = new Set(plans.flatMap((p) => [...p.lanes]));
+  const frozenPlugins = new Set(plans.flatMap((p) => [...p.modules]));
+  // Which track plays each render: the one the frozen module's own chain compiles onto. For a
+  // point inside a lane's run that is the lane; for a bus, the bus's own return track. One rule,
+  // both shapes.
+  const renderOn = new Map<string, string>();
+  for (const p of plans)
+    for (const [name, c] of Object.entries(chains))
+      if (c.use.some((s) => s.module === p.at)) {
+        const owner = ownerOf(name, c);
+        if (owner) renderOn.set(owner, resolve(dir, p.render));
+      }
+
   /**
    * The TRACK a step's side input comes from, or "" when it resolves to none.
    *
@@ -494,6 +535,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
     const owner = ownerOf(name, c);
     if (!owner) continue; // a chain that neither feeds a track nor is a used bus
     for (const step of c.use) {
+      // Inside a render: the engine never builds this plugin, because its processing is already
+      // in the wav. Skipped before the automations below as well as before the plugin itself — a
+      // curve driving a plugin the document does not contain would bake breakpoints for an id
+      // nothing answers to.
+      if (frozenPlugins.has(step?.module)) continue;
       const module = modulesMap[step?.module];
       for (const a of Array.isArray(module?.automations)
         ? module.automations
@@ -713,9 +759,17 @@ export function compileNodeProject(dir: string): ProjectDoc {
       inputChannels: inputOf[id]?.channels ?? [],
       monitor: inputOf[id]?.monitor ?? "auto",
       inputGain: inputOf[id]?.gain ?? 0,
-      clips: t.clips.map((p) =>
-        placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
-      ),
+      // A FROZEN lane. Three states, and the order matters: the lane the render is taken ON
+      // plays it; a lane merely INSIDE the render plays nothing, because its material is already
+      // in that file and playing it again would be the take twice; everything else plays its own
+      // clips. See docs/freeze.md.
+      clips: renderOn.has(id)
+        ? [frozenClip(id, renderOn.get(id) as string)]
+        : frozenLanes.has(id)
+          ? []
+          : t.clips.map((p) =>
+              placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+            ),
       plugins: trackPlugins[id] ?? [],
       sends: trackSends[id] ?? [],
       automation: [],
@@ -741,7 +795,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
       mute: false,
       solo: false,
       disabled: false,
-      clips: [],
+      // A bus frozen at one of its own modules plays the render here: the lanes that met at it
+      // are silent, and this return track carries what they summed to.
+      clips: renderOn.has(name)
+        ? [frozenClip(name, renderOn.get(name) as string)]
+        : [],
       plugins: trackPlugins[name] ?? [],
       sends: trackSends[name] ?? [],
       automation: [],

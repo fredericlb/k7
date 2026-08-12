@@ -1336,18 +1336,24 @@ export default function App({
     if (items.length) setMenu({ items, x, y });
   }, []);
   /**
-   * The ⋮ bubble on a node: its module's other attribute SETS.
+   * The ⋮ bubble on a node: what it can be, and what it can be replaced BY — its module's
+   * other attribute SETS, and its freeze.
    *
    * The same ContextMenu the right-click uses, and the same `MenuItem` shape, so switching runs
    * on the spot while the two that need a name arrive in the command bar half-typed — that split
    * is what `complete` already means, and reusing it means this menu inherits the outside-click
    * close, the positioning and the undo journal for nothing.
    *
-   * See packages/song/docs/alternatives.md.
+   * See packages/song/docs/alternatives.md and packages/song/docs/freeze.md.
    */
-  const openAlternatives = useCallback(
+  const openNodeMenu = useCallback(
     (
-      n: { module?: string; alternatives?: string[]; alternative?: string },
+      n: {
+        module?: string;
+        alternatives?: string[];
+        alternative?: string;
+        frozen?: "at" | "inside";
+      },
       at: { x: number; y: number },
     ) => {
       const module = n.module;
@@ -1372,6 +1378,23 @@ export default function App({
           command: `module alternative copy ${module} `,
           complete: false,
         },
+        // Freeze. One entry, and it runs on the click: the command is a toggle, and which way it
+        // will go is exactly what the label says. A node INSIDE somebody else's render is offered
+        // none — thawing it means thawing the point downstream of it, and an entry here would
+        // name the wrong module. The command refuses that case too; this only stops it being
+        // offered. See packages/song/docs/freeze.md.
+        ...(n.frozen === "inside"
+          ? []
+          : [
+              {
+                label:
+                  n.frozen === "at"
+                    ? "Unfreeze"
+                    : "Freeze (bake everything upstream)",
+                command: `module freeze ${module}`,
+                complete: true,
+              },
+            ]),
       ];
       setMenu({ items, x: at.x, y: at.y });
     },
@@ -2142,7 +2165,7 @@ export default function App({
                     onBypassModule={(mod) =>
                       void runCommand(`module bypass ${mod}`)
                     }
-                    onAlternatives={openAlternatives}
+                    onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
                     onAssetBrowse={browseAssets}
                     onWatchWaveform={watchWaveform}
@@ -2249,7 +2272,7 @@ export default function App({
                     onBypassModule={(mod) =>
                       void runCommand(`module bypass ${mod}`)
                     }
-                    onAlternatives={openAlternatives}
+                    onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}
                     pluginParamsStore={pluginParamsStore}

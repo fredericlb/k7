@@ -318,6 +318,18 @@ const MODULE_FIELDS = {
     .string()
     .regex(/^algo\/.+\.strudel$/, "expected algo/<name>.strudel")
     .optional(),
+  /**
+   * FROZEN at this module: the render standing in for everything UPSTREAM of it, this module
+   * included, as a project-relative path.
+   *
+   * Its presence IS the frozen state — there is no second flag to disagree with it. It sits on a
+   * module rather than on a lane because a freeze is a POINT IN THE GRAPH: what it replaces is
+   * everything whose signal reaches here. See docs/freeze.md.
+   *
+   * In MODULE_FIELDS, so an alternative may carry its own: two sets of settings are two sounds,
+   * and a render of one is not a render of the other.
+   */
+  frozen: z.string().min(1).optional(),
 };
 
 /**

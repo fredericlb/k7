@@ -62,6 +62,7 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
+import { isFrozenClipId } from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
   formatChannels,
@@ -269,6 +270,8 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
       loopEnd: c.loopEnd,
       warped: c.warp ? true : undefined,
       disabled: c.disabled ? true : undefined,
+      // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
+      frozen: isFrozenClipId(c.id) ? true : undefined,
       notes: c.notes.map((n) => ({
         time: n.time,
         duration: n.duration,

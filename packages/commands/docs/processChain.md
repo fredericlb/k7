@@ -51,13 +51,10 @@ splitting the clip in two, which is an edit to make on purpose and not a side ef
 
 ## Not a freeze
 
-Freezing was reversible and left the material alone: it bounced the lane, played that instead,
-and deleted the render when you unfroze. This rewrites what the clips play, which is what you
-want when the treatment IS the sound and you no longer want to carry the plugins that made it.
-
-(`track freeze` is gone for now, with the `frozen:` field it wrote — see
-`packages/song/docs/trackModules.md`. The distinction is still the one to hold on to when it
-comes back.)
+Freezing is reversible and leaves the material alone: it bounces everything upstream of a module,
+plays that instead, and deletes the render when you unfreeze (`module freeze`, and
+`packages/song/docs/freeze.md`). This rewrites what the clips play, which is what you want when the
+treatment IS the sound and you no longer want to carry the plugins that made it.
 
 The two overlap in one place, and `track process` says so: applying a lane's **own** chain to
 its clips leaves that chain still running on playback, so the treatment is heard twice. That is

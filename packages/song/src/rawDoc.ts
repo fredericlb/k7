@@ -147,6 +147,9 @@ export interface LoadedModule {
   // a surface lists is what the file says, not what it was collapsed to.
   alternatives?: unknown;
   alternative?: unknown;
+  // FROZEN at this module: the render standing in for everything upstream of it, itself
+  // included, project-relative. See docs/freeze.md.
+  frozen?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
   clips?: unknown; // the placements on this lane — where its material goes, and how many times
   color?: unknown; // the lane's colour, and its icon's in the timeline

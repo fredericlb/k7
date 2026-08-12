@@ -3,9 +3,12 @@
 // plugin scan cache); extracted from workspace.ts, where it was the class's largest
 // method with no instance state at all.
 
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
 import type { WebChainStep, WebGraph } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
+import { activeFreezePlans } from "@studio/song/freeze";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
 import {
   type AssetLookup,
@@ -252,8 +255,20 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   const trackColors: Record<string, string> = {};
   // What a track puts on the wire: a sequences track feeds MIDI to the chain's instrument, an audio one audio.
   const trackSignals: WebGraph["trackSignals"] = {};
-  // `frozenTracks` was built here. Freezing is gone with the field it read — see
-  // packages/song/docs/trackModules.md.
+  // What is baked, by node name. The compiler asks `activeFreezePlans` the same question with the
+  // same two arguments, which is what keeps the badge on the node and the silence in the engine
+  // from ever disagreeing. `"at"` last, so a point that is also inside a wider freeze still reads
+  // as the one the file says can be thawed. See packages/song/docs/freeze.md.
+  const frozen: NonNullable<WebGraph["frozen"]> = {};
+  for (const p of activeFreezePlans(
+    g.chains,
+    g.modules,
+    (n) => !!g.tracks[n],
+    (r) => existsSync(resolve(dir, r)),
+  )) {
+    for (const n of [...p.lanes, ...p.modules]) frozen[n] = "inside";
+    frozen[p.at] = "at";
+  }
   // A lane's other attribute sets, from the module it IS. Only past one: a list of one is not a
   // choice, and a node with nothing to pick from should grow no menu.
   const trackAlternatives: NonNullable<WebGraph["trackAlternatives"]> = {};
@@ -311,6 +326,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     trackSignals,
     ...(Object.keys(trackClips).length ? { trackClips } : {}),
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
+    ...(Object.keys(frozen).length ? { frozen } : {}),
     modules,
     curves: Object.keys(usedCurves).length ? usedCurves : undefined,
     warnings: g.warnings,

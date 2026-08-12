@@ -700,6 +700,22 @@
       { name: module, complete: modules },
       { name: name, optional: true, complete: moduleAlternatives },
     ]
+# --- freezing (bake everything upstream of a module) ---
+# A TOGGLE, because a freeze has two states and the module's own file says which one it is in:
+# `frozen:` names the render, and the render is what plays until you say this again. What is baked
+# is everything the signal passed through to get here, this module included — so freezing an amp
+# gives you the amped sound, not the sound going in. Everything DOWNSTREAM stays live, which is
+# the point of freezing rather than bouncing. Refused when something upstream also feeds a node
+# outside the set: its signal would be in the render and still playing. The ⋮ button on a node's
+# corner runs this. See packages/song/docs/freeze.md.
+- command: "module freeze"
+  sid: module.freeze
+  readable:
+    en: "Freeze a module and everything upstream of it"
+    fr: "Geler un module et tout ce qui est en amont"
+  help: "bake everything upstream of a module, itself included, into one render (again: unfreeze)"
+  surfaces: [cli]
+  args: [{ name: module, complete: modules }]
 # Point a file-valued param at one of the module's own assets — a .nam model in
 # modules/<category>/<module>/assets/. The panel's dropdown runs this when you pick a file;
 # `none` clears it. The file is written and the project reloaded: the plugin reads its file

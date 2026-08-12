@@ -261,6 +261,16 @@ export interface WebGraph {
     string,
     { alternatives: string[]; alternative: string }
   >;
+  /**
+   * What is BAKED, by node name — a lane or a module, since a freeze cuts across both.
+   *
+   * `"at"` is the point the render was taken at, `"inside"` a node the render already contains.
+   * Two words rather than a boolean because they mean opposite things about what a click does:
+   * the point can be unfrozen, and everything inside it can only be reached by unfreezing that
+   * point. Absent when the project has no freeze in force — a `frozen:` whose render is not on
+   * disk is not one. See packages/song/docs/freeze.md.
+   */
+  frozen?: Record<string, "at" | "inside">;
   // The note text of every module that has one, by name — so the renderer can draw it on the
   // node. Only doc modules carry one, so this is empty for almost every project.
   // Optional because the layout-only subgraphs feeding dagre carry geometry, not notes.

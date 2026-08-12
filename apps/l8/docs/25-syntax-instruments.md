@@ -231,6 +231,32 @@ alternatives:
     plugin: { type: vst3, name: Twin }   # any field, not just params
 ```
 
+## FREEZING — one render standing in for everything upstream
+
+Freeze a module and everything the signal passed through to get there is bounced to one wav and
+plays as that wav: those lanes stop playing their clips, those modules stop being built, and the
+render becomes the material. **The module itself is included** — freezing an amp gives you the
+amped sound, not the sound going into it — and everything **downstream stays live**, which is the
+whole difference between freezing and bouncing.
+
+The **⋮ button** on a node's corner freezes and unfreezes; from the command bar it is
+`module freeze <module>`, the same line both ways. What it writes is `frozen:`, naming the render
+it made, and the badge on the node is a snowflake: cold blue on the point, and on every node the
+render already contains.
+
+It is **refused** when something upstream also feeds a node outside the set — that signal would be
+in the render *and* still playing, heard twice at a level nothing on screen explains. The message
+says where to freeze instead: the point the two paths meet.
+
+The render is a generated file (`renders/<module>.wav`). Delete it and the song simply plays live
+again, which is what makes a project safe to clone without it.
+
+```yaml schema=Module
+extends: "@project/audio/amp"
+params: { Gain: 3 }
+frozen: renders/amp.wav      # written by `module freeze amp`; delete it and it plays live
+```
+
 ## modules/instruments/<name>/module.yaml — rack (drum kit)
 
 A rack instrument (type: "rack") — a note→audio sampler, not a plugin. Two kinds. samples: each symbol names its OWN clip; a base can ship defaults and a module that extends it merges its symbols OVER them per symbol. slice: one shared source cut into [from, to) windows in seconds. Audio sits in the module's folder.
