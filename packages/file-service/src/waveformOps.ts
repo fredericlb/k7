@@ -39,7 +39,14 @@ interface WfEntry {
   data: WebWaveform;
 }
 
-// The envelope's content fingerprint + the placement/tempo/buckets the region math reads.
+/**
+ * The envelope's content fingerprint + the placement/tempo/buckets the region math reads.
+ *
+ * `sourceFrom`, `sourceTo` and the warp markers are in here because `regionWaveform` reads all
+ * three: they decide WHICH part of the file the region shows and at what rate (see
+ * docs/waveformCache.md). They were absent while the region math ignored them, which was
+ * harmless then and would now mean trimming a clip's `from` left the old picture on screen.
+ */
 const wfSig = (
   fingerprint: string,
   clip: ClipDoc,
@@ -51,6 +58,10 @@ const wfSig = (
     clip.offset,
     clip.length,
     clip.start,
+    clip.sourceFrom ?? "",
+    clip.sourceTo ?? "",
+    // The markers themselves, not just "is it warped": moving one changes the rate.
+    (clip.warp?.markers ?? []).flat().join(","),
     p.tempo,
     p.timeSigNumerator,
     buckets,
