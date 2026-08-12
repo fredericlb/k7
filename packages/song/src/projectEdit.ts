@@ -28,7 +28,7 @@ import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
 
 // --- module files -------------------------------------------------------------
 
-// Rewrite a module's instance file in place, resolved through loadModules — so "synth:lead" edits its OWN file.
+// Rewrite a module's node file in place, resolved through loadModules — so "synth:lead" edits its OWN file.
 export function editModuleFile(
   dir: string,
   module: string,
@@ -42,17 +42,17 @@ export function editModuleFile(
   return path;
 }
 
-// Where a module's file is — `module.yaml`, or an instance's own file in the flat `instances/`.
+// Where a module's file is — `module.yaml`, or a node's own file in the flat `nodes/`.
 function moduleFileOf(
   dir: string,
   module: string,
 ): { folder: string; path: string } {
   const modules = loadModules(dir) as Record<
     string,
-    { category?: string; file?: string; instance?: string; home?: string }
+    { category?: string; file?: string; node?: string; home?: string }
   >;
   const b = modules[module];
-  // An instance carries its own folder, and has no category to rebuild one from.
+  // A node carries its own folder, and has no category to rebuild one from.
   if (b?.home) {
     const folder = join(dir, b.home);
     const found = moduleFileFor(folder, b.home, module);
@@ -64,9 +64,9 @@ function moduleFileOf(
     if (shared) return shared;
     throw new Error(`no module "${module}" in this project`);
   }
-  const folder = join(dir, "modules", b.category, b.file); // module.* for the generic, <instance>.* beside it
+  const folder = join(dir, "modules", b.category, b.file); // module.* for the generic, <node>.* beside it
   const relDir = `modules/${b.category}/${b.file}`;
-  const found = moduleFileFor(folder, relDir, b.instance ?? "module");
+  const found = moduleFileFor(folder, relDir, b.node ?? "module");
   if (!found) throw new Error(`module "${module}" has no file in ${relDir}`);
   return { folder, path: found.path };
 }
@@ -85,13 +85,13 @@ function sharedModuleFileOf(
   key: string,
 ): { folder: string; path: string } | null {
   if (!key.startsWith("@")) return null;
-  const { module, instance } = splitModuleKey(key);
+  const { module, node } = splitModuleKey(key);
   const [ns, ...rest] = module.slice(1).split("/");
   const root = sharedRoots(dir).find((r) => r.ns === ns)?.root;
   if (!root || !rest.length) return null;
   // The ref IS the path inside its catalogue — that is how readModuleTree keyed it.
   const folder = join(root, ...rest);
-  const found = moduleFileFor(folder, "", instance ?? "module");
+  const found = moduleFileFor(folder, "", node ?? "module");
   return found ? { folder, path: found.path } : null;
 }
 
@@ -107,7 +107,7 @@ function editModuleValue(
   );
 }
 
-// Set one param on a module instance, leaving the rest of the file untouched.
+// Set one param on a module node, leaving the rest of the file untouched.
 export function setModuleParam(
   dir: string,
   module: string,
@@ -140,7 +140,7 @@ export function moduleAlternatives(
 /**
  * Switch a module to another of its attribute SETS, by name. Answers the file that changed.
  *
- * Through `editModuleFile` like every other module edit, so it resolves an instance to its own
+ * Through `editModuleFile` like every other module edit, so it resolves a node to its own
  * file and a `synth:lead` to the one beside its generic. See docs/alternatives.md.
  */
 export function selectModuleAlternative(
@@ -184,7 +184,7 @@ export function setModuleFrozen(
 ): string {
   if (module.startsWith("@"))
     throw new Error(
-      `'${module}' comes from a shared catalogue — freeze the instance that uses it, not the module itself`,
+      `'${module}' comes from a shared catalogue — freeze the node that uses it, not the module itself`,
     );
   return editModuleValue(dir, module, ["frozen"], render);
 }
@@ -208,7 +208,7 @@ export function setModuleMonitor(
  * the short form the module file carries.
  *
  * The same path as setModuleParam, because it IS a param: it lands in `params:` beside the
- * numbers, so an instance overriding just the model is the same edit as overriding a gain.
+ * numbers, so a node overriding just the model is the same edit as overriding a gain.
  * Clearing takes the key away rather than writing `""`, which would be a value meaning nothing.
  */
 export function setModuleAsset(
@@ -290,8 +290,8 @@ export function setModuleBypass(
 /**
  * Delete a module and every chain step naming it, returning what was touched.
  *
- * A module is a FOLDER; an instance is one file inside it. Deleting `synth:lead` removes `lead.yaml` and leaves
- * the generic alone, while deleting `synth` removes the whole folder — instances cannot outlive their parent.
+ * A module is a FOLDER; a node is one file inside it. Deleting `synth:lead` removes `lead.yaml` and leaves
+ * the generic alone, while deleting `synth` removes the whole folder — nodes cannot outlive their parent.
  * The chain references go either way, because a step naming a module that no longer exists is exactly the
  * dangling reference the compiler refuses to load: removing the file has to mean removing the references, or
  * "delete" leaves the project unopenable.
@@ -301,14 +301,13 @@ export function deleteModule(
   key: string,
 ): { removed: string; rewired: string[] } {
   const { folder, path } = moduleFileOf(dir, key);
-  // An instance is one FILE in the shared `instances/` folder — removing that folder would take
+  // A node is one FILE in the shared `nodes/` folder — removing that folder would take
   // every other use of every other module with it. A module still takes its own folder whole.
-  const isInstance = !!(loadModules(dir) as Record<string, { home?: string }>)[
-    key
-  ]?.home;
-  if (isInstance) rmSync(path, { force: true });
+  const isNode = !!(loadModules(dir) as Record<string, { home?: string }>)[key]
+    ?.home;
+  if (isNode) rmSync(path, { force: true });
   else rmSync(folder, { recursive: true, force: true });
-  const removed = relative(dir, isInstance ? path : folder)
+  const removed = relative(dir, isNode ? path : folder)
     .split(sep)
     .join("/");
 
@@ -349,7 +348,7 @@ export function replaceModuleInChains(
 /**
  * Take a node OUT of the chains, joining what fed it to what it fed — and leave its files alone.
  *
- * The whole difference from `deleteModule` is that last clause. An instance you unlink is still
+ * The whole difference from `deleteModule` is that last clause. A node you unlink is still
  * on disk with its settings intact, so putting it back is `chain add`; deleting it is not
  * undoable that way. Taking a module out of the signal path and getting rid of it are two
  * different intentions, and only one of them had a command.

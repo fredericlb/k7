@@ -69,7 +69,7 @@ export function currentAlternative(
 /**
  * `m` with its selected alternative merged over its own fields.
  *
- * The SAME merge an instance gets over the module it extends (`mergeAuthored`), and that is the
+ * The SAME merge a node gets over the module it extends (`mergeAuthored`), and that is the
  * whole of what an alternative is: an ordinary extender of its own module. So `params` merge per
  * entry — an alternative that sets `Gain` leaves `Tone` alone — while a LIST is a scalar to the
  * merge, so an alternative restating `clips:` replaces the arrangement outright. Both readings

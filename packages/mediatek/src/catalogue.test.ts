@@ -166,7 +166,7 @@ describe("scanning samples and modules", () => {
     ).toHaveLength(1);
   });
 
-  it("lists a module folder and counts its instances", () => {
+  it("lists a module folder and counts its nodes", () => {
     write(
       "modules/instruments/synth/module.yaml",
       "plugin: {type: internal}\n",
@@ -178,7 +178,7 @@ describe("scanning samples and modules", () => {
       scanFamily("modules").map((e) => [e.name, e]),
     );
     expect(byName.synth.kind).toBe("instruments");
-    expect(byName.synth.meta?.instances).toBe(2);
+    expect(byName.synth.meta?.nodes).toBe(2);
     // A folder holding anything BUT a module file is still a folder, not a half-made module.
     expect(byName.halfbaked).toBeUndefined();
   });
@@ -288,7 +288,7 @@ describe("scanning samples and modules", () => {
     expect(paths).not.toContain("modules/audio/fuzz/nested");
   });
 
-  // A chain is a TEMPLATE: segments wiring named instances to each other, with `@in` and `@out`
+  // A chain is a TEMPLATE: segments wiring named nodes to each other, with `@in` and `@out`
   // standing where a project would have a track and a sink. Same rule as a module — the file is
   // what makes the folder — so the two scans read alike on purpose.
   it("catalogues a chain by its chains.yaml, at any depth", () => {
@@ -301,24 +301,21 @@ describe("scanning samples and modules", () => {
     expect(paths).toEqual(["chains/gtr", "chains/live/vocals"]);
   });
 
-  it("counts the instances beside the file, not the files in the folder", () => {
-    // How big a template is, without opening it. The instances live in their own folder, so
+  it("counts the nodes beside the file, not the files in the folder", () => {
+    // How big a template is, without opening it. The nodes live in their own folder, so
     // counting the chain's own files would report the chains.yaml and any notes beside it.
     write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
     write("chains/gtr/README.md", "notes");
-    write("chains/gtr/instances/eq.yaml", 'extends: "@mediatek/audio/eq"\n');
-    write(
-      "chains/gtr/instances/comp.yaml",
-      'extends: "@mediatek/audio/comp"\n',
-    );
+    write("chains/gtr/nodes/eq.yaml", 'extends: "@mediatek/audio/eq"\n');
+    write("chains/gtr/nodes/comp.yaml", 'extends: "@mediatek/audio/comp"\n');
     const [chain] = scanFamily("chains");
-    expect(chain.meta?.instances).toBe(2);
+    expect(chain.meta?.nodes).toBe(2);
     expect(chain.files).toContain("chains.yaml");
   });
 
-  it("stops AT a chain — instances/ is inside one, not a chain of its own", () => {
+  it("stops AT a chain — nodes/ is inside one, not a chain of its own", () => {
     write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
-    write("chains/gtr/instances/chains.yaml", "modules: {}\n"); // pathological, but decisive
+    write("chains/gtr/nodes/chains.yaml", "modules: {}\n"); // pathological, but decisive
     expect(scanFamily("chains").map((e) => e.path)).toEqual(["chains/gtr"]);
   });
 
@@ -499,7 +496,7 @@ describe("what the entries cannot stand for", () => {
     write("modules/audio/reverb/lead.yaml", "params: {}\n");
     const m = listFamily("modules").entries[0];
     expect(m.files).toEqual(["lead.yaml", "module.yaml"]);
-    expect(m.meta?.instances).toBe(1); // the panel and the shelf are not uses of it
+    expect(m.meta?.nodes).toBe(1); // the panel and the shelf are not uses of it
   });
 
   it("reports a nested empty folder and the one above it", () => {

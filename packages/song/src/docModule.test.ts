@@ -1,4 +1,4 @@
-// A NOTE on the graph: an instance of the built-in `@studio/doc`, carrying its own `content`.
+// A NOTE on the graph: a node of the built-in `@studio/doc`, carrying its own `content`.
 // What is pinned here is the shape that makes it a note rather than a device — one input, no
 // output, no plugin — and that its text survives the compile. See docs/docModules.md.
 
@@ -16,8 +16,8 @@ let dir: string;
 /** A project whose chain runs `amp` and then a note wired off it. */
 function project(content = "watch the gain here"): string {
   const p = join(dir, "song.l8");
-  mkdirSync(join(p, "instances"), { recursive: true });
-  mkdirSync(join(p, "instances"), { recursive: true });
+  mkdirSync(join(p, "nodes"), { recursive: true });
+  mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
@@ -27,11 +27,11 @@ function project(content = "watch the gain here"): string {
   );
   writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
   writeFileSync(
-    join(p, "instances", "notes.yaml"),
+    join(p, "nodes", "notes.yaml"),
     `extends: "${DOC_REF}"\ncontent: |\n  ${content.split("\n").join("\n  ")}\n`,
   );
   writeFileSync(
-    join(p, "instances", "gtr.yaml"),
+    join(p, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
   );
   writeFileSync(
@@ -51,7 +51,7 @@ afterEach(() => {
 describe("the built-in doc module", () => {
   it("resolves with no file anywhere", () => {
     // The second module in the repo that exists without a file, after `@engine/…`. A note must
-    // cost one file — its instance — so there is nothing to scaffold and nothing to forget.
+    // cost one file — its node — so there is nothing to scaffold and nothing to forget.
     const refs = loadModuleRefs(project());
     expect(refs[DOC_REF]).toBeDefined();
     expect(isDoc(refs[DOC_REF])).toBe(true);
@@ -75,16 +75,16 @@ describe("the built-in doc module", () => {
 });
 
 describe("a note in a project", () => {
-  it("is an INSTANCE, and carries its own text", () => {
+  it("is a NODE, and carries its own text", () => {
     const p = project("line one\nline two");
     const notes = loadModules(p).notes;
-    expect(notes.instance).toBeTruthy();
+    expect(notes.node).toBeTruthy();
     expect(String(notes.content)).toContain("line one");
     expect(String(notes.content)).toContain("line two");
   });
 
   it("inherits the doc SHAPE from what it extends", () => {
-    // The instance declares ONLY `content`: it has no type folder to read `kind` or its ports
+    // The node declares ONLY `content`: it has no type folder to read `kind` or its ports
     // off, which is precisely why `kind` is in moduleResolve's OWN_ONLY — absent on the child,
     // so it arrives from the parent. Unresolved it therefore says nothing…
     const raw = loadModules(project()).notes;

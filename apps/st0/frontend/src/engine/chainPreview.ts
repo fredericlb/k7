@@ -134,9 +134,9 @@ export function playablePath(
   return [root, entry.path, master].join(sep);
 }
 
-// `stepPlugin` was here — `readPluginBlock` under another name, reading a chain instance's own
-// `plugin:` block. It is gone because that block is not where an instance's plugin IS: an
-// instance declares its overrides and `extends`, so the answer is a resolution and not a read.
+// `stepPlugin` was here — `readPluginBlock` under another name, reading a chain node's own
+// `plugin:` block. It is gone because that block is not where a node's plugin IS: a
+// node declares its overrides and `extends`, so the answer is a resolution and not a read.
 // See resolvePlugin.ts.
 
 /** What a bounce came back as. `mp3` is false when the machine had no ffmpeg — the render still

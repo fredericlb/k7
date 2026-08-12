@@ -54,7 +54,7 @@ describe("the model survives the round trip", () => {
     expect(value?.bypassed).toEqual(["eq_dj:vox"]);
   });
 
-  it("keeps an instance ref whole, colon and all — as a KEY", () => {
+  it("keeps a node ref whole, colon and all — as a KEY", () => {
     // `eq_dj:vox` was a value before and is a map key now, which is where `:` is most
     // dangerous: it is YAML's own key/value indicator. It survives (1.2 allows it inside
     // a plain scalar when no space follows), but nothing about that is obvious, and it is

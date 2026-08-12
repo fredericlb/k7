@@ -40,7 +40,7 @@ describe("derived module fields", () => {
       // `jsdsp.ts` in the module's folder, so there is no field left to complete against.
       "channel",
       // `track` sat here until an input's landing place became the chain's business —
-      // a shared io/IN module has one instance per physical input and no project to
+      // a shared io/IN module has one node per physical input and no project to
       // name a track in. See moduleSchema's note on `channel`.
       "source", // …and the OTHER kind of source: an io "file" reads audio off disk
       "monitor",
@@ -52,7 +52,7 @@ describe("derived module fields", () => {
       // of what a doc module carries. See docs/docModules.md.
       "content",
       // …and a LANE's own fields, which arrived when tracks stopped being a second entity:
-      // a lane is an instance of a `@studio/…-track` module, so its arrangement is module
+      // a lane is a node of a `@studio/…-track` module, so its arrangement is module
       // fields like any other. See docs/trackModules.md.
       "clips",
       "color",
@@ -99,11 +99,11 @@ describe("derived module fields", () => {
 describe("derived lane fields", () => {
   it("has no kind of its own — a lane is a module file", () => {
     // There used to be a `track` FileKind here, with a per-kind narrowing (`trackFieldsForType`)
-    // because `type: single | group | strudel` unlocked different fields. A lane is an instance
-    // now, so `instances/melody.yaml` is a MODULE file, and which of `clips:`/`tracks:`/
+    // because `type: single | group | strudel` unlocked different fields. A lane is a node
+    // now, so `nodes/melody.yaml` is a MODULE file, and which of `clips:`/`tracks:`/
     // `strudel:` it may write is decided by what it extends — a question about the project, not
     // about one file. See docs/trackModules.md.
-    expect(fileKindFor("instances/melody.yaml")).toBe("module");
+    expect(fileKindFor("nodes/melody.yaml")).toBe("module");
     expect(fileKindFor("tracks/melody.yaml")).toBeNull();
     expect(fieldsAt("module", [])).toEqual(
       expect.arrayContaining(["clips", "tracks", "strudel", "color"]),

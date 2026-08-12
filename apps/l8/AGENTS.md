@@ -90,7 +90,7 @@ top of a view to fullscreen one pane.
 
 **A note is a MODULE, not a panel.** The Docs panel is gone, and with it the `docs:`/`todos:`
 fields modules and tracks carried — both schemas are `.strict()`, so a file still holding one
-refuses to load. A note is an instance of the built-in `@studio/doc`: one input, no output, one
+refuses to load. A note is a node of the built-in `@studio/doc`: one input, no output, one
 field (`content`), drawn as written on the graph and wired from whatever it is about. Off by
 default; the note button sits in the footer beside the mixer. Read
 `packages/song/docs/docModules.md`, and `packages/song/scripts/migrateDocFields.ts` is the tool

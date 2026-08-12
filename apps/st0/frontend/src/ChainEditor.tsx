@@ -34,7 +34,9 @@ export function ChainEditor({
 }) {
   const path = `${entry.path}/${CHAINS_FILE}`;
   // `meta` is deliberately loose (a listing is family-agnostic), so the count is narrowed here.
-  const instances = Number(entry.meta?.instances ?? 0);
+  // `nodeCount`, not `nodes`: the list of names the segments may point at is below, and it is
+  // the one this file calls `nodes`.
+  const nodeCount = Number(entry.meta?.nodes ?? 0);
   const [content, setContent] = useState<string | null>(null);
   // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
   // could leave lying — the same rule the other editors keep.
@@ -157,7 +159,7 @@ export function ChainEditor({
 
       <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
         <span>
-          {instances} instance{instances > 1 ? "s" : ""}
+          {nodeCount} node{nodeCount > 1 ? "s" : ""}
         </span>
         <span className="min-w-0 flex-1 truncate text-right">{status}</span>
       </footer>

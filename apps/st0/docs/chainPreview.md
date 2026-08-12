@@ -26,7 +26,7 @@ Concretely, the two halves come from different places on purpose:
 | what | from where | why |
 |---|---|---|
 | the audio | the engine machine's cache (`/mediatek` → `root`, plus the entry's path and `meta.master`) | the engine opens it as a file |
-| each step's `plugin:` block | the hosted library (`instances/<name>.yaml`) | it is DATA, and it is the same data on either disk |
+| each step's `plugin:` block | the hosted library (`nodes/<name>.yaml`) | it is DATA, and it is the same data on either disk |
 
 Reading the plugin blocks from the hosted side is not a shortcut — it is the correct source.
 A module's `plugin: {type, name}` is what the engine should load, not where anything sits, so

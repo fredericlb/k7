@@ -62,7 +62,7 @@ export function strudelPatterns(dir: string): StrudelLink[] {
       link.group = "";
     link.lanes.push({
       track,
-      // The lane's name is its instance file's, so the label and the id are one string.
+      // The lane's name is its node file's, so the label and the id are one string.
       label: track,
       contentType: t.contentType === "audio" ? "audio" : "sequences",
     });

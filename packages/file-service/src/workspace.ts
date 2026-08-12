@@ -44,7 +44,7 @@ import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
   cloneModuleFile,
-  createModuleInstance,
+  createNode,
   type Diagnostic,
   deadProjectFields,
   libraryModuleIssues,
@@ -974,10 +974,10 @@ export class Workspace {
      *
      * A chain bench is a view of one médiathèque chain (bench.ts), so the two files that ARE the
      * chain go back to it: `chains.yaml`, translated at the edges the way it was translated on
-     * the way in, and the flat `instances/` beside it. Everything else in the folder — the
+     * the way in, and the flat `nodes/` beside it. Everything else in the folder — the
      * project, the modules mirror — is the bench's own furniture and stays here.
      *
-     * The bench's LANE is in `instances/` too now, and is furniture: it is somewhere to put
+     * The bench's LANE is in `nodes/` too now, and is furniture: it is somewhere to put
      * material while you listen, and has no business in a chain other projects load. It is kept
      * back by NAME, which is the only thing that tells it apart — `chainToBench` puts `@in` under
      * that name on the way in, and `chainFromBench` turns it back.
@@ -991,8 +991,8 @@ export class Workspace {
       const back =
         rel === CHAIN_FILE
           ? chainFromBench(content, BENCH_EDGES)
-          : rel.startsWith("instances/") &&
-              rel !== `instances/${BENCH_EDGES.track}.yaml`
+          : rel.startsWith("nodes/") &&
+              rel !== `nodes/${BENCH_EDGES.track}.yaml`
             ? content
             : null;
       if (back !== null) void pushChainToMediatek(chain, rel, back);
@@ -1066,7 +1066,7 @@ export class Workspace {
    *
    * `_modules` is shared by every project in the workspace, so a save made while mixing one song would silently
    * change the others. `module populate` rebuilds it from the plugin scan and writes it directly, not through
-   * here — which is what makes it the only writer. A UI edit lands as a project-local instance instead
+   * here — which is what makes it the only writer. A UI edit lands as a project-local node instead
    * (see routes/files.ts).
    *
    * Enforced HERE and not in the UI because the routes are reachable without it.
@@ -1190,18 +1190,18 @@ export class Workspace {
 
   /**
    * Add one USE of a module. `rel` names the module being used — its folder or any file in it,
-   * same path handling as cloneModule — but the file lands in the project's flat `instances/`,
+   * same path handling as cloneModule — but the file lands in the project's flat `nodes/`,
    * so what comes back is NOT under `rel`. Callers that reveal the new path in a tree must read
    * the returned path rather than assume it sits beside what was clicked.
    */
-  createModuleInstance(rel: string, instance: string): { path: string } {
+  createNode(rel: string, node: string): { path: string } {
     const abs = this.safePath(rel);
     let modDir = abs;
     if (PROJECT_FILE.test(basename(abs))) modDir = dirname(abs);
     const category = basename(dirname(modDir));
     const name = basename(modDir);
     const dir = this.requireActive();
-    const newPath = createModuleInstance(dir, category, name, instance);
+    const newPath = createNode(dir, category, name, node);
     this.invalidateProjectDoc();
     return { path: newPath };
   }

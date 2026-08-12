@@ -117,7 +117,7 @@ describe("a gain as the strip's decibels", () => {
 
 describe("the deck's tempo is a MODULE, and the warp stands in for it", () => {
   it("names the médiathèque module the project actually puts on a deck", () => {
-    // `example.m9`'s instances extend exactly this. If the médiathèque renames the module,
+    // `example.m9`'s nodes extend exactly this. If the médiathèque renames the module,
     // this is the line that has to move with it — and the scaffold's own test pins the other
     // end, so the two cannot drift apart silently.
     expect(TEMPO_MODULE).toBe("@mediatek/audio/utility/tempo");

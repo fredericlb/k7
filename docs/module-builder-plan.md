@@ -54,7 +54,7 @@ une de trop. Ce qui a bougé :
 |---|---|
 | `packages/song/src/uiLibrary.ts` | `uiPathFor` → `<type>/<sub>/ui.yaml` ; `loadUiLibrary` parcourt les bibliothèques de **modules** et dérive le ref du dossier ; `writeUiFile` résout le ref vers sa bibliothèque |
 | `packages/song/src/sharedFolders.ts` | `SHARED_UI_PATH`/`SHARED_UI_DIR` supprimés ; `uiLibraryDirs` → `modulePanelRoots` ; `moduleNamespaceOf` extrait (il était dupliqué dans `moduleFork` et `uiMigrate`) |
-| `packages/song/src/yaml/moduleIO.ts` | `instanceFiles` saute `ui.yaml` — **le piège du déplacement** : sans ça le panneau revenait comme une instance `reverb:ui` |
+| `packages/song/src/yaml/moduleIO.ts` | `nodeFiles` saute `ui.yaml` — **le piège du déplacement** : sans ça le panneau revenait comme un nœud `reverb:ui` |
 | `packages/song/src/yaml/moduleSchema.ts` | `UiFileSchema` n'a plus de `ref` |
 | `packages/file-service/src/workspace.ts` | `moduleUi()` = `dirname` ; `write()` laisse passer `ui.yaml` sous `_modules/` |
 | `packages/mediatek/src/{ingest,layout}.ts` | plus de mapping `_ui → ui`, plus de `uiDir()` |
@@ -97,8 +97,8 @@ lisible et éditable à la main comme tout le reste. Un greffon dont l'état n'e
 paramètres adressables ne peut plus mémoriser plusieurs états ; il garde le `.vstpreset` par
 défaut de son dossier. Les anciens dossiers ne sont **pas** migrés, même rupture nette.
 
-Le même piège qu'aux deux étages précédents, une troisième fois : `instanceFiles` et
-`scanModules` comptaient `presets.yaml` comme une instance. Les trois fichiers du dossier sont
+Le même piège qu'aux deux étages précédents, une troisième fois : `nodeFiles` et
+`scanModules` comptaient `presets.yaml` comme un nœud. Les trois fichiers du dossier sont
 maintenant nommés au même endroit (`UI_BASE` / `PRESETS_BASE`, moduleIO.ts).
 
 Côté builder : un troisième onglet, et le menu Preset gagne un groupe « This module ». Appliquer
@@ -144,7 +144,7 @@ fichier absent ment sur le disque. Le panneau et la tagère se créent dans le b
 offre de toute façon — c'est lui l'entrée, pas l'arbre.
 
 Au passage, le même piège qu'à l'étape 1, une couche plus haut : `scanModules` comptait comme
-**instance** tout `.yaml` qui n'était pas `module.yaml`, donc `ui.yaml`. Corrigé, et l'entrée
+**nœud** tout `.yaml` qui n'était pas `module.yaml`, donc `ui.yaml`. Corrigé, et l'entrée
 porte maintenant `files` — ce que le dossier contient vraiment.
 
 ## Ce qui reste

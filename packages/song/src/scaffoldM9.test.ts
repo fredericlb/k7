@@ -129,18 +129,18 @@ describe("a scaffolded m9 set", () => {
     scaffoldM9(dir, "winter");
     expect(tree()).toEqual([
       "chains.yaml",
-      "instances",
-      "instances/crossfade.yaml",
-      // The DECKS are instances too — a lane is a module (docs/trackModules.md), so there is
+      "nodes",
+      "nodes/crossfade.yaml",
+      // The DECKS are nodes too — a lane is a module (docs/trackModules.md), so there is
       // no `tracks/` folder any more.
-      "instances/deckA.yaml",
-      "instances/deckB.yaml",
-      "instances/eqA.yaml",
-      "instances/eqB.yaml",
-      "instances/filterA.yaml",
-      "instances/filterB.yaml",
-      "instances/tempoA.yaml",
-      "instances/tempoB.yaml",
+      "nodes/deckA.yaml",
+      "nodes/deckB.yaml",
+      "nodes/eqA.yaml",
+      "nodes/eqB.yaml",
+      "nodes/filterA.yaml",
+      "nodes/filterB.yaml",
+      "nodes/tempoA.yaml",
+      "nodes/tempoB.yaml",
       "project.yaml",
       "songs.yaml",
       "views",
@@ -151,7 +151,7 @@ describe("a scaffolded m9 set", () => {
   it("declares what the desk's controls drive, instead of hardcoding it", () => {
     scaffoldM9(dir, "winter");
     // The crossfader used to reach a level in m9's own code, with nothing saying so. It names
-    // the crossfade module's own `Mix` here, and each tempo fader its own deck's instance —
+    // the crossfade module's own `Mix` here, and each tempo fader its own deck's node —
     // which a module-owned controller.yaml could not have said, since both decks share one.
     expect(loadMixView(dir)).toEqual({
       crossfade: { module: "crossfade", param: "Mix" },
@@ -186,7 +186,7 @@ describe("a scaffolded m9 set", () => {
     scaffoldM9(dir, "winter");
     // st0 owns the only editable catalogue. A crossfade copied in here would be a second one
     // nobody maintains and nobody would notice drifting — so the set carries uses, not
-    // modules, and `instances/` is where a use lives (docs/instances.md).
+    // modules, and `nodes/` is where a use lives (docs/nodes.md).
     expect(existsSync(join(dir, "modules"))).toBe(false);
   });
 
@@ -194,17 +194,17 @@ describe("a scaffolded m9 set", () => {
     scaffoldM9(dir, "winter");
     const ext = (f: string) =>
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
-    expect(ext("instances/crossfade.yaml")).toBe(
+    expect(ext("nodes/crossfade.yaml")).toBe(
       "@mediatek/audio/utility/crossfade",
     );
-    expect(ext("instances/tempoA.yaml")).toBe("@mediatek/audio/utility/tempo");
-    expect(ext("instances/tempoB.yaml")).toBe("@mediatek/audio/utility/tempo");
+    expect(ext("nodes/tempoA.yaml")).toBe("@mediatek/audio/utility/tempo");
+    expect(ext("nodes/tempoB.yaml")).toBe("@mediatek/audio/utility/tempo");
   });
 
   it("asks the médiathèque for exactly those four modules", () => {
     scaffoldM9(dir, "winter");
     // What the cache sync will go and fetch for this set. One of each, not two: the decks are
-    // two INSTANCES of one module, and fetching a module twice would be a bug in the ref
+    // two NODES of one module, and fetching a module twice would be a bug in the ref
     // reader rather than a fact about the set.
     expect(mediatekRefs(dir)).toEqual([
       "@mediatek/audio/filter/eq3",
@@ -260,7 +260,7 @@ describe("a scaffolded m9 set", () => {
 
   it("inherits the crossfade's two ports without restating them", () => {
     scaffoldM9(dir, "winter");
-    // The instance says only `extends` and a `Mix`. Ports, kind and category come from the
+    // The node says only `extends` and a `Mix`. Ports, kind and category come from the
     // médiathèque's module — which is what makes a use of somebody else's module one file.
     // `mandatory` comes back stated on BOTH — the loader resolves the default rather than
     // leaving one port's requirement to be inferred downstream.
@@ -270,10 +270,10 @@ describe("a scaffolded m9 set", () => {
     ]);
   });
 
-  it("puts a COLD module on each deck, one instance per deck", () => {
+  it("puts a COLD module on each deck, one node per deck", () => {
     scaffoldM9(dir, "winter");
     const modules = loadGraph(dir).modules;
-    // `cold` is inherited, so an instance that states only its BPMs is still cold — which is
+    // `cold` is inherited, so a node that states only its BPMs is still cold — which is
     // what makes the placement rule apply to it (docs/coldModules.md).
     for (const inst of ["tempoA", "tempoB"]) {
       expect(modules[inst].cold).toBe(true);
@@ -283,7 +283,7 @@ describe("a scaffolded m9 set", () => {
         "Target BPM": 0,
       });
     }
-    // TWO instances, not one shared: each deck plays at its own BPM, and a param belongs to
+    // TWO nodes, not one shared: each deck plays at its own BPM, and a param belongs to
     // a use rather than to a module.
     expect(modules.tempoA).not.toBe(modules.tempoB);
   });
@@ -321,7 +321,7 @@ describe("a scaffolded m9 set", () => {
 
   it("puts an EQ on each deck, between its tempo and the crossfade", () => {
     // Where a mixing desk puts it: a channel strip is equalised on its way to the fader, so
-    // cutting a deck's bass is a property of that DECK and not of the blend. One instance per
+    // cutting a deck's bass is a property of that DECK and not of the blend. One node per
     // deck, because that is the whole point of a channel EQ.
     const doc = (scaffoldM9(dir, "winter"), compileNodeProject(dir));
     const ids = (t: string) =>

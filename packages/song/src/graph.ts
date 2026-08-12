@@ -9,7 +9,6 @@ import { alternativesOf, currentAlternative } from "./alternatives";
 import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
 import {
   exportSub,
-  INSTANCE_SEP,
   isVideoSource,
   loadChains,
   loadModuleRefs,
@@ -17,6 +16,7 @@ import {
   loadProjectRoot,
   loadVideoTracks,
   moduleEmits,
+  NODE_SEP,
   withChainModuleRefs,
 } from "./loader";
 import {
@@ -53,8 +53,8 @@ export interface Placement {
 /**
  * A LANE, as every surface downstream reads one.
  *
- * A PROJECTION now, not an entity: a lane is an instance of one of the five `@studio/…-track`
- * modules (docs/trackModules.md), and this is that instance seen as an arrangement rather than as
+ * A PROJECTION now, not an entity: a lane is a node of one of the five `@studio/…-track`
+ * modules (docs/trackModules.md), and this is that node seen as an arrangement rather than as
  * a node. Kept in this shape deliberately — the compiler, the wire and the engine all speak it,
  * and the engine's lanes are a compilation target rather than the authoring model, exactly as the
  * `Mixer` module's fader is.
@@ -89,7 +89,7 @@ export interface VideoTrack {
 }
 
 export interface Step {
-  module: string; // a module instance name
+  module: string; // a module node name
   in?: string[]; // extra input sources feeding the module's ports past the chain flow
   enabled?: boolean; // undefined/true == on; false == bypassed
 }
@@ -115,7 +115,7 @@ export interface OutputDef {
 export type Out = WebOut;
 export interface Chain {
   from?: string;
-  use: Step[]; // ordered module instances: from -> use[0] -> … -> out
+  use: Step[]; // ordered module nodes: from -> use[0] -> … -> out
   enabled?: boolean; // whole-chain bypass
   out: Out[];
 }
@@ -624,7 +624,7 @@ export function buildGraph(
 
   // --- the LANES ---------------------------------------------------------------
   //
-  // Read off the resolved modules, because that is where they live now: a lane is an instance of
+  // Read off the resolved modules, because that is where they live now: a lane is a node of
   // one of the five `@studio/…-track` modules, and `kind` is what says so. Nothing here reads a
   // `tracks/` folder — there isn't one. See docs/trackModules.md.
   //
@@ -744,19 +744,19 @@ export const isFileInputModule = (b: Module): boolean =>
   b.kind === "io" && b.io === "file";
 /**
  * The " — did you mean …" tail for a name that missed, when the last `/` should have been
- * the instance separator: `@engine/io/IN/in-2` for `@engine/io/IN:in-2`.
+ * the node separator: `@engine/io/IN/in-2` for `@engine/io/IN:in-2`.
  *
- * An instance is a `<name>.yaml` BESIDE a module.yaml, not a folder inside it, so the ref
- * of one is the module's ref with `:instance` — and the two spellings look identical to
+ * A node is a `<name>.yaml` BESIDE a module.yaml, not a folder inside it, so the ref
+ * of one is the module's ref with `:node` — and the two spellings look identical to
  * anyone reading the folder on disk. Worth a hint rather than a second guess at the docs:
  * "is not a module" is true and useless, and the whole difference is one character.
  */
-function instanceHint(g: GraphDoc, name: string): string {
+function nodeHint(g: GraphDoc, name: string): string {
   const cut = name.lastIndexOf("/");
   if (cut < 0) return "";
-  const asInstance = `${name.slice(0, cut)}${INSTANCE_SEP}${name.slice(cut + 1)}`;
-  return g.modules[asInstance] || g.moduleRefs[asInstance]
-    ? ` — did you mean '${asInstance}'? an instance is named with '${INSTANCE_SEP}', not '/'`
+  const asNode = `${name.slice(0, cut)}${NODE_SEP}${name.slice(cut + 1)}`;
+  return g.modules[asNode] || g.moduleRefs[asNode]
+    ? ` — did you mean '${asNode}'? a node is named with '${NODE_SEP}', not '/'`
     : "";
 }
 
@@ -892,8 +892,8 @@ export function validate(g: GraphDoc): string[] {
       const module = g.modules[s.module];
       if (!module)
         w.push(
-          `chain '${name}': step module '${s.module}' is not a module or module instance` +
-            instanceHint(g, s.module),
+          `chain '${name}': step module '${s.module}' is not a module or module node` +
+            nodeHint(g, s.module),
         );
       else if (module.extends && !g.moduleRefs[module.extends])
         w.push(
@@ -902,7 +902,7 @@ export function validate(g: GraphDoc): string[] {
     }
     for (const o of c.out) {
       // A destination may name a PORT (`crossfade#b`); everything asked here is about the module
-      // it lands on, so the jack comes off first. Only the last `#` is the port, so an instance
+      // it lands on, so the jack comes off first. Only the last `#` is the port, so a node
       // or a namespace in the same ref is left alone (see splitPort).
       const { node: to } = splitPort(o.to);
       const target = g.modules[to];

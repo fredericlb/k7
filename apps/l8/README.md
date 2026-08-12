@@ -81,11 +81,11 @@ curves/<id>.yaml       automation curves (lfo / custom points)
 algo/<name>.strudel    live Strudel patterns (played only when a strudel lane links one)
 modules/<type>/<name>/module.yaml  modules: a plugin/io/rack + `params?`, optional `extends: "…"`
                                    (type ∈ io|instruments|audio|transformers|video_effects — the folder gives the kind)
-instances/<name>.yaml  one USE of a module, flat, named by its file — the LANES too
+nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANES too
 <name>/<name>.vstpreset · <name>/<audio>.wav   the module's own preset + rack audio
 ```
 
-- **A track is a MODULE.** It lives in `instances/<name>.yaml` and what it `extends` says
+- **A track is a MODULE.** It lives in `nodes/<name>.yaml` and what it `extends` says
   what kind of lane it is: `@studio/audio-track`, `@studio/sequence-track`, their two
   `…-strudel-track` siblings, or `@studio/group-track`. There is no `tracks/` folder, no
   `type:` and no `contentType:` — one `extends:` says both what signal it carries and where
@@ -130,17 +130,17 @@ instances/<name>.yaml  one USE of a module, flat, named by its file — the LANE
   writes the right shape;
   `engine/capot/songs/synth-demo.l8/modules/instruments/synth/module.yaml` is the
   reference, and `.../kit` shows `extends`.
-- **A project's USES of a module are instances**, in a flat `instances/` folder at the
-  project root. The **filename names the instance** — a chain says **`{module: "lead"}`**,
+- **A project's USES of a module are nodes**, in a flat `nodes/` folder at the
+  project root. The **filename names the node** — a chain says **`{module: "lead"}`**,
   not the module it came from — and the file says which module it uses with `extends:`.
   Same flat shape as `module.yaml`; state only what this use changes. Each keeps its own
-  params and its own `instances/<name>.vstpreset`, so tweaking one never touches the module
-  or another use; the merge order is *extended base → the module → the instance*. The folder
-  is flat on purpose: an instance does not mirror the folders of what it uses, so using a
-  médiathèque module needs no local folder for it. `l8 cmd new module-instance
-  instruments/synth lead` scaffolds one, and `engine/capot/songs/synth-demo.l8/instances/`
+  params and its own `nodes/<name>.vstpreset`, so tweaking one never touches the module
+  or another use; the merge order is *extended base → the module → the node*. The folder
+  is flat on purpose: a node does not mirror the folders of what it uses, so using a
+  médiathèque module needs no local folder for it. `l8 cmd node new
+  instruments/synth lead` scaffolds one, and `engine/capot/songs/synth-demo.l8/nodes/`
   is the worked example — one 4OSC module, a `lead` and a `pad`, each driving its own chain.
-  See `packages/song/docs/instances.md`.
+  See `packages/song/docs/nodes.md`.
 - A **chain** (in `chains.yaml`) is a signal path, written as a flat list of nodes: a
   **head**, the modules the signal passes through, and the sink it ends at. `chains` is
   a **list**, not a map — a chain needn't be named.

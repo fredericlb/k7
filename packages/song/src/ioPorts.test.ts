@@ -61,8 +61,8 @@ describe("the declared I/O", () => {
 
   const by = (ref: string) => ioPorts(dir, PREFS).find((p) => p.ref === ref);
 
-  it("lists the inherited io modules AND their instances", () => {
-    // The instances are the point: one per physical input, and until they were keyed
+  it("lists the inherited io modules AND their nodes", () => {
+    // The nodes are the point: one per physical input, and until they were keyed
     // into the ref map nothing could name — or meter — a single one of them.
     const refs = ioPorts(dir, PREFS).map((p) => p.ref);
     expect(refs).toEqual(

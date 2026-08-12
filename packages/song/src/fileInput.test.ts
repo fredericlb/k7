@@ -66,11 +66,11 @@ describe("the file input", () => {
     // name to `file` — an authored one was overwritten by the decoration, silently, which is
     // what this assertion caught the first time it ran.
     // The MODULE names none — that is the template shape. A use of it carries the file, exactly
-    // as an io/IN instance carries its channel. The use is a file in `instances/` now, so it
+    // as an io/IN node carries its channel. The use is a file in `nodes/` now, so it
     // reaches the module through `extends` rather than by sitting beside it.
     file("modules/io/FILE/module.yaml", "io: file\n");
     file(
-      "instances/take.yaml",
+      "nodes/take.yaml",
       'extends: "@project/FILE"\nsource: "clips/original.wav"\n',
     );
     const g = loadGraph(dir);
@@ -87,7 +87,7 @@ describe("the file input", () => {
       "modules/audio/amp/module.yaml",
       "plugin: {type: internal, name: Chorus}\n",
     );
-    file("instances/t.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("nodes/t.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
     writeFileSync(
       join(dir, "chains.yaml"),
       "modules:\n  t: [ amp ]\n  amp: [ FILE ]\n",

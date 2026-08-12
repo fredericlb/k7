@@ -15,8 +15,8 @@ deckB.tempo: { module: tempoB, param: Target BPM }
 That file exists and does the same job for MIDI — `<param>: { ch, cc }` — and it was the
 obvious place to put this. It cannot hold it, for a reason its own doc states:
 
-> **Every instance shares one map.** Two instances of the same module in one song both answer
-> to CC 74, because an instance is one *setting* of a device and there is only one device.
+> **Every node shares one map.** Two nodes of the same module in one song both answer
+> to CC 74, because a node is one *setting* of a device and there is only one device.
 
 A set puts a tempo module on **each deck**. One map for both, so a binding in it could not say
 "deck A's fader drives deck A's stretch" — the same line would drive both, or drive the wrong
@@ -69,7 +69,7 @@ own units go through untouched.
 
 This is deliberately stricter than l8's MIDI join, which skips what it cannot apply in silence.
 It can afford to: a module's map travels into projects that draw it differently, so a binding
-that does not apply is normal there. Here the file names **this** set's own instances, so a
+that does not apply is normal there. Here the file names **this** set's own nodes, so a
 line that does not resolve is a typo somebody made about their own project.
 
 ## Scaling

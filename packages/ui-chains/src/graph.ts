@@ -159,7 +159,7 @@ export interface GraphNode extends Carried, Flags {
   chain?: string; // owning chain (modules + empty pass-through chains) — first if shared
   chains?: string[]; // all chains this module belongs to (when shared across chains)
   dim: boolean; // bypassed (module or whole chain)
-  module?: string; // the module instance name (for the nativePluginUI open)
+  module?: string; // the module node name (for the nativePluginUI open)
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through
   /**
    * BAKED into a render: `"at"` the point it was taken at, `"inside"` when the render already
@@ -973,7 +973,7 @@ export function buildGraph(
           kind: "track",
           video,
           color: graph.trackColors?.[c.from],
-          // A lane is a module instance, so it is addressable like one — which is what the
+          // A lane is a module node, so it is addressable like one — which is what the
           // alternatives menu on its card acts through. See packages/song/docs/alternatives.md.
           module: c.from,
           ...(graph.trackAlternatives?.[c.from] ?? {}),

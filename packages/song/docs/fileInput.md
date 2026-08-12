@@ -11,7 +11,7 @@ source: "clips/original.wav"
 ```
 
 The engine offers it as `@engine/FILE`, beside `@engine/IN` and `@engine/OUT`. One module for
-the app; an instance carries which file, exactly as an `IN` instance carries which channel.
+the app; a node carries which file, exactly as an `IN` node carries which channel.
 
 ## Why a role and not a flag
 
@@ -42,7 +42,7 @@ file, and whoever applies the template supplies the audio. A morceau hands over 
 that package's `docs/variants.md`), and the drawing then says which file goes through the chain
 instead of repeating the placeholder.
 
-So `source` is optional, and an instance with none is not half-written.
+So `source` is optional, and a node with none is not half-written.
 
 ## What it is NOT
 
@@ -68,4 +68,4 @@ The **médiathèque** does not wait on it, and this page used to imply otherwise
 by hand — the song's master as the clip, the chain's steps as the track's plugins — which is
 what both auditioning a chain and bouncing a variant run on. See
 `packages/mediatek/docs/variants.md`. What is missing is the *authored* path: a `modules/io/FILE`
-instance in a project folder compiling to the same thing.
+node in a project folder compiling to the same thing.

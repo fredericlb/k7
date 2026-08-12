@@ -45,10 +45,10 @@ function song(): string {
     "modules:\n  gtr: [ amp ]\n  bass: [ cab ]\n  amp: [ cab ]\n  cab: [ OUT ]\n",
     "utf8",
   );
-  mkdirSync(join(d, "instances"), { recursive: true });
+  mkdirSync(join(d, "nodes"), { recursive: true });
   for (const t of ["gtr", "bass"])
     writeFileSync(
-      join(d, "instances", `${t}.yaml`),
+      join(d, "nodes", `${t}.yaml`),
       'extends: "@studio/audio-track"\nclips: []\n',
       "utf8",
     );
@@ -61,11 +61,11 @@ function song(): string {
       "utf8",
     );
   }
-  // One USE of `amp`, in the flat instances/ folder, so the two deletion scopes can be told
+  // One USE of `amp`, in the flat nodes/ folder, so the two deletion scopes can be told
   // apart: deleting it takes one FILE, deleting `amp` takes a whole module folder.
-  mkdirSync(join(d, "instances"), { recursive: true });
+  mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
-    join(d, "instances", "lead.yaml"),
+    join(d, "nodes", "lead.yaml"),
     'extends: "@project/audio/amp"\nparams:\n  Depth: 3\n',
     "utf8",
   );
@@ -91,13 +91,13 @@ describe("module delete", () => {
     });
   });
 
-  it("deletes ONE instance file and leaves the module it uses alone", async () => {
+  it("deletes ONE node file and leaves the module it uses alone", async () => {
     await runCommand("module delete lead", host(), "cli");
-    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(false);
     expect(existsSync(join(modDir("amp"), "module.yaml"))).toBe(true);
-    // The instances FOLDER survives: it is shared by every use in the project, so deleting one
+    // The nodes FOLDER survives: it is shared by every use in the project, so deleting one
     // must never take it — the failure that would be, on a real song, is everything at once.
-    expect(existsSync(join(dir, "instances"))).toBe(true);
+    expect(existsSync(join(dir, "nodes"))).toBe(true);
     // …and the module is still wired up: deleting a use must not unwire what it used.
     expect(chains()).toContain("gtr: [ amp ]");
   });
@@ -149,12 +149,12 @@ describe("module replace", () => {
   });
 });
 
-// `module instance unlink` — the same splice, the opposite intention: out of the signal path,
+// `node unlink` — the same splice, the opposite intention: out of the signal path,
 // still on disk. Deleting cannot be undone by re-wiring; unlinking can.
-describe("module instance unlink", () => {
+describe("node unlink", () => {
   it("closes the gap over the node and leaves its files alone", async () => {
     // `cab` is fed by `amp` on one path and by `bass` on another, so BOTH must be rejoined.
-    await runCommand("module instance unlink cab", host(), "cli");
+    await runCommand("node unlink cab", host(), "cli");
     expect(chains()).not.toContain("cab");
     expect(chains()).toContain("amp: [ OUT ]");
     expect(chains()).toContain("bass: [ OUT ]");
@@ -162,13 +162,13 @@ describe("module instance unlink", () => {
     expect(existsSync(modDir("cab"))).toBe(true);
   });
 
-  it("unlinks an INSTANCE without touching the module it uses", async () => {
+  it("unlinks a NODE without touching the module it uses", async () => {
     await runCommand("chain add gtr amp lead", host(), "cli");
     expect(chains()).toContain("lead");
-    await runCommand("module instance unlink lead", host(), "cli");
+    await runCommand("node unlink lead", host(), "cli");
     expect(chains()).not.toContain("lead");
     expect(chains()).toContain("gtr: [ amp ]");
-    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(true);
     expect(existsSync(modDir("amp"))).toBe(true);
   });
 
@@ -177,14 +177,14 @@ describe("module instance unlink", () => {
     // rejoin to what it fed. A lane is a module now (packages/song/docs/trackModules.md), so
     // the splice is well defined — the lane leaves the signal path and keeps its clips, which
     // is exactly what unlinking means everywhere else.
-    await runCommand("module instance unlink gtr", host(), "cli");
+    await runCommand("node unlink gtr", host(), "cli");
     expect(chains()).not.toContain("gtr:");
-    expect(existsSync(join(dir, "instances", "gtr.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "gtr.yaml"))).toBe(true);
   });
 
   it("refuses a name the chains do not have, rather than quietly writing nothing", async () => {
     const before = chains();
-    await runCommand("module instance unlink nope", host(), "cli");
+    await runCommand("node unlink nope", host(), "cli");
     expect(logs.join(" ")).toContain("no 'nope'");
     expect(chains()).toBe(before);
   });

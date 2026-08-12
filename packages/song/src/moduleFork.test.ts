@@ -232,7 +232,7 @@ describe("forking on edit", () => {
 describe("giving an engine module a folder", () => {
   const NAM = "@engine/nam";
   // The catalogue is ambient — what this machine happens to have scanned — so it is injected, exactly as
-  // loadModuleRefs and createModuleInstance take theirs.
+  // loadModuleRefs and createNode take theirs.
   const CATALOGUE = {
     [NAM]: {
       plugin: { type: "vst3", name: "Neural Amp Modeler" },

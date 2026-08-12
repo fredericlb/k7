@@ -52,7 +52,7 @@ L'ordre EST le chemin du signal. Une platine égalisée après le fondu verrait 
 même temps que celle de l'autre : l'EQ est une propriété de la **tranche**, pas du mélange.
 C'est la place qu'une table lui donne.
 
-Une instance par platine, jamais partagée — couper la basse de CETTE platine est tout l'intérêt,
+Un nœud par platine, jamais partagé — couper la basse de CETTE platine est tout l'intérêt,
 et un paramètre appartient à un usage et non à un module.
 
 ## Le chemin « paramètre », pas celui du warp
@@ -136,7 +136,7 @@ un paramètre, `controlDriving` retrouve le contrôle qui les pilote. Repointer 
 
 ## Ce qu'il faut savoir
 
-Un `params:` changé à la main dans `instances/eqA.yaml` ne bouge pas le potard tant que le
+Un `params:` changé à la main dans `nodes/eqA.yaml` ne bouge pas le potard tant que le
 projet n'est pas rouvert : ce que le potard montre est l'état du **moteur**, et le fichier
 n'atteint le moteur qu'au prochain envoi de document.
 

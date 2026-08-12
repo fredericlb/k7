@@ -19,10 +19,10 @@ function projectModule(rel: string, body: string): void {
   writeFileSync(join(at, "module.yaml"), body, "utf8");
 }
 
-/** One USE of a module, in the project's flat `instances/`. */
-function projectInstance(name: string, body: string): void {
-  mkdirSync(join(dir, "instances"), { recursive: true });
-  writeFileSync(join(dir, "instances", `${name}.yaml`), body, "utf8");
+/** One USE of a module, in the project's flat `nodes/`. */
+function projectNode(name: string, body: string): void {
+  mkdirSync(join(dir, "nodes"), { recursive: true });
+  writeFileSync(join(dir, "nodes", `${name}.yaml`), body, "utf8");
 }
 
 beforeEach(() => {
@@ -49,17 +49,17 @@ describe("the médiathèque modules a project names", () => {
     expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/filter/auto-wah"]);
   });
 
-  it("finds the ones an INSTANCE extends — the ordinary way to use one", () => {
-    // A use of a library module is a file in `instances/` now, and it reaches the library
+  it("finds the ones a NODE extends — the ordinary way to use one", () => {
+    // A use of a library module is a file in `nodes/` now, and it reaches the library
     // through `extends` like anything else. Missing it here would mean the machine never
     // cached the module its own song plays.
-    projectInstance("gtr", 'extends: "@mediatek/audio/filter/auto-wah"\n');
+    projectNode("gtr", 'extends: "@mediatek/audio/filter/auto-wah"\n');
     expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/filter/auto-wah"]);
   });
 
-  it("finds one a chain step names outright, instance and all", () => {
+  it("finds one a chain step names outright, node and all", () => {
     // A chain may reach a library module directly; the folder to fetch is the module's, so
-    // the instance suffix is dropped rather than turned into a path nothing answers to.
+    // the node suffix is dropped rather than turned into a path nothing answers to.
     writeFileSync(
       join(dir, "chains.yaml"),
       "modules:\n  gtr: [ '@mediatek/audio/modulation/flanger:warm' ]\n",

@@ -33,9 +33,9 @@ modules/audio/reverb/module.yaml            →  module "reverb"
 chains.yaml:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
 ```
 
-A chain step names a **module folder** or an **instance**, and the lookup matches either, since
+A chain step names a **module folder** or a **node**, and the lookup matches either, since
 `step.module` is one string. On the bench it is always the folder: the catalogue is mirrored
-into `modules/`, so every module in it is a `@project` module — and an instance may not take a
+into `modules/`, so every module in it is a `@project` module — and a node may not take a
 module's name, which settles the question by making the alternative illegal.
 
 Found: the builder gets the plugin's parameter names, their ranges, its factory presets, and

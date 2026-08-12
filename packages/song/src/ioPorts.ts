@@ -15,7 +15,7 @@ import {
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 
 export interface IoPort {
-  /** How a chain names it: "OUT" for a local module, "@engine/io/IN:in-1" for an inherited instance. */
+  /** How a chain names it: "OUT" for a local module, "@engine/io/IN:in-1" for an inherited node. */
   ref: string;
   /** The last segment, for display — "IN:in-1" out of "@engine/io/IN:in-1". */
   name: string;
@@ -28,7 +28,7 @@ export interface IoPort {
   unknownLabel?: boolean;
   /** Where it comes from — a shared catalogue's namespace, or "" for one of the project's own. */
   namespace: string;
-  /** The generic io module rather than one of its instances. It declares no channel of its own. */
+  /** The generic io module rather than one of its nodes. It declares no channel of its own. */
   generic: boolean;
 }
 
@@ -51,7 +51,7 @@ export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
   // there is simply not a root — where a declaration naming a missing one used to throw.
   const refs: Record<string, Io> = loadModuleRefs(dir);
   // …plus the project's OWN io modules, which the ref map deliberately leaves out: it
-  // skips local instances, and an input IS an instance now. `IN:in-2` — the thing that
+  // skips local nodes, and an input IS a node now. `IN:in-2` — the thing that
   // carries the channel, the monitoring and the trim — lives in the song that records
   // through it, so the panel that meters it has to look there.
   let local: Record<string, Io> = {};
@@ -81,12 +81,12 @@ export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
       channels: r.channels,
       label: typeof authored === "string" ? authored : undefined,
       unknownLabel: r.unknownLabel != null || undefined,
-      // A generic sits at the head of its folder; its instances are what carry channels.
-      generic: !splitModuleKey(ref).instance,
+      // A generic sits at the head of its folder; its nodes are what carry channels.
+      generic: !splitModuleKey(ref).node,
     });
   }
   // Inputs first (that is the order the panel reads in), then by ref so the list is stable
-  // across reloads — an instance list that reshuffles is unreadable while it moves.
+  // across reloads — a node list that reshuffles is unreadable while it moves.
   return ports.sort((a, b) =>
     a.dir === b.dir ? a.ref.localeCompare(b.ref) : a.dir === "in" ? -1 : 1,
   );

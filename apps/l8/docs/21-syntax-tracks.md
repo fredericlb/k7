@@ -1,6 +1,6 @@
 # Tracks
 
-A track is a **module**. It lives in `instances/<name>.yaml` like every other use of a module,
+A track is a **module**. It lives in `nodes/<name>.yaml` like every other use of a module,
 and what it `extends` says what kind of lane it is. There is no `tracks/` folder.
 
 Five built-in modules, and none of them has a file anywhere — they belong to the studio, so a
@@ -35,7 +35,7 @@ sounds comes from the material's own `from`/`to` window (see Material), multipli
 There is no `length` and no `offset` here: trimming belongs to the clip, so every placement of it
 plays the same thing and no two lines can disagree about what that is.
 
-## instances/<name>.yaml — audio
+## nodes/<name>.yaml — audio
 
 ```yaml schema=Module
 extends: "@studio/audio-track"
@@ -50,7 +50,7 @@ clips:
 # 1:1:1 is already a string — but under 1.1 it is the number 3661.
 ```
 
-## instances/<name>.yaml — MIDI
+## nodes/<name>.yaml — MIDI
 
 A lane of sequence refs. A sequence lane never holds audio: which of the two it carries is what
 it extends, and a module has one output port.
@@ -62,7 +62,7 @@ clips:
   - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
 ```
 
-## instances/<name>.yaml — group
+## nodes/<name>.yaml — group
 
 No material and no signal of its own — only the member lane names it nests.
 
@@ -71,7 +71,7 @@ extends: "@studio/group-track"
 tracks: [pad, kit]
 ```
 
-## instances/<name>.yaml — strudel
+## nodes/<name>.yaml — strudel
 
 Streams one `algo/` pattern; the lane's name picks the part by its `.label`. Which of the two
 strudel modules it extends decides how the events read: `@studio/sequence-strudel-track` makes
@@ -90,8 +90,8 @@ step naming `lead` must mean exactly one node, so a lane may not be called what 
 called — which in practice means a lane and the synth it feeds need different names:
 
 ```yaml exempt="two files, shown together"
-# instances/melody.yaml     -> the lane
-# instances/synth-melody.yaml -> the 4OSC it plays through
+# nodes/melody.yaml       -> the lane
+# nodes/synth-melody.yaml -> the 4OSC it plays through
 ```
 
 That is the one thing to know when moving an old project over: a track and its instrument that

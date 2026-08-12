@@ -6,12 +6,12 @@ has to keep.
 
 ## The measurement
 
-A real song on the dev machine — 20 tracks, 171 clips, 51 instances — with the machine's
+A real song on the dev machine — 20 tracks, 171 clips, 51 nodes — with the machine's
 médiathèque mounted as a shared library:
 
 | | files read | time |
 |---|---|---|
-| the project's own `modules/` + `instances/` | 24 YAML | 103 ms |
+| the project's own `modules/` + `nodes/` | 24 YAML | 103 ms |
 | the médiathèque's `modules/` (`readModuleTree`) | 315 YAML | ~140 ms |
 | the panels and MIDI maps beside them (`loadUiLibrary`, `loadControllerLibrary`) | | 55 ms |
 | **`loadModuleRefs` total** | | **295 ms** |
@@ -27,7 +27,7 @@ médiathèque that had not changed since the app was opened.
 
 `moduleStamp(dir)` walks exactly the roots the two loaders read:
 
-- the project's own `modules/`, and its flat `instances/`
+- the project's own `modules/`, and its flat `nodes/`
 - every shared library `modulePanelRoots` finds — the workspace's `_modules`, the médiathèque
 - `~/.studio/exts.json`, the engine's plugin scan, which is a module source with no folder
 

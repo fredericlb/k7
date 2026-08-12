@@ -1,6 +1,6 @@
 // moduleResolve.ts — "what does this module actually run with?", answered ONCE.
 //
-// A module inherits twice: from the module it `extends`, and from the generic an instance
+// A module inherits twice: from the module it `extends`, and from the generic a node
 // sits under. Both are the same merge, and it used to live in five places that had already
 // drifted. Resolving is now a step you pass THROUGH — the brand on ResolvedModule means a
 // consumer cannot take a raw module by accident. See docs/moduleResolve.md.
@@ -32,14 +32,14 @@ export type ResolvedModule = LoadedModule & { readonly [RESOLVED]: true };
  * Fields a module owns rather than inherits — WHEN IT HAS THEM.
  *
  * They come from where it lives: `kind` and `inputs` off its type folder, `category` off the
- * folder that draws its icon, `file`/`instance`/`name` off the file itself. A module in
+ * folder that draws its icon, `file`/`node`/`name` off the file itself. A module in
  * `audio/` that extends an instrument is still an effect.
  *
  * "When it has them" is load-bearing, and the loop below says it: the child's value wins only
- * if the KEY IS PRESENT. An instance in the project's flat `instances/` has no type folder to
+ * if the KEY IS PRESENT. A node in the project's flat `nodes/` has no type folder to
  * read `kind`, `inputs` or `category` off, so the loader leaves them absent and they arrive
- * from whatever it extends — which is the whole reason an instance no longer has to be filed
- * under the module it uses. See docs/instances.md.
+ * from whatever it extends — which is the whole reason a node no longer has to be filed
+ * under the module it uses. See docs/nodes.md.
  */
 const OWN_ONLY = [
   "kind",
@@ -47,7 +47,7 @@ const OWN_ONLY = [
   "category",
   "name",
   "file",
-  "instance",
+  "node",
   "home",
 ] as const;
 
@@ -125,7 +125,7 @@ export function mergeAuthored(
  * Two steps, and the order is the point: `extends` is folded first, then the one selected
  * attribute set is merged over the result. So an alternative always wins — it is the last thing
  * said about the module — and it can pick from a list its PARENT declared, which is how a shared
- * amp offers `clean`/`crunch` and each instance chooses.
+ * amp offers `clean`/`crunch` and each node chooses.
  *
  * The alternative is applied ONCE, at the outermost module, which is why the recursion below
  * calls `foldExtends` and not this. Applying it at every level would mean a parent's own choice

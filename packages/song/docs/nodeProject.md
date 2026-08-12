@@ -63,8 +63,8 @@ The module's own `<name>.vstpreset` wins, else the extended module's. `presetSav
 always the module's OWN path (inside its folder, where a UI edit is written) — the
 extended module's preset is never overwritten.
 
-The blob is named by what the step IS, and it sits beside that step's own file: an instance
-(`"lead"`) saves to `instances/lead.vstpreset`, next to `instances/lead.yaml`, so tweaking
+The blob is named by what the step IS, and it sits beside that step's own file: a node
+(`"lead"`) saves to `nodes/lead.vstpreset`, next to `nodes/lead.yaml`, so tweaking
 one use never overwrites the module's state or another use's. The loader carries the folder
-on the module as `home` — an instance's path no longer follows from a category and a module
+on the module as `home` — a node's path no longer follows from a category and a module
 name the way a module's does.

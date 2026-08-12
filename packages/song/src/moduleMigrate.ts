@@ -5,7 +5,7 @@
 // written into the workspace's `_modules` — each carrying exactly `plugin.type` and
 // `plugin.name`, two facts the engine's own scan already knew.
 //
-// After: the wrappers are gone. A use of an engine plugin is an INSTANCE that names the
+// After: the wrappers are gone. A use of an engine plugin is a NODE that names the
 // plugin itself, in a folder with no generic (see loader.ts). A use of something someone
 // AUTHORED — a jsdsp source, a rack's sample map — still points at the library, under its
 // own namespace `@library`.
@@ -25,10 +25,10 @@ import { basename, dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { loadProjectRoot, MODULE_TYPES } from "./loader";
-import { instanceFiles, moduleFileFor } from "./yaml/moduleIO";
+import { moduleFileFor, nodeFiles } from "./yaml/moduleIO";
 
-/** The instance a module used BARE becomes. Its chain step gains this suffix. */
-export const DEFAULT_INSTANCE = "default";
+/** The node a module used BARE becomes. Its chain step gains this suffix. */
+export const DEFAULT_NODE = "default";
 
 export interface ModuleMigration {
   changed: boolean;
@@ -85,7 +85,7 @@ function classify(
   return { kind: wrapper ? "wrapper" : "library", doc };
 }
 
-/** Every module the chains name with no instance suffix — the ones that need a name. */
+/** Every module the chains name with no node suffix — the ones that need a name. */
 function bareChainSteps(dir: string): Set<string> {
   const file = join(dir, "chains.yaml");
   const out = new Set<string>();
@@ -106,16 +106,15 @@ function bareChainSteps(dir: string): Set<string> {
   return out;
 }
 
-/** Merge the generic UNDER an instance: the instance wins per key, `params` per param. */
+/** Merge the generic UNDER a node: the node wins per key, `params` per param. */
 function under(
   generic: Record<string, unknown>,
-  instance: Record<string, unknown>,
+  node: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...generic };
-  for (const [k, v] of Object.entries(instance))
-    if (v !== undefined) out[k] = v;
+  for (const [k, v] of Object.entries(node)) if (v !== undefined) out[k] = v;
   const gp = generic.params as Record<string, number> | undefined;
-  const ip = instance.params as Record<string, number> | undefined;
+  const ip = node.params as Record<string, number> | undefined;
   if (gp || ip) out.params = { ...(gp ?? {}), ...(ip ?? {}) };
   return out;
 }
@@ -124,7 +123,7 @@ function under(
  * Rewrite one project's modules.
  *
  * Every folder whose `module.yaml` extends the old catalogue becomes a folder of
- * instances. A module that was used BARE gains one called `default` — its chain step goes
+ * nodes. A module that was used BARE gains one called `default` — its chain step goes
  * from `reverb` to `reverb:default`, which is the one visible change and the reason this
  * returns the renames rather than only doing them.
  */
@@ -139,7 +138,7 @@ export function migrateProjectModules(
   const modulesDir = join(dir, "modules");
   if (!existsSync(modulesDir)) return out;
   const lib = libraryRoot(dir);
-  // Which modules the chains name WITHOUT an instance. Those are the ones that have to
+  // Which modules the chains name WITHOUT a node. Those are the ones that have to
   // gain a name, and the chains that name them have to follow.
   const bare = bareChainSteps(dir);
 
@@ -165,7 +164,7 @@ export function migrateProjectModules(
         continue;
       }
 
-      // What the instances will carry instead of the `extends`.
+      // What the nodes will carry instead of the `extends`.
       const { extends: _drop, ...rest } = doc;
       const base: Record<string, unknown> = { ...rest };
       if (kind === "wrapper") {
@@ -194,30 +193,30 @@ export function migrateProjectModules(
         base.extends = `@library/${target}`;
       }
 
-      const existing = [...instanceFiles(folder, "")];
-      for (const { instance, file } of existing) {
+      const existing = [...nodeFiles(folder, "")];
+      for (const { node, file } of existing) {
         const own = (parseYaml(readFileSync(file.path, "utf8"), {
           version: "1.2",
         }) ?? {}) as Record<string, unknown>;
-        write(file.path, under(base, own), `${name}:${instance}`);
+        write(file.path, under(base, own), `${name}:${node}`);
       }
       // A module the chains name BARE needs a name of its own now — and it needs one
-      // whether or not instances already sit beside it. `neural-amp-modeler` had an
-      // instance nothing used and a bare step that did: making the instance and stopping
+      // whether or not nodes already sit beside it. `neural-amp-modeler` had a
+      // node nothing used and a bare step that did: making the node and stopping
       // there dropped the plugin the song actually plays.
       if (bare.has(name)) {
-        const path = join(folder, `${DEFAULT_INSTANCE}.yaml`);
-        write(path, base, `${name}:${DEFAULT_INSTANCE}`);
-        out.steps.push(`${name} -> ${name}:${DEFAULT_INSTANCE}`);
+        const path = join(folder, `${DEFAULT_NODE}.yaml`);
+        write(path, base, `${name}:${DEFAULT_NODE}`);
+        out.steps.push(`${name} -> ${name}:${DEFAULT_NODE}`);
       } else if (!existing.length) {
-        // Neither used bare nor instanced: keep it as one instance so nothing is lost.
+        // Neither used bare nor instanced: keep it as one node so nothing is lost.
         write(
-          join(folder, `${DEFAULT_INSTANCE}.yaml`),
+          join(folder, `${DEFAULT_NODE}.yaml`),
           base,
-          `${name}:${DEFAULT_INSTANCE}`,
+          `${name}:${DEFAULT_NODE}`,
         );
         out.notes.push(
-          `${type}/${name}: no chain names it — kept as ${name}:${DEFAULT_INSTANCE}`,
+          `${type}/${name}: no chain names it — kept as ${name}:${DEFAULT_NODE}`,
         );
       }
       rmSync(generic.path, { force: true });
@@ -230,7 +229,7 @@ export function migrateProjectModules(
   return out;
 }
 
-/** Write an instance file: a header saying what it is, then the merged struct. */
+/** Write a node file: a header saying what it is, then the merged struct. */
 function write(
   path: string,
   value: Record<string, unknown>,
@@ -290,7 +289,7 @@ export function migrateLibrary(root: string): LibraryMigration {
       if (!file) continue; // a category folder — nothing of its own to judge
       // What sits beside the module file. Sub-MODULES do not count: they were just
       // walked and answered for themselves. A `.presets` folder does — somebody saved
-      // into it — as does any plain file: an instance, a .vstpreset, a jsdsp .ts, a
+      // into it — as does any plain file: a node, a .vstpreset, a jsdsp .ts, a
       // rack's audio.
       const others = readdirSync(abs, { withFileTypes: true }).filter(
         (f) =>
@@ -321,7 +320,7 @@ export function migrateLibrary(root: string): LibraryMigration {
     }
   };
   // io lives in the projects now — one IN and one OUT come from the engine, and the
-  // instances that carry a channel belong to the song recording through it.
+  // nodes that carry a channel belong to the song recording through it.
   const io = join(root, "io");
   if (existsSync(io)) {
     rmSync(io, { recursive: true, force: true });

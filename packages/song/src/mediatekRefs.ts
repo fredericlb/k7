@@ -19,8 +19,8 @@ const PREFIX = `${MEDIATEK_REF}/`;
 /** The module half of a ref, or null when it isn't one of the médiathèque's. */
 function mediatekModule(ref: unknown): string | null {
   if (typeof ref !== "string" || !ref.startsWith(PREFIX)) return null;
-  // A chain may name an INSTANCE of a library module (`@mediatek/audio/x:warm`); the folder to
-  // fetch is the module's, and the instance travels inside it.
+  // A chain may name a NODE of a library module (`@mediatek/audio/x:warm`); the folder to
+  // fetch is the module's, and the node travels inside it.
   const { module } = splitModuleKey(ref);
   return module.length > PREFIX.length ? module : null;
 }

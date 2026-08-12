@@ -6,7 +6,7 @@
 // used to parse a command back into a name are gone with it.
 //
 // What matters now is the SHAPE of the line, because a person finishes typing it: the arrow has to come first
-// so the instance name lands last, and the line has to end in a space so the cursor sits where that name goes.
+// so the node name lands last, and the line has to end in a space so the cursor sits where that name goes.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -18,7 +18,7 @@ import {
 const arrow: PendingInsert = { before: "melody", after: "OUT" };
 
 describe("the line the + pre-writes", () => {
-  it("names the arrow first, so the instance name is what the user is left typing", () => {
+  it("names the arrow first, so the node name is what the user is left typing", () => {
     const line = moduleInsertCommand(
       arrow,
       "audio",
@@ -30,7 +30,7 @@ describe("the line the + pre-writes", () => {
     );
     // The trailing space is load-bearing: it is where the cursor lands.
     expect(line.endsWith(" ")).toBe(true);
-    // Six tokens written; the instance name the user types becomes the seventh and last, which is how a
+    // Six tokens written; the node name the user types becomes the seventh and last, which is how a
     // person expects to finish a command.
     expect(line.trim().split(/\s+/)).toHaveLength(6);
   });
@@ -64,7 +64,7 @@ describe("the line a right-click on empty canvas pre-writes", () => {
 
   it("omits the extends-ref for a module this project already has", () => {
     // Which leaves ONE optional for the user to type — and the command reads it by shape,
-    // so a name with no slash is an instance rather than a ref that doesn't exist.
+    // so a name with no slash is a node rather than a ref that doesn't exist.
     expect(modulePlaceCommand("audio", "echo")).toBe(
       "module place audio/echo ",
     );

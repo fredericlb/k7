@@ -38,9 +38,9 @@ Donc :
 ```
 chains/blindtest/deformees/blue-monday/
   chains.yaml            "@in" → pitch → wobble → highpass → chorus → overdrive → "@out"
-  instances/pitch.yaml   extends: "@mediatek/audio/utility/pitch-shift"
+  nodes/pitch.yaml   extends: "@mediatek/audio/utility/pitch-shift"
                          params: { "semitones up": 5 }
-  instances/…
+  nodes/…
 ```
 
 ```yaml
@@ -143,8 +143,8 @@ ASIO, ce que `engine/moteur/AGENTS.md` raconte en détail :
 - les six graphes se construisent avec le vrai `GraphBuilder` et n'emploient que des types de
   nœuds que `DspGraph::build` accepte ;
 - les **16 chaînes** passent par `chainSteps()` — la fonction même que le dessin et la lecture
-  d'une variante emploient — et rendent la suite d'étapes attendue ; chaque `instances/*.yaml`
-  nomme un module qui existe, sans orphelin ni étape sans instance ;
+  d'une variante emploient — et rendent la suite d'étapes attendue ; chaque `nodes/*.yaml`
+  nomme un module qui existe, sans orphelin ni étape sans nœud ;
 - le scan de la médiathèque les liste toutes les 16 dans la famille `chains`, donc st0 les
   montre ;
 - côté sessions, chaque `variant:` de catégorie trouve, pour chaque morceau concerné, soit un

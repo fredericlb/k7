@@ -1,6 +1,6 @@
 // chainsVocabulary.ts — what a segment in a médiathèque chain may point AT, read off the
 // template itself. Its own adapter rather than `schemaVocabulary`'s hints, which describe a
-// l8 project: a template's nodes are the instances beside it, and the file names them all.
+// l8 project: a template's nodes are the nodes beside it, and the file names them all.
 // See ../docs/completion.md.
 
 import { CHAIN_OUT } from "@studio/song/chainsGraph";
@@ -17,8 +17,8 @@ import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
  * would offer nothing exactly while you are typing the line that needs it. `ChainView` beside
  * it holds its drawing the same way.
  *
- * The keys and not the `instances/` folder because only the frontend is asking: a listing
- * carries a chain's instance COUNT and not their names, and a node has to be declared here to
+ * The keys and not the `nodes/` folder because only the frontend is asking: a listing
+ * carries a chain's node COUNT and not their names, and a node has to be declared here to
  * be in the graph at all.
  */
 export function chainNodes(text: string): string[] | null {

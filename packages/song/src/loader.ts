@@ -28,12 +28,12 @@ import {
 import {
   categoryForRole,
   FILE_PARAMS,
-  INSTANCE_SEP,
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
   moduleKey,
   moduleRefOf,
+  NODE_SEP,
   type PortDef,
   slugifyPluginName,
   splitModuleKey,
@@ -56,8 +56,8 @@ import { formatIssue } from "./yaml/moduleFile";
 import {
   entityFileFor,
   entityFiles,
-  instanceFiles,
   moduleFileFor,
+  nodeFiles,
   readModuleFile,
 } from "./yaml/moduleIO";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
@@ -69,12 +69,12 @@ import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
 export {
   categoryForRole,
   FILE_PARAMS,
-  INSTANCE_SEP,
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
   moduleKey,
   moduleRefOf,
+  NODE_SEP,
   slugifyPluginName,
   splitModuleKey,
 };
@@ -196,8 +196,8 @@ export function resolveModuleAsset(
  *
  * They are read out of `params:`, because that is what they are: a .nam model is one of the
  * plugin's controls, sitting in the panel beside Input and Output. Its own top-level field made
- * it a second kind of thing to find, edit and merge — and `params` merges per key, so an
- * instance overriding just the model is now the same edit as overriding a gain.
+ * it a second kind of thing to find, edit and merge — and `params` merges per key, so a
+ * node overriding just the model is now the same edit as overriding a gain.
  *
  * Everything resolves inside the module's OWN folder. A module that carries its amp profile is
  * self-contained: it travels through a fork, an upload to the médiathèque and a sync onto
@@ -257,7 +257,7 @@ export function listModuleAssets(folderAbs: string): string[] {
   return out.sort();
 }
 
-// Read an external `modules_from` tree — only the GENERIC module.yaml, since instances aren't `extends` targets.
+// Read an external `modules_from` tree — only the GENERIC module.yaml, since nodes aren't `extends` targets.
 function readModuleTree(
   dir: string,
   root: string,
@@ -299,7 +299,7 @@ function readModuleTree(
     // Seam cast: the value passed the module schema, so it fits LoadedModule's authored half.
     const decorate = (
       value: Record<string, unknown>,
-      instance?: string,
+      node?: string,
     ): LoadedModule =>
       ({
         ...value,
@@ -313,10 +313,10 @@ function readModuleTree(
         // says whether a midi-input module gives back audio or midi (see graph's toModule).
         category: type,
         file: leaf,
-        instance,
-        // A .vstpreset in the module's folder is its default state; an instance's own wins.
+        node,
+        // A .vstpreset in the module's folder is its default state; a node's own wins.
         preset: [
-          join(folder, `${instance ?? leaf}.vstpreset`),
+          join(folder, `${node ?? leaf}.vstpreset`),
           join(folder, `${leaf}.vstpreset`),
         ].find(existsSync),
         // …and its DSP source, resolved against ITS OWN folder — unlike an asset, which follows the opened song.
@@ -329,10 +329,10 @@ function readModuleTree(
       }) as LoadedModule;
 
     out[key(type, sub)] = decorate(m);
-    // The instances beside module.yaml, keyed like a local one ("IN:in-1") under the ref.
-    // Without these an inherited instance is unnameable: `module populate` files one io/IN
+    // The nodes beside module.yaml, keyed like a local one ("IN:in-1") under the ref.
+    // Without these an inherited node is unnameable: `module populate` files one io/IN
     // per interface input, and a chain has to be able to say WHICH input it takes.
-    for (const { instance, file: ifile } of instanceFiles(
+    for (const { node, file: ifile } of nodeFiles(
       folder,
       `${relDir}/${leaf}`,
     )) {
@@ -340,7 +340,7 @@ function readModuleTree(
       if (!value || typeof value !== "object") continue;
       const merged = mergeAuthored(m, value);
       merged.ui = value.ui ?? m.ui; // a grid is taken whole, never half-merged (see loadModules)
-      out[moduleKey(key(type, sub), instance)] = decorate(merged, instance);
+      out[moduleKey(key(type, sub), node)] = decorate(merged, node);
     }
   };
 
@@ -367,7 +367,7 @@ function readModuleTree(
   }
 }
 
-/** What one read of `modules/` + `instances/` produced: the map, and the two things `validate` judges. */
+/** What one read of `modules/` + `nodes/` produced: the map, and the two things `validate` judges. */
 interface ModulesRead {
   out: Record<string, LoadedModule>;
   /** AS AUTHORED — what validatePlugins reads, kept so a cached read can still be validated. */
@@ -375,7 +375,7 @@ interface ModulesRead {
   yamlIssues: string[];
 }
 
-// Read a project's modules into a { name: module } map, generic + instances both keyed in (see docs/loader.md).
+// Read a project's modules into a { name: module } map, generic + nodes both keyed in (see docs/loader.md).
 function readModules(dir: string): ModulesRead {
   const out: Record<string, LoadedModule> = {};
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
@@ -424,7 +424,7 @@ function readModules(dir: string): ModulesRead {
     for (const { name, folder } of folders) {
       const relDir = `modules/${type}/${name}`;
       // A module folder is its `module.yaml` and nothing else now. Uses of a module are
-      // files in the project's flat `instances/` — see the pass below and docs/instances.md.
+      // files in the project's flat `nodes/` — see the pass below and docs/nodes.md.
       const generic = moduleFileFor(folder, relDir, "module");
       let module: Record<string, unknown> | null = null;
       if (generic) {
@@ -435,17 +435,17 @@ function readModules(dir: string): ModulesRead {
         module = value;
         raw.push({ rel: generic.rel, module });
       }
-      // Adds the LOADER's fields to the generic or a merged instance (see docs/loader.md).
+      // Adds the LOADER's fields to the generic or a merged node (see docs/loader.md).
       const decorate = (
         value: Record<string, unknown>,
-        instance?: string,
+        node?: string,
       ): LoadedModule => {
         // The module's OWN folder name, which is the last segment of `name` — a filed module
         // is keyed `amps/neural-amp-modeler` and its preset sits beside its module.yaml as
         // `neural-amp-modeler.vstpreset`, not under a further `amps/` that is not there.
         const leaf = name.slice(name.lastIndexOf("/") + 1);
-        // Own preset wins, else the generic's — so a UI edit on one instance never touches a sibling's.
-        const own = join(folder, `${instance ?? leaf}.vstpreset`);
+        // Own preset wins, else the generic's — so a UI edit on one node never touches a sibling's.
+        const own = join(folder, `${node ?? leaf}.vstpreset`);
         const generic = join(folder, `${leaf}.vstpreset`);
         const preset = existsSync(own)
           ? own
@@ -455,13 +455,13 @@ function readModules(dir: string): ModulesRead {
         // Seam cast: `value` passed the module schema (or a merge of two structs that did).
         return {
           ...value,
-          name: moduleKey(name, instance), // the FOLDER (+ file) names it — not a field
+          name: moduleKey(name, node), // the FOLDER (+ file) names it — not a field
           rack: value.rack // resolved on this copy, not `raw`, so validation sees the authored filename
             ? resolveRackAudio(value.rack as RawRack, folder)
             : undefined,
           category: type, // the module's type folder (io|instruments|audio|transformers|midi)
           file: name, // the module's folder name (modules/<category>/<file>/)
-          instance, // undefined for the generic; the <instance>.yaml basename otherwise
+          node, // undefined for the generic; the <node>.yaml basename otherwise
           kind: meta.kind, // derived from the type folder, like a base module others `extends`
           ...portsOf(value, meta),
           preset,
@@ -477,7 +477,7 @@ function readModules(dir: string): ModulesRead {
       if (module) out[name] = decorate(module);
     }
   }
-  loadInstances(dir, out, raw, yamlIssues);
+  loadNodes(dir, out, raw, yamlIssues);
   applyUiLibrary(dir, out, (m) => moduleOwnRefs(m));
   return { out, raw, yamlIssues };
 }
@@ -529,56 +529,56 @@ export function loadModules(
   return cloneModules(read.out);
 }
 
-/** The project's uses of modules: `instances/<name>.yaml`, flat, filename IS the name. */
-export const INSTANCES_DIR = "instances";
+/** The project's uses of modules: `nodes/<name>.yaml`, flat, filename IS the name. */
+export const NODES_DIR = "nodes";
 
 /**
- * Load `instances/` into `out`, keyed by the bare filename — the name a chain writes.
+ * Load `nodes/` into `out`, keyed by the bare filename — the name a chain writes.
  *
- * FLAT, and that is the point: an instance no longer mirrors the tree of what it uses, so a
+ * FLAT, and that is the point: a node no longer mirrors the tree of what it uses, so a
  * project's uses are one folder you can read at a glance instead of leaves scattered under
  * `modules/<type>/<name>/`. The file is a module file — the same schema as `module.yaml`,
- * which is what lets an instance be self-contained.
+ * which is what lets a node be self-contained.
  *
  * The loader deliberately does NOT decorate these with `category`, `kind` or `inputs`. A flat
- * folder has no type folder to read them off, so they arrive from whatever the instance
+ * folder has no type folder to read them off, so they arrive from whatever the node
  * `extends`, through resolveModule — leaving them absent here is what lets that inheritance
- * happen (see moduleResolve's OWN_ONLY). An instance that extends nothing has no ports, and
+ * happen (see moduleResolve's OWN_ONLY). A node that extends nothing has no ports, and
  * `validate` is what says so.
  *
- * `preset`, `jsdsp` and `assets/` resolve against `instances/` itself: what belongs to a use
+ * `preset`, `jsdsp` and `assets/` resolve against `nodes/` itself: what belongs to a use
  * of a module sits beside that use.
  */
-function loadInstances(
+function loadNodes(
   dir: string,
   out: Record<string, LoadedModule>,
   raw: { rel: string; module: Record<string, unknown> }[],
   yamlIssues: string[],
 ): void {
-  const folder = join(dir, INSTANCES_DIR);
+  const folder = join(dir, NODES_DIR);
   if (!existsSync(folder) || !statSync(folder).isDirectory()) return;
-  for (const { id: instance, file } of entityFiles(folder, INSTANCES_DIR)) {
+  for (const { id: node, file } of entityFiles(folder, NODES_DIR)) {
     const read = readModuleFile(file);
     yamlIssues.push(...read.issues);
     const value = read.value;
     if (!value || typeof value !== "object") continue;
-    // A module folder and an instance file cannot both answer to one name: a chain naming it
+    // A module folder and a node file cannot both answer to one name: a chain naming it
     // would be ambiguous, and silently letting one win is how a project plays the wrong thing.
-    if (instance in out) {
+    if (node in out) {
       yamlIssues.push(
-        `${file.rel}: '${instance}' is already a module in this project — an instance cannot take its name`,
+        `${file.rel}: '${node}' is already a module in this project — a node cannot take its name`,
       );
       continue;
     }
     raw.push({ rel: file.rel, module: value });
-    const preset = join(folder, `${instance}.vstpreset`);
-    out[instance] = {
+    const preset = join(folder, `${node}.vstpreset`);
+    out[node] = {
       ...value,
       // The FILE names it, exactly as it does for a track or a clip — never a `name:` field.
-      name: instance,
-      instance,
-      file: instance,
-      home: INSTANCES_DIR, // where its .vstpreset is saved — see nodeProject's presetSave
+      name: node,
+      node,
+      file: node,
+      home: NODES_DIR, // where its .vstpreset is saved — see nodeProject's presetSave
       rack: value.rack
         ? resolveRackAudio(value.rack as RawRack, folder)
         : undefined,
@@ -595,7 +595,7 @@ function loadInstances(
  * The refs a local module's OWN FILES may be filed under, best first.
  *
  * Its own — a module this project wrote has its own face. Then the module it DERIVES
- * from: a folder of instances is one use of something the engine or the library provides,
+ * from: a folder of nodes is one use of something the engine or the library provides,
  * and a panel is drawn for the thing, not for each use of it. Without the fallback, moving
  * a project off the generated catalogue orphaned every panel that had been drawn for a
  * shared module — the same "No Options over a panel that is right there" as before, one
@@ -606,14 +606,14 @@ function loadInstances(
  */
 export function moduleOwnRefs(m: LoadedModule): string[] {
   const from = typeof m.extends === "string" ? m.extends : "";
-  // A project's own module answers to two refs — bare and "@project/…" — and an instance may
+  // A project's own module answers to two refs — bare and "@project/…" — and a node may
   // have been written with either. Both are tried, so a panel drawn once is found either way.
   const spellings = from
     ? from.startsWith("@project/")
       ? [from, from.slice("@project/".length)]
       : [from, `@project/${from}`]
     : [];
-  // An instance has no type folder, so it has no ref of its own to be filed under: its panel
+  // A node has no type folder, so it has no ref of its own to be filed under: its panel
   // is the panel of what it uses. Without this it asked for "undefined/<name>" and got nothing.
   if (!m.category)
     return spellings.length ? spellings : [engineRef(String(m.file))];
@@ -631,7 +631,7 @@ export function moduleOwnRefs(m: LoadedModule): string[] {
  * for the same reason an inherited grid does: half of one author's layout inside another's is a grid nobody
  * drew.
  *
- * Instances share their generic's ref, so a panel drawn once shows on every instance — which is what the
+ * Nodes share their generic's ref, so a panel drawn once shows on every node — which is what the
  * generic-wins rule already said, back when panels lived in the module file.
  */
 function applyUiLibrary(
@@ -773,7 +773,7 @@ export function notSupportedModules(dir: string): Diagnostic[] {
     if (!p || typeof p !== "object") continue;
     if (String(p.type ?? "").toLowerCase() !== "not_supported") continue;
     out.push({
-      file: `modules/${m.category}/${m.file}/${m.instance ?? "module"}.yaml`, // the entry's OWN file, not the generic's
+      file: `modules/${m.category}/${m.file}/${m.node ?? "module"}.yaml`, // the entry's OWN file, not the generic's
       line: 1,
       col: 1,
       severity: "warning",
@@ -784,10 +784,10 @@ export function notSupportedModules(dir: string): Diagnostic[] {
 }
 
 /**
- * A project's LANES, keyed by instance name — what `loadTracks` used to hand back.
+ * A project's LANES, keyed by node name — what `loadTracks` used to hand back.
  *
- * There is no `tracks/` folder to open: a lane is an instance of a `@studio/…-track` module, read
- * by `loadInstances` with every other instance, so the whole of this is fold the `extends` chains
+ * There is no `tracks/` folder to open: a lane is a node of a `@studio/…-track` module, read
+ * by `loadNodes` with every other node, so the whole of this is fold the `extends` chains
  * and keep the ones that came out a lane. See docs/trackModules.md.
  */
 export function loadLanes(dir: string, validate = false): Record<string, Lane> {
@@ -833,7 +833,7 @@ export function loadSettings(
 }
 
 // Read one entity file. Nothing validates here any more — the one kind that did was the track,
-// and a lane is a module now, vetted by `parseModule` like every other instance.
+// and a lane is a module now, vetted by `parseModule` like every other node.
 function readEntityFile(
   file: { path: string; rel: string },
   _sub: string,
@@ -1028,14 +1028,14 @@ function readModuleRefs(
     ...catalogue,
   };
 
-  // Re-key by ref; INSTANCES are skipped, since one would silently replace its own generic's key.
+  // Re-key by ref; NODES are skipped, since one would silently replace its own generic's key.
   //
   // TWO keys for one module, and the second is the point: a project's own modules were named bare
   // (`audio/reverb`) before the levels were spelled out, and every chains.yaml already written says
   // them that way. `@project/audio/reverb` is the same module under its explicit level — the form
   // new files are written in — so both resolve and nothing had to be migrated.
   for (const m of Object.values(loadModules(dir))) {
-    if (m.instance) continue;
+    if (m.node) continue;
     const ref =
       m.category === "io" ? String(m.file) : `${m.category}/${m.file}`;
     out[ref] = m;
@@ -1061,10 +1061,10 @@ function readModuleRefs(
   // is drawn for every project that inherits it. loadModules already overlaid the local half; this catches the
   // inherited ones, and re-overlaying the locals is a no-op.
   //
-  // Minus the INSTANCE: a panel is drawn for a module, and an instance is one use of it. This map keys an
-  // inherited instance as "@engine/io/IN:in-2", which no panel answers to — so `IN`'s grid never reached the
-  // twenty inputs `module populate` files, and every one of them drew "No Options". A local instance never had
-  // the problem, because loadModules keys those by FOLDER, which a generic and its instances already share.
+  // Minus the NODE: a panel is drawn for a module, and a node is one use of it. This map keys an
+  // inherited node as "@engine/io/IN:in-2", which no panel answers to — so `IN`'s grid never reached the
+  // twenty inputs `module populate` files, and every one of them drew "No Options". A local node never had
+  // the problem, because loadModules keys those by FOLDER, which a generic and its nodes already share.
   applyUiLibrary(dir, out, (_m, ref) => splitModuleKey(ref).module);
   return out;
 }
@@ -1079,16 +1079,16 @@ export const projectModules = (dir: string): Record<string, LoadedModule> =>
  * The plugin refs a new module can `extends`, out of a ref map.
  *
  * io modules are usable directly but are not `extends` targets, and neither is an
- * INSTANCE — you extend a module, then instantiate. Two routes ask this: the picker's
+ * NODE — you extend a module, then instantiate. Two routes ask this: the picker's
  * own `/base-modules` (so a click does not pay for the whole of hints()) and the command
  * completions. They differ in what they already have loaded, never in the answer, which
  * is why the RULE lives here and not twice.
  */
 export function baseModuleRefs(
-  byRef: Record<string, { kind?: string; instance?: string }>,
+  byRef: Record<string, { kind?: string; node?: string }>,
 ): string[] {
   return Object.entries(byRef)
-    .filter(([, m]) => m?.kind === "plugin" && !m?.instance)
+    .filter(([, m]) => m?.kind === "plugin" && !m?.node)
     .map(([ref]) => ref)
     .sort();
 }
@@ -1249,20 +1249,20 @@ export function createModuleFile(
 }
 
 /**
- * Create one USE of a module: `instances/<instance>.yaml`.
+ * Create one USE of a module: `nodes/<node>.yaml`.
  *
  * FLAT, whatever it is a use of. `category`/`module` say WHAT is being instantiated, not where
- * the file lands — an instance no longer mirrors the tree of the thing it uses, so the two are
+ * the file lands — a node no longer mirrors the tree of the thing it uses, so the two are
  * now separate questions. A local module is named with `extends`; a module the engine provides
  * is inlined as `plugin:`, because the scan is a discovery aid and not the project's memory of
- * what it uses. Either way the file is a module file, so anything a `module.yaml` may say, an
- * instance may say too. See docs/instances.md.
+ * what it uses. Either way the file is a module file, so anything a `module.yaml` may say, a
+ * node may say too. See docs/nodes.md.
  */
-export function createModuleInstance(
+export function createNode(
   dir: string,
   category: string,
   module: string,
-  instance: string,
+  node: string,
   // Injected for the same reason loadModuleRefs takes it: what the engine offers is
   // AMBIENT, and a test asking "does this refuse an unknown name" must not depend on
   // what happens to be installed here.
@@ -1272,9 +1272,9 @@ export function createModuleInstance(
     throw new Error(
       `unknown module category '${category}' — use one of: ${Object.keys(MODULE_TYPES).join(", ")}`,
     );
-  if (!/^[A-Za-z0-9_-]+$/.test(instance))
+  if (!/^[A-Za-z0-9_-]+$/.test(node))
     throw new Error(
-      `invalid instance name '${instance}' — letters, digits, '_' and '-' only`,
+      `invalid node name '${node}' — letters, digits, '_' and '-' only`,
     );
   const local = moduleFileFor(
     join(dir, "modules", category, module),
@@ -1289,34 +1289,32 @@ export function createModuleInstance(
     );
   // The name is the KEY a chain writes, so it has to be free across the whole project, not
   // merely within a folder — a module already answering to it would be shadowed.
-  if (instance in loadModules(dir))
-    throw new Error(
-      `'${instance}' already names a module or instance in this project`,
-    );
-  const rel = `${INSTANCES_DIR}/${instance}.yaml`;
+  if (node in loadModules(dir))
+    throw new Error(`'${node}' already names a module or node in this project`);
+  const rel = `${NODES_DIR}/${node}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   const plugin = fromEngine?.plugin;
   // The explicit level, which is the form new files are written in — see loadModuleRefs.
   const ref = `@project/${moduleRefOf(category, module)}`;
   const body = local
-    ? `# ${instance}: one use of module "${category}/${module}".\n` +
+    ? `# ${node}: one use of module "${category}/${module}".\n` +
       `# It inherits everything that module says — state only what THIS use changes, e.g.\n` +
       `#   params:\n` +
       `#     Filter Freq: 69\n` +
       `extends: ${JSON.stringify(ref)}\n`
-    : `# ${instance}: one use of "${module}", a module the engine provides.\n` +
+    : `# ${node}: one use of "${module}", a module the engine provides.\n` +
       `# The plugin is named here so the project says what it uses, whatever this machine\n` +
       `# has scanned. Add params: to set it.\n` +
       `plugin:\n` +
       `  type: ${JSON.stringify(String(plugin?.type ?? ""))}\n` +
       `  name: ${JSON.stringify(String(plugin?.name ?? ""))}\n`;
-  mkdirSync(join(dir, INSTANCES_DIR), { recursive: true });
+  mkdirSync(join(dir, NODES_DIR), { recursive: true });
   writeFileSync(join(dir, rel), body, "utf8");
   return rel;
 }
 
-// Clone a module folder (instances, .vstpreset, rack audio) under a new name, rewriting `name:` if present.
+// Clone a module folder (nodes, .vstpreset, rack audio) under a new name, rewriting `name:` if present.
 export function cloneModuleFile(
   dir: string,
   category: string,

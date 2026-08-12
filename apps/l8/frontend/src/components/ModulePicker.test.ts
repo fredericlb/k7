@@ -81,14 +81,14 @@ describe("buildTree", () => {
 
   it("groups the project's own base modules under `current`, first", () => {
     // A ref with no namespace is one this project defines. It is a real choice — you
-    // instance it rather than creating anything — so it leads the first level.
+    // node it rather than creating anything — so it leads the first level.
     const tree = buildTree(["instruments/synth", ...CATALOGUE]);
     expect(tree.map((n) => n.label)).toEqual(["current", "@engine"]);
     const synth = tree[0].children?.find((t) => t.label === "instruments")
       ?.children?.[0];
     expect(synth?.entry).toEqual({
       ref: "instruments/synth",
-      namespace: null, // ⇒ instance it directly; nothing to create first
+      namespace: null, // ⇒ node it directly; nothing to create first
       type: "instruments",
       name: "synth",
     });

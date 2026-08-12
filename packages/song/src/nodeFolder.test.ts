@@ -2,21 +2,21 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createModuleInstance, loadModuleRefs, loadModules } from "./loader";
+import { createNode, loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
-import { writeInstance } from "./testSupport";
+import { writeNode } from "./testSupport";
 
-// A project's uses of modules, in the flat `instances/` folder.
+// A project's uses of modules, in the flat `nodes/` folder.
 //
 // This is how a project uses a module the ENGINE provides, and it is why the folder can be
 // flat at all: `module populate` used to file 254 wrappers into the shared library so a
 // project could `extends` one, and each wrapper carried two facts the engine already knew.
 // The project writes only what is its own — which plugin, and how it is set.
 //
-// What used to make this work was the type FOLDER: an instance sat at
-// `modules/<type>/<name>/<instance>.yaml` and read `kind`, `inputs` and `category` off the
-// path. A flat folder has no such path, so those arrive from what the instance `extends` —
-// and an instance that extends nothing has only what it states itself.
+// What used to make this work was the type FOLDER: a node sat at
+// `modules/<type>/<name>/<node>.yaml` and read `kind`, `inputs` and `category` off the
+// path. A flat folder has no such path, so those arrive from what the node `extends` —
+// and a node that extends nothing has only what it states itself.
 
 let dir: string;
 
@@ -30,13 +30,13 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("the instances folder", () => {
+describe("the nodes folder", () => {
   it("loads each file as one use, keyed by its filename", () => {
-    writeInstance(dir, "lead", {
+    writeNode(dir, "lead", {
       plugin: { type: "internal", name: "Neural Amp Modeler" },
       params: { Input: -5 },
     });
-    writeInstance(dir, "rhythm", {
+    writeNode(dir, "rhythm", {
       plugin: { type: "internal", name: "Neural Amp Modeler" },
       params: { Input: 2 },
     });
@@ -48,9 +48,9 @@ describe("the instances folder", () => {
   });
 
   it("carries the identity of the plugin, so the project stands on its own", () => {
-    // The scan cache is machine-local. If the instance did not say WHICH plugin, a
+    // The scan cache is machine-local. If the node did not say WHICH plugin, a
     // project opened on a machine that has never scanned would not know what to load.
-    writeInstance(dir, "slap", { plugin: { type: "internal", name: "ADT" } });
+    writeNode(dir, "slap", { plugin: { type: "internal", name: "ADT" } });
     expect(loadModules(dir).slap.plugin).toEqual({
       type: "internal",
       name: "ADT",
@@ -58,7 +58,7 @@ describe("the instances folder", () => {
   });
 
   it("takes kind, inputs and category from what it EXTENDS", () => {
-    // The replacement for the type folder, and the reason an instance no longer has to be
+    // The replacement for the type folder, and the reason a node no longer has to be
     // filed under the module it uses.
     mkdirSync(join(dir, "modules", "instruments", "mini"), { recursive: true });
     writeFileSync(
@@ -66,7 +66,7 @@ describe("the instances folder", () => {
       "plugin:\n  type: vst3\n  name: Mini V3\n",
       "utf8",
     );
-    writeInstance(dir, "solo", { extends: "@project/instruments/mini" });
+    writeNode(dir, "solo", { extends: "@project/instruments/mini" });
     const resolved = resolveModuleMap(
       loadModules(dir),
       loadModuleRefs(dir, {}),
@@ -81,16 +81,16 @@ describe("the instances folder", () => {
   });
 
   it("resolves an explicit library `extends` — that is how a shared module is used", () => {
-    writeInstance(dir, "gtr", { extends: "@library/audio/filter/auto-wah" });
+    writeNode(dir, "gtr", { extends: "@library/audio/filter/auto-wah" });
     expect(loadModules(dir).gtr.extends).toBe("@library/audio/filter/auto-wah");
   });
 
   it("ignores a folder that holds nothing", () => {
-    mkdirSync(join(dir, "instances"), { recursive: true });
+    mkdirSync(join(dir, "nodes"), { recursive: true });
     expect(loadModules(dir)).toEqual({});
   });
 
-  it("no longer reads an instance filed beside a module.yaml", () => {
+  it("no longer reads a node filed beside a module.yaml", () => {
     // The old layout, written by hand. It is not a second way of saying the same thing —
     // it is simply not read, so a project carrying one is silently short a step until it
     // moves. That is the clean cut this change made deliberately.
@@ -125,9 +125,9 @@ describe("creating one", () => {
     },
   };
 
-  it("writes the plugin into the instance, with no module to inherit it from", () => {
-    const rel = createModuleInstance(dir, "audio", "adt", "slap", CATALOGUE);
-    expect(rel).toBe("instances/slap.yaml");
+  it("writes the plugin into the node, with no module to inherit it from", () => {
+    const rel = createNode(dir, "audio", "adt", "slap", CATALOGUE);
+    expect(rel).toBe("nodes/slap.yaml");
     const m = loadModules(dir);
     // The identity lands in the FILE. The scan is a discovery aid, not the project's
     // memory of what it uses — a machine that has never scanned still opens this song.
@@ -137,7 +137,7 @@ describe("creating one", () => {
 
   it("refuses a name neither the project nor the engine has", () => {
     expect(() =>
-      createModuleInstance(dir, "audio", "no-such-plugin", "x", CATALOGUE),
+      createNode(dir, "audio", "no-such-plugin", "x", CATALOGUE),
     ).toThrow(/neither in this project nor one the engine offers/);
   });
 });

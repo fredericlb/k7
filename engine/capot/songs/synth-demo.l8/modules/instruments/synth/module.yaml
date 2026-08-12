@@ -5,8 +5,8 @@
 # A module file is a flat struct of its own attributes, with no `package` clause —
 # that keeps sibling modules in this folder from colliding on `name`.
 #
-# Two INSTANCES use this module — instances/lead.yaml and instances/pad.yaml, which
-# chains.yaml names "lead" and "pad". They live in the project's flat instances/ folder
+# Two NODES use this module — nodes/lead.yaml and nodes/pad.yaml, which
+# chains.yaml names "lead" and "pad". They live in the project's flat nodes/ folder
 # rather than beside this file, and reach it through `extends`; whatever you change here
 # reaches both.
 extends: instruments/fourosc
@@ -15,8 +15,8 @@ extends: instruments/fourosc
 # TODO: automate the filter cutoff instead of leaving it static; try a sub-oscillator an
 # octave down.
 #
-# Was `docs:`/`todos:`, read by the Docs panel. To say this ON THE GRAPH instead, add an
-# instance of `@studio/doc` with a `content:` and wire this module into it.
+# Was `docs:`/`todos:`, read by the Docs panel. To say this ON THE GRAPH instead, add a
+# node of `@studio/doc` with a `content:` and wire this module into it.
 # Automation. The hand-drawn `sweep` curve rides the filter cutoff — "Filter Freq"
 # has a widget in the graph, so the curve's arrow lands on it. The bipolar `wobble`
 # LFO detunes osc 1; "Osc1 Tune" has no widget, so its arrow points at the module

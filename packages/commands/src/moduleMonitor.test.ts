@@ -36,7 +36,7 @@ const localFile = () => join(dir, "modules", "io", "desk", "module.yaml");
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-monitor-"));
   dir = join(root, "song");
-  mkdirSync(join(dir, "instances"), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n  modules_from:\n    - ../_modules\n",
@@ -48,7 +48,7 @@ beforeEach(() => {
     "utf8",
   );
   writeFileSync(
-    join(dir, "instances", "gtr.yaml"),
+    join(dir, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
@@ -75,7 +75,7 @@ describe("module monitor", () => {
   });
 
   it("keeps what else the file says", async () => {
-    // The instance's `channel:` is the whole reason it exists; a write that lost it would
+    // The node's `channel:` is the whole reason it exists; a write that lost it would
     // silently move the input to another socket.
     await runCommand(`module monitor ${IN} off`, host(), "cli");
     const text = readFileSync(sharedFile(), "utf8");

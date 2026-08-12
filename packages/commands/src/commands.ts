@@ -31,7 +31,7 @@ import {
 import {
   cloneModuleFile,
   createModuleFile,
-  createModuleInstance,
+  createNode,
   createTrackFile,
   FILE_PARAMS,
   loadChains,
@@ -105,7 +105,7 @@ import { freezeUpstreamRender } from "./render";
 import { describeTimeline, describeTrack } from "./timeline";
 
 // Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
-// module's own file — an instance's folder is `instances/`, shared by every instance in the song,
+// module's own file — a node's folder is `nodes/`, shared by every node in the song,
 // and a module from a catalogue has a folder shared by every song. A render belongs to THIS
 // project, so it lives where the project can see all of them at once.
 const FROZEN_DIR = "renders";
@@ -132,7 +132,7 @@ export interface CommandHost {
   showNativePluginUI(id: string): void | Promise<void>;
   getPlugins(filter?: string): Promise<PluginInfo[]>;
   // The audio interfaces the engine can see, for `module populate` — it files one io/IN
-  // instance per input of the one in use. Optional: a host with no engine link simply
+  // node per input of the one in use. Optional: a host with no engine link simply
   // populates the plugin modules and says the inputs were skipped.
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
   // Transport config for git, merged over the env: the web host pins GIT_SSH_COMMAND to the user's deploy key,
@@ -237,22 +237,22 @@ function arrowError(
 }
 
 /**
- * Sort the two trailing optionals — `[extends-ref] [instance-name]` — by SHAPE rather than by position.
+ * Sort the two trailing optionals — `[extends-ref] [node-name]` — by SHAPE rather than by position.
  *
- * A ref is a path (`@engine/audio/amp/nam`, `audio/nam`); an instance name is one segment, letters/digits/_/-
- * only, which createModuleInstance enforces. So the slash tells them apart, and it has to: the picker writes no
- * ref for a module the project already has, and the instance the user then types landed in the ref slot — which
+ * A ref is a path (`@engine/audio/amp/nam`, `audio/nam`); a node name is one segment, letters/digits/_/-
+ * only, which createNode enforces. So the slash tells them apart, and it has to: the picker writes no
+ * ref for a module the project already has, and the node the user then types landed in the ref slot — which
  * came back as "module 'echo' already exists, drop the extends-ref" about a ref they never wrote.
  */
 function splitOptionals(rest: (string | undefined)[]): {
   extendsRef?: string;
-  instance?: string;
+  node?: string;
 } {
   const args = rest.filter((a): a is string => !!a);
   const isRef = (s: string) => s.includes("/") || s.startsWith("@");
-  if (args.length > 1) return { extendsRef: args[0], instance: args[1] };
+  if (args.length > 1) return { extendsRef: args[0], node: args[1] };
   if (!args.length) return {};
-  return isRef(args[0]) ? { extendsRef: args[0] } : { instance: args[0] };
+  return isRef(args[0]) ? { extendsRef: args[0] } : { node: args[0] };
 }
 
 /**
@@ -303,7 +303,7 @@ function existingExtends(
  * Create the module a `+` picked and hand back the name chains.yaml should use, or the message to show instead.
  *
  * The picker offers two kinds of thing and this handles both: something from the CATALOGUE (no local folder yet
- * — create one extending it) and a module this project already has (instance it, do not recreate it). Existing
+ * — create one extending it) and a module this project already has (node it, do not recreate it). Existing
  * plus an `extends-ref` is neither, and is reported rather than silently ignored.
  *
  * Shared by `module insert` and `module place`: the two differ only in what they do with the name afterwards,
@@ -314,37 +314,37 @@ function makeModule(
   target: string,
   ...rest: (string | undefined)[]
 ): { ref: string; rel: string | null } | { error: string } {
-  const { extendsRef, instance } = splitOptionals(rest);
+  const { extendsRef, node } = splitOptionals(rest);
   const segs = target.split("/");
   if (segs.length !== 2 || !segs[0] || !segs[1])
     return { error: `'${target}' is not <category>/<name>` };
   const [category, name] = segs;
   const exists = existsSync(join(songPath, "modules", category, name));
   if (exists && extendsRef) {
-    // Naming an INSTANCE makes the ref redundant rather than contradictory: "use the module
+    // Naming a NODE makes the ref redundant rather than contradictory: "use the module
     // that is already there, under this name". Refusing that was a dead end, because the two
-    // optionals are positional once both are given — there was no way to name the instance
+    // optionals are positional once both are given — there was no way to name the node
     // without also passing a ref, and passing one is what the refusal was about.
     const inherits = existingExtends(songPath, category, name);
-    if (!instance)
+    if (!node)
       return {
-        error: `module '${name}' already exists — add an instance name to use it, or drop the extends-ref`,
+        error: `module '${name}' already exists — add a node name to use it, or drop the extends-ref`,
       };
     // …unless it names a DIFFERENT parent, which is a real disagreement and not redundancy:
     // the module cannot be re-parented by instancing it, so acting would ignore what was typed.
     if (inherits && inherits !== extendsRef)
       return {
-        error: `module '${name}' extends '${inherits}', not '${extendsRef}' — drop the extends-ref to instance it as it is`,
+        error: `module '${name}' extends '${inherits}', not '${extendsRef}' — drop the extends-ref to node it as it is`,
       };
   }
   try {
     const rel = exists
       ? null
       : createModuleFile(songPath, category, name, extendsRef);
-    if (instance) createModuleInstance(songPath, category, name, instance);
-    // An instance is named by its FILE alone now — `instances/<instance>.yaml` — so the chain
+    if (node) createNode(songPath, category, name, node);
+    // A node is named by its FILE alone now — `nodes/<node>.yaml` — so the chain
     // says that and nothing about the module it uses.
-    return { ref: instance ? instance : name, rel };
+    return { ref: node ? node : name, rel };
   } catch (e) {
     return { error: `${(e as Error).message} — nothing was changed` };
   }
@@ -1338,7 +1338,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * A module FIELD, not a param: an io module runs no plugin, so there is nothing to send a value to and nothing
    * to patch. The engine learns it by rebuilding the track's input, which is what the reload is for.
    *
-   * The file it writes may be the workspace's SHARED one — `module populate` files one io/IN instance per
+   * The file it writes may be the workspace's SHARED one — `module populate` files one io/IN node per
    * interface channel there, beside the `channel:` that says which channel it is. Whether that input is audible
    * belongs with it: both describe the desk, not the song. Said out loud in the log, because it is the one thing
    * here that reaches past this project.
@@ -1621,7 +1621,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           ? `${module}: ${param} <- ch${binding.ch} cc${binding.cc}  (${rel})`
           : `${module}: ${param} unbound  (${rel})`,
         // The map is the MODULE's, so it plays for every use of it — say so rather than let it be found.
-        `${ref}'s map — shared by every instance of it`,
+        `${ref}'s map — shared by every node of it`,
       ]);
     } catch (e) {
       h.log([`module cc failed: ${(e as Error).message}`]);
@@ -1680,7 +1680,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       // outright rather than left for the reader to notice a new module file.
       ...r.split.map(
         (s) =>
-          `  '${s.module}' was used in ${s.instances.length} chains — split into ${s.instances.join(", ")}`,
+          `  '${s.module}' was used in ${s.nodes.length} chains — split into ${s.nodes.join(", ")}`,
       ),
       ...r.created.map((c) => `  created ${c}`),
       ...r.notes.map((n) => `  note: ${n}`),
@@ -1692,13 +1692,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // module new <category>/<name> scaffolds a BARE module; the author adds an inline plugin, rack or `extends`.
   "module.create": async (a, h) => {
     const usage =
-      "usage: module new <category>/<name> [extends-ref] [instance-name]";
-    // Two optional args, both filled by the graph's module picker: the ref this module INHERITS, and an instance to
-    // create in the same breath — a chain step names `module:instance`, so the picker always asks for one.
-    const [target, extendsRef, instance] = a
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+      "usage: module new <category>/<name> [extends-ref] [node-name]";
+    // Two optional args, both filled by the graph's module picker: the ref this module INHERITS, and a node to
+    // create in the same breath — a chain step names `module:node`, so the picker always asks for one.
+    const [target, extendsRef, node] = a.trim().split(/\s+/).filter(Boolean);
     if (!target) {
       h.log([usage]);
       return;
@@ -1718,12 +1715,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           ? `created ${rel} extending ${extendsRef}`
           : `created ${rel} — add an inline plugin/rack (or an \`extends\`) to give it a sound`,
       ];
-      // The instance comes AFTER the module, whose folder it needs. A failure leaves the module and says so.
-      if (instance) {
-        const irel = createModuleInstance(h.songPath, category, name, instance);
-        log.push(
-          `created ${irel} — use it in a chain as {module: "${instance}"}`,
-        );
+      // The node comes AFTER the module, whose folder it needs. A failure leaves the module and says so.
+      if (node) {
+        const irel = createNode(h.songPath, category, name, node);
+        log.push(`created ${irel} — use it in a chain as {module: "${node}"}`);
       }
       h.log(log);
       await h.reload();
@@ -1732,17 +1727,16 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // module instance new — one USE of an existing module, as `instances/<instance>.yaml`. It names what it uses with
+  // node new — one USE of an existing module, as `nodes/<node>.yaml`. It names what it uses with
   // `extends` and states only what it changes; chains name it by its FILENAME alone.
-  "module.instance": async (a, h) => {
-    const usage =
-      "usage: module instance new <category>/<name> <instance-name>";
+  "node.new": async (a, h) => {
+    const usage = "usage: node new <category>/<name> <node-name>";
     const args = a.trim().split(/\s+/).filter(Boolean);
     if (args.length !== 2) {
       h.log([usage]);
       return;
     }
-    const [target, instance] = args;
+    const [target, node] = args;
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
       h.log([`'${target}' is not <category>/<name>`, usage]);
@@ -1750,20 +1744,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     const [category, module] = segs;
     try {
-      const rel = createModuleInstance(h.songPath, category, module, instance);
-      h.log([`created ${rel} — use it in a chain as {module: "${instance}"}`]);
+      const rel = createNode(h.songPath, category, module, node);
+      h.log([`created ${rel} — use it in a chain as {module: "${node}"}`]);
       await h.reload();
     } catch (e) {
-      h.log([`module instance new failed: ${(e as Error).message}`]);
+      h.log([`node new failed: ${(e as Error).message}`]);
     }
   },
 
   // clone module — copy a module folder (file, .vstpreset, rack audio) into the same category under a new name.
-  // module delete <name|name:instance> — the file, and the graph closed back up around it.
+  // module delete <name|name:node> — the file, and the graph closed back up around it.
   "module.delete": async (a, h) => {
     const key = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!key) {
-      h.log(["usage: module delete <module|module:instance>"]);
+      h.log(["usage: module delete <module|module:node>"]);
       return;
     }
     try {
@@ -1780,12 +1774,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // module instance unlink <node> — out of the signal path, files untouched. The splice is
+  // node unlink <node> — out of the signal path, files untouched. The splice is
   // removeNode's; what this adds is that nothing is deleted, so it goes back with `chain add`.
-  "module.instance.unlink": async (a, h) => {
+  "node.unlink": async (a, h) => {
     const node = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!node) {
-      h.log(["usage: module instance unlink <instance>"]);
+      h.log(["usage: node unlink <node>"]);
       return;
     }
     try {
@@ -1799,7 +1793,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`module instance unlink failed: ${(e as Error).message}`]);
+      h.log([`node unlink failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1917,7 +1911,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * module insert <before> <after> <category>/<name> [extends-ref] [instance]
+   * module insert <before> <after> <category>/<name> [extends-ref] [node]
    *
    * The graph's `+` in ONE command. It used to be two — `module new`, then `chain add` — sent as two HTTP calls
    * with a full project recompile between them, purely because the frontend had to learn the new module's name
@@ -1931,7 +1925,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    */
   "module.insert": async (a, h) => {
     const usage =
-      "usage: module insert <before> <after> <category>/<name> [extends-ref] [instance]";
+      "usage: module insert <before> <after> <category>/<name> [extends-ref] [node]";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length < 3) {
       h.log([usage]);
@@ -1990,7 +1984,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * module place <category>/<name> [extends-ref] [instance]
+   * module place <category>/<name> [extends-ref] [node]
    *
    * The same as `module insert`, minus the arrow: the module is created and written into chains.yaml wired to
    * NOTHING. That is a state the file can now hold (`modules: { x: [] }`), and it is what a right-click on empty
@@ -2001,8 +1995,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * alone — makes a folder nothing mentions, which is the shape a module takes when you have FORGOTTEN it.
    */
   "module.place": async (a, h) => {
-    const usage =
-      "usage: module place <category>/<name> [extends-ref] [instance]";
+    const usage = "usage: module place <category>/<name> [extends-ref] [node]";
     const [target, ...rest] = a.trim().split(/\s+/).filter(Boolean);
     if (!target) {
       h.log([usage]);
@@ -2051,7 +2044,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([arrow]);
       return;
     }
-    // The block must be a real instance: the engine would reject a dangling ref, so catch it with an actionable message.
+    // The block must be a real node: the engine would reject a dangling ref, so catch it with an actionable message.
     // A shared module is named by its ref and lives in moduleRefs until a chain uses it.
     if (!(block in g.modules) && !(block in g.moduleRefs)) {
       h.log([

@@ -1,10 +1,10 @@
 # Track modules — a lane IN the graph
 
-A lane is a module. It lives in `instances/<name>.yaml` like every other use of a module, and
+A lane is a module. It lives in `nodes/<name>.yaml` like every other use of a module, and
 what it `extends` says what kind of lane it is:
 
 ```yaml
-# instances/melody.yaml
+# nodes/melody.yaml
 extends: "@studio/sequence-track"
 color: "#c8a97e"
 clips:
@@ -83,7 +83,7 @@ it feeds that happened to share a name have to be told apart. The repo's own dem
 obvious road — the lane keeps its name, the synth is named for the lane it serves
 (`pad` → `synth-pad`).
 
-## Every lane is an instance of a built-in
+## Every lane is a node of a built-in
 
 None of the five has a file anywhere, which makes them the third such set in the repo after the
 synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) and `@studio/doc`
@@ -93,7 +93,7 @@ The alternative is what settled it, and it is the argument `@studio/doc` already
 project-local `modules/tracks/audio/module.yaml` would be a file every project must scaffold
 before its first lane, and every old project would have to create it by hand.
 
-A lane being an *instance* is not a trick — it is what an instance already is here: one USE of a
+A lane being a *node* is not a trick — it is what a node already is here: one USE of a
 module with its own settings. Its settings happen to be an arrangement.
 
 ## `kind` grew a fourth value
@@ -142,16 +142,16 @@ owns the lane's material would cease to exist.
 
 There is no migration code, deliberately, and every schema is `.strict()` — so a file carrying an
 old field says so by name and by line rather than being read and dropped. This is the outcome this
-repo keeps choosing (see [instances.md](instances.md), which made the same call).
+repo keeps choosing (see [nodes.md](nodes.md), which made the same call).
 
-| was, in `tracks/<id>.yaml` | is, in `instances/<id>.yaml` |
+| was, in `tracks/<id>.yaml` | is, in `nodes/<id>.yaml` |
 |---|---|
 | `type: single` + `contentType: audio` | `extends: "@studio/audio-track"` |
 | `type: single` + `contentType: sequences` | `extends: "@studio/sequence-track"` |
 | `type: strudel` + `contentType: audio` | `extends: "@studio/audio-strudel-track"` |
 | `type: strudel` + `contentType: sequences` | `extends: "@studio/sequence-strudel-track"` |
 | `type: group` | `extends: "@studio/group-track"` |
-| `clips:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the instance |
+| `clips:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
 | `mute: true` | the name in `chains.yaml`'s `bypassed:` |
 | `solo: true` | nothing — derived by the surface |
 | the `tracks:` entry in `chains.yaml` | the same line, under `modules:` |

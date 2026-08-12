@@ -25,11 +25,11 @@ const chains = (...steps: string[]) =>
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-gcache-"));
   proj = join(root, "song.l8");
-  mkdirSync(join(proj, "instances"), { recursive: true });
+  mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(join(proj, "chains.yaml"), chains("amp"), "utf8");
   writeFileSync(
-    join(proj, "instances", "gtr.yaml"),
+    join(proj, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );

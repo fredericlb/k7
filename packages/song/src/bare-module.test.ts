@@ -38,7 +38,7 @@ const SONG = join(
 );
 
 // The fixture's instrument step is found by the PREFIX "synth", not matched literally: the
-// song names an INSTANCE there ({module: synth:lead}), and these tests only care that it's
+// song names a NODE there ({module: synth:lead}), and these tests only care that it's
 // the synth module's step, whichever of its files the demo happens to use. testSupport
 // throws when no such step exists, so an edit aimed at a step that moved fails loudly
 // instead of leaving a test that proves nothing.
@@ -76,7 +76,7 @@ describe("bare (extends-less) modules", () => {
   it("compiles a self-contained rack module (inline rack, no extends) to a sampler", () => {
     // The module is its own folder; the file is the generic one and the FOLDER names it.
     // Called `drumkit` and not `kit`: the fixture's `kit` is a LANE, and one flat name space
-    // means an instance may not take a module's name (or the other way round).
+    // means a node may not take a module's name (or the other way round).
     writeModule(dir, "instruments", "drumkit", {
       type: "rack",
       rack: { symbols: { BD: { note: 36, clip: "kick.wav" } } },

@@ -44,10 +44,10 @@ beforeEach(() => {
   process.env.HOME = home;
   process.env.STUDIO_MEDIATEK = mediatek;
 
-  mkdirSync(join(mediatek, CHAIN, "instances"), { recursive: true });
+  mkdirSync(join(mediatek, CHAIN, "nodes"), { recursive: true });
   writeFileSync(join(mediatek, CHAIN, "chains.yaml"), SOURCE, "utf8");
   writeFileSync(
-    join(mediatek, CHAIN, "instances", "comp.yaml"),
+    join(mediatek, CHAIN, "nodes", "comp.yaml"),
     'extends: "@mediatek/audio/comp"\nparams:\n  Ratio: 4\n',
     "utf8",
   );
@@ -77,8 +77,8 @@ describe("a médiathèque chain, opened on the bench", () => {
     const chains = readFileSync(join(dir, "chains.yaml"), "utf8");
     expect(chains).toContain("banc:");
     expect(chains).not.toContain("@in");
-    // The chain's own settings came with it — a chain is its routing AND its instances.
-    expect(existsSync(join(dir, "instances", "comp.yaml"))).toBe(true);
+    // The chain's own settings came with it — a chain is its routing AND its nodes.
+    expect(existsSync(join(dir, "nodes", "comp.yaml"))).toBe(true);
   });
 
   it("puts the chain back as it was when the bench saves it", () => {
@@ -118,30 +118,28 @@ describe("a médiathèque chain, opened on the bench", () => {
     expect(back).not.toContain("mixer");
   });
 
-  it("sends an instance back too, and leaves the furniture here", () => {
+  it("sends a node back too, and leaves the furniture here", () => {
     const { project } = ensureChainBench(EMAIL, CHAIN);
     const root = join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
     const ws = new Workspace(root);
     ws.setActiveProject(project);
 
     ws.write(
-      `${project}/instances/comp.yaml`,
+      `${project}/nodes/comp.yaml`,
       'extends: "@mediatek/audio/comp"\nparams:\n  Ratio: 8\n',
     );
     expect(
-      readFileSync(join(mediatek, CHAIN, "instances", "comp.yaml"), "utf8"),
+      readFileSync(join(mediatek, CHAIN, "nodes", "comp.yaml"), "utf8"),
     ).toContain("Ratio: 8");
 
     // The bench's LANE is somewhere to put material, and has no business in a chain other
-    // projects load. It is an instance like the module above, so what keeps it here is its
+    // projects load. It is a node like the module above, so what keeps it here is its
     // NAME — the bench's own furniture — rather than which folder it sits in.
     ws.write(
-      `${project}/instances/banc.yaml`,
+      `${project}/nodes/banc.yaml`,
       'extends: "@studio/audio-track"\nclips: []\n',
     );
-    expect(existsSync(join(mediatek, CHAIN, "instances", "banc.yaml"))).toBe(
-      false,
-    );
+    expect(existsSync(join(mediatek, CHAIN, "nodes", "banc.yaml"))).toBe(false);
   });
 
   it("takes a module save as the bench's, which is what `pushed` says", () => {

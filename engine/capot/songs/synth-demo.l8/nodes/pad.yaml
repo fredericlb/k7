@@ -1,6 +1,6 @@
 # The pattern's "Pad" part, as a GENERATED lane: its clips are streamed from
 # algo/pattern.strudel while the transport rolls, which is why it says `strudel:` where an
 # authored lane says `clips:`. It carries notes, so its chain brings the instrument
-# (instances/synth-pad.yaml).
+# (nodes/synth-pad.yaml).
 extends: "@studio/sequence-strudel-track"
 strudel: algo/pattern.strudel

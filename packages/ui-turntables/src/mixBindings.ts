@@ -12,7 +12,7 @@ import type { DeckId, DeckTempos } from "./deck";
 /** A binding that resolved to something that can be moved. */
 export interface ResolvedBinding {
   control: MixControl;
-  /** The instance the chains file names — what the file said. */
+  /** The node the chains file names — what the file said. */
   module: string;
   param: string;
   /**
@@ -51,7 +51,7 @@ export interface ResolvedBindings {
  * Three ways a line can fail, and all three are REPORTED rather than dropped, which is where
  * this parts company with l8's MIDI join. There, a map travels with a module into projects
  * that may draw it differently, so a binding that does not apply is a normal state and is
- * skipped in silence. Here the file belongs to THIS set and names THIS set's own instances:
+ * skipped in silence. Here the file belongs to THIS set and names THIS set's own nodes:
  * a line that does not resolve is a typo somebody made about their own project, and saying so
  * is the difference between a dead fader and a fixable one.
  *

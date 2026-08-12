@@ -250,7 +250,7 @@ const MODULE_FIELDS = {
   // module run live would not be slow, it would be wrong, since the answer does not exist yet.
   //
   // A property of the MODULE, so it is inherited by every use of it (deliberately not in
-  // moduleResolve's OWN_ONLY — an instance of a cold module is cold). See docs/coldModules.md.
+  // moduleResolve's OWN_ONLY — a node of a cold module is cold). See docs/coldModules.md.
   cold: z.boolean().optional(),
   // NOTE: there is no `jsdsp:` field. A module whose DSP is its own source says so with
   // `plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement
@@ -288,9 +288,9 @@ const MODULE_FIELDS = {
    * next to notes about everything else. A note is now a THING IN THE GRAPH, wired from what
    * it is about, and read where you are already looking.
    *
-   * It belongs to an INSTANCE in practice — every note is an instance of `@studio/doc` — but
-   * it is declared on the module like any other setting, because that is what makes an
-   * instance able to override it. See docs/docModules.md.
+   * It belongs to a NODE in practice — every note is a node of `@studio/doc` — but
+   * it is declared on the module like any other setting, because that is what makes a
+   * node able to override it. See docs/docModules.md.
    */
   content: z.string().optional(),
 
@@ -309,7 +309,7 @@ const MODULE_FIELDS = {
   // Excluded from the render entirely, chains and all — distinct from bypassing it, which
   // silences the lane while leaving it in the project's shape.
   disabled: z.boolean().optional(),
-  // A GROUP lane's members, by instance name. It holds no material of its own.
+  // A GROUP lane's members, by node name. It holds no material of its own.
   tracks: z.array(z.string()).optional(),
   // A GENERATED lane's pattern: its clips are filled while the transport rolls, so this stands
   // where `clips:` would. Which of the two a lane may write is decided by what it extends — an
@@ -337,7 +337,7 @@ const MODULE_FIELDS = {
  *
  * The same flat struct a module is, minus `extends` (an alternative belongs to the module it
  * sits in — it cannot re-parent it) and minus the alternatives themselves (one level, so there
- * is no tree to reason about). It normally states only what it CHANGES, exactly as an instance
+ * is no tree to reason about). It normally states only what it CHANGES, exactly as a node
  * does over the module it extends — the merge is the same one. See docs/alternatives.md.
  *
  * `name` is optional because an unnamed one is known by its position, which is what makes

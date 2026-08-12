@@ -1,5 +1,5 @@
 // moduleTypes.ts — the module vocabulary, with no filesystem and no imports: the type
-// folders and what each one means, plus how a module is NAMED (instance keys, refs, the
+// folders and what each one means, plus how a module is NAMED (node keys, refs, the
 // slug a plugin earns).
 //
 // A leaf on purpose. These tables are the one thing everything about a module derives
@@ -260,15 +260,15 @@ export const OFFLINE_TYPE = "offline";
 // --- the doc module (see docs/docModules.md) -------------------------------------
 
 /**
- * `@studio/doc` — the module every note on the graph is an INSTANCE of.
+ * `@studio/doc` — the module every note on the graph is a NODE of.
  *
  * It names no folder, exactly as `@engine/nam` names none (docs/moduleNamespaces.md): there is
  * one doc module for the whole studio and nothing to scaffold, so a note costs one file — its
- * instance — and nothing else. It is the second module in the repo that exists without a file,
+ * node — and nothing else. It is the second module in the repo that exists without a file,
  * and the first that exists without an engine behind it either.
  *
- * A note is an instance because that is what an instance IS here: one USE of a module with its
- * own settings. Two notes are two instances of one module for the same reason two 4OSCs are.
+ * A note is a node because that is what a node IS here: one USE of a module with its
+ * own settings. Two notes are two nodes of one module for the same reason two 4OSCs are.
  * Their setting happens to be text (`content`) rather than a number.
  *
  * `@studio` is its own level and not `@engine`, deliberately: the engine never hears of this.
@@ -283,8 +283,8 @@ export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
 // --- the track modules (see docs/trackModules.md) --------------------------------
 
 /**
- * The five modules a LANE is an instance of. Like `@studio/doc`, none of them has a file
- * anywhere: there is one set for the whole studio, so a lane costs exactly its own instance.
+ * The five modules a LANE is a node of. Like `@studio/doc`, none of them has a file
+ * anywhere: there is one set for the whole studio, so a lane costs exactly its own node.
  *
  * Five and not two, because `type: single | group | strudel` × `contentType: audio | sequences`
  * was a two-axis vocabulary spelled as one field — which is the whole reason `contentType` had
@@ -318,12 +318,12 @@ export const isTrackRef = (ref: unknown): boolean =>
 // Re-exported because this is where every module-vocabulary caller already looks.
 export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
 
-// --- module instances (see docs/loader.md) --------------------------------------
-export const INSTANCE_SEP = ":";
+// --- module nodes (see docs/loader.md) --------------------------------------
+export const NODE_SEP = ":";
 
-// The map key / chain reference for a module, with or without an instance.
-export const moduleKey = (module: string, instance?: string): string =>
-  instance ? `${module}${INSTANCE_SEP}${instance}` : module;
+// The map key / chain reference for a module, with or without a node.
+export const moduleKey = (module: string, node?: string): string =>
+  node ? `${module}${NODE_SEP}${node}` : module;
 
 // The ref a PROJECT-LOCAL module answers to — the keying loadModuleRefs uses, and what a `ui.yaml` panel answers to.
 // An io module carries no type folder in its ref, which is why this isn't just `${type}/${name}`.
@@ -357,15 +357,15 @@ export function moduleKeyFromPath(path: string): string | null {
   return rest.slice(1, -1).join("/");
 }
 
-// "synth:lead" -> {module, instance}, splitting on the FIRST separator so it stays total on any key.
+// "synth:lead" -> {module, node}, splitting on the FIRST separator so it stays total on any key.
 export function splitModuleKey(key: string): {
   module: string;
-  instance?: string;
+  node?: string;
 } {
-  const i = key.indexOf(INSTANCE_SEP);
+  const i = key.indexOf(NODE_SEP);
   return i < 0
     ? { module: key }
-    : { module: key.slice(0, i), instance: key.slice(i + 1) };
+    : { module: key.slice(0, i), node: key.slice(i + 1) };
 }
 
 /** A plugin's real name as a filesystem- and ref-safe slug: "Neural Amp Modeler" -> "neural-amp-modeler". */

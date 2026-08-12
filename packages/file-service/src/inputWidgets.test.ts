@@ -30,19 +30,19 @@ const inputStep = () => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-inwidget-"));
   proj = join(root, "song");
-  mkdirSync(join(proj, "instances"), { recursive: true });
+  mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), {
     project: { name: "song", modules_from: ["../_modules"] },
   });
   writeFileSync(
-    join(proj, "instances", "gtr.yaml"),
+    join(proj, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
   writeModule(proj, "audio", "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });
-  // The shared catalogue as `module populate` leaves it: a generic IN, one instance per channel.
+  // The shared catalogue as `module populate` leaves it: a generic IN, one node per channel.
   mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });
   writeFileSync(join(root, "_modules", "io", "IN", "module.yaml"), "io: in\n");
   writeFileSync(

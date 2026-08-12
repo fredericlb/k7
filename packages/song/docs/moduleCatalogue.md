@@ -22,9 +22,9 @@ does is feed a builder.
 
 `moduleCatalogue(dir)` returns the **generic** modules of every shared root the project inherits, in ref order.
 
-Generics only. An instance (`IN:in-2`, a channel; a preset variant) has no face of its own — `loadModules`
-takes a widget grid whole from the generic, so a `ui:` written on an instance is ignored — and a builder aimed
-at one would edit nothing. Instances are a count on their generic's row instead.
+Generics only. A node (`IN:in-2`, a channel; a preset variant) has no face of its own — `loadModules`
+takes a widget grid whole from the generic, so a `ui:` written on a node is ignored — and a builder aimed
+at one would edit nothing. Nodes are a count on their generic's row instead.
 
 The substance comes from `loadModuleRefs`, so what is listed is exactly what a chain can name. The **path** is
 derived from the ref: `@<ns>/<type>/<sub>` is the module's position inside the root that declares `<ns>`, which

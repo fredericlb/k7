@@ -12,8 +12,8 @@ import { PLAYLIST_EXT, parsePlaylist } from "./playlist.ts";
 import {
   CHAINS_FILE,
   type Family,
-  INSTANCES_DIR,
   type MediatekEntry,
+  NODES_DIR,
   SONG_FILE,
   type SongVariant,
 } from "./types.ts";
@@ -22,7 +22,7 @@ import {
 export const MODULE_FILE = "module.yaml";
 
 /** Its two siblings: the module's PANEL and its named settings. Neither is the generic, and neither is one
- *  of its instances — see `@studio/song`'s docs/uiLibrary.md and docs/userPresets.md. */
+ *  of its nodes — see `@studio/song`'s docs/uiLibrary.md and docs/userPresets.md. */
 export const UI_FILE = "ui.yaml";
 export const PRESETS_FILE = "presets.yaml";
 
@@ -33,7 +33,7 @@ export const ASSETS_DIR = "assets";
 
 // A chain's two names and a song's sidecar live in types.ts — the browser needs all three
 // words and this file opens `node:fs`. Re-exported because this is where every importer looks.
-export { CHAINS_FILE, INSTANCES_DIR, SONG_FILE };
+export { CHAINS_FILE, NODES_DIR, SONG_FILE };
 
 function dirents(abs: string): Dirent[] {
   try {
@@ -292,7 +292,7 @@ function scanModules(): MediatekEntry[] {
       path: toRel(abs),
       kind: type,
       mtime: newestUnder(abs),
-      // What is ACTUALLY in the folder, so a tree shows the instances and sidecars rather
+      // What is ACTUALLY in the folder, so a tree shows the nodes and sidecars rather
       // than three fixed rows that may have nothing to do with what was dropped in.
       files: files
         .filter((f) => f.isFile())
@@ -304,9 +304,9 @@ function scanModules(): MediatekEntry[] {
       ...(assets.length ? { assets } : {}),
       meta: {
         catalogued: files.some((f) => f.isFile() && f.name === MODULE_FILE),
-        // Instances live beside module.yaml as <instance>.yaml — referenced as "<module>:<instance>".
+        // Nodes live beside module.yaml as <node>.yaml — referenced as "<module>:<node>".
         // The other two are the module ITSELF, and counting them read as more uses than there are.
-        instances: files.filter(
+        nodes: files.filter(
           (f) =>
             f.isFile() &&
             f.name.endsWith(".yaml") &&
@@ -319,7 +319,7 @@ function scanModules(): MediatekEntry[] {
   };
 
   // Walk one folder under a type. A module ends the descent — what is inside one is its own
-  // files and its instances, never more modules.
+  // files and its nodes, never more modules.
   const visit = (abs: string, type: string, sub: string): void => {
     if (isModuleDir(abs)) return push(abs, type, sub);
     for (const d of dirents(abs))
@@ -337,8 +337,8 @@ function scanModules(): MediatekEntry[] {
  *
  * The same rule modules follow, and the same reason — the file is what makes the folder, so
  * how deep you file it is your business and not the scan's. A chain is a TEMPLATE: the segments
- * in that file wire named instances to each other, and the instances themselves are files in
- * `instances/` beside it. See docs/chains.md.
+ * in that file wire named nodes to each other, and the nodes themselves are files in
+ * `nodes/` beside it. See docs/chains.md.
  */
 function scanChains(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
@@ -363,16 +363,16 @@ function scanChains(): MediatekEntry[] {
         .sort(),
       meta: {
         catalogued: true,
-        // The instances the segments can name — the folder beside the file, counted so a
+        // The nodes the segments can name — the folder beside the file, counted so a
         // listing says how big a template is without opening it.
-        instances: dirents(join(abs, INSTANCES_DIR)).filter(
+        nodes: dirents(join(abs, NODES_DIR)).filter(
           (f) => f.isFile() && f.name.endsWith(".yaml"),
         ).length,
       },
     });
   };
 
-  // A chain ends the descent: `instances/` is inside one, and nothing in there is a chain.
+  // A chain ends the descent: `nodes/` is inside one, and nothing in there is a chain.
   const visit = (abs: string, sub: string): void => {
     if (isChainDir(abs)) return push(abs, sub);
     for (const d of dirents(abs))
@@ -388,7 +388,7 @@ function scanChains(): MediatekEntry[] {
  *
  * The one family whose entry is a file rather than a folder — a sample is the other, and for the
  * same reason: there is nothing beside a playlist to keep. A song, a chain and a module are all
- * folders because each carries something its file names (a master, its instances, its assets); a
+ * folders because each carries something its file names (a master, its nodes, its assets); a
  * playlist carries only refs to things filed elsewhere, so a folder around it would be an empty
  * box. That is why there is no `playlist.yaml` marker to look for: the extension is the rule.
  *

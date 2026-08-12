@@ -51,9 +51,7 @@ describe("validate", () => {
         }),
       ),
     ).toContainEqual(
-      expect.stringMatching(
-        /module 'ghost' is not a module or module instance/,
-      ),
+      expect.stringMatching(/module 'ghost' is not a module or module node/),
     );
   });
 });

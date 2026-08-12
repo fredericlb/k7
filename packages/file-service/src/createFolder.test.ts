@@ -27,7 +27,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("Workspace.createFolder", () => {
   it("creates it inside the target and reports the path", () => {
     // Workspace-relative, like uploadFile's — this is what the tree addresses entries by, and the caller passed a
-    // tree path in. (createModuleInstance answers project-relative, but it is answering a different question.)
+    // tree path in. (createNode answers project-relative, but it is answering a different question.)
     const { path } = ws.createFolder("song.l8/clips", "takes");
     expect(path).toBe("song.l8/clips/takes");
     expect(existsSync(join(root, "song.l8", "clips", "takes"))).toBe(true);

@@ -14,7 +14,7 @@ reverb after it; you stop paying for the twelve plugins before it.
 One field, on the module the freeze was taken at:
 
 ```yaml
-# instances/amp.yaml
+# nodes/amp.yaml
 extends: "@project/audio/amp"
 params: { Gain: 3 }
 frozen: renders/amp.wav
@@ -25,11 +25,11 @@ That is not incidental: two sets of settings are two sounds, and a render of one
 the other. Switching alternatives switches renders, or switches back to playing live.
 
 The renders themselves live in `renders/` at the project root — one folder for the lot, not beside
-the module's file. An instance's folder is `instances/`, shared by every instance in the song, and a
+the module's file. A node's folder is `nodes/`, shared by every node in the song, and a
 catalogue module's folder is shared by every song that uses it; a render belongs to **this** project.
 
 Freezing a module from a shared catalogue is refused outright for the same reason: writing `frozen:`
-into `_modules` would freeze a reverb in songs nobody has ever rendered. Freeze the instance instead.
+into `_modules` would freeze a reverb in songs nobody has ever rendered. Freeze the node instead.
 
 ## What is upstream
 

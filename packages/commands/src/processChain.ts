@@ -23,7 +23,7 @@ import {
 } from "@studio/engine-protocol/build";
 import { safePath } from "@studio/mediatek/layout";
 import { scanFamily } from "@studio/mediatek/scan";
-import { CHAINS_FILE, INSTANCES_DIR } from "@studio/mediatek/types";
+import { CHAINS_FILE, NODES_DIR } from "@studio/mediatek/types";
 import { chainSteps } from "@studio/song/chainsGraph";
 import { loadModuleRefs } from "@studio/song/loader";
 import { resolveModule } from "@studio/song/moduleResolve";
@@ -158,10 +158,10 @@ function findChainFolder(want: string): { ref: string; folder: string } | null {
 }
 
 /**
- * A chain of the MÉDIATHÈQUE: its `chains.yaml` for the order, its `instances/` for what each
+ * A chain of the MÉDIATHÈQUE: its `chains.yaml` for the order, its `nodes/` for what each
  * step runs.
  *
- * Each instance is resolved through the project's module vocabulary, so an instance that only
+ * Each node is resolved through the project's module vocabulary, so a node that only
  * says `extends: "@mediatek/audio/eq"` arrives with the eq's plugin, params and preset folded
  * in. That vocabulary is this machine's cache: a step whose module was never synced resolves to
  * nothing, and the bounce is refused rather than writing a copy that quietly skipped a treatment.
@@ -176,13 +176,13 @@ function mediatekChain(
   const missing: string[] = [];
 
   for (const step of steps) {
-    const file = join(abs, INSTANCES_DIR, `${step}.yaml`);
+    const file = join(abs, NODES_DIR, `${step}.yaml`);
     let raw: Record<string, unknown> = {};
     try {
       raw = (parseYaml(readFileSync(file, "utf8"), { version: "1.2" }) ??
         {}) as Record<string, unknown>;
     } catch {
-      missing.push(`${step} (no ${INSTANCES_DIR}/${step}.yaml)`);
+      missing.push(`${step} (no ${NODES_DIR}/${step}.yaml)`);
       continue;
     }
     const m = resolveModule(raw as unknown as LoadedModule, byRef);

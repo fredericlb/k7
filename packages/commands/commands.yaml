@@ -497,59 +497,59 @@
   readable:
     en: "Create a module"
     fr: "Créer un module"
-  help: "create a module (e.g. module new instruments/bass, or module new audio/echo @engine/audio/delay/adt lead to inherit a plugin and instance it)"
+  help: "create a module (e.g. module new instruments/bass, or module new audio/echo @engine/audio/delay/adt lead to inherit a plugin and node it)"
   surfaces: [cli]
   args:
     [
       { name: "category/name", complete: categories },
       { name: "extends-ref", complete: baseModules },
       {
-        name: "instance-name",
+        name: "node-name",
         optional: true,
-        hint: "optional — names an instance of the new module, used in chains as name:instance",
+        hint: "optional — names a node of the new module, used in chains as name:node",
       },
     ]
-# Creates an INSTANCE of an existing module: modules/<category>/<name>/<instance>.cue.
-# The file inherits that folder's module.cue automatically (no `extends` to write), so
-# it is scaffolded empty — state only what the instance changes. Chains reference it as
-# "<name>:<instance>", and it gets its own params and its own <instance>.vstpreset.
-# Also on the web file tree: right-click a module folder -> "New instance…".
-- command: "module instance new"
-  sid: module.instance
+# Creates a NODE of an existing module: `nodes/<node>.yaml`, flat at the project root
+# whatever the module it uses. The file names the node, and `extends:` says what it is a use
+# of — state only what THIS use changes. Chains reference it by its own name, or as
+# "<module>:<node>" for one filed beside a module folder, and it gets its own params and its
+# own <node>.vstpreset. Also on the web file tree: right-click a module folder -> "New node…".
+- command: "node new"
+  sid: node.new
   readable:
-    en: "Create another instance of a module"
-    fr: "Créer une nouvelle instance d'un module"
-  help: "create an instance of a module (e.g. module instance new instruments/synth lead) — used in chains as synth:lead"
+    en: "Create another node of a module"
+    fr: "Créer un nouveau nœud d'un module"
+  help: "create a node of a module (e.g. node new instruments/synth lead) — used in chains as synth:lead"
   surfaces: [cli]
   args:
     [
       { name: "category/name", complete: categories },
-      { name: "instance-name", hint: "used in chains as name:instance" },
+      { name: "node-name", hint: "used in chains as name:node" },
     ]
 # Removes a module and every chain step naming it — the two halves of "delete", because a
 # step pointing at a module that no longer exists is a dangling reference the compiler
-# refuses to load. `synth:lead` deletes just that instance file; `synth` deletes the whole
-# folder, instances included (they cannot outlive their parent).
+# refuses to load. `synth:lead` deletes just that node file; `synth` deletes the whole
+# folder, nodes included (they cannot outlive their parent).
 - command: "module delete"
   sid: module.delete
   readable:
     en: "Delete a module and unwire it everywhere"
     fr: "Supprimer un module et le déconnecter partout"
-  help: "delete a module (or one instance) and remove it from every chain (e.g. module delete synth:lead)"
+  help: "delete a module (or one node) and remove it from every chain (e.g. module delete synth:lead)"
   surfaces: [cli]
   args: [{ name: "module", complete: modules }]
 # Takes a node OUT of the signal path and leaves its FILES alone — what fed it is joined to
 # what it fed, so the run closes over the gap instead of going quiet. The counterpart of
-# `chain add`, and the difference from `module delete` is the whole point: an instance you
+# `chain add`, and the difference from `module delete` is the whole point: a node you
 # unlink still has its settings and goes back in with one command.
-- command: "module instance unlink"
-  sid: module.instance.unlink
+- command: "node unlink"
+  sid: node.unlink
   readable:
-    en: "Take an instance out of its chain"
-    fr: "Retirer une instance de sa chaîne"
-  help: "take an instance out of its chain, rejoining what fed it to what it fed (e.g. module instance unlink lead)"
+    en: "Take a node out of its chain"
+    fr: "Retirer un nœud de sa chaîne"
+  help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. node unlink lead)"
   surfaces: [cli]
-  args: [{ name: "instance", complete: modules }]
+  args: [{ name: "node", complete: modules }]
 # Gives a module the ENGINE reports a folder in this project. A scanned plugin has no files
 # anywhere — a chain can name `@engine/nam` and nothing is on disk — and that is fine until
 # you want to draw its panel or give it presets, because both are FILES in a module's folder.
@@ -619,7 +619,7 @@
   help: "rewrite a pre-segments chains.yaml (keeps the old file as chains.yaml.bak)"
   surfaces: [cli]
   args: []
-# Sets one plugin param on a module instance, writing it to the module's own .cue.
+# Sets one plugin param on a module node, writing it to the module's own .cue.
 # `param` is the engine's display name for it ("Filter Freq"), which is what the
 # module UI's widgets bind to — and what `list params` prints.
 # Bypass a module: it keeps its place in the graph and its params, but passes its input
@@ -756,7 +756,7 @@
     ]
 # Binds a MIDI control change to one of a module's params, in the `controller.yaml` in the
 # module's own folder — so the map follows the module into every project that names it, and
-# every INSTANCE of it plays by the same one. `none` in place of the channel unbinds.
+# every NODE of it plays by the same one. `none` in place of the channel unbinds.
 - command: "module cc"
   sid: module.cc
   readable:
@@ -857,7 +857,7 @@
 # commands were two HTTP round trips with a full project recompile wasted between them,
 # for the sole reason that the frontend had to learn the new module's name before it could
 # name it in a chain — a name THIS command picks. Takes the arrow first (before, after) so
-# the instance name still lands last, where a person types it. No chain to name: the two
+# the node name still lands last, where a person types it. No chain to name: the two
 # ends ARE an edge in chains.yaml, so there is nothing left to disambiguate.
 - command: "module insert"
   sid: module.insert
@@ -873,9 +873,9 @@
       { name: "category/name", complete: categories },
       { name: "extends-ref", complete: baseModules },
       {
-        name: "instance-name",
+        name: "node-name",
         optional: true,
-        hint: "optional — used in chains as name:instance",
+        hint: "optional — used in chains as name:node",
       },
     ]
 # The same, minus the arrow: create the module and put it in the graph wired to NOTHING.
@@ -893,9 +893,9 @@
       { name: "category/name", complete: categories },
       { name: "extends-ref", complete: baseModules },
       {
-        name: "instance-name",
+        name: "node-name",
         optional: true,
-        hint: "optional — used in chains as name:instance",
+        hint: "optional — used in chains as name:node",
       },
     ]
 - command: "chain add"

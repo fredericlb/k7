@@ -167,7 +167,7 @@ describe("resolveModule", () => {
 
   it("never inherits what says WHERE the module lives", () => {
     // A module filed under audio/ that extends an instrument is still an effect: its
-    // icon, its ports and its instance name come from its own folder, not its base's.
+    // icon, its ports and its node name come from its own folder, not its base's.
     const byRef = {
       "@library/synth": mod({
         kind: "plugin",

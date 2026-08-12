@@ -31,7 +31,7 @@ Les liaisons, elles, sont dans le **projet** : `views/mix.yaml`, décrit dans
 
 ## Pourquoi pas le `controller.yaml` du module
 
-`controller.yaml` appartient à un **module** et est partagé par toutes ses instances — c'est
+`controller.yaml` appartient à un **module** et est partagé par tous ses nœuds — c'est
 écrit dans sa propre doc. Or un set pose un module `tempo` sur **chaque** platine : une seule
 map pour les deux, donc une ligne ne peut pas dire « le fader de la platine A pilote
 l'étirement de la platine A ».

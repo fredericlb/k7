@@ -160,7 +160,7 @@ describe("the catalogue of modules", () => {
     });
     expect(m["@engine/OUT"]).toMatchObject({ io: "out", kind: "io" });
     // The file source: audio off disk, and a SOURCE like IN rather than a sink. Which file it
-    // reads is an instance's business, and a chain template's instance names none.
+    // reads is a node's business, and a chain template's node names none.
     expect(m["@engine/FILE"]).toMatchObject({
       io: "file",
       kind: "io",

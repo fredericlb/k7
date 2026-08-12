@@ -27,11 +27,11 @@ export interface MixControl {
  * The ids are ABSOLUTE — `deckA.tempo`, not a relative `deck.tempo`.
  *
  * They were relative for one turn, and the reason is worth keeping because it says what
- * changed: a `controller.yaml` belongs to a MODULE and is shared by every instance of it, so
+ * changed: a `controller.yaml` belongs to a MODULE and is shared by every node of it, so
  * a set with a tempo module on each deck has ONE map for both, and `deckA.tempo` in it would
  * have driven deck B's stretch from deck A's fader.
  *
- * The bindings live in the PROJECT now (`views/mix.yaml`), which can name each instance
+ * The bindings live in the PROJECT now (`views/mix.yaml`), which can name each node
  * outright — `tempoA` and `tempoB` are different lines. So there is nothing left to resolve,
  * and an id that means exactly one control beats one that means "whichever deck you are".
  */

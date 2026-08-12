@@ -153,7 +153,7 @@ function PortRow({
   hz: number;
   clarity: number;
 }) {
-  // A generic declares no channel — its instances carry them — so it is listed (it is
+  // A generic declares no channel — its nodes carry them — so it is listed (it is
   // what a chain may name) but never pretends to meter anything.
   const live = port.channels.length > 0;
   return (

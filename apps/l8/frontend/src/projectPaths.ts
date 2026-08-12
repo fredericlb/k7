@@ -16,16 +16,16 @@ export const isSeqFile = (path: string): boolean =>
 export const isClipFile = (path: string): boolean =>
   kind("clips").test(norm(path));
 /**
- * A LANE's file — an instance in `instances/`.
+ * A LANE's file — a node in `nodes/`.
  *
- * Not every instance is a lane: `instances/reverb.yaml` is a use of a reverb. This is
+ * Not every node is a lane: `nodes/reverb.yaml` is a use of a reverb. This is
  * deliberately the loose test, because what it decides is whether the MINIMAP points at a
  * track of that name, and it points at nothing when there is none. Knowing for certain would
  * mean resolving `extends` against the whole project to draw a highlight. See
  * packages/song/docs/trackModules.md.
  */
 export const isTrackFile = (path: string): boolean =>
-  kind("instances").test(norm(path));
+  kind("nodes").test(norm(path));
 /** A v1 lane's placement file: a flat mapping whose `clips:` lists placements. Still known
  *  here because the file TREE is the workspace's, and a workspace holds every app's projects. */
 export const isVideoTrackFile = (path: string): boolean =>
@@ -78,7 +78,7 @@ export const norm = (path: string): string => path.replace(/\\/g, "/");
 export const fileStem = (path: string): string =>
   (norm(path).split("/").pop() ?? "").replace(PROJECT_EXT, "");
 
-/** The generic module file beside `rel` — an instance's sibling. */
+/** The generic module file beside `rel` — a node's sibling. */
 export const moduleFileOf = (rel: string): string =>
   norm(rel).replace(/\/[^/]+\.ya?ml$/i, "/module.yaml");
 

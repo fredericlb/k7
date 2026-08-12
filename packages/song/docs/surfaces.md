@@ -50,7 +50,7 @@ that happened to agree would drift the first time one of them grew a field.
 
 Read [viewBindings.md](viewBindings.md) for why a binding cannot live in the module's own
 `controller.yaml`: a set puts a tempo module on each deck, one `controller.yaml` serves every
-instance of a module, and "deck A's fader drives deck A's stretch" is unsayable in it.
+node of a module, and "deck A's fader drives deck A's stretch" is unsayable in it.
 
 ## An unwired component is a SCREEN error, not a load error
 

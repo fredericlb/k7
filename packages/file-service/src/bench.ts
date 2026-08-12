@@ -86,8 +86,8 @@ function mirror(from: string, to: string): void {
  * REGENERATED on every open rather than kept: the catalogue is what it is a view of, and a
  * bench that had drifted from it would be worse than no bench — you would be editing a module
  * that is not the one anybody else sees. What survives a regeneration is the part that is
- * yours: `chains.yaml` and `instances/`, which is exactly what you wire (the lane is an
- * instance too now — see packages/song/docs/trackModules.md).
+ * yours: `chains.yaml` and `nodes/`, which is exactly what you wire (the lane is a
+ * node too now — see packages/song/docs/trackModules.md).
  */
 export function ensureBench(userEmail: string): {
   workspace: string;
@@ -101,7 +101,7 @@ export function ensureBench(userEmail: string): {
  * Bring a bench made before `live` existed forward, in place.
  *
  * The folder is regenerated on every open but `project.yaml` is NOT — it is written once, and
- * `chains.yaml`/`instances/` are deliberately what survives (see `ensureBench`). So a
+ * `chains.yaml`/`nodes/` are deliberately what survives (see `ensureBench`). So a
  * bench that already existed would keep saying "arrangement" forever and open with a timeline
  * over the graph, which is the one shape a bench has never been.
  *
@@ -156,7 +156,7 @@ function ensureBenchProject(userEmail: string, project: string): string {
  *
  * The chain is not COPIED into a project so much as read as one: `chains.yaml` is the catalogue's
  * file with its two boundary nodes translated into the bench's furniture (`@studio/song/benchChain`),
- * and `instances/` is the chain's own settings, which is the other half of what a chain is.
+ * and `nodes/` is the chain's own settings, which is the other half of what a chain is.
  *
  * Rewritten from the catalogue on every open, exactly as the modules are and for the same
  * reason: this is a VIEW of a shared chain, and a stale one would have you editing something
@@ -182,13 +182,13 @@ export function ensureChainBench(
   const dir = ensureBenchProject(userEmail, project);
   writeFileSync(join(dir, CHAIN_FILE), chainToBench(text, BENCH_EDGES));
 
-  // The instances, which are flat and named by their file in both places — the médiathèque's
+  // The nodes, which are flat and named by their file in both places — the médiathèque's
   // chain folder and an l8 project use the same shape, which is why this is a copy and not a
-  // conversion. Emptied first, so an instance dropped from the chain does not linger.
-  const instances = join(dir, "instances");
-  rmSync(instances, { recursive: true, force: true });
-  if (existsSync(join(source, "instances")))
-    cpSync(join(source, "instances"), instances, { recursive: true });
+  // conversion. Emptied first, so a node dropped from the chain does not linger.
+  const nodes = join(dir, "nodes");
+  rmSync(nodes, { recursive: true, force: true });
+  if (existsSync(join(source, "nodes")))
+    cpSync(join(source, "nodes"), nodes, { recursive: true });
 
   return { workspace: BENCH_WORKSPACE, project };
 }
@@ -239,7 +239,7 @@ export async function pushModuleToMediatek(
 /**
  * Push a file the chain bench just saved back to the chain it is a view of.
  *
- * `rel` is the path inside the chain folder — `chains.yaml`, or `instances/<name>.yaml` — and it
+ * `rel` is the path inside the chain folder — `chains.yaml`, or `nodes/<name>.yaml` — and it
  * arrives ALREADY translated back into `@in`/`@out`, because only the caller knows which file
  * needed translating. This one just carries bytes.
  *

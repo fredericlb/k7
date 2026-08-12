@@ -41,18 +41,18 @@ stays read-only, and every save aimed into it forks — including one that meant
 
 The result is an ordinary project-local module. The next save goes straight to it; only the first edit forks.
 
-## Why a folder and not an instance
+## Why a folder and not a node
 
-The obvious shape is an instance file beside the shared module — `<track>_<leaf>_<n>.yaml`, which is what the
+The obvious shape is a node file beside the shared module — `<track>_<leaf>_<n>.yaml`, which is what the
 loader already offers for "the same module, tweaked here". Two things rule it out:
 
-* **An instance's `ui:` has no effect.** `loadModules` takes the widget grid whole from the generic (see
-  `instances.test.ts`), because a grid is laid out as a unit and half-merging two authors' grids produces
-  overlapping cells nobody wrote. Editing the UI is most of what the module editor does, so an instance would
+* **A node's `ui:` has no effect.** `loadModules` takes the widget grid whole from the generic (see
+  `nodes.test.ts`), because a grid is laid out as a unit and half-merging two authors' grids produces
+  overlapping cells nobody wrote. Editing the UI is most of what the module editor does, so a node would
   drop most of what people fork *for*.
 * **A module resolves against its own folder.** `jsdsp:`, `.vstpreset` and rack audio are all read relative to
   the module's directory — deliberately, so a module stays a self-contained folder you can copy or share. A
-  lone instance file has no folder of its own to resolve against.
+  lone node file has no folder of its own to resolve against.
 
 Copying the folder gets both, at the cost of duplicating a module the library also holds. That duplication is
 the point: the project now owns its copy, and a later edit to the library cannot reach it.

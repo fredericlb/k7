@@ -32,7 +32,7 @@ const seq = (body: Record<string, unknown>) =>
     ...body,
   });
 const place = (p: Record<string, unknown>) =>
-  writeYaml(join(dir, "instances", "melody.yaml"), {
+  writeYaml(join(dir, "nodes", "melody.yaml"), {
     extends: "@studio/sequence-track",
     clips: [{ ref: "melody", start: "1:1:1", ...p }],
   });
@@ -129,7 +129,7 @@ describe("`loop` counts passes of that window", () => {
    */
   it("is refused on an audio clip whose window has no end", () => {
     writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
-    writeYaml(join(dir, "instances", "riff.yaml"), {
+    writeYaml(join(dir, "nodes", "riff.yaml"), {
       extends: "@studio/audio-track",
       clips: [{ ref: "riff", start: "1:1:1", loop: 2 }],
     });

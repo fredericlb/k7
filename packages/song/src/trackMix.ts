@@ -74,11 +74,11 @@ export function editTrackStruct(
   transform: (text: string) => string,
   what: string,
 ): string {
-  // `instances/`, because that is where a lane lives: it is an instance of a `@studio/…-track`
+  // `nodes/`, because that is where a lane lives: it is a node of a `@studio/…-track`
   // module, and the file names it exactly as its track file used to.
-  const found = entityFileFor(join(dir, "instances"), "instances", id);
+  const found = entityFileFor(join(dir, "nodes"), "nodes", id);
   if (!found)
-    throw new Error(`track "${id}" has no file in instances/ — cannot ${what}`);
+    throw new Error(`track "${id}" has no file in nodes/ — cannot ${what}`);
   const text = readFileSync(found.path, "utf8");
   const next = transform(text);
   if (next !== text) writeFileSync(found.path, next, "utf8");
@@ -198,8 +198,8 @@ export function resizeTrackPlacement(
   endBeats: number,
   tempo: number,
 ): ResizeReport | null {
-  const own = entityFileFor(join(dir, "instances"), "instances", id);
-  if (!own) throw new Error(`track "${id}" has no file in instances/`);
+  const own = entityFileFor(join(dir, "nodes"), "nodes", id);
+  if (!own) throw new Error(`track "${id}" has no file in nodes/`);
   const text = readFileSync(own.path, "utf8");
   const at = findPlacementAt(text, fromBeats, num, den);
   if (at < 0) return null;
@@ -281,11 +281,11 @@ export function resizeTrackPlacement(
 
 /** How many OTHER placements name `ref` — what else this window edit just changed.
  *  Off the files' own text, for the reason placementValues gives: counting must not depend
- *  on every lane in the song being schema-valid. Every instance is read, not only the lanes:
+ *  on every lane in the song being schema-valid. Every node is read, not only the lanes:
  *  a module that is not one simply has no `clips:` to count. */
 function sharedWith(dir: string, ref: string): number {
   let n = -1; // the placement being resized is one of them
-  for (const { file } of entityFiles(join(dir, "instances"), "instances")) {
+  for (const { file } of entityFiles(join(dir, "nodes"), "nodes")) {
     let text: string;
     try {
       text = readFileSync(file.path, "utf8");

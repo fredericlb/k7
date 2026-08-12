@@ -13,7 +13,7 @@ import type { CcBinding } from "./yaml/moduleSchema";
  *
  * The ref is found through `moduleOwnRefs` — the same list the PANEL is looked up by — so the map
  * lands in the folder the widgets came from, which is the only folder where its keys mean anything.
- * An instance therefore writes to the module it is a use of: an instance is one setting of a device,
+ * A node therefore writes to the module it is a use of: a node is one setting of a device,
  * and the MIDI map belongs to the device.
  */
 export function bindModuleCc(

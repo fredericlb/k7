@@ -99,9 +99,7 @@ describe("the palette's one-field view of completions()", () => {
     // palette looked like it was completing commands instead of arguments.
     expect(completeArg("track mute", [], "", ["melody"])).toEqual(["melody"]);
     expect(completeArg("module new", [], "")).toContain("instruments/");
-    expect(completeArg("module instance new", [], "")).toContain(
-      "instruments/",
-    );
+    expect(completeArg("node new", [], "")).toContain("instruments/");
   });
 
   it("narrows as the field is typed into", () => {
@@ -112,32 +110,29 @@ describe("the palette's one-field view of completions()", () => {
 
   it("offers nothing for an argument with no vocabulary", () => {
     expect(completeArg("track gain", ["melody"], "", ["melody"])).toEqual([]); // the dB value
-    expect(
-      completeArg("module instance new", ["instruments/synth"], ""),
-    ).toEqual([]); // the instance name
+    expect(completeArg("node new", ["instruments/synth"], "")).toEqual([]); // the node name
   });
 });
 
-describe("module instance new", () => {
-  it("is offered alongside `module new` without either shadowing the other", () => {
-    // Dispatch is longest-prefix on `command + " "`, so "module instance new …" is
-    // never read as `module new` with an "instance …" argument — and typing
-    // "module new" still offers the longer one.
-    expect(completions("module ", host([]), "cli")).toContain(
-      "module instance new",
-    );
+describe("node new", () => {
+  it("is a verb of its own, not one of `module`'s", () => {
+    // It was `module instance new`, and the test here was that the shared `module ` prefix did
+    // not shadow `module new`. There is no shared prefix any more: a node is its own thing, so
+    // its verbs sit at the top level and `module ` offers none of them.
+    expect(completions("node ", host([]), "cli")).toContain("node new");
+    expect(completions("module ", host([]), "cli")).not.toContain("node new");
   });
 
   it("completes its category/name arg", () => {
     // The static category provider, the same one `new module` uses — it lands you
     // right after the slash, ready to type the module's name.
-    expect(completions("module instance new inst", host([]), "cli")).toEqual([
-      "module instance new instruments/",
+    expect(completions("node new inst", host([]), "cli")).toEqual([
+      "node new instruments/",
     ]);
-    // The instance name is free text — nothing to complete against.
-    expect(
-      completions("module instance new instruments/synth ", host([]), "cli"),
-    ).toEqual([]);
+    // The node name is free text — nothing to complete against.
+    expect(completions("node new instruments/synth ", host([]), "cli")).toEqual(
+      [],
+    );
   });
 });
 

@@ -117,7 +117,7 @@ const orderPlugins = (ps: PluginOut[]): PluginOut[] =>
 // --- chain graph -------------------------------------------------------------
 
 interface Step {
-  module: string; // a module instance name (params live on the module, not here)
+  module: string; // a module node name (params live on the module, not here)
   enabled?: boolean; // undefined => on
 }
 interface OutDef {
@@ -126,12 +126,12 @@ interface OutDef {
 }
 interface ChainDef {
   from?: string;
-  use: Step[]; // ordered module instances (source -> use[0] -> use[1] -> … -> out)
+  use: Step[]; // ordered module nodes (source -> use[0] -> use[1] -> … -> out)
   enabled?: boolean; // undefined => on
   out: OutDef[];
 }
 // A self-contained module: its plugin inline plus concrete params, one module per PLUGIN and one insert per use.
-// A plugin used several times becomes instances rather than the "reverb_2, reverb_3" pile imports used to make.
+// A plugin used several times becomes nodes rather than the "reverb_2, reverb_3" pile imports used to make.
 interface ModuleDef {
   name: string;
   folder: string;
@@ -140,9 +140,9 @@ interface ModuleDef {
   inserts: InsertDef[];
 }
 
-// One use of a plugin: its settings and the instance file they land in; `instance` is "" once collapsed.
+// One use of a plugin: its settings and the node file they land in; `node` is "" once collapsed.
 interface InsertDef {
-  instance: string;
+  node: string;
   params?: Record<string, number>;
   preset?: string; // asset key for the opaque .vstpreset blob
 }
@@ -257,7 +257,7 @@ const isMixed = (t: TrackOut): boolean => {
 function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
   // No `name` field: the FILE names the lane, and `t.name` drives the slug, so the display name is that slug.
   //
-  // A lane is an INSTANCE of one of the five built-in track modules now, so `type:` and
+  // A lane is a NODE of one of the five built-in track modules now, so `type:` and
   // `contentType:` are one `extends:` — which signal it carries is what it extends. Its mute is
   // its module's bypass and goes to chains.yaml, not here. See packages/song/docs/trackModules.md.
   const value: Record<string, unknown> = {};
@@ -277,9 +277,9 @@ export interface EmitStats {
   clipFiles: number;
   sequenceFiles: number;
   chainFiles: number;
-  moduleInstances: number; // module.yaml files written under modules/<type>/
-  // <instance>.yaml files beside them — one per extra use of a plugin (see ModuleDef).
-  instanceFiles: number;
+  moduleNodes: number; // module.yaml files written under modules/<type>/
+  // <node>.yaml files beside them — one per extra use of a plugin (see ModuleDef).
+  nodeFiles: number;
   modulePresetFiles: number; // <name>.vstpreset files written beside modules
   missingAudio: string[];
   missingPlugins: string[]; // referenced but not in the l8 cache -> stubbed
@@ -317,11 +317,11 @@ export function emitFolder(
         : "audio";
 
   // Modules keyed by the PLUGIN, not its settings: every use adds an insert, and the single-use case folds back
-  // into module.yaml at the end — so an import only pays for instances where settings really differ.
+  // into module.yaml at the end — so an import only pays for nodes where settings really differ.
   const usedModuleNames = new Set<string>();
   const moduleOf = new Map<string, ModuleDef>();
   const modules: ModuleDef[] = [];
-  // `owner` is the slug of the chain this insert sits on — the instance's name.
+  // `owner` is the slug of the chain this insert sits on — the node's name.
   const moduleRefFor = (p: PluginOut, owner: string): string => {
     const folder = typeFolderOf(p.role);
     // Text params capture state when complete or when there is no preset; else keep the .vstpreset and skip partials.
@@ -342,14 +342,14 @@ export function emitFolder(
       moduleOf.set(key, mod);
       modules.push(mod);
     }
-    // Each insert gets its OWN instance even when identically set: they are separate slots, and sharing one would
+    // Each insert gets its OWN node even when identically set: they are separate slots, and sharing one would
     // make tweaking the vocal's reverb silently retune the drums'.
-    const instance = uniquify(
+    const node = uniquify(
       owner,
-      new Set(mod.inserts.map((i) => i.instance.toLowerCase())),
+      new Set(mod.inserts.map((i) => i.node.toLowerCase())),
     );
-    mod.inserts.push({ instance, params, preset });
-    return `${mod.name}:${instance}`;
+    mod.inserts.push({ node, params, preset });
+    return `${mod.name}:${node}`;
   };
 
   // Master → OUT (or a master chain if it carries plugins).
@@ -367,7 +367,7 @@ export function emitFolder(
   const missingAudio: string[] = [];
   const mixedTracks: string[] = [];
 
-  // One chain per source: its ordered plugins become `use` steps, each naming a module instance, routed to `terminal`.
+  // One chain per source: its ordered plugins become `use` steps, each naming a module node, routed to `terminal`.
   const addChain = (
     entry: string,
     fromTrack: string | undefined,
@@ -378,7 +378,7 @@ export function emitFolder(
     chains[entry] = {
       from: fromTrack,
       use: orderPlugins(plugins).map((p) => ({
-        // The chain names an INSTANCE; collapseSoleInserts rewrites it to the bare module when the plugin is used once.
+        // The chain names a NODE; collapseSoleInserts rewrites it to the bare module when the plugin is used once.
         module: moduleRefFor(p, entry),
         enabled: p.enabled ? undefined : false,
       })),
@@ -494,7 +494,7 @@ export function emitFolder(
     if (!isBus) {
       if (isMixed(t)) mixedTracks.push(slug);
       writeFile(
-        join(outDir, `instances/${slug}.yaml`),
+        join(outDir, `nodes/${slug}.yaml`),
         trackText(t, emitArrangement(t, slug)),
       );
       trackFiles++;
@@ -525,17 +525,17 @@ export function emitFolder(
     for (const step of d.use) liveRefs.add(step.module);
   for (const mod of modules)
     mod.inserts = mod.inserts.filter((i) =>
-      liveRefs.has(`${mod.name}:${i.instance}`),
+      liveRefs.has(`${mod.name}:${i.node}`),
     );
 
-  // A plugin used in exactly ONE place needs no instance: fold it into module.yaml, so the common import reads
-  // exactly as it did before instances existed.
+  // A plugin used in exactly ONE place needs no node: fold it into module.yaml, so the common import reads
+  // exactly as it did before nodes existed.
   const collapseSoleInserts = () => {
     for (const mod of modules) {
       if (mod.inserts.length !== 1) continue;
       const [only] = mod.inserts;
-      const from = `${mod.name}:${only.instance}`;
-      only.instance = ""; // "" == the state lives in module.yaml
+      const from = `${mod.name}:${only.node}`;
+      only.node = ""; // "" == the state lives in module.yaml
       for (const d of Object.values(chains))
         for (const step of d.use)
           if (step.module === from) step.module = mod.name;
@@ -588,14 +588,14 @@ export function emitFolder(
   // Which modules survive: one whose every insert was orphaned has nothing left to write.
   const liveModules = modules.filter((b) => b.inserts.length > 0);
 
-  // Modules -> module.yaml plus one <instance>.yaml per insert when used more than once. Each file is a FLAT struct
-  // with no `name:` and no package wrapper. Opaque state rides as <instance>.vstpreset, the convention the brain
+  // Modules -> module.yaml plus one <node>.yaml per insert when used more than once. Each file is a FLAT struct
+  // with no `name:` and no package wrapper. Opaque state rides as <node>.vstpreset, the convention the brain
   // resolves; a plugin the cache doesn't know is written as a stub the chain simply routes through.
   const cachedNames = loadCachedPluginNames();
   const verify = cachedNames.size > 0; // nothing to check against without a scan
   const missingPlugins = new Set<string>();
   let modulePresetFiles = 0;
-  let instanceFiles = 0;
+  let nodeFiles = 0;
   for (const b of liveModules) {
     const dir = `modules/${b.folder}/${b.name}`;
     const known = !verify || cachedNames.has(b.pluginName.toLowerCase());
@@ -605,8 +605,8 @@ export function emitFolder(
         ? { type: b.pluginType, name: b.pluginName }
         : { name: b.pluginName },
     };
-    // A sole insert's state belongs in module.yaml (instance === "").
-    const sole = b.inserts.length === 1 && b.inserts[0].instance === "";
+    // A sole insert's state belongs in module.yaml (node === "").
+    const sole = b.inserts.length === 1 && b.inserts[0].node === "";
     if (sole) {
       const params = paramsOf(b.inserts[0].params);
       if (params) value.params = params;
@@ -621,25 +621,25 @@ export function emitFolder(
     } else if (!sole) {
       note =
         `${b.pluginName} — used ${b.inserts.length} times in this song, so each use is an\n` +
-        `INSTANCE beside this file (referenced as "${b.name}:<instance>"). The plugin is\n` +
-        `declared once here; each instance carries only its own settings.`;
+        `NODE beside this file (referenced as "${b.name}:<node>"). The plugin is\n` +
+        `declared once here; each node carries only its own settings.`;
     }
     writeFile(join(outDir, `${dir}/module.yaml`), yamlText(value, [], note));
 
     for (const ins of b.inserts) {
-      const stem = ins.instance || b.name; // "" == the sole insert, kept in module.yaml
-      if (ins.instance) {
+      const stem = ins.node || b.name; // "" == the sole insert, kept in module.yaml
+      if (ins.node) {
         const params = paramsOf(ins.params);
         writeFile(
-          join(outDir, `${dir}/${ins.instance}.yaml`),
+          join(outDir, `${dir}/${ins.node}.yaml`),
           yamlText(
             params ? { params } : {},
             [],
-            `${b.name}:${ins.instance} — inherits module.yaml (the plugin); only what\n` +
+            `${b.name}:${ins.node} — inherits module.yaml (the plugin); only what\n` +
               `this use sets differs.`,
           ),
         );
-        instanceFiles++;
+        nodeFiles++;
       }
       if (ins.preset && assets[ins.preset]) {
         writeFile(join(outDir, `${dir}/${stem}.vstpreset`), assets[ins.preset]);
@@ -668,8 +668,8 @@ export function emitFolder(
     clipFiles,
     sequenceFiles,
     chainFiles: Object.keys(chains).length,
-    moduleInstances: liveModules.length,
-    instanceFiles,
+    moduleNodes: liveModules.length,
+    nodeFiles,
     modulePresetFiles,
     missingAudio,
     missingPlugins: [...missingPlugins],

@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BUILTIN_PLUGIN_PARAMS } from "./builtinParams";
 import { projectHints } from "./hints";
 import { MIXER_PARAMS, MIXER_PLUGIN } from "./project";
-import { writeInstance, writeModule, writeYaml } from "./testSupport";
+import { writeModule, writeNode, writeYaml } from "./testSupport";
 
 let dir: string;
 
@@ -35,7 +35,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("a built-in's params are known without a project having authored one", () => {
   it("lists every mixer param on a strip nobody has touched", () => {
-    // No instance file at all: the plugin is the only thing that can say what it has.
+    // No node file at all: the plugin is the only thing that can say what it has.
     const h = projectHints(dir);
     expect(h.paramsByBase["audio/mixer"]).toEqual([...MIXER_PARAMS].sort());
   });
@@ -59,11 +59,11 @@ describe("a built-in's params are known without a project having authored one", 
   });
 });
 
-describe("an instance counts as much as an extender", () => {
+describe("a node counts as much as an extender", () => {
   it("picks up a param authored only on one strip", () => {
-    // An instance IS an extender now — `vox` extends `audio/mixer` and gives it its own values.
-    // Leaving instances out made every param on every strip of a real song invisible to the builder.
-    writeInstance(dir, "vox", {
+    // A node IS an extender now — `vox` extends `audio/mixer` and gives it its own values.
+    // Leaving nodes out made every param on every strip of a real song invisible to the builder.
+    writeNode(dir, "vox", {
       extends: "@project/audio/mixer",
       params: { Drive: 3 },
     });

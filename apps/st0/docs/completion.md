@@ -41,7 +41,7 @@ délibérément absents : ils s'utilisent directement et ne sont pas des cibles 
 
 ### `@mediatek/…` — l'autre moitié
 
-Un module de la bibliothèque peut en étendre un autre, et une instance de chaîne le fait tout le
+Un module de la bibliothèque peut en étendre un autre, et un nœud de chaîne le fait tout le
 temps (`extends: "@mediatek/audio/distortion/bitcrush"`). Le catalogue parle en chemins, les
 fichiers en refs ; `moduleRefs.ts` est la conversion, et c'est tout ce qu'il est.
 
@@ -55,10 +55,10 @@ deux moitiés différentes de ce qu'`extends:` peut nommer.
 
 ## Les chaînes : le fichier est son propre vocabulaire
 
-Un `chains.yaml` de la médiathèque est un **gabarit**. Ses nœuds sont les instances du dossier
-`instances/` à côté, et une destination nomme l'un d'eux ou `@out`.
+Un `chains.yaml` de la médiathèque est un **gabarit**. Ses nœuds sont les fichiers du dossier
+`nodes/` à côté, et une destination nomme l'un d'eux ou `@out`.
 
-Le listing d'une chaîne porte le **nombre** de ses instances, jamais leurs noms — et il n'y a
+Le listing d'une chaîne porte le **nombre** de ses nœuds, jamais leurs noms — et il n'y a
 pas de route pour lister un dossier. Mais un nœud doit être déclaré sous `modules:` pour exister
 dans le graphe : les clés de cette section **sont** la liste. Le vocabulaire est donc lu dans le
 tampon, et pas demandé au serveur.
@@ -92,8 +92,8 @@ La restreindre voudrait dire reparser le tampon à chaque frappe pour économise
 plus, et personne n'a demandé. Ce serait un quatrième vocabulaire, sur le même modèle que celui
 des playlists.
 
-**Les fichiers d'instance d'une chaîne** : st0 ne les ouvre pas dans un éditeur, seulement le
+**Les fichiers de nœud d'une chaîne** : st0 ne les ouvre pas dans un éditeur, seulement le
 `chains.yaml`. Leur `extends:` est pourtant exactement le champ dont il est question ici. Et le
 jour où l'un s'ouvrira, il ne complétera pas tout seul : `fileKindFor` reconnaît un module à son
-dossier `modules/`, et `chains/…/instances/eq.yaml` n'en a pas. Il faudra le lui apprendre —
+dossier `modules/`, et `chains/…/nodes/eq.yaml` n'en a pas. Il faudra le lui apprendre —
 une ligne, mais une ligne dans `@studio/song`, pas ici.

@@ -1,5 +1,5 @@
-// docModule.ts — `@studio/doc`, the module every note on the graph is an instance of. It has
-// no file anywhere: one doc module for the whole studio, so a note costs its instance and
+// docModule.ts — `@studio/doc`, the module every note on the graph is a node of. It has
+// no file anywhere: one doc module for the whole studio, so a note costs its node and
 // nothing else. Full rationale: docs/docModules.md.
 
 import { DOC_CATEGORY, DOC_REF, MODULE_TYPES } from "./moduleTypes";
@@ -13,7 +13,7 @@ export { DOC_CATEGORY, DOC_REF } from "./moduleTypes";
  * Shaped exactly like the io modules `engineCatalogue` synthesises — `kind`, `inputs`,
  * `category` and a `file` — because a module with no folder still has to answer the same
  * questions as one with a folder. It carries no `content` of its own: the empty note is not a
- * thing anybody wants, and an instance that forgets its text should read as empty rather than
+ * thing anybody wants, and a node that forgets its text should read as empty rather than
  * inherit somebody else's sentence.
  */
 export function docModule(): LoadedModule {

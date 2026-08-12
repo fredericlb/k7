@@ -82,8 +82,8 @@ export const TIMELINE_BASE = 600;
 /**
  * The module a deck's tempo BELONGS to, and the param the fader is.
  *
- * The project says this outright: `example.m9`'s chains put an instance of the médiathèque's
- * cold `tempo` module on each deck, and the fader is that instance's `Target BPM`. Written
+ * The project says this outright: `example.m9`'s chains put a node of the médiathèque's
+ * cold `tempo` module on each deck, and the fader is that node's `Target BPM`. Written
  * here so the browser's stand-in below is anchored to the thing it stands in for rather than
  * being a second, unrelated way to change a tempo.
  *

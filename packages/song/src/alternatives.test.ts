@@ -229,9 +229,9 @@ describe("through the real loader", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  const project = (instance: string): string => {
+  const project = (node: string): string => {
     const p = join(dir, "song.l8");
-    mkdirSync(join(p, "instances"), { recursive: true });
+    mkdirSync(join(p, "nodes"), { recursive: true });
     mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
     mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
@@ -240,9 +240,9 @@ describe("through the real loader", () => {
       join(p, "modules", "audio", "amp", "module.yaml"),
       "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1, Tone: 5 }\n",
     );
-    writeFileSync(join(p, "instances", "ampli.yaml"), instance);
+    writeFileSync(join(p, "nodes", "ampli.yaml"), node);
     writeFileSync(
-      join(p, "instances", "gtr.yaml"),
+      join(p, "nodes", "gtr.yaml"),
       'extends: "@studio/audio-track"\nclips: []\n',
     );
     writeFileSync(
@@ -277,7 +277,7 @@ describe("through the real loader", () => {
       'extends: "@project/audio/amp"\nparams: { Gain: 3 }\n' +
         "alternatives:\n  - name: crunch\n    params: { Gain: 9 }\n",
     );
-    const file = join(p, "instances", "ampli.yaml");
+    const file = join(p, "nodes", "ampli.yaml");
     writeFileSync(
       file,
       setAlternative(readFileSync(file, "utf8"), "crunch"),

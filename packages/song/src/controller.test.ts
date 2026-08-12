@@ -35,7 +35,7 @@ const REF = "instruments/synth";
 
 // A module's MIDI map is one file in its folder — the FOURTH sibling of module.yaml, ui.yaml and
 // presets.yaml. What these pin down is that it round-trips, that it reaches the graph the panel
-// reaches, and that the folder's own files are never mistaken for instances of the module.
+// reaches, and that the folder's own files are never mistaken for nodes of the module.
 
 describe("parseController", () => {
   it("reads a hand-authored map", () => {
@@ -119,7 +119,7 @@ describe("a module's MIDI map (synth-demo)", () => {
     expect(lines[2]).toBe("Resonance: { ch: 1, cc: 71 }");
   });
 
-  it("is not read as an instance of the module it sits beside", () => {
+  it("is not read as a node of the module it sits beside", () => {
     // The hazard ui.yaml and presets.yaml both have: every OTHER `<name>.yaml` in a module folder
     // is one USE of the module, so an unguarded map comes back as a module called "synth:controller".
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });

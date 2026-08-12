@@ -16,7 +16,7 @@ import { formatChains, parseChains } from "./yaml/chainsFile";
 
 // An io "in" module used to name the track it fed, with a `track:` field. That could not
 // survive the module living in a workspace's shared _modules: `module populate` files one
-// io/IN instance per physical input there, and which TRACK an input lands on is a
+// io/IN node per physical input there, and which TRACK an input lands on is a
 // per-project answer — the shared file had nowhere to put it.
 //
 // So the wiring moved to the chain: an input is a step, and the chain it sits in already
@@ -58,7 +58,7 @@ describe("a live input, wired by its chain", () => {
     dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
     // The shared catalogue as `module populate` leaves it: a generic IN, and one
-    // instance per interface input carrying nothing but its channel.
+    // node per interface input carrying nothing but its channel.
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(
@@ -78,7 +78,7 @@ describe("a live input, wired by its chain", () => {
     // `live`: the fixture already has a group by that name, and one flat name space
     // means one name, one node.
     writeFileSync(
-      join(dir, "instances", "mic.yaml"),
+      join(dir, "nodes", "mic.yaml"),
       'extends: "@studio/audio-track"\n',
     );
     wire({ modules: { mic: [IN], [IN]: ["OUT"] } });
@@ -179,7 +179,7 @@ describe("a live input, wired by its chain", () => {
 describe("an input's monitoring and gain", () => {
   let ws: string;
   let dir: string;
-  const instance = (body: string) => {
+  const node = (body: string) => {
     writeFileSync(join(ws, "_modules", "io", "IN", "in-1.yaml"), body);
     return compileNodeProject(dir).tracks.find((t) => t.id === "mic");
   };
@@ -203,7 +203,7 @@ describe("an input's monitoring and gain", () => {
       ),
     );
     writeFileSync(
-      join(dir, "instances", "mic.yaml"),
+      join(dir, "nodes", "mic.yaml"),
       'extends: "@studio/audio-track"\n',
     );
     const c = join(dir, "chains.yaml");
@@ -220,30 +220,30 @@ describe("an input's monitoring and gain", () => {
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("defaults to auto and unity — an input that says neither changes neither", () => {
-    const live = instance("channel: [1]\n");
+    const live = node("channel: [1]\n");
     expect(live?.monitor).toBe("auto");
     expect(live?.inputGain).toBe(0);
   });
 
   it("takes the boolean spelling, which is the everyday one", () => {
-    expect(instance("channel: [1]\nmonitor: true\n")?.monitor).toBe("on");
-    expect(instance("channel: [1]\nmonitor: false\n")?.monitor).toBe("off");
+    expect(node("channel: [1]\nmonitor: true\n")?.monitor).toBe("on");
+    expect(node("channel: [1]\nmonitor: false\n")?.monitor).toBe("off");
   });
 
   it("still takes the tri-state — only it can say 'auto'", () => {
     // "auto" is audible once ARMED, which is neither on nor off: dropping the enum for a
     // boolean would have removed the default rather than added a spelling.
-    expect(instance("channel: [1]\nmonitor: auto\n")?.monitor).toBe("auto");
-    expect(instance("channel: [1]\nmonitor: on\n")?.monitor).toBe("on");
+    expect(node("channel: [1]\nmonitor: auto\n")?.monitor).toBe("auto");
+    expect(node("channel: [1]\nmonitor: on\n")?.monitor).toBe("on");
   });
 
   it("carries the gain in dB, negative included", () => {
-    expect(instance("channel: [1]\ngain: 6\n")?.inputGain).toBe(6);
-    expect(instance("channel: [1]\ngain: -3.5\n")?.inputGain).toBe(-3.5);
+    expect(node("channel: [1]\ngain: 6\n")?.inputGain).toBe(6);
+    expect(node("channel: [1]\ngain: -3.5\n")?.inputGain).toBe(-3.5);
   });
 
   it("leaves a track with no input at unity, not at some other track's trim", () => {
-    instance("channel: [1]\ngain: 12\n");
+    node("channel: [1]\ngain: 12\n");
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",
     );

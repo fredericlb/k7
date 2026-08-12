@@ -38,7 +38,7 @@ next to Input and Output, and swapping it is the same gesture as turning a knob.
 top-level field of its own (`nam:` beside `params:`) made it a second kind of thing: a second
 place to look, a second command to learn, a second merge rule.
 
-`params` merges **per key**, which is the real gain: an instance that overrides only the model
+`params` merges **per key**, which is the real gain: a node that overrides only the model
 keeps everything else the generic set, and that is now the same edit as overriding a gain.
 
 The list of file-valued params is `moduleTypes.FILE_PARAMS` — one entry, `nam`. Every other param

@@ -1,5 +1,5 @@
 // moduleIO.ts — locate and read the YAML files a project is made of: module files
-// (module.yaml + its <instance>.yaml siblings), per-file entities (tracks/, clips/, …),
+// (module.yaml + its <node>.yaml siblings), per-file entities (tracks/, clips/, …),
 // and root files (project.yaml, chains.yaml, settings.yaml). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
@@ -18,10 +18,10 @@ export interface ModuleFile {
 // short one should not find their module silently absent. `.yaml` wins when both exist.
 const EXTS = [".yaml", ".yml"];
 
-/** The basenames a module folder holds that are NEITHER the generic nor one of its instances: its panel
+/** The basenames a module folder holds that are NEITHER the generic nor one of its nodes: its panel
  *  (uiLibrary.ts), its named settings (presets.ts) and its MIDI map (controller.ts). Named here because this
  *  file is what decides which of a folder's YAML files is what — and every one of them that is not on this list
- *  is one use of the module. Adding a sibling file without adding it here files it as an INSTANCE. */
+ *  is one use of the module. Adding a sibling file without adding it here files it as a NODE. */
 export const UI_BASE = "ui";
 export const PRESETS_BASE = "presets";
 export const CONTROLLER_BASE = "controller";
@@ -35,7 +35,7 @@ export const MODULE_OWN_BASES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The module file for `base` ("module", or an instance's name) in `folder`, or null when
+ * The module file for `base` ("module", or a node's name) in `folder`, or null when
  * the folder has none. `relDir` is the folder's path relative to the project, for the rel.
  */
 export function moduleFileFor(
@@ -51,13 +51,13 @@ export function moduleFileFor(
 }
 
 /**
- * The INSTANCE files beside a module's generic — every `<instance>.yaml` that is none of the folder's own
- * (MODULE_OWN_BASES). One entry per instance NAME; a directory is never one.
+ * The NODE files beside a module's generic — every `<node>.yaml` that is none of the folder's own
+ * (MODULE_OWN_BASES). One entry per node NAME; a directory is never one.
  */
-export function instanceFiles(
+export function nodeFiles(
   folder: string,
   relDir: string,
-): { instance: string; file: ModuleFile }[] {
+): { node: string; file: ModuleFile }[] {
   let names: string[];
   try {
     names = readdirSync(folder);
@@ -78,10 +78,10 @@ export function instanceFiles(
     }
     bases.add(base);
   }
-  const out: { instance: string; file: ModuleFile }[] = [];
+  const out: { node: string; file: ModuleFile }[] = [];
   for (const base of [...bases].sort()) {
     const file = moduleFileFor(folder, relDir, base);
-    if (file) out.push({ instance: base, file });
+    if (file) out.push({ node: base, file });
   }
   return out;
 }

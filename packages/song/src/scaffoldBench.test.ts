@@ -35,19 +35,19 @@ describe("the module bench", () => {
     expect(Object.keys(g.chains).length).toBe(1);
   });
 
-  it("declares no instance but its LANE", () => {
+  it("declares no node but its LANE", () => {
     // Two reasons, and both matter. A bench that arrived with the catalogue already in its
     // chains would instantiate every plugin in the médiathèque on open — the load this engine
-    // was just hardened against. And an instance may not take a module's name, so once the
+    // was just hardened against. And a node may not take a module's name, so once the
     // catalogue is mirrored into `modules/` every name in it is spoken for: a chain names the
     // MODULE here, which is also what makes the builder's lookup work.
     //
-    // The one exception is the bench's own lane, which is an instance because every lane is
+    // The one exception is the bench's own lane, which is a node because every lane is
     // (docs/trackModules.md) — and `banc` is not a plugin's name.
-    const instances = Object.keys(benchFiles("banc")).filter((p) =>
-      p.startsWith("instances/"),
+    const nodes = Object.keys(benchFiles("banc")).filter((p) =>
+      p.startsWith("nodes/"),
     );
-    expect(instances).toEqual(["instances/banc.yaml"]);
+    expect(nodes).toEqual(["nodes/banc.yaml"]);
   });
 
   it("carries the marker, and the marker survives the schema", () => {
@@ -86,7 +86,7 @@ describe("the module bench", () => {
     // writing one of them would not fail here by itself — it would fail by silently saving a
     // rewritten chain back to the médiathèque, which nothing else would catch.
     const files = benchFiles("banc");
-    expect(files[`instances/${BENCH_EDGES.track}.yaml`]).toBeDefined();
+    expect(files[`nodes/${BENCH_EDGES.track}.yaml`]).toBeDefined();
     expect(files[`modules/io/${BENCH_EDGES.out}/module.yaml`]).toBeDefined();
     expect(
       files[`modules/audio/${BENCH_EDGES.strip}/module.yaml`],

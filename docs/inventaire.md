@@ -184,7 +184,7 @@ déjà. La justification historique de la duplication (*« le seul foyer commun 
 
 | constat | où |
 |---|---|
-| **Un test qui ne tourne jamais.** `emitInstances.test.ts` existe, le paquet n'a aucun script `test`, donc `turbo run test` l'ignore. Seul paquet dans ce cas. | `packages/translator/` |
+| **Un test qui ne tourne jamais.** `emitNodes.test.ts` existe, le paquet n'a aucun script `test`, donc `turbo run test` l'ignore. Seul paquet dans ce cas. | `packages/translator/` |
 | `vitest` lancé sans être déclaré — ne se résout que par hoisting. mediatek et m9 le déclarent. | `apps/l8/frontend/package.json` |
 | Cinq `turbo.json` d'app **strictement identiques** au bloc `tasks.dev` de la racine : ils ne surchargent rien. | `apps/{k7,l8,m9,st0,z0}/turbo.json` |
 | Pas de section `m9-backend` ; le port 8796 est en dur dans le serveur alors que k7 et mediatek déclarent le leur. `STUDIO_PREFS_DIR` n'est documenté nulle part. | `env.example.yaml` |

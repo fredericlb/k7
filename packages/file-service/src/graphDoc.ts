@@ -244,7 +244,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   }
   // A note's TEXT, per module, so the renderer can draw it on the node. It used to be
   // `{docs, todos}` for a bottom panel that aggregated everybody's notes; a note is its own
-  // node now (an instance of `@studio/doc`), and only a doc module ever carries one.
+  // node now (a node of `@studio/doc`), and only a doc module ever carries one.
   // Keyed by DOC modules and nothing else, so its keys ARE the project's notes — which is what
   // lets a surface find them without a second field saying "this one is a note". `content ?? ""`
   // rather than skipping an empty one: a note somebody has not written yet is still a note, and

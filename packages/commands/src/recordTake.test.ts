@@ -45,9 +45,9 @@ beforeEach(() => {
   );
   writeFileSync(join(dir, "chains.yaml"), "modules: {}\n", "utf8");
   mkdirSync(join(dir, "clips"), { recursive: true });
-  mkdirSync(join(dir, "instances"), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
-    join(dir, "instances", "gtr.yaml"),
+    join(dir, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\n',
     "utf8",
   );
@@ -63,8 +63,7 @@ const take = (start = 4, length = 8) => {
 };
 const clipText = (id: string) =>
   readFileSync(join(dir, "clips", `${id}.yaml`), "utf8");
-const trackText = () =>
-  readFileSync(join(dir, "instances", "gtr.yaml"), "utf8");
+const trackText = () => readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
 
 describe("a finished take", () => {
   it("declares its window in full — `from` included, at the file's start", () => {

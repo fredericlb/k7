@@ -25,9 +25,9 @@ function song(
   material: { dir: string; name: string; body: string },
 ): string {
   const dir = mkdtempSync(join(tmpdir(), "td-resize-"));
-  mkdirSync(join(dir, "instances"), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   mkdirSync(join(dir, material.dir), { recursive: true });
-  writeFileSync(join(dir, "instances", "drums.yaml"), track, "utf8");
+  writeFileSync(join(dir, "nodes", "drums.yaml"), track, "utf8");
   writeFileSync(
     join(dir, material.dir, `${material.name}.yaml`),
     material.body,
@@ -132,7 +132,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     });
     expect(readAt(dir, "clips", "kick.yaml")).toContain("to: 2");
     // The placement is untouched: where it sits did not change, so nothing of its own did.
-    expect(readAt(dir, "instances", "drums.yaml")).toBe(
+    expect(readAt(dir, "nodes", "drums.yaml")).toBe(
       'extends: "@studio/audio-track"\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
     );
     rmSync(dir, { recursive: true, force: true });
@@ -143,7 +143,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     // is strict about, so ONE edge drag left the track file unable to load at all.
     const dir = clipSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
-    expect(readAt(dir, "instances", "drums.yaml")).not.toContain("length");
+    expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("length");
     expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
@@ -160,7 +160,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   it("moves the placement's start when the left edge was the one dragged", () => {
     const dir = seqSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 2, 8, TEMPO);
-    expect(readAt(dir, "instances", "drums.yaml")).toContain('start: "1:3"');
+    expect(readAt(dir, "nodes", "drums.yaml")).toContain('start: "1:3"');
     expect(readAt(dir, "sequences", "kick.yaml")).toContain('from: "1:3"');
     rmSync(dir, { recursive: true, force: true });
   });
@@ -181,7 +181,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     );
     const rep = resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 8, TEMPO);
     expect(rep?.loops).toBe(4);
-    expect(readAt(dir, "instances", "drums.yaml")).toContain("loop: 4");
+    expect(readAt(dir, "nodes", "drums.yaml")).toContain("loop: 4");
     expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "1:3"'); // window untouched
     rmSync(dir, { recursive: true, force: true });
   });

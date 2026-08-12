@@ -4,7 +4,7 @@ Which control change plays which of a module's params. One file, in the module's
 beside `module.yaml`:
 
 ```yaml
-# MIDI map for instruments/synth — <param>: { ch, cc }. Shared by every instance of this module.
+# MIDI map for instruments/synth — <param>: { ch, cc }. Shared by every node of this module.
 Filter Freq: { ch: 1, cc: 74 }
 Resonance: { ch: 1, cc: 71 }
 ```
@@ -22,14 +22,14 @@ follow it into every project that names it, exactly as its face and its presets 
 
 Two consequences fall out of that, and both are the location working rather than leaking:
 
-- **Every instance shares one map.** Two instances of the same module in one song both answer to
-  CC 74, because an instance is one *setting* of a device and there is only one device. This is
+- **Every node shares one map.** Two nodes of the same module in one song both answer to
+  CC 74, because a node is one *setting* of a device and there is only one device. This is
   what the preset shelf already does (`presets.ts`), for the same reason.
 - **It is not the song's.** Moving a song to another machine does not carry your controller
   layout unless the module travels too — and if the module came from the médiathèque, it does.
 
 A map on a **lane's** mixer control is not expressible: a lane is a module now
-(trackModules.md), but a FLAT instance still has no folder to put a `controller.yaml` in — the
+(trackModules.md), but a FLAT node still has no folder to put a `controller.yaml` in — the
 same limit, arrived at from the other side. That is a
 real limit of this location, and the graph declines to offer the menu there rather than writing
 somewhere the value could not be read back from.
@@ -64,14 +64,14 @@ module cc synth "Filter Freq" none     # unbind
 
 `bindModuleCc` resolves the module a *chain* names to the folder its files live in, through
 `moduleOwnRefs` — the same list the panel is looked up by, so a map always lands in the folder the
-widgets came from. An instance therefore writes to the module it is a use of.
+widgets came from. A node therefore writes to the module it is a use of.
 
 A module the ENGINE merely reports has no folder at all; `module own` is what gives it one, and
 the error says so rather than writing nowhere.
 
 ## The trap
 
-`instanceFiles` treats every `<name>.yaml` in a module folder as an INSTANCE of the module,
+`nodeFiles` treats every `<name>.yaml` in a module folder as a NODE of the module,
 except the folder's own (`MODULE_OWN_BASES`). A sibling added without registering it there comes
 back as a module called `synth:controller`. That is why the list is a named export and not four
 string literals — and there is a test for exactly this, on every one of them.

@@ -1,6 +1,6 @@
 # translator — importing from other DAWs
 
-`packages/translator` reads another DAW's project and writes a l8 song folder: tracks, clips, warp maps, and a module per plugin — with two inserts of the same plugin becoming two instances of one module rather than two near-identical copies.
+`packages/translator` reads another DAW's project and writes a l8 song folder: tracks, clips, warp maps, and a module per plugin — with two inserts of the same plugin becoming two nodes of one module rather than two near-identical copies.
 
 Two formats are read today: **`.dawproject`** (the open exchange format Bitwig, Studio One and Cubase write) and **`.als`** (Ableton Live 11 and 12). Click either one in the file tree and l8 offers to import it as a new project in the workspace.
 

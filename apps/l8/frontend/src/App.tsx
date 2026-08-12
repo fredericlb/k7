@@ -201,7 +201,7 @@ export default function App({
    * a one-module throwaway project; that only ever worked because it had an engine session with
    * nothing in it, and it is gone with its builder.
    *
-   * Matched on the chain step's NAME. An instance named after the module it extends is therefore
+   * Matched on the chain step's NAME. A node named after the module it extends is therefore
    * the one that lights this up — which is the rule the bench is built around
    * (apps/st0/docs/banc.md). No match is an ordinary state: the grid still edits, the bindings
    * are just typed rather than picked.
@@ -1247,15 +1247,15 @@ export default function App({
     (target: RowTarget) => {
       // Named, not fuzzy-matched: a row knows which folder its file is in, and the score a
       // bare id would win is the one `clips/<id>.yaml` wins too. See projectPaths.
-      // `instances/`, because that is where a lane lives: it is an instance of a
+      // `nodes/`, because that is where a lane lives: it is a node of a
       // `@studio/…-track` module (packages/song/docs/trackModules.md).
       const file = entityFile(
         editorRef.current?.files() ?? [],
-        "instances",
+        "nodes",
         target.id,
       );
       const path = file && openInEditor(file, false);
-      focusLine.current = `${target.id} — ${path ?? "no instances/ file"}`;
+      focusLine.current = `${target.id} — ${path ?? "no nodes/ file"}`;
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
@@ -1412,7 +1412,7 @@ export default function App({
     files: string[];
   } | null>(null);
   /**
-   * Find the open project's instance of the module the builder just opened, and watch its plugin.
+   * Find the open project's node of the module the builder just opened, and watch its plugin.
    *
    * Read from the compiled graph rather than kept in state, the same way `browseAssets` reads its
    * choices: the chains can have changed since the last look, and this runs once per builder open.
@@ -1548,8 +1548,8 @@ export default function App({
       // Remember the arrow: this command only CREATES the module, and runCommand splices it (see moduleInsert.ts).
       pendingInsert.current = info;
       const ref = pick.namespace === null ? undefined : pick.ref;
-      // ONE command, whichever kind was picked: it creates the module when there is none and instances it
-      // either way. Only the instance name is missing, and only the user can supply it — so the line stops at
+      // ONE command, whichever kind was picked: it creates the module when there is none and nodes it
+      // either way. Only the node name is missing, and only the user can supply it — so the line stops at
       // the bar with the cursor where that name goes. Without an arrow the verb is `module place`, and the
       // module arrives in the graph connected to nothing, which is a state the file can hold.
       prewriteCommand(
@@ -1989,7 +1989,7 @@ export default function App({
               className={cn(
                 "flex min-h-0 min-w-0 flex-col",
                 // The SAME element in the same place in the tree, restyled — so the open file,
-                // its undo history and the CodeMirror instance survive being popped out.
+                // its undo history and the CodeMirror node survive being popped out.
                 //
                 // It has no slot in either layout any more: fullscreened, popped in, or away.
                 editorPopin
@@ -2455,7 +2455,7 @@ export default function App({
                 onClick={() => setShowDocs((on) => !on)}
                 title={
                   docCount === 0
-                    ? "No notes in this project: a note is an instance of @studio/doc, wired from what it is about"
+                    ? "No notes in this project: a note is a node of @studio/doc, wired from what it is about"
                     : showDocs
                       ? `Hide the ${docCount} note(s) on the graph`
                       : `Show the ${docCount} note(s) on the graph`
@@ -2788,7 +2788,7 @@ export default function App({
                 builderPlugin && listPresets(builderPlugin.module)
               }
               // The builder passes its own module name; the engine resolves BOTH ends to the same
-              // live instance, so which of the two is sent does not matter — take the builder's.
+              // live plugin, so which of the two is sent does not matter — take the builder's.
               onSetPreset={(module, sel) => setPreset(module, sel)}
               // A save into `_modules` forked: follow the copy, or the next save would fork again.
               onRelocated={(next) => {

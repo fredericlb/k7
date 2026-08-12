@@ -14,8 +14,8 @@ const entry = (path: string, catalogued = true): MediatekEntry =>
   }) as MediatekEntry;
 
 describe("mediatekModuleRefs", () => {
-  it("names a module the way a chain instance does", () => {
-    // Measured against the library on this machine: an instance beside a template says
+  it("names a module the way a chain node does", () => {
+    // Measured against the library on this machine: a node beside a template says
     // `extends: "@mediatek/audio/distortion/bitcrush"` for the folder of that path.
     expect(
       mediatekModuleRefs([

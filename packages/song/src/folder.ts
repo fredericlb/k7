@@ -1,6 +1,6 @@
 // folder.ts — load a LEGACY flat folder project (project.yaml + tracks/clips/sequences) into
 // the plain { project, tracks } shape project.ts's mapDoc consumes. This is the pre-node-model
-// path and no current song takes it: a song has chains.yaml, and its lanes are module instances
+// path and no current song takes it: a song has chains.yaml, and its lanes are module nodes
 // (docs/trackModules.md), which compileNodeProject reads instead.
 
 import { existsSync, statSync } from "node:fs";

@@ -28,7 +28,7 @@
   "settings.io": "E/S",
   "settings.modules": "Modules",
   "modules.hint": "Les modules partagés de l'espace de travail. Les modifier les change pour tous les projets.",
-  "modules.instances": "{n} instances",
+  "modules.nodes": "{n} nodes",
   "modules.empty": "Cet espace de travail n'a pas de bibliothèque de modules partagés.",
   "modules.filter": "Filtrer par nom de module ou de plugin…",
   "modules.noMatch": "Aucun module ne correspond.",

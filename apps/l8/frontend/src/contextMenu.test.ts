@@ -53,9 +53,9 @@ const CATALOGUE: CommandInfo[] = [
     args: [a("module", "module", "modules"), a("state", "choice")],
   },
   {
-    command: "module instance unlink",
-    help: "take an instance out of its chain, rejoining what fed it to what it fed (e.g. module instance unlink lead)",
-    args: [a("instance", "module", "modules")],
+    command: "node unlink",
+    help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. node unlink lead)",
+    args: [a("node", "module", "modules")],
   },
   {
     // Takes a module FIRST, then two things it does not know yet — so it is derived here like
@@ -177,7 +177,7 @@ describe("a module node", () => {
     const l = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE));
     expect(l).toEqual([
       "module bypass lead ",
-      "module instance unlink lead",
+      "node unlink lead",
       "module replace lead ",
       "module param lead ",
       "module clone lead ",
@@ -209,7 +209,7 @@ describe("a module node", () => {
       ),
     ).toEqual([
       "module bypass gone ",
-      "module instance unlink gone",
+      "node unlink gone",
       "module replace gone ", // trailing space: the module to swap in is still owed
     ]);
   });

@@ -45,13 +45,13 @@ describe("validateFile", () => {
     // A LANE goes to the module parser, because that is what it is (docs/trackModules.md).
     expect(
       validateFile(
-        "instances/lead.yaml",
+        "nodes/lead.yaml",
         'extends: "@studio/audio-track"\ndisabled: soon\n',
       ).ok,
     ).toBe(false);
     expect(
       validateFile(
-        "instances/lead.yaml",
+        "nodes/lead.yaml",
         'extends: "@studio/audio-track"\ndisabled: true\n',
       ).ok,
     ).toBe(true);
@@ -74,18 +74,18 @@ describe("validateFile", () => {
     expect(validateFile("modules/audio/cab/module.yaml", "cols: 4\n").ok).toBe(
       false,
     );
-    // An instance is the module schema again — a use of it says what it overrides.
+    // A node is the module schema again — a use of it says what it overrides.
     expect(
       validateFile("modules/audio/cab/slap.yaml", "params:\n  drive: 3\n").ok,
     ).toBe(true);
-    expect(
-      validateFile("instances/slap.yaml", "params:\n  drive: 3\n").ok,
-    ).toBe(true);
+    expect(validateFile("nodes/slap.yaml", "params:\n  drive: 3\n").ok).toBe(
+      true,
+    );
   });
 
   it("covers exactly the module folder's own basenames", () => {
     // The router cannot import moduleIO (it reads the disk), so the two are pinned here:
-    // add a sibling file there without adding it here and it would be read as an instance.
+    // add a sibling file there without adding it here and it would be read as a node.
     const own = [...MODULE_OWN_BASES].filter((b) => b !== "module");
     const asModule = (base: string) =>
       parserFor(`modules/audio/cab/${base}.yaml`) ===

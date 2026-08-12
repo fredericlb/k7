@@ -1,7 +1,7 @@
 // moduleCatalogue.ts — the workspace's shared `_modules`, listed for the module builder.
 //
-// GENERICS only: an instance carries a channel or a preset, never a face — the loader
-// ignores a `ui:` written on one — so a builder aimed at an instance would edit nothing.
+// GENERICS only: a node carries a channel or a preset, never a face — the loader
+// ignores a `ui:` written on one — so a builder aimed at a node would edit nothing.
 // The path is the file the builder opens; the substance comes from the ref map, so what is
 // listed is exactly what a chain can name. Rationale: docs/moduleCatalogue.md.
 
@@ -27,8 +27,8 @@ export interface CatalogueModule {
   extends?: string;
   /** ABSOLUTE path of the module file the builder edits. Absent for an ENGINE module: it has no file. */
   path?: string;
-  /** How many instances sit beside it (`module populate` files one per interface input). */
-  instances: number;
+  /** How many nodes sit beside it (`module populate` files one per interface input). */
+  nodes: number;
   /** It already has a `ui.yaml` beside it. */
   hasUi: boolean;
 }
@@ -47,16 +47,16 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
   // the map it is keyed against cannot disagree about what this project inherits.
   const refs: Record<string, LoadedModule> = loadModuleRefs(dir);
 
-  // The instances are counted, not listed — they share their generic's panel and its ref.
-  const instances = new Map<string, number>();
+  // The nodes are counted, not listed — they share their generic's panel and its ref.
+  const nodes = new Map<string, number>();
   for (const key of Object.keys(refs)) {
-    const { module, instance } = splitModuleKey(key);
-    if (instance) instances.set(module, (instances.get(module) ?? 0) + 1);
+    const { module, node } = splitModuleKey(key);
+    if (node) nodes.set(module, (nodes.get(module) ?? 0) + 1);
   }
 
   const out: CatalogueModule[] = [];
   for (const [ref, m] of Object.entries(refs)) {
-    if (!ref.startsWith("@") || splitModuleKey(ref).instance) continue;
+    if (!ref.startsWith("@") || splitModuleKey(ref).node) continue;
     // `@project/…` is the explicit spelling of a module the project owns, keyed beside its bare
     // name so both resolve. It is not a CATALOGUE though — this list is what the project inherits
     // from elsewhere, and its own modules are already the thing doing the inheriting.
@@ -88,7 +88,7 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
           : undefined,
       extends: m.extends ? String(m.extends) : undefined,
       path,
-      instances: instances.get(ref) ?? 0,
+      nodes: nodes.get(ref) ?? 0,
       hasUi: !!m.ui,
     });
   }

@@ -7,8 +7,8 @@ import { z } from "zod";
 /**
  * What one control drives: a module the CHAINS file names, and a param as a widget binds it.
  *
- * `module` is the chain's name for it — `crossfade`, `tempoA` — and not a médiathèque ref: an
- * instance is what a set actually has two of, and a ref would be ambiguous the moment a module
+ * `module` is the chain's name for it — `crossfade`, `tempoA` — and not a médiathèque ref: a
+ * node is what a set actually has two of, and a ref would be ambiguous the moment a module
  * is used twice. That ambiguity is the whole reason these bindings are not in the module's own
  * `controller.yaml`, which belongs to the device and is shared by every use of it.
  *

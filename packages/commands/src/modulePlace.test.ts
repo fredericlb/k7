@@ -43,9 +43,9 @@ beforeEach(() => {
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
     "utf8",
   );
-  mkdirSync(join(dir, "instances"), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
-    join(dir, "instances", "gtr.yaml"),
+    join(dir, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
@@ -72,23 +72,23 @@ describe("module place", () => {
     });
   });
 
-  it("places an INSTANCE when one is named", async () => {
-    // The picker always asks for an instance name, so this is the common path, not the edge.
-    // The file lands in the project's flat instances/, and the chain names it by that alone.
+  it("places a NODE when one is named", async () => {
+    // The picker always asks for a node name, so this is the common path, not the edge.
+    // The file lands in the project's flat nodes/, and the chain names it by that alone.
     await runCommand("module place audio/wah w1", host(), "cli");
-    expect(existsSync(join(dir, "instances", "w1.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "w1.yaml"))).toBe(true);
     expect(chains()).toContain("w1: []");
   });
 
   it("reads a lone optional by its SHAPE, not its position", async () => {
     // The picker writes no extends-ref for a module the project already has, so the
-    // instance the user types arrives where a ref would sit. `lead` has no slash, so it is
-    // an instance name — the alternative was "module 'amp' already exists, drop the
+    // node the user types arrives where a ref would sit. `lead` has no slash, so it is
+    // a node name — the alternative was "module 'amp' already exists, drop the
     // extends-ref" about a ref they never wrote.
     await runCommand("module place audio/amp lead", host(), "cli");
-    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(true);
     expect(chains()).toContain("lead: []");
-    // The generic keeps its own wiring: placing an instance is not a rewire of its parent.
+    // The generic keeps its own wiring: placing a node is not a rewire of its parent.
     expect(chains()).toContain("gtr: [ amp ]");
   });
 
@@ -123,9 +123,9 @@ describe("module insert", () => {
 
   it("reads a lone optional by its shape here too", async () => {
     // The same slot as `module place`, and the same picker feeds it: for a module the
-    // project already has, what the user types after the target is an instance name.
+    // project already has, what the user types after the target is a node name.
     await runCommand("module insert gtr amp audio/amp lead", host(), "cli");
-    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(true);
     expect(chains()).toContain("gtr: [ lead ]");
     expect(chains()).toContain("lead: [ amp ]");
   });
@@ -158,8 +158,8 @@ describe("a cold module", () => {
     await runCommand("module insert gtr amp audio/squash s1", host(), "cli");
     expect(logs.join(" ")).toContain("COLD");
     expect(chains()).toBe(before);
-    // The instance was never scaffolded: a refusal that half-succeeds is the failure this guards.
-    expect(existsSync(join(dir, "instances", "s1.yaml"))).toBe(false);
+    // The node was never scaffolded: a refusal that half-succeeds is the failure this guards.
+    expect(existsSync(join(dir, "nodes", "s1.yaml"))).toBe(false);
   });
 
   it("goes in once the chain draws from a file", async () => {
@@ -170,9 +170,9 @@ describe("a cold module", () => {
       "io: file\n",
       "utf8",
     );
-    mkdirSync(join(dir, "instances"), { recursive: true });
+    mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
-      join(dir, "instances", "take.yaml"),
+      join(dir, "nodes", "take.yaml"),
       'extends: "@project/FILE"\nsource: "clips/x.wav"\n',
       "utf8",
     );
@@ -184,7 +184,7 @@ describe("a cold module", () => {
     await runCommand("module insert take amp audio/squash s1", host(), "cli");
     expect(logs.join(" ")).not.toContain("COLD");
     expect(chains()).toContain("s1");
-    expect(existsSync(join(dir, "instances", "s1.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "s1.yaml"))).toBe(true);
   });
 
   it("may still be PLACED wired to nothing", async () => {
@@ -196,23 +196,23 @@ describe("a cold module", () => {
   });
 });
 
-// The two trailing optionals are POSITIONAL once both are given, so naming an instance of a
+// The two trailing optionals are POSITIONAL once both are given, so naming a node of a
 // module that already exists meant also passing a ref — which is exactly what the refusal was
 // about. That left no way to do an ordinary thing: reuse a module the project already has.
 describe("instancing a module that already exists", () => {
-  it("takes the instance name even when a redundant extends-ref rides along", async () => {
+  it("takes the node name even when a redundant extends-ref rides along", async () => {
     await runCommand(
       "module insert gtr amp audio/amp @engine/chorus lead",
       host(),
       "cli",
     );
     expect(logs.join(" ")).not.toContain("already exists");
-    // The chain names the INSTANCE file, and the instance landed beside the module.
-    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(true);
+    // The chain names the NODE file, and the node landed beside the module.
+    expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(true);
     expect(chains()).toContain("lead");
   });
 
-  it("still refuses a ref with no instance to justify it", async () => {
+  it("still refuses a ref with no node to justify it", async () => {
     // Nothing to do with the ref but ignore it, and ignoring what was typed is how a command
     // lies. The message names BOTH ways out now, not just dropping the ref.
     await runCommand(
@@ -222,7 +222,7 @@ describe("instancing a module that already exists", () => {
     );
     const said = logs.join(" ");
     expect(said).toContain("already exists");
-    expect(said).toContain("instance name");
+    expect(said).toContain("node name");
   });
 
   it("refuses a ref that DISAGREES with what the module extends", async () => {
@@ -240,6 +240,6 @@ describe("instancing a module that already exists", () => {
     );
     const said = logs.join(" ");
     expect(said).toContain("@mediatek/audio/amps/real");
-    expect(existsSync(join(dir, "instances", "lead.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(false);
   });
 });

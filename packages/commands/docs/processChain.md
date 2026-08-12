@@ -82,8 +82,8 @@ by bare name. The project is asked first and the library only under the token, s
 chain can never be shadowed by a library one that happens to share its name.
 
 A library chain is a TEMPLATE — `chains.yaml` with `@in` and `@out` for ends, and an
-`instances/` folder beside it — read from **this machine's médiathèque cache**
-(`~/.studio/mediatek/chains/…`), because that is the disk the engine can open. Each instance is
+`nodes/` folder beside it — read from **this machine's médiathèque cache**
+(`~/.studio/mediatek/chains/…`), because that is the disk the engine can open. Each node is
 resolved through the project's module vocabulary, so `extends: "@mediatek/audio/eq"` arrives
 with the eq's plugin, params and preset folded in.
 

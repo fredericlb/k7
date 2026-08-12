@@ -46,7 +46,7 @@ beside the entries in the same listing.
 
 An ENTRY's folder is never descended into. A song and a module ARE folders and their
 insides are theirs — so a module's own files travel **on the entry**, as `files`. A tree
-drawing one needs both halves of that: what is actually in the folder (instances, a
+drawing one needs both halves of that: what is actually in the folder (nodes, a
 `.vstpreset`, a jsdsp source) and which of the three canonical names are missing, so it can
 offer to create them. Drawing the three fixed rows alone meant a folder dropped with two
 files of its own showed neither, and read as having been flattened on the way in.

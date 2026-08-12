@@ -121,8 +121,8 @@ export interface UndoResult {
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can extend ("type/name", "@ns/type/name")
   ioSinks: string[]; // io module names ("OUT")
-  // Chain `use` refs: a bare name for the folder's generic, plus "<name>:<instance>" per
-  // instance file, then the inherited modules by ref ("@ns/type/name").
+  // Chain `use` refs: a bare name for the folder's generic, plus "<name>:<node>" per
+  // node file, then the inherited modules by ref ("@ns/type/name").
   modules: string[];
   tracks: string[];
   channels: string[]; // input-channel labels from the machine's preferences
@@ -171,7 +171,7 @@ export interface IoPort {
   label?: string; // the `channel:` as authored, when it named a label
   unknownLabel?: boolean; // …and this rig has no input by that name
   namespace: string; // the shared catalogue it came from, "" for a project's own
-  generic: boolean; // the folder's module.yaml rather than one of its instances
+  generic: boolean; // the folder's module.yaml rather than one of its nodes
 }
 
 // One entry of the shared `_modules` catalogue (mirrors @studio/song/moduleCatalogue).
@@ -187,7 +187,7 @@ export interface CatalogueModule {
   // Where the module builder opens it. Absent for an ENGINE module: it has no file, which
   // is the whole point — its substance is the plugin, and the plugin is the engine's.
   path?: string;
-  instances: number; // how many instances sit beside it
+  nodes: number; // how many nodes sit beside it
   hasUi: boolean; // it already has a `ui.yaml` beside it
 }
 
@@ -288,7 +288,7 @@ export interface WebPlugin {
   type: string; // xmlTypeName / format
   name: string;
 }
-// One track's strip, read off the mixer module at the end of its chain. `module` is the instance ref an edit
+// One track's strip, read off the mixer module at the end of its chain. `module` is the node ref an edit
 // addresses (e.g. "mixer:vo.jo"); the rest are that module's params, in their own units — dB for the level and
 // the three tone bands, -1..+1 for the pan.
 export interface WebMixer {

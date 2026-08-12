@@ -12,7 +12,7 @@ import {
 // The file the app writes most (every clip drag), and the one where the format question has
 // teeth — placements carry TIMECODES.
 //
-// A lane is an instance now (docs/trackModules.md), so it is `parseModule` that vets one: the
+// A lane is a node now (docs/trackModules.md), so it is `parseModule` that vets one: the
 // timecode trap moved with it, which is why `quoteTimecodes` guards every module write.
 
 // A lane as the app leaves it: what it extends, then one placement per line as a flow map,

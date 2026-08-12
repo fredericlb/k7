@@ -3,7 +3,7 @@
 A module can hold several sets of attributes and run one of them:
 
 ```yaml
-# instances/ampli.yaml
+# nodes/ampli.yaml
 extends: "@project/audio/amp"
 params: { Gain: 3, Tone: 5 }
 alternative: crunch
@@ -32,15 +32,15 @@ Three things follow, and all three are why it is shaped this way:
 
 ## An alternative is an ordinary extender of its own module
 
-`applyAlternative` is `mergeAuthored(module, chosen)` — the same merge an instance gets over the
+`applyAlternative` is `mergeAuthored(module, chosen)` — the same merge a node gets over the
 module it extends, and the same one `moduleResolve` runs. So the reading of every field is one
 you already know:
 
 - **`params` merge per entry.** A set that touches `Gain` leaves `Tone` alone, which is what
   makes an alternative worth writing: it states only what it CHANGES.
 - **A list is a scalar to the merge**, so a set restating `clips:` replaces the arrangement
-  outright. That is exactly what a lane's takes need, and it is the same rule that lets an
-  instance empty an inherited `automations:` with `[]`.
+  outright. That is exactly what a lane's takes need, and it is the same rule that lets a
+  node empty an inherited `automations:` with `[]`.
 - **Any field may differ** — the plugin, the panel, the colour. An alternative is a module
   partial: `AlternativeSchema` is `ModuleSchema` minus `extends` and minus the alternatives
   themselves, spread from one shared `MODULE_FIELDS`, so a field added to a module is a field an
@@ -60,7 +60,7 @@ The application happens at the **outermost** module only, which is why the recur
 was merged in before the child's, and `base + clean + crunch` is not what `alternative: crunch`
 says.
 
-That leaves the useful case working: an instance can pick from a list its PARENT declared. A
+That leaves the useful case working: a node can pick from a list its PARENT declared. A
 shared amp offers `clean`/`crunch`, and each use chooses — while a use that chooses nothing
 inherits the parent's own selection, because `alternative:` is an ordinary inherited field.
 
@@ -74,7 +74,7 @@ They reach a node the ordinary way, on `WebChainStep`, and only **when there is 
 list of one is not a choice, and a node with nothing to pick from should grow no button. A LANE's
 pair arrives by `WebGraph.trackAlternatives` instead, because a lane's node is built from the
 graph's track side rather than from a chain step. That fourth track-side channel is the seam worth
-collapsing next — a lane IS a module instance now
+collapsing next — a lane IS a module node now
 ([trackModules.md](trackModules.md)), and this says so the long way round.
 
 ## Not a preset
@@ -83,7 +83,7 @@ They overlap and they are different things, and the difference is what to hold o
 
 | | a preset (`presets.yaml`) | an alternative |
 |---|---|---|
-| belongs to | the MODULE, so every instance of it | the one module or instance that holds it |
+| belongs to | the MODULE, so every node of it | the one module or node that holds it |
 | holds | numbers — a module's `params:` | any field a module has |
 | applying it | STAMPS the values in; the preset is not "current" afterwards | selects it; both sets survive and one is on |
 | what it is for | a starting point | a state to switch between |

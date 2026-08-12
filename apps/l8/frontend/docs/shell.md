@@ -514,7 +514,7 @@ are symmetric on purpose:
 ### Double-clicking a lane's header lays its modules out in a row
 
 The gutter has always been the row's handle: a click selects it, a double-click focuses it —
-opening its `instances/<name>.yaml` and framing the chains it feeds. It now also opens **one lane's
+opening its `nodes/<name>.yaml` and framing the chains it feeds. It now also opens **one lane's
 whole signal path**, side by side, over the graph: `trackModules` walks the same reach the
 framing uses (`subgraphForTrack`, so a send out of the lane's own chain is in it) and adds the
 ORDER a node set does not carry, then `moduleRow` lays it out.
@@ -642,12 +642,12 @@ state in `App`:
   insert is dropped. With no hints there is nothing to show, so it falls back to pre-writing
   the command with the two ends and letting the bar's completion take over.
 
-  Either way the chain will name the *instance*, so an instance is what is really being
+  Either way the chain will name the *node*, so a node is what is really being
   created — and since a chain now names it by its FILENAME alone, that name is the one thing
   only the user can supply, which is why both paths stop at the bar. From a namespace it
   takes one command: a chain cannot name `@engine/…` (`use` takes a local module), so it
-  creates the local module that inherits it *and* the instance, with the module name
-  pre-filled and the instance name left to you.
+  creates the local module that inherits it *and* the node, with the module name
+  pre-filled and the node name left to you.
 
 - **`rec <track>`** (the `r` key). An instrument track arms for MIDI capture in the browser;
   an audio track falls through to the backend, which arms it in the engine. Same key, routed

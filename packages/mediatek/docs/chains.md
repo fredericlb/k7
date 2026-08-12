@@ -6,7 +6,7 @@ A **chain** in the médiathèque is a folder holding a `chains.yaml`, at whateve
 ```
 chains/blindtest/vocal-strip/
   chains.yaml        ← the segments
-  instances/         ← the modules they name
+  nodes/         ← the modules they name
     eq.yaml
     gate.yaml
 ```
@@ -26,10 +26,10 @@ works unchanged. `deriveChains` follows a track's first hop exactly as it does i
 `buildGraph` draws a source node for it. The chain has no tracks, but it has one thing the
 signal comes FROM, and that is the same position in the graph.
 
-## The instances are files
+## The nodes are files
 
-The segments wire named instances to each other, and those instances are `.yaml` files in
-`instances/` beside the chains file — each one `extends` a module from the library. A template
+The segments wire named nodes to each other, and those nodes are `.yaml` files in
+`nodes/` beside the chains file — each one `extends` a module from the library. A template
 is therefore self-contained: the wiring and the settings travel together, the way a module's
 folder carries its assets.
 

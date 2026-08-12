@@ -38,7 +38,7 @@ describe("values and the field they belong to", () => {
   });
 
   it("reads a chain's flow maps, colons in values and all", () => {
-    // A real chains.yaml line. `synth:lead` is an instance ref and must stay whole.
+    // A real chains.yaml line. `synth:lead` is a node ref and must stay whole.
     expect(
       pairs(
         "chains:\n  - [ { track: melody, as: lead }, { module: synth:lead }, { module: OUT } ]\n",

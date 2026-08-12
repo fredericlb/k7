@@ -43,9 +43,9 @@ widgets:
   low: { type: knob, col: 0, row: 0, rowSpan: 2, label: Low, bind: Low, min: 60, max: 8000 }
 ```
 
-`ui.yaml` is the one name that is neither the generic nor an instance. Every other `<name>.yaml` in a module
-folder is one *use* of the module, so `instanceFiles` skips this one by name — without that, a module with a
-panel came back with a phantom instance called `ui`.
+`ui.yaml` is the one name that is neither the generic nor a node. Every other `<name>.yaml` in a module
+folder is one *use* of the module, so `nodeFiles` skips this one by name — without that, a module with a
+panel came back with a phantom node called `ui`.
 
 Refs are still the loader's own — `@<namespace>/<type>/<sub>` for a shared module, `<type>/<name>` for a
 project's own, a bare name for an io module — because that is what a chain names and what `byRef` is keyed by.
@@ -82,7 +82,7 @@ graph, the engine doc, the hints and the web all see `module.ui` exactly as they
 knows where the file was. A panel replaces a module's own inline `ui:` whole, for the same reason an inherited
 grid does: half of one author's layout inside another's is a grid nobody drew.
 
-Instances share their generic's ref, so a panel drawn once shows on every instance — which is what the
+Nodes share their generic's ref, so a panel drawn once shows on every node — which is what the
 generic-wins rule already said, back when panels lived in the module file.
 
 A [module fork](moduleFork.md) copies the whole folder, so the panel comes along by itself. It is rewritten

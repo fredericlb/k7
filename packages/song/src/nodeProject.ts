@@ -622,17 +622,17 @@ export function compileNodeProject(dir: string): ProjectDoc {
         continue;
       const { type, name: pluginName } = enginePlugin(plugin, step.module);
       if (!type) continue; // internal missing its name
-      // Named by what this step IS, so an instance saves beside its own file and never overwrites a sibling's state.
-      // A flat instance carries its own folder (`home`): its path is `instances/`, which no longer follows from
+      // Named by what this step IS, so a node saves beside its own file and never overwrites a sibling's state.
+      // A flat node carries its own folder (`home`): its path is `nodes/`, which no longer follows from
       // the category and folder of the module it uses.
       const presetSave = module.home
-        ? join(dir, String(module.home), `${String(module.instance)}.vstpreset`)
+        ? join(dir, String(module.home), `${String(module.node)}.vstpreset`)
         : join(
             dir,
             "modules",
             String(module.category),
             String(module.file ?? step.module),
-            `${String(module.instance ?? module.file ?? step.module)}.vstpreset`,
+            `${String(module.node ?? module.file ?? step.module)}.vstpreset`,
           );
       (trackPlugins[owner] ??= []).push({
         id: `${name}:${step.module}`,
@@ -734,7 +734,7 @@ export function compileNodeProject(dir: string): ProjectDoc {
   // engine should hold when stopped; patternClock fills its clips while rolling.
   // Sorted by instrument family here, on the compiled doc, so every surface and the
   // engine agree on what "the third track" is (see trackKind.ts). The name it sorts on is
-  // the INSTANCE's — the lane's file names it, exactly as its track file used to.
+  // the NODE's — the lane's file names it, exactly as its track file used to.
   const tracks: TrackDoc[] = sortTracksByKind(
     Object.entries(lanesMap).filter(
       ([, t]) => t.type !== "group" && !t.disabled,

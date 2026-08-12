@@ -16,7 +16,7 @@ export const STEMS_DIR = "stems";
 
 /** One step of a chain that produces files instead of processing a buffer. */
 export interface ColdStep {
-  step: string; // the instance name, for messages
+  step: string; // the node name, for messages
   model: string; // the resolved model file, absolute
 }
 

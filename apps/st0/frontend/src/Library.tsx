@@ -219,7 +219,7 @@ const variantAt = (
  * and showed nothing, which is the one thing a "create" must never do.
  *
  * A MODULE's children are its ASSETS and nothing else — what it loads, not what it is. Its
- * definition (module.yaml, the panel, the shelf, its instances) stays behind one row that opens the
+ * definition (module.yaml, the panel, the shelf, its nodes) stays behind one row that opens the
  * builder: rows were once drawn per file, and each one opened the same screen a different way,
  * while a row for a file that is not there lied about the disk. What a module carries is the
  * opposite case — bytes nothing can create for you, that have to be visible to be dropped on.
@@ -1164,7 +1164,7 @@ export function Library() {
                 // arrive as a folder. `dataTransfer.files` cannot carry that — see the shared
                 // tree's lib/droppedEntries.ts for why, and for the two traps it works around.
                 // A drop ONTO a module is a drop into what it carries: the module folder itself holds
-                // its definition, and a sample landing beside module.yaml is neither an instance nor a
+                // its definition, and a sample landing beside module.yaml is neither a node nor a
                 // panel — it is material, and `assets/` is where the loader looks for it.
                 // A drop in SONGS is a variant, and only onto the morceau itself: the rows above
                 // it are an artist and an album, which are deduced from tags and hold nothing.
@@ -1237,7 +1237,7 @@ export function Library() {
                           // On a module too, and it means `assets/` — a NAM pack is a folder per
                           // amp, so somewhere to drop into before the first file is a thing this
                           // menu has to be able to make. Never beside module.yaml: what a module
-                          // IS is three files and its instances, and the builder writes those.
+                          // IS is three files and its nodes, and the builder writes those.
                           when: (t) => t.dir || t.root,
                           prompt: { placeholder: "nom", submit: "Créer" },
                           run: (t, value) =>

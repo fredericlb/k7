@@ -38,7 +38,7 @@ The four edits the app actually makes (the honest test set):
 
 ## The colon
 
-Module names carry `:` — `eq_dj:vox` is an instance, `@engine/io/IN:in-1` an inherited one. They were values
+Module names carry `:` — `eq_dj:vox` is a node, `@engine/io/IN:in-1` an inherited one. They were values
 before and are map KEYS now, which is where `:` is most dangerous: it is YAML's own key/value indicator. It
 survives, because 1.2 allows `:` inside a plain scalar when no space follows. Nothing about that is obvious, and
 it is the first thing that would break silently, so chainsYaml.test.ts pins it.

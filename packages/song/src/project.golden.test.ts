@@ -8,7 +8,7 @@ import { loadProject } from "./project";
 // drift, and the net a refactor of the module model is held against.
 //
 // TWO songs, because they cover different halves of the merge. `synth-demo` has two
-// INSTANCES of one module (the params/preset path); `rack-demo` has a module that
+// NODES of one module (the params/preset path); `rack-demo` has a module that
 // `extends` another and merges its rack SYMBOLS per symbol — the most merge-sensitive
 // structure the engine ever receives, and the one thing synth-demo cannot show. The
 // other two shipped demos have no `modules/` at all.

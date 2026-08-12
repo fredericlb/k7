@@ -7,7 +7,7 @@ import { DECKS, type DeckId } from "./deck";
 
 /** A module the deck runs, as m9 holds it: a médiathèque ref plus what it plays as. */
 export interface DeckModule {
-  /** The instance name, which is also the engine's `chain:module` address. */
+  /** The node name, which is also the engine's `chain:module` address. */
   name: string;
   /** Its type folder, which is what picks the node's glyph. */
   category: WebModuleCategory;

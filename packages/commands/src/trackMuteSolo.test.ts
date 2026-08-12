@@ -39,10 +39,10 @@ function song(): string {
     "modules:\n  gtr: [ OUT ]\n  bass: [ OUT ]\n  drums: [ OUT ]\n",
     "utf8",
   );
-  mkdirSync(join(d, "instances"), { recursive: true });
+  mkdirSync(join(d, "nodes"), { recursive: true });
   for (const t of ["gtr", "bass", "drums"])
     writeFileSync(
-      join(d, "instances", `${t}.yaml`),
+      join(d, "nodes", `${t}.yaml`),
       'extends: "@studio/audio-track"\nclips: []\n',
       "utf8",
     );

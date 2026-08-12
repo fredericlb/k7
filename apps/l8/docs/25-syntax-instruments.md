@@ -23,11 +23,11 @@ A **doc module** is a note: one input, no output, and one field — `content`, f
 drawn on the node exactly as you write it. Wire it from whatever it is about, and it says so
 where you are already looking.
 
-Every note is an **instance of `@studio/doc`**, which is built in: there is no module file to
-create, so a note costs one file — its instance.
+Every note is a **node of `@studio/doc`**, which is built in: there is no module file to
+create, so a note costs one file — its node.
 
 ```yaml schema=Module
-# instances/notes-amp.yaml — one note
+# nodes/notes-amp.yaml — one note
 extends: "@studio/doc"
 content: |
   Le NAM tire fort : -6 dB avant,
@@ -56,7 +56,7 @@ An `io: in` module is a live interface input instead. It carries `channel:` — 
 `gain:` is an input trim in dB, `0` being unity. A guitar into a line input usually wants some; a hot synth wants less. It is applied at the interface, so it lands ahead of every module in the chain — and, like the monitor mode, it belongs to the physical input: two tracks on one input share it.
 
 ```yaml schema=Module
-# _modules/io/IN/in-1.yaml — an instance of the IN module: one physical input
+# _modules/io/IN/in-1.yaml — a node of the IN module: one physical input
 channel: [1]
 monitor: true    # hear it whether or not the track is armed
 gain: 6          # …and trim it 6 dB on the way in
@@ -162,19 +162,19 @@ params:
   Filter Freq: 69   # override just this one
 ```
 
-## instances/<name>.yaml — one use of a module
+## nodes/<name>.yaml — one use of a module
 
-A project's USES of its modules live in a flat `instances/` folder at its root, and the FILENAME names the instance: a chain says `lead`, not the module it came from. The file is the same flat shape as module.yaml, says which module it uses with `extends:`, and states only what it changes. Each instance keeps its own params and its own `instances/<name>.vstpreset`, so tweaking one leaves the module and every other use alone. Merge order: extended base → the module → the instance. To add one: right-click a module in the file tree → "New instance…", or run `module instance new instruments/synth lead`.
+A project's USES of its modules live in a flat `nodes/` folder at its root, and the FILENAME names the node: a chain says `lead`, not the module it came from. The file is the same flat shape as module.yaml, says which module it uses with `extends:`, and states only what it changes. Each node keeps its own params and its own `nodes/<name>.vstpreset`, so tweaking one leaves the module and every other use alone. Merge order: extended base → the module → the node. To add one: right-click a module in the file tree → "New node…", or run `node new instruments/synth lead`.
 
-The folder is flat on purpose — an instance does not mirror the folders of the thing it uses, so a use of a médiathèque module needs no local folder for it.
+The folder is flat on purpose — a node does not mirror the folders of the thing it uses, so a use of a médiathèque module needs no local folder for it.
 
-```yaml exempt="shows several files at once (two instances and the chain that uses them) - not one document"
-# instances/lead.yaml — state only what this use changes
+```yaml exempt="shows several files at once (two nodes and the chain that uses them) - not one document"
+# nodes/lead.yaml — state only what this use changes
 extends: "@project/instruments/synth"
 params:
   Filter Freq: 90
 
-# instances/pad.yaml
+# nodes/pad.yaml
 extends: "@project/instruments/synth"
 params:
   Filter Freq: 40
@@ -201,7 +201,7 @@ out and the module runs its own fields, which is why a file that never uses this
 the shape it always had.
 
 An alternative may set **any field a module has** — `params`, `plugin`, `ui`, a lane's `clips` —
-and it states only what it CHANGES. The merge is the one an instance already gets over the module
+and it states only what it CHANGES. The merge is the one a node already gets over the module
 it extends: `params` merge key by key, so a set that touches `Gain` leaves `Tone` alone, while a
 list replaces outright. `extends` is folded first, so the chosen set always wins.
 
@@ -288,7 +288,7 @@ rack:
 
 ## modules/<type>/<name>/ui.yaml — a module's panel
 
-The control grid a module draws on its graph node, in a file of its own **beside module.yaml**, in the module's own folder. It says nothing about which module it draws, because the folder already does: move the module and its face moves, copy it and the face is copied. A module folder's other .yaml files are its instances — ui.yaml is the one name that is neither the generic nor an instance.
+The control grid a module draws on its graph node, in a file of its own **beside module.yaml**, in the module's own folder. It says nothing about which module it draws, because the folder already does: move the module and its face moves, copy it and the face is copied. A module folder's other .yaml files are its nodes — ui.yaml is the one name that is neither the generic nor a node.
 
 cols/rows is the layout; each widget sits on a cell and binds a plugin parameter by name. Drag a parameter from the module editor's Parameters pane onto a widget to bind it — the range and the label come with it. knob/slider/fader/number carry min/max; dropdown carries the named settings of a discrete parameter; waveform draws a live tap; label draws fixed text and binds nothing.
 

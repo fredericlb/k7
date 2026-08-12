@@ -76,7 +76,7 @@ export const MODULE_CATEGORIES = [
 export type WebModuleCategory = (typeof MODULE_CATEGORIES)[number];
 
 export interface WebChainStep {
-  module: string; // a module instance name
+  module: string; // a module node name
   category?: WebModuleCategory; // its type folder — picks the node's icon
   // What this module EMITS. Absent for a module that emits nothing (a sink) or whose category is unknown.
   emits?: WebSignal;
@@ -109,7 +109,7 @@ export interface WebChainStep {
   // this one's). Undefined == neither defines one.
   ui?: WebModuleUI;
   // Which MIDI CC plays which param, from the `controller.yaml` in the module's FOLDER — so it is
-  // the module's, shared by every instance of it, exactly as the panel above is. Keyed by the
+  // the module's, shared by every node of it, exactly as the panel above is. Keyed by the
   // widget's `bind` string verbatim (`Cutoff`, `@monitor`), so a widget finds its own control by
   // the one name it already has. Undefined == this module is not mapped.
   cc?: Record<string, WebCc>;
@@ -156,7 +156,7 @@ export interface WebCurve {
 }
 export interface WebChain {
   from?: string; // a track id (or another chain)
-  use: WebChainStep[]; // ordered module instances
+  use: WebChainStep[]; // ordered module nodes
   enabled?: boolean; // whole-chain bypass
   out: WebOut[];
 }
@@ -165,7 +165,7 @@ export interface WebChain {
  *
  * One field, and it belongs to DOC modules: the note's text, drawn on the node as written. It
  * was `{docs, todos}` on every module, for a bottom panel that listed everybody's notes in one
- * place; a note is its own node now — an instance of `@studio/doc`, wired from what it is about
+ * place; a note is its own node now — a node of `@studio/doc`, wired from what it is about
  * — so the text is read where you are already looking. See `@studio/song`'s docs/docModules.md.
  */
 export interface WebModuleMeta {
@@ -175,7 +175,7 @@ export interface WebModuleMeta {
  * How a routing graph names a PORT on a node: `crossfade#b`.
  *
  * `#` because the other two separators are taken and mean something else — `:` joins a module to
- * its instance and `/` joins a namespace to a category to a name. A port is a third axis, so it
+ * its node and `/` joins a namespace to a category to a name. A port is a third axis, so it
  * needed a third character rather than an overload of one of those: `@mediatek/audio/crossfade:live#b`
  * has to stay readable as three separate facts. See `@studio/song`'s docs/ports.md.
  *
@@ -255,7 +255,7 @@ export interface WebGraph {
    * Its own map for the reason `trackColors` and `trackClips` are theirs: a lane's node is built
    * from the graph's track side rather than from a chain step, so what it draws has to arrive
    * there. (That the two sides still exist at all is the seam to collapse next — a lane IS a
-   * module instance now, and this is the fourth channel saying so the long way round.)
+   * module node now, and this is the fourth channel saying so the long way round.)
    */
   trackAlternatives?: Record<
     string,

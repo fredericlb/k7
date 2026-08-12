@@ -93,12 +93,12 @@ export function parserFor(path: string): Parse | null {
     if (base === "presets") return against(PresetsFileSchema);
     if (base === "controller") return against(ControllerFileSchema);
     if (base === "config") return against(ModuleConfigSchema);
-    return parseModule; // module.yaml, and every <instance>.yaml beside it
+    return parseModule; // module.yaml, and every <node>.yaml beside it
   }
-  // The project's flat instances/ folder — LANES included, since a lane is an instance of a
+  // The project's flat nodes/ folder — LANES included, since a lane is a node of a
   // `@studio/…-track` module and vets exactly like one. There is no `tracks/` branch: the folder
   // is gone. See docs/trackModules.md.
-  if (inFolder("instances")) return parseModule;
+  if (inFolder("nodes")) return parseModule;
   if (inFolder("clips")) return against(ClipSchema);
   if (inFolder("sequences")) return against(SequenceSchema);
   if (inFolder("curves")) return against(CurveSchema);

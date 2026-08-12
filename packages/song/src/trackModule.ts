@@ -1,5 +1,5 @@
-// trackModule.ts — the five modules a LANE is an instance of. Like `@studio/doc` none of them
-// has a file anywhere, so a lane costs exactly its own instance and nothing else. They are built
+// trackModule.ts — the five modules a LANE is a node of. Like `@studio/doc` none of them
+// has a file anywhere, so a lane costs exactly its own node and nothing else. They are built
 // from one two-axis table, not five literals: the grid IS the vocabulary, and five hand-written
 // copies is where the audio and sequence halves start to drift. Rationale: docs/trackModules.md.
 
@@ -85,7 +85,7 @@ export const isGeneratedTrack = (
 /**
  * A GROUP lane — one that holds member names and carries no signal.
  *
- * Asked by port rather than by ref, so an instance that extends an instance of a group is still
+ * Asked by port rather than by ref, so a node that extends a node of a group is still
  * a group: `extends` is folded before anything reads this, and the ports are what survive.
  */
 export const isGroupTrack = (
@@ -110,7 +110,7 @@ export interface Lane {
   color?: string;
   /** As AUTHORED — timecodes still strings. Empty for a group and for a generated lane. */
   clips: RawPlacement[];
-  /** A group's members, by instance name. Empty for every other kind. */
+  /** A group's members, by node name. Empty for every other kind. */
   tracks: string[];
   /** A generated lane's pattern file, project-relative. */
   strudel?: string;
@@ -140,7 +140,7 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
   };
 }
 
-/** Every lane in a RESOLVED module map, keyed by instance name and in that map's order. */
+/** Every lane in a RESOLVED module map, keyed by node name and in that map's order. */
 export function lanesOf(
   modules: Record<string, LoadedModule>,
 ): Record<string, Lane> {

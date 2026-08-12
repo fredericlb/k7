@@ -11,12 +11,12 @@ import { writeModule, writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
-// The file tree's right-click "New instance…" hands the Workspace whatever node was
+// The file tree's right-click "New node…" hands the Workspace whatever node was
 // clicked. That is normally the module FOLDER, but the same menu is reachable from the
 // files inside it — so the path handling has to take either and land on the same module.
 //
 // What is clicked says WHICH module is being used; it no longer says where the file goes.
-// Every instance lands in the project's flat `instances/`, whatever it is an instance of.
+// Every node lands in the project's flat `nodes/`, whatever it is a node of.
 
 let root: string;
 let ws: Workspace;
@@ -36,12 +36,12 @@ beforeEach(() => {
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-describe("Workspace.createModuleInstance", () => {
-  it("puts the file in the project's flat instances/, not under the module", () => {
-    const { path } = ws.createModuleInstance(MODULE_DIR, "lead");
-    expect(path).toBe("instances/lead.yaml");
+describe("Workspace.createNode", () => {
+  it("puts the file in the project's flat nodes/, not under the module", () => {
+    const { path } = ws.createNode(MODULE_DIR, "lead");
+    expect(path).toBe("nodes/lead.yaml");
     expect(existsSync(join(root, "song.l8", path))).toBe(true);
-    // The module is untouched — the instance names it, it doesn't rewrite it.
+    // The module is untouched — the node names it, it doesn't rewrite it.
     expect(
       existsSync(
         join(root, "song.l8", "modules/instruments/synth/module.yaml"),
@@ -50,30 +50,30 @@ describe("Workspace.createModuleInstance", () => {
   });
 
   it("resolves the module from a file inside the folder, not just the folder", () => {
-    ws.createModuleInstance(MODULE_DIR, "lead");
-    // Right-clicked on the module file… and the instance still lands in instances/.
-    expect(
-      ws.createModuleInstance(`${MODULE_DIR}/module.yaml`, "pad").path,
-    ).toBe("instances/pad.yaml");
+    ws.createNode(MODULE_DIR, "lead");
+    // Right-clicked on the module file… and the node still lands in nodes/.
+    expect(ws.createNode(`${MODULE_DIR}/module.yaml`, "pad").path).toBe(
+      "nodes/pad.yaml",
+    );
   });
 
   it("reports a name that's taken or invalid rather than overwriting", () => {
-    ws.createModuleInstance(MODULE_DIR, "lead");
-    expect(() => ws.createModuleInstance(MODULE_DIR, "lead")).toThrow(
-      /already names a module or instance/,
+    ws.createNode(MODULE_DIR, "lead");
+    expect(() => ws.createNode(MODULE_DIR, "lead")).toThrow(
+      /already names a module or node/,
     );
-    expect(() => ws.createModuleInstance(MODULE_DIR, "with space")).toThrow(
-      /invalid instance name/,
+    expect(() => ws.createNode(MODULE_DIR, "with space")).toThrow(
+      /invalid node name/,
     );
     // The name is a project-wide key now, so a MODULE's name is what it may not take.
-    expect(() => ws.createModuleInstance(MODULE_DIR, "synth")).toThrow(
-      /already names a module or instance/,
+    expect(() => ws.createNode(MODULE_DIR, "synth")).toThrow(
+      /already names a module or node/,
     );
   });
 
   it("refuses a folder that isn't a module", () => {
     mkdirSync(join(root, "song.l8", "clips"), { recursive: true });
-    expect(() => ws.createModuleInstance("song.l8/clips", "lead")).toThrow(
+    expect(() => ws.createNode("song.l8/clips", "lead")).toThrow(
       /unknown module category/,
     );
   });

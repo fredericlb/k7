@@ -7,7 +7,7 @@
 import { z } from "zod";
 
 /**
- * Where one node's signal goes — module instance names, or an io sink like `OUT`. Empty == unwired.
+ * Where one node's signal goes — module node names, or an io sink like `OUT`. Empty == unwired.
  *
  * A destination may name a PORT on its target: `crossfade#b` feeds the input called `b`. Bare, it
  * feeds the FIRST input, which is what every chains file written so far says and what a

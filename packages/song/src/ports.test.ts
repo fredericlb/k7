@@ -46,7 +46,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("a port ref", () => {
   it("splits on the LAST separator, leaving every other one alone", () => {
-    // A ref carries three axes at once — namespace/category, instance, port — and they must not
+    // A ref carries three axes at once — namespace/category, node, port — and they must not
     // eat each other. `#` was chosen precisely because `:` and `/` were already spoken for.
     expect(splitPort("crossfade#b")).toEqual({ node: "crossfade", port: "b" });
     expect(splitPort("@mediatek/audio/crossfade:live#b")).toEqual({
@@ -169,8 +169,8 @@ describe("wiring a named port", () => {
 describe("what validate says", () => {
   const wire = (yaml: string) => {
     file("modules/audio/crossfade/module.yaml", CROSSFADE);
-    file("instances/a.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
-    file("instances/b.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("nodes/a.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("nodes/b.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
     writeFileSync(join(dir, "chains.yaml"), yaml, "utf8");
     return loadGraph(dir);
   };
@@ -228,7 +228,7 @@ describe("what validate says", () => {
   it("refuses more sources than the module has ports", () => {
     // A port arity error THROWS rather than warning: a chain wired to a port that is not there
     // is not a song that plays imperfectly, it is one the compiler cannot lay out at all.
-    file("instances/c.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("nodes/c.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
     expect(() =>
       wire(
         "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  c: [ crossfade#b ]\n  crossfade: [ OUT ]\n",

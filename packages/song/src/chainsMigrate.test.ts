@@ -101,14 +101,14 @@ describe("a module the old file used twice", () => {
     `  - [ { track: melody, as: lead }, { module: synth }, { module: OUT } ]\n` +
     `  - [ { track: pad }, { module: synth }, { module: OUT } ]\n`;
 
-  it("becomes one instance per chain", () => {
+  it("becomes one node per chain", () => {
     // The old format compiled this to TWO plugins (ids `lead:synth` and `pad:synth`).
     // A segment file names a module once, so leaving it shared would collapse it into a
     // single node fed by both tracks — one instrument summing two lanes. That is a
     // different song, so the migration splits it instead.
     const r = migrateChainsText(SHARED);
     expect(r.split).toEqual([
-      { module: "synth", instances: ["synth:lead", "synth:pad"] },
+      { module: "synth", nodes: ["synth:lead", "synth:pad"] },
     ]);
     const g = deriveChains(parseChains(r.text).value, (n) =>
       r.tracks.includes(n),
@@ -117,15 +117,15 @@ describe("a module the old file used twice", () => {
     expect(path(g.pad)).toEqual(["pad", "synth:pad", "OUT"]);
   });
 
-  it("names the instance so the module loader will take it", () => {
-    // Instance names allow letters, digits, '_' and '-' only, and plenty of track ids
+  it("names the node so the module loader will take it", () => {
+    // Node names allow letters, digits, '_' and '-' only, and plenty of track ids
     // (`da.main`) do not. An unusable name would leave the split module unloadable.
     const r = migrateChainsText(
       `chains:\n` +
         `  - [ { track: da.main }, { module: comp }, { module: OUT } ]\n` +
         `  - [ { track: da.dub }, { module: comp }, { module: OUT } ]\n`,
     );
-    expect(r.split[0].instances).toEqual(["comp:da_main", "comp:da_dub"]);
+    expect(r.split[0].nodes).toEqual(["comp:da_main", "comp:da_dub"]);
   });
 });
 

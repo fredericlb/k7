@@ -26,8 +26,8 @@ By folder and basename, the way `fileKindFor` reads one:
 | `modules/**/presets.yaml` | the shelf |
 | `modules/**/controller.yaml` | the MIDI map |
 | `_modules/config.yaml` | a library's namespace |
-| `modules/**/*.yaml` — anything else | a module, generic or instance (`ModuleSchema`) |
-| `instances/*.yaml` | a module, again — the project's flat instances folder, LANES included ([trackModules.md](trackModules.md)) |
+| `modules/**/*.yaml` — anything else | a module, generic or node (`ModuleSchema`) |
+| `nodes/*.yaml` | a module, again — the project's flat nodes folder, LANES included ([trackModules.md](trackModules.md)) |
 | `clips/`, `sequences/`, `curves/`, `video_tracks/` | that kind's schema |
 | `chains.yaml`, `project.yaml`, `songs.yaml`, `views/mix.yaml` | the root files |
 | any other `.yaml` | parsed, not judged |
@@ -39,7 +39,7 @@ one is what forks it.
 The module folder's split — which basenames are the module ITSELF and which are a use of it —
 belongs to `yaml/moduleIO.ts`, which cannot be imported here because it reads the disk. So the
 two are **pinned by a test**: add a sibling file there without adding it here and
-`validate.test.ts` fails, rather than the file being silently read as an instance.
+`validate.test.ts` fails, rather than the file being silently read as a node.
 
 ## Three depths, and why the caller cares
 

@@ -107,7 +107,7 @@ export function benchFiles(name: string): Record<string, string> {
       `#       amps/neural-amp-modeler: [ mixer ]\n` +
       `#       mixer: [ OUT ]\n` +
       `#\n` +
-      `# Pas d'instance à créer : une instance sert à avoir DEUX exemplaires d'un module réglés\n` +
+      `# Pas de nœud à créer : un nœud sert à avoir DEUX exemplaires d'un module réglés\n` +
       `# différemment, et un banc n'en a pas besoin. C'est aussi ce nom de dossier que le\n` +
       `# constructeur cherche pour retrouver le greffon chargé et vous donner ses vrais\n` +
       `# paramètres — voir apps/l8/frontend/docs/moduleBuilder.md.\n` +
@@ -116,7 +116,7 @@ export function benchFiles(name: string): Record<string, string> {
       `  mixer: [ OUT ]\n`,
 
     // One lane, with nothing on it. A bench is a place to plug something in, not a song.
-    "instances/banc.yaml":
+    "nodes/banc.yaml":
       `# La piste du banc. Vide : ce qu'on y entend vient de ce qu'on met dans la chaîne —\n` +
       `# une entrée live (voir modules/io/OUT/module.yaml), ou un clip déposé ici.\n` +
       `extends: "@studio/audio-track"\n`,

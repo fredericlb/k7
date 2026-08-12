@@ -138,22 +138,22 @@ describe("a file-valued param", () => {
     expect(w.some((m) => m.includes("does-not-exist.nam"))).toBe(true);
   });
 
-  it("lets an instance carry its own model, out of its OWN assets folder", () => {
+  it("lets a node carry its own model, out of its OWN assets folder", () => {
     // Two amps sharing one module, each with its own profile — and because it is a param, the
-    // override merges per key, so the instance keeps the module's other settings.
+    // override merges per key, so the node keeps the module's other settings.
     //
-    // The instance's model sits in `instances/assets/`, not in the module's: what belongs to
-    // one use of a module lives beside that use, which is what lets `instances/` stay flat.
+    // The node's model sits in `nodes/assets/`, not in the module's: what belongs to
+    // one use of a module lives beside that use, which is what lets `nodes/` stay flat.
     file(
       "modules/audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "jcm800.nam"\n  Input: -5\n',
     );
     file("modules/audio/amp/assets/jcm800.nam");
     file(
-      "instances/clean.yaml",
+      "nodes/clean.yaml",
       'extends: "@project/audio/amp"\nparams:\n  nam: "twin.nam"\n',
     );
-    file("instances/assets/twin.nam");
+    file("nodes/assets/twin.nam");
     const mods = loadModules(dir);
     expect(mods.amp.assets?.nam).toBe("jcm800.nam");
     expect(mods.clean.assets?.nam).toBe("twin.nam");

@@ -3,7 +3,7 @@
 A note is a module. One input, no output, one field:
 
 ```yaml
-# instances/notes-amp.yaml
+# nodes/notes-amp.yaml
 extends: "@studio/doc"
 content: |
   Le NAM tire fort : -6 dB avant,
@@ -44,20 +44,20 @@ would be documentation feeding audio. `isSink` therefore answers yes for a doc m
 routed to one terminates there, exactly as it does at `OUT` — which is a fact about its SHAPE
 rather than about an io role, and is why it is asked separately from the io test.
 
-## Every note is an instance of `@studio/doc`
+## Every note is a node of `@studio/doc`
 
 There is one doc module for the whole studio and it has **no file anywhere**. That makes it the
 second such module in the repo, after the synthesised `@engine/…` plugins
 ([moduleNamespaces.md](moduleNamespaces.md)), and the first with no engine behind it either.
 
-A note being an *instance* is not a trick — it is what an instance already is here: one USE of a
-module with its own settings. Two notes are two instances of one module for the same reason two
+A note being a *node* is not a trick — it is what a node already is here: one USE of a
+module with its own settings. Two notes are two nodes of one module for the same reason two
 4OSCs are; their setting happens to be text rather than a number. `mergeAuthored` makes the
 child win per key, so each note's `content` is its own, and `OWN_ONLY` needed no change.
 
 The cost of the alternative is what settled it: a project-local `modules/docs/doc/module.yaml`
 would have been a file every project must scaffold before its first note, and an old project
-would have to create it by hand. Built in, a note costs exactly one file — its instance.
+would have to create it by hand. Built in, a note costs exactly one file — its node.
 
 `@studio` is its own namespace and not `@engine`, deliberately: the engine never hears of this.
 
@@ -96,7 +96,7 @@ long paragraph would otherwise push every rank of the graph sideways to make roo
 
 The card is deliberately unlike every other one — dashed edge, paper tint, no header, no jacks —
 so prose is never mistaken for a device. It also does **not** drop to its name at far zoom, which
-every other card does: a note's text is the card, and shrinking it to the instance's filename
+every other card does: a note's text is the card, and shrinking it to the node's filename
 would replace the only thing worth reading with the one thing that is not.
 
 ## Migrating

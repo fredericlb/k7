@@ -130,7 +130,7 @@ export interface LoadedModule {
   cold?: boolean;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   // The module's MIDI map, from the `controller.yaml` in its folder (controller.ts). Stamped on
-  // beside `ui` and by the same rule, so every instance of the module carries it.
+  // beside `ui` and by the same rule, so every node of the module carries it.
   cc?: unknown;
   channel?: unknown; // io "in" only
   // io "file" only — the audio it reads, project-relative. NOT `file`: the loader writes the
@@ -168,7 +168,7 @@ export interface LoadedModule {
   }[];
   outputs?: { name: string; type: "audio" | "midi" | "video" }[];
   // A lane whose clips are STREAMED rather than written down. Stamped on the two strudel built-ins
-  // and inherited by every instance of them, which is the whole mechanism — it is deliberately NOT
+  // and inherited by every node of them, which is the whole mechanism — it is deliberately NOT
   // in moduleSchema, so it cannot be authored and cannot disagree with what the lane extends.
   generated?: boolean;
   preset?: string; // resolved .vstpreset path, if any
@@ -181,12 +181,12 @@ export interface LoadedModule {
   // its PARENT carries, so resolving one needs the folders of the whole chain. See assetPath.ts.
   folderAbs?: string;
   // -- local modules only (loadModules) -----------------------------------------
-  name?: string; // the chain `use` key ("<name>" or "<name>:<instance>")
+  name?: string; // the chain `use` key ("<name>" or "<name>:<node>")
   category?: string; // the type folder (io|instruments|audio|transformers|…)
   file?: string; // the module's folder name
-  instance?: string; // undefined for the generic
-  // The folder this module's own files live in, PROJECT-RELATIVE. Set for a flat instance,
-  // whose location is `instances/` and therefore cannot be rebuilt out of category + file.
+  node?: string; // undefined for the generic
+  // The folder this module's own files live in, PROJECT-RELATIVE. Set for a flat node,
+  // whose location is `nodes/` and therefore cannot be rebuilt out of category + file.
   home?: string;
 }
 

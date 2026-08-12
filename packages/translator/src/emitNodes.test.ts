@@ -8,9 +8,9 @@ import { emitFolder } from "./emit";
 import type { PluginOut, Song, TrackOut } from "./model";
 
 // A DAWproject routinely puts the same plugin on several tracks with different settings.
-// Those are one instrument set differently, so the import writes ONE module and an
-// instance per use — not the "reverb", "reverb_2", "reverb_3" pile it used to. A plugin
-// used once keeps its settings in module.yaml and gets no instance at all.
+// Those are one instrument set differently, so the import writes ONE module and a
+// node per use — not the "reverb", "reverb_2", "reverb_3" pile it used to. A plugin
+// used once keeps its settings in module.yaml and gets no node at all.
 
 const fx = (name: string, params?: Record<string, number>): PluginOut => ({
   type: "vst3",
@@ -43,8 +43,8 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 const read = (rel: string) => readFileSync(join(dir, rel), "utf8");
 
-describe("import: one module per plugin, one instance per use", () => {
-  it("gives two uses of one plugin two instances of one module", () => {
+describe("import: one module per plugin, one node per use", () => {
+  it("gives two uses of one plugin two nodes of one module", () => {
     const stats = emitFolder(
       dir,
       song([
@@ -53,29 +53,29 @@ describe("import: one module per plugin, one instance per use", () => {
       ]),
       {},
     );
-    expect(stats.moduleInstances).toBe(1); // ONE module…
-    expect(stats.instanceFiles).toBe(2); // …used twice
+    expect(stats.moduleNodes).toBe(1); // ONE module…
+    expect(stats.nodeFiles).toBe(2); // …used twice
 
-    // module.yaml declares the plugin and nothing else; each instance holds its settings.
+    // module.yaml declares the plugin and nothing else; each node holds its settings.
     const mod = read("modules/audio/reverb/module.yaml");
     expect(mod).toContain("name: Reverb");
     expect(mod).not.toContain("mix");
     expect(read("modules/audio/reverb/vox.yaml")).toContain("mix:");
     expect(read("modules/audio/reverb/drums.yaml")).toContain("mix:");
 
-    // …and the segments name the instances.
+    // …and the segments name the nodes.
     const chains = read("chains.yaml");
     expect(chains).toContain("vox: [ reverb:vox ]");
     expect(chains).toContain("drums: [ reverb:drums ]");
   });
 
-  it("keeps a single-use plugin exactly as it was — no instance file", () => {
+  it("keeps a single-use plugin exactly as it was — no node file", () => {
     const stats = emitFolder(
       dir,
       song([track("vox", [fx("Reverb", { mix: 0.2 })])]),
       {},
     );
-    expect(stats.instanceFiles).toBe(0);
+    expect(stats.nodeFiles).toBe(0);
     expect(read("modules/audio/reverb/module.yaml")).toContain("mix:");
     expect(existsSync(join(dir, "modules/audio/reverb/vox.yaml"))).toBe(false);
     expect(read("chains.yaml")).toContain("vox: [ reverb ]");
@@ -94,7 +94,7 @@ describe("import: one module per plugin, one instance per use", () => {
 
   it("doesn't count a dropped insert towards 'used more than once'", () => {
     // An audio-source track loses its instrument plugins (the frozen remains of a
-    // rendered instrument track), so that use must not force the other into an instance.
+    // rendered instrument track), so that use must not force the other into a node.
     const bounced: TrackOut = {
       ...track("bounce", [
         { type: "vst3", name: "Synth", role: "instrument", enabled: true },
@@ -120,7 +120,7 @@ describe("import: one module per plugin, one instance per use", () => {
 // wrote CUE — and before that, silently, because the whole file was gated on the `cue`
 // binary being installed, which hid five stale assertions too.
 describe("the emitted folder is a loadable project", () => {
-  it("round-trips through the real loader, instances and all", () => {
+  it("round-trips through the real loader, nodes and all", () => {
     emitFolder(
       dir,
       song([
@@ -183,7 +183,7 @@ describe("what comes out is the arrangement that went in", () => {
       sourceFrom: 0.25,
       sourceTo: 4.25,
     });
-    expect(read("instances/vox.yaml")).not.toContain("length");
+    expect(read("nodes/vox.yaml")).not.toContain("length");
   });
 
   it("QUOTES every timecode it writes", () => {
@@ -191,7 +191,7 @@ describe("what comes out is the arrangement that went in", () => {
     // emitter shares the brain's quoter so the two can't disagree about which fields —
     // including the window, which is timecodes in a file that also holds bare numbers.
     emitFolder(dir, song([clipTrack()]), { "a.wav": new Uint8Array([82]) });
-    const track = read("instances/vox.yaml");
+    const track = read("nodes/vox.yaml");
     expect(track).toMatch(/start: "[\d:]+"/);
     expect(track).not.toMatch(/start: \d+:/); // never bare
     const clip = read("clips/vox_0.yaml");

@@ -75,8 +75,8 @@ const CURRENT = "current";
  * per `modules_from` namespace (`@engine` is there by default). Everything below is the
  * catalogue's own shape — see the file header.
  *
- * `baseModules` is already instance-free: `loadModuleRefs` keys by module FOLDER, so an
- * instance never becomes a ref of its own. That matters here, because instantiating is
+ * `baseModules` is already node-free: `loadModuleRefs` keys by module FOLDER, so a
+ * node never becomes a ref of its own. That matters here, because instantiating is
  * what picking one of these leads to.
  */
 export function buildTree(

@@ -54,7 +54,7 @@ Three things about how it is asked are deliberate:
 ## `cold` is inherited
 
 It is a fact about what the module IS, so it is **not** in `moduleResolve`'s `OWN_ONLY`: a use of
-a cold module is cold, and an instance that states only its `Target` does not have to restate it.
+a cold module is cold, and a node that states only its `Target` does not have to restate it.
 That is the same reason `plugin` is inherited and `category` is not.
 
 ## The normaliser

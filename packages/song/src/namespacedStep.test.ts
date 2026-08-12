@@ -89,7 +89,7 @@ describe("a chain step naming an inherited module by ref", () => {
     expect(h.modules).toContain(REF);
     expect(h.modules).toContain("lead"); // the local names are still there
     // io is offered too — both roles are chain nodes now: an "out" ends a chain, an
-    // "in" feeds one. (An inherited INSTANCE is nameable as well, which is the whole
+    // "in" feeds one. (An inherited NODE is nameable as well, which is the whole
     // point for io/IN: `module populate` files one per physical input.)
     expect(h.modules).toContain("@workspace/io/desk");
     expect(h.ioSinks).toContain("@workspace/io/desk");
@@ -105,10 +105,10 @@ describe("a chain step naming an inherited module by ref", () => {
   });
 });
 
-// The `/` vs `:` slip: an instance sits BESIDE a module.yaml, so its ref is the module's
-// with `:instance` — but on disk it reads like a folder, and the two spellings look the
+// The `/` vs `:` slip: a node sits BESIDE a module.yaml, so its ref is the module's
+// with `:node` — but on disk it reads like a folder, and the two spellings look the
 // same. "is not a module" is true and useless there; the fix is one character.
-describe("a ref that spells an instance with a slash", () => {
+describe("a ref that spells a node with a slash", () => {
   it("is told which character to change", () => {
     const ws = mkdtempSync(join(tmpdir(), "td-slash-"));
     const dir = join(ws, "song");

@@ -3,7 +3,7 @@
   "extends": ["./commons/biome.base.json"],
   "files": {
     "includes": [
-      "!commons/**",
+      "!commons",
       "!**/node_modules",
       "!**/dist",
       "!**/.turbo",

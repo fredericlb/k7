@@ -14,10 +14,10 @@ import { parse } from "yaml";
 import { formatChains } from "./yaml/chainsFile";
 import type { ChainsFile } from "./yaml/chainsSchema";
 
-/** One module the old file used in several chains, and the instances it became. */
+/** One module the old file used in several chains, and the nodes it became. */
 export interface SplitModule {
   module: string;
-  instances: string[]; // "synth:melody", "synth:pad" — one per chain that used it
+  nodes: string[]; // "synth:melody", "synth:pad" — one per chain that used it
 }
 
 export interface ChainsMigration {
@@ -46,8 +46,8 @@ const HEADER =
   `# \`bypassed\` lists the modules the signal passes through untouched, and on a lane that\n` +
   `# is its mute.\n`;
 
-/** An instance name the module loader accepts: letters, digits, '_' and '-'. A chain called `da.main` becomes `da_main`. */
-const instanceName = (chain: string): string =>
+/** A node name the module loader accepts: letters, digits, '_' and '-'. A chain called `da.main` becomes `da_main`. */
+const nodeName = (chain: string): string =>
   chain.replace(/[^A-Za-z0-9_-]/g, "_").replace(/^$/, "x");
 
 interface OldChain {
@@ -94,18 +94,18 @@ function readOld(raw: unknown): OldChain[] | null {
 /**
  * Rewrite one chains.yaml's text.
  *
- * A module the old file used in SEVERAL chains is split into one instance per chain. That is not cosmetic: the
+ * A module the old file used in SEVERAL chains is split into one node per chain. That is not cosmetic: the
  * old format compiled such a module to one plugin per chain (the ids were `<chain>:<module>`), while a segment
  * file names each module once, so a shared name would collapse into a single node fed by everything — one
  * instrument summing two tracks instead of two instruments. Splitting keeps the song sounding the same; the
- * instance files it needs are written by migrateChains().
+ * node files it needs are written by migrateChains().
  */
 export function migrateChainsText(text: string): ChainsMigration {
   const raw = parse(text, { version: "1.2" }) ?? {};
   const old = readOld(raw);
   if (!old) return { text, changed: false, split: [], tracks: [], notes: [] };
 
-  // Which chains use each module as a STEP — a target is a destination, not an instance.
+  // Which chains use each module as a STEP — a target is a destination, not a node.
   const users = new Map<string, string[]>();
   for (const c of old)
     for (const m of c.steps) {
@@ -121,11 +121,11 @@ export function migrateChainsText(text: string): ChainsMigration {
       shared.add(m);
       split.push({
         module: m,
-        instances: chains.map((c) => `${m}:${instanceName(c)}`),
+        nodes: chains.map((c) => `${m}:${nodeName(c)}`),
       });
     }
   const rename = (module: string, chain: string): string =>
-    shared.has(module) ? `${module}:${instanceName(chain)}` : module;
+    shared.has(module) ? `${module}:${nodeName(chain)}` : module;
 
   const byName = new Map(old.map((c) => [c.name, c]));
   /** The node a destination really points at: a chain name resolves to the first node of that chain. */
@@ -178,16 +178,16 @@ export function migrateChainsText(text: string): ChainsMigration {
 }
 
 export interface ChainsMigrationResult extends ChainsMigration {
-  /** The instance files created for a split module, project-relative. */
+  /** The node files created for a split module, project-relative. */
   created: string[];
   errors: string[];
 }
 
 /**
- * Migrate the project at `dir`, writing chains.yaml and any instance file a split needs.
+ * Migrate the project at `dir`, writing chains.yaml and any node file a split needs.
  *
- * An instance is an empty file beside its generic — everything it plays, it inherits. Writing one is the whole
- * cost of keeping a shared module's two lives apart, and it is what `module new … <instance>` writes too.
+ * A node is an empty file beside its generic — everything it plays, it inherits. Writing one is the whole
+ * cost of keeping a shared module's two lives apart, and it is what `module new … <node>` writes too.
  */
 export function migrateChains(dir: string): ChainsMigrationResult {
   const path = join(dir, "chains.yaml");
@@ -217,12 +217,12 @@ export function migrateChains(dir: string): ChainsMigrationResult {
     // belongs to the library, and splitting it there would change every song that uses it.
     if (s.module.startsWith("@")) {
       out.errors.push(
-        `'${s.module}' is a shared module used by ${s.instances.length} chains — ` +
+        `'${s.module}' is a shared module used by ${s.nodes.length} chains — ` +
           `it is now ONE node fed by all of them. Fork it per chain if they need separate plugins.`,
       );
       continue;
     }
-    for (const inst of s.instances) {
+    for (const inst of s.nodes) {
       const [, name] = inst.split(":");
       const folder = moduleFolder(dir, s.module);
       if (!folder) {

@@ -703,20 +703,17 @@ export function EditorTab({
     [refresh, open, onChanged, setStatus],
   );
 
-  // New instance: add an <instance>.yaml and open it — the point of an instance is to state what it overrides.
-  const createModuleInstanceEntry = useCallback(
-    async (path: string, instance: string) => {
+  // New node: add an <node>.yaml and open it — the point of a node is to state what it overrides.
+  const createNodeEntry = useCallback(
+    async (path: string, node: string) => {
       try {
-        const { path: newPath } = await api.createModuleInstance(
-          path,
-          instance,
-        );
+        const { path: newPath } = await api.createNode(path, node);
         await refresh();
         void open(newPath);
         onChanged();
         setStatus(`created ${newPath}`);
       } catch (e) {
-        setStatus(`new instance failed: ${(e as Error).message}`);
+        setStatus(`new node failed: ${(e as Error).message}`);
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -1079,7 +1076,7 @@ export function EditorTab({
               onCreateProjectFile={createProjectFile}
               onCreateFolder={createFolder}
               onCloneModule={cloneModuleEntry}
-              onCreateModuleInstance={createModuleInstanceEntry}
+              onCreateNode={createNodeEntry}
             />
             <UploadProgress
               fileName={uploadState?.fileName ?? null}

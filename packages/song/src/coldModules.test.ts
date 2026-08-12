@@ -18,7 +18,7 @@ import {
 } from "./graph";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
-import { writeInstance, writeModule } from "./testSupport";
+import { writeModule, writeNode } from "./testSupport";
 
 let dir: string;
 
@@ -43,9 +43,9 @@ function project(chains: string): void {
 
 /** …and a lane, so a chain sourced from one resolves. */
 function track(id: string): void {
-  mkdirSync(join(dir, "instances"), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
-    join(dir, "instances", `${id}.yaml`),
+    join(dir, "nodes", `${id}.yaml`),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
@@ -66,11 +66,11 @@ describe("the cold flag", () => {
   });
 
   it("is INHERITED, so a use of a cold module is cold", () => {
-    // The whole reason it is not in moduleResolve's OWN_ONLY. An instance states only what it
+    // The whole reason it is not in moduleResolve's OWN_ONLY. A node states only what it
     // changes, and "this is still the thing that needs the whole file" is not a choice it makes.
     project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     track("gtr");
-    writeInstance(dir, "master", {
+    writeNode(dir, "master", {
       extends: "@project/audio/squash",
       params: { Target: -3 },
     });
@@ -95,7 +95,7 @@ describe("adding one to a chain", () => {
     project(FROM_FILE);
     track("gtr");
     writeModule(dir, "io", "FILE", { io: "file" });
-    writeInstance(dir, "take", {
+    writeNode(dir, "take", {
       extends: "@project/FILE",
       source: "clips/original.wav",
     });

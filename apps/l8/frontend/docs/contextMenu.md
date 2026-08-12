@@ -25,7 +25,7 @@ journal (`workspace.recordChange`).
 
 So `track mute gtr` goes; `track gain gtr ` asks for the dB. Roughly a third of the rows run.
 The ones worth knowing, because they change something and go at once: `module delete`,
-`event remove`, `marker delete`, `module instance unlink` and `module own`.
+`event remove`, `marker delete`, `node unlink` and `module own`.
 
 `complete` is **stated, not sniffed** off the trailing space on `command`. That space is a caret
 position; whether a line is finished is a different question, and two questions must not share
@@ -87,7 +87,7 @@ question about a HANDLER, and the catalogue only describes arguments.
   but it is not a value the `tracks` provider lists. Deriving would hand a group a freeze, a
   gain and four `event` verbs, none of which reach it.
 - **A dangling module.** A step naming a module that does not exist keeps exactly the verbs
-  that touch `chains.yaml` alone: `module bypass`, `module instance unlink` and
+  that touch `chains.yaml` alone: `module bypass`, `node unlink` and
   `module replace` — the last being the actual repair, since it writes the new module and
   rewrites the reference without ever opening the old one. That is about what those handlers
   write, which no argument declares.

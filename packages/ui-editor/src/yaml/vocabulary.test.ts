@@ -107,8 +107,11 @@ describe("the chains vocabulary", () => {
         "type",
       ),
     ).toEqual(["plugin", "rack", "video_effect", "video_transition"]);
+    // A NODE file, which is what a lane is now — `tracks/melody.yaml` stood here and is not a
+    // kind of file at all any more (packages/song/docs/trackModules.md), so the assertion was
+    // reading `undefined` off a vocabulary nobody had built.
     expect(
-      schemaVocabulary("tracks/melody.yaml", HINTS).valuesAt?.(
+      schemaVocabulary("nodes/melody.yaml", HINTS).valuesAt?.(
         ["modules"],
         "amp",
       ),

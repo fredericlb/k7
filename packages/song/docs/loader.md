@@ -33,20 +33,20 @@ midi and gives back audio — that's the whole point of an instrument. A sink em
 nothing (`undefined`); an io `"in"` is a live audio source, handled at its use site
 since both io roles share this one entry.
 
-## Module instances
+## Module nodes
 
 A module's folder holds one `module.yaml` and nothing else that is a module. A project's
-USES of modules are files in a flat `instances/` folder at its root, where the filename is
-the instance name and chains say that alone:
+USES of modules are files in a flat `nodes/` folder at its root, where the filename is
+the node name and chains say that alone:
 
 ```
 modules/instruments/synth/module.yaml   ->  "synth"   (the module)
-instances/lead.yaml                     ->  "lead"    (one use of it)
-instances/pad.yaml                      ->  "pad"     (another)
+nodes/lead.yaml                         ->  "lead"    (one use of it)
+nodes/pad.yaml                          ->  "pad"     (another)
 ```
 
-The full page is **`docs/instances.md`** — where the type comes from now that there is no
-type folder, what lives beside an instance, and why the folder is flat.
+The full page is **`docs/nodes.md`** — where the type comes from now that there is no
+type folder, what lives beside a node, and why the folder is flat.
 
 ## The files a module loads
 
@@ -68,13 +68,13 @@ module, so what it loads travels with it. See `docs/moduleAssets.md` for the who
 - **`decorate`** adds the loader's fields (kind/inputs from the type folder, resolved
   preset/asset paths) to a module. The persisted plugin state is `<name>.vstpreset` beside
   its `module.yaml`.
-- **`loadInstances`** is the separate pass over `instances/`, and it deliberately decorates
+- **`loadNodes`** is the separate pass over `nodes/`, and it deliberately decorates
   LESS: no `kind`, `inputs` or `category`, because a flat folder has no type folder to read
-  them off. Leaving them absent is what lets them arrive from what the instance `extends`
-  (see moduleResolve.md's `OWN_ONLY`). It sets `home` — the instance's own folder — since
-  `instances/lead.vstpreset` no longer follows from a category and a module name.
-- **Name collisions** are reported, not resolved: a module and an instance answering to one
-  name would make a chain step ambiguous, so the module wins and the instance is an issue.
+  them off. Leaving them absent is what lets them arrive from what the node `extends`
+  (see moduleResolve.md's `OWN_ONLY`). It sets `home` — the node's own folder — since
+  `nodes/lead.vstpreset` no longer follows from a category and a module name.
+- **Name collisions** are reported, not resolved: a module and a node answering to one
+  name would make a chain step ambiguous, so the module wins and the node is an issue.
 - **`validate`** defaults to `false` because the generator itself reads modules to BUILD
   the schema overlay (schemaGen/hints); validating there would make a project's modules
   unloadable whenever their own schema was stale, with no way back. The load paths that

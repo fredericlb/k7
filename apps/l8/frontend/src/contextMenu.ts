@@ -135,7 +135,7 @@ const build = (commands: CommandInfo[], entries: Entry[]): MenuItem[] =>
 // creates the new module and rewrites the reference, and never opens the old one.
 const SURVIVES_MISSING = new Set([
   "module bypass",
-  "module instance unlink",
+  "node unlink",
   "module replace",
 ]);
 

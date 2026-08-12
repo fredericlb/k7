@@ -34,16 +34,16 @@ describe("which kind of file a path is", () => {
     ).toBe(true);
   });
 
-  it("is not fooled by a module INSTANCE file", () => {
-    // `bass.yaml` beside `module.yaml` is an instance; only the generic file is the rack.
+  it("is not fooled by a module NODE file", () => {
+    // `bass.yaml` beside `module.yaml` is a node; only the generic file is the rack.
     expect(isRackModuleFile("modules/audio/amp/bass.yaml")).toBe(false);
   });
 
   it("recognises sequences, clips, tracks and video tracks", () => {
     expect(isSeqFile("sequences/lead.yaml")).toBe(true);
     expect(isClipFile("clips/kick.yaml")).toBe(true);
-    // A lane lives in `instances/` — it is an instance of a `@studio/…-track` module.
-    expect(isTrackFile("instances/melody.yaml")).toBe(true);
+    // A lane lives in `nodes/` — it is a node of a `@studio/…-track` module.
+    expect(isTrackFile("nodes/melody.yaml")).toBe(true);
     expect(isTrackFile("tracks/melody.yaml")).toBe(false);
     expect(isVideoTrackFile("video_tracks/cam.yaml")).toBe(true);
   });
@@ -51,7 +51,7 @@ describe("which kind of file a path is", () => {
   it("says no to a folder that merely looks similar", () => {
     expect(isClipFile("clips/nested/kick.yaml")).toBe(false);
     expect(isSeqFile("sequences.yaml")).toBe(false);
-    expect(isTrackFile("instances/melody.wav")).toBe(false);
+    expect(isTrackFile("nodes/melody.wav")).toBe(false);
   });
 
   it("takes the id off the extension, keeping a dot inside the name", () => {
@@ -59,7 +59,7 @@ describe("which kind of file a path is", () => {
     expect(fileStem("a\\b\\my.clip.yml")).toBe("my.clip");
   });
 
-  it("finds the generic module file beside an instance", () => {
+  it("finds the generic module file beside a node", () => {
     expect(moduleFileOf("modules/audio/amp/bass.yaml")).toBe(
       "modules/audio/amp/module.yaml",
     );

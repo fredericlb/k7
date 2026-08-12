@@ -28,7 +28,7 @@
   "settings.io": "I/O",
   "settings.modules": "Modules",
   "modules.hint": "The workspace's shared modules. Editing one changes it for every project here.",
-  "modules.instances": "{n} instances",
+  "modules.nodes": "{n} nodes",
   "modules.empty": "This workspace has no shared module library.",
   "modules.filter": "Filter by module or plugin name…",
   "modules.noMatch": "No module matches.",

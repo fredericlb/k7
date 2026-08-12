@@ -9,7 +9,7 @@ one entity fewer and one file more.
 | `project.yaml` | the set's settings, plus `type: m9` at the root |
 | `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
 | `chains.yaml` | the routing segments, exactly as in a song |
-| `instances/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so instances too ([trackModules.md](trackModules.md)) |
+| `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
 | `views/mix.yaml` | what each control of the Mix desk drives — see [viewBindings.md](viewBindings.md) |
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
@@ -18,10 +18,10 @@ plays lives in the médiathèque, and what it says about playing it is the graph
 **And no `modules/` either.** A set uses modules; it does not own any. st0 holds the only
 editable catalogue, so a crossfade copied into the project would be a second crossfade
 nobody maintains and nobody would notice drifting from the one everybody else uses. An
-instance is the whole use:
+node is the whole use:
 
 ```yaml
-# instances/crossfade.yaml
+# nodes/crossfade.yaml
 extends: "@mediatek/audio/utility/crossfade"
 params:
   Mix: 0.5
@@ -29,7 +29,7 @@ params:
 
 `kind`, `inputs` and `category` are inherited by NOT being stated — the two audio ports, the
 second one optional, come from what it extends. That is the mechanism, not a shortcut; see
-[instances.md](instances.md). A use of a module you do not own needs no local folder for it.
+[nodes.md](nodes.md). A use of a module you do not own needs no local folder for it.
 
 ## `type:` earns its place, and does not win
 
@@ -63,7 +63,7 @@ time those two tiers were confused.
 
 This is the one genuinely new thing, and it is small.
 
-In a song, `instances/bass.yaml` **is** the arrangement: the clips, where they sit, how often
+In a song, `nodes/bass.yaml` **is** the arrangement: the clips, where they sit, how often
 they repeat. On a deck there is nothing to arrange — the material is whichever song from
 `songs.yaml` was loaded onto it ten seconds ago, and it will be a different one in four
 minutes. So it authors no `clips:` at all.
@@ -78,9 +78,9 @@ The file still exists, and that is deliberate. The alternative — inferring the
   the master tempo: none of those are the song, all of them are the deck, and inventing a
   second home for them later is worse than having one now.
 
-A deck's file is now an ordinary instance — `extends: "@studio/audio-track"` and its own
-settings — which is the same argument arriving at the same place from the other side: an
-instance is exactly "one use of a module, with its own settings".
+A deck's file is now an ordinary node — `extends: "@studio/audio-track"` and its own
+settings — which is the same argument arriving at the same place from the other side: a
+node is exactly "one use of a module, with its own settings".
 
 ## Two decks meeting at a crossfade
 
@@ -118,7 +118,7 @@ That is also why it belongs on a DECK specifically. The cold rule is that such a
 chain must draw from a file input — and a deck's source is a file on the machine's disk,
 which is the one input whose whole length is knowable up front.
 
-Two instances, not one shared: each deck plays at its own BPM, and a param belongs to a use
+Two nodes, not one shared: each deck plays at its own BPM, and a param belongs to a use
 rather than to a module. `Source BPM` is measured by the pass; `Target BPM` is what m9's
 tempo fader sets.
 

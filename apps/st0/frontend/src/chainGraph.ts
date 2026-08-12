@@ -1,10 +1,10 @@
 // chainGraph.ts — a chain TEMPLATE as a WebGraph, so the same DomChains that draws a song's
-// routing draws one of these. The file is a l8 chains.yaml: segments wiring named instances
+// routing draws one of these. The file is a l8 chains.yaml: segments wiring named nodes
 // to each other, with `@in` where a track would be and `@out` where a sink would.
 // See docs/chains.md.
 
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
-import { INSTANCES_DIR } from "@studio/mediatek/types";
+import { NODES_DIR } from "@studio/mediatek/types";
 import {
   CHAIN_IN,
   CHAIN_OUT,
@@ -14,10 +14,10 @@ import {
 import { parseChains } from "@studio/song/yaml/chainsFile";
 
 // The three names this file used to declare itself. The ends of a template and the folder its
-// instances live in are the médiathèque's and the song layer's vocabulary, not this app's —
+// nodes live in are the médiathèque's and the song layer's vocabulary, not this app's —
 // l8's `track process` / `clip process` read the same chains from Node and must not read them
 // by another name.
-export { CHAIN_IN, CHAIN_OUT, chainSteps, INSTANCES_DIR };
+export { CHAIN_IN, CHAIN_OUT, chainSteps, NODES_DIR };
 
 /** What `deriveChains` hands back, keyed by chain name. Narrowed here so this file states the
  *  shape it consumes rather than importing a type that carries a project's worth of fields. */

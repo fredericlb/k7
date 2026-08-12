@@ -60,7 +60,7 @@ describe("a project changed underneath the Workspace", () => {
   // it's in a chain, so these recolour a track instead: it lands in the doc directly.
   const setColor = (c: string): void => {
     writeFileSync(
-      join(proj, "instances", "melody.yaml"),
+      join(proj, "nodes", "melody.yaml"),
       `extends: "@studio/sequence-track"\ncolor: "${c}"\nclips:\n  - { ref: melody, start: "1:1:1" }\n`,
       "utf8",
     );

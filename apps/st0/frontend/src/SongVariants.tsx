@@ -13,7 +13,7 @@ import { AudioLines, Loader2, Workflow } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { currentUser, engineMachine, library } from "./api";
 import { ChainView } from "./ChainView";
-import { chainSteps, INSTANCES_DIR } from "./chainGraph";
+import { chainSteps, NODES_DIR } from "./chainGraph";
 import { useEnginePlugins } from "./engine/baseModules";
 import {
   bounce,
@@ -163,7 +163,7 @@ export function SongVariants({
   /**
    * A chain's steps, each with the plugin it actually loads.
    *
-   * Through `extends`, and that is the fix rather than a nicety: an INSTANCE declares its
+   * Through `extends`, and that is the fix rather than a nicety: a NODE declares its
    * overrides and nothing else — the real library's say `extends: "@mediatek/audio/…"` and a
    * `params:` block — so reading the file alone found no `plugin:`, and every step of every
    * variant went to the engine naming nothing to load. The same resolution the module editor
@@ -175,7 +175,7 @@ export function SongVariants({
         chainSteps(c.text ?? "").map(async (name) => {
           try {
             const { content } = await library.readFile(
-              `${c.entry?.path}/${INSTANCES_DIR}/${name}.yaml`,
+              `${c.entry?.path}/${NODES_DIR}/${name}.yaml`,
             );
             return {
               name,
@@ -184,7 +184,7 @@ export function SongVariants({
               ),
             };
           } catch {
-            // An instance the chain names and the folder does not hold. The step is kept, with
+            // A node the chain names and the folder does not hold. The step is kept, with
             // no plugin: `enginePlugin` falls back to the name, and a chain that is missing one
             // treatment should still let you hear the others rather than refusing to play.
             return { name, plugin: undefined };

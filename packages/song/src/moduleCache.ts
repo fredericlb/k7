@@ -21,7 +21,7 @@ const MAX_ENTRIES = 4;
  * A token that changes when anything the module loaders read changes.
  *
  * The roots are the ones they actually walk — the project's own `modules/`, the shared libraries,
- * its flat `instances/` — plus the engine's scan cache, which is a module source with no folder.
+ * its flat `nodes/` — plus the engine's scan cache, which is a module source with no folder.
  * Names go into a hash rather than a count so a RENAME shows up: renaming a file keeps its mtime
  * and the count, and a stamp that missed it would serve a module under a name nobody wrote.
  */
@@ -62,7 +62,7 @@ function moduleStamp(dir: string): string {
     }
   };
   for (const root of modulePanelRoots(dir)) walk(root, 0);
-  walk(join(dir, "instances"), 0);
+  walk(join(dir, "nodes"), 0);
   // A rescan rewrites this and touches no library — `@engine/…` refs come out of it.
   stamp(EXTS_PATH);
   return `${(hash >>> 0).toString(36)}:${entries}:${newest}`;

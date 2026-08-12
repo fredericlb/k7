@@ -75,7 +75,7 @@ describe("resolving the desk's bindings", () => {
   it("names a control the desk does not have", () => {
     // A typo about your OWN project. l8's MIDI join skips a binding it cannot apply, because
     // a module's map travels into projects that draw it differently — this file names this
-    // set's own instances, so silence would leave a dead fader with nothing to fix.
+    // set's own nodes, so silence would leave a dead fader with nothing to fix.
     const { bindings, problems } = resolveBindings(
       { "deckA.pitch": { module: "crossfade", param: "Mix" } },
       graphWith([{ module: "crossfade", pluginId: "x" }]),

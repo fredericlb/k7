@@ -19,8 +19,8 @@ let dir: string;
 const logs: string[] = [];
 let reloaded = 0;
 
-/** One lane through one amp instance, the amp carrying a second set of settings. */
-function song(instance: string): string {
+/** One lane through one amp node, the amp carrying a second set of settings. */
+function song(node: string): string {
   const d = mkdtempSync(join(tmpdir(), "td-modalt-"));
   writeFileSync(
     join(d, "project.yaml"),
@@ -32,13 +32,13 @@ function song(instance: string): string {
     "modules:\n  gtr: [ ampli ]\n  ampli: [ OUT ]\n",
     "utf8",
   );
-  mkdirSync(join(d, "instances"), { recursive: true });
+  mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
-    join(d, "instances", "gtr.yaml"),
+    join(d, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
-  writeFileSync(join(d, "instances", "ampli.yaml"), instance, "utf8");
+  writeFileSync(join(d, "nodes", "ampli.yaml"), node, "utf8");
   for (const [type, name, body] of [
     ["io", "OUT", "io: out\n"],
     [
@@ -68,7 +68,7 @@ const host = () =>
     },
   }) as never;
 
-const file = () => readFileSync(join(dir, "instances", "ampli.yaml"), "utf8");
+const file = () => readFileSync(join(dir, "nodes", "ampli.yaml"), "utf8");
 
 beforeEach(() => {
   logs.length = 0;

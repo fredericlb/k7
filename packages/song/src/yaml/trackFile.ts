@@ -1,5 +1,5 @@
-// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is an instance file
-// (instances/<name>.yaml, see docs/trackModules.md). The app's most frequent edit: every clip
+// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is a node file
+// (nodes/<name>.yaml, see docs/trackModules.md). The app's most frequent edit: every clip
 // drag writes a placement's `start`. Reading and validating the file is moduleFile's job, since
 // a lane is an ordinary module; what is here is the clip list and nothing else.
 

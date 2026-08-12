@@ -42,9 +42,9 @@ export function writeModule(
 }
 
 /**
- * Write a LANE: an instance extending one of the five built-in track modules.
+ * Write a LANE: a node extending one of the five built-in track modules.
  *
- * A thin wrapper over `writeInstance`, because that is all a lane is now — but it spells the
+ * A thin wrapper over `writeNode`, because that is all a lane is now — but it spells the
  * `extends` so a fixture says "an audio lane" rather than repeating a ref. See
  * docs/trackModules.md.
  */
@@ -59,21 +59,17 @@ export function writeLane(
     | "group-track" = "audio-track",
   value: Record<string, unknown> = {},
 ): string {
-  return writeInstance(dir, name, { extends: `@studio/${extend}`, ...value });
+  return writeNode(dir, name, { extends: `@studio/${extend}`, ...value });
 }
 
 /**
- * Write one USE of a module: `instances/<name>.yaml`, flat, whatever it is a use of.
+ * Write one USE of a module: `nodes/<name>.yaml`, flat, whatever it is a use of.
  *
  * The file names it — `name` is the key a chain writes — and it takes the same fields a
  * module file does. Which module it uses is `extends`, in `value`, and nothing else.
  */
-export function writeInstance(
-  dir: string,
-  name: string,
-  value: unknown,
-): string {
-  const path = join(dir, "instances", `${name}.yaml`);
+export function writeNode(dir: string, name: string, value: unknown): string {
+  const path = join(dir, "nodes", `${name}.yaml`);
   writeYaml(path, value);
   return path;
 }

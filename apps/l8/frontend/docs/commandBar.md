@@ -252,8 +252,8 @@ genuinely optional (a plugin that declares nothing usable files flat), and a mod
 no category sits directly under its type rather than being given an "Other" bucket it
 never asked for.
 
-Only BASE modules appear, never instances — `loadModuleRefs` keys by module folder, so an
-instance is never a ref of its own. That is the right set here, because picking one leads
+Only BASE modules appear, never nodes — `loadModuleRefs` keys by module folder, so a
+node is never a ref of its own. That is the right set here, because picking one leads
 to instantiating it.
 
 The nesting is a good way to BROWSE and a bad way to find one module you can already name

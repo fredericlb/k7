@@ -24,12 +24,12 @@ const DEN = 4;
 
 function trackDir(body: string): string {
   const dir = mkdtempSync(join(tmpdir(), "td-move-"));
-  mkdirSync(join(dir, "instances"), { recursive: true });
-  writeFileSync(join(dir, "instances", "drums.yaml"), body, "utf8");
+  mkdirSync(join(dir, "nodes"), { recursive: true });
+  writeFileSync(join(dir, "nodes", "drums.yaml"), body, "utf8");
   return dir;
 }
 const read = (dir: string) =>
-  readFileSync(join(dir, "instances", "drums.yaml"), "utf8");
+  readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
 
 describe("moveTrackPlacement", () => {
   it("rewrites ONLY the matching placement, leaving every other line identical", () => {

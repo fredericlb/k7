@@ -105,7 +105,7 @@ describe("…and when a module DOES name it", () => {
     // there; it is its CONTENT that is wrong, and only its own complaint says where.
     //
     // A real project, because this is the COMPILER's report: the fixture is one that already
-    // plays, with one instance repointed at the broken library module.
+    // plays, with one node repointed at the broken library module.
     const song = join(ws, "demo");
     cpSync(SONG, song, { recursive: true });
     writeFileSync(
@@ -121,7 +121,7 @@ describe("…and when a module DOES name it", () => {
     );
     sharedModule("audio/broken", BAD);
     writeFileSync(
-      join(song, "instances", "lead.yaml"),
+      join(song, "nodes", "lead.yaml"),
       'extends: "@workspace/audio/broken"\n',
       "utf8",
     );

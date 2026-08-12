@@ -31,8 +31,8 @@ range son catalogue comme ça, et le banc en est le miroir.
 > pas », un 400 de `/module-ui` sur un fichier bien visible dans l'arbre. Les deux marcheurs
 > s'accordent depuis (`packages/song/src/filedModules.test.ts`).
 
-Pas d'instance à créer : une instance sert à avoir deux exemplaires d'un module réglés
-différemment, et un banc n'en a pas besoin — d'ailleurs il ne pourrait pas, un nom d'instance
+Pas de nœud à créer : un nœud sert à avoir deux exemplaires d'un module réglés
+différemment, et un banc n'en a pas besoin — d'ailleurs il ne pourrait pas, un nom de nœud
 ne pouvant pas être celui d'un module du projet, et ici tous les modules du catalogue en sont.
 
 Pour entendre autre chose que du silence, il faut une source : un clip déposé sur la piste, ou
@@ -93,8 +93,8 @@ Un module supprimé du catalogue disparaît donc du banc. C'est le but : un modu
 résoudrait encore, compilerait encore et jouerait encore, ce qui est la manière de passer une
 heure à déboguer quelque chose qui n'existe plus.
 
-Ce qui **survit** à la régénération est ce qui est à vous : `chains.yaml` et `instances/`.
-C'est-à-dire exactement ce que vous câblez — la piste du banc est une instance elle aussi
+Ce qui **survit** à la régénération est ce qui est à vous : `chains.yaml` et `nodes/`.
+C'est-à-dire exactement ce que vous câblez — la piste du banc est un nœud elle aussi
 (`packages/song/docs/trackModules.md`).
 
 ## Ouvrir une CHAÎNE dessus
@@ -141,9 +141,9 @@ un projet introuvable — la phrase du service est toute l'explication.
 
 ### Ce qui revient, et ce qui reste
 
-`chains.yaml` (retraduit) et `instances/` repartent vers `chains/<chemin>/` de la médiathèque.
+`chains.yaml` (retraduit) et `nodes/` repartent vers `chains/<chemin>/` de la médiathèque.
 Le reste — `project.yaml`, le miroir `modules/`, et la piste du banc — est le meuble du banc et
-n'a rien à faire dans une chaîne que d'autres projets chargent. La piste est dans `instances/`
+n'a rien à faire dans une chaîne que d'autres projets chargent. La piste est dans `nodes/`
 comme les autres, donc ce qui la retient ici est son NOM (`BENCH_EDGES.track`) et rien d'autre.
 
 Contrairement à un module, l'écriture touche AUSSI le cache local et pas seulement la

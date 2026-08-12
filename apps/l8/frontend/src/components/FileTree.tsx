@@ -102,7 +102,7 @@ export function FileTree({
   onCreateProjectFile,
   onCreateFolder,
   onCloneModule,
-  onCreateModuleInstance,
+  onCreateNode,
 }: {
   tree: FileNode[];
   activePath: string | null;
@@ -128,8 +128,8 @@ export function FileTree({
   // Make an empty folder inside `dir`.
   onCreateFolder?: (dir: string, name: string) => void;
   onCloneModule?: (path: string, newName: string) => void;
-  // Add an <instance>.yaml to a module folder (it inherits that folder's module.yaml).
-  onCreateModuleInstance?: (path: string, instance: string) => void;
+  // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
+  onCreateNode?: (path: string, node: string) => void;
 }) {
   // Pinned files: client-only state in localStorage per project, re-loaded on a project switch so pins can't cross.
   const pinKey = `l8:pins:${projectName || activeProject || "."}`;
@@ -210,7 +210,7 @@ export function FileTree({
   // `t.dir` is false on a module row now, so the folded set answers instead.
   const isModuleTarget = (t: TreeTarget<FileNode>) =>
     !t.root && isModule(t.path);
-  // Both "New instance…" and "Clone module…" resolve the module inside the ACTIVE PROJECT, so neither reaches a
+  // Both "New node…" and "Clone module…" resolve the module inside the ACTIVE PROJECT, so neither reaches a
   // shared one. Editing a shared module is what copies it into the project (see moduleFork.ts).
   const isLocalModuleTarget = (t: TreeTarget<FileNode>) =>
     isModuleTarget(t) && !isShared(t.path);
@@ -254,23 +254,23 @@ export function FileTree({
       run: (t, name) => onCreateFolder?.(t.path, name),
     },
     {
-      key: "new-instance",
-      label: "New instance…",
-      when: (t) => isLocalModuleTarget(t) && !!onCreateModuleInstance,
+      key: "new-node",
+      label: "New node…",
+      when: (t) => isLocalModuleTarget(t) && !!onCreateNode,
       prompt: {
-        placeholder: "instance-name",
+        placeholder: "node-name",
         submit: "Create",
-        // The instance names the FILE and, with the module, the chain ref — so show what the chain will say.
+        // The node names the FILE and, with the module, the chain ref — so show what the chain will say.
         hint: (t, value) => (
           <>
-            Instance of {t.name}, used as{" "}
+            Node of {t.name}, used as{" "}
             <span className="text-foreground">
               {t.name}:{value.trim() || "…"}
             </span>
           </>
         ),
       },
-      run: (t, instance) => onCreateModuleInstance?.(t.path, instance),
+      run: (t, node) => onCreateNode?.(t.path, node),
     },
     {
       key: "clone-module",

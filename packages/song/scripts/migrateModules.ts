@@ -18,7 +18,7 @@ import {
 import { join } from "node:path";
 import { engineModules } from "../src/engineCatalogue";
 import {
-  DEFAULT_INSTANCE,
+  DEFAULT_NODE,
   migrateLibrary,
   migrateProjectModules,
 } from "../src/moduleMigrate";
@@ -32,7 +32,7 @@ if (!root) {
 const lib = join(root, "_modules");
 const catalogue = engineModules();
 
-// The shared io instances, read before the folder goes. Each is `channel:` (+ maybe
+// The shared io nodes, read before the folder goes. Each is `channel:` (+ maybe
 // `monitor`/`gain`) and belongs to the song that records through it, not to a library
 // every song shares.
 const sharedIo = new Map<string, string>();
@@ -62,35 +62,35 @@ for (const name of projects) {
   const lines: string[] = [];
   if (r.changed) {
     for (const m of r.modules) lines.push(`    ${m}`);
-    // The chains follow the modules that gained a `default` instance.
+    // The chains follow the modules that gained a `default` node.
     const chains = join(dir, "chains.yaml");
     if (r.steps.length && existsSync(chains)) {
       if (!existsSync(`${chains}.bak`)) copyFileSync(chains, `${chains}.bak`);
       let text = readFileSync(chains, "utf8");
       for (const step of r.steps) {
         const [from] = step.split(" -> ");
-        text = renameNode(text, from, `${from}:${DEFAULT_INSTANCE}`).text;
+        text = renameNode(text, from, `${from}:${DEFAULT_NODE}`).text;
       }
       writeFileSync(chains, text, "utf8");
       for (const s of r.steps) lines.push(`    chain: ${s}`);
     }
   }
-  // The io instances this project actually names, copied in beside its own modules. A
+  // The io nodes this project actually names, copied in beside its own modules. A
   // rig had twenty shared inputs; a song uses the one or two it records through.
   const chains = join(dir, "chains.yaml");
   if (existsSync(chains)) {
     let text = readFileSync(chains, "utf8");
     let moved = false;
     for (const [key, body] of sharedIo) {
-      const [kind, instance] = key.split(":");
-      const old = new RegExp(`@[A-Za-z0-9_-]+/io/${kind}:${instance}\\b`);
+      const [kind, node] = key.split(":");
+      const old = new RegExp(`@[A-Za-z0-9_-]+/io/${kind}:${node}\\b`);
       if (!old.test(text)) continue;
       if (!existsSync(`${chains}.bak`)) copyFileSync(chains, `${chains}.bak`);
       const folder = join(dir, "modules", "io", kind);
       mkdirSync(folder, { recursive: true });
-      const path = join(folder, `${instance}.yaml`);
+      const path = join(folder, `${node}.yaml`);
       // `io: in` came from the shared generic, which is not coming with it. Without that
-      // line the instance is not an input at all: its `channel:` is ignored, the lane
+      // line the node is not an input at all: its `channel:` is ignored, the lane
       // compiles with nothing to record, and arming it says "has no input".
       const io = kind === "IN" ? "in" : "out";
       if (!existsSync(path))
@@ -100,8 +100,8 @@ for (const name of projects) {
           "utf8",
         );
       const from = old.exec(text)?.[0] ?? "";
-      text = renameNode(text, from, `${kind}:${instance}`).text;
-      lines.push(`    io: ${from} -> ${kind}:${instance}`);
+      text = renameNode(text, from, `${kind}:${node}`).text;
+      lines.push(`    io: ${from} -> ${kind}:${node}`);
       moved = true;
     }
     if (moved) writeFileSync(chains, text, "utf8");

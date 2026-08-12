@@ -31,9 +31,9 @@ put noise in every line of every shelf — the names plugins use are almost all 
 **Numbers only.** That is what a module's `params:` holds, so a preset that could not be
 written there would be one that cannot be applied.
 
-`presets.yaml`, like `ui.yaml`, is the module ITSELF and not one use of it — `instanceFiles`
+`presets.yaml`, like `ui.yaml`, is the module ITSELF and not one use of it — `nodeFiles`
 skips both by name. Without that guard a module with a shelf came back carrying a phantom
-instance called `presets`.
+node called `presets`.
 
 ## What was dropped, and why
 

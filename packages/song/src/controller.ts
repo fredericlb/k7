@@ -114,7 +114,7 @@ export function readModuleController(dir: string, ref: string): ControllerFile {
  *
  * Writes into the module's own folder, wherever it lives, which is the point of the location: the map
  * belongs to the module the way its panel does, and follows it into every project that names it. The
- * flip side, and it is worth knowing: every INSTANCE of the module shares one map, exactly as they
+ * flip side, and it is worth knowing: every NODE of the module shares one map, exactly as they
  * share one preset shelf (presets.ts) and one panel.
  */
 export function setCcBinding(
@@ -161,7 +161,7 @@ const key = (k: string): string =>
 function controllerFileText(ref: string, map: ControllerFile): string {
   ControllerFileSchema.parse(map);
   const lines = [
-    `# MIDI map for ${ref} — <param>: { ch, cc }. Shared by every instance of this module.`,
+    `# MIDI map for ${ref} — <param>: { ch, cc }. Shared by every node of this module.`,
   ];
   for (const [param, b] of Object.entries(map))
     lines.push(`${key(param)}: { ch: ${b.ch}, cc: ${b.cc} }`);

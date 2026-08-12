@@ -1446,7 +1446,7 @@ export type CornerButton = "plugin" | "bypass" | "menu";
  * `headerNameW` leaves the name. They disagreed before this existed: a module with a bypass
  * bubble but no native plugin UI got no padding at all, so a long name ran under it.
  *
- * The ⋮ `menu` appears on any node that COULD use one (any module instance, a lane included), not
+ * The ⋮ `menu` appears on any node that COULD use one (any module node, a lane included), not
  * only on one that already has alternatives or a freeze — creating either has to start somewhere,
  * and that somewhere is the node. A note is left out: it is drawn as prose with no header to
  * hang a bubble off.
@@ -1663,7 +1663,7 @@ function NodeInner({
    *
    * Before the LOD branch on purpose. Every other card drops to its name when the camera pulls
    * back, because widgets stop being readable and the name is what is left; a note has no
-   * widgets and its text IS the card, so shrinking it to the instance's filename would replace
+   * widgets and its text IS the card, so shrinking it to the node's filename would replace
    * the only thing worth reading with the one thing that is not.
    *
    * No jacks drawn either: a note takes one input and gives nothing back, and a socket on a
@@ -2255,7 +2255,7 @@ function CablesInner({
 // Memoised: a pan changes the camera, not the cables, and the wobble already bypasses React.
 const Cables = memo(CablesInner);
 
-// Map a right-clicked node to the shell's menu context (track id, module instance, chain name; curves have none).
+// Map a right-clicked node to the shell's menu context (track id, module node, chain name; curves have none).
 function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
   switch (n.kind) {
     case "track":

@@ -3,10 +3,10 @@
 A module inherits from the module it `extends` — `@library/audio/amp/marshall`, and whatever
 *that* extends, with no depth limit.
 
-That used to be two things: the `extends` chain, and the generic an instance sat under. A
-project's instances are files in a flat `instances/` folder now and name what they use with
+That used to be two things: the `extends` chain, and the generic a node sat under. A
+project's nodes are files in a flat `nodes/` folder now and name what they use with
 `extends` like anything else, so there is one mechanism instead of two (see
-`docs/instances.md`). The shared library still files instances under a module, and those
+`docs/nodes.md`). The shared library still files nodes under a module, and those
 merge the old way.
 
 That merge used to exist in **five** places: `mergeModule` in loader.ts, four `effective*`
@@ -44,7 +44,7 @@ slice source. Pinned by a test.
 
 ## What is never inherited
 
-`kind`, `inputs`, `category`, `name`, `file`, `instance`, `home` — `OWN_ONLY`.
+`kind`, `inputs`, `category`, `name`, `file`, `node`, `home` — `OWN_ONLY`.
 
 These say WHERE the module lives, not what it does. A module filed under `audio/` that
 extends an instrument is still an effect: its icon comes from its own folder, its typed
@@ -53,10 +53,10 @@ accident — an absent key and a key set to `undefined` merged differently — a
 broken the moment decoration touched one of them.
 
 **"Never" means "when it has them", and the difference is load-bearing.** The rule is that
-the child wins if the KEY IS PRESENT. An instance in the project's flat `instances/` has no
+the child wins if the KEY IS PRESENT. A node in the project's flat `nodes/` has no
 type folder to read `kind`, `inputs` or `category` off, so the loader leaves them absent and
 they arrive from what it extends. That is the whole of how a flat folder can work — there is
-no instance-shaped case anywhere in this file.
+no node-shaped case anywhere in this file.
 
 ## Where resolution happens
 

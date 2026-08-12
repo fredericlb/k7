@@ -31,8 +31,8 @@ const SCHEMAS: Record<string, z.ZodType> = {
   ProjectFile: ProjectFileSchema,
   Settings: SettingsSchema,
   Surface: SurfaceSchema,
-  // No `Track`: a lane is an INSTANCE of a `@studio/…-track` module, so its examples declare
-  // `schema=Module` like every other instance. See packages/song/docs/trackModules.md.
+  // No `Track`: a lane is a NODE of a `@studio/…-track` module, so its examples declare
+  // `schema=Module` like every other node. See packages/song/docs/trackModules.md.
   Clip: ClipSchema,
   Sequence: SequenceSchema,
   Curve: CurveSchema,

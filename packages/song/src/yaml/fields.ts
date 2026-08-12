@@ -64,15 +64,15 @@ export type FileKind =
  * Which kind a project-relative path is, or null when it is not a project file.
  *
  * By FOLDER, not by extension: `modules/audio/cab/module.yaml` is a module whatever it is
- * called, and so is `instances/melody.yaml` — an instance is an ordinary module that happens
- * to live in `instances/`, LANES INCLUDED (docs/trackModules.md). There is no `tracks/` kind
+ * called, and so is `nodes/melody.yaml` — a node is an ordinary module that happens
+ * to live in `nodes/`, LANES INCLUDED (docs/trackModules.md). There is no `tracks/` kind
  * any more, for exactly that reason; `validate.ts` has read the folder this way all along.
  */
 export function fileKindFor(path?: string): FileKind | null {
   const p = (path ?? "").replace(/\\/g, "/");
   if (!p) return null;
   if (/(^|\/)modules\//.test(p)) return "module";
-  if (/(^|\/)instances\//.test(p)) return "module";
+  if (/(^|\/)nodes\//.test(p)) return "module";
   if (/(^|\/)clips\//.test(p)) return "clip";
   if (/(^|\/)sequences\//.test(p)) return "sequence";
   if (/(^|\/)curves\//.test(p)) return "curve";

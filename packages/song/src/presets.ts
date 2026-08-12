@@ -82,7 +82,7 @@ export function saveModuleAsPreset(
   >;
   const m = modules[module];
   if (!m) throw new Error(`no module "${module}" in this project`);
-  // Keyed by the GENERIC's ref — every instance shares one shelf, because the shelf is a file in the folder.
+  // Keyed by the GENERIC's ref — every node shares one shelf, because the shelf is a file in the folder.
   const ref = m.category && m.file ? `${m.category}/${m.file}` : "";
   const path = modulePresetsFile(dir, ref);
   if (!path)
@@ -125,7 +125,7 @@ export function applyPresetToModule(
   const values = readPresets(modulePresetsFile(dir, ref))[presetName];
   if (!values)
     throw new Error(`module '${module}' has no preset '${presetName}'`);
-  // Through setModuleParam — one writer, one dispatch — so an instance takes it and leaves its generic alone.
+  // Through setModuleParam — one writer, one dispatch — so a node takes it and leaves its generic alone.
   for (const [k, v] of Object.entries(values))
     setModuleParam(dir, module, k, v);
 }

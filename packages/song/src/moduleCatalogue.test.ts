@@ -52,7 +52,7 @@ describe("the shared module catalogue", () => {
       "audio/amp/nam/module.yaml",
       "plugin:\n  type: internal\n  name: nam\n",
     );
-    // …and an io module with instances beside it, as `module populate` writes them.
+    // …and an io module with nodes beside it, as `module populate` writes them.
     write("io/IN/module.yaml", "io: in\n");
     write("io/IN/in-1.yaml", "channel: [1]\n");
     write("io/IN/in-2.yaml", "channel: [2]\n");
@@ -80,11 +80,11 @@ describe("the shared module catalogue", () => {
     );
   });
 
-  it("lists the GENERICS only, counting the instances instead", () => {
-    // An instance has no face of its own — a `ui:` on one is ignored by the loader — so a
+  it("lists the GENERICS only, counting the nodes instead", () => {
+    // A node has no face of its own — a `ui:` on one is ignored by the loader — so a
     // builder aimed at it would edit nothing. It is a number on its generic's row, not a row.
     expect(refs()).not.toContain("@workspace/io/IN:in-1");
-    expect(by("@workspace/io/IN")?.instances).toBe(2);
+    expect(by("@workspace/io/IN")?.nodes).toBe(2);
   });
 
   it("points at the file the builder opens", () => {
@@ -117,7 +117,7 @@ describe("the shared module catalogue", () => {
     expect(refs).toContain("@engine/OUT");
     // …and nothing from a library, since there is none. The levels with NO folder behind them
     // are what still answer here: `@engine`, the plugin scan, and `@studio`, which is the doc
-    // module every note is an instance of. `@engine` was the only one until notes arrived.
+    // module every note is a node of. `@engine` was the only one until notes arrived.
     expect(
       refs.every((r) => r.startsWith("@engine/") || r.startsWith("@studio/")),
     ).toBe(true);

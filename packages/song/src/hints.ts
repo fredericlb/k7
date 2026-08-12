@@ -27,7 +27,7 @@ export interface Hints {
   baseModules: string[]; // plugin module refs a module can `extends` ("type/name", "@ns/type/name")
   ioSinks: string[]; // io module names a chain can route TO ("OUT")
   // Chain `use` references: a module's bare name for the generic module.yaml, plus
-  // "<name>:<instance>" for each `<instance>.yaml` beside it (see loader.ts INSTANCE_SEP),
+  // "<name>:<node>" for each `<node>.yaml` beside it (see loader.ts NODE_SEP),
   // then the inherited modules by ref ("@ns/type/name").
   modules: string[];
   tracks: string[];
@@ -56,8 +56,8 @@ export interface Hints {
   // Rack modules -> their effective (base+module) rack. Lets the note editors relabel
   // notes as symbols (and enter by symbol) when a sequence names the module via
   // use_rack, and — for a slice rack — draw the source clip's waveform with each
-  // symbol's [from,to] window. Keyed by the chain `use` ref (so an instance appears under
-  // its own "<name>:<instance>" key, with its own symbol overrides); only racks appear.
+  // symbol's [from,to] window. Keyed by the chain `use` ref (so a node appears under
+  // its own "<name>:<node>" key, with its own symbol overrides); only racks appear.
   racks: Record<
     string,
     {
@@ -181,14 +181,14 @@ export function projectHints(dir: string): Hints {
     .sort();
 
   // Per-base param names: what the plugin DEFINES, then the base module's own defaults, then any overrides on
-  // modules that extend it or are instances of it.
+  // modules that extend it or are nodes of it.
   //
   // The first source is the only complete one. The other two are learned from what somebody wrote down, so a
   // built-in nobody has authored a param on yet — the mixer, on the day it shipped — has an empty bind list and
   // no panel can be built for it. `paramMetaByBase` carries the ranges alongside, and only the plugin knows those.
   //
-  // Instances count, and they arrive as ORDINARY extenders: one use of `mixer` is a file in
-  // `instances/` that extends it. Leaving them out meant every param on every strip in a real
+  // Nodes count, and they arrive as ORDINARY extenders: one use of `mixer` is a file in
+  // `nodes/` that extends it. Leaving them out meant every param on every strip in a real
   // song was invisible here.
   const paramsByBase: Record<string, string[]> = {};
   const paramMetaByBase: Record<string, Record<string, ParamRange>> = {};
@@ -204,7 +204,7 @@ export function projectHints(dir: string): Hints {
       }
       paramMetaByBase[ref] = meta;
     }
-    // An instance no longer needs a case of its own: it names what it uses with `extends`, like
+    // A node no longer needs a case of its own: it names what it uses with `extends`, like
     // any other extender. Both spellings of a local ref count — a project's own module answers to
     // the bare "<category>/<file>" and to "@project/<category>/<file>", and new files write the
     // second (see loadModuleRefs).
@@ -229,8 +229,8 @@ export function projectHints(dir: string): Hints {
     }
   };
   // "module:" keys by the chain `use` ref, pointing at the file that IS that thing: a module
-  // is `modules/<type>/<name>/module.yaml`, an instance is `instances/<name>.yaml`. An
-  // instance carries its own folder in `home` precisely because it is no longer under the
+  // is `modules/<type>/<name>/module.yaml`, a node is `nodes/<name>.yaml`. An
+  // node carries its own folder in `home` precisely because it is no longer under the
   // module it uses. "base:" keys by "type/name" — an `extends` ref, always a module.
   for (const [key, b] of Object.entries<any>(modules))
     if (b?.home) addPath("module", key, `${b.home}/${key}`);

@@ -119,7 +119,7 @@ const quoteIfKeyword = (
  * Quote every timecode in the document, wherever it sits — applied after every write rather than
  * at each call site, so nothing can forget.
  *
- * It guards MODULE files now, not just lanes, because a lane IS a module: `instances/melody.yaml`
+ * It guards MODULE files now, not just lanes, because a lane IS a module: `nodes/melody.yaml`
  * carries `clips:` with a `start: "25:1"` in it, and unquoted that is a valid YAML 1.1 sexagesimal
  * — bar 25 reads back as beat 1501, silently, in a file nothing else would complain about.
  */

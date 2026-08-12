@@ -73,13 +73,13 @@ describe("panToLabel", () => {
 describe("removeTrackPlacement", () => {
   let dir: string;
   const track = (body: string) => {
-    writeFileSync(join(dir, "instances", "drums.yaml"), body, "utf8");
-    return () => readFileSync(join(dir, "instances", "drums.yaml"), "utf8");
+    writeFileSync(join(dir, "nodes", "drums.yaml"), body, "utf8");
+    return () => readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
   };
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "td-rm-"));
-    mkdirSync(join(dir, "instances"), { recursive: true });
+    mkdirSync(join(dir, "nodes"), { recursive: true });
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

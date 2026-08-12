@@ -58,7 +58,7 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# flow. \`deckB\`'s run ends on a PORT, \`#b\`, so it lands on the crossfade's second\n` +
       `# input without claiming the module as its own next step.\n` +
       `#\n` +
-      `# The names here are INSTANCES, from instances/ — not modules. The modules themselves\n` +
+      `# The names here are NODES, from nodes/ — not modules. The modules themselves\n` +
       `# live in the médiathèque and are not copied in.\n` +
       `#\n` +
       `# The EQ and the filter sit AFTER the tempo and BEFORE the crossfade, which is where a\n` +
@@ -86,22 +86,22 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       // there is one place a bypass is written.
       MUTED_LANE,
 
-    "instances/deckA.yaml": deckTrack(
+    "nodes/deckA.yaml": deckTrack(
       "A",
       "Its run FLOWS on into the crossfade, so it fills the module's first port.",
     ),
-    "instances/deckB.yaml": deckTrack(
+    "nodes/deckB.yaml": deckTrack(
       "B",
       "Its run ends on `#b`, the crossfade's second port.",
     ),
 
-    [`instances/${CROSSFADE}.yaml`]:
-      `# The crossfader, as an INSTANCE of the médiathèque's module.\n` +
+    [`nodes/${CROSSFADE}.yaml`]:
+      `# The crossfader, as a NODE of the médiathèque's module.\n` +
       `#\n` +
       `# The module is NOT copied into this project, and that is the point: st0 owns the only\n` +
       `# editable catalogue, so a copy here would be a second crossfade nobody maintains and\n` +
       `# nobody would notice drifting. A use of a module you do not own needs no local folder\n` +
-      `# for it — see packages/song/docs/instances.md.\n` +
+      `# for it — see packages/song/docs/nodes.md.\n` +
       `#\n` +
       `# \`kind\`, \`inputs\` and \`category\` are inherited by NOT being stated: the two audio\n` +
       `# inputs, the second one optional, come from what this extends.\n` +
@@ -110,14 +110,14 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `  # Centred: both decks at once, which is where a set starts.\n` +
       `  Mix: 0.5\n`,
 
-    [`instances/${TEMPO_A}.yaml`]: tempoInstance("A"),
-    [`instances/${TEMPO_B}.yaml`]: tempoInstance("B"),
+    [`nodes/${TEMPO_A}.yaml`]: tempoNode("A"),
+    [`nodes/${TEMPO_B}.yaml`]: tempoNode("B"),
 
-    [`instances/${EQ_A}.yaml`]: eqInstance("A"),
-    [`instances/${EQ_B}.yaml`]: eqInstance("B"),
+    [`nodes/${EQ_A}.yaml`]: eqNode("A"),
+    [`nodes/${EQ_B}.yaml`]: eqNode("B"),
 
-    [`instances/${FILTER_A}.yaml`]: filterInstance("A"),
-    [`instances/${FILTER_B}.yaml`]: filterInstance("B"),
+    [`nodes/${FILTER_A}.yaml`]: filterNode("A"),
+    [`nodes/${FILTER_B}.yaml`]: filterNode("B"),
 
     "views/mix.yaml":
       `# What each control of m9's Mix desk drives.\n` +
@@ -172,8 +172,8 @@ const MUTED_LANE =
 const MEDIATEK_UTILITY = "@mediatek/audio/utility";
 /** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
 const MEDIATEK_FILTER = "@mediatek/audio/filter";
-/** The instance names the chains file wires. Short on purpose — a chains file reads better
- *  with `tempoA` in it than with the whole ref, and the ref is one line away in instances/. */
+/** The node names the chains file wires. Short on purpose — a chains file reads better
+ *  with `tempoA` in it than with the whole ref, and the ref is one line away in nodes/. */
 const CROSSFADE = "crossfade";
 const TEMPO_A = "tempoA";
 const TEMPO_B = "tempoB";
@@ -182,10 +182,10 @@ const EQ_B = "eqB";
 const FILTER_A = "filterA";
 const FILTER_B = "filterB";
 
-/** One deck's tempo: an instance of the médiathèque's cold Tempo module. */
-function tempoInstance(letter: string): string {
+/** One deck's tempo: a node of the médiathèque's cold Tempo module. */
+function tempoNode(letter: string): string {
   return (
-    `# Deck ${letter}'s tempo — an INSTANCE of the médiathèque's Tempo module, one per deck\n` +
+    `# Deck ${letter}'s tempo — a NODE of the médiathèque's Tempo module, one per deck\n` +
     `# because each deck plays at its own BPM and a param belongs to a use, not to a module.\n` +
     `#\n` +
     `# The module is COLD: a tempo change is a time stretch, and a stretch has to know where\n` +
@@ -204,10 +204,10 @@ function tempoInstance(letter: string): string {
   );
 }
 
-/** One deck's EQ: an instance of the médiathèque's three-band channel EQ. */
-function eqInstance(letter: string): string {
+/** One deck's EQ: a node of the médiathèque's three-band channel EQ. */
+function eqNode(letter: string): string {
   return (
-    `# Deck ${letter}'s EQ — an INSTANCE of the médiathèque's EQ 3 bandes, one per deck, because\n` +
+    `# Deck ${letter}'s EQ — a NODE of the médiathèque's EQ 3 bandes, one per deck, because\n` +
     `# cutting THIS deck's bass is the whole point and a param belongs to a use.\n` +
     `#\n` +
     `# Unlike the tempo beside it, this one is a REAL plugin: the module is a name and a set of\n` +
@@ -226,10 +226,10 @@ function eqInstance(letter: string): string {
   );
 }
 
-/** One deck's filter: an instance of the médiathèque's one-knob sweep. */
-function filterInstance(letter: string): string {
+/** One deck's filter: a node of the médiathèque's one-knob sweep. */
+function filterNode(letter: string): string {
   return (
-    `# Deck ${letter}'s filter — an INSTANCE of the médiathèque's Sweep Filter, one per deck.\n` +
+    `# Deck ${letter}'s filter — a NODE of the médiathèque's Sweep Filter, one per deck.\n` +
     `#\n` +
     `# ONE param, and that is the module's whole shape: a desk control drives at most one, so\n` +
     `# "low-pass or high-pass" cannot be a second setting. Both filters live in its graph at\n` +

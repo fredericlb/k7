@@ -36,9 +36,9 @@ function song(): string {
     "utf8",
   );
   writeFileSync(join(d, "chains.yaml"), CHAINS, "utf8");
-  mkdirSync(join(d, "instances"), { recursive: true });
+  mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
-    join(d, "instances", "gtr.yaml"),
+    join(d, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );

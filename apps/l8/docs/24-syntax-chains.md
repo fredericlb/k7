@@ -50,8 +50,8 @@ created and being connected.
 A module name is one of three things:
 
 - `synth` — a module of this project, by the name of its folder under `modules/`.
-- `lead` — one USE of a module, by the name of its file in `instances/`. An instance is
-  `instances/lead.yaml`, and it says which module it uses with `extends:` — the folder is
+- `lead` — one USE of a module, by the name of its file in `nodes/`. A node is
+  `nodes/lead.yaml`, and it says which module it uses with `extends:` — the folder is
   flat, so where the file sits tells you nothing and does not have to. **A lane is one of
   these**, extending a `@studio/…-track` module.
 - `"@engine/audio/amp/nam"` — an INHERITED module, by its ref: the level it lives at (`@engine`,
@@ -73,7 +73,7 @@ modules:
 
 A module named once is ONE plugin. Pointing two lanes at the same name does not give each its own
 copy — it makes that module a bus fed by both, which is right for a shared reverb and wrong for an
-instrument. When each lane needs its own, give the module an instance per lane. Name them for the
+instrument. When each lane needs its own, give the module a node per lane. Name them for the
 lane they serve rather than after it: one flat name space means a lane and its synth cannot share
 a name.
 
@@ -101,12 +101,12 @@ modules:
   "@engine/audio/amp/nam": [ OUT ]
 ```
 
-The module itself names no lane, which is what lets `IN` come from the engine and be instanced per
-project: the instance carries the channel, and which lane it feeds is a per-project answer. An
+The module itself names no lane, which is what lets `IN` come from the engine and get one node per
+project: the node carries the channel, and which lane it feeds is a per-project answer. An
 input sitting INSIDE a lane's run works too — `gtr: [ "IN:gtr" ]` — and lands on the same lane; it
 is what the old chain-list format could express, and the migration writes it that way.
 
-Note `IN:in-1`, with a colon: `in-1.yaml` is an INSTANCE of the `IN` module, not a folder inside
+Note `IN:in-1`, with a colon: `in-1.yaml` is a NODE of the `IN` module, not a folder inside
 it. Two shapes that don't work, and what they say:
 
 - an input whose run reaches no lane — nothing owns the signal. Reported as `an input's signal has
@@ -126,8 +126,8 @@ l8 migrate chains <project>
 It preserves each chain's source, the order of its modules, its sink and its bypasses. Two things
 change on purpose. A chain's `as:` alias is gone (a chain is called after its lane now), which
 renames the plugin ids under it. And a module the old file used in SEVERAL chains is split into one
-instance per chain — the list format compiled such a module to one plugin per chain, and a segment
+node per chain — the list format compiled such a module to one plugin per chain, and a segment
 file names each module once, so leaving it shared would collapse two instruments into one.
 
 The migration rewrites `chains.yaml` and nothing else. Moving the lanes themselves out of
-`tracks/` and into `instances/` is by hand, and the table in Tracks says what each one becomes.
+`tracks/` and into `nodes/` is by hand, and the table in Tracks says what each one becomes.

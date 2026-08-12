@@ -38,7 +38,7 @@ interface Candidate {
  *
  * Two shapes, because the two trees differ: a project's `modules/<type>/<name>/module.yaml` (ref
  * `<type>/<name>`) and a shared `_modules/<type>/[<category>/]<leaf>/module.yaml` (ref `@<ns>/<type>/<sub>`).
- * Instances are left out — their `ui:` never had an effect, so migrating one would CREATE a panel that never
+ * Nodes are left out — their `ui:` never had an effect, so migrating one would CREATE a panel that never
  * showed, and give it the generic's ref.
  */
 function candidatesIn(

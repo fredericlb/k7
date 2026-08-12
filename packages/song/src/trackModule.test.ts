@@ -1,4 +1,4 @@
-// A LANE: an instance of one of the five built-in `@studio/…-track` modules. What is pinned
+// A LANE: a node of one of the five built-in `@studio/…-track` modules. What is pinned
 // here is the GRID that makes them five — what signal a lane carries, and where its clips come
 // from — plus the two things that used to be a `type:` and a `contentType:` and are now read off
 // the module. See docs/trackModules.md.
@@ -18,13 +18,13 @@ let dir: string;
 /** A project whose lanes are `lanes`, each `[name, extends]`, all wired straight to OUT. */
 function project(lanes: [string, string, string?][], chains?: string): string {
   const p = join(dir, "song.l8");
-  mkdirSync(join(p, "instances"), { recursive: true });
+  mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
   for (const [name, ext, extra] of lanes)
     writeFileSync(
-      join(p, "instances", `${name}.yaml`),
+      join(p, "nodes", `${name}.yaml`),
       `extends: "${ext}"\n${extra ?? ""}`,
     );
   writeFileSync(
@@ -41,7 +41,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("the five built-in track modules", () => {
   it("resolve with no file anywhere", () => {
-    // Like `@studio/doc` before them: a lane must cost one file — its own instance — so there is
+    // Like `@studio/doc` before them: a lane must cost one file — its own node — so there is
     // nothing to scaffold and nothing for an old project to be missing.
     const refs = loadModuleRefs(project([["gtr", "@studio/audio-track"]]));
     for (const ref of TRACK_REFS) {

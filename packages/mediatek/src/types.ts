@@ -37,10 +37,10 @@ export const RECORDINGS_DIR = "recordings";
  *  every existing importer is unchanged. */
 export const CHAINS_FILE = "chains.yaml";
 
-/** Where a chain keeps the instances its segments name, beside its `chains.yaml`. Here for the
+/** Where a chain keeps the nodes its segments name, beside its `chains.yaml`. Here for the
  *  same reason CHAINS_FILE is: the médiathèque's chain pane and l8's `clip process` both name
  *  this folder, and only one of the two may open `node:fs`. */
-export const INSTANCES_DIR = "instances";
+export const NODES_DIR = "nodes";
 
 /** The sidecar that makes a folder a SONG and carries its title, its provenance and its
  *  variants. Here for the same reason CHAINS_FILE is: st0 opens one in an editor, and a
@@ -91,7 +91,7 @@ export interface MediatekEntry {
   /** Newest mtime under the entry, ms since epoch. What a surface sorts "recent" by. */
   mtime: number;
   /** The entry's OWN files, by name, when the entry is a folder rather than a file — a module.
-   *  A tree drawing one shows exactly these: its instances, its panel, its shelf, a .vstpreset,
+   *  A tree drawing one shows exactly these: its nodes, its panel, its shelf, a .vstpreset,
    *  a jsdsp source. Nothing more, because a row for a file that is not there lies about the
    *  disk — and nothing less, because the tree used to draw three fixed rows and whatever had
    *  actually been dropped in vanished. */
@@ -101,7 +101,7 @@ export interface MediatekEntry {
    * profiles a MODULE carries itself.
    *
    * Its own field and not part of `files`, because the two are different things to a surface:
-   * `files` is the module's definition (its instances, its panel, its shelf), and these are the
+   * `files` is the module's definition (its nodes, its panel, its shelf), and these are the
    * material it loads. A tree draws these as the module's children and drops new ones in;
    * nothing offers to create one, since they arrive as bytes.
    *

@@ -42,7 +42,7 @@ for (const f of found) {
   console.log(
     `${r.changed ? "MIGRATED" : "skipped "} ${f}` +
       (r.split.length
-        ? `\n    split: ${r.split.map((s) => `${s.module} -> ${s.instances.join(", ")}`).join(" | ")}`
+        ? `\n    split: ${r.split.map((s) => `${s.module} -> ${s.nodes.join(", ")}`).join(" | ")}`
         : "") +
       (r.created.length ? `\n    created: ${r.created.join(", ")}` : "") +
       (r.notes.length ? `\n    notes: ${r.notes.join("; ")}` : "") +

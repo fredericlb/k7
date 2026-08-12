@@ -130,8 +130,8 @@ export const projectApi = {
     fget<ModulePresetsFile>(`/module-presets?path=${encodeURIComponent(path)}`),
   cloneModule: (path: string, newName: string) =>
     fsend<{ path: string }>("POST", "/module/clone", { path, newName }),
-  createModuleInstance: (path: string, instance: string) =>
-    fsend<{ path: string }>("POST", "/module/instance", { path, instance }),
+  createNode: (path: string, node: string) =>
+    fsend<{ path: string }>("POST", "/node", { path, node }),
 
   // --- The repository's git. A workspace IS one clone, so none of this needs a project. ---
   // gitStatus fetches, so callers poll it rarely (l8 uses ten minutes).

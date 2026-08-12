@@ -71,7 +71,7 @@ function song(): string {
   put(d, "clips/riff.yaml", "# hand-written\nsource: clips/riff.wav\n");
   put(
     d,
-    "instances/gtr.yaml",
+    "nodes/gtr.yaml",
     'extends: "@studio/audio-track"\nclips:\n  - { ref: riff, start: "1:1" }\n',
   );
   put(
@@ -104,12 +104,12 @@ function mediatek(): string {
   );
   put(
     d,
-    "chains/live/vocal-strip/instances/hp.yaml",
+    "chains/live/vocal-strip/nodes/hp.yaml",
     'extends: "@mediatek/audio/eq"\nparams:\n  Low: -12\n',
   );
   put(
     d,
-    "chains/live/vocal-strip/instances/air.yaml",
+    "chains/live/vocal-strip/nodes/air.yaml",
     'extends: "@mediatek/audio/eq"\n',
   );
   return d;
@@ -238,7 +238,7 @@ describe("what a target names", () => {
   });
 
   it("refuses a track with nothing to process", () => {
-    put(dir, "instances/empty.yaml", 'extends: "@studio/audio-track"\n');
+    put(dir, "nodes/empty.yaml", 'extends: "@studio/audio-track"\n');
     expect(() =>
       resolveTargets(dir, loadProject(dir), "empty", "track"),
     ).toThrow(/no audio clips/);

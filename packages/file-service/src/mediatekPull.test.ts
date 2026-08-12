@@ -56,17 +56,17 @@ let home: string;
 let realHome: { HOME?: string; USERPROFILE?: string };
 let song: string;
 
-/** A project that USES one of the library's modules — an instance extending it. */
+/** A project that USES one of the library's modules — a node extending it. */
 function project(extendsRef: string): string {
   const dir = join(ws, "song");
-  mkdirSync(join(dir, "instances"), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: song\n  tempo: 120\n",
     "utf8",
   );
   writeFileSync(
-    join(dir, "instances", "wah.yaml"),
+    join(dir, "nodes", "wah.yaml"),
     `extends: "${extendsRef}"\n`,
     "utf8",
   );

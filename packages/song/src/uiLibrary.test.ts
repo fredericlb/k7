@@ -187,7 +187,7 @@ describe("where a panel files itself", () => {
     expect(lib.byRef["audio/reverb"]).toBeTruthy();
   });
 
-  it("is not read as an instance of the module it sits beside", () => {
+  it("is not read as a node of the module it sits beside", () => {
     // THE hazard of the move: every `<name>.yaml` in a module folder is one use of the module,
     // so an unguarded `ui.yaml` would come back as a module called "reverb:ui".
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
@@ -209,10 +209,10 @@ describe("the loader overlays the panels", () => {
     expect(refs["@workspace/audio/delay/tape-delay"].ui).toEqual(PANEL);
   });
 
-  it("shows a shared generic's panel on its INHERITED instances", () => {
-    // `module populate` files one io/IN instance per interface input, and a chain names
+  it("shows a shared generic's panel on its INHERITED nodes", () => {
+    // `module populate` files one io/IN node per interface input, and a chain names
     // one of them — so this is the path a live input actually takes. The ref map keys an
-    // inherited instance "@workspace/io/IN:in-2", which no panel answers to, and the lookup
+    // inherited node "@workspace/io/IN:in-2", which no panel answers to, and the lookup
     // used that key verbatim: the generic's grid reached the generic and nothing else, so
     // every input in the graph drew "No Options" over a panel that was right there.
     writeFileSync(
@@ -223,7 +223,7 @@ describe("the loader overlays the panels", () => {
     const refs = loadModuleRefs(dir);
     expect(refs["@workspace/io/IN"].ui).toEqual(PANEL);
     expect(refs["@workspace/io/IN:in-2"].ui).toEqual(PANEL);
-    // …and the instance keeps what makes it one.
+    // …and the node keeps what makes it one.
     expect(refs["@workspace/io/IN:in-2"].channel).toEqual([2]);
   });
 
@@ -247,13 +247,13 @@ describe("the loader overlays the panels", () => {
     expect(Object.keys(ui.widgets)).toEqual(["mix"]); // no trace of the module's own grid
   });
 
-  it("shows a module's panel on the instances that use it", () => {
-    // A panel is drawn for the MODULE, and every use of it gets that panel — an instance has
+  it("shows a module's panel on the nodes that use it", () => {
+    // A panel is drawn for the MODULE, and every use of it gets that panel — a node has
     // no ref of its own to be filed under, so it is looked up by what it extends.
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
-    mkdirSync(join(dir, "instances"), { recursive: true });
+    mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
-      join(dir, "instances", "hall.yaml"),
+      join(dir, "nodes", "hall.yaml"),
       'extends: "@project/audio/reverb"\nparams:\n  Mix: 0.9\n',
       "utf8",
     );

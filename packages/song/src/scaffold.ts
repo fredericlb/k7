@@ -50,18 +50,18 @@ export function projectFiles(name: string): Record<string, string> {
       `  name: 4osc\n`,
 
     // Two USES of "synth", one per lane: each is its own 4OSC with its own state. They live in
-    // the project's FLAT instances/ folder — the file names the instance, and `extends` is the
-    // only place the module it uses is written down. An instance overrides, it doesn't restate.
-    "instances/synth-melody.yaml":
+    // the project's FLAT nodes/ folder — the file names the node, and `extends` is the
+    // only place the module it uses is written down. A node overrides, it doesn't restate.
+    "nodes/synth-melody.yaml":
       `# "synth-melody" — the melody lane's own 4OSC. Add \`params:\` to change this one\n` +
       `# alone; everything else comes from the module it extends.\n` +
       `extends: "@project/instruments/synth"\n`,
-    "instances/synth-pad.yaml":
+    "nodes/synth-pad.yaml":
       `# "synth-pad" — the pattern's Pad lane gets its own 4OSC, so tweaking one lane's\n` +
       `# sound leaves the other's alone.\n` +
       `extends: "@project/instruments/synth"\n`,
 
-    // The graph: who feeds whom. Both lanes run their own synth instance out to OUT.
+    // The graph: who feeds whom. Both lanes run their own synth node out to OUT.
     "chains.yaml":
       `# The signal graph, as SEGMENTS: each module says where its signal goes next. The\n` +
       `# chains are DERIVED by following the arrows — a run breaks where the signal splits,\n` +
@@ -82,30 +82,30 @@ export function projectFiles(name: string): Record<string, string> {
       `  synth-melody: [ OUT ]\n` +
       `  synth-pad: [ OUT ]\n`,
 
-    // The arrangement: one 2-bar MIDI sequence on a lane. A lane is an INSTANCE of one of the
+    // The arrangement: one 2-bar MIDI sequence on a lane. A lane is a NODE of one of the
     // five built-in track modules — what it extends says both what signal it carries and where
     // its clips come from. The FILENAME names it; timecodes are QUOTED, or YAML reads them.
-    "instances/melody.yaml":
+    "nodes/melody.yaml":
       `# The melody lane. \`@studio/sequence-track\` is a lane carrying NOTES whose clips are\n` +
       `# written down here; \`@studio/audio-track\` is the same for audio.\n` +
       `extends: "@studio/sequence-track"\n` +
       `clips:\n  - { ref: melody, start: "1:1:1" }\n`,
 
     // A group: no material of its own, just members — nests the two lanes below so "melody" stays top-level.
-    "instances/live.yaml":
+    "nodes/live.yaml":
       `# A group lane: no material and no signal of its own, just members.\n` +
       `extends: "@studio/group-track"\n` +
       `tracks: [pad, kit]\n`,
 
     // Two pattern lanes — the lane's NAME picks the part, matched to the pattern's `.label(...)`.
-    "instances/pad.yaml":
+    "nodes/pad.yaml":
       `# A GENERATED lane: its clips are streamed from the pattern while the transport rolls,\n` +
       `# which is why it says \`strudel:\` where an authored lane says \`clips:\`.\n` +
       `extends: "@studio/sequence-strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
     // The pattern's "Kit" part: an AUDIO strudel lane, so every event is a sample one-shot rather than a waveform.
-    "instances/kit.yaml":
+    "nodes/kit.yaml":
       `# The audio half of the same pattern: \`@studio/audio-strudel-track\` makes every event\n` +
       `# a sample one-shot instead of a note for an instrument to play.\n` +
       `extends: "@studio/audio-strudel-track"\n` +
@@ -209,7 +209,7 @@ export function liveProjectFiles(name: string): Record<string, string> {
 
     // No `clips:` key at all — not an empty list. A live lane is not an arrangement with
     // nothing in it; it is a lane that is played rather than written.
-    "instances/live.yaml":
+    "nodes/live.yaml":
       `# Played, not arranged: a MIDI controller reaches the synth through the chain above.\n` +
       `extends: "@studio/sequence-track"\n`,
 

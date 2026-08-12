@@ -39,7 +39,7 @@ modules:
   crossfade: [ OUT ]
 ```
 
-`#` because the other two separators are spoken for: `:` joins a module to its instance and `/`
+`#` because the other two separators are spoken for: `:` joins a module to its node and `/`
 joins a namespace to a category to a name. A port is a third axis, so it needed a third
 character — `@mediatek/audio/crossfade:live#b` has to stay readable as three separate facts.
 Only the **last** `#` is the port, so nothing else in the ref is disturbed.

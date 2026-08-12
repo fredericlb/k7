@@ -210,18 +210,18 @@ filesRouter.post(
   }),
 );
 
-// Add an instance beside a module.yaml, which it inherits; `path` is the folder or any file in it.
-const moduleInstanceBody = z.object({
+// Add a node beside a module.yaml, which it inherits; `path` is the folder or any file in it.
+const nodeBody = z.object({
   path: z.string().min(1),
-  instance: z.string().min(1),
+  node: z.string().min(1),
 });
 filesRouter.post(
-  "/module/instance",
-  validate(moduleInstanceBody),
+  "/node",
+  validate(nodeBody),
   wrap((req, res) => {
-    const { path, instance } = req.body as z.infer<typeof moduleInstanceBody>;
+    const { path, node } = req.body as z.infer<typeof nodeBody>;
     try {
-      res.json(req.ws!.createModuleInstance(path, instance));
+      res.json(req.ws!.createNode(path, node));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

@@ -5,7 +5,7 @@
 // module's name before it could name it in a chain — and `module insert` picks that name itself. One command,
 // one round trip, one reload.
 //
-// The arrow goes FIRST in the line so the instance name still lands last, where a person types it. That is the
+// The arrow goes FIRST in the line so the node name still lands last, where a person types it. That is the
 // whole reason for the argument order.
 
 /** The pending half of a `+` click: the arrow the module is being dropped onto. */
@@ -19,42 +19,42 @@ export interface PendingInsert {
  * module — or null when the line isn't one of the two creating commands.
  *
  * Both commands are positional, and both end in the module's FOLDER name plus an
- * optional instance:
+ * optional node:
  *
- *   module new <type>/<name> [extends-ref] [instance]   → "name" or "name:instance"
- *   module instance new <type>/<name> <instance>        → "name:instance"
+ *   module new <type>/<name> [extends-ref] [node]   → "name" or "name:node"
+ *   node new <type>/<name> <node>        → "name:node"
  *
- * A chain can name the bare module or one of its instances, so `module new` without an
- * instance is still insertable — it just names the generic.
+ * A chain can name the bare module or one of its nodes, so `module new` without a
+ * node is still insertable — it just names the generic.
  */
 export function chainRefFromCreate(line: string): string | null {
   const parts = line.trim().split(/\s+/).filter(Boolean);
 
-  // Longest command prefix first: "module instance new" also starts with "module".
-  const instanceNew =
-    parts[0] === "module" && parts[1] === "instance" && parts[2] === "new";
-  const moduleNew = !instanceNew && parts[0] === "module" && parts[1] === "new";
-  if (!instanceNew && !moduleNew) return null;
+  // Two verbs, two words each — `node new` shares no prefix with `module new` since a node
+  // stopped being spelled `module instance`, so neither can shadow the other.
+  const nodeNew = parts[0] === "node" && parts[1] === "new";
+  const moduleNew = parts[0] === "module" && parts[1] === "new";
+  if (!nodeNew && !moduleNew) return null;
 
-  const args = parts.slice(instanceNew ? 3 : 2);
+  const args = parts.slice(2);
   const target = args[0] ?? "";
   // "<type>/<name>" — the module's own folder. Anything else is a line the command itself rejects.
   const segs = target.split("/");
   if (segs.length !== 2 || !segs[0] || !segs[1]) return null;
   const name = segs[1];
 
-  if (instanceNew) {
-    const instance = args[1];
-    return instance ? `${name}:${instance}` : null;
+  if (nodeNew) {
+    const node = args[1];
+    return node ? `${name}:${node}` : null;
   }
-  // `module new` takes the instance THIRD: with two args the second is the ref, so the chain names the generic.
-  const instance = args[2];
-  return instance ? `${name}:${instance}` : name;
+  // `module new` takes the node THIRD: with two args the second is the ref, so the chain names the generic.
+  const node = args[2];
+  return node ? `${name}:${node}` : name;
 }
 
 /**
- * The line the `+` pre-writes: everything the command needs except the instance name, which the user types.
- * `ref` is the catalogue module to inherit, absent for a module of this project (which is instanced directly).
+ * The line the `+` pre-writes: everything the command needs except the node name, which the user types.
+ * `ref` is the catalogue module to inherit, absent for a module of this project (which is used directly).
  */
 export const moduleInsertCommand = (
   i: PendingInsert,
@@ -67,7 +67,7 @@ export const moduleInsertCommand = (
 /**
  * The same line for a pick made on EMPTY canvas: no arrow, so the module lands in the graph wired to nothing.
  *
- * Same shape and same tail as the insert — the instance name is still the last thing, still missing, still
+ * Same shape and same tail as the insert — the node name is still the last thing, still missing, still
  * where the cursor stops. Only the verb and the two node names differ, so the two lines read as one gesture
  * with and without a target.
  */

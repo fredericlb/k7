@@ -25,7 +25,7 @@ items:
 C'est la seule famille avec `samples` dont l'entrée est un fichier et non un dossier, et
 c'est pour la même raison : il n'y a rien à ranger à côté d'une playlist. Un morceau, une
 chaîne et un module sont des dossiers parce que chacun porte ce que son fichier nomme — un
-master, ses instances, ses assets. Une playlist ne porte que des renvois vers des choses
+master, ses nodes, ses assets. Une playlist ne porte que des renvois vers des choses
 classées ailleurs ; un dossier autour d'elle serait une boîte vide.
 
 D'où l'absence de marqueur `playlist.yaml` : c'est **l'extension qui fait la règle**
