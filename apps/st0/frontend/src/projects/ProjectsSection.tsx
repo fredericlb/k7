@@ -2,6 +2,7 @@
 // qui est ouvert. Détient l'asynchrone pour les deux vues présentationnelles à côté. Le dépôt
 // ouvert vient de l'URL (routes.ts), pas d'un état local. Voir ../../docs/projects.md.
 
+import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { FileNode, RepoProject, RepoSummary } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
 import { projects as api } from "../api";
@@ -106,12 +107,18 @@ export function ProjectsSection({
   }, [machine, blocked]);
 
   const create = useCallback(
-    async (r: RepoSummary, folder: string, onStep: (s: string) => void) => {
+    async (
+      r: RepoSummary,
+      folder: string,
+      onStep: (s: string) => void,
+      mode?: ProjectMode,
+    ) => {
       const { gripe } = await createProjectOnMachine(
         chosen(),
         r.uri,
         folder,
         onStep,
+        mode,
       );
       await reread(r);
       // Le projet EXISTE sur la machine ; seul l'envoi a manqué. Lever ici garderait le

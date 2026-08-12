@@ -6,6 +6,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import {
+  DEFAULT_PROJECT_MODE,
+  type ProjectMode,
+} from "@studio/song/projectMode";
 import { scaffold } from "@studio/song/scaffold";
 import { scaffoldM9 } from "@studio/song/scaffoldM9";
 import { scaffoldV1 } from "@studio/song/scaffoldV1";
@@ -154,6 +158,15 @@ export function createProjectIn(
   host: LifecycleHost,
   type: "audio" | "m9" | "v1",
   rawName: string,
+  /**
+   * l8 only, and orthogonal to everything above: a song with a timeline or a live rig.
+   *
+   * It cannot ride on `type` and it is not decided by the suffix, which is the whole reason it
+   * is a parameter of its own. Both shapes live in a `.l8` folder and both are opened by l8 —
+   * the name says which APP, this says which of that app's two shapes. Ignored for m9 and v1,
+   * whose scaffolds have no such axis (a set and a cut are each one thing).
+   */
+  mode: ProjectMode = DEFAULT_PROJECT_MODE,
 ): { project: string } {
   let name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
@@ -180,6 +193,6 @@ export function createProjectIn(
   // "winter" is the set. projectLabel is the one place that rule is stated.
   if (kind === "m9") scaffoldM9(abs, projectLabel(name));
   else if (kind === "v1") scaffoldV1(abs, projectLabel(name));
-  else scaffold(abs, name);
+  else scaffold(abs, name, mode);
   return { project: host.toRel(abs) };
 }

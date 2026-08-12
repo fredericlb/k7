@@ -9,9 +9,31 @@ rather than a component tree:
 
 | piece | meaning |
 |---|---|
-| `view` | the layout — `global` (timeline over chains) or `video` (the viewport takes the lower slot). Mostly derived: opening a project with picture selects `video` on its own. |
+| `view` | the layout — `global` (timeline over chains) or `live` (chains alone, no timeline). Entirely derived: it is what the open PROJECT is, and nothing offers a choice. |
 | `full` | which single pane has the whole screen, or `null` for the layout above. |
-| `panel` | the side panel (mixer, graph, docs, logs, editor), independent of both. |
+| `panel` | the side panel (graph, docs, logs), independent of both. |
+
+### The layout is the project's, not the user's
+
+`view` has always been mostly derived — `video` used to be selected by "this project has picture",
+before picture left for v1. `live` is the same shape of fact taken to the end: `project.yaml`'s
+`project_type` says whether the folder is a song or a rig, and a rig has no timeline to show. So
+there is no toggle, `ui global` typed at a live project is refused out loud, and `VIEW_PANES` (in
+`routes.ts`) is what each layout does with the panes:
+
+```ts
+global: { ring: ["timeline", "chains"], fullscreen: ["editor", "timeline", "chains"] }
+live:   { ring: ["chains"],             fullscreen: [] }
+```
+
+That empty `fullscreen` is load-bearing. The header buttons, the number keys, `ui <pane>` and the
+mobile tabs all reach the screen through `fullscreen()`, so one empty list closes all four at
+once instead of four guards that could disagree. `fromLocation` reads the same table: `/timeline`
+typed at a live project names a pane that project has not got, and falls through to its own screen
+rather than parsing into a state that cannot be drawn.
+
+Full rationale, including why the field is not `type`:
+[packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
 
 `full` and `view` are the SCREEN, so they own the path. `panel` is a modifier on whatever
 screen you are on — you can have the mixer open over the timeline or over the chains — so

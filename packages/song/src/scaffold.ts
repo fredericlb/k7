@@ -7,6 +7,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DEFAULT_COUNT_IN } from "./project";
+import { DEFAULT_PROJECT_MODE, type ProjectMode } from "./yaml/projectSchema";
 
 const q = (s: string) => JSON.stringify(s);
 
@@ -146,6 +147,66 @@ export function projectFiles(name: string): Record<string, string> {
   return base;
 }
 
+/**
+ * The files of a LIVE l8 project — a rig rather than a song.
+ *
+ * The same folder shape with the arrangement taken out: no sequence, no clip, no pattern, and no
+ * placement anywhere. Those are the things that only mean something on a timeline, and this
+ * project has none — l8 draws the chains graph on the whole screen (docs/projectMode.md). Leaving
+ * them in would scaffold material the shell has no way to show.
+ *
+ * What is left is a signal path you can play THROUGH: a track, an instrument, the output. It is
+ * `contentType: sequences`, so a MIDI controller plays the synth the moment the engine is up —
+ * which is what makes this a rig and not an empty folder. Swap the synth for a live input by
+ * following the template in `modules/io/OUT/module.yaml`.
+ *
+ * Built by taking the shared entries out of the song map rather than by restating them, so the
+ * output sink, the settings and the synth cannot drift between the two shapes.
+ */
+export function liveProjectFiles(name: string): Record<string, string> {
+  const song = projectFiles(name);
+  return {
+    "project.yaml":
+      `# A LIVE project: no timeline. Nothing is placed in time, so l8 opens on the\n` +
+      `# chains graph alone — no timeline pane, no transport, no minimap. Delete the\n` +
+      `# line below (or set it to \`arrangement\`) to get a song with a timeline back.\n` +
+      `project_type: live\n` +
+      `\n` +
+      `project:\n` +
+      `  name: ${q(name)}\n` +
+      // A tempo and a signature all the same: they are what the metronome, a MIDI capture and
+      // any pattern lane count in, none of which need an arrangement to exist.
+      `  tempo: 120\n` +
+      `  sampleRate: 48000\n` +
+      `  timeSignature: "4/4"\n`,
+
+    "settings.yaml": song["settings.yaml"],
+    "modules/io/OUT/module.yaml": song["modules/io/OUT/module.yaml"],
+    "modules/instruments/synth/module.yaml":
+      song["modules/instruments/synth/module.yaml"],
+
+    "chains.yaml":
+      `# The signal graph, as SEGMENTS: each track and each module says where its signal\n` +
+      `# goes next. This IS the project — with no timeline, the graph is the whole of what\n` +
+      `# l8 shows, and wiring it is the work.\n` +
+      `#\n` +
+      `# Right-click a node to act on it; its module's own file opens over the graph.\n` +
+      `tracks:\n` +
+      `  live: [ synth ]\n` +
+      `modules:\n` +
+      `  synth: [ OUT ]\n`,
+
+    // No `clips:` key at all — not an empty list. A live track is not an arrangement with
+    // nothing in it; it is a lane that is played rather than written.
+    "tracks/live.yaml":
+      `# Played, not arranged: a MIDI controller reaches the synth through the chain above.\n` +
+      `type: single\ncontentType: sequences\n` +
+      `mute: false\nsolo: false\n`,
+
+    "curves/.gitignore": song["curves/.gitignore"],
+  };
+}
+
 /** Write a project's file map under `dir`, making the folders it implies. Shared with the m9
  *  scaffold, which writes a different map the same way. */
 export function writeProjectFiles(
@@ -160,8 +221,13 @@ export function writeProjectFiles(
   return Object.keys(files);
 }
 
-export function scaffold(dir: string, name: string): string[] {
-  const files = projectFiles(name);
+/** Write a new l8 project. `mode` picks the map: a song with a timeline, or a live rig. */
+export function scaffold(
+  dir: string,
+  name: string,
+  mode: ProjectMode = DEFAULT_PROJECT_MODE,
+): string[] {
+  const files = mode === "live" ? liveProjectFiles(name) : projectFiles(name);
   writeProjectFiles(dir, files);
 
   // Nothing to point at the shared folders any more: a project sees the workspace's own and

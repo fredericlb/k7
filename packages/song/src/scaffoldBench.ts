@@ -12,6 +12,16 @@ const q = (s: string) => JSON.stringify(s);
 export const BENCH_MARKER = "mediatekBench";
 
 /**
+ * The bench is a LIVE project — the exact line its `project.yaml` carries.
+ *
+ * Exported as the whole line, and used by the file service to bring an EXISTING bench forward
+ * (`ensureBenchProject`): the folder is regenerated on every open, but `project.yaml` is written
+ * once and would otherwise still say "arrangement" on every bench made before this. One string,
+ * so the writer and the migration cannot spell it two ways.
+ */
+export const BENCH_MODE_LINE = "project_type: live";
+
+/**
  * The bench's own furniture, named once.
  *
  * The map below writes these names, and `benchChain` translates a shared chain's `@in`/`@out`
@@ -46,6 +56,10 @@ export function benchFiles(name: string): Record<string, string> {
       `# Le banc d'essai des modules. Généré, et régénéré à chaque ouverture depuis la\n` +
       `# médiathèque — ce que vous écrivez ICI dans un module est écrit dans le catalogue,\n` +
       `# pas dans une copie. C'est le seul projet dans ce cas. Voir apps/st0/docs/banc.md.\n` +
+      `#\n` +
+      `# banc.md le dit déjà : « pas un morceau ». Rien n'y est arrangé, rien n'y est\n` +
+      `# enregistré — d'où "live", qui est exactement ça : un graphe, et pas de timeline.\n` +
+      `${BENCH_MODE_LINE}\n` +
       `project:\n` +
       `  name: ${q(name)}\n` +
       `  tempo: 120\n` +

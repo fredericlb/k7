@@ -61,6 +61,7 @@ import {
   trackAlternatives,
 } from "./trackAlternatives";
 import { sortTracksByKind } from "./trackKind";
+import { DEFAULT_PROJECT_MODE } from "./yaml/projectSchema";
 import type { Track } from "./yaml/trackSchema";
 
 // A placement -> a resolved ClipDoc. `start`/`loop` are 1-based positions, the rest 0-based durations.
@@ -840,6 +841,9 @@ export function compileNodeProject(dir: string): ProjectDoc {
     groups,
     // Read off the AUTHORED tracks — a strudel lane compiles to an empty one, so by then the fact it streams is gone.
     strudel: Object.values(tracksMap).some((t) => t?.type === "strudel"),
+    // A ROOT field, so it comes off `root` and not `proj` — see projectSchema.ts on why the
+    // shape of the folder is not one of the song's settings.
+    mode: root.project_type ?? DEFAULT_PROJECT_MODE,
     markers: parseMarkers(root.markers, num || 4, den || 4),
     // settings.yaml is a flat, package-less root file (not part of `root` above) — load
     // it on its own, validated as it is read (a bad value fails the compile).

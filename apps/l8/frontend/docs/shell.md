@@ -55,6 +55,14 @@ the `longtask` observer are cheap and are what turn "it froze" into evidence at 
 full width** — with the transport controls and the pane toggles in the header. It is the
 wiring and the layout; almost nothing else.
 
+There is a second layout, and it is not a second *choice*: a project whose `project.yaml` says
+`project_type: live` has no arrangement, so `App` draws **the chains graph on the whole screen**
+and the timeline's furniture goes with it — the transport (every control on it addresses a
+position in a song), the minimap (a second view of that song), the pane buttons, the mobile tabs.
+The module bench is one. The editor is still one right-click away, as a popin, which is what keeps
+the builder reachable there. See
+[packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
+
 The editor is not in it. It had the left half, which meant every song opened with half the
 screen showing a YAML file you had not asked for, while the two views of the song that are
 *about the song* — where things happen in time, and how the signal flows — shared the other
@@ -254,14 +262,20 @@ which clip you mean without you naming it. What went is the drawing.
 ## A view is a LAYOUT, not a mode
 
 Every pane is mounted always, and always the *same instance* — including the editor, which
-the default layout does not show. Three pieces of state decide what you see, and none of them
+the default layout does not show, and including the timeline in a `live` project, which no
+layout shows at all. Three pieces of state decide what you see, and none of them
 mounts or unmounts anything:
 
-- `full` — which pane gets the whole screen (`null` = the global view)
-- `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`: the two the layout
-  actually shows, so the editor is not on it — and focus left on a pane the layout dropped is
-  snapped back, or the keys would go to something off screen)
+- `full` — which pane gets the whole screen (`null` = the layout's own arrangement)
+- `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`, which is
+  `VIEW_PANES[view].ring`: the panes the layout actually shows, so the editor is not on it — and
+  focus left on a pane the layout dropped is snapped back, or the keys would go to something off
+  screen. That snap is what moves the keys to the graph when a live project opens)
 - `panel` — the side panel, independent of both
+
+`view` is the fourth piece and the only one nobody chooses: it is what the open PROJECT is. See
+[shellRouting.md](shellRouting.md) and
+[packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
 
 `f` expands what you are on, Escape backs out. Because nothing is torn down by any of
 that, the state that would be expensive to rebuild — the open file and its undo history,

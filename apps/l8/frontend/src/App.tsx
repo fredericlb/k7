@@ -111,7 +111,7 @@ import { m } from "./paraglide/messages.js";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
-import type { Pane, Panel, View } from "./routes";
+import { type Pane, type Panel, VIEW_PANES, type View } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
@@ -454,8 +454,16 @@ export default function App({
   // editor is reached deliberately (`ui editor`) or arrives as a popin when a command sends it
   // to a file. That is what `visible("editor")` reads to decide between the two — see
   // docs/shell.md.
-  const thirdPane = VIEW_META[view].third;
-  const ringPanes = useMemo<Pane[]>(() => ["timeline", thirdPane], [thirdPane]);
+  // The layout's own list, not "the timeline plus one": `live` has no timeline, and a ring that
+  // still named it would hand the keys to a pane that is not drawn. It replaces `thirdPane`,
+  // which could only ever name the pane UNDER the timeline and so had nothing to say about a
+  // layout with no timeline in it. See VIEW_PANES in routes.ts.
+  const ringPanes = VIEW_PANES[view].ring;
+
+  // Read off the LAYOUT rather than off the project doc, and not only because the doc arrives a
+  // frame later: everything below this asks "is there a timeline on screen", which is a question
+  // about the view. The effect further down is the one place that turns the project into a view.
+  const live = view === "live";
 
   // The popin IS the active pane while it is up: it is what the keys are for, and the pane
   // underneath must not also answer them.
@@ -493,12 +501,19 @@ export default function App({
    */
   const chainsOffScreen =
     full === "timeline" ||
-    (full === null && view !== "global") ||
-    (full === null && tlView.expanded);
+    (full === null && !ringPanes.includes("chains")) ||
+    // Expanded lanes give the timeline the whole column — which can only happen in a layout that
+    // HAS a timeline. In `live` the graph is the only pane, and nothing may take it away.
+    (full === null && ringPanes.includes("timeline") && tlView.expanded);
 
   const timelineVisible = visible("timeline");
-  const minimapFloating = docked && editorPopin;
-  const minimapDocked = docked && !timelineVisible && !editorPopin;
+  // Never in a LIVE project, in either place. The minimap is a second view of the ARRANGEMENT —
+  // it earns its band precisely when the timeline is off screen and you would otherwise have
+  // lost the song. A project with no arrangement has nothing for it to be a view of, and the
+  // rule above ("the timeline is not visible") is exactly the condition that is permanently
+  // true there, so without this it would be the one piece of the timeline that never left.
+  const minimapFloating = docked && !live && editorPopin;
+  const minimapDocked = docked && !live && !timelineVisible && !editorPopin;
 
   /**
    * How tall the floating strip is, so the popin can stop ABOVE it instead of over it.
@@ -530,12 +545,26 @@ export default function App({
     [focusPane],
   );
 
+  /**
+   * Give one pane the whole screen — the ONE road there, taken by the header buttons, the number
+   * keys, `ui <pane>` and the mobile tabs alike.
+   *
+   * A layout that cannot fullscreen the pane refuses instead, which is what makes `live` hold:
+   * its list is empty (VIEW_PANES), so every one of those roads is closed at the same point
+   * rather than at four. Refused out loud — a key that does nothing reads as a broken key.
+   */
   const fullscreen = useCallback(
     (p: Pane) => {
+      if (!VIEW_PANES[view].fullscreen.includes(p)) {
+        setStatus(
+          `this project is \`live\` — the graph has the whole screen, and there is no ${PANE_META[p].label.toLowerCase()} pane to expand.`,
+        );
+        return;
+      }
       setFull(p);
       focusOn(p);
     },
-    [focusOn],
+    [focusOn, view],
   );
 
   const paneProps = (p: Pane) => ({
@@ -607,12 +636,41 @@ export default function App({
     docTracks,
     mixerStrips,
     hasStrudel,
+    mode,
     midiSeqRef,
   } = useProjectDoc(reloadKey, {
     // If the currently-armed track lost its sequence, disarm it.
     onMidiSeqs: (seqs) =>
       setMidiArmed((cur) => (cur && !seqs[cur] ? null : cur)),
   });
+
+  /**
+   * The layout FOLLOWS the project: a `live` folder has no arrangement, so it has no `global`.
+   *
+   * Derived and not chosen — there is no toggle for this anywhere in the shell, and the effect
+   * runs on every doc load rather than once, so a project.yaml edited from `arrangement` to
+   * `live` in the editor moves the screen on the next reload instead of after a refresh.
+   *
+   * `full` is cleared with it. A live layout fullscreens nothing (VIEW_PANES), so a `full` left
+   * over from the project that was open before would name a pane this one cannot draw.
+   */
+  const liveProject = mode === "live";
+  useEffect(() => {
+    setView(liveProject ? "live" : "global");
+    setFull(null);
+  }, [liveProject]);
+
+  /**
+   * The layout this PROJECT is entitled to — what "back to the view" means here.
+   *
+   * A ref, because the callbacks that reset the screen (opening a project, `ui global`, a command
+   * that needs the graph slot) are `useCallback`s half the shell depends on being stable; making
+   * them re-bind whenever the doc reloads would ripple through every key handler and every menu.
+   * Those call sites used to write `"global"` literally, which was correct while it was the only
+   * layout and would strand a live project in a screen it has not got now that it is not.
+   */
+  const baseViewRef = useRef<View>("global");
+  baseViewRef.current = liveProject ? "live" : "global";
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey.
   const quietCommand = useCallback(
@@ -685,7 +743,9 @@ export default function App({
       setReloadKey((k) => k + 1);
       setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
       setFull(null);
-      setView("global");
+      // The layout the project that was open had — the doc effect above corrects it a moment
+      // later, once THIS project's doc says which shape it is.
+      setView(baseViewRef.current);
     } catch (e) {
       setStatus(`open error: ${(e as Error).message}`);
     }
@@ -871,11 +931,23 @@ export default function App({
         return true;
       }
       if (line === "global") {
+        // The layout is the PROJECT's and not a choice, so in a live project this names a screen
+        // it has not got. Say so — running it silently, or quietly landing on `live` instead,
+        // would both leave someone believing they had switched.
+        if (baseViewRef.current !== "global") {
+          setStatus(
+            "this project is `live` — it has no timeline, so there is no global view. Change `project_type` in project.yaml to arrange it.",
+          );
+          return true;
+        }
         setView(line);
         setFull(null);
         return true;
       }
       if ((PANES as string[]).includes(line)) {
+        // …and likewise for a pane this layout cannot fullscreen: in `live` the graph already has
+        // the window, so `ui timeline` names a pane that is not drawn. `fullscreen` is left to
+        // decide, since it is what the header buttons and the number keys go through too.
         fullscreen(line as Pane);
         return true;
       }
@@ -1002,8 +1074,9 @@ export default function App({
         else {
           // The chains slot is where it goes, so make sure the slot is on screen: a grid drawn
           // behind a fullscreened timeline is a command that reported success and did nothing.
+          // The project's own layout, not `global` — in `live` the slot is already the screen.
           setFull(null);
-          setView("global");
+          setView(baseViewRef.current);
           setGraphSlot({ kind: "grid", path, view: seq.view });
         }
         return true;
@@ -1532,10 +1605,14 @@ export default function App({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [historyDeps, settingsScreen, undoConfirm]);
 
-  // The global view has no mobile form, so entering mobile lands on the timeline — the pane that says what a song is.
+  // The global view has no mobile form, so entering mobile lands on a pane — the timeline, being
+  // the one that says what a song is. A LIVE project is skipped entirely: it fullscreens nothing
+  // because its single pane already fills the phone, and forcing `full` there would put the
+  // layout in a state VIEW_PANES says cannot exist.
   useEffect(() => {
-    if (isMobile && full === null) setFull("timeline");
-  }, [isMobile, full]);
+    const [first] = VIEW_PANES[view].fullscreen;
+    if (isMobile && full === null && first) setFull("timeline");
+  }, [isMobile, full, view]);
 
   const waitingForEngine = !!ws?.activeProject && !engineReady;
 
@@ -1614,73 +1691,81 @@ export default function App({
               Each drops focus on click (blurOnClick): these are the buttons a mouse is
               most likely to land on right before reaching for Space, and a focused one
               eats the keypress. On play/pause the theft is invisible (the button does
-              what Space would); on stop and record it is not. */}
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              size="icon"
-              variant={playing ? "default" : "secondary"}
-              // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
-              disabled={transportWaiting}
-              onClick={(e) => {
-                transport(playing ? "stop" : "play");
-                blurOnClick(e);
-              }}
-              title={
-                transportWaiting
-                  ? "Loading this project — the engine can't answer the transport yet"
-                  : playing
-                    ? m["transport.pause"]()
-                    : m["transport.play"]()
-              }
-              aria-label={
-                transportWaiting
-                  ? "loading the project"
-                  : playing
-                    ? m["transport.pause"]()
-                    : m["transport.play"]()
-              }
-              aria-busy={transportWaiting}
-            >
-              {transportWaiting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : playing ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={(e) => {
-                transport("stop");
-                transport("rewind");
-                blurOnClick(e);
-              }}
-              title={m["transport.stop"]()}
-            >
-              <Square className="h-4 w-4" />
-            </Button>
-            <TransportClock
-              tempo={recInfo.tempo}
-              beatsPerBar={recInfo.beatsPerBar}
-            />
-            <Button
-              size="icon"
-              variant={recordEnabled ? "default" : "secondary"}
-              aria-pressed={recordEnabled}
-              onClick={(e) => {
-                engineRef.current?.setRecordEnabled(!recordEnabled);
-                blurOnClick(e);
-              }}
-              title={m["transport.record"]()}
-              aria-label={m["transport.record"]()}
-            >
-              <Circle
-                className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
+              what Space would); on stop and record it is not.
+
+              Absent in a LIVE project. Every control here addresses a position in an
+              arrangement — a playhead to move, a take to punch in — and a project with no
+              timeline has none: the clock would count bars nothing is written against and
+              record would arm a lane with nowhere to put a take. Sound still reaches the
+              engine, played by what is wired in the graph. See docs/projectMode.md. */}
+          {!live && (
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                size="icon"
+                variant={playing ? "default" : "secondary"}
+                // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
+                disabled={transportWaiting}
+                onClick={(e) => {
+                  transport(playing ? "stop" : "play");
+                  blurOnClick(e);
+                }}
+                title={
+                  transportWaiting
+                    ? "Loading this project — the engine can't answer the transport yet"
+                    : playing
+                      ? m["transport.pause"]()
+                      : m["transport.play"]()
+                }
+                aria-label={
+                  transportWaiting
+                    ? "loading the project"
+                    : playing
+                      ? m["transport.pause"]()
+                      : m["transport.play"]()
+                }
+                aria-busy={transportWaiting}
+              >
+                {transportWaiting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : playing ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  transport("stop");
+                  transport("rewind");
+                  blurOnClick(e);
+                }}
+                title={m["transport.stop"]()}
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+              <TransportClock
+                tempo={recInfo.tempo}
+                beatsPerBar={recInfo.beatsPerBar}
               />
-            </Button>
-          </div>
+              <Button
+                size="icon"
+                variant={recordEnabled ? "default" : "secondary"}
+                aria-pressed={recordEnabled}
+                onClick={(e) => {
+                  engineRef.current?.setRecordEnabled(!recordEnabled);
+                  blurOnClick(e);
+                }}
+                title={m["transport.record"]()}
+                aria-label={m["transport.record"]()}
+              >
+                <Circle
+                  className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
+                />
+              </Button>
+            </div>
+          )}
 
           {/* right: view toggles + menus, balancing the left so the centre stays centred */}
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
@@ -1711,11 +1796,16 @@ export default function App({
             ) : (
               <>
                 {/* Pane buttons. The VIEW toggles sat here beside them and are gone: with
-                    picture moved to v1 there is one layout left, and a toggle that is always
-                    on and cannot be turned off is a control in name only. VIEW_META still
-                    holds it — see routes.ts for why the concept outlived the button. */}
+                    picture moved to v1 there is one layout left to CHOOSE, and a toggle that is
+                    always on and cannot be turned off is a control in name only. `live` did not
+                    bring them back — it is what the project IS, not a layout you pick.
+
+                    The row is drawn from the LAYOUT's fullscreenable set, not from PANES: in
+                    `live` that set is empty and the nav disappears with it, because its one pane
+                    already has the window and every button would either do nothing or hide the
+                    only thing on screen. */}
                 <nav className="flex items-center gap-1">
-                  {PANES.map((p) => {
+                  {VIEW_PANES[view].fullscreen.map((p) => {
                     const Icon = PANE_META[p].icon;
                     const key = keyForCommand(`ui ${p}`);
                     return (
@@ -1829,13 +1919,18 @@ export default function App({
                 {...paneProps("timeline")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  // Expanded lanes take the whole height, exactly as `full timeline` does: the
-                  // pane below has stood down for them — see where `tlView.expanded` is read.
-                  full === "timeline" || (full === null && tlView.expanded)
-                    ? "flex-1"
-                    : full === "chains"
-                      ? "hidden"
-                      : "h-1/2 shrink-0 border-b border-border",
+                  // Off screen for good in a LIVE project, and still MOUNTED — the invariant in
+                  // docs/shell.md is that no layout unmounts a pane, so its caret and zoom stack
+                  // survive a project.yaml edited back to `arrangement` without a reload.
+                  live
+                    ? "hidden"
+                    : // Expanded lanes take the whole height, exactly as `full timeline` does: the
+                      // pane below has stood down for them — see where `tlView.expanded` is read.
+                      full === "timeline" || (full === null && tlView.expanded)
+                      ? "flex-1"
+                      : full === "chains"
+                        ? "hidden"
+                        : "h-1/2 shrink-0 border-b border-border",
                   ringFor("timeline"),
                 )}
               >
@@ -1851,7 +1946,7 @@ export default function App({
                   // a view drawn behind a fullscreened timeline is a click that did nothing.
                   onOpenClip={(t) => {
                     setFull(null);
-                    setView("global");
+                    setView(baseViewRef.current);
                     setGraphSlot({ kind: "clip", target: t });
                   }}
                   // …and the bare lane puts the graph back. Symmetric on purpose: what a click
@@ -1921,7 +2016,10 @@ export default function App({
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  full === "chains"
+                  // In `live` it is the only pane, so it takes the column outright — the same
+                  // `flex-1` a fullscreened graph gets, reached without `full` being set (a live
+                  // layout fullscreens nothing; see VIEW_PANES).
+                  live || full === "chains"
                     ? "flex-1"
                     : chainsOffScreen
                       ? "hidden"
@@ -1943,7 +2041,11 @@ export default function App({
                   <ChainsTab
                     reloadKey={reloadKey}
                     active={!chainsOffScreen && !graphSlot}
-                    showList={full === "chains"}
+                    // The sidebar is fullscreen chrome (ChainsTab's own rule): it belongs wherever
+                    // the graph has the window rather than half of it. `live` is that case
+                    // permanently, and it is also the layout where the list matters most — with
+                    // no timeline, picking a chain is the only navigation the project has.
+                    showList={live || full === "chains"}
                     trackOrder={trackOrder}
                     command={quietCommand}
                     onBypassModule={(mod) =>
@@ -2314,10 +2416,16 @@ export default function App({
         )}
 
         {/* The tab bar takes the minimap's place — one tab per pane, plus the command
-            bar's opener (a phone has no double-Shift to summon it with). */}
+            bar's opener (a phone has no double-Shift to summon it with).
+
+            The tabs come from the LAYOUT's fullscreenable set, so a live project shows none: its
+            one pane is already the whole phone, and a tab that is always on and cannot be turned
+            off is the control the header's view toggles were deleted for being. The BAR still
+            renders — its opener is the only way to a command bar on a phone, and taking that
+            away would leave a live project with a graph and no way to wire it. */}
         {isMobile && (
           <MobileTabBar
-            tabs={PANES.map((pn) => ({
+            tabs={VIEW_PANES[view].fullscreen.map((pn) => ({
               id: pn,
               icon: PANE_META[pn].icon,
               label: PANE_META[pn].label,

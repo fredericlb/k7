@@ -15,6 +15,7 @@ import {
   listModulePresets,
   saveModuleAsPreset,
 } from "@studio/song/presets";
+import { PROJECT_MODES } from "@studio/song/projectMode";
 import express, { Router } from "express";
 import { z } from "zod";
 import {
@@ -247,15 +248,20 @@ const createProjectBody = z.object({
   // folder and a cut folder, each getting its suffix appended so st0 offers it to the app
   // that opens it. See projectLifecycle.ts.
   type: z.enum(["audio", "m9", "v1"]),
+  // l8's own axis, and a SEPARATE field on purpose: it is orthogonal to `type` above and to the
+  // suffix on the name, both of which answer "which app opens this". This answers "which of l8's
+  // two shapes" — a song with a timeline, or a live rig. Absent means `arrangement`, so every
+  // caller written before this (l8's own command bar included) keeps creating what it always did.
+  mode: z.enum(PROJECT_MODES).optional(),
   name: z.string().min(1),
 });
 filesRouter.post(
   "/project/create",
   validate(createProjectBody),
   wrap((req, res) => {
-    const { type, name } = req.body as z.infer<typeof createProjectBody>;
+    const { type, name, mode } = req.body as z.infer<typeof createProjectBody>;
     try {
-      res.json(req.ws!.createProject(type, name));
+      res.json(req.ws!.createProject(type, name, mode));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
