@@ -23,6 +23,8 @@ export const LOCAL_COMMANDS = [
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
+  "ui popin close", // close the topmost overlay (what Esc reaches for first)
+  "ui slot close", // put the graph back where a grid, a clip or a take had taken its place
   "project new", // scaffold a new project at the workspace root, then open it
   "project delete", // recycle a project folder (confirmed via a dialog)
   "ui edit sequence", // open a MIDI sequence's file in the editor
@@ -82,6 +84,14 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui close": {
     en: "Close the bottom panel",
     fr: "Fermer le panneau du bas",
+  },
+  "ui popin close": {
+    en: "Close the overlay in front",
+    fr: "Fermer la fenêtre au premier plan",
+  },
+  "ui slot close": {
+    en: "Show the chains graph again",
+    fr: "Réafficher le graphe des chaînes",
   },
   "project new": { en: "Create a new project", fr: "Créer un nouveau projet" },
   "project delete": { en: "Delete a project", fr: "Supprimer un projet" },

@@ -10,6 +10,7 @@ import { api } from "../api";
 import { commandTranslations } from "../commandI18n";
 import { DOC_PARTS } from "../docs/pages";
 import { shortcutsByCommand } from "../keys";
+import { usePopin } from "../popins";
 import type { CommandInfo } from "../types";
 import { Markdown } from "./Markdown";
 
@@ -32,6 +33,14 @@ const VIEW_COMMANDS: { command: string; help: string }[] = [
     help: "move the keyboard to the next global-view pane",
   },
   { command: "ui close", help: "close the bottom panel" },
+  {
+    command: "ui popin close",
+    help: "close the overlay in front — what Esc reaches for first",
+  },
+  {
+    command: "ui slot close",
+    help: "put the chains graph back where a grid, a clip or a take had taken its place",
+  },
   {
     command: "ui file",
     help: "open a file in the editor by fuzzy name (completes against the project)",
@@ -137,6 +146,10 @@ export function HelpPage({ onBack }: { onBack: () => void }) {
       alive = false;
     };
   }, []);
+
+  // Mounted only while it is showing, so it is an overlay for as long as it exists. Registered
+  // so the shell's Esc stops at this page instead of also closing the graph slot under it.
+  usePopin(true, onBack);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
