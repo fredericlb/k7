@@ -85,6 +85,14 @@ import {
   wheelPixels,
   zoomAbout,
 } from "./camera";
+import {
+  advanceMotion,
+  type Ghost,
+  type Motion,
+  motionPos,
+  motionTransform,
+  planMotion,
+} from "./nodeMotion";
 
 /**
  * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
@@ -195,6 +203,12 @@ const CTRL: Record<string, string> = {
 const EMPTY_ORDER: string[] = [];
 // The same for "no cable carries signal" — never mutated, always replaced.
 const EMPTY_LIVE: Set<string> = new Set();
+// …and for "nothing is leaving", so settling twice does not re-render the graph twice.
+const EMPTY_GHOSTS: Ghost<GraphNode>[] = [];
+// A cable drawn mid-move is drawn STILL: the ripple is a 1.2 Hz ornament and 200 ms of it is
+// nothing, while resampling every cable per frame to carry it is real work. `flattenInto` reads
+// `base` alone, so a still cable never looks at this.
+const NO_SAMPLES: CableGeom["samples"] = [];
 
 const DRAG_SLOP = 4; // px of movement before a press becomes a pan (so a pan never selects)
 const DRAG_TRAVEL_PX = 150; // screen px of vertical drag that sweep a control's whole range
@@ -235,6 +249,13 @@ const CSS = `
 .dgx-ins-btn path { stroke:#3b82f6; stroke-width:2; }
 .dgx-clab { fill:#8a8780; font:10px ui-monospace,monospace; pointer-events:none; }
 .dgx-alab { fill:var(--mauve); font:10px ui-monospace,monospace; pointer-events:none; }
+/* While the cards are moving, this layer is stale: its labels, its automation arrows and its
+   hit paths are React-rendered from the layout that ARRIVED, and following them per frame is
+   the string-rebuilding this package left SVG to escape (docs/wobble.md). So it steps aside
+   for the ~200 ms of the move and comes back. The signal cables do follow — they are the
+   canvas, redrawn from the interpolated positions every frame. See docs/nodeMotion.md. */
+.dgx-cables { transition:opacity .1s linear; }
+.dgx-cables.moving { opacity:0; }
 
 .dgx-node { position:absolute; box-sizing:border-box; border-radius:11px;
   background:linear-gradient(180deg,#1d1c22,var(--card)); border:1px solid var(--line);
@@ -875,6 +896,22 @@ function TabsWidget({
 const NO_ENVELOPE: WaveformEnvelope[] = [];
 const NOOP = (): void => {};
 
+// Hand a node back to React: the three properties the frame loop writes, and only those.
+function clearMotionStyle(el: HTMLElement | undefined): void {
+  if (!el) return;
+  el.style.transform = "";
+  el.style.filter = "";
+  el.style.pointerEvents = "";
+}
+
+// Are these the same cards on their way out? By id, so re-planning mid-exit does not re-render.
+function sameGhosts(
+  a: readonly Ghost<GraphNode>[],
+  b: readonly Ghost<GraphNode>[],
+): boolean {
+  return a.length === b.length && a.every((g, i) => g.node.id === b[i].node.id);
+}
+
 // A waveform widget: a real-time min/max envelope on a <canvas>, off the frame's waveform map for this module.
 function WaveformWidget({
   n,
@@ -1509,6 +1546,7 @@ function NodeInner({
     return (
       <div
         className={cls}
+        data-node-id={n.id}
         style={{
           left: n.x,
           top: n.y,
@@ -1529,6 +1567,7 @@ function NodeInner({
     return (
       <div
         className={cls}
+        data-node-id={n.id}
         style={{
           left: n.x,
           top: n.y,
@@ -1587,6 +1626,7 @@ function NodeInner({
   return (
     <div
       className={cls}
+      data-node-id={n.id}
       style={{
         left: n.x,
         top: n.y,
@@ -2062,10 +2102,23 @@ export function DomChains({
   trackControls,
   onTrackToggle,
   onTrackSet,
+  motion = true,
 }: {
   /** The glyphs the nodes wear. Required, so no caller can render a graph without them. */
   icons: ChainsIcons;
   graph: LaidOutGraph;
+  /**
+   * Animate a change of layout: cards slide to their new places, a new one fades up, a removed
+   * one fades out. On by default — a graph redrawn after a command is the case it exists for.
+   *
+   * Turn it OFF where the layout is recomputed as fast as somebody types: st0's chain view
+   * re-lays out on every keystroke, so each character would be one node leaving and another
+   * arriving, and the picture would never be still long enough to read. See docs/nodeMotion.md.
+   *
+   * `prefers-reduced-motion` overrules it either way; nothing here is load-bearing, so the
+   * reduced answer is simply the old one — everything lands at once.
+   */
+  motion?: boolean;
   selected: string | null;
   /**
    * The engine level index order, threaded to each track node.
@@ -2288,6 +2341,173 @@ export function DomChains({
     return { byId, signal, auto };
   }, [graph]);
 
+  // --- node motion: the cards slide, arrive and leave rather than jumping -----------
+  //
+  // Beside the geometry it is about, though the cable refs it writes to are declared just
+  // below: these are closures the frame loop calls, so nothing here runs during this render.
+  //
+  // FLIP. React draws every node at its FINAL place — `left`/`top`, exactly as before — and the
+  // frame loop writes the offset it still has to cover as a `transform`. So the two never
+  // disagree about where anything is, a layout arriving mid-flight simply continues from the
+  // screen, and a graph at rest carries no inline style at all.
+  //
+  // `filter:opacity()` rather than `opacity`, because React owns that one: a dimmed node
+  // declares `opacity` inline, and an unrelated re-render mid-fade would take the fade back.
+  // The two multiply, which is the right answer for a dimmed node on its way out.
+  const reducedMotion = useRef(
+    typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  ).current;
+  const animate = motion && !reducedMotion;
+  const motions = useRef<Map<string, Motion>>(new Map());
+  // Where each node is DRAWN right now, ghosts included — what the next layout measures from.
+  const drawn = useRef<Map<string, Ghost<GraphNode>>>(new Map());
+  const [ghosts, setGhosts] = useState<Ghost<GraphNode>[]>(EMPTY_GHOSTS);
+  const ghostCount = useRef(0);
+  ghostCount.current = ghosts.length;
+  // React has just replaced the nodes, so the element map is stale: re-read it once, next frame.
+  const rebind = useRef(true);
+  const nodeEls = useRef<Map<string, HTMLElement>>(new Map());
+  // Which ids currently carry an inline transform, so each is cleared exactly once.
+  const styled = useRef<Set<string>>(new Set());
+  const cablesSvg = useRef<SVGSVGElement>(null);
+  const layoutNodes = useRef(graph.nodes);
+  layoutNodes.current = graph.nodes;
+
+  // The positions a settled graph is measured from: the layout, and nothing else.
+  const settledDrawn = (): Map<string, Ghost<GraphNode>> =>
+    new Map(
+      layoutNodes.current.map((n) => [n.id, { node: n, x: n.x, y: n.y }]),
+    );
+
+  /** One frame of movement: advance, write, and rebuild the cables from where the cards ARE. */
+  const motionStep = useRef<(dt: number) => boolean>(() => false);
+  motionStep.current = (dt: number) => {
+    const ms = motions.current;
+    if (rebind.current) {
+      rebind.current = false;
+      const world = worldRef.current;
+      nodeEls.current = new Map();
+      if (world)
+        for (const el of world.querySelectorAll<HTMLElement>("[data-node-id]"))
+          nodeEls.current.set(String(el.dataset.nodeId), el);
+    }
+    const still = advanceMotion(ms, dt);
+    for (const [id, m] of ms) {
+      const el = nodeEls.current.get(id);
+      if (!el) continue;
+      el.style.transform = motionTransform(m);
+      el.style.filter = m.a >= 1 ? "" : `opacity(${m.a})`;
+      // A card on its way out is already gone as far as the graph is concerned.
+      el.style.pointerEvents = m.at === 0 ? "none" : "";
+      styled.current.add(id);
+    }
+    for (const id of styled.current) {
+      if (ms.has(id)) continue;
+      clearMotionStyle(nodeEls.current.get(id));
+      styled.current.delete(id);
+    }
+    // The cables follow for free: this loop repaints the canvas every frame anyway, so all it
+    // takes is geometry built from where the cards ARE. `rebuildCables` is what decides — it
+    // asks `motionCables` while anything is in flight — so the liveness path agrees with this
+    // one instead of putting the final geometry back under moving nodes.
+    rebuildCables.current();
+    return still;
+  };
+
+  /**
+   * The cable draws for one frame of a move, from the interpolated positions.
+   *
+   * `cablePath` is two socket points — no waypoints, no resampling — so rebuilding all of them
+   * per frame costs nothing worth naming. They are drawn STILL: the ripple is a 1.2 Hz ornament
+   * and 200 ms without it is invisible, where resampling every cable to carry it would not be.
+   */
+  const motionCables = useRef<() => CableDraw[]>(() => []);
+  motionCables.current = () => {
+    const ms = motions.current;
+    const byId = new Map<string, GraphNode>();
+    for (const n of layoutNodes.current) {
+      const p = motionPos(n, ms);
+      byId.set(n.id, p.x === n.x && p.y === n.y ? n : { ...n, x: p.x, y: p.y });
+    }
+    const draws: CableDraw[] = [];
+    for (const e of graph.edges) {
+      if (e.automation || e.points.length < 2) continue;
+      const base = cablePath(e, byId.get(e.source), byId.get(e.target));
+      if (base.length < 2) continue;
+      draws.push({
+        geom: { base, samples: NO_SAMPLES, len: 0 },
+        color: cableColorFor(e.signal),
+        live: false,
+      });
+    }
+    return draws;
+  };
+
+  /** Everything lands: styles off, ghosts unmounted, the real cable geometry back. */
+  const settleMotion = useRef<() => void>(NOOP);
+  settleMotion.current = () => {
+    motions.current.clear();
+    for (const id of styled.current) clearMotionStyle(nodeEls.current.get(id));
+    styled.current.clear();
+    drawn.current = settledDrawn();
+    cablesSvg.current?.classList.remove("moving");
+    if (ghostCount.current) setGhosts(EMPTY_GHOSTS);
+    // Back to the baked geometry — resampled, and rippling again wherever signal runs.
+    applyLive.current();
+  };
+
+  /**
+   * A new layout: what moved, what arrived, what left — and the first frame of it, now.
+   *
+   * A LAYOUT effect, and the first write happens in it rather than being left to the loop: React
+   * has already put every node at its destination, so a frame painted before the offsets are on
+   * would show the whole graph jump there and then slide back out. That is the FLIP pitfall, and
+   * a layout effect is exactly the hook that runs before the browser paints.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the refs above were reassigned with this render's layout, so `graph` IS the trigger and the body reads nothing else.
+  useLayoutEffect(() => {
+    if (!animate) {
+      // Turned off mid-flight — nothing else would ever take the inline styles back off.
+      if (motions.current.size || styled.current.size) settleMotion.current();
+      drawn.current = settledDrawn();
+      return;
+    }
+    // The FIRST layout is not a change. A graph that faded up every time its pane mounted would
+    // be an animation about nothing — and on mount the frame loop is not bound yet, so a motion
+    // started here would never be advanced and the whole graph would sit at zero opacity.
+    // The cap is a screen and a half, in WORLD px — what the eye can follow is a fact about the
+    // view, not about the layout, so it is measured through the camera's zoom.
+    const host = hostRef.current;
+    const travel = host
+      ? (Math.hypot(host.clientWidth, host.clientHeight) * 1.5) /
+        Math.max(cam.current.k, 0.01)
+      : Number.POSITIVE_INFINITY;
+    const plan = drawn.current.size
+      ? planMotion(drawn.current, motions.current, graph.nodes, travel)
+      : null;
+    drawn.current = settledDrawn();
+    if (!plan?.moving) {
+      // Nothing to do — but something may still be in flight from the layout before this one,
+      // and nothing else would ever take its inline styles back off.
+      if (motions.current.size || styled.current.size) settleMotion.current();
+      return;
+    }
+    for (const g of plan.ghosts) drawn.current.set(g.node.id, g);
+    motions.current = plan.motions;
+    rebind.current = true;
+    setGhosts((cur) => (sameGhosts(cur, plan.ghosts) ? cur : plan.ghosts));
+    // The stale half of the drawing steps aside for the move — see the `.dgx-cables` rule.
+    cablesSvg.current?.classList.add("moving");
+    // dt 0: place the offsets, advance nothing.
+    motionStep.current(0);
+    // …and look again next frame. The ghosts are not in the DOM yet — the state update above
+    // lands after this effect — so this write missed them, and without a second bind they would
+    // never be found at all. One frame drawn where they already were is the right picture anyway.
+    rebind.current = true;
+    kick.current();
+  }, [graph, animate]);
+
   // --- what carries signal: refs, not state ----------------------------------------
   // Liveness comes from the engine's meters and is read by the cable CANVAS and nothing else —
   // no node, no widget, no SVG layer. So it never enters the render: a track crossing the
@@ -2316,6 +2536,12 @@ export function DomChains({
   // without the subscription that calls them having the graph as a dependency.
   // Colour by what a cable CARRIES, live or not — tinting live cables orange made everything look like audio.
   rebuildCables.current = () => {
+    // Mid-move the laid-out geometry is a lie: the cards are somewhere between two layouts and
+    // the cables have to leave from where they actually are. See docs/nodeMotion.md.
+    if (motions.current.size) {
+      cableDrawsRef.current = motionCables.current();
+      return;
+    }
     const live = liveRef.current;
     cableDrawsRef.current = model.signal.map((g) => ({
       geom: g,
@@ -2796,6 +3022,13 @@ export function DomChains({
       const c = cam.current;
       const g = goal.current;
       let moving = pan.current != null;
+      // The cards, before the camera: `motionStep` rebuilds the cable draws from where they are
+      // this frame, and the repaint below is the one that puts them on screen.
+      if (motions.current.size) {
+        const still = motionStep.current(dt);
+        moving = moving || still;
+        if (!still) settleMotion.current();
+      }
       if (c.k !== g.k) {
         // Within a thousandth of the goal, land on it — an exponential never quite arrives.
         const near = Math.abs(g.k - c.k) <= c.k * 1e-3;
@@ -3131,6 +3364,7 @@ export function DomChains({
           <div className="dgx-world" ref={worldRef}>
             <svg
               className="dgx-cables"
+              ref={cablesSvg}
               width={graph.width}
               height={graph.height}
             >
@@ -3144,6 +3378,30 @@ export function DomChains({
                 onInsert={insert}
               />
             </svg>
+            {/* On their way out: drawn where they were last seen, faded down by the loop and
+                unmounted when it settles. Before the live nodes so a card arriving on the same
+                spot paints over the one it replaces rather than under it. */}
+            {ghosts.map((g) => (
+              <Node
+                key={`gone:${g.node.id}`}
+                n={{ ...g.node, x: g.x, y: g.y }}
+                selected={null}
+                showWidgets={showWidgets}
+                far={far}
+                ch={ch}
+                trackOrder={EMPTY_ORDER}
+                onTapNode={NOOP}
+                onContext={NOOP}
+                onOpenPlugin={NOOP}
+                onBypass={NOOP}
+                onDragStart={NOOP}
+                onTapWidget={NOOP}
+                onPickWidget={NOOP}
+                onPickAsset={NOOP}
+                onPickTrackInput={NOOP}
+                onContextParam={NOOP}
+              />
+            ))}
             {graph.nodes.map((n) => (
               <Node
                 key={n.id}

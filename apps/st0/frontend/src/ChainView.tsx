@@ -51,6 +51,11 @@ export function ChainView({
         selected={selected}
         onSelect={setSelected}
         camStore={cam}
+        // No animation here, unlike l8's graph: this layout is rebuilt on every KEYSTROKE, and
+        // a node is identified by its name — so typing "reverb" is six nodes arriving and five
+        // leaving, and the picture would never be still long enough to read. l8 redraws after a
+        // command, which is the change worth animating. See ui-chains-react/docs/nodeMotion.md.
+        motion={false}
         // Re-frame when the SHAPE changes — a node added or rewired — and leave the camera
         // alone while only a name is being typed.
         sinkPlay={sinkPlay}
