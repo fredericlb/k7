@@ -50,6 +50,25 @@ shown span — exactly what it already did for warp markers.
 Stored in FILE SECONDS rather than bucket indices: a consumer maps them onto whatever region
 it draws, and seconds survive a change of bucket density that indices would not.
 
+### Which part of the file a region shows
+
+`regionWaveform` has to answer the same question the engine answers, or the picture and the
+sound part company. Two things decide it, and each was got wrong once:
+
+- **The in-point** is `sourceFrom + offset`, not `offset` alone. The compiler puts an audio
+  clip's in-point in `sourceFrom` (seconds into the file, from `clips/<id>.yaml`'s `from`) and
+  leaves `offset` at 0, so a drawing reading only `offset` began every trimmed clip at the file's
+  head. `clipPositionFor` in `EditBuilder.cpp` sums the same two.
+- **The rate** is `warpStretch(warp, tempo)` — timeline seconds per source second, the ratio
+  `applyClipWarp` hands Tracktion. A warped clip covers *less* of its file per bar than an
+  unwarped one, so drawing the file at its own rate made the waveform drift away from the sound
+  across the clip, by the stretch ratio.
+
+Both are pinned in `waveform.test.ts`. What is deliberately NOT done here: a clip's `length`
+still prices its source window 1:1 (`winBeats` in `nodeProject.ts`), so a warped clip stops
+before its `to` — the drawing follows the engine in that rather than correcting it, because
+changing `length` would change what is played.
+
 ### The detector MUST match too
 
 `detectTransients` in `@studio/commands/waveform` is the **reference implementation**, and

@@ -6,6 +6,7 @@ import {
   type FileEnvelope,
   type RegionWaveform,
   regionWaveform,
+  warpStretch,
 } from "./waveform";
 
 // beatGrid reads only the arrangement fields; the sample buffers stay empty.
@@ -134,6 +135,30 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
     expect(w.transients).toEqual([0.5]); // 0.5s of display at 120bpm
   });
 
+  it("follows the clip file's OWN window, which is where the engine starts playing", () => {
+    // The bug this pins. `placementToClip` leaves an audio clip's `offset` at 0 and puts the
+    // in-point in `sourceFrom`; a drawing reading only `offset` started every trimmed clip at the
+    // file's head, so the picture showed one part of the take and the engine played another.
+    const w = regionWaveform(
+      env(),
+      clip({ length: 4, sourceFrom: 1 }),
+      project,
+      100,
+    );
+    // 1s trimmed off the head: the 1.5s onset is now half a second into the region.
+    expect(w.transients).toEqual([0.5, 1.5]);
+  });
+
+  it("adds the placement's own offset to that window, as the engine does", () => {
+    const w = regionWaveform(
+      env(),
+      clip({ length: 4, sourceFrom: 1, offset: 1 }),
+      project,
+      100,
+    );
+    expect(w.transients).toEqual([0.5, 1.5]);
+  });
+
   it("detects nothing of its own — an envelope with no onsets yields none", () => {
     // The proof that detection moved: the peaks here would produce onsets if this still ran
     // the detector on the resampled region.
@@ -145,5 +170,75 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
       100,
     );
     expect(w.transients).toEqual([]);
+  });
+});
+
+describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
+  const project = { tempo: 110 } as ProjectDoc;
+  const clip = (over: Partial<ClipDoc> = {}): ClipDoc =>
+    ({ id: "c", type: "audio", source: "a.wav", start: 0, ...over }) as ClipDoc;
+
+  it("prices the stretch the way the engine does — beats over source seconds", () => {
+    // 01.danse.l8's vocals: material cut at 120bpm, played in a 110bpm song. The marker pair is
+    // [timeline beat, source second], so the ratio is the beat span at the song tempo over the
+    // source span — 12/11, the same number applyClipWarp hands Tracktion.
+    const warp = {
+      algorithm: "elastique",
+      markers: [
+        [0, 0],
+        [336.576, 168.288],
+      ] as [number, number][],
+    };
+    expect(warpStretch(warp, 110)).toBeCloseTo(12 / 11, 6);
+    // …and an unwarped clip is 1, which is what keeps every other clip drawn exactly as before.
+    expect(warpStretch(undefined, 110)).toBe(1);
+    expect(
+      warpStretch(
+        {
+          algorithm: "x",
+          markers: [
+            [0, 0],
+            [4, 0],
+          ],
+        },
+        110,
+      ),
+    ).toBe(1);
+  });
+
+  it("consumes LESS of the source than an unwarped clip over the same span", () => {
+    // A clip stretched 2x covers half as much material in the same number of bars. Drawing it at
+    // the file's own rate is what made the picture drift away from the sound across the clip.
+    const env: FileEnvelope = {
+      fingerprint: "x",
+      sampleRate: 48000,
+      channels: 1,
+      frames: 48000 * 8,
+      seconds: 8,
+      peak: new Array(80).fill(0.5),
+      rms: new Array(80).fill(0.25),
+      transients: [1, 2, 3, 4],
+      sensitivity: 2,
+      bpm: 120,
+    };
+    const twice = {
+      algorithm: "elastique",
+      markers: [
+        [0, 0],
+        [8, 2],
+      ] as [number, number][],
+    };
+    // 8 beats at 110bpm over 2 source seconds = a 2.18x stretch.
+    const w = regionWaveform(
+      env,
+      clip({ length: 4, warp: twice }),
+      project,
+      100,
+    );
+    const flat = regionWaveform(env, clip({ length: 4 }), project, 100);
+    // Same box on screen…
+    expect(w.seconds).toBeCloseTo(flat.seconds, 9);
+    // …but the onsets are pushed apart, because less of the file fits in it.
+    expect(w.transients[0]).toBeGreaterThan(flat.transients[0]);
   });
 });

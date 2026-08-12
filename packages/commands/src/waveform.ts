@@ -92,6 +92,30 @@ export function detectTransients(peak: number[], sensitivity = 2): number[] {
   return result;
 }
 
+/**
+ * How many TIMELINE seconds one SOURCE second of this clip occupies — 1 when it is not warped.
+ *
+ * The engine's own formula, deliberately: `applyClipWarp` (EditBuilder.cpp) takes the first
+ * marker to the last, prices the beat span at the project tempo, and divides by the source span.
+ * Only that ratio reaches Tracktion — the interior markers become beat points inside it — so
+ * matching it here is matching what is actually heard, not re-deriving a stretch of our own.
+ *
+ * A marker pair is `[timeline beat, source second]`: two different clocks in one tuple, which is
+ * why the two spans are computed apart and only then divided.
+ */
+export function warpStretch(
+  warp: ClipDoc["warp"] | undefined,
+  tempo: number,
+): number {
+  const m = warp?.markers;
+  if (!m || m.length < 2 || tempo <= 0) return 1;
+  const beatSpan = m[m.length - 1][0] - m[0][0];
+  const srcSpan = m[m.length - 1][1] - m[0][1];
+  // A degenerate map says nothing about the rate; drawing the file at its own is the honest answer.
+  if (!(srcSpan > 0) || !(beatSpan > 0)) return 1;
+  return (beatSpan * 60) / tempo / srcSpan;
+}
+
 // Resample the file envelope to the region the clip plays. Placement and tempo live in the project, so they stay
 // here; only the raw samples come from the engine-computed, disk-cached envelope.
 export function regionWaveform(
@@ -108,26 +132,52 @@ export function regionWaveform(
   // An odd-over-8 like 7/8 gives 3.5, which a whole-beat grid can only approximate: a pre-existing model limit.
   const den = project.timeSigDenominator || 4;
   const barBeats = Math.max(1, (project.timeSigNumerator || 4) * (4 / den));
+  /**
+   * Where in the SOURCE this clip starts playing, in seconds.
+   *
+   * TWO things add up, and only the second was ever read here: the clip file's own window
+   * (`sourceFrom`, seconds — see AudioClipSchema) and the placement's `offset`. `placementToClip`
+   * puts an audio clip's in-point in the FIRST of them and leaves `offset` at 0, so a drawing
+   * that read only `offset` began every trimmed clip at the file's head — the picture showing one
+   * part of the take while the engine played another. That is the offset this fixes; the engine's
+   * own in-point is the same sum (`clipPositionFor` in EditBuilder.cpp).
+   */
   const offsetSec = Math.max(0, clip.offset || 0);
+  const inPointSec = Math.max(0, (clip.sourceFrom ?? 0) + offsetSec);
   // The display spans the clip's MUSICAL length, so a clip longer than its sample shows trailing silence.
   const seconds =
     clip.length > 0
       ? (clip.length * 60) / tempo
-      : Math.max(0, fileSeconds - offsetSec);
+      : Math.max(0, fileSeconds - inPointSec);
   const clipBeats = clip.length > 0 ? clip.length : (seconds * tempo) / 60;
+  // Timeline seconds per SOURCE second — 1 unless the clip is warped. A warped clip's picture is
+  // not the file drawn at its own rate but at the rate it is PLAYED at, which is the whole of what
+  // makes a waveform line up with what is heard.
+  const stretch = warpStretch(clip.warp, tempo);
+  /** A source position, as a position on the drawn region. The one mapping everything below uses. */
+  const toDisplay = (srcSec: number): number => (srcSec - inPointSec) * stretch;
 
   const envN = env.peak.length;
-  const startFrame = Math.min(totalFrames, Math.floor(offsetSec * sr));
-  const audioFrames = Math.max(0, totalFrames - startFrame); // real audio after the in-point
-  const displayFrames = Math.max(1, Math.round(seconds * sr)); // the whole shown span
-  const n = Math.max(1, Math.min(buckets, displayFrames));
+  const startFrame = Math.min(totalFrames, Math.floor(inPointSec * sr));
+  // What the region ASKS of the source, and what the file can actually give: the display span
+  // priced back through the stretch, bounded by the clip's own `to` and by the end of the file.
+  const endSec =
+    clip.sourceTo && clip.sourceTo > inPointSec
+      ? Math.min(clip.sourceTo, fileSeconds)
+      : fileSeconds;
+  const wantFrames = Math.max(1, Math.round((seconds / stretch) * sr));
+  const haveFrames = Math.max(
+    0,
+    Math.min(wantFrames, (endSec - inPointSec) * sr),
+  );
+  const n = Math.max(1, Math.min(buckets, wantFrames));
   const peak = new Array<number>(n).fill(0);
   const rms = new Array<number>(n).fill(0);
-  const per = displayFrames / n;
+  const per = wantFrames / n;
   const framesPerEnv = envN > 0 ? totalFrames / envN : 1;
   for (let b = 0; b < n; b++) {
     const d0 = Math.floor(b * per);
-    const d1 = Math.min(Math.floor((b + 1) * per), audioFrames); // clamp to real audio; past it stays 0 (silence)
+    const d1 = Math.min(Math.floor((b + 1) * per), haveFrames); // clamp to real audio; past it stays 0 (silence)
     if (d1 <= d0 || envN === 0) continue;
     // The file-frame span this display bucket covers, aggregated over the envelope (peak = max, rms = quadratic mean).
     const f0 = startFrame + d0;
@@ -148,7 +198,7 @@ export function regionWaveform(
   // Warp markers → display seconds: `orig` mirrors how the audio is drawn, `target` where its beat lands.
   const warpMarks: WarpMark[] = (clip.warp?.markers ?? [])
     .map(([beat, srcSec]) => ({
-      orig: srcSec - offsetSec,
+      orig: toDisplay(srcSec),
       target: (beat * 60) / tempo,
     }))
     .filter(
@@ -167,7 +217,7 @@ export function regionWaveform(
   // Detecting per region was subtly wrong as well as repeated: a short clip resamples the envelope UP, so the
   // detector ran on interpolated detail the file never had, and the same audio drawn at two sizes disagreed.
   const transients = env.transients
-    .map((t) => t - offsetSec)
+    .map(toDisplay)
     .filter((t) => t >= -1e-6 && t <= seconds + 1e-6);
 
   return {
