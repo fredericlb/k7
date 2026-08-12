@@ -63,6 +63,13 @@ The module bench is one. The editor is still one right-click away, as a popin, w
 the builder reachable there. See
 [packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
 
+**The timeline itself is a SURFACE, and the project has to ask for it.** `surfaces/timeline.yaml`
+(`type: timeline`, `layout: split`) is what puts it in the layout; a folder without one opens on
+its graph, keeps its editor, and is warned about in its diagnostics. So `noArrangement` — not
+`live` — is what the transport, the minimap and the graph's claim on the column now read: a rig
+and a song that has not declared its arrangement look alike on screen and are not the same fact.
+See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
+
 The editor is not in it. It had the left half, which meant every song opened with half the
 screen showing a YAML file you had not asked for, while the two views of the song that are
 *about the song* — where things happen in time, and how the signal flows — shared the other
@@ -268,7 +275,7 @@ mounts or unmounts anything:
 
 - `full` — which pane gets the whole screen (`null` = the layout's own arrangement)
 - `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`, which is
-  `VIEW_PANES[view].ring`: the panes the layout actually shows, so the editor is not on it — and
+  `viewPanes(...).ring`: the panes the layout actually shows, so the editor is not on it — and
   focus left on a pane the layout dropped is snapped back, or the keys would go to something off
   screen. That snap is what moves the keys to the graph when a live project opens)
 - `panel` — the side panel, independent of both

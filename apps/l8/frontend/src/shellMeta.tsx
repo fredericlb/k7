@@ -38,7 +38,7 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
 
 // The layouts and the pane each puts in its main slot. `global` stacks the timeline over that
 // pane; `live` has no timeline to stack, so the same pane simply takes the window. Which panes
-// each shows — and which it may fullscreen — is `VIEW_PANES` in routes.ts; these are the icons.
+// each shows — and which it may fullscreen — is `viewPanes` in routes.ts; these are the icons.
 // A live layout is never OFFERED: it is what the open project is, so nothing here draws a toggle.
 export const VIEW_META: Record<
   View,

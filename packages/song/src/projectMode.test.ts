@@ -7,11 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import {
-  DEFAULT_PROJECT_MODE,
-  hasTimeline,
-  projectModeOf,
-} from "./projectMode";
+import { DEFAULT_PROJECT_MODE, projectModeOf } from "./projectMode";
 import { projectTypeOf } from "./projectType";
 import { scaffold } from "./scaffold";
 import { ProjectFileSchema } from "./yaml/projectSchema";
@@ -100,12 +96,8 @@ describe("the schema", () => {
   });
 });
 
-describe("hasTimeline", () => {
-  it("is the one question every surface actually asks", () => {
-    expect(hasTimeline("arrangement")).toBe(true);
-    expect(hasTimeline("live")).toBe(false);
-  });
-});
+// `hasTimeline` was tested here. It is gone: whether a project draws an arrangement is what its
+// `surfaces/` folder says now — see surfaces.test.ts and docs/surfaces.md.
 
 describe("the live scaffold", () => {
   it("writes a project that declares itself live, and compiles", () => {

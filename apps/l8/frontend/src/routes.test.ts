@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fromLocation, type RouteState, sameRoute, toPath } from "./routes";
+import {
+  fromLocation,
+  type RouteState,
+  sameRoute,
+  toPath,
+  viewPanes,
+} from "./routes";
 
 const st = (o: Partial<RouteState> = {}): RouteState => ({
   view: "global",
@@ -116,6 +122,43 @@ describe("fromLocation", () => {
   it("keeps a hand-typed % that is not an escape", () => {
     // Same rule `parseLaunch` follows: keep it rather than throwing on an address someone typed.
     expect(fromLocation("/surface/100%", "", "global").surface).toBe("100%");
+  });
+});
+
+describe("viewPanes", () => {
+  it("gives `global` its timeline only when the project declares one", () => {
+    // The timeline is a `split` surface now, not a pane the shell hands out — so the layout is
+    // a function of what the PROJECT says rather than a table. See packages/song/docs/surfaces.md.
+    expect(viewPanes("global", true)).toEqual({
+      ring: ["timeline", "chains"],
+      fullscreen: ["editor", "timeline", "chains"],
+    });
+    expect(viewPanes("global", false)).toEqual({
+      ring: ["chains"],
+      fullscreen: ["editor", "chains"],
+    });
+  });
+
+  it("keeps the editor when the arrangement is missing, and drops it in `live`", () => {
+    // The two look alike on screen and are not the same fact: a song with no timeline surface is
+    // a song that has not declared one, and its files are still what you are there to edit. A
+    // rig fullscreens nothing at all — its one pane already has the window.
+    expect(viewPanes("global", false).fullscreen).toContain("editor");
+    expect(viewPanes("live", true)).toEqual({
+      ring: ["chains"],
+      fullscreen: [],
+    });
+    expect(viewPanes("live", false).fullscreen).toEqual([]);
+  });
+
+  it("refuses `/timeline` as an address when there is no timeline", () => {
+    // The same rule that already refuses it in a live project: an address must not parse into a
+    // pane nothing will mount.
+    expect(fromLocation("/timeline", "", "global", true).full).toBe("timeline");
+    expect(fromLocation("/timeline", "", "global", false)).toEqual(st());
+    expect(fromLocation("/timeline", "", "live", true)).toEqual(
+      st({ view: "live" }),
+    );
   });
 });
 

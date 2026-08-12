@@ -7,27 +7,52 @@ import { z } from "zod";
 import { ViewBindingSchema } from "./mixViewSchema";
 
 /**
- * The kinds of surface there are. One so far: m9's desk — two turntables and a crossfade.
+ * The kinds of surface there are: m9's desk, and the ARRANGEMENT — the timeline.
  *
  * An ENUM rather than free text, unlike the control ids in the mapping below, and the two are
  * not inconsistent. A control id is the app's vocabulary and grows whenever a panel gains a
  * knob; a surface TYPE is a component that has to exist in the editor, so a folder naming one
  * nothing can draw is a project that will open onto an empty screen with no explanation. That
  * is worth refusing at the schema, by name, with the list of what there is.
+ *
+ * `timeline` is the one that used to need no declaring: the arrangement was a PANE the shell
+ * always had, and a project got one for being a project. It is a surface now, so a song says it
+ * wants one the same way a set says it wants a desk. See docs/surfaces.md.
  */
-export const SURFACE_TYPES = ["turntables"] as const;
+export const SURFACE_TYPES = ["turntables", "timeline"] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
 
 /**
- * Where a surface goes. One so far: `view` — its own screen, reached from the header.
+ * Where a surface goes: its own screen off the header (`view`), or a slot in the layout that
+ * shares the window with the graph (`split`).
  *
- * Named rather than assumed because the alternatives are already visible: a surface could be a
- * PANEL beside the graph, or a band under the timeline, and those are layouts rather than
- * types — the same turntables would draw in any of them. Keeping the two axes apart from the
- * first file means adding the second layout does not have to re-cut the first.
+ * Two axes rather than one, deliberately — the same turntables could be a screen or a band under
+ * the arrangement, and that is a layout rather than a kind. What each TYPE can actually be drawn
+ * in is `SURFACE_LAYOUTS_BY_TYPE` below: the axes stay independent, and which pairs the editor
+ * has a component for is a separate, checkable fact.
  */
-export const SURFACE_LAYOUTS = ["view"] as const;
+export const SURFACE_LAYOUTS = ["view", "split"] as const;
 export type SurfaceLayout = (typeof SURFACE_LAYOUTS)[number];
+
+/**
+ * Which layouts each type can be DRAWN in, today.
+ *
+ * The pair is checked for the reason `type` is an enum at all: a `turntables` asking for `split`
+ * or a `timeline` asking for `view` names something the editor has no component for, and the
+ * result is a blank screen with no explanation. Refused here, by name, with the list — rather
+ * than discovered on screen.
+ *
+ * A `split` surface is not a `view` surface drawn smaller. It takes a slot in the layout, is
+ * mounted for as long as the project is open (its caret and its zoom stack outlive being hidden),
+ * and joins the pane ring — which is the whole of why the two are separate words.
+ */
+export const SURFACE_LAYOUTS_BY_TYPE: Record<
+  SurfaceType,
+  readonly SurfaceLayout[]
+> = {
+  turntables: ["view"],
+  timeline: ["split"],
+};
 
 /**
  * A surface: what to draw, where, and what its components move.
@@ -51,6 +76,17 @@ export const SurfaceSchema = z
     layout: z.enum(SURFACE_LAYOUTS),
     mapping: z.record(z.string().min(1), ViewBindingSchema).optional(),
   })
-  .strict();
+  .strict()
+  // …and the PAIR, which neither enum can see on its own. On `layout`, so the squiggle lands on
+  // the line that is wrong rather than on the file.
+  .superRefine((s, ctx) => {
+    const allowed = SURFACE_LAYOUTS_BY_TYPE[s.type];
+    if (allowed && !allowed.includes(s.layout))
+      ctx.addIssue({
+        code: "custom",
+        path: ["layout"],
+        message: `a '${s.type}' surface draws in ${allowed.map((l) => `'${l}'`).join(" or ")}, not in '${s.layout}'`,
+      });
+  });
 
 export type Surface = z.infer<typeof SurfaceSchema>;

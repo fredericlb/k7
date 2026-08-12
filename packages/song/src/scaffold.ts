@@ -154,6 +154,19 @@ export function projectFiles(name: string): Record<string, string> {
 ` +
       `# Intentionally ignores nothing — a pattern here would hide the curves themselves.
 `,
+
+    // …and the ARRANGEMENT itself, which a song has to ASK for. The timeline is a surface now
+    // (docs/surfaces.md), so a folder that draws one says so here — the way a set says it wants
+    // a desk. Scaffolded because a new song is a song: the alternative was a first screen with
+    // no lanes on it and nothing to explain why.
+    "surfaces/timeline.yaml":
+      `# The ARRANGEMENT — the timeline, and the transport that rolls through it.\n` +
+      `#\n` +
+      `# Delete this file and the song still compiles and still plays; you simply have no lanes\n` +
+      `# on screen. \`split\` puts it in the layout, sharing the window with the graph beneath —\n` +
+      `# the only layout a timeline draws in. See packages/song/docs/surfaces.md.\n` +
+      `type: timeline\n` +
+      `layout: split\n`,
   };
 
   return base;
@@ -180,8 +193,9 @@ export function liveProjectFiles(name: string): Record<string, string> {
   return {
     "project.yaml":
       `# A LIVE project: no timeline. Nothing is placed in time, so l8 opens on the\n` +
-      `# chains graph alone — no timeline pane, no transport, no minimap. Delete the\n` +
-      `# line below (or set it to \`arrangement\`) to get a song with a timeline back.\n` +
+      `# chains graph alone — no arrangement, no transport, no minimap. Setting the line\n` +
+      `# below to \`arrangement\` is half of getting a song back; the other half is a\n` +
+      `# \`surfaces/timeline.yaml\`, which is what draws one (packages/song/docs/surfaces.md).\n` +
       `project_type: live\n` +
       `\n` +
       `project:\n` +

@@ -6,9 +6,15 @@ An l8 project has two shapes, and `project.yaml` says which:
 project_type: live     # or `arrangement`, which is the default
 ```
 
-`arrangement` is a **song**: a timeline, clips placed in bars, a transport that rolls through
-them. `live` is a **rig**: nothing is placed in time, so there is no arrangement at all and l8
-draws the chains graph on the whole screen.
+`arrangement` is a **song**: clips placed in bars, a transport that rolls through them. `live` is a
+**rig**: nothing is placed in time, so there is no arrangement at all and l8 draws the chains graph
+on the whole screen.
+
+> **This is no longer the whole story about the timeline.** The timeline is a SURFACE now
+> ([surfaces.md](surfaces.md)): an `arrangement` project draws one because it carries a
+> `surfaces/timeline.yaml`, not because of the line above. What `live` still does is close the
+> layout down to one pane — and it also silences the warning a song without a timeline surface
+> otherwise gets, which is the one thing here that reads the mode at all.
 
 ## Why it is not `type`
 
@@ -51,7 +57,7 @@ project.yaml            root `project_type`
   → ProjectDoc.mode     packages/engine-protocol/project.ts
   → WebProject.mode     packages/web-protocol/types.ts            (workspace.ts copies it)
   → useProjectDoc       apps/l8/frontend/src/hooks/useProjectDoc.ts
-  → VIEW_PANES[view]    apps/l8/frontend/src/routes.ts
+  → viewPanes(view, …)  apps/l8/frontend/src/routes.ts
 ```
 
 **The C++ engine is not involved.** `docFromJson` decodes by key with defaults and ignores what it
@@ -67,12 +73,18 @@ lives in its own file so that "which dialect" and "which shape" cannot be confus
 
 A view in l8 is a **layout, not a mode** — every pane is mounted exactly once and `hidden` takes it
 off screen, so nothing loses its caret, its undo history or its camera. `live` keeps that
-invariant: it is a second `View`, and `VIEW_PANES` says what each layout does with the panes.
+invariant: it is a second `View`, and `viewPanes` says what each layout does with the panes.
 
 ```ts
-global: { ring: ["timeline", "chains"], fullscreen: ["editor", "timeline", "chains"] }
-live:   { ring: ["chains"],             fullscreen: [] }
+viewPanes("global", true)  // { ring: ["timeline", "chains"], fullscreen: ["editor", "timeline", "chains"] }
+viewPanes("global", false) // { ring: ["chains"],             fullscreen: ["editor", "chains"] }
+viewPanes("live",   _)     // { ring: ["chains"],             fullscreen: [] }
 ```
+
+The second argument is whether the project declares a timeline surface — which is why this is a
+function and not the table it used to be. `global` without one keeps its EDITOR, and that is the
+difference from `live`: a song that has not declared an arrangement is still a song whose files you
+are there to edit; a rig's one pane already has the window.
 
 `live` fullscreens **nothing**, and that is not an omission: its one pane already has the window,
 so every `full` value would either do nothing or hide the only thing on screen. That single empty

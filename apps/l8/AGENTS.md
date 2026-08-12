@@ -106,7 +106,7 @@ reported on the surface itself, not by refusing the project. Read
 
 **`view` is the one piece of screen state nobody chooses.** It is what the open PROJECT is —
 `project.yaml`'s `project_type`, `arrangement` or `live` — and a live project has no timeline at
-all, so the transport, the minimap and the pane buttons go with it. `VIEW_PANES` in `src/routes.ts`
+all, so the transport, the minimap and the pane buttons go with it. `viewPanes` in `src/routes.ts`
 says what each layout does with the panes, and its empty `fullscreen` list for `live` is what
 closes the header buttons, the number keys, `ui <pane>` and the mobile tabs in one place. Read
 `packages/song/docs/projectMode.md` before touching any of it.

@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { projectSurfaces } from "./surfaces";
+import { projectSurfaces, surfaceIssues } from "./surfaces";
 import { parseSurface } from "./yaml/surfaceFile";
 
 let root: string;
@@ -65,6 +65,24 @@ describe("parseSurface", () => {
 
   it("refuses a layout nothing can place", () => {
     expect(parseSurface("type: turntables\nlayout: panel\n").value).toBeNull();
+  });
+
+  it("reads the ARRANGEMENT, which is a surface like any other", () => {
+    const { value, issues } = parseSurface("type: timeline\nlayout: split\n");
+    expect(issues).toEqual([]);
+    expect(value?.type).toBe("timeline");
+    expect(value?.layout).toBe("split");
+  });
+
+  it("refuses a PAIR the editor has no component for", () => {
+    // Both halves are valid on their own, which is exactly why the pair needs its own check: a
+    // timeline asking for its own screen, or a desk asking for a slot in the layout, names
+    // something nothing draws — the blank screen the `type` enum exists to prevent.
+    const inSplit = parseSurface("type: turntables\nlayout: split\n");
+    expect(inSplit.value).toBeNull();
+    expect(inSplit.issues[0].path).toBe("layout");
+    expect(inSplit.issues[0].message).toContain("'view'");
+    expect(parseSurface("type: timeline\nlayout: view\n").value).toBeNull();
   });
 
   it("requires both halves", () => {
@@ -129,5 +147,41 @@ describe("projectSurfaces", () => {
     const [d] = projectSurfaces(dir).diagnostics;
     expect(d.file.startsWith("/")).toBe(false);
     expect(d.file).toBe("surfaces/desk.yaml");
+  });
+});
+
+describe("an arrangement that declares no timeline", () => {
+  const TIMELINE = "type: timeline\nlayout: split\n";
+
+  it("is warned about — it would open onto its graph with nothing to say why", () => {
+    const dir = withSurface("desk", DESK);
+    const warn = surfaceIssues(dir).filter((d) => d.severity === "warning");
+    expect(warn.length).toBe(1);
+    expect(warn[0].message).toContain("timeline");
+    // A WARNING: the project is valid and opens, and the editor you would fix it in is inside it.
+    expect(surfaceIssues(dir).some((d) => d.severity === "error")).toBe(false);
+  });
+
+  it("is silent once it declares one", () => {
+    expect(surfaceIssues(withSurface("timeline", TIMELINE))).toEqual([]);
+  });
+
+  it("is silent for a LIVE project, which has no arrangement to draw", () => {
+    const dir = withSurface("desk", DESK);
+    writeFileSync(
+      join(dir, "project.yaml"),
+      'project_type: live\nproject:\n  name: "rig"\n',
+    );
+    expect(surfaceIssues(dir)).toEqual([]);
+  });
+
+  it("warns a project with no surfaces/ folder at all", () => {
+    // `projectSurfaces` stays silent about the missing folder — that is the ordinary case. The
+    // missing ARRANGEMENT is a different sentence, and this is the one project that gets both.
+    const dir = join(root, "plain.l8");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
+    expect(projectSurfaces(dir).diagnostics).toEqual([]);
+    expect(surfaceIssues(dir).map((d) => d.severity)).toEqual(["warning"]);
   });
 });

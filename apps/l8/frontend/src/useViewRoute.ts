@@ -14,8 +14,12 @@ export function stateForLocation(
   pathname: string,
   search: string,
   state: RouteState,
+  // Whether the project declares a timeline. Not part of `RouteState` — it is a fact about the
+  // PROJECT, not about the screen — but the parse needs it: `/timeline` names no pane in a
+  // project that declares none. See `viewPanes` in routes.ts.
+  timeline = true,
 ): RouteState | null {
-  const next = fromLocation(pathname, search, state.view);
+  const next = fromLocation(pathname, search, state.view, timeline);
   return sameRoute(next, state) ? null : next;
 }
 
@@ -39,9 +43,10 @@ export function urlForState(
   prev: RouteState,
   pathname: string,
   search: string,
+  timeline = true,
 ): string | null {
   if (sameRoute(state, prev)) return null;
-  const url = fromLocation(pathname, search, state.view);
+  const url = fromLocation(pathname, search, state.view, timeline);
   if (sameRoute(state, url)) return null;
   return toPath(state);
 }
@@ -53,6 +58,8 @@ export function urlForState(
 export function useViewRoute(
   state: RouteState,
   apply: (next: RouteState) => void,
+  /** Whether the open project declares a timeline surface — see `stateForLocation`. */
+  timeline: boolean,
 ): void {
   const location = useLocation();
   const navigate = useNavigate();
@@ -62,20 +69,33 @@ export function useViewRoute(
 
   // URL → state, on mount and every back/forward. useLayoutEffect, so a deep link draws its screen before paint.
   useLayoutEffect(() => {
-    const next = stateForLocation(location.pathname, location.search, state);
+    const next = stateForLocation(
+      location.pathname,
+      location.search,
+      state,
+      timeline,
+    );
     if (next) apply(next);
     // `state` is deliberately NOT a dependency: this direction reacts to the LOCATION, and including it
     // would run it on every screen change too — the other half of the loop described in the header.
+    // `timeline` IS one: the surfaces land a moment after the shell, and a `/timeline` deep link
+    // has to be re-read once the project has said whether it has one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search, timeline]);
 
   // state → URL.
   useEffect(() => {
     const before = prev.current;
     prev.current = state;
-    const url = urlForState(state, before, location.pathname, location.search);
+    const url = urlForState(
+      state,
+      before,
+      location.pathname,
+      location.search,
+      timeline,
+    );
     if (url === null) return;
     // Entering help pushes so Back leaves it; everything else replaces (see the header).
     navigate(url, { replace: !(state.help && !before.help) });
-  }, [state, navigate, location.pathname, location.search]);
+  }, [state, navigate, location.pathname, location.search, timeline]);
 }

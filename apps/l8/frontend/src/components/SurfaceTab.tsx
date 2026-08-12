@@ -81,5 +81,14 @@ export function SurfaceTab({
           file={surface.file}
         />
       );
+    // A `split` surface is drawn in the LAYOUT, by the shell, and never reaches this screen —
+    // `App` only resolves the `view` ones here. The arm exists so the switch covers the type and
+    // says which of the two roads a kind takes, rather than falling off the end.
+    case "timeline":
+      return (
+        <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+          Une surface « timeline » se dessine dans la vue, pas en plein écran.
+        </div>
+      );
   }
 }

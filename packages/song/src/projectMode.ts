@@ -33,7 +33,6 @@ export function projectModeOf(dir: string): ProjectMode {
   }
 }
 
-/** Does this folder draw a timeline? The one question every surface actually asks. */
-export function hasTimeline(mode: ProjectMode): boolean {
-  return mode === "arrangement";
-}
+// `hasTimeline(mode)` was here, and nothing but its own test ever called it. It is gone with the
+// question it answered: whether a project draws an arrangement is what its `surfaces/` folder
+// says now, not what its mode says. See docs/surfaces.md.

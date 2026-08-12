@@ -121,7 +121,7 @@ import { m } from "./paraglide/messages.js";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
-import { type Pane, type Panel, VIEW_PANES, type View } from "./routes";
+import { type Pane, type Panel, type View, viewPanes } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
@@ -449,6 +449,30 @@ export default function App({
   // Both are cheap and unconditional: a project with no surfaces gets an empty list, and the
   // adapter is a memo over the link that is already there.
   const { surfaces } = useSurfaces(reloadKey);
+  /**
+   * The project's ARRANGEMENT, if it declares one: a `split` surface of type `timeline`.
+   *
+   * This is what puts the timeline on screen now — it used to be there for being a pane the
+   * shell had. A project that declares none opens on its graph, and `surfaceIssues` says so
+   * beside its other diagnostics rather than leaving the absence to be guessed at.
+   *
+   * The list arrives a moment after the shell, so this is false for a frame or two on open —
+   * the same flash `mode` already pays, and paid in the same place (docs/projectMode.md).
+   */
+  const timelineSurface = useMemo(
+    () =>
+      surfaces.find(
+        (s) => s.surface.type === "timeline" && s.surface.layout === "split",
+      ) ?? null,
+    [surfaces],
+  );
+  const hasTimeline = !!timelineSurface;
+  // The ones that ARE a screen of their own — the only kind the header can offer and the
+  // `/surface/<id>` address can name. A `split` surface is in the layout already.
+  const screenSurfaces = useMemo(
+    () => surfaces.filter((s) => s.surface.layout === "view"),
+    [surfaces],
+  );
   const turntableDeck = useTurntableDeck({
     store,
     engineRef,
@@ -468,6 +492,7 @@ export default function App({
       setShowHelp(next.help);
       setOpenSurface(next.surface);
     }, []),
+    hasTimeline,
   );
   const openHelp = useCallback(() => setShowHelp(true), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
@@ -502,13 +527,21 @@ export default function App({
   // The layout's own list, not "the timeline plus one": `live` has no timeline, and a ring that
   // still named it would hand the keys to a pane that is not drawn. It replaces `thirdPane`,
   // which could only ever name the pane UNDER the timeline and so had nothing to say about a
-  // layout with no timeline in it. See VIEW_PANES in routes.ts.
-  const ringPanes = VIEW_PANES[view].ring;
+  // layout with no timeline in it. See `viewPanes` in routes.ts.
+  const layout = useMemo(
+    () => viewPanes(view, hasTimeline),
+    [view, hasTimeline],
+  );
+  const ringPanes = layout.ring;
 
   // Read off the LAYOUT rather than off the project doc, and not only because the doc arrives a
   // frame later: everything below this asks "is there a timeline on screen", which is a question
   // about the view. The effect further down is the one place that turns the project into a view.
   const live = view === "live";
+  // …and the arrangement's own half of that question, which is now the SURFACE's answer rather
+  // than the view's: a `global` project that declares no timeline draws none either. Everything
+  // that goes with an arrangement — the transport, the minimap, the pane it sits in — reads this.
+  const noArrangement = live || !hasTimeline;
 
   // The popin IS the active pane while it is up: it is what the keys are for, and the pane
   // underneath must not also answer them.
@@ -552,13 +585,14 @@ export default function App({
     (full === null && ringPanes.includes("timeline") && tlView.expanded);
 
   const timelineVisible = visible("timeline");
-  // Never in a LIVE project, in either place. The minimap is a second view of the ARRANGEMENT —
-  // it earns its band precisely when the timeline is off screen and you would otherwise have
-  // lost the song. A project with no arrangement has nothing for it to be a view of, and the
-  // rule above ("the timeline is not visible") is exactly the condition that is permanently
-  // true there, so without this it would be the one piece of the timeline that never left.
-  const minimapFloating = docked && !live && editorPopin;
-  const minimapDocked = docked && !live && !timelineVisible && !editorPopin;
+  // Never without an ARRANGEMENT, in either place. The minimap is a second view of one — it earns
+  // its band precisely when the timeline is off screen and you would otherwise have lost the
+  // song. A project with no arrangement has nothing for it to be a view of, and the rule above
+  // ("the timeline is not visible") is exactly the condition that is permanently true there, so
+  // without this it would be the one piece of the timeline that never left.
+  const minimapFloating = docked && !noArrangement && editorPopin;
+  const minimapDocked =
+    docked && !noArrangement && !timelineVisible && !editorPopin;
 
   /**
    * How tall the floating strip is, so the popin can stop ABOVE it instead of over it.
@@ -595,12 +629,12 @@ export default function App({
    * keys, `ui <pane>` and the mobile tabs alike.
    *
    * A layout that cannot fullscreen the pane refuses instead, which is what makes `live` hold:
-   * its list is empty (VIEW_PANES), so every one of those roads is closed at the same point
+   * its list is empty (`viewPanes`), so every one of those roads is closed at the same point
    * rather than at four. Refused out loud — a key that does nothing reads as a broken key.
    */
   const fullscreen = useCallback(
     (p: Pane) => {
-      if (!VIEW_PANES[view].fullscreen.includes(p)) {
+      if (!layout.fullscreen.includes(p)) {
         setStatus(
           `this project is \`live\` — the graph has the whole screen, and there is no ${PANE_META[p].label.toLowerCase()} pane to expand.`,
         );
@@ -696,7 +730,7 @@ export default function App({
    * runs on every doc load rather than once, so a project.yaml edited from `arrangement` to
    * `live` in the editor moves the screen on the next reload instead of after a refresh.
    *
-   * `full` is cleared with it. A live layout fullscreens nothing (VIEW_PANES), so a `full` left
+   * `full` is cleared with it. A live layout fullscreens nothing (`viewPanes`), so a `full` left
    * over from the project that was open before would name a pane this one cannot draw.
    */
   const liveProject = mode === "live";
@@ -1706,9 +1740,9 @@ export default function App({
   // The global view has no mobile form, so entering mobile lands on a pane — the timeline, being
   // the one that says what a song is. A LIVE project is skipped entirely: it fullscreens nothing
   // because its single pane already fills the phone, and forcing `full` there would put the
-  // layout in a state VIEW_PANES says cannot exist.
+  // layout in a state `viewPanes` says cannot exist.
   useEffect(() => {
-    const [first] = VIEW_PANES[view].fullscreen;
+    const [first] = layout.fullscreen;
     if (isMobile && full === null && first) setFull("timeline");
   }, [isMobile, full, view]);
 
@@ -1791,12 +1825,13 @@ export default function App({
               eats the keypress. On play/pause the theft is invisible (the button does
               what Space would); on stop and record it is not.
 
-              Absent in a LIVE project. Every control here addresses a position in an
+              Absent wherever there is no ARRANGEMENT — a `live` project, or one that simply
+              declares no timeline surface. Every control here addresses a position in an
               arrangement — a playhead to move, a take to punch in — and a project with no
               timeline has none: the clock would count bars nothing is written against and
               record would arm a lane with nowhere to put a take. Sound still reaches the
-              engine, played by what is wired in the graph. See docs/projectMode.md. */}
-          {!live && (
+              engine, played by what is wired in the graph. See docs/surfaces.md. */}
+          {!noArrangement && (
             <div className="flex shrink-0 items-center gap-1">
               <Button
                 size="icon"
@@ -1903,7 +1938,7 @@ export default function App({
                     already has the window and every button would either do nothing or hide the
                     only thing on screen. */}
                 <nav className="flex items-center gap-1">
-                  {VIEW_PANES[view].fullscreen.map((p) => {
+                  {layout.fullscreen.map((p) => {
                     const Icon = PANE_META[p].icon;
                     const key = keyForCommand(`ui ${p}`);
                     return (
@@ -1928,14 +1963,17 @@ export default function App({
                     );
                   })}
                 </nav>
-                {/* One button per SURFACE the project declares, after the panes and before the
-                    menus. They are not panes — the list is the project's, not the shell's (see
-                    routes.ts) — so they get their own group rather than joining the row above.
-                    Nothing is drawn for a project with no `surfaces/` folder, which is nearly
-                    all of them. */}
-                {surfaces.length > 0 && (
+                {/* One button per SCREEN surface the project declares, after the panes and before
+                    the menus. They are not panes — the list is the project's, not the shell's
+                    (see routes.ts) — so they get their own group rather than joining the row
+                    above. Nothing is drawn for a project with no `surfaces/` folder.
+
+                    `split` surfaces are left out on purpose: one is already on screen, in the
+                    layout, and a button that "opened" it would name a screen there is none of.
+                    The pane row above is where the arrangement is reached. */}
+                {screenSurfaces.length > 0 && (
                   <nav className="flex items-center gap-1">
-                    {surfaces.map((s) => (
+                    {screenSurfaces.map((s) => (
                       <Button
                         key={s.id}
                         size="icon"
@@ -2041,99 +2079,107 @@ export default function App({
                 full === "editor" && "hidden",
               )}
             >
-              <div
-                {...paneProps("timeline")}
-                className={cn(
-                  "flex min-h-0 min-w-0",
-                  // Off screen for good in a LIVE project, and still MOUNTED — the invariant in
-                  // docs/shell.md is that no layout unmounts a pane, so its caret and zoom stack
-                  // survive a project.yaml edited back to `arrangement` without a reload.
-                  live
-                    ? "hidden"
-                    : // Expanded lanes take the whole height, exactly as `full timeline` does: the
-                      // pane below has stood down for them — see where `tlView.expanded` is read.
-                      full === "timeline" || (full === null && tlView.expanded)
-                      ? "flex-1"
-                      : full === "chains"
-                        ? "hidden"
-                        : "h-1/2 shrink-0 border-b border-border",
-                  ringFor("timeline"),
-                )}
-              >
-                <TimelineTab
-                  ref={timelineRef}
-                  active={activePane === "timeline"}
-                  reloadKey={reloadKey}
-                  orbit={orbit}
-                  setStatus={setStatus}
-                  onEditTarget={setEditTarget}
-                  // A clicked clip shows its content where the graph is — the waveform for
-                  // audio, the piano roll for a sequence. It also makes the slot visible, since
-                  // a view drawn behind a fullscreened timeline is a click that did nothing.
-                  onOpenClip={(t) => {
-                    setFull(null);
-                    setView(baseViewRef.current);
-                    setGraphSlot({ kind: "clip", target: t });
-                  }}
-                  // …and the bare lane puts the graph back. Symmetric on purpose: what a click
-                  // opened, a click on nothing closes, rather than leaving a clip parked in the
-                  // slot until you find its ✕.
-                  onEmptyClick={() => setGraphSlot(null)}
-                  onCaret={setCaret}
-                  onView={setTlView}
-                  onContextMenu={openContextMenu}
-                  onSeek={seek}
-                  onSetLoop={(start, end, enabled) =>
-                    engineRef.current?.loop(start, end, enabled)
-                  }
-                  onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
-                    void runCommand(
-                      `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
-                    )
-                  }
-                  onResizeEvent={(trackId, fromTc, startTc, endTc) =>
-                    void runCommand(
-                      `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
-                    )
-                  }
-                  // While the bar is filling `event move`, the drag ANSWERS it instead of
-                  // committing: same gesture, same numbers, but the line is yours to run. The
-                  // param names are the command's own — see commands.yaml.
-                  // Any command whose open field wants a timecode: the ruler is a timecode
-                  // picker, and it does not need to know which command asked.
-                  feedTimecode={
-                    barPending?.kind === "timecode"
-                      ? (tc, live) =>
-                          cmdRef.current?.offerValue("timecode", tc, live)
-                      : undefined
-                  }
-                  feedMove={
-                    barPending?.canonical === "event move"
-                      ? (trackId, fromTc, toTc, toTrackId, live) =>
-                          cmdRef.current?.offer(
-                            {
-                              track: trackId,
-                              timecode: fromTc,
-                              newTimecode: toTc,
-                              ...(toTrackId ? { toTrack: toTrackId } : {}),
-                            },
-                            live,
-                          )
-                      : undefined
-                  }
-                  onFocusRow={focusRowInPanes}
-                  trackControls={trackControls}
-                  onTrackToggle={onTrackToggle}
-                />
-              </div>
+              {/* The ARRANGEMENT, and only when the project asks for one: it is a `split` surface
+                  now (`surfaces/`, `type: timeline`), not a pane the shell hands out. Absent
+                  means not mounted — there is no caret to keep for a screen the project has not
+                  declared, which is the one case the "no layout unmounts a pane" invariant was
+                  never about. See packages/song/docs/surfaces.md. */}
+              {hasTimeline && (
+                <div
+                  {...paneProps("timeline")}
+                  className={cn(
+                    "flex min-h-0 min-w-0",
+                    // Off screen for good in a LIVE project, and still MOUNTED — the invariant in
+                    // docs/shell.md is that no layout unmounts a pane, so its caret and zoom stack
+                    // survive a project.yaml edited back to `arrangement` without a reload.
+                    live
+                      ? "hidden"
+                      : // Expanded lanes take the whole height, exactly as `full timeline` does: the
+                        // pane below has stood down for them — see where `tlView.expanded` is read.
+                        full === "timeline" ||
+                          (full === null && tlView.expanded)
+                        ? "flex-1"
+                        : full === "chains"
+                          ? "hidden"
+                          : "h-1/2 shrink-0 border-b border-border",
+                    ringFor("timeline"),
+                  )}
+                >
+                  <TimelineTab
+                    ref={timelineRef}
+                    active={activePane === "timeline"}
+                    reloadKey={reloadKey}
+                    orbit={orbit}
+                    setStatus={setStatus}
+                    onEditTarget={setEditTarget}
+                    // A clicked clip shows its content where the graph is — the waveform for
+                    // audio, the piano roll for a sequence. It also makes the slot visible, since
+                    // a view drawn behind a fullscreened timeline is a click that did nothing.
+                    onOpenClip={(t) => {
+                      setFull(null);
+                      setView(baseViewRef.current);
+                      setGraphSlot({ kind: "clip", target: t });
+                    }}
+                    // …and the bare lane puts the graph back. Symmetric on purpose: what a click
+                    // opened, a click on nothing closes, rather than leaving a clip parked in the
+                    // slot until you find its ✕.
+                    onEmptyClick={() => setGraphSlot(null)}
+                    onCaret={setCaret}
+                    onView={setTlView}
+                    onContextMenu={openContextMenu}
+                    onSeek={seek}
+                    onSetLoop={(start, end, enabled) =>
+                      engineRef.current?.loop(start, end, enabled)
+                    }
+                    onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
+                      void runCommand(
+                        `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
+                      )
+                    }
+                    onResizeEvent={(trackId, fromTc, startTc, endTc) =>
+                      void runCommand(
+                        `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
+                      )
+                    }
+                    // While the bar is filling `event move`, the drag ANSWERS it instead of
+                    // committing: same gesture, same numbers, but the line is yours to run. The
+                    // param names are the command's own — see commands.yaml.
+                    // Any command whose open field wants a timecode: the ruler is a timecode
+                    // picker, and it does not need to know which command asked.
+                    feedTimecode={
+                      barPending?.kind === "timecode"
+                        ? (tc, live) =>
+                            cmdRef.current?.offerValue("timecode", tc, live)
+                        : undefined
+                    }
+                    feedMove={
+                      barPending?.canonical === "event move"
+                        ? (trackId, fromTc, toTc, toTrackId, live) =>
+                            cmdRef.current?.offer(
+                              {
+                                track: trackId,
+                                timecode: fromTc,
+                                newTimecode: toTc,
+                                ...(toTrackId ? { toTrack: toTrackId } : {}),
+                              },
+                              live,
+                            )
+                        : undefined
+                    }
+                    onFocusRow={focusRowInPanes}
+                    trackControls={trackControls}
+                    onTrackToggle={onTrackToggle}
+                  />
+                </div>
+              )}
               <div
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  // In `live` it is the only pane, so it takes the column outright — the same
-                  // `flex-1` a fullscreened graph gets, reached without `full` being set (a live
-                  // layout fullscreens nothing; see VIEW_PANES).
-                  live || full === "chains"
+                  // With no arrangement it is the only pane in the column, so it takes it
+                  // outright — the same `flex-1` a fullscreened graph gets, reached without
+                  // `full` being set (a live layout fullscreens nothing; see `viewPanes`).
+                  noArrangement || full === "chains"
                     ? "flex-1"
                     : chainsOffScreen
                       ? "hidden"
@@ -2156,10 +2202,10 @@ export default function App({
                     reloadKey={reloadKey}
                     active={!chainsOffScreen && !graphSlot}
                     // The sidebar is fullscreen chrome (ChainsTab's own rule): it belongs wherever
-                    // the graph has the window rather than half of it. `live` is that case
-                    // permanently, and it is also the layout where the list matters most — with
-                    // no timeline, picking a chain is the only navigation the project has.
-                    showList={live || full === "chains"}
+                    // the graph has the window rather than half of it. A project with no
+                    // arrangement is that case permanently, and it is also where the list matters
+                    // most — with no timeline, picking a chain is the only navigation there is.
+                    showList={noArrangement || full === "chains"}
                     trackOrder={trackOrder}
                     command={quietCommand}
                     onBypassModule={(mod) =>
@@ -2568,7 +2614,7 @@ export default function App({
             away would leave a live project with a graph and no way to wire it. */}
         {isMobile && (
           <MobileTabBar
-            tabs={VIEW_PANES[view].fullscreen.map((pn) => ({
+            tabs={layout.fullscreen.map((pn) => ({
               id: pn,
               icon: PANE_META[pn].icon,
               label: PANE_META[pn].label,
@@ -2673,7 +2719,10 @@ export default function App({
             behind the layout would be paying that for screens nobody has opened. */}
         {openSurface &&
           (() => {
-            const found = surfaces.find((s) => s.id === openSurface);
+            // Only a SCREEN surface resolves here. One in the layout is drawn there and has no
+            // screen to open, so naming it in the address is the same miss as naming a file that
+            // is not there — and says so with the same sentence.
+            const found = screenSurfaces.find((s) => s.id === openSurface);
             return (
               <div className="fixed inset-0 z-50 flex flex-col bg-background">
                 <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">

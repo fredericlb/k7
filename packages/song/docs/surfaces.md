@@ -1,6 +1,12 @@
 # `surfaces/` — a special view the project asks for
 
-An l8 project may carry an optional `surfaces/` folder. One file, one surface:
+An l8 project carries a `surfaces/` folder. One file, one surface:
+
+```yaml
+# surfaces/timeline.yaml — the arrangement
+type: timeline
+layout: split
+```
 
 ```yaml
 # surfaces/desk.yaml
@@ -13,16 +19,29 @@ mapping:
   # …
 ```
 
-The id is the **filename**, as in every flat entity folder here. The folder is optional and its
-absence is not a diagnostic: almost no project has one.
+The id is the **filename**, as in every flat entity folder here.
 
 ## The three fields
 
 | field | what it says | validated |
 |---|---|---|
-| `type` | which component draws it — `turntables` so far | **yes**, an enum |
-| `layout` | where it goes — `view` so far, its own screen off the header | **yes**, an enum |
+| `type` | which component draws it — `timeline`, `turntables` | **yes**, an enum |
+| `layout` | where it goes — `split` (a slot in the layout) or `view` (its own screen) | **yes**, an enum, **and the pair** |
 | `mapping` | which module each of its components moves | shape only |
+
+### Which pairs exist
+
+`SURFACE_LAYOUTS_BY_TYPE` says which layouts each type can actually be drawn in:
+
+| type | layouts |
+|---|---|
+| `timeline` | `split` |
+| `turntables` | `view` |
+
+The pair is checked for the same reason `type` is an enum at all. Both halves can be valid on
+their own and still name something no component draws — a timeline asking for its own screen, a
+desk asking for a slot — and the result is the blank screen this schema exists to prevent. It is
+refused on the `layout` line, with the list of what that type can be.
 
 ### Why `type` is an enum and a control id is not
 
@@ -39,7 +58,38 @@ what there is.
 `layout` is separate from `type` because the alternatives are already visible: the same
 turntables could be a PANEL beside the graph or a band under the timeline. Those are layouts,
 not types. Keeping the two axes apart from the first file means adding the second layout does
-not have to re-cut the first.
+not have to re-cut the first — which is exactly what `split` then did.
+
+## The arrangement is one of these
+
+The timeline used to need no declaring: it was a PANE the shell had, and a project got one for
+being a project. It is a `type: timeline` surface now, and a song says it wants an arrangement the
+same way a set says it wants a desk.
+
+**There is no implicit one.** A folder with no timeline surface opens on its graph — its clips are
+still on disk, its lanes still compile, nothing draws them. That absence is the one worth a
+sentence, so `surfaceIssues` raises a **warning** (not an error: the project is valid, it opens,
+and the editor you would add the file in is inside it). A `live` project is silent — a rig has no
+arrangement, which is what `project_type` says ([projectMode.md](projectMode.md)).
+
+### `split` is not `view` drawn smaller
+
+| | `view` | `split` |
+|---|---|---|
+| where | its own screen, off the header | a slot in the layout, sharing the window |
+| mounted | only while open | for as long as the project is open |
+| in the pane ring | no | yes — number keys, `ui <pane>`, `full`, the mobile tabs |
+| reached by | a header button, `/surface/<id>` | it is already there |
+
+The mounting line is the load-bearing one. A `view` surface holds a compile and a set list and a
+project may declare several, so keeping every one alive behind the layout would pay for screens
+nobody opened. A `split` surface is the opposite case: the timeline holds a caret and a zoom
+stack, cheap to keep and maddening to lose, which is the invariant the three panes already obey
+(`apps/l8/frontend/docs/shell.md`).
+
+That is also why a `split` surface gets **no header button** and cannot be named by
+`/surface/<id>`: it is not a screen you open, so a button that "opened" it would name a place
+there is none of.
 
 ## `mapping` is `views/mix.yaml`'s binding, reused
 
@@ -100,7 +150,8 @@ surfaces/<id>.yaml
   → projectSurfaces(dir)   packages/song/src/surfaces.ts             (the disk walk)
   → GET /surfaces          a derived view, like /graph beside it
   → useSurfaces            apps/l8/frontend/src/hooks/useSurfaces.ts
-  → SurfaceTab             which picks the component for `type`
+  → `view`  → SurfaceTab   which picks the component for `type`
+    `split` → the layout   App.tsx: `timelineSurface` decides the pane, `viewPanes` the ring
 ```
 
 Malformed files are reported through the same array as `projectTypeIssues` and the dead-field
@@ -109,10 +160,25 @@ screen. One bad surface does not take the good ones down with it.
 
 ## In l8's shell: a screen, not a pane
 
+*(This section is about a `view` surface. A `split` one is in the layout — see the table above.)*
+
 `RouteState.surface` is its own field, beside `help`, and **not** a member of `Pane`. A pane is
-one of three the shell has always had and `VIEW_PANES` says what each layout does with them; a
-surface is declared by the project, so the list is not knowable until one is open and a union
-could not name it.
+one of three the shell has always had and the layout says what each does with them; a surface is
+declared by the project, so the list is not knowable until one is open and a union could not name
+it.
+
+### What `split` cost the layout table
+
+`VIEW_PANES` was a constant — a row per layout, each naming its panes. It is `viewPanes(view,
+timeline)` now, because one of the three panes stopped being the shell's to assume: a project that
+declares no timeline surface has no arrangement, and every list that named one was naming a pane
+that will not be mounted. The same flag reaches `fromLocation`, so `/timeline` typed at such a
+project falls through to the layout instead of parsing into a screen that cannot be drawn — which
+is the rule `live` already had, arriving from the other side.
+
+The surface list lands a moment after the shell, so there is **one frame with no timeline** on
+open, exactly as `mode` already flashes ([projectMode.md](projectMode.md)) and paid in the same
+place.
 
 So it behaves like the help page: it comes over the layout, which is left exactly as it was
 underneath — the timeline keeps its caret and the graph its camera. The address is

@@ -65,7 +65,7 @@ export function parseSurface(text: string): ParsedSurface {
         {
           path: "",
           message:
-            "a surface file says what it is: `type:` (turntables) and `layout:` (view). This one is empty.",
+            "a surface file says what it is: `type:` (timeline, turntables) and `layout:` (split, view). This one is empty.",
         },
       ],
     };

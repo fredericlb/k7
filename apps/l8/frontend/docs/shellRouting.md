@@ -12,7 +12,7 @@ rather than a component tree:
 | `view` | the layout — `global` (timeline over chains) or `live` (chains alone, no timeline). Entirely derived: it is what the open PROJECT is, and nothing offers a choice. |
 | `full` | which single pane has the whole screen, or `null` for the layout above. |
 | `panel` | the side panel (graph, docs, logs), independent of both. |
-| `surface` | a special view the PROJECT declares (`surfaces/`), over the layout — `/surface/<id>`. |
+| `surface` | a `view` surface the PROJECT declares (`surfaces/`), over the layout — `/surface/<id>`. |
 
 `surface` is its own field and not a `Pane`, for the reason the table cannot show: a pane is one
 of three the shell has always had, while a surface's list is the project's and is not knowable
@@ -20,24 +20,35 @@ until one is open. It stacks like `help` — over the layout, which is untouched
 `toPath` names the topmost of the three (help, then surface, then a fullscreened pane). See
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
+A **`split`** surface is not in this table at all, and that is the point of the word: it is *in*
+the layout rather than over it, so it has no address of its own and never appears in `surface`.
+The timeline is the one there is. What it does reach is the pane list below — which is why that
+stopped being a constant.
+
 ### The layout is the project's, not the user's
 
 `view` has always been mostly derived — `video` used to be selected by "this project has picture",
 before picture left for v1. `live` is the same shape of fact taken to the end: `project.yaml`'s
 `project_type` says whether the folder is a song or a rig, and a rig has no timeline to show. So
-there is no toggle, `ui global` typed at a live project is refused out loud, and `VIEW_PANES` (in
+there is no toggle, `ui global` typed at a live project is refused out loud, and `viewPanes` (in
 `routes.ts`) is what each layout does with the panes:
 
 ```ts
-global: { ring: ["timeline", "chains"], fullscreen: ["editor", "timeline", "chains"] }
-live:   { ring: ["chains"],             fullscreen: [] }
+viewPanes("global", true)  // { ring: ["timeline", "chains"], fullscreen: ["editor", "timeline", "chains"] }
+viewPanes("global", false) // { ring: ["chains"],             fullscreen: ["editor", "chains"] }
+viewPanes("live",   _)     // { ring: ["chains"],             fullscreen: [] }
 ```
+
+A **function**, not the table it was, because the timeline is a surface the project declares
+rather than a pane the shell hands out. The second argument is that declaration, and it has to
+reach here: a list naming a pane nothing will mount is a screen that cannot be drawn.
 
 That empty `fullscreen` is load-bearing. The header buttons, the number keys, `ui <pane>` and the
 mobile tabs all reach the screen through `fullscreen()`, so one empty list closes all four at
-once instead of four guards that could disagree. `fromLocation` reads the same table: `/timeline`
-typed at a live project names a pane that project has not got, and falls through to its own screen
-rather than parsing into a state that cannot be drawn.
+once instead of four guards that could disagree. `fromLocation` reads the same function:
+`/timeline` typed at a live project — or at one that declares no timeline — names a pane that
+project has not got, and falls through to its own screen rather than parsing into a state that
+cannot be drawn.
 
 Full rationale, including why the field is not `type`:
 [packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
