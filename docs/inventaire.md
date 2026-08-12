@@ -1,215 +1,191 @@
 # Inventaire du code mort, dupliqué et construit d'avance
 
-Relevé après l'audit de cohérence. Le constat reste un constat : ce qui a été traité depuis est marqué RÉSOLU sur place
-plutôt que retiré, pour que la ligne garde son historique. Chaque entrée porte de quoi trancher.
+Ce que le dépôt contient et que rien n'atteint. Chaque entrée porte de quoi trancher :
+*qui appelle* est la question, pas *est-ce que ça marche*.
 
-> **Lisez le §0 avant de supprimer quoi que ce soit.** Un balayage automatique a déjà classé
-> mort un paquet chargé à l'exécution. Le piège se reproduira.
+> **Lisez le §0 avant de supprimer quoi que ce soit.** Plusieurs modules bien vivants sont
+> invisibles à un balayage des `import`. Le piège se reproduit à chaque relevé.
 
-## Traité par l'audit de cohérence — ne pas rechercher
+## Comment ce relevé est fait
 
-- **Les deux coquilles HTTP de la médiathèque** (`apps/st0/backend/src/routes/library.ts` ↔
-  `packages/file-service/src/routes/mediatek.ts`) : ~35 lignes identiques, et surtout deux
-  tables MIME divergées **dans des formes incompatibles**. Le vocabulaire (familles, extensions,
-  bornes de recherche) vit désormais dans `@studio/mediatek` ; le routage reste délibérément
-  dupliqué, les deux sémantiques de 404 n'étant pas les mêmes. Voir `packages/mediatek/docs/mime.md`.
-- **Le client `engines`**, recopié service par service (36 lignes, commentaires compris) →
-  `@studio/engine-browser/registry`. Tout le monde passe par `@studio/engine-browser/access`,
-  et les `get`/`send` same-origin de l8 sont partis avec (le registre en était le seul
-  appelant). Voir `packages/engine-browser/docs/access.md`.
-- **La séquence « lister → préférence → sonder → choisir »**, écrite plusieurs fois (l8
-  `EngineGate`, st0 `useEngineChoice` + `useModuleEngine`) → `engines.find()`.
-- **`chooseEngine` refait à la main dans l8** (`EngineGate.tsx`), qui oubliait le filtre
-  `&& r.token` et le raccourci « un seul moteur joignable » → il appelle le partagé.
-- **`TIER_LABEL` en triple** : déjà résolu avant l'audit, tout le monde passe par `formatLatency`.
-- **Le commentaire orphelin** de `apps/st0/frontend/src/api.ts` (il documentait un objet déplacé
-  30 lignes plus bas) : supprimé.
+Trois passes, toutes reproductibles :
 
-Reste **non traité, et c'est un choix** : `where()` (`st0/EnginePicker.tsx`,
-`st0/EngineStatusBar.tsx`) est deux lignes identiques dont le seul foyer naturel serait
-`packages/web-protocol/quality.ts`, à côté de `formatLatency` — mais ce paquet ne contient
-aujourd'hui **aucune chaîne d'interface en français**, et `« hors de portée »` y ferait entrer
-la langue de l'UI dans un paquet de protocole. Deux lignes ne valent pas cette propriété-là.
-Même raisonnement pour `signedInAs` / `currentUser()`.
+1. **Surface publiée** — chaque sous-chemin des cartes `exports` des paquets, confronté aux
+   spécificateurs qui apparaissent réellement dans le source.
+2. **Accessibilité** — un parcours du graphe d'imports depuis les vraies portes d'entrée :
+   tout ce qui est hors de `packages/`, les fichiers atteints depuis un autre paquet par
+   spécificateur publié, les `bin`/`main`, les entrées esbuild du tray, et les tests.
+3. **Config** — dépendances importées sans être déclarées, scripts manquants, variables
+   d'environnement lues sans être documentées.
+
+**Deux pièges de méthode, tous deux rencontrés en écrivant ceci :**
+
+- **Les extensions comptent.** `engine-host` écrit `from "./addresses.ts"`. Une recherche sur
+  `"…/addresses"` ne le voit pas et déclare morts cinq de ses six sous-chemins — ils sont tous
+  vivants.
+- **Un spécificateur ne tient pas sur deux lignes.** Une regex trop permissive attrape le mot
+  `from` en pleine prose et invente des dizaines de dépendances fantômes.
 
 ---
 
 ## 0. Faux positifs connus — ne pas retuer
 
-### `@studio/dsp` est vivant
+### Ce qui est chargé par CHEMIN, jamais importé
 
-Un scan l'a classé « paquet entièrement mort, plus une dépendance fantôme dans `@studio/song` ».
-Les deux affirmations sont fausses :
+| quoi | comment il vit |
+|---|---|
+| `packages/song/src/dspRunner.mjs` | lancé en **processus fils** par `nodeProject.ts`. Il fait `import { graph } from "@studio/dsp"`, et la dépendance `song → dsp` existe précisément pour que cet import se résolve : un dossier de morceau n'a pas de `node_modules`. |
+| `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | des DSP de MODULE. Le compilateur les trouve par nom de fichier (`JSDSP_FILE = "jsdsp.ts"`), jamais par import. |
+| `packages/file-service/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
+| `packages/engine-host/src/main.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `engine/capot/scripts/build-engine.mjs`, qui les bundle dans le tray. Zéro import n'est pas zéro appelant. |
+| `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
 
-- `packages/song/src/nodeProject.ts:244` lance `dspRunner.mjs` **en processus fils** ;
-- `packages/song/src/dspRunner.mjs:9` fait `import { graph } from "@studio/dsp"` ;
-- la dépendance `song → dsp` du `package.json` existe **précisément** pour que cet import se
-  résolve — un dossier de morceau n'a pas de `node_modules` et n'en aura jamais. Le
-  commentaire en tête de `dspRunner.mjs` le dit.
-
-C'est aussi l'API d'auteur publiée aux utilisateurs
-(`apps/l8/docs/25-syntax-instruments.md:60`), et le C++ colle son JSON généré
-(`engine/moteur/engine/GraphDspPlugin.cpp:13`).
-
-**Pourquoi le scan s'est trompé :** il ne lisait que `.ts`/`.tsx`. Le seul consommateur est un
-`.mjs`. Tout inventaire de ce dépôt doit inclure `.mjs` et les processus fils.
+`@studio/dsp` est aussi l'API d'auteur publiée aux utilisateurs
+(`apps/l8/docs/25-syntax-instruments.md`), et le C++ colle son JSON généré
+(`engine/moteur/engine/GraphDspPlugin.cpp`).
 
 ### `detectTransients` n'est appelé par personne, et doit le rester
 
-`packages/commands/src/waveform.ts` exporte `detectTransients`, que plus aucun code de
-production n'appelle : la détection tourne désormais dans le moteur, en C++
-(`engine/moteur/engine/Waveform.cpp`), pendant qu'il sous-échantillonne déjà l'audio, et le
-résultat est écrit dans le sidecar `{source}.cache`.
+`packages/commands/src/waveform.ts` l'exporte, et plus aucun code de production ne l'appelle :
+la détection tourne dans le moteur, en C++ (`engine/moteur/engine/Waveform.cpp`), pendant qu'il
+sous-échantillonne déjà l'audio, et le résultat va dans le sidecar `{source}.cache`.
 
-La version TypeScript reste la **spécification exécutable** que le C++ recopie, et
-`waveform.test.ts` est le contrat qui tient les deux ensemble. Exactement l'arrangement de
-`fileFingerprint`, qui porte le même commentaire « MUST match » depuis toujours — à la
-différence près que celui-là a encore un appelant, et que celui-ci n'en a plus. Un balayage
-qui ne regarde que les importateurs le classera mort ; il ne l'est pas.
-
-### Deux paquets sont des programmes, pas des bibliothèques
-
-`@studio/file-service` (`bin: studio-file-service`) et `@studio/engine-host` (`src/main.ts`)
-n'ont aucun importateur, et c'est normal : ils sont *exécutés*, et `engine/capot/scripts/build-engine.mjs`
-les bundle par esbuild. Ne pas conclure de « zéro import » à « mort ».
+La version TypeScript est la **spécification exécutable** que le C++ recopie, et
+`waveform.test.ts` est le contrat qui tient les deux ensemble — le même arrangement que
+`fileFingerprint` et son commentaire « MUST match ».
 
 ### Deux imports profonds contournent les cartes `exports`
 
-`engine/moteur/scripts/list-sessions.ts:12` → `packages/engine-host/src/engineQueries.ts`, et
-`engine/moteur/scripts/render-once.ts:7` → `packages/file-service/src/render.ts`. Ces deux
+`engine/moteur/scripts/list-sessions.ts` → `packages/engine-host/src/engineQueries.ts`, et
+`engine/moteur/scripts/render-once.ts` → `packages/file-service/src/render.ts`. Ces deux
 fichiers paraissent inatteignables si on ne regarde que les `exports`.
+
+### `commons/` est un sous-module
+
+`git ls-files` du dépôt parent ne le liste pas. `OIDC_ISSUER`, `GRIST_API_KEY`, `GRIST_DOC_ID`
+et `BACKEND_PORT` y sont lus : ils paraissent inutilisés vus d'ici, et ne le sont pas.
 
 ---
 
-## 1. Surface exportée sans consommateur
+## 1. Surface publiée sans consommateur externe
 
-21 sous-chemins n'ont aucun importateur hors de leur propre paquet. Dans presque tous les cas
-**le module reste vivant à l'intérieur** — c'est le réflexe « publier tout `src/` ». Rétrécir la
-carte `exports` ne supprime pas de code et documente la vraie surface.
+**41 sous-chemins sur 207** n'ont aucun importateur hors de leur propre paquet. C'est un
+constat sur la carte `exports`, pas sur le code : sur les 41,
 
-| paquet | sous-chemins sans importateur |
-|---|---|
-| `engine-host` | `./identity`, `./addresses`, `./settings`, `./hostProtocol`, `./audioPolicy` — **5 sur 6** |
-| `ui-eyes` | `.`, `./timeline`, `./compositor`, `./export` |
-| `ui-editor` | `./yaml/previewTriggers`, `./yaml/entityValues`, `./yaml/keyPath` |
-| `player-web` | `./moteur`, `./moteur-effects` — voir §3 |
-| `mediatek` | `./scan`, `./evict` |
-| `song` | `./yaml/uiFile`, `./moduleTypes` |
-| `commands` | `./timeline` |
-| `dsp` | `./autowah` |
+- **37 sont vivants à l'intérieur** de leur paquet, atteints par import relatif ;
+- **2 sont morts pour de bon** (§2) ;
+- **2 ne servent qu'à leur propre test** : `@studio/mediatek/evict`, `@studio/player-web/moteur`.
 
-`engine-host` est le cas net : sa carte `exports` devrait se réduire à `./webOrigins`, le seul
-sous-chemin réellement importé (`file-service/src/{cors,pendingOrigins}.ts`).
+Rétrécir la carte ne supprime donc presque rien : elle documente la vraie surface. Les paquets
+qui publient le plus large sont `ui-turntables` (12 sous-chemins sans consommateur externe),
+`song` (6) et `engine-host` (5) — le réflexe « publier tout `src/` ».
 
-## 2. Vraiment orphelin
+`ui-turntables` est le cas à regarder : son seul hôte, l8, n'importe que `/deck-set`, `/engine`
+et `/surface`. Les douze autres sont de la plomberie interne exposée.
+
+## 2. Vraiment orphelin — rien ne l'atteint
 
 | quoi | où | note |
 |---|---|---|
-| `__hints_tmp.ts` | `packages/song/src/` | script de debug ad hoc (`process.argv[2]`, des `console.log`). Aucun importateur, aucune référence. Le nom `__…_tmp` dit qu'il ne devait pas survivre. |
-| `probeLocalEngine` | `packages/engine-browser/src/probe.ts:216` | remplacé par le registre. Il ne reste que de la prose, qui en parle **au passé** (`engine-registry/docs/shared.md:11`) — `apps/st0/docs/deploy.md` le donnait encore au présent et a été corrigé le 5 août 2026. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
-| type `Signal` | `packages/dsp/src/index.ts:48` | marqué `@deprecated`, plus aucun usage. |
-| script `"serve"` | `apps/l8/frontend/package.json:7` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
-| export `AuthUser` | `apps/st0/frontend/src/api.ts:22` | exporté, jamais importé. Seul celui de l8 est consommé. |
-| `evict.ts` | `packages/mediatek/src/` | atteignable seulement par l'export mort `./evict` et son propre test. |
-| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts:228,238` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Personne ne les appelle : les trois hôtes des grilles passent tous par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles étaient déjà orphelines avant que l8 déplace ses grilles (10 août 2026) ; ce n'est donc pas ce déplacement qui les a tuées. Elles gardent une vraie propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille — d'où le fait de les laisser : c'est *qui appelle* qu'il faut trancher. |
-| mode CLI `--normalize` | `engine/moteur/engine/NormalizeClips.cpp`, documenté dans `engine/moteur/docs/cliModes.md` | **Depuis le 5 août 2026** : son unique appelant était la commande `clip normalize` de l8, remplacée par `track process` / `clip process` (voir `packages/commands/docs/processChain.md`). Le mode est laissé en place — il est autonome, testé par un smoke-run, et « normaliser un lot de clips avec un gain commun » reste une chose que le moteur seul sait faire. À supprimer seulement si personne ne le rebranche : la question est *qui appelle*, pas *est-ce que ça marche*. |
+| `__hints_tmp.ts` | `packages/song/src/` | script de debug ad hoc (`process.argv[2]`, des `console.log`). Le nom `__…_tmp` dit qu'il ne devait pas survivre. |
+| `chains.tsx` | `packages/ui-turntables/src/` | la vue « chaîne d'une platine », ~60 lignes de colle. Personne ne la monte. Voir §6, c'est le bloc à trancher en entier. |
+| `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. |
+| `export.ts` | `packages/ui-eyes/src/` | **atteignable seulement par le baril mort ci-dessus** : `exportScene` (l'export WebCodecs, image par image) n'est donc joignable par rien. Aucune surface ne monte de bouton pour lui. |
+| `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | remplacé par le registre ; il ne reste que de la prose qui en parle au passé. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
+| type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, plus une seule référence dans tout le dépôt. |
+| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (l8, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
+| export `AuthUser` | `apps/st0/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. |
+| script `"serve"` | `apps/l8/frontend/package.json` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
 
-**Outillage à une seule utilisation**, pas mort mais sans point d'entrée :
-`packages/song/scripts/{migrateModules,migrateChains,projectFingerprint}.ts` ne sont câblés à
-aucun script npm ni tâche turbo. `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe que
-pour `migrateModules.ts:24`. Ça pourrira en silence.
+**Outillage sans point d'entrée** — des programmes, pas du code mort, mais que rien ne câble :
+
+- `packages/song/scripts/{migrateModules,migrateChains,migrateDocFields,projectFingerprint}.ts` —
+  aucun script npm ni tâche turbo. `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe
+  que pour `migrateModules.ts`.
+- `packages/ui-turntables/scripts/{tempo-drag,metronome}.ts` — ceux-là sont **documentés** et se
+  lancent à la main (`docs/hosting.md`) ; ils mesurent un SON, ce qu'aucun test unitaire ne fait.
 
 ## 3. Construit d'avance — à ne pas confondre avec un oubli
 
-`packages/player-web/src/moteurPlayer.ts` et `moteurEffects.ts` n'ont aucun importateur. Ce
-n'est **pas** un oubli : ils sont documentés délibérément
-(`packages/player-web/docs/moteurPlayer.md`) et `AGENTS.md` les présente comme « le joint que
-`@studio/player-web` avait déjà ». Les supprimer contredirait la carte du dépôt.
+`packages/player-web/src/moteurPlayer.ts` et `moteurEffects.ts` n'ont aucun importateur de
+production. Ce n'est **pas** un oubli : ils sont documentés délibérément
+(`packages/player-web/docs/moteurPlayer.md`) et `AGENTS.md` les présente comme le joint que
+`@studio/player-web` porte déjà.
 
-Si on les supprimait un jour, `@studio/engine-browser` et `@studio/engine-protocol` sortiraient
-des dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fichiers.
+Si on les supprimait, `@studio/engine-browser` et `@studio/engine-protocol` sortiraient des
+dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fichiers.
 
 ## 4. Duplication
 
-### Classée par gravité
+### Le client d'auth : deux moitiés du dépôt, deux comportements
 
-**Le client d'auth, en trois copies, dont une seule a le correctif.** l8 utilise un
-**getter** pour `loginUrl` (`apps/l8/frontend/src/api.ts:193`) — *« un GETTER, pas une
-constante : il doit capturer où vous êtes au moment du clic »*. mediatek (`api.ts:75`)
-(`api.ts:37`) utilisent une **constante** évaluée à l'import. Le commentaire expliquant
-pourquoi la constante est fausse a été copié ; le correctif non.
-`AuthUser` a dérivé aussi : l8 a `email?: string | null` et `groups?: string[]`, les deux
-autres non.
+`loginUrl` doit être un **getter** — il capture l'adresse où l'on est *au moment du clic*.
 
-**`chooseEngine` adopté par tous sauf l8.** `packages/engine-browser/src/choose.ts` dit
-avoir été extrait *« parce que c'est la même question dans chaque service »*. mediatek
-l'importent ; `apps/l8/frontend/src/components/EngineGate.tsx:85` refait le calcul à la
-main — `chooseEngine` moins le filtre `&& r.token` et moins le raccourci « un seul moteur
-joignable n'est pas une question ».
+| forme | où |
+|---|---|
+| getter (correct) | `apps/k7/frontend/src/api.ts`, `apps/l8/frontend/src/api.ts` |
+| constante évaluée à l'import | `apps/st0/frontend/src/api.ts`, `apps/z0/editor-v2/src/api.ts` |
+
+Le commentaire qui explique pourquoi la constante est fausse a voyagé ; le correctif non.
+
+**`AuthUser` est déclarée neuf fois** — l8, st0, z0/editor-v2, et les six SPA de z0
+(`buzzer`, `editor`, `monitor-web`, `online`, `presenter`, `remote`). Les formes ont divergé :
+seule celle de l8 porte `email?: string | null` et `groups?: string[]`.
 
 ### Cosmétique, mais réelle
 
-- **Le libellé de tier**, identique au caractère près, commentaire compris :
-  `apps/st0/frontend/src/engine/EnginePicker.tsx:12`. l8 a la même table en `TIER_LABEL`
-  (`EngineSelect.tsx:11`), via paraglide. Foyer naturel : à côté de `chooseEngine`.
+- **Le glyphe `piano-16`**, corps SVG identique octet pour octet :
+  `apps/l8/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
+  (Le reste de la duplication des tables de glyphes est argumenté et assumé — voir
+  `moduleIcons.tsx`.)
 - **Le spinner plein écran**, quatre copies du même bloc :
-  `l8/{AuthGate,EngineGate,ProjectGate}` et `st0/Gate.tsx:33`. Laissé tel quel : des blocs de
+  `l8/{AuthGate,EngineGate,ProjectGate}` et `st0/Gate.tsx`. Laissé tel quel : des blocs de
   présentation courts, sans risque de dérive silencieuse.
-- **Le stub « pas de barre de commandes »** : `st0/ChainView.tsx:45`.
-- **Le glyphe `piano-16`**, corps SVG identique octet pour octet entre
-  `apps/l8/frontend/src/trackIcons.tsx:38` et
-  `packages/ui-chains-react/src/moduleIcons.tsx:20`. Ce qu'il en restait ailleurs vit seul dans
-  `apps/st0/frontend/src/moduleIcons.tsx`. (Le reste de la duplication des tables de glyphes
-  est argumenté et assumé — voir `moduleIcons.tsx:8`.)
+- **Les quatre `turbo.json` d'app** (`apps/{k7,l8,st0,z0}`) sont **identiques octet pour
+  octet**, et leur bloc `tasks.dev` reproduit celui de la racine dont ils héritent par
+  `"extends": ["//"]`. Ils ne surchargent rien.
+
+### Laissé exprès
+
+`where()` (`st0/EnginePicker.tsx`, `st0/EngineStatusBar.tsx`) est deux lignes identiques dont le
+seul foyer naturel serait `packages/web-protocol/quality.ts`, à côté de `formatLatency` — mais
+ce paquet ne contient **aucune chaîne d'interface en français**, et « hors de portée » y ferait
+entrer la langue de l'UI dans un paquet de protocole. Deux lignes ne valent pas cette
+propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
 
 ## 5. Config
 
 | constat | où |
 |---|---|
-| **Un test qui ne tourne jamais.** `emitNodes.test.ts` existe, le paquet n'a aucun script `test`, donc `turbo run test` l'ignore. Seul paquet dans ce cas. | `packages/translator/` |
-| `vitest` lancé sans être déclaré — ne se résout que par hoisting. mediatek le déclare. | `apps/l8/frontend/package.json` |
-| Les `turbo.json` d'app **strictement identiques** au bloc `tasks.dev` de la racine : ils ne surchargent rien. | `apps/{k7,l8,st0,z0}/turbo.json` |
-| `STUDIO_PREFS_DIR` n'est documenté nulle part. | `env.example.yaml` |
-| Lus dans le code, absents de l'exemple : `STUDIO_REGISTRY_URL` (18 lectures), `K7_URL`, `K7_TOKEN`. | — |
-| Importé sans être déclaré : `@studio/engine-protocol` par `file-service` et `web-protocol` (qui n'a **aucun** bloc `dependencies`), `yaml` par `translator` et `ui-editor`. | — |
-| Déclaré sans être importé : `zod`, `@types/express` en devDeps. | `packages/web-protocol` |
+| Des tests qui ne tournent jamais : des fichiers `*.test.ts` et aucun script `test`, donc `turbo run test` les ignore. | `packages/translator` (2 fichiers), `packages/ui-waveform` (1) |
+| Importé sans être déclaré — ne se résout que par hoisting. | `engine-host` (`@frediverse/oidc`, `yaml`), `file-service` + `web-protocol` (`@studio/engine-protocol`), `translator` (`yaml`, `vitest`), `ui-editor` (`yaml`), `ui-waveform` (`vitest`), `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `l8-frontend` (`yaml`, `zod`, `vitest`), `st0-frontend` (`@studio/ui-editor`) |
+| `yaml` chez `l8-frontend` n'est pas que du test : `sliceWaveformWidget.ts` l'importe en production. | `apps/l8/frontend` |
+| Aucun bloc `dependencies` alors que le paquet importe `@studio/engine-protocol` ; et `zod` + `@types/express` sont déclarés en devDeps sans qu'une seule ligne les importe. | `packages/web-protocol` |
 | Pas de champ `description`. | `packages/ui-waveform`, `packages/web-protocol` |
+| Lues dans le code, absentes de `env.example.yaml` : `STUDIO_REGISTRY_URL` (9 lectures), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 
-## 6. Petits nettoyages sûrs
+## 6. La chaîne d'effets par platine — un bloc, à trancher en entier
 
-- **Commentaire tronqué en pleine phrase** : `packages/ui-chains-react/src/moduleIcons.tsx:5`
-  s'arrête sur « keyed by CATEGORY rather than a ».
+Mix est un pupitre : deux vinyles et un crossfader. La chaîne d'effets d'une platine n'y a pas
+de place, et le seul hôte du pupitre (la surface `turntables` de l8) ne dessine pas de graphe
+par platine. Trois symboles tiennent debout les uns par les autres et par rien d'autre :
 
-## 6 bis. La chaîne d'effets par platine
+| symbole | où | tenu vivant par |
+|---|---|---|
+| `chains.tsx` (le composant) | `packages/ui-turntables/src/chains.tsx` | rien |
+| `M9_ICONS` | même fichier | `chains.tsx` seul |
+| `deckGraph`, `categoryOf` | `packages/ui-turntables/src/graph.ts` | `chains.tsx` et `graph.test.ts` |
 
-Mix est un pupitre — deux vinyles et un crossfader — et la chaîne d'effets d'une platine n'y a
-pas de place. `deckGraph` et `categoryOf` (`packages/ui-turntables/src/graph.ts`) ne sont donc
-montés par rien.
+`graph.ts` ne survit à la disparition de `chains.tsx` que par un import de **type** :
+`deck.ts` prend `DeckModule` chez lui. Le fichier reste donc, la fonction non.
 
 **Non supprimés, et c'est un choix** : ils marchent, `graph.test.ts` les couvre, et la chaîne
-par platine fait partie des options annoncées. `deckGraph` prend le paramètre qui lui manquait —
-savoir *laquelle* des platines il dessine. `M9_ICONS`, dans le même fichier, sert à `GraphView`.
+par platine fait partie des options annoncées. Inscrit ici plutôt que laissé silencieux : c'est
+la différence entre un état connu et de la pourriture. Voir
+[packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
 
-Inscrit ici plutôt que laissé silencieux : c'est la différence entre un état connu et de la
-pourriture. Voir [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
+## 7. Généré, sans effet
 
-## 7. Ce que le renommage a laissé dans le généré
-
-Sans effet, disparaît au prochain build : `engine/capot/src-tauri/resources/file-service.mjs`,
-`src-tauri/target/{debug,release}/resources/file-service.mjs`, et une quarantaine d'entrées
-`.turbo/cache/*-manifest.json`. La vérité de source est
-`packages/engine-protocol/sessions.ts`, qui dit bien `l8 / st0`.
-
-## 8. Ce que le mixer a laissé en partant du panneau
-
-Le mixer a quitté le panneau du bas pour devenir un **arrangement du graphe** : les tranches
-sont tirées sur un même rang (`alignModuleRank`) au lieu d'être redessinées ailleurs. Deux
-choses perdent leur appelant au passage.
-
-`moduleRow` (`packages/ui-chains/src/graph.ts`) a **retrouvé un appelant** : le double-clic sur
-l'en-tête d'une piste ouvre ses modules en rangée horizontale (`TrackModulesPane`). C'était
-l'argument pour la garder plutôt que la supprimer quand le mixer a cessé de s'en servir — une
-question qu'un autre hôte pouvait se reposer. Rayée d'ici.
-
-`apps/l8/frontend/src/mixerStrips.ts` garde son appelant : `useProjectDoc` lit la liste des
-tranches par lui. C'est `MixerTab.tsx` qui a disparu — supprimé, pas laissé mort.
+`engine/capot/src-tauri/resources/{file-service,engine-host}.mjs` et les entrées
+`.turbo/cache/*-manifest.json` sont des artefacts de build : ils disparaissent au prochain
+`build-engine.mjs`. La vérité de source est `packages/engine-protocol/sessions.ts`.
