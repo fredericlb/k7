@@ -46,6 +46,7 @@ import {
   smoothPath,
 } from "@studio/ui-chains/cables";
 import {
+  CLIP_LIST_MAX,
   cablePath,
   type EdgeInsert,
   type GraphNode,
@@ -386,6 +387,23 @@ const CSS = `
 .dgx-clip-nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dgx-clip.missing { color:#ef4444; opacity:1; }
 .dgx-clip.more { opacity:.5; font-style:italic; }
+/* The row a hovered marker points at. Bold ALONE would reflow the row as the letters widen;
+   the opacity lift is what makes it read as "this one" without the text moving. */
+.dgx-clip.hot { opacity:1; }
+.dgx-clip.hot .dgx-clip-nm { font-weight:700; }
+
+/* The mini timeline: the lane at a glance, node-wide, above the names. A rule under it rather
+   than a box around it — it is a ruler, not a panel, and a second border here would make three
+   stacked frames out of the controls, the timeline and the list.
+   The side padding is half a marker, so one at position 0 or 1 sits inside the card. */
+.dgx-clip-tl { position:relative; height:9px; margin:3px 0 2px; padding:0 3px;
+  border-bottom:1px solid color-mix(in srgb, var(--line) 35%, transparent); }
+/* A marker is a POSITION, not a duration: the graph does not know how long a clip runs (see
+   ClipList). So it is a tick of its own fixed width, centred on where the clip starts. */
+.dgx-clip-mk { position:absolute; top:1px; width:5px; height:7px; margin-left:-2.5px;
+  border-radius:1.5px; background:var(--accent); opacity:.55; cursor:default; }
+.dgx-clip-mk.missing { background:#ef4444; opacity:.9; }
+.dgx-clip-mk.hot { opacity:1; transform:scaleY(1.25); }
 
 /* A NOTE — a doc module. Deliberately unlike every other card: no accent bar, no header, a
    paper tint and a dashed edge, so prose is never mistaken for something in the signal path.
@@ -1940,33 +1958,80 @@ function NodeInner({
           exactly like a full one otherwise, which is the failure this list is best at catching.
           The count line replaces the tail rather than extending it — see CLIP_LIST_MAX. */}
       {n.kind === "track" && n.clips?.length && showWidgets ? (
-        <div className="dgx-clips">
-          {n.clips.map((c) => (
-            <div
-              key={`${c.ref}@${c.start}`}
-              className={`dgx-clip${c.kind === "missing" ? " missing" : ""}`}
-              title={
-                c.kind === "missing"
-                  ? `${c.tc} — ${c.ref}: no such clip in this project`
-                  : `${c.tc} — ${c.ref} (${c.kind})`
-              }
-            >
-              {/* WHERE first, then WHAT. A lane is read down its positions — they are what
-                  orders the list — and a fixed-width column of them stays a column however
-                  long the names beside it are. Tabular figures so the digits line up. */}
-              <span className="dgx-clip-tc">{c.tc}</span>
-              <span className="dgx-clip-nm">{c.ref}</span>
-            </div>
-          ))}
-          {n.clipsMore ? (
-            <div className="dgx-clip more">+{n.clipsMore}</div>
-          ) : null}
-        </div>
+        <ClipList clips={n.clips} more={n.clipsMore} />
       ) : null}
       {armBar}
     </div>
   );
 }
+/**
+ * A lane's clips: a mini timeline of the whole lane, then the first few by name.
+ *
+ * Its own component because the hover link between the two needs STATE, and the node around it
+ * is memoised so that a pan or a meter frame re-renders no card at all — putting a `useState`
+ * up there would have handed every track node a reason to re-render that has nothing to do with
+ * the graph.
+ *
+ * The timeline draws EVERY clip; the list shows `CLIP_LIST_MAX` of them. Hovering a marker bolds
+ * its name below when that name is on screen, which is what ties the two halves together: the
+ * timeline says WHERE, the list says WHAT, and the pointer says which is which.
+ */
+function ClipList({
+  clips,
+  more,
+}: {
+  clips: NonNullable<GraphNode["clips"]>;
+  more?: number;
+}) {
+  const [hot, setHot] = useState<number | null>(null);
+  const shown = clips.slice(0, CLIP_LIST_MAX);
+  return (
+    <div className="dgx-clips">
+      {/* The lane at a glance, node-wide. It shows where clips ARE and not how long they run:
+          the graph reads track files without opening the clips they name, so their extent is
+          not a fact it has (see Placement in @studio/song). A marker per position is therefore
+          what it can honestly draw — and what "where are the clips" asks for. */}
+      <div className="dgx-clip-tl">
+        {clips.map((c, i) => (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: the index IS the identity here — it
+            // pairs a marker with its row below, and two clips may share a ref and a position.
+            key={i}
+            className={`dgx-clip-mk${c.kind === "missing" ? " missing" : ""}${
+              hot === i ? " hot" : ""
+            }`}
+            style={{ left: `${c.at * 100}%` }}
+            title={`${c.tc} — ${c.ref}`}
+            onPointerEnter={() => setHot(i)}
+            onPointerLeave={() => setHot(null)}
+          />
+        ))}
+      </div>
+      {shown.map((c, i) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: pairs with the marker above, as there.
+          key={i}
+          className={`dgx-clip${c.kind === "missing" ? " missing" : ""}${
+            hot === i ? " hot" : ""
+          }`}
+          title={
+            c.kind === "missing"
+              ? `${c.tc} — ${c.ref}: no such clip in this project`
+              : `${c.tc} — ${c.ref} (${c.kind})`
+          }
+        >
+          {/* WHERE first, then WHAT. A lane is read down its positions — they are what
+              orders the list — and a fixed-width column of them stays a column however
+              long the names beside it are. Tabular figures so the digits line up. */}
+          <span className="dgx-clip-tc">{c.tc}</span>
+          <span className="dgx-clip-nm">{c.ref}</span>
+        </div>
+      ))}
+      {more ? <div className="dgx-clip more">+{more}</div> : null}
+    </div>
+  );
+}
+
 // Memoised: with `ch` and every handler stable, a pan or a param frame re-renders no card at all.
 const Node = memo(NodeInner);
 

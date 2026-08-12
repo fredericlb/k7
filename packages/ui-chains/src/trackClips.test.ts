@@ -66,14 +66,16 @@ describe("a track node's clip list", () => {
     expect(n.clipsMore).toBeUndefined();
   });
 
-  it("counts the overflow instead of listing it", () => {
-    // A lane with sixty takes would otherwise be a node taller than the window, and this is a
-    // picture of the ROUTING — the timeline is where a full clip list belongs.
+  it("counts the LIST's overflow while keeping every clip for the timeline", () => {
+    // Two different jobs. The list shows the first few and says how many it left out — a lane
+    // with sixty takes would otherwise be a node taller than the window. The mini timeline
+    // above it draws them ALL, because a picture of the lane with clips missing from it is
+    // worse than no picture: it would say the lane is emptier than it is.
     const many = Array.from({ length: CLIP_LIST_MAX + 4 }, (_, i) =>
       clip(`take-${i}`, i * 4),
     );
     const n = trackNode(graphWith(many));
-    expect(n.clips).toHaveLength(CLIP_LIST_MAX);
+    expect(n.clips).toHaveLength(CLIP_LIST_MAX + 4);
     expect(n.clipsMore).toBe(4);
   });
 
@@ -84,6 +86,43 @@ describe("a track node's clip list", () => {
     const n = trackNode(graphWith(exact));
     expect(n.clips).toHaveLength(CLIP_LIST_MAX);
     expect(n.clipsMore).toBeUndefined();
+  });
+});
+
+describe("the mini timeline's scale", () => {
+  /** Two lanes, so the shared scale has something to be shared BETWEEN. */
+  const twoLanes = (a: WebTrackClip[], b: WebTrackClip[]): WebGraph => ({
+    tracks: ["gtr", "bass"],
+    chains: {
+      gtr: { from: "gtr", use: [], out: [{ to: "OUT", gain: 1 }] },
+      bass: { from: "bass", use: [], out: [{ to: "OUT", gain: 1 }] },
+    },
+    trackClips: { gtr: a, bass: b },
+    warnings: [],
+  });
+  const at = (g: WebGraph, track: string) =>
+    buildGraph(g, { drawMainOut: false })
+      .nodes.find((n) => n.kind === "track" && n.label === track)
+      ?.clips?.map((c) => c.at);
+
+  it("is SHARED by every lane, not each lane's own extent", () => {
+    // The whole point. A per-lane scale would draw the bass's last clip hard against its right
+    // edge at bar 2 and the guitar's at bar 33, side by side, both claiming to show where
+    // things are — which is worse than no timeline, because it is believable.
+    const g = twoLanes(
+      [clip("a", 0), clip("b", 128)],
+      [clip("c", 0), clip("d", 32)],
+    );
+    expect(at(g, "gtr")).toEqual([0, 1]);
+    // A quarter of the way along, because 32 is a quarter of 128 — not at its own end.
+    expect(at(g, "bass")).toEqual([0, 0.25]);
+  });
+
+  it("puts everything at the start when nothing is past bar 1", () => {
+    // No span to divide by, and 0 is where they all are anyway — not a NaN from x/0.
+    const g = twoLanes([clip("a", 0)], [clip("b", 0)]);
+    expect(at(g, "gtr")).toEqual([0]);
+    expect(at(g, "bass")).toEqual([0]);
   });
 
   it("keeps a missing clip, and says which one it is", () => {

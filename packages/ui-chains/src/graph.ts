@@ -191,14 +191,30 @@ export interface GraphNode extends Carried, Flags {
    * with the overflow counted (`clipsMore`) rather than shown — a lane with sixty clips would
    * otherwise be a node taller than the window, and the graph is a picture of the ROUTING.
    */
+  /**
+   * EVERY clip on the lane, not just the listed ones.
+   *
+   * The mini timeline above the list draws all of them — it is a picture of the whole lane —
+   * while the list below shows the first `CLIP_LIST_MAX`. The renderer slices; the node carries
+   * the lot, because dropping a clip here would put a gap in the timeline instead of in a list
+   * that already says how many it left out.
+   */
   clips?: {
     ref: string;
     start: number;
     /** The position as the song spells it (`5:1:1`) — drawn to the left of the name. */
     tc: string;
+    /**
+     * Where it sits on the mini timeline, 0..1.
+     *
+     * Against a scale SHARED by every track in the graph, not this lane's own extent: two lanes
+     * side by side have to be comparable, and a per-lane scale would draw a clip at bar 2 and
+     * one at bar 200 in the same place while claiming to show where things are.
+     */
+    at: number;
     kind: "audio" | "midi" | "missing";
   }[];
-  /** How many clips did not fit in `clips`. 0 when the list is complete. */
+  /** How many clips did not fit in the LIST. Absent when it shows them all. */
   clipsMore?: number;
   // The node's size, per-node because a module's UI decides it — dagre is told these and reserves the real space.
   w: number;
@@ -489,6 +505,8 @@ export const CLIP_LIST_MAX = 6;
 const CLIP_ROW_H = 16;
 /** The list's bottom padding, plus the rule that separates it from the controls above. */
 const CLIP_LIST_PAD = 7;
+/** The mini timeline above the list: its track, plus the gap under it (`.dgx-clip-tl`). */
+const CLIP_TIMELINE_H = 14;
 
 /**
  * The clip list of a TRACK node, and the extra height it needs — spread in beside its size.
@@ -502,19 +520,40 @@ function clipsOf(
   graph: WebGraph,
   track: string,
   base: { w: number; h: number },
+  /** The last position anything in the GRAPH sits at — the shared scale. See `clips.at`. */
+  span: number,
 ): Partial<GraphNode> {
   const all = graph.trackClips?.[track];
   if (!all?.length) return {};
-  const clips = all.slice(0, CLIP_LIST_MAX);
-  const more = all.length - clips.length;
-  // The overflow line costs a row too, when there is one.
-  const rows = clips.length + (more > 0 ? 1 : 0);
+  const clips = all.map((c) => ({
+    ...c,
+    // A graph whose clips all sit at bar 1 has no span to divide by; everything is at the start,
+    // which is exactly where 0 puts it.
+    at: span > 0 ? Math.min(1, Math.max(0, c.start / span)) : 0,
+  }));
+  const more = Math.max(0, all.length - CLIP_LIST_MAX);
+  // The rows the LIST will draw, plus the overflow line when there is one.
+  const rows = Math.min(all.length, CLIP_LIST_MAX) + (more > 0 ? 1 : 0);
   return {
     clips,
     ...(more > 0 ? { clipsMore: more } : {}),
     w: base.w,
-    h: base.h + CLIP_LIST_PAD + rows * CLIP_ROW_H,
+    h: base.h + CLIP_LIST_PAD + CLIP_TIMELINE_H + rows * CLIP_ROW_H,
   };
+}
+
+/**
+ * The scale every track node's mini timeline is drawn against: the last position in the GRAPH.
+ *
+ * Shared rather than per-lane, which is the whole point of it — a mini timeline is read by
+ * comparing lanes, and one that rescaled itself per track would draw every lane's last clip
+ * hard against its right edge whether that was bar 3 or bar 300.
+ */
+function clipSpanOf(graph: WebGraph): number {
+  let span = 0;
+  for (const clips of Object.values(graph.trackClips ?? {}))
+    for (const c of clips) span = Math.max(span, c.start);
+  return span;
 }
 
 /**
@@ -729,6 +768,8 @@ export function buildGraph(
   // A frozen track's chain is already inside its render, so the engine never builds those plugins: the nodes have
   // to say so, or the graph offers knobs on modules nothing is listening to.
   const frozenTracks = new Set(graph.frozenTracks ?? []);
+  // Once for the whole graph, so every lane's mini timeline is drawn against the same ruler.
+  const clipSpan = clipSpanOf(graph);
   // A chain is frozen when the track feeding it is — following `from` through chain-feeds-chain, since a chain
   // sourced from a frozen one carries that render and nothing else. `seen` guards a cycle, same as exitSignal.
   const chainFrozen = (chain: string, seen = new Set<string>()): boolean => {
@@ -930,7 +971,7 @@ export function buildGraph(
           // …and again to fit what the lane HOLDS. A routing diagram that showed where a
           // track's signal goes but never what it plays made you open the timeline to answer
           // "which take is on this lane" — a question about the lane, asked at the lane.
-          ...clipsOf(graph, c.from, nodeSize(ui)),
+          ...clipsOf(graph, c.from, nodeSize(ui), clipSpan),
         });
         // A sequences track puts MIDI on the wire, an audio one audio, and a video lane picture whatever trackSignals says.
         link(
