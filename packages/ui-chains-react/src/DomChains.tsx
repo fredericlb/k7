@@ -371,18 +371,21 @@ const CSS = `
 .dgx-clip.hot { opacity:1; }
 .dgx-clip.hot .dgx-clip-nm { font-weight:700; }
 
-/* The mini timeline: the lane at a glance, node-wide, above the names. A rule under it rather
-   than a box around it — it is a ruler, not a panel, and a second border here would make three
-   stacked frames out of the controls, the timeline and the list.
-   The side padding is half a marker, so one at position 0 or 1 sits inside the card. */
-.dgx-clip-tl { position:relative; height:9px; margin:3px 0 2px; padding:0 3px;
-  border-bottom:1px solid color-mix(in srgb, var(--line) 35%, transparent); }
-/* A marker is a POSITION, not a duration: the graph does not know how long a clip runs (see
-   ClipList). So it is a tick of its own fixed width, centred on where the clip starts. */
-.dgx-clip-mk { position:absolute; top:1px; width:5px; height:7px; margin-left:-2.5px;
-  border-radius:1.5px; background:var(--accent); opacity:.55; cursor:default; }
-.dgx-clip-mk.missing { background:#ef4444; opacity:.9; }
-.dgx-clip-mk.hot { opacity:1; transform:scaleY(1.25); }
+/* The mini timeline: the lane at a glance, node-wide, above the names.
+   WHITE, because this strip stands for the song itself rather than for more of the card's
+   chrome — the blocks on it have to read as material on tape. It keeps a thin border so the
+   white does not bleed into a light theme's card, and stays white in both themes deliberately:
+   it is a surface, not a panel that should follow the skin. */
+.dgx-clip-tl { position:relative; height:10px; margin:3px 0 3px; border-radius:2px;
+  background:#fff; border:1px solid color-mix(in srgb, var(--line) 45%, transparent);
+  overflow:hidden; }
+/* One block per clip: placed at its start, as wide as it runs. Its offset and width are
+   percentages of the shared scale, computed on the node (see clipsOf) — nothing divides here. */
+.dgx-clip-mk { position:absolute; top:1px; bottom:1px; min-width:2px;
+  border-radius:1.5px; background:var(--accent); opacity:.8; cursor:default; }
+/* Absent material is never painted in the reassuring colour of the lane it is missing from. */
+.dgx-clip-mk.missing { background:#ef4444 !important; opacity:1; }
+.dgx-clip-mk.hot { opacity:1; box-shadow:0 0 0 1px rgba(0,0,0,.55) inset; }
 
 /* A NOTE — a doc module. Deliberately unlike every other card: no accent bar, no header, a
    paper tint and a dashed edge, so prose is never mistaken for something in the signal path.
@@ -1918,7 +1921,7 @@ function NodeInner({
           exactly like a full one otherwise, which is the failure this list is best at catching.
           The count line replaces the tail rather than extending it — see CLIP_LIST_MAX. */}
       {n.kind === "track" && n.clips?.length && showWidgets ? (
-        <ClipList clips={n.clips} more={n.clipsMore} />
+        <ClipList clips={n.clips} more={n.clipsMore} color={n.color} />
       ) : null}
       {armBar}
     </div>
@@ -1939,28 +1942,39 @@ function NodeInner({
 function ClipList({
   clips,
   more,
+  color,
 }: {
   clips: NonNullable<GraphNode["clips"]>;
   more?: number;
+  /** The TRACK's own colour — what its clips are drawn in. Absent when the lane authors none. */
+  color?: string;
 }) {
   const [hot, setHot] = useState<number | null>(null);
   const shown = clips.slice(0, CLIP_LIST_MAX);
   return (
     <div className="dgx-clips">
-      {/* The lane at a glance, node-wide. It shows where clips ARE and not how long they run:
-          the graph reads track files without opening the clips they name, so their extent is
-          not a fact it has (see Placement in @studio/song). A marker per position is therefore
-          what it can honestly draw — and what "where are the clips" asks for. */}
+      {/* The lane at a glance, node-wide: one block per clip, placed where it starts and as
+          wide as it runs. On WHITE, so the blocks read as material on tape rather than as more
+          chrome — it is the one surface here that stands for the song itself.
+
+          The block's colour is the TRACK's, which is what makes two lanes tellable apart at a
+          glance; a lane that authors none falls back to the node's accent. A missing clip
+          overrides both and is red — the graph must not paint absent material in the reassuring
+          colour of the lane it is missing from. */}
       <div className="dgx-clip-tl">
         {clips.map((c, i) => (
           <span
             // biome-ignore lint/suspicious/noArrayIndexKey: the index IS the identity here — it
-            // pairs a marker with its row below, and two clips may share a ref and a position.
+            // pairs a block with its row below, and two clips may share a ref and a position.
             key={i}
             className={`dgx-clip-mk${c.kind === "missing" ? " missing" : ""}${
               hot === i ? " hot" : ""
             }`}
-            style={{ left: `${c.at * 100}%` }}
+            style={{
+              left: `${c.at * 100}%`,
+              width: `${c.w * 100}%`,
+              ...(c.kind !== "missing" && color ? { background: color } : {}),
+            }}
             title={`${c.tc} — ${c.ref}`}
             onPointerEnter={() => setHot(i)}
             onPointerLeave={() => setHot(null)}

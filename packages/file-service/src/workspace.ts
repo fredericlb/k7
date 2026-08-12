@@ -108,7 +108,7 @@ import {
   pushChainToMediatek,
   pushModuleToMediatek,
 } from "./bench.ts";
-import { buildGraphDoc } from "./graphDoc.ts";
+import { buildGraphDoc, type ClipExtents, clipExtentsOf } from "./graphDoc.ts";
 import {
   type FileChange,
   type HistoryPeek,
@@ -1704,14 +1704,31 @@ export class Workspace {
     return projectSurfaces(this.requireActive());
   }
 
+  /**
+   * The clip extents the graph draws its mini timelines from, or nothing.
+   *
+   * Off the MEMOISED compile, so this costs a map on a hit and a compile only when the project
+   * has moved — the same document the timeline is already served from. Failure is not fatal and
+   * is not reported here: a project that will not compile still has a graph, and the graph is
+   * the screen you fix it from. It simply loses the clip widths, which the node draws without.
+   */
+  private clipExtents(dir: string): ClipExtents | undefined {
+    try {
+      return clipExtentsOf(this.cachedProjectDoc(dir));
+    } catch {
+      return undefined;
+    }
+  }
+
   graphDoc(): WebGraph {
     const dir = this.requireActive();
     // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
-    if (dir !== this.activeProject) return buildGraphDoc(dir);
+    if (dir !== this.activeProject)
+      return buildGraphDoc(dir, this.clipExtents(dir));
     const { rev } = this.revision();
     const hit = this.graphCache;
     if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
-    const graph = buildGraphDoc(dir);
+    const graph = buildGraphDoc(dir, this.clipExtents(dir));
     this.graphCache = { dir, rev, graph };
     return graph;
   }
