@@ -18,6 +18,7 @@ import {
   JSDSP_TYPE,
   OFFLINE_TYPE,
 } from "@studio/song/project";
+import { beatsToPosition } from "@studio/song/timecode";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
 // was declared here a second time, identically, and docs/loader.md's list of copies to
@@ -222,6 +223,12 @@ export function buildGraphDoc(dir: string): WebGraph {
   // loadGraph has already cleared `frozen` on any track whose render went missing, so this is the state the
   // compiled doc will agree with rather than what the yaml claims.
   const frozenTracks: string[] = [];
+  // The song's meter, for spelling a clip's position. Defaulted the way every other reader of
+  // this field defaults it: a header that says nothing is 4/4.
+  const [sigNum, sigDen] = (() => {
+    const m = /^(\d+)\/(\d+)$/.exec(g.project.timeSignature ?? "");
+    return m ? [Number(m[1]), Number(m[2])] : [4, 4];
+  })();
   // What each lane HOLDS, so its node can list it. Sorted by position, which is the order it
   // plays in and the order a reader expects — `placements` is authored order, and a track file
   // may perfectly well name a clip at bar 9 before one at bar 3.
@@ -236,7 +243,12 @@ export function buildGraphDoc(dir: string): WebGraph {
     if (t.placements.length)
       trackClips[id] = [...t.placements]
         .sort((a, b) => a.start - b.start)
-        .map((p) => ({ ref: p.ref, start: p.start, kind: p.kind }));
+        .map((p) => ({
+          ref: p.ref,
+          start: p.start,
+          tc: beatsToPosition(p.start, sigNum, sigDen),
+          kind: p.kind,
+        }));
   }
   return {
     chains,

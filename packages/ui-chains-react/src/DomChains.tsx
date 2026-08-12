@@ -369,9 +369,20 @@ const CSS = `
    A missing clip is red because a lane pointing at material that is not there is the one state
    this list exists to catch. See CLIP_LIST_MAX in @studio/ui-chains for the counted overflow. */
 .dgx-clips { position:absolute; left:0; right:0; bottom:0; padding:0 7px 6px;
-  display:flex; flex-direction:column; gap:1px; overflow:hidden; }
-.dgx-clip { display:flex; align-items:center; height:14px; font-size:10px; line-height:14px;
-  color:var(--fg); opacity:.72; }
+  display:flex; flex-direction:column; overflow:hidden;
+  /* A rule ABOVE the list, separating it from the controls it sits under. */
+  border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+/* One rule per row rather than a gap: the rows are short and a gap alone left them reading as
+   one block of text. The first-child reset keeps the list's own top edge from doubling it. */
+.dgx-clip { display:flex; align-items:center; gap:6px; height:15px;
+  font-size:10px; line-height:15px; color:var(--fg); opacity:.72;
+  border-top:1px solid color-mix(in srgb, var(--line) 35%, transparent); }
+.dgx-clip:first-child { border-top:none; }
+/* The position column: fixed width so the names beside it start on one line, and tabular
+   figures so the digits themselves line up. It never shrinks — the NAME is what gets ellipsed,
+   because a truncated timecode says nothing at all while a truncated name still identifies. */
+.dgx-clip-tc { flex:none; font-variant-numeric:tabular-nums; font-size:9px;
+  opacity:.7; letter-spacing:-.2px; }
 .dgx-clip-nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dgx-clip.missing { color:#ef4444; opacity:1; }
 .dgx-clip.more { opacity:.5; font-style:italic; }
@@ -1936,10 +1947,14 @@ function NodeInner({
               className={`dgx-clip${c.kind === "missing" ? " missing" : ""}`}
               title={
                 c.kind === "missing"
-                  ? `${c.ref} — no such clip in this project`
-                  : `${c.ref} (${c.kind})`
+                  ? `${c.tc} — ${c.ref}: no such clip in this project`
+                  : `${c.tc} — ${c.ref} (${c.kind})`
               }
             >
+              {/* WHERE first, then WHAT. A lane is read down its positions — they are what
+                  orders the list — and a fixed-width column of them stays a column however
+                  long the names beside it are. Tabular figures so the digits line up. */}
+              <span className="dgx-clip-tc">{c.tc}</span>
               <span className="dgx-clip-nm">{c.ref}</span>
             </div>
           ))}

@@ -191,7 +191,13 @@ export interface GraphNode extends Carried, Flags {
    * with the overflow counted (`clipsMore`) rather than shown — a lane with sixty clips would
    * otherwise be a node taller than the window, and the graph is a picture of the ROUTING.
    */
-  clips?: { ref: string; start: number; kind: "audio" | "midi" | "missing" }[];
+  clips?: {
+    ref: string;
+    start: number;
+    /** The position as the song spells it (`5:1:1`) — drawn to the left of the name. */
+    tc: string;
+    kind: "audio" | "midi" | "missing";
+  }[];
   /** How many clips did not fit in `clips`. 0 when the list is complete. */
   clipsMore?: number;
   // The node's size, per-node because a module's UI decides it — dagre is told these and reserves the real space.
@@ -472,8 +478,17 @@ export function noteSize(text: string): { w: number; h: number } {
 
 /** How many clips a track node lists before it starts counting the rest instead. */
 export const CLIP_LIST_MAX = 6;
-const CLIP_ROW_H = 15;
-const CLIP_LIST_PAD = 6;
+/**
+ * One row, separator included — 15px of line plus the 1px rule above it (`.dgx-clip`).
+ *
+ * These two have to track the CSS in `DomChains`, because dagre is told the height here and
+ * draws nothing: a row taller than this reserves too little and the last clip spills out of the
+ * card. The first row has no rule, so the box is 1px of slack rather than 1px short — the
+ * harmless direction to be wrong in.
+ */
+const CLIP_ROW_H = 16;
+/** The list's bottom padding, plus the rule that separates it from the controls above. */
+const CLIP_LIST_PAD = 7;
 
 /**
  * The clip list of a TRACK node, and the extra height it needs — spread in beside its size.
