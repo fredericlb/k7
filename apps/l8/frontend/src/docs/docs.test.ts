@@ -19,6 +19,7 @@ import {
   ProjectFileSchema,
   SettingsSchema,
 } from "@studio/song/yaml/projectSchema";
+import { SurfaceSchema } from "@studio/song/yaml/surfaceSchema";
 import { TrackSchema } from "@studio/song/yaml/trackSchema";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -30,6 +31,7 @@ import { DOC_EXAMPLES } from "./examples";
 const SCHEMAS: Record<string, z.ZodType> = {
   ProjectFile: ProjectFileSchema,
   Settings: SettingsSchema,
+  Surface: SurfaceSchema,
   Track: TrackSchema,
   Clip: ClipSchema,
   Sequence: SequenceSchema,

@@ -36,7 +36,7 @@ import {
   type EngineLatency,
   formatLatency,
 } from "@studio/web-protocol/quality";
-import { Circle, Loader2, Pause, Play, Square, X } from "lucide-react";
+import { Circle, Disc3, Loader2, Pause, Play, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, moduleStore } from "./api";
 import { STUDIO_ICONS } from "./chainsIcons";
@@ -73,6 +73,7 @@ import { RecordingPane } from "./components/RecordingPane";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
+import { SurfaceTab } from "./components/SurfaceTab";
 import { TakeReview } from "./components/TakeReview";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
@@ -91,7 +92,9 @@ import {
 } from "./hooks/usePolls";
 import { useProjectDelete, useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
+import { useSurfaces } from "./hooks/useSurfaces";
 import { useTrackControls } from "./hooks/useTrackControls";
+import { useTurntableDeck } from "./hooks/useTurntableDeck";
 import { useLocale } from "./i18n";
 import {
   blurOnClick,
@@ -167,6 +170,14 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
+  /**
+   * Which SURFACE has the screen, by its filename, or null for the layout.
+   *
+   * Its own state rather than a `full` value, for the reason `RouteState.surface` gives: the
+   * list is the project's and is not knowable until one is open, so it cannot be a member of
+   * `Pane`. It behaves like `help` — over the layout, which is left exactly as it was underneath.
+   */
+  const [openSurface, setOpenSurface] = useState<string | null>(null);
   const [docSel, setDocSel] = useState<DocsSelection>(null);
   // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
   // full screen of its own (a code pane, a params list and a widget grid), and the shell's panes are
@@ -414,14 +425,27 @@ export default function App({
     pushLog,
   );
 
+  // The special views this PROJECT declares (`surfaces/`), and the engine as a desk sees it.
+  // Both are cheap and unconditional: a project with no surfaces gets an empty list, and the
+  // adapter is a memo over the link that is already there.
+  const { surfaces } = useSurfaces(reloadKey);
+  const turntableDeck = useTurntableDeck({
+    engineRef,
+    engineReady,
+    watchPluginParams,
+    pluginParamsStore,
+    engineUrl,
+  });
+
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
-    { view, full, panel, help: showHelp },
+    { view, full, panel, help: showHelp, surface: openSurface },
     useCallback((next) => {
       setView(next.view);
       setFull(next.full);
       setPanel(next.panel);
       setShowHelp(next.help);
+      setOpenSurface(next.surface);
     }, []),
   );
   const openHelp = useCallback(() => setShowHelp(true), []);
@@ -1830,6 +1854,34 @@ export default function App({
                     );
                   })}
                 </nav>
+                {/* One button per SURFACE the project declares, after the panes and before the
+                    menus. They are not panes — the list is the project's, not the shell's (see
+                    routes.ts) — so they get their own group rather than joining the row above.
+                    Nothing is drawn for a project with no `surfaces/` folder, which is nearly
+                    all of them. */}
+                {surfaces.length > 0 && (
+                  <nav className="flex items-center gap-1">
+                    {surfaces.map((s) => (
+                      <Button
+                        key={s.id}
+                        size="icon"
+                        variant={openSurface === s.id ? "default" : "ghost"}
+                        aria-pressed={openSurface === s.id}
+                        onClick={() =>
+                          setOpenSurface(openSurface === s.id ? null : s.id)
+                        }
+                        title={
+                          openSurface === s.id
+                            ? `${s.id} — revenir à la vue`
+                            : `${s.id} (${s.surface.type})`
+                        }
+                        aria-label={s.id}
+                      >
+                        <Disc3 className="h-4 w-4" />
+                      </Button>
+                    ))}
+                  </nav>
+                )}
                 <div className="mx-1 h-5 w-px bg-border" />
                 <ShareMenu
                   onStatus={setStatus}
@@ -2519,6 +2571,50 @@ export default function App({
             <HelpPage onBack={closeHelp} />
           </div>
         )}
+
+        {/* A SURFACE, over the layout. Same treatment as the help page and for the same reason:
+            it is a screen of its own, not a pane, and what was underneath is untouched — the
+            timeline keeps its caret and the graph its camera while a desk is up.
+
+            Mounted only while it is open, unlike the three panes. The invariant those obey is
+            about state that is expensive to rebuild and cheap to keep; a surface holds a compile
+            and a set list, and a project may declare several — keeping every one of them alive
+            behind the layout would be paying that for screens nobody has opened. */}
+        {openSurface &&
+          (() => {
+            const found = surfaces.find((s) => s.id === openSurface);
+            return (
+              <div className="fixed inset-0 z-50 flex flex-col bg-background">
+                <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+                  <Disc3 className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate text-sm">{openSurface}</span>
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    className="ml-auto"
+                    onClick={() => setOpenSurface(null)}
+                  >
+                    Fermer
+                  </Button>
+                </div>
+                {found ? (
+                  <SurfaceTab
+                    surface={found}
+                    deck={turntableDeck}
+                    project={ws?.activeProject ?? "."}
+                  />
+                ) : (
+                  // A deep link naming a surface this project has not got — `fromLocation`
+                  // deliberately does not check the id, since the list arrives after the shell.
+                  <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                    Aucune surface « {openSurface} » dans ce projet — cherchez
+                    un fichier{" "}
+                    <code className="mx-1">surfaces/{openSurface}.yaml</code>.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
         {/* "import this .dawproject?" — clicking one in the tree lands here */}
         <ImportDialog

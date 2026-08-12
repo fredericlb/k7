@@ -205,13 +205,19 @@ export const CUE_COLOURS = [
  * `align` is the sync's own delay, in document beats, and it shifts the whole clip — so it
  * shifts every cue with it, which is what keeps a cued deck cued after it has been beat-matched.
  */
-export function transportAt(source: number, tempo: DeckTempo | undefined): number {
+export function transportAt(
+  source: number,
+  tempo: DeckTempo | undefined,
+): number {
   const ratio = playRatio(tempo);
   return startSeconds(tempo) + source * ratio;
 }
 
 /** …and back, for the cue somebody drops while the deck is playing. */
-export function sourceAt(transport: number, tempo: DeckTempo | undefined): number {
+export function sourceAt(
+  transport: number,
+  tempo: DeckTempo | undefined,
+): number {
   const ratio = playRatio(tempo);
   return Math.max(0, (transport - startSeconds(tempo)) / ratio);
 }
@@ -276,10 +282,7 @@ export function slipAfter(
       (ratioOf(before.natural, before.target) -
         ratioOf(after.natural, after.target)) -
     (alignOf(after) - alignOf(before));
-  return Math.max(
-    (before.slip ?? 0) + moved,
-    -TIMELINE_BASE - alignOf(after),
-  );
+  return Math.max((before.slip ?? 0) + moved, -TIMELINE_BASE - alignOf(after));
 }
 
 /** The stretch, as a multiplier of the file's own clock. 1 when either end is unknown. */
@@ -398,7 +401,10 @@ export function withDecks(
     // The click is APPENDED, not declared: it is a desk control, not part of the set. The
     // project's own tracks are still the project's business, and it is the one track here
     // whose id `chains.yaml` never mentions.
-    tracks: [...compiled.tracks, metronomeTrack(click ? tempos[click] : undefined, !!click)].map((track) => {
+    tracks: [
+      ...compiled.tracks,
+      metronomeTrack(click ? tempos[click] : undefined, !!click),
+    ].map((track) => {
       const load = loads[track.id as DeckId];
       if (!load) return track;
       const tempo = tempos[track.id as DeckId];
@@ -449,53 +455,53 @@ export function deckDoc(
     // tracks has to learn about a control that is not one of them.
     tracks: [
       ...DECKS.map((deck) => {
-      const load = loads[deck];
-      const warp = tempos[deck] && warpFor(tempos[deck]);
-      return trackDoc(deck, {
-        name: load ? load.title : deck,
-        clips: load
-          ? [
-              clipDoc({
-                id: `${deck}-clip`,
-                type: "audio",
-                name: load.title,
-                source: load.path,
-                start: clipStartBeats(tempos[deck]),
-                // Both or neither: the markers say how the source maps onto the timeline and
-                // `length` says how much timeline it takes. Warping without the length would
-                // leave the clip claiming its unstretched span.
-                ...(warp
-                  ? {
-                      warp: {
-                        algorithm: warp.algorithm,
-                        markers: warp.markers,
-                      },
-                      length: warp.beats,
-                    }
-                  : {}),
-              }),
-            ]
-          : [],
-        // The deck's own effects first, then the level LAST — a strip is the end of a chain,
-        // so a module added to a deck is heard before the crossfader touches it.
-        plugins: [
-          ...(modules[deck] ?? []).map((m) => {
-            const { type, name } = enginePlugin(m.plugin, m.name);
-            return pluginDoc({
-              id: `${deck}:${m.name}`,
-              type,
-              name,
-              enabled: m.enabled,
-            });
-          }),
-          pluginDoc({
-            id: levelId(deck),
-            type: MIXER_PLUGIN,
-            name: `${deck} level`,
-            params: { Volume: gainToDb(deckGain(deck, mix)) },
-          }),
-        ],
-      });
+        const load = loads[deck];
+        const warp = tempos[deck] && warpFor(tempos[deck]);
+        return trackDoc(deck, {
+          name: load ? load.title : deck,
+          clips: load
+            ? [
+                clipDoc({
+                  id: `${deck}-clip`,
+                  type: "audio",
+                  name: load.title,
+                  source: load.path,
+                  start: clipStartBeats(tempos[deck]),
+                  // Both or neither: the markers say how the source maps onto the timeline and
+                  // `length` says how much timeline it takes. Warping without the length would
+                  // leave the clip claiming its unstretched span.
+                  ...(warp
+                    ? {
+                        warp: {
+                          algorithm: warp.algorithm,
+                          markers: warp.markers,
+                        },
+                        length: warp.beats,
+                      }
+                    : {}),
+                }),
+              ]
+            : [],
+          // The deck's own effects first, then the level LAST — a strip is the end of a chain,
+          // so a module added to a deck is heard before the crossfader touches it.
+          plugins: [
+            ...(modules[deck] ?? []).map((m) => {
+              const { type, name } = enginePlugin(m.plugin, m.name);
+              return pluginDoc({
+                id: `${deck}:${m.name}`,
+                type,
+                name,
+                enabled: m.enabled,
+              });
+            }),
+            pluginDoc({
+              id: levelId(deck),
+              type: MIXER_PLUGIN,
+              name: `${deck} level`,
+              params: { Volume: gainToDb(deckGain(deck, mix)) },
+            }),
+          ],
+        });
       }),
       metronomeTrack(click ? tempos[click] : undefined, !!click),
     ],
@@ -527,10 +533,13 @@ export function metronomeDeck(
   master: DeckId | null,
 ): DeckId | null {
   const on = DECKS.filter((d) => loads[d]);
-  const deck = on.length === 1 ? on[0] : master && loads[master] ? master : null;
+  const deck =
+    on.length === 1 ? on[0] : master && loads[master] ? master : null;
   if (!deck) return null;
   const t = tempos[deck];
-  return t && t.natural > 0 && t.target > 0 && t.phase !== undefined ? deck : null;
+  return t && t.natural > 0 && t.target > 0 && t.phase !== undefined
+    ? deck
+    : null;
 }
 
 /**
@@ -600,7 +609,10 @@ function clickBar(tempo: DeckTempo): ClipDoc {
   const beat = DOC_TEMPO / tempo.target;
   const from = transportAt(tempo.phase ?? 0, tempo);
   // To the end of the song and no further, so the click stops when the record does.
-  const span = Math.max(beat, toBeats(transportAt(tempo.seconds, tempo) - from));
+  const span = Math.max(
+    beat,
+    toBeats(transportAt(tempo.seconds, tempo) - from),
+  );
   return clipDoc({
     id: `${METRONOME_TRACK}-clip`,
     type: "midi",
@@ -650,7 +662,15 @@ export function pushCrossfade(engine: EngineClient, mix: number): void {
  * document to the other is itself a diff, not a reload.
  */
 export function sendDecks(
-  engine: EngineClient,
+  /**
+   * WHERE the document goes — `Deck.sendProject`, not an engine client.
+   *
+   * The two hosts disagree about who may write to an engine: m9's browser is the only writer
+   * and sends straight out of its socket, while l8's file service is the only writer and takes
+   * the document over a route. Taking a client here would have hardcoded m9's answer, which is
+   * exactly the bug this parameter replaced — two writers for one engine, last one wins.
+   */
+  send: (doc: ProjectDoc) => void,
   loads: DeckLoads,
   mix: number,
   modules?: Partial<Record<DeckId, DeckModule[]>>,
@@ -658,7 +678,7 @@ export function sendDecks(
   compiled?: ProjectDoc | null,
   click: DeckId | null = null,
 ): void {
-  engine.sendProject(
+  send(
     compiled
       ? withDecks(compiled, loads, tempos, click)
       : deckDoc(loads, mix, modules, tempos, click),
@@ -711,7 +731,10 @@ export function nudgedTempos(
 ): DeckTempos {
   if (!faders[deck]) return faders;
   const before = syncedTempos(faders, master);
-  const moved: DeckTempos = { ...faders, [deck]: { ...faders[deck], target: bpm } };
+  const moved: DeckTempos = {
+    ...faders,
+    [deck]: { ...faders[deck], target: bpm },
+  };
   const after = syncedTempos(moved, nextMaster);
   const out: DeckTempos = { ...moved };
   // BOTH decks, not just the one under the hand: a synced slave is handed the master's number,

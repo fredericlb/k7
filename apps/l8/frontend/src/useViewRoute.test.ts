@@ -18,6 +18,7 @@ const GLOBAL: RouteState = {
   full: null,
   panel: null,
   help: false,
+  surface: null,
 };
 
 /** One commit. Returns the state after it and the URL it wrote (null = none). */

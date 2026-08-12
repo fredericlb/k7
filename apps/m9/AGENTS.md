@@ -6,9 +6,15 @@ It was `platines` until the rename, and the decks are still what Mix draws.
 
 Dev ports: **frontend 5225, backend 8796**, served at `https://st0.priv.frediver.se/m9`.
 
+**The desk itself is no longer here.** Two turntables, their strips, the waveforms, the cues and
+the set list are `@studio/ui-turntables` — l8 draws the same desk as a `surfaces/` view, which is
+the same reason `ui-chains` left. What stayed is how m9 *gets an engine* (`useEngine`, the
+registry, the lease): that is the package's one seam, and it never named m9. Read that package's
+[docs/hosting.md](../../packages/ui-turntables/docs/hosting.md) before changing either side.
+
 | workspace | role |
 |---|---|
-| `frontend` (`m9-frontend`) | React + Vite. The project shell, the file tree, the editor, the chains graph — and the decks, under Mix. |
+| `frontend` (`m9-frontend`) | React + Vite. The project shell, the file tree, the editor, the chains graph — and the engine link the shared desk runs on, under Mix. |
 | `backend` (`m9-backend`) | Express — OIDC auth, **this service's** engine registry, and which machine the account works from. No file routes, no media. |
 
 Read `docs/views.md` first: what each view is, why Mix is still the decks, and what m9

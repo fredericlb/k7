@@ -6,6 +6,7 @@ const st = (o: Partial<RouteState> = {}): RouteState => ({
   full: null,
   panel: null,
   help: false,
+  surface: null,
   ...o,
 });
 
@@ -29,6 +30,26 @@ describe("toPath", () => {
     );
     expect(toPath(st({ help: true, panel: "docs" }))).toBe("/docs?panel=docs");
   });
+
+  it("names an open surface", () => {
+    expect(toPath(st({ surface: "desk" }))).toBe("/surface/desk");
+    expect(toPath(st({ surface: "desk", panel: "logs" }))).toBe(
+      "/surface/desk?panel=logs",
+    );
+  });
+
+  it("stacks help over a surface over a pane", () => {
+    // The URL names the TOPMOST screen, because that is the one you are looking at. Getting
+    // this order wrong writes an address that restores something else on reload.
+    expect(toPath(st({ surface: "desk", full: "timeline" }))).toBe(
+      "/surface/desk",
+    );
+    expect(toPath(st({ help: true, surface: "desk" }))).toBe("/docs");
+  });
+
+  it("escapes a surface id that needs it", () => {
+    expect(toPath(st({ surface: "a b" }))).toBe("/surface/a%20b");
+  });
 });
 
 describe("fromLocation", () => {
@@ -39,6 +60,8 @@ describe("fromLocation", () => {
       st({ full: "chains", panel: "graph" }),
       st({ help: true }),
       st({ panel: "logs" }),
+      st({ surface: "desk" }),
+      st({ surface: "a b", panel: "graph" }),
     ]) {
       const path = toPath(s);
       const [pathname, search] = path.split("?");
@@ -69,6 +92,26 @@ describe("fromLocation", () => {
     expect(fromLocation("/timeline/", "", "global").full).toBe("timeline");
     // `/video` was a real address until picture left for v1; it still lands somewhere usable.
     expect(fromLocation("//video//", "", "global")).toEqual(st());
+  });
+
+  it("reads a surface id WITHOUT checking it exists", () => {
+    // Deliberate: the project's surfaces arrive a moment after the shell does, so an address
+    // that was validated here would parse to "no surface" on every deep link and quietly drop
+    // you on the layout. The screen resolves it once the list lands, and says so if there is
+    // no such file.
+    expect(fromLocation("/surface/desk", "", "global").surface).toBe("desk");
+    expect(fromLocation("/surface/nope", "", "global").surface).toBe("nope");
+    expect(fromLocation("/surface/a%20b", "", "global").surface).toBe("a b");
+  });
+
+  it("is not a surface without an id", () => {
+    expect(fromLocation("/surface/", "", "global")).toEqual(st());
+    expect(fromLocation("/surface", "", "global")).toEqual(st());
+  });
+
+  it("keeps a hand-typed % that is not an escape", () => {
+    // Same rule `parseLaunch` follows: keep it rather than throwing on an address someone typed.
+    expect(fromLocation("/surface/100%", "", "global").surface).toBe("100%");
   });
 });
 

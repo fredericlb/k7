@@ -1,13 +1,17 @@
 // mixView.ts — reading the project's `views/mix.yaml`. Its own file because the desk and the
 // hook that owns the decks both need it, and neither should have to import the other.
 
+// The shared file routes, direct. m9 reached them through its own `api.ts`, which was one line
+// re-exporting exactly this — "m9 is l8 without the timeline, not a second dialect of the same
+// file service". With the desk in a package there is no app to go through, and the indirection
+// would have been a seam over something that was already shared.
+import { projectApi as api } from "@studio/project-shell/project";
 import {
   MIX_VIEW_BASE,
   parseMixView,
   VIEWS_DIR,
 } from "@studio/song/yaml/mixViewFile";
 import type { MixView } from "@studio/song/yaml/mixViewSchema";
-import { api } from "./api";
 
 /** The bindings file, project-relative. Named once — the name is @studio/song's. */
 export const MIX_VIEW_FILE = `${VIEWS_DIR}/${MIX_VIEW_BASE}.yaml`;

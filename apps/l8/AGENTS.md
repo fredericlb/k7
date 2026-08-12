@@ -88,6 +88,14 @@ which is what lets the editor be restyled into a popin without losing its undo h
 views: `global` (the timeline over the chains graph) and `live` (the graph alone). `full` sits on
 top of a view to fullscreen one pane.
 
+**A project may declare SURFACES.** An optional `surfaces/` folder, one file per special view —
+`type` (only `turntables` so far: m9's desk, from `@studio/ui-turntables`), `layout` (only
+`view`), and a `mapping` saying which module each of its components moves. Each gets a button at
+the top right and takes the screen like the help page: a `RouteState.surface`, **not** a `Pane`,
+because the list is the project's and a union could not name it. A component with no mapping is
+reported on the surface itself, not by refusing the project. Read
+`packages/song/docs/surfaces.md`.
+
 **`view` is the one piece of screen state nobody chooses.** It is what the open PROJECT is —
 `project.yaml`'s `project_type`, `arrangement` or `live` — and a live project has no timeline at
 all, so the transport, the minimap and the pane buttons go with it. `VIEW_PANES` in `src/routes.ts`

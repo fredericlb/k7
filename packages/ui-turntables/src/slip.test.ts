@@ -15,7 +15,11 @@ import {
   transportAt,
 } from "./deck";
 
-const deck = (natural: number, target: number, extra: Partial<DeckTempo> = {}): DeckTempo => ({
+const deck = (
+  natural: number,
+  target: number,
+  extra: Partial<DeckTempo> = {},
+): DeckTempo => ({
   natural,
   seconds: 300,
   target,
@@ -34,7 +38,9 @@ describe("the slip a tempo change takes on", () => {
     const at = heard(before, transport);
     expect(at).toBeCloseTo(60);
 
-    const after = deck(120, 129.6, { slip: slipAfter(before, deck(120, 129.6), at) });
+    const after = deck(120, 129.6, {
+      slip: slipAfter(before, deck(120, 129.6), at),
+    });
     expect(heard(after, transport)).toBeCloseTo(at, 6);
   });
 
@@ -42,7 +48,9 @@ describe("the slip a tempo change takes on", () => {
     const before = deck(120, 120);
     const transport = TIMELINE_BASE + 60;
     const at = heard(before, transport);
-    const after = deck(120, 110.4, { slip: slipAfter(before, deck(120, 110.4), at) });
+    const after = deck(120, 110.4, {
+      slip: slipAfter(before, deck(120, 110.4), at),
+    });
     expect(heard(after, transport)).toBeCloseTo(at, 6);
     // Slowing down needs the clip EARLIER — the one reason the timeline has headroom at all.
     expect(after.slip).toBeLessThan(0);
@@ -72,11 +80,13 @@ describe("the slip a tempo change takes on", () => {
     const truth = heard(before, transport);
     const stale = truth - 0.05; // 50 ms behind: one push of the engine's state
 
-    const honest = deck(120, 121, { slip: slipAfter(before, deck(120, 121), truth) });
-    const guessed = deck(120, 121, { slip: slipAfter(before, deck(120, 121), stale) });
-    const off = Math.abs(
-      heard(guessed, transport) - heard(honest, transport),
-    );
+    const honest = deck(120, 121, {
+      slip: slipAfter(before, deck(120, 121), truth),
+    });
+    const guessed = deck(120, 121, {
+      slip: slipAfter(before, deck(120, 121), stale),
+    });
+    const off = Math.abs(heard(guessed, transport) - heard(honest, transport));
     expect(off).toBeLessThan(0.001); // under a millisecond, from 50 ms of staleness
   });
 
@@ -153,7 +163,14 @@ describe("moving one fader", () => {
   });
 
   it("does nothing at all for a deck with no song on it", () => {
-    const out = nudgedTempos({ deckA: undefined }, null, null, "deckA", 126, sourceOf);
+    const out = nudgedTempos(
+      { deckA: undefined },
+      null,
+      null,
+      "deckA",
+      126,
+      sourceOf,
+    );
     expect(out.deckA).toBeUndefined();
   });
 
@@ -164,7 +181,10 @@ describe("moving one fader", () => {
     const out = nudgedTempos(faders, null, null, "deckA", 126, () => 60);
     const t = out.deckA as DeckTempo;
     const effective = { ...t, target: 126 };
-    expect(sourceAt(transportAt(cue, effective), effective)).toBeCloseTo(cue, 6);
+    expect(sourceAt(transportAt(cue, effective), effective)).toBeCloseTo(
+      cue,
+      6,
+    );
   });
 });
 

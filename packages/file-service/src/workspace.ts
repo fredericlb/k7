@@ -79,6 +79,7 @@ import type { ProjectMode } from "@studio/song/projectMode";
 import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import { isInSharedModules } from "@studio/song/sharedFolders";
+import { projectSurfaces, surfaceIssues } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
 import { loadVideoProject } from "@studio/song/videoProject";
@@ -1578,6 +1579,10 @@ export class Workspace {
           // either way — the two signals feed different readers — which is exactly why it
           // has to be said out loud rather than left for the day someone trusts the file.
           ...projectTypeIssues(dir),
+          // A `surfaces/` file that will not read. The folder is optional and its absence is
+          // silent, but a surface that is THERE and malformed draws nothing — and a blank
+          // screen where a desk should be says less than the line that would not parse.
+          ...surfaceIssues(dir),
         ],
       };
     } catch (e) {
@@ -1686,6 +1691,18 @@ export class Workspace {
    */
   private graphCache: { dir: string; rev: string; graph: WebGraph } | null =
     null;
+
+  /**
+   * The project's declared surfaces, parsed, with whatever would not read.
+   *
+   * Not cached, unlike the graph beside it: a project has none or a handful of small files, so
+   * the walk is nothing, and a surface is edited exactly while somebody is looking at it — a
+   * cache keyed on the revision would be right and would still be a thing to get wrong for no
+   * measurable gain.
+   */
+  surfaces(): ReturnType<typeof projectSurfaces> {
+    return projectSurfaces(this.requireActive());
+  }
 
   graphDoc(): WebGraph {
     const dir = this.requireActive();

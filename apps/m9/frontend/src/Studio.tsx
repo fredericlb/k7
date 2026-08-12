@@ -20,6 +20,8 @@ import { ProjectTakenOver } from "@studio/project-shell/gate";
 import { projectsUrl } from "@studio/project-shell/launch";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
+import { MixView } from "@studio/ui-turntables";
+import { useDeckSet } from "@studio/ui-turntables/deck-set";
 import type {
   FileNode,
   GitStatus,
@@ -40,12 +42,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { DEFAULT_VIEW, type RouteState, type ViewId } from "./routes";
-import { useDeckSet } from "./useDeckSet";
 import { useEngine } from "./useEngine";
 import { useViewRoute } from "./useViewRoute";
 import { EditView } from "./views/EditView";
 import { GraphView } from "./views/GraphView";
-import { MixView } from "./views/MixView";
 
 const VIEWS: { id: ViewId; label: string; icon: typeof Pencil }[] = [
   { id: "mix", label: "Mix", icon: SlidersHorizontal },

@@ -5,10 +5,10 @@
 import type { WebGraph } from "@studio/graph-model";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { type Cam, DomChains } from "@studio/ui-chains-react";
+import { M9_ICONS } from "@studio/ui-turntables/chains";
+import type { DeckSet } from "@studio/ui-turntables/deck-set";
 import { Loader2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { M9_ICONS } from "../chains";
-import type { DeckSet } from "../useDeckSet";
 import type { Deck } from "../useEngine";
 
 export function GraphView({

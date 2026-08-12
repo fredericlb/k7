@@ -130,7 +130,11 @@ function gridIn(
   // them all, and sync aligns against the same number — so what you see is what you hear.
   const anchor = beatPhase(env.transients, env.bpm).phase;
   const out: number[] = [];
-  for (let t = firstBeatAfter(from, anchor, period); out.length < max; t += period) {
+  for (
+    let t = firstBeatAfter(from, anchor, period);
+    out.length < max;
+    t += period
+  ) {
     if (t > to) break;
     if (t >= 0) out.push(t);
   }

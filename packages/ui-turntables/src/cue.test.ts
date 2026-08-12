@@ -73,7 +73,12 @@ describe("where a cue lands on the transport", () => {
   it("carries the SLIP too, so a fader that moved does not move the cues", () => {
     // The slip is where the pitch fader has already carried this deck. A cue that ignored it
     // would drift by exactly as much as the deck had been nudged — on the deck being nudged.
-    const t: DeckTempo = { natural: 120, seconds: 300, target: 120, slip: -2.5 };
+    const t: DeckTempo = {
+      natural: 120,
+      seconds: 300,
+      target: 120,
+      slip: -2.5,
+    };
     expect(transportAt(60, t)).toBeCloseTo(on(57.5));
     expect(sourceAt(on(57.5), t)).toBeCloseTo(60);
   });

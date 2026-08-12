@@ -20,6 +20,7 @@
   "dependencies": {
     "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",
+    "@studio/song": "*",
     "@studio/web-protocol": "*",
     "lucide-react": "^1.24.0"
   },

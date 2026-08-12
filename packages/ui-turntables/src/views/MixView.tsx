@@ -8,8 +8,6 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import type { RankedEngine } from "@studio/engine-browser/probe";
-import type { PublicEngine } from "@studio/web-protocol";
 import {
   AudioLines,
   Headphones,
@@ -27,6 +25,7 @@ import {
   MIX_CENTRE,
   sourceAt,
 } from "../deck";
+import type { Deck, Playhead } from "../engine";
 import { MIX_VIEW_FILE, SONGS_FILE } from "../mixView";
 import {
   cacheRelPath,
@@ -37,7 +36,6 @@ import {
 } from "../service";
 import { resolveSet, type SetEntry, type SetList } from "../setList";
 import type { DeckSet } from "../useDeckSet";
-import { type Playhead, type Deck } from "../useEngine";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { ChannelStrip } from "./ChannelStrip";
@@ -63,8 +61,17 @@ export function MixView({
   deck,
   set: decks,
 }: {
-  engine: RankedEngine<PublicEngine>;
-  /** The engine link, held by Studio so both views share one. */
+  /**
+   * WHERE the chosen machine's file service is — the one thing this view wants from an engine
+   * that is not on `deck`.
+   *
+   * Narrowed to the one field when l8 became the second host. It was `RankedEngine<PublicEngine>`
+   * and used for exactly this, on one line: `fileLink(engine)`. A prop that asked for a whole
+   * probe reply would have forced any host without one to fabricate the other fifteen fields,
+   * which is the difference between a seam and a shape m9 happened to have.
+   */
+  engine: { fileBase: string | null };
+  /** The engine link, held by the host so every view shares one. */
   deck: Deck;
   /** The decks as a document — everything this view shows and every gesture it forwards. */
   set: DeckSet;
@@ -181,7 +188,10 @@ export function MixView({
       {/* Anything wrong, across the top. It used to sit in the middle column with the set
           list; the list has gone to the record's own browser, and a fault is not something to
           hide in a column that no longer exists. */}
-      {error || decks.deskError || set?.issues.length || decks.problems.length ? (
+      {error ||
+      decks.deskError ||
+      set?.issues.length ||
+      decks.problems.length ? (
         <div className="flex shrink-0 flex-col gap-2 px-4 pt-4">
           {/* This view's own trouble — the catalogue, a song with no audio — and the DESK's,
               which the deck document raises and which outlives this tab. Two sources, one card
@@ -295,19 +305,25 @@ export function MixView({
         />
 
         {/* Off by default: the sound already comes out of the machine's interface, so this
-            doubles it. On a laptop with no monitors it is the only way to hear anything. */}
-        <label
-          className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"
-          title="Le son sort déjà de l'interface de cette machine. Cochez pour l'entendre aussi dans cet onglet."
-        >
-          <input
-            type="checkbox"
-            checked={deck.listening}
-            onChange={(e) => deck.setListening(e.target.checked)}
-          />
-          <Headphones className="h-4 w-4" />
-          Écouter ici
-        </label>
+            doubles it. On a laptop with no monitors it is the only way to hear anything.
+
+            Absent entirely for a host with no stream player — see `Deck.setListening`. A
+            checkbox that cannot be honoured is worse than no checkbox: it says the sound could
+            be here, and the only thing it changes is your confidence about why it is not. */}
+        {deck.setListening && (
+          <label
+            className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"
+            title="Le son sort déjà de l'interface de cette machine. Cochez pour l'entendre aussi dans cet onglet."
+          >
+            <input
+              type="checkbox"
+              checked={!!deck.listening}
+              onChange={(e) => deck.setListening?.(e.target.checked)}
+            />
+            <Headphones className="h-4 w-4" />
+            Écouter ici
+          </label>
+        )}
 
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="w-4 shrink-0 text-center text-sm font-semibold">

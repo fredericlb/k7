@@ -161,7 +161,8 @@ describe("the bar lines", () => {
     // is taken as a downbeat and every fourth after it follows.
     const bars = barsIn(env(), 0, 8);
     expect(bars).toHaveLength(5); // 0, 2, 4, 6, 8
-    for (const [i, b] of bars.entries()) expect(b).toBeCloseTo(i * BEATS_PER_BAR * 0.5, 6);
+    for (const [i, b] of bars.entries())
+      expect(b).toBeCloseTo(i * BEATS_PER_BAR * 0.5, 6);
   });
 
   it("sits ON beats, never between them", () => {

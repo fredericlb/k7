@@ -60,6 +60,42 @@ markers:
   "13:1:1": chorus
 ```
 
+## surfaces/&lt;name&gt;.yaml
+
+**Optional, and most projects have none.** A surface is a special view the project asks the
+editor to draw — a desk of controls wired to the modules in your chains. One file per surface;
+the filename names it, and it gets a button at the top right of the screen.
+
+```yaml schema=Surface
+# What draws it. `turntables` is m9's desk: two decks meeting at a crossfade,
+# with a channel strip each. It is the only type so far, and an unknown one is
+# refused rather than opening onto a blank screen.
+type: turntables
+
+# Where it goes. `view` means a screen of its own, reached from the header —
+# the only layout so far. It is a separate line from `type` because the same
+# desk could one day be a panel instead.
+layout: view
+
+# What each of its components moves. Same shape as `views/mix.yaml`: the
+# control's id, then the module the CHAINS file names and the param as the
+# module's `ui.yaml` binds it.
+#
+# A component with no line here is not an error in the file — the view says so
+# on screen instead, next to the control that cannot do anything:
+# « Le composant deckA.eqLow de cette vue n'est pas mappé à un module ».
+#
+# Required: `crossfade`, and per deck `tempo`, `eqLow`, `eqMid`, `eqHigh` and
+# `filter`. Not `transport`, `sync` or `listen` — those are actions, not params.
+mapping:
+  crossfade: { module: crossfade, param: Mix }
+  deckA.tempo: { module: tempoA, param: Target BPM }
+  deckA.eqLow: { module: eqA, param: Low }
+```
+
+A `turntables` surface plays a **set**: a `songs.yaml` at the project root naming médiathèque
+songs, exactly as an m9 set does.
+
 ## settings.yaml
 
 Session preferences that belong to the SONG rather than to the machine — what should follow the folder into git. Open-ended: unknown keys are kept, not rejected.

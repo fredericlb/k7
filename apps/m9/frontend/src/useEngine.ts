@@ -5,80 +5,22 @@
 import { EngineClient } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";
 import type { RankedEngine } from "@studio/engine-browser/probe";
-import type { ClaimLostReason } from "@studio/engine-browser/registry";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { parseLaunch, projectClaimKey } from "@studio/project-shell/launch";
+import type { Deck, Phase, Playhead } from "@studio/ui-turntables/engine";
 import type { PublicEngine } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentUser, engines } from "./api";
 
-export type Phase =
-  | { k: "looking" }
-  | { k: "absent" }
-  // The claim is gone. Terminal: the deck stops driving and says WHICH of the three happened.
-  | { k: "taken"; heldBy: string; why: ClaimLostReason; tookFor: string | null }
-  | { k: "ready"; id: string };
-
-/** The transport's position, and the moment it was heard — see the note where it is set. */
-export interface Playhead {
-  seconds: number;
-  /** `performance.now()` when this arrived, so a redraw can extrapolate between pushes. */
-  at: number;
-}
-
-export interface Deck {
-  phase: Phase;
-  playing: boolean;
-  /** Where the transport is, as a REF. Deliberately not state: read it in an animation
-   *  frame, do not render from it. */
-  playhead: React.RefObject<Playhead>;
-  engine: EngineClient | null;
-  retry: () => void;
-  /** Hear in this browser what the engine's interface is putting out. Off by default: the
-   *  sound is already coming out of the machine, so the tab would double it. */
-  listening: boolean;
-  setListening: (on: boolean) => void;
-  /** Underruns and buffer depth, once listening — the numbers étape 7 exists to expose. */
-  listenStats: { depth: number; underruns: number };
-  /**
-   * Every WATCHED plugin's live parameter values — the desk and the graph read the SAME one.
-   *
-   * They used to read nothing and their own state respectively, so moving a knob in Mix left
-   * the graph drawing the value the file declared: not stale, but never true in the first
-   * place. The engine is the only thing that knows what a plugin is set to, and it reports it
-   * whichever surface did the setting, so one store fed from it is what keeps two pictures of
-   * one plugin from disagreeing.
-   *
-   * An external store rather than state on purpose: while a plugin is watched the values
-   * arrive as fast as they move, and a `setState` per frame would re-render the whole app to
-   * turn one knob. Only what draws a value subscribes.
-   */
-  params: PluginParamsStore;
-  /**
-   * Watch exactly these plugins, and stop watching anything else.
-   *
-   * Called with the ids the project actually compiled, so the feed costs what the screen
-   * shows. Watching is what makes the engine report a value at all — without it a knob draws
-   * the file's number for ever.
-   */
-  watchParams: (ids: readonly string[]) => void;
-  /**
-   * What each `offline` module is set to — by MODULE name, since it has no plugin id.
-   *
-   * The tempo's other half. `deck.params` cannot carry it: the compiler emits no plugin for an
-   * offline module, so the engine has nothing to report and no address to report it under. The
-   * value only exists on the surface that REALISES the module — the desk, which turns it into
-   * a clip warp — so the desk lends it here and the graph borrows it.
-   *
-   * On the Deck rather than in MixView because MixView is unmounted exactly when the graph is
-   * on screen, which is the only moment the graph needs to read it.
-   */
-  moduleParams: Record<string, Record<string, number>>;
-  /** Publish one — called by whichever surface owns the value. */
-  setModuleParam: (module: string, name: string, value: number) => void;
-}
+// `Phase`, `Playhead` and `Deck` moved to @studio/ui-turntables/engine when the desk did.
+// They are the SEAM — what the desk needs from an engine — and nothing in them ever named m9:
+// the registry, the session and the lease are how this app OBTAINS one, which is the half that
+// differs between hosts and the half that stayed here. Re-exported so m9's own imports of them
+// are unchanged, and because this file is still where m9's engine comes from.
+export type { Deck, Phase, Playhead } from "@studio/ui-turntables/engine";
 
 export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
   const [phase, setPhase] = useState<Phase>({ k: "looking" });
@@ -222,6 +164,12 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     playing,
     playhead,
     engine: engine.current,
+    // m9's browser is the ONLY thing that ever hands this engine a document, so the desk's
+    // document goes straight out of the socket — which is what it always did. l8 answers this
+    // differently because its file service loads the project itself; see `Deck.sendProject`.
+    sendProject: useCallback((doc: ProjectDoc) => {
+      engine.current?.sendProject(doc);
+    }, []),
     retry: useCallback(() => setAttempt((n) => n + 1), []),
     listening,
     setListening: setListen,

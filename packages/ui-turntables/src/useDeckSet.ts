@@ -5,23 +5,23 @@
 import { usePluginParams } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
+import { projectApi as api } from "@studio/project-shell/project";
+import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import {
   parseSongs,
   songMarkers,
   withMarkers,
 } from "@studio/song/yaml/songsFile";
-import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
 import {
+  DECKS,
   type DeckId,
   type DeckLoads,
   type DeckTempo,
   type DeckTempos,
-  DECKS,
   EQ_BANDS,
-  metronomeDeck,
   MIX_CENTRE,
+  metronomeDeck,
   NO_LOADS,
   nudgedTempos,
   pushCrossfade,
@@ -31,6 +31,7 @@ import {
   TIMELINE_BASE,
   transportAt,
 } from "./deck";
+import type { Deck } from "./engine";
 import {
   type BindingProblem,
   controlDriving,
@@ -49,7 +50,6 @@ import {
   SONGS_FILE,
   writeSongsText,
 } from "./mixView";
-import type { Deck } from "./useEngine";
 
 /**
  * How often a tempo may reach the engine WHILE a control is moving.
@@ -175,6 +175,18 @@ export function useDeckSet(
   graph: WebGraph | null,
   /** The file service's change token — refetch the compile when the project moves on disk. */
   rev: string,
+  /**
+   * The bindings, when the HOST already holds them — an l8 surface, whose mapping is in
+   * `surfaces/<id>.yaml` and which has no `views/mix.yaml` to find.
+   *
+   * Passed rather than read, because the two hosts keep the same map in different files and
+   * only the host knows which. m9 passes nothing and the read below stays exactly what it was.
+   *
+   * **Keep its identity stable** — it is an effect dependency, so a fresh object every render
+   * would refetch the compile every render. Both callers hold it in state, which is what makes
+   * that free; a caller building one inline must `useMemo` it.
+   */
+  mapping?: MixViewFile,
 ): DeckSet {
   const [loads, setLoads] = useState<DeckLoads>(NO_LOADS);
   const [faders, setFaders] = useState<DeckTempos>({});
@@ -201,7 +213,9 @@ export function useDeckSet(
   useEffect(() => {
     let stop = false;
     void (async () => {
-      const v = await readMixView(project);
+      // The host's own map wins, and skips the read entirely: there is no `views/mix.yaml` in
+      // an l8 song, and asking for one would be a 404 on every reload of a surface.
+      const v = mapping ?? (await readMixView(project));
       const songs = await readSongsText(project);
       const doc = await api.engineDoc().catch(() => null);
       if (stop) return;
@@ -212,7 +226,7 @@ export function useDeckSet(
     return () => {
       stop = true;
     };
-  }, [project, rev]);
+  }, [project, rev, mapping]);
 
   const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
   const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
@@ -285,10 +299,14 @@ export function useDeckSet(
 
   const commit = useCallback(
     (next: DeckTempos = latest.current, on: DeckLoads = loadsRef.current) => {
+      // `deck.engine` is still the readiness guard — a link the host has not got yet means an
+      // engine with nothing loaded, and a document sent into that is one nobody diffs against.
+      // What it is NOT any more is the route: `sendProject` is, and only the host knows whether
+      // that is its own socket or its file service. See `Deck.sendProject`.
       if (deck.engine)
-        sendDecks(deck.engine, on, mix, undefined, next, compiled, click);
+        sendDecks(deck.sendProject, on, mix, undefined, next, compiled, click);
     },
-    [deck.engine, mix, compiled, click],
+    [deck.engine, deck.sendProject, mix, compiled, click],
   );
   const commitRef = useRef(commit);
   commitRef.current = commit;
@@ -478,7 +496,9 @@ export function useDeckSet(
       void writeSongsText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would leave
         // a cue that is there until the next reload and then is not.
-        setDeskError(`le repère n'a pas pu être écrit dans ${SONGS_FILE} : ${e.message}`),
+        setDeskError(
+          `le repère n'a pas pu être écrit dans ${SONGS_FILE} : ${e.message}`,
+        ),
       );
     },
 
@@ -504,8 +524,7 @@ export function useDeckSet(
       // to its top.
       if (empty && deck.engine) deck.engine.seek(TIMELINE_BASE);
     },
-    clearTempo: (deckId) =>
-      setFaders((f) => ({ ...f, [deckId]: undefined })),
+    clearTempo: (deckId) => setFaders((f) => ({ ...f, [deckId]: undefined })),
     measured: (deckId, tempo) => {
       const merged = { ...fadersRef.current, [deckId]: tempo };
       setFaders(merged);

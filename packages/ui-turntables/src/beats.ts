@@ -64,7 +64,7 @@ export function beatPhase(
   }
   const strength = Math.hypot(x, y) / transients.length;
   // atan2 gives (-π, π]; the grid is a position in [0, period), so bring it round.
-  let phase = (((Math.atan2(y, x) / (2 * Math.PI)) * period + period) % period);
+  let phase = ((Math.atan2(y, x) / (2 * Math.PI)) * period + period) % period;
   // A grid that starts ON zero answers a hair either side of it, and a hair BELOW wraps to a
   // whole period — the same grid, described as maximally late. Snapping it back matters
   // because that number becomes a clip's `start`: a beat of silence at the top of a deck,
