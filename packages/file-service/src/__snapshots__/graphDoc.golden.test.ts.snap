@@ -19,6 +19,23 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
           "module": "kit",
           "params": {},
           "pluginId": "beat:kit",
+          "rack": [
+            {
+              "clip": "<abs>",
+              "note": 36,
+              "symbol": "BD",
+            },
+            {
+              "clip": "<abs>",
+              "note": 42,
+              "symbol": "HH",
+            },
+            {
+              "clip": "<abs>",
+              "note": 38,
+              "symbol": "SN",
+            },
+          ],
           "stub": false,
         },
       ],

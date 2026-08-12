@@ -14,6 +14,8 @@ import {
   NODE_MIN_W,
   NODE_W,
   nodeSize,
+  rackBindSymbol,
+  rackUI,
   spaceModulesEvenly,
   subgraphForTrack,
   trackModules,
@@ -1317,5 +1319,90 @@ describe("moduleRow width scale", () => {
     expect(moduleRow(one, ["mx-vox"]).nodes[0].w).toBe(
       moduleRow(one, ["mx-vox"], { widthScale: 1 }).nodes[0].w,
     );
+  });
+});
+
+describe("a RACK node draws its sounds", () => {
+  const kit = [
+    { symbol: "BD", note: 36, clip: "kick" },
+    { symbol: "HH", note: 42, clip: "hat" },
+    { symbol: "SN", note: 38, clip: "snare" },
+  ];
+
+  it("gives one pad per loaded sound, labelled by symbol and bound to it", () => {
+    const ui = rackUI(kit);
+    expect(Object.keys(ui.widgets)).toEqual(["rack:BD", "rack:HH", "rack:SN"]);
+    expect(ui.widgets["rack:BD"]).toMatchObject({
+      type: "button",
+      label: "BD",
+      bind: "@rack:BD",
+      col: 0,
+      row: 0,
+    });
+    // Three sounds fit one row; the grid is as wide as it needs and no wider.
+    expect(ui.cols).toBe(3);
+    expect(ui.rows).toBe(1);
+  });
+
+  it("wraps past four, so a big rack does not draw a node wider than the pane", () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      symbol: `P${i}`,
+      note: 36 + i,
+    }));
+    const ui = rackUI(many);
+    expect(ui.cols).toBe(4);
+    expect(ui.rows).toBe(3);
+    expect(ui.widgets["rack:P4"]).toMatchObject({ col: 0, row: 1 });
+  });
+
+  it("reads a pad bind back to its symbol, and leaves every other bind alone", () => {
+    // The renderer routes on this: a pad FIRES, where `@mute` and a plain param SET.
+    expect(rackBindSymbol("@rack:BD")).toBe("BD");
+    expect(rackBindSymbol("@mute")).toBeNull();
+    expect(rackBindSymbol("Cutoff")).toBeNull();
+    expect(rackBindSymbol(undefined)).toBeNull();
+  });
+
+  it("puts the pads on the node, and sizes it to them", () => {
+    const g = buildGraph(
+      graph(
+        {
+          beat: {
+            from: "beat",
+            use: [{ module: "kit", rack: kit }],
+            out: [{ to: "OUT", gain: 1 }],
+          },
+        },
+        ["beat"],
+      ),
+    );
+    const node = g.nodes.find((n) => n.module === "kit");
+    expect(node?.rack).toHaveLength(3);
+    expect(Object.keys(node?.ui?.widgets ?? {})).toContain("rack:BD");
+    expect(node?.w).toBe(nodeSize(rackUI(kit)).w);
+  });
+
+  it("leaves an AUTHORED panel alone — the file has said what the node shows", () => {
+    const own = {
+      cols: 1,
+      rows: 1,
+      widgets: {
+        g: { type: "knob", col: 0, row: 0, bind: "Gain" } as WebWidget,
+      },
+    };
+    const g = buildGraph(
+      graph(
+        {
+          beat: {
+            from: "beat",
+            use: [{ module: "kit", rack: kit, ui: own }],
+            out: [{ to: "OUT", gain: 1 }],
+          },
+        },
+        ["beat"],
+      ),
+    );
+    const node = g.nodes.find((n) => n.module === "kit");
+    expect(Object.keys(node?.ui?.widgets ?? {})).toEqual(["g"]);
   });
 });

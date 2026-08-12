@@ -7,6 +7,7 @@ import type { ProjectMode } from "@studio/engine-protocol/project";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { mixerModules } from "../mixerStrips";
+import type { WebProject } from "../types";
 
 export interface RecInfo {
   tempo: number;
@@ -30,6 +31,14 @@ export interface ProjectDocState {
   metronomeOn: boolean;
   recInfo: RecInfo;
   docTracks: DocTrack[];
+  /**
+   * The compiled document itself, or null before the first one lands.
+   *
+   * Everything above is a PROJECTION of it, cut so a consumer re-renders on its own slice. This is
+   * for the one thing no projection serves: reading a lane's NOTES, which the rack pads derive
+   * their lit state from (`rackLit.ts`). Kept rather than re-fetched — the doc is already here.
+   */
+  doc: WebProject | null;
   /** The modules the Mixer view lines up, in track order — `mixerStrips.ts` decides which. */
   mixerStrips: string[];
   hasStrudel: boolean;
@@ -66,6 +75,7 @@ export function useProjectDoc(
     names: {},
   });
   const [docTracks, setDocTracks] = useState<DocTrack[]>([]);
+  const [doc, setDoc] = useState<WebProject | null>(null);
   // Off the SAME doc, so the row and the faders can never be one reload apart.
   const [mixerStrips, setMixerStrips] = useState<string[]>([]);
   const [hasStrudel, setHasStrudel] = useState(false);
@@ -83,6 +93,7 @@ export function useProjectDoc(
       .projectDoc()
       .then((p) => {
         if (!alive) return;
+        setDoc(p);
         setTrackOrder(p.tracks.map((t) => t.id));
         setMetronomeOn(p.metronome);
         setRecInfo({
@@ -136,6 +147,7 @@ export function useProjectDoc(
     metronomeOn,
     recInfo,
     docTracks,
+    doc,
     mixerStrips,
     hasStrudel,
     mode,

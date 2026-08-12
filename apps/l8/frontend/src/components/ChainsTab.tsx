@@ -9,6 +9,7 @@ import {
   usePluginParams,
 } from "@studio/engine-browser/params";
 import { splitPort } from "@studio/graph-model";
+import { showToast } from "@studio/project-shell/toast";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import {
   alignModuleRank,
@@ -32,7 +33,8 @@ import {
   type MidiControlApi,
   useMidiControl,
 } from "../hooks/useMidiControl";
-import type { WebGraph } from "../types";
+import { useLiveRackLit } from "../rackLit";
+import type { PreviewReq, WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 
 /** The mixer row is framed a fifth SMALLER than a perfect fit — see where it is used. */
@@ -43,6 +45,7 @@ export function ChainsTab({
   active,
   showList,
   trackOrder,
+  project,
   command,
   onBypassModule,
   onNodeMenu,
@@ -76,6 +79,9 @@ export function ChainsTab({
   showList: boolean; // the sidebar is fullscreen chrome; the global view's pane is canvas only
   // The engine's track order; liveness is derived off the store here, so only the graph re-runs it.
   trackOrder: string[];
+  /** The compiled doc, for the one thing the graph cannot derive on its own: which notes a lane
+   *  plays, which is what lights a rack's pads. Absent until the first one lands. */
+  project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
   // Toggle a module's bypass. The canvas flips the node itself on click and lets the refetch confirm — see
   // pendingBypass; the command no longer reloads the project, so waiting for one would be waiting for nothing.
@@ -237,6 +243,54 @@ export function ChainsTab({
     },
     [onBypassModule],
   );
+
+  /**
+   * A rack pad was clicked: audition that symbol's material.
+   *
+   * `preview` rather than the node's own sampler, deliberately: the engine has no verb for
+   * sounding one note of a loaded plugin, and this one exists end to end. What you hear is the
+   * SAMPLE, dry — not the reverb and the mixer that follow the rack in the chain. That is the
+   * trade the audition route makes, and it is the same sound the editor's gutter ▶ plays.
+   *
+   * The row comes off the node, which already carries the effective rack (`WebChainStep.rack`),
+   * so nothing is fetched and a slice finds its window without a second lookup.
+   */
+  const triggerRack = useCallback((module: string, symbol: string) => {
+    const node = laidRef.current?.nodes.find(
+      (n) => n.kind === "module" && n.module === module,
+    );
+    const sound = node?.rack?.find((s) => s.symbol === symbol);
+    if (!sound) return;
+    // `kind: "source"` and not `"clip"`: what a rack holds is NOT a clip id by the time it gets
+    // here. `resolveRackAudio` has already rewritten it to a path in the module's own folder —
+    // which is exactly what the engine is handed — and `resolvePreview` takes a path either way.
+    const req: PreviewReq | null = sound.clip
+      ? { kind: "source", source: sound.clip }
+      : sound.source
+        ? {
+            kind: "slice",
+            source: sound.source,
+            from: sound.from ?? 0,
+            to: sound.to ?? 0,
+          }
+        : null;
+    // A symbol with neither names no material at all — the compiler already reports that against
+    // the file, so there is nothing to add here.
+    if (!req) return;
+    // …but a symbol whose material does not RESOLVE is worth a word: a pad that is drawn, lights
+    // with the sequence and stays silent on click is otherwise indistinguishable from a broken
+    // app. `rack-demo`'s own kit is in exactly that state — its samples sit in `clips/` while
+    // `resolveRackAudio` looks in the module's folder.
+    void api
+      .preview(req)
+      .catch((e: Error) =>
+        showToast({ message: `${symbol}: ${e.message}`, variant: "error" }),
+      );
+  }, []);
+
+  // Which of this project's rack sounds are firing right now — derived from the arrangement and
+  // the playhead, since the engine reports no notes. See rackLit.ts.
+  const rackLit = useLiveRackLit(project, graph);
 
   /**
    * The project's NOTES, by name. `graph.modules` is keyed by doc modules and nothing else
@@ -688,6 +742,8 @@ export function ChainsTab({
             command={command}
             onBypassModule={bypassModule}
             onNodeMenu={onNodeMenu}
+            onTriggerRack={triggerRack}
+            rackLit={rackLit}
             engineWarnings={engineWarnings}
             onSetModuleAsset={onSetModuleAsset}
             onAssetBrowse={onAssetBrowse}

@@ -138,6 +138,31 @@ export interface WebChainStep {
   tap?: { id: string; side: "input" | "output" };
   // Which curve (by id) drives which param. The graph draws each as a curve node arrowing into the module.
   automations?: WebAutomation[];
+  /**
+   * A RACK's loaded sounds, in symbol order — what its node draws a pad for.
+   *
+   * The EFFECTIVE rack, `extends` already folded in, because that is what the module plays: a kit
+   * extending a drumrack sounds its base's kick and its own snare, and a node showing only the
+   * three lines of its own file would be showing something the project has not got.
+   *
+   * Each entry carries what a pad needs to SOUND it as well as to label it — a samples rack names
+   * its `clip`, a slice rack names the shared `source` and its window. Both are here rather than
+   * a discriminated union because a pad asks the same question of either ("what do I play?") and
+   * the answer is read once, by whoever auditions it. Absent unless the module is a rack.
+   */
+  rack?: WebRackSound[];
+}
+/**
+ * One sound of a rack, as its pad needs it. The authoring model is `Rack` in @studio/song, which
+ * splits samples from slices; this is the flattened view a surface draws.
+ */
+export interface WebRackSound {
+  symbol: string; // the short label — "BD", "SN", "HH"
+  note: number; // the MIDI note that fires it, 0..127
+  clip?: string; // samples: the clip id this symbol plays
+  source?: string; // slice: the clip id every symbol of the rack cuts from
+  from?: number; // slice: window start in that source, seconds
+  to?: number; // slice: window end, seconds
 }
 // One MIDI control change: the channel a musician counts (1-16), and the control number (0-127).
 export interface WebCc {

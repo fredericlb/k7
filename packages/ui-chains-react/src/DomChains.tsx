@@ -53,6 +53,7 @@ import {
   headerFontPx,
   type LaidOutGraph,
   PORT_PLATE,
+  rackBindSymbol,
   type TrackControlValues,
   widgetDenorm,
   widgetNorm,
@@ -72,6 +73,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   applyCam,
@@ -571,7 +573,11 @@ type WidgetTarget =
   | { kind: "track"; trackId: string; control: TrackControl }
   | { kind: "module"; module: string; field: string }
   // A param of a module realised OUTSIDE the graph — see `offlineOf`.
-  | { kind: "offline"; module: string; name: string };
+  | { kind: "offline"; module: string; name: string }
+  // A RACK's pad. The one target that SETS nothing: it fires a sound and returns, so it has no
+  // value to read back and no address to write to — which is why it is a kind of its own rather
+  // than a module field that happens to be momentary. See `rackUI` in @studio/ui-chains.
+  | { kind: "rack"; module: string; symbol: string };
 
 /**
  * What a widget actuates: an `@` bind is an INTRINSIC — the thing's own field rather than a plugin param — and
@@ -588,6 +594,12 @@ function widgetTarget(
   offline = false,
 ): WidgetTarget | null {
   if (!w.bind) return null;
+  // A rack pad, before the general `@` case: it is an intrinsic too, but of a kind that fires
+  // rather than sets, and reading it as a module FIELD named "rack:BD" would send it looking for
+  // a value that does not exist.
+  const symbol = rackBindSymbol(w.bind);
+  if (symbol)
+    return n.module ? { kind: "rack", module: n.module, symbol } : null;
   if (w.bind.startsWith("@")) {
     const field = w.bind.slice(1);
     if (n.kind === "track")
@@ -639,6 +651,9 @@ function targetKey(t: WidgetTarget): string {
   if (t.kind === "track") return `t:${t.trackId}:${t.control}`;
   if (t.kind === "module") return `m:${t.module}:${t.field}`;
   if (t.kind === "offline") return `o:${t.module}:${t.name}`;
+  // A pad holds no value, so it can carry no optimistic override — the key exists only so the
+  // union is covered, and nothing ever writes under it.
+  if (t.kind === "rack") return `r:${t.module}:${t.symbol}`;
   return `p:${t.pluginId}:${t.name}`;
 }
 
@@ -697,6 +712,46 @@ interface Channels {
   // had no engine frame coming to correct it. l8's Graph panel was exactly that.
   pluginWritable: boolean;
   trackWritable: boolean;
+  // …and the same question for a RACK pad, which asks for a sound rather than a value: can this
+  // host make one? A pad on a host that cannot is drawn and inert, never clickable-and-silent.
+  rackTriggerable: boolean;
+  /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
+  rackLit?: RackLitStore;
+}
+
+/**
+ * Which rack sounds are firing, as a pad asks it: subscribe to one module, read one note.
+ *
+ * A STORE and not a prop, for the reason `PluginParamsStore` is one: this changes as fast as the
+ * playhead moves, and a prop would re-render every node in the graph on each frame. The pad holds
+ * its own subscription and reads a BOOLEAN, so React's own `Object.is` ends the render there.
+ *
+ * The graph does not know how the answer is arrived at. l8 derives it from the arrangement and the
+ * playhead — the browser has both — which is why it lights for a SEQUENCE and not for live MIDI or
+ * a strudel lane, whose notes the browser never sees. See packages/song/docs/racks.md.
+ */
+export interface RackLitStore {
+  subscribeTo(module: string, cb: () => void): () => void;
+  isLit(module: string, note: number): boolean;
+}
+
+/** One pad's lit state. Null module or note is the "nothing to watch" case, so the caller can
+ *  hold the hook unconditionally. */
+function useRackLit(
+  store: RackLitStore | undefined,
+  module: string | null,
+  note: number | null,
+): boolean {
+  const subscribe = useCallback(
+    (cb: () => void) =>
+      store && module ? store.subscribeTo(module, cb) : () => {},
+    [store, module],
+  );
+  const read = useCallback(
+    () => (store && module && note != null ? store.isLit(module, note) : false),
+    [store, module, note],
+  );
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 /**
@@ -714,6 +769,9 @@ function widgetValue(
 ): number | undefined {
   const tgt = widgetTarget(n, w, ch.offlineChannel);
   if (!tgt) return undefined;
+  // A pad has no value to show. Whether it is LIT is a different question, asked of a different
+  // channel and per pad — see `useRackLit`, which the widget holds its own subscription to.
+  if (tgt.kind === "rack") return undefined;
   const key = targetKey(tgt);
   if (key in ch.override) return ch.override[key];
   const v =
@@ -1189,6 +1247,16 @@ function WidgetInner({
     tgt?.kind === "plugin" ? tgt.pluginId : null,
     tgt?.kind === "plugin" ? tgt.name : null,
   );
+  // …and a rack pad's own tap, for the same reason and in the same place: one sound firing lights
+  // one pad rather than re-rendering the graph twenty times a second.
+  const padSymbol = tgt?.kind === "rack" ? tgt.symbol : null;
+  const padLit = useRackLit(
+    ch.rackLit,
+    tgt?.kind === "rack" ? tgt.module : null,
+    padSymbol
+      ? (n.rack?.find((s) => s.symbol === padSymbol)?.note ?? null)
+      : null,
+  );
 
   // Tabs widget: delegate to TabsWidget
   if (w.type === "tabs") {
@@ -1233,7 +1301,12 @@ function WidgetInner({
       ? ch.offlineWritable
       : tgt.kind === "track"
         ? ch.trackWritable
-        : ch.pluginWritable);
+        : // A RACK pad writes nothing, so none of the three channels answers for it. What it
+          // needs is a host that can make a sound; without one the pad draws and stays inert,
+          // which is the same honesty the three flags above are for.
+          tgt.kind === "rack"
+          ? ch.rackTriggerable
+          : ch.pluginWritable);
   const value = widgetValue(n, w, ch, live);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -1321,7 +1394,9 @@ function WidgetInner({
       </div>
     );
   } else if (w.type === "button") {
-    const on = known && t >= 0.5;
+    // A rack pad has no value, so `t` says nothing about it: what lights it is the arrangement
+    // reaching its note, which the pad subscribes to on its own. Everything else is its param.
+    const on = padSymbol ? padLit : known && t >= 0.5;
     const c = (w.bind && CTRL[w.bind]) ?? RING;
     body = (
       <b
@@ -2336,6 +2411,8 @@ export function DomChains({
   command,
   onBypassModule,
   onNodeMenu,
+  onTriggerRack,
+  rackLit,
   onSetModuleAsset,
   onAssetBrowse,
   onLibraryBrowse,
@@ -2415,6 +2492,17 @@ export function DomChains({
    * graph that drew one would be a graph that owned a popup. See docs/hosting.md.
    */
   onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
+  /**
+   * A RACK pad was clicked: sound that symbol of that module.
+   *
+   * The graph says WHICH sound was asked for and stops there. How one is made audible is the
+   * host's: l8 auditions the sample through the file service, the médiathèque could preview it
+   * from its own catalogue, and a host that offers nothing leaves the pads drawn but silent —
+   * which is the right degradation for a surface with no engine behind it. See docs/hosting.md.
+   */
+  onTriggerRack?: (module: string, symbol: string) => void;
+  /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
+  rackLit?: RackLitStore;
   // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
@@ -2543,6 +2631,7 @@ export function DomChains({
     command,
     onBypassModule,
     onNodeMenu,
+    onTriggerRack,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -2561,6 +2650,7 @@ export function DomChains({
     command,
     onBypassModule,
     onNodeMenu,
+    onTriggerRack,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -3083,6 +3173,7 @@ export function DomChains({
   // host that wired one half meant it.
   const trackWritable = onTrackSet !== undefined || onTrackToggle !== undefined;
   const offlineWritable = onModuleParam !== undefined;
+  const rackTriggerable = onTriggerRack !== undefined;
   // Memoised on VALUES, never on the host's callbacks: a host that passes an inline lambda
   // (App.tsx does, to GraphPanel) would otherwise hand every node a new `ch` on every render.
   const ch = useMemo<Channels>(
@@ -3096,6 +3187,8 @@ export function DomChains({
       pluginWritable,
       trackWritable,
       offlineWritable,
+      rackTriggerable,
+      rackLit,
     }),
     [
       params,
@@ -3107,6 +3200,8 @@ export function DomChains({
       pluginWritable,
       trackWritable,
       offlineWritable,
+      rackTriggerable,
+      rackLit,
     ],
   );
 
@@ -3511,7 +3606,9 @@ export function DomChains({
   const pickWidget = useCallback(
     (n: GraphNode, w: WebWidget, value: number) => {
       const tgt = widgetTarget(n, w, chRef.current.offlineChannel);
-      if (!tgt || tgt.kind === "track") return; // a track intrinsic has no named settings
+      // A track intrinsic has no named settings, and a rack pad has no value at all: neither is
+      // something a drag or a picked option can SET.
+      if (!tgt || tgt.kind === "track" || tgt.kind === "rack") return;
       if (tgt.kind === "module") {
         setModuleField(w, tgt, value);
         return;
@@ -3544,6 +3641,14 @@ export function DomChains({
           tgt.control === "arm"
         )
           cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
+        return;
+      }
+      // A RACK pad fires its sound and is done: nothing is set, so there is no override to place
+      // and nothing to commit to the file. The host decides HOW it sounds — l8 auditions the
+      // sample — for the reason the node menu is the host's: what a click reaches belongs to the
+      // application, not to the drawing. See packages/song/docs/racks.md.
+      if (tgt.kind === "rack") {
+        cb.current.onTriggerRack?.(tgt.module, tgt.symbol);
         return;
       }
       // A module field cycles through its own named settings — there is no 0/1 to flip.
