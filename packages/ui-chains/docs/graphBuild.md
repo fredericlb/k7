@@ -63,6 +63,26 @@ Under the controls, a track node lists **what is on the lane** — the clip refs
 order. The graph said where a track's signal *goes* and never what it *plays*, so "which take
 is on this lane" was a question about the lane that you had to leave the lane to answer.
 
+Above the list, a **mini timeline** the width of the node: one marker per clip, where it sits.
+
+It shows **positions, not durations**, and that is a limit rather than a choice of style — the
+graph reads track files *without opening the clips they name*, so a clip's extent is not a fact
+it has (see `Placement` in `@studio/song`). A marker is therefore a tick of fixed width centred
+on the start, and drawing blocks would mean inventing lengths.
+
+Its scale is **shared by every lane in the graph** (`clipSpanOf`), not each lane's own extent. A
+mini timeline is read by comparing lanes; one that rescaled per track would draw a lane whose
+last clip is at bar 3 and one whose last is at bar 300 with that clip hard against the right
+edge in both — worse than no timeline, because it is believable.
+
+The timeline draws **every** clip while the list shows the first few: a picture of the lane with
+clips missing from it would say the lane is emptier than it is.
+
+**Hovering a marker bolds its row below.** That link is what ties the two halves together — the
+timeline says where, the list says what — and it is why `ClipList` is its own component: it needs
+state, and the node around it is memoised so a pan or a meter frame re-renders no card at all.
+The hovered row also lifts its opacity, because bold alone reflows the row as the letters widen.
+
 Each row is **the position, then the name** — `5:1  chorus`. Where first, because a lane is read
 down its positions and they are what orders the list; a fixed-width column of them with tabular
 figures stays a column however long the names beside it are. The timecode never shrinks and the
