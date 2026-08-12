@@ -6,9 +6,10 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
-import type { WebChainStep, WebGraph } from "@studio/graph-model";
+import type { WebChainStep, WebGraph, WebRackSound } from "@studio/graph-model";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
+import type { Rack } from "@studio/song/graph";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
 import {
   type AssetLookup,
@@ -42,6 +43,39 @@ function assetChoicesFor(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A rack module's sounds, flattened for the pads its node draws — or undefined for anything else.
+ *
+ * `resolvedRack` is what the COMPILER asks too (nodeProject's sampler branch), so the pads are the
+ * sounds the engine will really have, base module folded in and per-symbol overrides applied. The
+ * two flavours flatten into one row shape: a samples symbol names its own `clip`, a slice symbol
+ * names the rack's shared `source` and its window. See packages/song/docs/racks.md.
+ *
+ * Sorted by symbol, so a pad does not move because a YAML key was retyped in another order.
+ */
+function rackSounds(
+  module: { rack?: Rack } | undefined,
+): WebRackSound[] | undefined {
+  const rack = module?.rack;
+  if (!rack) return undefined;
+  const out = Object.entries(rack.symbols)
+    .map(([symbol, s]) => ({
+      symbol,
+      note: Number(s?.note ?? 0),
+      ...(rack.rackType === "slice"
+        ? {
+            ...(rack.source ? { source: rack.source } : {}),
+            ...(s?.from != null ? { from: Number(s.from) } : {}),
+            ...(s?.to != null ? { to: Number(s.to) } : {}),
+          }
+        : { ...(s?.clip ? { clip: String(s.clip) } : {}) }),
+    }))
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+  // A rack with no symbols is a rack nobody has loaded a sound into: no pads rather than an
+  // empty row, so the node keeps the size it had.
+  return out.length ? out : undefined;
 }
 
 /**
@@ -181,6 +215,10 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
             !unknownPlugin &&
             EXTERNAL_PLUGIN_FORMATS.has(fmt),
           ui: module?.ui,
+          // A RACK's loaded sounds, so its node can draw a pad per sound. The EFFECTIVE rack —
+          // `resolvedRack` has folded the `extends` base in — because that is what the module
+          // plays. Absent for everything else, which is nearly every module.
+          rack: rackSounds(module),
           // Which CC plays which param, from the module folder's `controller.yaml`. Rides beside
           // `ui` because it is keyed the same way — by the widget's `bind` — and read in the same
           // place: the graph is where a knob is drawn, so it is where a knob learns its control.

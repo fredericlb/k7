@@ -9,6 +9,7 @@ import type {
   WebCurve,
   WebGraph,
   WebModuleUI,
+  WebRackSound,
   WebSignal,
   WebWidget,
 } from "@studio/graph-model";
@@ -43,6 +44,10 @@ const CARRIED = [
   // with none grows no button. See packages/song/docs/alternatives.md.
   "alternatives",
   "alternative",
+  // A rack's loaded sounds. Carried rather than consumed, because two things read it: `rackUI`
+  // below turns it into the node's pads, and the renderer needs the row again to know what a
+  // tapped pad should sound.
+  "rack",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */
@@ -649,6 +654,47 @@ export const TRACK_UI: WebModuleUI = {
   },
 };
 
+/** The bind prefix a rack pad carries: `@rack:BD` fires the sound `BD`. See `rackUI`. */
+export const RACK_BIND = "@rack:";
+
+/** The symbol a rack-pad bind names, or null for any other bind. */
+export const rackBindSymbol = (bind: string | undefined): string | null =>
+  bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
+
+/** How many pads a row holds before the grid wraps — a drum grid's shape, and it keeps a
+ *  sixteen-sound rack from drawing a node wider than the pane. */
+const RACK_COLS = 4;
+
+/**
+ * The UI a RACK node carries: one button per sound it has loaded.
+ *
+ * Synthesised rather than authored, exactly as `TRACK_UI` is, and for the same reason — the
+ * controls are not the module's opinion but what it IS. A rack's sounds are known (its symbols,
+ * merged through `extends`), so asking someone to also write a `ui.yaml` listing them would be
+ * asking them to keep two lists in step.
+ *
+ * The binds are `@rack:<symbol>` — a node INTRINSIC in the same family as `@mute`, routed by the
+ * renderer rather than to a plugin param. A pad is not a param: it fires a sound and returns,
+ * which is why it needs a target kind of its own (see `widgetTarget`).
+ *
+ * An AUTHORED `ui.yaml` wins over this. A rack with a hand-made panel has said what it wants its
+ * node to show, and a grid of pads bolted underneath would be the app overruling the file.
+ */
+export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
+  const cols = Math.min(RACK_COLS, Math.max(1, rack.length));
+  const widgets: Record<string, WebWidget> = {};
+  rack.forEach((s, i) => {
+    widgets[`rack:${s.symbol}`] = {
+      type: "button",
+      col: i % cols,
+      row: Math.floor(i / cols),
+      bind: `${RACK_BIND}${s.symbol}`,
+      label: s.symbol,
+    };
+  });
+  return { cols, rows: Math.ceil(rack.length / cols), widgets };
+}
+
 // A VIDEO lane's strip: "mute" means hidden, and a full strip would be four controls that do nothing.
 export const VIDEO_TRACK_UI: WebModuleUI = {
   cols: 1,
@@ -903,7 +949,11 @@ export function buildGraph(
         // Everything the step itself says, in one move — see CARRIED/FLAGS. Listing them here
         // is what let `assetChoices` reach the browser and stop short of the node.
         ...carryStep(s),
-        ...nodeSize(s.ui), // a module with a UI is as big as its grid needs
+        // A RACK with no panel of its own draws its sounds: one pad per symbol. After
+        // `carryStep`, which brought the authored `ui` — and only when there was none, so a rack
+        // that HAS written a panel keeps it (see `rackUI`).
+        ...(!s.ui && s.rack?.length ? { ui: rackUI(s.rack) } : {}),
+        ...nodeSize(s.ui ?? (s.rack?.length ? rackUI(s.rack) : undefined)), // as big as its grid needs
         // …and a NOTE is as big as its text. `g.modules` is keyed by doc modules alone, so a
         // hit here IS "this node is a note" — no second field, and no lookup table to keep in
         // step with one. The size overrides the one above: a note has no widget grid.

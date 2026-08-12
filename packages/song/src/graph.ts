@@ -22,6 +22,8 @@ import {
 import {
   type ResolvedModule,
   resolvedCc,
+  resolvedRack,
+  resolvedType,
   resolvedUI,
   resolveModule,
   resolveModuleMap,
@@ -204,6 +206,10 @@ export interface Module {
   // Only usable on an input that is already a FILE — see docs/coldModules.md and isColdModule.
   cold?: boolean;
   ui?: ModuleUI;
+  // What this module LOADS, when it is a rack: its symbols, their notes and their material, with
+  // the `extends` base already merged in. Absent for a plugin. Beside `ui` and `cc` because it is
+  // the same kind of fact — what the module is, rather than how it is wired.
+  rack?: Rack;
   // Which MIDI CC plays which param, from the `controller.yaml` in the module's folder. Keyed by the
   // widget's `bind` string verbatim, so the map and the panel read side by side (controller.ts).
   cc?: ControllerFile;
@@ -581,6 +587,11 @@ export function buildGraph(
     // A NOTE's text, on a doc module. It replaced `docs`/`todos`, which every module could
     // carry and only a bottom panel could show; this one is drawn on the node itself.
     content: typeof b?.content === "string" ? b.content : undefined,
+    // The RACK this module is, if it is one — its symbols, notes and material, `extends` already
+    // folded in by `resolvedRack`. Resolved here beside `ui` and `cc` and for the same reason:
+    // what a module IS belongs to the model, and a surface drawing a pad per sound should not
+    // have to re-run the merge to find out what it loads. Absent for a plugin, which is most.
+    rack: resolvedType(b) === "rack" ? resolvedRack(b) : undefined,
     // The render this module is frozen to, if it is. A path, so an empty string is no freeze.
     frozen: typeof b?.frozen === "string" && b.frozen ? b.frozen : undefined,
     automations: normAutomations(b?.automations),
