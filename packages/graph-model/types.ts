@@ -212,6 +212,18 @@ export interface WebTrackClip {
    * not in 4/4.
    */
   tc: string;
+  /**
+   * How long it runs, in beats — the mini timeline draws a block of this length.
+   *
+   * From the COMPILED project, which is the only thing that resolves a placement into an
+   * extent: `loadGraph` reads track files without opening the clips they name, so the routing
+   * model alone cannot answer this. Absent when the project does not compile — the graph is
+   * what you fix a broken project from, so it must draw without this.
+   *
+   * A compiled `length` of 0 means "the source's natural length", which nothing on this side
+   * knows either; the file service substitutes the same stand-in the timeline draws for it.
+   */
+  len?: number;
   kind: "audio" | "midi" | "missing";
 }
 

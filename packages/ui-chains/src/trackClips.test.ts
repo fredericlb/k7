@@ -23,9 +23,10 @@ const graphWith = (clips?: WebTrackClip[]): WebGraph => ({
 // `tc` is what the file service already spelled with `beatsToPosition` — the renderer never
 // divides beats itself, so here it is simply carried. Written the way that function writes it:
 // the shortest form, so a downbeat is `5:1` and not `5:1:1`.
-const clip = (ref: string, start: number): WebTrackClip => ({
+const clip = (ref: string, start: number, len?: number): WebTrackClip => ({
   ref,
   start,
+  ...(len === undefined ? {} : { len }),
   tc: `${Math.floor(start / 4) + 1}:${(start % 4) + 1}`,
   kind: "audio",
 });
@@ -110,12 +111,32 @@ describe("the mini timeline's scale", () => {
     // edge at bar 2 and the guitar's at bar 33, side by side, both claiming to show where
     // things are — which is worse than no timeline, because it is believable.
     const g = twoLanes(
-      [clip("a", 0), clip("b", 128)],
-      [clip("c", 0), clip("d", 32)],
+      [clip("a", 0, 4), clip("b", 96, 32)],
+      [clip("c", 0, 4), clip("d", 32, 4)],
     );
-    expect(at(g, "gtr")).toEqual([0, 1]);
+    // The span is the END of the last clip — 96 + 32 = 128 — so the longest lane fills it.
+    expect(at(g, "gtr")).toEqual([0, 0.75]);
     // A quarter of the way along, because 32 is a quarter of 128 — not at its own end.
     expect(at(g, "bass")).toEqual([0, 0.25]);
+  });
+
+  it("runs the scale to the END of the last clip, not its start", () => {
+    // Otherwise the final block — usually the longest — hangs off the right of every node.
+    const g = twoLanes([clip("a", 0, 64)], [clip("b", 0, 4)]);
+    const gtr = buildGraph(g, { drawMainOut: false }).nodes.find(
+      (n) => n.kind === "track" && n.label === "gtr",
+    );
+    expect(gtr?.clips?.[0]).toMatchObject({ at: 0, w: 1 });
+  });
+
+  it("gives a very short clip a width you can still hit", () => {
+    // A one-bar clip in a six-minute song is a fraction of a percent: invisible, and impossible
+    // to hover. The floor is what keeps the timeline usable for finding things.
+    const g = twoLanes([clip("a", 0, 1), clip("b", 400, 4)], [clip("c", 0, 4)]);
+    const w = buildGraph(g, { drawMainOut: false }).nodes.find(
+      (n) => n.kind === "track" && n.label === "gtr",
+    )?.clips?.[0].w;
+    expect(w).toBeGreaterThan(0.01);
   });
 
   it("puts everything at the start when nothing is past bar 1", () => {

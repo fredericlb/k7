@@ -212,6 +212,15 @@ export interface GraphNode extends Carried, Flags {
      * one at bar 200 in the same place while claiming to show where things are.
      */
     at: number;
+    /**
+     * How WIDE it is on that timeline, 0..1 — its duration against the same shared scale.
+     *
+     * A floor is applied so a very short clip in a long song is still a block you can see and
+     * point at rather than a hairline: a mini timeline is for finding things, and a marker too
+     * small to hit is one you cannot hover. Absent lengths (a project that will not compile)
+     * fall back to that same floor, which is why this is never 0.
+     */
+    w: number;
     kind: "audio" | "midi" | "missing";
   }[];
   /** How many clips did not fit in the LIST. Absent when it shows them all. */
@@ -507,6 +516,14 @@ const CLIP_ROW_H = 16;
 const CLIP_LIST_PAD = 7;
 /** The mini timeline above the list: its track, plus the gap under it (`.dgx-clip-tl`). */
 const CLIP_TIMELINE_H = 14;
+/**
+ * The narrowest a clip block is drawn, as a fraction of the timeline.
+ *
+ * ~3px on a 160px node. A one-bar clip in a six-minute song is a fraction of a percent, and a
+ * block that thin is both invisible and impossible to hover — so the floor is what keeps the
+ * timeline usable for finding things, which is the only thing it is for.
+ */
+const CLIP_MIN_W = 0.02;
 
 /**
  * The clip list of a TRACK node, and the extra height it needs — spread in beside its size.
@@ -525,12 +542,16 @@ function clipsOf(
 ): Partial<GraphNode> {
   const all = graph.trackClips?.[track];
   if (!all?.length) return {};
-  const clips = all.map((c) => ({
-    ...c,
+  const clips = all.map((c) => {
     // A graph whose clips all sit at bar 1 has no span to divide by; everything is at the start,
     // which is exactly where 0 puts it.
-    at: span > 0 ? Math.min(1, Math.max(0, c.start / span)) : 0,
-  }));
+    const at = span > 0 ? Math.min(1, Math.max(0, c.start / span)) : 0;
+    const w =
+      span > 0 && c.len ? Math.max(CLIP_MIN_W, c.len / span) : CLIP_MIN_W;
+    // Clamped to the right edge: a clip running past the last START — the longest one usually
+    // does — must end at the edge rather than draw outside the card.
+    return { ...c, at, w: Math.min(w, 1 - at) || CLIP_MIN_W };
+  });
   const more = Math.max(0, all.length - CLIP_LIST_MAX);
   // The rows the LIST will draw, plus the overflow line when there is one.
   const rows = Math.min(all.length, CLIP_LIST_MAX) + (more > 0 ? 1 : 0);
@@ -551,8 +572,11 @@ function clipsOf(
  */
 function clipSpanOf(graph: WebGraph): number {
   let span = 0;
+  // The END of the last clip, not its start: a lane whose final clip runs eight bars would
+  // otherwise be drawn as ending where that clip BEGINS, and the block would hang off the
+  // right of every node in the graph.
   for (const clips of Object.values(graph.trackClips ?? {}))
-    for (const c of clips) span = Math.max(span, c.start);
+    for (const c of clips) span = Math.max(span, c.start + (c.len ?? 0));
   return span;
 }
 

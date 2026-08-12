@@ -42,7 +42,36 @@ function assetChoicesFor(
   }
 }
 
-export function buildGraphDoc(dir: string): WebGraph {
+/**
+ * Beats drawn for a clip whose compiled `length` is 0 — "the source's natural length".
+ *
+ * The same number l8's timeline draws for the same case (`NATURAL` in TimelineTab), and
+ * deliberately so: neither side knows how long the audio really is, and two different guesses
+ * would put a clip at one width on the lane and another on the graph.
+ */
+const NATURAL_BEATS = 4;
+
+/**
+ * Where each track's clips START and how long they RUN, from the compiled project.
+ *
+ * Handed in rather than compiled here: `buildGraphDoc` is called on every graph poll, and the
+ * workspace already holds this document memoised on the revision — compiling it again would
+ * double the cost of a build this file has already been trimmed once for.
+ */
+export type ClipExtents = Record<string, { start: number; length: number }[]>;
+
+/** The extents of a compiled project, keyed by track — what `buildGraphDoc` takes. */
+export function clipExtentsOf(doc: {
+  tracks: { id: string; clips: { start: number; length: number }[] }[];
+}): ClipExtents {
+  const out: ClipExtents = {};
+  for (const t of doc.tracks)
+    if (t.clips.length)
+      out[t.id] = t.clips.map((c) => ({ start: c.start, length: c.length }));
+  return out;
+}
+
+export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   // loadGraph reads chains.yaml exactly as the compile does.
   const g = loadGraph(dir);
   // Curve shapes for automation node labels, narrowed below to the curves a module actually binds.
@@ -240,15 +269,29 @@ export function buildGraphDoc(dir: string): WebGraph {
     // Only what a lane really holds: a group has members and a strudel lane streams, and both
     // carry an empty `placements` — so an entry for either would be a promise of a list that
     // is always empty.
-    if (t.placements.length)
+    if (t.placements.length) {
+      // The compiled extents of THIS lane, matched to a placement by where it sits. `start` is
+      // the one thing both sides compute the same way (`parsePosition` into beats), and it is
+      // what identifies a placement — a track may hold the same clip twice, at two positions.
+      const byStart = new Map(
+        (extents?.[id] ?? []).map((c) => [c.start, c.length]),
+      );
       trackClips[id] = [...t.placements]
         .sort((a, b) => a.start - b.start)
-        .map((p) => ({
-          ref: p.ref,
-          start: p.start,
-          tc: beatsToPosition(p.start, sigNum, sigDen),
-          kind: p.kind,
-        }));
+        .map((p) => {
+          const compiled = byStart.get(p.start);
+          return {
+            ref: p.ref,
+            start: p.start,
+            tc: beatsToPosition(p.start, sigNum, sigDen),
+            // Absent when the project would not compile — the graph still draws, without widths.
+            ...(compiled === undefined
+              ? {}
+              : { len: compiled > 0 ? compiled : NATURAL_BEATS }),
+            kind: p.kind,
+          };
+        });
+    }
   }
   return {
     chains,

@@ -63,14 +63,37 @@ Under the controls, a track node lists **what is on the lane** — the clip refs
 order. The graph said where a track's signal *goes* and never what it *plays*, so "which take
 is on this lane" was a question about the lane that you had to leave the lane to answer.
 
-Above the list, a **mini timeline** the width of the node: one marker per clip, where it sits.
+Above the list, a **mini timeline** the width of the node: one block per clip, placed where it
+starts and as wide as it runs, on **white** — the strip stands for the song itself rather than
+for more of the card's chrome, so the blocks have to read as material on tape.
 
-It shows **positions, not durations**, and that is a limit rather than a choice of style — the
-graph reads track files *without opening the clips they name*, so a clip's extent is not a fact
-it has (see `Placement` in `@studio/song`). A marker is therefore a tick of fixed width centred
-on the start, and drawing blocks would mean inventing lengths.
+A block is drawn in the **track's own colour**, which is what makes two lanes tellable apart at a
+glance; a lane authoring none falls back to the node's accent. A **missing** clip overrides both
+and is red: the graph must not paint absent material in the reassuring colour of the lane it is
+missing from.
 
-Its scale is **shared by every lane in the graph** (`clipSpanOf`), not each lane's own extent. A
+### Where the lengths come from
+
+The routing model does not have them. `loadGraph` reads track files *without opening the clips
+they name*, so `Placement` carries a position and no extent (see `@studio/song`). The lengths
+come from the **compiled project** instead — the only thing that resolves a placement into a
+duration — and the file service hands them to `buildGraphDoc` rather than compiling again: the
+graph is polled, and the workspace already holds that document memoised on the revision.
+
+Two consequences worth knowing:
+
+- a compiled `length` of **0** means "the source's natural length", which neither side knows.
+  The file service substitutes **4 beats** — the same stand-in l8's timeline draws for the same
+  case — so a clip is not one width on the lane and another on the graph;
+- a project that **will not compile** has no extents, and the graph still builds. It loses the
+  widths, not the clips: this is the screen you fix a broken project from.
+
+A very short clip is floored at `CLIP_MIN_W`. One bar in a six-minute song is a fraction of a
+percent — invisible, and impossible to hover — and the timeline is only for finding things.
+
+Its scale is **shared by every lane in the graph** (`clipSpanOf`), not each lane's own extent. It
+runs to the **end** of the last clip rather than its start, or the final block — usually the
+longest — would hang off the right of every node. A
 mini timeline is read by comparing lanes; one that rescaled per track would draw a lane whose
 last clip is at bar 3 and one whose last is at bar 300 with that clip hard against the right
 edge in both — worse than no timeline, because it is believable.
@@ -78,7 +101,7 @@ edge in both — worse than no timeline, because it is believable.
 The timeline draws **every** clip while the list shows the first few: a picture of the lane with
 clips missing from it would say the lane is emptier than it is.
 
-**Hovering a marker bolds its row below.** That link is what ties the two halves together — the
+**Hovering a block bolds its row below.** That link is what ties the two halves together — the
 timeline says where, the list says what — and it is why `ClipList` is its own component: it needs
 state, and the node around it is memoised so a pan or a meter frame re-renders no card at all.
 The hovered row also lifts its opacity, because bold alone reflows the row as the letters widen.

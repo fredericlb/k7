@@ -86,3 +86,54 @@ describe("a lane's clips, on the graph", () => {
     expect(lane(project("  []\n"))).toBeUndefined();
   });
 });
+
+describe("a clip's LENGTH, for the mini timeline", () => {
+  /** The compiled extents, as the workspace hands them over. */
+  const extents = (starts: { start: number; length: number }[]) => ({
+    gtr: starts,
+  });
+
+  it("comes from the compiled project, matched by position", () => {
+    // `start` is the one thing both sides compute the same way, and it is what identifies a
+    // placement: a lane may hold the same clip twice, at two positions.
+    const p = project(
+      '  - { ref: verse, start: "1:1:1" }\n  - { ref: verse, start: "5:1:1" }\n',
+    );
+    const clips = buildGraphDoc(
+      p,
+      extents([
+        { start: 0, length: 8 },
+        { start: 16, length: 32 },
+      ]),
+    ).trackClips?.gtr;
+    expect(clips?.map((c) => c.len)).toEqual([8, 32]);
+  });
+
+  it("substitutes the timeline's own stand-in for a length of 0", () => {
+    // A compiled 0 means "the source's natural length", which nothing on this side knows. The
+    // number is the one l8's timeline draws for the same case, so a clip is not one width on
+    // the lane and another on the graph.
+    const p = project('  - { ref: verse, start: "1:1:1" }\n');
+    const clips = buildGraphDoc(p, extents([{ start: 0, length: 0 }]))
+      .trackClips?.gtr;
+    expect(clips?.[0].len).toBe(4);
+  });
+
+  it("is ABSENT when no extents are handed over, and the graph still builds", () => {
+    // A project that will not compile has no extents — and the graph is the screen you fix it
+    // from, so it has to draw. The mini timeline loses its widths, not its clips.
+    const p = project('  - { ref: verse, start: "1:1:1" }\n');
+    const clips = buildGraphDoc(p).trackClips?.gtr;
+    expect(clips).toHaveLength(1);
+    expect(clips?.[0].len).toBeUndefined();
+  });
+
+  it("leaves a placement the compile does not know about without a length", () => {
+    // Rather than borrowing the neighbouring clip's: a width invented from another clip would
+    // be a confident lie about how long this one runs.
+    const p = project('  - { ref: verse, start: "5:1:1" }\n');
+    const clips = buildGraphDoc(p, extents([{ start: 0, length: 8 }]))
+      .trackClips?.gtr;
+    expect(clips?.[0].len).toBeUndefined();
+  });
+});
