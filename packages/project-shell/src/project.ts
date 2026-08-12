@@ -5,6 +5,9 @@
 
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
+// The wire shape only, from the browser-safe half of @studio/song — `surfaces.ts` beside it
+// walks a disk and is the file service's. A type-only import, so nothing of the parser ships.
+import type { ProjectSurfaces } from "@studio/song/yaml/surfaceFile";
 import type {
   Alternatives,
   CatalogueModule,
@@ -77,6 +80,9 @@ export const projectApi = {
   videoDoc: () => fget<WebVideoProject>("/video-doc"),
   videoErrors: () => fget<ProjectErrors>("/video-errors"),
   graph: () => fget<WebGraph>("/graph"),
+  // The project's `surfaces/` folder, parsed — the special views it asks its editor to draw.
+  // Empty for almost every project; see packages/song/docs/surfaces.md.
+  surfaces: () => fget<ProjectSurfaces>("/surfaces"),
   projectErrors: () => fget<ProjectErrors>("/project-errors"),
 
   // --- The tree and the files in it ---------------------------------------------

@@ -175,6 +175,18 @@ export function useDeckSet(
   graph: WebGraph | null,
   /** The file service's change token — refetch the compile when the project moves on disk. */
   rev: string,
+  /**
+   * The bindings, when the HOST already holds them — an l8 surface, whose mapping is in
+   * `surfaces/<id>.yaml` and which has no `views/mix.yaml` to find.
+   *
+   * Passed rather than read, because the two hosts keep the same map in different files and
+   * only the host knows which. m9 passes nothing and the read below stays exactly what it was.
+   *
+   * **Keep its identity stable** — it is an effect dependency, so a fresh object every render
+   * would refetch the compile every render. Both callers hold it in state, which is what makes
+   * that free; a caller building one inline must `useMemo` it.
+   */
+  mapping?: MixViewFile,
 ): DeckSet {
   const [loads, setLoads] = useState<DeckLoads>(NO_LOADS);
   const [faders, setFaders] = useState<DeckTempos>({});
@@ -201,7 +213,9 @@ export function useDeckSet(
   useEffect(() => {
     let stop = false;
     void (async () => {
-      const v = await readMixView(project);
+      // The host's own map wins, and skips the read entirely: there is no `views/mix.yaml` in
+      // an l8 song, and asking for one would be a 404 on every reload of a surface.
+      const v = mapping ?? (await readMixView(project));
       const songs = await readSongsText(project);
       const doc = await api.engineDoc().catch(() => null);
       if (stop) return;
@@ -212,7 +226,7 @@ export function useDeckSet(
     return () => {
       stop = true;
     };
-  }, [project, rev]);
+  }, [project, rev, mapping]);
 
   const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
   const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);

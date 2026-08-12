@@ -2,6 +2,7 @@
 // mixViewFile.ts is: the app that DRAWS a surface is the one that has to resolve its mapping.
 // Full rationale: docs/surfaces.md.
 
+import type { Diagnostic } from "@studio/web-protocol";
 import { LineCounter, parseDocument } from "yaml";
 import type { ModuleIssue } from "./moduleFile";
 import { type Surface, SurfaceSchema } from "./surfaceSchema";
@@ -12,6 +13,26 @@ const OPTS = { version: "1.2" as const };
 
 /** The folder a project keeps its surfaces in. OPTIONAL — most projects have none. */
 export const SURFACES_DIR = "surfaces";
+
+/**
+ * One surface as a reader gets it: its id is its FILENAME, as every flat entity folder here.
+ *
+ * Declared in this browser-safe file rather than beside the disk walk that produces it, because
+ * it is a WIRE shape — the editor receives it over `/surfaces` and never opens the folder. The
+ * Node side imports it back, so the two cannot describe the same payload differently.
+ */
+export interface ProjectSurface {
+  id: string;
+  /** Project-relative, for a diagnostic the editor can match against its tree. */
+  file: string;
+  surface: Surface;
+}
+
+/** Every surface a project declares, plus whatever would not read. */
+export interface ProjectSurfaces {
+  surfaces: ProjectSurface[];
+  diagnostics: Diagnostic[];
+}
 
 export interface ParsedSurface {
   value: Surface | null;

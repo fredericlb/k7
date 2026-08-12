@@ -25,6 +25,17 @@ export interface RouteState {
   full: Pane | null;
   panel: Panel | null;
   help: boolean;
+  /**
+   * The open SURFACE, by its filename, or null.
+   *
+   * Not a `Pane`, and that is the whole of why it is its own field. A pane is one of three the
+   * shell has always had, and `VIEW_PANES` says what each layout does with them; a surface is
+   * declared by the PROJECT, so the list is not knowable until one is open and a union could
+   * not name it. It behaves like `help` instead — a screen that comes over the layout, leaves
+   * it untouched underneath, and is reached from the header. See
+   * packages/song/docs/surfaces.md.
+   */
+  surface: string | null;
 }
 
 const PANES: Pane[] = ["editor", "timeline", "chains"];
@@ -59,7 +70,15 @@ const isPanel = (s: string): s is Panel => (PANELS as string[]).includes(s);
  * pane and the root.
  */
 export function toPath(s: RouteState): string {
-  const path = s.help ? "/docs" : s.full ? `/${s.full}` : "/";
+  // Help wins, then a surface, then a fullscreened pane. The order is the stacking order on
+  // screen — each of these covers the one after it, so the URL names the topmost.
+  const path = s.help
+    ? "/docs"
+    : s.surface
+      ? `/surface/${encodeURIComponent(s.surface)}`
+      : s.full
+        ? `/${s.full}`
+        : "/";
   return s.panel ? `${path}?panel=${s.panel}` : path;
 }
 
@@ -80,18 +99,34 @@ export function fromLocation(
   const seg = pathname.replace(/^\/+|\/+$/g, "");
   const panelParam = new URLSearchParams(search).get("panel") ?? "";
   const panel = isPanel(panelParam) ? panelParam : null;
+  const base = { view: current, full: null, panel, help: false, surface: null };
 
   // `/help` still lands here: it was the docs' address for a while, and a bookmark shouldn't drop you elsewhere.
-  if (seg === "docs" || seg === "help")
-    return { view: current, full: null, panel, help: true };
+  if (seg === "docs" || seg === "help") return { ...base, help: true };
+  // `/surface/<id>`. The id is NOT checked against the project's list: the surfaces arrive a
+  // moment after the shell does, so an address that named one would parse to "no surface" on
+  // every deep link and quietly drop you on the layout. The screen resolves it once they land,
+  // and says so if there is no such file.
+  if (seg.startsWith("surface/")) {
+    const id = seg.slice("surface/".length);
+    if (id) {
+      let decoded = id;
+      try {
+        decoded = decodeURIComponent(id);
+      } catch {
+        // A hand-typed % that is not an escape — keep it rather than throwing, as parseLaunch does.
+      }
+      return { ...base, surface: decoded };
+    }
+  }
   // A pane the CURRENT layout cannot fullscreen is not an address here — `/timeline` typed at a
   // live project names a pane that project hasn't got. It falls through to the layout's own
   // screen rather than 404ing, for the same reason an unknown segment does.
   if (isPane(seg) && VIEW_PANES[current].fullscreen.includes(seg))
-    return { view: current, full: seg, panel, help: false };
+    return { ...base, full: seg };
   // `/video` still parses, to whichever layout is current: it was a real address for a year, and
   // a bookmark should land somewhere usable rather than nowhere.
-  return { view: current, full: null, panel, help: false };
+  return base;
 }
 
 /** Do two route states describe the same URL? Used to break the state⇄URL feedback

@@ -44,13 +44,30 @@ export interface Deck {
    *  frame, do not render from it. */
   playhead: React.RefObject<Playhead>;
   engine: EngineClient | null;
-  retry: () => void;
-  /** Hear in this browser what the engine's interface is putting out. Off by default: the
-   *  sound is already coming out of the machine, so the tab would double it. */
-  listening: boolean;
-  setListening: (on: boolean) => void;
+  /**
+   * Reconnect. OPTIONAL, and nothing in this package reads it today — m9 returns one and the
+   * card that would offer it is m9's own, outside the desk.
+   *
+   * Left in the type rather than deleted: it is what a host WOULD wire a "réessayer" button to,
+   * and the alternative to an unread optional is a host inventing a no-op to satisfy a required
+   * field, which is the worse of the two. Noted in docs/inventaire.md's terms: not dead, unread.
+   */
+  retry?: () => void;
+  /**
+   * Hear in this browser what the engine's interface is putting out. Off by default: the sound
+   * is already coming out of the machine, so the tab would double it.
+   *
+   * OPTIONAL, and its absence means the host cannot monitor at all — l8 has no stream player.
+   * The desk then draws no headphone button, rather than one that does nothing: `ui-chains`
+   * made the opposite call for its `command` prop and said why — "a package that made it
+   * optional would let a host ship a menu that silently does nothing". The difference is that a
+   * menu with no handler is a bug, while monitoring is a capability a host may honestly lack,
+   * and the honest answer to "this host cannot" is not to offer it.
+   */
+  listening?: boolean;
+  setListening?: (on: boolean) => void;
   /** Underruns and buffer depth, once listening — the numbers étape 7 exists to expose. */
-  listenStats: { depth: number; underruns: number };
+  listenStats?: { depth: number; underruns: number };
   /**
    * Every WATCHED plugin's live parameter values — the desk and the graph read the SAME one.
    *

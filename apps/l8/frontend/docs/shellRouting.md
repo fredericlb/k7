@@ -12,6 +12,13 @@ rather than a component tree:
 | `view` | the layout — `global` (timeline over chains) or `live` (chains alone, no timeline). Entirely derived: it is what the open PROJECT is, and nothing offers a choice. |
 | `full` | which single pane has the whole screen, or `null` for the layout above. |
 | `panel` | the side panel (graph, docs, logs), independent of both. |
+| `surface` | a special view the PROJECT declares (`surfaces/`), over the layout — `/surface/<id>`. |
+
+`surface` is its own field and not a `Pane`, for the reason the table cannot show: a pane is one
+of three the shell has always had, while a surface's list is the project's and is not knowable
+until one is open. It stacks like `help` — over the layout, which is untouched underneath — and
+`toPath` names the topmost of the three (help, then surface, then a fullscreened pane). See
+[packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 ### The layout is the project's, not the user's
 

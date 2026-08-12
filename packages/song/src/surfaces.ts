@@ -7,16 +7,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Diagnostic } from "./loader";
 import { entityFiles } from "./yaml/moduleIO";
-import { parseSurface, SURFACES_DIR } from "./yaml/surfaceFile";
-import type { Surface } from "./yaml/surfaceSchema";
+import {
+  type ProjectSurface,
+  type ProjectSurfaces,
+  parseSurface,
+  SURFACES_DIR,
+} from "./yaml/surfaceFile";
 
-/** One surface of a project: its id is its FILENAME, as every flat entity folder here works. */
-export interface ProjectSurface {
-  id: string;
-  /** Project-relative, for a diagnostic the editor can match against its tree. */
-  file: string;
-  surface: Surface;
-}
+// The shapes are the WIRE's, declared beside the browser-safe parser and imported back here, so
+// the side that walks the disk and the side that receives the payload cannot drift.
+export type { ProjectSurface, ProjectSurfaces };
 
 /**
  * Every surface a project declares, in filename order, plus what would not read.
@@ -29,10 +29,7 @@ export interface ProjectSurface {
  * the editor draws from a declaration; half a declaration would be a screen with no way to
  * tell what it was supposed to be, which is the failure this repo keeps paying for.
  */
-export function projectSurfaces(dir: string): {
-  surfaces: ProjectSurface[];
-  diagnostics: Diagnostic[];
-} {
+export function projectSurfaces(dir: string): ProjectSurfaces {
   const surfaces: ProjectSurface[] = [];
   const diagnostics: Diagnostic[] = [];
   for (const { id, file } of entityFiles(

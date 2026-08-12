@@ -540,6 +540,14 @@ filesRouter.get(
     }
   }),
 );
+// The project's `surfaces/` folder, parsed. A DERIVED view like /graph beside it, rather than
+// the editor walking the tree and reading each file itself: the parse and its diagnostics are
+// @studio/song's, and a second reader in the browser would be a second answer to "is this
+// surface valid". Always 200 — a project with no surfaces has none, which is not an error.
+filesRouter.get(
+  "/surfaces",
+  wrap((req, res) => res.json(req.ws!.surfaces())),
+);
 filesRouter.get(
   "/project-errors",
   wrap((req, res) => res.json(req.ws!.projectErrors())),
