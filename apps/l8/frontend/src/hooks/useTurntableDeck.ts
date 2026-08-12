@@ -5,7 +5,7 @@
 
 import type { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
-import { useEngineState } from "@studio/engine-browser/store";
+import { type EngineStore, useStoreState } from "@studio/engine-browser/store";
 import type { Deck, Playhead } from "@studio/ui-turntables/engine";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -14,15 +14,19 @@ import type { EngineLink } from "./useEngineLink";
 /**
  * The pieces of l8's engine link the desk needs — named one by one rather than taken as a whole
  * `EngineLink`, because `App` destructures that hook and there is no object to pass. Asking for
- * the four fields is also what says how little of l8's link a desk actually touches.
+ * the fields is also what says how little of l8's link a desk actually touches.
  */
 export function useTurntableDeck({
+  store,
   engineRef,
   engineReady,
   watchPluginParams,
   pluginParamsStore,
   engineUrl,
 }: {
+  /** Passed, not taken from context: `App` CALLS this hook and RENDERS `<EngineStoreProvider>`,
+   *  so the provider is below the call and `useEngineState` found no store and threw. */
+  store: EngineStore;
   engineRef: EngineLink["engineRef"];
   engineReady: boolean;
   watchPluginParams: EngineLink["watchPluginParams"];
@@ -32,8 +36,8 @@ export function useTurntableDeck({
   /** Only ever an id in `phase` — the desk shows which engine, it does not connect to one. */
   engineUrl: string | { toString(): string };
 }): Deck {
-  const playing = useEngineState((s) => s.playing);
-  const seconds = useEngineState((s) => s.playhead);
+  // Transport changes a few times a set, so the shell may re-render on it.
+  const playing = useStoreState(store, (s) => s.playing);
 
   /**
    * The transport as a REF, which is what the desk wants.
@@ -43,14 +47,24 @@ export function useTurntableDeck({
    * turn a record. l8 holds the same value in its external store for exactly that reason, so
    * this mirrors it into the shape the desk reads rather than introducing a second feed.
    *
-   * `at` is stamped whenever the value CHANGES, not on every render: it is the clock the
-   * extrapolation runs from, and restamping it without new data would keep resetting that clock
-   * to now and make the playhead crawl.
+   * Hence the raw `subscribe` rather than a selector hook: this is the one reader that wants
+   * every frame and NO render. Subscribing through `useStoreState` would have put the ~20 Hz
+   * playhead back on `App`, which is the whole thing the external store exists to avoid.
+   *
+   * `at` is stamped whenever the value CHANGES, not on every frame: it is the clock the
+   * extrapolation runs from, and restamping it on an idle repeat would keep resetting that
+   * clock to now and make the playhead crawl.
    */
   const playhead = useRef<Playhead>({ seconds: 0, at: 0 });
   useEffect(() => {
-    playhead.current = { seconds, at: performance.now() };
-  }, [seconds]);
+    const read = () => {
+      const seconds = store.getSnapshot().playhead;
+      if (seconds !== playhead.current.seconds)
+        playhead.current = { seconds, at: performance.now() };
+    };
+    read();
+    return store.subscribe(read);
+  }, [store]);
 
   /**
    * Watch exactly these plugins — l8 toggles them one at a time, the desk names a set.

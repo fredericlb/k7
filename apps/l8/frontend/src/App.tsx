@@ -451,6 +451,7 @@ export default function App({
   // adapter is a memo over the link that is already there.
   const { surfaces } = useSurfaces(reloadKey);
   const turntableDeck = useTurntableDeck({
+    store,
     engineRef,
     engineReady,
     watchPluginParams,
