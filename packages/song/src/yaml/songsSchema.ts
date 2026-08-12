@@ -38,9 +38,7 @@ const Markers = z.array(z.number().min(0).nullable()).max(MARKER_SLOTS);
  */
 const SongEntry = z.union([
   SongRef,
-  z
-    .object({ ref: SongRef, markers: Markers.optional() })
-    .strict(),
+  z.object({ ref: SongRef, markers: Markers.optional() }).strict(),
 ]);
 
 export const SongsFileSchema = z

@@ -514,7 +514,7 @@ are symmetric on purpose:
 ### Double-clicking a lane's header lays its modules out in a row
 
 The gutter has always been the row's handle: a click selects it, a double-click focuses it —
-opening its `tracks/<id>.yaml` and framing the chains it feeds. It now also opens **one lane's
+opening its `instances/<name>.yaml` and framing the chains it feeds. It now also opens **one lane's
 whole signal path**, side by side, over the graph: `trackModules` walks the same reach the
 framing uses (`subgraphForTrack`, so a send out of the lane's own chain is in it) and adds the
 ORDER a node set does not carry, then `moduleRow` lays it out.

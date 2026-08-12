@@ -16,7 +16,11 @@ describe("geolerp's ends", () => {
   it("refuses a descending pair, where the author is", () => {
     expect(() =>
       graph((g) => {
-        g.biquad("lowpass", g.geolerp(20000, 200, g.param("A", { min: 0, max: 1 })), 1);
+        g.biquad(
+          "lowpass",
+          g.geolerp(20000, 200, g.param("A", { min: 0, max: 1 })),
+          1,
+        );
       }),
     ).toThrow(/descending/);
   });

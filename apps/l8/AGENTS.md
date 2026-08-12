@@ -157,9 +157,11 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   what a host owes it. l8 is the demanding host: the command bar, context menu and edge
   inserts are optional props the other two pass nothing for.
 - **Timeline** — vim-style: `hjkl` movement, `v` for visual selection, `z`/`Shift+z`
-  for the zoom stack, `m`/`s` for mute/solo (which rewrite `tracks/*.yaml`, not a
-  session flag). Selection and zoom are a stack; the innermost entry describes the
-  view. Unlike chains, this one stays l8-only.
+  for the zoom stack, `m`/`s` for mute/solo. Neither is a session flag: `m` rewrites the
+  lane's BYPASS in `chains.yaml`, and `s` bypasses every other lane — a lane is a module,
+  and its mute is that module's bypass (`packages/song/docs/trackModules.md`). Selection
+  and zoom are a stack; the innermost entry describes the view. Unlike chains, this one
+  stays l8-only.
 
 ## The backend in detail
 

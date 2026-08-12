@@ -28,7 +28,9 @@ Two consequences fall out of that, and both are the location working rather than
 - **It is not the song's.** Moving a song to another machine does not carry your controller
   layout unless the module travels too — and if the module came from the médiathèque, it does.
 
-A map on a **track's** mixer control is not expressible: a track has no module folder. That is a
+A map on a **lane's** mixer control is not expressible: a lane is a module now
+(trackModules.md), but a FLAT instance still has no folder to put a `controller.yaml` in — the
+same limit, arrived at from the other side. That is a
 real limit of this location, and the graph declines to offer the menu there rather than writing
 somewhere the value could not be read back from.
 

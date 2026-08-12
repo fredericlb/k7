@@ -25,7 +25,7 @@ journal (`workspace.recordChange`).
 
 So `track mute gtr` goes; `track gain gtr ` asks for the dB. Roughly a third of the rows run.
 The ones worth knowing, because they change something and go at once: `module delete`,
-`event remove`, `marker delete`, `module instance unlink`, `track freeze` and `module own`.
+`event remove`, `marker delete`, `module instance unlink` and `module own`.
 
 `complete` is **stated, not sniffed** off the trailing space on `command`. That space is a caret
 position; whether a line is finished is a different question, and two questions must not share

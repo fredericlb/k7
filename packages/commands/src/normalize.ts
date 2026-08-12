@@ -58,7 +58,9 @@ export function normalizeInPlace(
   const missing = sources.filter((s) => !existsSync(s));
   if (missing.length)
     return {
-      lines: [`missing source(s) for ${label}: ${missing.map(show).join(", ")}`],
+      lines: [
+        `missing source(s) for ${label}: ${missing.map(show).join(", ")}`,
+      ],
       changed: false,
     };
 
@@ -75,7 +77,9 @@ export function normalizeInPlace(
 
   if (!engineBin)
     return {
-      lines: [`${verb} failed: studio-moteur binary not found (build the engine)`],
+      lines: [
+        `${verb} failed: studio-moteur binary not found (build the engine)`,
+      ],
       changed: false,
     };
 
@@ -96,7 +100,8 @@ export function normalizeInPlace(
 
   // The manifest's `gain` is what actually happened, and it is the only interesting number: a take already
   // at the target reports 1.0, which is how "nothing to do" says itself.
-  const line = (r.stdout || "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
+  const line =
+    (r.stdout || "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
   let gain: number | null = null;
   try {
     gain = Number((JSON.parse(line) as { gain?: number }).gain ?? Number.NaN);

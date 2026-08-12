@@ -165,28 +165,19 @@ generated lane has no file and no chain of its own, so it names its **group**.
 A header selection survives playback, as every caret position now does — see "The caret and
 the playhead are independent" above.
 
-## A lane's alternatives
+## A lane's alternatives — gone, for now
 
-A track can hold several arrangements and play one (`apps/l8/docs/21-syntax-tracks.md` has the
-file format). The arrow at the left of the gutter lists them, switches, and starts another —
-empty, or as a copy of the one playing.
+A lane could hold several arrangements and play one, and the gutter carried an arrow that
+listed them, switched, and started another. Both the field and the picker are gone with the
+move to lane-modules, to be replaced by another mechanism later —
+`packages/song/docs/trackModules.md`.
 
-It sits **first in the row**, before the meters and the name, because it is about the lane as a
-whole rather than about its sound; and the name of the current variant is drawn beside it only
-when it is **not** the first. That asymmetry is the point: every track keeps the gutter width it
-always had, and the one lane showing you something other than its `clips:` says so before you
-read its name. A lane whose clips appeared to have vanished, with nothing on screen explaining
-it, is the failure this avoids.
-
-Like every other edit here, the component reports intent and the shell runs the command
-(`onPickAlternative` / `onNewAlternative` → `track alternative select|create|copy …`). It has to be `runCommand`
-and not `quietCommand`: switching replaces the lane's whole clip list, so the timeline must
-re-read the project rather than patch a field.
-
-A **generated** lane gets no arrow at all. Its clips are the pattern scheduler's look-ahead,
-rewritten every tick, so there is nothing there to keep a variant of. Neither does a **frozen**
-one: it plays a render of one arrangement, so offering to switch would put the picker and the
-speakers at odds — the command refuses it too, and says to unfreeze first.
+What the arrow got right, and what a replacement should keep: it sat **first in the row**,
+before the meters and the name, because it was about the lane as a whole rather than about its
+sound; and the current variant's name was drawn beside it only when it was **not** the first.
+That asymmetry was the point — every lane kept the gutter width it always had, and the one lane
+showing you something other than its `clips:` said so before you read its name. A lane whose
+clips appear to have vanished, with nothing on screen explaining it, is the failure that avoids.
 
 ## The `v` rectangle
 
@@ -420,8 +411,8 @@ arrangement package importing the graph's would be the wrong way round.
 ## The name column is wider here than in v1
 
 `GUTTER_DESKTOP` in `@studio/ui-timeline` is sized for what v1 puts in one: a name. This app's
-gutter carries an alternatives arrow, two meters, an instrument icon, the name and three
-toggles, which had left the name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
+gutter carries two meters, an instrument icon, the name and three toggles, which had left the
+name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
 
 Local rather than pushed into the shared package, because the width is a property of what a
 surface PUTS in the column: v1 would be paying viewport for controls it does not draw. What must
@@ -441,10 +432,14 @@ interpolates the answer.
 | a live pattern lane | its **group**, not the lane |
 | a video lane | nothing — it is not an engine track |
 
-A generated lane is synthesized per tick and has no file to carry a flag, so muting the
-group is the only thing that can silence it (see `project.ts` `withGroupMix`). Aiming at
-the lane would be a key that cannot work, so the status line names the group instead and
-the redirect shows.
+A generated lane is synthesized per tick, so muting the group is the only thing that can
+silence it (see `project.ts` `withGroupMix`). Aiming at the lane would be a key that cannot
+work, so the status line names the group instead and the redirect shows.
+
+Neither `m` nor `s` writes a flag on the lane any more. `m` is the lane's module BYPASS, one
+name in `chains.yaml`'s `bypassed:`; `s` bypasses every OTHER lane, and nothing on disk says
+"soloed" (`packages/song/docs/trackModules.md`). The keys are unchanged and so is what you
+hear — only where the state lives moved.
 
 How a lane *reads* is not the same as the flag on it: a track is dimmed if it is muted, if
 its group is, or if something else is soloed and it is not — mirroring `withGroupMix` plus

@@ -1247,13 +1247,15 @@ export default function App({
     (target: RowTarget) => {
       // Named, not fuzzy-matched: a row knows which folder its file is in, and the score a
       // bare id would win is the one `clips/<id>.yaml` wins too. See projectPaths.
+      // `instances/`, because that is where a lane lives: it is an instance of a
+      // `@studio/…-track` module (packages/song/docs/trackModules.md).
       const file = entityFile(
         editorRef.current?.files() ?? [],
-        "tracks",
+        "instances",
         target.id,
       );
       const path = file && openInEditor(file, false);
-      focusLine.current = `${target.id} — ${path ?? "no tracks/ file"}`;
+      focusLine.current = `${target.id} — ${path ?? "no instances/ file"}`;
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });

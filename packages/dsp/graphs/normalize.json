@@ -16,33 +16,22 @@
   "nodes": [
     {
       "type": "sub",
-      "in": [
-        "Target",
-        "Peak"
-      ],
+      "in": ["Target", "Peak"],
       "out": "n0"
     },
     {
       "type": "clamp",
-      "in": [
-        "n0",
-        -60,
-        30
-      ],
+      "in": ["n0", -60, 30],
       "out": "n1"
     },
     {
       "type": "fromdb",
-      "in": [
-        "n1"
-      ],
+      "in": ["n1"],
       "out": "n2"
     },
     {
       "type": "gain",
-      "in": [
-        "n2"
-      ]
+      "in": ["n2"]
     }
   ]
 }

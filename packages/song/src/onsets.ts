@@ -21,7 +21,8 @@ export interface OnsetEdits {
  */
 export const ONSET_MATCH_S = 0.025;
 
-const near = (a: number, b: number): boolean => Math.abs(a - b) <= ONSET_MATCH_S;
+const near = (a: number, b: number): boolean =>
+  Math.abs(a - b) <= ONSET_MATCH_S;
 
 /**
  * The onsets to draw and to slice on: `detected`, minus what was removed, plus what was added — sorted, and
@@ -93,5 +94,8 @@ function tidy(e: OnsetEdits): OnsetEdits {
     [...new Set(xs ?? [])].sort((a, b) => a - b);
   const added = clean(e.added);
   const removed = clean(e.removed);
-  return { ...(added.length ? { added } : {}), ...(removed.length ? { removed } : {}) };
+  return {
+    ...(added.length ? { added } : {}),
+    ...(removed.length ? { removed } : {}),
+  };
 }

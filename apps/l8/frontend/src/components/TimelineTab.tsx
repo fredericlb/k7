@@ -22,13 +22,7 @@ import {
   nearestTick,
   subdivideBeats,
 } from "@studio/ui-waveform";
-import {
-  Music,
-  Repeat,
-  StretchVertical,
-  Timer,
-  Volume2,
-} from "lucide-react";
+import { Music, Repeat, StretchVertical, Timer, Volume2 } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -2078,44 +2072,44 @@ export function TimelineTab({
                                 so they never overlap the neighbouring event and the body
                                 between them still drags the whole clip. */}
                             {(["start", "end"] as const).map((edge) => (
-                                <div
-                                  key={edge}
-                                  className={cn(
-                                    "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
-                                    edge === "start" ? "left-0" : "right-0",
-                                    "hover:bg-primary/60",
-                                  )}
-                                  onPointerDown={(e) => {
-                                    // Stop it here or the clip's own move drag starts too.
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    (
-                                      e.currentTarget as HTMLElement
-                                    ).setPointerCapture?.(e.pointerId);
-                                    const end =
-                                      c.start +
-                                      (c.length > 0 ? c.length : NATURAL);
-                                    setResize({
-                                      trackId: t.id,
-                                      clipId: c.id,
-                                      edge,
-                                      origStart: c.start,
-                                      origEnd: end,
-                                      start: c.start,
-                                      end,
-                                      x: e.clientX,
-                                      ppb,
-                                    });
-                                  }}
-                                  onPointerMove={onResizeMove}
-                                  onPointerUp={commitResize}
-                                  onPointerCancel={() => setResize(null)}
-                                  title={
-                                    edge === "start"
-                                      ? "drag to move this event's start"
-                                      : "drag to move this event's end"
-                                  }
-                                />
+                              <div
+                                key={edge}
+                                className={cn(
+                                  "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
+                                  edge === "start" ? "left-0" : "right-0",
+                                  "hover:bg-primary/60",
+                                )}
+                                onPointerDown={(e) => {
+                                  // Stop it here or the clip's own move drag starts too.
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  (
+                                    e.currentTarget as HTMLElement
+                                  ).setPointerCapture?.(e.pointerId);
+                                  const end =
+                                    c.start +
+                                    (c.length > 0 ? c.length : NATURAL);
+                                  setResize({
+                                    trackId: t.id,
+                                    clipId: c.id,
+                                    edge,
+                                    origStart: c.start,
+                                    origEnd: end,
+                                    start: c.start,
+                                    end,
+                                    x: e.clientX,
+                                    ppb,
+                                  });
+                                }}
+                                onPointerMove={onResizeMove}
+                                onPointerUp={commitResize}
+                                onPointerCancel={() => setResize(null)}
+                                title={
+                                  edge === "start"
+                                    ? "drag to move this event's start"
+                                    : "drag to move this event's end"
+                                }
+                              />
                             ))}
                             <div className="flex items-center gap-0.5 leading-tight">
                               {/* Kind at a glance: a note for MIDI/sequence clips, a speaker

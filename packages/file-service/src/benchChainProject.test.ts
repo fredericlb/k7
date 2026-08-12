@@ -139,9 +139,9 @@ describe("a médiathèque chain, opened on the bench", () => {
       `${project}/instances/banc.yaml`,
       'extends: "@studio/audio-track"\nclips: []\n',
     );
-    expect(
-      existsSync(join(mediatek, CHAIN, "instances", "banc.yaml")),
-    ).toBe(false);
+    expect(existsSync(join(mediatek, CHAIN, "instances", "banc.yaml"))).toBe(
+      false,
+    );
   });
 
   it("takes a module save as the bench's, which is what `pushed` says", () => {

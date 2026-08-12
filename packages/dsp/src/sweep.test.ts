@@ -43,7 +43,9 @@ describe("the DJ filter graph", () => {
     // …and it is EARNED, not permanent: at rest the response is Butterworth, so a filter doing
     // nothing also colours nothing. A fixed high Q rings even parked out of the way.
     expect(Q_REST).toBeCloseTo(0.707, 3);
-    expect(g.nodes.filter((n) => n.type === "lerp").length).toBeGreaterThanOrEqual(2);
+    expect(
+      g.nodes.filter((n) => n.type === "lerp").length,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("gives each half its OWN resonance", () => {

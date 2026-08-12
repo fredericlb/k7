@@ -44,8 +44,8 @@ import type {
   RawRack,
   RawVideoTrack,
 } from "./rawDoc";
-import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
+import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
 import { setFileValue } from "./yaml/edit";

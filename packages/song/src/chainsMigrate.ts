@@ -1,6 +1,6 @@
 // chainsMigrate.ts — rewrite a project's chains.yaml from the old chain-LIST format into
-// segments (`tracks:`/`modules:`). A one-shot, re-runnable: a file already in the new
-// shape is left alone, so running it twice is a no-op. See docs/chainsFile.md.
+// segments (one `modules:` map). A one-shot, re-runnable: a file already in the new shape is
+// left alone, so running it twice is a no-op. See docs/chainsFile.md.
 
 import {
   copyFileSync,
@@ -103,8 +103,7 @@ function readOld(raw: unknown): OldChain[] | null {
 export function migrateChainsText(text: string): ChainsMigration {
   const raw = parse(text, { version: "1.2" }) ?? {};
   const old = readOld(raw);
-  if (!old)
-    return { text, changed: false, split: [], tracks: [], notes: [] };
+  if (!old) return { text, changed: false, split: [], tracks: [], notes: [] };
 
   // Which chains use each module as a STEP — a target is a destination, not an instance.
   const users = new Map<string, string[]>();

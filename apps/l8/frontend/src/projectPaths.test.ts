@@ -42,14 +42,16 @@ describe("which kind of file a path is", () => {
   it("recognises sequences, clips, tracks and video tracks", () => {
     expect(isSeqFile("sequences/lead.yaml")).toBe(true);
     expect(isClipFile("clips/kick.yaml")).toBe(true);
-    expect(isTrackFile("tracks/melody.yaml")).toBe(true);
+    // A lane lives in `instances/` — it is an instance of a `@studio/…-track` module.
+    expect(isTrackFile("instances/melody.yaml")).toBe(true);
+    expect(isTrackFile("tracks/melody.yaml")).toBe(false);
     expect(isVideoTrackFile("video_tracks/cam.yaml")).toBe(true);
   });
 
   it("says no to a folder that merely looks similar", () => {
     expect(isClipFile("clips/nested/kick.yaml")).toBe(false);
     expect(isSeqFile("sequences.yaml")).toBe(false);
-    expect(isTrackFile("tracks/melody.wav")).toBe(false);
+    expect(isTrackFile("instances/melody.wav")).toBe(false);
   });
 
   it("takes the id off the extension, keeping a dot inside the name", () => {

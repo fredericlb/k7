@@ -68,7 +68,8 @@ hand and one moved by a controller are indistinguishable downstream.
 
 ## What is deliberately not bindable
 
-- **A track's mixer control** (`@volume` on a track node) — a track has no module folder, so
+- **A lane's mixer control** (`@volume` on a lane's node) — a lane is a module now
+  (`packages/song/docs/trackModules.md`), but a flat instance has no module FOLDER, so
   there is nowhere to record the binding. The right-click falls through to the node's own menu.
 - **A module FIELD** (`@monitor`) — a word rather than a number; a control change has nothing to
   sweep.

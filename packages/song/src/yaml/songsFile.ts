@@ -5,11 +5,7 @@
 import { isMap, isSeq, LineCounter, parseDocument } from "yaml";
 import { songIdOf } from "../songRef";
 import type { ModuleIssue } from "./moduleFile";
-import {
-  MARKER_SLOTS,
-  type SongsFile,
-  SongsFileSchema,
-} from "./songsSchema";
+import { MARKER_SLOTS, type SongsFile, SongsFileSchema } from "./songsSchema";
 
 // YAML 1.2 for the reason every other file here pins it (moduleFile.ts): a scalar shaped like
 // `5:1:1` stays a string. A ref carries no colon today, and the day one does it must not
@@ -69,7 +65,9 @@ export function parseSongs(text: string): ParsedSongs {
  * the point — a set list's running order is decided at the desk, not in git.
  */
 export function songRefs(file: SongsFile | null | undefined): string[] {
-  const refs = (file?.songs ?? []).map((s) => (typeof s === "string" ? s : s.ref));
+  const refs = (file?.songs ?? []).map((s) =>
+    typeof s === "string" ? s : s.ref,
+  );
   return [...new Set(refs)].sort();
 }
 

@@ -14,11 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadGraph } from "./graph";
 import { loadLanes, loadMixView, loadSongs } from "./loader";
-import { parseMixView } from "./yaml/mixViewFile";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
 import { projectTypeOf } from "./projectType";
 import { scaffoldM9 } from "./scaffoldM9";
+import { parseMixView } from "./yaml/mixViewFile";
+
 // Compiling this set means compiling TWO jsdsp graphs — the crossfade and the sweep filter —
 // and each shells out to esbuild. That is seconds, not milliseconds, and under a full parallel
 // run it has overrun the 5 s default and failed as a timeout rather than as anything real.

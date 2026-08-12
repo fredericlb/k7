@@ -49,9 +49,7 @@ beforeEach(() => {
     join(root, "_modules", "io", "IN", "in-2.yaml"),
     "channel: [2]\n",
   );
-  chains(
-    `modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  "${IN}": [ gtr ]\n`,
-  );
+  chains(`modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  "${IN}": [ gtr ]\n`);
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

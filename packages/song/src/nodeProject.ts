@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bypassedOf } from "./chainsGraph";
 import { bakeCurve, loadCurves } from "./curves";
 import {
   type Chain,
@@ -56,7 +57,6 @@ import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
 import { sortTracksByKind } from "./trackKind";
 import { type Lane, lanesOf } from "./trackModule";
-import { bypassedOf } from "./chainsGraph";
 import { DEFAULT_PROJECT_MODE } from "./yaml/projectSchema";
 
 // A placement -> a resolved ClipDoc. `start`/`loop` are 1-based positions, the rest 0-based durations.

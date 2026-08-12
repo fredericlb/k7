@@ -9,8 +9,7 @@ one entity fewer and one file more.
 | `project.yaml` | the set's settings, plus `type: m9` at the root |
 | `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
 | `chains.yaml` | the routing segments, exactly as in a song |
-| `tracks/<deck>.yaml` | one file per DECK — declared here, with no arrangement |
-| `instances/<name>.yaml` | its USES of the médiathèque's modules — one line each |
+| `instances/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so instances too ([trackModules.md](trackModules.md)) |
 | `views/mix.yaml` | what each control of the Mix desk drives — see [viewBindings.md](viewBindings.md) |
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
@@ -60,24 +59,28 @@ tier inside `project:` is the SONG's own settings — its tempo, its rate. This 
 about the file's dialect. `projectSchema.ts` carries the note about what happened the last
 time those two tiers were confused.
 
-## A deck is a track with no arrangement
+## A deck is a lane with no arrangement
 
 This is the one genuinely new thing, and it is small.
 
-In a song, `tracks/bass.yaml` **is** the arrangement: the clips, where they sit, how often
+In a song, `instances/bass.yaml` **is** the arrangement: the clips, where they sit, how often
 they repeat. On a deck there is nothing to arrange — the material is whichever song from
 `songs.yaml` was loaded onto it ten seconds ago, and it will be a different one in four
-minutes. So `clips` is empty, and stays empty in git.
+minutes. So it authors no `clips:` at all.
 
 The file still exists, and that is deliberate. The alternative — inferring the decks from
-`chains.yaml`'s `tracks:` keys and writing no track files at all — costs three things:
+`chains.yaml`'s keys and writing no lane files at all — costs three things:
 
-- l8 keeps a useful error for a chain naming a track that has no file, and inference
+- l8 keeps a useful error for a chain naming a node that has no file, and inference
   would have to make that error conditional on the project's type;
 - the file tree, the editor and the loader all work unchanged with a file there;
 - the deck's **settings** need somewhere to live. Trim, cue, key-lock, which deck holds
   the master tempo: none of those are the song, all of them are the deck, and inventing a
   second home for them later is worse than having one now.
+
+A deck's file is now an ordinary instance — `extends: "@studio/audio-track"` and its own
+settings — which is the same argument arriving at the same place from the other side: an
+instance is exactly "one use of a module, with its own settings".
 
 ## Two decks meeting at a crossfade
 
@@ -85,13 +88,13 @@ The graph is the shape a chain cannot express on its own, because **a chain carr
 signal**:
 
 ```yaml
-tracks:
+modules:
   deckA: [ tempoA ]         # each deck through its OWN tempo first…
   deckB: [ tempoB ]
-modules:
   tempoA: [ crossfade ]     # …then the FLOW into the crossfade's first input
   tempoB: [ crossfade#b ]   # a side input — lands on the port called `b`
   crossfade: [ OUT ]
+bypassed: [ deckB ]         # deck B is heard through the crossfade only
 ```
 
 `#b` is what makes the second deck expressible; without it `tempoB` would claim the module

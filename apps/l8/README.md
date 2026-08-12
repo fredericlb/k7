@@ -74,43 +74,45 @@ schema-driven autocompletion derived from the same Zod schemas.
 ```
 project.yaml           header + trackOrder + markers
 settings.yaml          project settings (metronome, count-in)
-chains.yaml            the routing graph
-tracks/<id>.yaml       track config + clip refs
+chains.yaml            the routing graph — ONE `modules:` map, lanes included
 clips/<id>.yaml        audio clips
 sequences/<id>.yaml    MIDI clip config + inline notes ({t,d,k,v} mappings)
 curves/<id>.yaml       automation curves (lfo / custom points)
-algo/<name>.strudel    live Strudel patterns (played only when a strudel track links one)
+algo/<name>.strudel    live Strudel patterns (played only when a strudel lane links one)
 modules/<type>/<name>/module.yaml  modules: a plugin/io/rack + `params?`, optional `extends: "…"`
                                    (type ∈ io|instruments|audio|transformers|video_effects — the folder gives the kind)
-modules/<type>/<name>/<inst>.yaml  an INSTANCE of that module (inherits module.yaml), used
-                                   in a chain as "<name>:<inst>"
+instances/<name>.yaml  one USE of a module, flat, named by its file — the LANES too
 <name>/<name>.vstpreset · <name>/<audio>.wav   the module's own preset + rack audio
 ```
 
-- **A track is a `single`, a `group` or a `strudel` lane.** A single holds material,
-  and its `contentType` fixes which kind: an `audio` track takes clip refs only, a
-  `sequences` track takes sequence refs only — one track never mixes the two. Omit
-  `contentType` and it's inferred from the refs.
-- **A group holds no material — only membership.** `tracks` lists the member track
-  ids. That's all a group is.
+- **A track is a MODULE.** It lives in `instances/<name>.yaml` and what it `extends` says
+  what kind of lane it is: `@studio/audio-track`, `@studio/sequence-track`, their two
+  `…-strudel-track` siblings, or `@studio/group-track`. There is no `tracks/` folder, no
+  `type:` and no `contentType:` — one `extends:` says both what signal it carries and where
+  its clips come from. See
+  [packages/song/docs/trackModules.md](../../packages/song/docs/trackModules.md).
+- **A group holds no material — only membership.** `tracks` lists the member lane
+  names. That's all a group is.
+- **Mute is the lane's BYPASS**, one name in `chains.yaml`'s `bypassed:`; solo is derived by
+  the surface and written nowhere.
 - **There is no picture here.** l8 drew video tracks until they left for `apps/v1`,
   which cuts in seconds against a wall clock rather than in beats against a tempo. A
   `video_tracks/` folder in a song is now a compile error naming where it belongs. The one
   thing that genuinely went with it is `video_source` — an audio track inheriting a video
   lane's placements — which cannot exist once the two are two folders. See
   [packages/song/docs/v1Project.md](../../packages/song/docs/v1Project.md).
-- **A `strudel` track streams its material from a pattern.** `strudel` links one file
-  under `algo/`, and the track's **name** (defaulting to its id) picks which lane of
-  it to receive — the pattern's `.label("…")`, matched ignoring case and punctuation.
+- **A strudel lane streams its material from a pattern.** `strudel` links one file
+  under `algo/`, and the lane's **name** picks which part of it to receive — the
+  pattern's `.label("…")`, matched ignoring case and punctuation.
   Nothing static can check that match, since labels only exist once the pattern runs,
-  so it's checked when playback starts. **A `.strudel` file no track links to is
+  so it's checked when playback starts. **A `.strudel` file no lane links to is
   ignored**: `algo/` is a library you pick from, not a folder that autoloads.
-- **A strudel lane is a track like any other**: a stable id, so `chains.yaml` can route
-  it from `from:` and the mixer can set its gain/pan/mute/solo. Its `contentType`
+- **A strudel lane is a lane like any other**: a stable name, so `chains.yaml` can route
+  it and the mixer can set its gain and pan. WHICH of the two strudel modules it extends
   decides how the pattern's events are read, so a chain and a pattern can't disagree:
-  `sequences` makes every event a MIDI note played by whatever instrument the chain
-  provides (`s(…)` picks a waveform, not a plugin); `audio` makes every event a sample
-  one-shot (`s("bd")` names the sample).
+  `@studio/sequence-strudel-track` makes every event a MIDI note played by whatever
+  instrument the chain provides (`s(…)` picks a waveform, not a plugin);
+  `@studio/audio-strudel-track` makes every event a sample one-shot (`s("bd")` names it).
 - **A lane no track declares still plays.** The clock mints a live track for it, named
   after its label — or, for unlabelled events, one per orbit named `strudel <orbit> …`.
   Declaring a lane is the opt-in that buys the id, the chain and the mixer strip;

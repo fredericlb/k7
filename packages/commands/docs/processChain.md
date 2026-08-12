@@ -20,8 +20,7 @@ One command taking either was written first and thrown away before it landed: re
 track-then-clip-then-path meant `gtr` and `riff` both worked, so the first word promised nothing
 and the log line was the only place you could find out what had actually been bounced. Each
 command refuses the other's argument and names the one to run instead. Two also keeps them in
-the `<noun> <verb>` namespace every other command uses, beside `track freeze` — which is the
-neighbour they should be read against.
+the `<noun> <verb>` namespace every other command uses.
 
 It replaces `clip normalize`, which peak-normalised a track's clips to −1 dBFS through the
 engine's `--normalize`. Normalising is one treatment, hard-coded, and the médiathèque already
@@ -50,13 +49,17 @@ That is also why `clip process` says *the clip's* file rather than *this placeme
 is material, and a placement is a reference to it. Treating one placement alone would mean
 splitting the clip in two, which is an edit to make on purpose and not a side effect of a bounce.
 
-## Not `track freeze`
+## Not a freeze
 
-Freeze is reversible and leaves the material alone: it bounces the track, plays that instead,
-and deletes the render when you unfreeze. This rewrites what the clips play, which is what you
+Freezing was reversible and left the material alone: it bounced the lane, played that instead,
+and deleted the render when you unfroze. This rewrites what the clips play, which is what you
 want when the treatment IS the sound and you no longer want to carry the plugins that made it.
 
-The two overlap in one place, and `track process` says so: applying a track's **own** chain to
+(`track freeze` is gone for now, with the `frozen:` field it wrote — see
+`packages/song/docs/trackModules.md`. The distinction is still the one to hold on to when it
+comes back.)
+
+The two overlap in one place, and `track process` says so: applying a lane's **own** chain to
 its clips leaves that chain still running on playback, so the treatment is heard twice. That is
 not refused — it is a legitimate thing to want, once you bypass the modules — but nobody should
 discover it by ear.

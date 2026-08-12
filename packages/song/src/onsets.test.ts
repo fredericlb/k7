@@ -2,12 +2,7 @@
 // be re-found at another sensitivity; what somebody said by hand must still be true afterwards.
 
 import { describe, expect, it } from "vitest";
-import {
-  addOnset,
-  moveOnset,
-  removeOnset,
-  resolveOnsets,
-} from "./onsets";
+import { addOnset, moveOnset, removeOnset, resolveOnsets } from "./onsets";
 
 describe("resolving what a clip's onsets are", () => {
   it("is just the detected set when nothing was corrected", () => {

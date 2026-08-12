@@ -15,9 +15,17 @@ export const isSeqFile = (path: string): boolean =>
 /** A clip file — audio (a waveform) or, in a v1 cut, video. */
 export const isClipFile = (path: string): boolean =>
   kind("clips").test(norm(path));
-/** A track's placement file. */
+/**
+ * A LANE's file — an instance in `instances/`.
+ *
+ * Not every instance is a lane: `instances/reverb.yaml` is a use of a reverb. This is
+ * deliberately the loose test, because what it decides is whether the MINIMAP points at a
+ * track of that name, and it points at nothing when there is none. Knowing for certain would
+ * mean resolving `extends` against the whole project to draw a highlight. See
+ * packages/song/docs/trackModules.md.
+ */
 export const isTrackFile = (path: string): boolean =>
-  kind("tracks").test(norm(path));
+  kind("instances").test(norm(path));
 /** A v1 lane's placement file: a flat mapping whose `clips:` lists placements. Still known
  *  here because the file TREE is the workspace's, and a workspace holds every app's projects. */
 export const isVideoTrackFile = (path: string): boolean =>

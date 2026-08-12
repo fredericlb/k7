@@ -16,13 +16,16 @@ instances/pad.yaml                      ->  "pad"     another
 A chain names an instance by that filename and nothing else:
 
 ```yaml
-tracks:
-  melody: [ lead ]
-  pad:    [ pad ]
 modules:
-  lead: [ OUT ]
-  pad:  [ OUT ]
+  melody: [ synth-melody ]
+  pad:    [ synth-pad ]
+  synth-melody: [ OUT ]
+  synth-pad:    [ OUT ]
 ```
+
+`melody` and `pad` are instances too — a LANE is an instance of a `@studio/…-track` module
+([trackModules.md](trackModules.md)), which is why the file has one map and why the synths are
+named for the lanes they serve rather than after them.
 
 An instance file is **the same flat struct as `module.yaml`**, vetted the same way. It may
 say anything a module may say; it normally states only what it CHANGES.
@@ -123,8 +126,10 @@ command — so "mute this out of the chain for a moment" meant deleting an insta
 settings. Unlinked, it is still on disk with everything it had, and `chain add` puts it back.
 
 The splice itself is `removeNode`'s, the same one `module delete` uses; a node fed from two
-paths has both of them rejoined. A **track** is refused rather than spliced: a chain starts
-there, so there is nothing feeding it to reconnect to what it feeds.
+paths has both of them rejoined. A **lane** used to be refused here — a chain started at it, so
+there was nothing feeding it to reconnect to what it feeds. A lane is a module now
+([trackModules.md](trackModules.md)), so it unlinks like anything else: it leaves the signal path
+and its file stays on disk with its clips, which is what unlinking means everywhere else.
 
 Right-clicking a module in l8's graph offers it, along with everything else a module answers —
 that menu is derived from this catalogue, so the entry exists because the command's first

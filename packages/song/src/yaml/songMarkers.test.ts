@@ -66,11 +66,22 @@ describe("writing a cue back", () => {
     // A cue is muscle memory. A list that closed its gaps would renumber somebody's set
     // mid-gig, which is worse than an empty button.
     const out = withMarkers(PLAIN, A, [null, null, 48]);
-    expect(songMarkers(parseSongs(out).value)).toEqual({ [A]: [null, null, 48] });
+    expect(songMarkers(parseSongs(out).value)).toEqual({
+      [A]: [null, null, 48],
+    });
   });
 
   it("drops the trailing empties rather than writing eight nulls", () => {
-    const out = withMarkers(PLAIN, A, [12.5, null, null, null, null, null, null, null]);
+    const out = withMarkers(PLAIN, A, [
+      12.5,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
     expect(songMarkers(parseSongs(out).value)).toEqual({ [A]: [12.5] });
     expect(out).not.toContain("null");
   });

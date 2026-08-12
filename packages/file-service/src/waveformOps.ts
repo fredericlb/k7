@@ -167,7 +167,10 @@ export class WaveformOps {
     // Resolved here rather than in each surface, so the slice widget, the clip block and the take review all
     // draw the same onsets without knowing corrections exist. See song/onsets.ts.
     const edits = clipOnsets(dir, clipId);
-    const corrected = { ...env, transients: resolveOnsets(env.transients, edits) };
+    const corrected = {
+      ...env,
+      transients: resolveOnsets(env.transients, edits),
+    };
 
     const key = this.wfKey(`${clipId}${whole ? "::whole" : ""}`, buckets);
     // The sensitivity rides in the signature: re-detecting changes the onsets and nothing else, and a memo keyed

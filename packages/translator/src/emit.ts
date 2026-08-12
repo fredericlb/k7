@@ -562,7 +562,12 @@ export function emitFolder(
   if (Object.keys(chainNodes).length) seg.modules = chainNodes;
   // A lane the import found MUTED is bypassed, which is where a lane's mute lives now.
   const muted = song.tracks
-    .filter((t) => t.mute && slugOf.has(t.id) && !busChains.has(slugOf.get(t.id) as string))
+    .filter(
+      (t) =>
+        t.mute &&
+        slugOf.has(t.id) &&
+        !busChains.has(slugOf.get(t.id) as string),
+    )
     .map((t) => slugOf.get(t.id) as string);
   const allBypassed = [...bypassed, ...muted];
   if (allBypassed.length) seg.bypassed = allBypassed;

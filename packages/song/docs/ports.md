@@ -33,10 +33,9 @@ A chain carries **one** signal. A second input therefore has to arrive from some
 the chains file says so by naming the port a destination lands on:
 
 ```yaml
-tracks:
+modules:
   deckA: [ crossfade ]      # the FLOW — lands on the first input
   deckB: [ crossfade#b ]    # a side input — lands on the port called `b`
-modules:
   crossfade: [ OUT ]
 ```
 

@@ -18,11 +18,11 @@ export {
   AUDIO_STRUDEL_TRACK_REF,
   AUDIO_TRACK_REF,
   GROUP_TRACK_REF,
+  isTrackRef,
   SEQUENCE_STRUDEL_TRACK_REF,
   SEQUENCE_TRACK_REF,
   TRACK_CATEGORY,
   TRACK_REFS,
-  isTrackRef,
 } from "./moduleTypes";
 
 /**

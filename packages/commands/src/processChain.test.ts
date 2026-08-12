@@ -149,11 +149,7 @@ describe("resolving a chain of the project", () => {
   it("refuses a chain that is only a strip", () => {
     // Nothing would be left after the mixer is dropped, so the bounce would write a copy of the
     // source under a name that promises a treatment.
-    put(
-      dir,
-      "chains.yaml",
-      "modules:\n  gtr: [ strip ]\n  strip: [ OUT ]\n",
-    );
+    put(dir, "chains.yaml", "modules:\n  gtr: [ strip ]\n  strip: [ OUT ]\n");
     expect(() => resolveChain(dir, loadProject(dir), "gtr")).toThrow(
       /no treatment to apply/,
     );

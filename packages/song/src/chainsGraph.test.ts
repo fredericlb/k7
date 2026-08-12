@@ -52,10 +52,10 @@ describe("a run, from a lane to the sink", () => {
 
 describe("where a run breaks", () => {
   it("breaks where two signals MEET — that is what a bus is", () => {
-    const g = chains(
-      { modules: { a: ["verb"], b: ["verb"], verb: ["OUT"] } },
-      ["a", "b"],
-    );
+    const g = chains({ modules: { a: ["verb"], b: ["verb"], verb: ["OUT"] } }, [
+      "a",
+      "b",
+    ]);
     // Neither lane owns the reverb, so it becomes a chain of its own, named after
     // itself, and both lanes route INTO it. That is exactly the shape a hand-written
     // `{ chain: verb }` head used to produce.
@@ -104,9 +104,10 @@ describe("where a run breaks", () => {
     // feeder, feeding nothing else, and the lane goes somewhere. Absorbed, the input's run
     // would swallow the lane as its next step and the chain that OWNS the lane's material
     // would cease to exist — which is what the engine compiles the plugins onto.
-    const g = chains({ modules: { "in-1": ["gtr"], gtr: ["amp"], amp: ["OUT"] } }, [
-      "gtr",
-    ]);
+    const g = chains(
+      { modules: { "in-1": ["gtr"], gtr: ["amp"], amp: ["OUT"] } },
+      ["gtr"],
+    );
     expect(g.gtr).toEqual({
       from: "gtr",
       use: [{ module: "amp" }],

@@ -13,9 +13,9 @@ import {
   exportSub,
   isVideoSource,
   loadChains,
+  loadLanes,
   loadModuleRefs,
   loadModules,
-  loadLanes,
   loadProjectRoot,
   loadVideoTracks,
 } from "./loader";

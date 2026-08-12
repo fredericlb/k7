@@ -13,9 +13,8 @@ Une piste, une tranche, une sortie. Le reste est à câbler, et c'est l'exercice
 
 ```yaml
 # chains.yaml
-tracks:
-  banc: [ amps/neural-amp-modeler, mixer ]
 modules:
+  banc: [ amps/neural-amp-modeler ]
   amps/neural-amp-modeler: [ mixer ]
   mixer: [ OUT ]
 ```
@@ -94,8 +93,9 @@ Un module supprimé du catalogue disparaît donc du banc. C'est le but : un modu
 résoudrait encore, compilerait encore et jouerait encore, ce qui est la manière de passer une
 heure à déboguer quelque chose qui n'existe plus.
 
-Ce qui **survit** à la régénération est ce qui est à vous : `chains.yaml`, `tracks/` et
-`instances/`. C'est-à-dire exactement ce que vous câblez.
+Ce qui **survit** à la régénération est ce qui est à vous : `chains.yaml` et `instances/`.
+C'est-à-dire exactement ce que vous câblez — la piste du banc est une instance elle aussi
+(`packages/song/docs/trackModules.md`).
 
 ## Ouvrir une CHAÎNE dessus
 
@@ -118,7 +118,7 @@ renomme les deux bords, et la sauvegarde les renomme dans l'autre sens.
 
 | dans la médiathèque | sur le banc |
 |---|---|
-| `"@in": [ … ]` sous `tracks:` | `banc: [ … ]` — la piste |
+| `"@in": [ … ]` sous `modules:` | `banc: [ … ]` — la piste |
 | une destination `"@out"` | `mixer`, puis `mixer: [ OUT ]` |
 
 Les deux sens vivent dans un seul fichier, `packages/song/src/benchChain.ts`, sous un même jeu
@@ -142,8 +142,9 @@ un projet introuvable — la phrase du service est toute l'explication.
 ### Ce qui revient, et ce qui reste
 
 `chains.yaml` (retraduit) et `instances/` repartent vers `chains/<chemin>/` de la médiathèque.
-Le reste — `project.yaml`, `tracks/`, le miroir `modules/` — est le meuble du banc et n'a rien à
-faire dans une chaîne que d'autres projets chargent.
+Le reste — `project.yaml`, le miroir `modules/`, et la piste du banc — est le meuble du banc et
+n'a rien à faire dans une chaîne que d'autres projets chargent. La piste est dans `instances/`
+comme les autres, donc ce qui la retient ici est son NOM (`BENCH_EDGES.track`) et rien d'autre.
 
 Contrairement à un module, l'écriture touche AUSSI le cache local et pas seulement la
 bibliothèque hébergée. Le banc réécrit `chains.yaml` depuis le cache à chaque ouverture : sur une
