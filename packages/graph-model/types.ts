@@ -190,6 +190,21 @@ export function splitPort(ref: string): { node: string; port?: string } {
 export const portRef = (node: string, port?: string): string =>
   port ? `${node}${PORT_SEP}${port}` : node;
 
+/**
+ * One clip a track holds, as the GRAPH needs it — enough to list it on the track's node.
+ *
+ * A trim of the compiled `Placement`: no `loop`, because a node lists WHAT is on a lane and the
+ * timeline is where how-many-passes is read. `kind` is here because "missing" is the one thing
+ * about a clip a routing diagram must say out loud — a lane pointing at material that is not
+ * there looks identical to a full one otherwise.
+ */
+export interface WebTrackClip {
+  ref: string;
+  /** Beats from the start of the song. Sorted on, so the list reads in playing order. */
+  start: number;
+  kind: "audio" | "midi" | "missing";
+}
+
 export interface WebGraph {
   chains: Record<string, WebChain>;
   tracks: string[]; // track ids, for resolving `from`
@@ -199,6 +214,10 @@ export interface WebGraph {
   trackSignals?: Record<string, WebSignal>;
   // Per-track display colour by track id — the timeline's colour. Absent when the track authors none.
   trackColors?: Record<string, string>;
+  // What each track HOLDS, by track id, in playing order — listed on the track's own node so the
+  // graph says what a lane plays and not only where its signal goes. Absent for a lane with no
+  // clips, and for a group or a strudel lane, which hold no placements at all.
+  trackClips?: Record<string, WebTrackClip[]>;
   // The ids of tracks currently FROZEN: playing a render of themselves. The graph marks their lane and every
   // module downstream of it, because those modules are in the render and no longer run — and a node you can still
   // click a knob on had better not be one the engine stopped listening to.

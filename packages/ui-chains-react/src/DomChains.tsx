@@ -341,6 +341,20 @@ const CSS = `
   box-shadow:0 1px 4px rgba(0,0,0,.45); }
 .dgx-fbtn svg { width:11px; height:11px; }
 /* The frost itself: a wash over the node, under its contents, so the node still reads while reading as inert. */
+
+/* A track's CLIPS, listed under its controls. Rows rather than a paragraph: the eye scans a
+   lane's contents down, and each row is one clip whose name is ellipsed rather than wrapped —
+   a card is only as wide as its grid, and a wrapped name would push the list past its box.
+   A missing clip is red because a lane pointing at material that is not there is the one state
+   this list exists to catch. See CLIP_LIST_MAX in @studio/ui-chains for the counted overflow. */
+.dgx-clips { position:absolute; left:0; right:0; bottom:0; padding:0 7px 6px;
+  display:flex; flex-direction:column; gap:1px; overflow:hidden; }
+.dgx-clip { display:flex; align-items:center; height:14px; font-size:10px; line-height:14px;
+  color:var(--fg); opacity:.72; }
+.dgx-clip-nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dgx-clip.missing { color:#ef4444; opacity:1; }
+.dgx-clip.more { opacity:.5; font-style:italic; }
+
 /* A NOTE — a doc module. Deliberately unlike every other card: no accent bar, no header, a
    paper tint and a dashed edge, so prose is never mistaken for something in the signal path.
    It is still a node (it ranks and takes a cable), it just does not look like a device. */
@@ -1867,6 +1881,33 @@ function NodeInner({
         // No grid and no content: keep the card's shape and say what is missing. A flagged module says WHY, in red.
         <div className={`dgx-empty${flagCls}`}>{flagText ?? "No Options"}</div>
       )}
+      {/* What this lane HOLDS, under its controls. Only on a track, only when it holds
+          something, and only once the widgets are legible — at far zoom the card is its name
+          and a list of clip refs would be a grey smear.
+
+          A "missing" clip is called out: a lane pointing at material that is not there looks
+          exactly like a full one otherwise, which is the failure this list is best at catching.
+          The count line replaces the tail rather than extending it — see CLIP_LIST_MAX. */}
+      {n.kind === "track" && n.clips?.length && showWidgets ? (
+        <div className="dgx-clips">
+          {n.clips.map((c) => (
+            <div
+              key={`${c.ref}@${c.start}`}
+              className={`dgx-clip${c.kind === "missing" ? " missing" : ""}`}
+              title={
+                c.kind === "missing"
+                  ? `${c.ref} — no such clip in this project`
+                  : `${c.ref} (${c.kind})`
+              }
+            >
+              <span className="dgx-clip-nm">{c.ref}</span>
+            </div>
+          ))}
+          {n.clipsMore ? (
+            <div className="dgx-clip more">+{n.clipsMore}</div>
+          ) : null}
+        </div>
+      ) : null}
       {armBar}
     </div>
   );

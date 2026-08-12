@@ -183,6 +183,17 @@ export interface GraphNode extends Carried, Flags {
    * told how much room the prose needs before anything is drawn. See `noteSize`.
    */
   note?: string;
+  /**
+   * TRACK only: the clips this lane holds, in playing order — listed under its mixer controls.
+   *
+   * On the node for the same reason `note` is: the size below is computed from it, so dagre has
+   * to be told how much room the list needs before anything is drawn. Trimmed to `CLIP_LIST_MAX`
+   * with the overflow counted (`clipsMore`) rather than shown — a lane with sixty clips would
+   * otherwise be a node taller than the window, and the graph is a picture of the ROUTING.
+   */
+  clips?: { ref: string; start: number; kind: "audio" | "midi" | "missing" }[];
+  /** How many clips did not fit in `clips`. 0 when the list is complete. */
+  clipsMore?: number;
   // The node's size, per-node because a module's UI decides it — dagre is told these and reserves the real space.
   w: number;
   h: number;
@@ -455,6 +466,40 @@ export function noteSize(text: string): { w: number; h: number } {
     0,
   );
   return { w, h: Math.max(NODE_H, drawn * NOTE_LINE_H + NOTE_PAD * 2) };
+}
+
+// --- a track's clip list (see docs/graphBuild.md) --------------------------------
+
+/** How many clips a track node lists before it starts counting the rest instead. */
+export const CLIP_LIST_MAX = 6;
+const CLIP_ROW_H = 15;
+const CLIP_LIST_PAD = 6;
+
+/**
+ * The clip list of a TRACK node, and the extra height it needs — spread in beside its size.
+ *
+ * The height ADDS to the mixer grid's rather than replacing it: a track node draws its five
+ * controls and then what the lane holds, so both have to fit. A lane with no clips gets nothing
+ * at all — not an empty list and not a heading — because a node that says "0 clips" is a node
+ * that has grown to tell you nothing.
+ */
+function clipsOf(
+  graph: WebGraph,
+  track: string,
+  base: { w: number; h: number },
+): Partial<GraphNode> {
+  const all = graph.trackClips?.[track];
+  if (!all?.length) return {};
+  const clips = all.slice(0, CLIP_LIST_MAX);
+  const more = all.length - clips.length;
+  // The overflow line costs a row too, when there is one.
+  const rows = clips.length + (more > 0 ? 1 : 0);
+  return {
+    clips,
+    ...(more > 0 ? { clipsMore: more } : {}),
+    w: base.w,
+    h: base.h + CLIP_LIST_PAD + rows * CLIP_ROW_H,
+  };
 }
 
 /**
@@ -867,6 +912,10 @@ export function buildGraph(
           hasNativePluginUI: false,
           ui, // the mixer controls; values arrive via setTrackControls
           ...nodeSize(ui), // grow the node to fit its grid
+          // …and again to fit what the lane HOLDS. A routing diagram that showed where a
+          // track's signal goes but never what it plays made you open the timeline to answer
+          // "which take is on this lane" — a question about the lane, asked at the lane.
+          ...clipsOf(graph, c.from, nodeSize(ui)),
         });
         // A sequences track puts MIDI on the wire, an audio one audio, and a video lane picture whatever trackSignals says.
         link(

@@ -25,6 +25,15 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
     },
   },
   "modules": {},
+  "trackClips": {
+    "beat": [
+      {
+        "kind": "midi",
+        "ref": "beat",
+        "start": 0,
+      },
+    ],
+  },
   "trackColors": {},
   "trackSignals": {
     "beat": "midi",
@@ -186,6 +195,15 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
     },
   },
   "modules": {},
+  "trackClips": {
+    "melody": [
+      {
+        "kind": "midi",
+        "ref": "melody",
+        "start": 0,
+      },
+    ],
+  },
   "trackColors": {},
   "trackSignals": {
     "kit": "audio",
