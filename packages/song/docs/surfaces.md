@@ -136,3 +136,39 @@ A turntables surface plays a **set**: `songs.yaml` at the project root, read thr
 `@studio/song/yaml/songsFile`. Nothing about that file is m9-shaped — it names médiathèque songs
 — so an `.l8` folder with a `songs.yaml` beside its `surfaces/` is a set, in the same words, and
 bringing the desk to l8 required inventing no set-list concept for l8.
+
+### KNOWN, AND NOT YET RESOLVED: two things may push a document
+
+This is the one place where hosting the desk in l8 is not simply the desk working somewhere else,
+and it has **not been observed on screen** — it is read off the code, and it is written down here
+so it is found deliberately rather than in a gig.
+
+The desk drives the engine by **sending a whole `ProjectDoc`**: `sendDecks` takes the compiled
+project (`GET /engine-doc`), fills the decks' clips into it (`withDecks`) and pushes it over the
+engine client. That is right in m9, where the browser is the only thing that ever hands the engine
+a document.
+
+In l8 it is not the only thing. **The file service loads l8's project into the engine itself** —
+that is the whole reason `projectApi.engineDoc()` carries the note "l8 never calls it: the file
+service plays l8's project on its own machine, so l8 has no document to hold." A surface makes l8
+call it, and now two writers can address one engine:
+
+| writer | when it pushes |
+|---|---|
+| the file service | the project changes on disk |
+| the surface | a song is put on a deck, a tempo is dragged, the crossfader moves past its threshold |
+
+They do not push *contradictory* documents — the desk starts from the project's own compile, so
+what it sends is "this project, with these two records on its deck tracks". The hazard is
+ORDERING: whichever wrote last wins, so a save while a set is playing would drop the decks' clips
+until the next `sendDecks`, and a `sendDecks` would undo a change the service had just applied.
+
+Neither is a crash and neither is silent — the decks come back on the next gesture. But it is a
+real seam that this work did not settle, and settling it means choosing one of:
+
+- the surface asks the **file service** to play its document, so there is one writer;
+- the desk sends a **partial** update (the deck tracks' clips) rather than a whole document;
+- or l8 stops loading the project into the engine while a surface has it, which makes the surface
+  a mode and is the answer this repo would like least.
+
+Until then: use a turntables surface on a project you are not simultaneously editing.
