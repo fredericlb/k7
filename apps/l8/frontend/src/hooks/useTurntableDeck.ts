@@ -1,7 +1,8 @@
 // useTurntableDeck.ts — l8's engine link, seen as the desk's `Deck`. The one thing
-// @studio/ui-turntables asks of a host, and the only place l8 and m9 differ: m9 obtains an
-// engine (its registry, its session, its lease), l8 already has one by the time a surface can
-// exist. See packages/ui-turntables/docs/hosting.md.
+// @studio/ui-turntables asks of a host, and the one place hosts ever differed: m9 obtained an
+// engine of its own (its registry, its session, its lease), while l8 already has one by the
+// time a surface can exist. l8 is the only host now, and the seam stays anyway — it is what
+// let the desk change hosts at all. See packages/ui-turntables/docs/hosting.md.
 
 import type { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";

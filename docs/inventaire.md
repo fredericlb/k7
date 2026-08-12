@@ -218,7 +218,7 @@ leur manquait quand il n'y avait qu'une platine — savoir *laquelle* ils dessin
 paramètre maintenant. `M9_ICONS`, dans le même fichier, reste utilisé par `GraphView`.
 
 Inscrit ici plutôt que laissé silencieux : c'est la différence entre un état connu et de la
-pourriture. Voir [apps/m9/docs/mix.md](../apps/m9/docs/mix.md).
+pourriture. Voir [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
 
 Le « ternaire mort » du §6 ci-dessus tient toujours, et `deckGraph` a désormais un troisième
 paramètre : si la chaîne par platine ne revient pas, c'est ce bloc-là qu'on supprime en entier.

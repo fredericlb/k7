@@ -85,18 +85,18 @@ function watch(c: EngineClient): Seen {
 // transforms this to CJS and a bare await is a syntax error there.
 async function main() {
   const l8 = new EngineClient(URL, SESSIONS.l8);
-  const m9 = new EngineClient(URL, SESSIONS.m9);
+  const st0 = new EngineClient(URL, SESSIONS.st0);
   const onL8 = watch(l8);
-  const onM9 = watch(m9);
+  const onSt0 = watch(st0);
   l8.connect();
-  m9.connect();
+  st0.connect();
 
   await wait(500);
   l8.sendProject(doc("depuis-l8", 45));
-  m9.sendProject(doc("depuis-m9", 64));
+  st0.sendProject(doc("depuis-st0", 64));
   await wait(3000);
 
-  // Record-enable is SESSION state. It was a process-global for a while, so arming l8 lit m9's
+  // Record-enable is SESSION state. It was a process-global for a while, so arming l8 lit st0's
   // record light and made rolling either one record into both.
   l8.setRecordEnabled(true);
   await wait(1000);
@@ -106,45 +106,45 @@ async function main() {
   l8.transport("play");
   await wait(4000);
 
-  // A flush is about ONE project. Unstamped, m9 read l8's `flushed` as its own.
+  // A flush is about ONE project. Unstamped, st0 read l8's `flushed` as its own.
   l8.flush();
   await wait(1000);
 
   console.log("l8    :", onL8);
-  console.log("m9        :", onM9);
+  console.log("st0       :", onSt0);
 
   const problems: string[] = [];
   if (!onL8.playing)
     problems.push("l8 n'a jamais vu son transport partir");
   if (onL8.maxPlayhead < 1)
     problems.push("la tete de lecture de l8 n'a pas avance");
-  if (onM9.frames === 0)
+  if (onSt0.frames === 0)
     problems.push(
-      "m9 ne recoit aucune trame d'etat (session filtree a tort)",
+      "st0 ne recoit aucune trame d'etat (session filtree a tort)",
     );
-  if (onM9.playing)
-    problems.push("m9 a vu le transport de l8 — les sessions fuient");
-  if (onM9.maxPlayhead > 0.5)
-    problems.push("la tete de lecture de l8 a fuit vers m9");
+  if (onSt0.playing)
+    problems.push("st0 a vu le transport de l8 — les sessions fuient");
+  if (onSt0.maxPlayhead > 0.5)
+    problems.push("la tete de lecture de l8 a fuit vers st0");
   if (!onL8.recordEnabled)
     problems.push("l8 n'a jamais vu son propre record-enable");
-  if (onM9.recordEnabled)
-    problems.push("m9 a vu le record-enable de l8 — le drapeau est global");
+  if (onSt0.recordEnabled)
+    problems.push("st0 a vu le record-enable de l8 — le drapeau est global");
   if (onL8.applied !== 1)
     problems.push(`l8 attend 1 'applied', en a vu ${onL8.applied}`);
-  if (onM9.applied !== 1)
+  if (onSt0.applied !== 1)
     problems.push(
-      `m9 attend 1 'applied' (le sien), en a vu ${onM9.applied} — reponses non estampillees`,
+      `st0 attend 1 'applied' (le sien), en a vu ${onSt0.applied} — reponses non estampillees`,
     );
   if (onL8.flushed !== 1)
     problems.push(`l8 attend 1 'flushed', en a vu ${onL8.flushed}`);
-  if (onM9.flushed !== 0)
+  if (onSt0.flushed !== 0)
     problems.push(
-      `m9 a recu le 'flushed' de l8 (${onM9.flushed}) — reponses non estampillees`,
+      `st0 a recu le 'flushed' de l8 (${onSt0.flushed}) — reponses non estampillees`,
     );
 
   l8.close();
-  m9.close();
+  st0.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);
     process.exit(1);

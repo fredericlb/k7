@@ -1,20 +1,21 @@
 // metronome.ts — is the click ON the deck's beat? Point it at a running engine.
 //
-// The engine's own metronome clicks on the DOCUMENT's grid, which in m9 has nothing to do with
-// where the music's beat is (see ../docs/bpm.md), so m9 writes the click track itself. Whether
-// that lands is a question about a sound, and this is how it gets answered: the deck plays a
-// SILENT file, so everything the broadcast tap hears is the click, and each onset is compared
-// against where that deck's grid says a beat belongs.
+// The engine's own metronome clicks on the DOCUMENT's grid, which on a deck has nothing to do
+// with where the music's beat is (see ../docs/bpm.md), so the desk writes the click track
+// itself. Whether that lands is a question about a sound, and this is how it gets answered:
+// the deck plays a SILENT file, so everything the broadcast tap hears is the click, and each
+// onset is compared against where that deck's grid says a beat belongs.
 //
 // It then moves the tempo the way a drag does and asks the same question again, because the
 // click clip is rebuilt every time and the second placement is the one that can be wrong.
 //
-// Usage:  npx tsx apps/m9/frontend/scripts/metronome.ts [ws://127.0.0.1:8765]
+// Usage:  npx tsx packages/ui-turntables/scripts/metronome.ts [ws://127.0.0.1:8765]
 // STUDIO_SCRATCH: a directory both sides can reach — see tempo-drag.ts.
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import WebSocket from "ws";
 import {
   type DeckLoads,
   type DeckTempos,
@@ -25,8 +26,7 @@ import {
   sourceAt,
   TIMELINE_BASE,
   transportAt,
-} from "@studio/ui-turntables/deck";
-import WebSocket from "ws";
+} from "../src/deck";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";

@@ -13,15 +13,17 @@ import {
 describe("projectApp", () => {
   it("reads the suffix", () => {
     expect(projectApp("mysong.l8")).toBe("l8");
-    expect(projectApp("myset.m9")).toBe("m9");
     expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
-  it("no longer knows `.v1` — a cut is a song with picture in it", () => {
-    // The suffix meant "this folder is only picture". Nothing is: a `.l8` carries its own
-    // video lanes and its own viewport surface, so the kind had nothing left to distinguish.
+  it("no longer knows `.v1` or `.m9` — both are shapes of an l8 project now", () => {
+    // Each suffix meant "this folder is ONLY one thing": only picture, only a set. Neither is
+    // true any more. A `.l8` carries `video_tracks/` and a `viewport` surface, or `songs.yaml`
+    // and a `turntables` surface — so the two kinds had nothing left to distinguish, and the
+    // apps that opened them had nothing left to do. See @studio/song's PROJECT_SHAPES.
     expect(projectApp("le clip.v1")).toBe(null);
     expect(projectApp("prise v1.v1")).toBe(null);
+    expect(projectApp("myset.m9")).toBe(null);
   });
 
   it("is null for a folder claiming no app", () => {
@@ -31,7 +33,6 @@ describe("projectApp", () => {
 
   it("refuses a bare suffix — `.l8` is a dotfolder, not a nameless project", () => {
     expect(projectApp(".l8")).toBe(null);
-    expect(projectApp(".m9")).toBe(null);
     expect(projectApp(".z0")).toBe(null);
   });
 
@@ -53,7 +54,7 @@ describe("projectApp", () => {
 describe("projectLabel", () => {
   it("takes the suffix off, which is what a project is called", () => {
     expect(projectLabel("mysong.l8")).toBe("mysong");
-    expect(projectLabel("live set.m9")).toBe("live set");
+    expect(projectLabel("live set.l8")).toBe("live set");
   });
 
   it("leaves a name that claims no app alone", () => {
@@ -71,8 +72,8 @@ describe("launchUrl", () => {
     expect(launchUrl(o, "band", "winter.l8", "l8")).toBe(
       "https://st0.priv.frediver.se/l8/band/winter.l8",
     );
-    expect(launchUrl(o, "band", "live.m9", "m9")).toBe(
-      "https://st0.priv.frediver.se/m9/band/live.m9",
+    expect(launchUrl(o, "band", "partie.z0", "z0")).toBe(
+      "https://st0.priv.frediver.se/z0/editor-v2/band/partie.z0",
     );
     expect(launchUrl(o, "band", "le clip.l8", "l8")).toBe(
       "https://st0.priv.frediver.se/l8/band/le%20clip.l8",
@@ -90,7 +91,7 @@ describe("launchUrl", () => {
 describe("which apps can be CREATED", () => {
   it("is not the same set as the apps that own a folder kind", () => {
     // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an l8 song.
-    expect(SCAFFOLDED_APPS).toEqual(["l8", "m9"]);
+    expect(SCAFFOLDED_APPS).toEqual(["l8"]);
     expect(HAS_SCAFFOLD.z0).toBe(false);
   });
 

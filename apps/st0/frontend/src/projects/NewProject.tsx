@@ -12,56 +12,37 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
-import type { ProjectMode } from "@studio/engine-protocol/project";
-import {
-  type ProjectApp,
-  SCAFFOLDED_APPS,
-} from "@studio/web-protocol/projects";
+import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { projectFolderName } from "./projectName";
 
 /**
- * Les applications pour lesquelles on peut CRÉER un projet.
+ * Les trois FORMES d'un projet — une seule rangée, là où il y en avait deux.
  *
- * Pas `PROJECT_SUFFIXES` : z0 possède bien les dossiers `.z0`, mais aucun gabarit ne sait en
- * écrire un. Le proposer ici fabriquait un dossier `.z0` contenant une chanson l8 — le suffixe
- * disait une chose, le contenu une autre, et personne ne s'en plaignait avant que z0 l'ouvre.
- * `SCAFFOLDED_APPS` est la liste qui répond à la bonne question ; voir
- * packages/web-protocol/projects.ts.
+ * La rangée du dessus choisissait l'APPLICATION, donc le suffixe du dossier : `.l8`, `.m9`.
+ * Il n'y en a plus qu'une, donc cette question n'a plus de réponses à départager — et ce qui
+ * distinguait un set d'une chanson (des platines et une liste de morceaux) est un GABARIT, pas
+ * une application. Les deux rangées n'en font donc plus qu'une.
+ *
+ * z0 possède bien les dossiers `.z0` et n'a aucun gabarit : il n'a jamais eu sa place ici, et
+ * n'en a plus besoin d'une. Voir `PROJECT_SHAPES` dans @studio/song.
  */
-const APPS = SCAFFOLDED_APPS;
-
-/** Une ligne pour dire ce qu'on est en train de créer — le suffixe seul ne le dit pas. */
-const WHAT: Record<ProjectApp, string> = {
-  l8: "l'éditeur complet — son et image",
-  m9: "mix, édition et graphe — sans la timeline",
-  // Jamais affiché (z0 n'est pas dans APPS), mais le Record force à répondre pour chaque app :
-  // c'est ce qui fera échouer la compilation le jour où z0 gagne un gabarit.
-  z0: "un blind-test",
-};
-
-/**
- * Les deux formes d'un projet l8 — un second choix, et seulement pour l8.
- *
- * Il ne peut pas passer par le menu du dessus : celui-là choisit le SUFFIXE, donc l'application
- * qui ouvrira le dossier, et les deux formes habitent le même `.l8` et s'ouvrent dans la même
- * application. Deux rangées, donc, parce que ce sont deux questions.
- *
- * Attention à la ligne de m9 juste au-dessus : « sans la timeline » y décrit une AUTRE
- * application. Ici, `live` est l8 sans sa timeline, et ce qui les sépare est que m9 a des platines
- * et une liste de morceaux là où un projet live n'a que son graphe.
- */
-const MODES: { id: ProjectMode; label: string; what: string }[] = [
+const SHAPES: { id: ProjectShape; label: string; what: string }[] = [
   {
-    id: "arrangement",
-    label: "arrangement",
-    what: "une chanson : la timeline au-dessus du graphe",
+    id: "audio",
+    label: "chanson",
+    what: "la timeline au-dessus du graphe — son et image",
   },
   {
     id: "live",
     label: "live",
     what: "un rig : le graphe seul, pas de timeline",
+  },
+  {
+    id: "set",
+    label: "set",
+    what: "deux platines, un crossfade, et une liste à jouer",
   },
 ];
 
@@ -72,34 +53,29 @@ export function NewProject({
 }: {
   blocked: string;
   /** Rend la main quand c'est fait. `onStep` sert à raconter l'attente : cloner un dépôt prend
-   *  des dizaines de secondes, et un écran qui ne dit rien pendant ce temps semble figé.
-   *  `mode` n'est envoyé que pour l8 — voir MODES. */
+   *  des dizaines de secondes, et un écran qui ne dit rien pendant ce temps semble figé. */
   onCreate: (
     folder: string,
     onStep: (s: string) => void,
-    mode?: ProjectMode,
+    shape: ProjectShape,
   ) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [app, setApp] = useState<ProjectApp>("l8");
-  // Gardé en dehors de `app` : revenir à l8 après un détour par m9 retrouve la forme choisie,
-  // plutôt que de la remettre en silence sur `arrangement`.
-  const [mode, setMode] = useState<ProjectMode>("arrangement");
+  const [shape, setShape] = useState<ProjectShape>("audio");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
 
-  const { folder, error: badName } = projectFolderName(name, app);
+  // Un seul suffixe reste, et c'est celui-là : toute forme habite un dossier `.l8`.
+  const { folder, error: badName } = projectFolderName(name, "l8");
 
   const submit = () => {
     if (!folder || busy) return;
     setBusy(true);
     setError("");
     setStep("");
-    // Seulement pour l8 : m9 n'a pas cet axe, et lui envoyer une valeur donnerait à
-    // croire que le service en fait quelque chose.
-    void onCreate(folder, setStep, app === "l8" ? mode : undefined)
+    void onCreate(folder, setStep, shape)
       .then(() => {
         setOpen(false);
         setName("");
@@ -134,45 +110,25 @@ export function NewProject({
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
-            {/* Le type d'abord : c'est lui qui décide du suffixe, donc de l'application qui
-                ouvrira le dossier, donc de ce que le nom en dessous va donner. */}
+            {/* La forme : elle décide du GABARIT écrit dans le dossier. Le suffixe, lui, ne se
+                choisit plus — il n'y en a qu'un. */}
             <div className="flex items-center gap-2">
-              {APPS.map((a) => (
+              {SHAPES.map((sh) => (
                 <Button
-                  key={a}
+                  key={sh.id}
                   type="button"
                   size="sm"
-                  variant={app === a ? "default" : "secondary"}
+                  variant={shape === sh.id ? "default" : "secondary"}
                   disabled={busy}
-                  onClick={() => setApp(a)}
+                  onClick={() => setShape(sh.id)}
                 >
-                  {a}
+                  {sh.label}
                 </Button>
               ))}
-              <span className="text-xs text-muted-foreground">{WHAT[app]}</span>
             </div>
-
-            {/* La forme, pour l8 seulement. Absente pour m9 plutôt que grisée : une rangée
-                grise invite à se demander ce qu'on a mal fait, alors qu'il n'y a rien à choisir. */}
-            {app === "l8" && (
-              <div className="flex items-center gap-2">
-                {MODES.map((md) => (
-                  <Button
-                    key={md.id}
-                    type="button"
-                    size="sm"
-                    variant={mode === md.id ? "default" : "secondary"}
-                    disabled={busy}
-                    onClick={() => setMode(md.id)}
-                  >
-                    {md.label}
-                  </Button>
-                ))}
-                <span className="text-xs text-muted-foreground">
-                  {MODES.find((md) => md.id === mode)?.what}
-                </span>
-              </div>
-            )}
+            <span className="text-xs text-muted-foreground">
+              {SHAPES.find((sh) => sh.id === shape)?.what}
+            </span>
 
             <Input
               autoFocus

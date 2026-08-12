@@ -25,9 +25,6 @@
     "apps/st0",
     "apps/st0/frontend",
     "apps/st0/backend",
-    "apps/m9",
-    "apps/m9/frontend",
-    "apps/m9/backend",
     "engine/moteur",
     "engine/capot"
   ],

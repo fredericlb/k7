@@ -15,13 +15,16 @@ propre travail. Le catalogue est ce dont un projet *se sert* — il est à un on
 
 ## La règle qui tient tout
 
-**Le suffixe du dossier nomme l'application.** `mysong.l8` s'ouvre dans l8, `myset.m9` dans
-m9, `partie.z0` dans z0 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle
-entière. Un dossier sans suffixe n'est pas un projet, même s'il contient un `project.yaml`.
+**Le suffixe du dossier nomme l'application.** `mysong.l8` s'ouvre dans l8, `partie.z0` dans
+z0 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle entière. Un dossier sans
+suffixe n'est pas un projet, même s'il contient un `project.yaml`.
 
-Il y a eu un `.v1` — un montage, une pellicule sans son. Il n'existe plus : une chanson porte
-ses propres pistes vidéo et sa surface `viewport`, donc un montage est un `.l8` comme le reste
-(`packages/song/docs/picture.md`).
+Il y en a eu deux autres, et chacun avait son application. `.v1` était un montage — une
+pellicule sans son ; `.m9` était un set de platines. Aucun des deux n'existe plus, et aucun n'a
+emporté quoi que ce soit : une chanson porte ses propres pistes vidéo et sa surface `viewport`
+(`packages/song/docs/picture.md`), et un set est un projet l8 sans arrangement qui porte un
+`songs.yaml` et une surface `turntables` (`packages/song/docs/setProject.md`). Ce qui était
+trois sortes de dossier est une sorte et trois **formes**.
 
 **st0 ne fait jamais de copie de travail.** Il tient un miroir *bare* et *sans blobs* de
 chaque dépôt, uniquement pour répondre « qu'est-ce qu'il y a dedans ». La copie qu'on édite,
@@ -38,7 +41,7 @@ pourrait pas tourner ici du tout.
 `@studio/song` pose toujours cette question-là, sur une vraie copie de travail. Un `.l8` sans
 `project.yaml` est donc listé, ouvrable, et échoue à la compilation une fois ouvert, avec le
 message de l8. C'est le bon ordre : st0 ne peut pas savoir, et c'est précisément ce qui permet
-à m9 d'ouvrir un projet qui n'est pas un morceau l8 complet.
+d'ouvrir un dossier qui n'est pas encore un morceau complet.
 
 **Le file service applique la même règle** (`isProjectDir`, `workspace.ts`), donc ce que la
 médiathèque liste et ce que l'arbre de l8 marque ne peuvent pas diverger. Une seule règle, aux
@@ -156,8 +159,7 @@ Les étapes 4 à 6 sont `@studio/project-shell`, montée à l'identique par les 
 une divergence là serait un clone en double ou un 404. Chacune ne connaît que ça — le projet sur
 lequel elle a été lancée. Voir
 [packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md), notamment pourquoi
-l'adresse est un chemin et non des paramètres — ce qui supprime le `sessionStorage` d'avant — et
-[apps/m9/docs/views.md](../../m9/docs/views.md) pour ce que m9 fait d'un projet.
+l'adresse est un chemin et non des paramètres — ce qui supprime le `sessionStorage` d'avant.
 
 ## Créer et supprimer un projet — pas ici, sur la machine
 
@@ -205,10 +207,9 @@ ne dit rien ressemble à un écran figé.
 
 ### Le suffixe décide, et le nom est montré avant
 
-`projectName.ts` est pur et testé : c'est lui qui pose le suffixe du menu, retire un suffixe
-déjà tapé — quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d'avis, et
-« hiver.l8.m9 » ne serait ni l'un ni l'autre — et refuse les séparateurs plutôt que de les
-remplacer en silence.
+`projectName.ts` est pur et testé : c'est lui qui pose le suffixe, retire un suffixe
+déjà tapé — « hiver.z0 » dans un menu qui écrit du l8 donnerait « hiver.z0.l8 », qui ne serait
+ni l'un ni l'autre — et refuse les séparateurs plutôt que de les remplacer en silence.
 
 Un suffixe ne se lit **qu'à la fin** : « prise v1 » est un nom de dossier parfaitement
 ordinaire, et rien n'y touche. C'est déjà la règle de `projectApp`, et `projectName.test.ts`
@@ -218,8 +219,10 @@ décide de tout.
 
 ### Posséder un suffixe et pouvoir être créé sont deux questions
 
-`ProjectApp` vaut `"l8" | "m9" | "z0"` — k7 seul n'a pas de projets. Mais le menu ne
-reflète PAS ce type : il reflète `SCAFFOLDED_APPS`, et la différence est un bug qui a vécu.
+`ProjectApp` vaut `"l8" | "z0"` — k7 n'a pas de projets. Mais le menu ne reflète PAS ce type :
+il reflète `SCAFFOLDED_APPS`, et la différence est un bug qui a vécu. Il ne reste d'ailleurs
+qu'une application à proposer, donc le menu offre désormais les trois **formes** d'un projet l8
+plutôt qu'une liste d'applications — voir `PROJECT_SHAPES` dans `@studio/song`.
 
 Créer demande un **gabarit** — une carte de fichiers que le file-service sait écrire
 (`createProjectIn`, et les modules `scaffold*` de `@studio/song`). z0 possède bien les

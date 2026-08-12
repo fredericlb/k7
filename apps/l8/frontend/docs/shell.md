@@ -12,7 +12,7 @@ open one project at once — there is no single-tab lease.
 repositories and links here with an address — `/l8/<repo>/<project>` — and arriving without a
 project in it sends you back there. That prefix is the router's `basename`, so the app's own
 routes are written below it and cannot rewrite it away. The gate is
-`@studio/project-shell`'s — m9 mounts the same one — and `components/ProjectGate.tsx` only
+`@studio/project-shell`'s — z0's editor mounts the same one — and `components/ProjectGate.tsx` only
 supplies this app's wording. Read
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md)
 before touching any of it, in particular why the address is a path and the repository is named

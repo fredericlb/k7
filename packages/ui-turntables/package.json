@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The DJ desk: two turntables meeting at a crossfade, their channel strips, waveforms, cues and set list. Extracted from m9 so l8 can draw the same desk as a `surfaces/` view. The engine link is a SEAM (./engine) — each host supplies its own.",
+  "description": "The DJ desk: two turntables meeting at a crossfade, their channel strips, waveforms, cues and set list. Drawn by l8 as a `surfaces/` view. The engine link is a SEAM (./engine) — a host supplies its own. docs/ holds the desk's rationale and scripts/ the two harnesses that measure a SOUND.",
   "types": "./src/views/MixView.tsx",
   "exports": {
     ".": "./src/views/MixView.tsx",
@@ -41,8 +41,10 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
+    "@types/ws": "^8.5.13",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "ws": "^8.18.0"
   },
   "peerDependencies": {
     "react": "^19.2.7"

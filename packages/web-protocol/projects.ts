@@ -1,24 +1,26 @@
 // projects.ts — which studio app owns a project folder, decided by the folder's NAME
-// (`mysong.l8` in l8, `myset.m9` in m9, `party.z0` in z0's editor), and the ADDRESS
-// that names one: `/l8/<repo>/<project>`. Both are contracts between st0, which writes them,
+// (`mysong.l8` in l8, `party.z0` in z0's editor), and the ADDRESS that names one:
+// `/l8/<repo>/<project>`. Both are contracts between st0, which writes them,
 // and the apps, which read them back — so they are stated here, browser-safe, and nowhere else.
 // See apps/st0/docs/projects.md and packages/project-shell/docs/launch.md.
 
 import { type StudioService, serviceUrl } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
-export type ProjectApp = Extract<StudioService, "l8" | "m9" | "z0">;
+export type ProjectApp = Extract<StudioService, "l8" | "z0">;
 
 /**
- * The suffix each app claims, longest-first is irrelevant here — they are the same length.
+ * The suffix each app claims.
  *
- * There was a fourth, `.v1`, for a project that was only picture. It is gone: a song carries its
- * own video lanes and its own viewport surface, so a cut is a `.l8` like everything else and
- * there is no folder kind that means "no audio". See packages/song/docs/picture.md.
+ * There were two more. `.v1` was a project that was only picture, and `.m9` one that was only a
+ * DJ set — and each had an app of its own to open it. Both are gone, and neither took a
+ * capability with it: a song carries `video_tracks/` and a `viewport` surface, and a set is a
+ * song with no arrangement carrying `songs.yaml` and a `turntables` surface. What used to be
+ * three kinds of folder is one kind and three SHAPES (`PROJECT_SHAPES` in `@studio/song`).
+ * See packages/song/docs/picture.md and docs/setProject.md.
  */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
   l8: ".l8",
-  m9: ".m9",
   z0: ".z0",
 };
 
@@ -38,7 +40,6 @@ export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
  */
 export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
   l8: true,
-  m9: true,
   z0: false,
 };
 
@@ -50,7 +51,7 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
 /**
  * Where inside its service the app that opens a project is mounted.
  *
- * Empty for l8 and m9, which ARE their service: `st0.priv.frediver.se/l8/<repo>/<project>`. z0 is six
+ * Empty for l8, which IS its service: `st0.priv.frediver.se/l8/<repo>/<project>`. z0 is six
  * SPAs behind one prefix and only one of them opens a project, so its address has to name the
  * SPA too — `st0.priv.frediver.se/z0/editor-v2/<repo>/<project.z0>`.
  *
@@ -60,7 +61,6 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
  */
 export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
   l8: "",
-  m9: "",
   z0: "/editor-v2",
 };
 

@@ -44,12 +44,13 @@ describe("parseLaunch", () => {
     ).toEqual({ repo: "band", project: "winter.l8" });
   });
 
-  it("reads each app's OWN suffix, so a nested set belongs to m9", () => {
-    // A .m9 inside a .l8 is a real arrangement — see git-repos/src/mirror.ts.
-    const path = "/m9/band/winter.l8/live.m9";
-    expect(parseLaunch(path, "m9", "/m9/")).toEqual({
+  it("reads each app's OWN suffix, so a nested project belongs to the app that claims it", () => {
+    // A `.z0` inside a `.l8` is a real arrangement — see git-repos/src/mirror.ts. It used to be
+    // a `.m9` set nested in a song; the suffix went with the app, the rule did not.
+    const path = "/z0/editor-v2/band/winter.l8/partie.z0";
+    expect(parseLaunch(path, "z0", "/z0/editor-v2/")).toEqual({
       repo: "band",
-      project: "winter.l8/live.m9",
+      project: "winter.l8/partie.z0",
     });
   });
 
@@ -110,10 +111,12 @@ describe("launchUrl", () => {
     ).toBe("https://st0.priv.frediver.se/l8/songs/a/b.l8");
   });
 
-  it("sends an m9 project to m9", () => {
+  it("sends a SET to l8, like every other shape of project", () => {
+    // A set had a suffix and an app of its own once. It is an `.l8` with no arrangement, a
+    // `songs.yaml` and a `turntables` surface — so there is one link to build, not two.
     expect(
-      launchUrl("https://st0.priv.frediver.se", "band", "live.m9", "m9"),
-    ).toBe("https://st0.priv.frediver.se/m9/band/live.m9");
+      launchUrl("https://st0.priv.frediver.se", "band", "live.l8", "l8"),
+    ).toBe("https://st0.priv.frediver.se/l8/band/live.l8");
   });
 
   // z0 is seven SPAs behind one prefix, and only one of them opens a project — so its address

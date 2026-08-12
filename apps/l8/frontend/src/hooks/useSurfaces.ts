@@ -18,10 +18,11 @@ const NONE: SurfacesState = { surfaces: [], diagnostics: [] };
 /**
  * Read the project's surfaces.
  *
- * Parsed by the FILE SERVICE and not here, unlike m9's `views/mix.yaml` — which the browser
- * reads because m9's desk is the only thing that wants it. A surface decides what the shell
- * DRAWS, so its validity is the project's business and belongs with the project's other
- * diagnostics; two parsers would be two answers to "is this surface valid".
+ * Parsed by the FILE SERVICE and not here. A surface decides what the shell DRAWS, so its
+ * validity is the project's business and belongs with the project's other diagnostics; two
+ * parsers would be two answers to "is this surface valid". (A desk's bindings used to be read
+ * in the browser instead, out of a `views/mix.yaml` only the desk wanted; they are this file's
+ * `mapping:` now, and take this road with everything else.)
  *
  * A failure is not fatal and not reported here either: a file service that cannot answer
  * `/surfaces` has bigger problems, all of which the shell is already showing, and a project

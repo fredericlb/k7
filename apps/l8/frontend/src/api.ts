@@ -8,6 +8,7 @@ import { engineAccess } from "@studio/engine-browser/access";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
+import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type {
@@ -69,9 +70,9 @@ async function json<T>(res: Response, what: string): Promise<T> {
 export const engines = engineAccess<PublicEngine>(BASE, json);
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────
-// The transport and the routes m9 shares now live in @studio/project-shell — a workspace is
-// resolved the same way in both apps, and a divergence there would be a duplicate clone or a
-// 404. Re-exported here so every call site in this app keeps importing from one place.
+// The transport and the shared routes live in @studio/project-shell — a workspace is resolved
+// the same way by every app that opens one, and a divergence there would be a duplicate clone
+// or a 404. Re-exported here so every call site in this app keeps importing from one place.
 export {
   cfg,
   configureFileApi,
@@ -119,18 +120,18 @@ export const api = {
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
   // The shared half — resolving st0's repository to a folder here, the tree, the files, the
   // derived views, the repo's git, the CLI's verbs. Spread rather than re-listed, so this app
-  // and m9 cannot drift on a route name. See @studio/project-shell.
+  // and z0's editor cannot drift on a route name. See @studio/project-shell.
   ...projectApi,
 
   importProject: (path: string) =>
     fsend<{ project: string; log: string[] }>("POST", "/import-project", {
       path,
     }),
-  // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its path.
-  // The kinds a workspace holds, not the ones l8 opens: this route belongs to the file
-  // service, which is what can write a folder on the machine whichever app reads it back.
-  createProject: (type: "audio" | "m9", name: string) =>
-    fsend<{ project: string }>("POST", "/project/create", { type, name }),
+  // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its
+  // path. One `shape` where there were a `type` and a `mode`: every project is an `.l8` folder
+  // now, so "which app opens it" has no answers left. See @studio/song's PROJECT_SHAPES.
+  createProject: (shape: ProjectShape, name: string) =>
+    fsend<{ project: string }>("POST", "/project/create", { shape, name }),
   // Delete a project: unload it and move it to _recycle_bin. Reversible, but it can no longer be started.
   deleteProject: (path: string) =>
     fsend<{ recycled: string }>("POST", "/project/delete", { path }),

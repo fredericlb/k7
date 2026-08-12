@@ -13,7 +13,7 @@ the **why**. Long rationale belongs in the zone's `docs/` directory:
 | a shared package | `packages/<pkg>/docs/` |
 | the l8 frontend | `apps/l8/frontend/docs/` |
 | the médiathèque | `apps/st0/docs/` |
-| m9 | `apps/m9/docs/` |
+| the DJ desk | `packages/ui-turntables/docs/` |
 | the project shell | `packages/project-shell/docs/` |
 | the C++ engine | `engine/moteur/docs/` |
 | the tray app | `engine/capot/docs/` |
@@ -33,7 +33,7 @@ sentence and move the rest to a doc page.
 
 # This repo
 
-`studio` holds the music/stage apps. The audio side is **four processes in four
+`studio` holds the music/stage apps. The audio side is **three processes in three
 directories**, which is why this overview lives at the root and not inside any
 one app:
 
@@ -41,9 +41,8 @@ one app:
 |---|---|---|
 | `engine/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
 | `engine/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
-| `apps/l8` | TypeScript | The text-first DAW: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies st0's session and mounts no auth routes). Owns the timeline; shares the chains view. A song holds **sound and picture** — video lanes on the same timeline, whose ruler reads bars or seconds, and a `viewport` surface that composites them (`packages/song/docs/picture.md`). It is **opened on one project** by st0 and picks nothing itself — see `packages/project-shell/docs/launch.md`. |
+| `apps/l8` | TypeScript | The text-first DAW, and the only app that opens a project: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies st0's session and mounts no auth routes). Owns the timeline; shares the chains view. A project is one of three **shapes** — a song, a live rig, or a SET with two decks and a crossfade (`packages/song/docs/setProject.md`) — and a song holds **sound and picture** alike: video lanes on the same timeline, whose ruler reads bars or seconds, and a `viewport` surface that composites them (`docs/picture.md`). What it draws beyond its panes, it draws because the project DECLARED it, in `surfaces/` (`docs/surfaces.md`). It is **opened on one project** by st0 and picks nothing itself — see `packages/project-shell/docs/launch.md`. |
 | `apps/st0` | TypeScript | The media library — songs, samples, modules — hosted, with its own Express backend over a volume of files. **The only editable catalogue**, so it is where a module is authored; the builder itself is `@studio/ui-module-builder`, which l8 draws too. It also connects to a local `engine/moteur` to ask a plugin what its parameters are. It is the **home page**: it has no path prefix, so it answers `st0.priv.frediver.se` / `studio.frediver.se` itself — and therefore owns `/auth/*` for the whole origin, since the registered `redirect_uri` has no prefix either. It also owns the account's **git repositories** and the one deploy key, and launches l8 on a project (`apps/st0/docs/projects.md`). |
-| `apps/m9` | TypeScript | **l8 without the timeline** — `frontend/` plus `backend/` (this service's engine registry, and which machine the account works from; auth is st0's, verified here). It opens on one `*.m9` project — a **set**: `songs.yaml` naming médiathèque songs, plus two decks meeting at a crossfade in `chains.yaml` (`packages/song/docs/m9Project.md`) — and shows three views: Mix, Édition, Graphe. Mix is still the **decks**, which read the médiathèque's cache on the chosen machine through that machine's file service and play through its `engine/moteur`, because the engine opens file paths and cannot fetch a URL. |
 | `apps/z0` | TypeScript | The blind-test game — six SPAs behind one origin. |
 | `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
 
@@ -53,12 +52,11 @@ as **raw TypeScript source**: no build step, imported through `package.json`
 
 | group | packages |
 |---|---|
-| the song | `song` (folder of YAML → `ProjectDoc` + `GraphDoc` for l8/m9, and the SAME folder → `VideoProjectDoc` for its picture — `docs/picture.md`), `commands` (one verb list for every surface), `translator` (`.dawproject` import), `dsp` (write a module's DSP in JS) |
+| the song | `song` (folder of YAML → `ProjectDoc` + `GraphDoc`, and the SAME folder → `VideoProjectDoc` for its picture — `docs/picture.md`; a project is one of three SHAPES, `docs/setProject.md`), `commands` (one verb list for every surface), `translator` (`.dawproject` import), `dsp` (write a module's DSP in JS) |
 | the engine | `engine-protocol` (the wire, mirrored in C++), `engine-client` (Node), `engine-browser` (browser + React store; its `access` subpath is the ONE way an app reaches an engine — routes, probe, policy, lease, bound to that service's prefix), `engine-host` (the supervisor — a **program**, not a library), `engine-registry` (which engines exist; each service holds its own registry INSTANCE — one shared implementation, `createRegistry()` per service) |
 | the disk | `file-service` (every file operation, on the engine's machine — l8' backend has none), `mediatek` (the media library), `user-prefs`, `git-repos` (the SSH URI vocabulary, the deploy key, and the bare blobless mirror st0 reads a repository through) |
-| the views | `project-shell` (what an app needs BEFORE it can draw: the launch parameters, the file-service transport, the repository → workspace resolution, the gate — l8 and m9 mount the same one), `ui-chains` + `ui-chains-react` (the chains graph — l8, st0 and m9 all draw it), `ui-editor` (YAML + note grids — l8 and m9 — and the autosave every text pane runs on,
-`docs/autosave.md`), `ui-eyes` (WebGL video — l8's `viewport` surface), `ui-timeline` (what an arrangement surface needs whatever its unit is: wheel zoom, middle-drag pan, a ruler's tick chooser, the lane geometry — l8's ruler reads bars OR seconds, since one grid draws a song and its picture), `ui-waveform`, `ui-module-builder` (l8 and st0), `ui-turntables` (the DJ desk — m9's Mix, and
-l8's `surfaces/` view; its one seam is the engine, `docs/hosting.md`) |
+| the views | `project-shell` (what an app needs BEFORE it can draw: the launch parameters, the file-service transport, the repository → workspace resolution, the gate — l8 and z0's editor mount the same one), `ui-chains` + `ui-chains-react` (the chains graph — l8 and st0 both draw it), `ui-editor` (YAML + note grids, and the autosave every text pane runs on,
+`docs/autosave.md`), `ui-eyes` (WebGL video — l8's `viewport` surface), `ui-timeline` (what an arrangement surface needs whatever its unit is: wheel zoom, middle-drag pan, a ruler's tick chooser, the lane geometry — l8's ruler reads bars OR seconds, since one grid draws a song and its picture), `ui-waveform`, `ui-module-builder` (l8 and st0), `ui-turntables` (the DJ desk — l8's `turntables` surface; its one seam is the engine, `docs/hosting.md`, and `docs/` holds the desk's whole rationale plus the two harnesses that measure a SOUND) |
 | the types | `web-protocol`, `graph-model` (split out so drawing a graph doesn't drag in auth) |
 | z0 | `player-web` — the blind-test player, with a moteur-backed seam behind it |
 
@@ -67,9 +65,8 @@ Two of these are **processes rather than libraries** and are bundled, not import
 esbuilt into the tray by `engine/capot/scripts/build-engine.mjs`.
 
 They are named `@studio/*` rather than `@l8/*` because l8 is only one of
-their consumers: `apps/st0` and `apps/m9` both drive them now, and
-z0's moteur-backed player is behind the seam `@studio/player-web` already
-had.
+their consumers: `apps/st0` drives them too, and z0's moteur-backed player is
+behind the seam `@studio/player-web` already had.
 
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md),

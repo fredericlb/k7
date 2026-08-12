@@ -151,7 +151,7 @@ déplacement voulu.
 
 ### Le banc
 
-`apps/m9/frontend/scripts/tempo-drag.ts`, pointé sur un moteur qui tourne. C'est la question
+`packages/ui-turntables/scripts/tempo-drag.ts`, pointé sur un moteur qui tourne. C'est la question
 qu'un test unitaire ne peut pas trancher, parce que la réponse est un son.
 
 Il joue un fichier dont la **fréquence dit la position** — 300 Hz + 80 Hz par seconde. Comme

@@ -24,7 +24,6 @@ export const SERVICE_PATHS = {
   l8: "/l8",
   st0: "",
   k7: "/k7",
-  m9: "/m9",
   z0: "/z0",
 } as const;
 
@@ -46,7 +45,6 @@ export const SERVICE_PORTS: Record<StudioService, number> = {
   l8: 8789,
   st0: 8795,
   k7: 8787,
-  m9: 8796,
   z0: 8080,
 };
 

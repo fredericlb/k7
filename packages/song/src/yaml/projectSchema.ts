@@ -63,7 +63,7 @@ export const ProjectSettingsSchema = z
   .strict();
 
 /**
- * What a project's files are FOR — l8's timeline song, m9's set, z0's blind test.
+ * What a project's files are FOR — an l8 project, or z0's blind test.
  *
  * The SAME set as `ProjectApp`, and not a second list that happens to agree. `projectTypeOf`
  * answers step 1 with `projectApp(basename(dir))`, so the two are already one question asked
@@ -76,7 +76,6 @@ export const ProjectSettingsSchema = z
  */
 export const PROJECT_TYPES = [
   "l8",
-  "m9",
   "z0",
 ] as const satisfies readonly ProjectApp[];
 export type ProjectType = ProjectApp;
@@ -126,6 +125,36 @@ void _everyModeIsListed;
 
 /** What a folder that says nothing is: every project written before `live` existed. */
 export const DEFAULT_PROJECT_MODE: ProjectMode = "arrangement";
+
+/**
+ * What you can ASK FOR when creating a project — which is not the same list as `PROJECT_MODES`.
+ *
+ * A mode is what a folder IS, and there are two: with an arrangement, or without. A shape is
+ * what a scaffold WRITES, and there are three, because two different folders are both `live`:
+ *
+ * | shape | mode | and what makes it that shape |
+ * |---|---|---|
+ * | `audio` | `arrangement` | a lane, a synth, a pattern, a timeline surface, a lane of picture |
+ * | `live` | `live` | the same signal path with the arrangement taken out |
+ * | `set` | `live` | two decks meeting at a crossfade, `songs.yaml`, a `turntables` surface |
+ *
+ * So a set is not a fourth kind of project and not a third mode: it is a rig that declares a
+ * desk and carries a set list. Which is exactly why `.m9` stopped needing to be a folder
+ * suffix, and why nothing had to be invented to let l8 open one — see docs/setProject.md.
+ *
+ * The distinction is worth two names because the collapse is what went wrong before: while
+ * "which app opens this" and "which shape is it" were one field, st0 sent `type: "audio"` and
+ * got an l8 song written inside a `.m9` folder.
+ */
+export const PROJECT_SHAPES = ["audio", "live", "set"] as const;
+export type ProjectShape = (typeof PROJECT_SHAPES)[number];
+
+/** The mode a shape's folder declares. Two of the three are `live`; that is the point. */
+export const MODE_FOR_SHAPE: Record<ProjectShape, ProjectMode> = {
+  audio: "arrangement",
+  live: "live",
+  set: "live",
+};
 
 /**
  * v1's marker key: a WALL-CLOCK position — `90`, `12.5`, `1:30`, `1:30.5`.

@@ -158,7 +158,7 @@ source is dropped from the memo so the next read picks up the fresh sidecar.
 
 Le sidecar porte maintenant `low` / `mid` / `high` en plus de `peak` et `rms` : la même
 enveloppe découpée à 200 Hz et 4 kHz, dans le même espace de buckets, d'où une waveform colorée
-par ce qu'il y a dedans (`apps/m9/docs/waveform.md`).
+par ce qu'il y a dedans (`packages/ui-turntables/docs/waveform.md`).
 
 `MIN_CACHE_VERSION` monte avec, et c'est la moitié qui porte : un sidecar v3 a une empreinte qui
 CORRESPOND, donc sans la bump chaque contrôle de fraîcheur passerait et le fichier n'obtiendrait

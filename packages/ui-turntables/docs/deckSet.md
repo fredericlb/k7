@@ -2,12 +2,12 @@
 
 `useDeckSet` possède ce que les deux platines SONT — ce qui est chargé, à quel tempo, où sont
 le crossfader et les six potards d'EQ — et tous les gestes qui changent l'un ou l'autre. Il est
-appelé une fois, par `Studio`.
+appelé **une fois par hôte**, au-dessus de la vue qui dessine le pupitre.
 
-## Pourquoi pas dans MixView
+## Pourquoi pas dans la vue
 
-Parce que Studio démonte MixView dès qu'on ouvre Graphe, et **un set ne cesse pas d'exister à
-ce moment-là**. Tant que l'état vivait dans la vue :
+Parce que l'hôte démonte cette vue dès qu'on regarde autre chose, et **un set ne cesse pas
+d'exister à ce moment-là**. Tant que l'état vivait dans la vue :
 
 - le graphe n'avait aucun moteur à interroger, donc ses potards affichaient le nombre que le
   fichier déclare et rien d'autre ;
@@ -19,6 +19,13 @@ ce moment-là**. Tant que l'état vivait dans la vue :
 Les trois sont le même nœud. MixView **dessine** les platines et n'en possède rien ; ce qui
 lui reste en propre est la liste du set, les enveloppes de waveform et le sélecteur de
 morceaux — des choses qui ne survivent pas à l'onglet parce qu'elles n'ont pas à le faire.
+
+**l8 a repayé cette leçon.** Sa surface `turntables` a d'abord tenu ce hook derrière
+`openSurface &&`, donc fermer le pupitre le démontait avec la vue et rendait exactement les
+trois symptômes ci-dessus. `SurfaceTab` sépare désormais les deux moitiés : les hooks
+au-dessus d'une ligne, l'écran en dessous, et le composant reste monté tant que le projet
+déclare la surface. La règle de `packages/song/docs/surfaces.md` sur les surfaces `view`
+(« montée seulement pendant qu'elle est ouverte ») ne parle donc que du DESSIN.
 
 ## Les deux chemins vers le moteur, toujours
 

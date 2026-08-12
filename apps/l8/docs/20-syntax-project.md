@@ -5,17 +5,17 @@
 The song header: tempo, rate, meter — plus what the song borrows from outside its own folder.
 
 ```yaml schema=ProjectFile
-# What this folder IS. `l8` is a song with a timeline — the default, and what every
-# project written before m9 existed is, so the line can be left out. `m9` is a SET:
-# no clips, a set list in songs.yaml, and decks instead of arranged tracks.
+# What this folder IS — the default, and what every project written before this
+# line existed is, so it can be left out. The only other value is `z0`, the
+# blind test's own dialect.
 #
-# The folder's own suffix (`.l8` / `.m9`) is what decides which app opens it, and it
+# The folder's own suffix (`.l8`) is what decides which app opens it, and it
 # wins if the two disagree — l8 reports the contradiction rather than picking a side.
 # This line is here so the file says it too, which is the only signal left when the
 # repository IS the project and there is no suffix to read.
 type: l8
 
-# Which of l8's two shapes this project has, within the `l8` dialect above.
+# Which SHAPE this project has.
 #
 # `arrangement` is a song: a timeline, clips placed in bars, a transport that
 # rolls through it. It is the default and it is what every project written
@@ -26,7 +26,11 @@ type: l8
 # timeline pane, the transport, the minimap. What you get is the signal path
 # and the command bar. The module bench (`/l8/@banc/modules.l8`) is one.
 #
-# Both shapes keep the same files: tracks are still what a chain starts from,
+# A SET is a `live` project too, plus two files: a `songs.yaml` and a
+# `surfaces/desk.yaml`. Two decks meeting at a crossfade, a list to play through
+# them, and no arrangement to speak of. Nothing else distinguishes one.
+#
+# Every shape keeps the same files: tracks are still what a chain starts from,
 # and a module is still edited by opening its file — right-click a node in the
 # graph and the editor comes up over it.
 project_type: arrangement
@@ -68,8 +72,9 @@ editor to draw — a desk of controls wired to the modules in your chains. One f
 the filename names it, and it gets a button at the top right of the screen.
 
 ```yaml schema=Surface
-# What draws it. `turntables` is m9's desk: two decks meeting at a crossfade,
-# with a channel strip each. It is the only type so far, and an unknown one is
+# What draws it. `turntables` is the DJ desk: two decks meeting at a crossfade,
+# with a channel strip each. The others are `timeline` (the arrangement) and
+# `viewport` (the frame your video lanes composite onto). An unknown one is
 # refused rather than opening onto a blank screen.
 type: turntables
 
@@ -95,7 +100,8 @@ mapping:
 ```
 
 A `turntables` surface plays a **set**: a `songs.yaml` at the project root naming médiathèque
-songs, exactly as an m9 set does.
+songs. That file and this surface are the whole of what makes a project a set — there is no
+other kind of folder for one, and no other app that opens it.
 
 ## settings.yaml
 

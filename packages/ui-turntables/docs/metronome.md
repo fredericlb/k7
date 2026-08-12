@@ -83,7 +83,7 @@ propriété du set. Ce que le projet déclare reste l'affaire du projet.
 
 ## Le banc
 
-`apps/m9/frontend/scripts/metronome.ts`, pointé sur un moteur qui tourne. La platine joue un
+`packages/ui-turntables/scripts/metronome.ts`, pointé sur un moteur qui tourne. La platine joue un
 fichier **silencieux**, donc tout ce que la prise d'écoute entend est le clic, et chaque attaque
 est comparée à l'endroit où la grille de cette platine dit qu'un temps se trouve. Puis il bouge
 le tempo par le **vrai** geste (`nudgedTempos`, slip compris) et repose la même question, parce

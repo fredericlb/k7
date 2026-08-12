@@ -76,7 +76,7 @@ import {
   loadProject,
   trackMixer,
 } from "@studio/song/project";
-import type { ProjectMode } from "@studio/song/projectMode";
+import type { ProjectShape } from "@studio/song/projectMode";
 import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import { isInSharedModules } from "@studio/song/sharedFolders";
@@ -599,12 +599,8 @@ export class Workspace {
   }
 
   /** Scaffold a NEW project folder at the workspace root — see projectLifecycle.ts. */
-  createProject(
-    type: "audio" | "m9",
-    rawName: string,
-    mode?: ProjectMode,
-  ): { project: string } {
-    return createProjectIn(this.lifecycleHost(), type, rawName, mode);
+  createProject(shape: ProjectShape, rawName: string): { project: string } {
+    return createProjectIn(this.lifecycleHost(), shape, rawName);
   }
 
   // --- compiled-project cache ------------------------------------------------

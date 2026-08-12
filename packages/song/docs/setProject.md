@@ -1,16 +1,28 @@
-# An m9 project — a SET
+# A SET — an l8 project with decks instead of an arrangement
 
-A `*.m9` folder is read by the same loader as a `*.l8` song, out of the same
-`@studio/song`. It is not a second dialect: it is the node project you already know, with
-one entity fewer and one file more.
+An `.l8` folder like any other, read by the same loader out of the same `@studio/song`. It
+is not a dialect and it never really was: it is the node project you already know, with one
+entity fewer and two files more.
 
 | file | what it holds |
 |---|---|
-| `project.yaml` | the set's settings, plus `type: m9` at the root |
+| `project.yaml` | the set's settings, plus `project_type: live` — there is no arrangement |
 | `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
 | `chains.yaml` | the routing segments, exactly as in a song |
 | `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
-| `views/mix.yaml` | what each control of the Mix desk drives — see [viewBindings.md](viewBindings.md) |
+| `surfaces/desk.yaml` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
+
+## It used to be a `.m9`, opened by an app of its own
+
+Two files are the whole of what makes this a set: `songs.yaml`, and a `turntables` surface.
+Neither needs a folder suffix to be found, and neither needs an app — l8 draws the desk from
+its declaration exactly as it draws a timeline or a viewport from theirs.
+
+So the suffix went, and the app with it. What was `views/mix.yaml` is the surface's own
+`mapping:` ([surfaces.md](surfaces.md)) — the declaration and the wiring in one file, which
+leaves a set one file lighter than it was. The desk itself was already shared
+(`@studio/ui-turntables`); what m9 still held was how it *obtained an engine*, and l8 has an
+engine before it has a surface.
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
 plays lives in the médiathèque, and what it says about playing it is the graph.
@@ -47,12 +59,15 @@ anywhere. It is also what a reader sees first, and what a loader handed an absol
 with no name to read has to go on.
 
 `projectTypeOf` states the order in three lines: suffix, then declaration, then `l8` —
-which is every song written before m9 existed, and none of them says so.
+which is every song written before a second dialect existed, and none of them says so.
 
-A folder named `.m9` that declares `type: l8` is not resolved silently. It compiles either
+A folder named `.z0` that declares `type: l8` is not resolved silently. It compiles either
 way, because the two signals feed different readers, and that is exactly why it is
 **reported** — `projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is
 accepted and ignored is the failure mode this codebase keeps paying for.
+
+`type: m9` is one of the values the schema now refuses. A set declares nothing at the root:
+it is an `.l8`, and `project_type: live` plus its desk surface are what say what it is.
 
 `type` is a ROOT key, beside `trackOrder` and `markers`, and not a `project:` setting. The
 tier inside `project:` is the SONG's own settings — its tempo, its rate. This is a fact
@@ -119,22 +134,22 @@ chain must draw from a file input — and a deck's source is a file on the machi
 which is the one input whose whole length is knowable up front.
 
 Two nodes, not one shared: each deck plays at its own BPM, and a param belongs to a use
-rather than to a module. `Source BPM` is measured by the pass; `Target BPM` is what m9's
+rather than to a module. `Source BPM` is measured by the pass; `Target BPM` is what the desk's
 tempo fader sets.
 
-**Nothing about two is fixed.** `scaffoldM9` writes two decks because two is what a
+**Nothing about two is fixed.** `scaffoldSet` writes two decks because two is what a
 crossfade takes; the format holds any number, and no code special-cases the names `deckA`,
 `deckB` or `crossfade`. A third deck is a third track and a second meeting point. Hardcoding
-the pair into m9 would have bought nothing — the graph view draws whatever the file says —
+the pair into the desk would have bought nothing — the graph view draws whatever the file says —
 and would have made a four-channel set unsayable.
 
 Derived, this is **two** chains and no chain called `crossfade`: the module has a single
 flow feeder, so it is a step inside deck A's run rather than a meeting point of its own.
-`scaffoldM9.test.ts` pins that, which is the cheapest way to notice if `#b` is ever lost.
+`scaffoldSet.test.ts` pins that, which is the cheapest way to notice if `#b` is ever lost.
 
 ## What plays is the compiled project
 
-m9 fetches the compiled `ProjectDoc` from the machine's file service (`GET /engine-doc`),
+The desk fetches the compiled `ProjectDoc` from the machine's file service (`GET /engine-doc`),
 fills in each deck's song, and sends it to the engine over its own socket. So the chains, the
 `sidechainFrom`, and the crossfade's **baked DSP graph** are the compiler's — not an imitation
 built in the browser.
@@ -144,6 +159,6 @@ Loading a song is therefore NOT a project edit. The decks' tracks are declared w
 is committed, what is on a deck right now is not.
 
 **One thing still cannot be a module.** The tempo is `offline`, so it compiles to no plugin —
-`example.m9` compiles to deckA carrying the crossfade and nothing else. The stretch stays a
-warp on the clip m9 fills in, which is the only thing that stretches live. Making it a module
+`example.l8` compiles to deckA carrying the crossfade and nothing else. The stretch stays a
+warp on the clip the desk fills in, which is the only thing that stretches live. Making it a module
 in fact means writing the cold pass, and that is a separate piece of work from this one.

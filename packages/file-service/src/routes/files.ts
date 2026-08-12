@@ -16,7 +16,7 @@ import {
   listModulePresets,
   saveModuleAsPreset,
 } from "@studio/song/presets";
-import { PROJECT_MODES } from "@studio/song/projectMode";
+import { PROJECT_SHAPES } from "@studio/song/projectMode";
 import express, { Router } from "express";
 import { z } from "zod";
 import {
@@ -246,25 +246,24 @@ filesRouter.post(
 
 // Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
-  // "m9" is a different KIND of project, not a variant of the song scaffold — a set folder,
-  // getting its suffix appended so st0 offers it to the app that opens it. There was a "v1"
-  // beside it, a cut; picture is a song's own now, so there is no third kind.
-  // See projectLifecycle.ts.
-  type: z.enum(["audio", "m9"]),
-  // l8's own axis, and a SEPARATE field on purpose: it is orthogonal to `type` above and to the
-  // suffix on the name, both of which answer "which app opens this". This answers "which of l8's
-  // two shapes" — a song with a timeline, or a live rig. Absent means `arrangement`, so every
-  // caller written before this (l8's own command bar included) keeps creating what it always did.
-  mode: z.enum(PROJECT_MODES).optional(),
+  /**
+   * Which file map to write: a song, a rig, or a set. ONE field, where there were two.
+   *
+   * `type` and `mode` used to sit side by side here — the first answering "which app opens
+   * this" and the second "which of l8's two shapes". There is one app now, so the first
+   * question has no answers left and the second absorbed it. See projectLifecycle.ts, and
+   * `PROJECT_SHAPES` for why a set is a shape rather than a mode.
+   */
+  shape: z.enum(PROJECT_SHAPES),
   name: z.string().min(1),
 });
 filesRouter.post(
   "/project/create",
   validate(createProjectBody),
   wrap((req, res) => {
-    const { type, name, mode } = req.body as z.infer<typeof createProjectBody>;
+    const { shape, name } = req.body as z.infer<typeof createProjectBody>;
     try {
-      res.json(req.ws!.createProject(type, name, mode));
+      res.json(req.ws!.createProject(shape, name));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

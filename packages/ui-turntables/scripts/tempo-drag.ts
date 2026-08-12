@@ -5,7 +5,7 @@
 // frequency encodes its own position, so the tone coming back says which source second is
 // playing. Music that skips shows up as a step in that number. See ../docs/bpm.md.
 //
-// Usage:  npx tsx apps/m9/frontend/scripts/tempo-drag.ts [ws://127.0.0.1:8765] [--raw]
+// Usage:  npx tsx packages/ui-turntables/scripts/tempo-drag.ts [ws://127.0.0.1:8765] [--raw]
 //   --raw   drop the slip correction, to measure what the fader used to do
 //   --down  drag the fader DOWN — the direction that needs the timeline's headroom
 //
@@ -16,6 +16,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import WebSocket from "ws";
 import {
   type DeckLoads,
   type DeckTempos,
@@ -23,8 +24,7 @@ import {
   nudgedTempos,
   sourceAt,
   TIMELINE_BASE,
-} from "@studio/ui-turntables/deck";
-import WebSocket from "ws";
+} from "../src/deck";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";

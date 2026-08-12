@@ -70,7 +70,7 @@
     "./surfaces": "./src/surfaces.ts",
     "./projectType": "./src/projectType.ts",
     "./scaffoldBench": "./src/scaffoldBench.ts",
-    "./scaffoldM9": "./src/scaffoldM9.ts",
+    "./scaffoldSet": "./src/scaffoldSet.ts",
     "./videoDoc": "./src/videoDoc.ts",
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",

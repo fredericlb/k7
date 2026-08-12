@@ -24,7 +24,6 @@ export const DEFAULT_SESSION = "";
 export const SESSIONS = {
   l8: "l8",
   st0: "st0",
-  m9: "m9",
 } as const;
 
 export type SessionId = string;

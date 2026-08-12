@@ -6,12 +6,15 @@
 import { loadProjectRoot } from "./loader";
 import {
   DEFAULT_PROJECT_MODE,
+  MODE_FOR_SHAPE,
   PROJECT_MODES,
+  PROJECT_SHAPES,
   type ProjectMode,
+  type ProjectShape,
 } from "./yaml/projectSchema";
 
-export type { ProjectMode };
-export { DEFAULT_PROJECT_MODE, PROJECT_MODES };
+export type { ProjectMode, ProjectShape };
+export { DEFAULT_PROJECT_MODE, MODE_FOR_SHAPE, PROJECT_MODES, PROJECT_SHAPES };
 
 /**
  * The mode the folder at `dir` declares, or `arrangement` when it declares nothing.

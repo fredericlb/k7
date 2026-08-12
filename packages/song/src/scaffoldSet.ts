@@ -1,7 +1,9 @@
-// scaffoldM9.ts — the file map + writer for a new m9 SET: two decks meeting at a crossfade,
-// and an empty set list. Hand-authored like scaffold.ts and for the same reason — the `#`
-// comments ship to disk and are the one worked example a reader gets.
-// Full rationale: docs/m9Project.md.
+// scaffoldSet.ts — the file map + writer for a new SET: two decks meeting at a crossfade, an
+// empty set list, and the desk that plays them. An `.l8` folder like every other, and that is
+// the whole of what a set is now — a project with no arrangement that declares a `turntables`
+// surface. Hand-authored like scaffold.ts and for the same reason — the `#` comments ship to
+// disk and are the one worked example a reader gets.
+// Full rationale: docs/setProject.md.
 
 import { writeProjectFiles } from "./scaffold";
 
@@ -11,17 +13,17 @@ const q = (s: string) => JSON.stringify(s);
  *  format holds any number, and nothing below this line is special-cased on these names. */
 export const DECKS = ["deckA", "deckB"] as const;
 
-/** The files of a minimal m9 set, keyed by path relative to the project folder. */
-export function m9ProjectFiles(name: string): Record<string, string> {
+/** The files of a minimal set, keyed by path relative to the project folder. */
+export function setProjectFiles(name: string): Record<string, string> {
   return {
     "project.yaml":
-      `# \`type\` is a ROOT key, beside \`trackOrder\` and \`markers\` — a fact about what these\n` +
-      `# files ARE, not one of the song's settings under \`project:\`.\n` +
+      `# A SET: two decks meeting at a crossfade, and a list of songs to play through them.\n` +
       `#\n` +
-      `# The folder's \`.m9\` suffix is what actually decides which app opens this, and it wins\n` +
-      `# if the two ever disagree. This line is here so a reader — and a loader handed the\n` +
-      `# folder by absolute path, with no name to read — knows too.\n` +
-      `type: m9\n` +
+      `# \`project_type: live\` is what says there is no arrangement — nothing here is placed in\n` +
+      `# time, so there is no timeline to draw and no transport to roll. What makes it a set\n` +
+      `# rather than a bare rig is the two files below it: \`songs.yaml\`, and a \`turntables\`\n` +
+      `# surface in \`surfaces/\`. See packages/song/docs/setProject.md.\n` +
+      `project_type: live\n` +
       `project:\n` +
       `  name: ${q(name)}\n` +
       `  # The rate the decks are played at. No tempo and no time signature: a set has no bars.\n` +
@@ -69,7 +71,7 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# whatever the EQ has already done, rather than equalised afterwards.\n` +
       `#\n` +
       `# Nothing about two is fixed. A third deck is a third lane, a third tempo and a second\n` +
-      `# meeting point; m9 reads whatever is here. See packages/song/docs/ports.md.\n` +
+      `# meeting point; the desk reads whatever is here. See packages/song/docs/ports.md.\n` +
       `\n` +
       `modules:\n` +
       `  deckA: [ ${TEMPO_A} ]\n` +
@@ -119,12 +121,16 @@ export function m9ProjectFiles(name: string): Record<string, string> {
     [`nodes/${FILTER_A}.yaml`]: filterNode("A"),
     [`nodes/${FILTER_B}.yaml`]: filterNode("B"),
 
-    "views/mix.yaml":
-      `# What each control of m9's Mix desk drives.\n` +
+    "surfaces/desk.yaml":
+      `# The DESK, and what each of its controls drives.\n` +
       `#\n` +
-      `# Keyed by the CONTROL, because this file is about a desk: a control drives at most one\n` +
-      `# param, and two targets on one fader is a thing you cannot see going wrong. The reverse\n` +
-      `# is allowed — two controls may name the same param, and both move it.\n` +
+      `# A surface: a screen the project asks its editor to draw (packages/song/docs/surfaces.md).\n` +
+      `# \`view\` means its own screen off the header, which is the only layout a desk draws in —\n` +
+      `# it is not a band under something else.\n` +
+      `#\n` +
+      `# \`mapping\` is keyed by the CONTROL, because this is about a desk: a control drives at\n` +
+      `# most one param, and two targets on one fader is a thing you cannot see going wrong. The\n` +
+      `# reverse is allowed — two controls may name the same param, and both move it.\n` +
       `#\n` +
       `# \`module\` is the name the CHAINS file uses, not a médiathèque ref: a set has two uses\n` +
       `# of the tempo module, and a ref could not tell them apart. That ambiguity is exactly why\n` +
@@ -135,18 +141,21 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# \`param\` is spelled as the module's ui.yaml binds it, so this file, the panel and a MIDI\n` +
       `# map line up key for key.\n` +
       `#\n` +
-      `# The control ids are m9's: see apps/m9/docs/controls.md for the list.\n` +
-      `crossfade: { module: ${CROSSFADE}, param: Mix }\n` +
-      `deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
-      `deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n` +
-      `deckA.eqLow: { module: ${EQ_A}, param: Low-shelf gain }\n` +
-      `deckA.eqMid: { module: ${EQ_A}, param: Mid gain 1 }\n` +
-      `deckA.eqHigh: { module: ${EQ_A}, param: High-shelf gain }\n` +
-      `deckB.eqLow: { module: ${EQ_B}, param: Low-shelf gain }\n` +
-      `deckB.eqMid: { module: ${EQ_B}, param: Mid gain 1 }\n` +
-      `deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n` +
-      `deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
-      `deckB.filter: { module: ${FILTER_B}, param: Sweep }\n`,
+      `# The control ids: see packages/ui-turntables/docs/controls.md for the list.\n` +
+      `type: turntables\n` +
+      `layout: view\n` +
+      `mapping:\n` +
+      `  crossfade: { module: ${CROSSFADE}, param: Mix }\n` +
+      `  deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
+      `  deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n` +
+      `  deckA.eqLow: { module: ${EQ_A}, param: Low-shelf gain }\n` +
+      `  deckA.eqMid: { module: ${EQ_A}, param: Mid gain 1 }\n` +
+      `  deckA.eqHigh: { module: ${EQ_A}, param: High-shelf gain }\n` +
+      `  deckB.eqLow: { module: ${EQ_B}, param: Low-shelf gain }\n` +
+      `  deckB.eqMid: { module: ${EQ_B}, param: Mid gain 1 }\n` +
+      `  deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n` +
+      `  deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
+      `  deckB.filter: { module: ${FILTER_B}, param: Sweep }\n`,
   };
 }
 
@@ -166,7 +175,7 @@ export function m9ProjectFiles(name: string): Record<string, string> {
  * it, and engine/moteur/docs/sidechain.md says why.
  */
 const MUTED_LANE =
-  "# Heard through the crossfade ONLY — see scaffoldM9.ts for why this is not optional.\n" +
+  "# Heard through the crossfade ONLY — see scaffoldSet.ts for why this is not optional.\n" +
   "bypassed: [ deckB ]\n";
 
 const MEDIATEK_UTILITY = "@mediatek/audio/utility";
@@ -248,7 +257,7 @@ function deckTrack(letter: string, wiring: string): string {
   return (
     `# Deck ${letter}. A lane with no arrangement — it authors no \`clips:\` at all.\n` +
     `#\n` +
-    `# That is the one thing an m9 project has that an l8 song does not. In a song a lane's\n` +
+    `# That is the one thing a SET has that an arranged song does not. In a song a lane's\n` +
     `# file IS its arrangement; on a deck the material is whichever song from songs.yaml was\n` +
     `# loaded ten seconds ago, so what is committed is the deck's SETTINGS and its place in\n` +
     `# the graph. ${wiring}\n` +
@@ -259,7 +268,7 @@ function deckTrack(letter: string, wiring: string): string {
   );
 }
 
-/** Scaffold a new m9 set at `dir`, returning the project-relative paths written. */
-export function scaffoldM9(dir: string, name: string): string[] {
-  return writeProjectFiles(dir, m9ProjectFiles(name));
+/** Scaffold a new set at `dir`, returning the project-relative paths written. */
+export function scaffoldSet(dir: string, name: string): string[] {
+  return writeProjectFiles(dir, setProjectFiles(name));
 }

@@ -115,7 +115,7 @@ réglages se lit encore, sans migration. Une table de références vers presque-
 à chaque entrée l'air qu'il lui manque quelque chose, ce que cette page redoutait.
 
 `markers` sont les huit repères du pupitre de m9, positionnels, en secondes dans le FICHIER :
-[apps/m9/docs/cues.md](../../../apps/m9/docs/cues.md). Le fichier est écrit par le pupitre, en
+[ui-turntables/docs/cues.md](../../ui-turntables/docs/cues.md). Le fichier est écrit par le pupitre, en
 plein set, et `withMarkers` l'édite **dans son texte** — les commentaires de ce scaffold sont le
 seul exemple travaillé qu'un lecteur obtient, et un pupitre qui les mangerait au premier repère
 posé serait un pupitre qu'on ne pardonne pas.

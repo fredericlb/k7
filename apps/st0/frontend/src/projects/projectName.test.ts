@@ -8,8 +8,8 @@ describe("projectFolderName", () => {
       folder: "hiver.l8",
       error: "",
     });
-    expect(projectFolderName("répèt du jeudi", "m9")).toEqual({
-      folder: "répèt du jeudi.m9",
+    expect(projectFolderName("répèt du jeudi", "l8")).toEqual({
+      folder: "répèt du jeudi.l8",
       error: "",
     });
   });
@@ -20,10 +20,11 @@ describe("projectFolderName", () => {
   });
 
   it("laisse le MENU décider quand les deux se contredisent", () => {
-    // Quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d'avis ; « hiver.l8.m9 » ne
-    // serait ni l'un ni l'autre.
-    expect(projectFolderName("hiver.l8", "m9").folder).toBe("hiver.m9");
-    expect(projectFolderName("hiver.m9", "l8").folder).toBe("hiver.l8");
+    // Quelqu'un qui écrit « hiver.z0 » puis choisit l8 a changé d'avis ; « hiver.z0.l8 » ne
+    // serait ni l'un ni l'autre. Le cas se rencontrait surtout entre `.l8` et `.m9`, avant
+    // qu'un set redevienne une forme de projet l8 plutôt qu'un dossier à part.
+    expect(projectFolderName("hiver.z0", "l8").folder).toBe("hiver.l8");
+    expect(projectFolderName("hiver.l8", "z0").folder).toBe("hiver.z0");
   });
 
   it("garde un « v1 » qui fait partie du nom", () => {

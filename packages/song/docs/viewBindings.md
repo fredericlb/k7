@@ -47,7 +47,8 @@ for key and can be read side by side.
 
 `@studio/song` does not know what a `crossfade` is. The schema therefore accepts any key and
 **does not validate the ids**: whoever draws the panel checks them, against the list it
-actually has (m9's is `apps/m9/frontend/src/controls.ts`, listed in `apps/m9/docs/controls.md`).
+actually has (the desk's is `packages/ui-turntables/src/controls.ts`, listed in that package's
+`docs/controls.md`).
 A schema that guessed the vocabulary would go stale the day a control is added, and would have
 to be edited in a package that has no business knowing.
 
@@ -81,7 +82,7 @@ would sweep one nobody chose.
 
 ## Wired
 
-m9 plays the COMPILED project now (`apps/m9/docs/mix.md`), so the plugins a binding names are
+the desk plays the COMPILED project now (`packages/ui-turntables/docs/mix.md`), so the plugins a binding names are
 the ones the engine has loaded. Moving the crossfader is one call —
 `setPluginParam(pluginId, param, valueFor(binding, position))` — and the module the médiathèque
 ships does the fade. The hardcoded path is gone from normal operation; it survives only as the

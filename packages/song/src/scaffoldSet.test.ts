@@ -13,31 +13,31 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadGraph } from "./graph";
-import { loadLanes, loadMixView, loadSongs } from "./loader";
+import { loadLanes, loadSongs } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
+import { projectModeOf } from "./projectMode";
 import { projectTypeOf } from "./projectType";
-import { scaffoldM9 } from "./scaffoldM9";
-import { parseMixView } from "./yaml/mixViewFile";
+import { scaffoldSet } from "./scaffoldSet";
+import { parseSurface } from "./yaml/surfaceFile";
 
 // Compiling this set means compiling TWO jsdsp graphs — the crossfade and the sweep filter —
 // and each shells out to esbuild. That is seconds, not milliseconds, and under a full parallel
 // run it has overrun the 5 s default and failed as a timeout rather than as anything real.
 vi.setConfig({ testTimeout: 30_000 });
 
-// A scaffolded set is the one worked example an m9 user gets, and the only m9 project
-// anything writes from scratch — so "does it LOAD, with the graph it claims" is the whole
-// contract. The graph is the interesting half: two decks meeting at one module is the shape
-// a chain cannot express on its own, and a typo in `crossfade#b` would leave the second deck
-// silently feeding nothing.
+// A scaffolded set is the one worked example a set author gets — so "does it LOAD, with the
+// graph it claims" is the whole contract. The graph is the interesting half: two decks meeting
+// at one module is the shape a chain cannot express on its own, and a typo in `crossfade#b`
+// would leave the second deck silently feeding nothing.
 
 let dir: string;
 let mediatek: string;
 let previousRoot: string | undefined;
 
 beforeEach(() => {
-  // The suffix is part of the fixture: projectTypeOf reads the folder's NAME.
-  dir = join(mkdtempSync(join(tmpdir(), "td-m9-")), "winter.m9");
+  // An ordinary `.l8` folder: a set is a SHAPE of l8 project, not a kind of its own.
+  dir = join(mkdtempSync(join(tmpdir(), "td-set-")), "winter.l8");
 
   // A set is no longer self-contained: it NAMES the médiathèque's modules instead of copying
   // them in, so resolving its chains needs one. `STUDIO_MEDIATEK` is how the machine's
@@ -124,9 +124,20 @@ const tree = (): string[] =>
     .map((f) => String(f).split("\\").join("/"))
     .sort();
 
-describe("a scaffolded m9 set", () => {
+/**
+ * The desk's bindings, read out of its SURFACE file.
+ *
+ * They lived in `views/mix.yaml` while an app of its own drew the desk. A surface carries its
+ * own `mapping:` (docs/surfaces.md), so the declaration and the wiring are one file now — and
+ * this reads it the way the file service does, through the schema rather than by hand.
+ */
+const deskMapping = (d: string) =>
+  parseSurface(readFileSync(join(d, "surfaces", "desk.yaml"), "utf8")).value
+    ?.mapping ?? {};
+
+describe("a scaffolded set", () => {
   it("writes the whole shape and nothing else", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     expect(tree()).toEqual([
       "chains.yaml",
       "nodes",
@@ -143,17 +154,20 @@ describe("a scaffolded m9 set", () => {
       "nodes/tempoB.yaml",
       "project.yaml",
       "songs.yaml",
-      "views",
-      "views/mix.yaml",
+      // The DESK, and the bindings with it. There was a `views/mix.yaml` here: the desk's own
+      // file, read by the app that drew it. A surface carries its `mapping:` (docs/surfaces.md),
+      // so the declaration and the wiring are one file and a set is one file lighter.
+      "surfaces",
+      "surfaces/desk.yaml",
     ]);
   });
 
   it("declares what the desk's controls drive, instead of hardcoding it", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     // The crossfader used to reach a level in m9's own code, with nothing saying so. It names
     // the crossfade module's own `Mix` here, and each tempo fader its own deck's node —
     // which a module-owned controller.yaml could not have said, since both decks share one.
-    expect(loadMixView(dir)).toEqual({
+    expect(deskMapping(dir)).toEqual({
       crossfade: { module: "crossfade", param: "Mix" },
       "deckA.tempo": { module: "tempoA", param: "Target BPM" },
       "deckB.tempo": { module: "tempoB", param: "Target BPM" },
@@ -169,11 +183,11 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("names params the modules actually have", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     // The join this file exists for: every binding must find its module in the chains and its
     // param on that module. A typo here is a control that silently does nothing.
     const modules = loadGraph(dir).modules;
-    for (const b of Object.values(loadMixView(dir))) {
+    for (const b of Object.values(deskMapping(dir))) {
       expect(modules[b.module], `module ${b.module}`).toBeDefined();
       expect(
         Object.keys(modules[b.module].params ?? {}),
@@ -183,7 +197,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("copies NO module into the project", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     // st0 owns the only editable catalogue. A crossfade copied in here would be a second one
     // nobody maintains and nobody would notice drifting — so the set carries uses, not
     // modules, and `nodes/` is where a use lives (docs/nodes.md).
@@ -191,7 +205,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("names the médiathèque's modules, and only those", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const ext = (f: string) =>
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
     expect(ext("nodes/crossfade.yaml")).toBe(
@@ -202,7 +216,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("asks the médiathèque for exactly those four modules", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     // What the cache sync will go and fetch for this set. One of each, not two: the decks are
     // two NODES of one module, and fetching a module twice would be a bug in the ref
     // reader rather than a fact about the set.
@@ -214,13 +228,17 @@ describe("a scaffolded m9 set", () => {
     ]);
   });
 
-  it("is an m9 project by both signals, which agree", () => {
-    scaffoldM9(dir, "winter");
-    expect(projectTypeOf(dir)).toBe("m9");
+  it("is an ordinary l8 project with no arrangement", () => {
+    // A set used to be its own dialect, in a `.m9` folder, opened by its own app. It is a SHAPE
+    // now: `project_type: live` says there is no timeline, and the `turntables` surface beside
+    // it says there is a desk. Nothing else distinguishes it, which is what let the app go.
+    scaffoldSet(dir, "winter");
+    expect(projectTypeOf(dir)).toBe("l8");
+    expect(projectModeOf(dir)).toBe("live");
   });
 
   it("derives one chain: deck A through the crossfade to OUT", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const g = loadGraph(dir);
     // A warning here means the template references something it did not write.
     expect(g.warnings).toEqual([]);
@@ -243,7 +261,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("lands deck B on the crossfade's second port", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const use = loadGraph(dir).chains.deckA.use;
     // On the CROSSFADE, deck A's LAST step now that a tempo and an EQ come first. `#b` is the
     // whole reason two decks are expressible; losing it would compile to deckB feeding
@@ -259,7 +277,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("inherits the crossfade's two ports without restating them", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     // The node says only `extends` and a `Mix`. Ports, kind and category come from the
     // médiathèque's module — which is what makes a use of somebody else's module one file.
     // `mandatory` comes back stated on BOTH — the loader resolves the default rather than
@@ -271,7 +289,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("puts a COLD module on each deck, one node per deck", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const modules = loadGraph(dir).modules;
     // `cold` is inherited, so a node that states only its BPMs is still cold — which is
     // what makes the placement rule apply to it (docs/coldModules.md).
@@ -289,7 +307,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("inherits the tempo module's BPM knob, 10 to 300", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     // The panel is inherited like everything else, so a deck's tempo is a knob you can see
     // and turn wherever a module's UI is drawn — and it is the SAME range m9's own fader
     // uses. Reading it here is what stops the two drifting into two different ranges.
@@ -308,7 +326,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("COMPILES with deck B reaching the crossfade's second input", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const doc = compileNodeProject(dir);
     expect(doc.tracks.map((t) => t.id)).toEqual(["deckA", "deckB"]);
     const cross = doc.tracks[0].plugins.find((p) => p.id === "deckA:crossfade");
@@ -323,7 +341,7 @@ describe("a scaffolded m9 set", () => {
     // Where a mixing desk puts it: a channel strip is equalised on its way to the fader, so
     // cutting a deck's bass is a property of that DECK and not of the blend. One node per
     // deck, because that is the whole point of a channel EQ.
-    const doc = (scaffoldM9(dir, "winter"), compileNodeProject(dir));
+    const doc = (scaffoldSet(dir, "winter"), compileNodeProject(dir));
     const ids = (t: string) =>
       doc.tracks.find((x) => x.id === t)?.plugins.map((p) => p.id) ?? [];
     expect(ids("deckA")).toEqual([
@@ -339,7 +357,7 @@ describe("a scaffolded m9 set", () => {
     // desk moves it with `set-plugin-param`, live and per pixel. The tempo is `offline` and
     // emits nothing, so its fader re-sends the document instead — and a control that took the
     // wrong one of those two paths sent a param into the void for a whole commit.
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const doc = compileNodeProject(dir);
     const eq = doc.tracks
       .find((t) => t.id === "deckA")
@@ -359,21 +377,19 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("binds all six EQ knobs, by deck and by band", () => {
-    scaffoldM9(dir, "winter");
-    const view = parseMixView(
-      readFileSync(join(dir, "views", "mix.yaml"), "utf8"),
-    ).value;
-    expect(view?.["deckA.eqLow"]).toEqual({
+    scaffoldSet(dir, "winter");
+    const view = deskMapping(dir);
+    expect(view["deckA.eqLow"]).toEqual({
       module: "eqA",
       param: "Low-shelf gain",
     });
-    expect(view?.["deckB.eqHigh"]).toEqual({
+    expect(view["deckB.eqHigh"]).toEqual({
       module: "eqB",
       param: "High-shelf gain",
     });
     // Deck A's knobs never name deck B's module: that was the exact ambiguity that moved
     // these bindings out of the module's own controller.yaml.
-    for (const [id, b] of Object.entries(view ?? {}))
+    for (const [id, b] of Object.entries(view))
       if (id.startsWith("deckA.eq")) expect(b.module).toBe("eqA");
   });
 
@@ -388,7 +404,7 @@ describe("a scaffolded m9 set", () => {
     //
     // It works because Tracktion's muting node deliberately still passes clips to sidechains,
     // so the crossfade keeps its second signal. crossfade-demo.l8 measured the same thing.
-    const doc = (scaffoldM9(dir, "winter"), compileNodeProject(dir));
+    const doc = (scaffoldSet(dir, "winter"), compileNodeProject(dir));
     const byId = Object.fromEntries(doc.tracks.map((t) => [t.id, t]));
     expect(byId.deckB.mute).toBe(true);
     // …and deck A is NOT muted: it flows into the crossfade's first port and is heard through
@@ -397,7 +413,7 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("gives each deck a lane with no arrangement", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     const tracks = loadLanes(dir);
     expect(Object.keys(tracks).sort()).toEqual(["deckA", "deckB"]);
     // Empty in git and filled at play time: what a deck plays is whichever song from
@@ -407,13 +423,13 @@ describe("a scaffolded m9 set", () => {
   });
 
   it("starts with an empty set list", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     expect(loadSongs(dir)).toEqual([]);
     expect(mediatekSongRefs(dir)).toEqual([]);
   });
 
   it("names its songs to the cache once the set list has any", () => {
-    scaffoldM9(dir, "winter");
+    scaffoldSet(dir, "winter");
     writeFileSync(
       join(dir, "songs.yaml"),
       'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n  - "@mediatek/songs/lemo/mante/aube"\n',

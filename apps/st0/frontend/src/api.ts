@@ -4,10 +4,10 @@
 
 import { engineAccess } from "@studio/engine-browser/access";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
-import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
 import type { FaceablePlugin } from "@studio/song/engineFace";
+import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   type CloneJob,
@@ -345,23 +345,20 @@ export const engineMachine = {
   /**
    * Créer un projet dans l'espace de travail de cette machine.
    *
-   * `name` porte DÉJÀ son suffixe (`hiver.m9`) : le service prend le nom brut comme nom de
-   * dossier, et c'est le suffixe qui dit quelle application l'ouvrira — ET, depuis
-   * projectLifecycle.ts, quel gabarit y est écrit. C'est pourquoi `type` reste « audio » ici
-   * sans que ce soit un bug : le nom gagne, et c'est nous qui l'avons construit. Il ne sert
-   * qu'au cas où le nom ne réclame rien, ce qui n'arrive pas depuis ce dialogue.
+   * `name` porte DÉJÀ son suffixe (`hiver.l8`) : le service prend le nom brut comme nom de
+   * dossier. Il n'y a plus qu'un suffixe — tout projet est un `.l8` — donc ce que le nom disait
+   * autrefois (quelle application l'ouvre) n'a plus de question à trancher.
    *
-   * `mode` est le seul réglage qui ne peut PAS voyager par le nom, et c'est pour ça qu'il est un
-   * champ à part : `arrangement` et `live` habitent tous deux un dossier `.l8` et s'ouvrent tous
-   * deux dans l8 — le suffixe dit quelle application, celui-ci dit laquelle de ses deux formes.
-   * Omis pour m9, dont le gabarit n'a pas cet axe.
+   * `shape` est ce qui reste, et c'est ce qui décide du GABARIT écrit : une chanson, un rig,
+   * ou un set (deux platines, un crossfade, une liste). Il ne peut pas voyager par le nom, et
+   * c'est pour ça qu'il est un champ. Voir `PROJECT_SHAPES` dans @studio/song.
    */
   createProject: async (
     fileBase: string,
     token: string,
     workspace: string,
     name: string,
-    mode?: ProjectMode,
+    shape: ProjectShape,
   ): Promise<string> => {
     const { project } = await json<{ project: string }>(
       await fetch(`${fileBase}/project/create`, {
@@ -371,7 +368,7 @@ export const engineMachine = {
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ type: "audio", name, mode }),
+        body: JSON.stringify({ shape, name }),
       }),
       "création",
     );

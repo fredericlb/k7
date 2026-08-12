@@ -30,6 +30,12 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
 // loader in behind it.
 import { moduleKeyFromPath } from "@studio/song/moduleTypes";
+// From the SCHEMA rather than from `projectMode`, which re-exports it: that module walks the
+// disk to read `project_type`, and pulling it into the bundle drags node:fs in behind it.
+import {
+  PROJECT_SHAPES,
+  type ProjectShape,
+} from "@studio/song/yaml/projectSchema";
 import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
@@ -160,6 +166,10 @@ const EMPTY_PRESETS: PresetInfo[] = [];
 
 /** The same, for a song with no picture — which is most of them. Keeps the timeline's row memo cold. */
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
+
+/** Narrow a typed word to a shape the create route will accept. */
+const isProjectShape = (s: string): s is ProjectShape =>
+  (PROJECT_SHAPES as readonly string[]).includes(s);
 
 export default function App({
   engineUrl,
@@ -905,11 +915,11 @@ export default function App({
     }
   }, []);
 
-  // `new project <audio|m9> <name>`: the same scaffold `l8 create` runs, via the file service,
-  // then open it. An m9 set is created HERE and opened THERE — the file service is the
-  // one thing on the machine that can write a folder, whichever app reads it back.
+  // `new project <audio|live|set> <name>`: the same scaffold `l8 create` runs, via the file
+  // service, then open it. All three are `.l8` folders — the shape picks the file map, and the
+  // file service is the one thing on the machine that can write one.
   const createNewProject = useCallback(
-    async (type: "audio" | "m9", name: string) => {
+    async (type: ProjectShape, name: string) => {
       try {
         setStatus(`creating ${type} project "${name}"…`);
         const { project } = await api.createProject(type, name);
@@ -1124,14 +1134,15 @@ export default function App({
         setGraphSlot(null);
         return true;
       }
-      // new project <audio|m9> <name> — first token the type, the rest the name, so multi-word names work.
+      // new project <audio|live|set> <name> — first token the shape, the rest the name, so
+      // multi-word names work.
       if (line.startsWith("project new")) {
         const rest = s.slice("project new".length).trim();
         const sp = rest.search(/\s/);
         const type = (sp === -1 ? rest : rest.slice(0, sp)).toLowerCase();
         const name = sp === -1 ? "" : rest.slice(sp + 1).trim();
-        if ((type !== "audio" && type !== "m9") || !name)
-          setStatus("usage: project new <audio|m9> <name>");
+        if (!isProjectShape(type) || !name)
+          setStatus(`usage: project new <${PROJECT_SHAPES.join("|")}> <name>`);
         else void createNewProject(type, name);
         return true;
       }
@@ -2815,52 +2826,49 @@ export default function App({
           </div>
         )}
 
-        {/* A SURFACE, over the layout. Same treatment as the help page and for the same reason:
-            it is a screen of its own, not a pane, and what was underneath is untouched — the
-            timeline keeps its caret and the graph its camera while a desk is up.
+        {/* Every SCREEN surface the project declares, mounted for as long as it is open — and
+            drawing only the one whose id is in the address.
 
-            Mounted only while it is open, unlike the three panes. The invariant those obey is
-            about state that is expensive to rebuild and cheap to keep; a surface holds a compile
-            and a set list, and a project may declare several — keeping every one of them alive
-            behind the layout would be paying that for screens nobody has opened. */}
-        {openSurface &&
-          (() => {
-            // Only a SCREEN surface resolves here. One in the layout is drawn there and has no
-            // screen to open, so naming it in the address is the same miss as naming a file that
-            // is not there — and says so with the same sentence.
-            const found = screenSurfaces.find((s) => s.id === openSurface);
-            return (
-              <div className="fixed inset-0 z-50 flex flex-col bg-background">
-                <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-                  <Disc3 className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate text-sm">{openSurface}</span>
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    className="ml-auto"
-                    onClick={() => setOpenSurface(null)}
-                  >
-                    Fermer
-                  </Button>
-                </div>
-                {found ? (
-                  <SurfaceTab
-                    surface={found}
-                    deck={turntableDeck}
-                    project={ws?.activeProject ?? "."}
-                  />
-                ) : (
-                  // A deep link naming a surface this project has not got — `fromLocation`
-                  // deliberately does not check the id, since the list arrives after the shell.
-                  <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                    Aucune surface « {openSurface} » dans ce projet — cherchez
-                    un fichier{" "}
-                    <code className="mx-1">surfaces/{openSurface}.yaml</code>.
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+            Mounted, not conditional, and that is a rule this shell learned twice. A desk holds a
+            DOCUMENT — the loaded songs, the crossfader, the six EQ knobs, the compiled project —
+            and a set does not stop existing because you went to look at the graph. While these
+            lived behind `openSurface &&`, a round trip re-centred the crossfader and flattened
+            the EQ while the sound stayed where you put it. `SurfaceTab` owns that split: hooks
+            above the line, screen below it. See packages/ui-turntables/docs/deckSet.md. */}
+        {screenSurfaces.map((s) => (
+          <SurfaceTab
+            key={s.id}
+            surface={s}
+            deck={turntableDeck}
+            project={ws?.activeProject ?? "."}
+            open={openSurface === s.id}
+            onClose={() => setOpenSurface(null)}
+          />
+        ))}
+        {/* A deep link naming a surface this project has not got — `fromLocation` deliberately
+            does not check the id, since the list arrives a moment after the shell. A `split`
+            surface lands here too: it is drawn in the layout and has no screen to open, so
+            naming it in the address is the same miss as naming a file that is not there. */}
+        {openSurface && !screenSurfaces.some((s) => s.id === openSurface) && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-background">
+            <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+              <Disc3 className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate text-sm">{openSurface}</span>
+              <Button
+                size="xs"
+                variant="secondary"
+                className="ml-auto"
+                onClick={() => setOpenSurface(null)}
+              >
+                Fermer
+              </Button>
+            </div>
+            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+              Aucune surface « {openSurface} » dans ce projet — cherchez un
+              fichier <code className="mx-1">surfaces/{openSurface}.yaml</code>.
+            </div>
+          </div>
+        )}
 
         {/* "import this .dawproject?" — clicking one in the tree lands here */}
         <ImportDialog

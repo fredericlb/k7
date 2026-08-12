@@ -42,7 +42,7 @@ login is still mandatory.
 `SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register with the IdP.
 That `redirect_uri` is `<origin>/auth/callback`, with **no prefix**, so it can only be served
 by the service that has no prefix: st0, which answers the origin root. This backend owned it
-while the bare origin merely redirected here, and now passes `mountRoutes: []` exactly as m9
+while the bare origin merely redirected here, and now passes `mountRoutes: []` exactly as z0
 and k7 always have — it verifies the cookie and mounts no auth routes.
 
 Two consequences to know: logging out anywhere logs you out of every studio service, and
@@ -106,14 +106,22 @@ layouts, and the PAIR is validated:
 |---|---|---|
 | `timeline` | `split` | the arrangement — a pane, and the reason a song draws one at all |
 | `viewport` | `split` | the frame: the song's video lanes composited by `@studio/ui-eyes` |
-| `turntables` | `view` | m9's desk, from `@studio/ui-turntables` |
+| `turntables` | `view` | the DJ desk, from `@studio/ui-turntables` — what makes a project a SET |
 
 A `view` surface gets a button at the top right and takes the screen like the help page: a
 `RouteState.surface`, **not** a `Pane`, because the list is the project's and a union could not
-name it. A `split` one is *in* the layout, in the pane ring, mounted for as long as the project
-is open — which for the viewport is load-bearing, since it owns a GL context and a `<video>` per
-layer. A component with no mapping is reported on the surface itself, not by refusing the
-project. Read `packages/song/docs/surfaces.md`.
+name it. A `split` one is *in* the layout, in the pane ring — which for the viewport is
+load-bearing, since it owns a GL context and a `<video>` per layer.
+
+**Both are MOUNTED for as long as the project declares them**; only the drawing is conditional.
+A desk's document — the loaded songs, the crossfader, the six EQ knobs — is not its screen, and
+a set does not stop existing because you went to look at the graph. `SurfaceTab` owns that
+split: hooks above a line, screen below it. Getting it wrong re-centres the crossfader on every
+round trip while the sound stays where you put it, which is a bug this repo has now shipped
+twice — see `packages/ui-turntables/docs/deckSet.md`.
+
+A component with no mapping is reported on the surface itself, not by refusing the project.
+Read `packages/song/docs/surfaces.md`.
 
 **`view` is the one piece of screen state nobody chooses.** It is what the open PROJECT is —
 `project.yaml`'s `project_type`, `arrangement` or `live` — and a live project has no timeline at
@@ -213,7 +221,7 @@ address. It used to be `?repo=&project=` held in `sessionStorage`, and a tab han
 that did not exist could never get out of it. Read
 `packages/project-shell/docs/launch.md` before touching any of this.
 
-The gate itself is that package's too, and m9 mounts the same one; `components/ProjectGate.tsx`
+The gate itself is that package's too, and z0's editor mounts the same one; `components/ProjectGate.tsx`
 is a wrapper holding this app's wording and what to render once the project is open.
 
 Gone from here: `WorkspaceGate`, `WorkspaceSelect`, `SshKeyPage`, and `api.listWorkspaces` /

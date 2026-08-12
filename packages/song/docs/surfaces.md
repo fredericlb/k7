@@ -93,9 +93,10 @@ working. A song with no `video_tracks/` is silent, the way a rig is about its ti
 ### Why `viewport` is `split`-only
 
 The sharpest version of the "`split` is not `view` drawn smaller" argument below. A viewport
-owns a **WebGL context and one `<video>` element per layer**. A `view` surface is mounted only
-while open, so a viewport as a screen would tear both down every time you looked at something
-else and rebuild them — with a decoder flush and a visible hitch — every time you came back.
+owns a **WebGL context and one `<video>` element per layer**, and neither is state a host can
+hold for it the way it holds a desk's document: they belong to the DOM the screen draws. So a
+viewport as a `view` would tear both down every time you looked at something else and rebuild
+them — with a decoder flush and a visible hitch — every time you came back.
 
 Getting the picture big is `full` (its number key, or `ui viewport`), which is the pane ring
 doing its job rather than a second mounting rule.
@@ -113,15 +114,24 @@ one grid that can be read in two units beats two grids that must be kept in step
 | | `view` | `split` |
 |---|---|---|
 | where | its own screen, off the header | a slot in the layout, sharing the window |
-| mounted | only while open | for as long as the project is open |
+| drawn | only while open | whenever the layout shows it |
 | in the pane ring | no | yes — number keys, `ui <pane>`, `full`, the mobile tabs |
 | reached by | a header button, `/surface/<id>` | it is already there |
 
-The mounting line is the load-bearing one. A `view` surface holds a compile and a set list and a
-project may declare several, so keeping every one alive behind the layout would pay for screens
-nobody opened. A `split` surface is the opposite case: the timeline holds a caret and a zoom
-stack, cheap to keep and maddening to lose, which is the invariant the three panes already obey
-(`apps/l8/frontend/docs/shell.md`).
+Note the row says **drawn**, not *mounted*, and that word cost a bug twice.
+
+A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the crossfader, the six
+EQ knobs and a compiled project; a set does not stop existing because you went to look at the
+graph. So `SurfaceTab` splits the two — the hooks above a line, the screen below it — and stays
+mounted for as long as the project declares the surface, drawing only when its id is in the
+address. m9 learned this by holding the state in its Mix view; l8 then learned it again by
+holding it behind `openSurface &&`, and both times the symptom was the same: a round trip
+re-centred the crossfader and flattened the EQ while the sound stayed where you put it. See
+[../../ui-turntables/docs/deckSet.md](../../ui-turntables/docs/deckSet.md).
+
+A `split` surface never had the question: the timeline holds a caret and a zoom stack, and the
+viewport a GL context and a `<video>` per layer — cheap to keep, maddening to rebuild, which is
+the invariant the panes already obey (`apps/l8/frontend/docs/shell.md`).
 
 That is also why a `split` surface gets **no header button** and cannot be named by
 `/surface/<id>`: it is not a screen you open, so a button that "opened" it would name a place
@@ -224,10 +234,10 @@ arrives a moment after the shell, so a validated address would parse to "no surf
 deep link and quietly drop you on the layout. The screen resolves it when the list lands and says
 so if there is no such file.
 
-It is mounted only while open, unlike the three panes. That invariant is about state expensive to
-rebuild and cheap to keep; a surface holds a compiled document and a set list, and a project may
-declare several — keeping every one alive behind the layout would pay that for screens nobody has
-opened.
+It is DRAWN only while open, unlike the panes — but its component is mounted for as long as the
+project declares it, because the document behind a desk outlives the screen showing it. That
+distinction is the one the table above spends a paragraph on, and it is the same invariant the
+panes obey rather than an exception to it.
 
 ## The first type: `turntables`
 

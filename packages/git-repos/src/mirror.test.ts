@@ -6,7 +6,7 @@ const FILES = [
   "songs/first.l8/project.yaml",
   "songs/first.l8/tracks/bass.yaml",
   "songs/first.l8/audio/kick.wav",
-  "songs/live.m9/chains.yaml",
+  "songs/live.z0/chains.yaml",
   // Picture lives in a SONG — one folder, two compiles — so a lane file changes nothing here:
   // the folder is a `.l8` and the suffix is still the whole rule.
   "clips/le clip.l8/project.yaml",
@@ -24,7 +24,7 @@ describe("projectDirs", () => {
     expect(projectDirs(FILES)).toEqual(
       new Map([
         ["songs/first.l8", "l8"],
-        ["songs/live.m9", "m9"],
+        ["songs/live.z0", "z0"],
         ["clips/le clip.l8", "l8"],
         ["deep/a/b/c.l8", "l8"],
       ]),
@@ -33,13 +33,13 @@ describe("projectDirs", () => {
 
   it("does not care what is inside", () => {
     // No project.yaml anywhere here: the name is the whole rule.
-    expect(projectDirs(["set.m9/notes.txt"])).toEqual(
-      new Map([["set.m9", "m9"]]),
+    expect(projectDirs(["set.z0/notes.txt"])).toEqual(
+      new Map([["set.z0", "z0"]]),
     );
   });
 
   it("ignores a FILE that ends in the suffix — only folders are projects", () => {
-    expect(projectDirs(["notes.l8", "a/thing.m9"])).toEqual(new Map());
+    expect(projectDirs(["notes.l8", "a/thing.z0"])).toEqual(new Map());
   });
 
   it("refuses a bare suffix as a name of its own", () => {
@@ -48,10 +48,10 @@ describe("projectDirs", () => {
   });
 
   it("reports a project nested inside another, rather than hiding it", () => {
-    expect(projectDirs(["song.l8/set.m9/chains.yaml"])).toEqual(
+    expect(projectDirs(["song.l8/set.z0/chains.yaml"])).toEqual(
       new Map([
         ["song.l8", "l8"],
-        ["song.l8/set.m9", "m9"],
+        ["song.l8/set.z0", "z0"],
       ]),
     );
   });
@@ -73,7 +73,7 @@ describe("buildTree", () => {
 
   it("marks the project folders and carries the app on each", () => {
     expect(at("songs/first.l8")).toMatchObject({ project: true, app: "l8" });
-    expect(at("songs/live.m9")).toMatchObject({ project: true, app: "m9" });
+    expect(at("songs/live.z0")).toMatchObject({ project: true, app: "z0" });
     expect(at("deep/a/b/c.l8")?.app).toBe("l8");
   });
 

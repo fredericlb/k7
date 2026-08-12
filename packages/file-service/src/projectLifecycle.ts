@@ -6,12 +6,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import {
-  DEFAULT_PROJECT_MODE,
-  type ProjectMode,
-} from "@studio/song/projectMode";
+import type { ProjectShape } from "@studio/song/projectMode";
 import { scaffold } from "@studio/song/scaffold";
-import { scaffoldM9 } from "@studio/song/scaffoldM9";
+import { scaffoldSet } from "@studio/song/scaffoldSet";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";
@@ -133,60 +130,41 @@ export function importProjectInto(
 
 /**
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
- * relative path. This is the web command bar's `new project <type> <name>`. `type` is
- * "audio" (an l8 song) or "m9" (a SET: two decks, a crossfade, an empty set list). Each is a
- * different file map, written by its own scaffold in @studio/song.
+ * relative path. This is the web command bar's `new project <shape> <name>`.
  *
- * There was a third, "v1" — a CUT, a folder that was only picture. It is gone: a song carries
- * its own `video_tracks/` and its own viewport surface, so picture is something an l8 project
- * grows rather than a kind of project you choose up front.
+ * Every one of them is an `.l8` folder now, and `shape` picks the file map:
+ *
+ * | shape | what it writes |
+ * |---|---|
+ * | `audio` | a song: a lane, a synth, a pattern, a timeline surface, a lane of picture |
+ * | `live` | a rig: the same signal path with the arrangement taken out |
+ * | `set` | two decks meeting at a crossfade, a set list, and a `turntables` surface |
+ *
+ * There were two other KINDS of folder once, `.m9` and `.v1`, each with an app of its own.
+ * Both are gone and neither took a capability with it: a cut is a song carrying
+ * `video_tracks/`, and a set is a song carrying `songs.yaml` and a desk. What used to be
+ * three project kinds is one kind and three shapes — which is what `project_type` already
+ * was for. See packages/song/docs/setProject.md and docs/picture.md.
  *
  * The name is sanitised to a single top-level segment (no separators, no leading dot
  * that would hide it) so it always lands directly under the root. Refuses to write over
  * an existing non-empty folder — same contract as the CLI — rather than silently
  * uniquify, so the project lands at exactly the name the user typed or not at all.
- *
- * **A suffix on the NAME wins over `type`**, and that is the same rule `projectTypeOf`
- * states: the folder's name is what decides which app opens it, so it must also decide
- * what is written into it. Without this, st0 — which builds the folder name itself, from
- * the app you picked, and has always sent `type: "audio"` — scaffolded an l8 song inside a
- * `.m9` folder, a project the app that owns it cannot read.
- *
- * `type` is therefore the answer for a name with NO suffix, which is l8's command bar
- * (`project new m9 myset`), and it appends the suffix that kind needs. "audio" appends
- * nothing, because l8 also opens a repository that IS a song.
  */
 export function createProjectIn(
   host: LifecycleHost,
-  type: "audio" | "m9",
+  shape: ProjectShape,
   rawName: string,
-  /**
-   * l8 only, and orthogonal to everything above: a song with a timeline or a live rig.
-   *
-   * It cannot ride on `type` and it is not decided by the suffix, which is the whole reason it
-   * is a parameter of its own. Both shapes live in a `.l8` folder and both are opened by l8 —
-   * the name says which APP, this says which of that app's two shapes. Ignored for m9, whose
-   * scaffold has no such axis (a set is one thing).
-   */
-  mode: ProjectMode = DEFAULT_PROJECT_MODE,
 ): { project: string } {
-  let name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
+  const name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
-  // The name's own claim, if it makes one. Only the kinds with a scaffold are honoured: a
-  // `.z0` folder has none, and falling through to `type` writes what the caller asked for
-  // rather than throwing on a name that is otherwise perfectly good.
-  const claimed = projectApp(name);
-  const kind: "audio" | "m9" =
-    claimed === "m9" ? "m9" : claimed === "l8" ? "audio" : type;
-  if (kind === "m9" && !name.endsWith(PROJECT_SUFFIXES[kind]))
-    name += PROJECT_SUFFIXES[kind];
   const abs = host.safePath(name);
   if (abs === host.root) throw new Error("project name required");
   if (existsSync(abs) && readdirSync(abs).length)
     throw new Error(`"${name}" already exists and is not empty`);
-  // The label the project CALLS itself drops the suffix — `winter.m9` is the folder,
-  // "winter" is the set. projectLabel is the one place that rule is stated.
-  if (kind === "m9") scaffoldM9(abs, projectLabel(name));
-  else scaffold(abs, name, mode);
+  // The label a project CALLS itself drops the suffix — `winter.l8` is the folder, "winter"
+  // is the set. projectLabel is the one place that rule is stated.
+  if (shape === "set") scaffoldSet(abs, projectLabel(name));
+  else scaffold(abs, name, shape === "live" ? "live" : "arrangement");
   return { project: host.toRel(abs) };
 }

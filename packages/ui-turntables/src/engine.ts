@@ -35,7 +35,7 @@ export interface Playhead {
  * the desk, not its contract. What made it a seam rather than a refactor is that nothing in
  * here names m9 — no registry, no session id, no `/m9` prefix, no lease. Those are how a host
  * OBTAINS an engine, which is exactly the part that differs between the two, and none of it
- * was in the type. See apps/m9/docs/plumbing.md for m9's half, and docs/hosting.md for what a
+ * was in the type. See docs/hosting.md for what a
  * host owes this package.
  */
 export interface Deck {
