@@ -33,7 +33,8 @@ import {
   type MidiControlApi,
   useMidiControl,
 } from "../hooks/useMidiControl";
-import type { PreviewReq, WebGraph } from "../types";
+import { useLiveRackLit } from "../rackLit";
+import type { PreviewReq, WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 
 /** The mixer row is framed a fifth SMALLER than a perfect fit — see where it is used. */
@@ -44,6 +45,7 @@ export function ChainsTab({
   active,
   showList,
   trackOrder,
+  project,
   command,
   onBypassModule,
   onNodeMenu,
@@ -77,6 +79,9 @@ export function ChainsTab({
   showList: boolean; // the sidebar is fullscreen chrome; the global view's pane is canvas only
   // The engine's track order; liveness is derived off the store here, so only the graph re-runs it.
   trackOrder: string[];
+  /** The compiled doc, for the one thing the graph cannot derive on its own: which notes a lane
+   *  plays, which is what lights a rack's pads. Absent until the first one lands. */
+  project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
   // Toggle a module's bypass. The canvas flips the node itself on click and lets the refetch confirm — see
   // pendingBypass; the command no longer reloads the project, so waiting for one would be waiting for nothing.
@@ -282,6 +287,10 @@ export function ChainsTab({
         showToast({ message: `${symbol}: ${e.message}`, variant: "error" }),
       );
   }, []);
+
+  // Which of this project's rack sounds are firing right now — derived from the arrangement and
+  // the playhead, since the engine reports no notes. See rackLit.ts.
+  const rackLit = useLiveRackLit(project, graph);
 
   /**
    * The project's NOTES, by name. `graph.modules` is keyed by doc modules and nothing else
@@ -734,6 +743,7 @@ export function ChainsTab({
             onBypassModule={bypassModule}
             onNodeMenu={onNodeMenu}
             onTriggerRack={triggerRack}
+            rackLit={rackLit}
             engineWarnings={engineWarnings}
             onSetModuleAsset={onSetModuleAsset}
             onAssetBrowse={onAssetBrowse}

@@ -13,12 +13,14 @@ import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { m } from "../paraglide/messages.js";
-import type { WebGraph } from "../types";
+import { useLiveRackLit } from "../rackLit";
+import type { WebGraph, WebProject } from "../types";
 
 export function GraphPanel({
   reloadKey,
   trackId,
   trackOrder,
+  project,
   command,
   onBypassModule,
   onNodeMenu,
@@ -34,6 +36,8 @@ export function GraphPanel({
   trackId: string | null;
   // The engine's track order; the live-signal set is derived off the store (see ChainsTab).
   trackOrder: string[];
+  /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
+  project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
   // Bypass must RELOAD, unlike `command`'s quiet path, or the canvas keeps drawing the pre-bypass state.
   onBypassModule?: (module: string) => void;
@@ -99,6 +103,10 @@ export function GraphPanel({
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);
 
+  // The rack pads light here too: this panel draws the same nodes, so it owes them the same
+  // answer. The hook is the whole wiring — see rackLit.ts.
+  const rackLit = useLiveRackLit(project, graph);
+
   const body = () => {
     if (error)
       return <Note className="text-red-400">graph unavailable — {error}</Note>;
@@ -111,6 +119,7 @@ export function GraphPanel({
         graph={laid}
         selected={selected}
         trackOrder={trackOrder}
+        rackLit={rackLit}
         onSelect={setSelected}
         onContextMenu={onContextMenu}
         // This panel follows the caret's track, so another track IS a different graph and earns a re-frame; a reload isn't.

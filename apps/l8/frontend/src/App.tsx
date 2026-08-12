@@ -713,6 +713,7 @@ export default function App({
     metronomeOn,
     recInfo,
     docTracks,
+    doc: projectDoc,
     mixerStrips,
     hasStrudel,
     mode,
@@ -2207,6 +2208,7 @@ export default function App({
                     // most — with no timeline, picking a chain is the only navigation there is.
                     showList={noArrangement || full === "chains"}
                     trackOrder={trackOrder}
+                    project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
                       void runCommand(`module bypass ${mod}`)
@@ -2314,6 +2316,7 @@ export default function App({
                     reloadKey={reloadKey}
                     trackId={caret?.trackId ?? null}
                     trackOrder={trackOrder}
+                    project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
                       void runCommand(`module bypass ${mod}`)

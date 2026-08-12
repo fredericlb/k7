@@ -73,6 +73,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   applyCam,
@@ -714,6 +715,43 @@ interface Channels {
   // …and the same question for a RACK pad, which asks for a sound rather than a value: can this
   // host make one? A pad on a host that cannot is drawn and inert, never clickable-and-silent.
   rackTriggerable: boolean;
+  /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
+  rackLit?: RackLitStore;
+}
+
+/**
+ * Which rack sounds are firing, as a pad asks it: subscribe to one module, read one note.
+ *
+ * A STORE and not a prop, for the reason `PluginParamsStore` is one: this changes as fast as the
+ * playhead moves, and a prop would re-render every node in the graph on each frame. The pad holds
+ * its own subscription and reads a BOOLEAN, so React's own `Object.is` ends the render there.
+ *
+ * The graph does not know how the answer is arrived at. l8 derives it from the arrangement and the
+ * playhead — the browser has both — which is why it lights for a SEQUENCE and not for live MIDI or
+ * a strudel lane, whose notes the browser never sees. See packages/song/docs/racks.md.
+ */
+export interface RackLitStore {
+  subscribeTo(module: string, cb: () => void): () => void;
+  isLit(module: string, note: number): boolean;
+}
+
+/** One pad's lit state. Null module or note is the "nothing to watch" case, so the caller can
+ *  hold the hook unconditionally. */
+function useRackLit(
+  store: RackLitStore | undefined,
+  module: string | null,
+  note: number | null,
+): boolean {
+  const subscribe = useCallback(
+    (cb: () => void) =>
+      store && module ? store.subscribeTo(module, cb) : () => {},
+    [store, module],
+  );
+  const read = useCallback(
+    () => (store && module && note != null ? store.isLit(module, note) : false),
+    [store, module, note],
+  );
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 /**
@@ -1209,6 +1247,16 @@ function WidgetInner({
     tgt?.kind === "plugin" ? tgt.pluginId : null,
     tgt?.kind === "plugin" ? tgt.name : null,
   );
+  // …and a rack pad's own tap, for the same reason and in the same place: one sound firing lights
+  // one pad rather than re-rendering the graph twenty times a second.
+  const padSymbol = tgt?.kind === "rack" ? tgt.symbol : null;
+  const padLit = useRackLit(
+    ch.rackLit,
+    tgt?.kind === "rack" ? tgt.module : null,
+    padSymbol
+      ? (n.rack?.find((s) => s.symbol === padSymbol)?.note ?? null)
+      : null,
+  );
 
   // Tabs widget: delegate to TabsWidget
   if (w.type === "tabs") {
@@ -1346,7 +1394,9 @@ function WidgetInner({
       </div>
     );
   } else if (w.type === "button") {
-    const on = known && t >= 0.5;
+    // A rack pad has no value, so `t` says nothing about it: what lights it is the arrangement
+    // reaching its note, which the pad subscribes to on its own. Everything else is its param.
+    const on = padSymbol ? padLit : known && t >= 0.5;
     const c = (w.bind && CTRL[w.bind]) ?? RING;
     body = (
       <b
@@ -2362,6 +2412,7 @@ export function DomChains({
   onBypassModule,
   onNodeMenu,
   onTriggerRack,
+  rackLit,
   onSetModuleAsset,
   onAssetBrowse,
   onLibraryBrowse,
@@ -2450,6 +2501,8 @@ export function DomChains({
    * which is the right degradation for a surface with no engine behind it. See docs/hosting.md.
    */
   onTriggerRack?: (module: string, symbol: string) => void;
+  /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
+  rackLit?: RackLitStore;
   // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
@@ -3135,6 +3188,7 @@ export function DomChains({
       trackWritable,
       offlineWritable,
       rackTriggerable,
+      rackLit,
     }),
     [
       params,
@@ -3147,6 +3201,7 @@ export function DomChains({
       trackWritable,
       offlineWritable,
       rackTriggerable,
+      rackLit,
     ],
   );
 

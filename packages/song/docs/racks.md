@@ -58,3 +58,37 @@ audition route exists, end to end, and answers "which sound is this?", which is 
 A host that offers no `onTriggerRack` draws the pads and leaves them inert (`rackTriggerable` in
 `Channels`), the same honesty the three writability flags beside it already carry: drawn and
 read-only, never clickable-and-silent.
+
+## A pad LIGHTS when the sequence reaches its note
+
+And it is **derived, not observed**. The engine reports no notes: its live frame is
+`{ playing, playhead, levels, inputLevels, armed, recordEnabled, waveform }` and nothing about a
+sampler's voices. But the browser holds the arrangement and the playhead at the same time, so it
+can answer the question itself — `apps/l8/frontend/src/rackLit.ts` turns the lane feeding a rack's
+chain into a list of `{ from, to, key }` in arrangement beats, and each frame asks which of them
+contain the playhead.
+
+**What that costs, and it is worth knowing before trusting a dark pad:**
+
+| | lights? | why |
+|---|---|---|
+| a sequence in the project | yes | its notes are in the compiled doc |
+| a live MIDI input | **no** | those notes were never written down |
+| a strudel lane | **no** | `PatternClock` streams them; the browser never sees them |
+| accuracy | ~50 ms | the state frame's own rate |
+
+A very short note is floored to `MIN_FLASH_BEATS` **on the display only**: a thirty-second drum hit
+is a handful of milliseconds, and a pad lit for less than a frame flashes on some passes and not
+others. What is played is untouched.
+
+Observing it properly means the engine broadcasting its sounding notes — a change to the state
+frame and its C++ side, on the hottest path there is. That is the trade this took; the derivation
+costs nothing at the engine and is exact for the case a rack is normally used in.
+
+### It reaches the pad through a store, not a prop
+
+`RackLitStore` is subscribed **per pad**, exactly as `PluginParamsStore` is per param and for the
+same measured reason: a prop carrying this would re-render every node in the graph on every frame.
+The hook returns a boolean, so `Object.is` ends the render at the one pad whose note changed — and
+`LiveRackLit.set` wakes only the modules whose sounding set actually moved, so a playhead crossing
+silence notifies nobody.
