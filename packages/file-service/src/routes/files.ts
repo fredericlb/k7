@@ -10,6 +10,7 @@ import {
   pull,
 } from "@studio/commands/git";
 import { NEEDS_META } from "@studio/commands/render";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import {
   applyPresetToModule,
   listModulePresets,
@@ -19,6 +20,7 @@ import { PROJECT_MODES } from "@studio/song/projectMode";
 import express, { Router } from "express";
 import { z } from "zod";
 import {
+  applyClientProject,
   enginePreview,
   prewarmEngineForActive,
   reloadActiveProject,
@@ -265,6 +267,32 @@ filesRouter.post(
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
+  }),
+);
+
+/**
+ * Play a document the BROWSER built — the turntables surface, which fills the decks' clips into
+ * this project's compile.
+ *
+ * Here rather than out of the browser's own socket so that ONE thing writes to the engine. Two
+ * writers is what this route exists to end: the service pushing the compile from disk and a
+ * surface pushing the compile-with-decks, with whichever wrote last winning. See
+ * packages/song/docs/surfaces.md.
+ *
+ * Deliberately NOT validated field by field. It is a `ProjectDoc`, the same shape `/engine-doc`
+ * just handed out, and the engine decodes by key with defaults and ignores what it does not know
+ * — so a zod mirror here would be a second copy of the wire to keep in step, and its only power
+ * would be to refuse documents the engine would have played. The route is behind the same gate
+ * as every other one on this service.
+ */
+const engineProjectBody = z.object({ doc: z.looseObject({}) });
+filesRouter.post(
+  "/engine/project",
+  validate(engineProjectBody),
+  wrap((req, res) => {
+    const { doc } = req.body as { doc: ProjectDoc };
+    applyClientProject(doc);
+    res.json({ ok: true });
   }),
 );
 

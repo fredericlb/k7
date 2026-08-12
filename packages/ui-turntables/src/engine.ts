@@ -5,6 +5,7 @@
 import type { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { ClaimLostReason } from "@studio/engine-browser/registry";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 
 /**
  * How far along the host is in getting an engine, and why it failed if it did.
@@ -44,6 +45,26 @@ export interface Deck {
    *  frame, do not render from it. */
   playhead: React.RefObject<Playhead>;
   engine: EngineClient | null;
+  /**
+   * Play this document — the desk's ONE way of putting the decks on the engine.
+   *
+   * A seam and not a call on `engine` above, because the two hosts disagree about who may write
+   * to an engine, and only the host knows:
+   *
+   * | host | who writes | how |
+   * |---|---|---|
+   * | m9 | the browser, alone | straight out of `engine.sendProject` |
+   * | l8 | the file service, alone | `POST /engine/project`, which the service forwards |
+   *
+   * l8's file service loads l8's project into the engine itself, so a desk sending on its own
+   * socket made two writers for one engine and the last one won — a save during a set dropped
+   * the decks, a deck gesture undid a save. Handing the document to the service instead leaves
+   * exactly one socket and one place where the ordering rule lives.
+   *
+   * `engine` stays for everything that is NOT a document: the transport, a seek, a param. Those
+   * are messages about what is already loaded, and neither host has a second writer for them.
+   */
+  sendProject: (doc: ProjectDoc) => void;
   /**
    * Reconnect. OPTIONAL, and nothing in this package reads it today — m9 returns one and the
    * card that would offer it is m9's own, outside the desk.

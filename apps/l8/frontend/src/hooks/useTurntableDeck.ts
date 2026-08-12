@@ -8,6 +8,7 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useEngineState } from "@studio/engine-browser/store";
 import type { Deck, Playhead } from "@studio/ui-turntables/engine";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api";
 import type { EngineLink } from "./useEngineLink";
 
 /**
@@ -102,6 +103,23 @@ export function useTurntableDeck({
       playing,
       playhead,
       engine: (engineRef.current ?? null) as EngineClient | null,
+      /**
+       * Through the FILE SERVICE, which is the only thing that writes documents to l8's engine.
+       *
+       * l8's service loads the project into the engine itself, so a desk sending on this app's
+       * socket made two writers and the last one won — a save during a set dropped the decks,
+       * a deck gesture undid a save. Handing it over leaves one socket and one ordering rule,
+       * both in `engineLink.ts`.
+       *
+       * Fire-and-forget: the document is a picture of what the decks now are, and the next
+       * gesture sends a fresher one. Awaiting it would put a round trip inside a crossfade.
+       */
+      sendProject: (doc) => {
+        void api.sendEngineProject(doc).catch(() => {
+          // The service is unreachable — which the shell is already saying, loudly, in the
+          // places that watch it. A second card over the desk would repeat it.
+        });
+      },
       params: pluginParamsStore,
       watchParams,
       moduleParams,

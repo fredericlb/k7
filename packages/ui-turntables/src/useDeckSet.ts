@@ -299,10 +299,14 @@ export function useDeckSet(
 
   const commit = useCallback(
     (next: DeckTempos = latest.current, on: DeckLoads = loadsRef.current) => {
+      // `deck.engine` is still the readiness guard — a link the host has not got yet means an
+      // engine with nothing loaded, and a document sent into that is one nobody diffs against.
+      // What it is NOT any more is the route: `sendProject` is, and only the host knows whether
+      // that is its own socket or its file service. See `Deck.sendProject`.
       if (deck.engine)
-        sendDecks(deck.engine, on, mix, undefined, next, compiled, click);
+        sendDecks(deck.sendProject, on, mix, undefined, next, compiled, click);
     },
-    [deck.engine, mix, compiled, click],
+    [deck.engine, deck.sendProject, mix, compiled, click],
   );
   const commitRef = useRef(commit);
   commitRef.current = commit;

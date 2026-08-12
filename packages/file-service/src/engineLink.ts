@@ -215,9 +215,41 @@ const patternClock = new PatternClock(
   },
 );
 
+/**
+ * A document a BROWSER built and handed over, in force until the project changes underneath it.
+ *
+ * The turntables surface is the one thing that makes one: it takes this project's compile and
+ * fills the decks' clips into it. That used to go straight out of the browser on its own socket,
+ * which made two writers for one engine — the service pushing the compile from disk, the surface
+ * pushing the compile-with-decks — and whichever wrote last won. Now there is one socket and one
+ * rule, both here. See packages/song/docs/surfaces.md.
+ */
+let clientDoc: ProjectDoc | null = null;
+
+/** Forget any browser-supplied document — a different project is being served. */
+function dropClientProject(): void {
+  clientDoc = null;
+}
+
+/**
+ * Play a document a browser built, through the service's own link.
+ *
+ * It becomes the pattern clock's BASE, which is what makes this one path rather than two: a
+ * strudel lane still overlays its events, and the actual `sendProject` is the same call the
+ * disk-driven push makes. The engine diffs, so a song already playing keeps playing under it.
+ */
+export function applyClientProject(doc: ProjectDoc): void {
+  clientDoc = doc;
+  patternClock.setBaseProject(doc);
+}
+
 function loadPatternsFor(ws: Workspace, dir: string): void {
   patternClock.switchTo(dir);
-  patternClock.setBaseProject(ws.cachedProjectDoc(dir));
+  // NOT while a browser holds the document. It would push the bare compile — the same project
+  // with the decks' clips gone — and the surface would blink empty until its next gesture. The
+  // browser polls `/revision`, rebuilds from the fresh compile and hands it back, so the new
+  // state arrives complete instead of arriving twice.
+  if (!clientDoc) patternClock.setBaseProject(ws.cachedProjectDoc(dir));
   void patternClock.refreshPatterns(strudelPatterns(dir), dir);
 }
 
@@ -307,12 +339,20 @@ export function startEngineForActive(ws: Workspace): void {
   engineProject = p;
   currentWs = ws;
   watchStrudel(p);
-  if (switching) ensureEngine()?.flush();
+  if (switching) {
+    ensureEngine()?.flush();
+    // A document built for the project we are LEAVING must not survive into this one.
+    dropClientProject();
+  }
   sendActiveProject(ws, p);
 }
 
 // Recompile from disk and push — the explicit reload an out-of-band edit needs, since write() only invalidates.
 export function reloadActiveProject(ws: Workspace): void {
+  // An explicit reload outranks a browser's document: somebody asked for what is on disk, and
+  // answering "no, a surface has the engine" would be refusing the one command that exists to
+  // force this. The surface's next gesture — or its next `/revision` tick — hands its own back.
+  dropClientProject();
   ws.invalidateProjectDoc();
   startEngineForActive(ws);
 }
@@ -339,6 +379,7 @@ export async function unloadEngine(): Promise<void> {
   }
   engineProject = null;
   currentWs = null;
+  dropClientProject();
   // The one place that means "this workspace is DONE", so it is the one that tells the engine to
   // forget the session rather than merely letting the socket go — an idle prune deliberately does not.
   dropLink(leaving, { tellEngine: true });

@@ -67,6 +67,17 @@ export const projectApi = {
   project: () => fget<ProjectInfo>("/project"),
   open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
+  /**
+   * Play a document this browser built — the turntables surface's decks, filled into the
+   * project's own compile.
+   *
+   * Through the file service rather than out of the app's socket so that ONE thing writes to the
+   * engine: the service already loads l8's project itself, and a second writer meant whichever
+   * pushed last won. m9 does not call this — its browser IS the only writer there, so its desk
+   * sends directly. See packages/song/docs/surfaces.md.
+   */
+  sendEngineProject: (doc: ProjectDoc) =>
+    fsend<{ ok: true }>("POST", "/engine/project", { doc }),
 
   // --- Derived views. A cheap token changes when the sources do; poll it, not these. ---
   revision: () => fget<{ rev: string }>("/revision"),

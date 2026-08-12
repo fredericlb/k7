@@ -20,6 +20,20 @@ So a host supplies a `Deck` and the desk asks nothing else:
 | m9 | `useEngine` — its own registry, `SESSIONS.m9`, its lease. See `apps/m9/docs/plumbing.md`. |
 | l8 | an adapter over the link the shell already holds, since l8 has an engine before it has a surface |
 
+### `sendProject` is part of the seam, and it is not optional
+
+The desk plays by handing over a whole `ProjectDoc`. **Who is allowed to hand one to an engine is
+the host's answer, not the desk's**: m9's browser is the only writer to its engine, while l8's
+file service loads l8's project itself and is the only writer to that one. So `sendDecks` takes
+`Deck.sendProject` rather than an `EngineClient` — m9 passes its socket, l8 posts to its service.
+
+Getting this wrong is not subtle and it is not loud either: two writers push documents that are
+each correct, and the last one wins. See `packages/song/docs/surfaces.md` for the ordering rule
+the file service now owns.
+
+`engine` stays on the seam for everything that is NOT a document — the transport, a seek, a param.
+Those are messages about what is already loaded, and neither host has a second writer for them.
+
 Everything else the desk needs is already shared and is imported directly rather than injected:
 the file routes are `@studio/project-shell`'s `projectApi` (m9 reached them through an `api.ts`
 that was one line re-exporting exactly that), the catalogue types are `@studio/mediatek`'s, and

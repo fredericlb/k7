@@ -662,7 +662,15 @@ export function pushCrossfade(engine: EngineClient, mix: number): void {
  * document to the other is itself a diff, not a reload.
  */
 export function sendDecks(
-  engine: EngineClient,
+  /**
+   * WHERE the document goes — `Deck.sendProject`, not an engine client.
+   *
+   * The two hosts disagree about who may write to an engine: m9's browser is the only writer
+   * and sends straight out of its socket, while l8's file service is the only writer and takes
+   * the document over a route. Taking a client here would have hardcoded m9's answer, which is
+   * exactly the bug this parameter replaced — two writers for one engine, last one wins.
+   */
+  send: (doc: ProjectDoc) => void,
   loads: DeckLoads,
   mix: number,
   modules?: Partial<Record<DeckId, DeckModule[]>>,
@@ -670,7 +678,7 @@ export function sendDecks(
   compiled?: ProjectDoc | null,
   click: DeckId | null = null,
 ): void {
-  engine.sendProject(
+  send(
     compiled
       ? withDecks(compiled, loads, tempos, click)
       : deckDoc(loads, mix, modules, tempos, click),

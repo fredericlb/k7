@@ -7,6 +7,7 @@ import { PluginParamsStore } from "@studio/engine-browser/params";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { parseLaunch, projectClaimKey } from "@studio/project-shell/launch";
 import type { Deck, Phase, Playhead } from "@studio/ui-turntables/engine";
@@ -163,6 +164,12 @@ export function useEngine(chosen: RankedEngine<PublicEngine>): Deck {
     playing,
     playhead,
     engine: engine.current,
+    // m9's browser is the ONLY thing that ever hands this engine a document, so the desk's
+    // document goes straight out of the socket — which is what it always did. l8 answers this
+    // differently because its file service loads the project itself; see `Deck.sendProject`.
+    sendProject: useCallback((doc: ProjectDoc) => {
+      engine.current?.sendProject(doc);
+    }, []),
     retry: useCallback(() => setAttempt((n) => n + 1), []),
     listening,
     setListening: setListen,
