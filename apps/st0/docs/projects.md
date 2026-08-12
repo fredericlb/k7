@@ -16,8 +16,12 @@ propre travail. Le catalogue est ce dont un projet *se sert* — il est à un on
 ## La règle qui tient tout
 
 **Le suffixe du dossier nomme l'application.** `mysong.l8` s'ouvre dans l8, `myset.m9` dans
-m9, `leclip.v1` dans v1 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle
+m9, `partie.z0` dans z0 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle
 entière. Un dossier sans suffixe n'est pas un projet, même s'il contient un `project.yaml`.
+
+Il y a eu un `.v1` — un montage, une pellicule sans son. Il n'existe plus : une chanson porte
+ses propres pistes vidéo et sa surface `viewport`, donc un montage est un `.l8` comme le reste
+(`packages/song/docs/picture.md`).
 
 **st0 ne fait jamais de copie de travail.** Il tient un miroir *bare* et *sans blobs* de
 chaque dépôt, uniquement pour répondre « qu'est-ce qu'il y a dedans ». La copie qu'on édite,
@@ -136,8 +140,8 @@ se lisent donc pareil.
    d'eux part directement dans son application, **dans un nouvel onglet**. Le nom du dépôt,
    lui, ouvre l'arborescence — ici même —, où les dossiers-projets sont marqués de la même
    façon.
-3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/v1/band/leclip.v1`
-   pour un montage — une ADRESSE, et le dépôt
+3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/l8/band/leclip.l8`
+   pour une chanson — une ADRESSE, et le dépôt
    par son **nom court**, pas par son URI : une barre d'adresse se copie et se colle, et une
    URI SSH y traîne une machine, un port et un utilisateur.
 4. L'application nous redemande l'URI derrière ce nom (`GET /api/projects/by-name/:name`).
@@ -206,19 +210,19 @@ déjà tapé — quelqu'un qui écrit « hiver.l8 » puis choisit m9 a changé d
 « hiver.l8.m9 » ne serait ni l'un ni l'autre — et refuse les séparateurs plutôt que de les
 remplacer en silence.
 
-`.v1` est le suffixe qui demande le plus d'attention, parce que « v1 » est aussi un mot
-ordinaire : « prise v1 » est un nom de dossier, pas un montage. Seul un `.v1` **final** en est
-un — c'est déjà la règle de `projectApp`, et `projectName.test.ts` la fixe des deux côtés.
-Le dossier obtenu est affiché sous le champ **avant** de valider, comme `AddSong` montre
-l'arborescence déduite avant l'envoi : ici aussi c'est le nom qui décide de tout.
+Un suffixe ne se lit **qu'à la fin** : « prise v1 » est un nom de dossier parfaitement
+ordinaire, et rien n'y touche. C'est déjà la règle de `projectApp`, et `projectName.test.ts`
+la fixe des deux côtés. Le dossier obtenu est affiché sous le champ **avant** de valider,
+comme `AddSong` montre l'arborescence déduite avant l'envoi : ici aussi c'est le nom qui
+décide de tout.
 
 ### Posséder un suffixe et pouvoir être créé sont deux questions
 
-`ProjectApp` vaut `"l8" | "m9" | "v1" | "z0"` — k7 seul n'a pas de projets. Mais le menu ne
+`ProjectApp` vaut `"l8" | "m9" | "z0"` — k7 seul n'a pas de projets. Mais le menu ne
 reflète PAS ce type : il reflète `SCAFFOLDED_APPS`, et la différence est un bug qui a vécu.
 
 Créer demande un **gabarit** — une carte de fichiers que le file-service sait écrire
-(`createProjectIn`, et les trois modules `scaffold*` de `@studio/song`). z0 possède bien les
+(`createProjectIn`, et les modules `scaffold*` de `@studio/song`). z0 possède bien les
 dossiers `.z0` et n'en a aucun. Le proposer fabriquait donc un dossier `.z0` contenant une
 chanson l8 : le suffixe disait une chose, le contenu une autre, et rien ne s'en plaignait
 avant que z0 essaie de l'ouvrir.

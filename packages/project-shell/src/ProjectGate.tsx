@@ -64,7 +64,7 @@ export interface ProjectGateStrings {
   /**
    * The bench's wait, which is a catalogue fetch and not a clone — see the gate's bench branch.
    *
-   * OPTIONAL, and that is the honest shape: the bench is a `.l8` project, so m9 and v1 can never
+   * OPTIONAL, and that is the honest shape: the bench is a `.l8` project, so m9 can never
    * be opened on one and have nothing to say about it. Required here, they would each be made to
    * translate a screen neither can reach.
    */

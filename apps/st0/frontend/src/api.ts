@@ -354,7 +354,7 @@ export const engineMachine = {
    * `mode` est le seul réglage qui ne peut PAS voyager par le nom, et c'est pour ça qu'il est un
    * champ à part : `arrangement` et `live` habitent tous deux un dossier `.l8` et s'ouvrent tous
    * deux dans l8 — le suffixe dit quelle application, celui-ci dit laquelle de ses deux formes.
-   * Omis pour m9 et v1, dont les gabarits n'ont pas cet axe.
+   * Omis pour m9, dont le gabarit n'a pas cet axe.
    */
   createProject: async (
     fileBase: string,

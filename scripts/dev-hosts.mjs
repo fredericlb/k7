@@ -3,7 +3,7 @@
 // the studio reachable at all in dev. See docs/dev.md for the topology behind it.
 
 /**
- * The dev URL. One origin, one path per service — `st0.priv.frediver.se/l8`, `/m9`, `/v1` —
+ * The dev URL. One origin, one path per service — `st0.priv.frediver.se/l8`, `/m9`, `/k7` —
  * with st0 answering the root, exactly as production does under `studio.frediver.se`.
  *
  * It resolves to the LAN server, which reverse-proxies to the dev servers on the workstation.

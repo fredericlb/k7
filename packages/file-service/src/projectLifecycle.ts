@@ -12,7 +12,6 @@ import {
 } from "@studio/song/projectMode";
 import { scaffold } from "@studio/song/scaffold";
 import { scaffoldM9 } from "@studio/song/scaffoldM9";
-import { scaffoldV1 } from "@studio/song/scaffoldV1";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";
@@ -135,9 +134,12 @@ export function importProjectInto(
 /**
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
  * relative path. This is the web command bar's `new project <type> <name>`. `type` is
- * "audio" (an l8 song), "m9" (a SET: two decks, a crossfade, an empty set list), or
- * "v1" (a CUT: a viewport, the bundled sample clip and two lanes over it). Each is a
+ * "audio" (an l8 song) or "m9" (a SET: two decks, a crossfade, an empty set list). Each is a
  * different file map, written by its own scaffold in @studio/song.
+ *
+ * There was a third, "v1" — a CUT, a folder that was only picture. It is gone: a song carries
+ * its own `video_tracks/` and its own viewport surface, so picture is something an l8 project
+ * grows rather than a kind of project you choose up front.
  *
  * The name is sanitised to a single top-level segment (no separators, no leading dot
  * that would hide it) so it always lands directly under the root. Refuses to write over
@@ -151,20 +153,20 @@ export function importProjectInto(
  * `.m9` folder, a project the app that owns it cannot read.
  *
  * `type` is therefore the answer for a name with NO suffix, which is l8's command bar
- * (`project new v1 myfilm`), and it appends the suffix that kind needs. "audio" appends
+ * (`project new m9 myset`), and it appends the suffix that kind needs. "audio" appends
  * nothing, because l8 also opens a repository that IS a song.
  */
 export function createProjectIn(
   host: LifecycleHost,
-  type: "audio" | "m9" | "v1",
+  type: "audio" | "m9",
   rawName: string,
   /**
    * l8 only, and orthogonal to everything above: a song with a timeline or a live rig.
    *
    * It cannot ride on `type` and it is not decided by the suffix, which is the whole reason it
    * is a parameter of its own. Both shapes live in a `.l8` folder and both are opened by l8 —
-   * the name says which APP, this says which of that app's two shapes. Ignored for m9 and v1,
-   * whose scaffolds have no such axis (a set and a cut are each one thing).
+   * the name says which APP, this says which of that app's two shapes. Ignored for m9, whose
+   * scaffold has no such axis (a set is one thing).
    */
   mode: ProjectMode = DEFAULT_PROJECT_MODE,
 ): { project: string } {
@@ -174,16 +176,9 @@ export function createProjectIn(
   // `.z0` folder has none, and falling through to `type` writes what the caller asked for
   // rather than throwing on a name that is otherwise perfectly good.
   const claimed = projectApp(name);
-  const kind: "audio" | "m9" | "v1" =
-    claimed === "m9" || claimed === "v1"
-      ? claimed
-      : claimed === "l8"
-        ? "audio"
-        : type;
-  if (
-    (kind === "m9" || kind === "v1") &&
-    !name.endsWith(PROJECT_SUFFIXES[kind])
-  )
+  const kind: "audio" | "m9" =
+    claimed === "m9" ? "m9" : claimed === "l8" ? "audio" : type;
+  if (kind === "m9" && !name.endsWith(PROJECT_SUFFIXES[kind]))
     name += PROJECT_SUFFIXES[kind];
   const abs = host.safePath(name);
   if (abs === host.root) throw new Error("project name required");
@@ -192,7 +187,6 @@ export function createProjectIn(
   // The label the project CALLS itself drops the suffix — `winter.m9` is the folder,
   // "winter" is the set. projectLabel is the one place that rule is stated.
   if (kind === "m9") scaffoldM9(abs, projectLabel(name));
-  else if (kind === "v1") scaffoldV1(abs, projectLabel(name));
   else scaffold(abs, name, mode);
   return { project: host.toRel(abs) };
 }

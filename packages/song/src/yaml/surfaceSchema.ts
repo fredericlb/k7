@@ -7,7 +7,7 @@ import { z } from "zod";
 import { ViewBindingSchema } from "./mixViewSchema";
 
 /**
- * The kinds of surface there are: m9's desk, and the ARRANGEMENT — the timeline.
+ * The kinds of surface there are: m9's desk, the ARRANGEMENT — the timeline — and the FRAME.
  *
  * An ENUM rather than free text, unlike the control ids in the mapping below, and the two are
  * not inconsistent. A control id is the app's vocabulary and grows whenever a panel gains a
@@ -18,8 +18,13 @@ import { ViewBindingSchema } from "./mixViewSchema";
  * `timeline` is the one that used to need no declaring: the arrangement was a PANE the shell
  * always had, and a project got one for being a project. It is a surface now, so a song says it
  * wants one the same way a set says it wants a desk. See docs/surfaces.md.
+ *
+ * `viewport` is the one that came BACK. Picture left for an app of its own because a song is
+ * placed in bars and a cut in seconds, and one ruler could not draw both without lying — the
+ * ruler reads either now (docs/surfaces.md), so the frame is a surface here and a song carries
+ * its picture again.
  */
-export const SURFACE_TYPES = ["turntables", "timeline"] as const;
+export const SURFACE_TYPES = ["turntables", "timeline", "viewport"] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
 
 /**
@@ -45,6 +50,11 @@ export type SurfaceLayout = (typeof SURFACE_LAYOUTS)[number];
  * A `split` surface is not a `view` surface drawn smaller. It takes a slot in the layout, is
  * mounted for as long as the project is open (its caret and its zoom stack outlive being hidden),
  * and joins the pane ring — which is the whole of why the two are separate words.
+ *
+ * `viewport` is `split` for the sharpest version of that reason in the codebase: it owns a WebGL
+ * context and one `<video>` element per layer. A `view` viewport would tear both down every time
+ * you looked at something else and rebuild them — with a decoder flush and a visible hitch — every
+ * time you came back. `full` is how you get the picture big, which is the pane ring doing its job.
  */
 export const SURFACE_LAYOUTS_BY_TYPE: Record<
   SurfaceType,
@@ -52,6 +62,7 @@ export const SURFACE_LAYOUTS_BY_TYPE: Record<
 > = {
   turntables: ["view"],
   timeline: ["split"],
+  viewport: ["split"],
 };
 
 /**

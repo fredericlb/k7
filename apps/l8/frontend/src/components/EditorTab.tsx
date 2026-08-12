@@ -12,6 +12,10 @@ import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
 import { parsePosition } from "@studio/song/timecode";
+import {
+  listVideoPlacements,
+  setVideoPlacementField,
+} from "@studio/song/yaml/videoTrackFile";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type { LintItem } from "@studio/ui-editor/lint";
 import {
@@ -41,6 +45,7 @@ import {
   isRackModuleFile,
   isSeqFile,
   isTrackFile,
+  isVideoTrackFile,
   moduleFileOf,
   readScalarField,
 } from "../projectPaths";
@@ -62,6 +67,7 @@ import { FileTree } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
 import { SeqGrid } from "./SeqGrid";
 import { UploadProgress } from "./UploadProgress";
+import { type VideoReader, VideoReadersStrip } from "./VideoReadersStrip";
 
 // The handle the shell reaches the editor through: `open` opens a file, `files` is what `file` completes against.
 // The `local*` methods expose the live CodeMirror buffer so the shell can arbitrate Ctrl+Z between the
@@ -232,6 +238,7 @@ export function EditorTab({
   onOpenItem,
   onOpenBuilder,
   diagnostics,
+  videoSources,
   ref,
 }: {
   active: boolean;
@@ -258,6 +265,14 @@ export function EditorTab({
   // Open the shared module builder over the shell, on the MODULE file of the trio — plus which of the three
   // was clicked, so its code pane opens on the file the click pointed at.
   onOpenBuilder: (path: string, pane: "module" | "panel" | "presets") => void;
+  /**
+   * Each picture clip ref → the media file it names, from the COMPILED document.
+   *
+   * From the compiler and not from the buffer because only the compiler has read
+   * `clips/<ref>.yaml` to find out. A ref it has never seen simply gets no reader, which is the
+   * honest answer rather than a black rectangle. The times come from the buffer — see `readers`.
+   */
+  videoSources: Record<string, string>;
   ref?: React.Ref<EditorHandle>;
 }) {
   const [tree, setTree] = useState<FileNode[]>([]);
@@ -276,6 +291,9 @@ export function EditorTab({
   // Only there: fullscreened, this pane is the text editor and the grids have their own home
   // in the main view (`sequence edit roll|tracker`, see docs/noteGrids.md).
   const [tab, setTab] = useState<"text" | SeqView>("text");
+  // The readers strip, shown for a lane file until dismissed. Per-session and per-pane: it is a
+  // dock over the text, not a property of the file.
+  const [strip, setStrip] = useState(true);
   // The audio clip this clips/*.yaml links to: it docks at the bottom of the CODE pane, not the shared panel.
   const [audioClip, setAudioClip] = useState<{
     project: WebProject;
@@ -910,6 +928,39 @@ export function EditorTab({
     [fileDiagnostics, autosave.issues],
   );
 
+  /**
+   * The readers for an open picture lane — one per placement the BUFFER declares.
+   *
+   * Two sources, deliberately. The TIMES come from the buffer, because a trim typed a second
+   * ago has no compiled form yet and a strip that waited for one would be a step behind every
+   * edit. The FILE each ref names comes from the compiled document (`videoSources`), because
+   * only the compiler has read `clips/<ref>.yaml` to find out.
+   */
+  const readers = useMemo<VideoReader[]>(() => {
+    if (!strip || !file || file.binary || !isVideoTrackFile(file.path))
+      return [];
+    return listVideoPlacements(file.content).flatMap((p) => {
+      const src = videoSources[p.ref];
+      return src
+        ? [{ ref: p.ref, src, sourceFrom: p.sourceFrom, length: p.length }]
+        : [];
+    });
+  }, [strip, file, videoSources]);
+
+  // A reader's button edits the same buffer a keystroke does, so autosave writes it the same way.
+  const setPlacement = useCallback(
+    (ref: string, field: "source_from" | "length", value: number) =>
+      setFile((f) =>
+        f && !f.binary
+          ? {
+              ...f,
+              content: setVideoPlacementField(f.content, ref, field, value),
+            }
+          : f,
+      ),
+    [],
+  );
+
   const editable = !!file && !file.binary;
   // The grid tabs only make sense on a sequence file (they show its notes).
   const isSeq = !!file && isSeqFile(file.path);
@@ -1088,39 +1139,64 @@ export function EditorTab({
             />
           </aside>
         )}
-        <main className="min-w-0 flex-1 overflow-hidden">
-          {/* A grid edit lands in the SAME buffer a keystroke does — so switching tabs mid-edit
-              shows the text you just drew, and autosave writes it whichever way you made it. */}
-          {grid && file ? (
-            <SeqGrid
-              view={grid}
-              content={file.content}
-              racks={hints.racks}
-              resetKey={file.path}
-              onChange={(v) => setFile({ ...file, content: v })}
-            />
-          ) : (
-            <EditorPane
-              file={file}
-              onEditorView={(v) => {
-                cmViewRef.current = v;
-              }}
-              hints={hints}
-              vimMode={vimMode}
-              audioClip={audioClip}
-              preview={preview}
-              onClosePreview={() => setPreview(null)}
-              onChange={(v) => {
-                if (file) setFile({ ...file, content: v });
-              }}
-              onSave={autosave.flush}
-              onOpenEntity={open}
-              onPreview={handlePreview}
-              // A slice-rack module.yaml → inline per-symbol waveform editors in the code.
-              sliceRack={sliceRack}
-              // The open file's load errors, drawn inline as squiggles.
-              diagnostics={lintItems}
-            />
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1">
+            {/* A grid edit lands in the SAME buffer a keystroke does — so switching tabs mid-edit
+                shows the text you just drew, and autosave writes it whichever way you made it. */}
+            {grid && file ? (
+              <SeqGrid
+                view={grid}
+                content={file.content}
+                racks={hints.racks}
+                resetKey={file.path}
+                onChange={(v) => setFile({ ...file, content: v })}
+              />
+            ) : (
+              <EditorPane
+                file={file}
+                onEditorView={(v) => {
+                  cmViewRef.current = v;
+                }}
+                hints={hints}
+                vimMode={vimMode}
+                audioClip={audioClip}
+                preview={preview}
+                onClosePreview={() => setPreview(null)}
+                onChange={(v) => {
+                  if (file) setFile({ ...file, content: v });
+                }}
+                onSave={autosave.flush}
+                onOpenEntity={open}
+                onPreview={handlePreview}
+                // A slice-rack module.yaml → inline per-symbol waveform editors in the code.
+                sliceRack={sliceRack}
+                // The open file's load errors, drawn inline as squiggles.
+                diagnostics={lintItems}
+              />
+            )}
+          </div>
+          {/* A picture lane's readers, docked under its text: the in-point of a shot is a FRAME
+              you recognise, not a number you can type. Same buffer as the editor above. */}
+          {readers.length > 0 && (
+            <div className="h-52 shrink-0 border-t border-border">
+              <VideoReadersStrip
+                readers={readers}
+                onSetFrom={(ref, t) => setPlacement(ref, "source_from", t)}
+                // "To" is an END, and the file stores an EXTENT — the subtraction belongs here,
+                // beside the only place that knows both numbers.
+                onSetTo={(ref, t) => {
+                  const p = listVideoPlacements(
+                    file && !file.binary ? file.content : "",
+                  ).find((x) => x.ref === ref);
+                  setPlacement(
+                    ref,
+                    "length",
+                    Math.max(0, t - (p?.sourceFrom ?? 0)),
+                  );
+                }}
+                onClose={() => setStrip(false)}
+              />
+            </div>
           )}
         </main>
       </div>

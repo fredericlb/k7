@@ -9,14 +9,15 @@ the ruler; the other costs you a glance.
 
 ## Why the candidates are the caller's
 
-Because the two apps do not subdivide the same way, and this is the seam that lets one
-function serve both.
+Because the two READINGS of a ruler do not subdivide the same way, and this is the seam that
+lets one function serve both. l8's timeline offers both from one header button: a song is
+placed in bars and its picture is cut in seconds, and they share a grid.
 
-**l8's ruler is musical.** A bar halves into beats, beats halve into sixteenths; the ladder
-is powers of two, anchored on a bar length that itself depends on the time signature. A
-`5s` step is meaningless there.
+**The musical reading.** A bar halves into beats, beats halve into sixteenths; the ladder is
+powers of two, anchored on a bar length that itself depends on the time signature. A `5s` step
+is meaningless there.
 
-**v1's ruler is wall-clock**, `SECOND_TICKS`: 1/2/5 per decade up to a second, then the
+**The wall-clock reading**, `SECOND_TICKS`: 1/2/5 per decade up to a second, then the
 steps a viewer actually reads a duration in — 15s, 30s, 1m, 2m, 5m. Not powers of two,
 because time does not halve: `16s` between labels is a number nobody thinks in, while
 `0.25s` is a perfectly good zoom on a cut.

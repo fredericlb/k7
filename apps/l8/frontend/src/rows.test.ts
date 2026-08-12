@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectRows, type Row, rowKey, rowTarget } from "./rows";
-import type { WebGroup, WebTrack } from "./types";
+import type { WebGroup, WebTrack, WebVideoTrack } from "./types";
 
 // The lane layout, and what each kind of row ADDRESSES — which is what a header click, a
 // mute key and a graph lookup all ask it.
@@ -24,6 +24,20 @@ const group = (id: string): WebGroup => ({
   mute: false,
   solo: false,
 });
+const videoTrack = (id: string): WebVideoTrack => ({
+  id,
+  name: id,
+  kind: "video",
+  color: "",
+  mute: false,
+  x: 0,
+  y: 0,
+  w: 1920,
+  h: 1080,
+  clips: [],
+  shapes: [],
+});
+
 describe("projectRows", () => {
   it("nests a group's members under a header placed where the first sits", () => {
     const rows = projectRows({ groups: [group("drums")] }, [
@@ -87,5 +101,46 @@ describe("rowTarget", () => {
       grouped: false,
     };
     expect(rowTarget(row)).toBeNull();
+  });
+
+  it("keeps a video lane apart from an engine track", () => {
+    // It has a file, so a header click can still open it — but it is no track, and the
+    // callers that ask for a mixer command or a chain have to be able to tell.
+    expect(rowTarget({ kind: "video", track: videoTrack("cam1") })).toEqual({
+      kind: "video",
+      id: "cam1",
+    });
+  });
+});
+
+describe("a song that carries picture", () => {
+  it("puts the video lanes last, in the order the picture compiled them", () => {
+    // `layers:` is the draw order, bottom first, and the compile has already applied it — the
+    // rows follow it rather than re-sorting, so what stacks on the frame and what stacks in the
+    // timeline cannot disagree.
+    const rows = projectRows(
+      { groups: [] },
+      [track({ id: "bass" })],
+      [videoTrack("main"), videoTrack("pip")],
+    );
+    expect(rows.map(rowKey)).toEqual(["track:bass", "video:main", "video:pip"]);
+  });
+
+  it("tells a video lane from an audio lane of the same name", () => {
+    // A song is one folder, so `main` can be both a track and a layer. The key is prefixed by
+    // kind for exactly this: an unprefixed one would put the caret on whichever came first.
+    const rows = projectRows(
+      { groups: [] },
+      [track({ id: "main" })],
+      [videoTrack("main")],
+    );
+    expect(rows.map(rowKey)).toEqual(["track:main", "video:main"]);
+  });
+
+  it("is the plain row list when the song has no picture", () => {
+    // The argument is defaulted, so every caller that predates picture reads unchanged.
+    expect(
+      projectRows({ groups: [] }, [track({ id: "bass" })]).map(rowKey),
+    ).toEqual(["track:bass"]);
   });
 });

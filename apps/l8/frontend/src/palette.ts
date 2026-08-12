@@ -19,7 +19,7 @@ import type { CommandInfo } from "./types";
 // never moves the transport. `locate`, `loop`, `record`, `new/delete project` and `event move` keep bare names.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
-  "ui global", // the 3-pane view — the default, and the only one since picture left for v1
+  "ui global", // the layout view — the default, and the only one a project does not derive
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
@@ -72,6 +72,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui timeline": {
     en: "Fullscreen the timeline",
     fr: "Passer la timeline en plein écran",
+  },
+  "ui viewport": {
+    en: "Fullscreen the picture",
+    fr: "Passer l'image en plein écran",
   },
   "ui chains": {
     en: "Fullscreen the chains graph",
@@ -158,9 +162,9 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
 // The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field
 export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui file": [{ name: "path", kind: "file", hint: "a file of this project" }],
-  // `type` is the fixed audio|m9|v1 choice completed below in makeCompleteArg.
+  // `type` is the fixed audio|m9 choice completed below in makeCompleteArg.
   "project new": [
-    { name: "type", kind: "choice", hint: "audio · m9 · v1" },
+    { name: "type", kind: "choice", hint: "audio · m9" },
     { name: "name", kind: "text", hint: "the new project's folder name" },
   ],
   "project delete": [
@@ -339,11 +343,11 @@ export function makeListArg(files: () => string[]) {
     const canonical = canonicalizeCommand(command);
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     // `new project`'s first arg is a fixed choice the backend knows nothing about, so offer it
-    // here. `m9` is a SET — two decks and a crossfade — and `v1` a CUT — a viewport and its
-    // lanes; both land as folders this app cannot open. They are offered anyway because the
-    // workspace is one clone and l8 is where the command bar is.
+    // here. `m9` is a SET — two decks and a crossfade — and lands as a folder this app cannot
+    // open. It is offered anyway because the workspace is one clone and l8 is where the command
+    // bar is.
     if (canonical === "new project" && priorArgs.length === 0)
-      return ["audio", "m9", "v1"];
+      return ["audio", "m9"];
     if (canonical === "file" && priorArgs.length === 0) return files();
     // The line MUST end with a space, even for an empty partial: that space is how `completions` tells "complete the
     // next argument" from "still typing a command name", and without it the palette offered commands, not values.

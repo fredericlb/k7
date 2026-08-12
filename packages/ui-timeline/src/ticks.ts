@@ -1,7 +1,7 @@
 // ticks.ts — choosing a ruler's unit for the zoom it is drawn at, and finding the tick a
 // click landed on. Unit-free: `candidates` is what a scale is allowed to subdivide to, and
-// that is where the two apps differ — l8 halves a bar, v1 walks a 1/2/5/10 decimal ladder.
-// Full rationale: docs/ticks.md.
+// that is where the two READINGS of one ruler differ — bars halve, and seconds walk a
+// 1/2/5/10 decimal ladder. Full rationale: docs/ticks.md.
 
 /**
  * The coarsest candidate whose ticks are at least `minPx` apart, at `pxPerUnit`.

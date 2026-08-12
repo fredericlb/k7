@@ -106,6 +106,14 @@ export function Minimap({
             className="absolute inset-x-0 bg-muted-foreground/25"
             style={{ top: ri * rowH, height: rowH }}
           />
+        ) : row.kind === "video" ? (
+          // A video lane as one violet band: at a few px per row, per-placement detail would be sub-pixel noise.
+          <div
+            key={`video:${row.track.id}`}
+            title={`${row.track.name} — a video lane`}
+            className="absolute inset-x-0 bg-violet-500/40"
+            style={{ top: ri * rowH, height: rowH }}
+          />
         ) : row.track.generated ? (
           // A generated lane is hatched like the timeline's: its look-ahead clips would flicker as playback runs.
           <div

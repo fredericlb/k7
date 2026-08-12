@@ -109,9 +109,9 @@ upstream of the module rather than for that one lane. Both are in Instruments.
 
 One field is simply gone:
 
-- **`video_source:`** — an audio track could take its placements from a video track, back when
-  picture lived in the same project. It has been read by nothing since picture became its own
-  `.v1` folder.
+- **`video_source:`** — an audio track could take its placements from a video track, so a shot
+  and its sound could not drift. It was dropped while picture lived in a project of its own;
+  picture is back in the song and nothing reads the key yet.
 
 All five schemas are `.strict()`, so a file still carrying any of them says so by name and by
 line rather than being read and dropped.

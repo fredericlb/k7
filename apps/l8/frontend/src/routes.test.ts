@@ -160,6 +160,47 @@ describe("viewPanes", () => {
       st({ view: "live" }),
     );
   });
+
+  it("puts the FRAME above the arrangement when the project declares one", () => {
+    // The ring is read by the number keys and the mobile tabs, so its order is the order the
+    // panes are stacked on screen — frame, arrangement, graph.
+    expect(viewPanes("global", true, true)).toEqual({
+      ring: ["viewport", "timeline", "chains"],
+      fullscreen: ["editor", "viewport", "timeline", "chains"],
+    });
+    // Picture with no arrangement: a cut that is all shots and no lanes is a real song folder.
+    expect(viewPanes("global", false, true)).toEqual({
+      ring: ["viewport", "chains"],
+      fullscreen: ["editor", "viewport", "chains"],
+    });
+  });
+
+  it("gives a RIG its fullscreens back once it declares a viewport", () => {
+    // `live`'s empty fullscreen list is about having ONE pane, not about being a rig — a rig
+    // with picture has two, and hiding either behind no address would be the blank screen.
+    expect(viewPanes("live", true, true)).toEqual({
+      ring: ["viewport", "chains"],
+      fullscreen: ["viewport", "chains"],
+    });
+    // …and the editor stays out of a live layout, as it always has: `ui file` is a popin.
+    expect(viewPanes("live", true, true).fullscreen).not.toContain("editor");
+  });
+
+  it("refuses `/viewport` as an address when there is no picture", () => {
+    expect(fromLocation("/viewport", "", "global", true, true).full).toBe(
+      "viewport",
+    );
+    expect(fromLocation("/viewport", "", "global", true, false)).toEqual(st());
+  });
+
+  it("lands an old `/video` bookmark on the frame", () => {
+    // It was the picture pane's address for a year. Subject to the same check as any other, so
+    // a song without picture still falls through to its layout rather than to a dead pane.
+    expect(fromLocation("/video", "", "global", true, true).full).toBe(
+      "viewport",
+    );
+    expect(fromLocation("/video", "", "global", true, false)).toEqual(st());
+  });
 });
 
 describe("sameRoute", () => {

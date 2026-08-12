@@ -2,7 +2,7 @@
 // `{ref, start, length, source_from}` in DECIMAL SECONDS. A SURGICAL text rewrite, like every
 // other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
 // document the format, and a round trip through the serialiser would delete every one of them.
-// Browser-safe, because v1's readers strip edits a buffer that has not been saved yet.
+// Browser-safe, because the editor's readers strip edits a buffer that has not been saved yet.
 
 import { isSeq, parseDocument } from "yaml";
 

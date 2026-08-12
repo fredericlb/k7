@@ -9,6 +9,12 @@ layout: split
 ```
 
 ```yaml
+# surfaces/viewport.yaml — the frame its video lanes composite onto
+type: viewport
+layout: split
+```
+
+```yaml
 # surfaces/desk.yaml
 type: turntables
 layout: view
@@ -25,7 +31,7 @@ The id is the **filename**, as in every flat entity folder here.
 
 | field | what it says | validated |
 |---|---|---|
-| `type` | which component draws it — `timeline`, `turntables` | **yes**, an enum |
+| `type` | which component draws it — `timeline`, `viewport`, `turntables` | **yes**, an enum |
 | `layout` | where it goes — `split` (a slot in the layout) or `view` (its own screen) | **yes**, an enum, **and the pair** |
 | `mapping` | which module each of its components moves | shape only |
 
@@ -36,6 +42,7 @@ The id is the **filename**, as in every flat entity folder here.
 | type | layouts |
 |---|---|
 | `timeline` | `split` |
+| `viewport` | `split` |
 | `turntables` | `view` |
 
 The pair is checked for the same reason `type` is an enum at all. Both halves can be valid on
@@ -71,6 +78,35 @@ still on disk, its lanes still compile, nothing draws them. That absence is the 
 sentence, so `surfaceIssues` raises a **warning** (not an error: the project is valid, it opens,
 and the editor you would add the file in is inside it). A `live` project is silent — a rig has no
 arrangement, which is what `project_type` says ([projectMode.md](projectMode.md)).
+
+## …and so is the frame
+
+`type: viewport` is the same story, told twice. The picture pane was l8's once, gated on a
+`video: true` in `project.yaml`; then it left for an app of its own; now it is a surface, and a
+song asks for it exactly as it asks for its arrangement.
+
+It gets the **same warning from the other side**: a folder holding `video_tracks/` and declaring
+no viewport compiles its lanes, draws them on the timeline, and composites them nowhere. That
+one is worth saying precisely because the lanes are visible — the project looks like it is
+working. A song with no `video_tracks/` is silent, the way a rig is about its timeline.
+
+### Why `viewport` is `split`-only
+
+The sharpest version of the "`split` is not `view` drawn smaller" argument below. A viewport
+owns a **WebGL context and one `<video>` element per layer**. A `view` surface is mounted only
+while open, so a viewport as a screen would tear both down every time you looked at something
+else and rebuild them — with a decoder flush and a visible hitch — every time you came back.
+
+Getting the picture big is `full` (its number key, or `ui viewport`), which is the pane ring
+doing its job rather than a second mounting rule.
+
+### It is the frame ALONE
+
+A viewport surface draws the composited picture and nothing else. Where the picture's lanes are
+*placed* is the timeline's business — the same timeline the song's audio lanes are on, whose
+ruler reads bars or seconds. There is deliberately no second arrangement surface for picture:
+one grid that can be read in two units beats two grids that must be kept in step. See
+[picture.md](picture.md) and `apps/l8/frontend/docs/picture.md`.
 
 ### `split` is not `view` drawn smaller
 
@@ -151,7 +187,8 @@ surfaces/<id>.yaml
   → GET /surfaces          a derived view, like /graph beside it
   → useSurfaces            apps/l8/frontend/src/hooks/useSurfaces.ts
   → `view`  → SurfaceTab   which picks the component for `type`
-    `split` → the layout   App.tsx: `timelineSurface` decides the pane, `viewPanes` the ring
+    `split` → the layout   App.tsx: `timelineSurface` / `viewportSurface` decide the panes,
+                           `viewPanes(view, timeline, viewport)` the ring
 ```
 
 Malformed files are reported through the same array as `projectTypeIssues` and the dead-field

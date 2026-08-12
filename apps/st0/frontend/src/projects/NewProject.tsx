@@ -34,9 +34,8 @@ const APPS = SCAFFOLDED_APPS;
 
 /** Une ligne pour dire ce qu'on est en train de créer — le suffixe seul ne le dit pas. */
 const WHAT: Record<ProjectApp, string> = {
-  l8: "l'éditeur complet",
+  l8: "l'éditeur complet — son et image",
   m9: "mix, édition et graphe — sans la timeline",
-  v1: "le montage : un viewport et ses pistes, en secondes",
   // Jamais affiché (z0 n'est pas dans APPS), mais le Record force à répondre pour chaque app :
   // c'est ce qui fera échouer la compilation le jour où z0 gagne un gabarit.
   z0: "un blind-test",
@@ -98,7 +97,7 @@ export function NewProject({
     setBusy(true);
     setError("");
     setStep("");
-    // Seulement pour l8 : m9 et v1 n'ont pas cet axe, et leur envoyer une valeur donnerait à
+    // Seulement pour l8 : m9 n'a pas cet axe, et lui envoyer une valeur donnerait à
     // croire que le service en fait quelque chose.
     void onCreate(folder, setStep, app === "l8" ? mode : undefined)
       .then(() => {
@@ -153,7 +152,7 @@ export function NewProject({
               <span className="text-xs text-muted-foreground">{WHAT[app]}</span>
             </div>
 
-            {/* La forme, pour l8 seulement. Absente pour m9 et v1 plutôt que grisée : une rangée
+            {/* La forme, pour l8 seulement. Absente pour m9 plutôt que grisée : une rangée
                 grise invite à se demander ce qu'on a mal fait, alors qu'il n'y a rien à choisir. */}
             {app === "l8" && (
               <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 // videoTracks.ts — video_tracks/ + project.layers -> VideoTrackDoc[], in draw order, with the
 // three checks the schema cannot make (a layer naming nothing, a layer named twice, a lane no
-// layer names). Its own file rather than a section of nodeProject.ts because picture is v1's
-// and the node project is l8's: one folder shape, two documents. See docs/v1Project.md.
+// layer names). Its own file rather than a section of nodeProject.ts because the two are two
+// compiles of one folder, and only this one's output ever draws. See docs/picture.md.
 
 import { resolve } from "node:path";
 import type { RawClip, RawVideoPlacement, RawVideoTrack } from "./rawDoc";

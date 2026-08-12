@@ -25,7 +25,6 @@ export const SERVICE_PATHS = {
   st0: "",
   k7: "/k7",
   m9: "/m9",
-  v1: "/v1",
   z0: "/z0",
 } as const;
 
@@ -45,7 +44,6 @@ export const STUDIO_ORIGIN = "https://studio.frediver.se";
  */
 export const SERVICE_PORTS: Record<StudioService, number> = {
   l8: 8789,
-  v1: 8790,
   st0: 8795,
   k7: 8787,
   m9: 8796,

@@ -439,7 +439,7 @@ describe("the decks' document", () => {
 
   it("carries no groups, so it can be sent unfolded", () => {
     // It used to assert no PICTURE either. There is no such field to assert on any more —
-    // a ProjectDoc carries none since picture became v1's own document — so the fold this
+    // a ProjectDoc carries none since picture became its own document — so the fold this
     // document skips is `withGroupMix` and nothing else.
     const doc = deckDoc(loaded());
     expect(doc.groups).toEqual([]);

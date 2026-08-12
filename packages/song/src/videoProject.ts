@@ -1,7 +1,7 @@
-// videoProject.ts — a `*.v1` folder read into a VideoProjectDoc: the viewport, the lanes in
-// draw order, and the markers, every position in decimal SECONDS. The same loader as a song
-// reads the same folder shape; what differs is which entities are looked at and what the
-// numbers mean. See docs/v1Project.md.
+// videoProject.ts — a song's folder read as PICTURE: the viewport, the lanes in draw order, and
+// the markers, every position in decimal SECONDS. The same loader as the song compile, over the
+// same folder; what differs is which entities are looked at and what the numbers mean.
+// See docs/picture.md.
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -39,12 +39,16 @@ export function parseVideoMarkers(raw: unknown): VideoMarker[] {
 }
 
 /**
- * Compile the `*.v1` project at `dir`.
+ * Compile the PICTURE of the project at `dir`.
  *
- * A folder, always — there is no single-file form of a cut, because a cut is a folder of
- * lanes by construction. `viewport:` is required and says so by name when it is missing: it
+ * A folder, always — there is no single-file form of picture, because a stack of lanes is a
+ * folder by construction. `viewport:` is required and says so by name when it is missing: it
  * is the one setting with no defensible default (a frame invented by the loader would silently
  * letterbox every shot in the project).
+ *
+ * Callers that may be handed a song with no picture at all should ask `isVideoProject` first —
+ * "this song has no video lanes" and "this song's picture will not compile" are two answers,
+ * and only the second one is this function's to give.
  */
 export function loadVideoProject(dir: string): VideoProjectDoc {
   const abs = resolve(dir);
@@ -76,7 +80,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
   };
 }
 
-/** Whether `dir` looks like a v1 project at all — the cheap check a caller makes before compiling. */
+/** Whether `dir` carries picture at all — the cheap check a caller makes before compiling. */
 export function isVideoProject(dir: string): boolean {
   return existsSync(resolve(dir, "video_tracks"));
 }

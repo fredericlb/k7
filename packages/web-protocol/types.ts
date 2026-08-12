@@ -127,7 +127,7 @@ export interface Hints {
   tracks: string[];
   channels: string[]; // input-channel labels from the machine's preferences
   clips: string[];
-  // Video track ids (video_tracks/<id>.yaml) — v1's lanes, and what its `layers:` may name.
+  // Video track ids (video_tracks/<id>.yaml) — the song's picture lanes, and what `layers:` may name.
   videoTracks: string[];
   sequences: string[];
   chains: string[];
@@ -334,7 +334,8 @@ export interface WebGroup {
   solo: boolean;
 }
 // A video clip on a video track. Every time here is SECONDS: picture is cut against the wall
-// clock, which is the whole reason v1's timeline is not l8's.
+// clock, where the song's own lanes are placed in bars against its tempo. One timeline draws
+// both, and its ruler reads either — see apps/l8/frontend/docs/picture.md.
 export interface WebVideoClip {
   id: string;
   name: string;
@@ -457,13 +458,14 @@ export interface WebProject {
   markers: WebMarker[];
 }
 
-// --- v1: the same folder read as PICTURE -----------------------------------------
-// A `*.v1` project has no tempo, so nothing here is a beat. It is a separate document and
-// not a flag on WebProject: an l8 song answers "what plays", a v1 project answers "what is
-// on screen", and the two were only ever one interface while one app drew both.
-// See packages/song/docs/v1Project.md.
+// --- PICTURE: the same folder, read again ----------------------------------------
+// Nothing here is a beat: a shot is cut against the wall clock. A separate document and not a
+// section of WebProject, which is what keeps the frame out of what the C++ engine is handed —
+// a `withoutVideo` step used to strip it at the one choke point, and a document with a section
+// deleted before it is sent describes two things.
+// See packages/song/docs/picture.md.
 
-/** A named point on v1's ruler. `sec` is its position; `tc` the `m:ss.mmm` it is stored under (the delete key). */
+/** A named point on the picture's ruler. `sec` is its position; `tc` the `m:ss.mmm` it is stored under (the delete key). */
 export interface WebVideoMarker {
   sec: number;
   name: string;

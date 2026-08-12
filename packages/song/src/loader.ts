@@ -797,7 +797,7 @@ export function loadLanes(dir: string, validate = false): Record<string, Lane> {
 }
 
 // Video lanes, a flat-per-file layout of their own (video_tracks/<id>.yaml) — still an entity,
-// deliberately: picture is a `.v1` project's business and shares nothing with a song's lanes.
+// deliberately: picture shares nothing with a song's lanes but the folder it sits in.
 export function loadVideoTracks(
   dir: string,
   validate = false,

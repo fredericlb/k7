@@ -37,16 +37,17 @@ export const ProjectSettingsSchema = z
     // them as a warning instead, naming the lines to delete.
     modules_from: z.array(z.string()).optional(),
     libraries_from: z.array(z.string()).optional(),
-    // DEAD in the same sense, and for a newer reason: picture moved out of l8 into v1, so an
-    // l8 song's `video: true` now gates nothing. Every song that ever had picture carries the
-    // line, so refusing it would break folders that still compile perfectly as audio;
-    // `deadProjectFields` names it and says where the picture went instead.
+    // DEAD in the same sense, and it has been dead through two moves: `video: true` gated a
+    // fourth pane when l8 first drew picture. What draws the frame now is a `surfaces/` file
+    // (docs/surfaces.md), and what says a song HAS picture is `video_tracks/` existing — a
+    // boolean that agreed with neither would just be a third answer. Kept because every song
+    // that ever had picture carries the line.
     video: z.boolean().optional(),
-    // v1's, and only v1's — the frame its lanes draw into and their draw order, bottom first.
-    // They stay in the SHARED settings tier because one schema validates every dialect (the
-    // loader has no type to branch on when it reads the header); which dialect READS them is
-    // stated in packages/song/docs/v1Project.md, and `deadProjectFields` reports them in an l8
-    // folder rather than leaving "accepted" to mean "silently ignored".
+    // PICTURE's, and read only by the picture compile — the frame its lanes draw into and their
+    // draw order, bottom first. They sit in the SHARED settings tier because one schema
+    // validates every dialect (the loader has no type to branch on when it reads the header),
+    // and a song is where they belong: `loadVideoProject` is a second compile of the same
+    // folder, not a second kind of project. See packages/song/docs/picture.md.
     viewport: z
       .union([
         z.tuple([z.number().int().positive(), z.number().int().positive()]),
@@ -62,7 +63,7 @@ export const ProjectSettingsSchema = z
   .strict();
 
 /**
- * What a project's files are FOR — l8's timeline song, m9's set, v1's cut, z0's blind test.
+ * What a project's files are FOR — l8's timeline song, m9's set, z0's blind test.
  *
  * The SAME set as `ProjectApp`, and not a second list that happens to agree. `projectTypeOf`
  * answers step 1 with `projectApp(basename(dir))`, so the two are already one question asked
@@ -76,7 +77,6 @@ export const ProjectSettingsSchema = z
 export const PROJECT_TYPES = [
   "l8",
   "m9",
-  "v1",
   "z0",
 ] as const satisfies readonly ProjectApp[];
 export type ProjectType = ProjectApp;

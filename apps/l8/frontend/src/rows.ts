@@ -5,22 +5,33 @@
 // endpoint, so passing only `project.tracks` silently loses them and any group they fill.
 
 import { HATCH } from "@studio/ui-timeline/lanes";
-import type { WebGroup, WebProject, WebTrack } from "./types";
+import type { WebGroup, WebProject, WebTrack, WebVideoTrack } from "./types";
 
-// The hatching moved to @studio/ui-timeline when v1 started drawing lanes too; re-exported
-// here so the two surfaces that use it keep reaching for one import.
+// The hatching lives in @studio/ui-timeline; re-exported here so the two surfaces that use it
+// keep reaching for one import.
 export { HATCH };
 
 export type Row =
   | { kind: "group"; group: WebGroup }
   // `index` is the track's position in the ORIGINAL array: clustering reorders the display, not the engine's levels.
-  | { kind: "track"; track: WebTrack; index: number; grouped: boolean };
+  | { kind: "track"; track: WebTrack; index: number; grouped: boolean }
+  // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio
+  // rows, in the `layers:` draw order the picture compile already put them in.
+  | { kind: "video"; track: WebVideoTrack };
 
-// Flatten tracks into rows, clustering a group's members under a header placed where its FIRST member sits.
-// A dangling `group` pointer draws as a plain track: the surfaces show what the song has, not what it should.
+/**
+ * Flatten tracks into rows, clustering a group's members under a header placed where its FIRST
+ * member sits. A dangling `group` pointer draws as a plain track: the surfaces show what the
+ * song has, not what it should.
+ *
+ * `videoTracks` comes from the PICTURE compile (`GET /video-doc`) and not from `project`, which
+ * is the whole shape of how picture lives in a song now: one folder, two documents, and the one
+ * the engine is handed carries no frame at all.
+ */
 export function projectRows(
   project: Pick<WebProject, "groups">,
   tracks: WebTrack[],
+  videoTracks: WebVideoTrack[] = [],
 ): Row[] {
   const byId = new Map(project.groups.map((g) => [g.id, g]));
   const members = new Map<string, { track: WebTrack; index: number }[]>();
@@ -51,14 +62,24 @@ export function projectRows(
       });
   });
 
+  // Video lanes last, as their own block: no group, no engine index, and the renderer stacks
+  // them in their own order.
+  for (const track of videoTracks) rows.push({ kind: "video", track });
+
   return rows;
 }
 
 // A row's identity, never its index: live lanes come and go, and an index caret would slide onto another lane.
-export type RowKey = string; // "track:<id>" | "group:<id>"
+// PREFIXED by kind, not bare: a song may name an audio lane and a video lane the same thing, and
+// they are two rows.
+export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>"
 
 export const rowKey = (r: Row): RowKey =>
-  r.kind === "group" ? `group:${r.group.id}` : `track:${r.track.id}`;
+  r.kind === "group"
+    ? `group:${r.group.id}`
+    : r.kind === "video"
+      ? `video:${r.track.id}`
+      : `track:${r.track.id}`;
 
 export const rowIndexOf = (rows: Row[], key: RowKey): number =>
   rows.findIndex((r) => rowKey(r) === key);
@@ -71,7 +92,7 @@ export const isCellRow = (r: Row): boolean =>
   r.kind === "track" && !r.track.generated;
 
 // What a row ADDRESSES: the entity a command, a file open or a graph lookup should name for it.
-export type RowTarget = { kind: "track" | "group"; id: string };
+export type RowTarget = { kind: "track" | "group" | "video"; id: string };
 
 /**
  * The entity behind a row, or null when it has none.
@@ -80,9 +101,14 @@ export type RowTarget = { kind: "track" | "group"; id: string };
  * `apps/l8/frontend/docs/timeline.md`) and for the same reason: the lane is synthesized per
  * tick, so it has no file to open and no chain of its own to draw. A group with no id — a
  * lane streaming from nowhere — has nothing to point at at all.
+ *
+ * A VIDEO lane answers with its own kind rather than passing for a track, because everything
+ * downstream of this asks the engine something: a level to draw, an arm to toggle, a chain to
+ * look up. Picture has none of those, and the honest answer is a kind the caller can refuse.
  */
 export function rowTarget(r: Row): RowTarget | null {
   if (r.kind === "group") return { kind: "group", id: r.group.id };
+  if (r.kind === "video") return { kind: "video", id: r.track.id };
   if (r.track.generated)
     return r.track.group ? { kind: "group", id: r.track.group } : null;
   return { kind: "track", id: r.track.id };

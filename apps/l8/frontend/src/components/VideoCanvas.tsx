@@ -1,13 +1,10 @@
-// VideoCanvas.tsx — the React host for the eyes realtime renderer. The imperative-WebGL host
-// pattern, deliberately: the `alive` unmount guard, the refs that keep the driver reading fresh
-// callbacks without tearing down its GL context, and a ResizeObserver on the HOST (not the
-// window) are each a bug already paid for once.
-//
-// It is HANDED the clock rather than owning one. In l8 this component built an EngineClock and
-// fed it a reported playhead, because the engine was the authority; here the transport is, and
-// two clocks for one position would be a drift with nothing to correct it against.
+// VideoCanvas.tsx — the React host for the eyes realtime renderer. The imperative-WebGL
+// host pattern, deliberately: the `alive` unmount guard, the refs that keep the driver
+// reading fresh callbacks without tearing down its GL context, and a ResizeObserver on the
+// HOST (not the window) are each a bug already paid for once. eyes knows nothing about the
+// engine — this component owns the EngineClock and feeds it the reported playhead.
 
-import type { TransportClock } from "@studio/ui-eyes/clock";
+import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef } from "react";
@@ -28,15 +25,18 @@ function fit(
 
 export function VideoCanvas({
   scene,
-  clock,
+  playing,
+  playhead,
   onDebug,
 }: {
   scene: VideoScene;
-  clock: TransportClock;
+  playing: boolean;
+  playhead: number; // seconds, from the engine state frame
   onDebug?: (d: LaneDebug[]) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const driverRef = useRef<RealtimeDriver | null>(null);
+  const clockRef = useRef<EngineClock | null>(null);
   const onDebugRef = useRef(onDebug);
   onDebugRef.current = onDebug;
 
@@ -45,6 +45,8 @@ export function VideoCanvas({
     let alive = true;
     const host = hostRef.current;
     if (!host) return;
+    const clock = new EngineClock();
+    clockRef.current = clock;
     const driver = RealtimeDriver.create(host, scene, clock);
     if (!alive) {
       driver.destroy();
@@ -63,8 +65,14 @@ export function VideoCanvas({
       if (dbg) clearInterval(dbg);
       driver.destroy();
       driverRef.current = null;
+      clockRef.current = null;
     };
-  }, [scene, clock]);
+  }, [scene]);
+
+  // Feed the clock every engine state frame; the driver's rAF loop interpolates between.
+  useEffect(() => {
+    clockRef.current?.feed(playing, playhead);
+  }, [playing, playhead]);
 
   useEffect(() => {
     const host = hostRef.current;

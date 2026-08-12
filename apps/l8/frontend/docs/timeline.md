@@ -408,14 +408,15 @@ nothing on screen to explain it.
 because its notch branch differs — it scales by the delta where this one steps — and an
 arrangement package importing the graph's would be the wrong way round.
 
-## The name column is wider here than in v1
+## The name column is wider here than the shared default
 
-`GUTTER_DESKTOP` in `@studio/ui-timeline` is sized for what v1 puts in one: a name. This app's
-gutter carries two meters, an instrument icon, the name and three toggles, which had left the
-name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
+`GUTTER_DESKTOP` in `@studio/ui-timeline` is sized for the least a gutter can carry: a name.
+This app's carries two meters, an instrument icon, the name and three toggles, which had left
+the name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
 
 Local rather than pushed into the shared package, because the width is a property of what a
-surface PUTS in the column: v1 would be paying viewport for controls it does not draw. What must
+surface PUTS in the column, and a surface that drew names alone would be paying viewport for
+controls it does not have. What must
 not drift is this app's own idea of it — the caret's "left of the first beat" test and
 `useHZoom`'s anchor maths both subtract the same `GUTTER` variable, and two numbers there is a
 click landing one column off, which reads as a rounding bug and is not one.
@@ -448,9 +449,18 @@ takes the live pattern lanes into account too: they are real lanes on the engine
 soloed one silences the authored tracks. A group header dims on its own flag only, having
 no lane of its own.
 
-## Video lanes are read-only here
+## Video lanes, and the ruler's second unit
 
-A video placement is cut in **seconds** against the wall clock while this grid is in beats.
-Dragging one would have to convert back through the tempo and would drift the moment the
-tempo moved. It is drawn so the arrangement shows the whole song — picture included — not
-so it can be edited from here.
+A video placement is cut in **seconds** against the wall clock while a song's lanes are placed
+in bars. Both are drawn here, on one grid, and the placements are **editable** — which they
+were not, for a while, and the reason is worth keeping: the objection was never the maths (one
+`tempo:`, no tempo map, so seconds ↔ beats is exact and reversible) but that a grid you could
+only read in bars made picture unreadable however accurately it was drawn.
+
+So the ruler reads either unit — the clock button in the header — and a drag snaps to whichever
+ticks are on screen. The full account, including the three drags and why a placement is not a
+command, is in [picture.md](picture.md).
+
+`rulerTicks` is the one function behind both modes. It returns ticks positioned in BEATS, the
+surface's only coordinate, each carrying its own label and weight, so `Grid` and `RulerTicks`
+stay unit-blind — and `bars`, the snap list every ruler gesture reads, is simply its output.

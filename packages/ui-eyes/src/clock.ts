@@ -75,12 +75,16 @@ export class FrameClock implements Clock {
 }
 
 /**
- * The transport ITSELF, for a surface with no engine to follow — v1's.
+ * The transport ITSELF, for a surface with no engine to follow.
  *
  * The other two clocks answer to something: EngineClock chases a playhead reported over a
- * socket, FrameClock is stepped by an exporter. This one is the authority. A cut has no
- * audio, so there is no device whose sample position the picture must agree with, and
- * inventing an engine to keep time would be a whole process running to hold a number.
+ * socket, FrameClock is stepped by an exporter. This one is the authority — for a host with no
+ * device whose sample position the picture must agree with, where inventing an engine to keep
+ * time would be a whole process running to hold a number.
+ *
+ * Currently UNUSED in this repo: l8 hosts the renderer and l8 has an engine, so the picture
+ * follows `EngineClock`. Kept because the seam is the point — the compositor cannot tell which
+ * clock it has, and that is what let picture move hosts twice without the renderer changing.
  *
  * `Date.now()` and nothing else: the drift this cannot have is against an audio clock that
  * is not there. What it MUST still do is announce its own discontinuities, which is why

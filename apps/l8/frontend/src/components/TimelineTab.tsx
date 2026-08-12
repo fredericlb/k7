@@ -16,13 +16,26 @@ import {
 } from "@studio/ui-timeline/lanes";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
+  chooseTick,
+  formatClock,
+  SECOND_TICKS,
+  ticksUpTo,
+} from "@studio/ui-timeline/ticks";
+import {
   labelled,
   labelMinPx,
   labelStride,
   nearestTick,
   subdivideBeats,
 } from "@studio/ui-waveform";
-import { Music, Repeat, StretchVertical, Timer, Volume2 } from "lucide-react";
+import {
+  Clock,
+  Music,
+  Repeat,
+  StretchVertical,
+  Timer,
+  Volume2,
+} from "lucide-react";
 import {
   memo,
   useCallback,
@@ -49,7 +62,7 @@ import {
   stepRow,
 } from "../rows";
 import { TrackIcon, trackIcon } from "../trackIcons";
-import type { WebProject, WebTrack } from "../types";
+import type { WebProject, WebTrack, WebVideoTrack } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { ClipContent } from "./ClipContent";
 import type { EditTarget } from "./ClipView";
@@ -217,6 +230,82 @@ const tickBeats = (
 };
 
 /**
+ * What the ruler is READING IN. Not what the song is placed in — that is always beats.
+ *
+ * A song's positions are musical and a `video_tracks/` placement's are wall-clock, and one
+ * surface now carries both. The two are exactly convertible here (one `tempo:`, no tempo map),
+ * so nothing is lost either way round — but a cut is read in minutes and seconds, and a ruler
+ * that could only count bars made picture unreadable however accurately it was drawn.
+ *
+ * A per-SESSION toggle, deliberately not a project setting: which unit you want depends on what
+ * you are doing this minute, not on what the song is. See docs/timeline.md.
+ */
+export type RulerMode = "bars" | "seconds";
+
+interface RulerTick {
+  beat: number; // where it sits — the surface's one coordinate, whatever the ruler counts in
+  index: number; // its number from the ORIGIN, for the label stride
+  key: string;
+  label: string;
+  // Coarse / medium / fine — a bar, a beat, a subdivision; or a minute, a second, a fraction.
+  level: 0 | 1 | 2;
+}
+
+/**
+ * The ticks a ruler draws, in BEATS whichever unit it reads in.
+ *
+ * One function for both modes, and the return type is what makes that possible: a tick knows
+ * where it sits, what to print and how heavy to be, and neither the ruler nor the grid has to
+ * know which ladder produced it. They call this SEPARATELY rather than being handed the array —
+ * an array prop would be a new identity every render and would defeat the memo that keeps both
+ * off the frame path (see the components below).
+ *
+ * The two ladders differ in kind, not just in scale: bars HALVE (a bar, its beats, half-beats),
+ * while time walks 1/2/5/10 per decade and then the minute steps a viewer actually reads. `16s`
+ * between labels is not a duration anyone thinks in, which is why `SECOND_TICKS` is a list and
+ * not a formula (@studio/ui-timeline/ticks).
+ */
+const rulerTicks = (
+  mode: RulerMode,
+  beatLo: number,
+  lastBeat: number,
+  unit: number,
+  barBeats: number,
+  bps: number, // beats per second — the whole of the conversion, since there is no tempo map
+  secStep: number,
+): RulerTick[] => {
+  if (mode === "bars")
+    return tickBeats(beatLo, lastBeat, unit).map((b) => {
+      const { bar, onBeat, label } = tickAt(b, barBeats);
+      return {
+        beat: b,
+        index: Math.round(b / unit),
+        key: `b:${b}`,
+        label,
+        level: bar ? 0 : onBeat ? 1 : 2,
+      };
+    });
+  const out: RulerTick[] = [];
+  // From the ORIGIN and not from the first visible second, exactly as `tickBeats` is: a ladder
+  // that started where the view does would re-place every line as you panned.
+  for (const sec of ticksUpTo(lastBeat / bps, secStep)) {
+    const beat = sec * bps;
+    if (beat < beatLo - 1e-9) continue;
+    const whole = Math.abs(sec - Math.round(sec)) < 1e-6;
+    out.push({
+      beat,
+      index: Math.round(sec / secStep),
+      key: `s:${sec}`,
+      label: formatClock(sec, secStep),
+      // A minute carries the bar's weight and a whole second the beat's, so the eye reads the
+      // same three-level rhythm in either unit.
+      level: Math.abs(sec % 60) < 1e-6 ? 0 : whole ? 1 : 2,
+    });
+  }
+  return out;
+};
+
+/**
  * The two tick layers, memoised — together the most numerous elements on the surface.
  *
  * They are a pure function of the VIEW WINDOW, and every prop here is a number, so React's
@@ -226,21 +315,31 @@ const tickBeats = (
  * `updateProperties` was 12 % of the whole capture, and a tick's `style` object is new on every
  * render, so all three of its properties were written again each time. See docs/timeline.md.
  */
+/** What both tick layers need to rebuild their own list — all primitives, so the memo holds. */
+interface TickProps {
+  mode: RulerMode;
+  beatLo: number;
+  lastBeat: number;
+  unit: number;
+  barBeats: number;
+  bps: number;
+  secStep: number;
+}
+
 const Grid = memo(function Grid({
+  mode,
   beatLo,
   lastBeat,
   unit,
   barBeats,
+  bps,
+  secStep,
   ppb,
   laneW,
   left0,
   top,
   height,
-}: {
-  beatLo: number;
-  lastBeat: number;
-  unit: number;
-  barBeats: number;
+}: TickProps & {
   ppb: number;
   laneW: number;
   left0: number;
@@ -249,72 +348,71 @@ const Grid = memo(function Grid({
 }) {
   return (
     <>
-      {tickBeats(beatLo, lastBeat, unit).map((b) => {
-        const left = (b - beatLo) * ppb;
-        // A tick at the lane's right edge is a 1px border past the end of the box, and one
-        // pixel of horizontal scroll in a view that fits its pane exactly.
-        if (left >= laneW) return null;
-        const { bar, onBeat } = tickAt(b, barBeats);
-        return (
-          <div
-            key={`grid:${b}`}
-            className={cn(
-              "pointer-events-none absolute border-l border-dashed",
-              // The ruler's three weights, one step fainter: down here they cross the
-              // material rather than sitting in a header of their own.
-              bar
-                ? "border-border/40"
-                : onBeat
-                  ? "border-border/25"
-                  : "border-border/10",
-            )}
-            style={{ left: left0 + left, top, height }}
-          />
-        );
-      })}
+      {rulerTicks(mode, beatLo, lastBeat, unit, barBeats, bps, secStep).map(
+        (t) => {
+          const left = (t.beat - beatLo) * ppb;
+          // A tick at the lane's right edge is a 1px border past the end of the box, and one
+          // pixel of horizontal scroll in a view that fits its pane exactly.
+          if (left >= laneW) return null;
+          return (
+            <div
+              key={`grid:${t.key}`}
+              className={cn(
+                "pointer-events-none absolute border-l border-dashed",
+                // The ruler's three weights, one step fainter: down here they cross the
+                // material rather than sitting in a header of their own.
+                t.level === 0
+                  ? "border-border/40"
+                  : t.level === 1
+                    ? "border-border/25"
+                    : "border-border/10",
+              )}
+              style={{ left: left0 + left, top, height }}
+            />
+          );
+        },
+      )}
     </>
   );
 });
 
 const RulerTicks = memo(function RulerTicks({
+  mode,
   beatLo,
   lastBeat,
   unit,
   barBeats,
+  bps,
+  secStep,
   ppb,
   barStride,
-}: {
-  beatLo: number;
-  lastBeat: number;
-  unit: number;
-  barBeats: number;
+}: TickProps & {
   ppb: number;
   barStride: number;
 }) {
   return (
     <>
-      {tickBeats(beatLo, lastBeat, unit).map((b) => {
-        // Three weights, so the bar line still reads as the bar once beats are drawn between
-        // them: a bar, a whole beat, anything finer. Strided on the tick's index from the
-        // ORIGIN, or the surviving labels would change as scrolling moved the first one.
-        const { bar, onBeat, label } = tickAt(b, barBeats);
-        return (
+      {rulerTicks(mode, beatLo, lastBeat, unit, barBeats, bps, secStep).map(
+        (t) => (
+          // Three weights, so the coarse line still reads as the bar (or the minute) once the
+          // finer ones are drawn between them. Strided on the tick's index from the ORIGIN, or
+          // the surviving labels would change as scrolling moved the first one.
           <div
-            key={b}
+            key={t.key}
             className={cn(
               "pointer-events-none absolute top-0 h-full border-l pl-1",
-              bar
+              t.level === 0
                 ? "border-border/50 text-muted-foreground"
-                : onBeat
+                : t.level === 1
                   ? "border-border/30 text-muted-foreground/60"
                   : "border-border/15",
             )}
-            style={{ left: (b - beatLo) * ppb }}
+            style={{ left: (t.beat - beatLo) * ppb }}
           >
-            {labelled(Math.round(b / unit), barStride) ? label : ""}
+            {labelled(t.index, barStride) ? t.label : ""}
           </div>
-        );
-      })}
+        ),
+      )}
     </>
   );
 });
@@ -322,6 +420,123 @@ const RulerTicks = memo(function RulerTicks({
 interface Caret {
   row: RowKey; // identity, not an index — the orbit lanes renumber the rows
   beat: number; // >= 0 a beat cell; LABEL the row's label
+}
+
+/** One field of a picture placement, in seconds — what a finished drag asks the shell to write. */
+export interface VideoEdit {
+  ref: string;
+  field: "start" | "source_from" | "length";
+  value: number;
+}
+
+// The shortest shot a drag may leave, in seconds. A zero-length placement is one that exists and
+// shows nothing, and `length: 0` already MEANS "to the end of the source" in this format.
+const V_MIN = 0.04;
+// Seconds drawn for a `length: 0` placement, whose real extent needs the source opened to know.
+const V_NATURAL = 4;
+
+/**
+ * A picture placement in hand. Seconds throughout, even though the gesture is happening on a
+ * beat grid: the file says seconds, so the drag thinks in them and converts only to draw.
+ *
+ * `pxPerSec` and the tick list are captured at the GRAB rather than read live, exactly as the
+ * audio clip drag captures `ppb`: a zoom arriving mid-drag would otherwise re-scale the offset
+ * under the cursor and the shot would slide away from the pointer.
+ */
+interface VDrag {
+  trackId: string;
+  ref: string;
+  // Where the press landed: the body moves the shot, an edge trims it. See docs/picture.md.
+  mode: "move" | "in" | "out";
+  origStart: number;
+  origLength: number; // 0 == to the end of the source
+  origFrom: number;
+  start: number; // live
+  length: number; // live; still 0 while a length-0 placement is only being moved
+  x: number; // pointer x at grab
+  pxPerSec: number;
+  moved: boolean;
+  pending?: boolean; // written, still drawn until the reload — as Move.pending is
+}
+
+/** The extent a placement is DRAWN at: its own, or the placeholder a length-0 shot gets. */
+const drawnLength = (length: number): number =>
+  length > 0 ? length : V_NATURAL;
+
+/**
+ * Where a picture drag puts the shot, in seconds. PURE, and exported for its tests.
+ *
+ * Out here rather than inside the pointer handler because it is the only part of this gesture a
+ * test can reach: nothing in this app mounts a component, so the arithmetic that decides what
+ * lands in a file is the arithmetic worth pinning. `snapSec` is a parameter for the same reason
+ * — the ruler's tick list belongs to the render, and the maths does not need to know.
+ */
+export function videoDragTo(
+  v: Pick<
+    VDrag,
+    "mode" | "origStart" | "origLength" | "origFrom" | "start" | "length"
+  >,
+  deltaSec: number,
+  snapSec: (sec: number) => number,
+): { start: number; length: number } {
+  const drawn = drawnLength(v.origLength);
+  if (v.mode === "move")
+    return { start: snapSec(v.origStart + deltaSec), length: v.length };
+  if (v.mode === "in") {
+    // The head follows the pointer, the source's in-point follows the head, and the EXTENT
+    // shortens by the same amount — so the tail stays exactly where it is. Clamped so a trim
+    // can neither swallow the tail nor ask for a frame before the file starts.
+    const start = Math.max(
+      Math.min(snapSec(v.origStart + deltaSec), v.origStart + drawn - V_MIN),
+      v.origStart - v.origFrom,
+    );
+    return { start, length: drawn - (start - v.origStart) };
+  }
+  const end = Math.max(
+    snapSec(v.origStart + drawn + deltaSec),
+    v.origStart + V_MIN,
+  );
+  return { start: v.start, length: end - v.origStart };
+}
+
+/**
+ * The fields a finished picture drag writes, in SECONDS. PURE, and exported for its tests.
+ *
+ * The left edge writes THREE, and each is load-bearing:
+ *   `source_from` by the same delta as the head moved, or the frame under the new edge is not
+ *     the frame that was there — never below zero, there is nothing before the file;
+ *   `length` by that delta the other way, or the TAIL slides and the gesture is a move wearing
+ *     a trim's clothes. Writing only the first two is the bug this drag shipped with in its
+ *     previous life: the ghost drew a shortened shot and the file got a moved one.
+ * A length-0 shot needs the extent pinned for a second reason on top — its own source would
+ * otherwise undo the trim on the next compile — and it is the same write, so no special case.
+ */
+export function videoDragEdits(v: VDrag): VideoEdit[] {
+  if (v.mode === "out")
+    return [{ ref: v.ref, field: "length", value: v.length }];
+  const edits: VideoEdit[] = [{ ref: v.ref, field: "start", value: v.start }];
+  if (v.mode === "in") {
+    const delta = v.start - v.origStart;
+    edits.push({
+      ref: v.ref,
+      field: "source_from",
+      value: Math.max(0, v.origFrom + delta),
+    });
+    edits.push({
+      ref: v.ref,
+      field: "length",
+      value: Math.max(V_MIN, v.length),
+    });
+  }
+  return edits;
+}
+
+/** Whether a finished drag left the placement exactly where it was — then nothing is written. */
+export function videoDragIsStill(v: VDrag): boolean {
+  return (
+    v.start === v.origStart &&
+    (v.mode !== "out" || v.length === drawnLength(v.origLength))
+  );
 }
 
 // The `v` selection: a vim-style anchor + head, both holding a real beat (a rectangle is a region of the lane).
@@ -375,6 +590,8 @@ export function TimelineTab({
   active,
   reloadKey,
   orbit,
+  videoTracks,
+  onVideoEdit,
   setStatus,
   onEditTarget,
   onOpenClip,
@@ -397,6 +614,22 @@ export function TimelineTab({
   reloadKey: number;
   // The live pattern lanes, polled by the shell: one poll feeds both this and the minimap, so they can't disagree.
   orbit: WebTrack[];
+  // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`).
+  // Empty for a song that carries none, which is most of them. See hooks/useVideoDoc.ts.
+  videoTracks: WebVideoTrack[];
+  /**
+   * A picture placement was dragged: set these fields of it, in SECONDS.
+   *
+   * By `ref` and not by index, because that is what the file's placement is keyed on and a
+   * placement that moved in the file between render and drag is still the one grabbed. The
+   * values are seconds even though the gesture happened on a beat grid — the file says seconds,
+   * and converting at the edge is what keeps re-typing `tempo:` from moving anybody's cut.
+   *
+   * A LIST rather than one field per call, because trimming the head writes two of them (three
+   * on a length-0 shot) and they describe one gesture. Sent separately they would be two reads
+   * and two writes of the same file, and the second would be built on the pre-first text.
+   */
+  onVideoEdit?: (trackId: string, edits: VideoEdit[]) => void;
   setStatus: (s: string) => void;
   onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
   // A clip was CLICKED — a press that never moved. The shell shows its content where the graph
@@ -469,6 +702,10 @@ export function TimelineTab({
   const [sel, setSel] = useState<Selection | null>(null);
   // Expanded: taller lanes showing each clip's content. A per-session view toggle, not a saved preference.
   const [expanded, setExpanded] = useState(false);
+  // Which unit the RULER counts in. The same kind of toggle, and for the same reason: a song
+  // carrying picture is read in bars while you write it and in seconds while you cut it, and
+  // that is about the minute you are in rather than about the project. See `RulerMode`.
+  const [rulerMode, setRulerMode] = useState<RulerMode>("bars");
   // The name of the marker the cursor is over, shown in the header while hovering.
   const [hoverMarker, setHoverMarker] = useState<string | null>(null);
   // The zoom stack: [] is the song at rest, the last entry is what's drawn.
@@ -512,8 +749,8 @@ export function TimelineTab({
     [proj, orbit],
   );
   const rows = useMemo(
-    () => (proj ? projectRows(proj, allTracks) : []),
-    [proj, allTracks],
+    () => (proj ? projectRows(proj, allTracks, videoTracks) : []),
+    [proj, allTracks, videoTracks],
   );
   const clipEnd = (c: { start: number; length: number }) =>
     c.start + (c.length > 0 ? c.length : NATURAL);
@@ -658,7 +895,9 @@ export function TimelineTab({
   // What m/s aim at from here — a lane's track, a header's group, a pattern lane's GROUP. See docs/timeline.md.
   const caretTrackId = useMemo(() => {
     const target = caretRow && rowTarget(caretRow);
-    return target ? target.id : null;
+    // A video lane is not an engine track: no level, no arm, no mixer command. The caret reports
+    // no track id on one, so every consumer downstream refuses it without having to know why.
+    return !target || target.kind === "video" ? null : target.id;
   }, [caretRow]);
   useEffect(() => {
     onCaret({ ...caret, trackId: caretTrackId });
@@ -924,6 +1163,109 @@ export function TimelineTab({
       beatsToPosition(r.end, num, den),
     );
   }, [proj, onResizeEvent, setStatus]);
+
+  // --- dragging a PICTURE placement ---------------------------------------------
+  /**
+   * The three drags a shot takes, told apart by where the press landed — the gesture v1 had,
+   * on this grid instead of its own.
+   *
+   * | grab | writes | why |
+   * |---|---|---|
+   * | the body | `start` | move the shot |
+   * | the left edge | `start`, `source_from` **and** `length` | trim the head |
+   * | the right edge | `length` | set the extent |
+   *
+   * The left edge writing THREE fields is the interesting one. `source_from` moves by the same
+   * delta as the head, or the frame under the new edge is not the frame that was there before
+   * the trim; `length` moves by that delta the other way, or the tail slides and the gesture is
+   * a move rather than a trim. A `length: 0` placement needs the extent pinned for a second
+   * reason on top — its source's own length would undo the trim on the next compile — and it is
+   * the same write, so it is not a special case.
+   *
+   * Kept apart from the audio clip drag rather than folded into it: that one addresses a
+   * TIMECODE and commits through `event move`, a command the CLI owns, while a placement is a
+   * decimal second rewritten in its lane's own file. One gesture, two vocabularies.
+   */
+  const [vdrag, setVDrag] = useState<VDrag | null>(null);
+  const vdragRef = useRef<VDrag | null>(vdrag);
+  vdragRef.current = vdrag;
+  // The ruler's drawn ticks (in beats) and the beats-per-second, assigned during render below.
+  // The drag reads them on pointerdown so it snaps to the lines that are actually on screen.
+  const ticksRef = useRef<number[]>([]);
+  const bpsRef = useRef(1);
+  const onVideoEditRef = useRef(onVideoEdit);
+  onVideoEditRef.current = onVideoEdit;
+
+  const beginVideoDrag = useCallback(
+    (
+      e: React.PointerEvent,
+      track: WebVideoTrack,
+      c: WebVideoTrack["clips"][0],
+      mode: VDrag["mode"],
+    ) => {
+      if (e.button !== 0 || !onVideoEditRef.current) return;
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      setVDrag({
+        trackId: track.id,
+        ref: c.id,
+        mode,
+        origStart: c.start,
+        origLength: c.length,
+        origFrom: c.sourceFrom,
+        start: c.start,
+        length: c.length,
+        x: e.clientX,
+        // px per second at the grab: px per beat × beats per second.
+        pxPerSec: Math.max(1e-6, ppbRef.current * bpsRef.current),
+        moved: false,
+      });
+    },
+    [],
+  );
+
+  const onVideoDragMove = useCallback((e: React.PointerEvent) => {
+    const v = vdragRef.current;
+    if (!v || v.pending) return;
+    // Measured from the GRAB and not from the last frame: an offset re-applied every
+    // pointermove makes the edge run away from the cursor, whichever way you move.
+    const d = (e.clientX - v.x) / v.pxPerSec;
+    if (Math.abs(e.clientX - v.x) > DRAG_SLOP) v.moved = true;
+    // Snapped to the ruler's own ticks, whichever unit it is reading — you aimed at a line, not
+    // at a pixel. Which is also how a finer position is reached: open the zoom and the ruler
+    // subdivides, exactly as it does for the caret.
+    const snapSec = (sec: number): number => {
+      const t = nearestTick(ticksRef.current, sec * bpsRef.current);
+      return t === null ? Math.max(0, sec) : Math.max(0, t / bpsRef.current);
+    };
+    const next = videoDragTo(v, d, snapSec);
+    if (next.start !== v.start || next.length !== v.length)
+      setVDrag({ ...v, ...next });
+  }, []);
+
+  const commitVideoDrag = useCallback(() => {
+    const v = vdragRef.current;
+    if (!v || v.pending) return; // a second pointerup must not send the same edit twice
+    const write = onVideoEditRef.current;
+    // A drag that ended where it started writes nothing — the same courtesy the clip drag
+    // extends, and it keeps a stray click on a shot out of the undo history.
+    if (!write || !v.moved || videoDragIsStill(v)) {
+      setVDrag(null);
+      if (v.moved) setStatus("drag cancelled — no change");
+      return;
+    }
+    // Held until the reload, exactly as a committed move is: clearing here snapped the shot
+    // back to where it was grabbed for the length of the round trip.
+    setVDrag({ ...v, pending: true });
+    write(v.trackId, videoDragEdits(v));
+  }, [setStatus]);
+
+  // The reload landed, so the compiler's answer replaces the drag's guess. The same rule the
+  // clip move follows: the ghost is held until the document that proves it comes back, and what
+  // is on screen is then always what compiled and never what the pointer assumed.
+  useEffect(() => {
+    setVDrag((v) => (v?.pending ? null : v));
+  }, [videoTracks]);
 
   // A live prop read from pointer callbacks that must not re-bind on every frame — the same
   // shadowing commitMoveRef does, and for the same reason.
@@ -1347,6 +1689,10 @@ export function TimelineTab({
       setStatus(
         `selected: group ${caretRow.group.name} — m/s act on its members`,
       );
+    else if (caretRow.kind === "video")
+      setStatus(
+        `selected: video ${caretRow.track.name} — picture, cut in seconds; drag its shots, m hides the lane`,
+      );
     else if (caretRow.track.generated)
       setStatus(
         caretTrackId
@@ -1398,11 +1744,38 @@ export function TimelineTab({
   // zoom opens up (see ticks.ts). The GRID follows the music, so what you snap to and what
   // you see are the same thing at every zoom.
   const unit = subdivideBeats(barBeats, ppb);
+  // Beats per second — the whole of the conversion between the song's unit and the picture's.
+  // Exact and reversible because there is ONE tempo and no tempo map: a placement written at
+  // 4.5s is at 9 beats at 120bpm, and re-typing `tempo:` slides the grid under the shot rather
+  // than moving the shot. Clamped off zero so a malformed `tempo: 0` cannot divide by it.
+  const bps = Math.max(1e-6, proj.tempo / 60);
+  // The seconds ladder's step, chosen against the widest CLOCK this ruler can print for the
+  // same reason the bar ruler measures its last label: a step picked against "0:00" would
+  // overlap once the numbers reached "10:00". `chooseTick` guarantees the spacing, so the
+  // seconds ruler needs no stride on top of it.
+  const secStep = chooseTick(
+    SECOND_TICKS,
+    ppb / bps,
+    labelMinPx(formatClock(Math.max(lastBeat, 0) / bps, 1)),
+  );
   // The drawn ticks, for the gestures that SNAP to one — the ruler's click-to-seek and its
   // right-click "add marker here". Grid and RulerTicks build the same list from the same
   // helper rather than taking it as a prop: an array would be a new identity on every render
-  // and would defeat the memo that keeps them off the frame path.
-  const bars = tickBeats(beatLo, lastBeat, unit);
+  // and would defeat the memo that keeps them off the frame path. It is what the ruler is
+  // READING IN, so switching to seconds moves what you can land on with it.
+  const bars = rulerTicks(
+    rulerMode,
+    beatLo,
+    lastBeat,
+    unit,
+    barBeats,
+    bps,
+    secStep,
+  ).map((t) => t.beat);
+  // Read by the picture drag on pointerdown, so a shot snaps to the lines actually on screen
+  // (see beginVideoDrag). Assigned during render for the same reason `ppbRef` is.
+  ticksRef.current = bars;
+  bpsRef.current = bps;
   // The widest number this ruler CAN print — the last bar's, carrying a beat once beats are
   // drawn. Taken from the ruler's END rather than the bars on screen: on those, panning past
   // bar 10 and again past bar 100 would re-thin every label under the cursor.
@@ -1414,7 +1787,18 @@ export function TimelineTab({
   // How many COLUMNS per printed number: 1 while they fit, then 2, 4, 8… as the zoom
   // closes. Measured on the drawn unit, which is what a column now is, against the room the
   // widest label actually needs — see @studio/ui-waveform's docs/ticks.md.
-  const barStride = labelStride(unit * ppb, labelMinPx(widestLabel));
+  const barStride =
+    rulerMode === "bars" ? labelStride(unit * ppb, labelMinPx(widestLabel)) : 1;
+  // Both tick layers take the same seven, so the ruler and the grid cannot read different units.
+  const tickProps = {
+    mode: rulerMode,
+    beatLo,
+    lastBeat,
+    unit,
+    barBeats,
+    bps,
+    secStep,
+  };
 
   // Markers inside the visible range, drawn in the ruler; num/den turn a right-click beat into a timecode.
   const tsNum = proj.timeSigNumerator;
@@ -1469,6 +1853,26 @@ export function TimelineTab({
             ◆ {hoverMarker}
           </span>
         )}
+        {/* The ruler's unit. Beside Expand because it is the same kind of control: what this
+            surface SHOWS, for as long as you are looking at it, changing nothing on disk. */}
+        <button
+          type="button"
+          onClick={() =>
+            setRulerMode((m) => (m === "bars" ? "seconds" : "bars"))
+          }
+          aria-pressed={rulerMode === "seconds"}
+          title={
+            rulerMode === "seconds"
+              ? "règle en secondes — cliquer pour revenir aux mesures"
+              : "règle en mesures — cliquer pour lire en secondes (l'image se coupe à l'horloge)"
+          }
+          className={cn(
+            "flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground",
+            rulerMode === "seconds" && "bg-accent text-foreground",
+          )}
+        >
+          <Clock className="h-3.5 w-3.5" />
+        </button>
         {/* Expand: taller lanes that reveal each clip's waveform / notes. */}
         <button
           type="button"
@@ -1501,10 +1905,7 @@ export function TimelineTab({
               FIRST in the wrapper on purpose: positioned siblings paint in tree order, so
               everything a lane holds draws over this rather than being crossed out by it. */}
           <Grid
-            beatLo={beatLo}
-            lastBeat={lastBeat}
-            unit={unit}
-            barBeats={barBeats}
+            {...tickProps}
             ppb={ppb}
             laneW={laneW}
             left0={GUTTER}
@@ -1639,14 +2040,7 @@ export function TimelineTab({
                   waveform's ruler uses, so the two agree when stacked in the clip
                   editor). Strided on the bar's own index, not its position in `bars`, or
                   the surviving labels would change as scrolling moved the first one. */}
-              <RulerTicks
-                beatLo={beatLo}
-                lastBeat={lastBeat}
-                unit={unit}
-                barBeats={barBeats}
-                ppb={ppb}
-                barStride={barStride}
-              />
+              <RulerTicks {...tickProps} ppb={ppb} barStride={barStride} />
               {/* The transport loop region, over its bar range. `overflow-hidden` above
                   clips it when it runs past the view, same as the bar markers. The engine
                   does the actual wrapping; this just shows what's looping. */}
@@ -1758,6 +2152,146 @@ export function TimelineTab({
                   </div>
                 </div>
               );
+
+            /**
+             * A PICTURE lane. Its placements are decimal seconds and this grid is beats, which
+             * is exactly convertible here (one `tempo:`, no tempo map) — so unlike the read-only
+             * lane l8 used to draw, these can be dragged. What the ruler is reading in decides
+             * what they snap to; what the FILE holds is always seconds, so re-typing `tempo:`
+             * slides the grid under the cut rather than moving it. See docs/timeline.md.
+             */
+            if (row.kind === "video") {
+              const vt = row.track;
+              const toBeats = (s: number) => s * bps;
+              return (
+                <div
+                  key={`video:${vt.id}`}
+                  className={cn(
+                    "flex border-b border-border/40",
+                    vt.mute && "opacity-50", // "mute" on a video lane == hidden
+                  )}
+                  // No context menu: this menu is DERIVED from the command catalogue, and
+                  // picture has no verbs in it — a placement is rewritten in its lane's file
+                  // rather than through `@studio/commands`. An empty menu would be worse than
+                  // none. See docs/contextMenu.md.
+                  style={{ height: ROW_H }}
+                >
+                  <div
+                    style={{ width: GUTTER }}
+                    {...gutterProps(row)}
+                    className={cn(
+                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
+                      inSel && "bg-primary/20",
+                      labelled && LABEL_SELECTED,
+                    )}
+                  >
+                    {vt.color && (
+                      <span
+                        className="size-2 shrink-0 rounded-sm"
+                        style={{ background: vt.color }}
+                      />
+                    )}
+                    <TrackIcon
+                      name={vt.name}
+                      video
+                      className="h-3.5 w-3.5 shrink-0 opacity-70"
+                    />
+                    <span
+                      className="truncate"
+                      title={`${vt.name} — a ${vt.kind === "shape" ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
+                    >
+                      {trackLabel(vt.name)}
+                    </span>
+                  </div>
+                  <div
+                    className="relative overflow-hidden"
+                    style={{
+                      width: laneW,
+                      // A shape lane holds no placements at all, so it is hatched rather than
+                      // drawn as an empty row that looks like a lane you forgot to fill.
+                      ...(vt.kind === "shape"
+                        ? { backgroundImage: HATCH }
+                        : null),
+                    }}
+                  >
+                    {vt.clips.map((c, i) => {
+                      // The one being dragged draws where the pointer says, not where the
+                      // document does — the ghost the commit then makes true.
+                      const live =
+                        vdrag && vdrag.trackId === vt.id && vdrag.ref === c.id
+                          ? vdrag
+                          : null;
+                      const start = live ? live.start : c.start;
+                      const length = live ? live.length : c.length;
+                      // A length-0 placement runs to the end of a source the browser has not
+                      // measured, so it draws at a placeholder width, dashed and amber: an
+                      // honest "this is provisional" rather than a confident wrong rectangle.
+                      const provisional = length <= 0;
+                      const w = Math.max(
+                        ppb,
+                        toBeats(provisional ? V_NATURAL : length) * ppb,
+                      );
+                      return (
+                        <div
+                          // By placement, not by ref: one source may be placed twice on a lane,
+                          // and `c.id` IS the ref. A drag on either then writes the FIRST — the
+                          // file keys its placements by ref too (videoTrackFile.ts), so that is
+                          // the format's own limit rather than this component's, and drawing
+                          // them with one key would add a React warning to it.
+                          key={`${c.id}:${i}`}
+                          onPointerDown={(e) =>
+                            beginVideoDrag(e, vt, c, "move")
+                          }
+                          onPointerMove={onVideoDragMove}
+                          onPointerUp={commitVideoDrag}
+                          onPointerCancel={commitVideoDrag}
+                          className={cn(
+                            "absolute inset-y-0.5 flex items-center gap-0.5 overflow-hidden rounded-sm px-1 text-[10px] text-white",
+                            onVideoEdit ? "cursor-grab" : "",
+                            provisional
+                              ? "border border-dashed border-amber-400 bg-amber-600/50"
+                              : "bg-violet-600/70",
+                            live?.pending && "opacity-60",
+                          )}
+                          style={{ left: x(toBeats(start)), width: w }}
+                          title={`${c.name || c.id} — ${
+                            provisional
+                              ? "to the end of the source"
+                              : `${length}s`
+                          } at ${start}s, from ${c.sourceFrom}s into the source`}
+                        >
+                          <TrackIcon
+                            name={c.name}
+                            video
+                            className="h-2.5 w-2.5 shrink-0 opacity-80"
+                          />
+                          <span className="truncate">{c.name || c.id}</span>
+                          {/* The two trim handles. Wider than they look — a 6px target is a
+                              miss, and the body's own drag is what a miss lands on. */}
+                          {onVideoEdit && (
+                            <>
+                              <span
+                                onPointerDown={(e) =>
+                                  beginVideoDrag(e, vt, c, "in")
+                                }
+                                className="absolute inset-y-0 left-0 w-2 cursor-ew-resize"
+                              />
+                              <span
+                                onPointerDown={(e) =>
+                                  beginVideoDrag(e, vt, c, "out")
+                                }
+                                className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
+                              />
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {inSel && selBox && selSlice(selBox)}
+                  </div>
+                </div>
+              );
+            }
 
             const { track: t, index: ti } = row;
             const eff = effOf(t);

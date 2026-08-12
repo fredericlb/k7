@@ -3,14 +3,15 @@
 // `panel` is a modifier on whichever screen you're on and rides as a query parameter.
 // See docs/shellRouting.md.
 
-export type Pane = "editor" | "timeline" | "chains";
+export type Pane = "editor" | "viewport" | "timeline" | "chains";
 /**
  * The layouts. `global` is the timeline over the graph; `live` is the graph and nothing else.
  *
  * A layout is the shell's own idea of which panes are on screen, and it is `viewPanes` below
  * that every pane ring and every fullscreen exit reads. That indirection was kept when picture
- * left for v1 and only `global` remained, precisely so a second layout could come back without
- * spreading the assumption across twenty call sites — this is it.
+ * left and only `global` remained, precisely so what came back would not have to be spread
+ * across twenty call sites. What came back was a PANE — the viewport — so `viewPanes` grew an
+ * argument and the layout list did not grow a row.
  *
  * `live` is NOT chosen from the header: it is what the open PROJECT is (project.yaml's
  * `project_type`), so it is derived rather than toggled, and the shell refuses to leave it.
@@ -41,7 +42,7 @@ export interface RouteState {
   surface: string | null;
 }
 
-const PANES: Pane[] = ["editor", "timeline", "chains"];
+const PANES: Pane[] = ["editor", "viewport", "timeline", "chains"];
 const PANELS: Panel[] = ["graph", "logs"];
 
 /** What a layout does with the panes: the `ring` it cycles, and what `full` may fullscreen. */
@@ -53,40 +54,52 @@ export interface Layout {
 /**
  * What each layout does with the panes, given what the PROJECT declares.
  *
- * A FUNCTION rather than the table it used to be, because one of the three panes is no longer
- * the shell's to assume: the timeline is a `split` surface now (`surfaces/`, `type: timeline`),
- * so a project that declares none has no arrangement to show and every list that named one was
- * naming a pane that will not be mounted. `timeline` is that declaration, passed down from the
- * one place that has the surface list. See packages/song/docs/surfaces.md.
+ * A FUNCTION rather than the table it used to be, because two of the four panes are not the
+ * shell's to assume: the timeline and the viewport are both `split` surfaces (`surfaces/`,
+ * `type: timeline` / `type: viewport`), so a project that declares neither has no arrangement
+ * and no frame to show, and every list that named one was naming a pane that will not be
+ * mounted. Both flags come down from the one place that has the surface list. See
+ * packages/song/docs/surfaces.md.
  *
  * Here rather than in `shellMeta` beside the icons because `fromLocation` below reads it — an
  * address naming a pane the layout hasn't got must not parse into a screen that cannot be drawn.
  * The icons are presentation; this is the layout itself.
  *
- * `live` fullscreens NOTHING, and that is not an omission: its one pane already has the whole
- * window, so every `full` value would either be a no-op or hide the only thing on screen. The
- * editor is absent from both of its lists and still reachable — `ui file` brings it as a POPIN,
- * which is not a pane and belongs to no layout (docs/shell.md). A `global` view with no timeline
- * lands in the same place from the other side, and keeps its editor: it is a song whose
- * arrangement is simply not declared, not a rig.
+ * The ring is built TOP-DOWN, in the order the panes are stacked on screen: the frame over the
+ * arrangement over the graph. The number keys and the mobile tabs read it, so a ring that
+ * disagreed with the column would make `2` land somewhere the eye did not expect.
+ *
+ * `live` with nothing declared fullscreens NOTHING, and that is not an omission: its one pane
+ * already has the whole window, so every `full` value would either be a no-op or hide the only
+ * thing on screen. A rig that declares a VIEWPORT has two panes and gets its fullscreens back —
+ * a rig with picture is a real thing, and it is the declaration that says so. The editor is
+ * absent from live's lists either way and still reachable: `ui file` brings it as a POPIN, which
+ * is not a pane and belongs to no layout (docs/shell.md). A `global` view with no timeline lands
+ * in the same place from the other side, and keeps its editor: it is a song whose arrangement is
+ * simply not declared, not a rig.
  */
-export function viewPanes(view: View, timeline: boolean): Layout {
-  if (view === "live") return { ring: ["chains"], fullscreen: [] };
-  return timeline
-    ? {
-        ring: ["timeline", "chains"],
-        fullscreen: ["editor", "timeline", "chains"],
-      }
-    : { ring: ["chains"], fullscreen: ["editor", "chains"] };
+export function viewPanes(
+  view: View,
+  timeline: boolean,
+  viewport = false,
+): Layout {
+  const picture: Pane[] = viewport ? ["viewport"] : [];
+  if (view === "live") {
+    const ring: Pane[] = [...picture, "chains"];
+    return { ring, fullscreen: viewport ? ring : [] };
+  }
+  const arrangement: Pane[] = timeline ? ["timeline"] : [];
+  const ring: Pane[] = [...picture, ...arrangement, "chains"];
+  return { ring, fullscreen: ["editor", ...ring] };
 }
 
 const isPane = (s: string): s is Pane => (PANES as string[]).includes(s);
 const isPanel = (s: string): s is Panel => (PANELS as string[]).includes(s);
 
 /**
- * The path + search for a screen. `view` reaches the URL only when there is a second layout
- * to name — there is not, now that picture is v1's, so the only paths left are a fullscreened
- * pane and the root.
+ * The path + search for a screen. `view` reaches the URL only when there is a second layout to
+ * name — `live` is derived from the project rather than chosen, so the only paths left are a
+ * fullscreened pane and the root. Picture coming back added a PANE, not a layout.
  */
 export function toPath(s: RouteState): string {
   // Help wins, then a surface, then a fullscreened pane. The order is the stacking order on
@@ -118,6 +131,10 @@ export function fromLocation(
   // must not parse into a pane nothing will mount. Defaulted, so a caller that has not got the
   // surface list yet reads addresses exactly as it did before.
   timeline = true,
+  // The same, for the frame. NOT defaulted to true: a timeline is what almost every project has,
+  // while picture is the exception — so the optimistic default that keeps `/timeline` working on
+  // the first frame would make `/viewport` briefly parse for every song that has no picture at all.
+  viewport = false,
 ): RouteState {
   const seg = pathname.replace(/^\/+|\/+$/g, "");
   const panelParam = new URLSearchParams(search).get("panel") ?? "";
@@ -142,14 +159,18 @@ export function fromLocation(
       return { ...base, surface: decoded };
     }
   }
+  const layout = viewPanes(current, timeline, viewport);
   // A pane the CURRENT layout cannot fullscreen is not an address here — `/timeline` typed at a
   // live project, or at one that declares no timeline surface, names a pane that project hasn't
   // got. It falls through to the layout's own screen rather than 404ing, for the same reason an
   // unknown segment does.
-  if (isPane(seg) && viewPanes(current, timeline).fullscreen.includes(seg))
+  if (isPane(seg) && layout.fullscreen.includes(seg))
     return { ...base, full: seg };
-  // `/video` still parses, to whichever layout is current: it was a real address for a year, and
-  // a bookmark should land somewhere usable rather than nowhere.
+  // `/video` was the picture pane's address for a year, before picture left for an app of its
+  // own. It is `/viewport` now, and an old bookmark lands on it rather than nowhere — subject to
+  // the same check as any other, so a song without picture still falls through to its layout.
+  if (seg === "video" && layout.fullscreen.includes("viewport"))
+    return { ...base, full: "viewport" };
   return base;
 }
 

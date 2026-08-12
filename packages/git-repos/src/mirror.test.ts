@@ -7,8 +7,10 @@ const FILES = [
   "songs/first.l8/tracks/bass.yaml",
   "songs/first.l8/audio/kick.wav",
   "songs/live.m9/chains.yaml",
-  "clips/le clip.v1/project.yaml",
-  "clips/le clip.v1/video_tracks/main.yaml",
+  // Picture lives in a SONG — one folder, two compiles — so a lane file changes nothing here:
+  // the folder is a `.l8` and the suffix is still the whole rule.
+  "clips/le clip.l8/project.yaml",
+  "clips/le clip.l8/video_tracks/main.yaml",
   "songs/notes.txt",
   "deep/a/b/c.l8/project.yaml",
   // A folder with a project file but NO suffix is not a project any more — the name decides.
@@ -23,7 +25,7 @@ describe("projectDirs", () => {
       new Map([
         ["songs/first.l8", "l8"],
         ["songs/live.m9", "m9"],
-        ["clips/le clip.v1", "v1"],
+        ["clips/le clip.l8", "l8"],
         ["deep/a/b/c.l8", "l8"],
       ]),
     );
@@ -88,6 +90,7 @@ describe("buildTree", () => {
 
   it("sorts folders before files, then by name", () => {
     expect(tree.map((n) => n.name)).toEqual([
+      "clips",
       "deep",
       "plain",
       "songs",

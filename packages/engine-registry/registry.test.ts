@@ -101,7 +101,7 @@ describe("the engine claim", () => {
     const song = grant(
       reg.claim("e1", { project: "band/winter.l8", holder: "a" }),
     );
-    grant(reg.claim("e1", { project: "band/leclip.v1", holder: "b" }));
+    grant(reg.claim("e1", { project: "band/leclip.l8", holder: "b" }));
 
     // Not tidiness: `engineLink.ts` keeps a single active project per machine and says so
     // ("several browser tabs share it — last write wins"). A second one clobbers.
@@ -198,7 +198,7 @@ describe("the engine claim", () => {
       const mine = grant(
         reg.claim("e1", { project: "band/winter.l8", holder: "alice" }),
       );
-      grant(reg.claim("e1", { project: "band/leclip.v1", holder: "bob" }));
+      grant(reg.claim("e1", { project: "band/leclip.l8", holder: "bob" }));
 
       const r = reg.claim("e1", {
         project: "band/winter.l8",
@@ -210,7 +210,7 @@ describe("the engine claim", () => {
       // Naming it is what lets the tab offer "pick another engine" instead of a wrong apology.
       expect(r.lost).toBe("engine");
       expect(r.heldBy).toBe("bob");
-      expect(r.tookFor).toBe("band/leclip.v1");
+      expect(r.tookFor).toBe("band/leclip.l8");
     });
 
     it("`lapsed` — nobody took anything; the claim just aged out", () => {

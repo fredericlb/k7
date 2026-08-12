@@ -18,7 +18,7 @@ on the whole screen.
 
 ## Why it is not `type`
 
-`project.yaml` already has a root `type:` — `l8`, `m9`, `v1`, `z0` — and the two are different
+`project.yaml` already has a root `type:` — `l8`, `m9`, `z0` — and the two are different
 questions asked at different levels:
 
 | | question | answered by |
@@ -128,7 +128,7 @@ preservingly, and only when it is not already live.
 ## Creating one
 
 st0's « Nouveau projet » shows a second row of buttons for l8, `arrangement | live`. It is a
-separate field all the way down — it cannot ride on `type` (`"audio" | "m9" | "v1"`) and it cannot
+separate field all the way down — it cannot ride on `type` (`"audio" | "m9"`) and it cannot
 ride on the folder suffix, since both shapes are `.l8`. Absent means `arrangement`, so every caller
 written before it — l8's own command bar included — keeps creating exactly what it always did.
 

@@ -74,6 +74,13 @@ describe("parseSurface", () => {
     expect(value?.layout).toBe("split");
   });
 
+  it("reads the FRAME, which is a surface like any other", () => {
+    const { value, issues } = parseSurface("type: viewport\nlayout: split\n");
+    expect(issues).toEqual([]);
+    expect(value?.type).toBe("viewport");
+    expect(value?.layout).toBe("split");
+  });
+
   it("refuses a PAIR the editor has no component for", () => {
     // Both halves are valid on their own, which is exactly why the pair needs its own check: a
     // timeline asking for its own screen, or a desk asking for a slot in the layout, names
@@ -83,6 +90,9 @@ describe("parseSurface", () => {
     expect(inSplit.issues[0].path).toBe("layout");
     expect(inSplit.issues[0].message).toContain("'view'");
     expect(parseSurface("type: timeline\nlayout: view\n").value).toBeNull();
+    // A viewport owns a GL context and a <video> per layer; a screen you open and close would
+    // rebuild both every time. `full` is how the picture gets big.
+    expect(parseSurface("type: viewport\nlayout: view\n").value).toBeNull();
   });
 
   it("requires both halves", () => {
@@ -183,5 +193,48 @@ describe("an arrangement that declares no timeline", () => {
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
     expect(projectSurfaces(dir).diagnostics).toEqual([]);
     expect(surfaceIssues(dir).map((d) => d.severity)).toEqual(["warning"]);
+  });
+});
+
+describe("a song with video lanes and no viewport", () => {
+  const TIMELINE = "type: timeline\nlayout: split\n";
+
+  /** `withSurface`'s folder, plus a video lane on disk. */
+  function withPicture(name: string, body: string): string {
+    const dir = withSurface(name, body);
+    mkdirSync(join(dir, "video_tracks"), { recursive: true });
+    writeFileSync(join(dir, "video_tracks", "main.yaml"), "kind: video\n");
+    return dir;
+  }
+
+  it("is warned about — its lanes DRAW, so it looks like it is working", () => {
+    const dir = withPicture("timeline", TIMELINE);
+    const warn = surfaceIssues(dir).filter((d) => d.severity === "warning");
+    expect(warn.length).toBe(1);
+    expect(warn[0].message).toContain("viewport");
+    expect(surfaceIssues(dir).some((d) => d.severity === "error")).toBe(false);
+  });
+
+  it("is silent once it declares one", () => {
+    const dir = withPicture("timeline", TIMELINE);
+    writeFileSync(
+      join(dir, "surfaces", "viewport.yaml"),
+      "type: viewport\nlayout: split\n",
+    );
+    expect(surfaceIssues(dir)).toEqual([]);
+  });
+
+  it("says nothing about picture to a song that has none", () => {
+    // The check is on `video_tracks/`, not on the declaration: a song with no picture must not
+    // be told to add a viewport, or every song in the médiathèque grows a warning.
+    expect(surfaceIssues(withSurface("timeline", TIMELINE))).toEqual([]);
+  });
+
+  it("can be missing BOTH, and says so twice", () => {
+    const dir = withPicture("desk", DESK);
+    expect(surfaceIssues(dir).map((d) => d.severity)).toEqual([
+      "warning",
+      "warning",
+    ]);
   });
 });

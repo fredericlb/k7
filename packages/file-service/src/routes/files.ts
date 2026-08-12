@@ -246,10 +246,11 @@ filesRouter.post(
 
 // Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
-  // "m9" and "v1" are different KINDS of project, not variants of the song scaffold — a set
-  // folder and a cut folder, each getting its suffix appended so st0 offers it to the app
-  // that opens it. See projectLifecycle.ts.
-  type: z.enum(["audio", "m9", "v1"]),
+  // "m9" is a different KIND of project, not a variant of the song scaffold — a set folder,
+  // getting its suffix appended so st0 offers it to the app that opens it. There was a "v1"
+  // beside it, a cut; picture is a song's own now, so there is no third kind.
+  // See projectLifecycle.ts.
+  type: z.enum(["audio", "m9"]),
   // l8's own axis, and a SEPARATE field on purpose: it is orthogonal to `type` above and to the
   // suffix on the name, both of which answer "which app opens this". This answers "which of l8's
   // two shapes" — a song with a timeline, or a live rig. Absent means `arrangement`, so every
@@ -329,7 +330,7 @@ const cmdBody = z.object({ line: z.string() });
  * Building it HERE costs the same 401 ms but spends it inside a request the client is already
  * waiting on, so the canvas can redraw the moment this returns instead of a fetch and a parse
  * later. Two things follow for free: `graphDoc()` fills `graphCache`, so a client that ignores
- * the field — m9, v1 — finds a warm cache on its next `GET /graph` and is faster without
+ * the field — m9 — finds a warm cache on its next `GET /graph` and is faster without
  * changing; and keying it on the revision keeps `transport play` exactly as cheap as it was.
  */
 filesRouter.post(
@@ -511,12 +512,14 @@ filesRouter.get(
 );
 
 /**
- * The same folder read as PICTURE — the `WebVideoProject` v1 draws.
+ * The same folder read as PICTURE — the `WebVideoProject` the viewport surface draws.
  *
  * A route of its own rather than a shape `/project-doc` might also return: the two are
- * different documents from different compilers (a song has a tempo, a cut has a viewport), and
- * one route answering either would make "which did I get" a runtime question at every call
- * site. A `.v1` folder answers here and fails at `/project-doc`; an `.l8` folder the reverse.
+ * different documents from different compilers (a song has a tempo, its picture has a
+ * viewport), and one route answering either would make "which did I get" a runtime question at
+ * every call site. BOTH answer for the same folder now — a song carries its own picture — and
+ * a project with no `video_tracks/` gets an empty document here rather than an error, so "no
+ * picture" and "broken picture" stay two different answers. See workspace.videoProjectDoc.
  */
 filesRouter.get(
   "/video-doc",

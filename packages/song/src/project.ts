@@ -95,7 +95,8 @@ export function withGroupMix(doc: ProjectDoc): ProjectDoc {
 }
 
 // `withoutVideo` stood here and is gone: a ProjectDoc no longer carries picture at all, so
-// there is nothing left to strip on the way to the engine. Picture is v1's — videoDoc.ts.
+// there is nothing left to strip on the way to the engine. Picture is its own document, from
+// its own compile of the same folder — videoDoc.ts, and docs/picture.md for why.
 
 // Read a single-file source into the { project, tracks } shape. Folder projects
 // are handled earlier (in loadProject); here the only supported file is YAML.

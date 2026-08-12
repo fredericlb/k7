@@ -12,7 +12,7 @@ const kind = (folder: string): RegExp =>
 /** A MIDI sequence file — the Editor panel previews its inline notes. */
 export const isSeqFile = (path: string): boolean =>
   kind("sequences").test(norm(path));
-/** A clip file — audio (a waveform) or, in a v1 cut, video. */
+/** A clip file — audio (a waveform) or video. */
 export const isClipFile = (path: string): boolean =>
   kind("clips").test(norm(path));
 /**
@@ -26,8 +26,8 @@ export const isClipFile = (path: string): boolean =>
  */
 export const isTrackFile = (path: string): boolean =>
   kind("nodes").test(norm(path));
-/** A v1 lane's placement file: a flat mapping whose `clips:` lists placements. Still known
- *  here because the file TREE is the workspace's, and a workspace holds every app's projects. */
+/** A PICTURE lane's placement file: a flat mapping whose `clips:` lists placements, in seconds.
+ *  What the editor's readers strip is drawn for (components/VideoReadersStrip.tsx). */
 export const isVideoTrackFile = (path: string): boolean =>
   kind("video_tracks").test(norm(path));
 

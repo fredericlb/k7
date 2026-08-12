@@ -4,7 +4,7 @@
 
 A layer shows one clip at a time by construction, so per-clip elements would mean N
 decoders for a lane that displays one picture. A cut swaps the element's `src`, which
-costs a visible hitch — acceptable for v1; a later pass can preload the next clip in a
+costs a visible hitch — accepted for now; a later pass can preload the next clip in a
 second element and swap at the boundary.
 
 The element is muted (the file's audio is dropped by design, and muted is also what lets

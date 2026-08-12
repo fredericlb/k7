@@ -95,12 +95,12 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   names. That's all a group is.
 - **Mute is the lane's BYPASS**, one name in `chains.yaml`'s `bypassed:`; solo is derived by
   the surface and written nowhere.
-- **There is no picture here.** l8 drew video tracks until they left for `apps/v1`,
-  which cuts in seconds against a wall clock rather than in beats against a tempo. A
-  `video_tracks/` folder in a song is now a compile error naming where it belongs. The one
-  thing that genuinely went with it is `video_source` — an audio track inheriting a video
-  lane's placements — which cannot exist once the two are two folders. See
-  [packages/song/docs/v1Project.md](../../packages/song/docs/v1Project.md).
+- **A song holds picture too.** `video_tracks/<id>.yaml` places shots in SECONDS against the
+  wall clock, where lanes are placed in bars against the tempo. Both are drawn on the one
+  timeline, whose ruler reads either unit, and a `surfaces/viewport.yaml` composites the
+  frame. It is a second COMPILE of the same folder, so the document the engine is handed
+  carries no picture at all. See
+  [packages/song/docs/picture.md](../../packages/song/docs/picture.md).
 - **A strudel lane streams its material from a pattern.** `strudel` links one file
   under `algo/`, and the lane's **name** picks which part of it to receive — the
   pattern's `.label("…")`, matched ignoring case and punctuation.

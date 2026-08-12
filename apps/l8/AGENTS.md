@@ -60,6 +60,7 @@ matches before changing it:
 | `shellRouting.md` | `routes.ts` + `useViewRoute.ts` — view / full / panel against the URL |
 | `chainsGraph.md` | the chains renderer and its camera rules |
 | `timeline.md` | the keyboard-driven arrangement view |
+| `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
 | `commandBar.md` | the step-by-step palette and module picker |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
@@ -80,13 +81,14 @@ matches before changing it:
 
 ### Layout: panes, not tabs
 
-`App.tsx` shows two panes at once, stacked full width: the **timeline over the graph**. The
-EDITOR has no slot in either layout — it is fullscreened deliberately (`ui editor`) or arrives
-as a popin when a command sends it to a file (`frontend/docs/shell.md`). Each pane is still
-**mounted exactly once, in every layout**; `hidden` takes one off screen and nothing unmounts,
-which is what lets the editor be restyled into a popin without losing its undo history. Two
-views: `global` (the timeline over the chains graph) and `live` (the graph alone). `full` sits on
-top of a view to fullscreen one pane.
+`App.tsx` stacks the panes the project declares, full width: the **frame over the timeline over
+the graph**. The EDITOR has no slot in either layout — it is fullscreened deliberately
+(`ui editor`) or arrives as a popin when a command sends it to a file
+(`frontend/docs/shell.md`). A pane that IS in the layout is **mounted exactly once and never
+unmounted**; `hidden` takes it off screen, which is what lets the editor be restyled into a
+popin without losing its undo history, and what keeps the viewport's GL context alive while you
+are looking elsewhere. Two views: `global` and `live` (the graph alone). `full` sits on top of a
+view to fullscreen one pane.
 
 **A note is a MODULE, not a panel.** The Docs panel is gone, and with it the `docs:`/`todos:`
 fields modules and tracks carried — both schemas are `.strict()`, so a file still holding one
@@ -96,13 +98,22 @@ default; the note button sits in the footer beside the mixer. Read
 `packages/song/docs/docModules.md`, and `packages/song/scripts/migrateDocFields.ts` is the tool
 that moves an old project's prose into comments.
 
-**A project may declare SURFACES.** An optional `surfaces/` folder, one file per special view —
-`type` (only `turntables` so far: m9's desk, from `@studio/ui-turntables`), `layout` (only
-`view`), and a `mapping` saying which module each of its components moves. Each gets a button at
-the top right and takes the screen like the help page: a `RouteState.surface`, **not** a `Pane`,
-because the list is the project's and a union could not name it. A component with no mapping is
-reported on the surface itself, not by refusing the project. Read
-`packages/song/docs/surfaces.md`.
+**A project declares its SURFACES.** A `surfaces/` folder, one file per special view — `type`,
+`layout`, and a `mapping` saying which module each of its components moves. Three types and two
+layouts, and the PAIR is validated:
+
+| type | layout | what it is |
+|---|---|---|
+| `timeline` | `split` | the arrangement — a pane, and the reason a song draws one at all |
+| `viewport` | `split` | the frame: the song's video lanes composited by `@studio/ui-eyes` |
+| `turntables` | `view` | m9's desk, from `@studio/ui-turntables` |
+
+A `view` surface gets a button at the top right and takes the screen like the help page: a
+`RouteState.surface`, **not** a `Pane`, because the list is the project's and a union could not
+name it. A `split` one is *in* the layout, in the pane ring, mounted for as long as the project
+is open — which for the viewport is load-bearing, since it owns a GL context and a `<video>` per
+layer. A component with no mapping is reported on the surface itself, not by refusing the
+project. Read `packages/song/docs/surfaces.md`.
 
 **`view` is the one piece of screen state nobody chooses.** It is what the open PROJECT is —
 `project.yaml`'s `project_type`, `arrangement` or `live` — and a live project has no timeline at
@@ -112,8 +123,9 @@ closes the header buttons, the number keys, `ui <pane>` and the mobile tabs in o
 `packages/song/docs/projectMode.md` before touching any of it.
 
 The vocabulary is three words, not two, and `src/routes.ts` is where they are declared —
-read it before changing layout. A **pane** is one of three (`editor | timeline | chains`)
-and is what `full` fullscreens. A **panel** is one of three (`graph | docs | logs`) and is what
+read it before changing layout. A **pane** is one of four (`editor | viewport | timeline |
+chains`) and is what `full` fullscreens; two of them, `timeline` and `viewport`, are mounted
+only when the project declares the matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
 the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
 drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. A **view** is the arrangement of panes. All three are URL state (`src/hooks/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.

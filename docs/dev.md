@@ -9,7 +9,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 
 ## Where it answers
 
-**`https://st0.priv.frediver.se`** — one origin, one path per service (`/l8`, `/m9`, `/v1`,
+**`https://st0.priv.frediver.se`** — one origin, one path per service (`/l8`, `/m9`,
 `/k7`, `/z0`), with st0 answering the root. The same shape production has under
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
 

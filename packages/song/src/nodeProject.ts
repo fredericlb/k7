@@ -428,12 +428,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
         `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
       );
 
-  // A `video_tracks/` folder here is a v1 cut in an l8 song's clothing — the lanes would be
-  // read by nothing at all, which is the failure this codebase refuses to ship silently.
-  if (Object.keys(videoTracksMap).length)
-    refErrs.push(
-      `video_tracks/ holds ${Object.keys(videoTracksMap).length} lane(s), and an l8 song has no picture — move them to a \`.v1\` project, which is what draws them (packages/song/docs/v1Project.md)`,
-    );
+  // A `video_tracks/` folder was REFUSED here, on the grounds that an l8 song had no picture
+  // and the lanes would be read by nothing. A song has picture again — the same folder compiles
+  // twice, and `loadVideoProject` is the compile that reads them (docs/picture.md). This one
+  // says nothing about them, which is exactly the property that keeps the frame out of the
+  // document the C++ engine is handed.
 
   if (refErrs.length)
     throw new Error(`unresolved reference(s):\n  - ${refErrs.join("\n  - ")}`);
@@ -834,10 +833,14 @@ export function compileNodeProject(dir: string): ProjectDoc {
     }
   }
 
-  // PICTURE IS NOT HERE, and the folder above says why: a `.v1` project draws it, out of
-  // videoTracks.ts, against a wall clock this compiler has no use for. What stood here was
-  // the layers pass, the shape compiler and `video_source` — an audio track inheriting a
-  // video lane's placements, which cannot exist once the two dialects are two folders.
+  // PICTURE IS NOT HERE, and that is the point: the SAME folder compiles twice, and this pass
+  // is the one whose output reaches the C++ engine. `loadVideoProject` is the other, reading
+  // video_tracks.ts against a wall clock this compiler has no use for. Two documents rather
+  // than one with a section stripped on the way out — see docs/picture.md.
+  //
+  // What has not come back is `video_source`, an audio track inheriting a video lane's
+  // placements so a shot and its sound could not drift. The folders are one again, so it COULD
+  // exist; it is simply not written yet.
 
   return {
     name: String(proj.name ?? "untitled"),

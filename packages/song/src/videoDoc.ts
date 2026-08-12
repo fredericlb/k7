@@ -1,8 +1,8 @@
-// videoDoc.ts — the PICTURE document: what a `*.v1` project compiles to. Every time in it
-// is a decimal second, because a cut is made against the wall clock and not a bar line.
-// It lived in @studio/engine-protocol while l8 drew picture, and never reached the C++
-// engine even then — a stripping step existed for exactly that. Now it has an owner.
-// Full rationale: docs/v1Project.md.
+// videoDoc.ts — the PICTURE document: what a song's `video_tracks/` compile to. Every time in
+// it is a decimal second, because a shot is cut against the wall clock and not a bar line.
+// It lived in @studio/engine-protocol once, and never reached the C++ engine even then — a
+// stripping step existed for exactly that. Being its own document is what retires that step.
+// Full rationale: docs/picture.md.
 
 // A placed shot. `source` is ABSOLUTE — the same rule a ClipDoc's is: whoever renders knows
 // nothing about where the project folder sits.
@@ -71,11 +71,12 @@ export interface VideoMarker {
 }
 
 /**
- * A compiled `*.v1` project.
+ * A song's compiled PICTURE.
  *
- * Deliberately NOT a ProjectDoc with the audio left empty. There is no tempo here, so there
- * is no beat, no time signature and no sample rate — three fields that would have to be
- * invented and then ignored. The two documents share their lanes' SHAPE and nothing else.
+ * Deliberately NOT a section of ProjectDoc, and not a ProjectDoc with the audio left empty.
+ * There is no tempo here, so there is no beat, no time signature and no sample rate — three
+ * fields that would have to be invented and then ignored. The two documents describe one
+ * folder, share their lanes' SHAPE, and agree on nothing else.
  */
 export interface VideoProjectDoc {
   uuid?: string; // stable project id; absent until something writes one

@@ -1,7 +1,7 @@
 // VideoReadersStrip.tsx — the per-placement dock for an open video_tracks/*.yaml: one
 // small <video> reader per `clips:` entry, with Set From / Set To writing the reader's
 // current timecode into that placement's `source_from` / `length`. Both are surgical text
-// rewrites of the open file (@studio/song/yaml/videoTrackFile); the author saves.
+// rewrites of the open file (@studio/song/yaml/videoTrackFile); autosave writes it.
 
 import { Button } from "@frediverse/ui/button";
 import { useEffect, useRef, useState } from "react";
@@ -45,7 +45,7 @@ function ReaderCard({
         /* not loaded yet — seeked on loadedmetadata below */
       }
     }
-  }, [reader.src, reader.sourceFrom]);
+  }, [reader.sourceFrom]);
 
   return (
     <div className="flex w-64 shrink-0 flex-col gap-1 rounded-md border border-border bg-card/60 p-2">

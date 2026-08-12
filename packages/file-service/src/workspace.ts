@@ -83,7 +83,7 @@ import { isInSharedModules } from "@studio/song/sharedFolders";
 import { projectSurfaces, surfaceIssues } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
-import { loadVideoProject } from "@studio/song/videoProject";
+import { isVideoProject, loadVideoProject } from "@studio/song/videoProject";
 import { videoDuration } from "@studio/song/videoTracks";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import type {
@@ -386,7 +386,7 @@ export class Workspace {
   private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
   // The last snapshotText walk, so the next one only re-reads what moved. See snapshotText.
   private textCache = new Map<string, { stamp: string; text: string }>();
-  // The v1 compile's own cache — see cachedVideoDoc for why it is not a branch inside the one above.
+  // The picture compile's own cache — see cachedVideoDoc for why it is not a branch inside the one above.
   private videoCache: {
     dir: string;
     rev: string;
@@ -600,7 +600,7 @@ export class Workspace {
 
   /** Scaffold a NEW project folder at the workspace root — see projectLifecycle.ts. */
   createProject(
-    type: "audio" | "m9" | "v1",
+    type: "audio" | "m9",
     rawName: string,
     mode?: ProjectMode,
   ): { project: string } {
@@ -1637,13 +1637,14 @@ export class Workspace {
   }
 
   /**
-   * The same folder read as PICTURE — what v1 draws. Memoised on the revision, exactly as the
-   * song compile is and for the same reason: every other way of invalidating it serves a
-   * confidently wrong view after a `git pull`.
+   * The same folder read as PICTURE. Memoised on the revision, exactly as the song compile is and
+   * for the same reason: every other way of invalidating it serves a confidently wrong view
+   * after a `git pull`.
    *
    * A SECOND cache rather than a branch inside `cachedProjectDoc`, because the two compiles
-   * return different documents. One project is only ever one of them, so at most one of these
-   * is ever warm.
+   * return different documents from the same folder — a song has a tempo, its picture has a
+   * viewport. Both are warm at once for a song that carries video, which is the ordinary case
+   * now that picture is a song's own and not a separate kind of project.
    */
   cachedVideoDoc(dir: string): VideoProjectDoc {
     const rev = this.revision().rev;
@@ -1658,8 +1659,29 @@ export class Workspace {
     return doc;
   }
 
+  /**
+   * The project's picture, or an EMPTY one when it has none.
+   *
+   * Empty rather than a 400, and that is the whole reason this reads `video_tracks/` first: every
+   * song may carry picture now, so the editor asks every project for its frame and must be able
+   * to tell "this song has no picture" from "this song's picture will not compile". A throw for
+   * the ordinary case would make the second unreadable — the shell would show a compile error to
+   * anyone who ever opened a song without video.
+   *
+   * `viewport:` stays REQUIRED the moment there IS a lane, which is what the compile still says.
+   */
   videoProjectDoc(): WebVideoProject {
-    const p = this.cachedVideoDoc(this.requireActive());
+    const dir = this.requireActive();
+    if (!isVideoProject(dir))
+      return {
+        name: basename(dir),
+        viewport: [0, 0],
+        fps: 0,
+        duration: 0,
+        markers: [],
+        videoTracks: [],
+      };
+    const p = this.cachedVideoDoc(dir);
     const videoTracks = this.toWebVideoTracks(p.videoTracks);
     return {
       name: p.name,
@@ -1671,10 +1693,11 @@ export class Workspace {
     };
   }
 
-  /** Everything wrong with a v1 project — the compile's own throw, same shape as projectErrors. */
+  /** Everything wrong with a song's PICTURE — the compile's own throw, same shape as projectErrors. */
   videoProjectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
     const dir = this.activeProject;
-    if (!dir) return { errors: [], diagnostics: [] };
+    // No lanes is not an error, for the same reason the document above is empty rather than a throw.
+    if (!dir || !isVideoProject(dir)) return { errors: [], diagnostics: [] };
     try {
       this.cachedVideoDoc(dir);
       return { errors: [], diagnostics: [] };

@@ -14,34 +14,42 @@ rather than a component tree:
 | `panel` | the side panel (graph, docs, logs), independent of both. |
 | `surface` | a `view` surface the PROJECT declares (`surfaces/`), over the layout — `/surface/<id>`. |
 
-`surface` is its own field and not a `Pane`, for the reason the table cannot show: a pane is one
-of three the shell has always had, while a surface's list is the project's and is not knowable
+`surface` is its own field and not a `Pane`, for the reason the table cannot show: the panes are
+a closed union the shell declares, while a surface's list is the project's and is not knowable
 until one is open. It stacks like `help` — over the layout, which is untouched underneath — and
 `toPath` names the topmost of the three (help, then surface, then a fullscreened pane). See
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 A **`split`** surface is not in this table at all, and that is the point of the word: it is *in*
 the layout rather than over it, so it has no address of its own and never appears in `surface`.
-The timeline is the one there is. What it does reach is the pane list below — which is why that
-stopped being a constant.
+There are two — the timeline and the viewport. What they do reach is the pane list below, which
+is why that stopped being a constant.
 
 ### The layout is the project's, not the user's
 
-`view` has always been mostly derived — `video` used to be selected by "this project has picture",
-before picture left for v1. `live` is the same shape of fact taken to the end: `project.yaml`'s
-`project_type` says whether the folder is a song or a rig, and a rig has no timeline to show. So
-there is no toggle, `ui global` typed at a live project is refused out loud, and `viewPanes` (in
-`routes.ts`) is what each layout does with the panes:
+`view` has always been mostly derived — a `video` layout used to be selected by "this project has
+picture". That fact is a PANE now rather than a layout: the project declares a `viewport`
+surface, and the layout list did not have to grow a row for it. `live` is the same shape of fact
+taken to the end: `project.yaml`'s `project_type` says whether the folder is a song or a rig, and
+a rig has no timeline to show. So there is no toggle, `ui global` typed at a live project is
+refused out loud, and `viewPanes` (in `routes.ts`) is what each layout does with the panes:
 
 ```ts
-viewPanes("global", true)  // { ring: ["timeline", "chains"], fullscreen: ["editor", "timeline", "chains"] }
-viewPanes("global", false) // { ring: ["chains"],             fullscreen: ["editor", "chains"] }
-viewPanes("live",   _)     // { ring: ["chains"],             fullscreen: [] }
+viewPanes("global", true,  false) // { ring: ["timeline", "chains"],             fullscreen: ["editor", …ring] }
+viewPanes("global", true,  true)  // { ring: ["viewport", "timeline", "chains"], fullscreen: ["editor", …ring] }
+viewPanes("global", false, false) // { ring: ["chains"],                         fullscreen: ["editor", "chains"] }
+viewPanes("live",   _,     false) // { ring: ["chains"],                         fullscreen: [] }
+viewPanes("live",   _,     true)  // { ring: ["viewport", "chains"],             fullscreen: […ring] }
 ```
 
-A **function**, not the table it was, because the timeline is a surface the project declares
-rather than a pane the shell hands out. The second argument is that declaration, and it has to
-reach here: a list naming a pane nothing will mount is a screen that cannot be drawn.
+A **function**, not the table it was, because two of the panes are surfaces the project declares
+rather than panes the shell hands out. The second and third arguments are those declarations, and
+they have to reach here: a list naming a pane nothing will mount is a screen that cannot be drawn.
+
+The ring is built TOP-DOWN, in the order the panes are stacked on screen — the number keys and
+the mobile tabs read it, so a ring that disagreed with the column would make `2` land somewhere
+the eye did not expect. And a rig that declares a viewport gets its fullscreens back: `live`'s
+empty list is about having ONE pane, not about being a rig.
 
 That empty `fullscreen` is load-bearing. The header buttons, the number keys, `ui <pane>` and the
 mobile tabs all reach the screen through `fullscreen()`, so one empty list closes all four at

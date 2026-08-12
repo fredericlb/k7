@@ -176,4 +176,5 @@ to the module — which is the same feature arriving where it belongs, a lane be
   they sit relative to the freeze point already says whether they bake in.
 
 `contentType` and `video_source` are simply gone: the first is what the module type says, and the
-second has been read by nothing since picture became its own `.v1` project.
+second was dropped when picture briefly became a project of its own, and nothing reads it yet
+now that a song carries picture again ([picture.md](picture.md)).

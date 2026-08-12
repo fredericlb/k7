@@ -28,9 +28,6 @@
     "apps/m9",
     "apps/m9/frontend",
     "apps/m9/backend",
-    "apps/v1",
-    "apps/v1/frontend",
-    "apps/v1/backend",
     "engine/moteur",
     "engine/capot"
   ],

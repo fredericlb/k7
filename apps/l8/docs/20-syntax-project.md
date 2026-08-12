@@ -46,9 +46,10 @@ project:
   # accepted so older songs open, and read by nothing — l8 says so and
   # the lines can be deleted.
 
-  # `video`, `viewport` and `layers` are still ACCEPTED here and read by nothing:
-  # picture is v1's now, in a `.v1` folder of its own. l8 says so and the lines
-  # can be deleted.
+  # `viewport` and `layers` are the song's PICTURE — the frame its video lanes
+  # draw into, and their draw order. See the Video page.
+  # `video: true` is still accepted and read by nothing: a `surfaces/viewport.yaml`
+  # is what draws the frame now, and `video_tracks/` is what says there is one.
 
 # Lane order in the timeline, top first. Absent = the order tracks/ is read in.
 trackOrder: [drums, bass, melody]

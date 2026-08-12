@@ -30,6 +30,7 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
 // loader in behind it.
 import { moduleKeyFromPath } from "@studio/song/moduleTypes";
+import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import {
@@ -82,8 +83,13 @@ import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { SurfaceTab } from "./components/SurfaceTab";
 import { TakeReview } from "./components/TakeReview";
-import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
+import {
+  type TimelineHandle,
+  TimelineTab,
+  type VideoEdit,
+} from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
+import { ViewportTab } from "./components/ViewportTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
 import { useEngineLink } from "./hooks/useEngineLink";
@@ -102,6 +108,7 @@ import { useProjectDoc } from "./hooks/useProjectDoc";
 import { useSurfaces } from "./hooks/useSurfaces";
 import { useTrackControls } from "./hooks/useTrackControls";
 import { useTurntableDeck } from "./hooks/useTurntableDeck";
+import { useVideoDoc } from "./hooks/useVideoDoc";
 import { useLocale } from "./i18n";
 import {
   blurOnClick,
@@ -139,6 +146,7 @@ import type {
   CommandInfo,
   ProjectInfo,
   WebGraph,
+  WebVideoTrack,
   WorkspaceInfo,
 } from "./types";
 import { useIsMobile } from "./useIsMobile";
@@ -149,6 +157,9 @@ const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 /** One frozen empty list, so a builder with no live plugin does not get a new array per render. */
 const EMPTY_PRESETS: PresetInfo[] = [];
+
+/** The same, for a song with no picture — which is most of them. Keeps the timeline's row memo cold. */
+const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
 
 export default function App({
   engineUrl,
@@ -467,6 +478,68 @@ export default function App({
     [surfaces],
   );
   const hasTimeline = !!timelineSurface;
+  /**
+   * The project's FRAME, if it declares one: a `split` surface of type `viewport`.
+   *
+   * The declaration and not the document is what mounts it, exactly as for the timeline — a
+   * song whose picture has not been written yet still says it draws picture, and the pane says
+   * which file to add rather than showing a black rectangle. The opposite case, lanes with no
+   * viewport declared, is `surfaceIssues`' warning.
+   */
+  const viewportSurface = useMemo(
+    () =>
+      surfaces.find(
+        (s) => s.surface.type === "viewport" && s.surface.layout === "split",
+      ) ?? null,
+    [surfaces],
+  );
+  const hasViewport = !!viewportSurface;
+  // The song's picture — asked of every project, empty for most. The timeline draws its lanes
+  // and the viewport composites them, so it is fetched ONCE here rather than by each.
+  const { doc: videoDoc, error: videoError } = useVideoDoc(reloadKey);
+  const videoTracks = videoDoc?.videoTracks ?? EMPTY_VIDEO_TRACKS;
+  // Each picture clip ref → the media file it names, for the editor's readers strip. Flattened
+  // here because only the COMPILER knows it: the ref names `clips/<ref>.yaml`, and reading that
+  // to find the source is exactly what the picture compile did.
+  const videoSources = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const t of videoTracks) for (const c of t.clips) out[c.id] = c.src;
+    return out;
+  }, [videoTracks]);
+
+  /**
+   * Apply a finished picture drag to the lane's own file.
+   *
+   * A SURGICAL text rewrite, not a re-serialisation: these files carry the comments that
+   * document the format, and a round trip through the parser would delete every one of them.
+   * `setVideoPlacementField` edits by REF, so a placement that moved in the file between render
+   * and drop is still the one that was grabbed.
+   *
+   * Every edit of the gesture is applied to ONE buffer and written once. Trimming a head is two
+   * fields (three on a length-0 shot) describing a single drag; writing them separately would be
+   * two reads of the same file, the second built on the text before the first.
+   *
+   * Not a COMMAND, unlike every audio edit this shell makes, and that asymmetry is real: the CLI
+   * has no verb for a picture placement. See apps/l8/frontend/docs/picture.md.
+   */
+  const applyVideoEdit = useCallback(
+    async (trackId: string, edits: VideoEdit[]) => {
+      const ap = ws?.activeProject ?? ".";
+      const path = `${ap === "." ? "" : `${ap}/`}video_tracks/${trackId}.yaml`;
+      try {
+        const { content } = await api.read(path);
+        let next = content;
+        for (const e of edits)
+          next = setVideoPlacementField(next, e.ref, e.field, e.value);
+        if (next === content) return; // no such placement — nothing to write, nothing to say
+        await api.write(path, next);
+        bumpReload();
+      } catch (err) {
+        setStatus((err as Error).message);
+      }
+    },
+    [ws?.activeProject, bumpReload, setStatus],
+  );
   // The ones that ARE a screen of their own — the only kind the header can offer and the
   // `/surface/<id>` address can name. A `split` surface is in the layout already.
   const screenSurfaces = useMemo(
@@ -493,6 +566,7 @@ export default function App({
       setOpenSurface(next.surface);
     }, []),
     hasTimeline,
+    hasViewport,
   );
   const openHelp = useCallback(() => setShowHelp(true), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
@@ -529,8 +603,8 @@ export default function App({
   // which could only ever name the pane UNDER the timeline and so had nothing to say about a
   // layout with no timeline in it. See `viewPanes` in routes.ts.
   const layout = useMemo(
-    () => viewPanes(view, hasTimeline),
-    [view, hasTimeline],
+    () => viewPanes(view, hasTimeline, hasViewport),
+    [view, hasTimeline, hasViewport],
   );
   const ringPanes = layout.ring;
 
@@ -830,11 +904,11 @@ export default function App({
     }
   }, []);
 
-  // `new project <audio|m9|v1> <name>`: the same scaffold `l8 create` runs, via the file service,
-  // then open it. An m9 set and a v1 cut are created HERE and opened THERE — the file service is the
+  // `new project <audio|m9> <name>`: the same scaffold `l8 create` runs, via the file service,
+  // then open it. An m9 set is created HERE and opened THERE — the file service is the
   // one thing on the machine that can write a folder, whichever app reads it back.
   const createNewProject = useCallback(
-    async (type: "audio" | "m9" | "v1", name: string) => {
+    async (type: "audio" | "m9", name: string) => {
       try {
         setStatus(`creating ${type} project "${name}"…`);
         const { project } = await api.createProject(type, name);
@@ -1049,14 +1123,14 @@ export default function App({
         setGraphSlot(null);
         return true;
       }
-      // new project <audio|m9|v1> <name> — first token the type, the rest the name, so multi-word names work.
+      // new project <audio|m9> <name> — first token the type, the rest the name, so multi-word names work.
       if (line.startsWith("project new")) {
         const rest = s.slice("project new".length).trim();
         const sp = rest.search(/\s/);
         const type = (sp === -1 ? rest : rest.slice(0, sp)).toLowerCase();
         const name = sp === -1 ? "" : rest.slice(sp + 1).trim();
-        if ((type !== "audio" && type !== "m9" && type !== "v1") || !name)
-          setStatus("usage: project new <audio|m9|v1> <name>");
+        if ((type !== "audio" && type !== "m9") || !name)
+          setStatus("usage: project new <audio|m9> <name>");
         else void createNewProject(type, name);
         return true;
       }
@@ -2070,6 +2144,7 @@ export default function App({
                 onOpenItem={setOpenItem}
                 onOpenBuilder={(path, pane) => setBuilder({ path, pane })}
                 diagnostics={diagnostics}
+                videoSources={videoSources}
               />
             </div>
 
@@ -2079,6 +2154,32 @@ export default function App({
                 full === "editor" && "hidden",
               )}
             >
+              {/* The FRAME, on the same terms as the arrangement below it: a `split` surface the
+                  project declares (`surfaces/`, `type: viewport`), mounted for as long as it
+                  does. Mounted is the load-bearing word here — it owns a WebGL context and one
+                  <video> per layer, and a pane that unmounted when you looked elsewhere would
+                  flush a decoder every time. Hidden, never unmounted, exactly like the rest.
+                  See packages/song/docs/surfaces.md. */}
+              {hasViewport && (
+                <div
+                  {...paneProps("viewport")}
+                  className={cn(
+                    "flex min-h-0 min-w-0",
+                    full === "viewport"
+                      ? "flex-1"
+                      : full !== null
+                        ? "hidden"
+                        : // Expanded lanes have asked for the height; the frame stands down for
+                          // them as the graph does, rather than squeezing three panes into one.
+                          tlView.expanded
+                          ? "hidden"
+                          : "h-1/3 shrink-0 border-b border-border",
+                    ringFor("viewport"),
+                  )}
+                >
+                  <ViewportTab doc={videoDoc} error={videoError} />
+                </div>
+              )}
               {/* The ARRANGEMENT, and only when the project asks for one: it is a `split` surface
                   now (`surfaces/`, `type: timeline`), not a pane the shell hands out. Absent
                   means not mounted — there is no caret to keep for a screen the project has not
@@ -2110,6 +2211,8 @@ export default function App({
                     active={activePane === "timeline"}
                     reloadKey={reloadKey}
                     orbit={orbit}
+                    videoTracks={videoTracks}
+                    onVideoEdit={applyVideoEdit}
                     setStatus={setStatus}
                     onEditTarget={setEditTarget}
                     // A clicked clip shows its content where the graph is — the waveform for

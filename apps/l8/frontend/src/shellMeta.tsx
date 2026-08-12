@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   Loader2,
   type LucideIcon,
+  MonitorPlay,
   Pause,
   Play,
   ScrollText,
@@ -19,19 +20,19 @@ import {
 import { m } from "./paraglide/messages.js";
 import type { Pane, Panel, View } from "./routes";
 
-// The three panes, not tabs: the global view shows all three, and a "view" is a LAYOUT over the same instances.
-// There used to be a fourth, `viewport`, present only for a song WITH video; it left with the picture, for v1.
 // The panes, not tabs: a "view" is a LAYOUT over the same instances, and the default one stacks the
-// timeline over the graph. `editor` is in this list because it can be FULLSCREENED and toggled from the
-// header — it just has no slot in either layout (see App's ringPanes). `viewport` is absent because it
-// only exists for a song WITH video; this is the set that can be fullscreened.
-export const PANES: Pane[] = ["editor", "timeline", "chains"];
+// frame over the timeline over the graph. `editor` is in this list because it can be FULLSCREENED and
+// toggled from the header — it just has no slot in either layout (see App's ringPanes). `viewport` is
+// here for the same reason `timeline` is: both are `split` SURFACES the project declares, and which of
+// them a given project actually mounts is `viewPanes` in routes.ts, not this table.
+export const PANES: Pane[] = ["editor", "viewport", "timeline", "chains"];
 
 // Max gap between the two Shift presses that open the command palette (IntelliJ style).
 export const DOUBLE_SHIFT_MS = 400;
 
 export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   editor: { icon: FileCode, label: "Editor" },
+  viewport: { icon: MonitorPlay, label: "Viewport" },
   timeline: { icon: AudioWaveform, label: "Timeline" },
   chains: { icon: Workflow, label: "Chains" },
 };

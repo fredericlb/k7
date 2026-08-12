@@ -2,25 +2,22 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { scaffoldV1 } from "./scaffoldV1";
+import { scaffold } from "./scaffold";
 import { loadVideoProject, parseWallClock } from "./videoProject";
 
-// A v1 project is a folder read as PICTURE: seconds, layers, no tempo. The cases below are
+// The SAME folder read as PICTURE: seconds, layers, no tempo. It is a song's second compile —
+// the first one, the ProjectDoc the engine is given, carries none of this. The cases below are
 // the ones a wrong answer is invisible in — a lane silently not drawn, a marker read as a bar.
 
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-v1-"));
+  dir = mkdtempSync(join(tmpdir(), "td-pic-"));
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 /** Write project.yaml with the given `project:` body and optional root lines. */
 function project(body: string, root = ""): void {
-  writeFileSync(
-    join(dir, "project.yaml"),
-    `type: v1\nproject:\n${body}${root}`,
-    "utf8",
-  );
+  writeFileSync(join(dir, "project.yaml"), `project:\n${body}${root}`, "utf8");
 }
 
 function lane(id: string, yaml: string): void {
@@ -40,22 +37,36 @@ function clip(id: string, source: string): void {
   writeFileSync(join(dir, "clips", basename(source)), "", "utf8");
 }
 
-describe("a scaffolded v1 cut", () => {
-  it("compiles to two lanes over one source, in layer order", () => {
-    scaffoldV1(dir, "demo");
+describe("a scaffolded l8 song", () => {
+  it("carries picture, compiled from the same folder as its sound", () => {
+    // The point of the whole change: one scaffold, one folder, two compiles. A new song has an
+    // audio lane AND a lane of picture, and neither needed a different KIND of project.
+    scaffold(dir, "demo");
     const doc = loadVideoProject(dir);
 
     expect(doc.name).toBe("demo");
     expect(doc.viewport).toEqual([1280, 720]);
     expect(doc.fps).toBe(30);
-    // ORDER, not membership: `layers: [main, pip]` is what puts the pip on top, and a sort
-    // here would hide the one thing this asserts.
-    expect(doc.videoTracks.map((t) => t.id)).toEqual(["main", "pip"]);
-    // The pip starts 2s into the same source — the difference that makes the two lanes show
-    // different frames, and the cheapest proof compositing has something to composite.
-    expect(doc.videoTracks[1].clips[0].sourceFrom).toBe(2);
+    // ORDER, not membership: `layers:` is what stacks them, and a sort here would hide it.
+    expect(doc.videoTracks.map((t) => t.id)).toEqual(["main"]);
     // Absolute, like a ClipDoc's: whoever renders knows nothing about where the folder sits.
     expect(doc.videoTracks[0].clips[0].source).toContain("clips");
+  });
+
+  it("says nothing about tempo, which the OTHER compile of the same folder owns", () => {
+    // The two documents describe one folder and share no field. This is what replaced the
+    // `withoutVideo` step that used to strip picture out of a ProjectDoc on the way to the
+    // engine — a document with a section deleted before it is sent describes two things.
+    scaffold(dir, "demo");
+    const doc = loadVideoProject(dir) as unknown as Record<string, unknown>;
+    expect(doc.tempo).toBeUndefined();
+    expect(doc.timeSignature).toBeUndefined();
+    expect(doc.sampleRate).toBeUndefined();
+  });
+
+  it("gives a LIVE rig none — a rig has no arrangement to place a shot on", () => {
+    scaffold(dir, "rig", "live");
+    expect(() => loadVideoProject(dir)).toThrow(/viewport is required/);
   });
 });
 

@@ -1,15 +1,25 @@
 // scaffold.ts — the file map + writer for a new l8 song: a minimal, immediately
-// playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern).
-// Every file is hand-authored, not serialised, because its `#` comments are the one worked
-// example a reader gets. Picture has its own scaffold now — scaffoldV1.ts.
-// Full rationale: docs/scaffold.md.
+// playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern),
+// with a lane of PICTURE over it. Every file is hand-authored, not serialised, because its
+// `#` comments are the one worked example a reader gets.
+// Full rationale: docs/scaffold.md, and docs/picture.md for the video half.
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_COUNT_IN } from "./project";
 import { DEFAULT_PROJECT_MODE, type ProjectMode } from "./yaml/projectSchema";
 
 const q = (s: string) => JSON.stringify(s);
+
+// The bundled sample: testsrc burns the frame number in, so a sync problem is visible at a glance.
+const SAMPLE_VIDEO = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "samples",
+  "video",
+  "sample.mp4",
+); // packages/song/samples/video/sample.mp4
 
 // The files of a minimal node project, keyed by path relative to the project folder.
 export function projectFiles(name: string): Record<string, string> {
@@ -18,7 +28,20 @@ export function projectFiles(name: string): Record<string, string> {
     `  name: ${q(name)}\n` +
     `  tempo: 120\n` +
     `  sampleRate: 48000\n` +
-    `  timeSignature: "4/4"\n`;
+    `  timeSignature: "4/4"\n` +
+    `\n` +
+    `  # PICTURE. A song carries its own, and these two lines are what a lane of it needs.\n` +
+    `  #\n` +
+    `  # \`viewport\` is the frame every lane draws into: [width, height, fps]. There is no\n` +
+    `  # default — a frame invented by the loader would silently letterbox every shot, and you\n` +
+    `  # would find out at the export. The fps is used by EXPORT only; playing back follows\n` +
+    `  # the transport.\n` +
+    `  viewport: [1280, 720, 30]\n` +
+    `\n` +
+    `  # Draw order, bottom first. It is the ORDER and the membership at once: a name with no\n` +
+    `  # file is an error, and a lane no name lists is an error too — otherwise it would\n` +
+    `  # compile perfectly and simply never appear.\n` +
+    `  layers: [main]\n`;
 
   const base: Record<string, string> = {
     "project.yaml": projectYaml,
@@ -167,6 +190,42 @@ export function projectFiles(name: string): Record<string, string> {
       `# the only layout a timeline draws in. See packages/song/docs/surfaces.md.\n` +
       `type: timeline\n` +
       `layout: split\n`,
+
+    // …and the FRAME, declared the same way. A song's picture and a song's sound are one folder
+    // now, so a new project gets a lane of each: the alternative was a feature you could only
+    // discover by reading about it.
+    "surfaces/viewport.yaml":
+      `# The FRAME — the video lanes composited with WebGL, drawn against the playhead.\n` +
+      `#\n` +
+      `# \`split\` is the only layout it draws in, and that is deliberate: it owns a GL context\n` +
+      `# and one <video> per layer, which a screen you opened and closed would rebuild every\n` +
+      `# time. Press its number key or \`ui viewport\` to give it the window instead.\n` +
+      `#\n` +
+      `# Delete this file and the lanes still compile and still draw on the timeline — nothing\n` +
+      `# composites them. See packages/song/docs/surfaces.md.\n` +
+      `type: viewport\n` +
+      `layout: split\n`,
+
+    "clips/sample.yaml":
+      `# A SOURCE, not a placement: this says which file, and video_tracks/ says where it goes.\n` +
+      `# One clip file can be placed any number of times, on any number of lanes.\n` +
+      `source: clips/sample.mp4\n`,
+
+    // The full-frame picture lane. x/y/w/h place it in viewport px; omit them for the full frame.
+    "video_tracks/main.yaml":
+      `# A lane of picture. Every time here is DECIMAL SECONDS — picture is cut against the\n` +
+      `# wall clock, where the lanes above are placed in bars against the tempo. Both are drawn\n` +
+      `# on the one timeline, whose ruler reads either (the clock button in its header).\n` +
+      `#\n` +
+      `# Re-typing \`tempo:\` therefore slides the GRID under this shot rather than moving it:\n` +
+      `# the file says seconds, and seconds is what it keeps saying.\n` +
+      `#\n` +
+      `# \`length: 0\` runs to the end of the source; \`source_from\` trims the head. \`mute\`\n` +
+      `# means HIDDEN — there is no sound on a lane.\n` +
+      `kind: video\n` +
+      `# name: "A-roll"     # the lane's label; the FILENAME is still its id\n` +
+      `x: 0\ny: 0\nw: 1280\nh: 720\n` +
+      `clips:\n  - { ref: sample, start: 0, length: 6, source_from: 0 }\n`,
   };
 
   return base;
@@ -245,7 +304,14 @@ export function writeProjectFiles(
   return Object.keys(files);
 }
 
-/** Write a new l8 project. `mode` picks the map: a song with a timeline, or a live rig. */
+/**
+ * Write a new l8 project. `mode` picks the map: a song with a timeline, or a live rig.
+ *
+ * A song also gets the bundled sample video COPIED into it, because its picture lane places it.
+ * Copied rather than referenced where it sits: a project that pointed into the installed package
+ * would stop opening the day the package moved, and a song is a folder you commit. A live rig
+ * gets none — it has no arrangement, so it has nothing to place a shot on.
+ */
 export function scaffold(
   dir: string,
   name: string,
@@ -254,9 +320,20 @@ export function scaffold(
   const files = mode === "live" ? liveProjectFiles(name) : projectFiles(name);
   writeProjectFiles(dir, files);
 
+  if (mode !== "live") {
+    if (!existsSync(SAMPLE_VIDEO))
+      throw new Error(
+        `bundled sample video missing (${SAMPLE_VIDEO}) — the @studio/song package is incomplete`,
+      );
+    mkdirSync(join(dir, "clips"), { recursive: true });
+    copyFileSync(SAMPLE_VIDEO, join(dir, "clips/sample.mp4"));
+  }
+
   // Nothing to point at the shared folders any more: a project sees the workspace's own and
   // the machine's media library because of WHERE they are (sharedFolders.ts). The three
   // `ensure*` calls that used to write those lists into project.yaml wrote down facts the
   // loader already knew, and left a project wrong whenever one of them moved.
-  return Object.keys(files);
+  return mode === "live"
+    ? Object.keys(files)
+    : [...Object.keys(files), "clips/sample.mp4"];
 }

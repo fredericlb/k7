@@ -18,8 +18,10 @@ export function stateForLocation(
   // PROJECT, not about the screen — but the parse needs it: `/timeline` names no pane in a
   // project that declares none. See `viewPanes` in routes.ts.
   timeline = true,
+  /** The same for the frame — `/viewport` names no pane in a song that carries no picture. */
+  viewport = false,
 ): RouteState | null {
-  const next = fromLocation(pathname, search, state.view, timeline);
+  const next = fromLocation(pathname, search, state.view, timeline, viewport);
   return sameRoute(next, state) ? null : next;
 }
 
@@ -44,9 +46,10 @@ export function urlForState(
   pathname: string,
   search: string,
   timeline = true,
+  viewport = false,
 ): string | null {
   if (sameRoute(state, prev)) return null;
-  const url = fromLocation(pathname, search, state.view, timeline);
+  const url = fromLocation(pathname, search, state.view, timeline, viewport);
   if (sameRoute(state, url)) return null;
   return toPath(state);
 }
@@ -60,6 +63,8 @@ export function useViewRoute(
   apply: (next: RouteState) => void,
   /** Whether the open project declares a timeline surface — see `stateForLocation`. */
   timeline: boolean,
+  /** Whether it declares a viewport surface — the same fact, about the frame. */
+  viewport: boolean,
 ): void {
   const location = useLocation();
   const navigate = useNavigate();
@@ -74,14 +79,15 @@ export function useViewRoute(
       location.search,
       state,
       timeline,
+      viewport,
     );
     if (next) apply(next);
     // `state` is deliberately NOT a dependency: this direction reacts to the LOCATION, and including it
     // would run it on every screen change too — the other half of the loop described in the header.
-    // `timeline` IS one: the surfaces land a moment after the shell, and a `/timeline` deep link
-    // has to be re-read once the project has said whether it has one.
+    // `timeline` and `viewport` ARE: the surfaces land a moment after the shell, and a `/timeline`
+    // or `/viewport` deep link has to be re-read once the project has said whether it has one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search, timeline]);
+  }, [location.pathname, location.search, timeline, viewport]);
 
   // state → URL.
   useEffect(() => {
@@ -93,9 +99,10 @@ export function useViewRoute(
       location.pathname,
       location.search,
       timeline,
+      viewport,
     );
     if (url === null) return;
     // Entering help pushes so Back leaves it; everything else replaces (see the header).
     navigate(url, { replace: !(state.help && !before.help) });
-  }, [state, navigate, location.pathname, location.search, timeline]);
+  }, [state, navigate, location.pathname, location.search, timeline, viewport]);
 }

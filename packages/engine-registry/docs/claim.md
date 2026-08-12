@@ -90,7 +90,6 @@ prevents.
 |---|---|---|
 | l8 | `<repo>/<projet>` from the address | `EngineGate` shows "opened elsewhere" and stops driving |
 | m9 | the `.m9` set from the address | `Studio` replaces the whole app, not just Mix — Édition and Graphe would otherwise keep editing a project this tab no longer owns |
-| v1 | the `.v1` cut from the address | `Gate` shows the same screen. v1 reaches no moteur, but it reaches that machine's file service, which is where rule 2 bites |
 | st0 | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in

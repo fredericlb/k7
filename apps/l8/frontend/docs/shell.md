@@ -70,6 +70,12 @@ its graph, keeps its editor, and is warned about in its diagnostics. So `noArran
 and a song that has not declared its arrangement look alike on screen and are not the same fact.
 See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
+**The VIEWPORT is the second of those**, `surfaces/viewport.yaml`, and it sits above the
+timeline in the same column. Its mounting rule is the one that matters: it owns a WebGL context
+and one `<video>` per layer, so it is hidden and never unmounted — exactly the invariant the
+editor's undo history relies on, paid for a much more expensive thing. See
+[picture.md](picture.md).
+
 The editor is not in it. It had the left half, which meant every song opened with half the
 screen showing a YAML file you had not asked for, while the two views of the song that are
 *about the song* — where things happen in time, and how the signal flows — shared the other
