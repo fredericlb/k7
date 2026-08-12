@@ -163,7 +163,12 @@ down, and a caller that threw it away could not derive the chains it had just wr
 ## What went away, to come back another way
 
 `alternatives:`/`alternative:` and `frozen:` are removed rather than reimplemented: both are
-worth having and neither belongs on the lane in the shape it had. What went with them:
+worth having and neither belongs on the lane in the shape it had.
+
+**Alternatives came back**, generalised — see [alternatives.md](alternatives.md). They are a
+MODULE's other sets of attributes now, not a lane's other clip lists, which is the same feature
+arriving where it belongs: a lane is a module, so a lane's takes are one use of it. What went with
+the old shape:
 
 - `trackAlternatives.ts`, `TrackAlternatives.tsx`, `track alternative select|create|copy`;
 - `frozenRender`, `frozenTracks` on the graph wire, `GraphNode.frozen`, `FreezeOverlay.tsx`,

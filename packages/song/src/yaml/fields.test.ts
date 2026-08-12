@@ -59,6 +59,10 @@ describe("derived module fields", () => {
       "disabled",
       "tracks",
       "strudel",
+      // …and the module's other attribute SETS. Last, because they are the one pair that is
+      // ABOUT the fields above rather than one of them. See docs/alternatives.md.
+      "alternatives",
+      "alternative",
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));
@@ -101,6 +105,19 @@ describe("derived lane fields", () => {
     expect(fieldsAt("module", [])).toEqual(
       expect.arrayContaining(["clips", "tracks", "strudel", "color"]),
     );
+  });
+
+  it("answers inside an ALTERNATIVE with the module's own fields", () => {
+    // A set is a module partial, so what it may say is what a module may say — plus a name, and
+    // minus `extends` and the alternatives themselves. Derived, so the two cannot drift.
+    const inside = fieldsAt("module", ["alternatives", "0"]);
+    expect(inside).toContain("name");
+    expect(inside).toContain("params");
+    expect(inside).toContain("clips");
+    expect(inside).not.toContain("extends");
+    expect(inside).not.toContain("alternatives");
+    // The list itself has no field vocabulary — its entries are positions, not names.
+    expect(fieldsAt("module", ["alternatives"])).toEqual([]);
   });
 
   it("answers inside a placement", () => {

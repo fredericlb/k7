@@ -1335,6 +1335,48 @@ export default function App({
     const items = contextMenu(full, cmdCatalogue.current);
     if (items.length) setMenu({ items, x, y });
   }, []);
+  /**
+   * The ⋮ bubble on a node: its module's other attribute SETS.
+   *
+   * The same ContextMenu the right-click uses, and the same `MenuItem` shape, so switching runs
+   * on the spot while the two that need a name arrive in the command bar half-typed — that split
+   * is what `complete` already means, and reusing it means this menu inherits the outside-click
+   * close, the positioning and the undo journal for nothing.
+   *
+   * See packages/song/docs/alternatives.md.
+   */
+  const openAlternatives = useCallback(
+    (
+      n: { module?: string; alternatives?: string[]; alternative?: string },
+      at: { x: number; y: number },
+    ) => {
+      const module = n.module;
+      if (!module) return;
+      const names = n.alternatives ?? [];
+      const current = n.alternative ?? "1";
+      const items: MenuItem[] = [
+        // A dot marks the one that is on. The module's own fields are "1" and are listed like
+        // any other — they ARE an alternative, and hiding them would leave no way back to them.
+        ...names.map((name) => ({
+          label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
+          command: `module alternative select ${module} ${name}`,
+          complete: true,
+        })),
+        {
+          label: "New alternative…",
+          command: `module alternative create ${module} `,
+          complete: false,
+        },
+        {
+          label: "Copy this one…",
+          command: `module alternative copy ${module} `,
+          complete: false,
+        },
+      ];
+      setMenu({ items, x: at.x, y: at.y });
+    },
+    [],
+  );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingInsert | null>(null);
   // "which file?" — a filepicker widget's asset browser. The popup is viewport-positioned,
@@ -2100,6 +2142,7 @@ export default function App({
                     onBypassModule={(mod) =>
                       void runCommand(`module bypass ${mod}`)
                     }
+                    onAlternatives={openAlternatives}
                     engineWarnings={engineWarnings}
                     onAssetBrowse={browseAssets}
                     onWatchWaveform={watchWaveform}
@@ -2206,6 +2249,7 @@ export default function App({
                     onBypassModule={(mod) =>
                       void runCommand(`module bypass ${mod}`)
                     }
+                    onAlternatives={openAlternatives}
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}
                     pluginParamsStore={pluginParamsStore}

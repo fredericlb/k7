@@ -16,6 +16,7 @@ import {
   WarpSchema,
 } from "./entitySchemas";
 import {
+  AlternativeSchema,
   ModuleSchema,
   RackSchema,
   RackSoundSchema,
@@ -158,6 +159,11 @@ function moduleFields(path: string[]): string[] {
   // A lane's placements. `clips:` is a module field now, so it is offered here rather than by a
   // track vocabulary of its own — which is the whole of what the `track` kind used to be for.
   if (head === "clips") return keys(PlacementSchema);
+  // One of the module's other attribute SETS: the same fields it has itself, plus a name. Derived
+  // like everything else here, so a field added to a module is offered inside an alternative too.
+  // See docs/alternatives.md.
+  if (head === "alternatives")
+    return rest.length ? keys(AlternativeSchema) : [];
   if (head === "ui") {
     if (rest.length === 0) return keys(UISchema);
     // widgets/<id> — and inside a tabs widget, pages/<name>/<id> is a widget too.

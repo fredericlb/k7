@@ -100,10 +100,13 @@ happened to share a name now have to be told apart.
 ## What went away
 
 `type:` and `contentType:` are gone — one `extends:` says both. So are `mute:` and `solo:` (see
-above), and three others, each to be replaced by another mechanism later rather than
-reimplemented in place:
+above).
 
-- **`alternatives:` / `alternative:`** — a lane's clip list had variants, and one of them played.
+A lane's **alternatives** are still here, and they belong to every module now rather than to
+lanes alone: `alternatives:` holds other sets of attributes, and for a lane one of those
+attributes is its `clips:`. See Instruments. What is left, each to be replaced by another
+mechanism later rather than reimplemented in place:
+
 - **`frozen:`** — a lane could play a render of itself instead of computing it.
 - **`video_source:`** — an audio track could take its placements from a video track, back when
   picture lived in the same project. It has been read by nothing since picture became its own

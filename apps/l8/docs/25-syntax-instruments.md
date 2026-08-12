@@ -180,14 +180,55 @@ params:
   Filter Freq: 40
 
 # chains.yaml — the module and both uses are separate nodes. Pointing both
-# tracks at the bare `synth` would NOT give each its own: a module is named once,
+# lanes at the bare `synth` would NOT give each its own: a module is named once,
 # so one name is one plugin, and the two lanes would sum into it.
-tracks:
-  melody: [ lead ]
-  pad: [ pad ]
 modules:
+  melody: [ lead ]
+  pad: [ synth-pad ]
   lead: [ OUT ]
-  pad: [ OUT ]
+  synth-pad: [ OUT ]
+```
+
+## ALTERNATIVES — a module's other sets of settings
+
+A module can hold several sets of attributes and run one of them. A clean amp and a crunchy one,
+the mix you had yesterday and the one you are trying, two takes of a lane's arrangement — they
+live side by side in the same file, and switching between them is one line.
+
+**The module's own fields are the first set.** The others go under `alternatives:`, and
+`alternative:` says which is on — by name, or by position when it has none. Leave `alternative:`
+out and the module runs its own fields, which is why a file that never uses this keeps exactly
+the shape it always had.
+
+An alternative may set **any field a module has** — `params`, `plugin`, `ui`, a lane's `clips` —
+and it states only what it CHANGES. The merge is the one an instance already gets over the module
+it extends: `params` merge key by key, so a set that touches `Gain` leaves `Tone` alone, while a
+list replaces outright. `extends` is folded first, so the chosen set always wins.
+
+Names are optional. An unnamed one answers to its number, counting the module's own fields as 1 —
+so the first entry under `alternatives:` is "2". A name wins over a number. A name that matches
+nothing falls back to the first rather than silencing the module.
+
+The **⋮ button** on a node's top-right corner lists them, switches, and starts another — empty or
+as a copy of the one that is on. It lights up while a set other than the module's own is running,
+because a node on a variant otherwise looks exactly like one on its own settings. From the command
+bar: `module alternative select|create|copy <module> [name]`, and a bare `select` lists them.
+
+This is not a **preset**. A preset (`presets.yaml`) is a starting point you stamp into the
+module's params — numeric, shared by every use, and gone as a thing once applied. An alternative
+is a state you switch between: both survive, one is on, and it belongs to the one module that
+holds it.
+
+```yaml schema=Module
+extends: "@project/audio/amp"
+params: { Gain: 3, Tone: 5 }
+alternative: crunch          # absent = the fields above
+alternatives:
+  - name: crunch
+    params: { Gain: 9 }      # Tone stays at 5 — a set says only what it changes
+  - name: clean
+    params: { Gain: 1 }
+    plugin: { type: vst3, name: Twin }   # any field, not just params
 ```
 
 ## modules/instruments/<name>/module.yaml — rack (drum kit)
