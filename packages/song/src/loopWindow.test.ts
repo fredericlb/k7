@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { materialWindow } from "./materialWindow";
 import { compileNodeProject } from "./nodeProject";
 import { writeYaml } from "./testSupport";
-import { PlacementSchema } from "./yaml/trackSchema";
+import { PlacementSchema } from "./yaml/placementSchema";
 
 // The model these exercise: the MATERIAL owns its window (`from`/`to`, in the clip's or the sequence's own file)
 // and the PLACEMENT owns where it goes and how many times it is played (`start`, `loop`). A placement has no
@@ -32,9 +32,8 @@ const seq = (body: Record<string, unknown>) =>
     ...body,
   });
 const place = (p: Record<string, unknown>) =>
-  writeYaml(join(dir, "tracks", "melody.yaml"), {
-    type: "single",
-    contentType: "sequences",
+  writeYaml(join(dir, "instances", "melody.yaml"), {
+    extends: "@studio/sequence-track",
     clips: [{ ref: "melody", start: "1:1:1", ...p }],
   });
 const melody = () =>
@@ -130,9 +129,8 @@ describe("`loop` counts passes of that window", () => {
    */
   it("is refused on an audio clip whose window has no end", () => {
     writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
-    writeYaml(join(dir, "tracks", "riff.yaml"), {
-      type: "single",
-      contentType: "audio",
+    writeYaml(join(dir, "instances", "riff.yaml"), {
+      extends: "@studio/audio-track",
       clips: [{ ref: "riff", start: "1:1:1", loop: 2 }],
     });
     let msg = "";

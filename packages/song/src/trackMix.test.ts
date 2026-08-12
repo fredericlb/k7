@@ -73,19 +73,18 @@ describe("panToLabel", () => {
 describe("removeTrackPlacement", () => {
   let dir: string;
   const track = (body: string) => {
-    writeFileSync(join(dir, "tracks", "drums.yaml"), body, "utf8");
-    return () => readFileSync(join(dir, "tracks", "drums.yaml"), "utf8");
+    writeFileSync(join(dir, "instances", "drums.yaml"), body, "utf8");
+    return () => readFileSync(join(dir, "instances", "drums.yaml"), "utf8");
   };
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "td-rm-"));
-    mkdirSync(join(dir, "tracks"), { recursive: true });
+    mkdirSync(join(dir, "instances"), { recursive: true });
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const THREE = `# the drum lane
-type: single
-contentType: audio
+extends: "@studio/audio-track"
 clips:
   - { ref: kick, start: "1:1:1", length: "1:0:0" }
   - { ref: snare, start: "2:1:1", length: "1:0:0" }
@@ -115,7 +114,7 @@ clips:
 
   it("empties the list cleanly when it was the only placement", () => {
     const read = track(
-      'type: single\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
+      'extends: "@studio/audio-track"\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
     );
     expect(removeTrackPlacement(dir, "drums", 0, 4, 4)).toBe(true);
     expect(read()).not.toContain("kick");

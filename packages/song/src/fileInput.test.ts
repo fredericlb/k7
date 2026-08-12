@@ -87,10 +87,10 @@ describe("the file input", () => {
       "modules/audio/amp/module.yaml",
       "plugin: {type: internal, name: Chorus}\n",
     );
-    file("tracks/t.yaml", "type: single\ncontentType: audio\nclips: []\n");
+    file("instances/t.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
     writeFileSync(
       join(dir, "chains.yaml"),
-      "tracks:\n  t: [ amp ]\nmodules:\n  amp: [ FILE ]\n",
+      "modules:\n  t: [ amp ]\n  amp: [ FILE ]\n",
       "utf8",
     );
     expect(loadGraph(dir).warnings).toContain(

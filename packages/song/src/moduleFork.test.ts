@@ -48,8 +48,11 @@ beforeEach(() => {
   writeFileSync(
     join(dir, "chains.yaml"),
     formatChains({
-      tracks: { "bs.lead": [SHARED], "dr.room": [SHARED] },
-      modules: { [SHARED]: ["OUT"] },
+      modules: {
+        "bs.lead": [SHARED],
+        "dr.room": [SHARED],
+        [SHARED]: ["OUT"],
+      },
     }),
     "utf8",
   );
@@ -159,8 +162,7 @@ describe("forking on edit", () => {
     writeFileSync(
       join(dir, "chains.yaml"),
       formatChains({
-        tracks: { "bs.lead": [SHARED] },
-        modules: { [SHARED]: ["OUT"] },
+        modules: { "bs.lead": [SHARED], [SHARED]: ["OUT"] },
       }),
       "utf8",
     );
@@ -245,8 +247,7 @@ describe("giving an engine module a folder", () => {
     writeFileSync(
       join(dir, "chains.yaml"),
       formatChains({
-        tracks: { "gt.lead": [NAM] },
-        modules: { [NAM]: ["OUT"] },
+        modules: { "gt.lead": [NAM], [NAM]: ["OUT"] },
       }),
       "utf8",
     );

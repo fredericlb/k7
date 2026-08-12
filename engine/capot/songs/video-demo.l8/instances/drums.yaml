@@ -1,5 +1,4 @@
-type: single
-contentType: audio
+extends: "@studio/audio-track"
 clips:
   - { ref: kick, start: "1:1:1" }
   - { ref: snare, start: "3:1:1" }

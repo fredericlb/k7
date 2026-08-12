@@ -55,23 +55,15 @@ const rename = (dests: string[], from: string, to: string): string[] =>
 
 function mapFile(
   file: ChainsFile,
-  fn: (
-    section: "tracks" | "modules",
-    node: string,
-    dests: string[],
-  ) => [string, string[]] | null,
+  fn: (node: string, dests: string[]) => [string, string[]] | null,
 ): ChainsFile {
   const out: ChainsFile = {};
-  for (const section of ["tracks", "modules"] as const) {
-    const entries = Object.entries(file[section] ?? {}) as [string, string[]][];
-    if (!entries.length) continue;
-    const next: Record<string, string[]> = {};
-    for (const [node, dests] of entries) {
-      const kept = fn(section, node, dests);
-      if (kept) next[kept[0]] = kept[1];
-    }
-    if (Object.keys(next).length) out[section] = next;
+  const next: Record<string, string[]> = {};
+  for (const [node, dests] of Object.entries(file.modules ?? {})) {
+    const kept = fn(node, dests);
+    if (kept) next[kept[0]] = kept[1];
   }
+  if (Object.keys(next).length) out.modules = next;
   if (file.bypassed?.length) out.bypassed = [...file.bypassed];
   return out;
 }
@@ -90,10 +82,8 @@ export function benchChainCollision(
   const { value } = parseChains(splitHeader(text).body);
   if (!value) return null; // a file that will not parse is the loader's error to report
   const names = new Set([
-    ...Object.keys(value.tracks ?? {}),
     ...Object.keys(value.modules ?? {}),
     ...Object.values(value.modules ?? {}).flat(),
-    ...Object.values(value.tracks ?? {}).flat(),
   ]);
   names.delete(CHAIN_IN);
   names.delete(CHAIN_OUT);
@@ -111,18 +101,17 @@ export function chainToBench(text: string, edges: BenchEdges): string {
   if (!value) return text; // unparseable: hand it over untouched rather than emit a wrong file
   const sink = edges.strip ?? edges.out;
 
-  const moved = mapFile(value, (section, node, dests) => [
-    section === "tracks" && node === CHAIN_IN ? edges.track : node,
+  const moved = mapFile(value, (node, dests) => [
+    node === CHAIN_IN ? edges.track : node,
     rename(dests, CHAIN_OUT, sink),
   ]);
   // The strip is spliced only when something reaches it, so a chain that was `@in → @out` does not
   // grow furniture it never routed through.
   if (edges.strip) {
     const strip = edges.strip;
-    const reaches = [
-      ...Object.values(moved.modules ?? {}),
-      ...Object.values(moved.tracks ?? {}),
-    ].some((d: string[]) => d.includes(strip));
+    const reaches = Object.values(moved.modules ?? {}).some((d) =>
+      d.includes(strip),
+    );
     if (reaches) moved.modules = { ...moved.modules, [strip]: [edges.out] };
   }
   return formatChains(moved, header);
@@ -134,11 +123,11 @@ export function chainFromBench(text: string, edges: BenchEdges): string {
   const { value } = parseChains(body);
   if (!value) return text;
 
-  const back = mapFile(value, (section, node, dests) => {
+  const back = mapFile(value, (node, dests) => {
     // The strip is the bench's, not the chain's: dropped as a node, and anything that pointed at
     // it now points where it pointed — the sink, which is `@out` on the other side.
     if (edges.strip && node === edges.strip) return null;
-    const to = section === "tracks" && node === edges.track ? CHAIN_IN : node;
+    const to = node === edges.track ? CHAIN_IN : node;
     let next = rename(dests, edges.out, CHAIN_OUT);
     if (edges.strip) next = rename(next, edges.strip, CHAIN_OUT);
     return [to, next];

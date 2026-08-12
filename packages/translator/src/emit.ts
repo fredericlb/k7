@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { dirname, extname, join } from "node:path";
 import { materialWindow } from "@studio/song/materialWindow";
 import { beatsToDuration, beatsToPosition } from "@studio/song/timecode";
-import { quoteTimecodes } from "@studio/song/yaml/trackFile";
+import { quoteTimecodes } from "@studio/song/yaml/moduleFile";
 import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./model.js";
 

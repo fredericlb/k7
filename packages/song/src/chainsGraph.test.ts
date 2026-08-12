@@ -6,16 +6,20 @@ import { deriveChains, isParked } from "./chainsGraph";
 // destination, and a bus was a hand-written `{ chain: … }` head. None of that is written
 // down any more, so all of it has to be derived, and each rule below is one the old
 // format let you state and this one has to work out.
+//
+// One map now, so WHICH nodes are lanes is told rather than read off a section: only what a
+// node extends says so, and the derivation has no project to ask (docs/trackModules.md).
 
-const chains = (file: unknown) => deriveChains(file);
+const chains = (file: unknown, lanes: string[] = []) =>
+  deriveChains(file, (n) => lanes.includes(n));
 
-describe("a run, from a track to the sink", () => {
+describe("a run, from a lane to the sink", () => {
   it("follows the arrows and stops at the destination", () => {
-    const g = chains({
-      tracks: { "da.main": ["drum_1"] },
-      modules: { drum_1: ["eq"], eq: ["OUT"] },
-    });
-    // The chain is called after its track, and OUT is where it goes — not a step in it.
+    const g = chains(
+      { modules: { "da.main": ["drum_1"], drum_1: ["eq"], eq: ["OUT"] } },
+      ["da.main"],
+    );
+    // The chain is called after its lane, and OUT is where it goes — not a step in it.
     expect(g["da.main"]).toEqual({
       from: "da.main",
       use: [{ module: "drum_1" }, { module: "eq" }],
@@ -25,23 +29,22 @@ describe("a run, from a track to the sink", () => {
   });
 
   it("carries the bypass onto the step", () => {
-    const g = chains({
-      tracks: { a: ["eq"] },
-      modules: { eq: ["OUT"] },
-      bypassed: ["eq"],
-    });
+    const g = chains(
+      { modules: { a: ["eq"], eq: ["OUT"] }, bypassed: ["eq"] },
+      ["a"],
+    );
     expect(g.a.use).toEqual([{ module: "eq", enabled: false }]);
   });
 
-  it("gives a track with no modules a chain that is just its output", () => {
-    const g = chains({ tracks: { a: ["OUT"] } });
+  it("gives a lane with no modules a chain that is just its output", () => {
+    const g = chains({ modules: { a: ["OUT"] } }, ["a"]);
     expect(g.a).toEqual({ from: "a", use: [], out: [{ to: "OUT", gain: 1 }] });
   });
 
-  it("ignores a track that feeds nothing", () => {
-    // Listing a track with an empty destination list has to mean the same as not listing
+  it("ignores a lane that feeds nothing", () => {
+    // Listing a lane with an empty destination list has to mean the same as not listing
     // it, or the file grows a second way to say "not wired".
-    expect(chains({ tracks: { a: [], b: ["OUT"] } })).toEqual({
+    expect(chains({ modules: { a: [], b: ["OUT"] } }, ["a", "b"])).toEqual({
       b: { from: "b", use: [], out: [{ to: "OUT", gain: 1 }] },
     });
   });
@@ -49,12 +52,12 @@ describe("a run, from a track to the sink", () => {
 
 describe("where a run breaks", () => {
   it("breaks where two signals MEET — that is what a bus is", () => {
-    const g = chains({
-      tracks: { a: ["verb"], b: ["verb"] },
-      modules: { verb: ["OUT"] },
-    });
-    // Neither track owns the reverb, so it becomes a chain of its own, named after
-    // itself, and both tracks route INTO it. That is exactly the shape a hand-written
+    const g = chains(
+      { modules: { a: ["verb"], b: ["verb"], verb: ["OUT"] } },
+      ["a", "b"],
+    );
+    // Neither lane owns the reverb, so it becomes a chain of its own, named after
+    // itself, and both lanes route INTO it. That is exactly the shape a hand-written
     // `{ chain: verb }` head used to produce.
     expect(g.a).toEqual({ from: "a", use: [], out: [{ to: "verb", gain: 1 }] });
     expect(g.b.out).toEqual([{ to: "verb", gain: 1 }]);
@@ -65,11 +68,11 @@ describe("where a run breaks", () => {
   });
 
   it("breaks where the signal SPLITS", () => {
-    const g = chains({
-      tracks: { a: ["eq"] },
-      modules: { eq: ["verb", "OUT"], verb: ["OUT"] },
-    });
-    // `eq` still belongs to the track's run; what it feeds does not, because a module the
+    const g = chains(
+      { modules: { a: ["eq"], eq: ["verb", "OUT"], verb: ["OUT"] } },
+      ["a"],
+    );
+    // `eq` still belongs to the lane's run; what it feeds does not, because a module the
     // split reaches is no longer on one path.
     expect(g.a.use).toEqual([{ module: "eq" }]);
     expect(g.a.out).toEqual([
@@ -82,11 +85,37 @@ describe("where a run breaks", () => {
   it("does not absorb a module into a run that only sends it a share", () => {
     // The predecessor feeds two things, so even the branch nothing else touches starts
     // its own chain — otherwise a send would silently become part of the dry path.
-    const g = chains({
-      tracks: { a: ["eq"] },
-      modules: { eq: ["verb", "OUT"], verb: ["tail"], tail: ["OUT"] },
-    });
+    const g = chains(
+      {
+        modules: {
+          a: ["eq"],
+          eq: ["verb", "OUT"],
+          verb: ["tail"],
+          tail: ["OUT"],
+        },
+      },
+      ["a"],
+    );
     expect(g.verb.use).toEqual([{ module: "verb" }, { module: "tail" }]);
+  });
+
+  it("never absorbs a LANE, whatever feeds it", () => {
+    // A live interface channel routed into a lane satisfies every absorption test: one
+    // feeder, feeding nothing else, and the lane goes somewhere. Absorbed, the input's run
+    // would swallow the lane as its next step and the chain that OWNS the lane's material
+    // would cease to exist — which is what the engine compiles the plugins onto.
+    const g = chains({ modules: { "in-1": ["gtr"], gtr: ["amp"], amp: ["OUT"] } }, [
+      "gtr",
+    ]);
+    expect(g.gtr).toEqual({
+      from: "gtr",
+      use: [{ module: "amp" }],
+      out: [{ to: "OUT", gain: 1 }],
+    });
+    expect(g["in-1"]).toEqual({
+      use: [{ module: "in-1" }],
+      out: [{ to: "gtr", gain: 1 }],
+    });
   });
 });
 
@@ -103,8 +132,19 @@ describe("nodes at the edges", () => {
   });
 
   it("does not call a wired chain parked", () => {
-    const g = chains({ tracks: { a: ["eq"] }, modules: { eq: ["OUT"] } });
+    const g = chains({ modules: { a: ["eq"], eq: ["OUT"] } }, ["a"]);
     expect(isParked(g.a)).toBe(false);
+  });
+
+  it("treats `@in` as a lane with no project to ask", () => {
+    // A chain TEMPLATE has no modules folder behind it, so nothing can say `@in` is a lane.
+    // It is one by name, which is the whole of what a template's source is.
+    const g = chains({ modules: { "@in": ["eq"], eq: ["@out"] } });
+    expect(g["@in"]).toEqual({
+      from: "@in",
+      use: [{ module: "eq" }],
+      out: [{ to: "@out", gain: 1 }],
+    });
   });
 
   it("keeps a cycle's modules visible instead of dropping them", () => {
@@ -122,13 +162,14 @@ describe("what it refuses", () => {
     expect(() => chains({ chains: [] })).toThrow(/migrate chains/);
   });
 
-  it("refuses a name that is both a track and a module", () => {
-    // A chain's name is an identity — the routing target, the bus track, the prefix of
-    // every plugin id under it. Two chains answering to one name would drop one set of
-    // plugins on the floor, and merging them would be a guess.
-    expect(() =>
-      chains({ tracks: { x: ["OUT"] }, modules: { x: ["OUT"] } }),
-    ).toThrow(/both a track and a module/);
+  it("no longer has a track/module collision to refuse", () => {
+    // There used to be a throw here: a name could appear in `tracks:` and in `modules:`,
+    // and a chain's name is an identity — the routing target, the bus track, the prefix of
+    // every plugin id under it. With one map a name is one node, so the collision cannot be
+    // written down and the refusal has nothing left to guard.
+    const g = chains({ modules: { x: ["OUT"] } }, ["x"]);
+    expect(Object.keys(g)).toEqual(["x"]);
+    expect(g.x.from).toBe("x");
   });
 
   it("reads nothing as no chains", () => {

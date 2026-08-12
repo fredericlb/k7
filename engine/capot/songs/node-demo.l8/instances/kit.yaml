@@ -1,0 +1,3 @@
+extends: "@studio/group-track"
+tracks:
+  - drums

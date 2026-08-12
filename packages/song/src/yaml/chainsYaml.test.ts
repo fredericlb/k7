@@ -23,11 +23,10 @@ import {
 // here because it IS the contract — a file spaced any other way is re-spaced by the first
 // edit, and then every node shows up in the diff.
 const AUTHORED = `# The signal graph, as segments.
-tracks:
+modules:
   vo.jo: [ eq_dj:vox ]
   da.main: [ drum_1 ]
   be.chorus: [ amp:bass ]
-modules:
   eq_dj:vox: [ OUT ]
   drum_1: [ OUT ]
   amp:bass: [ cabinet ]
@@ -48,11 +47,9 @@ describe("the model survives the round trip", () => {
   it("reads nodes, destinations and bypass", () => {
     const { value, issues } = parseChains(AUTHORED);
     expect(issues).toEqual([]);
-    expect(value?.tracks).toEqual({
-      "vo.jo": ["eq_dj:vox"],
-      "da.main": ["drum_1"],
-      "be.chorus": ["amp:bass"],
-    });
+    // ONE map: the lanes and the modules are the same kind of node now.
+    expect(value?.modules?.["vo.jo"]).toEqual(["eq_dj:vox"]);
+    expect(value?.modules?.["da.main"]).toEqual(["drum_1"]);
     expect(value?.modules?.["amp:bass"]).toEqual(["cabinet"]);
     expect(value?.bypassed).toEqual(["eq_dj:vox"]);
   });
@@ -79,7 +76,7 @@ describe("the model survives the round trip", () => {
 
   it("rejects an unknown section", () => {
     const { issues } = parseChains(
-      "tracks:\n  a: [ b ]\nbusses:\n  c: [ d ]\n",
+      "modules:\n  a: [ b ]\nbusses:\n  c: [ d ]\n",
     );
     expect(issues[0].message).toMatch(/busses/);
   });
@@ -88,7 +85,7 @@ describe("the model survives the round trip", () => {
 describe("bypassing a module", () => {
   it("touches exactly one line", () => {
     const after = setModuleEnabled(AUTHORED, "drum_1", false);
-    expect(diff(AUTHORED, after)).toEqual(["12"]);
+    expect(diff(AUTHORED, after)).toEqual(["11"]);
     expect(after).toContain("bypassed: [ eq_dj:vox, drum_1 ]");
   });
 
@@ -137,7 +134,7 @@ describe("placing a module with no wiring", () => {
   });
 
   it("creates the section when the file has none", () => {
-    const after = addNode("tracks:\n  a: [ OUT ]\n", "wah");
+    const after = addNode("bypassed: [ x ]\n", "wah");
     expect(parseChains(after).value?.modules?.wah).toEqual([]);
   });
 });
@@ -166,7 +163,7 @@ describe("inserting a module into an arrow", () => {
     const after = insertBetween(AUTHORED, "da.main", "drum_1", "verb");
     const { value, issues } = parseChains(after);
     expect(issues).toEqual([]);
-    expect(value?.tracks?.["da.main"]).toEqual(["verb"]);
+    expect(value?.modules?.["da.main"]).toEqual(["verb"]);
     expect(value?.modules?.verb).toEqual(["drum_1"]);
   });
 });
@@ -190,7 +187,7 @@ describe("removing a module", () => {
   });
 
   it("does not list a survivor twice when two branches rejoined through it", () => {
-    const forked = `tracks:\n  a: [ split ]\nmodules:\n  split: [ verb, OUT ]\n  verb: [ OUT ]\n`;
+    const forked = `modules:\n  a: [ split ]\n  split: [ verb, OUT ]\n  verb: [ OUT ]\n`;
     const { text } = removeNode(forked, "verb");
     expect(text).toContain("split: [ OUT ]");
   });
@@ -202,10 +199,10 @@ describe("renaming a module", () => {
     expect(text).toContain("amp:bass: [ cab:v2 ]");
     expect(text).toContain("cab:v2: [ OUT ]");
     expect(rewired).toEqual(["amp:bass"]);
-    // Still fourth in `modules`: a module has a place in the file, and rebuilding the map
+    // Still seventh in `modules`: a module has a place in the file, and rebuilding the map
     // key by key is what keeps a rename from shuffling it to the bottom.
     const keys = Object.keys(parseChains(text).value?.modules ?? {});
-    expect(keys[3]).toBe("cab:v2");
+    expect(keys[6]).toBe("cab:v2");
   });
 
   it("carries a bypass across", () => {

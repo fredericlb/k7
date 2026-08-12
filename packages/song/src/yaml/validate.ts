@@ -20,7 +20,6 @@ import {
 } from "./moduleSchema";
 import { ProjectFileSchema } from "./projectSchema";
 import { parseSongs } from "./songsFile";
-import { parseTrack } from "./trackFile";
 import { parseUiFile } from "./uiFile";
 
 // YAML 1.2 for the reason every parser here pins it: `5:1:1` stays a string.
@@ -96,8 +95,10 @@ export function parserFor(path: string): Parse | null {
     if (base === "config") return against(ModuleConfigSchema);
     return parseModule; // module.yaml, and every <instance>.yaml beside it
   }
-  if (inFolder("instances")) return parseModule; // the project's flat instances/ folder
-  if (inFolder("tracks")) return parseTrack;
+  // The project's flat instances/ folder — LANES included, since a lane is an instance of a
+  // `@studio/…-track` module and vets exactly like one. There is no `tracks/` branch: the folder
+  // is gone. See docs/trackModules.md.
+  if (inFolder("instances")) return parseModule;
   if (inFolder("clips")) return against(ClipSchema);
   if (inFolder("sequences")) return against(SequenceSchema);
   if (inFolder("curves")) return against(CurveSchema);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fieldsAt, trackFieldsForType, valuesAt } from "./fields";
+import { fieldsAt, fileKindFor, valuesAt } from "./fields";
 import { ModuleSchema } from "./moduleSchema";
 
 // The other half of the editor spike: the vocabulary the completions offer, DERIVED from
@@ -51,6 +51,14 @@ describe("derived module fields", () => {
       // reader: a note is a doc module on the graph now, and `content` is its text — the whole
       // of what a doc module carries. See docs/docModules.md.
       "content",
+      // …and a LANE's own fields, which arrived when tracks stopped being a second entity:
+      // a lane is an instance of a `@studio/…-track` module, so its arrangement is module
+      // fields like any other. See docs/trackModules.md.
+      "clips",
+      "color",
+      "disabled",
+      "tracks",
+      "strudel",
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));
@@ -81,26 +89,22 @@ describe("derived module fields", () => {
   });
 });
 
-describe("derived track fields", () => {
-  it("fixes what the flat table got WRONG, not just what it lacked", () => {
-    // The CUE table listed all three kinds of track at once, so it offered `tracks` (a
-    // group's members) and `strudel` on an audio track — where the schema refuses both.
-    // At the top level, before `type:` is written, every kind is still possible…
-    const top = fieldsAt("track", []);
-    expect(top).toEqual(
-      expect.arrayContaining(["type", "clips", "tracks", "strudel"]),
+describe("derived lane fields", () => {
+  it("has no kind of its own — a lane is a module file", () => {
+    // There used to be a `track` FileKind here, with a per-kind narrowing (`trackFieldsForType`)
+    // because `type: single | group | strudel` unlocked different fields. A lane is an instance
+    // now, so `instances/melody.yaml` is a MODULE file, and which of `clips:`/`tracks:`/
+    // `strudel:` it may write is decided by what it extends — a question about the project, not
+    // about one file. See docs/trackModules.md.
+    expect(fileKindFor("instances/melody.yaml")).toBe("module");
+    expect(fileKindFor("tracks/melody.yaml")).toBeNull();
+    expect(fieldsAt("module", [])).toEqual(
+      expect.arrayContaining(["clips", "tracks", "strudel", "color"]),
     );
-    // …but once the kind is known, only its own fields apply. A flat table cannot do this.
-    expect(trackFieldsForType("single")).toContain("clips");
-    expect(trackFieldsForType("single")).not.toContain("tracks");
-    expect(trackFieldsForType("group")).toContain("tracks");
-    expect(trackFieldsForType("group")).not.toContain("clips");
-    expect(trackFieldsForType("strudel")).toContain("strudel");
-    expect(trackFieldsForType("strudel")).not.toContain("clips");
   });
 
   it("answers inside a placement", () => {
-    expect(fieldsAt("track", ["clips"])).toEqual([
+    expect(fieldsAt("module", ["clips"])).toEqual([
       "ref",
       "start",
       "fadeIn",
@@ -123,11 +127,6 @@ describe("derived values", () => {
     expect(valuesAt("module", ["ui", "widgets", "w1"], "type")).toContain(
       "dropdown",
     );
-    expect(valuesAt("track", [], "type")).toEqual([
-      "single",
-      "group",
-      "strudel",
-    ]);
   });
 
   it("offers nothing where the value is free text", () => {
@@ -139,11 +138,11 @@ describe("derived values", () => {
 });
 
 describe("chain fields", () => {
-  it("offers the file's three sections, and nothing inside them", () => {
-    expect(fieldsAt("chains", [])).toEqual(["tracks", "modules", "bypassed"]);
+  it("offers the file's two sections, and nothing inside them", () => {
+    // Two, not three: `tracks:` is gone, because a lane is a module and lives in `modules:`.
+    expect(fieldsAt("chains", [])).toEqual(["modules", "bypassed"]);
     // Inside a section the keys are node NAMES — a project's own vocabulary, which the
     // schema cannot know. Offering field names there would invent one.
-    expect(fieldsAt("chains", ["tracks"])).toEqual([]);
     expect(fieldsAt("chains", ["modules"])).toEqual([]);
   });
 });

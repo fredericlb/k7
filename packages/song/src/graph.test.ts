@@ -62,27 +62,39 @@ describe("validate", () => {
 // follows: the track is gone, and so is any chain sourced from it — a lane that plays
 // nothing feeding a chain that runs nothing is a diagram-shaped lie.
 describe("disabled tracks (and the chains they feed)", () => {
-  const OUT = {
-    OUT: { kind: "io", io: "out", inputs: [], outputs: [] },
-  } as unknown as Parameters<typeof buildGraph>[5];
-  const build = (tracks: Record<string, unknown>, chains: unknown) =>
-    buildGraph(
+  // A lane is a module now, so the fixture builds ONE map: the lanes, plus the sink they end
+  // at. `kind: "track"` is what makes a node a lane, and its output port is what it carries.
+  const lane = (extra: Record<string, unknown> = {}) => ({
+    kind: "track",
+    category: "tracks",
+    inputs: [],
+    outputs: [{ name: "out", type: "audio" }],
+    ...extra,
+  });
+  const group = (members: string[]) => ({
+    kind: "track",
+    category: "tracks",
+    inputs: [],
+    outputs: [],
+    tracks: members,
+  });
+  const OUT = { kind: "io", io: "out", inputs: [], outputs: [] };
+  const build = (lanes: Record<string, unknown>, chains: unknown) => {
+    const modules = { OUT, ...lanes, reverb: { kind: "plugin", inputs: [] } };
+    return buildGraph(
       { project: {} },
       chains,
-      tracks as Parameters<typeof buildGraph>[2],
       {},
       {},
-      OUT,
-      OUT,
+      modules as unknown as Parameters<typeof buildGraph>[4],
+      modules as unknown as Parameters<typeof buildGraph>[5],
     );
+  };
 
-  it("drops a disabled track and the chain sourced from it, keeping the rest", () => {
+  it("drops a disabled lane and the chain sourced from it, keeping the rest", () => {
     const g = build(
-      {
-        melody: { type: "single" },
-        pad: { type: "single", disabled: true },
-      },
-      { tracks: { melody: ["OUT"], pad: ["OUT"] } },
+      { melody: lane(), pad: lane({ disabled: true }) },
+      { modules: { melody: ["OUT"], pad: ["OUT"] } },
     );
     expect(Object.keys(g.tracks)).toEqual(["melody"]);
     expect(g.disabledTracks).toEqual(["pad"]);
@@ -95,34 +107,28 @@ describe("disabled tracks (and the chains they feed)", () => {
     // A bus has no `from` to test, and is routed into by `out` from several chains —
     // disabling one source must not take the shared reverb down with it.
     const g = build(
-      {
-        melody: { type: "single" },
-        pad: { type: "single", disabled: true },
-      },
+      { melody: lane(), pad: lane({ disabled: true }) },
       // A bus is a module SEVERAL things feed — which is the only way to write one now,
       // and exactly what makes it a chain of its own.
-      {
-        tracks: { melody: ["reverb"], pad: ["reverb"] },
-        modules: { reverb: ["OUT"] },
-      },
+      { modules: { melody: ["reverb"], pad: ["reverb"], reverb: ["OUT"] } },
     );
     expect(Object.keys(g.chains).sort()).toEqual(["melody", "reverb"]);
   });
 
-  it("keeps warning about a `from` that names nothing at all", () => {
-    const g = build({}, { tracks: { ghost: ["OUT"] } });
-    expect(Object.keys(g.chains)).toEqual(["ghost"]); // still drawn — it's a mistake to see
+  it("keeps warning about a node that names nothing at all", () => {
+    // It used to read as a dangling `from`, because a name in `tracks:` could only be a lane.
+    // With one map an unknown name is an unknown MODULE, which is the more honest diagnosis —
+    // and the chain is still drawn, because it is a mistake you have to be able to see.
+    const g = build({}, { modules: { ghost: ["OUT"] } });
+    expect(Object.keys(g.chains)).toEqual(["ghost"]);
     expect(g.warnings).toContainEqual(
-      expect.stringMatching(/from 'ghost' is not a track or chain/),
+      expect.stringMatching(/step module 'ghost' is not a module/),
     );
   });
 
   it("doesn't call a group's disabled member missing", () => {
     const g = build(
-      {
-        pad: { type: "single", disabled: true },
-        live: { type: "group", tracks: ["pad", "ghost"] },
-      },
+      { pad: lane({ disabled: true }), live: group(["pad", "ghost"]) },
       {},
     );
     // The disabled member is deliberate; only the one that exists nowhere is flagged.

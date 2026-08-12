@@ -7,7 +7,7 @@ import { splitPort } from "./moduleTypes";
 import { parseChains } from "./yaml/chainsFile";
 import { type ChainsFile, ChainsFileSchema } from "./yaml/chainsSchema";
 
-/** The source a chain TEMPLATE starts at — a track's place, without a track. A template is
+/** The source a chain TEMPLATE starts at — a lane's place, without a lane. A template is
  *  what the médiathèque holds: segments with no song around them. */
 export const CHAIN_IN = "@in";
 /** …and where it ends, standing where a song's `OUT` sink does. */
@@ -19,34 +19,69 @@ interface Dest {
 }
 
 /**
- * The chains a segment file describes, keyed by name — a track-fed run is called after its track, a run the
+ * Which of the file's nodes are LANES — the runs are named after them, and `from` is what says so.
+ *
+ * The file cannot answer this on its own: with one `modules:` map, `melody` and `reverb` are
+ * spelled identically and only what they EXTEND tells them apart (docs/trackModules.md). So the
+ * caller that holds the module map supplies it, and one that holds no project — a chain template
+ * in the médiathèque, the editor's live re-parse — supplies nothing and gets `@in` alone, which is
+ * exactly the lane a template has.
+ */
+export type IsLane = (name: string) => boolean;
+
+/**
+ * The chains a segment file describes, keyed by name — a lane-fed run is called after its lane, a run the
  * signal joins into after the module it starts at.
  *
  * Accepts the raw value (project.yaml may inline it) and validates: a caller holding an unparsed object should
  * still get chains or a clear failure, never a half-read graph.
  */
-export function deriveChains(raw: unknown): Record<string, Chain> {
+export function deriveChains(
+  raw: unknown,
+  isLane?: IsLane,
+): Record<string, Chain> {
   if (raw == null) return {};
   // The old format, named precisely rather than reported as an unknown key: someone
   // opening a project written last month needs the migration, not a schema error.
   if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
       "chains.yaml: `chains:` is the old chain-list format — chains are now derived " +
-        "from `tracks:`/`modules:` segments. Run `l8 migrate chains <project>`.",
+        "from `modules:` segments. Run `l8 migrate chains <project>`.",
     );
   const parsed = ChainsFileSchema.safeParse(raw);
   if (!parsed.success)
     throw new Error(
       `chains.yaml: ${parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.message}`).join("; ")}`,
     );
-  return chainsOf(parsed.data);
+  return chainsOf(parsed.data, isLane);
+}
+
+/**
+ * The names `bypassed:` lists, from a raw (possibly unreadable) chains value.
+ *
+ * Its own reader because a LANE's mute is its bypass, and the lane projection needs the set before
+ * any chain is derived — a lane appears in `from`, never in a step, so `Step.enabled` never
+ * carries it. Total on garbage: a file the schema would refuse still has to draw its lanes, and
+ * "nothing is muted" is the right answer to give while the editor reports why.
+ */
+export function bypassedOf(raw: unknown): Set<string> {
+  const list = (raw as { bypassed?: unknown })?.bypassed;
+  return new Set(
+    Array.isArray(list) ? list.filter((n) => typeof n === "string") : [],
+  );
 }
 
 /** The same derivation over an already-validated file. */
-export function chainsOf(file: ChainsFile): Record<string, Chain> {
-  const tracks = file.tracks ?? {};
+export function chainsOf(
+  file: ChainsFile,
+  isLane: IsLane = () => false,
+): Record<string, Chain> {
   const modules = file.modules ?? {};
   const bypassed = new Set(file.bypassed ?? []);
+
+  // `@in` is a lane wherever it appears: a template has no project to ask, and it is the one name
+  // that means "the signal starts here" with nothing behind it.
+  const lane = (n: string): boolean => n === CHAIN_IN || isLane(n);
 
   // Everything below reasons about the NODE, never the port: `crossfade` fed twice is one
   // meeting point, not two nodes. The port rides along on the edge and is read back where it
@@ -92,8 +127,7 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
   // (below), and counting it here would make a module absorbed into a run that only feeds its
   // second port, so the run would claim it as its next step and its real flow input would go
   // unnoticed.
-  for (const ds of Object.values(tracks))
-    for (const d of ds) if (!splitPort(d).port) edge(d, ds.length);
+  //
   // The out-degree is the NODE's, not the key's. A module keyed once is the same either way,
   // but one split across its outputs (`sep#drums:` and `sep#bass:`, a key apiece) has two
   // lists of one — and per-key counting would call each edge an only child, absorbing both
@@ -115,8 +149,6 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
     if (list) list.push(from);
     else named.set(node, [from]);
   };
-  for (const [t, ds] of Object.entries(tracks))
-    for (const d of ds) feedPort(t, d);
   for (const [m, ds] of Object.entries(modules))
     for (const d of ds) feedPort(nodeOf(m), d);
 
@@ -127,8 +159,13 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
    * thing feeds nothing else (a split ends the run before it), and it has somewhere to go (a node the signal
    * stops at is the run's DESTINATION, which is what `out` means — the same shape the old list format gave a
    * chain's last node).
+   *
+   * A LANE is never absorbed, whatever feeds it. A live interface channel routed into one satisfies all three
+   * — one feeder, feeding nothing else, and the lane goes somewhere — so without this the input's run would
+   * swallow the lane as its next step, and the chain that OWNS the lane's material would cease to exist.
    */
   const absorbed = (n: string): boolean => {
+    if (lane(n)) return false;
     const f = feeders.get(n);
     return f?.length === 1 && f[0] === 1 && dests(n).length > 0;
   };
@@ -178,20 +215,21 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
   };
 
   const chains: Record<string, Chain> = {};
-  const add = (name: string, chain: Chain): void => {
-    if (name in chains)
-      throw new Error(
-        `chains.yaml: '${name}' is both a track and a module — a chain's name is its ` +
-          `identity (routing target, bus track, plugin ids), so the two cannot share one.`,
-      );
-    chains[name] = chain;
-  };
 
-  // A track's chain: the track feeds it, and the run picks up from its destinations.
-  for (const [track, ds] of Object.entries(tracks)) {
+  // The LANES first, and they are claimed whether or not they are wired: a lane is where a run
+  // begins, so it is never a step in somebody else's. `from` is the whole difference — the run
+  // takes the lane's name, and that name is its identity downstream (routing target, bus track,
+  // the prefix of every plugin id under it).
+  //
+  // There is no "both a track and a module" refusal here any more. It existed because the file
+  // had two maps and one name could appear in each; with one map a name is one node, and the
+  // collision it guarded against cannot be written.
+  for (const n of moduleNodes()) {
+    if (!lane(n)) continue;
+    placed.add(n);
+    const ds = dests(n);
     if (!ds.length) continue; // feeds nothing — the same as not being listed
-    // A track has no output ports to leave from, so its edges carry no `fromPort`.
-    add(track, { from: track, ...follow(ds.map((to) => ({ to }))) });
+    chains[n] = { from: n, ...follow(ds) };
   }
   // Then every module that starts a run of its own: a bus (several things feed it), the
   // far side of a split, or a node nothing feeds at all.
@@ -199,7 +237,7 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
     if (absorbed(m) || placed.has(m)) continue;
     placed.add(m);
     const rest = follow(dests(m));
-    add(m, { use: [step(m), ...rest.use], out: rest.out });
+    chains[m] = { use: [step(m), ...rest.use], out: rest.out };
   }
   // A cycle has no root, so its modules are still unplaced here. Breaking it at the
   // first one keeps them visible; validate() reports the cycle.
@@ -207,7 +245,7 @@ export function chainsOf(file: ChainsFile): Record<string, Chain> {
     if (placed.has(m)) continue;
     placed.add(m);
     const rest = follow(dests(m));
-    add(m, { use: [step(m), ...rest.use], out: rest.out });
+    chains[m] = { use: [step(m), ...rest.use], out: rest.out };
   }
   return chains;
 }

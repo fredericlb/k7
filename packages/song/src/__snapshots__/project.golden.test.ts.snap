@@ -778,8 +778,8 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "plugins": [
         {
           "enabled": true,
-          "id": "pad:pad",
-          "name": "pad",
+          "id": "pad:synth-pad",
+          "name": "synth-pad",
           "params": {
             "Filter Freq": 40,
             "Level": -12,

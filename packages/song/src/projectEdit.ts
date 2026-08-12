@@ -276,9 +276,10 @@ export function replaceModuleInChains(
  * undoable that way. Taking a module out of the signal path and getting rid of it are two
  * different intentions, and only one of them had a command.
  *
- * A TRACK is refused rather than spliced: a track is where a chain STARTS, so it has nothing
- * feeding it to rejoin to what it feeds — `removeNode` would rewrite its destinations and leave
- * the track itself in place, which is not what "unlink" would have meant.
+ * A LANE used to be refused here, because a chain started at it and there was nothing feeding it
+ * to rejoin to what it feeds. A lane is a module now, with an input port of its own
+ * (docs/trackModules.md), so the splice is well defined: it leaves the signal path and its file
+ * stays on disk with its clips — which is exactly what unlinking means everywhere else.
  */
 export function unlinkChainNode(
   dir: string,
@@ -289,16 +290,11 @@ export function unlinkChainNode(
   const { value, issues } = parseChains(text);
   if (!value)
     throw new Error(`chains.yaml: ${issues[0]?.message ?? "unreadable"}`);
-  if (node in (value.tracks ?? {}))
-    throw new Error(
-      `'${node}' is a track — a chain starts there, so there is nothing to splice around`,
-    );
   // Named as a step, or only ever as somebody's destination: the last module in a run has no
   // entry of its own, and it is still in the chain and still unlinkable.
-  const isDest = [
-    ...Object.values(value.tracks ?? {}),
-    ...Object.values(value.modules ?? {}),
-  ].some((dests) => dests.includes(node));
+  const isDest = Object.values(value.modules ?? {}).some((dests) =>
+    dests.includes(node),
+  );
   if (!(node in (value.modules ?? {})) && !isDest)
     throw new Error(`no '${node}' in the chains`);
 

@@ -1,11 +1,10 @@
-type: single
-contentType: sequences
-clips:
-  - { ref: melody, start: "1:1:1" }
 # The rising C-major scale intro. Placeholder line until the real melody is written.
 #
 # TODO: write the actual melody; decide whether it doubles the bass.
 #
 # This was a `docs:`/`todos:` pair, read by a Docs panel that no longer exists. A note about
-# something in the SIGNAL is a doc module on the graph now; a note about a track's own file is
+# something in the SIGNAL is a doc module on the graph now; a note about a lane's own file is
 # a comment in that file, which is where a reader of it looks.
+extends: "@studio/sequence-track"
+clips:
+  - { ref: melody, start: "1:1:1" }

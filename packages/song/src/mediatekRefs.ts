@@ -55,7 +55,6 @@ export function mediatekRefs(dir: string): string[] {
   const named: unknown[] = [
     // A `modules:` key is a node that exists whether or not anything is wired to it yet.
     ...Object.keys(chains?.modules ?? {}),
-    ...Object.values(chains?.tracks ?? {}).flat(),
     ...Object.values(chains?.modules ?? {}).flat(),
     ...(chains?.bypassed ?? []),
   ];

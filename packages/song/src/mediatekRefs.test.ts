@@ -62,7 +62,7 @@ describe("the médiathèque modules a project names", () => {
     // the instance suffix is dropped rather than turned into a path nothing answers to.
     writeFileSync(
       join(dir, "chains.yaml"),
-      "tracks:\n  gtr: [ '@mediatek/audio/modulation/flanger:warm' ]\n",
+      "modules:\n  gtr: [ '@mediatek/audio/modulation/flanger:warm' ]\n",
       "utf8",
     );
     expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/modulation/flanger"]);

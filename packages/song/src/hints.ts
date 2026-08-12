@@ -15,8 +15,8 @@ import {
   loadChains,
   loadModuleRefs,
   loadModules,
+  loadLanes,
   loadProjectRoot,
-  loadTracks,
   loadVideoTracks,
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
@@ -147,7 +147,7 @@ export function projectHints(dir: string): Hints {
     },
     {} as Record<string, true>,
   );
-  const tracks = loadTracks(dir);
+  const tracks = safe(() => loadLanes(dir), {} as Record<string, any>);
   // Read schema-free like everything else here: a project with a broken video track
   // should still complete its audio ones.
   const videoTracks = safe(

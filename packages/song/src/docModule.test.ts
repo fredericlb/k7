@@ -17,7 +17,7 @@ let dir: string;
 function project(content = "watch the gain here"): string {
   const p = join(dir, "song.l8");
   mkdirSync(join(p, "instances"), { recursive: true });
-  mkdirSync(join(p, "tracks"), { recursive: true });
+  mkdirSync(join(p, "instances"), { recursive: true });
   mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
@@ -31,12 +31,12 @@ function project(content = "watch the gain here"): string {
     `extends: "${DOC_REF}"\ncontent: |\n  ${content.split("\n").join("\n  ")}\n`,
   );
   writeFileSync(
-    join(p, "tracks", "gtr.yaml"),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(p, "instances", "gtr.yaml"),
+    'extends: "@studio/audio-track"\nclips: []\n',
   );
   writeFileSync(
     join(p, "chains.yaml"),
-    "tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ OUT, notes ]\n",
+    "modules:\n  gtr: [ amp ]\n  amp: [ OUT, notes ]\n",
   );
   return p;
 }

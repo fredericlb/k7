@@ -4,7 +4,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseDocument } from "yaml";
-import { quoteTimecodes } from "./trackFile";
+import { quoteTimecodes } from "./moduleFile";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 const OUT = { lineWidth: 0 };

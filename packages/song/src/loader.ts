@@ -20,7 +20,11 @@ import { loadControllerLibrary } from "./controller";
 import { studioModules } from "./docModule";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { cachedForModules } from "./moduleCache";
-import { mergeAuthored, resolveModuleRef } from "./moduleResolve";
+import {
+  mergeAuthored,
+  resolveModuleMap,
+  resolveModuleRef,
+} from "./moduleResolve";
 import {
   categoryForRole,
   FILE_PARAMS,
@@ -34,6 +38,7 @@ import {
   slugifyPluginName,
   splitModuleKey,
 } from "./moduleTypes";
+import { type Lane, lanesOf, trackModules } from "./trackModule";
 import type {
   LoadedModule,
   RawProjectRoot,
@@ -42,7 +47,6 @@ import type {
   RawVideoTrack,
 } from "./rawDoc";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
-import { resolveTrackClips } from "./trackAlternatives";
 import { loadUiLibrary } from "./uiLibrary";
 import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
 import { setFileValue } from "./yaml/edit";
@@ -59,7 +63,6 @@ import {
 } from "./yaml/moduleIO";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
 import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
-import { parseTrack } from "./yaml/trackFile";
 
 // The module vocabulary lives in moduleTypes.ts (a leaf, no filesystem) so the engine
 // catalogue can share it without importing this file. Re-exported here because this is
@@ -781,15 +784,21 @@ export function notSupportedModules(dir: string): Diagnostic[] {
   return out;
 }
 
-// Load a project's tracks into a { id: track } map — tracks/<id>.yaml, id == filename.
-export function loadTracks(
-  dir: string,
-  validate = false,
-): Record<string, RawTrack> {
-  return loadEntities<RawTrack>(dir, "tracks", "track", validate);
+/**
+ * A project's LANES, keyed by instance name — what `loadTracks` used to hand back.
+ *
+ * There is no `tracks/` folder to open: a lane is an instance of a `@studio/…-track` module, read
+ * by `loadInstances` with every other instance, so the whole of this is fold the `extends` chains
+ * and keep the ones that came out a lane. See docs/trackModules.md.
+ */
+export function loadLanes(dir: string, validate = false): Record<string, Lane> {
+  return lanesOf(
+    resolveModuleMap(loadModules(dir, validate), loadModuleRefs(dir)),
+  );
 }
 
-// Video tracks, same flat-per-file layout as tracks (video_tracks/<id>.yaml).
+// Video lanes, a flat-per-file layout of their own (video_tracks/<id>.yaml) — still an entity,
+// deliberately: picture is a `.v1` project's business and shares nothing with a song's lanes.
 export function loadVideoTracks(
   dir: string,
   validate = false,
@@ -824,28 +833,17 @@ export function loadSettings(
   return r.success ? r.data : {};
 }
 
-// Read one entity file — a track validates here; other kinds are left for the loaders downstream to reject.
+// Read one entity file. Nothing validates here any more — the one kind that did was the track,
+// and a lane is a module now, vetted by `parseModule` like every other instance.
 function readEntityFile(
   file: { path: string; rel: string },
-  sub: string,
-  issues: string[],
+  _sub: string,
+  _issues: string[],
 ): unknown {
-  const text = readFileSync(file.path, "utf8");
-  if (sub === "tracks") {
-    const { value, issues: found } = parseTrack(text);
-    issues.push(...found.map((i) => formatIssue(file.rel, i)));
-    // The ONE place a track's alternatives are resolved: `clips` becomes the variant that plays,
-    // and everything downstream — the compiler, the engine, every clip command — reads a track
-    // with one clip list, as it always has. The variants themselves ride along untouched, for the
-    // surfaces that offer the choice. See trackAlternatives.ts.
-    if (value && value.type === "single" && value.alternatives?.length)
-      return { ...value, clips: resolveTrackClips(value) };
-    return value;
-  }
-  return parseYaml(text, { version: "1.2" });
+  return parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
 }
 
-// Shared reader for tracks / video_tracks (identical flat-per-file layout).
+// Shared reader for the flat-per-file entity folders (video_tracks/, and the material folders).
 function loadEntities<T>(
   dir: string,
   sub: string,
@@ -1021,11 +1019,13 @@ function readModuleRefs(
 ): Record<string, LoadedModule> {
   // The built-ins first, then the catalogue, so anything on disk overrides both: a project or
   // a library may define `@engine/x`, and the thing you can edit should win over the thing you
-  // cannot. `@studio/doc` is seeded HERE rather than folded into the catalogue argument because
-  // it is not the engine's — callers that pass their own catalogue (tests, scripts) still get
-  // it, which is what "built-in" has to mean for a ref every project may name.
+  // cannot. The `@studio/…` modules are seeded HERE rather than folded into the catalogue
+  // argument because they are not the engine's — callers that pass their own catalogue (tests,
+  // scripts) still get them, which is what "built-in" has to mean for a ref every project may
+  // name. Six of them: the note, and the five lanes.
   const out: Record<string, LoadedModule> = {
     ...studioModules(),
+    ...trackModules(),
     ...catalogue,
   };
 

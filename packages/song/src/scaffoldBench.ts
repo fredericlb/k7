@@ -94,16 +94,16 @@ export function benchFiles(name: string): Record<string, string> {
       `  name: ${MIXER_PLUGIN}\n`,
     // The chain, and the one line to edit. Named in the comment because it IS the exercise.
     "chains.yaml":
-      `# Le graphe, en SEGMENTS : chaque piste et chaque module dit où son signal va ensuite.\n` +
+      `# Le graphe, en SEGMENTS : chaque module dit où son signal va ensuite — la piste\n` +
+      `# "banc" comprise, puisqu'une piste est un module comme un autre.\n` +
       `#\n` +
       `# C'EST ICI QUE L'ON ESSAIE UN MODULE. Tout le catalogue est dans modules/ : il suffit\n` +
       `# de nommer un module dans la chaîne, par son chemin SOUS son dossier de type — donc\n` +
       `# "tape-delay" pour modules/audio/tape-delay/, et "amps/neural-amp-modeler" pour\n` +
       `# modules/audio/amps/neural-amp-modeler/, qui est rangé d'un cran plus loin.\n` +
       `#\n` +
-      `#     tracks:\n` +
-      `#       banc: [ amps/neural-amp-modeler, mixer ]\n` +
       `#     modules:\n` +
+      `#       banc: [ amps/neural-amp-modeler ]\n` +
       `#       amps/neural-amp-modeler: [ mixer ]\n` +
       `#       mixer: [ OUT ]\n` +
       `#\n` +
@@ -111,20 +111,15 @@ export function benchFiles(name: string): Record<string, string> {
       `# différemment, et un banc n'en a pas besoin. C'est aussi ce nom de dossier que le\n` +
       `# constructeur cherche pour retrouver le greffon chargé et vous donner ses vrais\n` +
       `# paramètres — voir apps/l8/frontend/docs/moduleBuilder.md.\n` +
-      `tracks:\n` +
-      `  banc: [ mixer ]\n` +
       `modules:\n` +
+      `  banc: [ mixer ]\n` +
       `  mixer: [ OUT ]\n`,
 
-    // One track, with nothing on it. A bench is a place to plug something in, not a song.
-    "tracks/banc.yaml":
+    // One lane, with nothing on it. A bench is a place to plug something in, not a song.
+    "instances/banc.yaml":
       `# La piste du banc. Vide : ce qu'on y entend vient de ce qu'on met dans la chaîne —\n` +
       `# une entrée live (voir modules/io/OUT/module.yaml), ou un clip déposé ici.\n` +
-      `type: single\n` +
-      `contentType: audio\n` +
-      `mute: false\n` +
-      `solo: false\n` +
-      `clips: []\n`,
+      `extends: "@studio/audio-track"\n`,
 
     // Same reason as the ordinary scaffold's: git tracks files, not directories, and a folder
     // that is not there is one the editor cannot offer.

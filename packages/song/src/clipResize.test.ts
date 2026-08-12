@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { resizeToWindow } from "./clipResize";
-import { loadTracks } from "./loader";
+import { loadLanes } from "./loader";
 import { resizeTrackPlacement } from "./trackMix";
 
 // Dragging a clip's edge. A placement has NO length — the extent is `loop` × the window the
@@ -25,9 +25,9 @@ function song(
   material: { dir: string; name: string; body: string },
 ): string {
   const dir = mkdtempSync(join(tmpdir(), "td-resize-"));
-  mkdirSync(join(dir, "tracks"), { recursive: true });
+  mkdirSync(join(dir, "instances"), { recursive: true });
   mkdirSync(join(dir, material.dir), { recursive: true });
-  writeFileSync(join(dir, "tracks", "drums.yaml"), track, "utf8");
+  writeFileSync(join(dir, "instances", "drums.yaml"), track, "utf8");
   writeFileSync(
     join(dir, material.dir, `${material.name}.yaml`),
     material.body,
@@ -35,16 +35,16 @@ function song(
   );
   return dir;
 }
-// `type`/`contentType` are spelled out so the whole file stays schema-valid: several of these
-// assert the track still LOADS afterwards, which is the regression being pinned.
+// The `extends` is spelled out so the whole file stays schema-valid: several of these assert
+// the lane still LOADS afterwards, which is the regression being pinned.
 const clipSong = (clips: string, body = "source: clips/kick.wav\n") =>
-  song(`type: single\ncontentType: audio\n${clips}`, {
+  song(`extends: "@studio/audio-track"\n${clips}`, {
     dir: "clips",
     name: "kick",
     body,
   });
 const seqSong = (clips: string, body = "notes:\n  - { t: 0, d: 1, k: 36 }\n") =>
-  song(`type: single\ncontentType: sequences\n${clips}`, {
+  song(`extends: "@studio/sequence-track"\n${clips}`, {
     dir: "sequences",
     name: "kick",
     body,
@@ -132,8 +132,8 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     });
     expect(readAt(dir, "clips", "kick.yaml")).toContain("to: 2");
     // The placement is untouched: where it sits did not change, so nothing of its own did.
-    expect(readAt(dir, "tracks", "drums.yaml")).toBe(
-      'type: single\ncontentType: audio\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
+    expect(readAt(dir, "instances", "drums.yaml")).toBe(
+      'extends: "@studio/audio-track"\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
     );
     rmSync(dir, { recursive: true, force: true });
   });
@@ -143,8 +143,8 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     // is strict about, so ONE edge drag left the track file unable to load at all.
     const dir = clipSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
-    expect(readAt(dir, "tracks", "drums.yaml")).not.toContain("length");
-    expect(() => loadTracks(dir, true)).not.toThrow();
+    expect(readAt(dir, "instances", "drums.yaml")).not.toContain("length");
+    expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -153,14 +153,14 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     const dir = seqSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 6, TEMPO);
     expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "2:3"');
-    expect(() => loadTracks(dir, true)).not.toThrow();
+    expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("moves the placement's start when the left edge was the one dragged", () => {
     const dir = seqSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 2, 8, TEMPO);
-    expect(readAt(dir, "tracks", "drums.yaml")).toContain('start: "1:3"');
+    expect(readAt(dir, "instances", "drums.yaml")).toContain('start: "1:3"');
     expect(readAt(dir, "sequences", "kick.yaml")).toContain('from: "1:3"');
     rmSync(dir, { recursive: true, force: true });
   });
@@ -181,7 +181,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     );
     const rep = resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 8, TEMPO);
     expect(rep?.loops).toBe(4);
-    expect(readAt(dir, "tracks", "drums.yaml")).toContain("loop: 4");
+    expect(readAt(dir, "instances", "drums.yaml")).toContain("loop: 4");
     expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "1:3"'); // window untouched
     rmSync(dir, { recursive: true, force: true });
   });

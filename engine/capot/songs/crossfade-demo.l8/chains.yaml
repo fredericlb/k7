@@ -6,11 +6,16 @@
 # without claiming it as its own next step — which is what stops deckB from swallowing the
 # module and leaving its real input unnoticed.
 #
+# The decks are in `modules:` like everything else: a lane is a module too, and a run is named
+# after the lane that starts it (packages/song/docs/trackModules.md).
+#
 # There is no chain called `crossfade`: it has one flow feeder, so it is a step inside deckA's
 # run rather than a meeting point. See packages/song/docs/ports.md.
 
-tracks:
+modules:
   deckA: [ crossfade ]
   deckB: [ crossfade#b ]
-modules:
   crossfade: [ OUT ]
+
+# deckB's mute. See instances/deckB.yaml for why it is not optional.
+bypassed: [ deckB ]

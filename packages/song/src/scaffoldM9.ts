@@ -68,29 +68,31 @@ export function m9ProjectFiles(name: string): Record<string, string> {
       `# Filter LAST of the three. It is the effect a hand throws — the one you want on top of\n` +
       `# whatever the EQ has already done, rather than equalised afterwards.\n` +
       `#\n` +
-      `# Nothing about two is fixed. A third deck is a third track, a third tempo and a second\n` +
+      `# Nothing about two is fixed. A third deck is a third lane, a third tempo and a second\n` +
       `# meeting point; m9 reads whatever is here. See packages/song/docs/ports.md.\n` +
       `\n` +
-      `tracks:\n` +
+      `modules:\n` +
       `  deckA: [ ${TEMPO_A} ]\n` +
       `  deckB: [ ${TEMPO_B} ]\n` +
-      `modules:\n` +
       `  ${TEMPO_A}: [ ${EQ_A} ]\n` +
       `  ${TEMPO_B}: [ ${EQ_B} ]\n` +
       `  ${EQ_A}: [ ${FILTER_A} ]\n` +
       `  ${EQ_B}: [ ${FILTER_B} ]\n` +
       `  ${FILTER_A}: [ ${CROSSFADE} ]\n` +
       `  ${FILTER_B}: [ ${CROSSFADE}#b ]\n` +
-      `  ${CROSSFADE}: [ OUT ]\n`,
+      `  ${CROSSFADE}: [ OUT ]\n` +
+      `\n` +
+      // deckB's mute lives HERE now, not on the deck: a lane's mute is its module's bypass, and
+      // there is one place a bypass is written.
+      MUTED_LANE,
 
-    "tracks/deckA.yaml": deckTrack(
+    "instances/deckA.yaml": deckTrack(
       "A",
       "Its run FLOWS on into the crossfade, so it fills the module's first port.",
     ),
-    "tracks/deckB.yaml": deckTrack(
+    "instances/deckB.yaml": deckTrack(
       "B",
       "Its run ends on `#b`, the crossfade's second port.",
-      true,
     ),
 
     [`instances/${CROSSFADE}.yaml`]:
@@ -165,7 +167,7 @@ export function m9ProjectFiles(name: string): Record<string, string> {
  */
 const MUTED_LANE =
   "# Heard through the crossfade ONLY — see scaffoldM9.ts for why this is not optional.\n" +
-  "mute: true\n";
+  "bypassed: [ deckB ]\n";
 
 const MEDIATEK_UTILITY = "@mediatek/audio/utility";
 /** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
@@ -242,21 +244,18 @@ function filterInstance(letter: string): string {
 }
 
 /** One deck: a track that is DECLARED here and whose material arrives at play time. */
-function deckTrack(letter: string, wiring: string, muted = false): string {
+function deckTrack(letter: string, wiring: string): string {
   return (
-    `# Deck ${letter}. A track with no arrangement — \`clips\` is empty and stays empty in git.\n` +
+    `# Deck ${letter}. A lane with no arrangement — it authors no \`clips:\` at all.\n` +
     `#\n` +
-    `# That is the one thing an m9 project has that an l8 song does not. In a song a track's\n` +
+    `# That is the one thing an m9 project has that an l8 song does not. In a song a lane's\n` +
     `# file IS its arrangement; on a deck the material is whichever song from songs.yaml was\n` +
     `# loaded ten seconds ago, so what is committed is the deck's SETTINGS and its place in\n` +
     `# the graph. ${wiring}\n` +
-    `type: single\n` +
-    `contentType: audio\n` +
-    (muted ? MUTED_LANE : "") +
     // `docs:` used to close this file, restating in a field what the comment above already says.
     // The field is gone (a note is a doc module now) and the comment is the better half anyway:
     // it is where a reader of the FILE looks, and it survives the round trip through the editor.
-    `clips: []\n`
+    `extends: "@studio/audio-track"\n`
   );
 }
 

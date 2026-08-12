@@ -1,4 +1,3 @@
-type: single
-contentType: sequences
+extends: "@studio/sequence-track"
 clips:
   - { ref: beat, start: "1:1:1" }

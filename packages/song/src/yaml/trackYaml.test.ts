@@ -1,28 +1,25 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { parse, parseDocument } from "yaml";
+import { parseModule, quoteTimecodes } from "./moduleFile";
 import {
   addPlacement,
   findPlacement,
   movePlacement,
-  parseTrack,
-  quoteTimecodes,
   removePlacement,
   setTrackField,
 } from "./trackFile";
 
-// Phase 3 of the spike: the file the app writes most (every fader drag, every clip drag),
-// and the one where the format question has teeth — placements carry TIMECODES.
+// The file the app writes most (every clip drag), and the one where the format question has
+// teeth — placements carry TIMECODES.
+//
+// A lane is an instance now (docs/trackModules.md), so it is `parseModule` that vets one: the
+// timecode trap moved with it, which is why `quoteTimecodes` guards every module write.
 
-// A track as the app leaves it, in the form the migrator emits: fields, then one
-// placement per line as a flow map, every timecode quoted.
+// A lane as the app leaves it: what it extends, then one placement per line as a flow map,
+// every timecode quoted.
 const AUTHORED = `color: "#739814"
-type: single
-contentType: audio
-mute: false
-solo: false
+extends: "@studio/audio-track"
+disabled: false
 clips:
   - { ref: bass_3_0, start: "25:1", fadeIn: "8:0:3:0:0:1:1:2" }
   - { ref: bass_3_1, start: "54:1", fadeIn: "8:0:3:0:0:1:1:2" }
@@ -30,11 +27,10 @@ clips:
 
 describe("the timecode trap", () => {
   it("reads a quoted timecode as the string it is", () => {
-    const { value, issues } = parseTrack(AUTHORED);
+    const { value, issues } = parseModule(AUTHORED);
     expect(issues).toEqual([]);
-    expect(value?.type).toBe("single");
-    if (value?.type !== "single") throw new Error("narrowing");
-    expect(value.clips?.[0]).toEqual({
+    expect(value?.extends).toBe("@studio/audio-track");
+    expect(value?.clips?.[0]).toEqual({
       ref: "bass_3_0",
       start: "25:1",
       fadeIn: "8:0:3:0:0:1:1:2",
@@ -70,7 +66,7 @@ describe("the timecode trap", () => {
     expect(rewritten).toContain('start: "1:1"');
     expect(rewritten).toContain('fadeIn: "2:1"');
     expect(rewritten).toContain("loop: 4");
-    expect(parseTrack(rewritten).issues).toEqual([]);
+    expect(parseModule(rewritten).issues).toEqual([]);
   });
 
   it("quotes a timecode written under a key that wasn't there before", () => {
@@ -84,8 +80,8 @@ describe("the timecode trap", () => {
   });
 
   it("rejects something that isn't a timecode", () => {
-    const { value, issues } = parseTrack(
-      'type: single\nclips:\n  - { ref: b, start: "bar 25" }\n',
+    const { value, issues } = parseModule(
+      'extends: "@studio/audio-track"\nclips:\n  - { ref: b, start: "bar 25" }\n',
     );
     expect(value).toBeNull();
     expect(issues[0].path).toBe("clips.0.start");
@@ -100,17 +96,12 @@ describe("the edits the app makes most", () => {
   };
 
   it("flips a flag in one line", () => {
-    // A track has no fader to move any more — its level is a module param (see MixerPlugin). What is left on the
-    // file is the mixer-wide relationships, mute and solo, and those still rewrite one line and no more.
-    const after = setTrackField(AUTHORED, "solo", true);
+    // A lane has no fader to move (its level is a module param, see MixerPlugin) and no mute
+    // either — that is its module's bypass now, in chains.yaml. What is left on the file is
+    // its colour and whether it is in the render at all, and those still rewrite one line.
+    const after = setTrackField(AUTHORED, "disabled", true);
     expect(changed(AUTHORED, after)).toBe(1);
-    expect(after).toContain("solo: true");
-  });
-
-  it("mutes in one line", () => {
-    const after = setTrackField(AUTHORED, "mute", true);
-    expect(changed(AUTHORED, after)).toBe(1);
-    expect(after).toContain("mute: true");
+    expect(after).toContain("disabled: true");
   });
 
   it("drags a clip in one line, keeping it on its own line", () => {
@@ -132,47 +123,57 @@ describe("the edits the app makes most", () => {
     expect(after).toContain(
       '- { ref: bass_3_1, start: "54:1", fadeIn: "8:0:3:0:0:1:1:2" }',
     );
-    expect(parseTrack(after).issues).toEqual([]);
+    expect(parseModule(after).issues).toEqual([]);
   });
 
-  it("receives a placement moved from another track", () => {
-    // The other half of a cross-track clip move: removed there, appended here.
+  it("receives a placement moved from another lane", () => {
+    // The other half of a cross-lane clip move: removed there, appended here.
     const after = addPlacement(AUTHORED, {
       ref: "bass_3_2",
       start: "70:1",
       loop: 2,
     });
     expect(after).toContain('- { ref: bass_3_2, start: "70:1", loop: 2 }');
-    const { value } = parseTrack(after);
-    if (value?.type !== "single") throw new Error("narrowing");
-    expect(value.clips).toHaveLength(3);
+    expect(parseModule(after).value?.clips).toHaveLength(3);
   });
 
-  it("keeps the color, the type and every other field byte-identical", () => {
-    const after = setTrackField(AUTHORED, "mute", true);
+  it("keeps the colour, the extends and every other field byte-identical", () => {
+    const after = setTrackField(AUTHORED, "disabled", true);
     expect(after).toContain('color: "#739814"');
-    expect(after).toContain("type: single");
-    expect(after).toContain("contentType: audio");
+    expect(after).toContain('extends: "@studio/audio-track"');
   });
 });
 
-describe("the three kinds of track", () => {
-  it("refuses clips on a group", () => {
-    // A group holds member tracks, never material. The CUE closed structs said this; the
-    // discriminated union says it with the group's own name in the message.
-    const { value, issues } = parseTrack(
-      "type: group\ntracks: [a, b]\nclips:\n  - { ref: x }\n",
-    );
-    expect(value).toBeNull();
-    expect(issues.some((i) => i.message.includes("clips"))).toBe(true);
+describe("the fields a lane carries", () => {
+  it("takes a group's members and a strudel lane's pattern", () => {
+    // Both are ordinary module fields now. WHICH of them a lane may write is decided by what
+    // it extends, and that is a question about the project — graph.ts's validate() reports it,
+    // not this schema, which vets one file.
+    expect(
+      parseModule('extends: "@studio/group-track"\ntracks: [a, b]\n').issues,
+    ).toEqual([]);
+    expect(
+      parseModule(
+        'extends: "@studio/audio-strudel-track"\nstrudel: algo/beat.strudel\n',
+      ).issues,
+    ).toEqual([]);
   });
 
-  it("pins a strudel track's pattern path", () => {
-    expect(
-      parseTrack("type: strudel\nstrudel: algo/beat.strudel\n").issues,
-    ).toEqual([]);
-    const bad = parseTrack("type: strudel\nstrudel: beat.txt\n");
+  it("pins a strudel lane's pattern path", () => {
+    const bad = parseModule(
+      'extends: "@studio/audio-strudel-track"\nstrudel: beat.txt\n',
+    );
     expect(bad.value).toBeNull();
     expect(bad.issues[0].message).toMatch(/algo\//);
+  });
+
+  it("still refuses a key no module has", () => {
+    // `.strict()`, so `type: single` — which a track file used to open with — says so by name
+    // and by line rather than being read and dropped.
+    const { value, issues } = parseModule(
+      'extends: "@studio/audio-track"\ncontentType: audio\n',
+    );
+    expect(value).toBeNull();
+    expect(issues.some((i) => i.path.includes("contentType"))).toBe(true);
   });
 });

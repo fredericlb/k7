@@ -25,15 +25,26 @@ export interface ChainsMigration {
   /** False when the file was already segments — nothing was rewritten. */
   changed: boolean;
   split: SplitModule[];
+  /**
+   * The nodes that were the old file's TRACKS — the lanes of the migrated graph.
+   *
+   * Reported because the new file no longer says: one `modules:` map, and only what a name
+   * EXTENDS tells a lane from a reverb (docs/trackModules.md). The old format spelled it out in
+   * every `{ track: … }` head, so this is the one moment that knowledge exists — throwing it
+   * away would leave the caller unable to derive the chains it just wrote.
+   */
+  tracks: string[];
   notes: string[];
 }
 
 const HEADER =
-  `# The signal graph, as SEGMENTS: each track and each module says where its signal\n` +
-  `# goes next. The chains are DERIVED by following the arrows — a run breaks where the\n` +
-  `# signal splits, and where two signals meet (which is what a bus is).\n` +
+  `# The signal graph, as SEGMENTS: each module says where its signal goes next — the\n` +
+  `# lanes included, since a lane is a module too. The chains are DERIVED by following\n` +
+  `# the arrows — a run breaks where the signal splits, and where two signals meet (which\n` +
+  `# is what a bus is).\n` +
   `#\n` +
-  `# \`bypassed\` lists the modules the signal passes through untouched.\n`;
+  `# \`bypassed\` lists the modules the signal passes through untouched, and on a lane that\n` +
+  `# is its mute.\n`;
 
 /** An instance name the module loader accepts: letters, digits, '_' and '-'. A chain called `da.main` becomes `da_main`. */
 const instanceName = (chain: string): string =>
@@ -92,7 +103,8 @@ function readOld(raw: unknown): OldChain[] | null {
 export function migrateChainsText(text: string): ChainsMigration {
   const raw = parse(text, { version: "1.2" }) ?? {};
   const old = readOld(raw);
-  if (!old) return { text, changed: false, split: [], notes: [] };
+  if (!old)
+    return { text, changed: false, split: [], tracks: [], notes: [] };
 
   // Which chains use each module as a STEP — a target is a destination, not an instance.
   const users = new Map<string, string[]>();
@@ -153,9 +165,17 @@ export function migrateChainsText(text: string): ChainsMigration {
     for (const m of c.bypassed) bypassed.push(rename(m, c.name));
   }
 
-  const file: ChainsFile = { tracks, modules };
+  // ONE map, lanes first: a lane is a module too (docs/trackModules.md), and putting the runs'
+  // sources at the top is what makes the file read top-down the way the signal flows.
+  const file: ChainsFile = { modules: { ...tracks, ...modules } };
   if (bypassed.length) file.bypassed = bypassed;
-  return { text: formatChains(file, HEADER), changed: true, split, notes };
+  return {
+    text: formatChains(file, HEADER),
+    changed: true,
+    split,
+    tracks: Object.keys(tracks),
+    notes,
+  };
 }
 
 export interface ChainsMigrationResult extends ChainsMigration {
@@ -176,6 +196,7 @@ export function migrateChains(dir: string): ChainsMigrationResult {
     text: "",
     changed: false,
     split: [],
+    tracks: [],
     notes: [],
     created: [],
     errors: [],

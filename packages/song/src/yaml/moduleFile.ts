@@ -7,10 +7,12 @@ import {
   isMap,
   LineCounter,
   parseDocument,
-  type Scalar,
+  Scalar,
+  visit,
   type YAMLMap,
 } from "yaml";
 import { type Module, ModuleSchema } from "./moduleSchema";
+import { TIMECODE, TIMECODE_KEYS } from "./placementSchema";
 
 /** A problem in a module file, with where it is — line/column when the file says so. */
 export interface ModuleIssue {
@@ -113,6 +115,44 @@ const quoteIfKeyword = (
   return node;
 };
 
+/**
+ * Quote every timecode in the document, wherever it sits — applied after every write rather than
+ * at each call site, so nothing can forget.
+ *
+ * It guards MODULE files now, not just lanes, because a lane IS a module: `instances/melody.yaml`
+ * carries `clips:` with a `start: "25:1"` in it, and unquoted that is a valid YAML 1.1 sexagesimal
+ * — bar 25 reads back as beat 1501, silently, in a file nothing else would complain about.
+ */
+export function quoteTimecodes(doc: ReturnType<typeof parseDocument>): void {
+  visit(doc, {
+    Pair(_, pair) {
+      // A key set through the document API arrives as a bare string, not a Scalar — reading only `.value` there
+      // skipped the pair entirely and let a freshly written `to: 3:1` out unquoted, which is the one bug this
+      // function exists to prevent.
+      const raw = pair.key as Scalar | string;
+      const key = typeof raw === "string" ? raw : raw?.value;
+      if (typeof key !== "string" || !TIMECODE_KEYS.has(key)) return;
+      const quoted = (v: unknown): Scalar | undefined => {
+        // A bare string has nowhere to carry the quoting style, so it is promoted to a Scalar that does.
+        if (typeof v === "string" && TIMECODE.test(v)) {
+          const s = new Scalar(v);
+          s.type = Scalar.QUOTE_DOUBLE;
+          return s;
+        }
+        const s = v as Scalar;
+        if (s && typeof s.value === "string" && TIMECODE.test(s.value))
+          s.type = Scalar.QUOTE_DOUBLE;
+        return undefined;
+      };
+      const value = pair.value as { items?: unknown[] };
+      // Scalars, but a sequence of them is marked item by item rather than skipped.
+      if (Array.isArray(value?.items))
+        value.items = value.items.map((i) => quoted(i) ?? i);
+      else pair.value = quoted(value) ?? pair.value;
+    },
+  });
+}
+
 /** Set one value in the file, leaving every other byte alone (comments, key order, layout survive) — a knob drag is a one-line diff. `null` removes the key. */
 export function setModuleValue(
   text: string,
@@ -123,5 +163,6 @@ export function setModuleValue(
   const doc = parseDocument(text, PARSE_OPTIONS);
   if (value === null) doc.deleteIn(path);
   else doc.setIn(path, quoteIfKeyword(doc, value));
+  quoteTimecodes(doc);
   return String(doc);
 }

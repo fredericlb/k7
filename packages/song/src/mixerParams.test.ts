@@ -23,7 +23,7 @@ beforeEach(() => {
   });
   writeFileSync(
     join(dir, "chains.yaml"),
-    "tracks:\n  vox: [ mixer:vox ]\nmodules:\n  mixer:vox: [ OUT ]\n",
+    "modules:\n  vox: [ mixer:vox ]\n  mixer:vox: [ OUT ]\n",
     "utf8",
   );
   writeModule(dir, "io", "OUT", { io: "out" });

@@ -10,7 +10,8 @@ import { resolve } from "node:path";
 import { evalScope, noteToMidi } from "@strudel/core";
 // @ts-ignore
 import { evaluate } from "@strudel/transpiler";
-import { loadTracks } from "./loader";
+import { loadLanes } from "./loader";
+import type { Lane } from "./trackModule";
 
 // A track that declares itself the destination of one of a pattern's lanes.
 export interface StrudelLane {
@@ -34,29 +35,21 @@ export interface StrudelLink {
 // of one file, so it yields ONE link carrying all of them; a link pointing nowhere is
 // kept, so loading reports the miss rather than silently playing nothing.
 export function strudelPatterns(dir: string): StrudelLink[] {
-  let tracks: Record<string, any>;
+  let tracks: Record<string, Lane>;
   try {
-    tracks = loadTracks(dir) ?? {};
+    tracks = loadLanes(dir) ?? {};
   } catch {
     return []; // a project that doesn't evaluate has no patterns to play yet
   }
   const groupOf: Record<string, string> = {};
-  for (const [id, t] of Object.entries<any>(tracks))
-    if (t?.type === "group")
-      for (const m of Array.isArray(t.tracks) ? t.tracks : [])
-        groupOf[String(m)] = id;
+  for (const [id, t] of Object.entries(tracks))
+    if (t.type === "group") for (const m of t.tracks) groupOf[m] = id;
 
   const byPath = new Map<string, StrudelLink>();
-  for (const [track, t] of Object.entries<any>(tracks).sort(([a], [b]) =>
+  for (const [track, t] of Object.entries(tracks).sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
-    if (
-      t?.type !== "strudel" ||
-      typeof t.strudel !== "string" ||
-      !t.strudel ||
-      t.disabled
-    )
-      continue;
+    if (t.type !== "strudel" || !t.strudel || t.disabled) continue;
     const path = resolve(dir, t.strudel);
     const link = byPath.get(path) ?? {
       path,
@@ -69,7 +62,8 @@ export function strudelPatterns(dir: string): StrudelLink[] {
       link.group = "";
     link.lanes.push({
       track,
-      label: String(t.name ?? track),
+      // The lane's name is its instance file's, so the label and the id are one string.
+      label: track,
       contentType: t.contentType === "audio" ? "audio" : "sequences",
     });
     byPath.set(path, link);

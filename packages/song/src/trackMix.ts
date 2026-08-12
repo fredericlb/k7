@@ -13,27 +13,27 @@ import {
 } from "./yaml/materialFile";
 import { entityFileFor, entityFiles } from "./yaml/moduleIO";
 import {
-  addAlternative,
   addPlacement,
   findPlacementAt,
   movePlacementAt,
   placementAt,
   placementValues,
   removePlacementAt,
-  setAlternative,
   setPlacementField,
   setTrackField,
 } from "./yaml/trackFile";
 
+/**
+ * The scalar fields a lane's own file still carries.
+ *
+ * `mute` and `solo` are NOT here any more, and neither is `frozen`. A lane's mute is its module's
+ * bypass, written to `chains.yaml`'s `bypassed:` — one state in one place — and solo is derived by
+ * the surface. `volume`/`pan` left for the `Mixer` module before any of this. See
+ * docs/trackModules.md.
+ */
 export type TrackFields = Partial<{
-  volume: number;
-  pan: number;
-  mute: boolean;
-  solo: boolean;
+  color: string;
   disabled: boolean;
-  // The freeze render's path, or null to REMOVE the key — unfreezing has to leave no trace of the attribute, and
-  // writing an empty string would leave a `frozen: ""` the schema rejects.
-  frozen: string | null;
 }>;
 
 // --- gain / pan conversions (shared by the handlers and every mixer) ----------
@@ -67,16 +67,18 @@ export function panToLabel(pan: number): string {
 // A placement is addressed by its POSITION IN BEATS, not the text of its `start`
 // (see yaml/trackFile.ts, which owns the writes) — "1:1:1"/"1:1"/"1" are one position.
 
-/** Rewrite track `id`'s file in place via `transform` on its text; throws when the track has no file (`what` names the edit in the message). */
+/** Rewrite lane `id`'s file in place via `transform` on its text; throws when the lane has no file (`what` names the edit in the message). */
 export function editTrackStruct(
   dir: string,
   id: string,
   transform: (text: string) => string,
   what: string,
 ): string {
-  const found = entityFileFor(join(dir, "tracks"), "tracks", id);
+  // `instances/`, because that is where a lane lives: it is an instance of a `@studio/…-track`
+  // module, and the file names it exactly as its track file used to.
+  const found = entityFileFor(join(dir, "instances"), "instances", id);
   if (!found)
-    throw new Error(`track "${id}" has no file in tracks/ — cannot ${what}`);
+    throw new Error(`track "${id}" has no file in instances/ — cannot ${what}`);
   const text = readFileSync(found.path, "utf8");
   const next = transform(text);
   if (next !== text) writeFileSync(found.path, next, "utf8");
@@ -196,8 +198,8 @@ export function resizeTrackPlacement(
   endBeats: number,
   tempo: number,
 ): ResizeReport | null {
-  const own = entityFileFor(join(dir, "tracks"), "tracks", id);
-  if (!own) throw new Error(`track "${id}" has no file in tracks/`);
+  const own = entityFileFor(join(dir, "instances"), "instances", id);
+  if (!own) throw new Error(`track "${id}" has no file in instances/`);
   const text = readFileSync(own.path, "utf8");
   const at = findPlacementAt(text, fromBeats, num, den);
   if (at < 0) return null;
@@ -279,10 +281,11 @@ export function resizeTrackPlacement(
 
 /** How many OTHER placements name `ref` — what else this window edit just changed.
  *  Off the files' own text, for the reason placementValues gives: counting must not depend
- *  on every track in the song being schema-valid. */
+ *  on every lane in the song being schema-valid. Every instance is read, not only the lanes:
+ *  a module that is not one simply has no `clips:` to count. */
 function sharedWith(dir: string, ref: string): number {
   let n = -1; // the placement being resized is one of them
-  for (const { file } of entityFiles(join(dir, "tracks"), "tracks")) {
+  for (const { file } of entityFiles(join(dir, "instances"), "instances")) {
     let text: string;
     try {
       text = readFileSync(file.path, "utf8");
@@ -348,44 +351,5 @@ export function setTrackFields(
   );
 }
 
-// --- a track's ALTERNATIVES (see trackAlternatives.ts) -------------------------
-
-/** Switch track `id` to the alternative called `name`. Throws if it has no such one. */
-export function switchTrackAlternative(
-  dir: string,
-  id: string,
-  name: string,
-): void {
-  editTrackStruct(
-    dir,
-    id,
-    (text) => setAlternative(text, name),
-    "switch alternative",
-  );
-}
-
-/**
- * Add an alternative to track `id` and switch to it; answers the name it got.
- *
- * The name comes back rather than being assumed by the caller, because an unnamed one is
- * numbered HERE, from the file — the only place that knows what is already taken.
- */
-export function newTrackAlternative(
-  dir: string,
-  id: string,
-  name?: string,
-  opts: { copy?: boolean } = {},
-): string {
-  let chosen = name ?? "";
-  editTrackStruct(
-    dir,
-    id,
-    (text) => {
-      const made = addAlternative(text, name, opts);
-      chosen = made.name;
-      return made.text;
-    },
-    "add an alternative",
-  );
-  return chosen;
-}
+// A lane's ALTERNATIVES lived here. They are gone with the field, to be replaced by another
+// mechanism later — see docs/trackModules.md.

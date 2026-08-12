@@ -52,7 +52,7 @@ describe("a scaffolded project", () => {
     // `1:1:1` unquoted is a YAML 1.1 sexagesimal — the trap this format has to be written
     // around, and the reason the template states them quoted.
     scaffold(dir, "demo");
-    const track = readFileSync(join(dir, "tracks", "melody.yaml"), "utf8");
+    const track = readFileSync(join(dir, "instances", "melody.yaml"), "utf8");
     expect(track).toContain('start: "1:1:1"');
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",

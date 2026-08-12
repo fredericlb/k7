@@ -142,6 +142,12 @@ export interface LoadedModule {
   // A NOTE's text, on a doc module. `docs`/`todos` were here and are gone — see moduleSchema.
   content?: unknown;
   automations?: unknown;
+  // -- lanes only (a track module; see docs/trackModules.md) ---------------------
+  clips?: unknown; // the placements on this lane — where its material goes, and how many times
+  color?: unknown; // the lane's colour, and its icon's in the timeline
+  disabled?: unknown; // excluded from the render entirely, chains and all
+  tracks?: unknown; // a GROUP lane's member names
+  strudel?: unknown; // a GENERATED lane's pattern file (algo/<name>.strudel)
   // -- added by the loader ------------------------------------------------------
   kind: ModuleKind; // from the type folder (MODULE_TYPES)
   // The module's ports: its OWN when it declares them, else its type folder's defaults. Both
@@ -153,6 +159,10 @@ export interface LoadedModule {
     mandatory?: boolean;
   }[];
   outputs?: { name: string; type: "audio" | "midi" | "video" }[];
+  // A lane whose clips are STREAMED rather than written down. Stamped on the two strudel built-ins
+  // and inherited by every instance of them, which is the whole mechanism — it is deliberately NOT
+  // in moduleSchema, so it cannot be authored and cannot disagree with what the lane extends.
+  generated?: boolean;
   preset?: string; // resolved .vstpreset path, if any
   nam?: string; // a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
   onnx?: string; // …the same, for the neural model an offline module runs (see docs/moduleAssets.md)

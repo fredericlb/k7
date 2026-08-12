@@ -45,7 +45,7 @@ export function parseChains(text: string): ParsedChains {
         {
           path: "chains",
           message:
-            "the old chain-list format — chains are now derived from `tracks:`/`modules:` " +
+            "the old chain-list format — chains are now derived from `modules:` " +
             "segments. Run `l8 migrate chains <project>`.",
         },
       ],
@@ -63,10 +63,9 @@ export function parseChains(text: string): ParsedChains {
   return { value: result.data, issues: [] };
 }
 
-/** Every node the file names, tracks and modules alike — the vocabulary an edit may refer to. */
+/** Every node the file names — lanes and modules alike, which is one map now. */
 export function nodeNames(text: string): string[] {
-  const f = parseChains(text).value;
-  return [...Object.keys(f?.tracks ?? {}), ...Object.keys(f?.modules ?? {})];
+  return Object.keys(parseChains(text).value?.modules ?? {});
 }
 
 function read(text: string): { doc: Document; file: ChainsFile } {
@@ -76,15 +75,15 @@ function read(text: string): { doc: Document; file: ChainsFile } {
   return { doc: parseDocument(text, OPTS), file: value };
 }
 
-/** Where a node's destinations live — `tracks` for a track, `modules` for anything else. Undefined when the file doesn't name it. */
-function sectionOf(
-  file: ChainsFile,
-  node: string,
-): "tracks" | "modules" | null {
-  if (file.tracks && node in file.tracks) return "tracks";
-  if (file.modules && node in file.modules) return "modules";
-  return null;
-}
+/**
+ * Does the file name this node at all?
+ *
+ * This was `sectionOf`, and it answered "`tracks:` or `modules:`" — a question every edit below
+ * had to carry through, because writing a lane's destinations into the wrong half unwired it
+ * silently. There is one map now (docs/trackModules.md), so the question is a yes/no.
+ */
+const hasNode = (file: ChainsFile, node: string): boolean =>
+  !!file.modules && node in file.modules;
 
 /** A sequence item's text, whether the library handed back a scalar node or a bare string. */
 const itemText = (item: unknown): string =>
@@ -107,15 +106,10 @@ function destsNode(doc: Document, dests: string[]) {
   return node;
 }
 
-/** Set a node's destinations, creating its section and its entry if needed. */
-function setDests(
-  doc: Document,
-  section: "tracks" | "modules",
-  node: string,
-  dests: string[],
-): void {
-  if (!isMap(doc.getIn([section]))) doc.set(section, doc.createNode({}));
-  doc.setIn([section, node], destsNode(doc, dests));
+/** Set a node's destinations, creating the `modules:` map and its entry if needed. */
+function setDests(doc: Document, node: string, dests: string[]): void {
+  if (!isMap(doc.getIn(["modules"]))) doc.set("modules", doc.createNode({}));
+  doc.setIn(["modules", node], destsNode(doc, dests));
 }
 
 /**
@@ -128,8 +122,8 @@ function setDests(
  */
 export function addNode(text: string, module: string): string {
   const { doc, file } = read(text);
-  if (sectionOf(file, module)) return text;
-  setDests(doc, "modules", module, []);
+  if (hasNode(file, module)) return text;
+  setDests(doc, module, []);
   return doc.toString(OUT);
 }
 
@@ -143,7 +137,7 @@ export function setModuleEnabled(
   enabled: boolean,
 ): string {
   const { doc, file } = read(text);
-  if (!sectionOf(file, module))
+  if (!hasNode(file, module))
     throw new Error(`chains.yaml has no module "${module}"`);
   const listed = (file.bypassed ?? []).includes(module);
   if (enabled === !listed) return text; // already how it was asked to be
@@ -172,9 +166,9 @@ export function insertBetween(
   module: string,
 ): string {
   const { doc, file } = read(text);
-  const section = sectionOf(file, before);
-  if (!section) throw new Error(`chains.yaml has no node "${before}"`);
-  const dests = [...(file[section]?.[before] ?? [])];
+  if (!hasNode(file, before))
+    throw new Error(`chains.yaml has no node "${before}"`);
+  const dests = [...(file.modules?.[before] ?? [])];
   if (after) {
     const at = dests.indexOf(after);
     if (at < 0)
@@ -189,8 +183,8 @@ export function insertBetween(
       );
     dests.push(module);
   }
-  setDests(doc, section, before, dests);
-  setDests(doc, "modules", module, after ? [after] : []);
+  setDests(doc, before, dests);
+  setDests(doc, module, after ? [after] : []);
   return doc.toString(OUT);
 }
 
@@ -209,18 +203,17 @@ export function removeNode(
   const onward = file.modules?.[module] ?? [];
   const rewired: string[] = [];
 
-  for (const section of ["tracks", "modules"] as const)
-    for (const [node, dests] of Object.entries(file[section] ?? {})) {
-      if (node === module || !dests.includes(module)) continue;
-      // The module's own destinations take its place, deduped: two branches that both
-      // rejoined through it must not leave the survivor listed twice.
-      const next: string[] = [];
-      for (const d of dests)
-        for (const r of d === module ? onward : [d])
-          if (r !== module && !next.includes(r)) next.push(r);
-      setDests(doc, section, node, next);
-      rewired.push(node);
-    }
+  for (const [node, dests] of Object.entries(file.modules ?? {})) {
+    if (node === module || !dests.includes(module)) continue;
+    // The module's own destinations take its place, deduped: two branches that both
+    // rejoined through it must not leave the survivor listed twice.
+    const next: string[] = [];
+    for (const d of dests)
+      for (const r of d === module ? onward : [d])
+        if (r !== module && !next.includes(r)) next.push(r);
+    setDests(doc, node, next);
+    rewired.push(node);
+  }
 
   doc.deleteIn(["modules", module]);
   dropFromBypassed(doc, module);
@@ -241,17 +234,15 @@ export function renameNode(
   const { doc, file } = read(text);
   const rewired: string[] = [];
 
-  for (const section of ["tracks", "modules"] as const)
-    for (const [node, dests] of Object.entries(file[section] ?? {})) {
-      if (!dests.includes(from)) continue;
-      setDests(
-        doc,
-        section,
-        node,
-        dests.map((d) => (d === from ? to : d)),
-      );
-      rewired.push(node);
-    }
+  for (const [node, dests] of Object.entries(file.modules ?? {})) {
+    if (!dests.includes(from)) continue;
+    setDests(
+      doc,
+      node,
+      dests.map((d) => (d === from ? to : d)),
+    );
+    rewired.push(node);
+  }
 
   // The key itself, renamed IN PLACE — the scalar's value is swapped rather than the
   // entry re-added, so the module keeps its line, its position and any comment on it.
@@ -278,12 +269,11 @@ export function renameNode(
 /** A whole segments file in canonical form — what the scaffold writes and what the migration emits. */
 export function formatChains(file: ChainsFile, header = ""): string {
   const doc = new Document({}, OPTS);
-  for (const section of ["tracks", "modules"] as const) {
-    const entries = Object.entries(file[section] ?? {});
-    if (!entries.length) continue;
-    doc.set(section, doc.createNode({}));
+  const entries = Object.entries(file.modules ?? {});
+  if (entries.length) {
+    doc.set("modules", doc.createNode({}));
     for (const [node, dests] of entries)
-      doc.setIn([section, node], destsNode(doc, dests));
+      doc.setIn(["modules", node], destsNode(doc, dests));
   }
   if (file.bypassed?.length) doc.set("bypassed", destsNode(doc, file.bypassed));
   return (header ? `${header}\n` : "") + doc.toString(OUT);

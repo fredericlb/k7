@@ -88,9 +88,14 @@ describe("module instances", () => {
     const modules = loadModules(dir);
     const refs = loadModuleRefs(dir, {});
     const resolved = resolveModuleMap(modules, refs);
-    // pad.yaml overrides two params and empties the inherited automation list.
-    expect(resolved.pad.params).toEqual({ "Filter Freq": 40, Level: -12 });
-    expect(resolved.pad.automations).toEqual([]);
+    // synth-pad.yaml overrides two params and empties the inherited automation list.
+    // (Named for the lane it serves rather than after it: `pad` is the LANE's instance now,
+    // and one flat name space means one name, one node.)
+    expect(resolved["synth-pad"].params).toEqual({
+      "Filter Freq": 40,
+      Level: -12,
+    });
+    expect(resolved["synth-pad"].automations).toEqual([]);
     // Its sibling and the module are untouched — the merge only ever runs downhill.
     expect(resolved.lead.params?.["Filter Freq"]).toBe(90);
     expect((resolved.lead.automations as unknown[]).length).toBe(2);
@@ -115,7 +120,7 @@ describe("module instances", () => {
   });
 
   it("compiles two instances of one module into two independent plugins", () => {
-    // The demo's chains name "lead" and "pad" — one module, two voices.
+    // The demo's chains name "lead" and "synth-pad" — one module, two voices.
     const doc = compileNodeProject(dir);
     const lead = doc.tracks
       .find((t) => t.id === "melody")
@@ -124,7 +129,7 @@ describe("module instances", () => {
       ?.plugins.find((p) => p.id === "melody:lead");
     const pad = doc.tracks
       .find((t) => t.id === "pad")
-      ?.plugins.find((p) => p.id === "pad:pad");
+      ?.plugins.find((p) => p.id === "pad:synth-pad");
     expect(lead).toBeTruthy();
     expect(pad).toBeTruthy();
     // The plugin is inherited through instruments/synth -> instruments/fourosc by both.
@@ -138,7 +143,7 @@ describe("module instances", () => {
       /instances\/lead\.vstpreset$/,
     );
     expect(pad?.presetSave.replace(/\\/g, "/")).toMatch(
-      /instances\/pad\.vstpreset$/,
+      /instances\/synth-pad\.vstpreset$/,
     );
   });
 

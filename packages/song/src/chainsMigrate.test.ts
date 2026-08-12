@@ -7,12 +7,18 @@ import { parseChains } from "./yaml/chainsFile";
 // derived chains rather than the text: the question is never "does the new file look
 // right", it is "does the song still route the same way".
 
-/** The chains a migrated file derives to — the shape every consumer downstream reads. */
+/**
+ * The chains a migrated file derives to — the shape every consumer downstream reads.
+ *
+ * The lanes come back FROM the migration: the new file is one `modules:` map, so only what a
+ * name extends tells a lane from a reverb, and the old `{ track: … }` heads are the last place
+ * that is written down (docs/trackModules.md).
+ */
 const routed = (old: string) => {
-  const { text } = migrateChainsText(old);
+  const { text, tracks } = migrateChainsText(old);
   const { value, issues } = parseChains(text);
   expect(issues).toEqual([]);
-  return deriveChains(value);
+  return deriveChains(value, (n) => tracks.includes(n));
 };
 
 /** A chain as a flat path, which is how the old file spelled it: source, steps, destination. */
@@ -104,7 +110,9 @@ describe("a module the old file used twice", () => {
     expect(r.split).toEqual([
       { module: "synth", instances: ["synth:lead", "synth:pad"] },
     ]);
-    const g = deriveChains(parseChains(r.text).value);
+    const g = deriveChains(parseChains(r.text).value, (n) =>
+      r.tracks.includes(n),
+    );
     expect(path(g.melody)).toEqual(["melody", "synth:lead", "OUT"]);
     expect(path(g.pad)).toEqual(["pad", "synth:pad", "OUT"]);
   });
@@ -123,7 +131,7 @@ describe("a module the old file used twice", () => {
 
 describe("running it twice", () => {
   it("leaves a file that is already segments alone", () => {
-    const already = `tracks:\n  a: [ eq ]\nmodules:\n  eq: [ OUT ]\n`;
+    const already = `modules:\n  a: [ eq ]\n  eq: [ OUT ]\n`;
     const r = migrateChainsText(already);
     expect(r.changed).toBe(false);
     expect(r.text).toBe(already);

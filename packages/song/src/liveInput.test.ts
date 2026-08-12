@@ -41,16 +41,12 @@ describe("a live input, wired by its chain", () => {
   let dir: string;
   // Wire nodes into chains.yaml's segments — each call merges, so a test states only its
   // own edges. The shipping writer emits, so the fixture cannot drift from the format.
-  const wire = (seg: {
-    tracks?: Record<string, string[]>;
-    modules?: Record<string, string[]>;
-  }): void => {
+  const wire = (seg: { modules?: Record<string, string[]> }): void => {
     const p = join(dir, "chains.yaml");
     const cur = parseChains(readFileSync(p, "utf8")).value ?? {};
     writeFileSync(
       p,
       formatChains({
-        tracks: { ...cur.tracks, ...seg.tracks },
         modules: { ...cur.modules, ...seg.modules },
         bypassed: cur.bypassed,
       }),
@@ -77,20 +73,22 @@ describe("a live input, wired by its chain", () => {
         "modules_from: [ ../_modules ]",
       ),
     );
-    // An interface input carries audio, and every track the fixture ships plays
-    // sequences — so the input gets an audio lane of its own.
+    // An interface input carries audio, and every lane the fixture ships plays
+    // sequences — so the input gets an audio lane of its own. Called `mic` rather than
+    // `live`: the fixture already has a group by that name, and one flat name space
+    // means one name, one node.
     writeFileSync(
-      join(dir, "tracks", "live.yaml"),
-      "type: single\ncontentType: audio\n",
+      join(dir, "instances", "mic.yaml"),
+      'extends: "@studio/audio-track"\n',
     );
-    wire({ tracks: { live: [IN] }, modules: { [IN]: ["OUT"] } });
+    wire({ modules: { mic: [IN], [IN]: ["OUT"] } });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("lands on the track of the chain it sits in", () => {
     const g = loadGraph(dir);
     expect(g.warnings.filter((w) => w.includes("in-1"))).toEqual([]);
-    const live = compileNodeProject(dir).tracks.find((t) => t.id === "live");
+    const live = compileNodeProject(dir).tracks.find((t) => t.id === "mic");
     expect(live?.inputChannels).toEqual([1]);
     // …and it is not a plugin: an io module contributes no processor to the track.
     expect(live?.plugins.some((pl) => pl.id.includes("in-1"))).toBe(false);
@@ -106,7 +104,7 @@ describe("a live input, wired by its chain", () => {
   it("says so when its run reaches no track", () => {
     // Nothing feeds the input and it feeds nothing but OUT, so no lane owns it — there is
     // no track for the signal to land on. The case the old `track:` field could not express.
-    wire({ tracks: { live: [] } });
+    wire({ modules: { mic: [] } });
     const w = loadGraph(dir).warnings;
     expect(
       w.some((x) => x.includes("an input's signal has to land on one")),
@@ -117,15 +115,13 @@ describe("a live input, wired by its chain", () => {
   // input, INTO a lane. The old chain-list format could not say it — a chain named its
   // track up front and the input was a node inside it, so the arrow pointed backwards.
   describe("an input that FEEDS a track", () => {
-    beforeEach(() =>
-      wire({ tracks: { live: [] }, modules: { [IN]: ["live"] } }),
-    );
+    beforeEach(() => wire({ modules: { mic: [], [IN]: ["mic"] } }));
 
     it("lands on the track its run ends at", () => {
       expect(loadGraph(dir).warnings.filter((w) => w.includes("in-1"))).toEqual(
         [],
       );
-      const live = compileNodeProject(dir).tracks.find((t) => t.id === "live");
+      const live = compileNodeProject(dir).tracks.find((t) => t.id === "mic");
       // The whole point: without this the lane compiles with no input, and arming it says
       // "has no input — nothing to record" about a rig that is plainly wired.
       expect(live?.inputChannels).toEqual([1]);
@@ -144,7 +140,7 @@ describe("a live input, wired by its chain", () => {
     it("refuses the same arrow from a module that is not an input", () => {
       // A track's material is its clips, so an ordinary module aimed at one is silently
       // discarded — which is exactly what a warning is for.
-      wire({ modules: { [IN]: ["OUT"], "synth:pad": ["live"] } });
+      wire({ modules: { [IN]: ["OUT"], lead: ["mic"] } });
       expect(
         loadGraph(dir).warnings.some((x) =>
           x.includes("only a live input's signal lands on a lane"),
@@ -156,10 +152,7 @@ describe("a live input, wired by its chain", () => {
   it("still refuses a track that carries no audio", () => {
     // The input goes AHEAD of the synth on the melody run, so the only thing wrong with
     // the wiring is the one this is about: melody carries sequences, not audio.
-    wire({
-      tracks: { live: [], melody: [IN] },
-      modules: { [IN]: ["synth:lead"] },
-    });
+    wire({ modules: { mic: [], melody: [IN], [IN]: ["lead"] } });
     expect(
       loadGraph(dir).warnings.some((x) =>
         x.includes("is a sequences track — an interface input carries audio"),
@@ -171,7 +164,7 @@ describe("a live input, wired by its chain", () => {
   // it isn't. Worth its own case: it is the shape you reach for first, and the diagnosis
   // has to point at the sink rather than stay silent.
   it("is not mistaken for a sink when it ends the run", () => {
-    wire({ modules: { [IN]: [] } }); // `live` still feeds it, and it feeds nothing
+    wire({ modules: { [IN]: [] } }); // `mic` still feeds it, and it feeds nothing
     expect(
       loadGraph(dir).warnings.some(
         (x) => x.includes(IN) && x.includes("signal comes FROM it"),
@@ -188,7 +181,7 @@ describe("an input's monitoring and gain", () => {
   let dir: string;
   const instance = (body: string) => {
     writeFileSync(join(ws, "_modules", "io", "IN", "in-1.yaml"), body);
-    return compileNodeProject(dir).tracks.find((t) => t.id === "live");
+    return compileNodeProject(dir).tracks.find((t) => t.id === "mic");
   };
 
   beforeEach(() => {
@@ -210,16 +203,15 @@ describe("an input's monitoring and gain", () => {
       ),
     );
     writeFileSync(
-      join(dir, "tracks", "live.yaml"),
-      "type: single\ncontentType: audio\n",
+      join(dir, "instances", "mic.yaml"),
+      'extends: "@studio/audio-track"\n',
     );
     const c = join(dir, "chains.yaml");
     const cur = parseChains(readFileSync(c, "utf8")).value ?? {};
     writeFileSync(
       c,
       formatChains({
-        tracks: { ...cur.tracks, live: [IN] },
-        modules: { ...cur.modules, [IN]: ["OUT"] },
+        modules: { ...cur.modules, mic: [IN], [IN]: ["OUT"] },
         bypassed: cur.bypassed,
       }),
       "utf8",

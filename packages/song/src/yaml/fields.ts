@@ -1,6 +1,6 @@
 // fields.ts — the editor's field vocabulary, DERIVED from the Zod schemas rather than
 // hand-kept: add a field to a schema and it is offered, so the two cannot drift. Each
-// kind of track answers for itself, which a single flat table could not do.
+// kind of file answers for itself, which a single flat table could not do.
 
 import type { z } from "zod";
 import { ChainsFileSchema } from "./chainsSchema";
@@ -22,13 +22,8 @@ import {
   UISchema,
   WIDGET_TYPES,
 } from "./moduleSchema";
+import { PlacementSchema } from "./placementSchema";
 import { ProjectFileSchema, ProjectSettingsSchema } from "./projectSchema";
-import {
-  GroupTrackSchema,
-  PlacementSchema,
-  SingleTrackSchema,
-  StrudelTrackSchema,
-} from "./trackSchema";
 
 const keys = (schema: z.ZodObject<z.ZodRawShape>): string[] =>
   Object.keys(schema.shape);
@@ -57,7 +52,6 @@ const WIDGET_FIELDS = [
 /** The kind of file being edited — what the path is relative to. */
 export type FileKind =
   | "module"
-  | "track"
   | "chains"
   | "clip"
   | "sequence"
@@ -68,14 +62,16 @@ export type FileKind =
 /**
  * Which kind a project-relative path is, or null when it is not a project file.
  *
- * By FOLDER, not by extension: `modules/audio/cab/module.yaml` and its instances are all
- * modules, and `tracks/melody.yaml` is a track whatever it is called.
+ * By FOLDER, not by extension: `modules/audio/cab/module.yaml` is a module whatever it is
+ * called, and so is `instances/melody.yaml` — an instance is an ordinary module that happens
+ * to live in `instances/`, LANES INCLUDED (docs/trackModules.md). There is no `tracks/` kind
+ * any more, for exactly that reason; `validate.ts` has read the folder this way all along.
  */
 export function fileKindFor(path?: string): FileKind | null {
   const p = (path ?? "").replace(/\\/g, "/");
   if (!p) return null;
   if (/(^|\/)modules\//.test(p)) return "module";
-  if (/(^|\/)tracks\//.test(p)) return "track";
+  if (/(^|\/)instances\//.test(p)) return "module";
   if (/(^|\/)clips\//.test(p)) return "clip";
   if (/(^|\/)sequences\//.test(p)) return "sequence";
   if (/(^|\/)curves\//.test(p)) return "curve";
@@ -93,7 +89,6 @@ export function fileKindFor(path?: string): FileKind | null {
  */
 export function fieldsAt(kind: FileKind, path: string[]): string[] {
   if (kind === "module") return moduleFields(path);
-  if (kind === "track") return trackFields(path);
   if (kind === "chains") return chainFields(path);
   if (kind === "project") return projectFields(path);
   if (kind === "clip") return clipFields(path);
@@ -160,6 +155,9 @@ function videoTrackFields(path: string[]): string[] {
 function moduleFields(path: string[]): string[] {
   if (path.length === 0) return keys(ModuleSchema);
   const [head, ...rest] = path;
+  // A lane's placements. `clips:` is a module field now, so it is offered here rather than by a
+  // track vocabulary of its own — which is the whole of what the `track` kind used to be for.
+  if (head === "clips") return keys(PlacementSchema);
   if (head === "ui") {
     if (rest.length === 0) return keys(UISchema);
     // widgets/<id> — and inside a tabs widget, pages/<name>/<id> is a widget too.
@@ -182,27 +180,6 @@ function rackFields(): string[] {
     RackSchema as unknown as { options: z.ZodObject<z.ZodRawShape>[] }
   ).options;
   return [...new Set(flavours.flatMap(keys))];
-}
-
-function trackFields(path: string[]): string[] {
-  if (path.length === 0)
-    // Every kind's fields, because at the top level `type:` may not be written yet.
-    return [
-      ...new Set([
-        ...keys(SingleTrackSchema),
-        ...keys(GroupTrackSchema),
-        ...keys(StrudelTrackSchema),
-      ]),
-    ];
-  if (path[0] === "clips") return keys(PlacementSchema);
-  return [];
-}
-
-/** The fields a track of a KNOWN kind may carry — what `type:` unlocks. */
-export function trackFieldsForType(type: string): string[] {
-  if (type === "group") return keys(GroupTrackSchema);
-  if (type === "strudel") return keys(StrudelTrackSchema);
-  return keys(SingleTrackSchema);
 }
 
 function chainFields(path: string[]): string[] {
@@ -228,13 +205,6 @@ export function valuesAt(
     if (path[0] === "ui" && field === "source") return ["input", "output"];
     if (path[0] === "rack" && field === "rack_type")
       return ["samples", "slice"];
-    return [];
-  }
-  if (kind === "track") {
-    if (path.length === 0 && field === "type")
-      return ["single", "group", "strudel"];
-    if (path.length === 0 && field === "contentType")
-      return ["audio", "sequences"];
     return [];
   }
   if (kind === "curve") {

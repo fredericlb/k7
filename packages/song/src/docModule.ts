@@ -27,7 +27,8 @@ export function docModule(): LoadedModule {
   };
 }
 
-/** The built-in refs, for the ref map to start from. One so far. */
+/** The built-in refs this file owns, for the ref map to start from. The five LANES are the
+ *  other set (trackModule.ts); `readModuleRefs` seeds both. */
 export const studioModules = (): Record<string, LoadedModule> => ({
   [DOC_REF]: docModule(),
 });

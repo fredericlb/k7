@@ -1,0 +1,4 @@
+# The pattern's "Kit" part. An AUDIO strudel lane, so every event is a sample one-shot
+# rather than a note for an instrument to play.
+extends: "@studio/audio-strudel-track"
+strudel: algo/pattern.strudel

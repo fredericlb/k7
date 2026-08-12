@@ -1,12 +1,16 @@
-# The signal graph, as SEGMENTS: each track and each module says where its signal
-# goes next. The chains are DERIVED by following the arrows — a run breaks where the
-# signal splits, and where two signals meet (which is what a bus is).
+# The signal graph, as SEGMENTS: each module says where its signal goes next. The chains are
+# DERIVED by following the arrows — a run breaks where the signal splits, and where two signals
+# meet (which is what a bus is).
 #
-# `bypassed` lists the modules the signal passes through untouched.
+# The LANES are here too ("melody", "pad"): a lane is a module like any other, and a run is
+# named after the lane that starts it. One map, one name space — which is why the pad's synth
+# is "synth-pad" rather than sharing its lane's name.
+#
+# `bypassed` lists the modules the signal passes through untouched, and on a lane — which
+# produces rather than passes — that is its mute.
 
-tracks:
-  melody: [ lead ]
-  pad: [ pad ]
 modules:
+  melody: [ lead ]
+  pad: [ synth-pad ]
   lead: [ OUT ]
-  pad: [ OUT ]
+  synth-pad: [ OUT ]

@@ -1,10 +1,16 @@
-// folder.ts — load a YAML folder project (project.yaml + tracks/clips/sequences) into
-// the plain { project, tracks } shape project.ts's mapDoc consumes: tracks ordered by
-// trackOrder, each track's clip ids resolved into inline clip/sequence objects.
+// folder.ts — load a LEGACY flat folder project (project.yaml + tracks/clips/sequences) into
+// the plain { project, tracks } shape project.ts's mapDoc consumes. This is the pre-node-model
+// path and no current song takes it: a song has chains.yaml, and its lanes are module instances
+// (docs/trackModules.md), which compileNodeProject reads instead.
 
 import { existsSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-import { exportSub, loadProjectRoot, loadSettings, loadTracks } from "./loader";
+import {
+  exportSub,
+  loadProjectRoot,
+  loadSettings,
+  readYamlEntities,
+} from "./loader";
 import type {
   AssembledClip,
   AssembledDoc,
@@ -36,7 +42,12 @@ export function isFolderProject(abs: string): boolean {
 
 export function assembleFolder(dir: string): AssembledDoc {
   const root = loadProjectRoot(dir, true); // the root file -> project, trackOrder
-  const tracksMap = loadTracks(dir);
+  // Read schema-free: the fields this path wants (`role`, `plugins`, `sends`, `volume`, `pan`)
+  // are the legacy flat track's, and no schema in the repo has ever described them.
+  const tracksMap = readYamlEntities(dir, "tracks").values as Record<
+    string,
+    RawTrack
+  >;
   const clipsMap = exportSub(dir, "clips");
   const seqMap = exportSub(dir, "sequences");
   // settings.yaml is a flat root file, so it isn't in `root` — loaded on its own for mapDoc to parse.

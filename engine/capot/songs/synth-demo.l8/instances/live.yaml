@@ -1,0 +1,5 @@
+# A group lane: no material and no signal of its own, just members.
+extends: "@studio/group-track"
+tracks:
+  - pad
+  - kit

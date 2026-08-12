@@ -94,10 +94,16 @@ describe("a module's own ports", () => {
 
 describe("wiring a named port", () => {
   it("records the feeder on the step, not as the flow", () => {
-    const derived = deriveChains({
-      tracks: { deckA: ["crossfade"], deckB: ["crossfade#b"] },
-      modules: { crossfade: ["OUT"] },
-    });
+    const derived = deriveChains(
+      {
+        modules: {
+          deckA: ["crossfade"],
+          deckB: ["crossfade#b"],
+          crossfade: ["OUT"],
+        },
+      },
+      (n) => n === "deckA" || n === "deckB",
+    );
     // deckA FLOWS in, so the crossfade continues deckA's run — one flow feeder is exactly the
     // absorption rule, and a side input must not change it. deckB arrives on port `b` and is
     // carried as an extra source on the step.
@@ -112,10 +118,10 @@ describe("wiring a named port", () => {
   it("does not let a side input absorb the module into that run", () => {
     // The trap: a run whose only destination names a port would otherwise swallow the target as
     // its next STEP, and the module's real flow input would go unnoticed.
-    const derived = deriveChains({
-      tracks: { deckB: ["crossfade#b"] },
-      modules: { crossfade: ["OUT"] },
-    });
+    const derived = deriveChains(
+      { modules: { deckB: ["crossfade#b"], crossfade: ["OUT"] } },
+      (n) => n === "deckB",
+    );
     expect(derived.deckB.use).toEqual([]); // deckB's run ends at the port
     expect(derived.crossfade.use[0].module).toBe("crossfade");
   });
@@ -163,8 +169,8 @@ describe("wiring a named port", () => {
 describe("what validate says", () => {
   const wire = (yaml: string) => {
     file("modules/audio/crossfade/module.yaml", CROSSFADE);
-    file("tracks/a.yaml", "type: single\ncontentType: audio\nclips: []\n");
-    file("tracks/b.yaml", "type: single\ncontentType: audio\nclips: []\n");
+    file("instances/a.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("instances/b.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
     writeFileSync(join(dir, "chains.yaml"), yaml, "utf8");
     return loadGraph(dir);
   };
@@ -175,7 +181,7 @@ describe("what validate says", () => {
     // as a dead end — because the walk over `out` edges keyed on the raw string. A song that is
     // correct has to be silent, or the warning list stops being worth reading.
     const g = wire(
-      "tracks:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\nmodules:\n  crossfade: [ OUT ]\n",
+      "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
     );
     expect(g.warnings).toEqual([]);
   });
@@ -185,7 +191,7 @@ describe("what validate says", () => {
     // in that run: `reachesSink` to know the deck is not a dead end, `hasCycle` because a loop
     // drawn with side inputs is exactly as unplayable as one drawn with bare ones.
     const g = wire(
-      "tracks:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\nmodules:\n  crossfade: [ OUT ]\n",
+      "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
     );
     expect(
       g.warnings.filter((m) => /dead end|reaches OUT|cycle/.test(m)),
@@ -197,7 +203,7 @@ describe("what validate says", () => {
     // track it compiles onto — here `b`, whose chain ends at the port. Without this the module reached the
     // engine looking exactly like a one-input effect, and the second cable existed only in the drawing.
     wire(
-      "tracks:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\nmodules:\n  crossfade: [ OUT ]\n",
+      "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
     );
     const doc = compileNodeProject(dir);
     const p = doc.tracks
@@ -212,7 +218,7 @@ describe("what validate says", () => {
   it("leaves an unwired port off the wire entirely", () => {
     // `mandatory: false` — one side fed and the other quiet is a state, not a half-built chain, and the
     // engine has to be able to tell it apart from a source it failed to resolve.
-    wire("tracks:\n  a: [ crossfade ]\nmodules:\n  crossfade: [ OUT ]\n");
+    wire("modules:\n  a: [ crossfade ]\n  crossfade: [ OUT ]\n");
     const p = compileNodeProject(dir)
       .tracks.flatMap((t) => t.plugins)
       .find((x) => x.id.endsWith(":crossfade"));
@@ -222,10 +228,10 @@ describe("what validate says", () => {
   it("refuses more sources than the module has ports", () => {
     // A port arity error THROWS rather than warning: a chain wired to a port that is not there
     // is not a song that plays imperfectly, it is one the compiler cannot lay out at all.
-    file("tracks/c.yaml", "type: single\ncontentType: audio\nclips: []\n");
+    file("instances/c.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
     expect(() =>
       wire(
-        "tracks:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  c: [ crossfade#b ]\nmodules:\n  crossfade: [ OUT ]\n",
+        "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  c: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
       ),
     ).toThrow(/only 2 port/);
   });

@@ -42,6 +42,27 @@ export function writeModule(
 }
 
 /**
+ * Write a LANE: an instance extending one of the five built-in track modules.
+ *
+ * A thin wrapper over `writeInstance`, because that is all a lane is now — but it spells the
+ * `extends` so a fixture says "an audio lane" rather than repeating a ref. See
+ * docs/trackModules.md.
+ */
+export function writeLane(
+  dir: string,
+  name: string,
+  extend:
+    | "audio-track"
+    | "sequence-track"
+    | "audio-strudel-track"
+    | "sequence-strudel-track"
+    | "group-track" = "audio-track",
+  value: Record<string, unknown> = {},
+): string {
+  return writeInstance(dir, name, { extends: `@studio/${extend}`, ...value });
+}
+
+/**
  * Write one USE of a module: `instances/<name>.yaml`, flat, whatever it is a use of.
  *
  * The file names it — `name` is the key a chain writes — and it takes the same fields a
@@ -66,9 +87,8 @@ export function chainNodeNamed(dir: string, prefix: string): string {
   const { value } = parseChains(readFileSync(join(dir, "chains.yaml"), "utf8"));
   for (const key of Object.keys(value?.modules ?? {}))
     if (key.startsWith(prefix)) return key;
-  for (const section of [value?.tracks, value?.modules])
-    for (const dests of Object.values(section ?? {}))
-      for (const d of dests) if (d.startsWith(prefix)) return d;
+  for (const dests of Object.values(value?.modules ?? {}))
+    for (const d of dests) if (d.startsWith(prefix)) return d;
   throw new Error(`no chain node whose name starts with '${prefix}'`);
 }
 
@@ -97,7 +117,7 @@ export function insertChainStepAfter(
 ): void {
   const before = chainNodeNamed(dir, prefix);
   const { value } = parseChains(readFileSync(join(dir, "chains.yaml"), "utf8"));
-  const dests = value?.tracks?.[before] ?? value?.modules?.[before] ?? [];
+  const dests = value?.modules?.[before] ?? [];
   editChains(dir, (text) => insertBetween(text, before, dests[0], step.module));
 }
 

@@ -4,6 +4,7 @@
 // TS (graph.ts validate(), nodeProject's ref pass) instead.
 
 import { z } from "zod";
+import { PlacementSchema } from "./placementSchema";
 
 /** An interface input: a preferences label, or one/two physical channel numbers. */
 export const InputSchema = z.union([
@@ -286,6 +287,31 @@ export const ModuleSchema = z
      * instance able to override it. See docs/docModules.md.
      */
     content: z.string().optional(),
+
+    // --- a LANE's own fields (see docs/trackModules.md) ------------------------------
+    //
+    // Accepted on any module, meaningful only on one that extends a `@studio/…-track`. The
+    // schema deliberately does not police that: it validates ONE file, and which module a name
+    // extends is a question about the whole project. `graph.ts`'s validate() reports a `clips:`
+    // on a reverb, exactly as it reports a `channel:` on something that is not an input — same
+    // rule, same place.
+
+    // The placements on this lane: what plays, where, and how many times.
+    clips: z.array(PlacementSchema).optional(),
+    // The lane's colour, and its icon's in the timeline.
+    color: z.string().optional(),
+    // Excluded from the render entirely, chains and all — distinct from bypassing it, which
+    // silences the lane while leaving it in the project's shape.
+    disabled: z.boolean().optional(),
+    // A GROUP lane's members, by instance name. It holds no material of its own.
+    tracks: z.array(z.string()).optional(),
+    // A GENERATED lane's pattern: its clips are filled while the transport rolls, so this stands
+    // where `clips:` would. Which of the two a lane may write is decided by what it extends — an
+    // authored lane has no pattern, a generated one has no placements.
+    strudel: z
+      .string()
+      .regex(/^algo\/.+\.strudel$/, "expected algo/<name>.strudel")
+      .optional(),
   })
   .strict(); // an unknown key is a typo — silently ignoring `paramz:` is worse than saying so
 

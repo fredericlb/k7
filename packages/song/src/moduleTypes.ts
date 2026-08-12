@@ -23,6 +23,15 @@ export type IoSource = (typeof IO_SOURCES)[number];
 export const isIoSource = (io: unknown): io is IoSource =>
   (IO_SOURCES as readonly unknown[]).includes(io);
 
+/**
+ * The type folder a LANE belongs to — the arrangement's own modules (see docs/trackModules.md).
+ *
+ * Up here with the rest of the vocabulary rather than beside the `@studio/…` refs at the foot of
+ * this file, because `moduleEmits` has to ask about it: the five track modules share one category
+ * and do NOT share one signal, which is the one place the folder stops being the answer.
+ */
+export const TRACK_CATEGORY = "tracks";
+
 // What a module of each type EMITS (not its input — see docs/loader.md).
 export const MODULE_EMITS: Record<
   string,
@@ -37,12 +46,17 @@ export const MODULE_EMITS: Record<
   video_transitions: "video",
 };
 
-// The signal leaving a module, from its type folder + its own io role.
+// The signal leaving a module, from its type folder + its own io role — or, for a lane, its port.
 export function moduleEmits(
   category: string | undefined,
   io?: string,
+  outputs?: readonly { type: "audio" | "midi" | "video" }[],
 ): "audio" | "midi" | "video" | undefined {
   if (category === "io") return isIoSource(io) ? "audio" : undefined;
+  // A lane's signal is its OWN, not its folder's: an audio track and a sequence track are the
+  // same kind of thing and differ only in the port they offer, so the port is what is read. A
+  // group track offers none and emits nothing, which is right — it carries no signal.
+  if (category === TRACK_CATEGORY) return outputs?.[0]?.type;
   return MODULE_EMITS[category ?? ""];
 }
 
@@ -69,13 +83,16 @@ export interface PortDef {
 /**
  * What a module IS, at the coarsest level — which decides what happens to it at the wire.
  *
- * Three, not two. `plugin` becomes something the engine loads; `io` is an edge of the signal
- * (a source or a sink); `doc` is neither and is the point of the third value: it is drawn on
- * the graph and never reaches the engine at all. Calling a doc an `io` sink would have been
- * cheaper by one union member and would have made every "is this a sink" test answer yes about
- * a note somebody wrote — including the ones that decide what a chain ENDS on.
+ * Four, not two. `plugin` becomes something the engine loads; `io` is an edge of the signal
+ * (a source or a sink); `doc` is neither and is drawn on the graph without reaching the engine
+ * at all; `track` is a LANE — where an arrangement's material enters the signal path, and what
+ * a chain is named after. Calling a doc an `io` sink would have been cheaper by one union member
+ * and would have made every "is this a sink" test answer yes about a note somebody wrote —
+ * including the ones that decide what a chain ENDS on. A lane folded into `io` would be the same
+ * mistake from the other side: it is a source, but every io source is a live channel or a file,
+ * and none of the questions asked about those mean anything about a lane.
  */
-export type ModuleKind = "io" | "plugin" | "doc";
+export type ModuleKind = "io" | "plugin" | "doc" | "track";
 
 export const MODULE_TYPES: Record<
   string,
@@ -131,6 +148,22 @@ export const MODULE_TYPES: Record<
     kind: "plugin",
     inputs: [{ name: "midi", type: "midi" }],
     outputs: [{ name: "out", type: "midi" }],
+  },
+  /**
+   * A LANE. The defaults here are the audio lane's, and every one of the five built-ins states
+   * its own ports anyway (trackModule.ts) — because this is the one category whose members do
+   * not share a signal. See docs/trackModules.md.
+   *
+   * NO input, deliberately. What arrives on a lane is its clips, and the one thing that may be
+   * routed into it is a live interface channel — which the compiler lands on the lane rather
+   * than wiring through a port, because the flat model the engine plays cannot express routing
+   * into a lane's input. That is an engine ceiling, not a name-space artefact, so it stayed
+   * exactly where it was when the two name spaces merged (`validate`'s out-check).
+   */
+  tracks: {
+    kind: "track",
+    inputs: [],
+    outputs: [{ name: "out", type: "audio" }],
   },
 };
 
@@ -246,6 +279,35 @@ export const DOC_REF = `${STUDIO_NS}/doc`;
 
 /** Is this what a note extends? The one spelling of the ref, so a typo cannot half-work. */
 export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
+
+// --- the track modules (see docs/trackModules.md) --------------------------------
+
+/**
+ * The five modules a LANE is an instance of. Like `@studio/doc`, none of them has a file
+ * anywhere: there is one set for the whole studio, so a lane costs exactly its own instance.
+ *
+ * Five and not two, because `type: single | group | strudel` × `contentType: audio | sequences`
+ * was a two-axis vocabulary spelled as one field — which is the whole reason `contentType` had
+ * to exist beside `type`. Flattened, the two questions (what signal does this lane carry, and
+ * where do its clips come from) are both read off one `extends:`, and neither can go missing.
+ */
+export const AUDIO_TRACK_REF = `${STUDIO_NS}/audio-track`;
+export const SEQUENCE_TRACK_REF = `${STUDIO_NS}/sequence-track`;
+export const AUDIO_STRUDEL_TRACK_REF = `${STUDIO_NS}/audio-strudel-track`;
+export const SEQUENCE_STRUDEL_TRACK_REF = `${STUDIO_NS}/sequence-strudel-track`;
+export const GROUP_TRACK_REF = `${STUDIO_NS}/group-track`;
+
+export const TRACK_REFS = [
+  AUDIO_TRACK_REF,
+  SEQUENCE_TRACK_REF,
+  AUDIO_STRUDEL_TRACK_REF,
+  SEQUENCE_STRUDEL_TRACK_REF,
+  GROUP_TRACK_REF,
+] as const;
+
+/** Is this what a lane extends? Asked of an authored `extends:`, before anything is resolved. */
+export const isTrackRef = (ref: unknown): boolean =>
+  (TRACK_REFS as readonly unknown[]).includes(ref);
 
 // --- ports (see docs/ports.md) --------------------------------------------------
 

@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadGraph } from "./graph";
-import { loadMixView, loadSongs, loadTracks } from "./loader";
+import { loadLanes, loadMixView, loadSongs } from "./loader";
 import { parseMixView } from "./yaml/mixViewFile";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
@@ -130,6 +130,10 @@ describe("a scaffolded m9 set", () => {
       "chains.yaml",
       "instances",
       "instances/crossfade.yaml",
+      // The DECKS are instances too — a lane is a module (docs/trackModules.md), so there is
+      // no `tracks/` folder any more.
+      "instances/deckA.yaml",
+      "instances/deckB.yaml",
       "instances/eqA.yaml",
       "instances/eqB.yaml",
       "instances/filterA.yaml",
@@ -138,9 +142,6 @@ describe("a scaffolded m9 set", () => {
       "instances/tempoB.yaml",
       "project.yaml",
       "songs.yaml",
-      "tracks",
-      "tracks/deckA.yaml",
-      "tracks/deckB.yaml",
       "views",
       "views/mix.yaml",
     ]);
@@ -394,14 +395,14 @@ describe("a scaffolded m9 set", () => {
     expect(byId.deckA.mute).toBe(false);
   });
 
-  it("gives each deck a track with no arrangement", () => {
+  it("gives each deck a lane with no arrangement", () => {
     scaffoldM9(dir, "winter");
-    const tracks = loadTracks(dir);
+    const tracks = loadLanes(dir);
     expect(Object.keys(tracks).sort()).toEqual(["deckA", "deckB"]);
     // Empty in git and filled at play time: what a deck plays is whichever song from
     // songs.yaml was loaded onto it. This is the one thing an m9 project has that an l8
     // song does not.
-    for (const t of Object.values(tracks)) expect(t.clips ?? []).toEqual([]);
+    for (const t of Object.values(tracks)) expect(t.clips).toEqual([]);
   });
 
   it("starts with an empty set list", () => {

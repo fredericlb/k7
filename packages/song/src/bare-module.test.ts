@@ -75,14 +75,16 @@ describe("bare (extends-less) modules", () => {
 
   it("compiles a self-contained rack module (inline rack, no extends) to a sampler", () => {
     // The module is its own folder; the file is the generic one and the FOLDER names it.
-    writeModule(dir, "instruments", "kit", {
+    // Called `drumkit` and not `kit`: the fixture's `kit` is a LANE, and one flat name space
+    // means an instance may not take a module's name (or the other way round).
+    writeModule(dir, "instruments", "drumkit", {
       type: "rack",
       rack: { symbols: { BD: { note: 36, clip: "kick.wav" } } },
     });
-    replaceChainStep(dir, "lead", { module: "kit" });
+    replaceChainStep(dir, "lead", { module: "drumkit" });
     const doc = compileNodeProject(dir);
     const melody = doc.tracks.find((t) => t.id === "melody");
-    const kit = melody!.plugins.find((p) => p.id.endsWith(":kit"));
+    const kit = melody!.plugins.find((p) => p.id.endsWith(":drumkit"));
     expect(kit?.type).toBe("sampler");
     expect(kit?.rack?.length).toBe(1); // the BD sound, from the module's own rack
   });

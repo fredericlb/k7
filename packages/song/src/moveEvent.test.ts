@@ -24,18 +24,17 @@ const DEN = 4;
 
 function trackDir(body: string): string {
   const dir = mkdtempSync(join(tmpdir(), "td-move-"));
-  mkdirSync(join(dir, "tracks"), { recursive: true });
-  writeFileSync(join(dir, "tracks", "drums.yaml"), body, "utf8");
+  mkdirSync(join(dir, "instances"), { recursive: true });
+  writeFileSync(join(dir, "instances", "drums.yaml"), body, "utf8");
   return dir;
 }
 const read = (dir: string) =>
-  readFileSync(join(dir, "tracks", "drums.yaml"), "utf8");
+  readFileSync(join(dir, "instances", "drums.yaml"), "utf8");
 
 describe("moveTrackPlacement", () => {
   it("rewrites ONLY the matching placement, leaving every other line identical", () => {
     const before = `# the drum lane
-type: single
-contentType: audio
+extends: "@studio/audio-track"
 clips:
   - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
   - { ref: snare, start: "2:1:1", fadeIn: "0:1", loop: 2, disabled: true }

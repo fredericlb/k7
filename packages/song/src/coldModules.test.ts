@@ -41,12 +41,12 @@ function project(chains: string): void {
   writeFileSync(join(dir, "chains.yaml"), chains, "utf8");
 }
 
-/** …and a track, so a chain sourced from one resolves. */
+/** …and a lane, so a chain sourced from one resolves. */
 function track(id: string): void {
-  mkdirSync(join(dir, "tracks"), { recursive: true });
+  mkdirSync(join(dir, "instances"), { recursive: true });
   writeFileSync(
-    join(dir, "tracks", `${id}.yaml`),
-    "type: single\ncontentType: audio\nclips: []\n",
+    join(dir, "instances", `${id}.yaml`),
+    'extends: "@studio/audio-track"\nclips: []\n',
     "utf8",
   );
 }
@@ -58,7 +58,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("the cold flag", () => {
   it("is read off the module file", () => {
-    project("tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ OUT ]\n");
+    project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     track("gtr");
     const g = loadGraph(dir);
     expect(isColdModule(g.moduleRefs["audio/squash"])).toBe(true);
@@ -68,7 +68,7 @@ describe("the cold flag", () => {
   it("is INHERITED, so a use of a cold module is cold", () => {
     // The whole reason it is not in moduleResolve's OWN_ONLY. An instance states only what it
     // changes, and "this is still the thing that needs the whole file" is not a choice it makes.
-    project("tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ OUT ]\n");
+    project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     track("gtr");
     writeInstance(dir, "master", {
       extends: "@project/audio/squash",
@@ -87,9 +87,9 @@ describe("the cold flag", () => {
 describe("adding one to a chain", () => {
   // The two shapes the rule distinguishes. A track of audio clips is NOT enough: a chain fed by
   // a lane is fed by whatever that lane plays, which is decided at playback.
-  const FROM_TRACK = "tracks:\n  gtr: [ amp ]\nmodules:\n  amp: [ OUT ]\n";
+  const FROM_TRACK = "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n";
   const FROM_FILE =
-    "tracks:\n  gtr: [ take ]\nmodules:\n  take: [ amp ]\n  amp: [ OUT ]\n";
+    "modules:\n  gtr: [ take ]\n  take: [ amp ]\n  amp: [ OUT ]\n";
 
   const withFileInput = (): void => {
     project(FROM_FILE);

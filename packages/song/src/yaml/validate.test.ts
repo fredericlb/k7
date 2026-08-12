@@ -42,13 +42,20 @@ describe("validateFile", () => {
   });
 
   it("routes each folder to its own schema", () => {
+    // A LANE goes to the module parser, because that is what it is (docs/trackModules.md).
     expect(
-      validateFile("tracks/lead.yaml", "type: single\nmute: soon\n").ok,
+      validateFile(
+        "instances/lead.yaml",
+        'extends: "@studio/audio-track"\ndisabled: soon\n',
+      ).ok,
     ).toBe(false);
     expect(
-      validateFile("tracks/lead.yaml", "type: single\nmute: true\n").ok,
+      validateFile(
+        "instances/lead.yaml",
+        'extends: "@studio/audio-track"\ndisabled: true\n',
+      ).ok,
     ).toBe(true);
-    expect(validateFile("chains.yaml", "tracks:\n  lead: [cab]\n").ok).toBe(
+    expect(validateFile("chains.yaml", "modules:\n  lead: [cab]\n").ok).toBe(
       true,
     );
     expect(validateFile("project.yaml", "project:\n  tempo: 120\n").ok).toBe(

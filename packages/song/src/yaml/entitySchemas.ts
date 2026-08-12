@@ -3,7 +3,7 @@
 // `id:` — the name is the id), which also rules out one file declaring several ids.
 
 import { z } from "zod";
-import { TIMECODE } from "./trackSchema";
+import { TIMECODE } from "./placementSchema";
 
 /** A stretch map from the DAW a clip was imported from. */
 export const WarpSchema = z

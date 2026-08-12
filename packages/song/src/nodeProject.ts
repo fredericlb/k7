@@ -11,7 +11,6 @@ import { bakeCurve, loadCurves } from "./curves";
 import {
   type Chain,
   checkChainInputs,
-  frozenRender,
   inputLandingTrack,
   parseChains,
 } from "./graph";
@@ -23,7 +22,6 @@ import {
   loadModules,
   loadProjectRoot,
   loadSettings,
-  loadTracks,
   loadVideoTracks,
   readYamlEntities,
   withChainModuleRefs,
@@ -56,13 +54,10 @@ import {
 } from "./project";
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
-import {
-  currentAlternativeIndex,
-  trackAlternatives,
-} from "./trackAlternatives";
 import { sortTracksByKind } from "./trackKind";
+import { type Lane, lanesOf } from "./trackModule";
+import { bypassedOf } from "./chainsGraph";
 import { DEFAULT_PROJECT_MODE } from "./yaml/projectSchema";
-import type { Track } from "./yaml/trackSchema";
 
 // A placement -> a resolved ClipDoc. `start`/`loop` are 1-based positions, the rest 0-based durations.
 function placementToClip(
@@ -317,28 +312,6 @@ function normGain(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
 }
 
-/**
- * A track's alternatives, as the compiled doc carries them — names, and which one is playing.
- *
- * Absent unless there are at least two: a track with one arrangement has nothing to choose
- * between, and saying so on every track of every song would put a field nobody reads on the wire
- * and in every fixture.
- */
-function alternativesOf(t: unknown): {
-  alternatives?: string[];
-  alternative?: string;
-} {
-  // The tracks map holds loosely-typed raw entries; the two readers below only ever look at
-  // `type`, `clips` and `alternatives`, which the schema has already validated on the way in.
-  const track = t as Track;
-  const all = trackAlternatives(track);
-  if (all.length < 2) return {};
-  return {
-    alternatives: all.map((a) => a.name),
-    alternative: all[currentAlternativeIndex(track)].name,
-  };
-}
-
 export function compileNodeProject(dir: string): ProjectDoc {
   // The rig, not the song — unreadable preferences mean no labels resolve, never a failed compile.
   let prefs: Preferences;
@@ -348,11 +321,23 @@ export function compileNodeProject(dir: string): ProjectDoc {
     prefs = defaultPreferences();
   }
   const root = loadProjectRoot(dir, true); // the root file -> project, markers
-  const chains: Record<string, Chain> = parseChains(
-    loadChains(dir, root, true),
-  ); // keyed by each head's resolved name; duplicates rejected
+  const rawChains = loadChains(dir, root, true);
   const localModules = loadModules(dir, true); // validated as read — this doc feeds the engine
-  const tracksMap = loadTracks(dir, true); // enforced: a bad track fails the compile
+  // Read WITH their issues, for the same reason the clips are: a library module the schema
+  // rejects is dropped from this map, and without its own complaint the only symptom is
+  // "extends unknown module" about a file sitting right there on disk.
+  const refIssues: Diagnostic[] = [];
+  const moduleRefs = loadModuleRefs(dir, undefined, refIssues); // the `extends` vocabulary
+  // The LANES, before the chains: a run is named after its lane, and only `extends` says which
+  // node is one (docs/trackModules.md). Folded from the local modules alone — a chain-named ref
+  // is `@engine/…` or a shared library's, never a lane.
+  const lanesMap = lanesOf(resolveModuleMap(localModules, moduleRefs));
+  const chains: Record<string, Chain> = parseChains(
+    rawChains,
+    (n) => n in lanesMap,
+  ); // keyed by each head's resolved name
+  // A lane's MUTE, from the one place a bypass is written.
+  const bypassed = bypassedOf(rawChains);
   // Read WITH their issues: a clip file the schema rejects is dropped from the map, and without this the only
   // symptom is the track's ref reading as "not found" — which sends you looking for a missing file that is
   // sitting right there. The file's own complaint is the answer, so it has to survive to the report below.
@@ -360,11 +345,6 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const clipsMap = clipsRead.values as Record<string, RawClip>;
   const seqMap = exportSub(dir, "sequences");
   const videoTracksMap = loadVideoTracks(dir, true);
-  // Read WITH their issues, for the same reason the clips are: a library module the schema
-  // rejects is dropped from this map, and without its own complaint the only symptom is
-  // "extends unknown module" about a file sitting right there on disk.
-  const refIssues: Diagnostic[] = [];
-  const moduleRefs = loadModuleRefs(dir, undefined, refIssues); // the `extends` vocabulary
   // Plus the shared modules the chains name by ref — a step may use one directly.
   // Resolved here, once: every `extends` is folded in before the compile loop reads a
   // field, which is what lets it read `module.ir` rather than `module.ir ?? base.ir`.
@@ -393,8 +373,8 @@ export function compileNodeProject(dir: string): ProjectDoc {
         );
       }
     }
-  for (const [trackId, t] of Object.entries(tracksMap))
-    for (const p of Array.isArray(t?.clips) ? t.clips : []) {
+  for (const [trackId, t] of Object.entries(lanesMap))
+    for (const p of t.clips) {
       const ref = String(p?.ref ?? "");
       if (!ref) continue;
       const clip = clipsMap[ref];
@@ -429,12 +409,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
         );
     }
   // The pattern file must exist; whether it HAS the named lane needs it evaluated, so patternClock reports that.
-  for (const [trackId, t] of Object.entries(tracksMap))
-    if (t?.type === "strudel" && t.strudel)
-      if (!existsSync(resolve(dir, String(t.strudel))))
-        refErrs.push(
-          `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
-        );
+  for (const [trackId, t] of Object.entries(lanesMap))
+    if (t.strudel && !existsSync(resolve(dir, t.strudel)))
+      refErrs.push(
+        `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
+      );
 
   // A `video_tracks/` folder here is a v1 cut in an l8 song's clothing — the lanes would be
   // read by nothing at all, which is the failure this codebase refuses to ship silently.
@@ -450,7 +429,7 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const inputErrs = checkChainInputs(
     chains,
     modulesMap,
-    tracksMap,
+    lanesMap,
     clipsMap,
     seqMap,
   );
@@ -463,7 +442,7 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const outTargets = (c: Chain): { to: string; gain: number }[] => c.out;
   const isSink = (to: string) =>
     !to || to === "OUT" || modulesMap[to]?.kind === "io";
-  const isTrackFed = (c: Chain) => !!c.from && !!tracksMap[c.from];
+  const isTrackFed = (c: Chain) => !!c.from && !!lanesMap[c.from];
 
   // Non-sink targets naming a chain that isn't track-fed: routing into a track's input is inexpressible, so they drop.
   const busChains = new Set<string>();
@@ -487,7 +466,7 @@ export function compileNodeProject(dir: string): ProjectDoc {
   const sideInputTrack = (id: string): string => {
     const c = chains[id];
     if (c) return ownerOf(id, c);
-    if (tracksMap[id]) return id;
+    if (lanesMap[id]) return id;
     // …and a STEP in the middle of a run. `chainsGraph` records the feeder by its own name, so
     // a module wired to a port from inside another chain arrives here as a step name rather
     // than as that chain's. The signal it carries is its chain's, so the lane is that chain's
@@ -664,10 +643,8 @@ export function compileNodeProject(dir: string): ProjectDoc {
 
   // A group holds no material, so it's a parent pointer on its members plus an entry in `groups` — never a lane.
   const groupOf: Record<string, string> = {};
-  for (const [id, t] of Object.entries(tracksMap))
-    if (t?.type === "group")
-      for (const m of Array.isArray(t.tracks) ? t.tracks : [])
-        groupOf[String(m)] = id;
+  for (const [id, t] of Object.entries(lanesMap))
+    if (t.type === "group") for (const m of t.tracks) groupOf[m] = id;
 
   // An io "in" module is wired by the CHAIN it sits in: the chain already says which
   // track it lands on, so the module carries the channel and nothing else. The engine's
@@ -686,7 +663,7 @@ export function compileNodeProject(dir: string): ProjectDoc {
       .find((m) => m?.io === "in");
     if (!b) continue;
     const track =
-      ownerOf(name, c) || inputLandingTrack(c, (id) => !!tracksMap[id]);
+      ownerOf(name, c) || inputLandingTrack(c, (id) => !!lanesMap[id]);
     if (!track || inputOf[track]) continue;
     inputOf[track] = {
       // The seam cast: `channel` passed the module schema (a label or channel list).
@@ -697,78 +674,54 @@ export function compileNodeProject(dir: string): ProjectDoc {
     };
   }
 
-  const groups: GroupDoc[] = Object.entries(tracksMap)
-    .filter(([, t]) => t?.type === "group" && !t?.disabled)
+  const groups: GroupDoc[] = Object.entries(lanesMap)
+    .filter(([, t]) => t.type === "group" && !t.disabled)
     .map(([id, t]) => ({
       id,
-      name: String(t.name ?? id),
-      color: String(t.color ?? ""),
-      mute: !!t.mute,
-      solo: !!t.solo,
+      name: id,
+      color: t.color ?? "",
+      mute: bypassed.has(id),
+      solo: false,
     }));
-
-  // Which tracks are frozen IN FACT — resolved once, because both the clip list and the plugin list below turn on
-  // it and they must not be able to disagree. A `frozen:` naming a render that isn't there resolves to undefined
-  // and the track compiles live (see frozenRender for why that isn't an error).
-  const frozen: Record<string, string | undefined> = {};
-  for (const [id, t] of Object.entries(tracksMap))
-    frozen[id] = frozenRender(dir, t);
 
   // A strudel lane compiles to an EMPTY track carrying its chain's plugins — what the
   // engine should hold when stopped; patternClock fills its clips while rolling.
   // Sorted by instrument family here, on the compiled doc, so every surface and the
-  // engine agree on what "the third track" is (see trackKind.ts).
+  // engine agree on what "the third track" is (see trackKind.ts). The name it sorts on is
+  // the INSTANCE's — the lane's file names it, exactly as its track file used to.
   const tracks: TrackDoc[] = sortTracksByKind(
-    Object.entries(tracksMap).filter(
-      ([, t]) => t?.type !== "group" && !t?.disabled,
+    Object.entries(lanesMap).filter(
+      ([, t]) => t.type !== "group" && !t.disabled,
     ),
-    ([id, t]) => String(t.name ?? id),
+    ([id]) => id,
   ).map(
     ([id, t]): TrackDoc => ({
       id,
-      name: String(t.name ?? id),
+      name: id,
       role: "regular",
       contentType: t.contentType === "sequences" ? "notes" : "audio", // the engine's vocabulary
       group: groupOf[id] ?? "",
-      generated: t?.type === "strudel",
-      color: String(t.color ?? ""),
-      mute: !!t.mute,
-      solo: !!t.solo,
+      generated: t.type === "strudel",
+      color: t.color ?? "",
+      // The lane's own bypass. It is the same button every module node carries, and on a source it
+      // reads as "produces nothing" — which is what muting a lane has always meant.
+      mute: bypassed.has(id),
+      // Derived by the surface, which bypasses every OTHER lane; nothing writes it here.
+      solo: false,
       disabled: false, // filtered out above
       // From the io "in" module that names this track, if any (see inputOf above).
       inputChannels: inputOf[id]?.channels ?? [],
       monitor: inputOf[id]?.monitor ?? "auto",
       inputGain: inputOf[id]?.gain ?? 0,
-      // A FROZEN track plays its render and nothing else: one audio clip at bar 1, natural length, and no
-      // plugins — every module of its chains is already inside the wav, so running them again would be the amp
-      // twice. Its material stays in the file untouched, waiting for the unfreeze.
-      //
-      // Volume, pan and sends deliberately stay live, which is what makes a frozen track still mixable: the
-      // render was bounced with them neutralised (see the freeze command), so they apply exactly once, here,
-      // the same way they did before. The freeze boundary the render stops at needs no computing either — a
-      // bus's modules were never on this track's plugin list; they live on the bus's own return track, so
-      // "up to OUT or to a module with several inputs" is simply what `trackPlugins[id]` already means.
-      // The variants, for the surfaces that offer them. `clips` below is already the chosen
-      // one — resolved at load (loader.ts), so nothing here or downstream has to know.
-      ...alternativesOf(t),
-      clips: frozen[id]
-        ? [frozenClip(id, frozen[id] as string)]
-        : (t.clips ?? []).map((p) =>
-            placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
-          ),
-      // A frozen track keeps its STRIP and nothing else: the render already contains every module that shaped
-      // the sound, but a lane you cannot set the level of is not mixable, which is the one thing freezing
-      // promises to leave alone. The render was bounced with the strip flattened (see freezeTrackRender), so it
-      // applies exactly once, here, the way it did before.
-      plugins: frozen[id]
-        ? (trackPlugins[id] ?? []).filter((p) => p.type === MIXER_PLUGIN)
-        : (trackPlugins[id] ?? []),
+      clips: t.clips.map((p) =>
+        placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+      ),
+      plugins: trackPlugins[id] ?? [],
       sends: trackSends[id] ?? [],
       automation: [],
       // `docs`/`todos` were carried through here for the Docs panel. Both are gone: a note is a
-      // doc module on the graph now, and the track schema refuses the fields outright — so this
+      // doc module on the graph now, and the module schema refuses the fields outright — so this
       // could only ever have copied something nothing can author. See docs/docModules.md.
-      ...(frozen[id] ? { frozen: frozen[id] as string } : {}),
     }),
   );
 
@@ -837,8 +790,8 @@ export function compileNodeProject(dir: string): ProjectDoc {
     recordDir: "", // set by loadProject, which is what knows this is a folder project
     tracks,
     groups,
-    // Read off the AUTHORED tracks — a strudel lane compiles to an empty one, so by then the fact it streams is gone.
-    strudel: Object.values(tracksMap).some((t) => t?.type === "strudel"),
+    // Read off the AUTHORED lanes — a strudel lane compiles to an empty one, so by then the fact it streams is gone.
+    strudel: Object.values(lanesMap).some((t) => t.type === "strudel"),
     // A ROOT field, so it comes off `root` and not `proj` — see projectSchema.ts on why the
     // shape of the folder is not one of the song's settings.
     mode: root.project_type ?? DEFAULT_PROJECT_MODE,

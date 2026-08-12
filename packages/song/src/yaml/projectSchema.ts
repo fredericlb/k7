@@ -6,7 +6,7 @@
 import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { z } from "zod";
-import { TIMECODE } from "./trackSchema";
+import { TIMECODE } from "./placementSchema";
 
 export const ProjectSettingsSchema = z
   .object({
