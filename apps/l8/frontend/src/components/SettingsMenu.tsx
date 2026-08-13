@@ -1,6 +1,10 @@
 // SettingsMenu.tsx — the cog dropdown: the account (who you are + sign out), the app-wide
 // settings screens, and the language choice. The screens themselves are rendered by App as
 // an overlay — this menu only says which one to open, so the panes underneath stay mounted.
+//
+// Each entry is a COMMAND LINE the shell dispatches (`ui settings editor`, `ui engine`,
+// `ui workspace quit`, `ui logout`), not a callback of its own: every one of them is reachable
+// from the palette, and one implementation is what stops the two drifting.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -24,15 +28,10 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
 export type SettingsScreen = "editor" | "io";
 
 export function SettingsMenu({
-  onOpenScreen,
-  onQuitWorkspace,
-  onChangeEngine,
+  onRun,
 }: {
-  onOpenScreen: (s: SettingsScreen) => void;
-  onQuitWorkspace: () => void;
-  /** Back to the engine picker. An ACTION and not a screen, like quitting a workspace:
-   *  the choice unwinds a gate above this component, so there is nothing to render here. */
-  onChangeEngine: () => void;
+  /** Run one of the menu's lines. The shell dispatches it, exactly as the palette would. */
+  onRun: (command: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -57,6 +56,10 @@ export function SettingsMenu({
 
   const item =
     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent";
+  const run = (command: string) => {
+    setOpen(false);
+    onRun(command);
+  };
 
   return (
     <div ref={ref} className="relative">
@@ -89,10 +92,7 @@ export function SettingsMenu({
               variant="secondary"
               title={m["settings.logout"]()}
               aria-label={m["settings.logout"]()}
-              // Reload after logout: AuthGate is outermost, so a fresh load lands on sign-in (and pagehide frees the engine).
-              onClick={() =>
-                void api.logout().then(() => window.location.reload())
-              }
+              onClick={() => run("ui logout")}
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -100,23 +100,11 @@ export function SettingsMenu({
           <div className="my-1 border-t border-border" />
           {/* The SSH key is NOT here any more. It belongs to st0, which owns the repositories
               and generates the one deploy key — see packages/git-repos/docs/keys.md. */}
-          <button
-            className={item}
-            onClick={() => {
-              onOpenScreen("editor");
-              setOpen(false);
-            }}
-          >
+          <button className={item} onClick={() => run("ui settings editor")}>
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
             {m["settings.editor"]()}
           </button>
-          <button
-            className={item}
-            onClick={() => {
-              onOpenScreen("io");
-              setOpen(false);
-            }}
-          >
+          <button className={item} onClick={() => run("ui settings io")}>
             <AudioLines className="h-4 w-4 text-muted-foreground" />
             {m["settings.io"]()}
           </button>
@@ -137,23 +125,11 @@ export function SettingsMenu({
           <div className="my-1 border-t border-border" />
           {/* The engine is remembered on the ACCOUNT now, so this is the one way back to
               the picker — without it a choice made once could never be undone. */}
-          <button
-            className={item}
-            onClick={() => {
-              onChangeEngine();
-              setOpen(false);
-            }}
-          >
+          <button className={item} onClick={() => run("ui engine")}>
             <Server className="h-4 w-4 text-muted-foreground" />
             {m["settings.engine"]()}
           </button>
-          <button
-            className={item}
-            onClick={() => {
-              onQuitWorkspace();
-              setOpen(false);
-            }}
-          >
+          <button className={item} onClick={() => run("ui workspace quit")}>
             <DoorOpen className="h-4 w-4 text-muted-foreground" />
             {m["settings.quitWorkspace"]()}
           </button>

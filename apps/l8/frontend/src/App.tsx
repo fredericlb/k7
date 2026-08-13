@@ -111,6 +111,7 @@ import {
 } from "./hooks/usePolls";
 import { useProjectDelete, useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
+import { isMixFormat, MIX_FORMATS, useShare } from "./hooks/useShare";
 import { useSurfaces } from "./hooks/useSurfaces";
 import { useTrackControls } from "./hooks/useTrackControls";
 import { useTurntableDeck } from "./hooks/useTurntableDeck";
@@ -124,6 +125,8 @@ import {
   keyToken,
   resolveBinding,
 } from "./keys";
+import { isUiLine, namesLine } from "./localCommands";
+import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
   moduleInsertCommand,
   modulePlaceCommand,
@@ -1008,6 +1011,48 @@ export default function App({
   const paletteRef = useRef<PaletteCommand[]>([]);
 
   /**
+   * Which language the shell speaks. Taken HERE, above `runLocalCommand`, because `ui language`
+   * is one of its lines — the palette reads the same value further down (the descriptions are
+   * the only translated part of a command, its name being an identifier; see commandI18n.ts).
+   */
+  const { locale, locales, setLocale } = useLocale();
+  // The two share entries that are not CLI verbs: the mixdown render and the k7 publish.
+  const share = useShare(setStatus);
+
+  /**
+   * The footer's two graph toggles, each as ONE callback.
+   *
+   * The button and the command name the same thing, so they run the same function: a second
+   * copy of "turn the mixer on, and clear whatever had taken the graph's place" is a copy that
+   * will one day forget the second half.
+   */
+  const toggleMixer = useCallback(() => {
+    if (mixerView) return setMixerView(false);
+    if (mixerStrips.length === 0)
+      return setStatus(
+        "no strip in this song — a strip is a Mixer module at the end of a track",
+      );
+    // Turning it ON also clears whatever had taken the graph's place, or the rearranged graph
+    // would be laid out behind a clip nobody asked to keep.
+    setGraphSlot(null);
+    setFull(null);
+    setMixerView(true);
+    setStatus(
+      mixerStrips.length === 1
+        ? "mixer view — this song has ONE strip, so there is nothing to line up"
+        : `mixer view — ${mixerStrips.length} strips lined up`,
+    );
+  }, [mixerView, mixerStrips.length]);
+
+  const toggleDocs = useCallback(() => {
+    if (docCount === 0)
+      return setStatus(
+        "no notes in this project — a note is a node of @studio/doc, wired from what it is about",
+      );
+    setShowDocs((on) => !on);
+  }, [docCount]);
+
+  /**
    * Arm MIDI learn on one param: the next control change from any attached controller binds to it.
    *
    * The capture is the browser's, the binding is a command — so what lands on disk goes through
@@ -1066,23 +1111,10 @@ export default function App({
       const prefixed = /^ui\s+/i.test(s);
       if (prefixed) s = s.replace(/^ui\s+/i, "");
       const line = s.toLowerCase();
-      const UI_EXACT = new Set<string>([
-        "global",
-        ...PANES,
-        "focus next",
-        "close",
-        "popin close",
-        "slot close",
-        "select",
-        "zoom",
-        "zoom out",
-        "zoom reset",
-        "help",
-      ]);
-      // The ones that take an argument, so they match on their head rather than whole.
-      const UI_HEADS = ["file ", "edit sequence ", "edit clip ", "midi learn "];
-      const isUi =
-        UI_EXACT.has(line) || UI_HEADS.some((h) => line.startsWith(h));
+      // WHICH lines are `ui`'s is a table of its own (localCommands.ts), so a test can hold it
+      // against the palette's catalogue — a row that lists and then does nothing is the one
+      // failure neither half can notice alone.
+      const isUi = isUiLine(line);
       if (isUi !== prefixed) {
         // Handled (true) rather than passed down: the backend has no such command either, and would say less.
         setStatus(
@@ -1259,6 +1291,224 @@ export default function App({
         armMidiLearn(s.slice("midi learn ".length).trim());
         return true;
       }
+
+      // --- what the footer and the timeline header draw ------------------------
+      if (line === "mixer") {
+        toggleMixer();
+        return true;
+      }
+      if (line === "notes") {
+        toggleDocs();
+        return true;
+      }
+      if (line === "logs clear") {
+        clearLogs();
+        return true;
+      }
+      if (line === "ruler") {
+        timelineRef.current?.toggleRuler();
+        return true;
+      }
+      if (line === "lanes") {
+        timelineRef.current?.toggleLanes();
+        return true;
+      }
+      // `ui panel <graph|logs>`: the footer buttons' own toggle. Naming the panel already up
+      // closes it — which is why `ui close` stays a command of its own and not a spelling of this.
+      if (line.startsWith("panel ")) {
+        const want = line.slice("panel ".length).trim();
+        const names = Object.keys(PANEL_META) as Panel[];
+        if (!names.includes(want as Panel))
+          setStatus(`usage: ui panel <${names.join("|")}>`);
+        else togglePanel(want as Panel);
+        return true;
+      }
+      // `ui surface <id>`: the screens this PROJECT declares (`surfaces/`, `layout: view`), which
+      // is why the list cannot be a fixed one. Naming the open one closes it, as its button does.
+      if (line.startsWith("surface ")) {
+        const arg = s.slice("surface ".length).trim();
+        const hit = screenSurfaces.find((x) => x.id === arg);
+        if (!hit)
+          setStatus(
+            screenSurfaces.length
+              ? `no surface "${arg}" — this project declares ${screenSurfaces
+                  .map((x) => x.id)
+                  .join(", ")}`
+              : "this project declares no surface of its own — see surfaces/",
+          );
+        else setOpenSurface((cur) => (cur === hit.id ? null : hit.id));
+        return true;
+      }
+      // `ui builder <module>`: the shared builder over the shell, on the MODULE file of the trio
+      // — the same screen a module row in the tree opens.
+      if (line.startsWith("builder ")) {
+        const arg = s.slice("builder ".length).trim();
+        const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
+        if (!path) setStatus(`no module "${arg}" in this project`);
+        else setBuilder({ path, pane: "module" });
+        return true;
+      }
+
+      // --- the cog menu --------------------------------------------------------
+      if (line === "settings editor" || line === "settings io") {
+        setSettingsScreen(line === "settings io" ? "io" : "editor");
+        return true;
+      }
+      // The one control ON the editor settings screen. A global user preference, so it outlives
+      // the project — which is why it is `ui` and not a project verb.
+      if (line === "vim") {
+        void toggleVim();
+        return true;
+      }
+      if (line === "engine") {
+        onChangeEngine();
+        return true;
+      }
+      if (line === "workspace quit") {
+        onQuitWorkspace();
+        return true;
+      }
+      // Reload after logout: AuthGate is outermost, so a fresh load lands on sign-in (and
+      // pagehide frees the engine).
+      if (line === "logout") {
+        void api.logout().then(() => window.location.reload());
+        return true;
+      }
+      if (line.startsWith("language ")) {
+        const want = line.slice("language ".length).trim();
+        if (!(locales as readonly string[]).includes(want))
+          setStatus(`usage: ui language <${locales.join("|")}>`);
+        else setLocale(want as typeof locale);
+        return true;
+      }
+      // `ui copy path <path>` — the tree's own entry, and the only one that leaves the app: what
+      // it puts on the clipboard is the workspace-relative path every route and command takes.
+      if (line.startsWith("copy path ")) {
+        const arg = s.slice("copy path ".length).trim();
+        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
+        if (!path) setStatus(`no entry "${arg}" in this workspace`);
+        else {
+          void navigator.clipboard?.writeText(path);
+          setStatus(`copied ${path}`);
+        }
+        return true;
+      }
+      // `ui pin <path>` — to the top of the tree, or off it when it is already there.
+      if (line.startsWith("pin ")) {
+        const arg = s.slice("pin ".length).trim();
+        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
+        const pinned = path ? editorRef.current?.togglePin(path) : null;
+        if (!path) setStatus(`no file "${arg}" in this workspace`);
+        else if (pinned == null)
+          setStatus("the file tree is not on screen — the pins live in it");
+        else setStatus(`${pinned ? "pinned" : "unpinned"} ${path}`);
+        return true;
+      }
+
+      // --- the file tree's right-click menu, as commands ------------------------
+      // Each of these calls the SAME callback the menu item runs (see EditorHandle), so the two
+      // ways in cannot come to mean different things — including the confirm a delete asks for.
+      if (namesLine(line, "file new") || namesLine(line, "folder new")) {
+        const folder = line.startsWith("folder ");
+        const head = folder ? "folder new" : "file new";
+        const [dirArg, name] = headTokens(s.slice(head.length), 2);
+        const dir = dirArg
+          ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
+          : null;
+        if (!dirArg || !name) setStatus(`usage: ${head} <folder> <name>`);
+        else if (!dir || !editorRef.current?.isDir(dir))
+          setStatus(`no folder "${dirArg}" in this workspace`);
+        else if (folder) editorRef.current?.createFolder(dir, name);
+        else editorRef.current?.createFile(dir, name);
+        return true;
+      }
+      // The NAME, not a path: a rename leaves the entry where it is.
+      if (namesLine(line, "file rename")) {
+        const [pathArg, name] = headTokens(s.slice("file rename".length), 2);
+        const path = pathArg
+          ? resolveEntry(pathArg, editorRef.current?.entries() ?? [])
+          : null;
+        if (!pathArg || !name)
+          setStatus("usage: file rename <path> <new name>");
+        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
+        else editorRef.current?.rename(path, name);
+        return true;
+      }
+      // What dragging a row onto a folder does.
+      if (namesLine(line, "file move")) {
+        const [pathArg, dirArg] = headTokens(s.slice("file move".length), 2);
+        const entries = editorRef.current?.entries() ?? [];
+        const path = pathArg ? resolveEntry(pathArg, entries) : null;
+        const dir = dirArg ? resolveEntry(dirArg, entries) : null;
+        if (!pathArg || !dirArg) setStatus("usage: file move <path> <folder>");
+        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
+        else if (!dir || !editorRef.current?.isDir(dir))
+          setStatus(`no folder "${dirArg}" in this workspace`);
+        else editorRef.current?.move(path, dir);
+        return true;
+      }
+      // Recycled, not erased — and confirmed, because the menu's is.
+      if (namesLine(line, "file delete")) {
+        const arg = s.slice("file delete".length).trim();
+        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
+        if (!arg) setStatus("usage: file delete <path>");
+        else if (!path) setStatus(`no entry "${arg}" in this workspace`);
+        else editorRef.current?.remove(path, editorRef.current.isDir(path));
+        return true;
+      }
+      // Opens the OS picker. `folder` asks for a whole directory, which a browser draws as a
+      // different dialog and so needs a different input — see FileTree.
+      if (namesLine(line, "file upload")) {
+        const [dirArg, what] = headTokens(s.slice("file upload".length), 2);
+        const dir = dirArg
+          ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
+          : null;
+        if (!dir || !editorRef.current?.isDir(dir))
+          setStatus("usage: file upload <folder> [files|folder]");
+        else if (
+          !editorRef.current.pickUpload(
+            dir,
+            (what ?? "").toLowerCase() === "folder",
+          )
+        )
+          setStatus("the file tree is not on screen — the picker lives in it");
+        return true;
+      }
+
+      // --- the project ---------------------------------------------------------
+      // Ctrl+Z / Ctrl+Y as commands: the project-wide journal, which wraps every command that
+      // wrote (@studio/project-shell/undo). The EDITOR's own buffer history stays with the keys —
+      // a command bar is not where a keystroke is taken back.
+      if (line === "project undo" || line === "project redo") {
+        void (line === "project redo"
+          ? runRedo(historyDeps)
+          : runUndo(historyDeps));
+        return true;
+      }
+      if (line.startsWith("project export")) {
+        const fmt = s.slice("project export".length).trim().toLowerCase();
+        if (!isMixFormat(fmt))
+          setStatus(`usage: project export <${MIX_FORMATS.join("|")}>`);
+        else void share.exportMix(fmt);
+        return true;
+      }
+      if (line === "project share k7") {
+        void share.shareK7();
+        return true;
+      }
+      // The dialog reports what the translation did and then offers to open the result.
+      if (line.startsWith("project import")) {
+        const arg = s.slice("project import".length).trim();
+        const path = arg
+          ? resolveEntry(arg, editorRef.current?.entries() ?? [])
+          : null;
+        if (!path)
+          setStatus(
+            "usage: project import <a .dawproject or .als of this workspace>",
+          );
+        else imp.askImport(path);
+        return true;
+      }
       return false;
     },
     [
@@ -1272,12 +1522,25 @@ export default function App({
       openHelp,
       closeHelp,
       del,
+      imp,
       engineRef,
       midiSeqRef,
       store,
       createNewProject,
       setFull,
       setView,
+      toggleMixer,
+      toggleDocs,
+      clearLogs,
+      togglePanel,
+      screenSurfaces,
+      onChangeEngine,
+      onQuitWorkspace,
+      toggleVim,
+      locales,
+      setLocale,
+      historyDeps,
+      share,
     ],
   );
 
@@ -1331,6 +1594,9 @@ export default function App({
           setSeedGraph({ id: seedId.current, graph });
         }
         setReloadKey((k) => k + 1);
+        // The repo verbs move the badge, the view AND the workspace — a pull can add projects.
+        // Here rather than in the share menu, because the palette and a key run them too.
+        if (/^project (commit|pull|alternative)\b/.test(s)) onRepoChanged();
       } catch (e) {
         setStatus(`command error: ${(e as Error).message}`);
         pushLog("error", (e as Error).message);
@@ -1342,7 +1608,7 @@ export default function App({
         if (willInsert) setInsertingAt(null);
       }
     },
-    [pushLog, runLocalCommand],
+    [pushLog, runLocalCommand, onRepoChanged],
   );
   runCommandRef.current = runCommand;
 
@@ -1854,10 +2120,8 @@ export default function App({
   // what `waitingForEngine` means.
   const transportWaiting = engineBusy || waitingForEngine;
 
-  // The step-by-step palette's command catalogue and per-argument completion.
-  // Which language the palette speaks — the descriptions are the only translated part of a
-  // command, its name being an identifier (see commandI18n.ts).
-  const { locale } = useLocale();
+  // The step-by-step palette's command catalogue and per-argument completion. `locale` is taken
+  // once, above `runLocalCommand`, since `ui language` writes it.
   // The locale is a dependency: each command's description is resolved once, when the
   // catalogue is built, so switching language rebuilds the list the palette matches on.
   const paletteCommands = useMemo(
@@ -1865,9 +2129,17 @@ export default function App({
     [backendCmds, locale],
   );
   paletteRef.current = paletteCommands;
+  // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds —
+  // what the editor can open, every path the tree draws, this project's surfaces, the languages.
   const listArg = useMemo(
-    () => makeListArg(() => editorRef.current?.files() ?? []),
-    [],
+    () =>
+      makeListArg({
+        files: () => editorRef.current?.files() ?? [],
+        entries: () => editorRef.current?.entries() ?? [],
+        surfaces: () => screenSurfaces.map((s) => s.id),
+        locales: () => [...locales],
+      }),
+    [screenSurfaces, locales],
   );
 
   return (
@@ -2001,15 +2273,11 @@ export default function App({
                     step for no gain. */}
                 <div className="flex items-center gap-1">
                   <ShareMenu
-                    onStatus={setStatus}
                     gitStatus={gitStatus}
-                    onRepoChanged={onRepoChanged}
+                    busy={share.busy}
+                    onRun={(c) => void runCommand(c)}
                   />
-                  <SettingsMenu
-                    onOpenScreen={setSettingsScreen}
-                    onQuitWorkspace={onQuitWorkspace}
-                    onChangeEngine={onChangeEngine}
-                  />
+                  <SettingsMenu onRun={(c) => void runCommand(c)} />
                 </div>
               </MobileMenu>
             ) : (
@@ -2065,9 +2333,7 @@ export default function App({
                         size="icon"
                         variant={openSurface === s.id ? "default" : "ghost"}
                         aria-pressed={openSurface === s.id}
-                        onClick={() =>
-                          setOpenSurface(openSurface === s.id ? null : s.id)
-                        }
+                        onClick={() => void runCommand(`ui surface ${s.id}`)}
                         title={
                           openSurface === s.id
                             ? `${s.id} — revenir à la vue`
@@ -2082,15 +2348,11 @@ export default function App({
                 )}
                 <div className="mx-1 h-5 w-px bg-border" />
                 <ShareMenu
-                  onStatus={setStatus}
                   gitStatus={gitStatus}
-                  onRepoChanged={onRepoChanged}
+                  busy={share.busy}
+                  onRun={(c) => void runCommand(c)}
                 />
-                <SettingsMenu
-                  onOpenScreen={setSettingsScreen}
-                  onQuitWorkspace={onQuitWorkspace}
-                  onChangeEngine={onChangeEngine}
-                />
+                <SettingsMenu onRun={(c) => void runCommand(c)} />
               </>
             )}
           </div>
@@ -2406,7 +2668,7 @@ export default function App({
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
                     rolling={rolling}
-                    onStop={() => transport("stop")}
+                    onStop={() => void runCommand("transport stop")}
                     onClose={() => setGraphSlot(null)}
                   />
                 )}
@@ -2446,7 +2708,10 @@ export default function App({
                   />
                 )}
                 {panel === "logs" && (
-                  <LogsPanel lines={logs} onClear={clearLogs} />
+                  <LogsPanel
+                    lines={logs}
+                    onClear={() => void runCommand("ui logs clear")}
+                  />
                 )}
               </div>
             </>
@@ -2575,19 +2840,7 @@ export default function App({
                 size="icon-xs"
                 variant={mixerView ? "default" : "ghost"}
                 disabled={mixerStrips.length === 0}
-                onClick={() => {
-                  // Turning it ON also clears whatever had taken the graph's place, or the
-                  // rearranged graph would be laid out behind a clip nobody asked to keep.
-                  if (mixerView) return setMixerView(false);
-                  setGraphSlot(null);
-                  setFull(null);
-                  setMixerView(true);
-                  setStatus(
-                    mixerStrips.length === 1
-                      ? "mixer view — this song has ONE strip, so there is nothing to line up"
-                      : `mixer view — ${mixerStrips.length} strips lined up`,
-                  );
-                }}
+                onClick={() => void runCommand("ui mixer")}
                 title={
                   mixerStrips.length === 0
                     ? "No strip in this song: a strip is a Mixer module at the end of a track"
@@ -2615,7 +2868,7 @@ export default function App({
                 size="icon-xs"
                 variant={showDocs ? "default" : "ghost"}
                 disabled={docCount === 0}
-                onClick={() => setShowDocs((on) => !on)}
+                onClick={() => void runCommand("ui notes")}
                 title={
                   docCount === 0
                     ? "No notes in this project: a note is a node of @studio/doc, wired from what it is about"
@@ -2635,7 +2888,7 @@ export default function App({
                     key={p}
                     size="icon-xs"
                     variant={panel === p ? "default" : "ghost"}
-                    onClick={() => togglePanel(p)}
+                    onClick={() => void runCommand(`ui panel ${p}`)}
                     title={`${PANEL_META[p].label} panel`}
                     aria-label={`${PANEL_META[p].label} panel`}
                   >
@@ -2903,7 +3156,7 @@ export default function App({
           <div className="absolute inset-0 z-40 bg-background">
             <EditorSettingsPage
               vimMode={vimMode}
-              onToggleVim={() => void toggleVim()}
+              onToggleVim={() => void runCommand("ui vim")}
               onBack={() => setSettingsScreen(null)}
             />
           </div>

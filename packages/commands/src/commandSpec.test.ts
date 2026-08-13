@@ -298,6 +298,22 @@ describe("readable descriptions", () => {
     }
   });
 
+  it("fit on the palette's row — 60 characters at most, in both languages", () => {
+    // The row is `sentence … name`, and the name has to stay readable at the right of it. A
+    // longer sentence is not a longer row: it is a truncated one, or a list that wraps into a
+    // wall over the minimap. The cap is also what keeps a description from drifting back into
+    // `help` — every line that ran past it was carrying a caveat or an example, not an action.
+    const long = specs.flatMap((c) =>
+      (["en", "fr"] as const)
+        .filter((lang) => (c.readable?.[lang] ?? "").length > 60)
+        .map(
+          (lang) =>
+            `${c.command} (${lang}, ${c.readable?.[lang].length}): ${c.readable?.[lang]}`,
+        ),
+    );
+    expect(long, "readable descriptions over 60 characters").toEqual([]);
+  });
+
   it("carry no example and no full stop, unlike `help`", () => {
     // `help` is the CLI's fuller line and carries "(e.g. …)"; this one is scanned in a list,
     // where an example is noise and a trailing stop is a row of ragged dots.

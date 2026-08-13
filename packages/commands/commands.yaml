@@ -8,6 +8,12 @@
 #             replacing it: `help` is the CLI's fuller line and carries examples and caveats,
 #             which are noise in a list you are scanning. Imperative, no example, no full
 #             stop. Both languages are required — `commandSpec.test.ts` fails without them.
+#             It states the ACTION and stops there — not its consequence, not its caveat,
+#             not what it is good for. Those belong to `help`. **60 characters at most**, in
+#             each language, and the test enforces it: the palette draws the sentence beside
+#             the command's name on one row, so a line that runs past the row is either
+#             truncated or wraps the list into a wall — and the extra words were the ones
+#             saying what `help` already says.
 #   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists now —
 #             the web backend dispatches under it too, so every command runs on both;
 #             the field is kept for when a surface needs its own subset again.
@@ -121,8 +127,8 @@
 - command: "project alternative switch"
   sid: project.alt.switch
   readable:
-    en: "Switch to another alternative of the song"
-    fr: "Basculer sur une autre alternative du morceau"
+    en: "Switch to another alternative"
+    fr: "Basculer sur une autre alternative"
   help: "move to another alternative, committing any work in progress"
   surfaces: [cli]
   args: [{ name: name, complete: alternatives }]
@@ -143,8 +149,8 @@
 - command: "track solo"
   sid: track.solo
   readable:
-    en: "Solo a track, silencing the others"
-    fr: "Mettre une piste en solo, silence sur les autres"
+    en: "Solo a track"
+    fr: "Mettre une piste en solo"
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }]
@@ -219,8 +225,8 @@
 - command: "track pan"
   sid: track.pan
   readable:
-    en: "Set a track's pan, left to right"
-    fr: "Régler le panoramique d'une piste, de gauche à droite"
+    en: "Set a track's pan"
+    fr: "Régler le panoramique d'une piste"
   help: "set a track's pan, -1 (left) .. 1 (right)"
   surfaces: [cli]
   args:
@@ -248,16 +254,16 @@
 - command: "track process"
   sid: track.process
   readable:
-    en: "Bounce a track's material through a chain, for good"
-    fr: "Traiter définitivement la matière d'une piste dans une chaîne"
+    en: "Bounce a track through a chain, for good"
+    fr: "Traiter une piste dans une chaîne, définitivement"
   help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @mediatek/amp-room)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }, { name: chain, complete: chains }]
 - command: "clip process"
   sid: clip.process
   readable:
-    en: "Bounce one clip through a chain, for good"
-    fr: "Traiter définitivement un clip dans une chaîne"
+    en: "Bounce a clip through a chain, for good"
+    fr: "Traiter un clip dans une chaîne, définitivement"
   help: "bounce one clip's file through a chain and keep the result (e.g. clip process riff @mediatek/amp-room)"
   surfaces: [cli]
   args:
@@ -271,8 +277,8 @@
 - command: "track normalize"
   sid: track.normalize
   readable:
-    en: "Normalise a track's clips to a peak"
-    fr: "Normaliser les clips d'une piste à un niveau crête"
+    en: "Normalise a track's clips"
+    fr: "Normaliser les clips d'une piste"
   help: "bring a track's clips to a peak, in place (e.g. track normalize gtr)"
   surfaces: [cli]
   args:
@@ -283,8 +289,8 @@
 - command: "clip normalize"
   sid: clip.normalize
   readable:
-    en: "Normalise one clip to a peak"
-    fr: "Normaliser un clip à un niveau crête"
+    en: "Normalise a clip"
+    fr: "Normaliser un clip"
   help: "bring one clip's file to a peak, in place (e.g. clip normalize prise-01)"
   surfaces: [cli]
   args:
@@ -456,8 +462,8 @@
   help: "show the input/output channel labels"
   surfaces: [cli]
   readable:
-    en: "Show the input and output channel labels"
-    fr: "Afficher les libellés des canaux d'entrée et de sortie"
+    en: "Show the channel labels"
+    fr: "Afficher les libellés des canaux"
 - command: "channel clear"
   sid: channels.clear
   readable:
@@ -558,8 +564,8 @@
 - command: "module own"
   sid: module.own
   readable:
-    en: "Give an engine module a folder in this project"
-    fr: "Donner un dossier de ce projet à un module du moteur"
+    en: "Give an engine module a folder here"
+    fr: "Donner un dossier à un module du moteur"
   help: "give an engine module a folder in this project, so it can carry a panel and presets (e.g. module own @engine/nam)"
   surfaces: [cli]
   args: [{ name: "ref", complete: baseModules }]
@@ -569,8 +575,8 @@
 - command: "module replace"
   sid: module.replace
   readable:
-    en: "Replace a module, keeping its place in the chains"
-    fr: "Remplacer un module en gardant sa place dans les chaînes"
+    en: "Replace a module, keeping its place"
+    fr: "Remplacer un module en gardant sa place"
   help: "replace a module in place, keeping its position in every chain (e.g. module replace echo audio/wah @engine/audio/filter/auto-wah)"
   surfaces: [cli]
   args:
@@ -602,8 +608,8 @@
 - command: "ui migrate"
   sid: ui.migrate
   readable:
-    en: "Move module panels into the workspace library"
-    fr: "Déplacer les panneaux des modules vers la bibliothèque de l'espace de travail"
+    en: "Move module panels into the library"
+    fr: "Déplacer les panneaux vers la bibliothèque"
   help: "move module `ui:` blocks out into the workspace's _ui/ library (safe to re-run)"
   surfaces: [cli]
   args: []
@@ -645,8 +651,8 @@
 - command: "module bypass"
   sid: module.bypass
   readable:
-    en: "Bypass a module, passing sound through untouched"
-    fr: "Contourner un module, le son passe sans traitement"
+    en: "Bypass a module"
+    fr: "Contourner un module"
   help: "bypass a module so it passes sound through untouched (bare: toggles)"
   surfaces: [cli]
   args: [{ name: module, complete: modules }, { name: state, values: [on, off] }]
@@ -676,8 +682,8 @@
 - command: "module alternative copy"
   sid: module.alt.copy
   readable:
-    en: "Copy a module's settings into a new alternative"
-    fr: "Copier les réglages d'un module dans une nouvelle alternative"
+    en: "Copy a module's settings into an alternative"
+    fr: "Copier les réglages dans une nouvelle alternative"
   help: "add an alternative holding a copy of the one that is on, and switch to it"
   surfaces: [cli]
   args:
@@ -691,8 +697,8 @@
 - command: "module alternative select"
   sid: module.alt.select
   readable:
-    en: "Switch a module to another of its alternatives"
-    fr: "Basculer un module sur une autre de ses alternatives"
+    en: "Switch a module to another alternative"
+    fr: "Basculer un module sur une autre alternative"
   help: "switch a module to another of its alternatives (e.g. module alternative select ampli crunch)"
   surfaces: [cli]
   args:
@@ -760,8 +766,8 @@
 - command: "module cc"
   sid: module.cc
   readable:
-    en: "Bind a MIDI control to a module's parameter"
-    fr: "Associer un contrôle MIDI à un paramètre de module"
+    en: "Bind a MIDI control to a parameter"
+    fr: "Associer un contrôle MIDI à un paramètre"
   help: "bind a MIDI CC to a module's param, or `none` to unbind (e.g. module cc synth Cutoff 1 74)"
   surfaces: [cli]
   args:
@@ -884,8 +890,8 @@
 - command: "module place"
   sid: module.place
   readable:
-    en: "Create a module and drop it in the graph, unwired"
-    fr: "Créer un module et le poser dans le graphe, sans câblage"
+    en: "Create a module in the graph, unwired"
+    fr: "Créer un module dans le graphe, sans câblage"
   help: "create a module and drop it in the graph, wired to nothing (e.g. module place audio/wah @engine/audio/filter/auto-wah w1)"
   surfaces: [cli]
   args:

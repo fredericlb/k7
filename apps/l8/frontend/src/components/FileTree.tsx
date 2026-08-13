@@ -20,9 +20,30 @@ import {
   Play,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { FileNode } from "../types";
+
+/**
+ * The two actions that live nowhere else — the pins are this component's localStorage and the
+ * OS pickers are its two hidden inputs. Exposed so `ui pin` and `file upload` can reach them:
+ * every action the tree offers is a command, and these are the ones no route and no parent hold.
+ */
+export interface FileTreeHandle {
+  /** Pin a path to the top of the tree, or unpin it if it is already there. Answers the new state. */
+  togglePin: (path: string) => boolean;
+  /** Open the OS file picker; what is chosen is uploaded into `dir`, as a drop would be. */
+  pickFiles: (dir: string) => void;
+  /** The same, for a whole folder — a separate input, because `webkitdirectory` is a property of it. */
+  pickFolder: (dir: string) => void;
+}
 
 // A drag carrying OS files — the only kind we accept. The decision lives in fileDrop.ts, pure and tested.
 const dragHasFiles = (e: React.DragEvent): boolean =>
@@ -103,6 +124,7 @@ export function FileTree({
   onCreateFolder,
   onCloneModule,
   onCreateNode,
+  ref,
 }: {
   tree: FileNode[];
   activePath: string | null;
@@ -130,6 +152,7 @@ export function FileTree({
   onCloneModule?: (path: string, newName: string) => void;
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
   onCreateNode?: (path: string, node: string) => void;
+  ref?: Ref<FileTreeHandle>;
 }) {
   // Pinned files: client-only state in localStorage per project, re-loaded on a project switch so pins can't cross.
   const pinKey = `l8:pins:${projectName || activeProject || "."}`;
@@ -148,18 +171,19 @@ export function FileTree({
         : [],
     );
   }, [pinKey]);
-  const togglePin = (path: string) =>
-    setPins((prev) => {
-      const next = prev.includes(path)
-        ? prev.filter((p) => p !== path)
-        : [...prev, path];
-      try {
-        localStorage.setItem(pinKey, JSON.stringify(next));
-      } catch {
-        /* storage full / unavailable — the pin just won't survive a reload */
-      }
-      return next;
-    });
+  // Answers the state it left the path in, so a command can say which of the two it just did.
+  const togglePin = (path: string): boolean => {
+    const next = pins.includes(path)
+      ? pins.filter((p) => p !== path)
+      : [...pins, path];
+    setPins(next);
+    try {
+      localStorage.setItem(pinKey, JSON.stringify(next));
+    } catch {
+      /* storage full / unavailable — the pin just won't survive a reload */
+    }
+    return next.includes(path);
+  };
   const isPinned = (path: string) => pins.includes(path);
   // Every openable path: a pin shows only once its file is present, which gates clicks on the tree having loaded.
   const treeFiles = useMemo(() => {
@@ -189,6 +213,18 @@ export function FileTree({
   };
   const pickFiles = (dir: string) => pick(dir, pickRef.current);
   const pickFolder = (dir: string) => pick(dir, pickDirRef.current);
+
+  // The three the right-click menu offers and nothing else can: they are this component's own state.
+  // Rebuilt on every render, which is what it costs to keep `togglePin` reading the CURRENT pins
+  // — the three are plain closures over this render's state, and a ref assignment is free.
+  useImperativeHandle(
+    ref,
+    (): FileTreeHandle => ({
+      togglePin,
+      pickFiles,
+      pickFolder,
+    }),
+  );
 
   // A pick, in the shape a drop already arrives in. `webkitRelativePath` carries the folder for a directory
   // pick and is "" otherwise, which is exactly the difference between the two inputs above.

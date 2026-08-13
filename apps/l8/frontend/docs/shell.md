@@ -633,13 +633,73 @@ listener ignores anything typed into an input — Escape is the way out, and has
 ### The `ui` namespace
 
 The shell's own view commands (`LOCAL_COMMANDS` in `palette.ts`) live under a `ui` prefix,
-stripped in one place rather than by renaming every branch. The pairing is then **enforced
-both ways**: a `ui` command typed bare is refused, and so is a non-`ui` command typed with
-the prefix. `ui` promises "writes nothing, does not move the transport", and a `ui locate`
-that quietly moved the playhead would be a worse lie than having no namespace at all.
+stripped in one place rather than by renaming every branch. Which lines are `ui`'s is a table
+of its own — `localCommands.ts` — so a test can hold it against the palette's catalogue. The
+pairing is then **enforced both ways**: a `ui` command typed bare is refused, and so is a
+non-`ui` command typed with the prefix. `ui` promises "touches nothing of the project, does not
+move the transport", and a `ui locate` that quietly moved the playhead would be a worse lie
+than having no namespace at all.
+
+It is not "writes no file", and the difference is deliberate: a pin, a language and the vim
+flag are remembered — in `localStorage` and in the account's preferences — and remembering how
+you like to work is not editing a song. What draws the line is the PROJECT.
 
 A line the shell recognises but cannot act on is reported as *handled* rather than passed
 down: the backend has no such command either, and "unknown command" would say less.
+
+Two heads collide and the order settles them: `ui file <path>` opens a file, `file new`,
+`file rename`, `file move`, `file delete` and `file upload` do something *to* one. Only the
+second token tells them apart, so `BARE_HEADS` is checked **first** — otherwise the pairing
+rule above would send every `file <verb>` back with "type: ui file …".
+
+### Every action on screen is a command
+
+There is no button, menu entry or toggle in this shell that the command bar cannot reach.
+That is a rule, not a coincidence, and it is what makes the palette a real answer to "what do
+you want done" rather than a shortcut list for the half of the app somebody remembered to
+wire. It also means a gesture is describable: a bug report, a doc page and a key binding can
+all name the same thing.
+
+Keeping it costs one habit — **the button runs the command, it does not call the handler**.
+Where the two would otherwise be two copies of one behaviour, the behaviour moved:
+
+| what draws it | the command | where the behaviour lives |
+|---|---|---|
+| the footer's mixer / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` / `toggleDocs` in `App` |
+| the footer's panel row | `ui panel <graph\|logs>` | `togglePanel` |
+| the log panel's *clear* | `ui logs clear` | `useLogs` |
+| a `view` surface's header button | `ui surface <id>` | `setOpenSurface` |
+| the timeline header's clock / height | `ui ruler`, `ui lanes` | `TimelineHandle` |
+| the cog menu | `ui settings editor\|io`, `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
+| the editor settings screen's one toggle | `ui vim` | `toggleVim` in `App` |
+| the share menu | `project commit`, `project pull` (the CLI's), `project export`, `project share k7` | `hooks/useShare.ts` |
+| Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |
+| the file tree's right-click menu | `file new`, `folder new`, `file rename`, `file move`, `file delete`, `file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
+| the recording pane's *stop* | `transport stop` | the engine |
+| a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
+
+Two of those handles exist only for this: `EditorHandle` grew the tree's own verbs, and
+`FileTreeHandle` exposes the two things nothing else holds — the pins, which are that
+component's `localStorage`, and the OS file pickers, which are its two hidden inputs.
+
+Three things are deliberately NOT commands, and the line is the same one every time — a
+command names something you could *ask for*, and none of these is:
+
+- **Disclosure.** Opening a dropdown, expanding a tree folder, showing the sidebar. Asking
+  for it and doing it are the same act; there is nothing left for a command to add.
+- **A dialog's own buttons.** Confirm, cancel, "continue editing". They answer a question the
+  shell asked, so they cannot be reached from a bar that is not the question.
+- **Continuous gestures.** Dragging a clip, growing a selection, panning the graph, the
+  waveform's onset sensitivity. The timeline's `event move` is the command; the nudging is the
+  view's, as `keys.ts` says.
+- **Typing into the open buffer.** The video readers' *Set From* / *Set To* look like actions
+  and are not: they write a number into the file the editor is showing, which autosave then
+  saves like any keystroke. A command for them would be a command for typing.
+
+The two transport buttons in the header are the one place a button does NOT dispatch its
+command, and the reason is latency: `transport toggle` is a CLI verb, so it travels to the file
+service and back, while the button already holds an open socket to the engine. The command
+exists and does the same thing — it is the button that takes the short way.
 
 ## Two-step flows
 
