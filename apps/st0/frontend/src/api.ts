@@ -87,9 +87,14 @@ let signedInAs = "";
 export const currentUser = (): string => signedInAs;
 
 export const auth = {
-  // `return_to` is the name the OIDC package reads; `redirect` was silently
-  // ignored, which only looked fine while this app owned the origin root.
-  loginUrl: `/auth/login?return_to=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+  // A GETTER, not a constant: evaluated at import it captures whatever page happened to load
+  // the module, so every later click returned you there instead of where you were. `return_to`
+  // is the name the OIDC package reads; `redirect` was silently ignored, which only looked
+  // fine while this app owned the origin root.
+  get loginUrl(): string {
+    const here = window.location.pathname + window.location.search;
+    return `/auth/login?return_to=${encodeURIComponent(here)}`;
+  },
 
   /** The session's user, or null when anonymous. */
   me: async (): Promise<AuthUser | null> => {
