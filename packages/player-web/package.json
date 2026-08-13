@@ -13,7 +13,8 @@
     "./moteur-effects": "./src/moteurEffects.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@studio/engine-browser": "*",

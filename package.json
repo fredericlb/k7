@@ -36,6 +36,7 @@
     "commons:sync": "git submodule update --remote --merge commons",
     "build": "turbo run build",
     "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "images": "bash commons/scripts/build-images.sh",
     "check-images": "node commons/scripts/check-image-closure.cjs",
     "vscode": "node scripts/vscode.mjs",
