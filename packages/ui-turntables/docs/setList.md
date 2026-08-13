@@ -53,4 +53,4 @@ module dans un processus fils. Le navigateur ne peut pas en produire un.
 Jouer les vraies chaînes du set demande donc que le service de fichiers de la machine
 compile le projet et l'envoie, et que charger un morceau sur une platine devienne une
 **édition du projet** — ce que l8 fait déjà. C'est l'étape suivante. Voir
-[packages/song/docs/m9Project.md](../../../packages/song/docs/m9Project.md).
+[packages/song/docs/setProject.md](../../song/docs/setProject.md).
