@@ -46,7 +46,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "lint": "biome check .",
-    "lint:fix": "biome check --write ."
+    "lint:fix": "biome check --write .",
+    "lint:bytes": "node scripts/check-source-bytes.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",
