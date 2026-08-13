@@ -652,7 +652,7 @@ function applyByRef<E>(
   refOf: (m: LoadedModule, key: string) => string | string[],
   byRef: Record<string, E>,
   field: string,
-  valueOf: (entry: E) => unknown,
+  valueFor: (entry: E) => unknown,
 ): void {
   const entries = Object.entries(out);
   if (!entries.length || !Object.keys(byRef).length) return;
@@ -661,7 +661,7 @@ function applyByRef<E>(
     for (const ref of Array.isArray(refs) ? refs : [refs]) {
       const hit = byRef[ref];
       if (hit) {
-        (m as unknown as Record<string, unknown>)[field] = valueOf(hit);
+        (m as unknown as Record<string, unknown>)[field] = valueFor(hit);
         break;
       }
     }
