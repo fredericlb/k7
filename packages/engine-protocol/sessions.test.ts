@@ -66,18 +66,26 @@ describe("the stamped/unstamped sets", () => {
       expect(global.has(type)).toBe(false);
   });
 
+  // Frames are built as VARIABLES, not literals: `forSession` reads `session` and declares only
+  // that, so a literal carrying `type` too trips excess-property checking — while a real caller,
+  // handing over a whole decoded frame, never does.
+  const frame = (
+    type: string,
+    session?: string,
+  ): { type: string; session?: string } => ({ type, session });
+
   it("drops every per-session reply that belongs to someone else", () => {
     for (const type of PER_SESSION_REPLIES)
-      expect(forSession({ type, session: "l8:b" }, "l8:a")).toBe(false);
+      expect(forSession(frame(type, "l8:b"), "l8:a")).toBe(false);
   });
 
   it("keeps every per-session reply of its own", () => {
     for (const type of PER_SESSION_REPLIES)
-      expect(forSession({ type, session: "l8:a" }, "l8:a")).toBe(true);
+      expect(forSession(frame(type, "l8:a"), "l8:a")).toBe(true);
   });
 
   it("lets every engine-global reply through unstamped", () => {
     for (const type of ENGINE_GLOBAL_REPLIES)
-      expect(forSession({ type }, "l8:a")).toBe(true);
+      expect(forSession(frame(type), "l8:a")).toBe(true);
   });
 });
