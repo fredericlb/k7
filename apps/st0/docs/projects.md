@@ -13,6 +13,31 @@ C'est aussi la **section d'accueil** : `DEFAULT_SECTION` vaut `projects`. La mé
 porte d'entrée du studio, et la première chose qu'on veut à une porte d'entrée, c'est son
 propre travail. Le catalogue est ce dont un projet *se sert* — il est à un onglet, pas devant.
 
+## Le dépôt des BIBLIOTHÈQUES, avant tout le reste
+
+Un compte en déclare **un**, en haut de la section, avant la liste des dépôts et avant
+l'arborescence : les modules et les chaînes que tous ses projets héritent. Sans lui, l8 refuse
+d'ouvrir quoi que ce soit — pas par principe, mais parce qu'aucune référence `@st0/…` ne
+résoudrait, et qu'un morceau ouvert avec tous ses modules partagés manquants se lit comme un
+morceau cassé plutôt que comme un compte qu'on n'a pas fini d'installer.
+
+Un seul, pas une liste : il est monté à un chemin fixe dans chaque espace de travail
+(`<espace>/_libraries`, voir
+[packages/song/docs/sharedFolders.md](../../../packages/song/docs/sharedFolders.md)), et deux
+dépôts qui réclament ce chemin est une question sans réponse. Une deuxième bibliothèque est un
+dossier DANS ce dépôt, pas un deuxième dépôt.
+
+Il est enregistré comme les autres — même URI SSH, même clé de déploiement, même identité par
+URI normalisée — et rangé dans le même fichier par personne, sous `libraries` à côté de `repos`.
+Ce qui diffère est le verbe : `PUT`, parce qu'il y en a un. Le poser deux fois avec la même URI
+doit être le poser une fois.
+
+**En changer ne touche aucune machine.** Les espaces de travail déjà clonés gardent l'ancien :
+leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que
+de le faire en silence — remplacer le sous-module sous un projet qui s'en sert changerait tous
+ses modules partagés d'un coup, pendant l'ouverture d'un morceau. La carte le dit au moment où
+on change, et le message du refus nomme les deux URI.
+
 ## La règle qui tient tout
 
 **Le suffixe du dossier nomme l'application.** `mysong.l8` s'ouvre dans l8, `partie.z0` dans
@@ -307,10 +332,14 @@ Tout est sous un **dot-dossier** du volume, comme `.prefs` : `writablePath` le r
 
 ```
 <STUDIO_MEDIATEK>/.projects/
-  repos/<slug>-<hash>.json      la liste des dépôts d'une personne
+  repos/<slug>-<hash>.json      ses dépôts, et son dépôt de bibliothèques
   ssh/<slug>-<hash>/            sa paire de clés
   mirrors/<slug>-<hash>/<id>.git  les miroirs bare, sans blobs
 ```
+
+Le fichier porte deux champs, `repos` et `libraries`, et l'écriture les FUSIONNE : les deux
+s'éditent depuis deux endroits de l'écran et rien ne les sérialise, donc écrire une moitié ne
+doit pas pouvoir jeter l'autre.
 
 Le nommage `<slug>-<hash>` est celui de `@studio/user-prefs` (`fileFor`), repris tel quel : un
 `sub` OIDC est une chaîne opaque choisie par l'IdP et ne peut jamais être un segment de chemin

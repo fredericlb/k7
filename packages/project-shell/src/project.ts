@@ -54,8 +54,11 @@ export const projectApi = {
    * slow the first time (a full modules sync), which is why it replaces the clone's progress
    * screen rather than being asked for silently. See apps/st0/docs/banc.md.
    */
-  openBench: (project?: string) =>
+  openBench: (project: string | undefined, libraries: string) =>
     fsend<{ workspace: string; project: string }>("POST", "/workspaces/bench", {
+      // The account's library repository: the chain being opened is IN it, and so are the
+      // modules that chain names. Passed for the same reason `open` takes it.
+      libraries,
       // What the address named, handed over as it was written: `chains/<path>.l8` opens the
       // bench on that médiathèque chain, anything else on the catalogue at large. The machine
       // decides, because the machine is what holds the médiathèque.
@@ -65,7 +68,16 @@ export const projectApi = {
   // --- The open project ---------------------------------------------------------
   workspace: () => fget<WorkspaceInfo>("/workspace"),
   project: () => fget<ProjectInfo>("/project"),
-  open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
+  /**
+   * Open the project — and say which library repository this account's workspaces mount.
+   *
+   * The URI rides along because the BROWSER is the side that knows who is asking: it read it
+   * from st0 a moment ago, on this person's session, where the file service holds a machine
+   * token and no session at all. The machine mounts it at `_libraries` if it is not there
+   * already (see packages/file-service/src/libraries.ts).
+   */
+  open: (path: string, libraries?: string) =>
+    fsend<WorkspaceInfo>("POST", "/open", { path, libraries }),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
   /**
    * Play a document this browser built — the turntables surface's decks, filled into the

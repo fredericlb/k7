@@ -4,14 +4,25 @@
 // Full rationale: docs/sharedFolders.md.
 
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { mediatekDirFor } from "./mediatekRoot";
+import { basename, dirname, join, resolve } from "node:path";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
 export const SHARED_MODULES_PATH = "../_modules";
 
 /** The folder name a shared module library lives under, at the workspace root. */
 export const SHARED_MODULES_DIR = "_modules";
+
+// Where the library submodule sits is in moduleTypes.ts, which opens no `node:` module — l8's
+// file tree names that folder to keep it off the Project tab. Re-exported so the vocabulary
+// still reads as one place, exactly as MODULE_NAMESPACES is.
+export { LIBRARIES_DIR, LIBRARIES_PATH } from "./moduleTypes";
+
+import { LIBRARIES_DIR, LIBRARIES_PATH } from "./moduleTypes";
+
+/** The two families the library repository carries. `library/` is not one — a module holds the
+ *  files it loads in its own `assets/` (see docs/moduleAssets.md). */
+export const librariesDirFor = (dir: string, kind: "modules" | "chains") =>
+  resolve(dir, LIBRARIES_PATH, kind);
 
 /** Is this path inside a shared module library? Those are READ-ONLY — see docs/moduleFork.md.
  *  Matched on a path SEGMENT (a project called "my_modules" is not one), either separator, since callers pass
@@ -27,20 +38,27 @@ export function hasSharedModules(dir: string): boolean {
 }
 
 /**
- * The machine's media library, when it has one.
+ * The library repository's modules, as mounted beside this project — or null when the
+ * submodule is not there.
  *
  * `@st0` names a level whose folder is fixed. Stated once here; `moduleLibraryDirs` and
  * `loadModuleRefs` both read it, which is what keeps the modules, their panels and the
  * catalogue agreeing about what a project can reach. See docs/moduleNamespaces.md.
+ *
+ * It used to be `~/.studio/mediatek/modules` — one folder per MACHINE, synced from the hosted
+ * médiathèque. It is one per WORKSPACE now, and it is a git checkout: what a project inherits
+ * travels with the repository it is cloned from, and an edit to a shared module is a commit
+ * somebody can read rather than a file that appeared. The cache is still there, and still what
+ * songs and samples are played from; it just no longer answers for modules.
  */
-export function mediatekModulesRoot(): string | null {
-  const root = mediatekDirFor("modules");
+export function librariesModulesRoot(dir: string): string | null {
+  const root = librariesDirFor(dir, "modules");
   return existsSync(root) ? root : null;
 }
 
 /**
  * Every shared module root this project inherits: the workspace's own `_modules`, then the
- * médiathèque. Both are FIXED locations, which is why neither is declared.
+ * library submodule beside it. Both are FIXED locations, which is why neither is declared.
  *
  * `project.modules_from` used to list them, and the list could only ever hold those same two
  * things — so it decided nothing, while giving every project a way to be wrong about facts
@@ -55,8 +73,8 @@ export function moduleLibraryDirs(dir: string): string[] {
   const out: string[] = [];
   const shared = resolve(dir, SHARED_MODULES_PATH);
   if (existsSync(shared)) out.push(shared);
-  const media = mediatekModulesRoot();
-  if (media && !out.includes(media)) out.push(media);
+  const libs = librariesModulesRoot(dir);
+  if (libs && !out.includes(libs)) out.push(libs);
   return out;
 }
 
@@ -82,12 +100,19 @@ import type { ModuleNamespace } from "./moduleTypes";
  * Anything that is not the machine's media library is the workspace's own `_modules`:
  * those are the only two shared roots there are.
  *
- * The media library answers to `@st0`, after the app that serves it. It was `@mediatek` while
- * that app was `apps/mediatek`; the folder on disk is still `~/.studio/mediatek`, because that
- * is a CACHE path and not a name anybody writes in a chain. See scripts/migrateNamespace.ts.
+ * The library repository answers to `@st0`, after the app that registers it. It was
+ * `@mediatek` while that app was `apps/mediatek` — see scripts/migrateNamespace.ts.
+ *
+ * Recognised by the folder it SITS IN (`_libraries/modules`) rather than by an absolute path,
+ * which is what it used to be: the médiathèque's modules lived at one place per machine, and
+ * the test was an exact string equality against it. There is one per workspace now, so there
+ * is no single path to compare with — and the structural test is the better one anyway, being
+ * the same kind of answer `@workspace` has always given.
  */
 export function moduleNamespaceOf(root: string): ModuleNamespace {
-  return resolve(root) === mediatekDirFor("modules") ? "st0" : "workspace";
+  return basename(dirname(resolve(root))) === LIBRARIES_DIR
+    ? "st0"
+    : "workspace";
 }
 
 /**

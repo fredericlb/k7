@@ -58,6 +58,13 @@ the repo name is the app's route.
 
 ## What the gate does with it
 
+0. `GET /api/projects/libraries` on **st0** — the account's library repository, or null.
+   Before everything below, including the bench: a workspace mounts it as a submodule and every
+   `@st0/…` ref resolves inside it, so without one a song opens with every shared module
+   missing. That reads as a broken song rather than as an account nobody finished setting up,
+   which is why it gets a screen of its own and gets it *before* a thirty-second clone rather
+   than after. No Retry — the answer was clear, and it stays that answer until somebody goes
+   and sets it (`apps/st0/docs/projects.md`).
 1. `GET /api/projects/by-name/<repo>` on **st0** — the git URI behind the name.
 2. `GET /workspaces/by-repo?uri=` — does this machine already have this repository? The
    comparison is on a **normalised** URI, because the two ends learned the address by
@@ -66,7 +73,11 @@ the repo name is the app's route.
 3. If not, `POST /workspaces/clone` and poll the job, showing git's own progress. This is the
    visible wait the whole arrangement is designed around —
    `packages/file-service/docs/cloneJobs.md`.
-4. `configureFileApi` with the workspace it resolved, then `POST /open` on the project.
+4. `configureFileApi` with the workspace it resolved, then `POST /open` on the project —
+   carrying the library URI from step 0, which is what mounts `_libraries` in that workspace if
+   it is not there yet. The URI rides on the request because the BROWSER is the side that knows
+   who is asking: it read it on this person's session, where the file service holds a machine
+   token and no session at all.
 5. Render the app, through the `children` callback.
 
 Two failures get a screen of their own rather than a diagnosis, because in both the machine

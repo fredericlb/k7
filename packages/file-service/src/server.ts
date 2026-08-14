@@ -195,12 +195,19 @@ app.post(
     if (!chain)
       return res.status(404).json({
         error:
-          "@banc opens a médiathèque chain — `chains/<path>.l8`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
+          "@banc opens a library chain — `chains/<path>.l8`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
+      });
+    // The account's library repository, from the browser — the side that holds the session st0
+    // answers to. The bench's workspace mounts it like any other, and the chain being opened is
+    // inside it. Without one there is nothing to open, which the gate already refuses on.
+    const libraries = String(req.body?.libraries ?? "");
+    if (!libraries)
+      return res.status(400).json({
+        error:
+          "no libraries repository — add one in the médiathèque's Projets section",
       });
     try {
-      await syncMediatekFamily("chains");
-      await syncMediatekFamily("modules"); // the chain names them; the bench mirrors them
-      res.json(ensureChainBench(req.userEmail!, chain));
+      res.json(await ensureChainBench(req.userEmail!, chain, libraries));
     } catch (e) {
       // A chain that will not open is the USER's problem to read — no such chain, or a name that
       // collides with the bench's own furniture — so it is a 409 and not a fault.

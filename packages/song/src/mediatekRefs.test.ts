@@ -10,7 +10,6 @@ import { mediatekPathPrefix, mediatekRefs } from "./mediatekRefs";
 
 let ws: string;
 let dir: string;
-let media: string;
 
 /** A module file in the project's own `modules/`. */
 function projectModule(rel: string, body: string): void {
@@ -27,8 +26,6 @@ function projectNode(name: string, body: string): void {
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-mref-"));
-  media = mkdtempSync(join(tmpdir(), "td-mref-media-"));
-  process.env.STUDIO_MEDIATEK = media;
   dir = join(ws, "song");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
@@ -38,9 +35,7 @@ beforeEach(() => {
   );
 });
 afterEach(() => {
-  delete process.env.STUDIO_MEDIATEK;
   rmSync(ws, { recursive: true, force: true });
-  rmSync(media, { recursive: true, force: true });
 });
 
 describe("the médiathèque modules a project names", () => {
@@ -80,7 +75,8 @@ describe("the médiathèque modules a project names", () => {
   it("follows what a library module extends in turn", () => {
     // Inheritance is how the library builds on itself, so fetching the child alone lands a
     // module whose substance is in a parent nobody asked for.
-    const at = join(media, "modules", "audio", "amp", "child");
+    // The library is the `_libraries/modules` submodule beside the project, in the workspace.
+    const at = join(ws, "_libraries", "modules", "audio", "amp", "child");
     mkdirSync(at, { recursive: true });
     writeFileSync(
       join(at, "module.yaml"),

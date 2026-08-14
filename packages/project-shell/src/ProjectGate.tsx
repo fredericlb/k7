@@ -221,11 +221,9 @@ export function ProjectGate({
          * broken song rather than as an account nobody finished setting up. Better to say so
          * before the clone than to let the machine spend thirty seconds first.
          */
-        if (!(await librariesRepo())) {
-          if (cancelled) return;
-          return setPhase({ k: "no-libraries" });
-        }
+        const libraries = await librariesRepo();
         if (cancelled) return;
+        if (!libraries) return setPhase({ k: "no-libraries" });
 
         /**
          * The BENCH takes a road of its own, and takes it first.
@@ -252,7 +250,7 @@ export function ProjectGate({
           // médiathèque chain, and the address is what says which.
           let bench: { workspace: string; project: string };
           try {
-            bench = await projectApi.openBench(project);
+            bench = await projectApi.openBench(project, libraries.uri);
           } catch (e) {
             if (cancelled) return;
             // 409: a chain this machine has not got, or one whose own names collide with the
@@ -266,7 +264,7 @@ export function ProjectGate({
           }
           if (cancelled) return;
           configure(userEmail, bench.workspace);
-          await projectApi.open(bench.project);
+          await projectApi.open(bench.project, libraries.uri);
           if (cancelled) return;
           return setPhase({
             k: "open",
@@ -331,7 +329,7 @@ export function ProjectGate({
 
         configure(userEmail, workspace);
         try {
-          await projectApi.open(project);
+          await projectApi.open(project, libraries.uri);
         } catch (e) {
           if (cancelled) return;
           // A refusal, not a fault: the service answered, and what it said is the whole story.

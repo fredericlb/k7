@@ -4,13 +4,49 @@ A workspace holds folders every project in it draws from, and a project finds th
 where they are**:
 
 ```
-ws/_modules/     the shared modules   → @workspace/<type>/<name>
-ws/song/         a project
-~/.studio/mediatek/modules            → @st0/…
+ws/_modules/              the workspace's own    → @workspace/<type>/<name>
+ws/_libraries/modules/    the account's library  → @st0/<type>/<name>
+ws/_libraries/chains/     …and its chains
+ws/song/                  a project
 ```
 
-`moduleLibraryDirs()` answers that: what sits beside the project, then the machine's
-médiathèque. Order is PRECEDENCE — nearest first.
+`moduleLibraryDirs()` answers that: what sits beside the project, then the library.
+Order is PRECEDENCE — nearest first.
+
+## `_libraries` is a git submodule
+
+The account registers ONE library repository with st0 (`apps/st0/docs/projects.md`), and the
+file service mounts it into every workspace it makes — `git submodule add` where the workspace
+is a repository, a plain clone where it is not. `packages/file-service/src/libraries.ts` is the
+whole of it, and `POST /open` is where it runs, on every launch rather than only on clone: the
+setting can be added after a workspace already exists, which is true of every workspace that
+predates the feature.
+
+**This replaced `~/.studio/mediatek/modules`.** That folder was one per MACHINE, synced from
+the hosted médiathèque by `mediatekPull`, and it is no longer a module root at all. Three things
+follow, and each is worth stating because each was a rule before:
+
+- **Two writers on one tree is the problem it solves.** `syncFamily` deletes whatever the
+  owner's manifest does not list, which is why writing into the cache by hand was already a
+  documented mistake. Over a git checkout it would delete files somebody committed. So
+  `mediatekPull` stopped fetching `modules` and `chains` entirely — it carries `songs` and
+  nothing else now.
+- **What a project inherits travels with the repository it is cloned from.** A workspace on a
+  second machine gets the same modules at the same commit, because the gitlink pins one. The
+  cache could only ever be "whatever this machine last synced".
+- **A shared module is editable in place.** There is no fork and no push-through: `_libraries/…`
+  is an ordinary workspace path, written by the ordinary write route, and published by
+  `project commit`. l8 opens it read-only behind a confirmation instead
+  (`apps/l8/frontend/docs/sharedModules.md`), which is a decision somebody takes rather than a
+  mechanism that absorbs it.
+
+`_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing
+every project beside it, and it still forks on write (`docs/moduleFork.md`) — nothing has given
+it a way back.
+
+The médiathèque itself has not gone anywhere: it still holds songs and samples, still serves
+them over HTTP, and `~/.studio/mediatek` is still the cache a machine plays them from. What it
+stopped being is the place modules live.
 
 There was a second row, `ws/_library/`, holding the assets a module could name. It is gone —
 a module carries the files it loads, in its own `assets/`, so the module travels whole. See

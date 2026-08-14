@@ -134,7 +134,7 @@ const PROVIDERS = {
   ],
   // The chains a bounce can run: this project's, then the médiathèque's under `@st0/`.
   // Both in one list because the command takes either — see processChain.ts.
-  chains: (h) => chainNames(h.project()),
+  chains: (h) => chainNames(h.songPath, h.project()),
   // Sequence FILE ids, read off disk: a sequence's file id can differ from the midi-clip name collectSequences reports.
   sequenceFiles: (h) => {
     try {

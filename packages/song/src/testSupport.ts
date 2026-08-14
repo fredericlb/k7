@@ -139,3 +139,24 @@ export function writeLibrary(
   for (const [path, value] of Object.entries(modules))
     writeYaml(join(lib, path, "module.yaml"), value);
 }
+
+/**
+ * The account's LIBRARY submodule, written into a workspace — the `@st0` level.
+ *
+ * A plain folder here, where the real thing is a git checkout: nothing in `@studio/song` asks
+ * whether it is one. The level comes from the folder it sits in (`_libraries/modules`), which
+ * is exactly what these fixtures are pinning down.
+ *
+ * It used to be `$STUDIO_MEDIATEK/modules` — one per machine, and therefore an ambient input
+ * every test in this package had to defend against. Beside the project it is just another
+ * folder in the temp workspace, so there is no environment to set and nothing to restore.
+ */
+export function writeLibraries(
+  root: string,
+  modules: Record<string, unknown> = {
+    "audio/reverb": { plugin: { type: "vst3", name: "Big Reverb" } },
+  },
+): void {
+  for (const [path, value] of Object.entries(modules))
+    writeYaml(join(root, "_libraries", "modules", path, "module.yaml"), value);
+}

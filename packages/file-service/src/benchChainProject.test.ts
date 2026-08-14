@@ -30,24 +30,36 @@ modules:
 `;
 
 let home: string;
-let mediatek: string;
 let prevHome: string | undefined;
-let prevMediatek: string | undefined;
+
+/** The bench's workspace, which is where the library submodule is mounted. */
+const benchRoot = (): string =>
+  join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
+
+/** …and the chain inside it. This is what used to be `$STUDIO_MEDIATEK/chains/…`. */
+const libraryChain = (): string => join(benchRoot(), "_libraries", CHAIN);
+
+/**
+ * The URI the account's libraries are registered under.
+ *
+ * Never fetched here: the mount is pre-populated below, so `ensureLibraries` finds it and
+ * returns without touching git. That is the point — this test is about the chain's round trip
+ * through the filesystem, not about cloning.
+ */
+const LIBRARIES_URI = "git@example.test:studio/libraries.git";
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-benchchain-home-"));
-  mediatek = mkdtempSync(join(tmpdir(), "td-benchchain-med-"));
   prevHome = process.env.HOME;
-  prevMediatek = process.env.STUDIO_MEDIATEK;
-  // Both roots moved off the real machine: this test WRITES to a médiathèque, which is the
-  // whole point of it, and the user's own is not a fixture.
+  // Off the real machine: this test WRITES to a library checkout, which is the whole point of
+  // it, and the user's own is not a fixture.
   process.env.HOME = home;
-  process.env.STUDIO_MEDIATEK = mediatek;
 
-  mkdirSync(join(mediatek, CHAIN, "nodes"), { recursive: true });
-  writeFileSync(join(mediatek, CHAIN, "chains.yaml"), SOURCE, "utf8");
+  // The library submodule, laid out by hand where the file service would have cloned it.
+  mkdirSync(join(libraryChain(), "nodes"), { recursive: true });
+  writeFileSync(join(libraryChain(), "chains.yaml"), SOURCE, "utf8");
   writeFileSync(
-    join(mediatek, CHAIN, "nodes", "comp.yaml"),
+    join(libraryChain(), "nodes", "comp.yaml"),
     'extends: "@st0/audio/comp"\nparams:\n  Ratio: 4\n',
     "utf8",
   );
@@ -56,10 +68,7 @@ beforeEach(() => {
 afterEach(() => {
   if (prevHome === undefined) delete process.env.HOME;
   else process.env.HOME = prevHome;
-  if (prevMediatek === undefined) delete process.env.STUDIO_MEDIATEK;
-  else process.env.STUDIO_MEDIATEK = prevMediatek;
   rmSync(home, { recursive: true, force: true });
-  rmSync(mediatek, { recursive: true, force: true });
 });
 
 /** The bench project folder for the chain, as the service lays it out. */
@@ -67,8 +76,12 @@ const benchDir = (project: string): string =>
   join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE, project);
 
 describe("a médiathèque chain, opened on the bench", () => {
-  it("is a project whose chain is the bench's own wiring", () => {
-    const { workspace, project } = ensureChainBench(EMAIL, CHAIN);
+  it("is a project whose chain is the bench's own wiring", async () => {
+    const { workspace, project } = await ensureChainBench(
+      EMAIL,
+      CHAIN,
+      LIBRARIES_URI,
+    );
     expect(workspace).toBe(BENCH_WORKSPACE);
     expect(project).toBe(`${CHAIN}.l8`);
 
@@ -81,9 +94,9 @@ describe("a médiathèque chain, opened on the bench", () => {
     expect(existsSync(join(dir, "nodes", "comp.yaml"))).toBe(true);
   });
 
-  it("puts the chain back as it was when the bench saves it", () => {
-    const { project } = ensureChainBench(EMAIL, CHAIN);
-    const root = join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
+  it("puts the chain back as it was when the bench saves it", async () => {
+    const { project } = await ensureChainBench(EMAIL, CHAIN, LIBRARIES_URI);
+    const root = benchRoot();
     const ws = new Workspace(root);
     ws.setActiveProject(project);
 
@@ -92,7 +105,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     const opened = readFileSync(join(benchDir(project), "chains.yaml"), "utf8");
     ws.write(`${project}/chains.yaml`, opened);
 
-    const back = readFileSync(join(mediatek, CHAIN, "chains.yaml"), "utf8");
+    const back = readFileSync(join(libraryChain(), "chains.yaml"), "utf8");
     expect(back).toContain('"@in": [ comp ]');
     expect(back).toContain('comp: [ "@out" ]');
     expect(back).toContain("# Voix live");
@@ -100,9 +113,9 @@ describe("a médiathèque chain, opened on the bench", () => {
     expect(back).not.toContain("mixer");
   });
 
-  it("carries a module ADDED on the bench into the chain", () => {
-    const { project } = ensureChainBench(EMAIL, CHAIN);
-    const root = join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
+  it("carries a module ADDED on the bench into the chain", async () => {
+    const { project } = await ensureChainBench(EMAIL, CHAIN, LIBRARIES_URI);
+    const root = benchRoot();
     const ws = new Workspace(root);
     ws.setActiveProject(project);
 
@@ -112,15 +125,15 @@ describe("a médiathèque chain, opened on the bench", () => {
       `${project}/chains.yaml`,
       "modules:\n  banc: [ comp ]\n  comp: [ reverb ]\n  reverb: [ mixer ]\n  mixer: [ OUT ]\n",
     );
-    const back = readFileSync(join(mediatek, CHAIN, "chains.yaml"), "utf8");
+    const back = readFileSync(join(libraryChain(), "chains.yaml"), "utf8");
     expect(back).toContain("comp: [ reverb ]");
     expect(back).toContain('reverb: [ "@out" ]');
     expect(back).not.toContain("mixer");
   });
 
-  it("sends a node back too, and leaves the furniture here", () => {
-    const { project } = ensureChainBench(EMAIL, CHAIN);
-    const root = join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
+  it("sends a node back too, and leaves the furniture here", async () => {
+    const { project } = await ensureChainBench(EMAIL, CHAIN, LIBRARIES_URI);
+    const root = benchRoot();
     const ws = new Workspace(root);
     ws.setActiveProject(project);
 
@@ -129,7 +142,7 @@ describe("a médiathèque chain, opened on the bench", () => {
       'extends: "@st0/audio/comp"\nparams:\n  Ratio: 8\n',
     );
     expect(
-      readFileSync(join(mediatek, CHAIN, "nodes", "comp.yaml"), "utf8"),
+      readFileSync(join(libraryChain(), "nodes", "comp.yaml"), "utf8"),
     ).toContain("Ratio: 8");
 
     // The bench's LANE is somewhere to put material, and has no business in a chain other
@@ -139,34 +152,35 @@ describe("a médiathèque chain, opened on the bench", () => {
       `${project}/nodes/banc.yaml`,
       'extends: "@studio/audio-track"\nclips: []\n',
     );
-    expect(existsSync(join(mediatek, CHAIN, "nodes", "banc.yaml"))).toBe(false);
+    expect(existsSync(join(libraryChain(), "nodes", "banc.yaml"))).toBe(false);
   });
 
-  it("takes a module save as the bench's, which is what `pushed` says", () => {
-    // The regression this fixed: `write()` joined the ALREADY-ABSOLUTE active project onto the
-    // root, so no path was ever under the bench's modules folder and a module saved here went
-    // nowhere near the catalogue. Answered by the flag rather than by a file, because the push
-    // itself is to a HOSTED library and there is none in a test.
-    const { project } = ensureChainBench(EMAIL, CHAIN);
-    const root = join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
-    const ws = new Workspace(root);
+  it("writes a shared module in place, with no fork and no push", async () => {
+    // This used to answer `{ pushed: true }`: the bench's `modules/` was a mirror of a
+    // machine-wide cache, so a save there had to be pushed to the hosted médiathèque or the
+    // next open would discard it. The library is a submodule now, so a shared module is an
+    // ORDINARY path — written where it is, and published by `project commit` when somebody
+    // decides to. No mirror to be discarded by, and nothing to fire and forget.
+    const { project } = await ensureChainBench(EMAIL, CHAIN, LIBRARIES_URI);
+    const ws = new Workspace(benchRoot());
     ws.setActiveProject(project);
-    expect(
-      ws.write(
-        `${project}/modules/audio/comp/module.yaml`,
-        "plugin:\n  type: internal\n",
-      ),
-    ).toEqual({ pushed: true });
+
+    const rel = "_libraries/modules/audio/comp/module.yaml";
+    expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
+    expect(readFileSync(join(benchRoot(), rel), "utf8")).toContain("internal");
   });
 
-  it("refuses a chain that already calls something what the bench calls its own", () => {
-    mkdirSync(join(mediatek, "chains/odd"), { recursive: true });
+  it("refuses a chain that already calls something what the bench calls its own", async () => {
+    const odd = join(benchRoot(), "_libraries", "chains/odd");
+    mkdirSync(odd, { recursive: true });
     writeFileSync(
-      join(mediatek, "chains/odd/chains.yaml"),
+      join(odd, "chains.yaml"),
       'modules:\n  "@in": [ mixer ]\n  mixer: [ "@out" ]\n',
       "utf8",
     );
-    expect(() => ensureChainBench(EMAIL, "chains/odd")).toThrow(/mixer/);
+    await expect(
+      ensureChainBench(EMAIL, "chains/odd", LIBRARIES_URI),
+    ).rejects.toThrow(/mixer/);
     // And nothing was made — a refusal that left a half-built project behind would open next time.
     expect(existsSync(benchDir("chains/odd.l8"))).toBe(false);
   });

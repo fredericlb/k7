@@ -1,8 +1,16 @@
 # mediatekPull — how a machine keeps up with the médiathèque
 
-The hosted médiathèque owns the modules. `~/.studio/mediatek` on a musician's machine is a
-cache of it, because the moteur opens file paths and cannot fetch a URL. `mediatekPull.ts` is
-what keeps the two in step, unattended.
+The hosted médiathèque owns the songs and samples. `~/.studio/mediatek` on a musician's machine
+is a cache of it, because the moteur opens file paths and cannot fetch a URL. `mediatekPull.ts`
+is what keeps the two in step, unattended.
+
+> **It used to own the modules too, and this loop used to fetch them.** They live in the
+> account's library repository now, mounted per workspace as a git submodule
+> (`packages/song/docs/sharedFolders.md`), and `modules` and `chains` came out of `PULLED`
+> entirely. The reason is one line of this file's own machinery: `syncFamily` deletes whatever
+> the owner's manifest does not list, so pointed at a git checkout it would remove files
+> somebody committed. Two writers, one tree. Everything below still describes how the loop
+> decides what to fetch and when; where it says `modules`, read `songs`.
 
 Everything it needs already existed and was wired to nothing: `remoteLibrary` (the hosted
 service as a `LibrarySource`), `syncFamily` (manifest diff, download to `.part`, rename), and

@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { loadModuleRefs, loadModules } from "./loader";
-import { writeLibrary, writeYaml } from "./testSupport";
+import { writeLibraries, writeLibrary, writeYaml } from "./testSupport";
 import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
 import { UISchema } from "./yaml/moduleSchema";
@@ -30,9 +30,6 @@ const PANEL = {
     mix: { type: "knob" as const, col: 0, row: 0, bind: "Mix", label: "Mix" },
   },
 };
-
-/** What vitest.config.ts pinned the media root at, captured before any test moves it. */
-const PINNED_MEDIATEK = process.env.STUDIO_MEDIATEK;
 
 let root: string;
 let dir: string;
@@ -57,42 +54,19 @@ const writeLocalModule = (body: string) =>
     "utf8",
   );
 
-// A second module library OUTSIDE the workspace, the shape the mediatek has: `modules/` with a namespace config.
-function writeMediatek(at: string, namespace = "st0"): void {
-  writeYaml(join(at, "modules", "config.yaml"), { namespace });
-  writeYaml(join(at, "modules", "audio", "reverb", "module.yaml"), {
-    plugin: { type: "vst3", name: "Big Reverb" },
-  });
-}
-
-// The project names the library by TOKEN, never by path — project.yaml is committed.
-const declareMediatek = (at: string): void => {
-  process.env.STUDIO_MEDIATEK = at;
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - '@st0'\n",
-    "utf8",
-  );
-};
-
 describe("panels across more than one library", () => {
-  // The mediatek sits outside the workspace, so its panels are reached through
-  // modules_from rather than by walking up — that derivation is what these pin down.
+  // A SECOND module library beside the workspace's own `_modules`: the account's library
+  // submodule, mounted at `_libraries/modules`. It answers to `@st0` because of the folder it
+  // sits in — no config, no declaration — and reaching its panels through that is what these
+  // pin down.
   let media: string;
   beforeEach(() => {
-    media = mkdtempSync(join(tmpdir(), "td-media-"));
-    writeMediatek(media);
-    declareMediatek(media);
-  });
-  afterEach(() => {
-    // Restored, not deleted: vitest.config.ts pins this at an empty folder for the whole file,
-    // and dropping it here let the developer's own library into the tests further down.
-    process.env.STUDIO_MEDIATEK = PINNED_MEDIATEK;
-    rmSync(media, { recursive: true, force: true });
+    media = join(root, "_libraries");
+    writeLibraries(root);
   });
 
   it("loads a module OUT of the media library, through the @st0 token", () => {
-    // The end of the chain this step exists for: the project names a library it does not
+    // The end of the chain this step exists for: the project reaches a library it does not
     // contain, and the module resolves — with no path anywhere in project.yaml.
     const refs = loadModuleRefs(dir);
     expect(refs["@st0/audio/reverb"]).toBeTruthy();

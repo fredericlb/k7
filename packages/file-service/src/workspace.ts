@@ -104,10 +104,8 @@ import type {
 import { PROJECT_SUFFIXES, projectApp } from "@studio/web-protocol/projects";
 import {
   benchChainOf,
-  benchModulesDir,
   isBenchProject,
-  pushChainToMediatek,
-  pushModuleToMediatek,
+  writeChainToLibraries,
 } from "./bench.ts";
 import { buildGraphDoc, type ClipExtents, clipExtentsOf } from "./graphDoc.ts";
 import {
@@ -920,37 +918,20 @@ export class Workspace {
   ): { forked?: ForkedModule; pushed?: boolean } {
     const abs = this.safePath(rel);
 
-    /**
-     * The BENCH's one exception, and the only place in this service that writes to the
-     * médiathèque.
-     *
-     * Its `modules/` folder is a mirror of the catalogue (bench.ts), so a save there is
-     * ordinary `@project` editing as far as everything else is concerned — no fork, because
-     * there is nothing to fork FROM and nothing to repoint. What is not ordinary is that the
-     * file has to reach the hosted library too, or the edit would live in a folder that is
-     * regenerated from the catalogue on the next open, i.e. it would be quietly discarded.
-     *
-     * Local write first, push after, and the push may fail without failing the save: the bytes
-     * are on this machine either way, and a hosted library that is down must cost the sync, not
-     * the work. See apps/st0/docs/banc.md.
-     */
-    // The active project ABSOLUTE, which is how it is held — it was joined onto the root here,
-    // and `<root>/<root>/<project>` is a folder no write is ever under, so the module
-    // write-through below could not fire at all. See apps/st0/docs/banc.md.
+    // The active project ABSOLUTE, which is how it is held.
     const active = this.activeProject;
-    const inBenchModules =
-      active !== null &&
-      isBenchProject(this.root, active) &&
-      abs.startsWith(benchModulesDir(active) + sep);
-    if (inBenchModules && !isBinary(basename(abs))) {
-      mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, content, "utf8");
-      this.invalidateProjectDoc();
-      const rel = relative(benchModulesDir(active), abs).split(sep).join("/");
-      void pushModuleToMediatek(rel, content);
-      return { pushed: true };
-    }
 
+    /**
+     * A shared module used to need an exception here — the bench's `modules/` was a mirror of a
+     * machine-wide cache, so a save had to be pushed to the hosted médiathèque or the next open
+     * would discard it. There is no mirror and no push any more: the libraries are a git
+     * submodule inside the workspace, so `_libraries/…` is an ORDINARY path and falls through
+     * to the plain write below. What publishes it is `project commit`, which is somebody's
+     * decision rather than a side effect of typing. See `@studio/song`'s docs/sharedFolders.md.
+     *
+     * `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
+     * one copy backing every project beside it, and nothing has given it a way back.
+     */
     if (isInSharedModules(this.toRel(abs)) && basename(abs) !== UI_FILE) {
       const dir = this.requireActive();
       const forked = forkSharedModule(dir, abs, content);
@@ -968,18 +949,18 @@ export class Workspace {
     /**
      * The CHAIN bench's write-through, after the ordinary write rather than instead of it.
      *
-     * A chain bench is a view of one médiathèque chain (bench.ts), so the two files that ARE the
-     * chain go back to it: `chains.yaml`, translated at the edges the way it was translated on
-     * the way in, and the flat `nodes/` beside it. Everything else in the folder — the
-     * project, the modules mirror — is the bench's own furniture and stays here.
+     * A chain bench is a view of one chain in the library submodule (bench.ts), so the two files
+     * that ARE the chain go back to it: `chains.yaml`, translated at the edges the way it was
+     * translated on the way in, and the flat `nodes/` beside it. Everything else in the folder —
+     * the project, the scaffold's furniture — is the bench's own and stays here.
      *
-     * The bench's LANE is in `nodes/` too now, and is furniture: it is somewhere to put
-     * material while you listen, and has no business in a chain other projects load. It is kept
-     * back by NAME, which is the only thing that tells it apart — `chainToBench` puts `@in` under
-     * that name on the way in, and `chainFromBench` turns it back.
+     * The bench's LANE is in `nodes/` too, and is furniture: it is somewhere to put material
+     * while you listen, and has no business in a chain other projects load. It is kept back by
+     * NAME, which is the only thing that tells it apart — `chainToBench` puts `@in` under that
+     * name on the way in, and `chainFromBench` turns it back.
      *
-     * Local write first and the push after, for the same reason a module save does it: the bytes
-     * are on this machine either way, and a library that is down must cost the sync, not the work.
+     * A plain write into the submodule, where this used to also push to the hosted médiathèque.
+     * Committing is `project commit`.
      */
     const chain = active && benchChainOf(this.root, this.toRel(active));
     if (chain) {
@@ -991,7 +972,7 @@ export class Workspace {
               rel !== `nodes/${BENCH_EDGES.track}.yaml`
             ? content
             : null;
-      if (back !== null) void pushChainToMediatek(chain, rel, back);
+      if (back !== null) writeChainToLibraries(this.root, chain, rel, back);
     }
     return {};
   }

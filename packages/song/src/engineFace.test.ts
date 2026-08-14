@@ -19,7 +19,8 @@ import { loadUiLibrary } from "./uiLibrary";
 // The point these tests pin down is where the resolution happens. A médiathèque module's `extends` is not
 // resolved by the médiathèque — a library has no project.yaml, no modules_from, and no engine to ask. It is
 // resolved by the PROJECT that loads it, whose ref map holds the scanned catalogue and the library at once.
-// That is what makes the arrangement work with the médiathèque hosted on another machine entirely.
+// That is what makes the arrangement work with a library that is somebody else's repository, mounted in the
+// workspace at `_libraries/modules` and carrying no idea of the project it will be read by.
 
 const SLUG = "@engine/serum";
 
@@ -35,13 +36,13 @@ const CATALOGUE = {
 } as unknown as Record<string, LoadedModule>;
 
 let ws: string;
+/** The library's modules, mounted in the workspace: `<ws>/_libraries/modules` — the `@st0` level. */
 let media: string;
 let dir: string;
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-face-"));
-  media = mkdtempSync(join(tmpdir(), "td-face-media-"));
-  process.env.STUDIO_MEDIATEK = media;
+  media = join(ws, "_libraries");
   dir = join(ws, "song");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
@@ -60,9 +61,8 @@ beforeEach(() => {
   );
 });
 afterEach(() => {
-  delete process.env.STUDIO_MEDIATEK;
+  // The library sits inside the workspace, so removing that removes it too.
   rmSync(ws, { recursive: true, force: true });
-  rmSync(media, { recursive: true, force: true });
 });
 
 const refs = () => loadModuleRefs(dir, CATALOGUE);
