@@ -9,8 +9,11 @@ import { basename, dirname, join, resolve } from "node:path";
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
 export const SHARED_MODULES_PATH = "../_modules";
 
-/** The folder name a shared module library lives under, at the workspace root. */
-export const SHARED_MODULES_DIR = "_modules";
+// The folder name a shared module library lives under, at the workspace root, is in
+// moduleTypes.ts — a browser names it too. Re-exported so the vocabulary reads as one place.
+export { SHARED_MODULES_DIR } from "./moduleTypes";
+
+import { SHARED_MODULES_DIR } from "./moduleTypes";
 
 // Where the library submodule sits is in moduleTypes.ts, which opens no `node:` module — l8's
 // file tree names that folder to keep it off the Project tab. Re-exported so the vocabulary

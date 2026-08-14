@@ -326,7 +326,10 @@ export function EditorTab({
   // submodule at `_libraries/`, so they arrive with every other folder in the workspace. There
   // is nothing to fetch, nothing to poll and no failure of its own — which is what mounting
   // them in the workspace bought. Empty until the submodule is there.
-  const libraries = useMemo(() => libraryTree(tree), [tree]);
+  const libraries = useMemo(
+    () => libraryTree(tree, activeProject),
+    [tree, activeProject],
+  );
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");

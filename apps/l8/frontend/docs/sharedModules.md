@@ -13,17 +13,40 @@ It is gone, and what replaced it is smaller: **the file tree has a second tab.**
 
 ## The two tabs
 
-| tab | what it lists | where it comes from |
-|---|---|---|
-| **Project** | the open project's workspace, minus `_libraries` | the workspace tree |
-| **Libraries** | the account's library submodule, one row per namespace | the same tree, under `_libraries/modules` |
+| tab | what it lists |
+|---|---|
+| **Project** | the workspace, minus every module folder the other tab owns |
+| **Libraries** | one row per LEVEL — `@project`, `@workspace`, `@st0` — and the modules under it |
 
-Both are the same tree and the same path space. The libraries are a **git submodule** mounted
-at `<workspace>/_libraries` (`packages/song/docs/sharedFolders.md`), so they arrive with every
-other folder the file service serves — there is nothing to fetch, nothing to poll, no second
-client and no failure of its own. The Project tab drops the `_libraries` row because it has a
-tab; without that you would see the whole catalogue twice, once as folders to browse and once
-as rows that open the builder.
+Both are the same tree and the same path space: everything here is a folder the file service
+already serves, so there is nothing to fetch, nothing to poll, no second client and no failure
+of its own.
+
+```
+@project      01.danse.l8/modules/       the song's own
+@workspace    _modules/                  shared by every project beside it
+@st0          _libraries/modules/        the account's library repository (a submodule)
+```
+
+**Nearest first, which is precedence.** The same order and the same places
+`@studio/song`'s `modulePanelRoots` walks, so reading the tab top to bottom is reading the order
+the loader resolves in — which module wins when two levels hold the same name. A level with no
+folder, or an empty one, gets no row: an empty `@workspace` heading would be a place to put
+something, and this tab is a view rather than a place.
+
+`@engine` is the fourth level and is not here. A scanned plugin has no folder at all, so there
+is nothing to draw and nothing to open (`packages/song/docs/moduleNamespaces.md`).
+
+Note the two shapes: a workspace library holds its type folders **directly**, where the
+account's repository holds two FAMILIES and `modules` is one of them. That difference is
+older than this tab and is why the rows are found from a list rather than a pattern.
+
+**The Project tab drops exactly what this one took over** — derived from the same list, so a
+level can never appear in both places or vanish from both. Shown twice they would be two ways
+into one module, one that opens the builder and one that browses its files; and which folder a
+module lives in is the loader's business rather than somewhere to drop files by hand. Another
+project's `modules/` in the same workspace stays visible there, because only the ACTIVE project
+is drawn as `@project` and only it has a second home.
 
 This was not always so. The first version of this tab read st0's hosted `/api/mediatek/list`
 and wrote back to its volume, because the modules lived there and the machine only had a cache
@@ -194,8 +217,11 @@ The suites here mount nothing, so none of this is covered by a green run:
   your git host: `modules/` and `chains/` are in it;
 - open a project in a SECOND workspace → the library clones with its content and is not seeded
   again;
-- switch the tree to **Libraries** → `@st0`, and the catalogue under it; the Project tab does
-  NOT show `_libraries`;
+- switch the tree to **Libraries** → three rows, `@project` / `@workspace` / `@st0`, in that
+  order, each holding its own modules. The Project tab shows none of those folders — no
+  `modules/` inside the song, no `_modules`, no `_libraries` — but a SECOND project's
+  `modules/` in the same workspace is still there;
+- open a project with no `_modules` and no library → only `@project`, and no empty headings;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit
   button beside it; typing in the code pane does nothing;
 - click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save

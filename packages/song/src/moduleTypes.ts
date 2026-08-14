@@ -368,6 +368,10 @@ export const LEGACY_MEDIATEK_NS = "mediatek";
  */
 export const LIBRARIES_DIR = "_libraries";
 
+/** The folder a WORKSPACE's own shared library sits in, at the workspace root — the
+ *  `@workspace` level. Here for the same reason `LIBRARIES_DIR` is: l8's file tree names it. */
+export const SHARED_MODULES_DIR = "_modules";
+
 /** …and where that is, relative to a project inside the workspace. */
 export const LIBRARIES_PATH = `../${LIBRARIES_DIR}`;
 

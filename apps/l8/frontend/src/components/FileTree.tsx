@@ -11,7 +11,6 @@ import {
   type TreeTarget,
 } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
-import { LIBRARIES_DIR } from "@studio/song/moduleTypes";
 import {
   Boxes,
   File,
@@ -32,6 +31,7 @@ import {
   useState,
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
+import { librariesOwned, withoutPaths } from "../libraryTree";
 import type { FileNode } from "../types";
 
 /**
@@ -258,12 +258,14 @@ export function FileTree({
 
   // Folded before anything reads it: `modules` is then the only thing that knows a row is a
   // module, because the node no longer says `dir` and the path never did say it reliably.
-  // The libraries submodule is dropped from the PROJECT tab: it has a tab of its own, and
-  // leaving it here would draw the whole catalogue inside the song — every module twice, once
-  // as a folder to browse and once as a row that opens the builder.
+  // Every module folder the Libraries tab has taken over is dropped from THIS one. Shown twice
+  // they would be two ways into one module — one that opens the builder, one that browses its
+  // files — and which folder a module lives in is the loader's business rather than somewhere
+  // to drop files by hand. The list comes from the same place the tab is built from, so a level
+  // cannot appear in both or vanish from both (see ../libraryTree.ts).
   const { tree: folded, modules } = useMemo(
-    () => foldModules(tree.filter((n) => n.name !== LIBRARIES_DIR)),
-    [tree],
+    () => foldModules(withoutPaths(tree, librariesOwned(activeProject))),
+    [tree, activeProject],
   );
   const isModule = (path: string) => modules.has(path);
 
@@ -487,17 +489,18 @@ export function FileTree({
           opens says the rest. */}
       {tab === "libraries" ? (
         !lib ? (
-          // Not mounted, or mounted and empty. Both read the same from here, and the fix for
-          // both is on the machine rather than in this pane.
+          // No level has a module folder yet — not even the project's own. Ordinary for a
+          // project that names only what the engine provides.
           <p className="p-2 text-xs text-muted-foreground">
-            the libraries submodule is not mounted in this workspace
+            no module libraries this project can reach
           </p>
         ) : (
           <Tree<FileNode>
             nodes={lib.tree}
             activePath={activePath}
-            // The namespace row, open on arrival: a tab whose only row is a closed folder
-            // says nothing about what is behind it.
+            // The NEAREST namespace row, open on arrival: a tab whose rows are all closed
+            // folders says nothing about what is behind them, and the project's own modules
+            // are what somebody opening this is most often after.
             reveal={lib.tree[0]?.path ?? null}
             isDisabled={isBinary}
             onOpen={(node) => {

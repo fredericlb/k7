@@ -182,8 +182,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   they save all four files, not the pane you are looking at. `useAutosave`'s `manual` mode is
   what turns the timer off while keeping its validation and its held-back buffers.
 
-  The file tree has a **second tab, Libraries**, listing the account's library submodule by
-  namespace (`@st0`). A module there opens the same builder **read-only**, with an Edit button
+  The file tree has a **second tab, Libraries**, listing every level a module can live at that
+  has a folder — `@project`, `@workspace`, `@st0` — nearest first, which is precedence. The
+  Project tab drops exactly those folders, derived from the same list, so a module is never in
+  both places. Only an `@st0` module opens the same builder **read-only**, with an Edit button
   behind a confirmation; Save then writes into `_libraries/…`, commits and pushes that
   repository, and records the new version in the song with one path-limited commit moving the
   gitlink — nothing forks, because that library is the only copy. One store and one path
