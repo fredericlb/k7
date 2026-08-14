@@ -190,6 +190,14 @@ export const projectApi = {
   preferences: () => fget<WebPreferences>("/preferences"),
   setVim: (vim: boolean) =>
     fsend<{ vim: boolean }>("PUT", "/preferences/vim", { vim }),
+  // Remember that two interface inputs are grouped into one stereo device. The ENGINE was told
+  // separately and immediately — this is what makes it still true after the next restart, exactly
+  // as the audio-device pick is (see engine/moteur/docs/audioDevice.md).
+  setInputPair: (channel: number, stereo: boolean) =>
+    fsend<{ inputPairs: number[] }>("PUT", "/preferences/input-pair", {
+      channel,
+      stereo,
+    }),
   logs: (offset?: number, tail = 300) =>
     fget<{ offset: number; lines: string[] }>(
       offset != null ? `/logs?offset=${offset}` : `/logs?tail=${tail}`,

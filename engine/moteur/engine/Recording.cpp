@@ -308,6 +308,29 @@ EngineHost::channelPitches(const std::vector<std::vector<int>>& channelSets) {
     return out;
 }
 
+bool EngineHost::setInputStereo(int channel, bool stereo) {
+    if (channel < 1) return false;
+    auto& dm = impl_->engine.getDeviceManager();
+    // No interface open means no channels to group; the device list is rebuilt from the open device.
+    if (dm.deviceManager.getCurrentAudioDevice() == nullptr) return false;
+
+    // Regrouping throws the wave-input devices away and builds new ones, which is the same event a device
+    // SWITCH is — so it needs the same repair, and for the reason set out in docs/audioDevice.md: every
+    // assignment made through the old devices, including a track's arm flag, refers to something gone.
+    // Read what was armed BEFORE, or there is nothing left to read.
+    std::map<std::string, std::vector<std::string>> armedBefore;
+    for (const auto& sid : impl_->ids())
+        if (auto armed = armedTracks(sid); !armed.empty()) armedBefore[sid] = std::move(armed);
+
+    // 1-based on the wire, 0-based here — and setDeviceInChannelStereo rounds down to even itself, which is
+    // what makes either half of a pair name the same pair.
+    dm.setDeviceInChannelStereo(channel - 1, stereo);
+    // Dispatches the async rebuild first, then re-wires: the next message on this thread — the client
+    // re-asking for io-levels — reads the NEW grouping, and a track that still fits keeps its input.
+    reconnectTrackInputs(armedBefore);
+    return true;
+}
+
 std::vector<EngineHost::InputDeviceInfo> EngineHost::inputDevices() const {
     std::vector<InputDeviceInfo> out;
     for (auto* dev : impl_->engine.getDeviceManager().getWaveInputDevices()) {

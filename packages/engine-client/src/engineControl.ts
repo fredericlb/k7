@@ -309,6 +309,14 @@ export class EngineControl extends EventEmitter {
     });
   }
 
+  // Group two interface inputs into one stereo device, or split them apart. `channel` is 1-based and names its
+  // PAIR: the interface pairs even/odd hardware channels, so either half says the same thing. Nothing comes back —
+  // the device layout rides on `ioLevels`. Sent here to REPLAY what preferences remember, on every connect, for
+  // the same reason setAudioDevice is: the engine keeps no memory of either.
+  setInputStereo(channel: number, stereo: boolean): void {
+    this.send({ type: "set-input-stereo", channel, stereo });
+  }
+
   // Drop the connection: a long-lived surface reconnects on 'close', a one-shot CLI needs this to exit.
   close(): void {
     this.ws?.close();

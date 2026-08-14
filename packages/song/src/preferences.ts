@@ -26,18 +26,35 @@ export interface EditorPref {
 export interface Preferences {
   audioDevice?: AudioDevicePref; // preferred audio interface (engine opens it on connect)
   channels: { in: ChannelLabel[]; out: ChannelLabel[] };
+  /**
+   * Which interface inputs are grouped into STEREO devices, as the 1-based FIRST channel of each
+   * pair — `[1, 5]` means 1+2 and 5+6 are stereo and everything else is mono.
+   *
+   * The rig's own wiring, so it lives here beside the interface rather than in any song. It is
+   * replayed to the engine on every connect exactly as `audioDevice` is (engineLink), and for the
+   * same reason: the engine keeps no memory of a device choice, and Tracktion's own copy of this
+   * one is only readable through the call that reopens the remembered interface — the one thing
+   * `engine/moteur/AGENTS.md` forbids. See engine/moteur/docs/audioDevice.md.
+   *
+   * Only the FIRST of a pair is stored because only it can be: the interface pairs even/odd
+   * hardware channels, so 2 names the same pair as 1 and there is no pair 2+3 to describe.
+   */
+  inputPairs: number[];
   editor: EditorPref;
 }
 
 // The defaults, in ONE place — every other module builds on this rather than its own literal.
 export const defaultPreferences = (): Preferences => ({
   channels: { in: [], out: [] },
+  inputPairs: [],
   editor: { vim: true },
 });
 const empty = defaultPreferences;
 
-// Coerce a parsed object into a well-formed Preferences (tolerant of hand-edits).
-function normalize(v: any): Preferences {
+// Coerce a parsed object into a well-formed Preferences (tolerant of hand-edits). Exported so the
+// coercion can be tested on its own: it is what every hand-edit of this file passes through, and
+// reaching it via loadPreferences would mean reading the real ~/.studio of whoever runs the suite.
+export function normalizePreferences(v: any): Preferences {
   const p = empty();
   if (v && typeof v === "object") {
     const dev = v.audioDevice; // the plain-string form is also accepted — what earlier versions wrote
@@ -63,6 +80,17 @@ function normalize(v: any): Preferences {
         }))
         .filter((e: ChannelLabel) => e.ch.length && e.label);
     }
+    // Normalised to the ODD channel of each pair and deduplicated: a hand-edit saying `[2]` means
+    // the pair 1+2, which is the same pair `[1]` names, and the engine would round it down anyway.
+    if (Array.isArray(v.inputPairs))
+      p.inputPairs = [
+        ...new Set<number>(
+          v.inputPairs
+            .map((n: any) => Number(n))
+            .filter((n: number) => Number.isInteger(n) && n > 0)
+            .map((n: number) => (n % 2 === 1 ? n : n - 1)),
+        ),
+      ].sort((a: number, b: number) => a - b);
     if (typeof v.editor?.vim === "boolean") p.editor.vim = v.editor.vim; // an explicit boolean only — undefined must stay "unset", not read as off
   }
   return p;
@@ -71,7 +99,7 @@ function normalize(v: any): Preferences {
 export function loadPreferences(): Preferences {
   try {
     if (!existsSync(PREFS_PATH)) return empty();
-    return normalize(parseYaml(readFileSync(PREFS_PATH, "utf8")));
+    return normalizePreferences(parseYaml(readFileSync(PREFS_PATH, "utf8")));
   } catch {
     return empty(); // a malformed prefs file shouldn't break anything
   }
@@ -79,7 +107,7 @@ export function loadPreferences(): Preferences {
 
 export function savePreferences(p: Preferences): void {
   mkdirSync(dirname(PREFS_PATH), { recursive: true });
-  writeFileSync(PREFS_PATH, stringifyYaml(normalize(p)), "utf8");
+  writeFileSync(PREFS_PATH, stringifyYaml(normalizePreferences(p)), "utf8");
 }
 
 // --- mutators (load, change, save; return the new prefs) ----------------------
@@ -87,6 +115,21 @@ export function savePreferences(p: Preferences): void {
 export function setAudioDevice(name: string, type?: string): Preferences {
   const p = loadPreferences();
   p.audioDevice = name ? { name, ...(type ? { type } : {}) } : undefined;
+  savePreferences(p);
+  return p;
+}
+
+/**
+ * Remember that the pair starting at `channel` is stereo, or that it is not.
+ *
+ * Takes either half and stores the odd one, so a caller holding "channel 2" does not have to know
+ * the interface's pairing rule to record what it just did.
+ */
+export function setInputPair(channel: number, stereo: boolean): Preferences {
+  const p = loadPreferences();
+  const first = channel % 2 === 1 ? channel : channel - 1;
+  const rest = p.inputPairs.filter((n) => n !== first);
+  p.inputPairs = stereo ? [...rest, first].sort((a, b) => a - b) : rest;
   savePreferences(p);
   return p;
 }

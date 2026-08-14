@@ -76,8 +76,13 @@ function wireEngine(session: string, e: EngineClient): void {
     const l = links.get(session);
     if (l) l.ready = true;
     try {
-      const dev = loadPreferences().audioDevice;
-      if (dev) e.setAudioDevice(dev.name, dev.type);
+      const prefs = loadPreferences();
+      if (prefs.audioDevice)
+        e.setAudioDevice(prefs.audioDevice.name, prefs.audioDevice.type);
+      // …and how that interface's inputs are GROUPED, which the engine remembers no better than
+      // which interface it is. AFTER the device, and the order is load-bearing: opening one
+      // rebuilds the wave devices from scratch, so a pairing sent first would be thrown away.
+      for (const first of prefs.inputPairs) e.setInputStereo(first, true);
     } catch {
       /* no/invalid preferences — keep the system default */
     }

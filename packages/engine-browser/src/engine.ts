@@ -682,6 +682,22 @@ export class EngineClient {
     this.ioLevelsCbs.add(cb);
     return () => this.ioLevelsCbs.delete(cb);
   }
+  /**
+   * Group two interface inputs into one stereo device, or split them apart again.
+   *
+   * `channel` is 1-based and names its PAIR, not one side: the interface pairs even/odd hardware
+   * channels and nothing else, so 1 and 2 name the same pair, and 2 can never be paired with 3.
+   *
+   * Nothing comes back — the device layout rides on `ioLevels`, the one message that carries it.
+   * Ask for that again to see the result; the engine forces the rebuild through before it answers.
+   *
+   * This DESTROYS the two mono devices it merges. A module still asking for one of those channels
+   * on its own matches no device and reads as silence, which is the same rule that made a stereo
+   * request fail before there was a pair to match it.
+   */
+  setInputStereo(channel: number, stereo: boolean): void {
+    this.send({ type: "set-input-stereo", channel, stereo });
+  }
 
   onSessions(cb: SessionsCb): () => void {
     this.sessionsCbs.add(cb);

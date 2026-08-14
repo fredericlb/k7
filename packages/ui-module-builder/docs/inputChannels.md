@@ -8,6 +8,21 @@ inputs am I?*
 That question used to be answerable only by typing `channel:` into the file. The bar above
 the params pane answers it by picking.
 
+## A module rarely SAYS it is an input
+
+`nodes/ge_rythm-in.yaml`, from a real song, is two lines:
+
+```yaml
+extends: "@engine/IN"
+channel: [ 2 ]
+```
+
+No `io:` anywhere. So `ioOf` resolves three sources in order — the file's own key, an
+`extends` naming one of the engine's io modules (`IO_MODULES`, a fixed table and not files),
+and failing both the path, since a file under `io/IN/` is one of that folder's inputs and
+that is how the loader decides it too. Reading only the first called this an ordinary plugin
+and cost it both its io binds and this bar.
+
 ## The sets are the engine's, not a range of numbers
 
 The obvious implementation is a spinner from 1 to however many inputs the card has. It is
@@ -19,20 +34,37 @@ wrong, and silently:
 >
 > — `EngineInputDevice`, `@studio/engine-browser`
 
-So the dropdown lists what the engine **declares**, by name, and writes back that device's
-own `channels` array verbatim. Nothing here composes a set of its own.
+So every option in the dropdown is a device the engine declares, and picking one writes that
+device's own `channels` array verbatim.
 
-## What mono/stereo actually does
+## Why mono/stereo is not a filter
 
-It **filters** the declared sets by width — one channel or two — rather than pairing numbers
-up. This follows from the rule above: a stereo entry the interface never declared is a set
-`findWaveInput` will not match, which is the failure the rule exists to prevent. On a rig
-that enumerates both its pairs and their halves (the common case) the toggle reads exactly as
-it looks; on a rig that only pairs, the mono list is empty and the bar says so in amber
-instead of offering choices that would resolve to silence.
+It was, first, and on the machine this was written for it was useless: a Focusrite 18i20
+enumerates **twenty mono inputs and no stereo device at all**, so a stereo list filtered out
+of that is empty for ever.
 
-The toggle starts on whatever the module already declares — two channels means stereo — so
-opening an input shows the list it belongs to without being told.
+The toggle therefore **regroups**. In stereo it offers the pairs the interface *could* be
+asked to become — two mono devices sitting on one hardware pair — and choosing one asks the
+engine to merge them (`setInputStereo`, which reaches `DeviceManager::setDeviceInChannelStereo`)
+before writing `channel: [1, 2]`. In that order: the write names a set that has to exist for
+it to mean anything. Mono offers the reverse, splitting a pair back into its two channels.
+
+Two consequences that are the interface's and not ours:
+
+- **Pairs are even/odd hardware channels only.** 1 with 2, 3 with 4. There is no pairing of
+  2 with 3 to offer, however reasonable it looks written down — Tracktion's
+  `describeStandardDevices` walks its channel list two at a time. `inputOptions` never
+  synthesises one, and a test pins that.
+- **Regrouping destroys the other arrangement.** Pairing 1+2 merges two device names into
+  one, and a device is identified by its name — so a module still saying `channel: [2]`
+  matches nothing and goes silent, with no error anywhere. The bar says so in amber *before*
+  the act, not after.
+
+The grouping is remembered in `~/.studio/preferences.yaml` (`inputPairs`) and replayed to the
+engine on every connect, exactly as the audio device is. Tracktion persists a copy of its own
+and it is unreadable in practice — the only call that loads it also reopens the remembered
+interface, which `engine/moteur/AGENTS.md` forbids — so without this the pairing lasted until
+the next engine restart and then silently reverted, taking the module's sound with it.
 
 ## A label is left a label
 
@@ -45,9 +77,13 @@ module.
 
 ## Where the list comes from
 
-`inputDevices` is a **prop**, for the same reason `pluginParamNames` is one: which inputs
-exist is a question only the machine holding the sound card answers, over its socket. l8
-fills it from `useInputDevices`, which asks `ioLevels([])` once while the builder is open —
-an empty set list, because metering a channel *enables* it engine-side and the grouping is
-all that is wanted. The engine builds `devices` from the card either way. With no engine
-attached the list is empty and the bar says so; that is the honest answer, not a failure.
+`inputDevices` and `onRegroupInputs` are **props**, for the same reason `pluginParamNames` is
+one: which inputs exist, and what they can be regrouped into, is a question only the machine
+holding the sound card answers. l8 fills them from `useInputDevices`, which asks
+`ioLevels([])` while the builder is open — an empty set list, because metering a channel
+*enables* it engine-side and the grouping is all that is wanted — and re-asks after a
+regroup, since the engine broadcasts no second copy of the layout.
+
+A host with no engine (the médiathèque draws this builder too) passes no `onRegroupInputs`
+and gets only the grouping that already exists. An option that quietly did nothing would be
+worse than a shorter menu.

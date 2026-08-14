@@ -167,6 +167,20 @@ public:
     };
     std::vector<InputDeviceInfo> inputDevices() const;
 
+    // Pair the interface input carrying `channel` (1-based) with its hardware partner, or split it back into two
+    // mono devices. False when there is no interface open to regroup.
+    //
+    // The partner is NOT a choice: Tracktion pairs even/odd hardware channels only, so 1 goes with 2, 3 with 4,
+    // and channel 2 can never be paired with channel 3 (describeStandardDevices walks the list two at a time).
+    // Passing either half of a pair names that pair. Tracktion persists the grouping itself, per audio device
+    // TYPE, and rebuilds the device list — so this is the whole of it, and `inputDevices` reads the result back.
+    //
+    // Pairing DESTROYS the two mono devices: their names merge, and a device is identified by its name. Anything
+    // still asking for one of those channels alone — a module with `channel: [2]` — then matches nothing and
+    // reads as silence, which is the same rule findWaveInput has always had, met from the other side.
+    // Message-thread only: it touches JUCE devices.
+    bool setInputStereo(int channel, bool stereo);
+
     // One channel set's pitch, for the I/O panel's tuner. `hz` is 0 when nothing convincing was heard, which is
     // the honest answer for silence, for noise, and for a chord — the UI shows no note rather than a wrong one.
     struct ChannelPitch {

@@ -131,6 +131,7 @@ export function ModuleBuilder({
   pluginParamNames,
   pluginParamMeta,
   inputDevices,
+  onRegroupInputs,
   baseModules,
   onRelocated,
   renderPreview,
@@ -179,6 +180,10 @@ export function ModuleBuilder({
   // A prop for the same reason `pluginParamNames` is one, and one more: which sets exist is a
   // question only the machine holding the sound card answers, and it answers it over a socket.
   inputDevices?: { name: string; channels: number[] }[];
+  // Ask the interface to pair the inputs on `channel`'s hardware pair, or to split them apart.
+  // Absent ⇒ the picker offers only the grouping that already exists: the médiathèque draws this
+  // builder with no engine link, and an option that quietly did nothing would be worse than none.
+  onRegroupInputs?: (channel: number, stereo: boolean) => void;
   // Refs this module may `extends`, when the STORE cannot say. Which plugins a machine has
   // scanned is a question only that machine's engine answers, over its socket — l8's backend
   // reads the same cache off disk and puts it in `hints`, the médiathèque's has no such disk.
@@ -866,6 +871,7 @@ export function ModuleBuilder({
                 channels={channelOf(content)}
                 readOnly={!!readOnly}
                 onPick={(chs) => onCodeChange(setChannelIn(content, chs))}
+                onRegroup={onRegroupInputs}
               />
             )}
             <ParamsPane rows={paramRows} />
@@ -928,30 +934,36 @@ const IO_IN_BINDS: { name: string; meta: ParamMeta }[] = [
 /**
  * The socket an `io: in` module listens on — the one choice an input has that a plugin module doesn't.
  *
- * Drawn from the sets the ENGINE declares, never from a range of numbers: `channels` is what
- * `findWaveInput` matches exactly, so on a rig that pairs its inputs there is no device for channel
- * 2 alone and asking for one reads as silence (see EngineInputDevice in @studio/engine-browser).
- * That is also what mono/stereo means here — it FILTERS the declared sets by width rather than
- * pairing numbers up itself, which is why a width the interface doesn't offer says so plainly
- * instead of showing a menu of choices that would resolve to nothing.
+ * Every option comes from a set the ENGINE declares, never from a range of numbers: `channels` is what
+ * `findWaveInput` matches exactly, so a channel that is half of a stereo device does not exist on its
+ * own and asking for it reads as silence (see EngineInputDevice in @studio/engine-browser).
+ *
+ * Which is why mono/stereo cannot be a filter over what happens to be there — an interface enumerating
+ * twenty mono inputs would offer no stereo at all. It REGROUPS: picking a pair the interface has not
+ * made yet asks the engine to make it, and the write follows. See docs/inputChannels.md.
  */
 function InputChannelBar({
   devices,
   channels,
   readOnly,
   onPick,
+  onRegroup,
 }: {
   devices: { name: string; channels: number[] }[];
   channels: number[] | string | null;
   readOnly: boolean;
   onPick: (channels: number[]) => void;
+  onRegroup?: (channel: number, stereo: boolean) => void;
 }) {
   // Null until somebody flips it: the module's own channel count is the answer while it has one,
   // so opening a stereo input shows the stereo list without being told.
   const [want, setWant] = useState<1 | 2 | null>(null);
   const width =
     want ?? (Array.isArray(channels) && channels.length === 2 ? 2 : 1);
-  const offered = devices.filter((d) => d.channels.length === width);
+  const offered = useMemo(
+    () => inputOptions(devices, width, !!onRegroup),
+    [devices, width, onRegroup],
+  );
   const current = Array.isArray(channels)
     ? (devices.find((d) => sameChannels(d.channels, channels))?.name ??
       `channel${channels.length > 1 ? "s" : ""} ${channels.join(", ")}`)
@@ -996,37 +1008,118 @@ function InputChannelBar({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="max-h-[50vh] w-64 overflow-y-auto"
+          className="max-h-[50vh] w-72 overflow-y-auto"
         >
           <DropdownMenuLabel>
             {width === 1 ? "Mono inputs" : "Stereo pairs"}
           </DropdownMenuLabel>
-          {offered.map((d) => (
+          {offered.map((o) => (
             <DropdownMenuItem
-              key={d.name}
-              onSelect={() => onPick([...d.channels])}
+              key={o.key}
+              // A regroup is one act with two halves: the interface is asked to make the device,
+              // then the file is pointed at it. In that order — the write names a set that has to
+              // exist for it to mean anything.
+              onSelect={() => {
+                if (o.regroup) onRegroup?.(o.channels[0], width === 2);
+                onPick(o.channels);
+              }}
             >
-              <span className="truncate">{d.name}</span>
-              <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                {d.channels.join("+")}
+              <span className="truncate">{o.label}</span>
+              <span
+                className={cn(
+                  "ml-auto shrink-0 text-[10px]",
+                  o.regroup ? "text-amber-500" : "text-muted-foreground",
+                )}
+              >
+                {o.regroup
+                  ? width === 2
+                    ? "pair"
+                    : "split"
+                  : o.channels.join("+")}
               </span>
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* Two different silences, and they are worth telling apart: an interface that offers no
-          set of this width, and no interface answering at all. */}
       {devices.length === 0 ? (
         <span className="truncate text-[10px] text-muted-foreground">
           no interface answering — the engine lists the inputs
         </span>
-      ) : offered.length === 0 ? (
+      ) : offered.some((o) => o.regroup) ? (
+        // Said before it is done, not after: regrouping is what makes the other arrangement of these
+        // channels stop existing, and a module still pointed at it goes quiet with no error anywhere.
         <span className="truncate text-[10px] text-amber-500">
-          this interface offers no {width === 1 ? "mono" : "stereo"} input
+          {width === 2 ? "pairing" : "splitting"} regroups the interface — a
+          module on the old channels goes silent
         </span>
       ) : null}
     </div>
   );
+}
+
+/** One entry in the channel dropdown. `regroup` marks the ones the interface has to be rearranged for. */
+interface InputOption {
+  key: string;
+  label: string;
+  channels: number[];
+  regroup?: boolean;
+}
+
+/**
+ * What the dropdown offers for a width: the devices that already carry it, then the ones the interface
+ * could be regrouped into.
+ *
+ * The pairing rule is the INTERFACE's and is not negotiable — even/odd hardware channels only, so
+ * 1 goes with 2 and 3 with 4, and there is no pairing of 2 with 3 to offer (Tracktion's
+ * describeStandardDevices walks its channel list two at a time). Stated 1-based here, as everything
+ * on the wire is, which makes the first of a pair the ODD one.
+ *
+ * Regroup options are withheld from a host that cannot regroup — the médiathèque draws this builder
+ * with no engine to ask — leaving it the honest smaller menu rather than choices that would do nothing.
+ */
+export function inputOptions(
+  devices: { name: string; channels: number[] }[],
+  width: 1 | 2,
+  canRegroup: boolean,
+): InputOption[] {
+  const out: InputOption[] = devices
+    .filter((d) => d.channels.length === width)
+    .map((d) => ({
+      key: `d:${d.name}`,
+      label: d.name,
+      channels: [...d.channels],
+    }));
+  if (!canRegroup) return out;
+
+  const at = new Map<number, { name: string; channels: number[] }>();
+  for (const d of devices) for (const c of d.channels) at.set(c, d);
+
+  if (width === 2) {
+    // Two mono devices sitting on a hardware pair can become one stereo device.
+    for (const [ch, d] of at)
+      if (ch % 2 === 1 && d.channels.length === 1) {
+        const next = at.get(ch + 1);
+        if (next?.channels.length === 1)
+          out.push({
+            key: `p:${ch}`,
+            label: `${d.name} + ${next.name}`,
+            channels: [ch, ch + 1],
+            regroup: true,
+          });
+      }
+  } else {
+    // …and a stereo device can be split back into the two mono ones it swallowed.
+    for (const d of devices)
+      if (d.channels.length === 2)
+        for (const ch of d.channels)
+          out.push({
+            key: `s:${ch}`,
+            label: `channel ${ch} — out of ${d.name}`,
+            channels: [ch],
+            regroup: true,
+          });
+  }
+  return out;
 }
 
 // Same set, same order — what `findWaveInput` compares, so the picker highlights a device only when

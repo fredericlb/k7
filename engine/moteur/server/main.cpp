@@ -1103,6 +1103,22 @@ int main(int argc, char** argv) {
                                               {"devices", devices},
                                               {"master", host.masterLevelDb(session)}});
                 });
+            } else if (type == "set-input-stereo") {
+                // Group two interface inputs into one stereo device, or split them apart. `channel` is 1-based and
+                // names its PAIR — Tracktion pairs even/odd hardware channels and nothing else.
+                //
+                // Nothing is broadcast back. The device layout rides on `io-levels`, which is the only message
+                // carrying it and which every surface showing inputs already asks for — the I/O panel ten times a
+                // second, the module builder once on open. A second way to learn the same list would be a second
+                // thing to keep in step. setInputStereo forces the rebuild through before returning, so the next
+                // `io-levels` on this thread already reads the new grouping.
+                const int channel = j.value("channel", 0);
+                const bool stereo = j.value("stereo", false);
+                host.post([session, &host, &broadcastTo, channel, stereo] {
+                    if (!host.setInputStereo(channel, stereo))
+                        broadcastTo(session, json{{"type", "error"},
+                                                  {"message", "no audio interface open to group inputs on"}});
+                });
             } else if (type == "set-audio-device") {
                 // Open a specific interface, replying with the new device list or an error. `deviceType` is the backend — NOT
                 // "type", which is the message kind.
