@@ -78,8 +78,9 @@ follow, and each is worth stating because each was a rule before:
   is an ordinary workspace path, written by the ordinary write route. l8 opens it read-only
   behind a confirmation, and its builder has a **Save button** that commits and pushes the
   library repository once the files land (`apps/l8/frontend/docs/sharedModules.md`) — a decision
-  somebody takes rather than a mechanism that absorbs it. The song's own repository is not
-  touched: its gitlink moves, unstaged, and `project commit` is what records that.
+  somebody takes rather than a mechanism that absorbs it. The song's repository then gets ONE
+  more commit, moving the gitlink so it records which version it uses: path-limited to
+  `.gitmodules` and `_libraries` so nothing else in flight goes with it, and never pushed.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing
 every project beside it, and it still forks on write (`docs/moduleFork.md`) — nothing has given

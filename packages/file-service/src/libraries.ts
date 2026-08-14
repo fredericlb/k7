@@ -311,22 +311,95 @@ export async function ensureLibraries(
 }
 
 /**
- * Commit everything in the library checkout and push it. What a Save in the module builder
- * does, once the files are on disk.
+ * Record the library's new commit in the PROJECT repository — the gitlink, and `.gitmodules`
+ * if it is not committed yet.
  *
- * The LIBRARY repository and nothing else — the workspace it sits in is somebody's song, and
- * committing to that is `project commit`. What the superproject sees afterwards is its gitlink
- * moved, unstaged, which is exactly right: the next `project commit` records "this song now
- * uses that version of the library", and until then the song is unchanged.
+ * This is what "the project uses that version of the library" is written down as. Without it
+ * the working copy is already on the new module (the submodule is checked out at it) while the
+ * song still SAYS the old one, so a clone somewhere else gets yesterday's module and nothing
+ * explains why.
+ *
+ * Two things keep this from being a liberty taken with somebody's repository:
+ *
+ * - **Path-limited, always.** `git commit -- .gitmodules _libraries` commits those paths and
+ *   nothing else, whatever is dirty or staged around them. A `git add -A` here would sweep half
+ *   a song into a commit about a module.
+ * - **Only after the library push succeeded.** A gitlink promises the commit is fetchable;
+ *   pointing one at a commit that never left this machine breaks the song for everyone who
+ *   clones it. The caller enforces the order — this is only reached on a push that landed.
+ *
+ * NOT pushed. Pushing a song is `project commit`, which is a decision about somebody's work and
+ * not a side effect of saving a module. Best effort besides: a workspace that is not a git
+ * repository has no gitlink to move, and a bump that fails costs the record, never the save.
+ */
+async function bumpGitlink(
+  root: string,
+  env: NodeJS.ProcessEnv,
+  userEmail: string,
+  message: string,
+): Promise<string | null> {
+  const paths = [".gitmodules", LIBRARIES_DIR];
+  try {
+    if (!(await isRepo(root, env))) return null;
+    await git(root, ["add", "--", ...paths], env);
+    const { stdout } = await git(
+      root,
+      ["diff", "--cached", "--name-only", "--", ...paths],
+      env,
+    );
+    if (!stdout.trim()) return null; // already pointing at it — two saves, one version
+    await git(
+      root,
+      [
+        "-c",
+        "user.name=studio",
+        `-c`,
+        `user.email=${userEmail}`,
+        "commit",
+        "-m",
+        message,
+        "--",
+        ...paths,
+      ],
+      env,
+    );
+    const { stdout: sha } = await git(
+      root,
+      ["rev-parse", "--short", "HEAD"],
+      env,
+    );
+    return sha.trim();
+  } catch (e) {
+    console.warn(
+      `[libraries] could not record the new version: ${(e as Error).message}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Commit everything in the library checkout, push it, and record the new version in the
+ * project. What a Save in the module builder does, once the files are on disk.
+ *
+ * Two repositories and two different rules. The LIBRARY gets the content — a commit and a push,
+ * because that is what makes the module everyone else's. The PROJECT gets one line: its gitlink,
+ * committed path-limited so nothing else in flight goes with it, and never pushed — pushing a
+ * song is `project commit`, a decision about somebody's work.
  *
  * Nothing to commit is not a failure. Two saves in a row with no edit between them, or a save
- * of files that were already committed by another workspace on this machine, both land here.
+ * of files another workspace on this machine already committed, both land there.
  */
 export async function commitLibraries(
   userEmail: string,
   root: string,
   message: string,
-): Promise<{ committed: boolean; pushed: boolean; note: string }> {
+): Promise<{
+  committed: boolean;
+  pushed: boolean;
+  /** The project commit that recorded the new library version, when one was made. */
+  recorded?: string;
+  note: string;
+}> {
   const at = librariesDir(root);
   if (!existsSync(at))
     throw new Error("no libraries are mounted in this workspace");
@@ -370,10 +443,26 @@ export async function commitLibraries(
       note: `committed ${files} file(s), but the push failed — ${(e as Error).message}`,
     };
   }
+  // The library is out there; now say which version this song uses. After the push and never
+  // before it — see bumpGitlink.
+  const { stdout: version } = await git(
+    at,
+    ["rev-parse", "--short", "HEAD"],
+    env,
+  );
+  const recorded = await bumpGitlink(
+    root,
+    env,
+    userEmail,
+    `libraries: ${version.trim()} — ${message}`,
+  );
   return {
     committed: true,
     pushed: true,
-    note: `published ${files} file(s) to the libraries`,
+    ...(recorded ? { recorded } : {}),
+    note:
+      `published ${files} file(s) to the libraries` +
+      (recorded ? `, and this project now uses them` : ""),
   };
 }
 

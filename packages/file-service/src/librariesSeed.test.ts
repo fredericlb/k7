@@ -232,35 +232,46 @@ describe("seeding a new library repository", () => {
     expect(text.split("/_libraries/").length - 1).toBe(1);
   });
 
-  it("publishes a later edit, and moves the project repo's gitlink but not its HEAD", async () => {
-    // What Save does once the four files have landed: commit the LIBRARY and push it. The song
-    // repository around it is somebody's work — its gitlink moves, unstaged, and `project
-    // commit` is what records "this song now uses that version".
-    const project = join(tmp, "ws4");
+  /** A song repository with the library mounted inside it as a real submodule. */
+  async function songWithLibrary(name: string): Promise<string> {
+    const project = join(tmp, name);
     mkdirSync(project, { recursive: true });
     git(project, "init", "--initial-branch=main");
     writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
     git(project, "add", "-A");
-    git(
-      project,
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@t",
-      "commit",
-      "-m",
-      "the song",
-    );
+    const who = ["-c", "user.name=t", "-c", "user.email=t@t"];
+    git(project, ...who, "commit", "-m", "the song");
 
+    // Seeded and pushed FIRST, adopted second — a repository with no commits has nothing for a
+    // gitlink to point at, which is the order `ensureLibraries` takes for the same reason.
     const inside = join(project, "_libraries");
     mkdirSync(inside, { recursive: true });
     git(inside, "init", "--initial-branch=main");
     git(inside, "remote", "add", "origin", origin);
     await seedIfEmpty(inside);
+    // `protocol.file.allow`: git refuses a file:// submodule by default (CVE-2022-39253). The
+    // real thing is SSH; this is a local bare repo standing in for one.
+    git(
+      project,
+      "-c",
+      "protocol.file.allow=always",
+      "submodule",
+      "add",
+      "--force",
+      "--",
+      origin,
+      "_libraries",
+    );
+    git(project, ...who, "commit", "-m", "mount the libraries");
+    return project;
+  }
+
+  it("publishes the edit and records the new version in the project", async () => {
+    const project = await songWithLibrary("ws4");
     const songHead = git(project, "rev-parse", "HEAD").trim();
 
     writeFileSync(
-      join(inside, "modules", "audio", "reverb", "module.yaml"),
+      join(project, "_libraries", "modules", "audio", "reverb", "module.yaml"),
       "plugin: {type: vst3}\nparams:\n  Mix: 0.5\n",
       "utf8",
     );
@@ -275,9 +286,62 @@ describe("seeding a new library repository", () => {
     expect(
       git(origin, "show", "main:modules/audio/reverb/module.yaml"),
     ).toContain("Mix: 0.5");
-    // And the song is untouched: same commit, nothing staged.
+    // …and the song now SAYS it uses that version: one new commit, moving the gitlink.
+    expect(out.recorded).toBeTruthy();
+    expect(git(project, "rev-parse", "HEAD").trim()).not.toBe(songHead);
+    expect(
+      git(project, "show", "--name-only", "--format=", "HEAD").trim(),
+    ).toBe("_libraries");
+    expect(git(project, "log", "-1", "--format=%s")).toContain("libraries:");
+  });
+
+  it("leaves everything else in the song alone, staged or not", async () => {
+    // The rule that makes this safe to do automatically: a commit ABOUT a module must not carry
+    // half a song with it. Path-limited, so what is in flight stays in flight.
+    const project = await songWithLibrary("ws5");
+    writeFileSync(join(project, "wip.yaml"), "unfinished: true\n", "utf8");
+    writeFileSync(join(project, "staged.yaml"), "half: true\n", "utf8");
+    git(project, "add", "--", "staged.yaml");
+
+    writeFileSync(
+      join(project, "_libraries", "modules", "audio", "reverb", "ui.yaml"),
+      "cols: 4\n",
+      "utf8",
+    );
+    await commitLibraries("me@example.test", project, "@st0/audio/reverb");
+
+    expect(
+      git(project, "show", "--name-only", "--format=", "HEAD").trim(),
+    ).toBe("_libraries");
+    // The half-finished work is exactly where it was: one staged, one not.
+    expect(git(project, "diff", "--cached", "--name-only").trim()).toBe(
+      "staged.yaml",
+    );
+    expect(git(project, "status", "--porcelain")).toContain("wip.yaml");
+  });
+
+  it("records nothing when the library could not be pushed", async () => {
+    // A gitlink promises the commit is fetchable. Pointing one at a commit that never left this
+    // machine breaks the song for everybody who clones it.
+    const project = await songWithLibrary("ws6");
+    const songHead = git(project, "rev-parse", "HEAD").trim();
+    git(
+      join(project, "_libraries"),
+      "remote",
+      "set-url",
+      "origin",
+      join(tmp, "nowhere.git"),
+    );
+
+    writeFileSync(
+      join(project, "_libraries", "modules", "audio", "reverb", "ui.yaml"),
+      "cols: 8\n",
+      "utf8",
+    );
+    const out = await commitLibraries("me@example.test", project, "a module");
+    expect(out).toMatchObject({ committed: true, pushed: false });
+    expect(out.recorded).toBeUndefined();
     expect(git(project, "rev-parse", "HEAD").trim()).toBe(songHead);
-    expect(git(project, "diff", "--cached", "--name-only")).toBe("");
   });
 
   it("says there was nothing to commit rather than making an empty one", async () => {

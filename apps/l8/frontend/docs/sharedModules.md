@@ -141,19 +141,33 @@ and a file held back because it would not compile reports false — committing a
 
 1. `PUT /file` on the file service for each dirty file, into the submodule's working copy. The
    same route a project file takes.
-2. `POST /libraries/publish` — `git add -A`, a commit authored by you, and a push. **The library
-   repository only.** The workspace holding it is your song, and committing to that is
-   `project commit`.
+2. `POST /libraries/publish` — in the LIBRARY: `git add -A`, a commit authored by you, a push.
+3. …and then, in the SONG: one commit moving the gitlink, so the project records which version
+   of the library it now uses.
 
-What the song's repository sees afterwards is its gitlink *moved, unstaged*. That is exactly
-right: the next `project commit` records "this song now uses that version of the library", and
-until then the song is unchanged. Two repositories, two decisions, the same two-step `commons/`
-takes in this repo.
+**Two repositories, two different rules**, and the difference is the whole design:
 
-Nothing to commit is not a failure — two saves with no edit between them land there. A commit
-that could not be pushed is reported and the work is kept: the commit is local, the next Save
-pushes both, and saying "saved" and nothing else would be the lie, since everyone else still
-has the old module.
+| | the library | the song |
+|---|---|---|
+| what is committed | everything that changed | the gitlink, and `.gitmodules` if it is new |
+| how | `git add -A` | **path-limited** — `git commit -- .gitmodules _libraries` |
+| pushed | yes | **no** |
+
+The song's commit is path-limited and that is load-bearing, not tidiness: a commit *about a
+module* must not carry half a song with it. Whatever you had dirty or staged when you pressed
+Save is exactly as dirty or staged afterwards.
+
+And it is **not pushed**. Pushing a song is `project commit` — a decision about your work, not a
+side effect of saving a module. So the version is recorded locally the moment you save it, and
+travels when you decide the song does.
+
+**Nothing is recorded unless the library push succeeded.** A gitlink promises the commit is
+fetchable; pointing one at a commit that never left this machine breaks the song for everybody
+who clones it — including you on the next machine. So a refused push reports "committed, not
+pushed", keeps the work locally, and leaves the song saying what it said before. The next Save
+pushes both commits.
+
+Nothing to commit is not a failure either — two saves with no edit between them land there.
 
 ## What stayed on the bench
 
@@ -188,6 +202,10 @@ The suites here mount nothing, so none of this is covered by a green run:
   button lights up instead;
 - edit two of the four files, press **Save** once → both land, and one commit appears in the
   library repository, pushed. Not two commits, and not one per file;
+- look at the SONG's repository → one commit on top, touching `_libraries` and nothing else.
+  Leave something half-edited before you save and check it is still half-edited after;
+- `git log` in the song → the message names the library's short sha, so which version this song
+  uses is readable without opening the submodule;
 - type something that will not parse and press Save → it is held back with the reason, and
   nothing is committed;
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob

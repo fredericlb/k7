@@ -184,8 +184,9 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
   The file tree has a **second tab, Libraries**, listing the account's library submodule by
   namespace (`@st0`). A module there opens the same builder **read-only**, with an Edit button
-  behind a confirmation; Save then writes into `_libraries/…` and commits and pushes that
-  repository — nothing forks, because that library is the only copy. One store and one path
+  behind a confirmation; Save then writes into `_libraries/…`, commits and pushes that
+  repository, and records the new version in the song with one path-limited commit moving the
+  gitlink — nothing forks, because that library is the only copy. One store and one path
   space: the libraries are a git submodule inside the workspace
   (`packages/song/docs/sharedFolders.md`), so the file service already serves them. This
   replaced the module **bench**; `frontend/docs/sharedModules.md` is the page to read, and
