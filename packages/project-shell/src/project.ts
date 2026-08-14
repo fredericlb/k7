@@ -22,6 +22,7 @@ import type {
   Hints,
   HistoryState,
   IoPort,
+  ModuleLibrary,
   ModulePresetsFile,
   ModuleUiFile,
   ProjectErrors,
@@ -67,6 +68,17 @@ export const projectApi = {
 
   // --- The open project ---------------------------------------------------------
   workspace: () => fget<WorkspaceInfo>("/workspace"),
+  /** The module libraries this project can reach, nearest first. Beside `/tree` because that
+   *  one is the SONG and these sit outside it — see the file service's `moduleLibraries`. */
+  moduleLibraries: () =>
+    fget<{ libraries: ModuleLibrary[] }>("/module-libraries"),
+  /** Make an empty module in one of them. `root` is a path THAT call answered with. */
+  createModule: (root: string, type: string, name: string) =>
+    fsend<{ path: string; dir: string }>("POST", "/module", {
+      root,
+      type,
+      name,
+    }),
   project: () => fget<ProjectInfo>("/project"),
   /**
    * Open the project — and say which library repository this account's workspaces mount.

@@ -31,8 +31,22 @@ import {
   useState,
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
-import { librariesOwned, withoutPaths } from "../libraryTree";
 import type { FileNode } from "../types";
+
+/** The active project's own `modules/`, which the Libraries tab draws as `@project`. */
+const ownModulesOf = (project: string | null): string[] => [
+  project && project !== "." ? `${project}/modules` : "modules",
+];
+
+/** The tree with those folders removed, at whatever depth they sit. */
+function withoutPaths(nodes: FileNode[], paths: string[]): FileNode[] {
+  const drop = new Set(paths);
+  const walk = (ns: FileNode[]): FileNode[] =>
+    ns
+      .filter((n) => !drop.has(n.path))
+      .map((n) => (n.children ? { ...n, children: walk(n.children) } : n));
+  return walk(nodes);
+}
 
 /**
  * The two actions that live nowhere else — the pins are this component's localStorage and the
@@ -129,6 +143,7 @@ export function FileTree({
   onCreateNode,
   libraries,
   onOpenLibraryModule,
+  onCreateModule,
   ref,
 }: {
   tree: FileNode[];
@@ -167,6 +182,9 @@ export function FileTree({
    *  libraries are a folder in the workspace — but a different callback, because what the
    *  builder does with it differs: it opens read-only (see ../libraryTree.ts). */
   onOpenLibraryModule?: (moduleFile: string) => void;
+  /** Make an empty module in a library. `root` is the level's path, as it was given here —
+   *  never built from a name, which is what keeps the three levels apart. */
+  onCreateModule?: (root: string, type: string, name: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
   // Which of the two trees is on screen. Client-only and not URL state: it is disclosure — the
@@ -258,13 +276,13 @@ export function FileTree({
 
   // Folded before anything reads it: `modules` is then the only thing that knows a row is a
   // module, because the node no longer says `dir` and the path never did say it reliably.
-  // Every module folder the Libraries tab has taken over is dropped from THIS one. Shown twice
-  // they would be two ways into one module — one that opens the builder, one that browses its
-  // files — and which folder a module lives in is the loader's business rather than somewhere
-  // to drop files by hand. The list comes from the same place the tab is built from, so a level
-  // cannot appear in both or vanish from both (see ../libraryTree.ts).
+  // The project's own `modules/` is dropped from THIS tab: it is `@project` on the other one.
+  // Shown twice it would be two ways into one module — one that opens the builder, one that
+  // browses its files — and which folder a module lives in is the loader's business rather
+  // than somewhere to drop files by hand. The two SHARED levels need no dropping: the file
+  // tree is the active project's own files and they sit outside it.
   const { tree: folded, modules } = useMemo(
-    () => foldModules(withoutPaths(tree, librariesOwned(activeProject))),
+    () => foldModules(withoutPaths(tree, ownModulesOf(activeProject))),
     [tree, activeProject],
   );
   const isModule = (path: string) => modules.has(path);
@@ -274,6 +292,13 @@ export function FileTree({
   // trees cannot come to disagree about what a module looks like (see libraryTree.ts).
   const lib = useMemo(
     () => (libraries?.length ? foldModules(libraries) : null),
+    [libraries],
+  );
+  // The namespace rows themselves, by path — what "New module…" is offered on. A set rather
+  // than a name test: `@project` is a label, and two levels could be drawn from folders whose
+  // names say nothing about which level they are.
+  const roots = useMemo(
+    () => new Set((libraries ?? []).map((n) => n.path)),
     [libraries],
   );
 
@@ -489,15 +514,44 @@ export function FileTree({
           opens says the rest. */}
       {tab === "libraries" ? (
         !lib ? (
-          // No level has a module folder yet — not even the project's own. Ordinary for a
-          // project that names only what the engine provides.
+          // Only reachable before the first answer has arrived: `@project` and `@workspace` are
+          // always offered once it has, empty or not.
           <p className="p-2 text-xs text-muted-foreground">
-            no module libraries this project can reach
+            reading the module libraries…
           </p>
         ) : (
           <Tree<FileNode>
             nodes={lib.tree}
             activePath={activePath}
+            /* The one thing this tab writes, and it is offered on the NAMESPACE row only.
+               A module is a FOLDER holding a definition, so "New folder…" would make something
+               the loader does not recognise and a row that opens no builder — this makes the
+               file that makes it a module. One place and one shape (`<type>/<name>`), because
+               the type folder is part of what a module IS: `audio/reverb` is the name a chain
+               writes. A level whose folder does not exist yet is drawn for exactly this, and
+               creating through it is what brings the folder into being. */
+            actions={
+              onCreateModule
+                ? [
+                    {
+                      key: "new-module",
+                      label: "New module…",
+                      when: (t) => roots.has(t.path),
+                      prompt: {
+                        placeholder: "audio/my-module",
+                        submit: "Create",
+                        hint: (t, value) =>
+                          `${t.path}/${value.trim() || "<type>/<name>"}/module.yaml`,
+                      },
+                      run: (t, value) => {
+                        const [type, ...rest] = value.trim().split("/");
+                        if (type && rest.length)
+                          onCreateModule(t.path, type, rest.join("/"));
+                      },
+                    },
+                  ]
+                : []
+            }
             // The NEAREST namespace row, open on arrival: a tab whose rows are all closed
             // folders says nothing about what is behind them, and the project's own modules
             // are what somebody opening this is most often after.

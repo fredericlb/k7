@@ -18,6 +18,7 @@ import {
 } from "@studio/song/yaml/videoTrackFile";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type { LintItem } from "@studio/ui-editor/lint";
+import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   FileText,
   FolderTree,
@@ -322,14 +323,14 @@ export function EditorTab({
   const cmViewRef = useRef<EditorView | null>(null);
   // The sidebar, for the two actions it alone holds — the pins and the OS file pickers.
   const treeRef = useRef<FileTreeHandle>(null);
-  // The shared libraries, read straight out of the tree this pane already has: they are a git
-  // submodule at `_libraries/`, so they arrive with every other folder in the workspace. There
-  // is nothing to fetch, nothing to poll and no failure of its own — which is what mounting
-  // them in the workspace bought. Empty until the submodule is there.
-  const libraries = useMemo(
-    () => libraryTree(tree, activeProject),
-    [tree, activeProject],
-  );
+  /**
+   * The module libraries, fetched beside the tree and refreshed with it.
+   *
+   * NOT read out of `tree` — that one is deliberately the active project's own files, and the
+   * two shared levels sit outside it (`packages/file-service/docs/activeProject.md`). Trying to
+   * find them in it is why this tab was empty: they were never there.
+   */
+  const [libraries, setLibraries] = useState<ModuleLibrary[]>([]);
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");
@@ -612,9 +613,16 @@ export function EditorTab({
 
   const refresh = useCallback(async () => {
     try {
-      const [t, h] = await Promise.all([api.tree(), api.hints()]);
+      // The libraries ride along: they change for the same reasons the tree does — a module
+      // created, a submodule mounted — and one refresh is one round trip rather than two.
+      const [t, h, l] = await Promise.all([
+        api.tree(),
+        api.hints(),
+        api.moduleLibraries(),
+      ]);
       setTree(t);
       setHints(h);
+      setLibraries(l.libraries);
     } catch (e) {
       setStatus(`load error: ${(e as Error).message}`);
     }
@@ -1205,7 +1213,18 @@ export function EditorTab({
               onCreateFolder={createFolder}
               onCloneModule={cloneModuleEntry}
               onCreateNode={createNodeEntry}
-              libraries={libraries}
+              libraries={libraryTree(libraries)}
+              onCreateModule={async (root, type, name) => {
+                try {
+                  const { path } = await api.createModule(root, type, name);
+                  await refresh();
+                  // Straight into the builder: making a module and then hunting for the row
+                  // you just made is two acts where somebody meant one.
+                  onOpenLibraryModule(path);
+                } catch (e) {
+                  setStatus((e as Error).message);
+                }
+              }}
               onOpenLibraryModule={(moduleFile) => {
                 onOpenLibraryModule(moduleFile);
                 if (isMobile) setTreeOpen(false);
