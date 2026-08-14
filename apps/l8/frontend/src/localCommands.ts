@@ -43,6 +43,8 @@ export const UI_HEADS: readonly string[] = [
   "file ",
   "edit sequence ",
   "edit clip ",
+  // Reopens the take review on a clip — a VIEW, so `ui`. The panel's own buttons are the brain's.
+  "review ",
   "midi learn ",
   "panel ",
   "surface ",

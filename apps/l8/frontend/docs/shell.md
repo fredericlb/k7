@@ -243,6 +243,25 @@ written, on a branch that predated it, so neither knows about the other. Decidin
 the moment after Stop — or whether the review belongs in the slot too, replacing the pane as it
 once replaced the band — is a design call this merge deliberately did not make on its own.
 
+#### …and the review can be asked for, not only awaited
+
+The automatic review is a **moment that passes**, and it turned out to pass more easily than
+anyone meant. `lastTake` is a variable in the file service's memory: its own comment says "never
+cleared", which is true inside one process and false between two, so **every restart of that
+service loses it** — and in dev it restarts on every code change. The ✓ ends it for good as well,
+since the tab remembers what it dismissed. A take could therefore become unreachable while its
+file sat in `clips/`, with the normalize button and the onsets marks nowhere on screen.
+
+`ui review <clip>` names one outright. It is a `ui` command because it opens a VIEW and writes
+nothing — what the panel then does (`clip normalize`, `clip onset …`) is the brain's — and the
+named one outranks the automatic one, without the rolling guard: asking for a clip by name is a
+deliberate act, not something that appeared while you were playing.
+
+The lane is looked up rather than asked for (`takeReview.ts`), and a clip nothing places reviews
+just the same, labelled **hors piste**. That is the case it exists for: the waveform, the onsets
+and the level are properties of the FILE, and none of them needs a placement. To put such a take
+back on a lane, `event add <track> <clip> <timecode>` is the verb.
+
 #### The waveform's x axis is musical time
 
 `recordingWindow.ts` owns it, and it is what makes the bar/beat rules mean anything. The

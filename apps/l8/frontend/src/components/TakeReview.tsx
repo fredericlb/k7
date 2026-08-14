@@ -77,7 +77,10 @@ export function TakeReview({
     >
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{clip}</span>
-        <span>sur {track}</span>
+        {/* A clip nothing places has no lane to name — a take whose placement was never written, or
+            was deleted while its file stayed in clips/. It reviews the same: the waveform, the
+            onsets and the level belong to the FILE. Saying "sur " and nothing would read as a bug. */}
+        {track ? <span>sur {track}</span> : <span>hors piste</span>}
         <span className="text-muted-foreground/70">
           cliquer ajoute un onset · cliquer un repère l'enlève
         </span>

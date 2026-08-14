@@ -55,6 +55,7 @@ export const LOCAL_COMMANDS = [
   "ui panel", // open one of the bottom panels (graph | logs)
   "ui surface", // a screen this PROJECT declares — surfaces/, layout: view
   "ui builder", // the shared module builder, over the shell
+  "ui review", // reopen the take review on a clip — waveform, onsets, level
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
   "ui logs clear",
@@ -212,6 +213,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Edit a module in the builder",
     fr: "Modifier un module dans le constructeur",
   },
+  "ui review": {
+    en: "Reopen the take review on a clip",
+    fr: "Rouvrir la relecture d'une prise",
+  },
   "ui ruler": {
     en: "Read the ruler in bars or in seconds",
     fr: "Lire la règle en mesures ou en secondes",
@@ -334,6 +339,11 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "project export": [{ name: "format", kind: "choice", hint: "wav · mp3" }],
   "ui builder": [
     { name: "module", kind: "module", hint: "a module of this project" },
+  ],
+  // `file` is the class a clip is drawn in — see ArgClass, where a clip, a sequence and an asset
+  // are all files. The completion below narrows it to clips/ and hands back the ID, not the path.
+  "ui review": [
+    { name: "clip", kind: "file", hint: "a clip of this project — a take" },
   ],
   "ui pin": [{ name: "path", kind: "file", hint: "a file of this project" }],
   "ui copy path": [
@@ -565,6 +575,14 @@ export function makeListArg(shell: {
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
       return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));
+    // The review takes a clip ID, not a path — `clip normalize` and `clip onset` name it that way
+    // too, and the panel passes it straight to them. So the tree is filtered to clips/ and the
+    // basename handed back, which is what the id IS (see recordTake: the filename is the id).
+    if (canonical === "ui review" && first)
+      return shell
+        .files()
+        .filter((f) => /(^|\/)clips\/[^/]+\.ya?ml$/i.test(f))
+        .map((f) => (f.split("/").pop() ?? f).replace(/\.ya?ml$/i, ""));
     if (ENTRY_COMMANDS.has(canonical)) {
       // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, right above.
       // Reading it here is what stops a NAME field — `file rename`'s second — being answered

@@ -154,6 +154,7 @@ import {
   TransportClock,
   VIEW_META,
 } from "./shellMeta";
+import { trackPlacing } from "./takeReview";
 import type {
   CommandInfo,
   ProjectInfo,
@@ -276,6 +277,13 @@ export default function App({
   // last take" stays true until there is another — so what makes the review appear ONCE is this, and
   // a genuinely new take has a different id and shows up on its own.
   const [reviewedTake, setReviewedTake] = useState<string | null>(null);
+  // …and the one ASKED for by name (`ui review <clip>`), which outranks it. The automatic review is
+  // a moment that passes — the service forgets `lastTake` when it restarts, and the ✓ ends it for
+  // good — so this is how a take is reopened afterwards, including one nothing is naming any more.
+  const [reviewOn, setReviewOn] = useState<{
+    clip: string;
+    track: string;
+  } | null>(null);
   // The engine's live state as an EXTERNAL store, so a component re-renders only when its own slice changes.
   const store = useRef(new EngineStore()).current;
   const playing = useStoreState(store, (s) => s.playing);
@@ -1312,6 +1320,28 @@ export default function App({
         openInEditor(s.slice("edit clip ".length).trim());
         return true;
       }
+      /**
+       * ui review <clip> — reopen the take review on a clip: its waveform under the project's ruler,
+       * its onsets as marks you add and refuse, and the button that brings it up to level.
+       *
+       * A `ui` command because it opens a VIEW and writes nothing; what the view then does is the
+       * brain's (`clip normalize`, `clip onset …`). It exists because the automatic review is a
+       * moment that passes — `lastTake` is the file service's memory and dies with the process, and
+       * the ✓ ends it for good — so a take could become unreachable while its file sat on disk.
+       *
+       * The lane is looked up rather than asked for: a placement names the clip, so the project
+       * already knows. A clip nothing places (an orphan take, which is exactly the case this is for)
+       * reviews just the same, with no lane to show.
+       */
+      if (line.startsWith("review ")) {
+        const clip = s.slice("review ".length).trim();
+        if (!clip) {
+          setStatus("usage: ui review <clip>");
+          return true;
+        }
+        setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
+        return true;
+      }
       // ui midi learn <module> <param> — arm the browser's Web MIDI on one param. The BINDING is
       // written by `module cc`, which is the brain's; what is local here is the listening.
       if (line.startsWith("midi learn ")) {
@@ -2133,15 +2163,25 @@ export default function App({
 
   const waitingForEngine = !!ws?.activeProject && !engineReady;
 
-  // The take to review: the newest one the file service has written, until this tab dismisses it.
-  // Never while a take is ROLLING — the band owns that slot, and the clip being reviewed would be the
-  // previous take, which is not what anyone is looking at.
+  /**
+   * The take to review: the one ASKED for, else the newest the file service has written.
+   *
+   * The automatic half is the take you just played, until this tab dismisses it — and never while a
+   * take is ROLLING, since the band owns that slot and the clip being reviewed would be the previous
+   * one. But it is not enough on its own: `lastTake` lives in the file service's memory and is lost
+   * whenever that process restarts, and dismissing it is final. So `ui review <clip>` names one
+   * outright, which survives both and reaches a take from three days ago (see docs/shell.md).
+   *
+   * The named one wins, and it is not subject to the rolling guard: asking for a clip by name is a
+   * deliberate act, not something that appeared while you were playing.
+   */
   const reviewTake =
-    ws?.lastTake &&
+    reviewOn ??
+    (ws?.lastTake &&
     ws.lastTake.clip !== reviewedTake &&
     !(recordEnabled && playing)
       ? ws.lastTake
-      : null;
+      : null);
 
   // Everything that makes the transport unable to answer, as one flag — because to whoever is reaching for Play
   // the two causes are the same fact, and the button has to say so either way.
@@ -2773,7 +2813,13 @@ export default function App({
             clip={reviewTake.clip}
             track={reviewTake.track}
             command={runCommand}
-            onClose={() => setReviewedTake(reviewTake.clip)}
+            // Both halves have to be closed: the named one is this tab's own state, and the
+            // automatic one is dismissed by remembering its id. Doing only the first would leave
+            // the newest take popping straight back.
+            onClose={() => {
+              setReviewOn(null);
+              setReviewedTake(reviewTake.clip);
+            }}
           />
         )}
 
