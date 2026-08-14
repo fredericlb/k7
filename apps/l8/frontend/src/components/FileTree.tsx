@@ -1,7 +1,8 @@
-// The workspace sidebar. The tree itself — expansion, right-click menu, inline
-// prompts, file drops — is @frediverse/ui/file-tree, shared with calepin; this
-// file is only what is l8's: pinned files, the "open project" button, and
-// the module-folder actions.
+// The workspace sidebar, on two tabs: the PROJECT you have open, and the shared module
+// LIBRARIES it can name. The tree itself — expansion, right-click menu, inline prompts, file
+// drops — is @frediverse/ui/file-tree, shared with calepin; this file is only what is l8's:
+// pinned files, the "open project" button, and the module-folder actions.
+// Why the second tab exists: apps/l8/frontend/docs/sharedModules.md.
 
 import {
   type DroppedFile,
@@ -16,6 +17,8 @@ import {
   FileAudio,
   Folder,
   FolderOpen,
+  Library,
+  Loader2,
   Pin,
   Play,
   X,
@@ -124,6 +127,10 @@ export function FileTree({
   onCreateFolder,
   onCloneModule,
   onCreateNode,
+  libraries,
+  libraryError,
+  onShowLibraries,
+  onOpenLibraryModule,
   ref,
 }: {
   tree: FileNode[];
@@ -152,8 +159,30 @@ export function FileTree({
   onCloneModule?: (path: string, newName: string) => void;
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
   onCreateNode?: (path: string, node: string) => void;
+  /**
+   * The shared module libraries as tree rows — one namespace row each (`@mediatek`), the
+   * catalogue under it. `null` while the listing is in flight; ABSENT for a shell that offers
+   * no such tab at all, which is what makes the tab bar disappear rather than show a dead one.
+   */
+  libraries?: FileNode[] | null;
+  /** Why the listing failed, when it did. Said on the tab it belongs to, never as a popup. */
+  libraryError?: string | null;
+  /** The Libraries tab was opened. The host fetches on THIS and not on mount: the catalogue is
+   *  another service, and most sessions never look at it. */
+  onShowLibraries?: () => void;
+  /** A module row in a library was clicked. The path is LIBRARY-relative — a different path
+   *  space from every other one here, and the reason it is a different callback (see library.ts). */
+  onOpenLibraryModule?: (moduleFile: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
+  // Which of the two trees is on screen. Client-only and not URL state: it is disclosure — the
+  // same sidebar showing one of two things — and nothing else in the shell depends on it.
+  const [tab, setTab] = useState<"project" | "libraries">("project");
+  const showLibraries = onShowLibraries;
+  useEffect(() => {
+    if (tab === "libraries") showLibraries?.();
+  }, [tab, showLibraries]);
+
   // Pinned files: client-only state in localStorage per project, re-loaded on a project switch so pins can't cross.
   const pinKey = `l8:pins:${projectName || activeProject || "."}`;
   const [pins, setPins] = useState<string[]>([]);
@@ -241,6 +270,14 @@ export function FileTree({
   // module, because the node no longer says `dir` and the path never did say it reliably.
   const { tree: folded, modules } = useMemo(() => foldModules(tree), [tree]);
   const isModule = (path: string) => modules.has(path);
+
+  // The same fold over the LIBRARIES, so a shared module is one row that opens the builder
+  // exactly as a project one is. Folded here rather than where the rows are built, so the two
+  // trees cannot come to disagree about what a module looks like (see libraryTree.ts).
+  const lib = useMemo(
+    () => (libraries ? foldModules(libraries) : null),
+    [libraries],
+  );
 
   const menuEnabled = !!onRename && !!onDelete;
   // `t.dir` is false on a module row now, so the folded set answers instead.
@@ -419,65 +456,135 @@ export function FileTree({
         className="hidden"
         onChange={(e) => uploadPicked(e.target)}
       />
-      <Tree<FileNode>
-        nodes={folded}
-        activePath={activePath}
-        reveal={activeProject}
-        rootPath={rootDir}
-        rootLabel={projectName ?? rootDir}
-        header={header}
-        actions={actions}
-        acceptsFileDrop={dragHasFiles}
-        isDisabled={isBinary}
-        // A module opens the BUILDER, on the panel — the screen that edits all three of its
-        // files. Everything else opens as text, as before.
-        onOpen={(node) => {
-          const file = modules.get(node.path);
-          if (file) onOpenModule?.(`${node.path}/${file}`);
-          else onOpen(node.path);
-        }}
-        onDropTree={onUpload}
-        onMove={onMove}
-        icon={(node, open) =>
-          isModule(node.path) ? (
-            <Boxes className="h-4 w-4 shrink-0" />
-          ) : node.dir ? (
-            open ? (
-              <FolderOpen className="h-4 w-4 shrink-0" />
-            ) : (
-              <Folder className="h-4 w-4 shrink-0" />
-            )
-          ) : isBinary(node) ? (
-            <FileAudio className="h-4 w-4 shrink-0" />
-          ) : (
-            <File className="h-4 w-4 shrink-0" />
-          )
-        }
-        rowEnd={(node) =>
-          node.project ? (
+
+      {/* Two trees, one sidebar. Drawn only for a shell that has libraries to show — the tab
+          bar is the affordance, so one lonely tab would be a control that decides nothing. */}
+      {libraries !== undefined && (
+        <div className="mb-1 flex shrink-0 items-center gap-1 border-b border-border/60 pb-1">
+          {(
+            [
+              ["project", projectName ?? "Project", Folder],
+              ["libraries", "Libraries", Library],
+            ] as const
+          ).map(([id, label, Icon]) => (
             <button
+              key={id}
               type="button"
-              title={
-                activeProject === node.path
-                  ? "active project"
-                  : "open project — start the engine here"
-              }
-              onClick={() => onOpenProject(node.path)}
+              onClick={() => setTab(id)}
               className={cn(
-                "shrink-0 rounded p-0.5",
-                activeProject === node.path
-                  ? "text-emerald-500"
-                  : "text-muted-foreground/60 hover:text-foreground",
+                "flex items-center gap-1 rounded px-2 py-0.5 text-xs",
+                tab === id
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Play
-                className="h-3.5 w-3.5"
-                fill={activeProject === node.path ? "currentColor" : "none"}
-              />
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span className="max-w-28 truncate">{label}</span>
             </button>
-          ) : null
-        }
-      />
+          ))}
+        </div>
+      )}
+
+      {/* The LIBRARIES: read-only rows over somebody else's catalogue. No actions at all — not
+          a menu with everything greyed out — because nothing here is this project's to rename,
+          move or delete. Opening a module is the one thing the tab is for, and the builder it
+          opens says the rest. */}
+      {tab === "libraries" ? (
+        libraryError ? (
+          <p className="p-2 text-xs text-amber-500">{libraryError}</p>
+        ) : !lib ? (
+          <p className="flex items-center gap-1.5 p-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> reading the
+            catalogue…
+          </p>
+        ) : lib.tree.length === 0 ? (
+          <p className="p-2 text-xs text-muted-foreground">
+            no shared modules on this account
+          </p>
+        ) : (
+          <Tree<FileNode>
+            nodes={lib.tree}
+            activePath={activePath}
+            // The namespace row, open on arrival: a tab whose only row is a closed folder
+            // says nothing about what is behind it.
+            reveal={lib.tree[0]?.path ?? null}
+            isDisabled={isBinary}
+            onOpen={(node) => {
+              const file = lib.modules.get(node.path);
+              if (file) onOpenLibraryModule?.(`${node.path}/${file}`);
+            }}
+            icon={(node, open) =>
+              lib.modules.has(node.path) ? (
+                <Boxes className="h-4 w-4 shrink-0" />
+              ) : open ? (
+                <FolderOpen className="h-4 w-4 shrink-0" />
+              ) : (
+                <Folder className="h-4 w-4 shrink-0" />
+              )
+            }
+          />
+        )
+      ) : (
+        <Tree<FileNode>
+          nodes={folded}
+          activePath={activePath}
+          reveal={activeProject}
+          rootPath={rootDir}
+          rootLabel={projectName ?? rootDir}
+          header={header}
+          actions={actions}
+          acceptsFileDrop={dragHasFiles}
+          isDisabled={isBinary}
+          // A module opens the BUILDER, on the panel — the screen that edits all three of its
+          // files. Everything else opens as text, as before.
+          onOpen={(node) => {
+            const file = modules.get(node.path);
+            if (file) onOpenModule?.(`${node.path}/${file}`);
+            else onOpen(node.path);
+          }}
+          onDropTree={onUpload}
+          onMove={onMove}
+          icon={(node, open) =>
+            isModule(node.path) ? (
+              <Boxes className="h-4 w-4 shrink-0" />
+            ) : node.dir ? (
+              open ? (
+                <FolderOpen className="h-4 w-4 shrink-0" />
+              ) : (
+                <Folder className="h-4 w-4 shrink-0" />
+              )
+            ) : isBinary(node) ? (
+              <FileAudio className="h-4 w-4 shrink-0" />
+            ) : (
+              <File className="h-4 w-4 shrink-0" />
+            )
+          }
+          rowEnd={(node) =>
+            node.project ? (
+              <button
+                type="button"
+                title={
+                  activeProject === node.path
+                    ? "active project"
+                    : "open project — start the engine here"
+                }
+                onClick={() => onOpenProject(node.path)}
+                className={cn(
+                  "shrink-0 rounded p-0.5",
+                  activeProject === node.path
+                    ? "text-emerald-500"
+                    : "text-muted-foreground/60 hover:text-foreground",
+                )}
+              >
+                <Play
+                  className="h-3.5 w-3.5"
+                  fill={activeProject === node.path ? "currentColor" : "none"}
+                />
+              </button>
+            ) : null
+          }
+        />
+      )}
     </>
   );
 }

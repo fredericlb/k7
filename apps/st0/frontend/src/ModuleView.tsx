@@ -1,13 +1,9 @@
-// ModuleView.tsx — a module's files, READ-ONLY, and the way to the one place that can edit
-// them. The builder used to live here; it lives in l8 now, on the bench. See ../docs/engine.md.
+// ModuleView.tsx — a module's files, READ-ONLY, and where to go to change them. The builder
+// used to live here; it lives in l8 now, in the Libraries tab of whatever project is open.
+// See ../docs/engine.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
-import {
-  BENCH_PROJECT,
-  BENCH_REPO,
-  launchUrl,
-} from "@studio/web-protocol/projects";
-import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { moduleStore } from "./api";
 
@@ -57,23 +53,13 @@ export function ModuleView({
         </button>
         <span className="truncate text-sm font-semibold">{entry.path}</span>
         <span className="flex-1" />
-        {/* The whole reason this screen is not a dead end. A module IS what a plugin is, so
-            editing one blind was never worth much — the bench opens it in l8 against a real
-            engine, and it is the one project allowed to write back here. */}
-        <a
-          className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-          href={launchUrl(
-            window.location.origin,
-            BENCH_REPO,
-            BENCH_PROJECT,
-            "l8",
-          )}
-          target="_blank"
-          rel="noopener"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Construire sur le banc
-        </a>
+        {/* Where this screen ends and the editing begins. A module IS what a plugin is, so
+            editing one blind was never worth much: l8 opens it against the engine that is
+            already playing the song, from the Libraries tab of its file tree. No link — there
+            is no one project to send you to, and that is the improvement. */}
+        <span className="text-xs text-muted-foreground">
+          Lecture seule — un module s'édite dans l8, onglet Bibliothèques
+        </span>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">

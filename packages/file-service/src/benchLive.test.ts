@@ -1,7 +1,8 @@
 // The bench is a LIVE project, and a bench that already existed becomes one. The second half is
-// the part worth a test: a bench's `project.yaml` is written ONCE (only `modules/` is regenerated
-// on open), so without a migration every bench made before the field would keep opening with a
-// timeline over the graph. See packages/song/docs/projectMode.md and apps/st0/docs/banc.md.
+// the part worth a test: a bench's `project.yaml` is written ONCE (only `modules/` and the chain
+// are regenerated on open), so without a migration every bench made before the field would keep
+// opening with a timeline over the graph. See packages/song/docs/projectMode.md and
+// apps/st0/docs/banc.md.
 
 import {
   mkdirSync,
@@ -14,12 +15,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rootDir } from "@studio/engine-client/paths";
 import { projectModeOf } from "@studio/song/projectMode";
-import { BENCH_PROJECT } from "@studio/web-protocol/projects";
+import { benchProjectForChain } from "@studio/web-protocol/projects";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
+import { BENCH_WORKSPACE, ensureChainBench } from "./bench.ts";
 import { slugify } from "./slug.ts";
 
 const EMAIL = "someone@example.test";
+const CHAIN = "chains/live/vocals";
+const SOURCE = `# Voix live.\nmodules:\n  "@in": [ comp ]\n  comp: [ "@out" ]\n`;
 
 let home: string;
 let mediatek: string;
@@ -34,6 +37,8 @@ beforeEach(() => {
   // Off the real machine: this writes a workspace, and the user's own is not a fixture.
   process.env.HOME = home;
   process.env.STUDIO_MEDIATEK = mediatek;
+  mkdirSync(join(mediatek, CHAIN), { recursive: true });
+  writeFileSync(join(mediatek, CHAIN, "chains.yaml"), SOURCE, "utf8");
 });
 
 afterEach(() => {
@@ -45,13 +50,13 @@ afterEach(() => {
   rmSync(mediatek, { recursive: true, force: true });
 });
 
-/** The module bench's folder, as the service lays it out. */
+/** The bench's folder for that chain, as the service lays it out. */
 const benchDir = (): string =>
-  join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE, BENCH_PROJECT);
+  join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE, benchProjectForChain(CHAIN));
 
 describe("the bench's shape", () => {
   it("is live when it is generated", () => {
-    ensureBench(EMAIL);
+    ensureChainBench(EMAIL, CHAIN);
     expect(projectModeOf(benchDir())).toBe("live");
   });
 
@@ -65,7 +70,7 @@ describe("the bench's shape", () => {
       "utf8",
     );
 
-    ensureBench(EMAIL);
+    ensureChainBench(EMAIL, CHAIN);
     expect(projectModeOf(dir)).toBe("live");
 
     const raw = readFileSync(join(dir, "project.yaml"), "utf8");
@@ -78,9 +83,9 @@ describe("the bench's shape", () => {
   it("leaves a bench that is already live alone", () => {
     // Idempotent because it runs on EVERY open — a rewrite per open would churn the file, and
     // with it anything watching the folder.
-    ensureBench(EMAIL);
+    ensureChainBench(EMAIL, CHAIN);
     const first = readFileSync(join(benchDir(), "project.yaml"), "utf8");
-    ensureBench(EMAIL);
+    ensureChainBench(EMAIL, CHAIN);
     expect(readFileSync(join(benchDir(), "project.yaml"), "utf8")).toBe(first);
   });
 });

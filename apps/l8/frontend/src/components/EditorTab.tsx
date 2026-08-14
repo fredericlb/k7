@@ -38,6 +38,8 @@ import {
 } from "react";
 import { api } from "../api";
 import { useDiskSync } from "../hooks/useDiskSync";
+import { listLibraryModules } from "../library";
+import { libraryTree } from "../libraryTree";
 import {
   fileStem,
   isClipFile,
@@ -268,6 +270,7 @@ export function EditorTab({
   onEditTarget,
   onOpenItem,
   onOpenBuilder,
+  onOpenLibraryModule,
   diagnostics,
   videoSources,
   ref,
@@ -296,6 +299,10 @@ export function EditorTab({
   // Open the shared module builder over the shell, on the MODULE file of the trio — plus which of the three
   // was clicked, so its code pane opens on the file the click pointed at.
   onOpenBuilder: (path: string, pane: "module" | "panel" | "presets") => void;
+  // …and the same builder over a SHARED module, from the Libraries tab. Its own callback and not
+  // a flag on the one above, because the path is in the médiathèque's space and not the
+  // workspace's — and the two spell a module identically (see ../library.ts).
+  onOpenLibraryModule: (moduleFile: string) => void;
   /**
    * Each picture clip ref → the media file it names, from the COMPILED document.
    *
@@ -316,6 +323,28 @@ export function EditorTab({
   const cmViewRef = useRef<EditorView | null>(null);
   // The sidebar, for the two actions it alone holds — the pins and the OS file pickers.
   const treeRef = useRef<FileTreeHandle>(null);
+  // The shared module libraries, fetched the first time somebody looks at that tab and not on
+  // mount: the catalogue is another service, and most sessions never open it. Kept for the life
+  // of this pane — nothing l8 does from here adds or removes a module, so there is nothing to
+  // re-poll for; a save into a shared module changes its files, which the folded row never shows.
+  const [libraries, setLibraries] = useState<FileNode[] | null>(null);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  // In flight, or landed. A ref and not state: it gates the fetch rather than describing the
+  // screen, and cleared on failure so switching back to the tab is the retry.
+  const libraryBusy = useRef(false);
+  const loadLibraries = useCallback(() => {
+    if (libraryBusy.current) return;
+    libraryBusy.current = true;
+    setLibraryError(null);
+    listLibraryModules()
+      .then((l) => setLibraries(libraryTree(l.entries)))
+      .catch((e) => {
+        libraryBusy.current = false;
+        setLibraryError(
+          `couldn't read the médiathèque — ${(e as Error).message}`,
+        );
+      });
+  }, []);
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");
@@ -1191,6 +1220,13 @@ export function EditorTab({
               onCreateFolder={createFolder}
               onCloneModule={cloneModuleEntry}
               onCreateNode={createNodeEntry}
+              libraries={libraries}
+              libraryError={libraryError}
+              onShowLibraries={loadLibraries}
+              onOpenLibraryModule={(moduleFile) => {
+                onOpenLibraryModule(moduleFile);
+                if (isMobile) setTreeOpen(false);
+              }}
             />
             <UploadProgress
               fileName={uploadState?.fileName ?? null}

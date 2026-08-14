@@ -185,7 +185,7 @@ export function projectBasename(
 }
 
 /**
- * The module bench's address: `/l8/@banc/modules.l8`.
+ * The bench's reserved repository name — the first half of `/l8/@banc/chains/<path>.l8`.
  *
  * A reserved REPOSITORY name, and that is the whole trick. Every other project resolves through
  * st0 (`GET /api/projects/by-name/:name` → a git URI → a clone on the machine); the bench has no
@@ -198,10 +198,14 @@ export function projectBasename(
  *
  * Here rather than in st0 because BOTH ends need it spelled the same — st0 writes the link and
  * the gate reads it — which is the same argument that put the rest of this vocabulary here.
+ *
+ * There was a second bench under this name, `@banc/modules.l8`: the whole catalogue mirrored
+ * into one generated project, which was where a shared module was edited. A shared module is
+ * edited from the Libraries tab of whatever project you already have open now
+ * (apps/l8/frontend/docs/sharedModules.md), so only the CHAIN bench is left — the address below
+ * is what says which chain.
  */
 export const BENCH_REPO = "@banc";
-/** The folder the bench is generated into, inside its reserved workspace. */
-export const BENCH_PROJECT = "modules.l8";
 /** Whether an address names the bench rather than a repository. */
 export function isBench(repo: string): boolean {
   return repo === BENCH_REPO;
@@ -210,8 +214,8 @@ export function isBench(repo: string): boolean {
 /**
  * A CHAIN on the bench: `/l8/@banc/chains/blindtest/assourdissant/…​.l8`.
  *
- * The same workbench, opened on something else — so it takes the same road, and the address's
- * project part is what says which. The catalogue path IS the project path with `.l8` on the end,
+ * The only thing the bench opens on now, and the address's project part is what says which. The
+ * catalogue path IS the project path with `.l8` on the end,
  * which is why there is no lookup table and no marker file: st0 writes the link from the chain
  * it is showing, the file service reads the chain back out of it, and neither can drift from
  * the other. Same argument that put `@banc` itself here.
@@ -223,7 +227,8 @@ const CHAIN_FAMILY = "chains/";
 const L8 = PROJECT_SUFFIXES.l8;
 
 /**
- * Which médiathèque chain a bench project is a view of — null if it is the module bench.
+ * Which médiathèque chain a bench project is a view of — null when it names no chain, which
+ * under `@banc` is now an address that opens nothing.
  *
  * The path comes off an ADDRESS anyone can type, and it is then joined onto two roots — the
  * médiathèque and the workspace. So it is checked here rather than trusted and checked later:

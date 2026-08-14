@@ -3,19 +3,17 @@
 // moteur plays from, and nothing on this screen reads it.
 
 import { engineAccess } from "@studio/engine-browser/access";
-import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
 import type { FaceablePlugin } from "@studio/song/engineFace";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import { libraryModuleStore } from "@studio/ui-module-builder/library-store";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   type CloneJob,
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type Hints,
-  type ModulePresetsFile,
-  type ModuleUiFile,
   type PublicEngine,
   type RepoStatus,
   type RepoSummary,
@@ -702,77 +700,12 @@ export const library = {
   },
 
   /**
-   * A module's panel file — the `ui.yaml` in the module's own folder.
-   *
-   * The path is derived, not asked for, and the derivation is now `dirname`: the two files are
-   * siblings (see `@studio/song`'s uiLibrary.ts). `modulePath` may name either of them, which is
-   * what lets a click on the panel open the same builder. Absent is NOT an error — the editor is
-   * told where it WOULD go and shown a blank grid, so the first save creates it through the
-   * ordinary write route.
+   * The three sidecars — the panel, the shelf and the DSP source — used to be derived HERE,
+   * three times over, from the folder of the file the builder was given. They are derived once
+   * now, in `@studio/ui-module-builder/library-store`, because l8 asks the same questions of the
+   * same library and two copies of "where does a panel go" is exactly the drift that rule exists
+   * to stop. See `moduleStore` at the bottom of this file.
    */
-  moduleUi: async (modulePath: string): Promise<ModuleUiFile> => {
-    // modules/<type>/<name>/<file>.yaml -> modules/<type>/<name>/ui.yaml
-    const parts = modulePath.split("/");
-    const ref = parts.slice(1, -1).join("/");
-    const path = [...parts.slice(0, -1), "ui.yaml"].join("/");
-    try {
-      const f = await library.readFile(path);
-      return { ref, path, content: f.content, exists: true };
-    } catch {
-      return {
-        ref,
-        path,
-        content: `# panel for ${ref}\ncols: 4\nrows: 2\nwidgets: {}\n`,
-        exists: false,
-      };
-    }
-  },
-
-  /**
-   * A module's DSP source — the `jsdsp.ts` in its own folder, for a `plugin: {type: jsdsp}`
-   * module. Same derivation as the two sidecars, and absent is not an error for the same reason:
-   * a module can declare the type before the source exists, and the first save creates it.
-   */
-  moduleJsDsp: async (modulePath: string): Promise<ModulePresetsFile> => {
-    const parts = modulePath.split("/");
-    const ref = parts.slice(1, -1).join("/");
-    const path = [...parts.slice(0, -1), JSDSP_FILE].join("/");
-    try {
-      const f = await library.readFile(path);
-      return { ref, path, content: f.content, exists: true };
-    } catch {
-      return {
-        ref,
-        path,
-        // A stub that COMPILES, not an empty file: the loader runs this source to get the graph,
-        // and a blank one fails on the first save rather than at some later, less obvious moment.
-        content: `// ${ref} — the module's DSP. Export the graph the engine will host.\nexport default {};\n`,
-        exists: false,
-      };
-    }
-  },
-
-  /**
-   * A module's presets file — the `presets.yaml` in the module's own folder. Same derivation as
-   * the panel above, and absent is not an error for the same reason.
-   */
-  modulePresets: async (modulePath: string): Promise<ModulePresetsFile> => {
-    const parts = modulePath.split("/");
-    const ref = parts.slice(1, -1).join("/");
-    const path = [...parts.slice(0, -1), "presets.yaml"].join("/");
-    try {
-      const f = await library.readFile(path);
-      return { ref, path, content: f.content, exists: true };
-    } catch {
-      return {
-        ref,
-        path,
-        content: `# presets for ${ref}
-`,
-        exists: false,
-      };
-    }
-  },
 
   /**
    * What the editor can complete against.
@@ -990,11 +923,13 @@ export const library = {
 /**
  * The shared builder's view of this backend (`@studio/ui-module-builder/store`).
  *
- * Four calls, all already here — the adapter is shapes, not behaviour. `write` never reports a
- * redirection because there is none to report: the library is one place, and the workspace a
- * copy used to land in is now somebody else's machine.
+ * Three calls handed to the SHARED library store, which derives the sidecars and answers the
+ * rest: this screen and l8's Libraries tab read the same volume through the same routes, and
+ * what differs between them is the origin and the credentials — not the shape of a module.
+ * `write` never reports a redirection because there is none to report: the library is one
+ * place, and the workspace a copy used to land in is now somebody else's machine.
  */
-export const moduleStore: ModuleStore = {
+export const moduleStore: ModuleStore = libraryModuleStore({
   // A file the library hasn't got is `null`, not a throw: a module folder with no module.yaml
   // yet is a real state here, and the builder opens on an empty buffer (see ModuleStore.read).
   read: async (path) => {
@@ -1005,12 +940,6 @@ export const moduleStore: ModuleStore = {
       throw e;
     }
   },
-  moduleUi: (path) => library.moduleUi(path),
-  presets: (path) => library.modulePresets(path),
-  jsdsp: (path) => library.moduleJsDsp(path),
+  write: (path, content) => library.writeFile(path, content),
   hints: () => library.hints(),
-  write: async (path, content) => {
-    await library.writeFile(path, content);
-    return {};
-  },
-};
+});

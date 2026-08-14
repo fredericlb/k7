@@ -40,16 +40,16 @@ something to ask about. Everything else followed from that — an audition with 
 picker, its own metered channel menu, its own level gauge, and an engine gate over the whole
 Modules section demanding a machine before you could edit a text file.
 
-That is all gone. **Modules are built in l8**, on the bench
-([banc.md](banc.md)), where a real project instantiates a plugin for real and the builder
+That is all gone. **Modules are built in l8**, from the file tree's **Libraries** tab of
+whatever project is open, where a real project instantiates a plugin for real and the builder
 reads the one that is actually making the sound. The reasoning is in
-[apps/l8/frontend/docs/moduleBuilder.md](../../l8/frontend/docs/moduleBuilder.md).
+[apps/l8/frontend/docs/sharedModules.md](../../l8/frontend/docs/sharedModules.md).
 
 What the médiathèque keeps is what it is: **the only editable catalogue**. The Modules section
-lists, searches, uploads, renames and deletes; opening a module shows its files, read-only,
-with a button to the bench. And the bench writes back here — it is the one project allowed to
-save at `@mediatek` level, which is what makes editing a module there mean editing *the*
-module rather than forking a copy into a song.
+lists, searches, uploads, renames and deletes; opening a module shows its files, read-only. And
+l8 writes back here, through this backend's own `PUT /api/mediatek/file` — same origin, same
+session cookie — which is what makes editing a module there mean editing *the* module rather
+than forking a copy into a song.
 
 There is no engine gate on the section any more. There is nothing left on it that an engine
 would improve, and a door in front of an empty room is worse than no door.
@@ -68,4 +68,10 @@ which is why it could move back out again without being rewritten.
 
 The round trip was not wasted. What it settled is that the builder needs **two** things and
 they live in different places: an editable catalogue, which is here, and a loaded plugin, which
-is only ever in a project. The bench is the answer to having both at once.
+is only ever in a project.
+
+The first answer to having both at once was the **bench** — a generated project holding the
+whole catalogue, which you opened *in order to* edit a module ([banc.md](banc.md)). The second
+is smaller and is what ships: l8 lists this catalogue in a second tab of its file tree and
+writes back over these routes, so the project supplying the loaded plugin is whichever one you
+already had open. The bench still exists for a **chain**, which has no such second home.

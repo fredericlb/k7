@@ -20,6 +20,7 @@ export function YamlPane({
   hints,
   vocabulary,
   vimMode,
+  readOnly,
   onChange,
   onSave,
 }: {
@@ -35,6 +36,15 @@ export function YamlPane({
    */
   vocabulary?: YamlVocabulary;
   vimMode: boolean;
+  /**
+   * Show the file without letting anyone type into it.
+   *
+   * Vim goes with it rather than staying on: `editable={false}` refuses the change, so an
+   * insert mode that accepted keystrokes and dropped them would be the one state worse than
+   * a pane that plainly does not take them. Completion and folding stay — reading is the
+   * whole point of this mode.
+   */
+  readOnly?: boolean;
   onChange: (next: string) => void;
   onSave: () => void;
 }) {
@@ -72,8 +82,8 @@ export function YamlPane({
         ]),
       ),
     ];
-    return vimMode ? [vim(), ...base] : base;
-  }, [vimMode, onSave]);
+    return vimMode && !readOnly ? [vim(), ...base] : base;
+  }, [vimMode, readOnly, onSave]);
 
   return (
     <CodeMirror
@@ -81,6 +91,7 @@ export function YamlPane({
       height="100%"
       theme="dark"
       extensions={extensions}
+      editable={!readOnly}
       onChange={onChange}
       basicSetup={{ foldGutter: true, highlightActiveLine: true }}
     />

@@ -60,21 +60,12 @@ export function moduleLibraryDirs(dir: string): string[] {
   return out;
 }
 
-/**
- * The four levels a module can live at, outermost first. A ref carries the level as its
- * `@` prefix — `@engine/audio/nam`, `@mediatek/…`, `@workspace/…`, `@project/…` — and a
- * BARE ref (`audio/reverb`) is the project level written the short way.
- *
- * `engine` is the odd one: it names no folder at all. A scanned plugin is synthesised by
- * `engineCatalogue` from the machine's scan cache, so it is a level without a root.
- */
-export const MODULE_NAMESPACES = [
-  "engine",
-  "mediatek",
-  "workspace",
-  "project",
-] as const;
-export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
+// The four levels themselves live in moduleTypes.ts, which opens no `node:` module: a browser
+// asks what a namespace is called (l8's Libraries tab does), and this file cannot be imported
+// there — it reads the disk on the very first line. Re-exported so the vocabulary still reads
+// as one place. Same argument as `moduleKeyFromPath`'s.
+export { MODULE_NAMESPACES, type ModuleNamespace } from "./moduleTypes";
+import type { ModuleNamespace } from "./moduleTypes";
 
 /**
  * The namespace a module root answers to, decided by WHERE it is and nothing else.

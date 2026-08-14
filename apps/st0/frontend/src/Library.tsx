@@ -990,9 +990,9 @@ export function Library() {
             footer, that an absent engine leaves the plugin's parameters empty.
 
             GONE, with the builder it gated. Modules are read-only here now: the catalogue
-            lists them, the tree opens them, and building one happens in l8 — on the bench,
-            where a real project and a real engine mean the plugin is actually loaded. Without
-            footer, that an absent engine leaves the plugin's parameters empty. */}
+            lists them, the tree opens them, and building one happens in l8 — in the Libraries
+            tab of whatever project is open, where a real engine means the plugin is actually
+            loaded. */}
             {!editing &&
               section === "modules" &&
               choice.loaded &&
@@ -1448,10 +1448,10 @@ export function Library() {
               />
             </aside>
 
-            {/* A module, READ-ONLY, and the way to the bench. The builder was here and is in l8
-            now: only a live plugin can say what its parameters are called, and the médiathèque
-            has no project to load one into. The address is unchanged, so old links still open
-            the module — they land on its text rather than on a builder. */}
+            {/* A module, READ-ONLY. The builder was here and is in l8 now: only a live plugin
+            can say what its parameters are called, and the médiathèque has no project to load
+            one into. The address is unchanged, so old links still open the module — they land
+            on its text rather than on a builder. */}
             {editing ? (
               <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <ModuleView
@@ -1636,9 +1636,10 @@ export function Library() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Les modules se construisent sur le banc, dans l8 : c'est là
-                  qu'un greffon est réellement chargé, donc la seule place où
-                  ses paramètres, leurs bornes et ses presets d'usine existent.
+                  Les modules se construisent dans l8, onglet Bibliothèques de
+                  l'arborescence : c'est là qu'un greffon est réellement chargé,
+                  donc la seule place où ses paramètres, leurs bornes et ses
+                  presets d'usine existent.
                 </p>
               </aside>
             ) : null}

@@ -30,7 +30,9 @@ import {
   Folder,
   LayoutGrid,
   Loader2,
+  Lock,
   type LucideIcon,
+  Pencil,
   SlidersHorizontal,
 } from "lucide-react";
 import {
@@ -113,6 +115,8 @@ export function ModuleBuilder({
   paramRef,
   vimMode,
   initialPane,
+  readOnly,
+  onRequestEdit,
   onBack,
   onSaved,
   setStatus,
@@ -136,6 +140,24 @@ export function ModuleBuilder({
   // Which file the code pane opens on. The PANEL by default — it is what the grid beside it edits — but a
   // host that knows which of the three was clicked says so, and the click lands where it pointed.
   initialPane?: BuilderPane;
+  /**
+   * Show the module without editing it: the four files read, the grid frozen, no autosave armed.
+   *
+   * The state a SHARED module opens in. It is not a lesser builder — the params list, the
+   * live plugin and the preview all work — it is the same screen with the writing turned
+   * off, which is what makes "you are about to change something everyone uses" a decision
+   * somebody takes rather than a thing that happens while they look around.
+   */
+  readOnly?: boolean;
+  /**
+   * The button that asks to be let in, drawn only when there IS one — a host that never
+   * unlocks passes nothing and gets a plainly read-only screen.
+   *
+   * The host answers by flipping `readOnly`, and whatever it wants to say first (a warning,
+   * a confirmation) is its own: a shared package knows this module is not the project's, and
+   * cannot know whose it is or what writing to it costs. Same argument as `renderPreview`.
+   */
+  onRequestEdit?: () => void;
   onBack: () => void;
   onSaved: () => void; // bump the shell's reloadKey so the listing refreshes
   setStatus: (s: string) => void;
@@ -236,12 +258,18 @@ export function ModuleBuilder({
   const applyShelfPreset = useCallback(
     (name: string) => {
       const values = shelf[name];
-      if (!values || content == null) return;
+      // Read-only: this one is an EDIT, unlike a factory preset, which loads into the plugin.
+      // Stamping values into a buffer nothing will write is how you lose an afternoon.
+      if (readOnly || !values || content == null) return;
       setContent(applyPresetToText(content, values));
       setStatus(`preset: ${name}`);
     },
-    [shelf, content, setStatus],
+    [readOnly, shelf, content, setStatus],
   );
+
+  // The shelf as the dropdown offers it — empty while the screen is read-only, since every one
+  // of its entries is an edit. The plugin's own banks stay: those load into the plugin.
+  const shelfNames = readOnly ? [] : Object.keys(shelf);
 
   /** Apply a FACTORY preset — the plugin's own, which only a live plugin can load. */
   const applyPreset = useCallback(
@@ -387,8 +415,11 @@ export function ModuleBuilder({
     [store, onSaved, setStatus],
   );
 
+  // `enabled` rather than a null path on all four: the hook still knows which file it is about,
+  // so a read-only pane reports "clean" about the file it is showing instead of about nothing.
   const panelSave = useAutosave({
     path: uiFile?.path ?? null,
+    enabled: !readOnly,
     text: uiFile?.content ?? "",
     saved: savedUi,
     write: useCallback(
@@ -401,6 +432,7 @@ export function ModuleBuilder({
   });
   const dspSave = useAutosave({
     path: dspFile?.path ?? null,
+    enabled: !readOnly,
     text: dspFile?.content ?? "",
     saved: savedDsp,
     write: useCallback(
@@ -413,6 +445,7 @@ export function ModuleBuilder({
   });
   const presetsSave = useAutosave({
     path: presetFile?.path ?? null,
+    enabled: !readOnly,
     text: presetFile?.content ?? "",
     saved: savedPresets,
     write: useCallback(
@@ -425,6 +458,7 @@ export function ModuleBuilder({
   });
   const moduleSave = useAutosave({
     path: content == null ? null : path,
+    enabled: !readOnly,
     text: content ?? "",
     saved: savedModule,
     write: useCallback(
@@ -549,7 +583,7 @@ export function ModuleBuilder({
           {/* The plugin's factory presets, from the engine. Applying one loads it without
               opening the plugin's own window. There is no "save as preset" here: a module's
               parameters ARE its file, and Save already writes them. */}
-          {(presets.length > 0 || Object.keys(shelf).length > 0) && (
+          {(presets.length > 0 || shelfNames.length > 0) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -567,10 +601,10 @@ export function ModuleBuilder({
               >
                 {/* The module's OWN shelf first: it is the one a person here wrote, and the one that
                     works with no engine attached. The plugin's banks follow. */}
-                {Object.keys(shelf).length > 0 && (
+                {shelfNames.length > 0 && (
                   <div>
                     <DropdownMenuLabel>This module</DropdownMenuLabel>
-                    {Object.keys(shelf).map((name) => (
+                    {shelfNames.map((name) => (
                       <DropdownMenuItem
                         key={`shelf-${name}`}
                         onSelect={() => applyShelfPreset(name)}
@@ -601,6 +635,20 @@ export function ModuleBuilder({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {/* Read-only says so where the save badge would be, because it is the same
+              question — what is happening to what you type. The button beside it is the
+              host's, and asking is all it does: this component does not unlock itself. */}
+          {readOnly && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              read-only
+            </span>
+          )}
+          {readOnly && onRequestEdit && (
+            <Button variant="secondary" size="sm" onClick={onRequestEdit}>
+              <Pencil className="mr-1 h-4 w-4" /> Edit
+            </Button>
           )}
           {/* Where the Save button was. Silent while the four files are on disk, amber with the
               reason while one of them is being held back. */}
@@ -729,6 +777,7 @@ export function ModuleBuilder({
                 content={sidecar ? sidecar.content : content}
                 hints={completionHints ?? undefined}
                 vimMode={vimMode}
+                readOnly={readOnly}
                 onChange={
                   pane === "panel"
                     ? onPanelChange
@@ -754,7 +803,9 @@ export function ModuleBuilder({
                 // offers the module's own assets/. A fixed list now, not a scan of the project:
                 // the choices belong to the module, so there is nothing project-wide to read.
                 assetParams={[...FILE_PARAMS]}
-                disabled={!parsable}
+                // Two reasons a grid does not take a drag, and they mean the same thing to it:
+                // the panel does not parse, or nothing here is being written yet.
+                disabled={!parsable || !!readOnly}
                 onChange={onUiChange}
               />
             </div>
