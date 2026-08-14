@@ -351,5 +351,6 @@ export function setTrackFields(
   );
 }
 
-// A lane's ALTERNATIVES lived here. They are gone with the field, to be replaced by another
-// mechanism later — see docs/trackModules.md.
+// A lane's ALTERNATIVES lived here. They belong to the MODULE a lane is now, so the verbs are
+// `module alternative …` (projectEdit.ts) and which clip list an edit above lands in is
+// yaml/trackFile.ts's `clipsToEdit`. See docs/alternatives.md.

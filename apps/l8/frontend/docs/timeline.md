@@ -165,19 +165,63 @@ generated lane has no file and no chain of its own, so it names its **group**.
 A header selection survives playback, as every caret position now does — see "The caret and
 the playhead are independent" above.
 
-## A lane's alternatives — gone, for now
+## A lane's alternatives
 
-A lane could hold several arrangements and play one, and the gutter carried an arrow that
-listed them, switched, and started another. Both the field and the picker are gone with the
-move to lane-modules, to be replaced by another mechanism later —
-`packages/song/docs/trackModules.md`.
+A lane can hold several sets of attributes and play one, and its gutter says **which**:
+`LaneAlternative`, a small badge carrying the set's name, immediately **right of the track icon**
+and before the name. It sits with the icon because it is part of what the lane IS rather than
+something about its sound, and `shrink-0` beside a truncating label means a narrow gutter eats
+the name and never the badge.
 
-What the arrow got right, and what a replacement should keep: it sat **first in the row**,
-before the meters and the name, because it was about the lane as a whole rather than about its
-sound; and the current variant's name was drawn beside it only when it was **not** the first.
-That asymmetry was the point — every lane kept the gutter width it always had, and the one lane
-showing you something other than its `clips:` said so before you read its name. A lane whose
-clips appear to have vanished, with nothing on screen explaining it, is the failure that avoids.
+Alternatives belong to the MODULE a lane is now, so the pair comes from
+`packages/song/docs/alternatives.md` and not from a field of the lane's own.
+
+Two things it keeps from the arrow that used to be here:
+
+- it costs **nothing** on a lane with no choice. The graph carries the pair only past a list of
+  one, so those lanes have no entry and grow no badge — the gutter width every other lane always
+  had is untouched;
+- it is **amber** only when the lane is away from the first set. A lane whose clips appear to
+  have vanished with nothing on screen explaining it is the failure that avoids, and the colour
+  is what makes it readable at a glance down a column of fifteen.
+
+It shows the name **even on the first set**, where the arrow showed none. With the badge costing
+nothing on lanes that have no choice, that asymmetry was hiding the one fact a reader wants —
+that this lane has variants at all. The first set's name is `"1"`, the module's own fields having
+nowhere to carry one, so a single label reads as a number for an unnamed set and as a name for a
+named one without the gutter having to choose.
+
+### Clicking it opens the lane's ⋮ menu
+
+Not a menu of its own: the **same** one the chains pane opens on that lane's node, through the
+shell's `onNodeMenu`. So the switch, the two `create` entries and the freeze are one behaviour
+with one implementation, and each row is literally the command line it runs —
+`module alternative select|create|copy`, `module freeze`. Switching goes on the click; the two
+that need a name arrive in the command bar half-typed, which is what `complete` already means in
+`contextMenu.ts`.
+
+Three things fall out of reusing it, and they are the reason to:
+
+- the old `TrackAlternatives.tsx` had to **portal** its menu to the body, because this gutter is
+  `overflow-hidden` (a zoom parks out-of-view clips at negative offsets) and a menu inside it was
+  clipped to the height of one lane. The shell's `ContextMenu` is rendered by `App` and is
+  `fixed`, so there is nothing to escape from;
+- it needed `usePopin` so Escape stopped at the menu instead of also closing the graph slot
+  behind it. The shell's menu answers Escape in the capture phase and stops it, so that whole rung
+  is somebody else's problem now — which is why "a lane's alternatives" is no longer in the list
+  of self-closing overlays in [shell.md](shell.md);
+- the badge is handed the **button's rectangle**, not the pointer, so the menu hangs off the badge
+  whether it was reached by mouse or by keyboard.
+
+It passes `frozen` along with the pair for one reason: that menu's freeze row is a **toggle**, and
+its label says which way it will go. Without the freeze state a frozen lane would be offered
+"Freeze", and the row would lie.
+
+**Where the two maps come from.** The chains pane fetches the graph; this pane reads the compiled
+project. So `{alternatives, frozen}` travels up to the shell and back down here, the way
+`docCount` does. One pair of maps feeds both the badge and the graph's own nodes, which is what
+stops them naming different sets — and it means the badge appears once the chains pane has a
+graph, not before.
 
 ## The `v` rectangle
 

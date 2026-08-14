@@ -1,6 +1,7 @@
-// sequenceFile.ts — appending notes to sequences/<id>.yaml: `notes:` lists {t,d,k,v?}
-// (t/d in beats, k a MIDI key). Written by `note add` and `sequence.recordNotes`, one
-// note per line (flow mapping) — the shape a recorded sequence shares with a hand-entered one.
+// sequenceFile.ts — editing sequences/<id>.yaml: `notes:` lists {t,d,k,v?} (t/d in beats, k a
+// MIDI key, v a 0..1 velocity). Appends for `note add` and `sequence.recordNotes`, and addresses
+// one note by (key, start) for the roll's velocity drag. One note per line (flow mapping) — the
+// shape a recorded sequence shares with a hand-entered one.
 
 import { isSeq, parseDocument } from "yaml";
 
@@ -38,5 +39,50 @@ export function appendNotes(text: string, notes: NoteIn[]): string {
   const list = doc.getIn(["notes"]);
   if (isSeq(list)) list.items.push(...nodes);
   else doc.setIn(["notes"], doc.createNode(nodes));
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** Two beat positions that are the same one. The times are decimals a surface computed. */
+const EPS = 1e-6;
+
+/**
+ * The index of the note on key `k` starting at `t`, or -1.
+ *
+ * (key, start) is how a surface addresses a note, for the reason a placement is addressed by its
+ * `start`: it is what the thing on screen knows about itself, and two notes cannot share the pair
+ * without being the same note twice.
+ *
+ * Read off the DOCUMENT rather than a validated sequence, as trackFile's `findPlacement` is: a file
+ * with one bad field elsewhere still has notes you can point at.
+ */
+export function findNote(text: string, k: number, t: number): number {
+  const doc = parseDocument(text, OPTS);
+  const list = doc.getIn(["notes"]);
+  if (!isSeq(list)) return -1;
+  return list.items.findIndex(
+    (_n, i) =>
+      Number(doc.getIn(["notes", i, "k"]) ?? Number.NaN) === k &&
+      Math.abs(Number(doc.getIn(["notes", i, "t"]) ?? Number.NaN) - t) < EPS,
+  );
+}
+
+/**
+ * Set one note's velocity — what the roll's velocity drag writes.
+ *
+ * `undefined` CLEARS the key rather than writing `v: 1`, so a note dragged back to full loses the
+ * field it never had: the schema's default is 1, and a file that never mentions velocity stays
+ * byte-identical. Same rule as `alternative:` going back to the first set.
+ */
+export function setNoteVelocity(
+  text: string,
+  k: number,
+  t: number,
+  v: number | undefined,
+): string {
+  const at = findNote(text, k, t);
+  if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
+  const doc = parseDocument(text, OPTS);
+  if (v === undefined) doc.deleteIn(["notes", at, "v"]);
+  else doc.setIn(["notes", at, "v"], v);
   return doc.toString({ lineWidth: 0 });
 }

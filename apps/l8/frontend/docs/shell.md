@@ -310,8 +310,8 @@ key mean "back out of the thing in front of me" rather than one fixed action:
 
 The ladder only works if each rung is **exclusive**, and that is the whole reason
 [`src/popins.ts`](../src/popins.ts) exists. Several overlays answer Escape themselves with a
-plain bubble-phase `window` listener and no `stopPropagation` — the header's alternative menu, a
-lane's alternatives, the phone's hamburger, the help page — and Radix's dialogs do the same. The
+plain bubble-phase `window` listener and no `stopPropagation` — the header's alternative menu, the
+phone's hamburger, the help page — and Radix's dialogs do the same. The
 shell's own listener is on `window` too, so both fire on the one keypress. That was survivable
 while the shell's fallback merely closed the bottom panel; the moment Escape started closing the
 graph slot, dismissing a dropdown would have thrown away the clip or the take you had open
@@ -690,8 +690,8 @@ command names something you could *ask for*, and none of these is:
 - **A dialog's own buttons.** Confirm, cancel, "continue editing". They answer a question the
   shell asked, so they cannot be reached from a bar that is not the question.
 - **Continuous gestures.** Dragging a clip, growing a selection, panning the graph, the
-  waveform's onset sensitivity. The timeline's `event move` is the command; the nudging is the
-  view's, as `keys.ts` says.
+  waveform's onset sensitivity, the roll's velocity drag. The timeline's `event move` is the
+  command and the roll's is `sequence note velocity`; the nudging is the view's, as `keys.ts` says.
 - **Typing into the open buffer.** The video readers' *Set From* / *Set To* look like actions
   and are not: they write a number into the file the editor is showing, which autosave then
   saves like any keystroke. A command for them would be a command for typing.

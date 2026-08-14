@@ -89,7 +89,11 @@ import { migrateModuleUis } from "@studio/song/uiMigrate";
 import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
-import { appendNotes, isPlayableNote } from "@studio/song/yaml/sequenceFile";
+import {
+  appendNotes,
+  isPlayableNote,
+  setNoteVelocity,
+} from "@studio/song/yaml/sequenceFile";
 import {
   applyAlternative,
   cancelAlternative,
@@ -1095,6 +1099,59 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     h.log([
       `added ${noteStr} (k${k}) ${fmtBeat(t)}..${fmtBeat(end)} → ${seqId}`,
     ]);
+    await h.reload();
+  },
+
+  /**
+   * Set ONE note's velocity, addressed by key and start — what the roll's velocity drag commits.
+   *
+   * 0..1, the units the file states (NoteSchema's `v`), clamped rather than refused: the drag hands
+   * over a pixel position, and a gesture that ran past the top of a note means "full". A velocity of
+   * 1 CLEARS the field instead of writing the schema's own default into a file that never mentioned
+   * it — the same rule `alternative:` follows going back to the first set.
+   */
+  "sequence.noteVelocity": async (arg, h) => {
+    const [seqId, noteStr, startStr, velStr] = arg.trim().split(/\s+/);
+    if (!seqId || !noteStr || startStr === undefined || velStr === undefined) {
+      h.log([
+        "usage: sequence note velocity <sequence> <note> <start> <velocity 0..1>",
+      ]);
+      return;
+    }
+    const k = parseMidiNote(noteStr);
+    if (k === null) {
+      h.log([
+        `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const t = Number(startStr);
+    const raw = Number(velStr);
+    if (!Number.isFinite(t) || !Number.isFinite(raw)) {
+      h.log(["start (beats) and velocity (0..1) must be numbers"]);
+      return;
+    }
+    // Two decimals: the drag reads a pixel, and a file full of 0.7333333333 is noise in a diff.
+    const v = Math.round(Math.max(0, Math.min(1, raw)) * 100) / 100;
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      writeFileSync(
+        file,
+        setNoteVelocity(text, k, t, v === 1 ? undefined : v),
+        "utf8",
+      );
+    } catch (e) {
+      h.log([`sequence note velocity: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([`${seqId}: ${noteStr} (k${k}) at ${fmtBeat(t)} → velocity ${v}`]);
     await h.reload();
   },
 

@@ -61,6 +61,7 @@ matches before changing it:
 | `chainsGraph.md` | the chains renderer and its camera rules |
 | `timeline.md` | the keyboard-driven arrangement view |
 | `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
+| `clipEditors.md` | the piano roll and the waveform over one event — and the loop marks they share |
 | `commandBar.md` | the step-by-step palette and module picker |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |

@@ -276,6 +276,10 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
         time: n.time,
         duration: n.duration,
         key: n.key,
+        // Only when the file SAID one: the compiler defaults `vel` to 1, and passing that through
+        // would make every note look explicitly full — which is what a roll's velocity line has to
+        // tell apart from a note that states nothing. See WebNote.
+        ...(n.vel !== undefined && n.vel !== 1 ? { vel: n.vel } : {}),
       })),
     })),
     plugins: t.plugins.map((pl) => ({

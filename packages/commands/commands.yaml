@@ -366,6 +366,25 @@
       { name: end, type: number, hint: "beats — end − start is the note's length" },
     ]
 
+# Set one note's VELOCITY, addressing it the way the roll does: by key and by where it
+# starts. 0..1, as the file states it — `1` clears the field rather than writing the
+# schema's own default back into a file that never mentioned it. The piano roll's
+# velocity drag runs this on release.
+- command: "sequence note velocity"
+  sid: sequence.noteVelocity
+  readable:
+    en: "Set a note's velocity"
+    fr: "Régler la vélocité d'une note"
+  help: "set one note's velocity, 0..1 (e.g. sequence note velocity melody C4 4 0.7)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "beats from the start of the sequence" },
+      { name: velocity, type: number, hint: "0..1 — 1 clears the field" },
+    ]
+
 # Append a batch of already-timed notes to a sequence — the commit half of the web
 # editor's MIDI recording. `notes` is a JSON array of {t,d,k,v?} in clip-local beats.
 # Programmatic (the recorder builds the payload), so it's on the CLI mostly for parity.

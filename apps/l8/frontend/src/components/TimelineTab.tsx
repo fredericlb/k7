@@ -215,6 +215,66 @@ function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
   );
 }
 
+/**
+ * Which attribute set a lane is playing, in its gutter — drawn only when it HAS a choice.
+ *
+ * The caller passes an entry or nothing, so "more than one" is already decided upstream: the
+ * graph only carries the pair past a list of one (packages/song/docs/alternatives.md), and a
+ * lane with a single set should grow no badge.
+ *
+ * The first set's name IS "1" — the module's own fields have nowhere to carry a name — so one
+ * label says the number or the name without choosing between them. It is amber only when the
+ * lane is AWAY from that first set, which is the state you must be able to read off the row:
+ * otherwise a lane playing a variant of its clips looks like clips gone missing.
+ *
+ * Clicking opens the lane's ⋮ menu — the one the chains pane opens on that same node, so
+ * switching and creating are one behaviour with one implementation rather than two. It is handed
+ * the button's own rectangle rather than the pointer, so the menu hangs off the badge whether it
+ * was reached by mouse or by keyboard.
+ */
+function LaneAlternative({
+  track,
+  names,
+  current,
+  onOpen,
+}: {
+  track: string;
+  names: string[];
+  current: string;
+  onOpen: (at: { x: number; y: number }) => void;
+}) {
+  const away = current !== names[0];
+  const title = `${track}: alternative '${current}' of ${names.length} — ${names.join(", ")}. Click to switch or add one.`;
+  return (
+    <button
+      type="button"
+      aria-haspopup="menu"
+      // The gutter is too narrow to repeat the lane's name, so the tooltip carries it.
+      title={title}
+      aria-label={title}
+      // As the m/s/a buttons do: the gutter is the row's handle, and opening this must not also
+      // move the caret, select the row, or (on a double tap) send the other panes after it.
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        const r = e.currentTarget.getBoundingClientRect();
+        onOpen({ x: r.left, y: r.bottom + 2 });
+        // Or the next Space re-opens this menu instead of rolling the transport — see blurOnClick.
+        blurOnClick(e);
+      }}
+      className={cn(
+        "shrink-0 rounded-sm px-1 font-mono text-[9px] leading-none",
+        away
+          ? "bg-amber-400/20 text-amber-400 hover:bg-amber-400/30"
+          : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+    >
+      {current}
+    </button>
+  );
+}
+
 // Every tick drawn between the view's edges, from the ruler's ORIGIN rather than from the
 // first visible one — the ruler and the grid both walk this, and computing it twice from one
 // formula is what stops them drifting apart as you pan.
@@ -610,6 +670,8 @@ export function TimelineTab({
   onFocusRow,
   trackControls,
   onTrackToggle,
+  laneNodes,
+  onNodeMenu,
   ref,
 }: {
   active: boolean;
@@ -690,6 +752,37 @@ export function TimelineTab({
   // Per-track mute/solo/arm by track id — the same state the graph's track nodes draw, so the two stay in lockstep.
   trackControls?: Record<string, { mute: number; solo: number; arm: number }>;
   onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
+  /**
+   * What the graph knows about each lane's NODE, by lane id: its other attribute sets, and its
+   * freeze. `alternatives` carries an entry only for a lane that HAS a choice.
+   *
+   * From the graph, by way of the shell, because both belong to the module a lane IS and this
+   * pane reads the compiled project rather than the routing model. The same maps the chains
+   * pane's lane nodes draw from, so neither surface can name a set the other does not.
+   * See packages/song/docs/alternatives.md.
+   */
+  laneNodes?: {
+    alternatives?: Record<
+      string,
+      { alternatives: string[]; alternative: string }
+    >;
+    frozen?: Record<string, "at" | "inside">;
+  };
+  /**
+   * Open a lane's ⋮ menu at a point — switch or add an alternative, freeze or thaw.
+   *
+   * The shell's, not this pane's: it is the same menu the chains graph opens on the same node,
+   * and it is the shell that owns turning a pick into a command or a half-typed bar line.
+   */
+  onNodeMenu?: (
+    n: {
+      module?: string;
+      alternatives?: string[];
+      alternative?: string;
+      frozen?: "at" | "inside";
+    },
+    at: { x: number; y: number },
+  ) => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
   // The ONE live value the body itself needs, and it changes on a keystroke rather than on a
@@ -2302,6 +2395,8 @@ export function TimelineTab({
             const { track: t, index: ti } = row;
             const eff = effOf(t);
             const armed = armedIds.includes(t.id);
+            // Present only for a lane with a CHOICE of attribute sets — see LaneAlternative.
+            const alt = laneNodes?.alternatives?.[t.id];
             // M/S/A states: the graph's live trackControls when available, else the doc's own values. Arm is always the engine's.
             const ctl = trackControls?.[t.id];
             const msa: [string, "mute" | "solo" | "arm", boolean, string][] = [
@@ -2349,9 +2444,6 @@ export function TimelineTab({
                     labelled && LABEL_SELECTED,
                   )}
                 >
-                  {/* The alternative picker was here. Alternatives are gone with the field
-                      they read, to be replaced by another mechanism later — see
-                      packages/song/docs/trackModules.md. */}
                   {/* Both live meters, subscribing for themselves — see LaneMeter. */}
                   <LaneMeter index={ti} armed={armed} />
                   {/* The instrument its name's prefix asks for ("ge.lead" → a strat),
@@ -2381,6 +2473,29 @@ export function TimelineTab({
                       // A coloured icon is the track's identity and holds full strength; an uncoloured one is decoration and sits back.
                       className={cn("shrink-0", !t.color && "opacity-70")}
                     />
+                    {/* Which of its attribute sets this lane is playing, right of the icon and
+                        before the name: it belongs to the lane's identity, and `shrink-0` next to
+                        a truncating label means a narrow gutter eats the name, not this. */}
+                    {alt && onNodeMenu && (
+                      <LaneAlternative
+                        track={t.name}
+                        names={alt.alternatives}
+                        current={alt.alternative}
+                        onOpen={(at) =>
+                          onNodeMenu(
+                            {
+                              // A lane IS a module node, so it is addressable as one — the id is
+                              // the name its file carries. See packages/song/docs/trackModules.md.
+                              module: t.id,
+                              alternatives: alt.alternatives,
+                              alternative: alt.alternative,
+                              frozen: laneNodes?.frozen?.[t.id],
+                            },
+                            at,
+                          )
+                        }
+                      />
+                    )}
                     {/* The label alone: the position is already said by where the row
                         sits, and the instrument by the icon left of it. Repeating
                         "3.ge." in the text spends the gutter's width on what the row

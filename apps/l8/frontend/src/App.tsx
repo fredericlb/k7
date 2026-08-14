@@ -384,6 +384,17 @@ export default function App({
    */
   const [showDocs, setShowDocs] = useState(false);
   const [docCount, setDocCount] = useState(0);
+  /**
+   * What the graph knows about each lane's node: its other attribute sets, and its freeze.
+   *
+   * It travels the same way `docCount` does, and for the same reason — the graph is fetched by
+   * the chains pane, and this is wanted in the timeline's gutter. Both halves are empty for
+   * nearly every project, and the whole thing is empty until that pane has a graph.
+   */
+  const [laneNodes, setLaneNodes] = useState<{
+    alternatives: WebGraph["trackAlternatives"];
+    frozen: WebGraph["frozen"];
+  }>({ alternatives: undefined, frozen: undefined });
 
   // A take starts rolling (record enabled AND the transport playing): show it. It is deliberately
   // one-way — the pane STAYS when the take ends, because what you just played is exactly what you
@@ -2546,6 +2557,10 @@ export default function App({
                     onFocusRow={focusRowInPanes}
                     trackControls={trackControls}
                     onTrackToggle={onTrackToggle}
+                    laneNodes={laneNodes}
+                    // The lane's ⋮ menu, opened from the gutter badge — the SAME one the chains
+                    // pane opens on a lane's node, since a lane IS that module.
+                    onNodeMenu={openNodeMenu}
                   />
                 </div>
               )}
@@ -2606,6 +2621,7 @@ export default function App({
                     // is fetched here. See where `showDocs` is declared.
                     showDocs={showDocs}
                     onDocCount={setDocCount}
+                    onLaneNodes={setLaneNodes}
                     pluginParamsStore={pluginParamsStore}
                     requestPluginParams={requestPluginParams}
                     watchPluginParams={watchPluginParams}
@@ -2637,6 +2653,13 @@ export default function App({
                   <ClipView
                     target={graphSlot.target}
                     onClose={() => setGraphSlot(null)}
+                    // The roll's velocity drag, committed the way the timeline's clip drag is: one
+                    // command on release, and the reload it ends in brings the new value back.
+                    onSetVelocity={(seqId, key, start, vel) =>
+                      void runCommand(
+                        `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
+                      )
+                    }
                   />
                 )}
                 {/* One lane's whole signal path, read left to right. `moduleRow` lays it out —

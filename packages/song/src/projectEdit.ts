@@ -5,11 +5,17 @@
 
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { loadModules, splitModuleKey } from "@studio/song/loader";
+import {
+  loadModuleRefs,
+  loadModules,
+  splitModuleKey,
+} from "@studio/song/loader";
 import { parse as parseYaml } from "yaml";
 import { currentAlternative } from "./alternatives";
 import { sharedRoots } from "./moduleFork";
+import { resolveModule } from "./moduleResolve";
 import type { OnsetEdits } from "./onsets";
+import { isTrack } from "./trackModule";
 import {
   addAlternative,
   alternativeNames,
@@ -151,16 +157,29 @@ export function selectModuleAlternative(
   return editModuleFile(dir, module, (text) => setAlternative(text, name));
 }
 
-/** Add one and switch to it — empty, or a copy of the set that is on. Answers the name it got. */
+/**
+ * Add one and switch to it — empty, or a copy of the set that is on. Answers the name it got.
+ *
+ * A LANE's empty one is empty of PLACEMENTS (`blankClips`), because a new take that opens holding
+ * the previous take's clips is not a new take. Resolved here and not in the document editor: the
+ * question is what this module extends, and the vocabulary to answer it lives on this side.
+ */
 export function newModuleAlternative(
   dir: string,
   module: string,
   name?: string,
   opts: { copy?: boolean } = {},
 ): { path: string; name: string } {
+  // RESOLVED, not as loaded: `loadModules` hands back the node with its `extends` still a string,
+  // and `kind: "track"` lives on the built-in it extends. Both reads are memoised on the module
+  // folders' stamp, so this costs a directory walk and not a re-read. A name that resolves to
+  // nothing simply is not a lane, which leaves the old behaviour.
+  const node = loadModules(dir)[module];
+  const blankClips =
+    !!node && isTrack(resolveModule(node, loadModuleRefs(dir)));
   let chosen = name ?? "";
   const path = editModuleFile(dir, module, (text) => {
-    const made = addAlternative(text, name, opts);
+    const made = addAlternative(text, name, { ...opts, blankClips });
     chosen = made.name;
     return made.text;
   });
