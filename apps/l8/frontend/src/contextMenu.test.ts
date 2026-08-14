@@ -301,9 +301,14 @@ describe("the ruler and its markers", () => {
 });
 
 describe("the menu's contract", () => {
-  it("carries a label, a line, and whether the line is finished — nothing else", () => {
+  it("carries a label, a line, the verb behind it, and whether the line is finished — nothing else", () => {
     // No handlers, no ids to dispatch on: every entry is text the bar could have been typed into,
     // which is what stops the menu growing a vocabulary of its own.
+    //
+    // `verb` is the fourth and is still text: the command WITHOUT the entity, untranslated. It is
+    // what `commandPrefs` is keyed by, so it is what lets the renderer draw the icon and the name
+    // this person chose — and keeping it here rather than re-deriving it from `command` means the
+    // menu never has to un-localize a line to find out which command it is.
     for (const ctx of [
       { kind: "track", id: "gtr" },
       { kind: "module", id: "lead" },
@@ -314,10 +319,13 @@ describe("the menu's contract", () => {
         expect(typeof item.command).toBe("string");
         expect(item.command.length).toBeGreaterThan(0);
         expect(item.label.length).toBeGreaterThan(0);
+        expect(typeof item.verb).toBe("string");
+        expect(item.command.startsWith(item.verb)).toBe(true);
         expect(Object.keys(item).sort()).toEqual([
           "command",
           "complete",
           "label",
+          "verb",
         ]);
       }
   });
@@ -348,6 +356,9 @@ describe("the menu's contract", () => {
         label: "open the track's own file, tracks/<id>.yaml",
         command: "ui file gtr",
         complete: true,
+        // The verb without the entity — `ui file`, not `ui file gtr`. Two entries for the same
+        // verb on two different tracks are one command, and wear one icon.
+        verb: "ui file",
       },
     ]);
   });

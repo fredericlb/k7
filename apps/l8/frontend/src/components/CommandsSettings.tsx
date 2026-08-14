@@ -22,8 +22,8 @@ import {
   orderCommands,
   setCommandPref,
 } from "../commandPrefs";
+import { useIcons } from "../lucideIcons";
 import type { PaletteCommand } from "./CommandBar";
-import { iconByName } from "./IconPicker";
 
 // The whole lucide set is ~1500 components; importing it as a namespace defeats the tree-shaking
 // every other icon import here relies on. Lazy, so that cost is paid when this screen opens and
@@ -45,6 +45,9 @@ export function CommandsSettings({
 }) {
   const [entity, setEntity] = useState<string>("");
   const [q, setQ] = useState("");
+  // Shared with the context menus, so this page and they resolve a name the same way — and the
+  // set is fetched once for both. Null for the first frames, which shows an empty icon button.
+  const icons = useIcons();
   const entities = useMemo(() => entitiesOf(commands), [commands]);
 
   // Ordered FIRST, then filtered — so the arrows move a command against the whole arrangement and
@@ -110,7 +113,8 @@ export function CommandsSettings({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {shown.map((c) => {
-          const Icon = iconByName(prefs[c.canonical]?.icon);
+          const name = prefs[c.canonical]?.icon;
+          const Icon = name ? icons?.[name] : undefined;
           const touched = !!prefs[c.canonical];
           return (
             <div

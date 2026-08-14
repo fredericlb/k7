@@ -1869,16 +1869,19 @@ export default function App({
           label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
           command: `module alternative select ${module} ${name}`,
           complete: true,
+          verb: "module alternative select",
         })),
         {
           label: "New alternative…",
           command: `module alternative create ${module} `,
           complete: false,
+          verb: "module alternative create",
         },
         {
           label: "Copy this one…",
           command: `module alternative copy ${module} `,
           complete: false,
+          verb: "module alternative copy",
         },
         // Freeze. One entry, and it runs on the click: the command is a toggle, and which way it
         // will go is exactly what the label says. A node INSIDE somebody else's render is offered
@@ -1895,6 +1898,7 @@ export default function App({
                     : "Freeze (bake everything upstream)",
                 command: `module freeze ${module}`,
                 complete: true,
+                verb: "module freeze",
               },
             ]),
       ];
@@ -3218,6 +3222,8 @@ export default function App({
         {menu && (
           <ContextMenu
             items={menu.items}
+            // The icons and names this person chose, from `ui settings commands`.
+            prefs={commandPrefs}
             x={menu.x}
             y={menu.y}
             onPick={pickMenuItem}

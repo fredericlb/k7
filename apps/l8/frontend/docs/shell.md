@@ -733,11 +733,25 @@ another browser, where which audio interface to open belongs to the machine. `L8
 `EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
 writing this cannot wipe the engine id beside it.
 
+**Context menus draw those icons.** `MenuItem` gained a `verb` — the command WITHOUT the entity and
+untranslated (`module bypass`, not `bypasser gtr`) — which is exactly what the prefs are keyed by.
+Kept as a field rather than re-derived from `command`, so a menu never has to un-localize a line to
+find out which command it is; and two entries for one verb on two different tracks are one command
+wearing one icon. `contextMenu.ts` stays a pure function of the catalogue and the thing clicked:
+the person's layer is applied by the RENDERER, because an arrangement is a matter of who is
+looking and not of what an entry means. The icon gutter is held whether or not there is an icon —
+a half-decorated menu with a ragged left edge reads as a rendering fault.
+
 The icons are **lucide**, already this app's icon set, so nothing new was added to the project.
-What is new is importing it as a NAMESPACE: everywhere else picks icons by name and is tree-shaken
-to those, while a picker has to know all ~1500. That defeats the shaking, which is why
-`IconPicker` is reached only through `React.lazy` — this screen pays it on open, and the app's
-first paint does not.
+What is new is resolving one BY NAME, which cannot be tree-shaken: everywhere else imports the
+icons it draws, while "whatever the person chose" is not known at build time. So `lucideIcons.ts`
+loads the set **dynamically, once, cached** — the app's first paint pays nothing, the first surface
+wanting an icon pays one chunk, everything after it is synchronous. A menu opened before that lands
+draws its labels and no icons, which is the honest degradation: the label is what an entry MEANS,
+the icon is how you recognise it faster the second time.
+
+The alternative was a curated subset, statically imported: instant, bounded, and offering two
+hundred icons where the ask was a complete library. That is the trade this made the other way.
 
 ### The `ui` namespace
 

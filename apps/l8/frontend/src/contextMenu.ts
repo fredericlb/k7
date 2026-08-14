@@ -54,6 +54,16 @@ export interface MenuItem {
   label: string;
   command: string;
   complete: boolean;
+  /**
+   * The VERB this entry stands for — `module bypass`, `event remove` — without the entity it was
+   * built for, and untranslated.
+   *
+   * That string is exactly what `commandPrefs` is keyed by, so it is what lets the renderer draw
+   * the icon and the name this person chose. Kept apart from `command`, which carries the entity
+   * and is localized: two menu entries for the same verb on two different tracks are the same
+   * command wearing the same icon.
+   */
+  verb: string;
 }
 
 /**
@@ -126,6 +136,7 @@ const build = (commands: CommandInfo[], entries: Entry[]): MenuItem[] =>
       label: readable(help) || localizeCommand(e.verb),
       command: localizeCommandLine(line) + (e.needsMore ? " " : ""),
       complete: !e.needsMore,
+      verb: e.verb,
     };
   });
 

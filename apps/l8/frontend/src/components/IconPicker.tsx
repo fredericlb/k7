@@ -7,33 +7,8 @@
 // it when it opens, and nobody else pays it at all.
 
 import { Input } from "@frediverse/ui/input";
-import * as lucide from "lucide-react";
-import { type ComponentType, useMemo, useState } from "react";
-
-type IconComponent = ComponentType<{ className?: string }>;
-
-/** Every exported icon, by name. Filtered to real components: the module also exports helpers,
- *  the `icons` map and a few aliases, and a picker offering `createLucideIcon` would be absurd. */
-function allIcons(): [string, IconComponent][] {
-  return Object.entries(lucide as Record<string, unknown>)
-    .filter(
-      ([name, v]) =>
-        /^[A-Z]/.test(name) &&
-        !name.endsWith("Icon") && // the aliased duplicates of every name
-        (typeof v === "function" || typeof v === "object"),
-    )
-    .map(([name, v]) => [name, v as IconComponent]);
-}
-
-/** One icon by name, or null — what a menu row draws beside a command. Exported because the
- *  settings list and any menu consuming the prefs need the same lookup. */
-export function iconByName(name: string | undefined): IconComponent | null {
-  if (!name) return null;
-  const v = (lucide as Record<string, unknown>)[name];
-  return typeof v === "function" || (v && typeof v === "object")
-    ? (v as IconComponent)
-    : null;
-}
+import { useMemo, useState } from "react";
+import { useIcons } from "../lucideIcons";
 
 export default function IconPicker({
   value,
@@ -43,7 +18,8 @@ export default function IconPicker({
   onPick: (name: string | undefined) => void;
 }) {
   const [q, setQ] = useState("");
-  const icons = useMemo(allIcons, []);
+  const set = useIcons();
+  const icons = useMemo(() => Object.entries(set ?? {}), [set]);
   const needle = q.trim().toLowerCase();
   // Capped: two hundred rows is already more than anyone scans, and rendering fifteen hundred
   // SVGs into a popover is a visible pause on every keystroke.

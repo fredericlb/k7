@@ -4,16 +4,26 @@
 // openContextMenu. Dismisses on Escape, an outside click, a scroll, or losing focus.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CommandPrefs } from "../commandPrefs";
 import type { MenuItem } from "../contextMenu";
+import { useIcons } from "../lucideIcons";
 
 export function ContextMenu({
   items,
+  prefs,
   x,
   y,
   onPick,
   onClose,
 }: {
   items: MenuItem[];
+  /**
+   * This person's layer over the catalogue: the icon each command wears, and the name they gave
+   * it. Applied HERE rather than in `contextMenu.ts`, which stays a pure function of the
+   * catalogue and the thing clicked — the arrangement is a matter of who is looking, not of what
+   * the entry means.
+   */
+  prefs: CommandPrefs;
   x: number; // viewport coords of the click
   y: number;
   // The WHOLE item, not its line: whether every argument is already filled decides whether the
@@ -21,6 +31,10 @@ export function ContextMenu({
   onPick: (item: MenuItem) => void;
   onClose: () => void;
 }) {
+  // Null until the set lands. A menu opened first thing draws its labels and no icons, which is
+  // the honest degradation: the label is what an entry MEANS, the icon is how you recognise it
+  // faster the second time. Cached after that, so every menu since is synchronous.
+  const icons = useIcons();
   const ref = useRef<HTMLDivElement>(null);
   // Start at the click, then clamp into the viewport once we can measure the menu.
   const [pos, setPos] = useState({ x, y });
@@ -69,30 +83,47 @@ export function ContextMenu({
       className="fixed z-50 max-h-[70vh] min-w-[13rem] max-w-[34rem] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       role="menu"
     >
-      {items.map((it) => (
-        <button
-          key={it.command}
-          type="button"
-          role="menuitem"
-          title={
-            it.complete ? `runs: ${it.command}` : `fills the bar: ${it.command}`
-          }
-          onClick={() => {
-            onPick(it);
-            onClose();
-          }}
-          className="flex w-full items-baseline justify-between gap-6 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
-        >
-          {/* What it DOES leads. The line stays beside it, muted, because hiding what a pick is
-              about to run — or write into the bar — is opaque. The trailing … is the difference
-              between the two: an item still owing an argument asks for it, the rest just go. */}
-          <span className="min-w-0 flex-1">{it.label}</span>
-          <span className="shrink-0 truncate font-mono text-xs text-muted-foreground">
-            {it.command.trimEnd()}
-            {it.complete ? "" : " …"}
-          </span>
-        </button>
-      ))}
+      {items.map((it) => {
+        const pref = prefs[it.verb];
+        const Icon = pref?.icon ? icons?.[pref.icon] : undefined;
+        return (
+          <button
+            key={it.command}
+            type="button"
+            role="menuitem"
+            title={
+              it.complete
+                ? `runs: ${it.command}`
+                : `fills the bar: ${it.command}`
+            }
+            onClick={() => {
+              onPick(it);
+              onClose();
+            }}
+            className="flex w-full items-center justify-between gap-6 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
+          >
+            {/* What it DOES leads, behind the icon this person gave it. The line stays beside it,
+              muted, because hiding what a pick is about to run — or write into the bar — is
+              opaque. The trailing … is the difference between the two: an item still owing an
+              argument asks for it, the rest just go.
+
+              The gutter is held whether or not there IS an icon, so the labels of a half-decorated
+              menu still line up — a ragged left edge reads as a rendering fault. */}
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                {Icon ? <Icon className="h-4 w-4" /> : null}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {pref?.label?.trim() || it.label}
+              </span>
+            </span>
+            <span className="shrink-0 truncate font-mono text-xs text-muted-foreground">
+              {it.command.trimEnd()}
+              {it.complete ? "" : " …"}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
