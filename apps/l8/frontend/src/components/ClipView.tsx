@@ -1,4 +1,4 @@
-// ClipView.tsx — a clip's CONTENT: the waveform for audio, the piano roll for MIDI, and for a
+﻿// ClipView.tsx — a clip's CONTENT: the waveform for audio, the piano roll for MIDI, and for a
 // live sequence FILE the roll of the notes parsed out of its text. Both views draw their own
 // header and close button. Two hosts mount it — the Editor bottom panel, and the graph slot
 // when a clip is clicked in the timeline (see docs/shell.md).
@@ -41,6 +41,7 @@ function SeqRoll({
   content,
   onCreateNote,
   onSetVelocity,
+  onSetNoteRange,
 }: {
   path: string;
   content: string;
@@ -50,6 +51,15 @@ function SeqRoll({
     key: number,
     startBeat: number,
     vel: number,
+  ) => void;
+  /** Move or stretch a note (`sequence note timerange`) — the same shape with one argument more:
+   *  where it starts NOW, then where it should start and end. */
+  onSetNoteRange?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+    newStart: number,
+    newEnd: number,
   ) => void;
 }) {
   const [project, setProject] = useState<WebProject | null>(null);
@@ -96,6 +106,11 @@ function SeqRoll({
         onSetVelocity={
           onSetVelocity ? (k, t, v) => onSetVelocity(name, k, t, v) : undefined
         }
+        onSetNoteRange={
+          onSetNoteRange
+            ? (k, t, ns, ne) => onSetNoteRange(name, k, t, ns, ne)
+            : undefined
+        }
       />
     </div>
   );
@@ -106,6 +121,7 @@ export function ClipView({
   onClose,
   onCreateNote,
   onSetVelocity,
+  onSetNoteRange,
 }: {
   target: EditTarget;
   onClose: () => void;
@@ -117,6 +133,15 @@ export function ClipView({
     key: number,
     startBeat: number,
     vel: number,
+  ) => void;
+  /** Move or stretch a note (`sequence note timerange`) — the same shape with one argument more:
+   *  where it starts NOW, then where it should start and end. */
+  onSetNoteRange?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+    newStart: number,
+    newEnd: number,
   ) => void;
 }) {
   const clip = target.kind === "seq" ? null : target.clip;
@@ -133,6 +158,7 @@ export function ClipView({
           content={target.content}
           onCreateNote={onCreateNote}
           onSetVelocity={onSetVelocity}
+          onSetNoteRange={onSetNoteRange}
         />
       ) : clip?.type === "midi" ? (
         <PianoRoll
@@ -146,6 +172,11 @@ export function ClipView({
           onSetVelocity={
             onSetVelocity
               ? (k, t, v) => onSetVelocity(seqId, k, t, v)
+              : undefined
+          }
+          onSetNoteRange={
+            onSetNoteRange
+              ? (k, t, ns, ne) => onSetNoteRange(seqId, k, t, ns, ne)
               : undefined
           }
         />

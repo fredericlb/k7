@@ -96,6 +96,7 @@ import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
 import {
   appendNotes,
   isPlayableNote,
+  setNoteTimeRange,
   setNoteVelocity,
 } from "@studio/song/yaml/sequenceFile";
 import {
@@ -1236,6 +1237,67 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * 1 CLEARS the field instead of writing the schema's own default into a file that never mentioned
    * it — the same rule `alternative:` follows going back to the first set.
    */
+  /**
+   * sequence note timerange <sequence> <note> <start> <newStart> <newEnd> — move a note, stretch
+   * it, or both.
+   *
+   * One verb for the two gestures, because on the roll they are one gesture with two grips: the
+   * body moves the note, an edge stretches it. Two verbs would be two answers to "which note is
+   * this", and they would eventually disagree. The note is addressed by key and by where it starts
+   * NOW, exactly as the velocity drag addresses it — a pitch and a place are what a roll can point
+   * at, and a note has no id of its own.
+   *
+   * The file states a LENGTH, so the subtraction happens here: the caller says where the note
+   * should end, which is what it dragged, and nothing downstream has to work out whether the end
+   * moved because the note grew or because it slid.
+   */
+  "sequence.noteTimeRange": async (arg, h) => {
+    const [seqId, noteStr, startStr, newStartStr, newEndStr] = arg
+      .trim()
+      .split(/\s+/);
+    if (!seqId || !noteStr || !startStr || !newStartStr || !newEndStr) {
+      h.log([
+        "usage: sequence note timerange <sequence> <note> <start> <newStart> <newEnd>",
+      ]);
+      return;
+    }
+    const k = parseMidiNote(noteStr);
+    if (k === null) {
+      h.log([
+        `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const [t, nt, ne] = [startStr, newStartStr, newEndStr].map(Number);
+    if (![t, nt, ne].every(Number.isFinite)) {
+      h.log(["start, newStart and newEnd must be numbers (beats)"]);
+      return;
+    }
+    if (ne <= nt) {
+      h.log([`a note has to end after it starts — ${nt} → ${ne} is nothing`]);
+      return;
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      h.snapshot?.(file);
+      writeFileSync(file, setNoteTimeRange(text, k, t, nt, ne - nt), "utf8");
+    } catch (e) {
+      h.log([`sequence note timerange: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([
+      `${seqId}: ${noteStr} (k${k}) ${fmtBeat(t)} → ${fmtBeat(nt)}, length ${fmtBeat(ne - nt)}`,
+    ]);
+    await h.reload();
+  },
+
   "sequence.noteVelocity": async (arg, h) => {
     const [seqId, noteStr, startStr, velStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined || velStr === undefined) {

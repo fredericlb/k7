@@ -67,6 +67,37 @@ export function findNote(text: string, k: number, t: number): number {
 }
 
 /**
+ * Move one note and/or change its length — what the roll's note drag writes.
+ *
+ * ONE writer for both, because on the roll they are one gesture with two grips: dragging the body
+ * moves `t` and keeps `d`, dragging an edge keeps `t` and changes `d`. A `noteMove` and a
+ * `noteResize` would be two verbs that must agree about how a note is addressed, and the second
+ * one would eventually disagree.
+ *
+ * The note is found by its key and its CURRENT start, exactly as the velocity drag finds it — a
+ * pitch and a place are what a roll can point at, and a note has no id of its own.
+ *
+ * `d` is a LENGTH, not an end: the file states it that way and the caller does the subtraction,
+ * so nothing here has to know whether the end moved because the note grew or because it slid.
+ */
+export function setNoteTimeRange(
+  text: string,
+  k: number,
+  t: number,
+  newT: number,
+  newD: number,
+): string {
+  const at = findNote(text, k, t);
+  if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
+  if (!(newD > 0)) throw new Error("a note has to be longer than nothing");
+  if (newT < 0) throw new Error("a note cannot start before the sequence does");
+  const doc = parseDocument(text, OPTS);
+  doc.setIn(["notes", at, "t"], newT);
+  doc.setIn(["notes", at, "d"], newD);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/**
  * Set one note's velocity — what the roll's velocity drag writes.
  *
  * `undefined` CLEARS the key rather than writing `v: 1`, so a note dragged back to full loses the

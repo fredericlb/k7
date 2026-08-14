@@ -2823,6 +2823,14 @@ export default function App({
                         `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
                       )
                     }
+                    // …and the note drag, the same way: one command on release, exactly as the
+                    // timeline's clip drag runs `event move`. Move and stretch are one verb,
+                    // because on the roll they are one gesture with two grips.
+                    onSetNoteRange={(seqId, key, start, ns, ne) =>
+                      void runCommand(
+                        `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
+                      )
+                    }
                   />
                 )}
                 {/* One lane's whole signal path, read left to right. `moduleRow` lays it out —

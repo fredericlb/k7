@@ -409,6 +409,27 @@
       { name: velocity, type: number, hint: "0..1 — 1 clears the field" },
     ]
 
+# Move a note and/or change its length, addressing it the way the roll does: by key and by where
+# it starts NOW. One verb for both, because on the roll they are one gesture with two grips —
+# dragging the body moves it, dragging an edge stretches it — and two verbs would be two answers
+# to "which note is this" that must agree for ever. The piano roll's note drag runs this on
+# release, like the timeline's clip drag runs `event move`.
+- command: "sequence note timerange"
+  sid: sequence.noteTimeRange
+  readable:
+    en: "Move a note or change its length"
+    fr: "Déplacer une note ou changer sa longueur"
+  help: "move/stretch one note (e.g. sequence note timerange melody C4 4 4.5 6)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "where it starts NOW, in beats" },
+      { name: newStart, type: number, hint: "where it should start, in beats" },
+      { name: newEnd, type: number, hint: "where it should end — end − start is its length" },
+    ]
+
 # Append a batch of already-timed notes to a sequence — the commit half of the web
 # editor's MIDI recording. `notes` is a JSON array of {t,d,k,v?} in clip-local beats.
 # Programmatic (the recorder builds the payload), so it's on the CLI mostly for parity.

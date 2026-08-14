@@ -1,4 +1,4 @@
-// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip, opening ZOOMED TO FIT its notes and the
+﻿// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip, opening ZOOMED TO FIT its notes and the
 // loop window that frames them, without being bounded by either: all 128 keys exist and the canvas
 // runs to the clip's placed extent (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note
 // (press = pitch + start, release = end) via `sequence note new`; a pinch zooms time, a plain wheel
@@ -22,6 +22,9 @@ const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(pc(k));
 const N_NOTES = 128; // every possible MIDI note (0..127)
 const PX_PER_BEAT = 24; // fallback beat width for the first, unmeasured frame only
 const GUTTER = 44; // note-name column, px
+// The shortest a stretch may leave a note. A 64th at any tempo — short enough to be a real
+// choice, long enough that a note dragged to nothing does not vanish from the roll it lives on.
+const MIN_NOTE_BEATS = 1 / 16;
 const RULER_H = 18; // bar/beat ruler height, px
 const KEYS = Array.from({ length: N_NOTES }, (_, i) => 127 - i); // high → low, top → bottom
 const clamp = (v: number, lo: number, hi: number) =>
@@ -33,6 +36,7 @@ export function PianoRoll({
   onClose,
   onCreateNote,
   onSetVelocity,
+  onSetNoteRange,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -47,6 +51,19 @@ export function PianoRoll({
    * line is still DRAWN then, because what a note is worth is worth reading either way.
    */
   onSetVelocity?: (key: number, startBeat: number, vel: number) => void;
+  /**
+   * Commit a note's new time range via `sequence note timerange` — where it starts NOW, then
+   * where it should start and end. Beats, the units the file states.
+   *
+   * Absent ⇒ notes cannot be moved or stretched, and the body's drag is velocity alone. The same
+   * arrangement `onSetVelocity` has: a host with nothing to write to passes nothing.
+   */
+  onSetNoteRange?: (
+    key: number,
+    startBeat: number,
+    newStart: number,
+    newEnd: number,
+  ) => void;
 }) {
   const notes = clip.notes;
   const barBeats = Math.max(1, project.timeSigNumerator || 4);
@@ -180,6 +197,37 @@ export function PianoRoll({
     vel: number;
     moved: boolean;
   }
+
+  /**
+   * --- drag a note's TIME RANGE ------------------------------------------------------
+   *
+   * The same press that sets velocity also moves and stretches, and WHICH of the three it is
+   * comes from the grip and then from the direction:
+   *
+   * - press within `EDGE_PX` of the note's right edge → stretch. An edge is a handle everywhere
+   *   else in this app (the waveform's slice, the timeline's event), so it is one here too.
+   * - press anywhere else → undecided until the pointer travels: mostly sideways moves the note,
+   *   mostly up/down sets its velocity. Deciding on the FIRST real movement rather than asking for
+   *   a modifier is what keeps the roll a one-handed instrument.
+   *
+   * Nothing is written until release, and a press that never travels writes nothing at all — a
+   * stray click on a note must not rewrite where it is or what it is worth.
+   */
+  const EDGE_PX = 6;
+  interface TDrag {
+    key: number;
+    time: number; // where it starts NOW — how the command addresses it
+    dur: number;
+    mode: "move" | "resize";
+    dBeats: number; // how far it has travelled, in beats
+  }
+  const [tDraw, setTDraw] = useState<TDrag | null>(null);
+  const tDrag = useRef<TDrag | null>(null);
+  // Which gesture this press became, once it has travelled far enough to say. The ref is the live
+  // one for the same reason the velocity drag's is: a command fired from a state updater runs
+  // twice under StrictMode.
+  const gesture = useRef<"pending" | "vel" | "time" | null>(null);
+  const pressAt = useRef<{ x: number; y: number } | null>(null);
   // The ref is the LIVE one and the state is only what to draw. The commit reads the ref, because
   // firing a command from inside a state updater would run it twice under StrictMode's double
   // invocation — a velocity written, then written again.
@@ -196,28 +244,91 @@ export function PianoRoll({
 
   const onNotePointerDown = (
     e: React.PointerEvent,
-    n: { key: number; time: number; vel?: number },
+    n: { key: number; time: number; duration: number; vel?: number },
   ) => {
-    if (e.button !== 0 || !onSetVelocity) return;
+    if (e.button !== 0 || (!onSetVelocity && !onSetNoteRange)) return;
     e.preventDefault();
     e.stopPropagation(); // not a new note: this press belongs to the one already here
     e.currentTarget.setPointerCapture(e.pointerId);
-    const d = { key: n.key, time: n.time, vel: n.vel ?? 1, moved: false };
-    vDrag.current = d;
-    setVDraw(d);
+    pressAt.current = { x: e.clientX, y: e.clientY };
+    // The right edge is a stretch handle, and it is claimed on the PRESS: a grip is a place, not
+    // a direction, so it does not wait to see which way the hand goes.
+    const right = e.currentTarget.getBoundingClientRect().right;
+    const onEdge = !!onSetNoteRange && right - e.clientX <= EDGE_PX;
+    const t: TDrag = {
+      key: n.key,
+      time: n.time,
+      dur: n.duration,
+      mode: onEdge ? "resize" : "move",
+      dBeats: 0,
+    };
+    tDrag.current = t;
+    const v = { key: n.key, time: n.time, vel: n.vel ?? 1, moved: false };
+    vDrag.current = v;
+    gesture.current = onEdge ? "time" : "pending";
+    if (onEdge) setTDraw(t);
   };
+
   const onNotePointerMove = (e: React.PointerEvent, top: number) => {
-    const d = vDrag.current;
-    if (!d) return;
-    const next = { ...d, vel: velAt(e.clientY, top), moved: true };
-    vDrag.current = next;
-    setVDraw(next);
+    if (!gesture.current) return;
+    const from = pressAt.current;
+    // Undecided until the press has actually travelled. 4px, the same threshold the waveform's
+    // pins use to tell a click from a drag.
+    if (gesture.current === "pending" && from) {
+      const dx = e.clientX - from.x;
+      const dy = e.clientY - from.y;
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      gesture.current =
+        Math.abs(dx) > Math.abs(dy) && onSetNoteRange ? "time" : "vel";
+      if (gesture.current === "vel" && !onSetVelocity) {
+        gesture.current = null;
+        return;
+      }
+    }
+    if (gesture.current === "vel") {
+      const d = vDrag.current;
+      if (!d) return;
+      const next = { ...d, vel: velAt(e.clientY, top), moved: true };
+      vDrag.current = next;
+      setVDraw(next);
+      return;
+    }
+    const d = tDrag.current;
+    if (!d || !from) return;
+    const next = { ...d, dBeats: (e.clientX - from.x) / Math.max(1, ppb) };
+    tDrag.current = next;
+    setTDraw(next);
   };
+
+  /**
+   * Commit whichever gesture this was.
+   *
+   * A resize keeps the start and moves the end; a move slides both and keeps the length. Both go
+   * through ONE command, because on the roll they are one gesture with two grips — see
+   * `sequence note timerange`.
+   *
+   * A move is clamped at zero rather than refused: dragging a note off the front of the sequence
+   * means "to the beginning", and a gesture that silently did nothing would read as a dead roll.
+   */
   const endVDrag = () => {
-    const d = vDrag.current;
+    const g = gesture.current;
+    const v = vDrag.current;
+    const t = tDrag.current;
+    gesture.current = null;
     vDrag.current = null;
+    tDrag.current = null;
+    pressAt.current = null;
     setVDraw(null);
-    if (d?.moved) onSetVelocity?.(d.key, d.time, d.vel);
+    setTDraw(null);
+    if (g === "vel" && v?.moved) onSetVelocity?.(v.key, v.time, v.vel);
+    if (g === "time" && t && Math.abs(t.dBeats) > 1e-6) {
+      const start = t.mode === "move" ? Math.max(0, t.time + t.dBeats) : t.time;
+      const end =
+        t.mode === "move"
+          ? start + t.dur
+          : Math.max(t.time + MIN_NOTE_BEATS, t.time + t.dur + t.dBeats);
+      onSetNoteRange?.(t.key, t.time, start, end);
+    }
   };
 
   const draftBox = draft
@@ -403,11 +514,29 @@ export function PianoRoll({
                     : (n.vel ?? 1);
                 // Where the velocity sits in the note: 0 at its bottom edge, 1 at its top.
                 const lineY = (1 - live) * (h - 1);
+                // Is THIS the note being moved or stretched, and where has it got to? Addressed
+                // the way the command addresses it — key and current start — so the draft cannot
+                // land on a different note than the write will.
+                const dragging =
+                  !!tDraw && tDraw.key === n.key && tDraw.time === n.time;
+                const drawStart =
+                  dragging && tDraw.mode === "move"
+                    ? Math.max(0, n.time + tDraw.dBeats)
+                    : n.time;
+                const drawDur = dragging
+                  ? tDraw.mode === "move"
+                    ? n.duration
+                    : Math.max(MIN_NOTE_BEATS, n.duration + tDraw.dBeats)
+                  : n.duration;
                 return (
                   <div
                     key={i}
                     title={`${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
-                      onSetVelocity ? " — drag up/down to change" : ""
+                      onSetVelocity ? " — drag up/down for velocity" : ""
+                    }${
+                      onSetNoteRange
+                        ? ", sideways to move, the right edge to stretch"
+                        : ""
                     }`}
                     onPointerDown={(e) => onNotePointerDown(e, n)}
                     onPointerMove={(e) => onNotePointerMove(e, top)}
@@ -416,14 +545,27 @@ export function PianoRoll({
                     className={cn(
                       "absolute overflow-hidden rounded-[1px]",
                       onSetVelocity && "cursor-ns-resize touch-none",
+                      // A move outranks the velocity cursor while one is happening: the pointer
+                      // should say which gesture it is IN, not which it could have started.
+                      dragging &&
+                        (tDraw?.mode === "resize"
+                          ? "cursor-ew-resize"
+                          : "cursor-grabbing"),
                     )}
                     style={{
                       top,
                       height: h,
-                      left: n.time * ppb,
+                      // The note follows the hand while it is the one being dragged, so the roll
+                      // shows where it will land before anything is written. Nothing is committed
+                      // until release — this is a picture, not an edit.
+                      left: (dragging ? drawStart : n.time) * ppb,
                       width: Math.max(
                         2,
-                        (n.duration > 0 ? n.duration : 0.25) * ppb,
+                        (dragging
+                          ? drawDur
+                          : n.duration > 0
+                            ? n.duration
+                            : 0.25) * ppb,
                       ),
                     }}
                   >
