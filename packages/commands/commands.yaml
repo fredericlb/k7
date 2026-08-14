@@ -655,6 +655,26 @@
 # there is nothing to send a value to. The graph's IN panel sends this when its `@monitor`
 # dropdown is picked. It may write the workspace's SHARED file, beside the `channel:` that
 # says which input it is: both describe the desk rather than the song.
+# Which interface input a live input listens on — one channel, or two for a stereo pair. A module
+# FIELD like `monitor` and written beside it, because both describe the desk rather than the song.
+# The graph's IN panel sends this from BOTH its dropdowns: the socket names the set, and the width
+# names the same set one channel wider or narrower — mono and stereo are not two settings, they are
+# how wide this one is. A pair is even/odd and nothing else: the interface groups no other way.
+- command: "module channel"
+  sid: module.channel
+  readable:
+    en: "Choose which interface input a live input listens on"
+    fr: "Choisir sur quelle entrée d'interface écoute une entrée live"
+  help: "set a live input's interface channel (`1`, or `1,2` for a stereo pair)"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      {
+        name: channels,
+        hint: "the interface channel, counted from 1 — or two of them for a stereo pair (`1,2`)",
+      },
+    ]
 - command: "module monitor"
   sid: module.monitor
   readable:

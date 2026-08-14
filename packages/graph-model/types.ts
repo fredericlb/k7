@@ -41,7 +41,10 @@ export interface WebWidget {
   pages?: Record<string, Record<string, WebWidget>>; // tabs only: named pages of sub-widgets
   source?: "input" | "output"; // waveform only: which audio tap to display
   // dropdown only: a discrete param's named settings with the value that selects each (not derivable from index).
-  options?: { label: string; value: number }[];
+  // `arg` is what a module FIELD is SET to when that differs from what the entry is called. A field
+  // is written by a command naming a state, and for most of them the state is the word on screen
+  // ("auto"). An input's socket is the exception: it shows "Input 1 + 2" and has to write `1,2`.
+  options?: { label: string; value: number; arg?: string }[];
   // dropdown only, and HISTORICAL: the older spelling of a filepicker, from when the files came
   // from a shared library. Read as one, so panels already written keep working.
   library?: string;
@@ -132,6 +135,16 @@ export interface WebChainStep {
   // io "in" only: whether the interface signal is audible. A module FIELD, not a param — which is why a widget
   // bound to it needs a target of its own (see widgetTarget's "module" kind).
   monitor?: "off" | "auto" | "on";
+  /**
+   * io "in" only: the interface channels this input listens on, 1-based — one for mono, two for a
+   * stereo pair. A module FIELD like `monitor`, and carried for the same reason: the node's panel
+   * offers a choice of socket, and it cannot show which one is CURRENT without being told.
+   *
+   * Only the numeric form travels. A `channel:` naming a preferences LABEL is the rig's own
+   * vocabulary and resolving it belongs to whoever holds the preferences, so an unresolved label
+   * arrives as absent — the panel then shows no selection rather than a wrong one.
+   */
+  channel?: number[];
   // Where this node's waveform widget listens. Normally its own plugin's output; an io "in" module has no
   // plugin at all, so it borrows the INPUT side of the first plugin on the lane it feeds — the same signal,
   // one step downstream. Absent ⇒ the widget falls back to `pluginId` + the widget's own `source`.

@@ -65,6 +65,7 @@ import {
   setClipOnsets,
   setModuleAsset,
   setModuleBypass,
+  setModuleChannel,
   setModuleFrozen,
   setModuleMonitor,
   setModuleParam,
@@ -1400,6 +1401,44 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * belongs with it: both describe the desk, not the song. Said out loud in the log, because it is the one thing
    * here that reaches past this project.
    */
+  /**
+   * module channel <module> <n>[,<n2>] — which interface input this live input listens on.
+   *
+   * A module FIELD like `monitor`, written into the module's own file and possibly the workspace's
+   * shared one, for the same reason: which socket a guitar is in describes the desk, not the song.
+   *
+   * One channel or two, and two only ever means a pair the interface actually groups — `findWaveInput`
+   * matches a device on its exact channel list, so a set the rig does not offer resolves to nothing and
+   * plays as silence. Nothing here can check that (the rig is the engine's to know); the graph's IN panel
+   * only ever offers sets that exist, and this refuses the shapes that could never be one.
+   */
+  "module.channel": async (a, h) => {
+    const usage =
+      "usage: module channel <module> <n>[,<n2>]  (e.g. module channel ge_rythm-in 1,2)";
+    const [module, spec] = a.trim().split(/\s+/).filter(Boolean);
+    if (!module || !spec) {
+      h.log([usage]);
+      return;
+    }
+    const channels = spec.split(",").map((s) => Number(s.trim()));
+    if (channels.some((n) => !Number.isInteger(n) || n < 1)) {
+      h.log([`'${spec}' is not a channel or a pair of them`, usage]);
+      return;
+    }
+    try {
+      const path = setModuleChannel(h.songPath, module, channels);
+      h.log([
+        `${module}: channel ${channels.join(", ")}` +
+          (relative(h.songPath, path).startsWith("..")
+            ? " — in the shared library, so every project beside this one sees it"
+            : ""),
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`module channel failed: ${(e as Error).message}`]);
+    }
+  },
+
   "module.monitor": async (a, h) => {
     const usage = "usage: module monitor <module> <off|auto|on>";
     const [module, state] = a.trim().split(/\s+/).filter(Boolean);

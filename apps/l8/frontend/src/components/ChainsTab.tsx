@@ -71,6 +71,7 @@ export function ChainsTab({
   focus,
   onFocused,
   alignModules,
+  inputDevices,
   midiRef,
   onMidiStatus,
 }: {
@@ -176,6 +177,10 @@ export function ChainsTab({
    * leaves the graph exactly as it lays out on its own.
    */
   alignModules?: readonly string[];
+  // How the machine's interface groups its inputs, for the socket dropdown a live input's node
+  // draws. Empty with no engine attached, and the node then shows its width and its monitoring
+  // and an empty list — which is the honest picture, not a broken one.
+  inputDevices?: readonly { name: string; channels: number[] }[];
   /**
    * Where the shell reaches MIDI learn from.
    *
@@ -361,13 +366,18 @@ export function ChainsTab({
     // there and its whole job is the level going out — so a node saying "OUT" would add a card,
     // an edge and a rank to every chain in the song to repeat what the shape already says.
     // The routing is untouched: this is the picture, and the engine reads the compiled doc.
-    const { nodes, edges } = buildGraph(drawn, { drawMainOut: false });
+    // …and the interface's inputs, which a live input's node draws its socket dropdown from. The one
+    // thing on a node that is not in the document: which inputs exist is the sound card's to say.
+    const { nodes, edges } = buildGraph(drawn, {
+      drawMainOut: false,
+      inputDevices,
+    });
     // The mixer view is an ARRANGEMENT of this same graph: same nodes, same cables. One rank
     // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
     // dagre would otherwise space them by whatever feeds them. See @studio/ui-chains.
     const row = alignModules ?? [];
     return spaceModulesEvenly(layout(alignModuleRank(nodes, row), edges), row);
-  }, [drawn, alignModules]);
+  }, [drawn, alignModules, inputDevices]);
 
   // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this
   // costs nothing and cannot move the picture under the pointer.

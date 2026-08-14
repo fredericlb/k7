@@ -57,6 +57,39 @@ A **video lane** gets one control. For picture, "mute" means hidden, and there i
 record arm, gain or pan to offer — a full strip there would be four controls that do
 nothing.
 
+## A live INPUT carries one too, and it had to
+
+`inputUI` gives an `io: in` node three dropdowns — its socket, its width, and its monitoring.
+Synthesised for the reason `TRACK_UI` and `rackUI` are (these are not the module's opinion but
+what it IS), and for a second, harder one: **`@engine/IN` cannot have a `ui.yaml` at all.** A
+`ui.yaml` is keyed by a library ref, and there is no `@engine` library — an engine module is a
+built-in with no folder anywhere (`@studio/song`'s `uiLibrary.ts` says so outright and
+`moduleRootFor` throws for it). So every live input in every project drew a card reading
+**"No Options"**, and no amount of authoring could have fixed it.
+
+**Everything is a dropdown, and that is a constraint rather than a taste.** A module FIELD is
+written by a command naming a state, so only a widget carrying `options` can commit one — a knob
+bound to a field draws, drags, and writes nothing (see `up()` in `DomChains`). `@gain` is
+deliberately **absent** for exactly that: it is a continuous trim, there is no `module gain` verb
+to send it, and a knob that moved without saving is worse than no knob.
+
+**Width is not a field.** Mono and stereo are not two settings — they are how wide *one* setting
+is, so the width dropdown binds `@channel` like the socket does and writes the same field one
+channel wider or narrower. That is why there is one verb (`module channel`) and no state that can
+disagree with the file. A pair is even/odd and nothing else, because the interface groups no other
+way: the pair containing channel 4 is 3+4, never 4+5.
+
+**The channel list is the machine's**, so it arrives as an argument to `buildGraph` rather than
+being invented here — which inputs exist is the sound card's to say, and it differs between the
+machine that wrote the song and the machine playing it. With none, the list is empty and the other
+two still draw.
+
+Each option's **`arg`** is what gets written when it differs from what is shown: the socket reads
+"Input 1 + 2" and the file says `1,2`. Everywhere else the word on screen is the word in the file,
+and `arg` is absent.
+
+An **authored** panel wins over all of this, exactly as for a rack.
+
 ## …and the clips the lane holds
 
 Under the controls, a track node lists **what is on the lane** — the clip refs, in playing

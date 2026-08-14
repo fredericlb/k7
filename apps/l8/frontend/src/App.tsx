@@ -2675,6 +2675,8 @@ export default function App({
                     onFocused={reportFramed}
                     // The mixer view, which is a rank change on this same graph — see mixerView.
                     alignModules={mixerView ? mixerStrips : undefined}
+                    // The sockets a live input can be on — the same list the editor's strip uses.
+                    inputDevices={inputDevices}
                     midiRef={chainsMidiRef}
                     onMidiStatus={setStatus}
                   />
