@@ -33,6 +33,21 @@ const seen = new Map<Family, { revision: string; scope: string }>();
 let lastError = "";
 
 /**
+ * The families this loop still fetches.
+ *
+ * `modules` and `chains` are GONE from it: they live in the account's library repository now,
+ * mounted in each workspace as a git submodule (`@studio/song`'s docs/sharedFolders.md), and a
+ * folder that git owns must have exactly one writer. `syncFamily` deletes whatever the owner's
+ * manifest does not list, so leaving it pointed at a checkout would have it quietly removing
+ * files somebody committed — the same reason writing into the cache by hand was already a
+ * mistake (see routes/mediatek.ts).
+ *
+ * What is left is what the hosted médiathèque still owns and a machine still plays from disk:
+ * the songs an m9 set lists. Samples are fetched per clip, not by this loop.
+ */
+const PULLED = ["songs"] as const;
+
+/**
  * The library-relative folders the open projects reach for, sorted so the signature is stable.
  *
  * Two vocabularies, kept apart to the last step: a MODULE ref omits its family
@@ -42,22 +57,16 @@ let lastError = "";
  * matters at all off the desk: the machine that plays them opens file paths, so every song in
  * the set has to be on its disk before the gig.
  */
-function scope(): Record<"modules" | "songs", string[]> {
-  const modules = new Set<string>();
+function scope(): Record<(typeof PULLED)[number], string[]> {
   const songs = new Set<string>();
   for (const ws of liveWorkspaces()) {
     const dir = ws.activeProjectPath();
     if (!dir) continue;
-    try {
-      for (const ref of mediatekRefs(dir)) modules.add(mediatekPathPrefix(ref));
-    } catch {
-      /* a project that won't parse names nothing we can fetch — the compiler reports it */
-    }
-    // Its own statement, outside that try: a chains file that will not parse must not cost
-    // the set list its sync. mediatekSongRefs swallows its own unreadable file the same way.
+    // The modules a project names used to be gathered here too. They come with the workspace
+    // now — a checkout, not a fetch — so there is nothing to scope and nothing to diff.
     for (const ref of mediatekSongRefs(dir)) songs.add(songPathPrefix(ref));
   }
-  return { modules: [...modules].sort(), songs: [...songs].sort() };
+  return { songs: [...songs].sort() };
 }
 
 /**
@@ -73,14 +82,14 @@ export async function pullOnce(): Promise<void> {
   const prefixes = scope();
   // Nothing open names the library: no fetch, and no token recorded either, or the first song
   // that does would be told everything is already in step.
-  if (!prefixes.modules.length && !prefixes.songs.length) return;
+  if (!PULLED.some((f) => prefixes[f].length)) return;
 
   running = true;
   try {
     const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
     const revisions = await source.revisions();
     let landed = false;
-    for (const family of ["modules", "songs"] as const) {
+    for (const family of PULLED) {
       const within = prefixes[family];
       if (!within.length) continue;
       const revision = revisions[family] ?? "";

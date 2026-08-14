@@ -176,13 +176,18 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   package's `docs/store.md`, in particular why a save can come back saying it landed somewhere
   else.
 
-  The file tree has a **second tab, Libraries**, listing the médiathèque's catalogue by
-  namespace (`@st0`). A module there opens the same builder **read-only**, with an Edit
-  button behind a confirmation, and saving writes straight into st0's library — nothing forks,
-  because that library is the only copy. It is a second path space and therefore a second store
-  (`src/library.ts`), never a path-aware one: a workspace and the médiathèque spell a module
-  identically. This replaced the module **bench**; `frontend/docs/sharedModules.md` is the page
-  to read, and `@banc` now opens only a médiathèque CHAIN.
+  The file tree has a **second tab, Libraries**, listing the account's library submodule by
+  namespace (`@st0`). A module there opens the same builder **read-only**, with an Edit button
+  behind a confirmation; saving is an ordinary write into `_libraries/…`, and `project commit`
+  is what publishes it — nothing forks, because that library is the only copy. One store and
+  one path space: the libraries are a git submodule inside the workspace
+  (`packages/song/docs/sharedFolders.md`), so the file service already serves them. This
+  replaced the module **bench**; `frontend/docs/sharedModules.md` is the page to read, and
+  `@banc` now opens only a library CHAIN.
+
+  **l8 will not open a project without a libraries repository.** The account declares one in
+  st0's Projets section, and `ProjectGate` refuses before it clones anything — see
+  `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
   `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer
   between them for the labels, the automation arrows and the hit paths. **Never hand-roll

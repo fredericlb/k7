@@ -54,16 +54,42 @@ export function repoIdFor(uri: string): string {
  *  otherwise invisible to the revision below — the same trick `@studio/mediatek` plays. */
 let mutations = 0;
 
-/** This user's repositories. Reads never throw: an absent file is "none yet", a real state. */
-export function listRepos(sub: string): RepoRecord[] {
+/** What one person's file holds: their project repositories, and the one library repository. */
+interface RepoFile {
+  repos?: RepoRecord[];
+  /** See `librariesRepo`. Absent — not `[]` — because there is exactly one or none. */
+  libraries?: RepoRecord | null;
+}
+
+/** Reads never throw: an absent file is "none yet", which is a real state and not a fault. */
+function read(sub: string): RepoFile {
   try {
-    const raw = JSON.parse(readFileSync(listPath(sub), "utf8")) as {
-      repos?: RepoRecord[];
-    };
-    return Array.isArray(raw.repos) ? raw.repos : [];
+    return JSON.parse(readFileSync(listPath(sub), "utf8")) as RepoFile;
   } catch {
-    return [];
+    return {};
   }
+}
+
+/** This user's project repositories. */
+export function listRepos(sub: string): RepoRecord[] {
+  const raw = read(sub).repos;
+  return Array.isArray(raw) ? raw : [];
+}
+
+/**
+ * The LIBRARY repository — the modules and chains every project of this account inherits.
+ *
+ * One, or none. Not a list: the libraries are mounted into every workspace at one fixed path
+ * (see `@studio/song`'s docs/sharedFolders.md), and two repositories claiming that path is a
+ * question with no answer. A second library is a folder inside this repository, not a second
+ * repository.
+ *
+ * Stored in the same file as the project repositories, and deliberately: it is registered the
+ * same way, fetched with the same deploy key, and identified by the same normalised URI. A
+ * second file would be a second thing to keep in step with `revision()`.
+ */
+export function librariesRepo(sub: string): RepoRecord | null {
+  return read(sub).libraries ?? null;
 }
 
 export function findRepo(sub: string, id: string): RepoRecord | null {
@@ -90,10 +116,13 @@ export function findReposByName(sub: string, name: string): RepoRecord[] {
  * 200 for something that did not happen, and the list you are looking at is the only record
  * it ever had.
  */
-function save(sub: string, repos: RepoRecord[]): void {
+function save(sub: string, next: RepoFile): void {
   const path = listPath(sub);
   mkdirSync(join(projectsDir(), "repos"), { recursive: true });
-  writeFileSync(path, `${JSON.stringify({ repos }, null, 2)}\n`, "utf8");
+  // Merged over what is there, so writing one half cannot drop the other: the two are edited
+  // from two different screens and nothing serialises them.
+  const merged: RepoFile = { ...read(sub), ...next };
+  writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
   mutations++;
 }
 
@@ -113,7 +142,7 @@ export function addRepo(
     label: label?.trim() || repoName(uri),
     addedAt: new Date().toISOString(),
   };
-  save(sub, [...repos, repo]);
+  save(sub, { repos: [...repos, repo] });
   return { repo, added: true };
 }
 
@@ -122,7 +151,35 @@ export function removeRepo(sub: string, id: string): boolean {
   const repos = listRepos(sub);
   const next = repos.filter((r) => r.id !== id);
   if (next.length === repos.length) return false;
-  save(sub, next);
+  save(sub, { repos: next });
+  return true;
+}
+
+/**
+ * Point this account's libraries at a repository — or at a different one.
+ *
+ * REPLACES rather than appending, which is the whole difference from `addRepo`. Changing it is
+ * a real act with a consequence the caller has to say out loud: every workspace already on a
+ * machine carries the old one as a submodule, and nothing here reaches those machines.
+ */
+export function setLibrariesRepo(sub: string, uri: string): RepoRecord {
+  const existing = librariesRepo(sub);
+  const id = repoIdFor(uri);
+  if (existing?.id === id) return existing; // same repository, whatever the spelling
+  const repo: RepoRecord = {
+    id,
+    uri: uri.trim(),
+    label: repoName(uri),
+    addedAt: new Date().toISOString(),
+  };
+  save(sub, { libraries: repo });
+  return repo;
+}
+
+/** Forget it. False when there was none — the caller answers 404 rather than lying. */
+export function clearLibrariesRepo(sub: string): boolean {
+  if (!librariesRepo(sub)) return false;
+  save(sub, { libraries: null });
   return true;
 }
 

@@ -5,8 +5,10 @@
 
 import {
   copyFileSync,
+  type Dirent,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
 } from "node:fs";
@@ -21,14 +23,13 @@ import {
   pluginDoc,
   trackDoc,
 } from "@studio/engine-protocol/build";
-import { safePath } from "@studio/mediatek/layout";
-import { scanFamily } from "@studio/mediatek/scan";
 import { CHAINS_FILE, NODES_DIR } from "@studio/mediatek/types";
 import { chainSteps } from "@studio/song/chainsGraph";
 import { loadModuleRefs } from "@studio/song/loader";
 import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
+import { librariesDirFor } from "@studio/song/sharedFolders";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { parse as parseYaml } from "yaml";
@@ -91,26 +92,37 @@ function dspGraphOf(m: LoadedModule): string | undefined {
 }
 
 /**
- * The chains this machine's médiathèque cache holds, named as a variant names one: the family
- * path without its `chains/` head (`live/vocal-strip`).
+ * The chains the account's LIBRARY holds, named as a variant names one: the path under
+ * `chains/` (`live/vocal-strip`).
  *
- * Through the catalogue's own scan rather than a walk of its own — what counts as a chain (a
- * folder holding `chains.yaml`, at any depth, and nothing inside one) is the médiathèque's rule
- * and it already states it. An unreadable or never-synced library is an empty list, never a throw.
+ * Read out of the submodule mounted beside this project, not out of the machine's médiathèque
+ * cache — which is why it takes the project dir where it used to take nothing. A chain is a
+ * folder holding `chains.yaml`, at any depth, and nothing inside one is another: the
+ * médiathèque's own rule, restated here because `scanFamily` is bound to the cache root and
+ * this no longer reads that. A missing submodule is an empty list, never a throw.
  */
-function libraryChains(): { ref: string; folder: string }[] {
-  try {
-    return scanFamily("chains").map((e) => ({
-      ref: e.path.replace(/^chains\//, ""),
-      folder: safePath(e.path),
-    }));
-  } catch {
-    return [];
-  }
+function libraryChains(dir: string): { ref: string; folder: string }[] {
+  const root = librariesDirFor(dir, "chains");
+  const out: { ref: string; folder: string }[] = [];
+  const walk = (at: string, ref: string): void => {
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(at, { withFileTypes: true });
+    } catch {
+      return; // not mounted, or not a folder — both are "no chains here"
+    }
+    if (entries.some((e) => e.isFile() && e.name === CHAINS_FILE))
+      return void out.push({ ref, folder: at });
+    for (const e of entries)
+      if (e.isDirectory())
+        walk(join(at, e.name), ref ? `${ref}/${e.name}` : e.name);
+  };
+  walk(root, "");
+  return out;
 }
 
 /** The chains this command can name: the project's own, then the médiathèque's under their token. */
-export function chainNames(project: ProjectDoc): string[] {
+export function chainNames(dir: string, project: ProjectDoc): string[] {
   const own = new Set<string>();
   for (const t of project.tracks)
     for (const p of t.plugins) {
@@ -119,7 +131,7 @@ export function chainNames(project: ProjectDoc): string[] {
     }
   return [
     ...[...own].sort(),
-    ...libraryChains().map((c) => `${MEDIATEK_CHAIN}${c.ref}`),
+    ...libraryChains(dir).map((c) => `${MEDIATEK_CHAIN}${c.ref}`),
   ];
 }
 
@@ -148,8 +160,11 @@ function projectChain(
 
 /** The médiathèque chain a ref names, by path first and then by bare name — the same order
  *  the médiathèque itself resolves a song's variant in (see its docs/variants.md). */
-function findChainFolder(want: string): { ref: string; folder: string } | null {
-  const chains = libraryChains();
+function findChainFolder(
+  dir: string,
+  want: string,
+): { ref: string; folder: string } | null {
+  const chains = libraryChains(dir);
   return (
     chains.find((c) => c.ref === want) ??
     chains.find((c) => c.ref.split("/").pop() === want) ??
@@ -263,12 +278,12 @@ export function resolveChain(
     }
   }
 
-  const found = findChainFolder(want);
+  const found = findChainFolder(dir, want);
   if (!found) {
-    const known = chainNames(project);
+    const known = chainNames(dir, project);
     throw new Error(
       `no chain '${trimmed}' — known here: ${known.join(", ") || "none"}` +
-        (libraryChains().length
+        (libraryChains(dir).length
           ? ""
           : " (this machine has synced no médiathèque chains)"),
     );

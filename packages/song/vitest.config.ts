@@ -1,8 +1,8 @@
-// The machine's media library is mounted by every `loadModuleRefs` call now, declared or not
-// (see sharedFolders.mediatekModulesRoot), which makes `~/.studio/mediatek` an ambient input to
-// most of this package's tests — a developer with a real library would watch their own modules
-// appear in assertions about a three-module fixture. So it is pinned, once, at a folder that
-// does not exist; a test that wants a médiathèque writes one and sets $STUDIO_MEDIATEK itself.
+// `mediatekRoot()` reads `$STUDIO_MEDIATEK`, and a developer running these tests has a real
+// médiathèque on the machine. Modules no longer come from it — they are a submodule in each
+// test's own temp workspace (see testSupport's writeLibraries) — but songs and samples still
+// do, so it is pinned, once, at a folder that does not exist. A test that wants one writes it
+// and sets the variable itself.
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";

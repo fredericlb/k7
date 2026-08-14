@@ -14,6 +14,8 @@ import { assetExtFor, assetsForParam } from "./moduleTypes";
 
 let root: string;
 let project: string;
+/** The `@st0` library, mounted in the workspace beside the project — `<ws>/_libraries/modules`. */
+let libraries: string;
 
 // A module folder with a module.yaml (which is what makes it findable by ref) and some assets.
 const mkModule = (dir: string, yaml: string, assets: string[] = []) => {
@@ -28,13 +30,12 @@ const mkModule = (dir: string, yaml: string, assets: string[] = []) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "assets-"));
-  process.env.STUDIO_MEDIATEK = join(root, "mediatek");
   project = join(root, "ws", "song.l8");
+  libraries = join(root, "ws", "_libraries", "modules");
   mkdirSync(project, { recursive: true });
 });
 
 afterEach(() => {
-  process.env.STUDIO_MEDIATEK = undefined;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -51,9 +52,10 @@ describe("moduleAssetChoices", () => {
   });
 
   it("INHERITS the assets of what it extends, wherever that library is", () => {
-    // The guitar case: the project's module is a shell, the médiathèque's carries the profiles.
+    // The guitar case: the project's module is a shell, and the one in the workspace's
+    // `_libraries/modules` submodule — the `@st0` level — carries the profiles.
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "guitar"),
+      join(libraries, "audio", "amps", "guitar"),
       "plugin: { type: internal, name: NAM }\n",
       ["roland/bright.nam", "fender/clean.nam"],
     );
@@ -72,12 +74,12 @@ describe("moduleAssetChoices", () => {
 
   it("walks more than one level, following each ref's own `extends`", () => {
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "base"),
+      join(libraries, "audio", "amps", "base"),
       "plugin: { type: internal, name: NAM }\n",
       ["deep.nam"],
     );
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "mid"),
+      join(libraries, "audio", "amps", "mid"),
       'extends: "@st0/audio/amps/base"\n',
       ["mid.nam"],
     );
@@ -93,7 +95,7 @@ describe("moduleAssetChoices", () => {
 
   it("lets a nearer file shadow an inherited one of the same name", () => {
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "shared"),
+      join(libraries, "audio", "amps", "shared"),
       "plugin: { type: internal, name: NAM }\n",
       ["clean.nam"],
     );
@@ -142,7 +144,7 @@ describe("a file the module INHERITS", () => {
     // merge then kept the PARENT's path — the panel showed the chosen name while the engine
     // loaded the inherited file. Silently the wrong sound.
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "guitar"),
+      join(libraries, "audio", "amps", "guitar"),
       "plugin: { type: internal, name: NAM }\n",
       ["roland/bright.nam", "fender/clean.nam"],
     );
@@ -159,7 +161,7 @@ describe("a file the module INHERITS", () => {
 
   it("prefers the module's OWN file when both carry that name", () => {
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "shared"),
+      join(libraries, "audio", "amps", "shared"),
       "plugin: { type: internal, name: NAM }\n",
       ["clean.nam"],
     );
@@ -178,7 +180,7 @@ describe("a file the module INHERITS", () => {
     // Escaping is a property of the REF. Walking the ancestry must not turn `../` into a way
     // through — a module that arrives from a shared catalogue was written by somebody else.
     mkModule(
-      join(root, "mediatek", "modules", "audio", "amps", "shared"),
+      join(libraries, "audio", "amps", "shared"),
       "plugin: { type: internal, name: NAM }\n",
       ["clean.nam"],
     );

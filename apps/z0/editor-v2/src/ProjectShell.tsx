@@ -35,6 +35,9 @@ export function ProjectShell({
         missingTitle: "Cette session n'est pas dans le dépôt",
         missingBody:
           "Le dépôt est bien là, mais pas ce dossier .z0 : il a sans doute été renommé ou supprimé depuis la dernière lecture du dépôt par la médiathèque. Retournez aux projets et rouvrez-le.",
+        librariesTitle: "Aucun dépôt de bibliothèques",
+        librariesBody:
+          "Les modules et les chaînes partagés vivent dans un dépôt git, monté dans chaque espace de travail. Votre compte n'en a pas encore, donc rien ne peut résoudre un module partagé. Ajoutez-le en haut de la section Projets de la médiathèque, puis rouvrez ceci.",
       }}
     >
       {({ project, quit }) => (

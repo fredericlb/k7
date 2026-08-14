@@ -10,8 +10,9 @@ import {
 
 // A workspace is projects side by side with the shared modules they all draw from:
 //
-//   ws/_modules/   the shared modules  (@workspace)
-//   ws/song/       a project
+//   ws/_modules/            the shared modules  (@workspace)
+//   ws/_libraries/modules/  the account's library submodule  (@st0)
+//   ws/song/                a project
 //
 // There is no shared ASSET folder any more: a file a plugin loads lives in the `assets/` of the
 // module that names it, so the module travels whole (see moduleAssets.test.ts).
@@ -24,7 +25,7 @@ import {
 describe("sharedFolders", () => {
   let ws: string;
   let project: string;
-  let media: string;
+  let libraries: string;
 
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-shared-"));
@@ -35,18 +36,17 @@ describe("sharedFolders", () => {
       "project:\n  name: song\n",
       "utf8",
     );
-    media = mkdtempSync(join(tmpdir(), "td-media-"));
-    process.env.STUDIO_MEDIATEK = media;
+    // The library submodule is IN the workspace now, so there is no machine-wide folder to
+    // point an env var at and nothing to restore: it is just another folder under `ws`.
+    libraries = join(ws, "_libraries");
   });
   afterEach(() => {
-    delete process.env.STUDIO_MEDIATEK;
     rmSync(ws, { recursive: true, force: true });
-    rmSync(media, { recursive: true, force: true });
   });
 
   const addModules = () => mkdirSync(join(ws, "_modules"), { recursive: true });
-  const addMediatek = (kind: "modules" | "library") =>
-    mkdirSync(join(media, kind), { recursive: true });
+  const addMediatek = (kind: "modules" | "chains") =>
+    mkdirSync(join(libraries, kind), { recursive: true });
 
   it("sees nothing when the folder is not there", () => {
     // And that is a working state, not a failure: a project with no shared folder has its
@@ -63,17 +63,17 @@ describe("sharedFolders", () => {
 
   it("finds the médiathèque with nothing said anywhere", () => {
     addMediatek("modules");
-    expect(moduleLibraryDirs(project)).toEqual([join(media, "modules")]);
+    expect(moduleLibraryDirs(project)).toEqual([join(libraries, "modules")]);
   });
 
   it("puts the workspace's own first — order is precedence", () => {
-    // What sits beside the song beats what is global to the machine. loadUiLibrary reads the
-    // list in this order.
+    // What sits beside the song beats what the account's library repository brings along.
+    // loadUiLibrary reads the list in this order.
     addModules();
     addMediatek("modules");
     expect(moduleLibraryDirs(project)).toEqual([
       join(ws, "_modules"),
-      join(media, "modules"),
+      join(libraries, "modules"),
     ]);
   });
 
@@ -107,15 +107,16 @@ describe("sharedFolders", () => {
       "project:\n  name: song\n  modules_from:\n    - ../_modules\n",
       "utf8",
     );
-    expect(moduleLibraryDirs(project)).toEqual([join(media, "modules")]);
+    expect(moduleLibraryDirs(project)).toEqual([join(libraries, "modules")]);
   });
 
   it("names each root by where it sits", () => {
     addModules();
     addMediatek("modules");
     expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
-    // `st0`, after the app that serves the library — NOT after `~/.studio/mediatek`, the
-    // folder it is cached in. The two used to be one word and the folder kept it.
-    expect(moduleNamespaceOf(join(media, "modules"))).toBe("st0");
+    // `st0`, after the app that serves the library — NOT after the folder it is mounted in.
+    // The level is read off `_libraries/`, the parent the submodule is checked out under;
+    // it used to be an exact match against `~/.studio/mediatek`, one path per machine.
+    expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("st0");
   });
 });

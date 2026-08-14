@@ -13,10 +13,22 @@ It is gone, and what replaced it is smaller: **the file tree has a second tab.**
 
 ## The two tabs
 
-| tab | what it lists | paths are | who serves it |
-|---|---|---|---|
-| **Project** | the open project's workspace | workspace-relative | `@studio/file-service`, on the engine's machine |
-| **Libraries** | the shared module libraries, one row per namespace | library-relative | **st0**, same-origin, on the session cookie |
+| tab | what it lists | where it comes from |
+|---|---|---|
+| **Project** | the open project's workspace, minus `_libraries` | the workspace tree |
+| **Libraries** | the account's library submodule, one row per namespace | the same tree, under `_libraries/modules` |
+
+Both are the same tree and the same path space. The libraries are a **git submodule** mounted
+at `<workspace>/_libraries` (`packages/song/docs/sharedFolders.md`), so they arrive with every
+other folder the file service serves — there is nothing to fetch, nothing to poll, no second
+client and no failure of its own. The Project tab drops the `_libraries` row because it has a
+tab; without that you would see the whole catalogue twice, once as folders to browse and once
+as rows that open the builder.
+
+This was not always so. The first version of this tab read st0's hosted `/api/mediatek/list`
+and wrote back to its volume, because the modules lived there and the machine only had a cache
+of them. Two path spaces that spelled a module identically, two stores, and a sync after every
+save. Putting the library in the workspace deleted all of it.
 
 The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref. Today there
 is one, `@st0`, and under it the catalogue exactly as a ref spells it:
@@ -85,59 +97,69 @@ same one the builder has always had for a module a project does not instantiate.
 What is lost with the bench is the ability to audition a module **no** project uses. Wire it
 into the song you have open, which is the same act the bench asked for and one step shorter.
 
-## Two path spaces that spell a module identically
+## One path space, one store
 
 ```
-workspace   modules/audio/reverb/module.yaml
-library     modules/audio/reverb/module.yaml
+the project's own    modules/audio/reverb/module.yaml
+the library's        _libraries/modules/audio/reverb/module.yaml
 ```
 
-Those are two different files, and no rule can tell them apart from the string. So the builder
-gets a **different store** rather than a path-aware one, and which store is decided by *where
-the click came from* — the Project tab or the Libraries tab — and never re-derived afterwards.
-`src/library.ts` holds l8's, over st0's `/api/mediatek/file`; `moduleStore` in `src/api.ts` is
-the workspace one, unchanged.
+Both are workspace paths, both served by the file service, both written by the same route. The
+builder gets `moduleStore` either way, and what tells them apart is a folder name rather than
+which tab you clicked — `isLibraryPath` reads it off the path, so `ui builder <path>` locks
+exactly as a click in the Libraries tab does.
 
-The library store itself is shared with st0's own module screen
-(`@studio/ui-module-builder/library-store`): both read the same volume through the same routes,
-and what differs is the origin, the credentials and what happens after a write. Two copies of
-"where does a panel go" is the drift that rule exists to stop.
+That is a simplification bought by the submodule, and it is worth naming what it replaced: two
+path spaces that spelled a module *identically* (`modules/audio/reverb/module.yaml` meant two
+different files), a second store, and a rule that the choice between them must never be
+re-derived from a path. All of it existed because the library was somebody else's service.
 
 ## What a save actually does
 
-Two writes, in this order:
+One write: `PUT /file` on the file service, into the submodule's working copy. The same route,
+the same autosave and the same badge a project file gets.
 
-1. **st0's `PUT /api/mediatek/file`** — the hosted library, which is what everyone else reads.
-   Same-origin, on the session cookie: st0 answers the origin root, so this needs no engine and
-   no cross-origin grant.
-2. **the file service's `POST /mediatek/sync {family: "modules"}`** — this machine's cache under
-   `~/.studio/mediatek`, which is what the engine beside you loads a plugin from.
+**Committing is separate, and deliberately.** `project commit` is what publishes it — a commit
+inside the submodule, then the gitlink in the workspace repo, the same two-step `commons/` takes
+in this repo. Autosave fires on every pause in typing; a save that also pushed would put a
+commit on a shared repository every time a knob moved.
 
-The second is best-effort and cannot fail the save: the bytes are in the library, so an engine
-that is unreachable costs the audition and not the work. Without it the module you just edited
-would keep sounding like the one you opened until something else happened to sync.
+So an edit is versioned but not published until you say so, and until then it is yours and
+your machine's. That is the opposite of what the hosted volume did, where a save was immediately
+everyone's and there was no draft state at all.
 
 ## What stayed on the bench
 
-`@banc` is still there, and still opens **one médiathèque chain** —
-`/l8/@banc/chains/<path>.l8`, from the chain's screen in st0. A chain is a routing you hear, and
-editing one against nothing is half the job; it has no second home the way a module now does.
-Its machinery is unchanged, including the `@in`/`@out` edge translation
-(`packages/song/src/benchChain.ts`) and the module mirror that makes the chain resolve. What is
-gone is `@banc/modules.l8`: that address now answers 404 with a sentence pointing here.
+`@banc` is still there, and still opens **one library chain** — `/l8/@banc/chains/<path>.l8`,
+from the chain's screen in st0. A chain is a routing you hear, and editing one against nothing
+is half the job; it has no second home the way a module now does. The `@in`/`@out` edge
+translation is unchanged (`packages/song/src/benchChain.ts`).
+
+What went with the submodule is its **module mirror**: the bench used to copy the whole
+catalogue into `<project>/modules` on every open, because the catalogue was a machine-wide cache
+no project could see. The bench's workspace mounts the library like any other, so `@st0/…`
+resolves there the way it does in a song, and two hundred folders per open went with the mirror.
+`@banc/modules.l8` answers 404 with a sentence pointing here.
 
 ## What to check in a browser
 
 The suites here mount nothing, so none of this is covered by a green run:
 
-- open a project, switch the tree to **Libraries** → `@st0`, and the catalogue under it;
+- with **no libraries repository** on the account, open any project → l8 refuses with "no
+  libraries repository" and a button back to st0, before it clones anything;
+- add one in st0's Projets section (the card is above everything else), then open a project →
+  it clones, and `_libraries/` is there beside it with `.gitmodules` staged in the workspace;
+- switch the tree to **Libraries** → `@st0`, and the catalogue under it; the Project tab does
+  NOT show `_libraries`;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit
   button beside it; typing in the code pane does nothing;
 - click **Edit**, confirm → the same screen takes edits, and the badge behaves as it does for a
   project file;
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob
   changes the sound;
-- save, then open the module in st0's Modules section from another browser → the change is
-  there;
-- reload the song → the engine plays the new version (the cache was synced);
+- `project commit` → a commit in the submodule and a gitlink bump in the workspace; another
+  machine that clones the workspace gets the same modules at the same commit;
+- open a second project in the same workspace → the same `_libraries`, not a second copy;
+- change the libraries repository in st0, then reopen a workspace that already has the old one →
+  it is left alone, and the refusal names both URIs rather than rewriting the submodule;
 - open `/l8/@banc/modules.l8` → a refusal that says where a module is edited now.

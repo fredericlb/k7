@@ -5,11 +5,20 @@ A module ref carries its level as an `@` prefix:
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@st0/audio/delay/tape-delay` | the machine's media library (`~/.studio/mediatek/modules`) | the médiathèque |
+| `@st0/audio/delay/tape-delay` | the account's library repository, mounted at `<workspace>/_libraries/modules` | l8's Libraries tab |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
 | `@project/audio/reverb` | the project's own `modules/` | l8 |
 
-## `@st0`, and why the folder under it is still called `mediatek`
+## `@st0` is a git submodule in the workspace
+
+The level's folder is `<workspace>/_libraries/modules` — the account's library repository,
+mounted by the file service into every workspace. It used to be `~/.studio/mediatek/modules`,
+one folder per machine synced from the hosted médiathèque, and `moduleNamespaceOf` was an exact
+string comparison against that one path. There is one per workspace now, so the test is
+structural instead: the root's parent folder is named `_libraries`. See
+[sharedFolders.md](sharedFolders.md) for what that bought and what it cost.
+
+## `@st0`, and why the cache folder is still called `mediatek`
 
 The media library's level is named after **the app that serves it**. It was `@mediatek` while
 that app was `apps/mediatek`; the app became `apps/st0` and the ref did not follow, so for a
@@ -78,7 +87,7 @@ Every root is at a fixed place, so nothing in `project.yaml` names one:
 | level | where |
 |---|---|
 | `@engine` | nowhere — synthesised from the machine's plugin scan |
-| `@st0` | `~/.studio/mediatek/modules` (or `$STUDIO_MEDIATEK`) |
+| `@st0` | `../_libraries/modules`, the account's library submodule |
 | `@workspace` | `../_modules`, beside the project |
 | `@project` | the project's own `modules/` |
 

@@ -25,9 +25,9 @@ import {
   resolveTargets,
 } from "./processChain";
 
+let ws: string;
 let dir: string;
 let library: string;
-let previousLibrary: string | undefined;
 
 /** 44 bytes of WAV header and no samples — enough to BE a file, which is all this asks. */
 function wav(path: string): void {
@@ -53,9 +53,12 @@ const put = (root: string, rel: string, body: string): void => {
   writeFileSync(path, body, "utf8");
 };
 
-/** A song: one guitar track through an amp and its strip, playing one clip. */
+/** A song: one guitar track through an amp and its strip, playing one clip.
+ *  In a WORKSPACE folder, because the library submodule is mounted beside it. */
 function song(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-process-"));
+  ws = mkdtempSync(join(tmpdir(), "td-process-ws-"));
+  const d = join(ws, "song");
+  mkdirSync(d, { recursive: true });
   put(
     d,
     "project.yaml",
@@ -87,10 +90,15 @@ function song(): string {
   return d;
 }
 
-/** A médiathèque holding one module and one chain template that uses it twice. */
-function mediatek(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-mediatek-"));
-  put(d, "mediatek.yaml", "version: 1\n");
+/**
+ * The account's LIBRARY submodule, holding one module and one chain that uses it twice.
+ *
+ * Beside the project rather than at `$STUDIO_MEDIATEK`: the modules and chains a project
+ * inherits are a git checkout in its workspace now, so there is no environment to set and
+ * nothing to restore. See packages/song/docs/sharedFolders.md.
+ */
+function libraries(): string {
+  const d = join(ws, "_libraries");
   // Descriptive only — the level comes from where the root SITS, not from this line.
   put(d, "modules/config.yaml", "namespace: st0\n");
   put(
@@ -118,15 +126,10 @@ function mediatek(): string {
 
 beforeEach(() => {
   dir = song();
-  library = mediatek();
-  previousLibrary = process.env.STUDIO_MEDIATEK;
-  process.env.STUDIO_MEDIATEK = library;
+  library = libraries();
 });
 afterEach(() => {
-  if (previousLibrary === undefined) delete process.env.STUDIO_MEDIATEK;
-  else process.env.STUDIO_MEDIATEK = previousLibrary;
-  rmSync(dir, { recursive: true, force: true });
-  rmSync(library, { recursive: true, force: true });
+  rmSync(ws, { recursive: true, force: true });
 });
 
 describe("resolving a chain of the project", () => {
@@ -163,7 +166,7 @@ describe("resolving a chain of the project", () => {
   });
 
   it("offers the project's chains and the médiathèque's under its own token", () => {
-    expect(chainNames(loadProject(dir))).toEqual([
+    expect(chainNames(dir, loadProject(dir))).toEqual([
       "gtr",
       "@st0/live/vocal-strip",
     ]);

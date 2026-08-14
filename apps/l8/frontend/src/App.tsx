@@ -126,8 +126,7 @@ import {
   keyToken,
   resolveBinding,
 } from "./keys";
-import { libraryStore } from "./library";
-import { libraryModuleRef } from "./libraryTree";
+import { isLibraryPath, libraryModuleRef } from "./libraryTree";
 import { isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
@@ -219,14 +218,13 @@ export default function App({
     path: string;
     pane: BuilderPane;
     /**
-     * The module is the MÉDIATHÈQUE's and not this project's.
+     * Whether this shared module has been unlocked for editing. Only the dialog below sets it.
      *
-     * Which decides two things that go together: the store the builder gets — the library's,
-     * because both path spaces spell a module `modules/<type>/<sub>/module.yaml` and the two
-     * are not the same file — and whether it opens locked. See src/library.ts.
+     * Whether it IS shared is not held here: it is read off the path (`isLibraryPath`), so a
+     * module opened by the `ui builder` command locks exactly as one clicked in the Libraries
+     * tab does. A flag set at click time would have been a second answer to a question the
+     * path already settles.
      */
-    library?: boolean;
-    /** …and whether it has been unlocked. Only the dialog below sets this, which is the point. */
     unlocked?: boolean;
   } | null>(null);
   // The shared module the "Edit" button is asking about. Held rather than derived from `builder`
@@ -1844,9 +1842,8 @@ export default function App({
     // that is what a chain writes for a module the project inherits rather than holds. Same
     // lookup, one spelling apart, and getting it wrong here is what would make the Libraries tab
     // a text editor: no ref, no plugin, no real parameters.
-    const module = builder.library
-      ? libraryModuleRef(builder.path)
-      : moduleKeyFromPath(builder.path);
+    const module =
+      libraryModuleRef(builder.path) ?? moduleKeyFromPath(builder.path);
     if (!module) return void setBuilderPlugin(null);
     let cancelled = false;
     void api
@@ -2454,7 +2451,7 @@ export default function App({
                 // The same builder, over the médiathèque and locked. On the PANEL like a
                 // project module, and read-only until the dialog says otherwise.
                 onOpenLibraryModule={(path) =>
-                  setBuilder({ path, pane: "panel", library: true })
+                  setBuilder({ path, pane: "panel" })
                 }
                 diagnostics={diagnostics}
                 videoSources={videoSources}
@@ -3219,10 +3216,10 @@ export default function App({
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder
-              // Which store, decided by where the click came from and never re-derived from the
-              // path: a workspace and the médiathèque spell a module identically, so a path
-              // cannot say which of the two it is in. See src/library.ts.
-              store={builder.library ? libraryStore : moduleStore}
+              // ONE store. The libraries are a submodule inside the workspace now, so a shared
+              // module is an ordinary workspace path the file service already serves — there is
+              // no second path space to keep apart, and no second client to keep in step.
+              store={moduleStore}
               path={builder.path}
               kind="module"
               moduleName={builder.path.split("/").slice(-2)[0] ?? builder.path}
@@ -3232,9 +3229,9 @@ export default function App({
               // A shared module opens LOCKED. Everyone's copy is this one — there is no fork
               // here to absorb a mistake — so writing to it is a thing somebody decides, in the
               // dialog below, rather than a thing that starts happening while they read.
-              readOnly={builder.library && !builder.unlocked}
+              readOnly={isLibraryPath(builder.path) && !builder.unlocked}
               onRequestEdit={
-                builder.library && !builder.unlocked
+                isLibraryPath(builder.path) && !builder.unlocked
                   ? () => setEditShared(builder.path)
                   : undefined
               }

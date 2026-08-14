@@ -6,6 +6,7 @@ import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type { FileNode, RepoProject, RepoSummary } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
 import { projects as api } from "../api";
+import { LibrariesCard } from "./LibrariesCard";
 import {
   createProjectOnMachine,
   deleteProjectOnMachine,
@@ -176,36 +177,41 @@ export function ProjectsSection({
     // `repo?.fetching` est là exprès : un rafraîchissement qui se termine doit relire l'arbre.
   }, [openId, repo?.fetching]);
 
-  if (repo)
-    return (
-      <RepoTree
-        repo={repo}
-        nodes={nodes}
-        onBack={() => onOpen(null)}
-        onRefresh={() => refresh(repo)}
-        projectHref={(path, app) => api.openIn(repo.name, path, app)}
-      />
-    );
-
+  // Le dépôt des bibliothèques passe AVANT tout le reste de la section, arborescence comprise :
+  // c'est la première chose à régler sur un compte neuf, et rien d'autre ici — ni un projet
+  // créé, ni un projet ouvert — ne fonctionne tant qu'elle ne l'est pas.
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <RepoList
-        repos={repos}
-        busy={busy}
-        error={error}
-        onAdd={add}
-        onOpen={(r) => onOpen(r.id)}
-        blocked={blocked}
-        onCreate={create}
-        onDelete={removeProject}
-        // Même départ que depuis l'arborescence : l'adresse de l'application, pas une vue d'ici.
-        projectHref={(r, p) => api.openIn(r.name, p.path, p.app)}
-        onRemove={remove}
-        onRefresh={refresh}
-      />
-      <div className="mt-auto">
-        <SshKeyCard />
-      </div>
+      <LibrariesCard />
+      {repo ? (
+        <RepoTree
+          repo={repo}
+          nodes={nodes}
+          onBack={() => onOpen(null)}
+          onRefresh={() => refresh(repo)}
+          projectHref={(path, app) => api.openIn(repo.name, path, app)}
+        />
+      ) : (
+        <>
+          <RepoList
+            repos={repos}
+            busy={busy}
+            error={error}
+            onAdd={add}
+            onOpen={(r) => onOpen(r.id)}
+            blocked={blocked}
+            onCreate={create}
+            onDelete={removeProject}
+            // Même départ que depuis l'arborescence : l'adresse de l'application, pas une vue d'ici.
+            projectHref={(r, p) => api.openIn(r.name, p.path, p.app)}
+            onRemove={remove}
+            onRefresh={refresh}
+          />
+          <div className="mt-auto">
+            <SshKeyCard />
+          </div>
+        </>
+      )}
     </div>
   );
 }

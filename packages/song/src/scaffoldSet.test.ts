@@ -31,20 +31,20 @@ vi.setConfig({ testTimeout: 30_000 });
 // at one module is the shape a chain cannot express on its own, and a typo in `crossfade#b`
 // would leave the second deck silently feeding nothing.
 
+let ws: string;
 let dir: string;
 let mediatek: string;
-let previousRoot: string | undefined;
 
 beforeEach(() => {
   // An ordinary `.l8` folder: a set is a SHAPE of l8 project, not a kind of its own.
-  dir = join(mkdtempSync(join(tmpdir(), "td-set-")), "winter.l8");
+  ws = mkdtempSync(join(tmpdir(), "td-set-"));
+  dir = join(ws, "winter.l8");
 
-  // A set is not self-contained: it NAMES the médiathèque's modules instead of copying
-  // them in, so resolving its chains needs one. `STUDIO_MEDIATEK` is how the machine's
-  // library is pointed elsewhere (mediatekRoot.ts), which is exactly what a test needs.
-  mediatek = mkdtempSync(join(tmpdir(), "td-mediatek-"));
-  previousRoot = process.env.STUDIO_MEDIATEK;
-  process.env.STUDIO_MEDIATEK = mediatek;
+  // A set is not self-contained: it NAMES the médiathèque's modules instead of copying them
+  // in, so resolving its chains needs one. The library is a submodule mounted in the
+  // WORKSPACE, at `_libraries/modules` beside the project (sharedFolders.ts) — so a test
+  // makes one by writing that folder, with no environment to point anywhere.
+  mediatek = join(ws, "_libraries");
 
   const utility = join(mediatek, "modules", "audio", "utility");
   // The REAL file this repo ships, not a paraphrase of it: if `packages/dsp/modules/tempo`
@@ -112,10 +112,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-  rmSync(mediatek, { recursive: true, force: true });
-  if (previousRoot === undefined) delete process.env.STUDIO_MEDIATEK;
-  else process.env.STUDIO_MEDIATEK = previousRoot;
+  // One removal takes both: the library sits in the workspace beside the project now.
+  rmSync(ws, { recursive: true, force: true });
 });
 
 /** Every file under `dir`, project-relative, forward-slashed. */

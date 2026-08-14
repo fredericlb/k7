@@ -38,7 +38,6 @@ import {
 } from "react";
 import { api } from "../api";
 import { useDiskSync } from "../hooks/useDiskSync";
-import { listLibraryModules } from "../library";
 import { libraryTree } from "../libraryTree";
 import {
   fileStem,
@@ -323,28 +322,11 @@ export function EditorTab({
   const cmViewRef = useRef<EditorView | null>(null);
   // The sidebar, for the two actions it alone holds — the pins and the OS file pickers.
   const treeRef = useRef<FileTreeHandle>(null);
-  // The shared module libraries, fetched the first time somebody looks at that tab and not on
-  // mount: the catalogue is another service, and most sessions never open it. Kept for the life
-  // of this pane — nothing l8 does from here adds or removes a module, so there is nothing to
-  // re-poll for; a save into a shared module changes its files, which the folded row never shows.
-  const [libraries, setLibraries] = useState<FileNode[] | null>(null);
-  const [libraryError, setLibraryError] = useState<string | null>(null);
-  // In flight, or landed. A ref and not state: it gates the fetch rather than describing the
-  // screen, and cleared on failure so switching back to the tab is the retry.
-  const libraryBusy = useRef(false);
-  const loadLibraries = useCallback(() => {
-    if (libraryBusy.current) return;
-    libraryBusy.current = true;
-    setLibraryError(null);
-    listLibraryModules()
-      .then((l) => setLibraries(libraryTree(l.entries)))
-      .catch((e) => {
-        libraryBusy.current = false;
-        setLibraryError(
-          `couldn't read the médiathèque — ${(e as Error).message}`,
-        );
-      });
-  }, []);
+  // The shared libraries, read straight out of the tree this pane already has: they are a git
+  // submodule at `_libraries/`, so they arrive with every other folder in the workspace. There
+  // is nothing to fetch, nothing to poll and no failure of its own — which is what mounting
+  // them in the workspace bought. Empty until the submodule is there.
+  const libraries = useMemo(() => libraryTree(tree), [tree]);
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");
@@ -1221,8 +1203,6 @@ export function EditorTab({
               onCloneModule={cloneModuleEntry}
               onCreateNode={createNodeEntry}
               libraries={libraries}
-              libraryError={libraryError}
-              onShowLibraries={loadLibraries}
               onOpenLibraryModule={(moduleFile) => {
                 onOpenLibraryModule(moduleFile);
                 if (isMobile) setTreeOpen(false);

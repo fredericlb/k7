@@ -34,6 +34,7 @@ import {
   webCompletions,
   webGitEnv,
 } from "../engineLink.ts";
+import { ensureLibraries } from "../libraries.ts";
 import { readLog } from "../logs.ts";
 import {
   preferences,
@@ -89,12 +90,36 @@ filesRouter.put(
   }),
 );
 
-const openBody = z.object({ path: z.string().min(1) });
+/**
+ * Open a project — and mount the account's LIBRARIES beside it first.
+ *
+ * `libraries` is the URI st0 holds for this account; the browser has just read it (it refuses
+ * to get this far without one, see `@studio/project-shell`'s docs/launch.md) and hands it over
+ * rather than making this service ask st0 for it. The one that knows WHO is asking is the
+ * browser: this service holds a machine token, not a person's session.
+ *
+ * Mounted HERE and not only on clone, because the setting can be added after a workspace
+ * already exists — which is the case for every workspace that predates it. Idempotent and
+ * nearly free once the mount is populated.
+ */
+const openBody = z.object({
+  path: z.string().min(1),
+  libraries: z.string().min(1).optional(),
+});
 filesRouter.post(
   "/open",
   validate(openBody),
-  wrap((req, res) => {
-    const { path } = req.body as z.infer<typeof openBody>;
+  wrap(async (req, res) => {
+    const { path, libraries } = req.body as z.infer<typeof openBody>;
+    if (libraries)
+      try {
+        await ensureLibraries(req.userEmail!, req.ws!.root, libraries);
+      } catch (e) {
+        // A mount that refuses is not a project that refuses: the song opens, and every
+        // `@st0/…` ref in it reports itself missing, which is what the graph already draws a
+        // `?` for. Saying so here — with the reason — beats opening onto a silent half-song.
+        console.warn(`[libraries] ${(e as Error).message}`);
+      }
     try {
       req.ws!.setActiveProject(path);
       startEngineForActive(req.ws!);

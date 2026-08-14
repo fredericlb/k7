@@ -13,6 +13,8 @@
   "project.backToProjects": "Back to Projects",
   "project.missingTitle": "That project isn't in the repository",
   "project.missingBody": "The repository is here, but this project isn't: it was most likely renamed or removed since the media library last read the repository. Go back to Projects and open it again.",
+  "project.librariesTitle": "No libraries repository",
+  "project.librariesBody": "Shared modules and chains live in a git repository, mounted into every workspace. This account has none yet, so nothing here could resolve a shared module. Add it at the top of the media library's Projects section, then open this again.",
   "project.benchWorkspace": "The module bench",
   "project.benchFetching": "Fetching the media library's modules onto this machine…",
   "project.takenTitle": "This project was opened elsewhere",

@@ -1,94 +1,77 @@
-// libraryTree.ts — the médiathèque's module listing as the file tree's nodes: one row per
-// namespace, the type/category folders under it, and each module as the folder it is on disk.
-// Paths stay LIBRARY-relative, which is the path space the library store reads and writes in.
-// Why the tab exists at all: apps/l8/frontend/docs/sharedModules.md.
+// libraryTree.ts — the shared libraries as the file tree's second tab: one row per namespace,
+// the catalogue under it. The rows come straight out of the WORKSPACE tree — the libraries are
+// a git submodule at `_libraries/`, so they are ordinary folders the file service already
+// serves. Why the tab exists at all: apps/l8/frontend/docs/sharedModules.md.
 
-import type { MediatekEntry } from "@studio/mediatek/types";
-import type { ModuleNamespace } from "@studio/song/moduleTypes";
+import { LIBRARIES_DIR, type ModuleNamespace } from "@studio/song/moduleTypes";
 import type { FileNode } from "@studio/web-protocol";
 
 /**
- * The namespace the médiathèque's modules answer to.
+ * The namespace the account's library repository answers to.
  *
  * Typed from `@studio/song`'s union rather than left a loose string, because it is the same word
  * a chain writes in a ref — `@st0/audio/delay/tape-delay` — and a tab that named the library
- * something else would be labelling rows nobody could find in a chains file. Named for the app
- * that serves the library, not for the folder it is cached in (`~/.studio/mediatek`).
+ * something else would be labelling rows nobody could find in a chains file.
  */
 export const LIBRARY_NS: ModuleNamespace = "st0";
 
 /** How a namespace is written wherever a person reads one: in a ref, and now on a tree row. */
 export const nsLabel = (ns: ModuleNamespace): string => `@${ns}`;
 
+/** The family inside the library repository that holds modules. `chains/` is the other one. */
+const MODULES = "modules";
+
+/** `_libraries/modules`, the path every row below sits under. */
+export const LIBRARY_MODULES = `${LIBRARIES_DIR}/${MODULES}`;
+
 /**
- * The listing as tree rows, under one synthesised namespace root.
+ * The library's modules as tree rows, under one synthesised namespace root — or `[]` when the
+ * submodule is not mounted in this workspace.
  *
  * Synthesised because the shared tree draws no row for its own root (`rootLabel` is a label and
  * nothing else), and the root is the one row that says WHICH library you are looking at — the
  * tab is called Libraries in the plural on purpose, and `@workspace` is a second one the day a
  * workspace holds a `_modules` folder.
  *
- * A module is a FOLDER carrying its own files, and it is left as one here: l8's `foldModules`
- * is what turns it into a single row, by finding the `module.yaml` among those children. Doing
- * that fold twice, once per source, is how the two trees would come to open modules differently.
+ * The subtree is passed through UNTOUCHED. It is already `FileNode[]` from the file service,
+ * already the right shape, and l8's `foldModules` is what turns a module folder into a single
+ * row — the same fold the Project tab uses, so the two cannot come to draw a module differently.
+ * This used to convert a médiathèque listing into nodes; the libraries live in the workspace
+ * now, so there is nothing left to convert.
  */
-export function libraryTree(entries: MediatekEntry[]): FileNode[] {
-  const roots: FileNode[] = [];
-  for (const e of entries) {
-    // The family segment leads every mediatek path and is what the namespace row already says.
-    const parts = e.path.split("/").filter(Boolean).slice(1);
-    if (!parts.length) continue;
-    let level = roots;
-    let sofar = "";
-    parts.forEach((part, i) => {
-      sofar = sofar ? `${sofar}/${part}` : part;
-      const path = `${familyOf(e.path)}/${sofar}`;
-      const leaf = i === parts.length - 1;
-      let node = level.find((n) => n.name === part);
-      if (!node) {
-        node = { name: part, path, dir: true, children: [] };
-        level.push(node);
-        // A module's children are the files it actually holds — its nodes, its panel, its
-        // shelf, a jsdsp source. `files` is what the scan found, so a row for a file that is
-        // not there cannot appear; and `module.yaml` being among them is what folds the row.
-        if (leaf)
-          node.children = (e.files ?? []).map((f) => ({
-            name: f,
-            path: `${path}/${f}`,
-            dir: false,
-            kind: "text" as const,
-          }));
-      }
-      if (!leaf) level = node.children ??= [];
-    });
-  }
-  sortTree(roots);
+export function libraryTree(tree: FileNode[]): FileNode[] {
+  const modules = findNode(tree, LIBRARY_MODULES);
+  if (!modules?.children?.length) return [];
   return [
     {
       name: nsLabel(LIBRARY_NS),
-      // Not a path anything reads: the row is the library, and a library is not a file. Spelt
-      // as the namespace so the tree's expansion state is keyed on something stable.
-      path: nsLabel(LIBRARY_NS),
+      // The real path, so every row under it — and every read and write — addresses the file
+      // that is actually there. It is a workspace path like any other: that is the whole point
+      // of the submodule sitting inside the workspace.
+      path: modules.path,
       dir: true,
-      children: roots,
+      children: modules.children,
     },
   ];
 }
 
-/** The family a mediatek path is in — its first segment, which every entry carries. */
-const familyOf = (path: string): string => path.split("/")[0] ?? "";
-
-/** Folders before files, then by name — the order the listing does not come in. */
-function sortTree(nodes: FileNode[]): void {
-  nodes.sort(
-    (a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name),
-  );
-  for (const n of nodes) if (n.children) sortTree(n.children);
+/** The node at an exact workspace-relative path, or null. Walks by SEGMENT, never by prefix:
+ *  a folder called `_librariesX` is not this one. */
+function findNode(nodes: FileNode[], path: string): FileNode | null {
+  const want = path.split("/");
+  let level: FileNode[] | undefined = nodes;
+  let found: FileNode | null = null;
+  for (const seg of want) {
+    found = level?.find((n) => n.name === seg) ?? null;
+    if (!found) return null;
+    level = found.children;
+  }
+  return found;
 }
 
 /**
  * The ref a chain writes for one of a library module's FILES —
- * `modules/audio/delay/tape-delay/module.yaml` → `@st0/audio/delay/tape-delay`.
+ * `_libraries/modules/audio/delay/tape-delay/module.yaml` → `@st0/audio/delay/tape-delay`.
  *
  * What lets the builder find the LIVE plugin behind a shared module: the open project names it
  * by this ref, not by a folder inside itself, so the lookup that works for a project module
@@ -100,7 +83,13 @@ function sortTree(nodes: FileNode[]): void {
  */
 export function libraryModuleRef(file: string): string | null {
   const parts = file.split("/").filter(Boolean);
-  if (parts[0] !== "modules") return null;
-  const segs = parts.slice(1, -1);
+  const at = parts.indexOf(LIBRARIES_DIR);
+  if (at < 0 || parts[at + 1] !== MODULES) return null;
+  const segs = parts.slice(at + 2, -1);
   return segs.length >= 2 ? `${nsLabel(LIBRARY_NS)}/${segs.join("/")}` : null;
 }
+
+/** Is this workspace path inside the library submodule? What decides whether the builder opens
+ *  read-only — a shared module is everyone's copy, and nothing here forks. */
+export const isLibraryPath = (path: string): boolean =>
+  path.split("/").includes(LIBRARIES_DIR);

@@ -11,6 +11,7 @@ import {
   type TreeTarget,
 } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
+import { LIBRARIES_DIR } from "@studio/song/moduleTypes";
 import {
   Boxes,
   File,
@@ -18,7 +19,6 @@ import {
   Folder,
   FolderOpen,
   Library,
-  Loader2,
   Pin,
   Play,
   X,
@@ -128,8 +128,6 @@ export function FileTree({
   onCloneModule,
   onCreateNode,
   libraries,
-  libraryError,
-  onShowLibraries,
   onOpenLibraryModule,
   ref,
 }: {
@@ -160,28 +158,20 @@ export function FileTree({
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
   onCreateNode?: (path: string, node: string) => void;
   /**
-   * The shared module libraries as tree rows — one namespace row each (`@st0`), the
-   * catalogue under it. `null` while the listing is in flight; ABSENT for a shell that offers
-   * no such tab at all, which is what makes the tab bar disappear rather than show a dead one.
+   * The shared libraries as tree rows — one namespace row each (`@st0`), the catalogue under
+   * it. Empty when the submodule is not mounted; ABSENT for a shell that offers no such tab at
+   * all, which is what makes the tab bar disappear rather than show a dead one.
    */
-  libraries?: FileNode[] | null;
-  /** Why the listing failed, when it did. Said on the tab it belongs to, never as a popup. */
-  libraryError?: string | null;
-  /** The Libraries tab was opened. The host fetches on THIS and not on mount: the catalogue is
-   *  another service, and most sessions never look at it. */
-  onShowLibraries?: () => void;
-  /** A module row in a library was clicked. The path is LIBRARY-relative — a different path
-   *  space from every other one here, and the reason it is a different callback (see library.ts). */
+  libraries?: FileNode[];
+  /** A module row in a LIBRARY was clicked. The same path space as every other row here — the
+   *  libraries are a folder in the workspace — but a different callback, because what the
+   *  builder does with it differs: it opens read-only (see ../libraryTree.ts). */
   onOpenLibraryModule?: (moduleFile: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
   // Which of the two trees is on screen. Client-only and not URL state: it is disclosure — the
   // same sidebar showing one of two things — and nothing else in the shell depends on it.
   const [tab, setTab] = useState<"project" | "libraries">("project");
-  const showLibraries = onShowLibraries;
-  useEffect(() => {
-    if (tab === "libraries") showLibraries?.();
-  }, [tab, showLibraries]);
 
   // Pinned files: client-only state in localStorage per project, re-loaded on a project switch so pins can't cross.
   const pinKey = `l8:pins:${projectName || activeProject || "."}`;
@@ -268,14 +258,20 @@ export function FileTree({
 
   // Folded before anything reads it: `modules` is then the only thing that knows a row is a
   // module, because the node no longer says `dir` and the path never did say it reliably.
-  const { tree: folded, modules } = useMemo(() => foldModules(tree), [tree]);
+  // The libraries submodule is dropped from the PROJECT tab: it has a tab of its own, and
+  // leaving it here would draw the whole catalogue inside the song — every module twice, once
+  // as a folder to browse and once as a row that opens the builder.
+  const { tree: folded, modules } = useMemo(
+    () => foldModules(tree.filter((n) => n.name !== LIBRARIES_DIR)),
+    [tree],
+  );
   const isModule = (path: string) => modules.has(path);
 
   // The same fold over the LIBRARIES, so a shared module is one row that opens the builder
   // exactly as a project one is. Folded here rather than where the rows are built, so the two
   // trees cannot come to disagree about what a module looks like (see libraryTree.ts).
   const lib = useMemo(
-    () => (libraries ? foldModules(libraries) : null),
+    () => (libraries?.length ? foldModules(libraries) : null),
     [libraries],
   );
 
@@ -490,16 +486,11 @@ export function FileTree({
           move or delete. Opening a module is the one thing the tab is for, and the builder it
           opens says the rest. */}
       {tab === "libraries" ? (
-        libraryError ? (
-          <p className="p-2 text-xs text-amber-500">{libraryError}</p>
-        ) : !lib ? (
-          <p className="flex items-center gap-1.5 p-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> reading the
-            catalogue…
-          </p>
-        ) : lib.tree.length === 0 ? (
+        !lib ? (
+          // Not mounted, or mounted and empty. Both read the same from here, and the fix for
+          // both is on the machine rather than in this pane.
           <p className="p-2 text-xs text-muted-foreground">
-            no shared modules on this account
+            the libraries submodule is not mounted in this workspace
           </p>
         ) : (
           <Tree<FileNode>

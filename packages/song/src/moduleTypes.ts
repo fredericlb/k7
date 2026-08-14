@@ -351,6 +351,26 @@ export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
  */
 export const LEGACY_MEDIATEK_NS = "mediatek";
 
+/**
+ * Where the account's LIBRARY REPOSITORY is mounted, at the workspace root.
+ *
+ * A git submodule, put there by the file service, holding the two families a project inherits:
+ * `modules/` and `chains/`. It is what `@st0/…` resolves against — the machine-wide
+ * `~/.studio/mediatek` cache used to be, and no longer is.
+ *
+ * Fixed, and not declared anywhere: the same argument that removed `modules_from`. A path in a
+ * `project.yaml` could be wrong about a folder the loader can simply look for.
+ *
+ * HERE rather than beside `moduleLibraryDirs`, for the reason MODULE_NAMESPACES is: a browser
+ * names this folder too — l8's file tree keeps it off the Project tab, since it has a tab of
+ * its own — and `sharedFolders.ts` reads the disk on its first line.
+ * See docs/sharedFolders.md.
+ */
+export const LIBRARIES_DIR = "_libraries";
+
+/** …and where that is, relative to a project inside the workspace. */
+export const LIBRARIES_PATH = `../${LIBRARIES_DIR}`;
+
 // --- module nodes (see docs/loader.md) --------------------------------------
 export const NODE_SEP = ":";
 

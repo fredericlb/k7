@@ -35,6 +35,8 @@ export function ProjectGate({
         bothBody: m["filesGate.body"](),
         missingTitle: m["project.missingTitle"](),
         missingBody: m["project.missingBody"](),
+        librariesTitle: m["project.librariesTitle"](),
+        librariesBody: m["project.librariesBody"](),
         benchWorkspace: m["project.benchWorkspace"](),
         benchFetching: m["project.benchFetching"](),
       }}

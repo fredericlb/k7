@@ -15,6 +15,7 @@ import {
   type FileNode,
   type Hints,
   type PublicEngine,
+  type RepoRef,
   type RepoStatus,
   type RepoSummary,
   type SshKeyInfo,
@@ -568,6 +569,20 @@ export const projects = {
 
   sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
   generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
+
+  /**
+   * The LIBRARY repository — the modules and chains every project of this account inherits.
+   *
+   * `libraries: null` is the ordinary state of a new account and not an error, which is why
+   * the route answers 200 with a null rather than a 404: this screen ACTS on it, and so does
+   * l8, which will not open a project without one.
+   */
+  libraries: () =>
+    pget<{ libraries: RepoRef | null }>("/libraries", "libraries"),
+  /** SET, not add — there is one. Doing it twice with the same URI is doing it once. */
+  setLibraries: (uri: string) =>
+    psend<{ libraries: RepoRef }>("PUT", "/libraries", { uri }),
+  clearLibraries: () => psend<{ ok: true }>("DELETE", "/libraries"),
 
   /**
    * Where a project opens — l8 or m9, whichever its folder name claims. Derived from the

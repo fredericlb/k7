@@ -2,6 +2,11 @@
 // tested where they live (the manifest diff in @studio/mediatek, the ref inventory in
 // @studio/song); what is pinned here is the loop's own judgement — what it fetches, when it
 // decides nothing has to happen, and what it tells the rest of the service afterwards.
+//
+// It fetches SONGS and nothing else. Modules and chains were its other half and are gone from
+// it: they live in the account's library repository, mounted per workspace as a git submodule,
+// and a folder git owns must have exactly one writer — `syncFamily` deletes whatever the
+// owner's manifest does not list. See packages/song/docs/sharedFolders.md.
 
 import {
   existsSync,
@@ -30,11 +35,14 @@ vi.mock("./workspaces.ts", () => ({
 let library: Record<string, string> = {};
 let revision = "r1";
 let manifests = 0;
+/** Every family the loop asked a manifest for, so a test can prove one was never asked. */
+let asked: string[] = [];
 vi.mock("@studio/mediatek/remote", () => ({
   remoteLibrary: () => ({
-    revisions: async () => ({ modules: revision }),
-    manifest: async () => {
+    revisions: async () => ({ songs: revision, modules: revision }),
+    manifest: async (family: string) => {
       manifests++;
+      asked.push(family);
       return Object.entries(library).map(([path, body]) => ({
         path,
         bytes: Buffer.byteLength(body),
@@ -54,20 +62,20 @@ let cache: string;
 let ws: string;
 let home: string;
 let realHome: { HOME?: string; USERPROFILE?: string };
-let song: string;
+let set: string;
 
-/** A project that USES one of the library's modules — a node extending it. */
-function project(extendsRef: string): string {
-  const dir = join(ws, "song");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
+/** An m9 SET whose list names songs the library holds — what this loop exists for. */
+function project(...refs: string[]): string {
+  const dir = join(ws, "set");
+  mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
+    "project:\n  name: set\n  tempo: 120\n",
     "utf8",
   );
   writeFileSync(
-    join(dir, "nodes", "wah.yaml"),
-    `extends: "${extendsRef}"\n`,
+    join(dir, "songs.yaml"),
+    `songs:\n${refs.map((r) => `  - "${r}"\n`).join("")}`,
     "utf8",
   );
   return dir;
@@ -86,14 +94,16 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = cache;
   process.env.MEDIATEK_URL = "http://library.test";
   library = {
+    "songs/lemo/mante/danse/song.yaml": "title: Danse\n",
+    "songs/lemo/mante/danse/master.wav": "RIFF\n",
+    "songs/lemo/mante/aube/song.yaml": "title: Aube\n",
     "modules/audio/filter/auto-wah/module.yaml": "plugin: {type: internal}\n",
-    "modules/audio/filter/auto-wah/auto-wah.ts": "// dsp\n",
-    "modules/audio/other/thing/module.yaml": "plugin: {type: internal}\n",
   };
   revision = "r1";
   manifests = 0;
-  song = project("@st0/audio/filter/auto-wah");
-  open = [{ dir: song, invalidated: 0 }];
+  asked = [];
+  set = project("@st0/songs/lemo/mante/danse");
+  open = [{ dir: set, invalidated: 0 }];
 });
 afterEach(() => {
   stopMediatekPuller();
@@ -110,12 +120,21 @@ afterEach(() => {
 const cached = (rel: string) => existsSync(join(cache, rel));
 
 describe("pulling the médiathèque", () => {
-  it("fetches the whole folder of a module the song names, and nothing else", async () => {
+  it("fetches the whole folder of a song the set names, and nothing else", async () => {
     await pullOnce();
-    expect(cached("modules/audio/filter/auto-wah/module.yaml")).toBe(true);
-    // The dsp source comes too: a module is its folder, and one without it loads nothing.
-    expect(cached("modules/audio/filter/auto-wah/auto-wah.ts")).toBe(true);
-    expect(cached("modules/audio/other/thing/module.yaml")).toBe(false);
+    expect(cached("songs/lemo/mante/danse/song.yaml")).toBe(true);
+    // The master comes too: the machine that plays it opens a file path, not a listing.
+    expect(cached("songs/lemo/mante/danse/master.wav")).toBe(true);
+    expect(cached("songs/lemo/mante/aube/song.yaml")).toBe(false);
+  });
+
+  it("never fetches modules — git owns that folder now", async () => {
+    // The rule this loop had to give up. Two writers on one tree is the whole problem:
+    // `syncFamily` drops whatever the owner's manifest omits, which over a checkout means
+    // deleting files somebody committed.
+    await pullOnce();
+    expect(asked).not.toContain("modules");
+    expect(cached("modules/audio/filter/auto-wah/module.yaml")).toBe(false);
   });
 
   it("tells the open songs to recompile, but only when something landed", async () => {
@@ -134,38 +153,37 @@ describe("pulling the médiathèque", () => {
 
   it("refetches when the library moves", async () => {
     await pullOnce();
-    library["modules/audio/filter/auto-wah/module.yaml"] =
-      "plugin: {type: vst3}\n";
+    library["songs/lemo/mante/danse/song.yaml"] = "title: Danse (edit)\n";
     revision = "r2";
     await pullOnce();
     expect(manifests).toBe(2);
   });
 
-  it("syncs again when a song starts naming something new, at the same revision", async () => {
+  it("syncs again when a set starts naming something new, at the same revision", async () => {
     // The case a change token cannot see: nothing moved on the server, but this machine now
-    // needs a module it never held.
+    // needs a song it never held.
     await pullOnce();
-    rmSync(song, { recursive: true, force: true });
-    open = [{ dir: project("@st0/audio/other/thing"), invalidated: 0 }];
+    rmSync(set, { recursive: true, force: true });
+    open = [{ dir: project("@st0/songs/lemo/mante/aube"), invalidated: 0 }];
     await pullOnce();
-    expect(cached("modules/audio/other/thing/module.yaml")).toBe(true);
+    expect(cached("songs/lemo/mante/aube/song.yaml")).toBe(true);
   });
 
   it("keeps what is no longer named — a scope is not a deletion", async () => {
     await pullOnce();
-    rmSync(song, { recursive: true, force: true });
-    open = [{ dir: project("@st0/audio/other/thing"), invalidated: 0 }];
+    rmSync(set, { recursive: true, force: true });
+    open = [{ dir: project("@st0/songs/lemo/mante/aube"), invalidated: 0 }];
     await pullOnce();
-    expect(cached("modules/audio/filter/auto-wah/module.yaml")).toBe(true);
+    expect(cached("songs/lemo/mante/danse/song.yaml")).toBe(true);
   });
 
   it("does nothing at all with no hosted library configured", async () => {
     delete process.env.MEDIATEK_URL;
     await pullOnce();
-    expect(cached("modules/audio/filter/auto-wah/module.yaml")).toBe(false);
+    expect(cached("songs/lemo/mante/danse/song.yaml")).toBe(false);
   });
 
-  it("does nothing when no open song names the library", async () => {
+  it("does nothing when no open project names the library", async () => {
     open = [{ dir: null, invalidated: 0 }];
     await pullOnce();
     expect(manifests).toBe(0);
