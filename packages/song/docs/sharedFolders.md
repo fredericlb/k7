@@ -22,6 +22,46 @@ whole of it, and `POST /open` is where it runs, on every launch rather than only
 setting can be added after a workspace already exists, which is true of every workspace that
 predates the feature.
 
+### An empty repository is filled once, from the catalogue
+
+A library repository somebody just created has nothing in it, and every `@st0/…` ref in every
+song already written names something that lives in the hosted médiathèque. So the first machine
+to mount an EMPTY one copies the catalogue in — `modules/` and `chains/` — commits it and pushes
+it. That is the migration, and it runs exactly once: a repository with a `modules/` folder is
+not empty any more, which is a question about the checkout rather than a flag anybody keeps.
+
+Three details are load-bearing:
+
+- **"Empty" means neither family present, not "no files".** A repository made through a web UI
+  usually arrives with a README, and refusing to seed over one would leave a new account with an
+  empty catalogue and no way to explain it.
+- **The gitlink is recorded only after the push succeeds.** A gitlink promises that a commit is
+  fetchable; pointing one at a commit that never left the machine breaks the workspace for
+  everybody who clones it. Two machines racing to seed the same new repository is the ordinary
+  way this happens — the loser is told, keeps its checkout, and records nothing.
+- **The FILE SERVICE does it, not st0.** st0 holds the catalogue but is deliberately not a git
+  writer (`apps/st0/docs/projects.md`: the service that mints everyone's session and holds the
+  one deploy key must not also be able to push to every repository). This machine already writes
+  to git, already has a working copy, and already has a copy of the key.
+
+### The library is written to. A project repository is not
+
+Seeding commits and pushes to the LIBRARY repository, and to nothing else. The only mark the
+mount leaves on a project repository is `submodule add`'s: a `.gitmodules` entry and a gitlink,
+**staged and not committed** — publishing them is `project commit`, which is somebody's
+decision. A song repository is somebody's work and nothing here has business committing to it.
+
+One leak had to be closed for that to hold. Until `submodule add` has run — the seed could not
+be pushed, or the mount only just happened — `_libraries` is an *untracked folder inside a song
+repository*, and `project commit` does `git add -A` over the whole tree. Git would then either
+commit the entire catalogue into the song, or record an "embedded repository" gitlink with no
+`.gitmodules` beside it, which is a submodule nobody who clones can resolve.
+
+So the file service writes `/_libraries/` into the project repository's **`.git/info/exclude`**
+before it puts anything there. Per-checkout, never committed, never travelling — so it touches
+no tracked file of a repository that is not ours — and inert once the submodule is registered,
+since an ignore rule has no say over a path git already tracks.
+
 **This replaced `~/.studio/mediatek/modules`.** That folder was one per MACHINE, synced from
 the hosted médiathèque by `mediatekPull`, and it is no longer a module root at all. Three things
 follow, and each is worth stating because each was a rule before:
@@ -35,10 +75,12 @@ follow, and each is worth stating because each was a rule before:
   second machine gets the same modules at the same commit, because the gitlink pins one. The
   cache could only ever be "whatever this machine last synced".
 - **A shared module is editable in place.** There is no fork and no push-through: `_libraries/…`
-  is an ordinary workspace path, written by the ordinary write route, and published by
-  `project commit`. l8 opens it read-only behind a confirmation instead
-  (`apps/l8/frontend/docs/sharedModules.md`), which is a decision somebody takes rather than a
-  mechanism that absorbs it.
+  is an ordinary workspace path, written by the ordinary write route. l8 opens it read-only
+  behind a confirmation, and its builder has a **Save button** that commits and pushes the
+  library repository once the files land (`apps/l8/frontend/docs/sharedModules.md`) — a decision
+  somebody takes rather than a mechanism that absorbs it. The song's repository then gets ONE
+  more commit, moving the gitlink so it records which version it uses: path-limited to
+  `.gitmodules` and `_libraries` so nothing else in flight goes with it, and never pushed.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing
 every project beside it, and it still forks on write (`docs/moduleFork.md`) — nothing has given

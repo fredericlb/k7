@@ -1,4 +1,4 @@
-# Autosave — the editors have no Save button
+# Autosave — the editors have no Save button (with one exception)
 
 Every text pane in this repo used to end in the same button: `Enregistrer *`, `Save *`. It is
 gone. The buffer is written **as soon as it is a document the compiler could read**, and held
@@ -76,6 +76,29 @@ file's path.
 if nothing were pending — so neither the timer nor the closing flush can act on it. One commit
 later the buffer has caught up and everything proceeds. The same care is why a write's status is
 only painted when the pane is still showing the file the write was for.
+
+## `manual` — the same machine with the timer off
+
+`useAutosave({ manual: true })` never writes on a timer; `flush()` is the only thing that
+writes. Everything else is untouched — the same validation, the same held-back reason, the same
+kept buffer — because *when does it write* and *may it be written* are different questions and
+only the first one moves. A screen in this mode has a Save button, and `flush()` is what the
+button calls.
+
+One real difference, and it is the one worth thinking about: **what happens when the pane closes
+with an unsaved buffer.** On a timer that is the last chance and it is taken. Here the whole
+point is that nothing writes unasked, so the buffer is KEPT instead and comes back with the file
+through `recallBuffer`. Nothing is lost either way; what differs is who decided.
+
+`flush()` resolves to **whether the buffer is on disk afterwards** — false when it was held back
+or the write failed. That is not decoration: a screen saving several files at once needs the
+answer before doing anything that assumes they all landed. The module builder commits and pushes
+a repository on that answer, and committing a module whose `module.yaml` is still yesterday's
+would put a half-edit in front of everybody.
+
+**One caller: the module builder** (`@studio/ui-module-builder`). A module is four files
+describing one thing, and on a shared one a save is a *publish* — see
+`apps/l8/frontend/docs/sharedModules.md` for why that earns a button.
 
 ## Ctrl+S still exists
 

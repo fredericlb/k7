@@ -4,11 +4,19 @@
 // Rationale: packages/song/docs/sharedFolders.md.
 
 import { execFile } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
 import { assertSshGitUri, normalizeGitUri } from "@studio/git-repos/uri";
+import { remoteLibrary } from "@studio/mediatek/remote";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
+import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 
 const run = promisify(execFile);
@@ -58,6 +66,51 @@ async function declaredUri(
   }
 }
 
+/**
+ * Keep `_libraries` out of the PROJECT repository's `git add -A`.
+ *
+ * The leak this closes: when the mount is a checkout the superproject has NOT registered — the
+ * seed could not be pushed, or `submodule add` has yet to run — `_libraries` is an untracked
+ * folder inside somebody's song repository, and `project commit` does `git add -A` over the
+ * whole tree. Git would then either commit the entire catalogue INTO the song, or record an
+ * "embedded repository" gitlink with no `.gitmodules` beside it, which is a submodule nobody
+ * who clones can resolve. Both put the library inside a project repository, which is the one
+ * place it must never be.
+ *
+ * `.git/info/exclude` and not `.gitignore`, and that is the point: it is per-checkout, never
+ * committed, and never travels — so this touches no tracked file of a repository that is not
+ * ours. Harmless once the submodule IS registered, since an ignore rule has no say over a path
+ * git already tracks.
+ *
+ * Best effort: an exclude that could not be written costs the guard, not the mount.
+ */
+export async function excludeFromProjectRepo(
+  root: string,
+  env: NodeJS.ProcessEnv = envFor(""),
+): Promise<void> {
+  const line = `/${LIBRARIES_DIR}/`;
+  try {
+    // Asked for rather than assumed to be `<root>/.git`: that is a FILE in a worktree or a
+    // submodule, and writing `info/exclude` under it would make a file inside a file.
+    const { stdout } = await git(
+      root,
+      ["rev-parse", "--absolute-git-dir"],
+      env,
+    );
+    const file = join(stdout.trim(), "info", "exclude");
+    const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+    if (current.split(/\r?\n/).includes(line)) return;
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      `${current}${current && !current.endsWith("\n") ? "\n" : ""}# the account's library submodule — see packages/song/docs/sharedFolders.md\n${line}\n`,
+      "utf8",
+    );
+  } catch {
+    /* no git dir, or a read-only one — the mount is still correct */
+  }
+}
+
 /** Does the mount hold anything? An uninitialised submodule is an empty folder. */
 const isPopulated = (dir: string): boolean => {
   try {
@@ -76,6 +129,111 @@ const isPopulated = (dir: string): boolean => {
  * says the same thing on the card that changes the setting.
  */
 export class LibrariesMovedError extends Error {}
+
+/** The two families a library repository carries. Songs and samples are not among them: they
+ *  are audio masters, and git is not where those belong (see docs/sharedFolders.md). */
+const FAMILIES = ["modules", "chains"] as const;
+
+/**
+ * Is this checkout a library nobody has filled yet?
+ *
+ * Neither family present — not "no files at all", because a repository somebody created through
+ * a web UI usually arrives with a README, and refusing to seed on account of one would leave
+ * the new account with an empty catalogue and no way to explain it. A single `modules/` or
+ * `chains/` folder, however, means somebody has been here, and nothing below may touch it.
+ */
+const isFresh = (at: string): boolean =>
+  FAMILIES.every((f) => !existsSync(join(at, f)));
+
+/**
+ * Fill a brand-new library repository with the modules and chains st0 already holds, then
+ * commit and push it.
+ *
+ * **This is the migration.** The hosted médiathèque was the catalogue until now, and every
+ * `@st0/…` ref in every song names something that lives there; a library repository that
+ * started empty would break all of them at once. So the first machine to mount one copies the
+ * catalogue in — once, into a repository that is empty, and never again, because a repository
+ * with a `modules/` folder is not empty any more.
+ *
+ * The FILE SERVICE does it, and that is not incidental: st0 holds the catalogue but is
+ * deliberately not a git writer (`apps/st0/docs/projects.md` — the service that mints everyone's
+ * session and holds the one deploy key must not also be able to push to every repository). This
+ * machine already writes to git, already has a working copy, and already has a copy of the key.
+ *
+ * Answers what happened, because the caller's next move depends on it:
+ * `"seeded"` / `"empty"` (nothing to copy from) / `"unpushed"` (committed here, refused there).
+ */
+export async function seedIfEmpty(
+  at: string,
+  env: NodeJS.ProcessEnv = envFor(""),
+): Promise<"seeded" | "empty" | "unpushed" | "filled"> {
+  if (!isFresh(at)) return "filled";
+  const base = mediatekBase();
+  if (!base) {
+    console.warn(
+      `[libraries] ${at} is empty and no hosted médiathèque is configured — nothing to seed it from`,
+    );
+    return "empty";
+  }
+
+  const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
+  let files = 0;
+  for (const family of FAMILIES) {
+    let manifest: Awaited<ReturnType<typeof source.manifest>>;
+    try {
+      manifest = await source.manifest(family);
+    } catch (e) {
+      // One family that will not list must not lose the other: a catalogue with modules and no
+      // chains is a working library, and an empty one is not.
+      console.warn(`[libraries] ${family}: ${(e as Error).message}`);
+      continue;
+    }
+    for (const entry of manifest) {
+      const dest = join(at, entry.path.split("/").join(sep));
+      mkdirSync(dirname(dest), { recursive: true });
+      await source.download(entry.path, dest);
+      files++;
+    }
+  }
+  if (!files) {
+    console.warn(
+      `[libraries] the médiathèque has no modules or chains to seed`,
+    );
+    return "empty";
+  }
+
+  await git(at, ["add", "-A"], env);
+  // An author, because a repository with no `user.email` configured refuses to commit at all —
+  // and this runs on a machine nobody has set up for git. Named for what it is: this commit is
+  // a migration and not somebody's work.
+  await git(
+    at,
+    [
+      "-c",
+      "user.name=studio",
+      "-c",
+      "user.email=studio@localhost",
+      "commit",
+      "-m",
+      "les bibliotheques : le catalogue de la mediatheque, repris tel quel",
+    ],
+    env,
+  );
+  try {
+    await git(at, ["push", "-u", "origin", "HEAD"], env);
+  } catch (e) {
+    // Two machines racing to seed the same new repository is the ordinary way this happens:
+    // the loser's push is rejected, and the winner's content is the same catalogue anyway. Say
+    // so and leave the checkout alone — the caller declines to record a gitlink, so nothing
+    // downstream ends up pointing at a commit that never left here.
+    console.warn(
+      `[libraries] seeded ${files} file(s) but could not push: ${(e as Error).message}`,
+    );
+    return "unpushed";
+  }
+  console.log(`[libraries] seeded ${at} with ${files} file(s) from ${base}`);
+  return "seeded";
+}
 
 /**
  * Ensure the workspace has the account's libraries at `_libraries`, and answer whether
@@ -104,6 +262,9 @@ export async function ensureLibraries(
           `Change it in that workspace (git submodule set-url ${LIBRARIES_DIR} <uri>, then update it) — nothing here will rewrite it under a project that is using it.`,
       );
     if (isPopulated(at)) return { mounted: false };
+    // Before anything is written into the workspace: from here on there is a folder inside
+    // somebody's song repository that is not the song's, and `project commit` sweeps the tree.
+    await excludeFromProjectRepo(root, env);
     // The deploy key, which st0 owns and this machine keeps a copy of.
     await ensureKey(userEmail);
     if (declared) {
@@ -115,10 +276,26 @@ export async function ensureLibraries(
       );
       return { mounted: true };
     }
-    // Not declared at all. `submodule add` STAGES `.gitmodules` and the gitlink and does not
-    // commit — deliberately: committing is `project commit`, which is somebody's decision and
-    // not something opening a song should do to their repository.
-    await git(root, ["submodule", "add", "--", uri, LIBRARIES_DIR], env);
+
+    /**
+     * Not declared at all — the first workspace to mount this library.
+     *
+     * CLONED first and adopted second, rather than one `git submodule add`, and the reason is
+     * the case this whole path exists for: a library repository somebody just created has NO
+     * COMMITS, and a gitlink has to point at one. `submodule add` on an unborn HEAD fails.
+     * Cloning it, filling it (below), and only then adding it hands `submodule add` a repo with
+     * a commit — and `submodule add` on a path that is already a checkout adopts it rather than
+     * cloning a second time.
+     */
+    await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
+    const seeded = await seedIfEmpty(at, env);
+    // Only NOW is the gitlink recorded — and not at all if the seed could not be pushed. A
+    // gitlink is a promise that a commit is fetchable; pointing it at one that never left this
+    // machine would break the workspace for everybody who clones it, including you tomorrow.
+    if (seeded !== "unpushed")
+      // STAGES `.gitmodules` and the gitlink, and does not commit — deliberately: committing is
+      // `project commit`, somebody's decision, not something opening a song does to their repo.
+      await git(root, ["submodule", "add", "--", uri, LIBRARIES_DIR], env);
     return { mounted: true };
   }
 
@@ -129,7 +306,164 @@ export async function ensureLibraries(
   if (isPopulated(at)) return { mounted: false };
   await ensureKey(userEmail);
   await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
+  await seedIfEmpty(at, env);
   return { mounted: true };
+}
+
+/**
+ * Record the library's new commit in the PROJECT repository — the gitlink, and `.gitmodules`
+ * if it is not committed yet.
+ *
+ * This is what "the project uses that version of the library" is written down as. Without it
+ * the working copy is already on the new module (the submodule is checked out at it) while the
+ * song still SAYS the old one, so a clone somewhere else gets yesterday's module and nothing
+ * explains why.
+ *
+ * Two things keep this from being a liberty taken with somebody's repository:
+ *
+ * - **Path-limited, always.** `git commit -- .gitmodules _libraries` commits those paths and
+ *   nothing else, whatever is dirty or staged around them. A `git add -A` here would sweep half
+ *   a song into a commit about a module.
+ * - **Only after the library push succeeded.** A gitlink promises the commit is fetchable;
+ *   pointing one at a commit that never left this machine breaks the song for everyone who
+ *   clones it. The caller enforces the order — this is only reached on a push that landed.
+ *
+ * NOT pushed. Pushing a song is `project commit`, which is a decision about somebody's work and
+ * not a side effect of saving a module. Best effort besides: a workspace that is not a git
+ * repository has no gitlink to move, and a bump that fails costs the record, never the save.
+ */
+async function bumpGitlink(
+  root: string,
+  env: NodeJS.ProcessEnv,
+  userEmail: string,
+  message: string,
+): Promise<string | null> {
+  const paths = [".gitmodules", LIBRARIES_DIR];
+  try {
+    if (!(await isRepo(root, env))) return null;
+    await git(root, ["add", "--", ...paths], env);
+    const { stdout } = await git(
+      root,
+      ["diff", "--cached", "--name-only", "--", ...paths],
+      env,
+    );
+    if (!stdout.trim()) return null; // already pointing at it — two saves, one version
+    await git(
+      root,
+      [
+        "-c",
+        "user.name=studio",
+        `-c`,
+        `user.email=${userEmail}`,
+        "commit",
+        "-m",
+        message,
+        "--",
+        ...paths,
+      ],
+      env,
+    );
+    const { stdout: sha } = await git(
+      root,
+      ["rev-parse", "--short", "HEAD"],
+      env,
+    );
+    return sha.trim();
+  } catch (e) {
+    console.warn(
+      `[libraries] could not record the new version: ${(e as Error).message}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Commit everything in the library checkout, push it, and record the new version in the
+ * project. What a Save in the module builder does, once the files are on disk.
+ *
+ * Two repositories and two different rules. The LIBRARY gets the content — a commit and a push,
+ * because that is what makes the module everyone else's. The PROJECT gets one line: its gitlink,
+ * committed path-limited so nothing else in flight goes with it, and never pushed — pushing a
+ * song is `project commit`, a decision about somebody's work.
+ *
+ * Nothing to commit is not a failure. Two saves in a row with no edit between them, or a save
+ * of files another workspace on this machine already committed, both land there.
+ */
+export async function commitLibraries(
+  userEmail: string,
+  root: string,
+  message: string,
+): Promise<{
+  committed: boolean;
+  pushed: boolean;
+  /** The project commit that recorded the new library version, when one was made. */
+  recorded?: string;
+  note: string;
+}> {
+  const at = librariesDir(root);
+  if (!existsSync(at))
+    throw new Error("no libraries are mounted in this workspace");
+  const env = envFor(userEmail);
+
+  await git(at, ["add", "-A"], env);
+  const { stdout: staged } = await git(
+    at,
+    ["diff", "--cached", "--name-only"],
+    env,
+  );
+  const files = staged.split("\n").filter((s) => s.trim()).length;
+  if (!files)
+    return { committed: false, pushed: false, note: "nothing to commit" };
+
+  // The author is the person editing, so the history says who. `-c` rather than a written
+  // config: this checkout is the account's library, not this machine's, and a machine must not
+  // leave its own identity in it.
+  await git(
+    at,
+    [
+      "-c",
+      "user.name=studio",
+      `-c`,
+      `user.email=${userEmail}`,
+      "commit",
+      "-m",
+      message,
+    ],
+    env,
+  );
+  try {
+    await git(at, ["push", "origin", "HEAD"], env);
+  } catch (e) {
+    // Committed here, refused there — someone else pushed first, or the network is gone. The
+    // work is safe and the next Save pushes both commits; saying "saved" and nothing else would
+    // be the lie, since everyone else still has the old module.
+    return {
+      committed: true,
+      pushed: false,
+      note: `committed ${files} file(s), but the push failed — ${(e as Error).message}`,
+    };
+  }
+  // The library is out there; now say which version this song uses. After the push and never
+  // before it — see bumpGitlink.
+  const { stdout: version } = await git(
+    at,
+    ["rev-parse", "--short", "HEAD"],
+    env,
+  );
+  const recorded = await bumpGitlink(
+    root,
+    env,
+    userEmail,
+    `libraries: ${version.trim()} — ${message}`,
+  );
+  return {
+    committed: true,
+    pushed: true,
+    ...(recorded ? { recorded } : {}),
+    note:
+      `published ${files} file(s) to the libraries` +
+      (recorded ? `, and this project now uses them` : ""),
+  };
 }
 
 /** Where the libraries are mounted in this workspace, whether or not anything is there. */

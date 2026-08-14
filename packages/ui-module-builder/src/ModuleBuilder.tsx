@@ -33,6 +33,7 @@ import {
   Lock,
   type LucideIcon,
   Pencil,
+  Save,
   SlidersHorizontal,
 } from "lucide-react";
 import {
@@ -87,11 +88,12 @@ const baseName = (p: string | undefined): string | undefined =>
 const UI_BASENAME = "ui.yaml";
 const PRESETS_BASENAME = "presets.yaml";
 
-// What the header says where the Save button was. "clean" says nothing: four files on disk is
-// the ordinary state of this screen and does not need announcing.
+// What the header says BESIDE the Save button. "clean" says nothing: four files on disk is the
+// ordinary state of this screen and does not need announcing — and "pending" says nothing
+// either now, because the button being live already says it, in a place you can act on.
 const SAVE_LABEL: Record<string, string> = {
   clean: "",
-  pending: "edited",
+  pending: "",
   saving: "saving…",
   held: "not saved",
   error: "save failed",
@@ -420,6 +422,7 @@ export function ModuleBuilder({
   const panelSave = useAutosave({
     path: uiFile?.path ?? null,
     enabled: !readOnly,
+    manual: true,
     text: uiFile?.content ?? "",
     saved: savedUi,
     write: useCallback(
@@ -433,6 +436,7 @@ export function ModuleBuilder({
   const dspSave = useAutosave({
     path: dspFile?.path ?? null,
     enabled: !readOnly,
+    manual: true,
     text: dspFile?.content ?? "",
     saved: savedDsp,
     write: useCallback(
@@ -446,6 +450,7 @@ export function ModuleBuilder({
   const presetsSave = useAutosave({
     path: presetFile?.path ?? null,
     enabled: !readOnly,
+    manual: true,
     text: presetFile?.content ?? "",
     saved: savedPresets,
     write: useCallback(
@@ -459,6 +464,7 @@ export function ModuleBuilder({
   const moduleSave = useAutosave({
     path: content == null ? null : path,
     enabled: !readOnly,
+    manual: true,
     text: content ?? "",
     saved: savedModule,
     write: useCallback(
@@ -484,15 +490,42 @@ export function ModuleBuilder({
   // One badge for four files: the loudest thing any of them has to say. Which file it is about
   // is on its tab, where the name already is.
   const saveState = loudest([moduleSave, panelSave, dspSave, presetsSave]);
-  // The pane on screen is the one Ctrl+S (and vim's `:w`) means.
-  const paneSave =
-    pane === "panel"
-      ? panelSave
-      : pane === "presets"
-        ? presetsSave
-        : pane === "jsdsp"
-          ? dspSave
-          : moduleSave;
+
+  /**
+   * Save: write every dirty file, then publish them as ONE act.
+   *
+   * All four and not the pane on screen, which is what Ctrl+S used to mean here. A module is
+   * four files that describe one thing, and saving the one you happen to be looking at leaves
+   * the other three behind — which on a shared module means publishing a panel for a plugin
+   * nobody else has yet. They are edited together, so they land together.
+   *
+   * `publish` runs only if every one of them landed. `flush` answers that: a file held back
+   * because it would not compile reports false, and committing a module whose `module.yaml` is
+   * still yesterday's would put a half-edit in front of everybody.
+   */
+  const [publishing, setPublishing] = useState(false);
+  const saveAll = useCallback(async () => {
+    const landed = await Promise.all([
+      moduleSave.flush(),
+      panelSave.flush(),
+      dspSave.flush(),
+      presetsSave.flush(),
+    ]);
+    if (!landed.every(Boolean) || !store.publish) return;
+    setPublishing(true);
+    try {
+      const { note } = await store.publish(path);
+      if (note) setStatus(note);
+    } catch (e) {
+      setStatus(`saved, but not published — ${(e as Error).message}`);
+    } finally {
+      setPublishing(false);
+    }
+  }, [moduleSave, panelSave, dspSave, presetsSave, store, path, setStatus]);
+
+  // What Save has to offer: any of the four differing from disk. Derived, never a flag —
+  // the same rule the rest of this screen follows.
+  const anyDirty = dirty || uiDirty || presetsDirty || dspDirty;
 
   /**
    * The hints the code pane completes against: the store's, plus whatever the host learnt
@@ -650,8 +683,29 @@ export function ModuleBuilder({
               <Pencil className="mr-1 h-4 w-4" /> Edit
             </Button>
           )}
-          {/* Where the Save button was. Silent while the four files are on disk, amber with the
-              reason while one of them is being held back. */}
+          {/* The Save button. This screen does NOT write as you type, unlike every text pane in
+              l8: a module is four files describing one thing, and on a shared one a save is a
+              publish — a commit and a push onto a repository other people read. That is a
+              decision somebody takes, so it gets a button rather than a timer. */}
+          {!readOnly && (
+            <Button
+              size="sm"
+              onClick={() => void saveAll()}
+              disabled={
+                !anyDirty || publishing || saveState.status === "saving"
+              }
+              title="save the module's files — Ctrl+S"
+            >
+              {publishing || saveState.status === "saving" ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-1 h-4 w-4" />
+              )}
+              Save
+            </Button>
+          )}
+          {/* Beside it, what the files have to say: nothing while they are on disk, amber with
+              the reason while one of them is being held back. */}
           <span
             className={cn(
               "flex min-w-0 items-center gap-1 text-xs",
@@ -787,7 +841,8 @@ export function ModuleBuilder({
                         ? onDspChange
                         : onCodeChange
                 }
-                onSave={paneSave.flush}
+                // Ctrl+S and vim's `:w` mean Save — the same button, not just this pane.
+                onSave={() => void saveAll()}
               />
             </div>
             <ParamsPane rows={paramRows} />

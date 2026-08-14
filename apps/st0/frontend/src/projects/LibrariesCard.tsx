@@ -93,7 +93,9 @@ export function LibrariesCard() {
             Les modules et les chaînes partagés vivent dans un dépôt git, monté
             dans chaque espace de travail en sous-module. <b>Il en faut un</b> :
             sans lui, l8 refuse d'ouvrir un projet, parce qu'aucune référence{" "}
-            <code>@st0/…</code> ne résoudrait.
+            <code>@st0/…</code> ne résoudrait. Un dépôt <b>vide</b> convient —
+            le catalogue déjà là y sera recopié à la première ouverture d'un
+            projet.
           </>
         ) : (
           <>

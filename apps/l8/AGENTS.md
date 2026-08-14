@@ -165,9 +165,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 - **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
-  `~/.studio/preferences.yaml`). **There is no Save button**: the buffer is written as soon as
-  it is a document the compiler could read, and held back with the reason while it is not
-  (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). `:w` and
+  `~/.studio/preferences.yaml`). **There is no Save button here**: the buffer is written as soon
+  as it is a document the compiler could read, and held back with the reason while it is not
+  (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). The MODULE
+  BUILDER is the one screen that does have one — see Modules below. `:w` and
   Ctrl+S mean "now", not "at all" — they flush the timer and cannot overrule the rule.
 - **Modules** — `@studio/ui-module-builder`, the same component st0 runs, as a full-screen
   overlay over the shell. It is reached by the **Builder** button on a module file's editor
@@ -176,11 +177,18 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   package's `docs/store.md`, in particular why a save can come back saying it landed somewhere
   else.
 
+  **The builder is the one screen here with a Save button**, and the exception is deliberate: a
+  module is four files describing one thing, and on a shared one a save is a *publish* — a
+  commit and a push onto a repository other people read. Ctrl+S and `:w` mean that button, and
+  they save all four files, not the pane you are looking at. `useAutosave`'s `manual` mode is
+  what turns the timer off while keeping its validation and its held-back buffers.
+
   The file tree has a **second tab, Libraries**, listing the account's library submodule by
   namespace (`@st0`). A module there opens the same builder **read-only**, with an Edit button
-  behind a confirmation; saving is an ordinary write into `_libraries/…`, and `project commit`
-  is what publishes it — nothing forks, because that library is the only copy. One store and
-  one path space: the libraries are a git submodule inside the workspace
+  behind a confirmation; Save then writes into `_libraries/…`, commits and pushes that
+  repository, and records the new version in the song with one path-limited commit moving the
+  gitlink — nothing forks, because that library is the only copy. One store and one path
+  space: the libraries are a git submodule inside the workspace
   (`packages/song/docs/sharedFolders.md`), so the file service already serves them. This
   replaced the module **bench**; `frontend/docs/sharedModules.md` is the page to read, and
   `@banc` now opens only a library CHAIN.

@@ -57,6 +57,22 @@ knows this module is not the project's and cannot know whose it is or what writi
 Same argument as `renderPreview`. A host that never unlocks passes nothing and gets a plainly
 read-only screen.
 
+## `publish` — a save that leaves the machine
+
+This screen has a **Save button** (`useAutosave({ manual: true })`), unlike every text pane in
+l8, and `publish` is why the distinction earns one: on a SHARED module a save is not a write,
+it is a publish onto a repository other people read.
+
+It is optional and one host implements it. l8 commits and pushes the library repository the
+module lives in; a host with no such repository, or a module that is the project's own, passes
+nothing and the save ends at the disk.
+
+Called **once, after every dirty file has landed**, and never per file. The four files of a
+module are one edit, and four commits for one edit is a history nobody can read. It runs only
+if every file landed — `flush()` reports that, and a file held back because it would not
+compile reports false, since committing a module whose `module.yaml` is still yesterday's would
+put a half-edit in front of everybody.
+
 `hints()` is allowed to be nearly empty. st0's is: most of `Hints` describes a SONG — its
 tracks, clips, chains — and a library has none of those. What survives there is the list of
 modules a sibling may `extend`.

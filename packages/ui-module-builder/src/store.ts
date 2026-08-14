@@ -70,4 +70,18 @@ export interface ModuleStore {
    * moves out from under the editor. Reporting it beats the builder discovering it on the next read.
    */
   write(path: string, content: string): Promise<Written>;
+
+  /**
+   * Make the files that were just written visible to everyone else.
+   *
+   * OPTIONAL, and only one host implements it: l8 commits and pushes the LIBRARY repository a
+   * shared module lives in (`packages/song/docs/sharedFolders.md`). A host without one — or a
+   * module that is the project's own — passes nothing and the save simply ends at the disk.
+   *
+   * Called ONCE, after every dirty file has landed, and never per file: the four files of a
+   * module are one edit, and four commits for one edit is a history nobody can read. It is
+   * given the module's path so the host can decide whether this module is publishable at all;
+   * `note` is what to tell the user, in the host's own words.
+   */
+  publish?(path: string): Promise<{ note?: string }>;
 }

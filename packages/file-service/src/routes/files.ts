@@ -34,7 +34,7 @@ import {
   webCompletions,
   webGitEnv,
 } from "../engineLink.ts";
-import { ensureLibraries } from "../libraries.ts";
+import { commitLibraries, ensureLibraries } from "../libraries.ts";
 import { readLog } from "../logs.ts";
 import {
   preferences,
@@ -87,6 +87,30 @@ filesRouter.put(
   wrap((req, res) => {
     const { name, type } = req.body as z.infer<typeof audioDeviceBody>;
     res.json({ audioDevice: setAudioDevicePref(name, type) });
+  }),
+);
+
+/**
+ * Publish the library: commit everything in `_libraries` and push it.
+ *
+ * What the module builder's Save calls once every file has landed. It touches the LIBRARY
+ * repository only — the workspace holding it is somebody's song, and committing to that is
+ * `project commit`. See packages/file-service/src/libraries.ts.
+ *
+ * A refusal is answered rather than thrown: "committed but not pushed" is a real outcome with
+ * work safely on disk behind it, and the builder says so in its status line.
+ */
+const publishBody = z.object({ message: z.string().min(1).max(500) });
+filesRouter.post(
+  "/libraries/publish",
+  validate(publishBody),
+  wrap(async (req, res) => {
+    const { message } = req.body as z.infer<typeof publishBody>;
+    try {
+      res.json(await commitLibraries(req.userEmail!, req.ws!.root, message));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
   }),
 );
 
