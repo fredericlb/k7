@@ -262,6 +262,45 @@ export function ioOf(fileText: string): string | null {
 }
 
 /**
+ * The interface channels an `io: in` module declares, as AUTHORED.
+ *
+ * Two spellings, and they are not the same question. A list of numbers is the rig's channels
+ * directly (`[1]` mono, `[1, 2]` stereo). A STRING is a label from the machine's preferences,
+ * resolved to numbers by whoever has them (`@studio/song`'s `resolveInput`) — a rig's own
+ * naming, which this editor must not silently rewrite into numbers.
+ *
+ * Null when the module declares none, which is an ordinary state: an input with no channel is
+ * one nobody has pointed at a socket yet.
+ */
+export function channelOf(fileText: string): number[] | string | null {
+  const ch = docOf(fileText)?.toJS?.()?.channel;
+  if (typeof ch === "string") return ch || null;
+  if (Array.isArray(ch)) {
+    const ns = ch.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    return ns.length ? ns : null;
+  }
+  return null;
+}
+
+/**
+ * Point an `io: in` module at a set of interface channels.
+ *
+ * Written as a FLOW sequence (`channel: [1, 2]`), which is how every input in this repo is
+ * written and how the docs show it: a two-element block list costs three lines to say one
+ * thing. Through the Document API like every other edit here, so the comments and the key
+ * order of a file somebody hand-wrote survive it.
+ */
+export function setChannelIn(fileText: string, channels: number[]): string {
+  const doc = parseDocument(fileText, OPTS);
+  const node = doc.createNode(channels);
+  // `flow` is set on the node rather than at stringify time: only THIS sequence should be
+  // inline, and a document-wide setting would reflow every other list in the file.
+  (node as { flow?: boolean }).flow = true;
+  doc.setIn(["channel"], node);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/**
  * A module file's `extends:` ref (e.g. "instruments/drumrack"), for resolving the base
  * module's file when the user chooses "edit the base module". Null when absent.
  */

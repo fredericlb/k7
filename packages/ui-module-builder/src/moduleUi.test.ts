@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  channelOf,
   extendsRefOf,
   hasMalformedUi,
   hasParsableUi,
   ioOf,
   readParams,
   readUi,
+  setChannelIn,
   writeUi,
 } from "./moduleUi";
 
@@ -184,5 +186,52 @@ describe("an io module's direction", () => {
 
   it("is null rather than throwing on a file that doesn't parse", () => {
     expect(ioOf("io: [unclosed\n")).toBe(null);
+  });
+});
+
+// The channel picker's two halves. Reading has to keep a preferences LABEL a label, because the
+// builder does not hold the machine's preferences and cannot resolve one; writing has to leave a
+// hand-written file looking hand-written, since these are the files people edit as text first.
+describe("an input module's channels", () => {
+  it("reads a list of channels as the numbers it names", () => {
+    expect(channelOf("io: in\nchannel: [1, 2]\n")).toEqual([1, 2]);
+    expect(channelOf("io: in\nchannel: [3]\n")).toEqual([3]);
+  });
+
+  it("reads a preferences label as the label, not as numbers", () => {
+    // Resolving it belongs to whoever holds the preferences; guessing here would write the
+    // rig's naming out of the file the first time somebody touched the dropdown.
+    expect(channelOf("io: in\nchannel: Guitare\n")).toBe("Guitare");
+  });
+
+  it("is null when the module points at no socket, and on a file that doesn't parse", () => {
+    expect(channelOf("io: in\n")).toBe(null);
+    expect(channelOf("io: in\nchannel: [unclosed\n")).toBe(null);
+  });
+
+  it("writes the channels inline, the way every input in the repo is written", () => {
+    expect(setChannelIn("io: in\nchannel: [1]\n", [1, 2])).toContain(
+      "channel: [ 1, 2 ]",
+    );
+  });
+
+  it("adds the key to a module that declared none", () => {
+    const after = setChannelIn("io: in\nname: Voix\n", [4]);
+    expect(channelOf(after)).toEqual([4]);
+    expect(after).toContain("name: Voix");
+  });
+
+  it("replaces a preferences label when the user picks a channel by hand", () => {
+    expect(
+      channelOf(setChannelIn("io: in\nchannel: Guitare\n", [7, 8])),
+    ).toEqual([7, 8]);
+  });
+
+  it("leaves every other line of a hand-written file alone", () => {
+    const before = "# the room mic\nio: in\nchannel: [1]\nname: Salle\n";
+    const after = setChannelIn(before, [5, 6]);
+    expect(after).toContain("# the room mic");
+    expect(after).toContain("name: Salle");
+    expect(after.split("\n").length).toBe(before.split("\n").length);
   });
 });

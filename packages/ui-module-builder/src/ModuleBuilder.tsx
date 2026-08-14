@@ -32,6 +32,7 @@ import {
   Loader2,
   Lock,
   type LucideIcon,
+  Mic,
   Pencil,
   Save,
   SlidersHorizontal,
@@ -45,6 +46,7 @@ import {
 } from "react";
 import {
   applyPresetToText,
+  channelOf,
   hasMalformedPresets,
   hasMalformedUiFile,
   ioOf,
@@ -52,6 +54,7 @@ import {
   readParams,
   readPresetsFile,
   readUiFile,
+  setChannelIn,
   writeUiFile,
 } from "./moduleUi";
 import { setParamDrag } from "./paramDrag";
@@ -127,6 +130,7 @@ export function ModuleBuilder({
   onSetPreset,
   pluginParamNames,
   pluginParamMeta,
+  inputDevices,
   baseModules,
   onRelocated,
   renderPreview,
@@ -171,6 +175,10 @@ export function ModuleBuilder({
   pluginParamNames?: string[];
   // …and what each spans, so a bound widget adopts the real range instead of the placeholder 0..1.
   pluginParamMeta?: Record<string, ParamMeta>;
+  // The interface's inputs as the engine GROUPS them, for an `io: in` module's channel picker.
+  // A prop for the same reason `pluginParamNames` is one, and one more: which sets exist is a
+  // question only the machine holding the sound card answers, and it answers it over a socket.
+  inputDevices?: { name: string; channels: number[] }[];
   // Refs this module may `extends`, when the STORE cannot say. Which plugins a machine has
   // scanned is a question only that machine's engine answers, over its socket — l8's backend
   // reads the same cache off disk and puts it in `hints`, the médiathèque's has no such disk.
@@ -551,6 +559,10 @@ export function ModuleBuilder({
   // better when there is one — it comes from the loaded plugin — so this only fills what that has not.
   const baseMeta = paramRef ? (hints?.paramMetaByBase[paramRef] ?? {}) : {};
 
+  // What KIND of module this is — an input, an output, or an ordinary plugin. Two things turn on it:
+  // what the params list can offer, and whether there is a socket to point the module at.
+  const io = content == null ? null : ioOf(content);
+
   // Every addressable param, unioned from all three sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
     const set = content == null ? {} : readParams(content);
@@ -560,7 +572,6 @@ export function ModuleBuilder({
         .filter(Boolean) as string[],
     );
     // An io module's own settings, offered only on an io module: on a plugin they would name nothing.
-    const io = content == null ? null : ioOf(content);
     const ioBinds = io === "in" ? IO_IN_BINDS : [];
     const names = new Set([
       ...Object.keys(set),
@@ -581,7 +592,7 @@ export function ModuleBuilder({
         bound: bound.has(name),
         meta: pluginParamMeta?.[name] ?? baseMeta[name] ?? ioMeta[name],
       }));
-  }, [content, ui, params, baseMeta, pluginParamNames, pluginParamMeta]);
+  }, [content, io, ui, params, baseMeta, pluginParamNames, pluginParamMeta]);
 
   // The same values as NUMBERS, for the preview's widgets. The pane above keeps them as text
   // because a value is whatever the file says; a knob needs a position, so anything that isn't
@@ -845,6 +856,17 @@ export function ModuleBuilder({
                 onSave={() => void saveAll()}
               />
             </div>
+            {/* Above the params, because it is not one: `channel:` is what the module IS, where
+                `@gain` is something you bind a knob to. Only an input has it. */}
+            {io === "in" && (
+              <InputChannelBar
+                key={path}
+                devices={inputDevices ?? []}
+                channels={channelOf(content)}
+                readOnly={!!readOnly}
+                onPick={(chs) => onCodeChange(setChannelIn(content, chs))}
+              />
+            )}
             <ParamsPane rows={paramRows} />
           </div>
           {/* Right column, split the same way as the left: the thing you EDIT above, a
@@ -901,6 +923,116 @@ const IO_IN_BINDS: { name: string; meta: ParamMeta }[] = [
     },
   },
 ];
+
+/**
+ * The socket an `io: in` module listens on — the one choice an input has that a plugin module doesn't.
+ *
+ * Drawn from the sets the ENGINE declares, never from a range of numbers: `channels` is what
+ * `findWaveInput` matches exactly, so on a rig that pairs its inputs there is no device for channel
+ * 2 alone and asking for one reads as silence (see EngineInputDevice in @studio/engine-browser).
+ * That is also what mono/stereo means here — it FILTERS the declared sets by width rather than
+ * pairing numbers up itself, which is why a width the interface doesn't offer says so plainly
+ * instead of showing a menu of choices that would resolve to nothing.
+ */
+function InputChannelBar({
+  devices,
+  channels,
+  readOnly,
+  onPick,
+}: {
+  devices: { name: string; channels: number[] }[];
+  channels: number[] | string | null;
+  readOnly: boolean;
+  onPick: (channels: number[]) => void;
+}) {
+  // Null until somebody flips it: the module's own channel count is the answer while it has one,
+  // so opening a stereo input shows the stereo list without being told.
+  const [want, setWant] = useState<1 | 2 | null>(null);
+  const width =
+    want ?? (Array.isArray(channels) && channels.length === 2 ? 2 : 1);
+  const offered = devices.filter((d) => d.channels.length === width);
+  const current = Array.isArray(channels)
+    ? (devices.find((d) => sameChannels(d.channels, channels))?.name ??
+      `channel${channels.length > 1 ? "s" : ""} ${channels.join(", ")}`)
+    : typeof channels === "string"
+      ? channels // a preferences label — the rig's own naming, shown as written
+      : "no input";
+
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-t border-border bg-card/30 px-2 py-1">
+      <Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <span className="text-xs font-medium">Input</span>
+      <div className="flex overflow-hidden rounded border border-border">
+        {([1, 2] as const).map((n) => (
+          <button
+            type="button"
+            key={n}
+            disabled={readOnly}
+            onClick={() => setWant(n)}
+            className={cn(
+              "px-2 py-0.5 text-[11px]",
+              width === n
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+              readOnly && "opacity-50",
+            )}
+          >
+            {n === 1 ? "mono" : "stereo"}
+          </button>
+        ))}
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={readOnly || offered.length === 0}
+            title="which of the interface's inputs this module listens on"
+          >
+            <span className="max-w-[16rem] truncate">{current}</span>
+            <ChevronDown className="ml-1 h-4 w-4 opacity-70" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="max-h-[50vh] w-64 overflow-y-auto"
+        >
+          <DropdownMenuLabel>
+            {width === 1 ? "Mono inputs" : "Stereo pairs"}
+          </DropdownMenuLabel>
+          {offered.map((d) => (
+            <DropdownMenuItem
+              key={d.name}
+              onSelect={() => onPick([...d.channels])}
+            >
+              <span className="truncate">{d.name}</span>
+              <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                {d.channels.join("+")}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* Two different silences, and they are worth telling apart: an interface that offers no
+          set of this width, and no interface answering at all. */}
+      {devices.length === 0 ? (
+        <span className="truncate text-[10px] text-muted-foreground">
+          no interface answering — the engine lists the inputs
+        </span>
+      ) : offered.length === 0 ? (
+        <span className="truncate text-[10px] text-amber-500">
+          this interface offers no {width === 1 ? "mono" : "stereo"} input
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+// Same set, same order — what `findWaveInput` compares, so the picker highlights a device only when
+// the file names exactly it.
+function sameChannels(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((n, i) => n === b[i]);
+}
 
 // What the FILE says an io setting is, for the params list's value column. An io setting is a top-level field
 // (`gain: 6`), not an entry under `params:`, so readParams cannot see it and the row would read "—" on a module
