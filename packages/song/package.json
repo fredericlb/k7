@@ -24,6 +24,7 @@
     "./onsets": "./src/onsets.ts",
     "./benchChain": "./src/benchChain.ts",
     "./projectEdit": "./src/projectEdit.ts",
+    "./warpPoints": "./src/warpPoints.ts",
     "./curves": "./src/curves.ts",
     "./moduleFork": "./src/moduleFork.ts",
     "./uiLibrary": "./src/uiLibrary.ts",

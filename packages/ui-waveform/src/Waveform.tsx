@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+﻿import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   labelled,
   labelMinPx,
@@ -41,6 +41,12 @@ interface Props {
    * desk's cues and k7's session marks are neither, and moving them was nobody's request.
    */
   markerPlace?: "top" | "low";
+  /**
+   * A clip's STRETCH points, in the same display seconds as everything else here: `orig` is the
+   * moment of the source, `target` is where that moment's beat lands. Equal means unstretched
+   * there. Empty ⇒ nothing drawn, which is every clip that has no map.
+   */
+  warps?: { orig: number; target: number }[];
   gridLines?: WaveformGrid[]; // optional bar/beat overlay
   height?: number; // canvas height in px; defaults to DEFAULT_HEIGHT
   currentTime: number;
@@ -81,6 +87,7 @@ const NO_EVENTS: DetectedEvent[] = [];
 const NO_ANNOTATIONS: Annotation[] = [];
 const NO_MARKERS: Marker[] = [];
 const NO_GRID: WaveformGrid[] = [];
+const NO_WARPS: { orig: number; target: number }[] = [];
 
 const ampToDb = (amp: number): number =>
   amp > 0 ? 20 * Math.log10(amp) : MIN_DB;
@@ -156,6 +163,7 @@ function WaveformInner({
   markers = NO_MARKERS,
   view,
   markerPlace = "top",
+  warps = NO_WARPS,
   gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
   currentTime,
@@ -405,6 +413,35 @@ function WaveformInner({
       ctx.moveTo(mx, 0);
       ctx.lineTo(mx, HEIGHT);
       ctx.stroke();
+    }
+
+    // Stretch points: a dashed rule where the SOURCE moment is, a solid blue one where its beat
+    // lands, and a connector between them when they differ. Drawn HERE rather than as an overlay
+    // div because `timeToX` is the one authoritative mapping — an absolutely positioned layer over
+    // the canvas has to reproduce it, and a border or a rounding then puts the two a pixel apart.
+    for (const w of warps) {
+      const ox = Math.round(timeToX(w.orig)) + 0.5;
+      const tx = Math.round(timeToX(w.target)) + 0.5;
+      ctx.strokeStyle = "rgba(235,235,242,0.55)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(ox, 0);
+      ctx.lineTo(ox, HEIGHT);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "rgb(96,165,250)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(tx, 0);
+      ctx.lineTo(tx, HEIGHT);
+      ctx.stroke();
+      if (Math.abs(tx - ox) > 2) {
+        ctx.beginPath();
+        ctx.moveTo(ox, 12);
+        ctx.lineTo(tx, 12);
+        ctx.stroke();
+      }
     }
 
     // Playhead

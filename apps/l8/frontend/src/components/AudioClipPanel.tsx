@@ -431,6 +431,9 @@ export function AudioClipPanel({
             // Bubbles low on the line, not tabs along the top: the top of a waveform is where the
             // loud material is, and a row of tabs there covers the transients it points at.
             markerPlace="low"
+            // The clip's stretch points, if it has a map: a dashed rule at the moment of the
+            // source, a blue one where that moment's beat lands. `clip warp` is what moves them.
+            warps={wf.warpMarks}
             // A click on a mark refuses that onset; on a detected one that records a removal, on a
             // hand-placed one it takes the addition back — one verb, because from here it is one act.
             onMarkerClick={(m) =>

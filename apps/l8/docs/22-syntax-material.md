@@ -128,7 +128,7 @@ the command bar.
 
 ## clips/<id>.yaml — warped
 
-A stretch map carried over from an imported DAW project. `markers` pairs [timeline beat, source second], monotonic, at least two — the clip follows the song tempo instead of its own. Written by the importer; rarely authored by hand.
+A stretch map: `markers` pairs [timeline beat, source second], monotonic, at least two — the clip follows the song tempo instead of its own. Written by the importer, and editable with `clip warp <clip> <sec> <beat>`, which places a point or moves the one already at that second. `clip warp remove` drops one. Moving a point leaves its neighbours where they are, so only the two segments touching it change rate. A clip with no map gets its two anchors seeded on the first call — that map is an identity and changes no sound; the third point is what makes it a warp.
 
 ```yaml schema=Clip
 source: clips/break.wav

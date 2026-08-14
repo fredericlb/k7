@@ -1,4 +1,4 @@
-// commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
+﻿// commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
 // runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
@@ -56,6 +56,7 @@ import { trackMixer } from "@studio/song/project";
 import {
   clipFilePath,
   clipOnsets,
+  clipWarpMarkers,
   deleteModule,
   insertChainStep,
   moduleAlternatives,
@@ -64,6 +65,7 @@ import {
   replaceModuleInChains,
   selectModuleAlternative,
   setClipOnsets,
+  setClipWarp,
   setClipWindow,
   setModuleAsset,
   setModuleBypass,
@@ -90,6 +92,11 @@ import {
   setTrackPlacementDisabled,
 } from "@studio/song/trackMix";
 import { migrateModuleUis } from "@studio/song/uiMigrate";
+import {
+  removeWarpPoint,
+  seedWarp,
+  setWarpPoint,
+} from "@studio/song/warpPoints";
 import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
@@ -817,6 +824,89 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     h.log([
       `${clip}: kept ${win.from.toFixed(2)}s → ${win.to.toFixed(2)}s of ${env.seconds.toFixed(2)}s (gate ${gate} dB)`,
     ]);
+    await h.reload();
+  },
+
+  /**
+   * clip warp <clip> <sec> <beat> — pin a moment of the source to a beat.
+   *
+   * One verb places and moves, because from the waveform they are one gesture: you drag a mark to
+   * a beat, and whether one was already there is not something you decide beforehand.
+   *
+   * A clip with no map gets its two anchors seeded from its own length. Seeding alone changes no
+   * sound — an identity two-point warp is skipped by the engine — so the FIRST call on an unwarped
+   * clip writes a map and a point in one go, which is what makes the gesture whole.
+   */
+  "clip.warp": async (a, h) => {
+    const [clip, secStr, beatStr] = a.trim().split(/\s+/).filter(Boolean);
+    if (!clip || secStr === undefined || beatStr === undefined) {
+      h.log([
+        "usage: clip warp <clip> <sec> <beat>  (e.g. clip warp break 1.94 4)",
+      ]);
+      return;
+    }
+    const [sec, beat] = [secStr, beatStr].map(Number);
+    if (![sec, beat].every(Number.isFinite) || sec < 0 || beat < 0) {
+      h.log(["sec and beat must be numbers, counted from zero"]);
+      return;
+    }
+    let markers = clipWarpMarkers(h.songPath, clip);
+    if (!markers) {
+      // Seeding needs the clip's own span in BOTH units: beats from the document, seconds from the
+      // envelope. Without them there is nothing to anchor and the map cannot be invented.
+      const doc = h.project();
+      const found = doc.tracks
+        .flatMap((t) => t.clips)
+        .find((c) => c.id === clip);
+      const env = await h.clipEnvelope?.(clip);
+      const beats = found?.length ?? 0;
+      if (!beats || !env?.seconds) {
+        h.log([
+          `${clip}: no stretch map, and no length to seed one from`,
+          "a clip has to be placed on a lane, and its envelope read, before it can be warped",
+        ]);
+        return;
+      }
+      markers = seedWarp(beats, env.seconds);
+    }
+    try {
+      const next = setWarpPoint(markers, sec, beat);
+      h.snapshot?.(clipFilePath(h.songPath, clip));
+      setClipWarp(h.songPath, clip, next);
+      h.log([`${clip}: ${sec}s → beat ${beat} (${next.length} points)`]);
+    } catch (e) {
+      h.log([`clip warp: ${(e as Error).message}`]);
+      return;
+    }
+    await h.reload();
+  },
+
+  /** clip warp remove <clip> <sec> — drop one stretch point. Never below two: see removeWarpPoint. */
+  "clip.warpRemove": async (a, h) => {
+    const [clip, secStr] = a.trim().split(/\s+/).filter(Boolean);
+    if (!clip || secStr === undefined) {
+      h.log(["usage: clip warp remove <clip> <sec>"]);
+      return;
+    }
+    const sec = Number(secStr);
+    if (!Number.isFinite(sec)) {
+      h.log(["sec must be a number — seconds into the source file"]);
+      return;
+    }
+    const markers = clipWarpMarkers(h.songPath, clip);
+    if (!markers) {
+      h.log([`${clip}: no stretch map to remove a point from`]);
+      return;
+    }
+    try {
+      const next = removeWarpPoint(markers, sec);
+      h.snapshot?.(clipFilePath(h.songPath, clip));
+      setClipWarp(h.songPath, clip, next);
+      h.log([`${clip}: dropped the point at ${sec}s (${next.length} left)`]);
+    } catch (e) {
+      h.log([`clip warp remove: ${(e as Error).message}`]);
+      return;
+    }
     await h.reload();
   },
 

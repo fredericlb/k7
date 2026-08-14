@@ -10,12 +10,13 @@ import {
   loadModules,
   splitModuleKey,
 } from "@studio/song/loader";
-import { parse as parseYaml } from "yaml";
+import { parseDocument, parse as parseYaml } from "yaml";
 import { currentAlternative } from "./alternatives";
 import { sharedRoots } from "./moduleFork";
 import { resolveModule } from "./moduleResolve";
 import type { OnsetEdits } from "./onsets";
 import { isTrack } from "./trackModule";
+import type { WarpMarker } from "./warpPoints";
 import {
   addAlternative,
   alternativeNames,
@@ -308,6 +309,52 @@ export function setClipWindow(
   const path = clipFilePath(dir, ref);
   if (!(to > from)) throw new Error("a clip's window has to have some length");
   setMaterialWindow(path, from, to);
+  return path;
+}
+
+/**
+ * Read a clip's stretch map, or null when it has none.
+ *
+ * `[timelineBeat, sourceSecond]` pairs, exactly as the file states them — no resolution, no
+ * defaulting: a clip with no `warp:` has no map, which is a different thing from an identity one.
+ */
+export function clipWarpMarkers(dir: string, ref: string): WarpMarker[] | null {
+  const raw = parseYaml(readFileSync(clipFilePath(dir, ref), "utf8"), {
+    version: "1.2",
+  }) as { warp?: { markers?: unknown } } | null;
+  const m = raw?.warp?.markers;
+  if (!Array.isArray(m)) return null;
+  const out = m
+    .filter((p): p is [number, number] => Array.isArray(p) && p.length === 2)
+    .map(([b, s]): WarpMarker => [Number(b), Number(s)]);
+  return out.length ? out : null;
+}
+
+/**
+ * Write a clip's stretch map. `algorithm` is only used when the block is being CREATED.
+ *
+ * The engine ignores the algorithm entirely — it realises a warp through Tracktion's auto-tempo,
+ * so the name is documentation of where the map came from and nothing else (see applyClipWarp).
+ * It is written because the schema requires it, and kept when one is already there.
+ */
+export function setClipWarp(
+  dir: string,
+  ref: string,
+  markers: WarpMarker[],
+  algorithm = "elastique",
+): string {
+  const path = clipFilePath(dir, ref);
+  const before = readFileSync(path, "utf8");
+  const doc = parseDocument(before, { version: "1.2" });
+  if (!doc.getIn(["warp", "algorithm"]))
+    doc.setIn(["warp", "algorithm"], algorithm);
+  // One pair per line, inline — the shape the importer writes and the one a person can read.
+  const seq = doc.createNode(markers.map((m) => [m[0], m[1]]));
+  for (const item of (seq as { items?: { flow?: boolean }[] }).items ?? [])
+    item.flow = true;
+  doc.setIn(["warp", "markers"], seq);
+  const after = String(doc);
+  if (after !== before) writeFileSync(path, after, "utf8");
   return path;
 }
 

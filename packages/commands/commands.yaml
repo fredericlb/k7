@@ -323,6 +323,39 @@
       },
     ]
 
+# A clip's STRETCH points: which moment of the source lands on which beat. One verb places a point
+# and moves one, because from the waveform they are one gesture — you drag a mark to a beat, and
+# whether it was already there is not something you decide beforehand. Moving one leaves its
+# NEIGHBOURS where they are: only the two segments touching it change rate, which is what every DAW
+# does and the only version you can predict from the handle you are holding.
+# A clip with no map yet gets its two anchors seeded (start and end). That map is an IDENTITY and
+# the engine skips it, so seeding alone changes no sound — the third point is what makes it a warp.
+- command: "clip warp"
+  sid: clip.warp
+  readable:
+    en: "Place or move a clip's stretch point"
+    fr: "Poser ou déplacer un point de tirage d'un clip"
+  help: "pin a moment of the source to a beat (e.g. clip warp break 1.94 4)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: sec, type: number, hint: "seconds into the SOURCE file" },
+      { name: beat, type: number, hint: "the beat that moment should land on" },
+    ]
+- command: "clip warp remove"
+  sid: clip.warpRemove
+  readable:
+    en: "Remove a clip's stretch point"
+    fr: "Retirer un point de tirage d'un clip"
+  help: "drop one stretch point (e.g. clip warp remove break 1.94)"
+  surfaces: [cli]
+  args:
+    [
+      { name: clip, complete: clipTargets },
+      { name: sec, type: number, hint: "seconds into the SOURCE file" },
+    ]
+
 # --- a clip's onsets ---
 # Corrections to what the engine detected, in SECONDS into the source file. Kept as a difference, so
 # they survive re-detecting at another sensitivity — see packages/song/src/onsets.ts. A time within
