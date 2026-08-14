@@ -1,16 +1,20 @@
-﻿// ClipView.tsx — a clip's CONTENT: the waveform for audio, the piano roll for MIDI, and for a
-// live sequence FILE the roll of the notes parsed out of its text. Both views draw their own
-// header and close button. Two hosts mount it — the Editor bottom panel, and the graph slot
-// when a clip is clicked in the timeline (see docs/shell.md).
+﻿// ClipView.tsx — a clip's CONTENT: the AudioClipPanel for audio, the piano roll for MIDI, and for
+// a live sequence FILE the roll of the notes parsed out of its text. Each draws its own header and
+// close button. Two hosts mount it — the Editor bottom panel, and the graph slot when a clip is
+// clicked in the timeline (see docs/shell.md).
+//
+// Audio used to open `WaveformView`, which draws the same picture and can act on none of it. There
+// is one audio clip panel now, and clicking a clip reaches it.
 
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { fileStem } from "../projectPaths";
+import { trackPlacing } from "../takeReview";
 import type { WebClip, WebNote, WebProject } from "../types";
+import { AudioClipPanel } from "./AudioClipPanel";
 import { GraphSlotPane } from "./GraphSlotPane";
 import { PianoRoll } from "./PianoRoll";
-import { WaveformView } from "./WaveformView";
 
 // What to show: a concrete clip (timeline caret or click), or the live sequence file open in the
 // editor, parsed here.
@@ -119,12 +123,17 @@ function SeqRoll({
 export function ClipView({
   target,
   onClose,
+  command,
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
 }: {
   target: EditTarget;
   onClose: () => void;
+  /** Runs a command line through the shell, which journals it — what the audio clip panel's
+   *  onsets, trim and normalise go through. A note edit takes the callbacks below instead, because
+   *  those existed first and the roll builds its own lines. */
+  command: (line: string) => void | Promise<void>;
   // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
   onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
   // Set one note's velocity: (seqId, key, startBeat, 0..1). Runs `sequence note velocity`.
@@ -181,7 +190,21 @@ export function ClipView({
           }
         />
       ) : (
-        clip && <WaveformView project={target.project} clip={clip} />
+        // An audio event opens the CLIP PANEL — the same one a take lands in, with its onsets, its
+        // trim and its normalise. It used to open `WaveformView`, which draws the same waveform and
+        // can do none of those: two ways of looking at one clip, and the one you reached by
+        // clicking it was the one that could not act on it.
+        clip && (
+          <AudioClipPanel
+            clip={clip.id}
+            track={trackPlacing(target.project, clip.id)}
+            // The project's own, so the twelve-bar window is twelve of THIS song's bars.
+            tempo={target.project.tempo}
+            beatsPerBar={target.project.timeSigNumerator}
+            command={command}
+            onClose={onClose}
+          />
+        )
       )}
     </GraphSlotPane>
   );

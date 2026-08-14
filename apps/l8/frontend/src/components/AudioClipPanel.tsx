@@ -39,17 +39,21 @@ const GATE_MAX = -10;
  * the recording window made when it showed eight.
  */
 const DEFAULT_BARS = 12;
+// Stable empty defaults: a fresh `[]` or `{}` per render is a new identity, and one of these feeds
+// a memo — the same reason @studio/ui-waveform keeps its own.
+const NO_TRACKS: string[] = [];
+const NO_NAMES: Record<string, string> = {};
 
 export function AudioClipPanel({
   clip,
   track,
-  rolling,
-  tempo,
-  beatsPerBar,
-  countIn,
-  startBeat,
-  trackOrder,
-  trackNames,
+  rolling = false,
+  tempo = 120,
+  beatsPerBar = 4,
+  countIn = 0,
+  startBeat = 0,
+  trackOrder = NO_TRACKS,
+  trackNames = NO_NAMES,
   command,
   onStop,
   onClose,
@@ -57,23 +61,31 @@ export function AudioClipPanel({
   /** The clip on screen — null while a take is rolling, since the file does not exist yet. */
   clip: string | null;
   track: string;
-  /** Is a take being played right now? Decides which of the two pictures this draws. */
-  rolling: boolean;
-  tempo: number;
-  /** Quarter-note beats per bar (the project's time-sig numerator), for the counter. */
-  beatsPerBar: number;
+  /**
+   * Is a take being played right now? Decides which of the two pictures this draws.
+   *
+   * Everything from here down is the RECORDING half, and all of it is optional: opening this panel
+   * on a clip that is simply sitting on a lane — a click on an audio event — has no take, no
+   * count-in and no armed track to speak of. The file half needs none of them.
+   */
+  rolling?: boolean;
+  tempo?: number;
+  /** Quarter-note beats per bar (the project's time-sig numerator), for the counter AND for the
+   *  twelve-bar window — so this one is worth passing even with no take in sight. */
+  beatsPerBar?: number;
   /** Count-in length in BARS (0 == none) — the header counts it down before the take. */
-  countIn: number;
+  countIn?: number;
   /** The beat this take started on — the shell's, so the counter and the lane's growing clip agree. */
-  startBeat: number;
+  startBeat?: number;
   /** The engine level index order, so an armed track maps to its inputLevels slot. */
-  trackOrder: string[];
+  trackOrder?: string[];
   /** Track id → display name, for naming who is being recorded. Which tracks those ARE comes off
    *  the engine store here, so the shell does not have to thread a second live value through. */
-  trackNames: Record<string, string>;
+  trackNames?: Record<string, string>;
   /** Runs a command line through the shell, which journals it — so every edit here is one Ctrl+Z. */
   command: (line: string) => void | Promise<void>;
-  onStop: () => void;
+  /** Stop the take. Absent when there is no take to stop — a clip opened from the timeline. */
+  onStop?: () => void;
   onClose: () => void;
 }) {
   const [wf, setWf] = useState<WebWaveform | null>(null);
@@ -106,7 +118,7 @@ export function AudioClipPanel({
       if (e.key === "Escape" && !typing) {
         e.preventDefault();
         e.stopPropagation();
-        onStop();
+        onStop?.();
       }
     };
     window.addEventListener("keydown", onKey, true);

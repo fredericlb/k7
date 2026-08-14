@@ -204,7 +204,20 @@ One thing the old bottom panel had and this does not: it drew its cards at 1.5×
 their grid asked for, elbow room that a rank of strips read better with. Here the cards are the
 graph's own, at the graph's own size — they are the same nodes, which is the point.
 
-### ONE panel for an audio clip, recorded or not
+### ONE panel for an audio clip, recorded or not — and clicking one reaches it
+
+`AudioClipPanel` is where an audio clip is looked at, whichever way you got to it: a take that has
+just stopped, `ui review <clip>` on an old one, or a **click on an audio event in the timeline**.
+That last one used to open `WaveformView`, which draws the same waveform and can act on none of
+it — so the route you reach by clicking a clip was the one that could not trim it, mark it or bring
+it up to level.
+
+Everything on the panel below `clip` is therefore OPTIONAL: a clip sitting on a lane has no take,
+no count-in and no armed track. Only `beatsPerBar` and `tempo` are worth passing anyway, because
+the twelve-bar window should be twelve of *this* song's bars.
+
+`WaveformView` stays for the editor's own pane — the one `e` opens beside a clip's text — which is
+a different surface with a different job.
 
 `AudioClipPanel` takes the graph slot, and it is the only place a clip is drawn. While a take
 rolls it shows the envelope the engine is pushing, **growing**; the moment the recorder closes the
