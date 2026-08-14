@@ -147,8 +147,12 @@ The suites here mount nothing, so none of this is covered by a green run:
 
 - with **no libraries repository** on the account, open any project → l8 refuses with "no
   libraries repository" and a button back to st0, before it clones anything;
-- add one in st0's Projets section (the card is above everything else), then open a project →
-  it clones, and `_libraries/` is there beside it with `.gitmodules` staged in the workspace;
+- add an **empty** repository in st0's Projets section (the card is above everything else), then
+  open a project → `_libraries/` is there beside it, filled with the catalogue st0 already held,
+  committed and pushed, with `.gitmodules` staged in the workspace. Look at the repository on
+  your git host: `modules/` and `chains/` are in it;
+- open a project in a SECOND workspace → the library clones with its content and is not seeded
+  again;
 - switch the tree to **Libraries** → `@st0`, and the catalogue under it; the Project tab does
   NOT show `_libraries`;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit

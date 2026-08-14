@@ -4,11 +4,13 @@
 // Rationale: packages/song/docs/sharedFolders.md.
 
 import { execFile } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
 import { assertSshGitUri, normalizeGitUri } from "@studio/git-repos/uri";
+import { remoteLibrary } from "@studio/mediatek/remote";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
+import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 
 const run = promisify(execFile);
@@ -77,6 +79,111 @@ const isPopulated = (dir: string): boolean => {
  */
 export class LibrariesMovedError extends Error {}
 
+/** The two families a library repository carries. Songs and samples are not among them: they
+ *  are audio masters, and git is not where those belong (see docs/sharedFolders.md). */
+const FAMILIES = ["modules", "chains"] as const;
+
+/**
+ * Is this checkout a library nobody has filled yet?
+ *
+ * Neither family present — not "no files at all", because a repository somebody created through
+ * a web UI usually arrives with a README, and refusing to seed on account of one would leave
+ * the new account with an empty catalogue and no way to explain it. A single `modules/` or
+ * `chains/` folder, however, means somebody has been here, and nothing below may touch it.
+ */
+const isFresh = (at: string): boolean =>
+  FAMILIES.every((f) => !existsSync(join(at, f)));
+
+/**
+ * Fill a brand-new library repository with the modules and chains st0 already holds, then
+ * commit and push it.
+ *
+ * **This is the migration.** The hosted médiathèque was the catalogue until now, and every
+ * `@st0/…` ref in every song names something that lives there; a library repository that
+ * started empty would break all of them at once. So the first machine to mount one copies the
+ * catalogue in — once, into a repository that is empty, and never again, because a repository
+ * with a `modules/` folder is not empty any more.
+ *
+ * The FILE SERVICE does it, and that is not incidental: st0 holds the catalogue but is
+ * deliberately not a git writer (`apps/st0/docs/projects.md` — the service that mints everyone's
+ * session and holds the one deploy key must not also be able to push to every repository). This
+ * machine already writes to git, already has a working copy, and already has a copy of the key.
+ *
+ * Answers what happened, because the caller's next move depends on it:
+ * `"seeded"` / `"empty"` (nothing to copy from) / `"unpushed"` (committed here, refused there).
+ */
+export async function seedIfEmpty(
+  at: string,
+  env: NodeJS.ProcessEnv = envFor(""),
+): Promise<"seeded" | "empty" | "unpushed" | "filled"> {
+  if (!isFresh(at)) return "filled";
+  const base = mediatekBase();
+  if (!base) {
+    console.warn(
+      `[libraries] ${at} is empty and no hosted médiathèque is configured — nothing to seed it from`,
+    );
+    return "empty";
+  }
+
+  const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
+  let files = 0;
+  for (const family of FAMILIES) {
+    let manifest: Awaited<ReturnType<typeof source.manifest>>;
+    try {
+      manifest = await source.manifest(family);
+    } catch (e) {
+      // One family that will not list must not lose the other: a catalogue with modules and no
+      // chains is a working library, and an empty one is not.
+      console.warn(`[libraries] ${family}: ${(e as Error).message}`);
+      continue;
+    }
+    for (const entry of manifest) {
+      const dest = join(at, entry.path.split("/").join(sep));
+      mkdirSync(dirname(dest), { recursive: true });
+      await source.download(entry.path, dest);
+      files++;
+    }
+  }
+  if (!files) {
+    console.warn(
+      `[libraries] the médiathèque has no modules or chains to seed`,
+    );
+    return "empty";
+  }
+
+  await git(at, ["add", "-A"], env);
+  // An author, because a repository with no `user.email` configured refuses to commit at all —
+  // and this runs on a machine nobody has set up for git. Named for what it is: this commit is
+  // a migration and not somebody's work.
+  await git(
+    at,
+    [
+      "-c",
+      "user.name=studio",
+      "-c",
+      "user.email=studio@localhost",
+      "commit",
+      "-m",
+      "les bibliotheques : le catalogue de la mediatheque, repris tel quel",
+    ],
+    env,
+  );
+  try {
+    await git(at, ["push", "-u", "origin", "HEAD"], env);
+  } catch (e) {
+    // Two machines racing to seed the same new repository is the ordinary way this happens:
+    // the loser's push is rejected, and the winner's content is the same catalogue anyway. Say
+    // so and leave the checkout alone — the caller declines to record a gitlink, so nothing
+    // downstream ends up pointing at a commit that never left here.
+    console.warn(
+      `[libraries] seeded ${files} file(s) but could not push: ${(e as Error).message}`,
+    );
+    return "unpushed";
+  }
+  console.log(`[libraries] seeded ${at} with ${files} file(s) from ${base}`);
+  return "seeded";
+}
+
 /**
  * Ensure the workspace has the account's libraries at `_libraries`, and answer whether
  * anything had to be fetched.
@@ -115,10 +222,26 @@ export async function ensureLibraries(
       );
       return { mounted: true };
     }
-    // Not declared at all. `submodule add` STAGES `.gitmodules` and the gitlink and does not
-    // commit — deliberately: committing is `project commit`, which is somebody's decision and
-    // not something opening a song should do to their repository.
-    await git(root, ["submodule", "add", "--", uri, LIBRARIES_DIR], env);
+
+    /**
+     * Not declared at all — the first workspace to mount this library.
+     *
+     * CLONED first and adopted second, rather than one `git submodule add`, and the reason is
+     * the case this whole path exists for: a library repository somebody just created has NO
+     * COMMITS, and a gitlink has to point at one. `submodule add` on an unborn HEAD fails.
+     * Cloning it, filling it (below), and only then adding it hands `submodule add` a repo with
+     * a commit — and `submodule add` on a path that is already a checkout adopts it rather than
+     * cloning a second time.
+     */
+    await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
+    const seeded = await seedIfEmpty(at, env);
+    // Only NOW is the gitlink recorded — and not at all if the seed could not be pushed. A
+    // gitlink is a promise that a commit is fetchable; pointing it at one that never left this
+    // machine would break the workspace for everybody who clones it, including you tomorrow.
+    if (seeded !== "unpushed")
+      // STAGES `.gitmodules` and the gitlink, and does not commit — deliberately: committing is
+      // `project commit`, somebody's decision, not something opening a song does to their repo.
+      await git(root, ["submodule", "add", "--", uri, LIBRARIES_DIR], env);
     return { mounted: true };
   }
 
@@ -129,6 +252,7 @@ export async function ensureLibraries(
   if (isPopulated(at)) return { mounted: false };
   await ensureKey(userEmail);
   await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
+  await seedIfEmpty(at, env);
   return { mounted: true };
 }
 

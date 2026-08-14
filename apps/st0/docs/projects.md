@@ -32,6 +32,14 @@ URI normalisée — et rangé dans le même fichier par personne, sous `librarie
 Ce qui diffère est le verbe : `PUT`, parce qu'il y en a un. Le poser deux fois avec la même URI
 doit être le poser une fois.
 
+**Un dépôt vide se remplit tout seul, une fois.** À la première ouverture d'un projet, la
+machine y recopie le catalogue que la médiathèque tient déjà — `modules/` et `chains/` — puis
+committe et pousse. Sans ça, un dépôt neuf casserait d'un coup toutes les références `@st0/…`
+de toutes les chansons déjà écrites. C'est le service de fichiers qui le fait et pas st0 : st0
+détient le catalogue mais n'écrit dans aucun dépôt, pour la raison donnée plus bas
+(« Pourquoi st0 ne peut pas »). Détails et cas limites :
+[packages/song/docs/sharedFolders.md](../../../packages/song/docs/sharedFolders.md).
+
 **En changer ne touche aucune machine.** Les espaces de travail déjà clonés gardent l'ancien :
 leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que
 de le faire en silence — remplacer le sous-module sous un projet qui s'en sert changerait tous

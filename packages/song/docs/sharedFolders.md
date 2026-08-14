@@ -22,6 +22,28 @@ whole of it, and `POST /open` is where it runs, on every launch rather than only
 setting can be added after a workspace already exists, which is true of every workspace that
 predates the feature.
 
+### An empty repository is filled once, from the catalogue
+
+A library repository somebody just created has nothing in it, and every `@st0/…` ref in every
+song already written names something that lives in the hosted médiathèque. So the first machine
+to mount an EMPTY one copies the catalogue in — `modules/` and `chains/` — commits it and pushes
+it. That is the migration, and it runs exactly once: a repository with a `modules/` folder is
+not empty any more, which is a question about the checkout rather than a flag anybody keeps.
+
+Three details are load-bearing:
+
+- **"Empty" means neither family present, not "no files".** A repository made through a web UI
+  usually arrives with a README, and refusing to seed over one would leave a new account with an
+  empty catalogue and no way to explain it.
+- **The gitlink is recorded only after the push succeeds.** A gitlink promises that a commit is
+  fetchable; pointing one at a commit that never left the machine breaks the workspace for
+  everybody who clones it. Two machines racing to seed the same new repository is the ordinary
+  way this happens — the loser is told, keeps its checkout, and records nothing.
+- **The FILE SERVICE does it, not st0.** st0 holds the catalogue but is deliberately not a git
+  writer (`apps/st0/docs/projects.md`: the service that mints everyone's session and holds the
+  one deploy key must not also be able to push to every repository). This machine already writes
+  to git, already has a working copy, and already has a copy of the key.
+
 **This replaced `~/.studio/mediatek/modules`.** That folder was one per MACHINE, synced from
 the hosted médiathèque by `mediatekPull`, and it is no longer a module root at all. Three things
 follow, and each is worth stating because each was a rule before:
