@@ -18,6 +18,12 @@ import {
 } from "@studio/song/yaml/videoTrackFile";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type { LintItem } from "@studio/ui-editor/lint";
+import { InputChannelBar } from "@studio/ui-module-builder/input-channels";
+import {
+  channelOf,
+  ioOf,
+  setChannelIn,
+} from "@studio/ui-module-builder/module-ui";
 import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   FileText,
@@ -272,6 +278,8 @@ export function EditorTab({
   onOpenLibraryModule,
   diagnostics,
   videoSources,
+  inputDevices,
+  onRegroupInputs,
   ref,
 }: {
   active: boolean;
@@ -310,6 +318,11 @@ export function EditorTab({
    * honest answer rather than a black rectangle. The times come from the buffer — see `readers`.
    */
   videoSources: Record<string, string>;
+  // The interface's inputs, for the channel strip an `io: in` file gets under its text. Here and
+  // not only in the builder because an input is usually a NODE — two lines, `extends: "@engine/IN"`
+  // and a channel — and nobody opens a builder on those. See ui-module-builder/docs/inputChannels.md.
+  inputDevices: { name: string; channels: number[] }[];
+  onRegroupInputs?: (channel: number, stereo: boolean) => void;
   ref?: React.Ref<EditorHandle>;
 }) {
   const [tree, setTree] = useState<FileNode[]>([]);
@@ -1019,6 +1032,13 @@ export function EditorTab({
    * edit. The FILE each ref names comes from the compiled document (`videoSources`), because
    * only the compiler has read `clips/<ref>.yaml` to find out.
    */
+  // Is the open file an INPUT? Read off the buffer, so a node that has just been pointed at
+  // `@engine/IN` grows its channel strip as you type rather than after a save.
+  const inputIo = useMemo(
+    () => (!file || file.binary ? null : ioOf(file.content ?? "", file.path)),
+    [file],
+  );
+
   const readers = useMemo<VideoReader[]>(() => {
     if (!strip || !file || file.binary || !isVideoTrackFile(file.path))
       return [];
@@ -1275,6 +1295,23 @@ export function EditorTab({
               />
             )}
           </div>
+          {/* An input's socket, docked under its text for the same reason the readers are: which
+              preamp a guitar is in is a thing you PICK off the interface, not a number to remember.
+              Same buffer as the editor above, so it is visible before it is saved and undoable by
+              not saving. Shown for a node that only INHERITS its io — `ioOf` reads the extends and
+              the path too, which is what almost every input in a real song relies on. */}
+          {file && inputIo === "in" && (
+            <InputChannelBar
+              key={file.path}
+              devices={inputDevices}
+              channels={channelOf(file.content)}
+              readOnly={false}
+              onPick={(chs) =>
+                setFile({ ...file, content: setChannelIn(file.content, chs) })
+              }
+              onRegroup={onRegroupInputs}
+            />
+          )}
           {/* A picture lane's readers, docked under its text: the in-point of a shot is a FRAME
               you recognise, not a number you can type. Same buffer as the editor above. */}
           {readers.length > 0 && (

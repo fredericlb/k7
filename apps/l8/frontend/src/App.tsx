@@ -498,11 +498,13 @@ export default function App({
   // The interface's inputs, asked for only while the builder is open on a module that HAS an input
   // to point somewhere. Nothing else in l8 needs the grouping: the IO panel meters the ports the
   // project already declares, where this is the list you pick a new one from.
-  // `connected` is in the condition and not just for tidiness: `engineRef` is a ref, so a link that
-  // comes up after the builder opens re-renders nothing on its own and the ask would never be sent.
+  // Asked once per connection rather than while a particular screen is open: TWO surfaces want the
+  // list now — the builder and the editor's channel strip — and an input is most often a node you
+  // open in the editor. `connected` is the trigger and not just a guard: `engineRef` is a ref, so a
+  // link coming up later re-renders nothing on its own and the ask would never be sent.
   const { devices: inputDevices, regroup: regroupInputs } = useInputDevices(
     engineRef.current ?? null,
-    !!builder && connected,
+    connected,
   );
 
   // The special views this PROJECT declares (`surfaces/`), and the engine as a desk sees it.
@@ -2466,6 +2468,10 @@ export default function App({
                 }
                 diagnostics={diagnostics}
                 videoSources={videoSources}
+                // The channel strip an `io: in` file gets under its text — the surface that
+                // actually opens when somebody clicks an IN node.
+                inputDevices={inputDevices}
+                onRegroupInputs={connected ? regroupInputs : undefined}
               />
             </div>
 

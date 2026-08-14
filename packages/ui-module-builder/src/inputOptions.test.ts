@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inputOptions } from "./ModuleBuilder";
+import { inputOptions } from "./InputChannelBar";
 
 // What the channel dropdown offers, and it is not a filter over the device list. A Focusrite 18i20
 // enumerates twenty MONO inputs and no stereo device at all, so "stereo" filtered would be empty for
