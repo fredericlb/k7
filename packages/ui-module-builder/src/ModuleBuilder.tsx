@@ -561,7 +561,8 @@ export function ModuleBuilder({
 
   // What KIND of module this is — an input, an output, or an ordinary plugin. Two things turn on it:
   // what the params list can offer, and whether there is a socket to point the module at.
-  const io = content == null ? null : ioOf(content);
+  // The PATH goes in too: a module under `io/IN/` states nothing about itself and is still an input.
+  const io = content == null ? null : ioOf(content, path);
 
   // Every addressable param, unioned from all three sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
