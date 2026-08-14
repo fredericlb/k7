@@ -152,6 +152,15 @@ export function TakeReview({
               `remove:${m.id}`,
             )
           }
+          // …and dragging one MOVES it: the detector heard the attack a hair late, and saying where
+          // it belongs is one act, not a refusal followed by an addition. `clip onset move` records
+          // it as a single correction, so it survives re-detecting at another threshold.
+          onMarkerMove={(m, to) =>
+            void run(
+              `clip onset move ${clip} ${m.atSec.toFixed(4)} ${to.toFixed(4)}`,
+              `move:${m.id}`,
+            )
+          }
           // Anywhere else adds one. `onSeek` is the canvas's "you pointed at this second"; there is
           // nothing to seek on a take that is not playing, so this is what pointing means here.
           onSeek={(sec) =>

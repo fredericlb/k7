@@ -31,6 +31,16 @@ interface Props {
   // Clicking a marker pin seeks to it by default; the host can override (e.g. to
   // also scroll its row into view).
   onMarkerClick?: (marker: Marker) => void;
+  /**
+   * Drag a marker to another time. Absent ⇒ the pins are click-only, as they were.
+   *
+   * A pin is a DOM button, so the drag lives on the pin rather than in the canvas's pointer
+   * handling: grabbing one must not also start a selection underneath, and the two would race for
+   * the same pointer. It is committed on RELEASE — an onset written on every pointermove would be
+   * a file write per pixel — while `dragging` below moves the pin as you go, so the hand and the
+   * mark stay together. A drag that does not move is a click, and reaches `onMarkerClick`.
+   */
+  onMarkerMove?: (marker: Marker, toSec: number) => void;
   // Live draft range of the moment currently being range-edited (null when not
   // editing). Dragging the edge handles updates it via onEditRange.
   editing?: Selection | null;
@@ -132,6 +142,7 @@ function WaveformInner({
   onSeek,
   onSelect,
   onMarkerClick,
+  onMarkerMove,
   editing = null,
   onEditRange,
 }: Props) {
@@ -140,6 +151,13 @@ function WaveformInner({
   const [width, setWidth] = useState(800);
   const drag = useRef<{ startX: number; moved: boolean } | null>(null);
   const [dragSel, setDragSel] = useState<Selection | null>(null);
+  // The pin being dragged, where it is now, and whether it has actually travelled — `moved` is
+  // what tells a move from a click, so a mark you meant to remove is not silently re-placed.
+  const [markerDrag, setMarkerDrag] = useState<{
+    id: string;
+    atSec: number;
+    moved: boolean;
+  } | null>(null);
   // Which edge of the editing moment is being dragged, if any.
   const editDrag = useRef<"start" | "end" | null>(null);
 
@@ -542,9 +560,50 @@ function WaveformInner({
           key={m.id}
           type="button"
           className="waveform-marker"
-          style={{ left: timeToX(m.atSec) }}
-          title={m.comment || "Marker"}
-          onClick={() => (onMarkerClick ? onMarkerClick(m) : onSeek?.(m.atSec))}
+          // The pin follows the pointer while it is being dragged, and sits at its own time
+          // otherwise. Local state, not the prop: the file is written on release, and a pin that
+          // waited for that round trip would lag the hand by a save.
+          style={{
+            left: timeToX(markerDrag?.id === m.id ? markerDrag.atSec : m.atSec),
+          }}
+          title={
+            onMarkerMove
+              ? (m.comment ?? "Marker — drag to move")
+              : m.comment || "Marker"
+          }
+          onPointerDown={(e) => {
+            if (!onMarkerMove) return;
+            e.stopPropagation(); // …or the canvas underneath starts a selection at the same time
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setMarkerDrag({ id: m.id, atSec: m.atSec, moved: false });
+          }}
+          onPointerMove={(e) => {
+            if (!markerDrag || markerDrag.id !== m.id) return;
+            const x = localX(e.clientX);
+            setMarkerDrag({
+              id: m.id,
+              atSec: Math.max(0, Math.min(total, xToTime(x))),
+              // 4px, the same threshold the canvas uses to tell a click from a drag — so a twitch
+              // while clicking a mark still removes it rather than moving it onto itself.
+              moved: markerDrag.moved || Math.abs(x - timeToX(m.atSec)) > 4,
+            });
+          }}
+          onPointerUp={() => {
+            const d = markerDrag;
+            setMarkerDrag(null);
+            if (!d || d.id !== m.id) return;
+            if (d.moved) onMarkerMove?.(m, d.atSec);
+            else if (onMarkerClick) onMarkerClick(m);
+            else onSeek?.(m.atSec);
+          }}
+          onPointerCancel={() => setMarkerDrag(null)}
+          // Click still answers for a host that offers no move — and does NOT fire when a drag
+          // already handled the release, since that path never reaches a click.
+          onClick={() => {
+            if (onMarkerMove) return;
+            if (onMarkerClick) onMarkerClick(m);
+            else onSeek?.(m.atSec);
+          }}
         >
           <span className="waveform-marker-flag">🚩</span>
         </button>

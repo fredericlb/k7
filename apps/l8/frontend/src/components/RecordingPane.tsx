@@ -13,7 +13,7 @@ import {
   useEngineStore,
 } from "@studio/engine-browser/store";
 import { Circle, Square } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { beatLines, windowStart } from "../recordingWindow";
 import { GraphSlotPane } from "./GraphSlotPane";
 
@@ -50,6 +50,7 @@ export function RecordingPane({
   trackOrder,
   trackNames,
   rolling,
+  review,
   onStop,
   onClose,
 }: {
@@ -65,6 +66,14 @@ export function RecordingPane({
   // pushing frames when the transport is stopped, and appending them would scroll what was just
   // played off the left for no reason.
   rolling: boolean;
+  /**
+   * What to do about the take now it is over — the review, drawn under the frozen envelope.
+   *
+   * A SLOT rather than the review itself: this pane is a live monitor drawn from meter frames and
+   * knows nothing about clips, ids or the file service. The shell owns what lands here, which is
+   * the same division `renderPreview` uses in the module builder.
+   */
+  review?: ReactNode;
   onStop: () => void;
   onClose: () => void;
 }) {
@@ -312,8 +321,17 @@ export function RecordingPane({
           be a band in the column and had to name its own height to stay out of the way.
           Closing is not stopping: the frame's ✕ puts the graph back and leaves the take rolling,
           which is why it sits beside Stop rather than instead of it. */}
-      <div className="h-full min-h-0 px-4 py-2">
-        <canvas ref={canvasRef} className="h-full w-full" />
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="min-h-0 flex-1 px-4 py-2">
+          <canvas ref={canvasRef} className="h-full w-full" />
+        </div>
+        {/* …and UNDER it, once the take is over, what to do about it: the file's own waveform, its
+            onsets, the button that brings it up to level. Here rather than in the column because
+            this pane is what you are looking at after Stop — it takes the slot and keeps it — and
+            a review three panes away is a review nobody finds. shell.md called deciding this an
+            open question; this is the answer. Empty while a take rolls: there is nothing to say
+            about a take that is still being played. */}
+        {review}
       </div>
     </GraphSlotPane>
   );

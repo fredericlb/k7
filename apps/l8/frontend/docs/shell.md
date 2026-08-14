@@ -234,14 +234,23 @@ The minimap the fullscreen version carried as a child is gone: the shell's own s
 bottom of the column, and two of them was one too many. On a phone that means no minimap while
 recording, since the shell's is desktop-only.
 
-**`TakeReview` is still there, and the two now both appear after a take.** They are not the
-same view and neither does the other's work: the pane is the LIVE monitor, drawn from the
-~20 Hz meter frames, and it outlives the take; the review reads the FILE the service wrote —
-its waveform under the project's ruler, the onsets you add or refuse, the threshold that finds
-them, the button that brings it up to level. The pane arrived while the review was being
-written, on a branch that predated it, so neither knows about the other. Deciding which owns
-the moment after Stop — or whether the review belongs in the slot too, replacing the pane as it
-once replaced the band — is a design call this merge deliberately did not make on its own.
+**`TakeReview` sits INSIDE the pane, under the frozen envelope.** They are still not the same
+view and neither does the other's work: the pane is the LIVE monitor, drawn from the ~20 Hz
+meter frames, and it outlives the take; the review reads the FILE the service wrote — its
+waveform under the project's ruler, the onsets you add, move or refuse, the threshold that finds
+them, the button that brings it up to level.
+
+Which owns the moment after Stop was left open when the pane arrived (it was written on a branch
+that predated the review, so neither knew about the other). **The pane owns it**, and the reason
+is what a screenshot showed: the pane takes the slot and keeps it, so after Stop it is the whole
+screen — and a normalize button in a column behind it is a button nobody finds. It was not that
+the review was subtly placed; it was not on screen at all.
+
+So the pane takes a `review` **slot** — a `ReactNode`, the same division `renderPreview` uses in
+the module builder: this pane is a live monitor and knows nothing of clips, ids or the file
+service, so the shell owns what lands there. The column keeps the review for the case with no
+pane, which is `ui review <clip>` on an old take with nothing recording. One node, two homes,
+built once in `App` so the two cannot drift.
 
 #### …and the review can be asked for, not only awaited
 
@@ -261,6 +270,20 @@ The lane is looked up rather than asked for (`takeReview.ts`), and a clip nothin
 just the same, labelled **hors piste**. That is the case it exists for: the waveform, the onsets
 and the level are properties of the FILE, and none of them needs a placement. To put such a take
 back on a lane, `event add <track> <clip> <timecode>` is the verb.
+
+#### Onsets are dragged, not retyped
+
+A detected attack is often a hair off rather than wrong, and refusing it only to add another a
+few milliseconds away is two acts for one intention. So a pin can be **dragged**: `Waveform` takes
+an `onMarkerMove`, and the review sends `clip onset move`, which records it as ONE correction and
+therefore survives re-detecting at another threshold.
+
+The drag lives on the pin — a DOM button — rather than in the canvas's pointer handling, because
+grabbing a pin must not also start a selection underneath and the two would race for the same
+pointer. It commits on RELEASE (an onset written on every `pointermove` would be a file write per
+pixel) while local state moves the pin as you go, so the hand and the mark stay together. A press
+that travels less than 4px is still a **click**, and a click still refuses the onset — the same
+threshold the canvas uses, so a twitch while removing a mark does not silently re-place it.
 
 #### The waveform's x axis is musical time
 

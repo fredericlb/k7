@@ -2194,6 +2194,26 @@ export default function App({
       ? ws.lastTake
       : null);
 
+  // Where the review is DRAWN. One node, two possible homes: inside the recording pane while that
+  // pane holds the slot — after Stop it is what fills the screen, and a normalize button three
+  // panes away is a button nobody finds — and in the column otherwise, which is `ui review <clip>`
+  // on an old take with nothing recording. Built once so the two cannot drift.
+  const inRecordingPane = graphSlot?.kind === "recording";
+  const reviewNode = reviewTake ? (
+    <TakeReview
+      clip={reviewTake.clip}
+      track={reviewTake.track}
+      command={runCommand}
+      // Both halves have to be closed: the named one is this tab's own state, and the automatic
+      // one is dismissed by remembering its id. Doing only the first would leave the newest take
+      // popping straight back.
+      onClose={() => {
+        setReviewOn(null);
+        setReviewedTake(reviewTake.clip);
+      }}
+    />
+  ) : null;
+
   // Everything that makes the transport unable to answer, as one flag — because to whoever is reaching for Play
   // the two causes are the same fact, and the button has to say so either way.
   //
@@ -2775,6 +2795,11 @@ export default function App({
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
                     rolling={rolling}
+                    // The review goes INSIDE the pane while the pane is up: after Stop this is
+                    // what fills the screen, and the normalize button and the onsets have to be
+                    // where you are looking. It falls back to the column when there is no pane —
+                    // `ui review <clip>` on an old take, with nothing recording.
+                    review={reviewNode}
                     onStop={() => void runCommand("transport stop")}
                     onClose={() => setGraphSlot(null)}
                   />
@@ -2831,20 +2856,8 @@ export default function App({
             monitor and outlives the take, this is the editing step on what landed on disk, and
             neither does the other's work. They do both appear at once after a take — see
             docs/shell.md. */}
-        {reviewTake && (
-          <TakeReview
-            clip={reviewTake.clip}
-            track={reviewTake.track}
-            command={runCommand}
-            // Both halves have to be closed: the named one is this tab's own state, and the
-            // automatic one is dismissed by remembering its id. Doing only the first would leave
-            // the newest take popping straight back.
-            onClose={() => {
-              setReviewOn(null);
-              setReviewedTake(reviewTake.clip);
-            }}
-          />
-        )}
+        {/* …and here only when the recording pane is NOT up, since that pane hosts it instead. */}
+        {!inRecordingPane && reviewNode}
 
         <footer
           className={cn(
