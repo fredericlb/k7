@@ -15,6 +15,7 @@ import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { barWindow, zoomBars } from "../barWindow";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { WebWaveform } from "../types";
@@ -29,6 +30,15 @@ const SENS_MAX = 8;
 // slider spans "keep almost everything" to "keep only what is loud" and neither end is useless.
 const GATE_MIN = -80;
 const GATE_MAX = -10;
+/**
+ * How many bars the waveform shows before you ask for more.
+ *
+ * A take is often minutes long, and a minute drawn across a pane is a solid block: the whole point
+ * of looking at a take — where the attacks are, where the silence is, whether the onsets landed —
+ * needs bars you can tell apart. Twelve is what a phrase tends to be, and it is the same choice
+ * the recording window made when it showed eight.
+ */
+const DEFAULT_BARS = 12;
 
 export function AudioClipPanel({
   clip,
@@ -76,6 +86,9 @@ export function AudioClipPanel({
   // two travel together: a gate nobody is looking at should not paint over the take.
   const [gate, setGate] = useState(DEFAULT_TRIM_DB);
   const [gateOpen, setGateOpen] = useState(false);
+  // How many bars are on screen. State and not a derived value, because it is a thing the person
+  // asked for: zooming out to see the whole take must survive the re-read every edit triggers.
+  const [bars, setBars] = useState(DEFAULT_BARS);
   const live = useLiveEnvelope(rolling, trackOrder);
 
   // Esc stops the take, captured so it reads as "leave the take" wherever the pointer went. Bound
@@ -161,6 +174,9 @@ export function AudioClipPanel({
     [gateOpen, wf, gate],
   );
   const seconds = (live.samples.length * live.intervalMs) / 1000;
+  // The window on the file: the first `bars` bars, or the whole take when it is shorter. The maths
+  // and its edges — a part-bar take, a tempo that has not arrived — live in barWindow.ts.
+  const win = barWindow(wf?.seconds ?? 0, bars, tempo, beatsPerBar);
 
   return (
     <section
@@ -221,6 +237,23 @@ export function AudioClipPanel({
               cliquer ajoute un onset · glisser un repère le déplace · cliquer
               l'enlève
             </span>
+            {/* What is on screen, and the way back to the whole take. Said out loud because a
+                window that showed only the first bars without saying so would read as a clip that
+                had been cut. */}
+            {wf && win.allBars > 1 && (
+              <span className="whitespace-nowrap tabular-nums">
+                {win.shown}/{win.allBars} mes.
+                {win.shown < win.allBars && (
+                  <button
+                    type="button"
+                    className="ml-1 underline hover:text-foreground"
+                    onClick={() => setBars(win.allBars)}
+                  >
+                    tout
+                  </button>
+                )}
+              </span>
+            )}
 
             <label className="ml-auto flex items-center gap-2">
               seuil
@@ -323,7 +356,17 @@ export function AudioClipPanel({
       {/* Two pictures, one frame. Rolling: what the engine is hearing, appended as it arrives and
           with nothing to edit on it — there is no file yet to carry an onset. Stopped: the file
           the service wrote, which is the one that can be marked up. */}
-      <div className="min-h-0 flex-1">
+      {/* The wheel zooms the window, out as readily as in — the ask was a default, not a ceiling.
+          `passive: false` is not needed: React's onWheel is passive-by-default only on the window,
+          and this is an element listener, so preventDefault holds and the pane does not scroll. */}
+      <div
+        className="min-h-0 flex-1"
+        onWheel={(e) => {
+          if (rolling || !wf) return;
+          e.preventDefault();
+          setBars((b) => zoomBars(b, e.deltaY, win.allBars));
+        }}
+      >
         {rolling ? (
           <Waveform
             envelope={live}
@@ -350,6 +393,9 @@ export function AudioClipPanel({
             // The project's bars and beats, straight from the same endpoint — WebWaveformGrid and
             // the canvas's WaveformGrid are the same three fields, so no translation is needed.
             gridLines={wf.grid}
+            // Twelve bars by default — a minute of take drawn across a pane is a solid block, and
+            // what you came to look at is where the attacks are. The wheel opens it out.
+            view={win.view}
             // The trim preview: what a cut at this gate would KEEP, while its menu is open.
             selection={keep ? { start: keep.from, end: keep.to } : null}
             markers={onsets.map((t) => ({ id: t.toFixed(4), atSec: t }))}

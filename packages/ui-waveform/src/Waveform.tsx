@@ -22,6 +22,15 @@ interface Props {
   events?: DetectedEvent[];
   annotations?: Annotation[];
   markers?: Marker[];
+  /**
+   * The span of the material to SHOW, in seconds. Absent ⇒ all of it, as it always was.
+   *
+   * A window rather than a zoom factor, because what a host wants to say is "these twelve bars",
+   * not "×3.7". Everything crossing this boundary stays in ABSOLUTE seconds — a view is a way of
+   * looking, not a change of units — so a marker's time, a selection and every callback mean the
+   * same thing whether or not anything is zoomed.
+   */
+  view?: { start: number; end: number };
   gridLines?: WaveformGrid[]; // optional bar/beat overlay
   height?: number; // canvas height in px; defaults to DEFAULT_HEIGHT
   currentTime: number;
@@ -135,6 +144,7 @@ function WaveformInner({
   events = NO_EVENTS,
   annotations = NO_ANNOTATIONS,
   markers = NO_MARKERS,
+  view,
   gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
   currentTime,
@@ -178,8 +188,14 @@ function WaveformInner({
 
   const total =
     duration || (envelope.samples.length * envelope.intervalMs) / 1000;
-  const timeToX = (t: number) => (total > 0 ? (t / total) * width : 0);
-  const xToTime = (x: number) => (width > 0 ? (x / width) * total : 0);
+  // The visible span. Absent ⇒ the whole material, which is what every caller got before there was
+  // a window at all. Everything a host hands in or gets back stays in ABSOLUTE seconds — a view is
+  // a way of looking, not a change of units, so a marker's time means the same zoomed or not.
+  const v0 = view ? Math.max(0, Math.min(view.start, total)) : 0;
+  const v1 = view ? Math.max(v0, Math.min(view.end, total)) : total;
+  const span = v1 > v0 ? v1 - v0 : total;
+  const timeToX = (t: number) => (span > 0 ? ((t - v0) / span) * width : 0);
+  const xToTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
   const dbToY = (db: number) => dbToYIn(db, HEIGHT);
 
   // Taken apart from the object so an unstable `envelope` literal — which is what a host
@@ -197,7 +213,7 @@ function WaveformInner({
   const ys = useMemo(() => {
     const n = samples.length;
     const dt = intervalMs / 1000;
-    const toTime = (x: number) => (width > 0 ? (x / width) * total : 0);
+    const toTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
     // dB per sample, lightly averaged to take the edge off single-sample spikes.
     const R = 1; // smoothing radius, in samples
     const sdb = new Array<number>(n);
@@ -238,7 +254,7 @@ function WaveformInner({
       out[px] = dbToYIn(db, HEIGHT);
     }
     return out;
-  }, [samples, intervalMs, width, total, HEIGHT]);
+  }, [samples, intervalMs, width, v0, span, HEIGHT]);
 
   // The two contours, rasterised once each. The DPR is read here rather than tracked: a screen
   // change without a resize leaves them scaled until the next one, which is the cheap trade.
@@ -555,59 +571,65 @@ function WaveformInner({
           setDragSel(null);
         }}
       />
-      {markers.map((m) => (
-        <button
-          key={m.id}
-          type="button"
-          className="waveform-marker"
-          // The pin follows the pointer while it is being dragged, and sits at its own time
-          // otherwise. Local state, not the prop: the file is written on release, and a pin that
-          // waited for that round trip would lag the hand by a save.
-          style={{
-            left: timeToX(markerDrag?.id === m.id ? markerDrag.atSec : m.atSec),
-          }}
-          title={
-            onMarkerMove
-              ? (m.comment ?? "Marker — drag to move")
-              : m.comment || "Marker"
-          }
-          onPointerDown={(e) => {
-            if (!onMarkerMove) return;
-            e.stopPropagation(); // …or the canvas underneath starts a selection at the same time
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setMarkerDrag({ id: m.id, atSec: m.atSec, moved: false });
-          }}
-          onPointerMove={(e) => {
-            if (!markerDrag || markerDrag.id !== m.id) return;
-            const x = localX(e.clientX);
-            setMarkerDrag({
-              id: m.id,
-              atSec: Math.max(0, Math.min(total, xToTime(x))),
-              // 4px, the same threshold the canvas uses to tell a click from a drag — so a twitch
-              // while clicking a mark still removes it rather than moving it onto itself.
-              moved: markerDrag.moved || Math.abs(x - timeToX(m.atSec)) > 4,
-            });
-          }}
-          onPointerUp={() => {
-            const d = markerDrag;
-            setMarkerDrag(null);
-            if (!d || d.id !== m.id) return;
-            if (d.moved) onMarkerMove?.(m, d.atSec);
-            else if (onMarkerClick) onMarkerClick(m);
-            else onSeek?.(m.atSec);
-          }}
-          onPointerCancel={() => setMarkerDrag(null)}
-          // Click still answers for a host that offers no move — and does NOT fire when a drag
-          // already handled the release, since that path never reaches a click.
-          onClick={() => {
-            if (onMarkerMove) return;
-            if (onMarkerClick) onMarkerClick(m);
-            else onSeek?.(m.atSec);
-          }}
-        >
-          <span className="waveform-marker-flag">🚩</span>
-        </button>
-      ))}
+      {/* Only the pins inside the window. Their `left` is absolute px, so one outside would sit
+          off the canvas rather than be clipped by it — a flag hanging in the panel's chrome. */}
+      {markers
+        .filter((m) => m.atSec >= v0 && m.atSec <= v1)
+        .map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className="waveform-marker"
+            // The pin follows the pointer while it is being dragged, and sits at its own time
+            // otherwise. Local state, not the prop: the file is written on release, and a pin that
+            // waited for that round trip would lag the hand by a save.
+            style={{
+              left: timeToX(
+                markerDrag?.id === m.id ? markerDrag.atSec : m.atSec,
+              ),
+            }}
+            title={
+              onMarkerMove
+                ? (m.comment ?? "Marker — drag to move")
+                : m.comment || "Marker"
+            }
+            onPointerDown={(e) => {
+              if (!onMarkerMove) return;
+              e.stopPropagation(); // …or the canvas underneath starts a selection at the same time
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setMarkerDrag({ id: m.id, atSec: m.atSec, moved: false });
+            }}
+            onPointerMove={(e) => {
+              if (!markerDrag || markerDrag.id !== m.id) return;
+              const x = localX(e.clientX);
+              setMarkerDrag({
+                id: m.id,
+                atSec: Math.max(0, Math.min(total, xToTime(x))),
+                // 4px, the same threshold the canvas uses to tell a click from a drag — so a twitch
+                // while clicking a mark still removes it rather than moving it onto itself.
+                moved: markerDrag.moved || Math.abs(x - timeToX(m.atSec)) > 4,
+              });
+            }}
+            onPointerUp={() => {
+              const d = markerDrag;
+              setMarkerDrag(null);
+              if (!d || d.id !== m.id) return;
+              if (d.moved) onMarkerMove?.(m, d.atSec);
+              else if (onMarkerClick) onMarkerClick(m);
+              else onSeek?.(m.atSec);
+            }}
+            onPointerCancel={() => setMarkerDrag(null)}
+            // Click still answers for a host that offers no move — and does NOT fire when a drag
+            // already handled the release, since that path never reaches a click.
+            onClick={() => {
+              if (onMarkerMove) return;
+              if (onMarkerClick) onMarkerClick(m);
+              else onSeek?.(m.atSec);
+            }}
+          >
+            <span className="waveform-marker-flag">🚩</span>
+          </button>
+        ))}
     </div>
   );
 }

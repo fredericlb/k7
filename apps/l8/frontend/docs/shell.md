@@ -280,6 +280,26 @@ just the same, labelled **hors piste**. That is the case it exists for: the wave
 and the level are properties of the FILE, and none of them needs a placement. To put such a take
 back on a lane, `event add <track> <clip> <timecode>` is the verb.
 
+#### Twelve bars, and the wheel opens it out
+
+A take is often minutes long, and a minute drawn across a pane is a solid block — while the whole
+point of looking at one is where the attacks are, where the silence is, whether the onsets landed.
+So the panel shows **twelve bars** by default and the wheel zooms, out as readily as in. The header
+says `12/34 mes.` with a **tout** beside it, because a window that showed only the first bars
+without saying so would read as a clip that had been cut.
+
+`Waveform` gained a `view` for this: a span in seconds, absent meaning all of it as before. A
+**window** rather than a zoom factor, since what a host wants to say is "these twelve bars" and not
+"×3.7" — and everything crossing that boundary stays in **absolute seconds**. A view is a way of
+looking, not a change of units, so a marker's time, a selection, a trim preview and every callback
+mean the same thing zoomed or not. Only the pins are filtered: their `left` is absolute px, so one
+outside the window would hang in the panel's chrome rather than be clipped by the canvas.
+
+It is anchored at the start and does **not pan** — zooming out is how you reach the rest. A pan
+would be a second gesture on a surface whose drag already means "select". `barWindow.ts` holds the
+maths and its edges: a take shorter than the window, a part-bar take, and a tempo that has not
+arrived yet (a bar of zero seconds would make every take infinitely many bars long).
+
 #### Trimming moves the WINDOW, and previews before it does
 
 `clip trim <clip> [gate-dB]` cuts the head and the tail at a gate. It moves the clip's window
