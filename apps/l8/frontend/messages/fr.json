@@ -13,6 +13,8 @@
   "project.backToProjects": "Retour aux projets",
   "project.missingTitle": "Ce projet n'est pas dans le dépôt",
   "project.missingBody": "Le dépôt est bien là, mais pas ce projet : il a sans doute été renommé ou supprimé depuis la dernière lecture du dépôt par la médiathèque. Retournez aux projets et rouvrez-le.",
+  "project.librariesTitle": "Aucun dépôt de bibliothèques",
+  "project.librariesBody": "Les modules et les chaînes partagés vivent dans un dépôt git, monté dans chaque espace de travail. Ce compte n'en a pas encore, donc rien ici ne pourrait résoudre un module partagé. Ajoutez-le en haut de la section Projets de la médiathèque, puis rouvrez ceci.",
   "project.benchWorkspace": "Le banc d'essai",
   "project.benchFetching": "Récupération des modules de la médiathèque sur cette machine…",
   "project.takenTitle": "Ce projet a été ouvert ailleurs",

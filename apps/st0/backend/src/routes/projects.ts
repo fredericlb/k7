@@ -21,13 +21,16 @@ import {
 } from "../projects/mirrors.ts";
 import {
   addRepo,
+  clearLibrariesRepo,
   findRepo,
   findReposByName,
   keyDirFor,
+  librariesRepo,
   listRepos,
   nameOf,
   removeRepo,
   revision,
+  setLibrariesRepo,
 } from "../projects/store.ts";
 
 /** st0 has no express type augmentation of its own; every route here reads the user this way. */
@@ -201,6 +204,69 @@ export function projectsRouter(opts: {
         });
       const repo = matches[0];
       res.json({ id: repo.id, name: nameOf(repo), uri: repo.uri });
+    }),
+  );
+
+  /**
+   * The LIBRARY repository — the modules and chains every project of this account inherits.
+   *
+   * Registered before `/:id/*` for the reason `by-name` is: `libraries` is not a repository id,
+   * and the reader should not have to know that ids are hashes to be sure of it.
+   *
+   * `null` rather than a 404 for "none set": it is the ordinary state of a new account, and it
+   * is a state the callers ACT on — st0 draws the card that asks for one, and l8 refuses to
+   * open a project (see packages/project-shell/docs/launch.md). A 404 would make both of them
+   * tell "not configured" apart from "the service is down" by reading a status code.
+   */
+  router.get(
+    "/libraries",
+    wrap((req, res) => {
+      const repo = librariesRepo(subOf(req)!);
+      res.json({
+        libraries: repo
+          ? { id: repo.id, name: nameOf(repo), uri: repo.uri }
+          : null,
+      });
+    }),
+  );
+
+  /**
+   * Point them at a repository, or move them to another one.
+   *
+   * PUT and not POST: there is one, so this SETS rather than adds, and doing it twice with the
+   * same URI has to be the same as doing it once.
+   */
+  router.put(
+    "/libraries",
+    express.json(),
+    wrap(async (req, res) => {
+      const sub = subOf(req)!;
+      const uri = String(req.body?.uri ?? "").trim();
+      try {
+        assertSshGitUri(uri);
+      } catch (e) {
+        return res.status(400).json({ error: (e as Error).message });
+      }
+      // Same key as every other repository, and the mirror below cannot run without one.
+      await generateKey(keyDirFor(sub), `studio-${sub}`);
+      const repo = setLibrariesRepo(sub, uri);
+      // Mirrored like any other repository — not because a workspace reads it through the
+      // mirror (it clones the real thing as a submodule), but so this screen can say whether
+      // the URI is one git will actually answer for, before a machine tries it.
+      res.json({
+        libraries: { ...repo, name: nameOf(repo) },
+        ...ensure(sub, repo.id, repo.uri),
+      });
+    }),
+  );
+
+  router.delete(
+    "/libraries",
+    wrap((req, res) => {
+      const sub = subOf(req)!;
+      if (!clearLibrariesRepo(sub))
+        return res.status(404).json({ error: "no libraries repository set" });
+      res.json({ ok: true });
     }),
   );
 

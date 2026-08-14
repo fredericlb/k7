@@ -7,6 +7,7 @@ import { isBench, type ProjectApp } from "@studio/web-protocol/projects";
 import {
   FolderGit2,
   FolderSearch,
+  LibraryBig,
   Loader2,
   ServerCrash,
   ShieldAlert,
@@ -26,7 +27,7 @@ import {
 } from "./fileApi.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
-import { repoByName } from "./repoLookup.ts";
+import { librariesRepo, repoByName } from "./repoLookup.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
 const POLL_MS = 400;
@@ -38,6 +39,9 @@ type Phase =
   // The project itself is the problem — the machine answered, and said it has no such folder.
   // Its own screen, because the only useful action is to go and pick again. See docs/launch.md.
   | { k: "missing"; message: string }
+  // The ACCOUNT is not set up: no library repository, so no project can resolve a shared
+  // module. Nothing is broken and there is nothing to retry — the one move is to go and set it.
+  | { k: "no-libraries" }
   | { k: "open"; workspace: string; project: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -61,6 +65,9 @@ export interface ProjectGateStrings {
   /** The project named is not in the workspace — a wording apart, because nothing is broken. */
   missingTitle: string;
   missingBody: string;
+  /** No library repository on the account. Nothing is broken either; the account is unfinished. */
+  librariesTitle: string;
+  librariesBody: string;
   /**
    * The bench's wait, which is a catalogue fetch and not a clone — see the gate's bench branch.
    *
@@ -204,6 +211,21 @@ export function ProjectGate({
         if (cancelled) return;
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
+
+        /**
+         * The LIBRARIES, before anything about the project — including the bench.
+         *
+         * A workspace mounts this account's library repository as a submodule, and every
+         * `@st0/…` ref in every chain resolves inside it. Without one, a song opens with every
+         * shared module missing: it compiles, it draws, and it is wrong — which reads as a
+         * broken song rather than as an account nobody finished setting up. Better to say so
+         * before the clone than to let the machine spend thirty seconds first.
+         */
+        if (!(await librariesRepo())) {
+          if (cancelled) return;
+          return setPhase({ k: "no-libraries" });
+        }
+        if (cancelled) return;
 
         /**
          * The BENCH takes a road of its own, and takes it first.
@@ -391,6 +413,28 @@ export function ProjectGate({
           <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-left text-xs">
             {phase.message}
           </code>
+          <button
+            type="button"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+            onClick={quit}
+          >
+            {strings.back}
+          </button>
+        </div>
+      </div>
+    );
+
+  // The account has no library repository. Not an error and not retryable: the answer was
+  // clear, and re-asking it can only give the same one until somebody goes and sets it.
+  if (phase.k === "no-libraries")
+    return (
+      <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <LibraryBig className="h-10 w-10 text-amber-500" />
+          <h1 className="text-lg font-semibold">{strings.librariesTitle}</h1>
+          <p className="text-sm text-muted-foreground">
+            {strings.librariesBody}
+          </p>
           <button
             type="button"
             className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
