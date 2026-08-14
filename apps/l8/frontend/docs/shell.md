@@ -1,4 +1,4 @@
-# The shell (`App.tsx` and `main.tsx`)
+﻿# The shell (`App.tsx` and `main.tsx`)
 
 ## What wraps the editor (`main.tsx`)
 
@@ -204,78 +204,59 @@ One thing the old bottom panel had and this does not: it drew its cards at 1.5×
 their grid asked for, elbow room that a rank of strips read better with. Here the cards are the
 graph's own, at the graph's own size — they are the same nodes, which is the point.
 
-### Recording is a PANE, and it outlives the take
+### ONE panel for an audio clip, recorded or not
 
-`RecordingPane` goes into the graph slot (below) when a take starts rolling — record enabled
-**and** the transport playing — and **stays when the take ends**, until the × puts the graph
-back. What you just played is exactly what you want to look at, and a view that vanished on
-the last beat took it away at the moment it became worth reading.
+`AudioClipPanel` takes the graph slot, and it is the only place a clip is drawn. While a take
+rolls it shows the envelope the engine is pushing, **growing**; the moment the recorder closes the
+file it shows that file instead, with its onsets, its threshold and the button that brings it up
+to level. `rolling` chooses the picture — it does not mount the panel, which outlives the take, so
+closing is the × and not the Stop.
 
-It was a fullscreen `absolute inset-0` surface first, then a fixed 200px band in the column.
-Both were answers to "how much room may this have", and the slot answers it better by not
-being a special case: it is bounded by the same half-pane the note grids and the clip views
-get, so the canvas simply fills what it is given and the timeline stays above it.
+**There were two panels, and that was the bug.** A live monitor (`RecordingPane`, a red envelope
+per armed track on a bar/beat grid, drawn straight to a canvas) took the slot and kept it; the
+review sat in the column behind it. After Stop the monitor was therefore the whole screen and the
+review was nowhere — not subtly placed, not on screen at all. Both are gone; so is
+`recordingWindow.ts`, whose musical x axis existed only for that canvas.
 
-Four things follow:
+Three things follow from having one:
 
-- **`rolling` freezes it, it does not mount it.** The engine keeps pushing frames after the
-  transport stops, and appending those would scroll what was just played off the left. So the
-  pane stops appending and becomes a picture; the frame loop keeps its slot but skips the
-  drawing until something changes.
-- **The length is remembered, not recomputed.** The live counter reads the playhead, which
-  goes back to wherever the transport left it the moment recording ends.
-- **Closing is not stopping.** The × puts the graph back and leaves the take rolling, which is
-  why it sits beside Stop rather than instead of it.
-- **Escape** stops the take, and only while one is rolling — once it is over, the key belongs
-  to the shell again. It skips a field being typed in: a capture-phase listener without that
-  check eats the Escape that closes the command bar.
+- **The live picture goes through `Waveform`**, like the file's. `useLiveEnvelope` accumulates one
+  sample per engine frame and hands over `{intervalMs, samples}` — the same shape the `/waveform`
+  route answers with — so there is one renderer, one set of markers, one behaviour.
+- **One envelope, not one per armed track.** It is the LOUDEST armed input per frame: a panel is
+  about one clip, and stacking every lane is what made the old one a monitor rather than a view of
+  a take. The max is what keeps a quiet second input from being invisible.
+- **Nothing is editable while it rolls.** There is no file yet, so there is no onset to place and
+  nothing to normalise — the header offers Stop and the elapsed seconds, and that is all it can
+  honestly offer.
 
-The minimap the fullscreen version carried as a child is gone: the shell's own sits at the
-bottom of the column, and two of them was one too many. On a phone that means no minimap while
-recording, since the shell's is desktop-only.
+The live x axis is nominal: `LIVE_FRAME_MS` (50) per frame, because the engine's push is ~20 Hz
+and not a clock. A growing take is read for its SHAPE; the moment timings matter, the file is
+there and its own waveform has replaced this one.
 
-**`TakeReview` sits INSIDE the pane, under the frozen envelope.** They are still not the same
-view and neither does the other's work: the pane is the LIVE monitor, drawn from the ~20 Hz
-meter frames, and it outlives the take; the review reads the FILE the service wrote — its
-waveform under the project's ruler, the onsets you add, move or refuse, the threshold that finds
-them, the button that brings it up to level.
+#### …and the panel can be asked for, not only awaited
 
-Which owns the moment after Stop was left open when the pane arrived (it was written on a branch
-that predated the review, so neither knew about the other). **The pane owns it**, and the reason
-is what a screenshot showed: the pane takes the slot and keeps it, so after Stop it is the whole
-screen — and a normalize button in a column behind it is a button nobody finds. It was not that
-the review was subtly placed; it was not on screen at all.
+The automatic appearance is a moment that passes, and it passed more easily than anyone meant:
+`lastTake` is a variable in the file service's MEMORY — its own comment says "never cleared",
+true inside one process and false between two — so every restart of that service loses it, and in
+dev it restarts on every code change. The ✓ ends it for good as well. A take could therefore
+become unreachable while its file sat in `clips/`.
 
-So the pane takes a `review` **slot** — a `ReactNode`, the same division `renderPreview` uses in
-the module builder: this pane is a live monitor and knows nothing of clips, ids or the file
-service, so the shell owns what lands there. The column keeps the review for the case with no
-pane, which is `ui review <clip>` on an old take with nothing recording. One node, two homes,
-built once in `App` so the two cannot drift.
+`ui review <clip>` names one and opens the panel on it. It is a `ui` command because it opens a
+VIEW and writes nothing — what the panel then does (`clip normalize`, `clip onset …`) is the
+brain's — and the named clip outranks the automatic one, without the rolling guard: asking for a
+clip by name is a deliberate act, not something that appeared while you were playing.
 
-#### …and the review can be asked for, not only awaited
-
-The automatic review is a **moment that passes**, and it turned out to pass more easily than
-anyone meant. `lastTake` is a variable in the file service's memory: its own comment says "never
-cleared", which is true inside one process and false between two, so **every restart of that
-service loses it** — and in dev it restarts on every code change. The ✓ ends it for good as well,
-since the tab remembers what it dismissed. A take could therefore become unreachable while its
-file sat in `clips/`, with the normalize button and the onsets marks nowhere on screen.
-
-`ui review <clip>` names one outright. It is a `ui` command because it opens a VIEW and writes
-nothing — what the panel then does (`clip normalize`, `clip onset …`) is the brain's — and the
-named one outranks the automatic one, without the rolling guard: asking for a clip by name is a
-deliberate act, not something that appeared while you were playing.
-
-The lane is looked up rather than asked for (`takeReview.ts`), and a clip nothing places reviews
+The lane is looked up rather than asked for (`takeReview.ts`), and a clip nothing places opens
 just the same, labelled **hors piste**. That is the case it exists for: the waveform, the onsets
 and the level are properties of the FILE, and none of them needs a placement. To put such a take
 back on a lane, `event add <track> <clip> <timecode>` is the verb.
 
 #### Onsets are dragged, not retyped
 
-A detected attack is often a hair off rather than wrong, and refusing it only to add another a
-few milliseconds away is two acts for one intention. So a pin can be **dragged**: `Waveform` takes
-an `onMarkerMove`, and the review sends `clip onset move`, which records it as ONE correction and
+A detected attack is often a hair off rather than wrong, and refusing it only to add another a few
+milliseconds away is two acts for one intention. So a pin can be **dragged**: `Waveform` takes an
+`onMarkerMove`, and the panel sends `clip onset move`, which records it as ONE correction and
 therefore survives re-detecting at another threshold.
 
 The drag lives on the pin — a DOM button — rather than in the canvas's pointer handling, because
@@ -284,23 +265,6 @@ pointer. It commits on RELEASE (an onset written on every `pointermove` would be
 pixel) while local state moves the pin as you go, so the hand and the mark stay together. A press
 that travels less than 4px is still a **click**, and a click still refuses the onset — the same
 threshold the canvas uses, so a twitch while removing a mark does not silently re-place it.
-
-#### The waveform's x axis is musical time
-
-`recordingWindow.ts` owns it, and it is what makes the bar/beat rules mean anything. The
-pane keeps one **beat position per engine frame** beside the levels, so x is beats, not
-buckets: `WINDOW_BARS` (8) of the take are on screen at any tempo, filling from the left
-until the take outgrows the window and then scrolling with the newest frame at the right
-edge. Bars are drawn brighter than beats, in the clip editor's two colours, and the beats
-drop out below `MIN_BEAT_PX` — the same thinning, for the same reason.
-
-The x axis used to be the bucket index over a fixed 4000-bucket cap, i.e. ~200s of tape
-squeezed into the width whether or not the take was 4 seconds long. A grid on THAT axis is
-a line every three pixels at 120bpm: a wash, not a ruler. The rules are why the axis changed.
-
-One thing the alignment bought on the way: a track armed **mid-take** has its buffer padded
-back to the frame it was armed at, so its envelope starts where it started instead of at
-the left edge, a bar or two ahead of everyone else's.
 
 ### The piano roll left the bottom panel
 
@@ -374,7 +338,7 @@ Three things deliberately do NOT take part. The **pickers** (module, asset — b
 and the **context menu** already listen in the *capture* phase and swallow the key outright, so
 the shell never sees it. The **settings screens and the module builder** are pages that own the
 whole surface: the listener returns early for them, exactly as it always did for settings, so no
-binding of any kind reaches the layout underneath. And **`RecordingPane`** keeps Escape for
+binding of any kind reaches the layout underneath. And **`AudioClipPanel`** keeps Escape for
 stopping a rolling take, which is neither a popin nor a slot but a transport action.
 
 ### Space is the transport, wherever the last click landed

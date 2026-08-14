@@ -1,4 +1,4 @@
-// App.tsx — the l8 web shell: the global view (editor | timeline over chains), the
+﻿// App.tsx — the l8 web shell: the global view (editor | timeline over chains), the
 // transport header, and the Shift-Shift command palette. A view is a LAYOUT, not a mode —
 // every pane stays mounted and `full`/`focus` only decide size and keys, so no open file,
 // caret or zoom is ever lost. Live engine state goes to an external store, never App state.
@@ -59,6 +59,7 @@ import { STUDIO_ICONS } from "./chainsIcons";
 import { canonicalizeCommand } from "./commandI18n";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
+import { AudioClipPanel } from "./components/AudioClipPanel";
 import { ChainsTab } from "./components/ChainsTab";
 import { ClipView, type EditTarget } from "./components/ClipView";
 import {
@@ -84,12 +85,10 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { RecordingPane } from "./components/RecordingPane";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
 import { SurfaceTab } from "./components/SurfaceTab";
-import { TakeReview } from "./components/TakeReview";
 import {
   type TimelineHandle,
   TimelineTab,
@@ -1351,6 +1350,9 @@ export default function App({
           return true;
         }
         setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
+        // …and put the clip panel on screen. It is the ONE place a clip is drawn now, so naming a
+        // clip has to open it rather than hope it is already up.
+        setGraphSlot({ kind: "recording" });
         return true;
       }
       // ui midi learn <module> <param> — arm the browser's Web MIDI on one param. The BINDING is
@@ -2194,26 +2196,6 @@ export default function App({
       ? ws.lastTake
       : null);
 
-  // Where the review is DRAWN. One node, two possible homes: inside the recording pane while that
-  // pane holds the slot — after Stop it is what fills the screen, and a normalize button three
-  // panes away is a button nobody finds — and in the column otherwise, which is `ui review <clip>`
-  // on an old take with nothing recording. Built once so the two cannot drift.
-  const inRecordingPane = graphSlot?.kind === "recording";
-  const reviewNode = reviewTake ? (
-    <TakeReview
-      clip={reviewTake.clip}
-      track={reviewTake.track}
-      command={runCommand}
-      // Both halves have to be closed: the named one is this tab's own state, and the automatic
-      // one is dismissed by remembering its id. Doing only the first would leave the newest take
-      // popping straight back.
-      onClose={() => {
-        setReviewOn(null);
-        setReviewedTake(reviewTake.clip);
-      }}
-    />
-  ) : null;
-
   // Everything that makes the transport unable to answer, as one flag — because to whoever is reaching for Play
   // the two causes are the same fact, and the button has to say so either way.
   //
@@ -2785,23 +2767,25 @@ export default function App({
                     onClose={() => setGraphSlot(null)}
                   />
                 )}
-                {/* The take. `rolling` is what freezes it rather than what mounts it: the pane
-                    outlives the take, and closing is the ×, not the Stop. */}
+                {/* The clip. ONE panel for a take and for the file it becomes: while it rolls it
+                    draws the envelope the engine is pushing, and the moment the recorder closes
+                    the file it draws that file, with its onsets and its level. `rolling` chooses
+                    the picture rather than mounting the panel — it outlives the take, and closing
+                    is the ×, not the Stop. */}
                 {graphSlot?.kind === "recording" && (
-                  <RecordingPane
-                    tempo={recInfo.tempo}
-                    beatsPerBar={recInfo.beatsPerBar}
-                    countIn={recInfo.countIn}
+                  <AudioClipPanel
+                    clip={rolling ? null : (reviewTake?.clip ?? null)}
+                    track={reviewTake?.track ?? ""}
+                    rolling={rolling}
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
-                    rolling={rolling}
-                    // The review goes INSIDE the pane while the pane is up: after Stop this is
-                    // what fills the screen, and the normalize button and the onsets have to be
-                    // where you are looking. It falls back to the column when there is no pane —
-                    // `ui review <clip>` on an old take, with nothing recording.
-                    review={reviewNode}
+                    command={runCommand}
                     onStop={() => void runCommand("transport stop")}
-                    onClose={() => setGraphSlot(null)}
+                    onClose={() => {
+                      setReviewOn(null);
+                      if (reviewTake) setReviewedTake(reviewTake.clip);
+                      setGraphSlot(null);
+                    }}
                   />
                 )}
               </div>
@@ -2856,8 +2840,6 @@ export default function App({
             monitor and outlives the take, this is the editing step on what landed on disk, and
             neither does the other's work. They do both appear at once after a take — see
             docs/shell.md. */}
-        {/* …and here only when the recording pane is NOT up, since that pane hosts it instead. */}
-        {!inRecordingPane && reviewNode}
 
         <footer
           className={cn(
