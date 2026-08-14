@@ -100,6 +100,7 @@ import { ViewportTab } from "./components/ViewportTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
 import { useEngineLink } from "./hooks/useEngineLink";
+import { useInputDevices } from "./hooks/useInputDevices";
 import { useLogs } from "./hooks/useLogs";
 import type { MidiControlApi } from "./hooks/useMidiControl";
 import { useMidiRecording } from "./hooks/useMidiRecording";
@@ -492,6 +493,16 @@ export default function App({
     pluginParamsStore,
     setStatus,
     pushLog,
+  );
+
+  // The interface's inputs, asked for only while the builder is open on a module that HAS an input
+  // to point somewhere. Nothing else in l8 needs the grouping: the IO panel meters the ports the
+  // project already declares, where this is the list you pick a new one from.
+  // `connected` is in the condition and not just for tidiness: `engineRef` is a ref, so a link that
+  // comes up after the builder opens re-renders nothing on its own and the ask would never be sent.
+  const inputDevices = useInputDevices(
+    engineRef.current ?? null,
+    !!builder && connected,
   );
 
   // The special views this PROJECT declares (`surfaces/`), and the engine as a desk sees it.
@@ -3256,6 +3267,9 @@ export default function App({
                   ? pluginParamMeta[builderPlugin.pluginId]
                   : undefined
               }
+              // The sockets an `io: in` module can listen on. Empty with no engine attached, which
+              // is the honest answer: which inputs exist is the sound card's to say.
+              inputDevices={inputDevices}
               presets={
                 (builderPlugin && presets[builderPlugin.module]) ||
                 EMPTY_PRESETS

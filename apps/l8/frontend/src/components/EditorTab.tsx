@@ -39,7 +39,6 @@ import {
 } from "react";
 import { api } from "../api";
 import { useDiskSync } from "../hooks/useDiskSync";
-import { libraryTree } from "../libraryTree";
 import {
   fileStem,
   isClipFile,
@@ -1213,10 +1212,10 @@ export function EditorTab({
               onCreateFolder={createFolder}
               onCloneModule={cloneModuleEntry}
               onCreateNode={createNodeEntry}
-              libraries={libraryTree(libraries)}
-              onCreateModule={async (root, type, name) => {
+              levels={libraries}
+              onCreateModule={async (root, rel) => {
                 try {
-                  const { path } = await api.createModule(root, type, name);
+                  const { path } = await api.createModule(root, rel);
                   await refresh();
                   // Straight into the builder: making a module and then hunting for the row
                   // you just made is two acts where somebody meant one.

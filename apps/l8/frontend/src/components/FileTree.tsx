@@ -11,6 +11,7 @@ import {
   type TreeTarget,
 } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
+import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   Boxes,
   File,
@@ -31,6 +32,7 @@ import {
   useState,
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
+import { libraryTree, readOnlyPaths, rootOf } from "../libraryTree";
 import type { FileNode } from "../types";
 
 /** The active project's own `modules/`, which the Libraries tab draws as `@project`. */
@@ -141,7 +143,7 @@ export function FileTree({
   onCreateFolder,
   onCloneModule,
   onCreateNode,
-  libraries,
+  levels,
   onOpenLibraryModule,
   onCreateModule,
   ref,
@@ -173,18 +175,22 @@ export function FileTree({
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
   onCreateNode?: (path: string, node: string) => void;
   /**
-   * The shared libraries as tree rows — one namespace row each (`@st0`), the catalogue under
-   * it. Empty when the submodule is not mounted; ABSENT for a shell that offers no such tab at
-   * all, which is what makes the tab bar disappear rather than show a dead one.
+   * The module levels this project can reach, as the file service answered — nearest first.
+   *
+   * The raw answer and not a rendered tree, because two things here need what a row's shape
+   * cannot carry: which level a row belongs to (so a create knows its root) and whether that
+   * level is writable at all. ABSENT for a shell that offers no such tab, which is what makes
+   * the tab bar disappear rather than show a dead one.
    */
-  libraries?: FileNode[];
+  levels?: ModuleLibrary[];
   /** A module row in a LIBRARY was clicked. The same path space as every other row here — the
    *  libraries are a folder in the workspace — but a different callback, because what the
    *  builder does with it differs: it opens read-only (see ../libraryTree.ts). */
   onOpenLibraryModule?: (moduleFile: string) => void;
-  /** Make an empty module in a library. `root` is the level's path, as it was given here —
-   *  never built from a name, which is what keeps the three levels apart. */
-  onCreateModule?: (root: string, type: string, name: string) => void;
+  /** Make an empty module in a library. `root` is the level's path as it was GIVEN here, and
+   *  `rel` the module's path under it (`audio/reverb`) — never built from a name, which is
+   *  what keeps the levels apart. */
+  onCreateModule?: (root: string, rel: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
   // Which of the two trees is on screen. Client-only and not URL state: it is disclosure — the
@@ -290,17 +296,67 @@ export function FileTree({
   // The same fold over the LIBRARIES, so a shared module is one row that opens the builder
   // exactly as a project one is. Folded here rather than where the rows are built, so the two
   // trees cannot come to disagree about what a module looks like (see libraryTree.ts).
-  const lib = useMemo(
-    () => (libraries?.length ? foldModules(libraries) : null),
-    [libraries],
-  );
-  // The namespace rows themselves, by path — what "New module…" is offered on. A set rather
-  // than a name test: `@project` is a label, and two levels could be drawn from folders whose
-  // names say nothing about which level they are.
-  const roots = useMemo(
-    () => new Set((libraries ?? []).map((n) => n.path)),
-    [libraries],
-  );
+  const lib = useMemo(() => {
+    const rows = libraryTree(levels ?? []);
+    return rows.length ? foldModules(rows) : null;
+  }, [levels]);
+  // What may not be touched — `@engine`, whose rows are a vocabulary and not files.
+  const frozen = useMemo(() => readOnlyPaths(levels ?? []), [levels]);
+
+  /**
+   * The Libraries tab's own menu: make a folder, make a module.
+   *
+   * Both offered on any FOLDER of a writable level, the namespace row included — that row is
+   * the level's own folder, and a level whose folder does not exist yet is drawn precisely so
+   * you can create through it. `@engine` gets neither: `rootOf` refuses a read-only level, so
+   * the menu does not open at all there rather than opening with everything greyed.
+   *
+   * A module is named by its path UNDER the row you clicked, so the same entry reads the same
+   * way everywhere: `audio/reverb` on `@project`, `reverb` inside `audio`. The hint spells the
+   * file out, so what is about to be written is never a guess.
+   */
+  const libraryActions = useMemo((): TreeAction<FileNode>[] => {
+    const all = levels ?? [];
+    // `rootOf` already refuses a read-only level, so belonging to a writable one IS the test.
+    const writableDir = (t: TreeTarget<FileNode>) =>
+      t.dir && !!rootOf(all, t.path);
+    return [
+      {
+        key: "new-library-folder",
+        label: "New folder…",
+        when: (t) => !!onCreateFolder && writableDir(t),
+        prompt: {
+          placeholder: "delay",
+          submit: "Create",
+          hint: (t, value) => `${t.path}/${value.trim() || "…"}`,
+        },
+        run: (t, name) => onCreateFolder?.(t.path, name),
+      },
+      {
+        key: "new-module",
+        label: "New module…",
+        when: (t) => !!onCreateModule && writableDir(t),
+        prompt: {
+          placeholder: "audio/my-module",
+          submit: "Create",
+          hint: (t, value) =>
+            `${t.path}/${value.trim() || "<type>/<name>"}/module.yaml`,
+        },
+        run: (t, value) => {
+          const root = rootOf(all, t.path);
+          if (!root || !value.trim()) return;
+          // The path under the LEVEL, which is what the service validates: at least a type
+          // folder and a name. The row may already be some way inside it.
+          const under =
+            t.path === root.path ? "" : t.path.slice(root.path.length + 1);
+          onCreateModule?.(
+            root.path,
+            `${under ? `${under}/` : ""}${value.trim()}`,
+          );
+        },
+      },
+    ];
+  }, [levels, frozen, onCreateFolder, onCreateModule]);
 
   const menuEnabled = !!onRename && !!onDelete;
   // `t.dir` is false on a module row now, so the folded set answers instead.
@@ -482,7 +538,7 @@ export function FileTree({
 
       {/* Two trees, one sidebar. Drawn only for a shell that has libraries to show — the tab
           bar is the affordance, so one lonely tab would be a control that decides nothing. */}
-      {libraries !== undefined && (
+      {levels !== undefined && (
         <div className="mb-1 flex shrink-0 items-center gap-1 border-b border-border/60 pb-1">
           {(
             [
@@ -530,33 +586,15 @@ export function FileTree({
                the type folder is part of what a module IS: `audio/reverb` is the name a chain
                writes. A level whose folder does not exist yet is drawn for exactly this, and
                creating through it is what brings the folder into being. */
-            actions={
-              onCreateModule
-                ? [
-                    {
-                      key: "new-module",
-                      label: "New module…",
-                      when: (t) => roots.has(t.path),
-                      prompt: {
-                        placeholder: "audio/my-module",
-                        submit: "Create",
-                        hint: (t, value) =>
-                          `${t.path}/${value.trim() || "<type>/<name>"}/module.yaml`,
-                      },
-                      run: (t, value) => {
-                        const [type, ...rest] = value.trim().split("/");
-                        if (type && rest.length)
-                          onCreateModule(t.path, type, rest.join("/"));
-                      },
-                    },
-                  ]
-                : []
-            }
+            actions={libraryActions}
             // The NEAREST namespace row, open on arrival: a tab whose rows are all closed
             // folders says nothing about what is behind them, and the project's own modules
             // are what somebody opening this is most often after.
             reveal={lib.tree[0]?.path ?? null}
-            isDisabled={isBinary}
+            // A read-only level's rows are greyed: they name a plugin the engine reports and
+            // there is no file behind them to open. Same treatment a .wav gets, for the same
+            // reason — a row you can read and cannot open.
+            isDisabled={(n) => isBinary(n) || frozen.has(n.path)}
             onOpen={(node) => {
               const file = lib.modules.get(node.path);
               if (file) onOpenLibraryModule?.(`${node.path}/${file}`);

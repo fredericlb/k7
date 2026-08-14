@@ -40,6 +40,7 @@ import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
 import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
+import { engineModules } from "@studio/song/engineCatalogue";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
@@ -62,7 +63,7 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
-import type { ModuleNamespace } from "@studio/song/moduleTypes";
+import { ENGINE_NS, type ModuleNamespace } from "@studio/song/moduleTypes";
 import { isFrozenClipId } from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
@@ -383,6 +384,50 @@ function diffBin(
       blobs.push({ path, before: preBytes, after: afterBytes });
   }
   return blobs;
+}
+
+/**
+ * `@engine` as a library: what this machine's plugin scan offers, grouped by type folder.
+ *
+ * The odd one, and it is worth saying exactly how. Every other level is a FOLDER; this one is
+ * not — `engineCatalogue` synthesises it from `~/.studio/exts.json`, so there is no path, no
+ * file to open and nothing to write. The rows are a vocabulary a chain can name.
+ *
+ * The type folders are synthesised too: a ref is flat (`@engine/nam`), and two hundred and
+ * fifty plugins in one list is a level nobody can find anything in. So the folder rows carry a
+ * made-up path and the LEAVES carry the real ref, which is the one string anything downstream
+ * would want. Null when the machine has never scanned — an empty `@engine` says nothing true.
+ */
+function engineLibrary(): ModuleLibrary | null {
+  const byType = new Map<string, FileNode[]>();
+  for (const [ref, m] of Object.entries(engineModules()) as [
+    string,
+    { category?: unknown; file?: unknown },
+  ][]) {
+    const type = String(m.category ?? "audio");
+    const list = byType.get(type) ?? [];
+    // A LEAF, and deliberately: `foldModules` turns a folder holding `module.yaml` into an
+    // openable module row, and this has no such file. A leaf it cannot fold is a row that
+    // draws the name and opens nothing, which is the truth about a scanned plugin.
+    list.push({
+      name: String(m.file ?? ref),
+      path: ref,
+      dir: false,
+      kind: "text",
+    });
+    byType.set(type, list);
+  }
+  if (!byType.size) return null;
+  const nodes = [...byType.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([type, children]) => ({
+      name: type,
+      // Synthetic — no such folder exists. Unique per type, which is all the tree needs it for.
+      path: `${ENGINE_NS}/${type}`,
+      dir: true,
+      children: children.sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  return { ns: "engine", path: "", exists: true, readOnly: true, nodes };
 }
 
 export class Workspace {
@@ -912,7 +957,7 @@ export class Workspace {
         abs,
       })),
     ];
-    return roots.map(({ ns, abs }) => {
+    const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
       const exists = existsSync(abs);
       return {
         ns,
@@ -921,6 +966,9 @@ export class Workspace {
         nodes: exists ? this.walk(abs) : [],
       };
     });
+    const engine = engineLibrary();
+    if (engine) out.push(engine);
+    return out;
   }
 
   /**
@@ -935,23 +983,27 @@ export class Workspace {
    * yet is a folder you then fill in, and writing a fake `plugin.type` would be a guess that
    * compiles into a real refusal later.
    */
-  createModule(
-    root: string,
-    type: string,
-    name: string,
-  ): { path: string; dir: string } {
-    for (const [what, value] of [
-      ["type", type],
-      ["name", name],
-    ] as const)
-      if (!/^[A-Za-z0-9][A-Za-z0-9._ -]*$/.test(value))
-        throw new Error(`'${value}' is not a ${what} a folder can be called`);
-    // Through safePath, so a `..` in any of the three cannot leave the workspace.
-    const dir = this.safePath(`${root}/${type}/${name}`);
+  createModule(root: string, rel: string): { path: string; dir: string } {
+    const segs = rel.split("/").filter(Boolean);
+    // At least a TYPE folder and a name: `audio/reverb` is the shortest thing the loader will
+    // key, and a folder dropped straight under a library is not a module however it is named.
+    if (segs.length < 2)
+      throw new Error(
+        `a module is named <type>/<name> — '${rel}' names no type folder`,
+      );
+    for (const seg of segs)
+      if (!/^[A-Za-z0-9][A-Za-z0-9._ -]*$/.test(seg))
+        throw new Error(`'${seg}' is not something a folder can be called`);
+    // Through safePath, so a `..` in either part cannot leave the workspace.
+    const dir = this.safePath(`${root}/${segs.join("/")}`);
     const file = join(dir, "module.yaml");
     if (existsSync(file)) throw new Error(`${this.toRel(file)} already exists`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(file, `# ${name}\nplugin:\n  type: \n  name: \n`, "utf8");
+    writeFileSync(
+      file,
+      `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`,
+      "utf8",
+    );
     this.invalidateProjectDoc();
     return { path: this.toRel(file), dir: this.toRel(dir) };
   }

@@ -116,16 +116,15 @@ filesRouter.get(
  */
 const moduleBody = z.object({
   root: z.string().min(1),
-  type: z.string().min(1),
-  name: z.string().min(1),
+  rel: z.string().min(1),
 });
 filesRouter.post(
   "/module",
   validate(moduleBody),
   wrap((req, res) => {
-    const { root, type, name } = req.body as z.infer<typeof moduleBody>;
+    const { root, rel } = req.body as z.infer<typeof moduleBody>;
     try {
-      res.json(req.ws!.createModule(root, type, name));
+      res.json(req.ws!.createModule(root, rel));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

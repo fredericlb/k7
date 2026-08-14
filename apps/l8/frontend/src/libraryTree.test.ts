@@ -1,6 +1,12 @@
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
-import { isLibraryPath, libraryModuleRef, libraryTree } from "./libraryTree";
+import {
+  isLibraryPath,
+  libraryModuleRef,
+  libraryTree,
+  readOnlyPaths,
+  rootOf,
+} from "./libraryTree";
 
 const dir = (name: string, path: string, children: FileNode[]): FileNode => ({
   name,
@@ -104,6 +110,72 @@ describe("libraryTree", () => {
   it("draws @st0 when it IS mounted but still empty", () => {
     const mounted = [lib("st0", "_libraries/modules", true, [])];
     expect(libraryTree(mounted).map((n) => n.name)).toEqual(["@st0"]);
+  });
+});
+
+/** `@engine` as the service answers it: no folder, read-only, synthesised type groups. */
+const engine = (): ModuleLibrary => ({
+  ns: "engine",
+  path: "",
+  exists: true,
+  readOnly: true,
+  nodes: [
+    dir("audio", "@engine/audio", [
+      file("nam", "@engine/nam"),
+      file("bitcrush", "@engine/bitcrush"),
+    ]),
+    dir("instruments", "@engine/instruments", [file("serum", "@engine/serum")]),
+  ],
+});
+
+describe("@engine", () => {
+  it("gets a row even though it has no folder", () => {
+    const [row] = libraryTree([engine()]);
+    expect(row.name).toBe("@engine");
+    // Its own label stands in for the path: there is no folder to name it by.
+    expect(row.path).toBe("@engine");
+  });
+
+  it("carries the real ref on the leaves, whatever the folder rows say", () => {
+    // The type rows are synthesised — a ref is flat (`@engine/nam`) — so the LEAF is the only
+    // thing whose path anything downstream should trust.
+    const [row] = libraryTree([engine()]);
+    expect(row.children?.[0].children?.map((n) => n.path)).toEqual([
+      "@engine/nam",
+      "@engine/bitcrush",
+    ]);
+  });
+
+  it("freezes the whole level, rows and all", () => {
+    const frozen = readOnlyPaths([engine(), ...all()]);
+    expect(frozen.has("@engine")).toBe(true);
+    expect(frozen.has("@engine/audio")).toBe(true);
+    expect(frozen.has("@engine/nam")).toBe(true);
+    // …and nothing of a writable level.
+    expect(frozen.has("_modules")).toBe(false);
+    expect(frozen.has("01.danse.l8/modules")).toBe(false);
+  });
+});
+
+describe("rootOf — what a create resolves against", () => {
+  it("finds the level a row belongs to, at any depth", () => {
+    expect(rootOf(all(), "_modules")?.ns).toBe("workspace");
+    expect(rootOf(all(), "_modules/audio")?.ns).toBe("workspace");
+    expect(rootOf(all(), "_libraries/modules/audio/delay")?.ns).toBe("st0");
+  });
+
+  it("refuses a read-only level, so no menu opens on it", () => {
+    const libs = [engine(), ...all()];
+    expect(rootOf(libs, "@engine")).toBeNull();
+    expect(rootOf(libs, "@engine/audio")).toBeNull();
+  });
+
+  it("refuses a path in no level at all", () => {
+    expect(rootOf(all(), "01.danse.l8/clips")).toBeNull();
+  });
+
+  it("matches whole segments, never a prefix", () => {
+    expect(rootOf(all(), "_modulesX/audio")).toBeNull();
   });
 });
 
