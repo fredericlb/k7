@@ -25,9 +25,39 @@
   cursor: pointer;
   z-index: 3;
 }
+
+/* A BUBBLE near the foot of the line instead of a tab hanging from the top — `place="low"`.
+ *
+ * Opt-in, because three surfaces draw markers on a waveform and only one of them draws ONSETS:
+ * the DJ desk's cues and k7's session marks are still tabs, and moving them was not asked for.
+ *
+ * Low down because the top of a waveform is where the loud material is, so a row of tabs along
+ * the top edge covers the transients it points at. `bottom: 5%` with `translate(-50%, 50%)`
+ * centres the bubble on the line in x and on that height in y — the mark is ON its onset both
+ * ways rather than beside it.
+ *
+ * Round and 17px because it is also the handle that DRAGS the onset (`onMarkerMove`), and a
+ * target smaller than this is a target you miss. */
+.waveform-marker--low {
+  top: auto;
+  bottom: 5%;
+  transform: translate(-50%, 50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  font-size: 9px;
+}
 .waveform-marker:hover {
   background: rgba(45, 212, 191, 1);
 }
+/* The glyph inside the bubble. Greyed and brightened to near-white, so it reads as a mark on the
+ * teal rather than as a picture of a flag — at this size the emoji's own colours are mud. */
 .waveform-marker-flag {
   filter: grayscale(1) brightness(3);
+  display: block;
 }

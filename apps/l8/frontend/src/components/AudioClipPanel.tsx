@@ -428,6 +428,9 @@ export function AudioClipPanel({
             // The trim preview: what a cut at this gate would KEEP, while its menu is open.
             selection={keep ? { start: keep.from, end: keep.to } : null}
             markers={onsets.map((t) => ({ id: t.toFixed(4), atSec: t }))}
+            // Bubbles low on the line, not tabs along the top: the top of a waveform is where the
+            // loud material is, and a row of tabs there covers the transients it points at.
+            markerPlace="low"
             // A click on a mark refuses that onset; on a detected one that records a removal, on a
             // hand-placed one it takes the addition back — one verb, because from here it is one act.
             onMarkerClick={(m) =>

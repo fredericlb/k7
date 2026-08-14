@@ -31,6 +31,16 @@ interface Props {
    * same thing whether or not anything is zoomed.
    */
   view?: { start: number; end: number };
+  /**
+   * Where a marker sits: a tab hanging from the TOP (the default, as it always was), or a small
+   * bubble near the foot of its own line.
+   *
+   * `low` is for ONSETS. The top of a waveform is where the loud material is, so a row of tabs
+   * along the top edge covers the very transients it points at. Opt-in rather than a change of
+   * default, because three surfaces draw markers here and only one of them draws onsets — the DJ
+   * desk's cues and k7's session marks are neither, and moving them was nobody's request.
+   */
+  markerPlace?: "top" | "low";
   gridLines?: WaveformGrid[]; // optional bar/beat overlay
   height?: number; // canvas height in px; defaults to DEFAULT_HEIGHT
   currentTime: number;
@@ -145,6 +155,7 @@ function WaveformInner({
   annotations = NO_ANNOTATIONS,
   markers = NO_MARKERS,
   view,
+  markerPlace = "top",
   gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
   currentTime,
@@ -594,7 +605,11 @@ function WaveformInner({
           <button
             key={m.id}
             type="button"
-            className="waveform-marker"
+            className={
+              markerPlace === "low"
+                ? "waveform-marker waveform-marker--low"
+                : "waveform-marker"
+            }
             // The pin follows the pointer while it is being dragged, and sits at its own time
             // otherwise. Local state, not the prop: the file is written on release, and a pin that
             // waited for that round trip would lag the hand by a save.
