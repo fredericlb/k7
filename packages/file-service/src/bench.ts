@@ -1,7 +1,7 @@
-// bench.ts — the workbench: a generated `.l8` project whose `modules/` folder IS the
-// médiathèque's, and the one project whose saves are written back to the catalogue instead of
-// forking a copy. Opened on the catalogue at large, or on ONE chain — same bench either way.
-// Rationale and the alternatives rejected: apps/st0/docs/banc.md.
+// bench.ts — a generated `.l8` project that IS one médiathèque chain, with the catalogue's
+// modules mirrored in so the chain resolves, and whose saves are written back to the catalogue
+// instead of forking a copy. Opened on ONE chain — the catalogue-at-large bench is gone, and
+// modules are edited from l8's Libraries tab. Rationale: apps/st0/docs/banc.md.
 
 import {
   cpSync,
@@ -25,7 +25,6 @@ import { projectModeOf } from "@studio/song/projectMode";
 import { BENCH_EDGES, scaffoldBench } from "@studio/song/scaffoldBench";
 import { setFileValue } from "@studio/song/yaml/edit";
 import {
-  BENCH_PROJECT,
   benchChainPath,
   benchProjectForChain,
 } from "@studio/web-protocol/projects";
@@ -81,29 +80,12 @@ function mirror(from: string, to: string): void {
 }
 
 /**
- * Make (or refresh) the bench for this user, and answer where it is.
- *
- * REGENERATED on every open rather than kept: the catalogue is what it is a view of, and a
- * bench that had drifted from it would be worse than no bench — you would be editing a module
- * that is not the one anybody else sees. What survives a regeneration is the part that is
- * yours: `chains.yaml` and `nodes/`, which is exactly what you wire (the lane is a
- * node too now — see packages/song/docs/trackModules.md).
- */
-export function ensureBench(userEmail: string): {
-  workspace: string;
-  project: string;
-} {
-  ensureBenchProject(userEmail, BENCH_PROJECT);
-  return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };
-}
-
-/**
  * Bring a bench made before `live` existed forward, in place.
  *
  * The folder is regenerated on every open but `project.yaml` is NOT — it is written once, and
- * `chains.yaml`/`nodes/` are deliberately what survives (see `ensureBench`). So a
- * bench that already existed would keep saying "arrangement" forever and open with a timeline
- * over the graph, which is the one shape a bench has never been.
+ * `chains.yaml`/`nodes/` are deliberately what survives. So a bench that already existed would
+ * keep saying "arrangement" forever and open with a timeline over the graph, which is the one
+ * shape a bench has never been.
  *
  * Comment-preserving and idempotent: `setFileValue` rewrites the document rather than the text,
  * so the French header the scaffold wrote is still there afterwards, and a bench already saying
@@ -195,9 +177,9 @@ export function ensureChainBench(
 
 /** Is this workspace + project the bench? What decides whether a save writes through. */
 export function isBenchProject(root: string, projectDir: string): boolean {
-  // The WORKSPACE is what is reserved, so every project in it is a bench — the module bench and
-  // one folder per chain opened. Naming the project here instead would have made the chain
-  // benches ordinary projects, whose module saves fork instead of reaching the catalogue.
+  // The WORKSPACE is what is reserved, so every project in it is a bench — one folder per chain
+  // opened. Naming the project here instead would have made them ordinary projects, whose module
+  // saves fork instead of reaching the catalogue.
   return basename(root) === BENCH_WORKSPACE;
 }
 

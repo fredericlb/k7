@@ -70,6 +70,7 @@ import {
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
+import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
@@ -125,6 +126,8 @@ import {
   keyToken,
   resolveBinding,
 } from "./keys";
+import { libraryStore } from "./library";
+import { libraryModuleRef } from "./libraryTree";
 import { isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
@@ -215,7 +218,20 @@ export default function App({
   const [builder, setBuilder] = useState<{
     path: string;
     pane: BuilderPane;
+    /**
+     * The module is the MÉDIATHÈQUE's and not this project's.
+     *
+     * Which decides two things that go together: the store the builder gets — the library's,
+     * because both path spaces spell a module `modules/<type>/<sub>/module.yaml` and the two
+     * are not the same file — and whether it opens locked. See src/library.ts.
+     */
+    library?: boolean;
+    /** …and whether it has been unlocked. Only the dialog below sets this, which is the point. */
+    unlocked?: boolean;
   } | null>(null);
+  // The shared module the "Edit" button is asking about. Held rather than derived from `builder`
+  // so the dialog closes on its own without touching what is behind it.
+  const [editShared, setEditShared] = useState<string | null>(null);
   /**
    * The LIVE plugin behind the module the builder is open on, when the open project has one.
    *
@@ -1823,7 +1839,14 @@ export default function App({
     // `amps/neural-amp-modeler`, not `neural-amp-modeler`. Shared with the loader that files it
     // (`@studio/song/moduleTypes`), because a lookup that spelled it differently would report
     // "this project has no such module" about a module plainly in the tree.
-    const module = moduleKeyFromPath(builder.path);
+    //
+    // A LIBRARY module is named with its namespace instead — `@mediatek/audio/amps/nam` — since
+    // that is what a chain writes for a module the project inherits rather than holds. Same
+    // lookup, one spelling apart, and getting it wrong here is what would make the Libraries tab
+    // a text editor: no ref, no plugin, no real parameters.
+    const module = builder.library
+      ? libraryModuleRef(builder.path)
+      : moduleKeyFromPath(builder.path);
     if (!module) return void setBuilderPlugin(null);
     let cancelled = false;
     void api
@@ -2428,6 +2451,11 @@ export default function App({
                 onEditTarget={setEditTarget}
                 onOpenItem={setOpenItem}
                 onOpenBuilder={(path, pane) => setBuilder({ path, pane })}
+                // The same builder, over the médiathèque and locked. On the PANEL like a
+                // project module, and read-only until the dialog says otherwise.
+                onOpenLibraryModule={(path) =>
+                  setBuilder({ path, pane: "panel", library: true })
+                }
                 diagnostics={diagnostics}
                 videoSources={videoSources}
               />
@@ -3191,13 +3219,25 @@ export default function App({
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder
-              store={moduleStore}
+              // Which store, decided by where the click came from and never re-derived from the
+              // path: a workspace and the médiathèque spell a module identically, so a path
+              // cannot say which of the two it is in. See src/library.ts.
+              store={builder.library ? libraryStore : moduleStore}
               path={builder.path}
               kind="module"
               moduleName={builder.path.split("/").slice(-2)[0] ?? builder.path}
               paramRef={null}
               vimMode={vimMode}
               initialPane={builder.pane}
+              // A shared module opens LOCKED. Everyone's copy is this one — there is no fork
+              // here to absorb a mistake — so writing to it is a thing somebody decides, in the
+              // dialog below, rather than a thing that starts happening while they read.
+              readOnly={builder.library && !builder.unlocked}
+              onRequestEdit={
+                builder.library && !builder.unlocked
+                  ? () => setEditShared(builder.path)
+                  : undefined
+              }
               onBack={() => setBuilder(null)}
               onSaved={bumpReload}
               setStatus={setStatus}
@@ -3256,6 +3296,16 @@ export default function App({
             />
           </div>
         )}
+
+        {/* The one gate between reading a shared module and rewriting everyone's copy of it. */}
+        <EditSharedModuleDialog
+          path={editShared}
+          onCancel={() => setEditShared(null)}
+          onConfirm={() => {
+            setEditShared(null);
+            setBuilder((b) => (b ? { ...b, unlocked: true } : b));
+          }}
+        />
 
         {/* Confirm before undoing a process step — it restores a bounced audio file. */}
         <Dialog

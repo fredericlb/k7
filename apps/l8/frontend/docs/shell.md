@@ -59,7 +59,7 @@ There is a second layout, and it is not a second *choice*: a project whose `proj
 `project_type: live` has no arrangement, so `App` draws **the chains graph on the whole screen**
 and the timeline's furniture goes with it — the transport (every control on it addresses a
 position in a song), the minimap (a second view of that song), the pane buttons, the mobile tabs.
-The module bench is one. The editor is still one right-click away, as a popin, which is what keeps
+The chain bench is one. The editor is still one right-click away, as a popin, which is what keeps
 the builder reachable there. See
 [packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
 

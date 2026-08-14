@@ -34,9 +34,12 @@ chains.yaml:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
 ```
 
 A chain step names a **module folder** or a **node**, and the lookup matches either, since
-`step.module` is one string. On the bench it is always the folder: the catalogue is mirrored
-into `modules/`, so every module in it is a `@project` module — and a node may not take a
-module's name, which settles the question by making the alternative illegal.
+`step.module` is one string.
+
+A **shared** module — one opened from the Libraries tab — is named the other way, with its
+namespace: `@mediatek/audio/delay/tape-delay`, because that is what a chain writes for a module
+the project inherits rather than holds. Same lookup, one spelling apart; see
+[sharedModules.md](sharedModules.md).
 
 Found: the builder gets the plugin's parameter names, their ranges, its factory presets, and
 knobs that move the real thing (the params store and the setter go in **together** — a knob
@@ -47,16 +50,25 @@ Not found: the builder is exactly what it has always been here — the text, the
 module's own preset shelf. That is an ordinary state and not an error. Every binding is typed
 rather than picked, which is what editing a module the project does not use has always been.
 
-**The rule this puts on a chain.** Wire the module you want to work on, by its folder name. That
-is the bench's whole workflow rather than a quirk of this lookup — see
-[apps/st0/docs/banc.md](../../st0/docs/banc.md).
+**The rule this puts on a chain.** Wire the module you want to work on, by the name a chain
+gives it. For a shared module that is usually already true — you are editing it because this
+song uses it — which is what made the module bench unnecessary. See
+[sharedModules.md](sharedModules.md).
+
+## Read-only, and the one host that uses it
+
+The builder takes `readOnly` and `onRequestEdit`. Both exist for shared modules: one shows the
+whole screen without arming a single autosave, the other draws the button that asks to be let
+in. What the button *says* is the host's — a shared package knows this module is not the
+project's, and cannot know whose it is or what writing to it costs. Same argument as
+`renderPreview`. See [sharedModules.md](sharedModules.md).
 
 ## What did not move, and is not coming back
 
 - **The audition's own input picker.** A live input belongs to a TRACK now
   (`inputChannels` / `monitor` on a `TrackDoc`), which the compiler wires from the project's own
-  YAML. On the bench that is two lines in `tracks/banc.yaml`, and it feeds whatever you have
-  chained after it — not one module in isolation.
+  YAML — two lines in the lane's node file — and it feeds whatever you have chained after it,
+  not one module in isolation.
 - **`modulePreviewDoc`.** Nothing manufactures a project any more.
 - **The métering menu.** `io-levels` still exists and the engine still only enables the devices
   it is asked to meter; nothing in l8 asks yet.
@@ -65,8 +77,8 @@ is the bench's whole workflow rather than a quirk of this lookup — see
 
 The suites here mount nothing, so none of this is covered by a green run:
 
-- open the bench, wire a module into the chain, open the builder on it → its parameter list is
-  the plugin's, and its factory presets are populated;
+- wire a module into a chain, open the builder on it → its parameter list is the plugin's, and
+  its factory presets are populated;
 - drag one of those parameters onto a widget → the widget adopts the plugin's real range;
 - turn a knob in the builder's card → the value moves in the graph too, and the sound changes;
 - open the builder on a module the project does NOT instantiate → an empty parameter list, and

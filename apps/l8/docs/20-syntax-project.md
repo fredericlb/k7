@@ -24,7 +24,7 @@ type: l8
 # `live` is a RIG: no timeline at all. Nothing is placed in time, so l8 draws
 # the chains graph on the whole screen and drops the arrangement with it — the
 # timeline pane, the transport, the minimap. What you get is the signal path
-# and the command bar. The module bench (`/l8/@banc/modules.l8`) is one.
+# and the command bar. The chain bench (`/l8/@banc/chains/<path>.l8`) is one.
 #
 # A SET is a `live` project too, plus two files: a `songs.yaml` and a
 # `surfaces/desk.yaml`. Two decks meeting at a crossfade, a list to play through

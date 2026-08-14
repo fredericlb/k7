@@ -15,7 +15,7 @@ import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import { ensureBench, ensureChainBench } from "./bench.ts";
+import { ensureChainBench } from "./bench.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
   engineTokenState,
@@ -174,37 +174,37 @@ app.get(
 /**
  * The BENCH — made, or refreshed, and answered as a workspace + project.
  *
- * On the catalogue at large (`modules.l8`) or on ONE médiathèque chain (`chains/<path>.l8`),
- * which is the address's project part and the only difference between the two.
+ * On ONE médiathèque chain (`chains/<path>.l8`), which is what the address's project part says.
  *
  * Its own route rather than a clone, because there is no repository: the bench is generated
  * from the médiathèque's catalogue and regenerated every time it is opened, so putting it under
  * version control would version a cache. `ProjectGate` calls this instead of the
  * by-name → by-repo → clone sequence when the address names `@banc`.
  *
- * A full modules sync first, and that is the load-bearing line. `mediatekPull` fetches only what
- * the OPEN projects name (docs/mediatekPull.md), and the bench names nothing — so without this
- * the folder it is about to mirror would be whatever happened to be cached for other songs.
+ * A full sync of both families first, and that is the load-bearing line. `mediatekPull` fetches
+ * only what the OPEN projects name (docs/mediatekPull.md), and a bench that has not been made
+ * yet names nothing — so without this the folder it is about to mirror would be whatever
+ * happened to be cached for other songs.
  */
 app.post(
   "/workspaces/bench",
   wrap(async (req, res) => {
-    // Which project the address named. `chains/<path>.l8` opens the bench on that chain; the
-    // module bench is what no project, or any other name, means. The path is the médiathèque's,
-    // and `benchChainPath` is the one place either end spells that rule.
+    // Which chain the address named. `benchChainPath` is the one place either end spells that
+    // rule; anything else under `@banc` names nothing, which used to be the module bench.
     const chain = benchChainPath(String(req.body?.project ?? ""));
+    if (!chain)
+      return res.status(404).json({
+        error:
+          "@banc opens a médiathèque chain — `chains/<path>.l8`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
+      });
     try {
-      await syncMediatekFamily(chain ? "chains" : "modules");
-      if (chain) await syncMediatekFamily("modules"); // the chain names them; the bench mirrors them
-      res.json(
-        chain
-          ? ensureChainBench(req.userEmail!, chain)
-          : ensureBench(req.userEmail!),
-      );
+      await syncMediatekFamily("chains");
+      await syncMediatekFamily("modules"); // the chain names them; the bench mirrors them
+      res.json(ensureChainBench(req.userEmail!, chain));
     } catch (e) {
       // A chain that will not open is the USER's problem to read — no such chain, or a name that
       // collides with the bench's own furniture — so it is a 409 and not a fault.
-      res.status(chain ? 409 : 500).json({ error: (e as Error).message });
+      res.status(409).json({ error: (e as Error).message });
     }
   }),
 );

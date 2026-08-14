@@ -318,6 +318,27 @@ export const isTrackRef = (ref: unknown): boolean =>
 // Re-exported because this is where every module-vocabulary caller already looks.
 export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
 
+/**
+ * The four levels a module can live at, outermost first. A ref carries the level as its
+ * `@` prefix — `@engine/audio/nam`, `@mediatek/…`, `@workspace/…`, `@project/…` — and a
+ * BARE ref (`audio/reverb`) is the project level written the short way.
+ *
+ * `engine` is the odd one: it names no folder at all. A scanned plugin is synthesised by
+ * `engineCatalogue` from the machine's scan cache, so it is a level without a root.
+ *
+ * HERE and not beside `moduleNamespaceOf`, which decides a level from a folder on disk: this is
+ * the vocabulary, and a browser has to spell it too — l8's Libraries tab writes `@mediatek` on a
+ * row. `sharedFolders.ts` reads the disk on its first line, so importing it there would drag
+ * `node:fs` into a bundle. Re-exported from it, exactly as `moduleKeyFromPath` is.
+ */
+export const MODULE_NAMESPACES = [
+  "engine",
+  "mediatek",
+  "workspace",
+  "project",
+] as const;
+export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
+
 // --- module nodes (see docs/loader.md) --------------------------------------
 export const NODE_SEP = ":";
 

@@ -11,8 +11,13 @@ the entry point, not a design. And for a module the project inherited, it did no
 went through `hints.paths`, which by construction only holds the project's **own** modules, so a shared one
 came back "couldn't resolve".
 
-So the builder moved — twice. First to l8' settings panel, and then out of l8 entirely: it lives in
-`apps/st0` now, where the modules themselves do. The settings entry that used to open it is a link out.
+So the builder moved — three times. First to l8' settings panel; then out of l8 entirely, into
+`apps/st0` where the modules themselves live; and then back, because a parameter list is a fact
+about a LOADED plugin and only a project loads one (`apps/l8/frontend/docs/moduleBuilder.md`).
+l8 is its only host now. What answers the "a module is a workspace thing" objection is not where
+the builder lives but **which tree you opened it from**: the file tree's Libraries tab lists the
+shared libraries as themselves, so a shared module is opened as shared and says so
+(`apps/l8/frontend/docs/sharedModules.md`).
 
 `moduleCatalogue` stays, and is still useful, because it answers a different question: it lists what **this
 workspace** can name in a chain, which is what the module picker reads. What it no longer
@@ -38,7 +43,10 @@ Nothing here saves any more. A workspace's `_modules` is read-only without excep
 shared module still forks (`moduleFork.md`), for everybody, which is what read-only does here instead of
 refusing.
 
-Edits happen in the médiathèque, against its own service. The panel is the one thing that still saves in place:
+Edits to a MÉDIATHÈQUE module happen against st0's own service, from l8's Libraries tab — a
+second store over the same builder, and the confirmation in front of it is there because that
+library has no fork to fall back on. A workspace's `_modules` has no such tab and no such route:
+it is read-only, and a save aimed at it forks. The panel is the one thing that still saves in place:
 it is the `ui.yaml` inside the module's folder (`uiLibrary.md`), and `Workspace.write` lets that one file through
 because drawing a knob must not fork the module.
 

@@ -99,7 +99,7 @@ What stays: the graph, the command bar, the panels, and the settings and share m
 
 It is not a pane here, and it does not need to be. `ui file` — which is what right-clicking a
 module node runs — brings the editor up as a **popin**, over the layout, and a popin belongs to no
-layout. That is the path the module bench needs: right-click a node, its `module.yaml` opens, and
+layout. That is the path the bench needs: right-click a node, its `module.yaml` opens, and
 the **Builder** button on that toolbar opens the module builder. Removing the editor pane does not
 remove any of it.
 
@@ -116,14 +116,18 @@ rather than by holding the whole shell back on a fetch. The pre-render fix, if i
 it: `POST /open` already returns `WorkspaceInfo` and `ProjectGate` throws the response away —
 widening that and the gate's `children` callback would carry the shape before `<App/>` mounts.
 
-## The module bench is the first one
+## The bench is the first one
 
 `apps/st0/docs/banc.md` had already described a live project without the word: *« pas un morceau »*
 — nothing arranged, nothing recorded, `recordDir` unset, the track with no clip. The bench is a
 track, a chain and an output, and the exercise is entirely the graph. `scaffoldBench.ts` writes
-`project_type: live`, and because a bench's `project.yaml` is written once and only its `modules/`
-are regenerated, `ensureBenchProject` also brings an already-existing bench forward — comment
-preservingly, and only when it is not already live.
+`project_type: live`, and because a bench's `project.yaml` is written once while its `modules/`
+and its chain are regenerated, `ensureBenchProject` also brings an already-existing bench
+forward — comment preservingly, and only when it is not already live.
+
+(There were two benches; the one over the whole module catalogue is gone, and a shared module is
+edited from l8's Libraries tab. The bench that remains is a médiathèque CHAIN, and it is live for
+exactly the same reason.)
 
 ## Creating one
 
