@@ -5,12 +5,14 @@
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
 import { engineAccess } from "@studio/engine-browser/access";
+import type { EnginePrefs } from "@studio/engine-browser/registry";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import { serviceUrl } from "@studio/web-protocol/services";
+import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef } from "./libraryTree";
 import type {
   PresetInfo,
@@ -68,7 +70,17 @@ async function json<T>(res: Response, what: string): Promise<T> {
  * which is the drift `@studio/engine-browser/registry` exists to stop. See that package's
  * docs/access.md.
  */
-export const engines = engineAccess<PublicEngine>(BASE, json);
+/**
+ * l8's own preference document: the engine every service remembers, plus what this person has made
+ * of the command catalogue (names, icons, menu order — see commandPrefs.ts).
+ *
+ * Widening `P` is how a host adds a field, exactly as `EnginePrefs`' own comment says: the schema
+ * belongs to the host, and a union of every service's fields would be a shape no service has.
+ */
+export interface L8Prefs extends EnginePrefs {
+  commands?: CommandPrefs;
+}
+export const engines = engineAccess<PublicEngine, L8Prefs>(BASE, json);
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────
 // The transport and the shared routes live in @studio/project-shell — a workspace is resolved

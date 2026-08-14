@@ -54,9 +54,10 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, moduleStore } from "./api";
+import { api, engines, moduleStore } from "./api";
 import { STUDIO_ICONS } from "./chainsIcons";
 import { canonicalizeCommand } from "./commandI18n";
+import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
 import { AudioClipPanel } from "./components/AudioClipPanel";
@@ -68,6 +69,7 @@ import {
   type CommandPending,
   type PaletteCommand,
 } from "./components/CommandBar";
+import { CommandsSettings } from "./components/CommandsSettings";
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
@@ -480,6 +482,29 @@ export default function App({
   const pluginParamsStore = useRef(new PluginParamsStore()).current;
   // The backend command catalogue (canonical name + trailing param names), for the step-by-step palette. Fetched once.
   const [backendCmds, setBackendCmds] = useState<CommandInfo[]>([]);
+  /**
+   * What this person has made of the command catalogue — names, icons, order (commandPrefs.ts).
+   *
+   * In the ACCOUNT's preferences, not the rig's: what you call a command follows you to another
+   * browser, where which audio interface to open belongs to the machine. `patchPrefs` merges, so
+   * writing this cannot wipe the engine id sitting beside it — the trap that document's own
+   * comment records.
+   */
+  const [commandPrefs, setCommandPrefs] = useState<CommandPrefs>({});
+  useEffect(() => {
+    void engines
+      .prefs()
+      .then((p: unknown) =>
+        setCommandPrefs((p as { commands?: CommandPrefs })?.commands ?? {}),
+      )
+      .catch(() => {}); // never saved any: the defaults are the catalogue's own
+  }, []);
+  // Optimistic, and the write is not awaited: the page is a list of small edits, and each one
+  // waiting on a round trip would make renaming a command feel like saving a file.
+  const saveCommandPrefs = useCallback((next: CommandPrefs) => {
+    setCommandPrefs(next);
+    void engines.patchPrefs({ commands: next }).catch(() => {});
+  }, []);
   const lastActive = useRef<string | null>(null);
   const lastShiftAt = useRef(0); // for the double-tap-Shift palette opener
   const pendingPrewrite = useRef<string | null>(null);
@@ -1431,8 +1456,18 @@ export default function App({
       }
 
       // --- the cog menu --------------------------------------------------------
-      if (line === "settings editor" || line === "settings io") {
-        setSettingsScreen(line === "settings io" ? "io" : "editor");
+      if (
+        line === "settings editor" ||
+        line === "settings io" ||
+        line === "settings commands"
+      ) {
+        setSettingsScreen(
+          line === "settings io"
+            ? "io"
+            : line === "settings commands"
+              ? "commands"
+              : "editor",
+        );
         return true;
       }
       // The one control ON the editor settings screen. A global user preference, so it outlives
@@ -2232,7 +2267,23 @@ export default function App({
     () => buildPaletteCommands(backendCmds, locale),
     [backendCmds, locale],
   );
-  paletteRef.current = paletteCommands;
+  /**
+   * The catalogue AS THIS PERSON ARRANGED IT — renamed and reordered (commandPrefs.ts).
+   *
+   * Applied here, once, over the palette's built list: the palette is the one surface that lists
+   * every command, so ordering it anywhere else would leave the settings page describing an order
+   * nothing obeyed. `label` replaces the sentence the palette matches on, which is deliberate —
+   * someone who renamed a command should find it by the name they gave it.
+   */
+  const allCommands = useMemo(
+    () =>
+      orderCommands(paletteCommands, commandPrefs).map((c) => ({
+        ...c,
+        readable: labelOf(c, commandPrefs),
+      })),
+    [paletteCommands, commandPrefs],
+  );
+  paletteRef.current = allCommands;
   // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds —
   // what the editor can open, every path the tree draws, this project's surfaces, the languages.
   const listArg = useMemo(
@@ -3286,7 +3337,19 @@ export default function App({
             onClose={() => setSettingsScreen(null)}
           />
         )}
-        {settingsScreen && settingsScreen !== "io" && (
+        {settingsScreen === "commands" && (
+          <div className="absolute inset-0 z-40 bg-background">
+            <CommandsSettings
+              // The whole catalogue, both halves: the shell's own `ui …` lines and the backend's.
+              // A page that arranged only one of them would order a menu it does not draw.
+              commands={allCommands}
+              prefs={commandPrefs}
+              onChange={saveCommandPrefs}
+              onBack={() => setSettingsScreen(null)}
+            />
+          </div>
+        )}
+        {settingsScreen === "editor" && (
           <div className="absolute inset-0 z-40 bg-background">
             <EditorSettingsPage
               vimMode={vimMode}

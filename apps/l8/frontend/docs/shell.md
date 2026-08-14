@@ -706,6 +706,39 @@ The bar takes focus on a **double-tap of Shift**: two lone Shift presses within
 stream from a held Shift. The gesture cannot toggle back out, because the shell's key
 listener ignores anything typed into an input — Escape is the way out, and has to be.
 
+### The catalogue is the app's; the ARRANGEMENT is the person's
+
+`ui settings commands` opens a page where a command can be renamed, given an icon, and pulled up
+or down the order menus list them in. What the commands ARE stays the app's — this is a layer over
+the catalogue, kept in `commandPrefs.ts` and applied by `orderCommands` / `labelOf`.
+
+Four decisions, and the last two are the load-bearing ones:
+
+- **Keyed by the canonical LINE** (`clip trim`, `ui help`), not by the sid. The sid is the more
+  stable id but only the backend's commands have one — the shell's own `ui …` lines do not — and a
+  page that could arrange half the catalogue would order a menu it does not draw.
+- **The entity a command acts on is the first word of its line**, which is what the filter offers.
+  Nothing new to author, and a command added to the app is filterable the day it exists.
+- **A partial order.** Commands someone has placed come first, by their number; everything else
+  follows in catalogue order. A total order would mean every command added to the app later
+  arriving at a position a saved list had already decided — and it is what lets you pull three
+  commands to the top without numbering the other two hundred.
+- **Applied once, over the palette's built list.** The palette is the one surface that lists every
+  command, so ordering anywhere else would leave the page describing an order nothing obeyed. The
+  label replaces the sentence the palette MATCHES on, deliberately: someone who renamed a command
+  should find it by the name they gave it.
+
+It lives in the ACCOUNT's preferences, not the rig's — what you call a command follows you to
+another browser, where which audio interface to open belongs to the machine. `L8Prefs` widens
+`EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
+writing this cannot wipe the engine id beside it.
+
+The icons are **lucide**, already this app's icon set, so nothing new was added to the project.
+What is new is importing it as a NAMESPACE: everywhere else picks icons by name and is tree-shaken
+to those, while a picker has to know all ~1500. That defeats the shaking, which is why
+`IconPicker` is reached only through `React.lazy` — this screen pays it on open, and the app's
+first paint does not.
+
 ### The `ui` namespace
 
 The shell's own view commands (`LOCAL_COMMANDS` in `palette.ts`) live under a `ui` prefix,

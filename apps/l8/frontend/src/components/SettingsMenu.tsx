@@ -10,6 +10,7 @@ import { Button } from "@frediverse/ui/button";
 import {
   AudioLines,
   Boxes,
+  Command,
   DoorOpen,
   ExternalLink,
   LogOut,
@@ -25,7 +26,7 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
 
 // "io" is the odd one: App renders it as a DIALOG, not a full screen (see IoPanel). It is
 // listed here anyway — it is a settings surface, and a second menu for one entry is worse.
-export type SettingsScreen = "editor" | "io";
+export type SettingsScreen = "editor" | "io" | "commands";
 
 export function SettingsMenu({
   onRun,
@@ -107,6 +108,12 @@ export function SettingsMenu({
           <button className={item} onClick={() => run("ui settings io")}>
             <AudioLines className="h-4 w-4 text-muted-foreground" />
             {m["settings.io"]()}
+          </button>
+          {/* Not translated through paraglide like its neighbours: this entry is new and the
+              message catalogue is generated, so it would fail the build until regenerated. */}
+          <button className={item} onClick={() => run("ui settings commands")}>
+            <Command className="h-4 w-4 text-muted-foreground" />
+            Commandes
           </button>
           {/* A LINK, not a screen: modules are catalogued and edited in the médiathèque
               now, because it is the only editable library. A workspace's `_modules` is a

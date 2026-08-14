@@ -32,6 +32,8 @@ export const UI_EXACT: readonly string[] = [
   // The cog menu and the screen it opens.
   "settings editor",
   "settings io",
+  // The command catalogue as this person arranges it: names, icons, menu order.
+  "settings commands",
   "vim",
   "engine",
   "workspace quit",
