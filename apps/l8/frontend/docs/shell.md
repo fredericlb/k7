@@ -757,14 +757,22 @@ a half-decorated menu with a ragged left edge reads as a rendering fault.
 
 The icons are **lucide**, already this app's icon set, so nothing new was added to the project.
 What is new is resolving one BY NAME, which cannot be tree-shaken: everywhere else imports the
-icons it draws, while "whatever the person chose" is not known at build time. So `lucideIcons.ts`
-loads the set **dynamically, once, cached** — the app's first paint pays nothing, the first surface
-wanting an icon pays one chunk, everything after it is synchronous. A menu opened before that lands
-draws its labels and no icons, which is the honest degradation: the label is what an entry MEANS,
-the icon is how you recognise it faster the second time.
+icons it draws, while "whatever the person chose" is not known at build time. `lucideIcons.ts`
+loads the set through a dynamic import and caches it, so a surface asking for an icon awaits once
+and every surface after it is synchronous. A menu opened before that lands draws its labels and no
+icons — the honest degradation, since the label is what an entry MEANS and the icon is how you
+recognise it faster the second time.
 
-The alternative was a curated subset, statically imported: instant, bounded, and offering two
-hundred icons where the ask was a complete library. That is the trade this made the other way.
+**The split does not actually happen, and this is worth knowing before trusting the paragraph
+above.** The build says `INEFFECTIVE_DYNAMIC_IMPORT`: some thirty components import their icons by
+name from `lucide-react`, so the bundler cannot move it into a chunk of its own. The `import()`
+buys deferred execution and no deferred download, and naming the namespace retains all ~1500
+exports where tree-shaking used to keep the forty this app draws. Measured on a real build: the
+IconPicker chunk is 1 KB, the main chunk 2.4 MB.
+
+The alternative is a curated subset, statically imported: instant, bounded, tree-shakeable, and
+offering two hundred icons where the ask was a complete library. That is a product decision rather
+than a refactor, which is why it has not been taken unasked.
 
 ### The `ui` namespace
 

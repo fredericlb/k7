@@ -7,6 +7,17 @@ import { EngineGate } from "./components/EngineGate";
 import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import "./index.css";
+/**
+ * The waveform's own wrapper and marker rules. A plain stylesheet, not Tailwind, so the `@source`
+ * scan cannot produce it — it has to be imported like any other CSS file, exactly as st0 and k7
+ * import it.
+ *
+ * l8 never did, and drew waveforms for a long time without anyone noticing: the canvas needs no
+ * CSS, so the picture looked right. What was missing was `.waveform-wrap { position: relative }`
+ * and `.waveform-marker { position: absolute }` — so every onset flag fell out of its positioning
+ * context and stacked up in the corner, in normal flow, nowhere near the onset it marked.
+ */
+import "@studio/ui-waveform/styles.css";
 
 // Report main-thread stalls to the console, so a "random freeze" leaves evidence. Cheap, and console-only.
 installFreezeWatchdog();
