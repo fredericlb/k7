@@ -16,7 +16,7 @@ It is gone, and what replaced it is smaller: **the file tree has a second tab.**
 | tab | what it lists |
 |---|---|
 | **Project** | the workspace, minus every module folder the other tab owns |
-| **Libraries** | one row per LEVEL — `@project`, `@workspace`, `@st0` — and the modules under it |
+| **Libraries** | one row per LEVEL — `@project`, `@workspace`, `@st0`, `@engine` — and the modules under it |
 
 **They are two different answers, and that is the correction worth writing down.** The Libraries
 tab was first built by looking for `_libraries` and `_modules` *inside the file tree* — and it
@@ -34,6 +34,7 @@ the LOADER resolves against and cannot drift from it, which searching a tree nev
 @project      01.danse.l8/modules/       the song's own
 @workspace    _modules/                  shared by every project beside it
 @st0          _libraries/modules/        the account's library repository (a submodule)
+@engine       — no folder —              this machine's plugin scan, READ-ONLY
 ```
 
 **Nearest first, which is precedence.** Reading the tab top to bottom is reading the order the
@@ -50,11 +51,47 @@ same reason: only one of them is fixed by adding a module.
 `@st0` is the one level that disappears when absent. It is a git submodule somebody has to
 mount, not a folder to fill in, so an empty row would be an offer nothing here can honour.
 
-**Making one.** "New module…" on a namespace row, taking `<type>/<name>` — `audio/reverb`, which
-is the name a chain writes. One place and one shape: the type folder is part of what a module
-IS. A module is a FOLDER holding a definition, so "New folder…" would make something the loader
-does not recognise and a row that opens no builder; this writes the `module.yaml` that makes it
-a module, and opens the builder on it.
+## `@engine`, which is not a folder
+
+The fourth level is here too, last, and it is **read-only** — the one level that is not files at
+all. `engineCatalogue` synthesises it from this machine's plugin scan (`~/.studio/exts.json`),
+so there is no path, nothing to open and nothing to write. Its rows are a **vocabulary a chain
+can name**, and they are greyed for exactly that reason: the same treatment a `.wav` gets, and
+for the same reason — something you can read and cannot open.
+
+Two things about it are synthesised, and it is worth knowing which:
+
+- **The type folders.** A ref is flat (`@engine/nam`), and two hundred and fifty plugins in one
+  list is a level you cannot find anything in. So the folder rows carry a made-up path and the
+  **leaves carry the real ref**, which is the one string anything downstream should trust.
+- **The level's own row.** It has no folder, so its label stands in for a path.
+
+Giving a scanned plugin a folder is a different act, and a deliberate one: `module own <ref>`
+(`packages/song/docs/moduleFork.md`). A plugin has no panel and no presets until it has
+somewhere to keep them, and this tab does not pretend otherwise.
+
+An `@engine` with nothing in it is not drawn: a machine that has never scanned has no
+vocabulary to offer, and an empty heading would say something untrue.
+
+## Making things
+
+Two entries, on any folder of a **writable** level — the namespace row included, since that row
+IS the level's folder:
+
+| entry | makes |
+|---|---|
+| **New folder…** | a plain folder, for filing (`audio/delay/`) |
+| **New module…** | `<type>/<name>/module.yaml`, and opens the builder on it |
+
+A module is named by its path **under the row you clicked**, so the entry reads the same
+everywhere: `audio/reverb` on `@project`, `reverb` inside `audio`. The hint spells the resulting
+file out, so what is about to be written is never a guess, and the service refuses anything with
+no type folder — `audio/reverb` is the shortest thing the loader will key.
+
+`@engine` gets neither: `rootOf` refuses a read-only level, so the menu does not open there at
+all rather than opening with everything greyed out.
+
+**Making one** is below, under *Making things*.
 
 `@engine` is the fourth level and is not here. A scanned plugin has no folder at all, so there
 is nothing to draw and nothing to open (`packages/song/docs/moduleNamespaces.md`).
@@ -245,6 +282,10 @@ The suites here mount nothing, so none of this is covered by a green run:
 - open a workspace with no `_modules` → `@workspace` is there and empty, and creating through it
   makes the folder;
 - unmount the library submodule → `@st0` disappears rather than offering an empty row;
+- `@engine` is last, greyed, and grouped by type; clicking a row opens nothing and right-clicking
+  offers no menu. On this machine it holds 254 scanned plugins;
+- right-click a type folder inside `@project` → **New folder…** and **New module…**, the second
+  taking just a name there and `<type>/<name>` on the level's own row;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit
   button beside it; typing in the code pane does nothing;
 - click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save

@@ -31,10 +31,50 @@ export function libraryTree(libraries: ModuleLibrary[]): FileNode[] {
       name: nsLabel(l.ns),
       // The real path, so every row under it — and every read, write and create — addresses
       // what is actually there. Workspace-relative, like every other path in this app.
-      path: l.path,
+      // `@engine` has none: its own label is the only thing that identifies its row.
+      path: l.path || nsLabel(l.ns),
       dir: true,
       children: l.nodes,
     }));
+}
+
+/**
+ * Every path under a READ-ONLY level, plus the level's own row.
+ *
+ * `@engine` and only it: a scanned plugin has no folder, so there is nothing to open, create,
+ * rename or write. The rows are a vocabulary a chain can name — the tab greys them and offers
+ * no menu, which is the honest drawing of "this exists but is not a file".
+ */
+export function readOnlyPaths(libraries: ModuleLibrary[]): Set<string> {
+  const out = new Set<string>();
+  const walk = (ns: FileNode[]): void => {
+    for (const n of ns) {
+      out.add(n.path);
+      if (n.children) walk(n.children);
+    }
+  };
+  for (const l of libraries)
+    if (l.readOnly) {
+      out.add(l.path || nsLabel(l.ns));
+      walk(l.nodes);
+    }
+  return out;
+}
+
+/** The library ROOT a row belongs to, or null for a row under a read-only level or none.
+ *  What "New folder…" and "New module…" resolve their target against. */
+export function rootOf(
+  libraries: ModuleLibrary[],
+  path: string,
+): ModuleLibrary | null {
+  return (
+    libraries.find(
+      (l) =>
+        !l.readOnly &&
+        l.path &&
+        (path === l.path || path.startsWith(`${l.path}/`)),
+    ) ?? null
+  );
 }
 
 /**

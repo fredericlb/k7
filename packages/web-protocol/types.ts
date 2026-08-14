@@ -667,11 +667,21 @@ export interface RepoProject {
  * because only one of the two is fixed by adding a module.
  */
 export interface ModuleLibrary {
-  /** The `@`-prefixed level a chain writes: `project`, `workspace`, `st0`. */
+  /** The `@`-prefixed level a chain writes: `project`, `workspace`, `st0`, `engine`. */
   ns: string;
-  /** Workspace-relative, so every other route takes it as-is. */
+  /** Workspace-relative, so every other route takes it as-is. EMPTY for `@engine`, which is
+   *  the one level with no folder anywhere — see `readOnly`. */
   path: string;
   exists: boolean;
+  /**
+   * Nothing here can be created, renamed or written.
+   *
+   * True for `@engine` and only for it. A scanned plugin is a module the engine merely
+   * REPORTS: it has no folder, so there is nothing to write into and nothing to open — the
+   * rows are a vocabulary you can name in a chain, not files. Giving one a folder is
+   * `module own <ref>` (see packages/song/docs/moduleFork.md), which is a different act.
+   */
+  readOnly?: boolean;
   nodes: FileNode[];
 }
 
