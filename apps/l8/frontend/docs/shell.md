@@ -234,6 +234,23 @@ The live x axis is nominal: `LIVE_FRAME_MS` (50) per frame, because the engine's
 and not a clock. A growing take is read for its SHAPE; the moment timings matter, the file is
 there and its own waveform has replaced this one.
 
+#### The counter measures THIS take, and that was the bug
+
+`takeCounter.ts` counts the pre-roll down, then the take up in bar:beat. It is a pure function
+because the bug it replaces was arithmetic on a stale number, sitting inside a component that also
+drew a canvas and could therefore be tested by nobody.
+
+The old pane captured the take's start beat **once per mount** — and it outlived its take. So from
+the second take onward it measured against the *first* take's start, while the position it compared
+to is an absolute one in the song. A take punched in at bar 15 read 56 beats the instant it began;
+a take starting earlier than the last showed a pre-roll of tens of beats. The start is now captured
+on the `rolling` **edge**, the same edge `useLiveEnvelope` clears its buffer on.
+
+Both results are **clamped**, and that is not belt-and-braces: a pre-roll can never be longer than
+the pre-roll, and a take can never have run for less than nothing. Whatever the engine does with
+its playhead during a count-in — its business, not the counter's — the worst this can show now is a
+number that stops moving, rather than one nobody can explain.
+
 #### …and the panel can be asked for, not only awaited
 
 The automatic appearance is a moment that passes, and it passed more easily than anyone meant:

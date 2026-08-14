@@ -2777,6 +2777,9 @@ export default function App({
                     clip={rolling ? null : (reviewTake?.clip ?? null)}
                     track={reviewTake?.track ?? ""}
                     rolling={rolling}
+                    tempo={recInfo.tempo}
+                    beatsPerBar={recInfo.beatsPerBar}
+                    countIn={recInfo.countIn}
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
                     command={runCommand}

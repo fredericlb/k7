@@ -7,9 +7,10 @@ import { Button } from "@frediverse/ui/button";
 import { useEngineState } from "@studio/engine-browser/store";
 import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Square, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
+import { barBeat, takeCounter } from "../takeCounter";
 import type { WebWaveform } from "../types";
 
 const WAVE_HEIGHT = 200; // a fixed band, so stopping does not resize the shell
@@ -23,6 +24,9 @@ export function AudioClipPanel({
   clip,
   track,
   rolling,
+  tempo,
+  beatsPerBar,
+  countIn,
   trackOrder,
   trackNames,
   command,
@@ -34,6 +38,11 @@ export function AudioClipPanel({
   track: string;
   /** Is a take being played right now? Decides which of the two pictures this draws. */
   rolling: boolean;
+  tempo: number;
+  /** Quarter-note beats per bar (the project's time-sig numerator), for the counter. */
+  beatsPerBar: number;
+  /** Count-in length in BARS (0 == none) — the header counts it down before the take. */
+  countIn: number;
   /** The engine level index order, so an armed track maps to its inputLevels slot. */
   trackOrder: string[];
   /** Track id → display name, for naming who is being recorded. Which tracks those ARE comes off
@@ -76,6 +85,25 @@ export function AudioClipPanel({
   const armed = useEngineState((s) => s.armed);
   const armedNames = armed.map((id) => trackNames[id] ?? id);
 
+  // The transport's position in beats. Re-renders on whole beats only — the header counts beats,
+  // and one that re-rendered on every 20 Hz frame would redraw the waveform beside it.
+  const curBeat = useEngineState((s) =>
+    Math.floor((s.playhead * tempo) / 60 + 1e-6),
+  );
+  // Where THIS take began, captured on the rolling EDGE. The pane this replaces captured it once
+  // per mount and then outlived its take, so every take after the first was measured against the
+  // first one's start — the whole bug, see takeCounter.ts. Same edge `useLiveEnvelope` clears on.
+  const startBeat = useRef(0);
+  const wasRolling = useRef(false);
+  if (rolling && !wasRolling.current) startBeat.current = curBeat;
+  wasRolling.current = rolling;
+
+  const count = takeCounter(startBeat.current, curBeat, countIn * beatsPerBar);
+  // No "how long it ran" kept once it stops: the panel switches to the FILE the moment the take is
+  // over, and the file's own length is the honest answer to that. The old pane had to remember it
+  // because it stayed on the live picture, whose playhead jumps back where the transport left it.
+  const at = barBeat(count.beats, beatsPerBar);
+
   // `whole`: the take is the file, and the onsets a command names are seconds into THAT — asking
   // for the placement's span would hand back seconds measured from a different zero.
   const load = useCallback(() => {
@@ -117,9 +145,28 @@ export function AudioClipPanel({
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         {rolling ? (
           <>
-            <span className="text-sm uppercase tracking-wider text-red-400">
-              Enregistrement
-            </span>
+            {/* The pre-roll counts DOWN, then the take counts up in bar:beat. Two states of one
+                counter, and the take's own — measured from where this take started, not from the
+                song's bar one. */}
+            {count.phase === "count-in" ? (
+              <>
+                <span className="text-sm uppercase tracking-wider text-muted-foreground">
+                  Décompte
+                </span>
+                <span className="font-mono text-2xl tabular-nums text-red-400">
+                  {count.beats}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-sm uppercase tracking-wider text-red-400">
+                  Enregistrement
+                </span>
+                <span className="font-mono text-2xl tabular-nums">
+                  {at.bar}:{at.beat}
+                </span>
+              </>
+            )}
             <span className="truncate">
               {armedNames.length
                 ? armedNames.join(", ")
