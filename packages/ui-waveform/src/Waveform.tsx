@@ -176,7 +176,10 @@ function WaveformInner({
     const el = wrapRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
-      setWidth(Math.max(200, Math.floor(entries[0].contentRect.width)));
+      // 1, not 200: a floor wider than the box is a canvas drawn wider than it is shown, and the
+      // marker pins do not follow that stretch. A narrow pane gets a narrow waveform, which is
+      // simply what it has room for.
+      setWidth(Math.max(1, Math.floor(entries[0].contentRect.width)));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -561,7 +564,19 @@ function WaveformInner({
     <div ref={wrapRef} className="waveform-wrap">
       <canvas
         ref={canvasRef}
-        style={{ width: "100%", height: HEIGHT, cursor: "crosshair" }}
+        /**
+         * Sized in PIXELS, not `100%`.
+         *
+         * Every x the drawing computes uses `width` — the measured one — and the DOM marker pins
+         * beside it are placed with the same number. Letting CSS stretch the canvas to some OTHER
+         * width scales the drawing and leaves the pins where they were: a teal line and its flag
+         * then disagree by however far the two widths differ. `Math.max(200, …)` in the measure
+         * below guaranteed exactly that in any pane narrower than 200px.
+         *
+         * Sizing it explicitly makes the canvas's coordinate space and its box one thing, so the
+         * two cannot drift.
+         */
+        style={{ width, height: HEIGHT, cursor: "crosshair" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

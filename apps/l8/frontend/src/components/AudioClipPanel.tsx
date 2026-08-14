@@ -13,14 +13,18 @@ import { DEFAULT_TRIM_DB, trimWindow } from "@studio/commands/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
 import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Square, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { barWindow, zoomBars } from "../barWindow";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { WebWaveform } from "../types";
 
-const WAVE_HEIGHT = 200; // a fixed band, so stopping does not resize the shell
+// The waveform fills whatever the panel has left under its header. Measured rather than guessed
+// because `Waveform` draws a canvas, and a canvas needs its height in PIXELS — a percentage would
+// stretch the drawing without telling it, which is the same class of bug as sizing its width in
+// CSS. 120 is only the first, unmeasured frame.
+const MIN_WAVE_H = 120;
 const BUCKETS = 1200;
 // The bounds the file service clamps to anyway (see the /waveform route) — repeated here so the
 // slider cannot ask for something that comes back silently adjusted.
@@ -101,6 +105,18 @@ export function AudioClipPanel({
   // How many bars are on screen. State and not a derived value, because it is a thing the person
   // asked for: zooming out to see the whole take must survive the re-read every edit triggers.
   const [bars, setBars] = useState(DEFAULT_BARS);
+  // The box the waveform fills, measured. See MIN_WAVE_H.
+  const waveBox = useRef<HTMLDivElement>(null);
+  const [waveH, setWaveH] = useState(MIN_WAVE_H);
+  useEffect(() => {
+    const el = waveBox.current;
+    if (!el) return;
+    const ro = new ResizeObserver((e) =>
+      setWaveH(Math.max(MIN_WAVE_H, Math.floor(e[0].contentRect.height))),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const live = useLiveEnvelope(rolling, trackOrder);
 
   // Esc stops the take, captured so it reads as "leave the take" wherever the pointer went. Bound
@@ -372,6 +388,7 @@ export function AudioClipPanel({
           `passive: false` is not needed: React's onWheel is passive-by-default only on the window,
           and this is an element listener, so preventDefault holds and the pane does not scroll. */}
       <div
+        ref={waveBox}
         className="min-h-0 flex-1"
         onWheel={(e) => {
           if (rolling || !wf) return;
@@ -383,7 +400,7 @@ export function AudioClipPanel({
           <Waveform
             envelope={live}
             duration={seconds}
-            height={WAVE_HEIGHT}
+            height={waveH}
             currentTime={seconds}
           />
         ) : error ? (
@@ -400,7 +417,7 @@ export function AudioClipPanel({
           <Waveform
             envelope={{ intervalMs: wf.intervalMs, samples: wf.rms }}
             duration={wf.seconds}
-            height={WAVE_HEIGHT}
+            height={waveH}
             currentTime={0}
             // The project's bars and beats, straight from the same endpoint — WebWaveformGrid and
             // the canvas's WaveformGrid are the same three fields, so no translation is needed.
