@@ -40,9 +40,15 @@ vi.mock("@studio/mediatek/remote", () => ({
   }),
 }));
 
-const { commitLibraries, excludeFromProjectRepo, seedIfEmpty } = await import(
-  "./libraries.ts"
-);
+const {
+  commitLibraries,
+  excludeFromProjectRepo,
+  registerSubmodule,
+  seedIfEmpty,
+} = await import("./libraries.ts");
+
+/** git refuses a file:// submodule by default (CVE-2022-39253); the real thing is SSH. */
+const ALLOW_FILE = { ...process.env, GIT_ALLOW_PROTOCOL: "file:ssh" };
 
 let tmp: string;
 let origin: string;
@@ -220,6 +226,52 @@ describe("seeding a new library repository", () => {
     const staged = git(project, "diff", "--cached", "--name-only");
     expect(staged).toContain("song.yaml");
     expect(staged).not.toContain("_libraries");
+  });
+
+  it("registers the submodule even though the exclusion is in the way", async () => {
+    // The bug this pins, found in a real workspace and not here: `excludeFromProjectRepo`
+    // writes `/_libraries/` into `.git/info/exclude`, and `git submodule add` REFUSES an
+    // ignored path. Every first mount therefore left the library seeded, pushed and
+    // unregistered — the very half-state the exclusion exists to make survivable. The test
+    // that should have caught it built its fixture with `-f` already.
+    //
+    // The two are not in conflict: the exclusion guards the untracked window, and this is the
+    // act that closes it.
+    const project = join(tmp, "ws7");
+    mkdirSync(project, { recursive: true });
+    git(project, "init", "--initial-branch=main");
+    writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
+    git(project, "add", "-A");
+    git(
+      project,
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-m",
+      "the song",
+    );
+
+    const inside = join(project, "_libraries");
+    mkdirSync(inside, { recursive: true });
+    git(inside, "init", "--initial-branch=main");
+    git(inside, "remote", "add", "origin", origin);
+    await seedIfEmpty(inside);
+
+    await excludeFromProjectRepo(project);
+    expect(git(project, "check-ignore", "-v", "_libraries")).toContain(
+      "_libraries",
+    );
+
+    await registerSubmodule(project, origin, ALLOW_FILE);
+    // Staged, not committed: publishing is somebody's decision.
+    expect(git(project, "diff", "--cached", "--name-only").split("\n")).toEqual(
+      expect.arrayContaining([".gitmodules", "_libraries"]),
+    );
+    expect(readFileSync(join(project, ".gitmodules"), "utf8")).toContain(
+      "_libraries",
+    );
   });
 
   it("adds the exclusion once, however often it runs", async () => {

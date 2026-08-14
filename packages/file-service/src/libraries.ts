@@ -111,6 +111,35 @@ export async function excludeFromProjectRepo(
   }
 }
 
+/**
+ * Record the checkout at `_libraries` as a submodule of the workspace.
+ *
+ * STAGES `.gitmodules` and the gitlink and does not commit — deliberately: committing is
+ * `project commit`, somebody's decision, not something opening a song does to their repository.
+ *
+ * **`--force`, and it is not optional.** `excludeFromProjectRepo` has just written
+ * `/_libraries/` into this repository's `.git/info/exclude`, and `git submodule add` refuses an
+ * ignored path: *"The following paths are ignored by one of your .gitignore files … use -f"*.
+ * Without it every first mount left the library seeded, pushed and **unregistered** — the exact
+ * half-state the exclusion exists to make survivable, reached by the code that was supposed to
+ * end it. Found in a real workspace, not in a test: the test built its fixture with `-f`
+ * already, which is how a workaround in a fixture hides the bug in the thing it is fixturing.
+ *
+ * The two are not in conflict. The exclusion guards the window where the mount is untracked;
+ * this is the act that closes that window, so overriding it here is the point.
+ */
+export async function registerSubmodule(
+  root: string,
+  uri: string,
+  env: NodeJS.ProcessEnv = envFor(""),
+): Promise<void> {
+  await git(
+    root,
+    ["submodule", "add", "--force", "--", uri, LIBRARIES_DIR],
+    env,
+  );
+}
+
 /** Does the mount hold anything? An uninitialised submodule is an empty folder. */
 const isPopulated = (dir: string): boolean => {
   try {
@@ -292,10 +321,7 @@ export async function ensureLibraries(
     // Only NOW is the gitlink recorded — and not at all if the seed could not be pushed. A
     // gitlink is a promise that a commit is fetchable; pointing it at one that never left this
     // machine would break the workspace for everybody who clones it, including you tomorrow.
-    if (seeded !== "unpushed")
-      // STAGES `.gitmodules` and the gitlink, and does not commit — deliberately: committing is
-      // `project commit`, somebody's decision, not something opening a song does to their repo.
-      await git(root, ["submodule", "add", "--", uri, LIBRARIES_DIR], env);
+    if (seeded !== "unpushed") await registerSubmodule(root, uri, env);
     return { mounted: true };
   }
 
