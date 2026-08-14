@@ -39,6 +39,7 @@ import { readLog } from "../logs.ts";
 import {
   preferences,
   setAudioDevicePref,
+  setInputPairPref,
   setVim,
   toWebTracks,
 } from "../workspace.ts";
@@ -87,6 +88,20 @@ filesRouter.put(
   wrap((req, res) => {
     const { name, type } = req.body as z.infer<typeof audioDeviceBody>;
     res.json({ audioDevice: setAudioDevicePref(name, type) });
+  }),
+);
+// How that interface's inputs are grouped — the other half of the same rig, remembered for the same
+// reason and replayed on the same connect. `channel` is 1-based and names its PAIR, either half of it.
+const inputPairBody = z.object({
+  channel: z.number().int().positive(),
+  stereo: z.boolean(),
+});
+filesRouter.put(
+  "/preferences/input-pair",
+  validate(inputPairBody),
+  wrap((req, res) => {
+    const { channel, stereo } = req.body as z.infer<typeof inputPairBody>;
+    res.json({ inputPairs: setInputPairPref(channel, stereo) });
   }),
 );
 

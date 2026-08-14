@@ -101,6 +101,63 @@ none. A context only builds instances for devices that were already enabled when
 built, so enabling a device afterwards is not enough — the same reason `channelLevelsDb`
 has always added its own for metering.
 
+## Grouping the inputs: mono channels or stereo pairs
+
+The same device list can be built two ways, and the choice is the interface's, not the song's.
+Tracktion's `describeStandardDevices` walks the open device's channels **two at a time** and asks
+`isDeviceInChannelStereo(i)` for each even one: set, the two become a single stereo
+`WaveInputDevice`; clear, they stay two mono ones. All bits start clear, so a Focusrite 18i20
+comes up as twenty mono inputs and no stereo device at all.
+
+That mattered the moment anything offered a *choice* of input. `findWaveInput` matches a device
+only when its channel list is exactly the one asked for, so on that rig `channel: [1, 2]` matches
+nothing and plays silence — there is no pair to match it. Filtering a picker by width would
+therefore have offered stereo for ever and never found any.
+
+`EngineHost::setInputStereo(channel, stereo)` is the other half: it makes the pair rather than
+looking for one. Three things about it are load-bearing.
+
+* **The channel names its PAIR.** 1-based on the wire, 0-based inside, and
+  `setDeviceInChannelStereo` rounds down to even itself — so either half names the same pair, and
+  **2 can never be paired with 3**. The hardware boundary is not ours to move.
+* **It regroups exactly as a device switch does**, so it needs the same repair:
+  `reconnectTrackInputs`, with the armed set read *before*. Without it the first take after
+  pairing records silence from a track that still looks armed — the bug this page already
+  describes, reached by the other road.
+* **Nothing is broadcast back.** The device layout rides on `io-levels`, the one message that
+  carries it and which every surface showing inputs already asks for. `setInputStereo` forces the
+  async rebuild through before returning, so the next `io-levels` on that thread is the new list.
+
+Pairing **destroys** the two mono devices: their names merge, and a device is identified by its
+name (`"wavein_" + hash(name)`). A module still saying `channel: [2]` after 1+2 are paired matches
+no device and goes quiet with no error. The surface that offers the act says so before it does it;
+see `packages/ui-module-builder/docs/inputChannels.md`.
+
+### …and it is remembered exactly where the device choice is
+
+Tracktion *does* persist the grouping itself — `saveSettings` writes `stereoChansIn` per audio
+device type. It is never read back, and that is structural rather than an oversight: the only
+thing that loads it is `DeviceManager::loadSettings()`, whose first act is
+
+```cpp
+auto audioXml = storage.getXmlProperty (SettingID::audio_device_setup);
+if (audioXml != nullptr)
+    error = deviceManager.initialise (…, audioXml.get(), true);
+```
+
+— reopening the remembered interface, which is the one thing the top of this page forbids. So this
+engine never calls it, and the pairing bits go down a well.
+
+Measured, not assumed: pair channel 5, restart the engine, ask again — twenty mono devices.
+
+So the grouping is remembered the same way the interface is, in `~/.studio/preferences.yaml`
+(`inputPairs`, the 1-based odd channel of each pair), and replayed by `engineLink` on every connect,
+in the same `try`, one line after `setAudioDevice`. The order is load-bearing: opening a device
+rebuilds the wave devices from scratch, so a pairing sent first would be thrown away.
+
+That is not a second source of truth — it is the *only* one that can be read, and Tracktion's copy
+stays as inert as `Settings.xml`.
+
 ## What is still missing
 
 The device's true input and output latency is not on the wire. Until it is, the quality

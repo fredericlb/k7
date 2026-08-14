@@ -500,7 +500,7 @@ export default function App({
   // project already declares, where this is the list you pick a new one from.
   // `connected` is in the condition and not just for tidiness: `engineRef` is a ref, so a link that
   // comes up after the builder opens re-renders nothing on its own and the ask would never be sent.
-  const inputDevices = useInputDevices(
+  const { devices: inputDevices, regroup: regroupInputs } = useInputDevices(
     engineRef.current ?? null,
     !!builder && connected,
   );
@@ -3270,6 +3270,9 @@ export default function App({
               // The sockets an `io: in` module can listen on. Empty with no engine attached, which
               // is the honest answer: which inputs exist is the sound card's to say.
               inputDevices={inputDevices}
+              // …and the one act that changes that list: pair two inputs into a stereo device, or
+              // split them apart. Only offered with an engine attached, which is what does it.
+              onRegroupInputs={connected ? regroupInputs : undefined}
               presets={
                 (builderPlugin && presets[builderPlugin.module]) ||
                 EMPTY_PRESETS

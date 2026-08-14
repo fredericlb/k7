@@ -71,6 +71,7 @@ import {
   loadPreferences,
   setAudioDevice,
   setEditorVim,
+  setInputPair,
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import {
@@ -322,6 +323,12 @@ export function setVim(on: boolean): boolean {
 export function setAudioDevicePref(name: string, type?: string): string | null {
   const p = setAudioDevice(name, type);
   return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
+}
+
+// …and how that interface's inputs are grouped, forgotten by the engine for the same reason and
+// replayed on the same connect. Returns the whole set, since setting one pair is how the list is edited.
+export function setInputPairPref(channel: number, stereo: boolean): number[] {
+  return setInputPair(channel, stereo).inputPairs;
 }
 
 // The per-workspace active-project marker; a dotfile, so skip() hides it from the tree.

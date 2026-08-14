@@ -191,6 +191,29 @@ export const ENGINE_NS = "@engine";
 export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
 
 /**
+ * The io modules the engine provides. One IN and one OUT for the whole app — a project
+ * makes nodes of them, and those carry the channel, the monitoring and the trim.
+ *
+ * They were files in `_modules` too, one folder plus one node per interface channel,
+ * written by `module populate` from the machine's preferences. That put a rig's wiring in
+ * a library shared by every song; the nodes belong to the song that records through
+ * them.
+ *
+ * Here in the leaf rather than in engineCatalogue.ts, which reads the scan cache off disk:
+ * a node that says `extends: "@engine/IN"` declares no `io:` of its own, so ANYTHING asking
+ * what kind of module it is has to consult this table — including an editor in a browser,
+ * which cannot pay a `node:fs` import to find out.
+ */
+export const IO_MODULES: Record<string, { io: "in" | "out" | "file" }> = {
+  IN: { io: "in" },
+  OUT: { io: "out" },
+  // The file source: audio off disk rather than off an interface. One module, like the other
+  // two, and a node carries WHICH file — or carries none, in a chain template, where the
+  // audio belongs to whatever the template is applied to. See docs/fileInput.md.
+  FILE: { io: "file" },
+};
+
+/**
  * How a scanned plugin becomes a module: the ref that names it, and the `plugin:` block that
  * says what to load. Null when the name leaves no slug to make a ref out of.
  *

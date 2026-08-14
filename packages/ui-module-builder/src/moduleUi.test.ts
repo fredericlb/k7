@@ -187,6 +187,34 @@ describe("an io module's direction", () => {
   it("is null rather than throwing on a file that doesn't parse", () => {
     expect(ioOf("io: [unclosed\n")).toBe(null);
   });
+
+  // THE bug the picker shipped with. A real input in a real song states no `io:` at all — this is
+  // `nodes/ge_rythm-in.yaml` from 01.danse.l8, whole — and reading only the file's own key called it
+  // an ordinary plugin, so it got neither the io binds nor a channel dropdown.
+  it("follows `extends` to the engine's io modules", () => {
+    const node = 'extends: "@engine/IN"\nchannel: [ 2 ]\n';
+    expect(ioOf(node)).toBe("in");
+    expect(ioOf('extends: "@engine/OUT"\n')).toBe("out");
+    expect(ioOf('extends: "@engine/FILE"\n')).toBe("file");
+  });
+
+  it("does not mistake an ordinary engine plugin for an io module", () => {
+    expect(ioOf('extends: "@engine/neural-amp-modeler"\n')).toBe(null);
+  });
+
+  it("reads the direction off the PATH for a file that inherits it by location", () => {
+    // `in-2.yaml` beside `io/IN/module.yaml` carries a channel and nothing else — the folder is
+    // what says it is an input, exactly as the loader reads it.
+    expect(ioOf("channel: [1, 2]\n", "_modules/io/IN/in-2.yaml")).toBe("in");
+    expect(ioOf("", "C:\\ws\\_modules\\io\\OUT\\main.yaml")).toBe("out");
+    expect(ioOf("", "nodes/io/notamodule/x.yaml")).toBe(null);
+  });
+
+  it("lets the file's own `io:` win over both", () => {
+    expect(ioOf('io: out\nextends: "@engine/IN"\n', "io/IN/x.yaml")).toBe(
+      "out",
+    );
+  });
 });
 
 // The channel picker's two halves. Reading has to keep a preferences LABEL a label, because the

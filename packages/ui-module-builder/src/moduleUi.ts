@@ -4,6 +4,7 @@
 // editor's buffer) and shares the loader's Zod schema, so the grid can't offer a widget
 // the file would be refused for. Writing the block REPLACES it: comments inside don't survive.
 
+import { ENGINE_NS, IO_MODULES } from "@studio/song/moduleTypes";
 import {
   type ModuleUI,
   PresetsFileSchema,
@@ -253,12 +254,37 @@ export function writeUiFile(text: string, ui: ModuleUI): string {
 }
 
 /**
- * A module file's `io:` direction ("in" / "out" / …), or null when it declares none — i.e. when it is an
- * ordinary plugin module. What an INPUT can be bound to differs from what a plugin can (see IO_IN_BINDS).
+ * A module's `io:` direction ("in" / "out" / …), or null when it is an ordinary plugin module. What an
+ * INPUT can be bound to differs from what a plugin can (see IO_IN_BINDS), and only an input has a socket
+ * to point at (see InputChannelBar).
+ *
+ * Three sources, because a module rarely SAYS it: `ge_rythm-in.yaml` in a real song is two lines,
+ * `extends: "@engine/IN"` and `channel: [ 2 ]`. Reading only the file's own key called that a plugin,
+ * which cost it both its io binds and its channel picker.
+ *
+ * 1. its own `io:` — a file that states it is right about itself;
+ * 2. `extends: "@engine/IN"` — the engine's io modules are a fixed table, not files (IO_MODULES);
+ * 3. failing both, the PATH: a file under `io/IN/` is one of that folder's inputs. Location is how
+ *    the loader decides this too — `in-2.yaml` beside `module.yaml` carries a channel and nothing else.
  */
-export function ioOf(fileText: string): string | null {
+export function ioOf(fileText: string, path?: string): string | null {
   const io = docOf(fileText)?.get("io");
-  return typeof io === "string" && io ? io : null;
+  if (typeof io === "string" && io) return io;
+
+  const base = extendsRefOf(fileText);
+  const engine = base?.startsWith(`${ENGINE_NS}/`)
+    ? IO_MODULES[base.slice(ENGINE_NS.length + 1)]
+    : undefined;
+  if (engine) return engine.io;
+
+  // `io` names the TYPE folder and the segment after it names the module — the same two-segment
+  // shape `moduleKeyFromPath` reads, matched here rather than borrowed because this needs only
+  // the pair and would otherwise have to care where the workspace root is.
+  const parts = (path ?? "").split(/[/\\]/);
+  for (let i = 0; i + 1 < parts.length; i++)
+    if (parts[i] === "io" && IO_MODULES[parts[i + 1]])
+      return IO_MODULES[parts[i + 1]].io;
+  return null;
 }
 
 /**
