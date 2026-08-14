@@ -67,14 +67,34 @@ const wfSig = (
     buckets,
   ].join("|");
 
+/** The clip's own window, in FILE seconds, or null when it has none. A `to` of 0 is the file's end. */
+function materialWindow(c: ClipDoc): { from: number; to: number } | null {
+  return c.sourceFrom || c.sourceTo
+    ? { from: c.sourceFrom ?? 0, to: c.sourceTo ?? 0 }
+    : null;
+}
+
 // Slice the disk-cached file envelope to the clip's region and add the bar/beat grid — the WebWaveform drawn.
+// `window`, when the region is wider than the clip's own from/to, is that pair put on the SAME axis as the
+// marks — through the region's own mapping, never a second copy of it.
 function buildWaveform(
   env: Parameters<typeof regionWaveform>[0],
   clip: ClipDoc,
   p: ProjectDoc,
   buckets: number,
+  window: { from: number; to: number } | null = null,
 ): WebWaveform {
   const w = regionWaveform(env, clip, p, buckets);
+  const shade = window
+    ? {
+        from: Math.max(0, w.toDisplay(window.from)),
+        // An unwritten `to` is the file's end, which on this picture is its right edge.
+        to:
+          window.to > 0
+            ? Math.min(w.seconds, w.toDisplay(window.to))
+            : w.seconds,
+      }
+    : null;
   return {
     rms: w.rms,
     peak: w.peak,
@@ -85,6 +105,12 @@ function buildWaveform(
     grid: beatGrid(w),
     warpMarks: w.warpMarks,
     transients: w.transients,
+    // Sent only when it actually cuts something: a band over the whole pane says nothing.
+    ...(shade &&
+    shade.to > shade.from &&
+    (shade.from > 1e-6 || shade.to < w.seconds - 1e-6)
+      ? { sourceWindow: shade }
+      : {}),
   };
 }
 
@@ -167,6 +193,20 @@ export class WaveformOps {
     if (!clip) throw new Error(`no clip '${clipId}'`);
     if (clip.type !== "audio")
       throw new Error(`'${clipId}' is not an audio clip`);
+    /**
+     * `whole` means the FILE, and the window is the thing being JUDGED against it — so the window must not
+     * also crop the picture. It did: `regionWaveform` opens the region AT `sourceFrom` and blanks whatever
+     * lies past `sourceTo` (two different cuts — only the first shortens the span). So a NUMERIC `from:`/`to:`
+     * — exactly what `clip trim` writes — silently redrew the pane as the trim itself: head gone, tail flat,
+     * and no way left to see what had been cut or to judge putting it back.
+     *
+     * A TIMECODE window escaped it, because `mapClip` only reads a number, so the two spellings of one field
+     * drew two different pictures. Drawn windowless here and shaded instead, they draw the same one.
+     */
+    const window = whole ? materialWindow(clip) : null;
+    const drawn = window
+      ? { ...clip, sourceFrom: undefined, sourceTo: undefined }
+      : clip;
     // The engine decodes any format and refreshes the sidecar; we slice the returned envelope to the region.
     const env = await ensureFileEnvelope(
       clip.source,
@@ -191,10 +231,10 @@ export class WaveformOps {
     const cached = this.wfCache.get(key);
     if (cached && cached.sig === sig) return cached.data;
     const data = {
-      ...buildWaveform(corrected, clip, p, buckets),
+      ...buildWaveform(corrected, drawn, p, buckets, window),
       // The raw set, mapped the same way, so an editor can tell which pins it may only refuse and which it
       // may pick up — and the corrections as the file holds them, in file seconds.
-      detected: buildWaveform(env, clip, p, buckets).transients,
+      detected: buildWaveform(env, drawn, p, buckets).transients,
       onsetEdits: edits,
     };
     this.wfCache.set(key, { sig, data });

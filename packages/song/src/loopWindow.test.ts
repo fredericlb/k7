@@ -81,9 +81,34 @@ describe("a sequence's window into its own notes", () => {
   });
 
   it("writes no loop range for a single pass from the beginning", () => {
-    // Nothing to say: the clip's own end already stops it at `to`. A loop that must never come round is one more
-    // thing to be slightly wrong about.
+    // Nothing to say: `to: "3:1"` is exactly where these eight notes already end, so the range would repeat the
+    // notes back at themselves. A loop that must never come round is one more thing to be slightly wrong about.
     seq({ to: "3:1" });
+    place({});
+    expect(melody()).toMatchObject({ length: 8, loopStart: 0, loopEnd: 0 });
+  });
+
+  /**
+   * …but a `to` that does NOT land on the notes says something they do not, and it is written even for one pass
+   * from the beginning. This is what a surface reads to shade the window, and without it the case commonest in a
+   * hand-written file — trim the tail, play it once — reached the roll and the tracker as nothing at all.
+   */
+  it("writes one for a `to` that CUTS the notes short", () => {
+    seq({ to: "2:1" }); // 4 beats of the 8 the notes cover
+    place({});
+    expect(melody()).toMatchObject({ length: 4, loopStart: 0, loopEnd: 4 });
+  });
+
+  it("writes one for a `to` that PADS past the last note", () => {
+    // The silence after the material is deliberate, and the only thing that says so is this pair.
+    seq({ to: "5:1" }); // 16 beats against 8 of notes
+    place({});
+    expect(melody()).toMatchObject({ length: 16, loopStart: 0, loopEnd: 16 });
+  });
+
+  it("still writes none when the file states no window at all", () => {
+    // The default `to` IS the extent, so this must not become "every sequence carries a range" — a roll that
+    // banded every clip in the project with the whole of itself would be saying nothing, loudly.
     place({});
     expect(melody()).toMatchObject({ length: 8, loopStart: 0, loopEnd: 0 });
   });

@@ -261,6 +261,19 @@ export interface WebWaveform {
   clipBeats: number; // beats the region spans
   grid: WebWaveformGrid[];
   warpMarks: WebWarpMark[]; // stretch markers, in region seconds (empty == not warped)
+  /**
+   * The material's own `from`/`to` — the span of the source this clip IS — in the same region
+   * seconds as everything above.
+   *
+   * Sent only when the picture is WIDER than the window, which is the `whole` view: a placed clip
+   * is drawn from its in-point, so there the region and the window are the same thing and a band
+   * over the whole pane would say nothing. Absent therefore means "nothing to shade", not
+   * "untrimmed".
+   *
+   * Named for the SOURCE rather than plainly `window`, because it is passed straight to a React
+   * prop and a prop called `window` shadows the global one inside the component that draws it.
+   */
+  sourceWindow?: { from: number; to: number };
   // Display seconds where the onsets ARE — what the engine detected, with the clip's corrections already
   // applied. Every surface reads this one and therefore agrees; only an editor needs the two below.
   transients: number[];

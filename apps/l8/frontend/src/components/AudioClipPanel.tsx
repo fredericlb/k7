@@ -434,6 +434,10 @@ export function AudioClipPanel({
             // The clip's stretch points, if it has a map: a dashed rule at the moment of the
             // source, a blue one where that moment's beat lands. `clip warp` is what moves them.
             warps={wf.warpMarks}
+            // The clip's own `from`/`to`, lit as ground under the envelope — this pane asks for the
+            // WHOLE file, so the window is a span inside the picture rather than the picture itself,
+            // and `clip trim` writing one must be visible as a cut and not as a different take.
+            sourceWindow={wf.sourceWindow ?? null}
             // A click on a mark refuses that onset; on a detected one that records a removal, on a
             // hand-placed one it takes the addition back — one verb, because from here it is one act.
             onMarkerClick={(m) =>

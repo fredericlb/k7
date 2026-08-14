@@ -47,6 +47,18 @@ interface Props {
    * there. Empty ⇒ nothing drawn, which is every clip that has no map.
    */
   warps?: { orig: number; target: number }[];
+  /**
+   * The material's own window — the span of the source this clip IS — in the same display seconds
+   * as everything else here.
+   *
+   * Drawn as GROUND, under the envelope: it is what the picture is about rather than a mark on it,
+   * and it is typically most of the pane, so an overlay tint would wash the waveform it is meant
+   * to frame. Absent ⇒ the picture already IS the window, which is every placed clip.
+   *
+   * `sourceWindow` and not `window`: a prop of that name shadows the global one inside this
+   * component, which listens on it.
+   */
+  sourceWindow?: { from: number; to: number } | null;
   gridLines?: WaveformGrid[]; // optional bar/beat overlay
   height?: number; // canvas height in px; defaults to DEFAULT_HEIGHT
   currentTime: number;
@@ -164,6 +176,7 @@ function WaveformInner({
   view,
   markerPlace = "top",
   warps = NO_WARPS,
+  sourceWindow = null,
   gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
   currentTime,
@@ -330,6 +343,27 @@ function WaveformInner({
       ctx.stroke();
     }
     ctx.setLineDash([]);
+
+    // The material's window, as GROUND — the span the clip is, lit under everything else, with its
+    // two edges picked out so a `from` sitting on silence is still findable. Deliberately colourless:
+    // this pane already spends violet on a selection, blue on a warp, teal on a marker, amber and
+    // green on regions, and a seventh hue for the thing all of those sit INSIDE would compete with
+    // every one of them.
+    if (sourceWindow && sourceWindow.to > sourceWindow.from) {
+      const wx0 = timeToX(sourceWindow.from);
+      const wx1 = timeToX(sourceWindow.to);
+      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      ctx.fillRect(wx0, 0, Math.max(1, wx1 - wx0), HEIGHT);
+      ctx.strokeStyle = "rgba(226,232,240,0.45)";
+      ctx.lineWidth = 1;
+      for (const ex of [wx0, wx1]) {
+        const x = Math.round(ex) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, HEIGHT);
+        ctx.stroke();
+      }
+    }
 
     // Detected event regions (behind the bars)
     ctx.fillStyle = "rgba(80, 200, 120, 0.2)";
@@ -524,6 +558,11 @@ function WaveformInner({
     dragSel,
     editing,
     total,
+    // Both were missing: the draw survived only because every change to them arrives with a fresh
+    // envelope, which invalidates `layers` and redraws anyway. That is a coincidence of the fetch,
+    // not a rule, and it would go quiet the first time one of them was set from local state.
+    warps,
+    sourceWindow,
   ]);
 
   // The grid's times alone — what a click snaps to (see nearestTick).

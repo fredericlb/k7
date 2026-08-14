@@ -6,6 +6,7 @@
 // Audio used to open `WaveformView`, which draws the same picture and can act on none of it. There
 // is one audio clip panel now, and clicking a clip reaches it.
 
+import { seqWindowFromText, windowSpan } from "@studio/song/seqWindow";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
@@ -88,12 +89,36 @@ function SeqRoll({
   }, [content]);
 
   const name = fileStem(path) || "sequence";
+  /**
+   * The file's own `from`/`to`, as the roll's loop pair — which for MIDI IS the window: the compiler
+   * states it in the notes' own beats, and `clipLoop` reads it on that axis (see clipLoop.ts).
+   *
+   * Handed over here because this roll is built from TEXT and nothing else was carrying it: a
+   * sequence opened as a file went through no compiler, so its window was dropped at the parse
+   * rather than at the draw, and the pane looked identical whatever the file said.
+   *
+   * The default `to` is the notes' extent rounded UP TO THE BAR, the same rule `nodeProject` uses —
+   * a pattern whose last hit falls on the fourth sixteenth is still two bars long.
+   */
+  const loop = useMemo(() => {
+    const num = project?.timeSigNumerator ?? 4;
+    const den = project?.timeSigDenominator ?? 4;
+    const win = seqWindowFromText(content, num, den);
+    if (!win) return null;
+    const bar = (num * 4) / den;
+    const extent =
+      Math.ceil(
+        notes.reduce((m, n) => Math.max(m, n.time + n.duration), 0) / bar,
+      ) * bar;
+    return windowSpan(win, extent);
+  }, [content, notes, project]);
   const clip: WebClip = {
     id: path,
     type: "midi",
     name,
     start: 0,
     length: 0,
+    ...(loop ? { loopStart: loop.from, loopEnd: loop.to } : {}),
     notes,
   };
 

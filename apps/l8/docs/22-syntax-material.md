@@ -30,7 +30,8 @@ is nowhere for a second answer to live. With no `to`, the clip runs to the end o
 way to place an untrimmed recording; a `loop` then has nothing to count and is refused when the project is read.
 
 Opening the file shows its waveform fitted to the source's **whole** duration, with the window shaded, so the two
-numbers can be placed by eye rather than guessed.
+numbers can be placed by eye rather than guessed. Whole means whole: the window shades that picture and does not
+also crop it, or trimming a clip would redraw the pane as the trim and leave nothing to judge putting it back.
 
 Opening a **placed** clip — clicking it in the timeline — shows the other half instead: the window it repeats is
 marked in violet, with a fainter line where each later pass begins, and the header counts them (`loop 4b × 3`).
@@ -49,9 +50,13 @@ meaning beats one folder over is a rule only ever learned by getting it wrong.
 Left out, the window is everything the notes cover, rounded up to the bar — so a two-bar pattern whose last hit
 falls on the fourth sixteenth is still two bars long, and repeats of it do not drift.
 
-The piano roll marks that window the same way the waveform does, and here it says one more thing: notes lying
-**outside** it are in the file and are not played. A window starting past the first beat is exactly when that is
-worth seeing.
+The piano roll and the tracker mark that window the same way the waveform does — a lit band with its two edges
+picked out — and here it says one more thing: notes lying **outside** it are in the file and are not played. A
+window that starts past the first beat, or ends before the last hit, is exactly when that is worth seeing.
+
+They mark it whether the sequence is PLACED on a track or opened as a file: `sequences/melody.yaml` in the editor
+draws the same band, read from the text as you type it, and a `to:` reaching past the last note keeps its bars on
+the grid rather than clipping them — the silence at the end is deliberate, and the band is what says so.
 
 Each note also carries a thin line across it: its **velocity**, at the bottom of the note for 0 and at the top
 for full. Drag a note up or down to change it (`sequence note velocity` on the command bar). A note that says

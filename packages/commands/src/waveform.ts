@@ -51,6 +51,13 @@ export interface RegionWaveform {
   tempo: number; // bpm
   warpMarks: WarpMark[]; // the clip's warp markers, in display seconds (empty == no warp)
   transients: number[]; // display seconds where transients are detected (grey bars)
+  /**
+   * A FILE second, as a position on the drawn region — the one mapping the marks above went
+   * through, handed out rather than re-derived. Anything else the caller wants to put on this
+   * picture (the material's own `from`/`to`, say) must land in the same space, and a second copy
+   * of `(sec - inPoint) * stretch` somewhere else is how the two come to disagree.
+   */
+  toDisplay: (fileSec: number) => number;
 }
 
 /**
@@ -231,6 +238,7 @@ export function regionWaveform(
     tempo,
     warpMarks,
     transients,
+    toDisplay,
   };
 }
 

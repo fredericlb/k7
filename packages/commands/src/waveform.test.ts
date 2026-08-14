@@ -22,6 +22,7 @@ function region(over: Partial<RegionWaveform>): RegionWaveform {
     tempo: 120,
     warpMarks: [],
     transients: [],
+    toDisplay: (s) => s, // identity: nothing here is windowed or warped
     ...over,
   };
 }
@@ -170,6 +171,50 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
       100,
     );
     expect(w.transients).toEqual([]);
+  });
+
+  /**
+   * The same window that puts the picture in the right place also CROPS it, and there is one view where
+   * that is wrong: the `whole` one, which exists to show the file the window is being judged against.
+   *
+   * `clip trim` writes seconds — numbers — and `mapClip` reads exactly those, so opening a trimmed clip
+   * redrew the pane as the trim itself, with nothing left to see what had been cut. A TIMECODE window
+   * survived it (`Number("2:1")` is NaN), so one field's two spellings drew two different pictures.
+   * WaveformOps draws the whole view WINDOWLESS for that reason; these pin what it is avoiding.
+   */
+  it("opens the region AT `from`, so the head of the file is not in the picture at all", () => {
+    const w = regionWaveform(env(), clip({ sourceFrom: 1 }), project, 100);
+    expect(w.seconds).toBe(3); // the file's 4, less the second trimmed off its head
+    expect(w.transients).toEqual([0.5, 1.5, 2.5]); // the 0.5s onset is gone with it
+  });
+
+  it("blanks what lies past `to` rather than shortening the picture", () => {
+    // Two different cuts, and only one of them changes the span — worth stating, because it is why
+    // a trimmed clip's pane looked like a different take rather than like a shorter one.
+    const w = regionWaveform(env(), clip({ sourceTo: 2 }), project, 100);
+    expect(w.seconds).toBe(4);
+    expect(w.peak.slice(0, 50).every((p) => p > 0)).toBe(true);
+    expect(w.peak.slice(50).every((p) => p === 0)).toBe(true);
+  });
+
+  it("draws the whole file once that window is taken off, which is what `whole` asks for", () => {
+    const w = regionWaveform(env(), clip({}), project, 100);
+    expect(w.seconds).toBe(4);
+    expect(w.peak.every((p) => p > 0)).toBe(true);
+    expect(w.transients).toEqual([0.5, 1.5, 2.5, 3.5]); // every onset, none shifted
+  });
+
+  it("hands out the mapping the marks went through, so the window lands on the same axis", () => {
+    // A second copy of `(sec - inPoint) * stretch` somewhere else is how a band comes to sit a
+    // pixel off the onsets beside it — the alignment bug this drawing already paid for once.
+    const w = regionWaveform(
+      env(),
+      clip({ sourceFrom: 1, length: 4 }),
+      project,
+      100,
+    );
+    expect(w.toDisplay(1)).toBe(0);
+    expect(w.toDisplay(1.5)).toBe(0.5);
   });
 });
 

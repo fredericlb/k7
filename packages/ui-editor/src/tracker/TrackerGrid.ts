@@ -141,11 +141,25 @@ export function renderTrackerGrid(
   onChange: (next: Note[]) => void,
   // With a rack (use_rack), notes show and enter as SYMBOLS: cells render them, a palette lists them, 1-9 place them.
   rack: RackInfo | null = null,
+  // The file's `from`/`to`, in beats — the span that PLAYS. Null when the file states none.
+  win: { from: number; to: number } | null = null,
 ): HTMLElement {
   const { channels, cell } = assignChannels(notes);
-  const endBeat = notes.reduce((m, n) => Math.max(m, n.t + n.d), 4);
+  // The window joins the content span, so a `to` past the last hit still has rows to reach.
+  const endBeat = Math.max(
+    notes.reduce((m, n) => Math.max(m, n.t + n.d), 4),
+    win?.to ?? 0,
+  );
   const totalBeats = Math.ceil(endBeat / 4) * 4; // whole bars, at least one
   const steps = Math.round(totalBeats / GRID);
+  // Which rows PLAY. Half-open, as the window is: a note starting exactly on `to` is outside it.
+  const winRows =
+    win && win.to > win.from
+      ? {
+          first: Math.round(win.from / GRID),
+          last: Math.round(win.to / GRID) - 1,
+        }
+      : null;
 
   // Clamp the persisted cursor to the grid it's landing back on.
   ctx.row = Math.max(0, Math.min(steps - 1, ctx.row));
@@ -230,7 +244,22 @@ export function renderTrackerGrid(
     const onBeat = r % 4 === 0;
     const onBar = r % STEPS_PER_BAR === 0;
     const rowEl = document.createElement("div");
-    rowEl.style.cssText = `display:flex;height:${ROW_H}px;background:${onBar ? "rgba(255,255,255,0.05)" : onBeat ? "rgba(255,255,255,0.02)" : "transparent"}`;
+    // The window is the row's own GROUND, one step lighter than the beat shading it sits on rather
+    // than a band over the top: these rows carry text, and a tint above them would dim it.
+    const inWin = !!winRows && r >= winRows.first && r <= winRows.last;
+    const shade = (onBar ? 0.05 : onBeat ? 0.02 : 0) + (inWin ? 0.06 : 0);
+    // The two edges as INSET shadows, not borders: a border would add to a row of fixed height and
+    // walk the whole grid a pixel down.
+    const edge =
+      inWin && winRows
+        ? [
+            r === winRows.first ? "inset 0 1px 0 rgba(226,232,240,0.5)" : "",
+            r === winRows.last ? "inset 0 -1px 0 rgba(226,232,240,0.5)" : "",
+          ]
+            .filter(Boolean)
+            .join(",")
+        : "";
+    rowEl.style.cssText = `display:flex;height:${ROW_H}px;background:${shade > 0 ? `rgba(255,255,255,${shade})` : "transparent"}${edge ? `;box-shadow:${edge}` : ""}`;
     rowEls.push(rowEl);
 
     const gut = document.createElement("div");

@@ -175,9 +175,9 @@ function placementToClip(
      * placement — `"1:1"` is the first beat. Unwritten, the window is everything the notes cover.
      *
      * It reaches the engine as the clip's LOOP RANGE, which is the only thing that can say "play from bar 5":
-     * a MIDI clip ignores `offset` (see insertMidiClip). A window starting at the first beat and played once
-     * needs no range at all — the clip's own end already stops it at `to` — so it is left unset there rather
-     * than written as a loop that must never come round.
+     * a MIDI clip ignores `offset` (see insertMidiClip). A window the file never wrote needs no range at all —
+     * the clip's own end already stops it — so it is left unset there rather than written as a loop that must
+     * never come round, and the roll then bands every sequence in the project with the whole of itself.
      */
     // The default `to`, when the file says none: the notes' extent rounded UP TO THE BAR. Not the bare extent —
     // a two-bar drum pattern whose last hit is on the fourth sixteenth would otherwise be 3.75 beats long, and
@@ -191,12 +191,16 @@ function placementToClip(
     const wToRaw = seqMap[ref].to != null ? pos(seqMap[ref].to) : extent;
     const wTo = wToRaw > wFrom ? wToRaw : extent > wFrom ? extent : wFrom;
     const win = wTo - wFrom;
+    // A `to` the file WROTE and that does not land on the extent says something the notes do not: it cuts a tail
+    // that is in the file, or it pads past the last hit. Either is worth a range, and without one the roll has
+    // nothing to draw — the case `from` is absent and the clip plays once was the hole.
+    const statedTo = seqMap[ref].to != null && Math.abs(wTo - extent) > 1e-9;
     return {
       ...base,
       type: "midi",
       notes,
       length: win * loops,
-      ...(win > 0 && (loops > 1 || wFrom > 0)
+      ...(win > 0 && (loops > 1 || wFrom > 0 || statedTo)
         ? { loopStart: wFrom, loopEnd: wTo }
         : {}),
     };

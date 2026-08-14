@@ -35,11 +35,18 @@ export function renderRollGrid(
   onChange: (next: Note[]) => void,
   // With a rack, each bar is captioned with its symbol and the gutter shows symbols instead of note names.
   rack: RackInfo | null = null,
+  // The file's `from`/`to`, in beats — the span that PLAYS. Null when the file states none.
+  win: { from: number; to: number } | null = null,
 ): HTMLElement {
   const keys = notes.map((n) => n.k);
   const hi = Math.min(127, (keys.length ? Math.max(...keys) : 72) + 3);
   const lo = Math.max(0, (keys.length ? Math.min(...keys) : 60) - 3);
-  const endBeat = notes.reduce((m, n) => Math.max(m, n.t + n.d), BEATS_PER_BAR);
+  // The window joins the content span: a `to` reaching PAST the last hit is a pad, and a grid that
+  // stopped at the notes would clip the very edge explaining the silence after them.
+  const endBeat = Math.max(
+    notes.reduce((m, n) => Math.max(m, n.t + n.d), BEATS_PER_BAR),
+    win?.to ?? 0,
+  );
   const totalBeats = Math.ceil(endBeat / BEATS_PER_BAR) * BEATS_PER_BAR; // whole bars
   const bars = totalBeats / BEATS_PER_BAR;
   const steps = Math.round(totalBeats / GRID);
@@ -108,6 +115,16 @@ export function renderRollGrid(
     lane.style.cssText = `position:absolute;left:0;right:0;top:${rowTop(k)}%;height:${rowH}%;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,0.04);background:${isBlack(k) ? "rgba(255,255,255,0.03)" : "transparent"}`;
     body.appendChild(lane);
   }
+  // The window, as GROUND — appended after the lanes and before the gridlines and notes, so DOM
+  // order alone puts it behind them (everything in here is absolutely positioned, so it is the only
+  // thing deciding what paints over what). Colourless on purpose: the notes are this pane's colour.
+  if (win && win.to > win.from) {
+    const band = document.createElement("div");
+    band.style.cssText = `position:absolute;top:0;bottom:0;left:${pctX(win.from)}%;width:${pctX(win.to - win.from)}%;box-sizing:border-box;background:rgba(255,255,255,0.06);border-left:1px solid rgba(226,232,240,0.45);border-right:1px solid rgba(226,232,240,0.45)`;
+    band.title = `plays ${win.from}–${win.to} beats (from/to)`;
+    body.appendChild(band);
+  }
+
   for (let s = 0; s <= steps; s++) {
     const onBeat = s % stepsPerBeat === 0;
     const onBar = s % stepsPerBar === 0;

@@ -68,3 +68,26 @@ It works on a SPAN rather than rewriting the whole document, and that is deliber
 tracker dispatches a CodeMirror transaction replacing that range, which keeps the undo
 history and the cursor a full-document rewrite would throw away. The parser finds the
 list, and the span comes off its node range.
+
+## The window both grids draw
+
+A sequence's `from`/`to` say which span of its notes actually PLAYS. Both grids light that
+span as ground — the roll as a band behind the lanes, the tracker as one shade lighter on
+the rows inside it — with its two edges picked out.
+
+Three things about how it gets there:
+
+- **It is read from the whole document, not from the notes array**, like `use_rack`: the
+  pair sits outside the list, so `findNotesArray` never sees it. `seqWindowFromText` in
+  `@studio/song` is the reader, and `GridWidget.eq` carries a key for the result — editing
+  `from:` changes neither the notes nor the rack, so without it the band would keep
+  whatever value it was first built with.
+- **The window joins the content span.** A `to` reaching past the last hit is a pad, and a
+  grid that stopped at the notes would clip the very edge that explains the silence after
+  them.
+- **At 4/4, like everything else in these two files.** Their bar lines, their rulers and
+  the tracker's PageUp all assume it already; reading the meter here alone would put the
+  band on a grid drawn to another one.
+
+The tracker's edges are inset SHADOWS rather than borders: these rows have a fixed height,
+and a border would add to it and walk the whole grid a pixel down.

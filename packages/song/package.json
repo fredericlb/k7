@@ -21,6 +21,7 @@
     "./preferences": "./src/preferences.ts",
     "./timecode": "./src/timecode.ts",
     "./materialWindow": "./src/materialWindow.ts",
+    "./seqWindow": "./src/seqWindow.ts",
     "./onsets": "./src/onsets.ts",
     "./benchChain": "./src/benchChain.ts",
     "./projectEdit": "./src/projectEdit.ts",

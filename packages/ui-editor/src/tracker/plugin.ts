@@ -11,6 +11,11 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import {
+  seqWindowFromText,
+  type WindowSpan,
+  windowSpan,
+} from "@studio/song/seqWindow";
+import {
   findNotesArray,
   type Note,
   parseNotes,
@@ -45,12 +50,33 @@ const findUseRack = (doc: string): string | null => {
   return m ? m[1].trim() || null : null;
 };
 
-// Turn a note list into grid DOM; `onChange` persists the whole next list, and `rack` lets it work in symbols.
+// Turn a note list into grid DOM; `onChange` persists the whole next list, `rack` lets it work in symbols,
+// and `win` is the file's own from/to — the span that plays, drawn as the grid's ground.
 type GridFactory = (
   notes: Note[],
   onChange: (next: Note[]) => void,
   rack: RackInfo | null,
+  win: WindowSpan | null,
 ) => HTMLElement;
+
+/**
+ * The window the document states, in beats, resolved against the notes — null when it states none.
+ *
+ * At 4/4, like the rest of these grids: their bar lines, their rulers and their PageUp all assume
+ * it already, and reading the meter here alone would put the band on a grid drawn to another one.
+ */
+function docWindow(doc: string, notes: Note[]): WindowSpan | null {
+  const win = seqWindowFromText(doc);
+  if (!win) return null;
+  // The extent rounded UP TO THE BAR, the same default `to` the compiler uses.
+  const extent =
+    Math.ceil(notes.reduce((m, n) => Math.max(m, n.t + n.d), 0) / 4) * 4;
+  return windowSpan(win, extent);
+}
+
+// What identifies a window for a widget's `eq`: editing `from:` leaves the notes array untouched,
+// so without this the band would keep whatever value it was first built with.
+const winKeyOf = (w: WindowSpan | null) => (w ? `${w.from}:${w.to}` : "");
 
 // What the fullscreen frame must keep clear, in viewport px — a callback, measured at toggle time, so this
 // package never learns what the shell around it looks like.
@@ -89,6 +115,9 @@ class GridWidget extends WidgetType {
     // The resolved rack plus a key identifying it, so the grid rebuilds when use_rack changes, not only the notes.
     readonly rack: RackInfo | null,
     readonly rackKey: string,
+    // The file's window, and a key for it: editing `from:` changes neither the notes nor the rack.
+    readonly win: WindowSpan | null,
+    readonly winKey: string,
   ) {
     super();
   }
@@ -96,7 +125,8 @@ class GridWidget extends WidgetType {
     return (
       other.arrayText === this.arrayText &&
       other.make === this.make &&
-      other.rackKey === this.rackKey
+      other.rackKey === this.rackKey &&
+      other.winKey === this.winKey
     );
   }
   toDOM(view: EditorView): HTMLElement {
@@ -163,6 +193,7 @@ class GridWidget extends WidgetType {
           });
         },
         this.rack,
+        this.win,
       ),
     );
     frame.appendChild(btn);
@@ -194,16 +225,21 @@ function gridField(
     // use_rack sits outside the notes array, so read it from the whole doc and resolve against the hints' rack map.
     const useRack = findUseRack(doc);
     const rack = buildRackInfo(useRack ? racks?.[useRack] : undefined);
+    const arrayText = doc.slice(span.from, span.to);
+    // Read from the WHOLE doc: from/to sit outside the notes array, like use_rack.
+    const win = docWindow(doc, parseNotes(arrayText));
     return Decoration.set([
       Decoration.replace({
         widget: new GridWidget(
-          doc.slice(span.from, span.to),
+          arrayText,
           make,
           height,
           full,
           inset,
           rack,
           rack ? (useRack ?? "") : "",
+          win,
+          winKeyOf(win),
         ),
       }).range(span.from, span.to),
     ]);
@@ -238,7 +274,8 @@ export function rollGridPlugin(opts: GridFrameOptions = {}): Extension {
 export function trackerPlugin(opts: GridFrameOptions = {}): Extension {
   const ctx = makeTrackerCtx();
   return gridField(
-    (notes, onChange, rack) => renderTrackerGrid(notes, ctx, onChange, rack),
+    (notes, onChange, rack, win) =>
+      renderTrackerGrid(notes, ctx, onChange, rack, win),
     320,
     opts.fullscreenInset ?? NO_INSET,
     opts.racks,
@@ -284,10 +321,11 @@ export function mountSeqGrid(
         content.slice(0, s.from) + renderNotes(next) + content.slice(s.to),
       );
     };
+    const win = docWindow(content, notes);
     const grid =
       opts.view === "tracker"
-        ? renderTrackerGrid(notes, ctx!, onGridChange, rack)
-        : renderRollGrid(notes, onGridChange, rack);
+        ? renderTrackerGrid(notes, ctx!, onGridChange, rack, win)
+        : renderRollGrid(notes, onGridChange, rack, win);
     grid.style.height = "100%";
     container.replaceChildren(grid);
   };

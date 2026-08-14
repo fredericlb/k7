@@ -94,6 +94,45 @@ Two smaller rules:
   so the audio window's `0` would mark the head of the file instead of the loop. What that view is
   about is the material's own `from`/`to`, which `sliceRanges` already shades.
 
+## The material's window — a different thing from the loop
+
+`from`/`to` say which span of the source the clip IS. The loop says how many times that span is
+played. They coincide for MIDI and are stated in one pair, which is why `clipLoop` reads
+`loopStart`/`loopEnd` for both — but the drawing question is not the same one, and three surfaces
+had three different answers to it:
+
+| | before | now |
+|---|---|---|
+| `WaveformView` (a clip file in the editor) | shaded, from the TEXT, live as you type | unchanged — and correct at last, see below |
+| `AudioClipPanel` (clicking an audio event) | nothing | the band, from `WebWaveform.sourceWindow` |
+| the roll, on a placed sequence | only when `from > 0` or it looped | also when `to` cuts or pads |
+| the roll, on `sequences/*.yaml` | nothing — dropped at the parse | the band, read from the text |
+| the tracker and the inline grids | nothing | the band |
+
+It is drawn as **ground**, under the envelope and under the notes, and deliberately colourless — a
+white wash with its two edges picked out. These panes already spend violet on a selection, blue on a
+warp, teal on a marker, emerald on a note; a seventh hue for the thing all of those sit *inside*
+would compete with every one of them.
+
+### `whole` was cropping the picture it was shading
+
+`regionWaveform` opens its region at `sourceFrom` and blanks whatever lies past `sourceTo` — right
+for a placement, and wrong for the one view whose whole purpose is to show the file the window is
+judged against. `clip trim` writes SECONDS, and `mapClip` reads exactly those, so trimming a clip
+silently redrew the pane as the trim itself: the head gone, the tail flat, and no way left to see
+what had been cut or to judge putting it back.
+
+A **timecode** window escaped it — `Number("2:1")` is `NaN`, so `mapClip` skipped the field — so one
+field's two spellings drew two different pictures. `WaveformOps` now draws the whole view windowless
+and reports the window separately, which repairs both panes at once: `WaveformView`'s own overlay
+was measuring `from / wf.seconds` from the crop's zero, i.e. shading the wrong span of an already
+wrong picture.
+
+The window rides on the payload in the same display seconds as the onsets and the warp marks, mapped
+through `RegionWaveform.toDisplay` — the region's own projection, handed out rather than copied. A
+second `(sec - inPoint) * stretch` elsewhere is exactly how a band comes to sit a pixel off the marks
+beside it.
+
 ## Velocity, on the note itself
 
 A horizontal line inside each note: at its bottom edge for 0, at its top for full. It is **half the
@@ -133,7 +172,8 @@ Velocity had to be added to the wire to draw it at all: `WebNote` carried `time`
 
 ## What is deliberately NOT drawn
 
-The area **outside** the loop is not dimmed. It is tempting — a window starting past beat 0 has
-notes before it that never sound — but for a repeated clip the pane past the window is not silence,
-it is the next pass. One rule that reads as "this does not play" would be wrong in the commoner of
-the two cases.
+The area **outside** the window is not dimmed — the band lights what plays rather than greying what
+does not. It is tempting the other way round, since a window starting past beat 0 has notes before
+it that never sound; but for a repeated clip the pane past the window is not silence, it is the next
+pass. One rule that reads as "this does not play" would be wrong in the commoner of the two cases,
+and lighting the inside says the same thing without ever saying it about the wrong pixels.
