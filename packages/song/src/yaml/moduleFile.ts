@@ -154,6 +154,29 @@ export function quoteTimecodes(doc: ReturnType<typeof parseDocument>): void {
 }
 
 /** Set one value in the file, leaving every other byte alone (comments, key order, layout survive) — a knob drag is a one-line diff. `null` removes the key. */
+/**
+ * Set a list of numbers in the file, written INLINE — `channel: [ 1, 2 ]`.
+ *
+ * Its own function rather than a branch in `setModuleValue`, because the difference is only how it
+ * LOOKS and that one takes `unknown`: teaching it to reflow every array would restyle lists written
+ * by callers that never asked. A two-element block sequence costs three lines to say one thing, and
+ * these are files people edit as text first.
+ */
+export function setModuleList(
+  text: string,
+  path: (string | number)[],
+  values: number[],
+): string {
+  if (!path.length) throw new Error("setModuleList: empty path");
+  const doc = parseDocument(text, PARSE_OPTIONS);
+  const node = doc.createNode(values);
+  // On the NODE, not at stringify time: only this sequence should be inline, and a document-wide
+  // setting would reflow every other list in the file.
+  (node as { flow?: boolean }).flow = true;
+  doc.setIn(path, node);
+  return String(doc);
+}
+
 export function setModuleValue(
   text: string,
   path: (string | number)[],

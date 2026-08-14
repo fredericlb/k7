@@ -1,5 +1,12 @@
 # Pointing an input at a socket
 
+> The **graph** answers this too, and differently: a live input's node draws the same three
+> choices as dropdowns, built by `inputUI` in `@studio/ui-chains` and written by the
+> `module channel` command. There the socket is a PARAMETER of the node like `@monitor` is,
+> which is what lets a built-in module carry its own panel — see that package's
+> `docs/graphBuild.md`. This page is about the strip in the editor and the builder, which edit
+> the file's text directly.
+
 An `io: in` module is the one kind the builder edits that runs no plugin. The input **is**
 the module, so its panel has no scanned parameter list — `IO_IN_BINDS` gives it `@gain` and
 `@monitor` to bind — and it has one question no plugin module has: *which of the interface's

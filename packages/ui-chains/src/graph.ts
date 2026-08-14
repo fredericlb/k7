@@ -38,6 +38,10 @@ const CARRIED = [
   "params",
   "pluginId",
   "monitor",
+  // Which socket a live input is on. Carried rather than consumed for the same reason `rack` is:
+  // `inputUI` below turns it into the node's dropdowns, and the renderer needs the numbers again to
+  // know which entry is the current one.
+  "channel",
   "tap",
   // The module's other attribute sets, and which is on. Carried rather than consumed: the node
   // draws a menu from them, and they arrive only when there is more than one to pick — so a node
@@ -695,6 +699,99 @@ export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
   return { cols, rows: Math.ceil(rack.length / cols), widgets };
 }
 
+/**
+ * The UI a live INPUT node carries: what socket it is on, how wide, and when it is audible.
+ *
+ * Synthesised for the same reason `rackUI` and `TRACK_UI` are — these are not the module's opinion
+ * but what it IS — and here there is a second reason, harder: `@engine/IN` is a built-in with no
+ * folder in any library, so a `ui.yaml` for it is not merely unwritten but IMPOSSIBLE to key
+ * (see @studio/song's uiLibrary.ts). Every input in every project therefore drew a card saying
+ * "No Options" until this existed.
+ *
+ * All three are dropdowns, and that is a constraint rather than a taste: a module FIELD is written
+ * by a command naming a state, so only a widget carrying `options` can commit one — a knob bound to
+ * a field draws, drags and writes nothing. `@gain` is deliberately absent for exactly that reason:
+ * it is a continuous trim, there is no `module gain` verb to send, and a knob that moved without
+ * saving would be worse than no knob.
+ *
+ * The channel list is the MACHINE's, so it arrives as an argument rather than being invented here:
+ * the sets are what `findWaveInput` matches exactly, and offering a channel the interface does not
+ * group that way reads as silence (see @studio/engine-browser's EngineInputDevice). With no
+ * interface answering the dropdown is empty and only the other two draw.
+ *
+ * An AUTHORED panel wins over this, exactly as for a rack: a node that has written its own has said
+ * what it wants to show.
+ */
+export function inputUI(
+  devices: readonly { name: string; channels: number[] }[],
+  channel: readonly number[] | undefined,
+): WebModuleUI {
+  const stereo = channel?.length === 2;
+  const first = channel?.[0] ?? 1;
+  // The socket list offers the CURRENT width. The other width is a different question, asked by the
+  // control beside it — one list of every mono input AND every pair is thirty entries on a rig like
+  // this one, and the answer to "which preamp" is not thirty things long.
+  const sets = devices.filter((d) => d.channels.length === (stereo ? 2 : 1));
+  // Width writes `channel:` too, rather than being a field of its own: mono and stereo are not two
+  // settings, they are how wide ONE setting is. A pair is even/odd — the interface groups no other
+  // way — so the pair containing channel n starts at n rounded down to odd.
+  const odd = first % 2 === 1 ? first : first - 1;
+  const widgets: Record<string, WebWidget> = {
+    // `value` is a position in the list and nothing more: the channels travel in `arg`, because a
+    // set is not a number and the command has to receive it as written.
+    channel: {
+      type: "dropdown",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      bind: "@channel",
+      label: "in",
+      options: sets.map((d, i) => ({
+        label: d.name,
+        value: i,
+        arg: d.channels.join(","),
+      })),
+    },
+    width: {
+      type: "dropdown",
+      col: 0,
+      row: 1,
+      bind: "@channel",
+      label: "width",
+      options: [
+        { label: "mono", value: 0, arg: String(first) },
+        { label: "stereo", value: 1, arg: `${odd},${odd + 1}` },
+      ],
+    },
+    monitor: {
+      type: "dropdown",
+      col: 1,
+      row: 1,
+      bind: "@monitor",
+      label: "mon",
+      options: [
+        { label: "off", value: 0 },
+        { label: "auto", value: 1 },
+        { label: "on", value: 2 },
+      ],
+    },
+  };
+  return { cols: 2, rows: 2, widgets };
+}
+
+/** The panel a step actually draws — authored first, then the two synthesised ones. One function so the
+ *  node's SIZE and the node's `ui` cannot disagree about which panel it is. */
+function stepUI(
+  s: WebChainStep,
+  devices: readonly { name: string; channels: number[] }[] | undefined,
+): WebModuleUI | undefined {
+  if (s.ui) return s.ui;
+  if (s.rack?.length) return rackUI(s.rack);
+  return s.monitor !== undefined
+    ? inputUI(devices ?? [], s.channel)
+    : undefined;
+}
+
 // A VIDEO lane's strip: "mute" means hidden, and a full strip would be four controls that do nothing.
 export const VIDEO_TRACK_UI: WebModuleUI = {
   cols: 1,
@@ -797,6 +894,15 @@ export function buildGraph(
      * anything, and there the sink is what says which way the signal runs.
      */
     drawMainOut?: boolean;
+    /**
+     * How the machine's interface groups its inputs, for the socket dropdown a live input draws.
+     *
+     * An argument because it is the one thing on a node that is not in the document: which inputs
+     * exist is the sound card's to say, and it differs between the machine that wrote the song and
+     * the machine playing it. Absent ⇒ the dropdown is empty and the input still draws its width
+     * and its monitoring, which is the honest picture with no engine attached.
+     */
+    inputDevices?: readonly { name: string; channels: number[] }[];
   } = {},
 ): {
   nodes: RawNode[];
@@ -953,7 +1059,13 @@ export function buildGraph(
         // `carryStep`, which brought the authored `ui` — and only when there was none, so a rack
         // that HAS written a panel keeps it (see `rackUI`).
         ...(!s.ui && s.rack?.length ? { ui: rackUI(s.rack) } : {}),
-        ...nodeSize(s.ui ?? (s.rack?.length ? rackUI(s.rack) : undefined)), // as big as its grid needs
+        // …and a live INPUT with no panel of its own draws its socket. `monitor` is the marker:
+        // the file service sets it for an io "in" step and for nothing else, so it says "this is an
+        // input" without a second field meaning the same thing. Authored panel still wins.
+        ...(!s.ui && !s.rack?.length && s.monitor !== undefined
+          ? { ui: inputUI(opts.inputDevices ?? [], s.channel) }
+          : {}),
+        ...nodeSize(stepUI(s, opts.inputDevices)), // as big as its grid needs
         // …and a NOTE is as big as its text. `g.modules` is keyed by doc modules alone, so a
         // hit here IS "this node is a note" — no second field, and no lookup table to keep in
         // step with one. The size overrides the one above: a note has no widget grid.

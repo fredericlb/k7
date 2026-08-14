@@ -23,7 +23,7 @@ import {
   renameNode,
   setModuleEnabled,
 } from "./yaml/chainsFile";
-import { setModuleValue } from "./yaml/moduleFile";
+import { setModuleList, setModuleValue } from "./yaml/moduleFile";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
 
 // --- module files -------------------------------------------------------------
@@ -201,6 +201,33 @@ export function setModuleMonitor(
   value: "off" | "auto" | "on",
 ): string {
   return editModuleValue(dir, module, ["monitor"], value);
+}
+
+/**
+ * Set a live input's `channel` — which interface channels it listens on, 1-based.
+ *
+ * One for mono, two for a stereo pair, and the two-element form only ever means a pair the interface
+ * actually groups: `findWaveInput` matches a device on its exact channel list, so a set the rig does
+ * not offer resolves to nothing and plays as silence (see engine/moteur/docs/audioDevice.md).
+ * Whether such a pair exists is the ENGINE's business and not checkable from here — this writes what
+ * it is told, and the surface that offers the choice is the one that only offers real ones.
+ *
+ * A module FIELD like `monitor`, and it may land in the same shared file for the same reason: which
+ * socket an input is on describes the desk, not the song.
+ */
+export function setModuleChannel(
+  dir: string,
+  module: string,
+  channels: number[],
+): string {
+  if (!channels.length) throw new Error("an input needs at least one channel");
+  if (channels.length > 2)
+    throw new Error("an input is one channel or a stereo pair, not more");
+  if (channels.some((n) => !Number.isInteger(n) || n < 1))
+    throw new Error("channels are whole numbers counted from 1");
+  return editModuleFile(dir, module, (text) =>
+    setModuleList(text, ["channel"], channels),
+  );
 }
 
 /**

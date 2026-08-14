@@ -658,17 +658,27 @@ function targetKey(t: WidgetTarget): string {
 }
 
 /**
- * A module field's current value as a WIDGET number: the index of the option whose label the field holds.
+ * A module field's current value as a WIDGET number: the value of the option this field currently holds.
  *
  * The field is a word (`monitor: auto`) and a widget speaks numbers, and the widget's own `options` already
  * carry the mapping — so the panel that draws the choices is the one that names them, and nothing here has to
  * know what `monitor` means.
+ *
+ * A socket is matched on `arg` rather than on the label, because that is the half that says what the field
+ * holds: the entry is CALLED "Input 1 + 2" and the file says `1,2`. Two widgets may bind `@channel` — the
+ * socket and its width — and each finds itself in its OWN options, which is what lets width be a control
+ * without being a field: mono and stereo are not two settings, they are how wide this one is.
  */
 function moduleFieldValue(
   n: GraphNode,
   w: WebWidget,
   field: string,
 ): number | undefined {
+  if (field === "channel") {
+    if (!n.channel?.length) return undefined;
+    const arg = n.channel.join(",");
+    return w.options?.find((o) => o.arg === arg)?.value;
+  }
   const current = field === "monitor" ? n.monitor : undefined;
   if (current === undefined) return undefined;
   return w.options?.find((o) => o.label === current)?.value;
@@ -3595,9 +3605,13 @@ export function DomChains({
    */
   const setModuleField = useCallback(
     (w: WebWidget, tgt: { module: string; field: string }, value: number) => {
-      const label = w.options?.find((o) => o.value === value)?.label;
-      if (!label) return; // a field with no named settings — nothing to write
-      cb.current.command(`module ${tgt.field} ${tgt.module} ${label}`);
+      const opt = w.options?.find((o) => o.value === value);
+      if (!opt) return; // a field with no named settings — nothing to write
+      // `arg` where the entry SAYS one thing and SETS another: a socket reads "Input 1 + 2" and
+      // writes `1,2`. Everywhere else the word on screen is the word in the file.
+      cb.current.command(
+        `module ${tgt.field} ${tgt.module} ${opt.arg ?? opt.label}`,
+      );
     },
     [],
   );

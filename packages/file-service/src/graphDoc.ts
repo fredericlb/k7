@@ -55,6 +55,22 @@ function assetChoicesFor(
  *
  * Sorted by symbol, so a pad does not move because a YAML key was retyped in another order.
  */
+/**
+ * An input's channels when the file states them as NUMBERS, else undefined.
+ *
+ * A `channel:` may instead name a label from the machine's preferences, and resolving that needs
+ * the preferences — which this service has, but the graph deliberately does not spend: a label is
+ * the rig's own naming and rewriting it into numbers on the way to a panel would make the panel
+ * disagree with the file. Absent reads as "no selection to show", which is the honest answer.
+ */
+function numericChannels(channel: unknown): number[] | undefined {
+  if (!Array.isArray(channel)) return undefined;
+  const ns = channel
+    .map((n) => Number(n))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return ns.length ? ns : undefined;
+}
+
 function rackSounds(
   module: { rack?: Rack } | undefined,
 ): WebRackSound[] | undefined {
@@ -247,6 +263,12 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           // A live input's own field, so a widget can show and set it. Not a param: it is
           // not the plugin's (there is no plugin), it is the module's.
           monitor: module?.io === "in" ? (module.monitor ?? "auto") : undefined,
+          // …and which socket it is on, for the same reason and on the same terms. Numbers only:
+          // a `channel:` naming a preferences label is the rig's vocabulary, and this service does
+          // not resolve it — an unresolved one arrives absent, so the panel shows no selection
+          // rather than the wrong one.
+          channel:
+            module?.io === "in" ? numericChannels(module.channel) : undefined,
           automations: automations.length ? automations : undefined,
         };
       }),
