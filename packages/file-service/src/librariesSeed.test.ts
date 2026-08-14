@@ -39,7 +39,7 @@ vi.mock("@studio/mediatek/remote", () => ({
   }),
 }));
 
-const { seedIfEmpty } = await import("./libraries.ts");
+const { excludeFromProjectRepo, seedIfEmpty } = await import("./libraries.ts");
 
 let tmp: string;
 let origin: string;
@@ -162,6 +162,71 @@ describe("seeding a new library repository", () => {
     library = {};
     expect(await seedIfEmpty(lib)).toBe("empty");
     expect(git(lib, "status", "--porcelain")).toBe("");
+  });
+
+  it("writes to the LIBRARY repository and never to the project one", async () => {
+    // The rule, stated as a test: seeding fills the library. A song repository is somebody's
+    // work, and nothing here has any business committing to it.
+    const project = join(tmp, "ws");
+    mkdirSync(join(project, "song.l8"), { recursive: true });
+    git(project, "init", "--initial-branch=main");
+    writeFileSync(join(project, "song.l8", "project.yaml"), "a: 1\n", "utf8");
+    git(project, "add", "-A");
+    git(
+      project,
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-m",
+      "the song",
+    );
+    const before = git(project, "rev-parse", "HEAD").trim();
+
+    const inside = join(project, "_libraries");
+    mkdirSync(inside, { recursive: true });
+    git(inside, "init", "--initial-branch=main");
+    git(inside, "remote", "add", "origin", origin);
+    expect(await seedIfEmpty(inside)).toBe("seeded");
+
+    // Not one commit, and not one staged path, in the repository that holds the song.
+    expect(git(project, "rev-parse", "HEAD").trim()).toBe(before);
+    expect(git(project, "diff", "--cached", "--name-only")).toBe("");
+  });
+
+  it("keeps an unregistered library out of the project repo's `git add -A`", async () => {
+    // The leak: until `submodule add` has run, `_libraries` is an untracked folder inside a
+    // song repository — and `project commit` adds the whole tree. Git would commit the
+    // catalogue into the song, or record a gitlink with no `.gitmodules` beside it.
+    const project = join(tmp, "ws2");
+    mkdirSync(project, { recursive: true });
+    git(project, "init", "--initial-branch=main");
+
+    const inside = join(project, "_libraries");
+    mkdirSync(join(inside, "modules", "audio", "reverb"), { recursive: true });
+    writeFileSync(
+      join(inside, "modules", "audio", "reverb", "module.yaml"),
+      "plugin: {}\n",
+      "utf8",
+    );
+    await excludeFromProjectRepo(project);
+
+    writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
+    git(project, "add", "-A");
+    const staged = git(project, "diff", "--cached", "--name-only");
+    expect(staged).toContain("song.yaml");
+    expect(staged).not.toContain("_libraries");
+  });
+
+  it("adds the exclusion once, however often it runs", async () => {
+    const project = join(tmp, "ws3");
+    mkdirSync(project, { recursive: true });
+    git(project, "init", "--initial-branch=main");
+    await excludeFromProjectRepo(project);
+    await excludeFromProjectRepo(project);
+    const text = readFileSync(join(project, ".git", "info", "exclude"), "utf8");
+    expect(text.split("/_libraries/").length - 1).toBe(1);
   });
 
   it("reports a push it could not make, rather than claiming the seed landed", async () => {

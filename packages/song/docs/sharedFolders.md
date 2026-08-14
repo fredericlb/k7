@@ -44,6 +44,24 @@ Three details are load-bearing:
   one deploy key must not also be able to push to every repository). This machine already writes
   to git, already has a working copy, and already has a copy of the key.
 
+### The library is written to. A project repository is not
+
+Seeding commits and pushes to the LIBRARY repository, and to nothing else. The only mark the
+mount leaves on a project repository is `submodule add`'s: a `.gitmodules` entry and a gitlink,
+**staged and not committed** — publishing them is `project commit`, which is somebody's
+decision. A song repository is somebody's work and nothing here has business committing to it.
+
+One leak had to be closed for that to hold. Until `submodule add` has run — the seed could not
+be pushed, or the mount only just happened — `_libraries` is an *untracked folder inside a song
+repository*, and `project commit` does `git add -A` over the whole tree. Git would then either
+commit the entire catalogue into the song, or record an "embedded repository" gitlink with no
+`.gitmodules` beside it, which is a submodule nobody who clones can resolve.
+
+So the file service writes `/_libraries/` into the project repository's **`.git/info/exclude`**
+before it puts anything there. Per-checkout, never committed, never travelling — so it touches
+no tracked file of a repository that is not ours — and inert once the submodule is registered,
+since an ignore rule has no say over a path git already tracks.
+
 **This replaced `~/.studio/mediatek/modules`.** That folder was one per MACHINE, synced from
 the hosted médiathèque by `mediatekPull`, and it is no longer a module root at all. Three things
 follow, and each is worth stating because each was a rule before:

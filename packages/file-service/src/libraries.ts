@@ -4,7 +4,13 @@
 // Rationale: packages/song/docs/sharedFolders.md.
 
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
 import { assertSshGitUri, normalizeGitUri } from "@studio/git-repos/uri";
@@ -57,6 +63,51 @@ async function declaredUri(
     return stdout.trim() || null;
   } catch {
     return null; // no .gitmodules, or no such submodule — both are "not declared"
+  }
+}
+
+/**
+ * Keep `_libraries` out of the PROJECT repository's `git add -A`.
+ *
+ * The leak this closes: when the mount is a checkout the superproject has NOT registered — the
+ * seed could not be pushed, or `submodule add` has yet to run — `_libraries` is an untracked
+ * folder inside somebody's song repository, and `project commit` does `git add -A` over the
+ * whole tree. Git would then either commit the entire catalogue INTO the song, or record an
+ * "embedded repository" gitlink with no `.gitmodules` beside it, which is a submodule nobody
+ * who clones can resolve. Both put the library inside a project repository, which is the one
+ * place it must never be.
+ *
+ * `.git/info/exclude` and not `.gitignore`, and that is the point: it is per-checkout, never
+ * committed, and never travels — so this touches no tracked file of a repository that is not
+ * ours. Harmless once the submodule IS registered, since an ignore rule has no say over a path
+ * git already tracks.
+ *
+ * Best effort: an exclude that could not be written costs the guard, not the mount.
+ */
+export async function excludeFromProjectRepo(
+  root: string,
+  env: NodeJS.ProcessEnv = envFor(""),
+): Promise<void> {
+  const line = `/${LIBRARIES_DIR}/`;
+  try {
+    // Asked for rather than assumed to be `<root>/.git`: that is a FILE in a worktree or a
+    // submodule, and writing `info/exclude` under it would make a file inside a file.
+    const { stdout } = await git(
+      root,
+      ["rev-parse", "--absolute-git-dir"],
+      env,
+    );
+    const file = join(stdout.trim(), "info", "exclude");
+    const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+    if (current.split(/\r?\n/).includes(line)) return;
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      `${current}${current && !current.endsWith("\n") ? "\n" : ""}# the account's library submodule — see packages/song/docs/sharedFolders.md\n${line}\n`,
+      "utf8",
+    );
+  } catch {
+    /* no git dir, or a read-only one — the mount is still correct */
   }
 }
 
@@ -211,6 +262,9 @@ export async function ensureLibraries(
           `Change it in that workspace (git submodule set-url ${LIBRARIES_DIR} <uri>, then update it) — nothing here will rewrite it under a project that is using it.`,
       );
     if (isPopulated(at)) return { mounted: false };
+    // Before anything is written into the workspace: from here on there is a folder inside
+    // somebody's song repository that is not the song's, and `project commit` sweeps the tree.
+    await excludeFromProjectRepo(root, env);
     // The deploy key, which st0 owns and this machine keeps a copy of.
     await ensureKey(userEmail);
     if (declared) {
