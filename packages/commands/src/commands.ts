@@ -77,6 +77,7 @@ import {
   parsePosition,
 } from "@studio/song/timecode";
 import {
+  addTrackPlacement,
   MAX_GAIN_DB,
   MIN_GAIN_DB,
   movePlacementToTrack,
@@ -1002,6 +1003,60 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.reload();
     } catch (e) {
       h.log([`event resize failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * event add <track> <clip> <timecode> — put an existing clip on a lane.
+   *
+   * The one ADDITIVE verb of this family, and named for what it makes: the clip already exists and
+   * is not touched, a placement is a REFERENCE to it, and the same material may sit on several
+   * tracks at once. Which is also why nothing here checks whether it is placed elsewhere already.
+   *
+   * The clip is named, not addressed by position — there is no event yet to address. It is checked
+   * against the project's own list rather than the filesystem, because a placement naming a clip
+   * the compiler cannot resolve fails the whole song, and refusing the edit beats writing a file
+   * that no longer loads (the same rule `addTakeToTrack` follows for the .wav).
+   */
+  "event.add": async (a, h) => {
+    const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
+    if (!m) {
+      h.log([
+        "usage: event add <track> <clip> <timecode>  (e.g. event add gtr gtr_3.1_260814T143012 3:1)",
+      ]);
+      return;
+    }
+    const [, trackArg, clipArg, atTc] = m;
+    const p = h.project();
+    const track = p.tracks.find(
+      (t) => t.id === trackArg || t.name === trackArg,
+    );
+    if (!track) {
+      h.log([
+        `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
+      ]);
+      return;
+    }
+    // A timecode this cannot read would be written verbatim and break the next load.
+    try {
+      parsePosition(atTc, p.timeSigNumerator, p.timeSigDenominator);
+    } catch (e) {
+      h.log([`bad timecode: ${(e as Error).message}`]);
+      return;
+    }
+    if (!existsSync(join(h.songPath, "clips", `${clipArg}.yaml`))) {
+      h.log([
+        `no clip "${clipArg}" — clips/${clipArg}.yaml does not exist`,
+        "a placement naming no clip stops the project loading, so this refuses rather than writes it",
+      ]);
+      return;
+    }
+    try {
+      addTrackPlacement(h.songPath, track.id, clipArg, atTc);
+      h.log([`${track.id}: added ${clipArg} at ${atTc}`]);
+      await h.reload();
+    } catch (e) {
+      h.log([`event add failed: ${(e as Error).message}`]);
     }
   },
 

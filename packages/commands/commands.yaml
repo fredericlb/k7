@@ -811,6 +811,27 @@
 # hold the same kind of material (both audio, or both notes) — a MIDI placement on an
 # audio lane compiles to a clip the engine can't play. The timeline's clip drag sends
 # this form when a clip is dropped on a different lane.
+# Puts an existing clip/sequence on a track at a timecode — the one ADDITIVE verb of this family,
+# and the counterpart of `event remove`. It creates an event, which is why it is named for one and
+# not for the clip: the clip already exists and is untouched, a placement is a reference to it, and
+# the same material may sit on several tracks at once.
+#
+# What it is for: a take the recorder wrote but could not place, and anything else you want on a
+# lane without dragging. It lands on the set the track is PLAYING, like every other placement edit
+# (see packages/song/docs/alternatives.md).
+- command: "event add"
+  sid: event.add
+  readable:
+    en: "Put a clip on a track at a position"
+    fr: "Poser un clip sur une piste à une position"
+  help: "put an existing clip/sequence on a track (e.g. event add gtr gtr_3.1_260814T143012 3:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: clip, complete: clipTargets },
+      { name: timecode, type: timecode },
+    ]
 - command: "event move"
   sid: event.move
   readable:

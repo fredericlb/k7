@@ -309,6 +309,28 @@ function materialFor(
   return null;
 }
 
+/**
+ * Put `ref` on lane `id` at `start`. The counterpart of removeTrackPlacement, and the same
+ * asymmetry: this writes a REFERENCE, so the clip is not moved, copied or altered, and nothing
+ * stops the same material sitting on two lanes.
+ *
+ * It lands on the set the lane is PLAYING — `addPlacement` resolves that per document, so a lane
+ * running an alternative gets it where it can be heard (see docs/alternatives.md).
+ */
+export function addTrackPlacement(
+  dir: string,
+  id: string,
+  ref: string,
+  start: string,
+): string {
+  return editTrackStruct(
+    dir,
+    id,
+    (text) => addPlacement(text, { ref, start }),
+    `put "${ref}" on track "${id}"`,
+  );
+}
+
 /** Remove the placement at `fromBeats`. The clip/sequence itself is NOT touched (only the reference) — deleting the last placement just leaves it unplaced. */
 export function removeTrackPlacement(
   dir: string,
