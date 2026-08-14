@@ -18,9 +18,17 @@ It is gone, and what replaced it is smaller: **the file tree has a second tab.**
 | **Project** | the workspace, minus every module folder the other tab owns |
 | **Libraries** | one row per LEVEL — `@project`, `@workspace`, `@st0` — and the modules under it |
 
-Both are the same tree and the same path space: everything here is a folder the file service
-already serves, so there is nothing to fetch, nothing to poll, no second client and no failure
-of its own.
+**They are two different answers, and that is the correction worth writing down.** The Libraries
+tab was first built by looking for `_libraries` and `_modules` *inside the file tree* — and it
+was empty from the day it shipped, because `/tree` is deliberately rooted at the ACTIVE PROJECT
+and excludes exactly those folders: *"the rest of the clone is the REPOSITORY, not the song"*
+(`packages/file-service/docs/activeProject.md`, and a test that has always said so). The two
+shared levels sit BESIDE the project, so no amount of searching the song's own tree could ever
+find them.
+
+So they have a route of their own, `GET /module-libraries`, whose roots come from
+`@studio/song` — the project's own `modules/`, then `moduleLibraryDirs`. It therefore lists what
+the LOADER resolves against and cannot drift from it, which searching a tree never guaranteed.
 
 ```
 @project      01.danse.l8/modules/       the song's own
@@ -28,11 +36,25 @@ of its own.
 @st0          _libraries/modules/        the account's library repository (a submodule)
 ```
 
-**Nearest first, which is precedence.** The same order and the same places
-`@studio/song`'s `modulePanelRoots` walks, so reading the tab top to bottom is reading the order
-the loader resolves in — which module wins when two levels hold the same name. A level with no
-folder, or an empty one, gets no row: an empty `@workspace` heading would be a place to put
-something, and this tab is a view rather than a place.
+**Nearest first, which is precedence.** Reading the tab top to bottom is reading the order the
+loader resolves in — which module wins when two levels hold the same name. The service answers
+in that order and the tab does not re-sort it: two places deciding precedence is how they come
+to disagree.
+
+**A level with no folder yet is still drawn, empty.** It is a place you can put a module — the
+row's menu offers exactly that, and creating through it is what brings the folder into being —
+so hiding it would leave nowhere to start on a project whose `modules/` does not exist yet,
+which is every new project. `exists: false` and "empty" are kept apart in the answer for the
+same reason: only one of them is fixed by adding a module.
+
+`@st0` is the one level that disappears when absent. It is a git submodule somebody has to
+mount, not a folder to fill in, so an empty row would be an offer nothing here can honour.
+
+**Making one.** "New module…" on a namespace row, taking `<type>/<name>` — `audio/reverb`, which
+is the name a chain writes. One place and one shape: the type folder is part of what a module
+IS. A module is a FOLDER holding a definition, so "New folder…" would make something the loader
+does not recognise and a row that opens no builder; this writes the `module.yaml` that makes it
+a module, and opens the builder on it.
 
 `@engine` is the fourth level and is not here. A scanned plugin has no folder at all, so there
 is nothing to draw and nothing to open (`packages/song/docs/moduleNamespaces.md`).
@@ -41,12 +63,11 @@ Note the two shapes: a workspace library holds its type folders **directly**, wh
 account's repository holds two FAMILIES and `modules` is one of them. That difference is
 older than this tab and is why the rows are found from a list rather than a pattern.
 
-**The Project tab drops exactly what this one took over** — derived from the same list, so a
-level can never appear in both places or vanish from both. Shown twice they would be two ways
-into one module, one that opens the builder and one that browses its files; and which folder a
-module lives in is the loader's business rather than somewhere to drop files by hand. Another
-project's `modules/` in the same workspace stays visible there, because only the ACTIVE project
-is drawn as `@project` and only it has a second home.
+**The Project tab drops the project's own `modules/`**, which is `@project` on this one. Shown
+twice it would be two ways into one module, one that opens the builder and one that browses its
+files; and which folder a module lives in is the loader's business rather than somewhere to drop
+files by hand. The two SHARED levels need no dropping — the file tree is the song's own files and
+they were never in it.
 
 This was not always so. The first version of this tab read st0's hosted `/api/mediatek/list`
 and wrote back to its volume, because the modules lived there and the machine only had a cache
@@ -218,10 +239,12 @@ The suites here mount nothing, so none of this is covered by a green run:
 - open a project in a SECOND workspace → the library clones with its content and is not seeded
   again;
 - switch the tree to **Libraries** → three rows, `@project` / `@workspace` / `@st0`, in that
-  order, each holding its own modules. The Project tab shows none of those folders — no
-  `modules/` inside the song, no `_modules`, no `_libraries` — but a SECOND project's
-  `modules/` in the same workspace is still there;
-- open a project with no `_modules` and no library → only `@project`, and no empty headings;
+  order, each holding its own modules. The Project tab no longer shows the song's `modules/`;
+- open a project whose `modules/` does not exist → `@project` is still there, empty. Right-click
+  it → **New module…** → type `audio/test` → the folder is made, the builder opens on it;
+- open a workspace with no `_modules` → `@workspace` is there and empty, and creating through it
+  makes the folder;
+- unmount the library submodule → `@st0` disappears rather than offering an empty row;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit
   button beside it; typing in the code pane does nothing;
 - click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save

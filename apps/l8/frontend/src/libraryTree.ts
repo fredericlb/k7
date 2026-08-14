@@ -1,119 +1,40 @@
-// libraryTree.ts — the LIBRARIES tab: one row per module namespace, the modules of each under
-// it. All three come out of the workspace tree the file service already serves — they are
-// ordinary folders — so this only finds them and labels them.
-// Why the tab exists at all: apps/l8/frontend/docs/sharedModules.md.
+// libraryTree.ts — the LIBRARIES tab: one row per module level, its modules under it. The
+// levels come from the file service (`GET /module-libraries`), which reads the same roots the
+// LOADER resolves against — they sit outside the active project, so the file tree does not and
+// must not contain them. Why the tab exists: apps/l8/frontend/docs/sharedModules.md.
 
-import {
-  LIBRARIES_DIR,
-  type ModuleNamespace,
-  SHARED_MODULES_DIR,
-} from "@studio/song/moduleTypes";
-import type { FileNode } from "@studio/web-protocol";
+import { LIBRARIES_DIR, SHARED_MODULES_DIR } from "@studio/song/moduleTypes";
+import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 
-/** The folder that holds modules, in every one of the three levels below. */
-const MODULES = "modules";
-
-/** How a namespace is written wherever a person reads one: in a ref, and on a tree row. */
-export const nsLabel = (ns: ModuleNamespace): string => `@${ns}`;
-
-/** The account's library repository — kept as a name because two other files import it. */
-export const LIBRARY_NS: ModuleNamespace = "st0";
-
-/** `_libraries/modules`, where the account's library keeps its modules. */
-export const LIBRARY_MODULES = `${LIBRARIES_DIR}/${MODULES}`;
+/** How a level is written wherever a person reads one: in a ref, and on a tree row. */
+export const nsLabel = (ns: string): string => `@${ns}`;
 
 /**
- * The three levels a module can live at that HAVE a folder, nearest first.
- *
- * The same order and the same places `@studio/song`'s `modulePanelRoots` walks, which is what
- * keeps this tab from listing a vocabulary the loader does not agree with. `@engine` is the
- * fourth level and is not here: a scanned plugin has no folder at all, so there is nothing to
- * draw and nothing to open.
- *
- * Order is PRECEDENCE — a project's own module wins over the workspace's, which wins over the
- * account's — so reading the tab top to bottom is reading the order the loader resolves in.
- */
-const LEVELS: {
-  ns: ModuleNamespace;
-  at: (project: string | null) => string;
-}[] = [
-  { ns: "project", at: (p) => (p && p !== "." ? `${p}/${MODULES}` : MODULES) },
-  // No `modules/` inside it: a workspace library holds its type folders directly, where the
-  // account's repository holds two FAMILIES and `modules` is one of them. The two shapes
-  // differ and always have — see `@studio/song`'s docs/sharedFolders.md.
-  { ns: "workspace", at: () => SHARED_MODULES_DIR },
-  { ns: "st0", at: () => LIBRARY_MODULES },
-];
-
-/**
- * Every module folder this project can reach, as tree rows under a synthesised namespace row.
+ * The libraries as tree rows, one synthesised row per level.
  *
  * Synthesised because the shared tree draws no row for its own root (`rootLabel` is a label and
- * nothing else), and the row is the one thing that says WHICH library you are looking at. A
- * level with no folder, or an empty one, contributes nothing — an empty `@workspace` heading
- * would be a place to put something, and this tab is a view rather than a place.
+ * nothing else), and the row is the one thing that says WHICH library you are looking at. The
+ * subtrees are passed through UNTOUCHED — l8's `foldModules` is what turns a module folder into
+ * a single row, the same fold the Project tab uses, so the two cannot draw a module differently.
  *
- * The subtrees are passed through UNTOUCHED. They are already `FileNode[]` from the file
- * service, already the right shape, and l8's `foldModules` is what turns a module folder into a
- * single row — the same fold the Project tab uses, so the two cannot come to draw a module
- * differently.
+ * A level with no folder yet is still drawn, empty. It is a place you can put a module — the
+ * row's menu offers exactly that — and hiding it would leave nowhere to start from on a project
+ * whose `modules/` does not exist yet, which is every new project.
+ *
+ * `@st0` is the one level that disappears when absent: it is a git submodule somebody has to
+ * mount, not a folder to fill in, so an empty row would be an offer nothing here can honour.
  */
-export function libraryTree(
-  tree: FileNode[],
-  activeProject: string | null,
-): FileNode[] {
-  const out: FileNode[] = [];
-  for (const { ns, at } of LEVELS) {
-    const node = findNode(tree, at(activeProject));
-    if (!node?.children?.length) continue;
-    out.push({
-      name: nsLabel(ns),
-      // The real path, so every row under it — and every read and write — addresses the file
-      // that is actually there. They are workspace paths like any other.
-      path: node.path,
+export function libraryTree(libraries: ModuleLibrary[]): FileNode[] {
+  return libraries
+    .filter((l) => l.exists || l.ns !== "st0")
+    .map((l) => ({
+      name: nsLabel(l.ns),
+      // The real path, so every row under it — and every read, write and create — addresses
+      // what is actually there. Workspace-relative, like every other path in this app.
+      path: l.path,
       dir: true,
-      children: node.children,
-    });
-  }
-  return out;
-}
-
-/**
- * The folders the Libraries tab has taken over, which the Project tab therefore drops.
- *
- * Shown twice they would be two ways into one module — one that opens the builder and one that
- * browses its files — and the folder a module lives in is the loader's business, not something
- * to drop files into by hand. Derived from the SAME list the tab is built from, so a level can
- * never appear in both places or vanish from both.
- *
- * Whatever `_libraries` also holds (`chains/`) goes with it: the submodule is not this song's
- * to browse, and its chains are opened from st0.
- */
-export function librariesOwned(activeProject: string | null): string[] {
-  return [LIBRARIES_DIR, ...LEVELS.map(({ at }) => at(activeProject))];
-}
-
-/** The node at an exact workspace-relative path, or null. Walks by SEGMENT, never by prefix:
- *  a folder called `_librariesX` is not this one. */
-function findNode(nodes: FileNode[], path: string): FileNode | null {
-  let level: FileNode[] | undefined = nodes;
-  let found: FileNode | null = null;
-  for (const seg of path.split("/")) {
-    found = level?.find((n) => n.name === seg) ?? null;
-    if (!found) return null;
-    level = found.children;
-  }
-  return found;
-}
-
-/** The tree with those folders removed, at whatever depth they sit. */
-export function withoutPaths(nodes: FileNode[], paths: string[]): FileNode[] {
-  const drop = new Set(paths);
-  const walk = (ns: FileNode[]): FileNode[] =>
-    ns
-      .filter((n) => !drop.has(n.path))
-      .map((n) => (n.children ? { ...n, children: walk(n.children) } : n));
-  return walk(nodes);
+      children: l.nodes,
+    }));
 }
 
 /**
@@ -134,7 +55,7 @@ export function libraryModuleRef(file: string): string | null {
   const parts = file.split("/").filter(Boolean);
   const at = parts.indexOf(LIBRARIES_DIR);
   if (at >= 0)
-    return parts[at + 1] === MODULES
+    return parts[at + 1] === "modules"
       ? refOf("st0", parts.slice(at + 2, -1))
       : null;
   const shared = parts.indexOf(SHARED_MODULES_DIR);
@@ -142,7 +63,7 @@ export function libraryModuleRef(file: string): string | null {
 }
 
 /** `<type>/<sub>` under a level, or null when there is no module there to name. */
-const refOf = (ns: ModuleNamespace, segs: string[]): string | null =>
+const refOf = (ns: string, segs: string[]): string | null =>
   segs.length >= 2 ? `${nsLabel(ns)}/${segs.join("/")}` : null;
 
 /**

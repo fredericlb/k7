@@ -655,6 +655,26 @@ export interface RepoProject {
  * The one thing an editor needs before it can resolve a workspace, and the reason the URI is
  * not in the address bar in the first place.
  */
+/**
+ * One module LIBRARY a project can reach — a level, where it is, and what is in it.
+ *
+ * Its own answer beside the file tree, because the tree is the SONG and these are outside it:
+ * the workspace's `_modules` and the account's `_libraries` sit beside the project, not in it.
+ * Ordered by precedence, nearest first, by whoever answers.
+ *
+ * `exists: false` with no nodes is a real state and not an absence: a level you could put a
+ * module in is worth drawing, so somebody can. Distinguishing it from an empty one matters
+ * because only one of the two is fixed by adding a module.
+ */
+export interface ModuleLibrary {
+  /** The `@`-prefixed level a chain writes: `project`, `workspace`, `st0`. */
+  ns: string;
+  /** Workspace-relative, so every other route takes it as-is. */
+  path: string;
+  exists: boolean;
+  nodes: FileNode[];
+}
+
 export interface RepoRef {
   id: string;
   name: string;

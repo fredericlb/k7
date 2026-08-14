@@ -62,6 +62,7 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
+import type { ModuleNamespace } from "@studio/song/moduleTypes";
 import { isFrozenClipId } from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
@@ -79,7 +80,11 @@ import {
 import type { ProjectShape } from "@studio/song/projectMode";
 import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
-import { isInSharedModules } from "@studio/song/sharedFolders";
+import {
+  isInSharedModules,
+  moduleLibraryDirs,
+  moduleNamespaceOf,
+} from "@studio/song/sharedFolders";
 import { projectSurfaces, surfaceIssues } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
@@ -90,6 +95,7 @@ import type {
   FileContent,
   FileNode,
   Hints,
+  ModuleLibrary,
   PreviewReq,
   ProjectInfo,
   WaveformStatus,
@@ -872,6 +878,78 @@ export class Workspace {
    */
   tree(): FileNode[] {
     return this.walk(this.activeProject ?? this.root);
+  }
+
+  /**
+   * The module libraries this project can reach, in precedence order, each as a tree.
+   *
+   * Its own answer and not a corner of `tree()`, because `tree()` deliberately shows the SONG
+   * and not the repository around it (see above): `_modules` and `_libraries` are outside the
+   * active project and are excluded from it on purpose. Reading them out of that tree is
+   * impossible, which is exactly the bug this replaced.
+   *
+   * The roots come from `@studio/song` — the project's own `modules/`, then `moduleLibraryDirs`
+   * — so this lists what the LOADER resolves against and cannot drift from it. Each carries the
+   * namespace `moduleNamespaceOf` gives it, which is the word a chain writes.
+   *
+   * A root that is not there is still REPORTED, with `exists: false` and no nodes. A level you
+   * could put a module in is a real answer, and the surface offers to create one; leaving it out
+   * would make "no library" and "an empty library" look the same when only one of them can be
+   * fixed by adding a module. `@st0` is the exception — it is a git submodule somebody has to
+   * mount, so an absent one is not a folder to fill in.
+   */
+  moduleLibraries(): ModuleLibrary[] {
+    const dir = this.activeProject ?? this.root;
+    const own = join(dir, "modules");
+    const roots: { ns: ModuleNamespace; abs: string }[] = [
+      { ns: "project", abs: own },
+      ...moduleLibraryDirs(dir).map((abs) => ({
+        ns: moduleNamespaceOf(abs),
+        abs,
+      })),
+    ];
+    return roots.map(({ ns, abs }) => {
+      const exists = existsSync(abs);
+      return {
+        ns,
+        path: this.toRel(abs),
+        exists,
+        nodes: exists ? this.walk(abs) : [],
+      };
+    });
+  }
+
+  /**
+   * Make an empty module in one of those libraries, and answer where its file landed.
+   *
+   * The folder is created on the way, which is what makes a level with `exists: false` an
+   * offer rather than a dead row: `_modules` need not be there for you to put the first module
+   * in it. Refuses an existing module rather than opening it — "create" that quietly returned
+   * somebody else's file is how you edit the wrong one.
+   *
+   * The stub is deliberately the smallest thing the loader will read: a module with no plugin
+   * yet is a folder you then fill in, and writing a fake `plugin.type` would be a guess that
+   * compiles into a real refusal later.
+   */
+  createModule(
+    root: string,
+    type: string,
+    name: string,
+  ): { path: string; dir: string } {
+    for (const [what, value] of [
+      ["type", type],
+      ["name", name],
+    ] as const)
+      if (!/^[A-Za-z0-9][A-Za-z0-9._ -]*$/.test(value))
+        throw new Error(`'${value}' is not a ${what} a folder can be called`);
+    // Through safePath, so a `..` in any of the three cannot leave the workspace.
+    const dir = this.safePath(`${root}/${type}/${name}`);
+    const file = join(dir, "module.yaml");
+    if (existsSync(file)) throw new Error(`${this.toRel(file)} already exists`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, `# ${name}\nplugin:\n  type: \n  name: \n`, "utf8");
+    this.invalidateProjectDoc();
+    return { path: this.toRel(file), dir: this.toRel(dir) };
   }
 
   workspaceInfo(): WorkspaceInfo {

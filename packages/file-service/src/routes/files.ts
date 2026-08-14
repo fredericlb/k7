@@ -91,6 +91,48 @@ filesRouter.put(
 );
 
 /**
+ * The module libraries this project can reach, in precedence order.
+ *
+ * Beside `/tree` and not inside it: that one is deliberately the SONG, and these sit outside
+ * the active project — see workspace.ts's `moduleLibraries`.
+ */
+filesRouter.get(
+  "/module-libraries",
+  wrap((req, res) => {
+    res.json({ libraries: req.ws!.moduleLibraries() });
+  }),
+);
+
+/**
+ * Make an empty module: `<root>/<type>/<name>/module.yaml`.
+ *
+ * A module is a FOLDER holding a definition, so there is nothing useful "New folder…" could do
+ * here — it would make a folder the loader does not recognise and a row that opens no builder.
+ * This writes the one file that makes it a module, and the builder takes it from there.
+ *
+ * `root` is a library path the caller was GIVEN (`/module-libraries` answered it), never one it
+ * built: the same rule the module builder's store follows, and what keeps `_libraries` and a
+ * project's own `modules/` from being told apart by string surgery here.
+ */
+const moduleBody = z.object({
+  root: z.string().min(1),
+  type: z.string().min(1),
+  name: z.string().min(1),
+});
+filesRouter.post(
+  "/module",
+  validate(moduleBody),
+  wrap((req, res) => {
+    const { root, type, name } = req.body as z.infer<typeof moduleBody>;
+    try {
+      res.json(req.ws!.createModule(root, type, name));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/**
  * Publish the library: commit everything in `_libraries` and push it.
  *
  * What the module builder's Save calls once every file has landed. It touches the LIBRARY
