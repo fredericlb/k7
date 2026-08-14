@@ -275,6 +275,13 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
         ...(req.headers as Record<string, string | string[]>),
         host: `${host}:${engine.addresses.filePort}`,
       };
+      // `host` comes from what an ENGINE announced on the open heartbeat route, so it is not a
+      // name this server chose. The browser's session credentials must not travel to it: the
+      // file service authenticates on `x-studio-{user,workspace,engine-token}` and never reads
+      // either of these, so dropping them costs nothing and stops a relayed request from
+      // carrying `studio.sid` to an address someone else supplied.
+      delete headers.cookie;
+      delete headers.authorization;
       if (body) {
         // Re-serialized bytes are not the bytes we were sent, so the original length is a lie —
         // and a chunked encoding beside a length is a second one.

@@ -18,13 +18,19 @@ Trois passes, toutes reproductibles :
 3. **Config** — dépendances importées sans être déclarées, scripts manquants, variables
    d'environnement lues sans être documentées.
 
-**Deux pièges de méthode, tous deux rencontrés en écrivant ceci :**
+**Trois pièges de méthode, tous rencontrés en écrivant ceci :**
 
 - **Les extensions comptent.** `engine-host` écrit `from "./addresses.ts"`. Une recherche sur
   `"…/addresses"` ne le voit pas et déclare morts cinq de ses six sous-chemins — ils sont tous
   vivants.
 - **Un spécificateur ne tient pas sur deux lignes.** Une regex trop permissive attrape le mot
   `from` en pleine prose et invente des dizaines de dépendances fantômes.
+- **Un octet NUL rend un fichier INVISIBLE.** ripgrep classe binaire tout fichier qui en
+  contient un, et le saute sans un mot : le fichier cesse d'exister pour toute la passe
+  d'accessibilité. Trois fichiers en portaient un comme séparateur de clé composite, dont
+  `engine-host/src/supervisor.ts` — 781 lignes, et le fichier le plus remanié de tout le
+  domaine moteur. Les relevés antérieurs à ce jour ne l'ont donc jamais lu. Corrigé, et
+  `npm run lint:bytes` (`scripts/check-source-bytes.mjs`) refuse désormais le cas en CI.
 
 ---
 

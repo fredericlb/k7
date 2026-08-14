@@ -1,9 +1,10 @@
-﻿// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is a node file
+// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is a node file
 // (nodes/<name>.yaml, see docs/trackModules.md). The app's most frequent edit: every clip
 // drag writes a placement's `start`. Reading and validating the file is moduleFile's job, since
-// a lane is an ordinary module; what is here is the clip list and nothing else.
+// a lane is an ordinary module; what is here is the clip list — and WHICH list, since a lane on
+// one of its alternatives has two (docs/alternatives.md).
 
-import { isSeq, parseDocument } from "yaml";
+import { isMap, isSeq, parseDocument } from "yaml";
 import { currentAlternative } from "../alternatives";
 import { parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
@@ -22,30 +23,71 @@ function put(
   doc.setIn(path, node);
 }
 
+/** The module's own arrangement — attribute set "1", and where a lane with no sets keeps its clips. */
+const OWN_CLIPS: (string | number)[] = ["clips"];
+
 /**
- * WHERE this file's clips are — which is a CHOICE again.
+ * WHERE this file's clips are, and it is a CHOICE again.
  *
- * A lane's arrangement has variants once more (`alternatives:`, see ../docs/alternatives.md), and
- * each of them restates `clips:`. A list is a scalar to the merge, so the running set REPLACES the
- * arrangement rather than adding to it — which means an edit written to the top-level list while
- * another set is on does exactly what the older note here warned about: it "quietly rewrites an
- * arrangement nobody is looking at". A recorded take landed there and was silent on disk.
+ * A lane is a module node, so its takes are that module's attribute sets: `clips:` can exist at
+ * the top of the file (set "1") and once more inside each entry under `alternatives:`. Which one
+ * an edit means is whichever set is ON — and reading and writing do not always agree, which is
+ * why there are two of these:
  *
- * So this is the seam that note kept open, now answering. Every edit below reads it from ITS
- * document, so recording, dragging, moving and removing all address the set that is playing.
- * Index 0 is the module's own fields, which ARE the first set and have no wrapper key.
+ * - `clipsIn` is what an edit ADDRESSES. A set that states no `clips:` of its own inherits the
+ *   module's, so that is what is on screen and what a clip is picked out of.
+ * - `clipsToEdit` is where the edit LANDS: always the selected set, forking the inherited list
+ *   into it on the first write.
+ *
+ * That fork is the whole fix. Every edit here used to write `["clips"]` flat, so dragging a clip
+ * while on take 2 rewrote take 1 — the arrangement you were not looking at — and the two takes
+ * were never separate documents at all. See ../docs/alternatives.md.
  */
-function clipsPath(doc: ReturnType<typeof parseDocument>): (string | number)[] {
-  const at = currentAlternative(
-    doc.toJS({ maxAliasCount: -1 }) as {
-      alternatives?: unknown;
-      alternative?: unknown;
-    } | null,
-  );
-  return at === 0 ? ["clips"] : ["alternatives", at - 1, "clips"];
+function selectedSet(doc: ReturnType<typeof parseDocument>): number {
+  return currentAlternative((doc.toJS() ?? {}) as Record<string, unknown>);
 }
 
-/** Set one field on the lane — what a colour picker writes. */
+function setClips(at: number): (string | number)[] {
+  return ["alternatives", at - 1, "clips"];
+}
+
+function clipsIn(doc: ReturnType<typeof parseDocument>): (string | number)[] {
+  const at = selectedSet(doc);
+  if (at === 0) return OWN_CLIPS;
+  const mine = setClips(at);
+  return isSeq(doc.getIn(mine)) ? mine : OWN_CLIPS;
+}
+
+function clipsToEdit(
+  doc: ReturnType<typeof parseDocument>,
+): (string | number)[] {
+  const at = selectedSet(doc);
+  if (at === 0) return OWN_CLIPS;
+  const mine = setClips(at);
+  if (isSeq(doc.getIn(mine))) return mine;
+  // First edit on a set that was inheriting: fork what it was PLAYING into it, so the edit
+  // changes what you see and set 1 keeps what it had. `clone()` rather than a rebuild from plain
+  // values, because it is a deep copy that brings each placement's own comments with it.
+  const inherited = doc.getIn(OWN_CLIPS);
+  doc.setIn(mine, isSeq(inherited) ? inherited.clone() : doc.createNode([]));
+  // An empty set was written `- {}`, and a flow map keeps everything inside it on its own line —
+  // so a forked arrangement would arrive as one 400-character row. These files are hand-edited
+  // and they are in git: the set opens out, and its placements stay one per line as everywhere.
+  const entry = doc.getIn(["alternatives", at - 1]);
+  if (isMap(entry)) entry.flow = false;
+  const forked = doc.getIn(mine);
+  if (isSeq(forked)) forked.flow = false;
+  flowPlacements(doc, mine);
+  return mine;
+}
+
+/**
+ * Set one field on the lane — what a colour picker writes.
+ *
+ * The module's OWN field, whichever set is on, and that is deliberate: `TrackFields` is `color`
+ * and `disabled`, which describe the lane rather than the take. A set may still override either
+ * by hand; nothing here writes one there.
+ */
 export function setTrackField(
   text: string,
   field: string,
@@ -54,14 +96,17 @@ export function setTrackField(
   const doc = parseDocument(text, OPTS);
   if (value === null) doc.deleteIn([field]);
   else put(doc, [field], value);
-  flowPlacements(doc);
+  flowPlacements(doc, clipsIn(doc));
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
 
 /** One placement per line — the shape the file already uses, kept on every write. */
-function flowPlacements(doc: ReturnType<typeof parseDocument>): void {
-  const clips = doc.getIn(clipsPath(doc));
+function flowPlacements(
+  doc: ReturnType<typeof parseDocument>,
+  path: (string | number)[],
+): void {
+  const clips = doc.getIn(path);
   if (!isSeq(clips)) return;
   for (const p of clips.items)
     if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
@@ -76,11 +121,11 @@ function flowPlacements(doc: ReturnType<typeof parseDocument>): void {
  */
 export function findPlacement(text: string, start: string): number {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  const clips = doc.getIn(CLIPS);
+  const path = clipsIn(doc);
+  const clips = doc.getIn(path);
   if (!isSeq(clips)) return -1;
   return clips.items.findIndex(
-    (_p, i) => String(doc.getIn([...CLIPS, i, "start"]) ?? "") === start,
+    (_p, i) => String(doc.getIn([...path, i, "start"]) ?? "") === start,
   );
 }
 
@@ -89,8 +134,9 @@ export function movePlacement(text: string, start: string, to: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  doc.setIn([...CLIPS, at, "start"], to);
+  // The index came from the list that is PLAYING; forking copies it in order, so it still points
+  // at the same placement. Every index-taking edit below rests on that.
+  doc.setIn([...clipsToEdit(doc), at, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -100,8 +146,7 @@ export function removePlacement(text: string, start: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  doc.deleteIn([...CLIPS, at]);
+  doc.deleteIn([...clipsToEdit(doc), at]);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -113,12 +158,12 @@ export function addPlacement(
   placement: { ref: string; start?: string; loop?: number },
 ): string {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  const clips = doc.getIn(CLIPS);
+  const path = clipsToEdit(doc);
+  const clips = doc.getIn(path);
   const node = doc.createNode(placement);
   node.flow = true; // one placement per line, as the file already writes them
   if (isSeq(clips)) clips.items.push(node);
-  else doc.setIn(CLIPS, doc.createNode([node]));
+  else doc.setIn(path, doc.createNode([node]));
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -133,11 +178,11 @@ export function findPlacementAt(
   den: number,
 ): number {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  const clips = doc.getIn(CLIPS);
+  const path = clipsIn(doc);
+  const clips = doc.getIn(path);
   if (!isSeq(clips)) return -1;
   return clips.items.findIndex((_p, i) => {
-    const start = doc.getIn([...CLIPS, i, "start"]);
+    const start = doc.getIn([...path, i, "start"]);
     try {
       return (
         Math.abs(parsePosition(String(start ?? "1:1:1"), num, den) - beats) <
@@ -155,10 +200,10 @@ export function placementAt(
   index: number,
 ): Record<string, unknown> | null {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  const clips = doc.getIn(CLIPS);
+  const path = clipsIn(doc);
+  const clips = doc.getIn(path);
   if (!isSeq(clips) || index < 0 || index >= clips.items.length) return null;
-  return doc.getIn([...CLIPS, index], false) as Record<string, unknown> | null;
+  return doc.getIn([...path, index], false) as Record<string, unknown> | null;
 }
 
 /**
@@ -169,8 +214,7 @@ export function placementAt(
  */
 export function placementValues(text: string): Record<string, unknown>[] {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  const clips = doc.getIn(CLIPS);
+  const clips = doc.getIn(clipsIn(doc));
   if (!isSeq(clips)) return [];
   return clips.items.map(
     (it) =>
@@ -184,8 +228,7 @@ export function placementValues(text: string): Record<string, unknown>[] {
 /** Drop the placement at `index`. */
 export function removePlacementAt(text: string, index: number): string {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  doc.deleteIn([...CLIPS, index]);
+  doc.deleteIn([...clipsToEdit(doc), index]);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -201,9 +244,9 @@ export function setPlacementField(
   value: string | number | boolean | undefined,
 ): string {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  if (value === undefined) doc.deleteIn([...CLIPS, index, field]);
-  else doc.setIn([...CLIPS, index, field], value);
+  const path = clipsToEdit(doc);
+  if (value === undefined) doc.deleteIn([...path, index, field]);
+  else doc.setIn([...path, index, field], value);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }
@@ -215,8 +258,7 @@ export function movePlacementAt(
   to: string,
 ): string {
   const doc = parseDocument(text, OPTS);
-  const CLIPS = clipsPath(doc);
-  doc.setIn([...CLIPS, index, "start"], to);
+  doc.setIn([...clipsToEdit(doc), index, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }

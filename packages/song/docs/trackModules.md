@@ -168,7 +168,10 @@ to the module — which is the same feature arriving where it belongs, a lane be
 
 - [alternatives.md](alternatives.md) — a MODULE's other sets of attributes, not a lane's other clip
   lists. Gone with the old shape: `trackAlternatives.ts`, `TrackAlternatives.tsx`,
-  `track alternative select|create|copy`.
+  `track alternative select|create|copy`. The timeline gutter says which set a lane is playing
+  again, and clicking it opens the lane node's own ⋮ menu — so the picker came back as one menu
+  reached from two places, running the `module` verbs
+  (`apps/l8/frontend/docs/timeline.md`).
 - [freeze.md](freeze.md) — a render standing in for everything UPSTREAM of a module, that module
   included, rather than for one lane and its own modules. Gone with the old shape: `frozenRender`,
   `frozenTracks` on the graph wire, `FreezeOverlay.tsx`, `track freeze`, and `freezeTrackRender`,

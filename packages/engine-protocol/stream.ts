@@ -1,7 +1,7 @@
 // stream.ts — the engine's audio broadcast frame: a 32-byte header then interleaved
 // float32 samples, carried as a BINARY WebSocket message on the same socket as the JSON.
 // Unlike the type-only subpaths beside it this one emits code, because both ends have to
-// agree on bytes rather than on shapes. See docs/stream.md for every choice made here.
+// agree on bytes rather than on shapes. See ../engine-browser/docs/streaming.md for every choice made here.
 
 /** "LSTR" — so a binary frame from anything else is rejected instead of played as noise. */
 export const STREAM_MAGIC = 0x4c535452;
@@ -10,7 +10,7 @@ export const STREAM_VERSION = 1;
  *  as a Float32Array view over the same buffer, which needs 4-byte alignment. */
 export const STREAM_HEADER_BYTES = 32;
 
-/** The only codec the first cut speaks. Opus would be 1 — docs/stream.md says why not yet. */
+/** The only codec the first cut speaks. Opus would be 1 — ../engine-browser/docs/streaming.md says why not yet. */
 export const STREAM_CODEC_PCM_F32 = 0;
 
 export interface StreamFrameHeader {
@@ -25,7 +25,7 @@ export interface StreamFrameHeader {
   codec: number;
   /** The engine's steady clock, ms since its boot. Only differences are meaningful: the
    *  two machines' epochs are unrelated, so this measures jitter and drift, not latency
-   *  on its own. See docs/stream.md. */
+   *  on its own. See ../engine-browser/docs/streaming.md. */
   captureMs: number;
 }
 

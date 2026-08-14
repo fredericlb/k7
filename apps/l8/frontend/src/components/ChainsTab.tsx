@@ -57,6 +57,7 @@ export function ChainsTab({
   seedGraph,
   showDocs,
   onDocCount,
+  onLaneNodes,
   onContextMenu,
   onEdgeInsert,
   onCanvasInsert,
@@ -134,6 +135,11 @@ export function ChainsTab({
   showDocs?: boolean;
   /** How many notes the project has, reported up — the shell's button is in the footer. */
   onDocCount?: (n: number) => void;
+  /** Each lane node's alternatives and freeze, reported up — the timeline's gutter draws them. */
+  onLaneNodes?: (f: {
+    alternatives: WebGraph["trackAlternatives"];
+    frozen: WebGraph["frozen"];
+  }) => void;
   // No "edit this module" here on purpose: a module is a LIBRARY thing — the same file backs every project
   // that names it — so its builder lives in the médiathèque, not in one song's graph.
   // Right-click a node → the shell opens its context menu.
@@ -306,6 +312,24 @@ export function ChainsTab({
     [graph],
   );
   useEffect(() => onDocCount?.(docNames.size), [docNames, onDocCount]);
+
+  /**
+   * What the graph knows about each LANE's node, travelling up for the timeline's gutter: its
+   * other attribute sets, and its freeze.
+   *
+   * Reported rather than fetched again for the reason `onDocCount` is — the graph is fetched here
+   * and the timeline is a different pane. Sharing the one pair of maps is also what lets the
+   * gutter open the SAME ⋮ menu this pane's lane nodes open, without either surface deriving
+   * facts the other might derive differently.
+   *
+   * Memoised so the identity changes only when the graph does; a fresh object every render would
+   * make the effect below fire on each one.
+   */
+  const laneNodes = useMemo(
+    () => ({ alternatives: graph?.trackAlternatives, frozen: graph?.frozen }),
+    [graph],
+  );
+  useEffect(() => onLaneNodes?.(laneNodes), [laneNodes, onLaneNodes]);
 
   /**
    * The graph as it is DRAWN: without the notes, unless the shell asked for them.

@@ -3,7 +3,7 @@
 // singletons and `currentWs` tracks whose project it's playing (so a take lands right).
 // Several browser tabs share it — last write wins.
 
-import { relative } from "node:path";
+import { basename, relative } from "node:path";
 import {
   argClass,
   argHint,
@@ -20,6 +20,7 @@ import {
   type PluginInfo,
   type RecordedTake,
 } from "@studio/engine-client/engineClient";
+import type { SessionInfo } from "@studio/engine-client/engineControl";
 import { SESSIONS } from "@studio/engine-protocol/sessions";
 import { listBaseModules } from "@studio/song/loader";
 import { PatternClock } from "@studio/song/patternClock";
@@ -298,8 +299,12 @@ function safeBaseModules(dir: string): string[] {
 function sendActiveProject(ws: Workspace, p: string): void {
   try {
     loadPatternsFor(ws, p);
-  } catch {
-    /* malformed project — the timeline/graph endpoints surface the error */
+  } catch (e) {
+    // Still not fatal — /project-doc and /graph surface a malformed project to the browser —
+    // but never silent: this is the one path whose failure leaves the engine holding nothing.
+    console.error(
+      `   ✗ could not send ${basename(p)} to the engine: ${(e as Error).message}`,
+    );
   }
 }
 
@@ -362,12 +367,115 @@ export function reloadActiveProject(ws: Workspace): void {
   startEngineForActive(ws);
 }
 
-// Speculatively load the persisted active project as soon as the workspace is known, so instantiating plugins
-// overlaps the browser's startup. Only while the engine is IDLE: /workspace is polled, and two workspaces
-// re-asserting on a poll would fight over the one shared engine.
-export function prewarmEngineForActive(ws: Workspace): void {
-  if (engineProject !== null) return; // engine already serving a project — leave it to /open
-  startEngineForActive(ws);
+/** How often the /workspace poll may re-ask the engine what it holds. Polled every 2 s, per tab. */
+export const RECONCILE_EVERY_MS = 5_000;
+/** How long the engine gets to answer that question before its link is treated as dead. */
+export const SESSIONS_TIMEOUT_MS = 2000;
+
+/** The slice of EngineClient a reconcile needs — so the wait can be tested without a socket. */
+export interface SessionListingClient {
+  on(event: "sessions", fn: (s: SessionInfo[]) => void): unknown;
+  off(event: "sessions", fn: (s: SessionInfo[]) => void): unknown;
+  listSessions(): void;
+}
+
+/**
+ * Ask the engine what it is holding. `undefined` means it did not answer at all.
+ *
+ * `on`/`off` rather than `once`, for awaitArm's reason: a `once` that never fires outlives the
+ * request, and the next answer resolves a wait nobody is watching any more.
+ *
+ * The reply is engine-global and carries no session, so it passes every client's filter
+ * (`forSession` in @studio/engine-protocol/sessions).
+ */
+export function awaitSessions(
+  c: SessionListingClient,
+  timeoutMs: number = SESSIONS_TIMEOUT_MS,
+): Promise<SessionInfo[] | undefined> {
+  return new Promise((res) => {
+    const done = (v?: SessionInfo[]): void => {
+      clearTimeout(timer);
+      c.off("sessions", onSessions);
+      res(v);
+    };
+    const onSessions = (list: SessionInfo[]): void => done(list);
+    const timer = setTimeout(() => done(undefined), timeoutMs);
+    c.on("sessions", onSessions);
+    c.listSessions();
+  });
+}
+
+/** Throttle state for the reconcile: one in flight, and not more often than RECONCILE_EVERY_MS. */
+let lastReconcile = 0;
+let reconciling = false;
+
+/**
+ * Check that the engine really holds what `engineProject` claims, and put it back if not.
+ *
+ * `engineProject` is this process's belief about another process's state, and the two drift
+ * silently — see docs/activeProject.md. This asks rather than remembers.
+ *
+ * Two faults with two cures. A session the engine is not holding is simply re-sent. An engine
+ * that does not ANSWER is the worse one: a link can sit ESTABLISHED and `ready` and be inert
+ * both ways, so nothing reports a fault and no re-send can land. Only a fresh socket clears it.
+ *
+ * Only `loaded` is checked, not WHICH project: the wire carries a display name and this side
+ * holds a path, so comparing them would invent a mismatch. Switching projects is
+ * startEngineForActive's job anyway.
+ */
+async function reconcileEngine(ws: Workspace, now: number): Promise<void> {
+  if (reconciling || now - lastReconcile < RECONCILE_EVERY_MS) return;
+  const serving = engineProject;
+  if (!serving) return;
+  lastReconcile = now;
+  reconciling = true;
+  try {
+    const session = sessionOf(ws);
+    const c = ensureEngine(ws);
+    // A link still dialling re-sends from its own `open`; asking now would time out on the wait, not the engine.
+    if (!c || !isReady(ws)) return;
+    const held = await awaitSessions(c);
+    if (held === undefined) {
+      console.error(`   ✗ engine link unresponsive — re-dialling ${session}`);
+      dropLink(session);
+      ensureEngine(ws); // a fresh socket, whose `open` re-sends what this session was serving
+      return;
+    }
+    if (held.some((s) => s.id === session && s.loaded)) return;
+    console.warn(
+      `   ⚠ engine is not holding ${basename(serving)} — re-sending it`,
+    );
+    sendActiveProject(ws, serving);
+  } finally {
+    reconciling = false;
+  }
+}
+
+/**
+ * The 2 s poll's engine upkeep: load the persisted project when the engine is idle, and
+ * otherwise make sure it still has the one we think it has.
+ *
+ * Loading speculatively lets plugin instantiation overlap the browser's remaining startup.
+ * The reconcile is deliberately limited to the workspace being SERVED — two of them
+ * re-asserting on a poll would fight over the one shared engine, which is what the old
+ * unconditional early return was really guarding.
+ */
+export function prewarmEngineForActive(
+  ws: Workspace,
+  now: number = Date.now(),
+): void {
+  if (engineProject === null) {
+    startEngineForActive(ws);
+    return;
+  }
+  if (
+    ws.activeProjectPath() !== engineProject ||
+    sessionOf(ws) !== sessionOf(currentWs)
+  )
+    return;
+  void reconcileEngine(ws, now).catch((e: unknown) =>
+    console.error(`   ✗ engine reconcile failed: ${(e as Error).message}`),
+  );
 }
 
 // Unload: stop, flush and forget the pointers, so a left workspace neither plays nor catches a recorded take.

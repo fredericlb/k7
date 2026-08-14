@@ -436,7 +436,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     // change when one of them goes.
     const sig = plugins
       .filter((p) => p.hasNativePluginUI)
-      .map((p) => `${p.session} ${p.id}`)
+      .map((p) => `${p.session}\u0000${p.id}`)
       .join("\n");
     if (sig === state.editPluginsSig) return;
     state.editPlugins = plugins;

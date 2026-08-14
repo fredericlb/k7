@@ -214,6 +214,16 @@ as a copy of the one that is on. It lights up while a set other than the module'
 because a node on a variant otherwise looks exactly like one on its own settings. From the command
 bar: `module alternative select|create|copy <module> [name]`, and a bare `select` lists them.
 
+For a **lane**, the timeline offers the same thing where you are already looking: a small badge
+beside the track icon carries the name of the set that is playing, amber while it is not the lane's
+own. Click it and you get that lane's menu — switch to another set, or start one. It appears only on
+a lane that has a choice, so a lane with a single set is exactly as it was.
+
+A lane's sets are its **takes**, and they behave the way takes should. A new one starts **empty**
+(`clips: []`), not holding the previous take's placements. Editing clips while a take is on changes
+**that take** — the first edit copies in whatever it was playing, so the take you came from keeps
+what it had. A lane's colour and its `disabled` flag stay the lane's, shared by every take.
+
 This is not a **preset**. A preset (`presets.yaml`) is a starting point you stamp into the
 module's params — numeric, shared by every use, and gone as a thing once applied. An alternative
 is a state you switch between: both survive, one is on, and it belongs to the one module that

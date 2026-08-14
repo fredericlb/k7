@@ -9,6 +9,7 @@ import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { clipLoop, visibleRepeats } from "../clipLoop";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
 
@@ -37,19 +38,23 @@ export function WaveformView({
 
   // Wheel zooms past fit and middle-drag pans. No gutter here — the canvas fills the width — so the anchor uses 0.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [zoomX] = useHZoom(scrollRef, { gutter: 0 });
+  const [zoomX, setZoomX] = useHZoom(scrollRef, { gutter: 0 });
   usePanScroll(scrollRef);
 
-  // The waveform fills the pane's height, so a short bottom strip never scrolls vertically.
-  const [bodyH, setBodyH] = useState(0);
+  // The waveform fills the pane's height, so a short bottom strip never scrolls vertically. The
+  // width comes along because the loop marks ask how many pixels a pass is worth before drawing
+  // one line per repeat — see visibleRepeats.
+  const [body, setBody] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setBodyH(el.clientHeight));
+    const measure = () => setBody({ w: el.clientWidth, h: el.clientHeight });
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setBodyH(el.clientHeight);
+    measure();
     return () => ro.disconnect();
   }, []);
+  const bodyH = body.h;
 
   // --- slice-handle dragging -------------------------------------------------
   // The content layer the slices overlay; a handle's screen X maps to a source-second by its fraction across it.
@@ -115,6 +120,10 @@ export function WaveformView({
     let cancelled = false;
     setWf(null);
     setError(null);
+    // A different region opens at FIT, like the roll's: the zoom multiplier belonged to the clip
+    // being left, and the pane's width is `zoomX * 100%` — so without this the next clip arrives
+    // stretched to whatever the last one was examined at.
+    setZoomX(1);
     api
       .waveform(clip.id, undefined, whole)
       .then((w) => !cancelled && setWf(w))
@@ -122,7 +131,7 @@ export function WaveformView({
     return () => {
       cancelled = true;
     };
-  }, [clip.id, whole]);
+  }, [clip.id, whole, setZoomX]);
 
   // One identity per decode: Waveform is memoised, and an inline literal here would be a new
   // object on every render of this pane, which is exactly what memo cannot see through.
@@ -130,6 +139,20 @@ export function WaveformView({
     () => (wf ? { intervalMs: wf.intervalMs, samples: wf.rms } : null),
     [wf],
   );
+
+  /**
+   * The clip's loop, on this region's axis — and NOT in `whole` mode.
+   *
+   * A loop belongs to a PLACEMENT: `clipLoop` puts an audio window at 0 because the placed region
+   * is drawn from the in-point, which is where the window starts. `whole` spans the source file
+   * instead, so the same 0 would mark the head of the file rather than the loop, and every mark
+   * would be wrong by the in-point. What that view is for is the material's own `from`/`to`, which
+   * `sliceRanges` already draws.
+   */
+  const loop = whole ? null : clipLoop(clip);
+  // Pixels one beat is drawn at: the content is `zoomX` times the pane, spanning the whole region.
+  const pxPerBeat =
+    wf && wf.clipBeats > 0 ? (body.w * zoomX) / wf.clipBeats : 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border bg-background">
@@ -140,6 +163,13 @@ export function WaveformView({
         {wf && (
           <span className="text-muted-foreground">
             {wf.seconds.toFixed(2)}s · {wf.clipBeats.toFixed(2)} beats
+            {/* What the marks add up to, said in words — the roll's header says the same. */}
+            {loop && (
+              <span className="ml-2 text-violet-400">
+                · loop {+loop.win.toFixed(3)}b
+                {loop.passes > 1 && ` × ${loop.passes}`}
+              </span>
+            )}
           </span>
         )}
         {onClose && (
@@ -328,6 +358,53 @@ export function WaveformView({
                     </g>
                   );
                 })}
+              </svg>
+            )}
+            {/* The LOOP: the window that repeats, and a line where each later pass begins.
+                Positioned by BEAT fraction of the region — `clipBeats` spans it, the same axis
+                the playhead is placed on — so the marks hold at any zoom.
+
+                This is what explains the pane's width: the region spans the clip's placed length,
+                and the material only fills the first pass (`regionWaveform` draws silence past
+                the source window), so a 3× loop is one third of a picture and two thirds flat. */}
+            {loop && wf.clipBeats > 0 && (
+              <svg
+                className="pointer-events-none absolute inset-0 h-full w-full"
+                preserveAspectRatio="none"
+              >
+                <title>{`loop ${+loop.win.toFixed(3)} beats × ${loop.passes}`}</title>
+                <rect
+                  x={`${(loop.from / wf.clipBeats) * 100}%`}
+                  y="0"
+                  width={`${(loop.win / wf.clipBeats) * 100}%`}
+                  height="100%"
+                  fill="rgb(167,139,250)" // violet-400
+                  fillOpacity={0.1}
+                />
+                {visibleRepeats(loop, pxPerBeat).map((b) => (
+                  <line
+                    key={`lr${b}`}
+                    x1={`${(b / wf.clipBeats) * 100}%`}
+                    y1="0"
+                    x2={`${(b / wf.clipBeats) * 100}%`}
+                    y2="100%"
+                    stroke="rgb(167,139,250)"
+                    strokeWidth={1}
+                    strokeOpacity={0.3}
+                  />
+                ))}
+                {[loop.from, loop.to].map((b, i) => (
+                  <line
+                    key={`le${b}-${i}`}
+                    x1={`${(b / wf.clipBeats) * 100}%`}
+                    y1="0"
+                    x2={`${(b / wf.clipBeats) * 100}%`}
+                    y2="100%"
+                    stroke="rgb(167,139,250)"
+                    strokeWidth={1.5}
+                    strokeOpacity={0.8}
+                  />
+                ))}
               </svg>
             )}
           </div>

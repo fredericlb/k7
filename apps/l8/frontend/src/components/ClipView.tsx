@@ -40,10 +40,17 @@ function SeqRoll({
   path,
   content,
   onCreateNote,
+  onSetVelocity,
 }: {
   path: string;
   content: string;
   onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
+  onSetVelocity?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+    vel: number,
+  ) => void;
 }) {
   const [project, setProject] = useState<WebProject | null>(null);
 
@@ -61,6 +68,8 @@ function SeqRoll({
       time: n.t,
       duration: n.d,
       key: n.k,
+      // Only what the file states, as the compiled path does: absent IS the default 1.
+      ...(n.v === undefined ? {} : { vel: n.v }),
     }));
   }, [content]);
 
@@ -84,6 +93,9 @@ function SeqRoll({
             ? (k, t0, t1) => onCreateNote(name, k, t0, t1)
             : undefined
         }
+        onSetVelocity={
+          onSetVelocity ? (k, t, v) => onSetVelocity(name, k, t, v) : undefined
+        }
       />
     </div>
   );
@@ -93,11 +105,19 @@ export function ClipView({
   target,
   onClose,
   onCreateNote,
+  onSetVelocity,
 }: {
   target: EditTarget;
   onClose: () => void;
   // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
   onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
+  // Set one note's velocity: (seqId, key, startBeat, 0..1). Runs `sequence note velocity`.
+  onSetVelocity?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+    vel: number,
+  ) => void;
 }) {
   const clip = target.kind === "seq" ? null : target.clip;
   const seqId = clip ? clip.name || clip.id : "";
@@ -112,6 +132,7 @@ export function ClipView({
           path={target.path}
           content={target.content}
           onCreateNote={onCreateNote}
+          onSetVelocity={onSetVelocity}
         />
       ) : clip?.type === "midi" ? (
         <PianoRoll
@@ -120,6 +141,11 @@ export function ClipView({
           onCreateNote={
             onCreateNote
               ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1)
+              : undefined
+          }
+          onSetVelocity={
+            onSetVelocity
+              ? (k, t, v) => onSetVelocity(seqId, k, t, v)
               : undefined
           }
         />

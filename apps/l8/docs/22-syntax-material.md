@@ -32,6 +32,11 @@ way to place an untrimmed recording; a `loop` then has nothing to count and is r
 Opening the file shows its waveform fitted to the source's **whole** duration, with the window shaded, so the two
 numbers can be placed by eye rather than guessed.
 
+Opening a **placed** clip — clicking it in the timeline — shows the other half instead: the window it repeats is
+marked in violet, with a fainter line where each later pass begins, and the header counts them (`loop 4b × 3`).
+That is what explains the pane's width, because it spans the clip's whole extent on the timeline: a clip looped
+three times is one pass of material and two passes of the same thing again.
+
 ## sequences/<id>.yaml
 
 A MIDI sequence holds its notes inline as compact {t,d,k,v} structs — t/d in beats, k a MIDI key, v an optional 0..1 velocity. Toggle Tracker to edit them on a grid.
@@ -43,6 +48,15 @@ meaning beats one folder over is a rule only ever learned by getting it wrong.
 
 Left out, the window is everything the notes cover, rounded up to the bar — so a two-bar pattern whose last hit
 falls on the fourth sixteenth is still two bars long, and repeats of it do not drift.
+
+The piano roll marks that window the same way the waveform does, and here it says one more thing: notes lying
+**outside** it are in the file and are not played. A window starting past the first beat is exactly when that is
+worth seeing.
+
+Each note also carries a thin line across it: its **velocity**, at the bottom of the note for 0 and at the top
+for full. Drag a note up or down to change it (`sequence note velocity` on the command bar). A note that says
+nothing about velocity draws at full and stays that way in the file — dragging one back to the top removes the
+`v` rather than writing `v: 1`.
 
 ```yaml schema=Sequence
 # sequences/melody.yaml

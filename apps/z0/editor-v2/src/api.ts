@@ -27,9 +27,12 @@ export interface AuthUser {
 }
 
 export const auth = {
-  loginUrl: `${ST0}/auth/login?return_to=${encodeURIComponent(
-    window.location.pathname + window.location.search,
-  )}`,
+  // A GETTER, not a constant: evaluated at import it captures whatever page happened to load
+  // the module, so every later click returned you there instead of where you were.
+  get loginUrl(): string {
+    const here = window.location.pathname + window.location.search;
+    return `${ST0}/auth/login?return_to=${encodeURIComponent(here)}`;
+  },
 
   me: async (): Promise<AuthUser | null> => {
     const res = await fetch(`${ST0}/auth/me`);

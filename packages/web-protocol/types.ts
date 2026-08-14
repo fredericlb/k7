@@ -211,6 +211,10 @@ export interface WebNote {
   time: number; // beats, relative to the clip
   duration: number; // beats
   key: number; // MIDI note number
+  // 0..1, as the file states it (NoteSchema's `v`). ABSENT means the schema's default, which is 1 —
+  // so a roll draws a note that never mentioned velocity at full, and dragging it back to full
+  // clears the field rather than writing one.
+  vel?: number;
 }
 export interface WebClip {
   id: string;
@@ -322,8 +326,11 @@ export interface WebTrack {
   // `docs` / `todos` were here, for the Docs panel. Both are gone with it — a note is a doc
   // module on the graph now (`@studio/doc`). See packages/song/docs/docModules.md.
   // `frozen`, `alternatives` and `alternative` were here, for the timeline's lane header. All
-  // three are gone with the fields they came from, to be replaced by another mechanism later —
-  // see packages/song/docs/trackModules.md.
+  // three are gone with the fields they came from — see packages/song/docs/trackModules.md.
+  // They did not come back HERE: both are facts about the module a lane is, so the timeline's
+  // gutter reads them off `WebGraph` (`trackAlternatives`, `frozen`) rather than off a second
+  // copy on this document. Putting them back would also cost a clone of the module vocabulary on
+  // every 2 s poll of /project-doc, which is memoised per revision and this route is not.
 }
 // A group track (mirrors GroupDoc): clipless, drawn as a header with its member tracks indented under it.
 export interface WebGroup {

@@ -78,8 +78,39 @@ one moment we learn the engine may be fresh too, and it is cheap to act on: the 
 what arrives, so reconnecting to an engine that still has the project answers "no changes
 (project already current)".
 
-It does not make `engineProject` honest — it is still one process's belief about another's
-state, and a session emptied *without* the socket dropping would still strand it. Reconciling
-properly means asking the engine what it holds rather than remembering what we sent. That is
-the fix this one defers, and the reason to prefer it is the same reason this bug was hard to
-see: the note and the truth drift silently, and nothing anywhere reports the difference.
+## Asking, rather than remembering
+
+The `open` re-send does not make `engineProject` honest — it is still one process's belief
+about another's state, and it only fires when a socket actually drops. A session emptied
+*without* that still strands the project, and so does the worse case below.
+
+So `prewarmEngineForActive` no longer takes an early return on the strength of the note. When
+the note is set it **asks**: `list-sessions`, throttled to one question per
+`RECONCILE_EVERY_MS` however many tabs are polling, and only for the workspace being served —
+two of them re-asserting on a poll would fight over the one shared engine, which is what the
+old unconditional return was really guarding.
+
+Two answers, two cures:
+
+- **The engine is not holding the session** (absent, or `loaded: false`) — re-send it. Cheap
+  for the same reason the `open` re-send is: the engine diffs.
+- **The engine does not answer at all** — the link is a zombie. Re-sending cannot land on it,
+  however many times it is tried, so the link is dropped and re-dialled; the fresh socket's
+  `open` carries the project back.
+
+That second case is not hypothetical either. Measured on 2026-08-14: the engine had been
+replaced under a file service that had been up for 32 hours, whose socket was still
+`ESTABLISHED` and whose link still reported `ready` — and which was inert in both directions.
+`module list plugins` fired and timed out after 4 s having heard nothing (`[cmd] module list
+plugins — ran=4023ms`), `POST /open` loaded nothing, and the engine reported `loaded=false,
+tracks=0` on the very session the browser was pressing Play on. Nothing anywhere reported a
+fault. Restarting the service fixed it instantly, which is exactly the cure a re-dial is.
+
+Only `loaded` is compared, never *which* project: the wire carries a display name
+(`"LEMO - DANSE"`) and this side holds a path, so comparing the two would invent mismatches.
+Switching projects is `startEngineForActive`'s job.
+
+And the compile-and-send itself no longer fails silently. `sendActiveProject` still swallows a
+malformed project rather than failing the request — `/project-doc` and `/graph` are what
+surface that to the browser — but it now says so on the console, because it is the one path
+whose failure leaves the engine holding nothing at all.

@@ -137,22 +137,28 @@ Those params matter only for a plugin whose blob would not decode at all.
   project.yaml                  header
   chains.yaml                   the graph: track -> modules -> OUT
   modules/io/OUT/module.yaml    the stereo-output sink (io module)
-  modules/{instruments,audio,midi}/<slug>/module.yaml
+  modules/{instruments,audio,transformers}/<slug>/module.yaml
                                 self-contained modules, each its own folder filed by
                                 type (the folder gives the kind + input port): the
                                 plugin inline + its params; deduped by plugin+params
-  tracks/<slug>.yaml            arrangement: positioned clips/sequences + settings
+  nodes/<slug>.yaml             a LANE: `extends` a track module, plus its placements
+  nodes/<module>_<lane>.yaml    one USE of a plugin used more than once: `extends` the
+                                module above and holds only what this use changes
+  nodes/<node>.vstpreset        that use's own plugin state, beside its file
   clips/<id>.yaml (+.wav)       raw audio material
   sequences/<id>.yaml           raw MIDI material (inline notes)
-  plugins/*.vstpreset           extracted plugin state (written beside each module)
 ```
+
+Nodes are **flat**, and a chain step names one by its filename alone — never
+`<module>:<node>`, the layout [nodes.md](../../song/docs/nodes.md) dropped. A plugin used
+exactly once keeps its settings in `module.yaml` and gets no node file at all.
 
 No schema file: a project is validated in process against the loader's own schemas
 (`packages/song/src/yaml/`), so there is nothing to ship alongside it.
 
 ### Mapping a DAWproject (track-based) onto the node model
 
-- each source track becomes a `tracks/` arrangement;
+- each source track becomes a `nodes/` lane carrying its arrangement;
 - each plugin becomes a self-contained module (its plugin inline + params); the track's
   ordered plugin chain becomes chain `use` steps referencing those modules, instrument
   first then audio FX, routed to OUT;

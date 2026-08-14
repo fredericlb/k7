@@ -15,7 +15,9 @@ alternatives:
     plugin: { type: vst3, name: Twin }
 ```
 
-The ⋮ button on the node's corner lists them, switches, and starts another.
+The ⋮ button on the node's corner lists them, switches, and starts another. A LANE names the set it
+is playing in the timeline's gutter too, and clicking that badge opens the SAME menu — one
+behaviour reached from two places, not two (`apps/l8/frontend/docs/timeline.md`).
 
 ## The module's own fields are the first set
 
@@ -77,21 +79,11 @@ graph's track side rather than from a chain step. That fourth track-side channel
 collapsing next — a lane IS a module node now
 ([trackModules.md](trackModules.md)), and this says so the long way round.
 
-## Writing to a lane means writing to the set that is ON
-
-The "a list is a scalar" rule above has a sharp edge for lanes, and it drew blood: a set restating
-`clips:` **replaces** the arrangement, so an edit appended to the file's top-level `clips:` while
-another set is running lands in a list nobody is playing.
-
-A recorded take did exactly that. It was named after the right bar, its `clips/<id>.yaml` was
-written, its placement went in — and the lane stayed empty, because the take was added to set "1"
-while set "4" was on. Nothing failed and nothing was logged; the take was simply silent.
-
-So `yaml/trackFile.ts` resolves `clipsPath(doc)` per document — `["clips"]` for the first set,
-`["alternatives", n-1, "clips"]` otherwise — and **every** placement edit reads it: recording,
-dragging, `event move`, `event remove`, `event resize`. That file had kept the seam open for this
-(its older note called the failure "quietly rewriting an arrangement nobody was looking at") from
-back when alternatives had been removed; they returned, and the seam had to answer again.
+`trackAlternatives` has a second reader now: l8's timeline names the set each lane is playing in
+its gutter, and opens this same menu from it. It gets there from the chains pane rather than from a
+field of its own on `WebProject` — one map for the badge and the menu means neither can name a set
+the other does not. "Only when there is more than one" is what makes that badge free for every lane
+that has no choice, which is nearly all of them.
 
 ## Not a preset
 
@@ -118,6 +110,40 @@ what it changes, so an empty one is "the module as it is" and you then change th
 came to try. `copy` starts from what is ON — and from what that set STATES, not from the merged
 result. Copying the merge would bake the module's own fields into the new entry, and every later
 edit to them would then stop reaching it.
+
+**A LANE is the exception, and it is `clips: []`.** "States only what it changes" cuts the wrong
+way for an arrangement: a set that says nothing about `clips:` inherits them, so a new take would
+open holding the previous take's placements — and a new take is empty. `newModuleAlternative` asks
+`isTrack` of the RESOLVED module (`extends` folded; `loadModules` alone hands back the ref as a
+string) and passes `blankClips`. Not for `copy`, whose whole promise is what is playing.
+
+## Editing a lane that is on one — the fork
+
+A lane's `clips:` exists in two places at once: the module's own, which is set "1", and one per
+entry under `alternatives:`. So "move this clip" has to say WHICH, and `yaml/trackFile.ts` answers
+it twice, because reading and writing do not agree:
+
+- **`clipsIn`** — what an edit ADDRESSES. A set stating no `clips:` inherits the module's, so that
+  is what is on screen and what a clip is picked out of.
+- **`clipsToEdit`** — where it LANDS: always the selected set, copying the inherited list into it
+  on the first write.
+
+That copy-on-write is the whole of it. Every edit used to write `["clips"]` flat whichever set was
+on, so dragging a clip while on take 2 rewrote take 1 — the arrangement you were not looking at —
+and the two takes were never separate documents at all. It went unnoticed because a lane's
+alternatives were removed with the old lane shape and came back on the module while this file kept
+the constant the flattening had left it with, which its own comment named as the seam.
+
+Two details worth keeping:
+
+- an index found in the list that is PLAYING still points at the same placement after the fork,
+  because the copy preserves order. Every index-taking edit rests on that;
+- the fork opens the set out into block style. An empty set is written `- {}`, and a flow map keeps
+  everything inside it on one line — a forked arrangement arrived as a single 400-character row, in
+  a file that is hand-edited and in git.
+
+`color:` and `disabled:` are deliberately NOT forked: `setTrackField` writes the module's own,
+because those describe the lane rather than the take.
 
 A name is checked against the module it names, in the handler. The completion provider offers
 every alternative name in the PROJECT, because a provider is handed the host and not the

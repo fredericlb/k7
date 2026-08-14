@@ -45,6 +45,19 @@ export function setAlternative(text: string, name: string): string {
   return doc.toString(OUT);
 }
 
+export interface AddOptions {
+  /** Start from the set that is ON rather than from nothing — see `copiedFields`. */
+  copy?: boolean;
+  /**
+   * This module is a LANE, so an empty set means `clips: []`.
+   *
+   * Passed in rather than sniffed: whether a module is a lane is a question about its resolved
+   * `extends` chain, and answering it needs the project's module vocabulary — which this file, a
+   * pure document editor, deliberately does not have. `newModuleAlternative` asks `isTrack`.
+   */
+  blankClips?: boolean;
+}
+
 /**
  * Add an attribute set and switch to it; answers the name it got.
  *
@@ -60,7 +73,7 @@ export function setAlternative(text: string, name: string): string {
 export function addAlternative(
   text: string,
   name?: string,
-  { copy = false }: { copy?: boolean } = {},
+  { copy = false, blankClips = false }: AddOptions = {},
 ): { text: string; name: string } {
   const names = alternativeNames(text);
   const chosen = name ?? String(names.length + 1);
@@ -73,6 +86,12 @@ export function addAlternative(
   // "3" into the file would freeze a name that is meant to follow the order.
   if (name !== undefined) entry.name = name;
   if (copy) Object.assign(entry, copiedFields(doc));
+  // A LANE's empty set is an empty ARRANGEMENT, not an inherited one. `states only what it
+  // changes` cuts the wrong way here: a set that says nothing about `clips:` inherits them, so a
+  // new take would open holding the previous take's placements — and the point of a new take is
+  // that it is empty. `clips: []` says it outright, and a list being a scalar to the merge is
+  // exactly what a lane's takes need. Not for `copy`, whose whole promise is what is playing.
+  else if (blankClips) entry.clips = [];
 
   const node = doc.createNode(entry);
   const alts = doc.getIn(["alternatives"]);

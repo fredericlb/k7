@@ -1,13 +1,17 @@
-// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip, opening ZOOMED TO FIT its notes
-// without being bounded by them: all 128 keys exist and the timeline runs past the content.
-// Left-click-drag draws a note (press = pitch + start, release = end) via `sequence note
-// new`; a pinch zooms time, a plain wheel and a middle-drag pan. Drawn by the Editor bottom
-// panel and, when a clip is clicked, where the graph is (ClipView).
+// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip, opening ZOOMED TO FIT its notes and the
+// loop window that frames them, without being bounded by either: all 128 keys exist and the canvas
+// runs to the clip's placed extent (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note
+// (press = pitch + start, release = end) via `sequence note new`; a pinch zooms time, a plain wheel
+// and a middle-drag pan. Drawn by the Editor bottom panel and, when a clip is clicked, where the
+// graph is (ClipView).
 
+import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { clipLoop, visibleRepeats } from "../clipLoop";
 import { m } from "../paraglide/messages.js";
+import { rollFit } from "../rollFit";
 import type { WebClip, WebProject } from "../types";
 
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -20,7 +24,6 @@ const PX_PER_BEAT = 24; // fallback beat width for the first, unmeasured frame o
 const GUTTER = 44; // note-name column, px
 const RULER_H = 18; // bar/beat ruler height, px
 const KEYS = Array.from({ length: N_NOTES }, (_, i) => 127 - i); // high → low, top → bottom
-const MARGIN = 0.2; // fraction of the content span shown as breathing room around the fit
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
@@ -29,6 +32,7 @@ export function PianoRoll({
   clip,
   onClose,
   onCreateNote,
+  onSetVelocity,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -36,9 +40,18 @@ export function PianoRoll({
   onClose?: () => void;
   // Draw a note via `sequence note new`; absent, the roll is read-only (no known sequence to write to).
   onCreateNote?: (key: number, startBeat: number, endBeat: number) => void;
+  /**
+   * Commit a note's velocity via `sequence note velocity` — 0..1, the units the file states.
+   *
+   * Absent alongside `onCreateNote` for the same reason: there is no sequence to write to. The
+   * line is still DRAWN then, because what a note is worth is worth reading either way.
+   */
+  onSetVelocity?: (key: number, startBeat: number, vel: number) => void;
 }) {
   const notes = clip.notes;
   const barBeats = Math.max(1, project.timeSigNumerator || 4);
+  // The window that repeats, on this roll's own beat axis — null for a clip that states no loop.
+  const loop = clipLoop(clip);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const laneRef = useRef<HTMLDivElement>(null);
@@ -54,33 +67,28 @@ export function PianoRoll({
   }, []);
 
   // Wheel zooms the time axis; middle-drag pans (both axes). Bound once the body mounts.
-  const [zoomX] = useHZoom(bodyRef, { gutter: GUTTER });
+  const [zoomX, setZoomX] = useHZoom(bodyRef, { gutter: GUTTER });
   usePanScroll(bodyRef);
 
-  // --- content extents + the fit-with-margin the view opens on ----------------------
-  const seqEnd = notes.reduce((mx, n) => Math.max(mx, n.time + n.duration), 0);
-  const contentEnd = clip.length > 0 ? clip.length : Math.max(barBeats, seqEnd);
-  const noteLo = notes.length ? Math.min(...notes.map((n) => n.key)) : 48; // C3
-  const noteHi = notes.length ? Math.max(...notes.map((n) => n.key)) : 72; // C5
+  // A DIFFERENT clip opens at fit. The zoom multiplier belongs to the one you were looking at and
+  // nothing else let go of it, so a sequence opened after a zoomed one inherited its scale — which
+  // is the other half of "it does not open on its content".
+  useEffect(() => {
+    setZoomX(1);
+  }, [clip.id, setZoomX]);
 
-  // Pitch fit: the used range plus a 20% margin (>= 2 semitones), clamped to 0..127.
-  const pitchSpan = Math.max(1, noteHi - noteLo + 1);
-  const pMargin = Math.max(2, Math.round(MARGIN * pitchSpan));
-  const fitLoK = Math.max(0, noteLo - pMargin);
-  const fitHiK = Math.min(127, noteHi + pMargin);
-  const fitRows = Math.max(1, fitHiK - fitLoK + 1);
-
-  // Time fit is [0, contentEnd] + 20% right margin; the canvas runs past it, and adding notes renews the room.
-  const fitBeatHi = Math.max(barBeats, contentEnd * (1 + MARGIN));
-  const canvasBeats =
-    Math.ceil((fitBeatHi + Math.max(8 * barBeats, contentEnd)) / barBeats) *
-    barBeats;
+  // What the view opens on, both axes — see rollFit.ts, which is where the arithmetic is tested.
+  const fit = rollFit(notes, clip.length, barBeats, loop);
+  const { placedEnd, canvasBeats } = fit;
+  const fitHiK = fit.hiKey;
+  const fitBeatLo = fit.loBeat;
 
   const availW = Math.max(0, pane.w - GUTTER);
   const availH = Math.max(0, pane.h - RULER_H);
-  // Base scales: fitRows fill the height, [0,fitBeatHi] fills the width — then zoomX stretches the time axis past fit.
-  const rowH = availH > 0 ? availH / fitRows : 12;
-  const ppb0 = availW > 0 ? availW / fitBeatHi : PX_PER_BEAT;
+  // Base scales: the framed rows fill the height, the framed beat span fills the width — then
+  // zoomX stretches the time axis past fit.
+  const rowH = availH > 0 ? availH / fit.rows : 12;
+  const ppb0 = availW > 0 ? availW / fit.beats : PX_PER_BEAT;
   const ppb = ppb0 * zoomX;
   const laneW = canvasBeats * ppb;
   const gridH = N_NOTES * rowH;
@@ -93,10 +101,13 @@ export function PianoRoll({
     const el = bodyRef.current;
     if (!el || availH <= 0) return;
     if (framedFor.current === clip.id) return;
+    // Wait for the reset above to land: on the commit that changed `clip.id`, `ppb` still carries
+    // the previous clip's multiplier, and scrolling by it would land somewhere else entirely.
+    if (zoomX !== 1) return;
     framedFor.current = clip.id;
     el.scrollTop = (127 - fitHiK) * rowH; // top of the fit pitch range
-    el.scrollLeft = 0; // content starts at beat 0
-  }, [clip.id, availH, rowH, fitHiK]);
+    el.scrollLeft = fitBeatLo * ppb; // …and the left edge of the fitted span
+  }, [clip.id, availH, rowH, fitHiK, fitBeatLo, ppb, zoomX]);
 
   const bars = Array.from(
     { length: Math.floor(canvasBeats / barBeats) + 1 },
@@ -151,6 +162,64 @@ export function PianoRoll({
     window.addEventListener("pointerup", up);
   };
 
+  /**
+   * --- drag a note's VELOCITY -------------------------------------------------------
+   *
+   * The note's own box is the handle, and the line follows the pointer inside it: 0 at the bottom
+   * edge, 1 at the top, which is the geometry velocity is read with everywhere. That does mean a
+   * press on a note no longer starts drawing one over it — no loss, since two notes cannot share a
+   * key and a start anyway.
+   *
+   * Pointer CAPTURE, as the waveform's slice handles take: every move and the release land on this
+   * element, so a fast drag off the note does not lose the gesture. A press that never MOVES
+   * commits nothing — a stray click on a note should not silently rewrite what it is worth.
+   */
+  interface VDrag {
+    key: number;
+    time: number;
+    vel: number;
+    moved: boolean;
+  }
+  // The ref is the LIVE one and the state is only what to draw. The commit reads the ref, because
+  // firing a command from inside a state updater would run it twice under StrictMode's double
+  // invocation — a velocity written, then written again.
+  const [vDraw, setVDraw] = useState<VDrag | null>(null);
+  const vDrag = useRef<VDrag | null>(null);
+
+  const velAt = (clientY: number, top: number): number => {
+    const el = laneRef.current;
+    if (!el || rowH <= 1) return 1;
+    // Where the pointer sits inside the note's row, bottom-up.
+    const y = clientY - el.getBoundingClientRect().top - top;
+    return clamp(1 - y / Math.max(1, rowH - 1), 0, 1);
+  };
+
+  const onNotePointerDown = (
+    e: React.PointerEvent,
+    n: { key: number; time: number; vel?: number },
+  ) => {
+    if (e.button !== 0 || !onSetVelocity) return;
+    e.preventDefault();
+    e.stopPropagation(); // not a new note: this press belongs to the one already here
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const d = { key: n.key, time: n.time, vel: n.vel ?? 1, moved: false };
+    vDrag.current = d;
+    setVDraw(d);
+  };
+  const onNotePointerMove = (e: React.PointerEvent, top: number) => {
+    const d = vDrag.current;
+    if (!d) return;
+    const next = { ...d, vel: velAt(e.clientY, top), moved: true };
+    vDrag.current = next;
+    setVDraw(next);
+  };
+  const endVDrag = () => {
+    const d = vDrag.current;
+    vDrag.current = null;
+    setVDraw(null);
+    if (d?.moved) onSetVelocity?.(d.key, d.time, d.vel);
+  };
+
   const draftBox = draft
     ? {
         left: Math.min(draft.t0, draft.t1) * ppb,
@@ -167,7 +236,15 @@ export function PianoRoll({
           🎹 {clip.name || clip.id}
         </span>
         <span className="text-muted-foreground">
-          {notes.length} notes · {Math.round(contentEnd)} beats
+          {notes.length} notes · {Math.round(placedEnd)} beats
+          {/* What the marks in the grid add up to, said in words: a clip that is ten passes of
+              eight beats is not a 80-beat pattern, and the pane is 80 beats wide either way. */}
+          {loop && (
+            <span className="ml-2 text-violet-400">
+              · loop {+loop.win.toFixed(3)}b
+              {loop.passes > 1 && ` × ${loop.passes}`}
+            </span>
+          )}
           {onCreateNote && (
             <span className="ml-2 text-muted-foreground/70">
               · drag to draw · pinch to zoom · middle-drag pan
@@ -219,6 +296,19 @@ export function PianoRoll({
                   {bar + 1}
                 </div>
               ))}
+              {/* The loop, as a bracket on the ruler. The lines down the grid say WHERE; this
+                  says which span they belong to, at the one place a reader looks for extents. */}
+              {loop && (
+                <div
+                  title={`loop ${loop.win}b × ${loop.passes}`}
+                  className="absolute bottom-0 border-x-2 border-b-2 border-violet-400/70"
+                  style={{
+                    left: loop.from * ppb,
+                    width: Math.max(2, loop.win * ppb),
+                    height: RULER_H / 2,
+                  }}
+                />
+              )}
             </div>
           </div>
 
@@ -271,22 +361,96 @@ export function PianoRoll({
                   style={{ left: bar * barBeats * ppb, height: gridH }}
                 />
               ))}
-              {notes.map((n, i) => (
-                <div
-                  key={i}
-                  title={`${noteName(n.key)} · ${n.time}–${n.time + n.duration}b`}
-                  className="absolute rounded-[1px] bg-emerald-500/90"
-                  style={{
-                    top: keyTop(n.key),
-                    height: Math.max(1, rowH - 1),
-                    left: n.time * ppb,
-                    width: Math.max(
-                      2,
-                      (n.duration > 0 ? n.duration : 0.25) * ppb,
-                    ),
-                  }}
-                />
-              ))}
+              {/* The LOOP: the window that repeats, then a line where each later pass begins.
+                  Under the notes, so a note over the window's edge still reads as a note. The
+                  canvas spans the clip's PLACED length, so without this a repeated pattern is
+                  eight beats of material in eighty beats of empty grid. */}
+              {loop && (
+                <>
+                  <div
+                    className="pointer-events-none absolute top-0 bg-violet-400/10"
+                    style={{
+                      left: loop.from * ppb,
+                      width: Math.max(1, loop.win * ppb),
+                      height: gridH,
+                    }}
+                  />
+                  {visibleRepeats(loop, ppb).map((b) => (
+                    <div
+                      key={`lr${b}`}
+                      className="pointer-events-none absolute top-0 border-l border-violet-400/25"
+                      style={{ left: b * ppb, height: gridH }}
+                    />
+                  ))}
+                  {/* The two points themselves, last so they sit over the repeat lines. */}
+                  {[loop.from, loop.to].map((b, i) => (
+                    <div
+                      key={`le${b}-${i}`}
+                      className="pointer-events-none absolute top-0 border-l border-violet-400/70"
+                      style={{ left: b * ppb, height: gridH }}
+                    />
+                  ))}
+                </>
+              )}
+              {notes.map((n, i) => {
+                const top = keyTop(n.key);
+                const h = Math.max(1, rowH - 1);
+                // What this note is worth: the file's `vel`, or the drag's live value while it is
+                // the one being dragged. Absent IS the schema's default of 1 — see WebNote.
+                const live =
+                  vDraw && vDraw.key === n.key && vDraw.time === n.time
+                    ? vDraw.vel
+                    : (n.vel ?? 1);
+                // Where the velocity sits in the note: 0 at its bottom edge, 1 at its top.
+                const lineY = (1 - live) * (h - 1);
+                return (
+                  <div
+                    key={i}
+                    title={`${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
+                      onSetVelocity ? " — drag up/down to change" : ""
+                    }`}
+                    onPointerDown={(e) => onNotePointerDown(e, n)}
+                    onPointerMove={(e) => onNotePointerMove(e, top)}
+                    onPointerUp={endVDrag}
+                    onLostPointerCapture={endVDrag}
+                    className={cn(
+                      "absolute overflow-hidden rounded-[1px]",
+                      onSetVelocity && "cursor-ns-resize touch-none",
+                    )}
+                    style={{
+                      top,
+                      height: h,
+                      left: n.time * ppb,
+                      width: Math.max(
+                        2,
+                        (n.duration > 0 ? n.duration : 0.25) * ppb,
+                      ),
+                    }}
+                  >
+                    {/* The note reads as a LEVEL before the line is looked for: above the velocity
+                        it is a little transparent, below it solid. The colour lives on these two
+                        rather than on the box, so "80%" means the note's own fill and not a wash of
+                        whatever happens to be behind it. */}
+                    <div
+                      className="pointer-events-none absolute inset-x-0 top-0 bg-emerald-500/80"
+                      style={{ height: lineY }}
+                    />
+                    <div
+                      className="pointer-events-none absolute inset-x-0 bottom-0 bg-emerald-500"
+                      style={{ top: lineY }}
+                    />
+                    {/* The line itself: half the note's width, centred, so it reads as a mark ON the
+                        note rather than as its edge. A note a couple of pixels tall has nowhere to
+                        put it — the level split above still says what it is worth. */}
+                    {h >= 4 && (
+                      <div
+                        className="pointer-events-none absolute left-1/4 h-px w-1/2 bg-white"
+                        style={{ top: lineY }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
               {draftBox && (
                 <div
                   className="pointer-events-none absolute z-10 rounded-[1px] bg-emerald-300/80 outline outline-1 outline-emerald-200"
