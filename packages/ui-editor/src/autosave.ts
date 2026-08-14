@@ -76,8 +76,16 @@ export interface Autosave {
   reason: string | null;
   /** The open buffer's findings, for a gutter. Refreshed each time the timer fires. */
   issues: ModuleIssue[];
-  /** Write now if it can be written — Ctrl+S and vim's `:w` still mean "now". */
-  flush: () => void;
+  /**
+   * Write now if it can be written — Ctrl+S and vim's `:w` still mean "now", and in `manual`
+   * mode this is the only thing that ever writes.
+   *
+   * Resolves to whether the buffer is ON DISK afterwards: false when it was held back because
+   * it would not compile, or when the write itself failed. A screen saving several files at
+   * once needs that answer before it does anything that assumes they all landed — committing
+   * them, for instance.
+   */
+  flush: () => Promise<boolean>;
 }
 
 // Loudest first: a screen showing one badge for several files must show the one that needs
@@ -117,6 +125,7 @@ export function useAutosave({
   saved,
   write,
   enabled = true,
+  manual = false,
   delayMs = AUTOSAVE_DELAY_MS,
   validate = validateFile,
 }: {
@@ -130,6 +139,19 @@ export function useAutosave({
   /** Write it. Resolves when it landed, and the caller moves `saved` to what it wrote. */
   write: (text: string) => Promise<void>;
   enabled?: boolean;
+  /**
+   * Never write on a timer: `flush()` is the only thing that writes.
+   *
+   * Everything else is unchanged — the same validation, the same held-back reason, the same
+   * kept buffer — because "when does it write" and "may it be written" are different questions
+   * and only the first one moves. A screen in this mode has a Save button.
+   *
+   * The one real difference is what happens when the pane closes with an unsaved buffer. On a
+   * timer that is the last chance and it is TAKEN; here the whole point is that nobody writes
+   * without being asked, so the buffer is KEPT instead and comes back with the file
+   * (`recallBuffer`). Nothing is lost either way; what differs is who decided.
+   */
+  manual?: boolean;
   delayMs?: number;
   /** How this file is judged. The default is the project-file router; a pane editing
    *  something else (a médiathèque sidecar) may hand its own. */
@@ -156,7 +178,7 @@ export function useAutosave({
 
   // The timer, and the indirection that lets a finished write re-arm the very function that
   // started it: `arm` is stable, `run` is read fresh when it fires.
-  const runRef = useRef<(s: Live) => Promise<void>>(async () => {});
+  const runRef = useRef<(s: Live) => Promise<boolean>>(async () => false);
   const arm = useCallback(
     (ms: number) => {
       disarm();
@@ -169,13 +191,13 @@ export function useAutosave({
   );
 
   const run = useCallback(
-    async (s: Live) => {
-      if (!s.path || !s.enabled) return;
+    async (s: Live): Promise<boolean> => {
+      if (!s.path || !s.enabled) return false;
       if (busy.current) {
         // A write is already in flight; a second one would race it. But this call may be the
         // last chance this text gets — the pane is closing — so it is kept rather than dropped.
         if (s.text !== s.saved) keepBuffer(s.path, s.text);
-        return;
+        return false;
       }
       // Only the pane still showing this file may repaint the status.
       const showing = () => live.current.path === s.path;
@@ -186,7 +208,7 @@ export function useAutosave({
           setReason(null);
           setIssues([]);
         }
-        return;
+        return true; // already on disk, which is what the caller is asking about
       }
       const validity = s.validate(s.path, s.text);
       if (showing()) setIssues(validity.issues);
@@ -201,16 +223,18 @@ export function useAutosave({
           setStatus("held");
           setReason(decision.reason);
         }
-        return;
+        return false;
       }
       busy.current = true;
       if (showing()) {
         setStatus("saving");
         setReason(decision.reason);
       }
+      let wrote = false;
       try {
         await s.write(s.text);
         settleBuffer(s.path, s.text);
+        wrote = true;
         if (showing())
           setStatus(live.current.text === s.text ? "clean" : "pending");
       } catch (e) {
@@ -222,11 +246,14 @@ export function useAutosave({
       } finally {
         busy.current = false;
         // The buffer moved while the write was in flight — that edit is still unwritten.
+        // Not in manual mode: there, only Save writes, and re-arming would be a timer.
         const now = live.current;
-        if (now.path === s.path && now.text !== now.saved) arm(delayMs);
+        if (!manual && now.path === s.path && now.text !== now.saved)
+          arm(delayMs);
       }
+      return wrote;
     },
-    [delayMs, arm],
+    [delayMs, arm, manual],
   );
   runRef.current = run;
 
@@ -251,9 +278,12 @@ export function useAutosave({
       return;
     }
     setStatus((s) => (s === "saving" ? s : "pending"));
+    // Manual: the buffer is dirty and stays that way until somebody presses Save. The status
+    // still says `pending`, which is exactly what it means — edited, not on disk.
+    if (manual) return;
     arm(delayMs);
     return disarm;
-  }, [path, text, saved, enabled, delayMs, arm, disarm]);
+  }, [path, text, saved, enabled, manual, delayMs, arm, disarm]);
 
   // The file is closing (another one opened, or the pane went away). Whatever is pending gets
   // its chance now — and if it cannot be written it is kept, not lost.
@@ -264,15 +294,23 @@ export function useAutosave({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `path` is the trigger, see above
   useEffect(
     () => () => {
-      void run(previous.current);
+      const s = previous.current;
+      // MANUAL: closing is not permission to write. The buffer is kept instead, and comes back
+      // with the file — `recallBuffer` is what the builder reads on load. Nothing is lost; the
+      // difference from the timer path is only who decided to write it.
+      if (manual) {
+        if (s.path && s.text !== s.saved) keepBuffer(s.path, s.text);
+        return;
+      }
+      void run(s);
     },
-    [path, run],
+    [path, run, manual],
   );
 
-  const flush = useCallback(() => {
+  const flush = useCallback(async (): Promise<boolean> => {
     disarm();
-    if (previous.current.path !== live.current.path) return; // buffer not settled — see above
-    void run(live.current);
+    if (previous.current.path !== live.current.path) return false; // buffer not settled — see above
+    return run(live.current);
   }, [run, disarm]);
 
   // LAST, deliberately: everything above reads `previous` as the state of the commit before

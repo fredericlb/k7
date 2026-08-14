@@ -310,6 +310,73 @@ export async function ensureLibraries(
   return { mounted: true };
 }
 
+/**
+ * Commit everything in the library checkout and push it. What a Save in the module builder
+ * does, once the files are on disk.
+ *
+ * The LIBRARY repository and nothing else — the workspace it sits in is somebody's song, and
+ * committing to that is `project commit`. What the superproject sees afterwards is its gitlink
+ * moved, unstaged, which is exactly right: the next `project commit` records "this song now
+ * uses that version of the library", and until then the song is unchanged.
+ *
+ * Nothing to commit is not a failure. Two saves in a row with no edit between them, or a save
+ * of files that were already committed by another workspace on this machine, both land here.
+ */
+export async function commitLibraries(
+  userEmail: string,
+  root: string,
+  message: string,
+): Promise<{ committed: boolean; pushed: boolean; note: string }> {
+  const at = librariesDir(root);
+  if (!existsSync(at))
+    throw new Error("no libraries are mounted in this workspace");
+  const env = envFor(userEmail);
+
+  await git(at, ["add", "-A"], env);
+  const { stdout: staged } = await git(
+    at,
+    ["diff", "--cached", "--name-only"],
+    env,
+  );
+  const files = staged.split("\n").filter((s) => s.trim()).length;
+  if (!files)
+    return { committed: false, pushed: false, note: "nothing to commit" };
+
+  // The author is the person editing, so the history says who. `-c` rather than a written
+  // config: this checkout is the account's library, not this machine's, and a machine must not
+  // leave its own identity in it.
+  await git(
+    at,
+    [
+      "-c",
+      "user.name=studio",
+      `-c`,
+      `user.email=${userEmail}`,
+      "commit",
+      "-m",
+      message,
+    ],
+    env,
+  );
+  try {
+    await git(at, ["push", "origin", "HEAD"], env);
+  } catch (e) {
+    // Committed here, refused there — someone else pushed first, or the network is gone. The
+    // work is safe and the next Save pushes both commits; saying "saved" and nothing else would
+    // be the lie, since everyone else still has the old module.
+    return {
+      committed: true,
+      pushed: false,
+      note: `committed ${files} file(s), but the push failed — ${(e as Error).message}`,
+    };
+  }
+  return {
+    committed: true,
+    pushed: true,
+    note: `published ${files} file(s) to the libraries`,
+  };
+}
+
 /** Where the libraries are mounted in this workspace, whether or not anything is there. */
 export const librariesDir = (root: string): string => join(root, LIBRARIES_DIR);
 

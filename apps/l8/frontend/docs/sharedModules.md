@@ -114,19 +114,46 @@ path spaces that spelled a module *identically* (`modules/audio/reverb/module.ya
 different files), a second store, and a rule that the choice between them must never be
 re-derived from a path. All of it existed because the library was somebody else's service.
 
+## The builder has a Save button, and it is the only screen here that does
+
+Every text pane in l8 writes as you type. This one does not, and the reason is what a save
+*means* here:
+
+- **A module is four files describing one thing.** `module.yaml`, `ui.yaml`, `presets.yaml` and
+  a `jsdsp.ts` are edited together and are only coherent together. Autosave writes each of them
+  whenever *its own* typing pauses, which for a shared module means publishing a panel for a
+  plugin nobody else has yet.
+- **On a shared module a save is a publish.** It commits and pushes a repository other people
+  read. A timer that did that on every pause in typing would put a commit on a shared history
+  every time a knob moved.
+
+So Save writes all four files and then, if the module is a library one, commits and pushes.
+Ctrl+S and vim's `:w` are that button — all four files, not the pane you happen to be looking
+at. The machinery underneath is unchanged: `useAutosave`'s `manual` mode keeps the validation
+and the held-back buffers and only turns the timer off
+(`packages/ui-editor/docs/autosave.md`).
+
+**Publishing runs only if every file landed.** `flush()` reports whether a buffer is on disk,
+and a file held back because it would not compile reports false — committing a module whose
+`module.yaml` is still yesterday's would put a half-edit in front of everybody.
+
 ## What a save actually does
 
-One write: `PUT /file` on the file service, into the submodule's working copy. The same route,
-the same autosave and the same badge a project file gets.
+1. `PUT /file` on the file service for each dirty file, into the submodule's working copy. The
+   same route a project file takes.
+2. `POST /libraries/publish` — `git add -A`, a commit authored by you, and a push. **The library
+   repository only.** The workspace holding it is your song, and committing to that is
+   `project commit`.
 
-**Committing is separate, and deliberately.** `project commit` is what publishes it — a commit
-inside the submodule, then the gitlink in the workspace repo, the same two-step `commons/` takes
-in this repo. Autosave fires on every pause in typing; a save that also pushed would put a
-commit on a shared repository every time a knob moved.
+What the song's repository sees afterwards is its gitlink *moved, unstaged*. That is exactly
+right: the next `project commit` records "this song now uses that version of the library", and
+until then the song is unchanged. Two repositories, two decisions, the same two-step `commons/`
+takes in this repo.
 
-So an edit is versioned but not published until you say so, and until then it is yours and
-your machine's. That is the opposite of what the hosted volume did, where a save was immediately
-everyone's and there was no draft state at all.
+Nothing to commit is not a failure — two saves with no edit between them land there. A commit
+that could not be pushed is reported and the work is kept: the commit is local, the next Save
+pushes both, and saying "saved" and nothing else would be the lie, since everyone else still
+has the old module.
 
 ## What stayed on the bench
 
@@ -157,8 +184,12 @@ The suites here mount nothing, so none of this is covered by a green run:
   NOT show `_libraries`;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit
   button beside it; typing in the code pane does nothing;
-- click **Edit**, confirm → the same screen takes edits, and the badge behaves as it does for a
-  project file;
+- click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save
+  button lights up instead;
+- edit two of the four files, press **Save** once → both land, and one commit appears in the
+  library repository, pushed. Not two commits, and not one per file;
+- type something that will not parse and press Save → it is held back with the reason, and
+  nothing is committed;
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob
   changes the sound;
 - `project commit` → a commit in the submodule and a gitlink bump in the workspace; another

@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+// `lib` sits directly under `tmp`, so `dirname(lib)` is the "workspace" commitLibraries takes.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** The hosted library: a manifest and bytes, with no server. */
@@ -39,7 +40,9 @@ vi.mock("@studio/mediatek/remote", () => ({
   }),
 }));
 
-const { excludeFromProjectRepo, seedIfEmpty } = await import("./libraries.ts");
+const { commitLibraries, excludeFromProjectRepo, seedIfEmpty } = await import(
+  "./libraries.ts"
+);
 
 let tmp: string;
 let origin: string;
@@ -227,6 +230,79 @@ describe("seeding a new library repository", () => {
     await excludeFromProjectRepo(project);
     const text = readFileSync(join(project, ".git", "info", "exclude"), "utf8");
     expect(text.split("/_libraries/").length - 1).toBe(1);
+  });
+
+  it("publishes a later edit, and moves the project repo's gitlink but not its HEAD", async () => {
+    // What Save does once the four files have landed: commit the LIBRARY and push it. The song
+    // repository around it is somebody's work — its gitlink moves, unstaged, and `project
+    // commit` is what records "this song now uses that version".
+    const project = join(tmp, "ws4");
+    mkdirSync(project, { recursive: true });
+    git(project, "init", "--initial-branch=main");
+    writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
+    git(project, "add", "-A");
+    git(
+      project,
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-m",
+      "the song",
+    );
+
+    const inside = join(project, "_libraries");
+    mkdirSync(inside, { recursive: true });
+    git(inside, "init", "--initial-branch=main");
+    git(inside, "remote", "add", "origin", origin);
+    await seedIfEmpty(inside);
+    const songHead = git(project, "rev-parse", "HEAD").trim();
+
+    writeFileSync(
+      join(inside, "modules", "audio", "reverb", "module.yaml"),
+      "plugin: {type: vst3}\nparams:\n  Mix: 0.5\n",
+      "utf8",
+    );
+    const out = await commitLibraries(
+      "me@example.test",
+      project,
+      "@st0/audio/reverb",
+    );
+    expect(out).toMatchObject({ committed: true, pushed: true });
+
+    // On the remote, so everybody else has it.
+    expect(
+      git(origin, "show", "main:modules/audio/reverb/module.yaml"),
+    ).toContain("Mix: 0.5");
+    // And the song is untouched: same commit, nothing staged.
+    expect(git(project, "rev-parse", "HEAD").trim()).toBe(songHead);
+    expect(git(project, "diff", "--cached", "--name-only")).toBe("");
+  });
+
+  it("says there was nothing to commit rather than making an empty one", async () => {
+    await seedIfEmpty(lib);
+    const project = dirname(lib);
+    expect(await commitLibraries("me@example.test", project, "again")).toEqual({
+      committed: false,
+      pushed: false,
+      note: "nothing to commit",
+    });
+  });
+
+  it("keeps the work and says so when the push is refused", async () => {
+    await seedIfEmpty(lib);
+    writeFileSync(join(lib, "modules", "new.yaml"), "a: 1\n", "utf8");
+    git(lib, "remote", "set-url", "origin", join(tmp, "nowhere.git"));
+    const out = await commitLibraries(
+      "me@example.test",
+      dirname(lib),
+      "a module",
+    );
+    expect(out.committed).toBe(true);
+    expect(out.pushed).toBe(false);
+    // Committed locally, so the next Save pushes both — the work is never the thing that is lost.
+    expect(git(lib, "log", "--oneline")).toContain("a module");
   });
 
   it("reports a push it could not make, rather than claiming the seed landed", async () => {

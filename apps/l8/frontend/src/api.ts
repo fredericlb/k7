@@ -11,6 +11,7 @@ import { projectApi } from "@studio/project-shell/project";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import { serviceUrl } from "@studio/web-protocol/services";
+import { libraryModuleRef } from "./libraryTree";
 import type {
   PresetInfo,
   PreviewReq,
@@ -258,6 +259,15 @@ export const api = {
   // Apply one BY NAME; the brain writes its values and reloads the project so the engine hears it.
   applyPreset: (module: string, name: string) =>
     fsend<{ ok: true }>("POST", "/presets/apply", { module, name }),
+
+  /** Commit and push the LIBRARY repository — what a Save in the module builder does once the
+   *  files have landed. The workspace's own repository is untouched: see libraries.ts. */
+  publishLibraries: (message: string) =>
+    fsend<{ committed: boolean; pushed: boolean; note: string }>(
+      "POST",
+      "/libraries/publish",
+      { message },
+    ),
 };
 
 /**
@@ -308,6 +318,22 @@ export const moduleStore: ModuleStore = {
     }
   },
   hints: () => api.hints(),
+  /**
+   * Publish a SHARED module: commit the library repository and push it.
+   *
+   * Only for one that lives in `_libraries` — a project's own module is already where it
+   * belongs, and there is nothing to publish it to. That test is the path's, as everywhere
+   * else in this app (see libraryTree.ts): the folder says which library a module is in, and
+   * nothing else has to be remembered.
+   *
+   * The message names the module by its REF, which is what a chain writes and therefore what
+   * somebody reading this history will recognise.
+   */
+  publish: async (path) => {
+    const ref = libraryModuleRef(path);
+    if (!ref) return {}; // the project's own — saved, and there is nowhere else for it to go
+    return api.publishLibraries(`${ref}`);
+  },
   write: async (path, content) => {
     const { forked } = await api.write(path, content);
     if (!forked) return {};

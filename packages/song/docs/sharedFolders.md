@@ -75,10 +75,11 @@ follow, and each is worth stating because each was a rule before:
   second machine gets the same modules at the same commit, because the gitlink pins one. The
   cache could only ever be "whatever this machine last synced".
 - **A shared module is editable in place.** There is no fork and no push-through: `_libraries/…`
-  is an ordinary workspace path, written by the ordinary write route, and published by
-  `project commit`. l8 opens it read-only behind a confirmation instead
-  (`apps/l8/frontend/docs/sharedModules.md`), which is a decision somebody takes rather than a
-  mechanism that absorbs it.
+  is an ordinary workspace path, written by the ordinary write route. l8 opens it read-only
+  behind a confirmation, and its builder has a **Save button** that commits and pushes the
+  library repository once the files land (`apps/l8/frontend/docs/sharedModules.md`) — a decision
+  somebody takes rather than a mechanism that absorbs it. The song's own repository is not
+  touched: its gitlink moves, unstaged, and `project commit` is what records that.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing
 every project beside it, and it still forks on write (`docs/moduleFork.md`) — nothing has given
