@@ -20,7 +20,7 @@ import { z } from "zod";
 export const TIMECODE = /^[0-9]+(:[0-9]+)*(\.[0-9]+)?$/;
 const Timecode = z
   .string()
-  .regex(TIMECODE, "expected a timecode like 25:1, 8:0:3 or 8:1:2.240");
+  .regex(TIMECODE, "expected a timecode like 25:1, 8:1:2 or 8:1:2:2.120");
 
 /**
  * One placed clip or sequence on a lane: WHERE it goes and HOW MANY TIMES.

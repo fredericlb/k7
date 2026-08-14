@@ -21,7 +21,7 @@ const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
  *
  * Written EITHER way, and the spelling picks the meaning:
  *   from: 0.25      a bare number is SECONDS into the file — tempo-independent, so the trim never moves
- *   from: "2:0"     a timecode is MUSICAL, converted at the project tempo, for material played to the click
+ *   from: "2:1"     a timecode is MUSICAL, converted at the project tempo, for material played to the click
  *
  * Both, because both are right for different material. A trimmed field recording wants seconds; a take played
  * to the click wants "drop the first two bars", and every other time field in a track file is a timecode — so
@@ -33,7 +33,7 @@ const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
  */
 const WindowEdge = z.union([
   z.number().min(0), // seconds
-  z.string().regex(TIMECODE, "expected seconds (0.25) or a timecode like 2:0"),
+  z.string().regex(TIMECODE, "expected seconds (0.25) or a timecode like 2:1"),
 ]);
 
 /**

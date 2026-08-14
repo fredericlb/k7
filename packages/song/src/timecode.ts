@@ -1,7 +1,7 @@
-// timecode.ts — "bar:beat:sub.ticks" timecodes <-> model beats (quarter notes, Tracktion's
-// unit). POSITIONS ("1:1:1") are 1-based; DURATIONS ("1:0:0") are 0-based; the sub is a
-// quarter of a beat and anything finer is TICKS. The parser still reads the old deep colon
-// form, which every existing file is written in. Full rationale: docs/timecode.md.
+// timecode.ts — "bar:beat:eighth:sixteenth.ticks" timecodes <-> model beats (quarter notes,
+// Tracktion's unit). POSITIONS ("1:1:1:1") are 1-based; DURATIONS ("1:0:0:0") are 0-based; the
+// colon chain names MESURE:NOIRE:CROCHE:DOUBLECROCHE and anything finer is TICKS. Chains LONGER
+// than four fields are the old deep form and are read by its own rule. See docs/timecode.md.
 
 /**
  * Ticks per QUARTER NOTE — the model's own unit, so a tick is an absolute musical duration and
@@ -12,9 +12,9 @@
  */
 export const TICKS_PER_QUARTER = 960;
 
-// `bar:beat:sub`, then optionally `.ticks`. The colon chain is still allowed to run deep: every
-// file written before this change spells its sub-beats that way, and a parser that refused them
-// would make the songs on disk unreadable. Only the WRITER is short now.
+// The colon chain, then optionally `.ticks`. Still allowed to run deeper than four fields: an
+// un-migrated song spells its sub-beats that way, and a parser that refused them would make it
+// unreadable. Only the WRITER stops at the double-croche.
 const TC_RE = /^\d+(:\d+)*(\.\d+)?$/;
 
 // Quarter-notes per metrical beat (q) and per bar, from the time signature.
@@ -28,7 +28,7 @@ function fields(tc: string): { f: number[]; ticks: number } {
   const s = String(tc).trim();
   if (!TC_RE.test(s))
     throw new Error(
-      `bad timecode '${tc}' — expected "bar:beat:sub" or "bar:beat:sub.ticks"`,
+      `bad timecode '${tc}' — expected "mesure:noire:croche:doublecroche", optionally ".ticks"`,
     );
   const dot = s.indexOf(".");
   const head = dot < 0 ? s : s.slice(0, dot);
@@ -40,33 +40,55 @@ function fields(tc: string): { f: number[]; ticks: number } {
   };
 }
 
-// A timecode as an offset in beats. `oneBased` shifts every field by -1 (positions);
-// durations count from 0. Field 0 = bars, field 1 = metrical beats, field k≥2 = a
-// 1/4^(k-1) fraction of a beat.
+/** The most colon fields the current notation uses: MESURE:NOIRE:CROCHE:DOUBLECROCHE. */
+const MAX_FIELDS = 4;
+
+/**
+ * What one colon field is worth, in quarter notes.
+ *
+ * The chain halves: a bar, a metrical beat, half of one, a quarter of one — the crotchet, the
+ * quaver and the semiquaver of 4/4, which is what the names in the header mean. Those names are
+ * the 4/4 ones; in 6/8 the "beat" is a quaver and the levels below it halve from there.
+ *
+ * A chain LONGER than four fields cannot be this notation, so it is the old deep one, whose levels
+ * divided by FOUR at every step. The two disagree from the third field on — `"1:1:3"` is half a
+ * beat under one rule and a whole beat under the other — and no syntax tells them apart, so the
+ * length is what decides. It is enough because every old chain that is short is also at its own
+ * level's ORIGIN (`"1:1:1"`, `"2:1:1"`), and an origin is 0 under either rule; the handful that are
+ * not were rewritten by scripts/migrateTimecodes.ts, which reads them with `legacy` on.
+ */
+function levelBeats(
+  k: number,
+  q: number,
+  bar: number,
+  legacy: boolean,
+): number {
+  if (k === 0) return bar;
+  if (k === 1) return q;
+  return legacy ? q / 4 ** (k - 1) : q / 2 ** (k - 1);
+}
+
+// A timecode as an offset in beats. `oneBased` shifts every field by -1 (positions); durations
+// count from 0.
 function toBeats(
   tc: string,
   num: number,
   den: number,
   oneBased: boolean,
+  legacy = false,
 ): number {
   const { f, ticks } = fields(tc);
   const { q, bar } = units(num, den);
   const d = oneBased ? 1 : 0;
+  const deep = legacy || f.length > MAX_FIELDS;
   let beats = 0;
-  for (let k = 0; k < f.length; k++) {
-    const v = f[k] - d;
-    if (k === 0)
-      beats += v * bar; // bars
-    else if (k === 1)
-      beats += v * q; // metrical beats
-    else beats += v * (q / 4 ** (k - 1)); // sub-beats: ÷4 per deeper level
-  }
+  for (let k = 0; k < f.length; k++)
+    beats += (f[k] - d) * levelBeats(k, q, bar, deep);
   return beats + ticks / TICKS_PER_QUARTER;
 }
 
-// Beats -> a "bar:beat:sub…" string. `oneBased` for positions; durations count from
-// 0. Emits bars and beats, then subdivides any leftover fraction of a beat by 4
-// until it's negligible (capped depth), so it round-trips what `toBeats` produced.
+// Beats -> a "bar:beat:eighth:sixteenth" string, plus `.ticks` for whatever is left.
+// `oneBased` for positions; durations count from 0.
 function fromBeats(
   beats: number,
   num: number,
@@ -75,26 +97,41 @@ function fromBeats(
 ): string {
   const { q, bar } = units(num, den);
   const d = oneBased ? 1 : 0;
-  let rem = Math.max(0, beats);
-  const bars = Math.floor(rem / bar + 1e-9);
-  rem -= bars * bar;
-  const bts = Math.floor(rem / q + 1e-9);
-  rem -= bts * q;
+  /**
+   * Everything in TICKS, rounded ONCE at the top.
+   *
+   * The float path rounded the sub-beat remainder on its own, and a remainder just under a whole
+   * beat rounded UP to one: 126.999755 beats came out as `"32:3:3"`, a quaver field holding two
+   * quavers — a whole beat that should have carried into the crotchet beside it. It landed on the
+   * right moment, so it played correctly and read wrong, and the old rule would take that spelling
+   * half a beat earlier. One rounding, then pure integer division, and no level can overflow.
+   */
+  const perSixteenth = Math.round((q / 4) * TICKS_PER_QUARTER);
+  const perEighth = perSixteenth * 2;
+  const perBeat = Math.round(q * TICKS_PER_QUARTER);
+  const perBar = Math.round(bar * TICKS_PER_QUARTER);
+  let t = Math.max(0, Math.round(beats * TICKS_PER_QUARTER));
+  const bars = perBar > 0 ? Math.floor(t / perBar) : 0;
+  t -= bars * perBar;
+  const bts = perBeat > 0 ? Math.floor(t / perBeat) : 0;
+  t -= bts * perBeat;
   const out = [bars + d, bts + d];
 
-  // Everything below the beat, counted in TICKS — integer arithmetic from here, so a carry cannot
-  // happen after rounding and no depth has to be capped. The colon stops at the SUB (a quarter of
-  // a beat: the semiquaver in 4/4); anything finer is the remainder, and a remainder is a number,
-  // not another level of nesting. Six colons deep was a place value nobody could read.
-  const perSub = Math.round((q / 4) * TICKS_PER_QUARTER);
-  const total = Math.round(rem * TICKS_PER_QUARTER);
-  const sub = perSub > 0 ? Math.floor(total / perSub) : 0;
-  const ticks = total - sub * perSub;
-  // The sub is written when it is there; a bare beat keeps its short form, as it always did.
-  if (sub > 0) out.push(sub + d);
+  // Two levels below the beat, each a HALVING: the quaver, then the semiquaver. Below that it is
+  // the remainder, and a remainder is a number rather than another level of nesting — six colons
+  // deep was a place value nobody could read.
+  const eighth = perEighth > 0 ? Math.floor(t / perEighth) : 0;
+  t -= eighth * perEighth;
+  const sixteenth = perSixteenth > 0 ? Math.floor(t / perSixteenth) : 0;
+  const ticks = t - sixteenth * perSixteenth;
+  // A trailing level at its own origin is left off, so a bare beat keeps its short form — but a
+  // level is only droppable when everything BELOW it is at the origin too: `"1:1:2"` says half a
+  // beat, and writing a sixteenth without its quaver would say a quarter of one.
+  if (eighth > 0 || sixteenth > 0) out.push(eighth + d);
+  if (sixteenth > 0) out.push(sixteenth + d);
   const head = out.join(":");
   // …and the ticks hang off whatever precedes them. They are absolute (1/960 of a quarter), so
-  // `1:2.120` needs no zero sub to be unambiguous.
+  // `1:2.120` needs no zero levels to be unambiguous.
   return ticks > 0 ? `${head}.${ticks}` : head;
 }
 
@@ -105,6 +142,28 @@ export function parsePosition(tc: string, num: number, den: number): number {
 // A 0-based duration (length/offset/fade), in beats.
 export function parseDuration(tc: string, num: number, den: number): number {
   return toBeats(tc, num, den, false);
+}
+
+/**
+ * The same two, forcing the OLD ÷4 rule at every level below the beat.
+ *
+ * Only `scripts/migrateTimecodes.ts` has any business calling these: a short chain written in the
+ * deep notation reads differently under the two rules, and the migration is the one place that
+ * knows a file has not been converted yet. Everything else must read what is on disk today.
+ */
+export function parseLegacyPosition(
+  tc: string,
+  num: number,
+  den: number,
+): number {
+  return toBeats(tc, num, den, true, true);
+}
+export function parseLegacyDuration(
+  tc: string,
+  num: number,
+  den: number,
+): number {
+  return toBeats(tc, num, den, false, true);
 }
 export function beatsToPosition(
   beats: number,
