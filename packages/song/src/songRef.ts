@@ -3,20 +3,20 @@
 // pull `node:os` in with the word (mediatekRoot.ts opens one). See docs/songsFile.md.
 
 /**
- * The level the médiathèque is named under — `@mediatek/…`.
+ * The level the médiathèque is named under — `@st0/…`.
  *
  * Here rather than in mediatekRoot.ts, which owns the rest of the library's layout: that file
  * reads `homedir()`, and this token is needed by every surface that draws a set list. Same
  * reason `CHAINS_FILE` sits in @studio/mediatek's types.ts and not in its scan. mediatekRoot
  * re-exports it, so nothing that already imports it from there had to change.
  */
-export const MEDIATEK_REF = "@mediatek";
+export const MEDIATEK_REF = "@st0";
 
 /** The prefix a SONG ref carries — the médiathèque, then the family. */
 export const MEDIATEK_SONG_REF = `${MEDIATEK_REF}/songs`;
 
 /**
- * A song ref is `@mediatek/` + the médiathèque id, VERBATIM.
+ * A song ref is `@st0/` + the médiathèque id, VERBATIM.
  *
  * A `MediatekEntry.id` is the entry's library-relative POSIX path (`songs/artist/album/title`)
  * and the catalogue's own note says nothing else survives a rescan. A ref that IS the id
@@ -24,13 +24,13 @@ export const MEDIATEK_SONG_REF = `${MEDIATEK_REF}/songs`;
  * is a lookup, not a computation, and a ref that resolves to nothing is still a well-formed
  * name for the thing to go and fetch.
  *
- * A MODULE ref omits its family (`@mediatek/audio/reverb` means `modules/audio/reverb`)
+ * A MODULE ref omits its family (`@st0/audio/reverb` means `modules/audio/reverb`)
  * because that vocabulary predates the médiathèque having families. The two are not made
  * consistent here: rewriting every song already written would cost more than the asymmetry,
  * and the two are read by different files, so nothing has to tell them apart at a distance.
  */
 /**
- * The shape only: `@mediatek/songs/` then at least one non-empty segment.
+ * The shape only: `@st0/songs/` then at least one non-empty segment.
  *
  * **Spaces are legal, and that is not a detail.** A médiathèque id is built from the tags —
  * `songs/Alain Bashung/Album inconnu/La nuit je mens` is a real one — so a pattern that

@@ -10,11 +10,12 @@ import type { FileNode } from "@studio/web-protocol";
 /**
  * The namespace the médiathèque's modules answer to.
  *
- * Taken from `@studio/song`'s union rather than spelt here, because it is the same word a chain
- * writes in a ref — `@mediatek/audio/delay/tape-delay` — and a tab that named the library
- * something else would be labelling rows nobody could find in a chains file.
+ * Typed from `@studio/song`'s union rather than left a loose string, because it is the same word
+ * a chain writes in a ref — `@st0/audio/delay/tape-delay` — and a tab that named the library
+ * something else would be labelling rows nobody could find in a chains file. Named for the app
+ * that serves the library, not for the folder it is cached in (`~/.studio/mediatek`).
  */
-export const MEDIATEK_NS: ModuleNamespace = "mediatek";
+export const LIBRARY_NS: ModuleNamespace = "st0";
 
 /** How a namespace is written wherever a person reads one: in a ref, and now on a tree row. */
 export const nsLabel = (ns: ModuleNamespace): string => `@${ns}`;
@@ -64,10 +65,10 @@ export function libraryTree(entries: MediatekEntry[]): FileNode[] {
   sortTree(roots);
   return [
     {
-      name: nsLabel(MEDIATEK_NS),
+      name: nsLabel(LIBRARY_NS),
       // Not a path anything reads: the row is the library, and a library is not a file. Spelt
       // as the namespace so the tree's expansion state is keyed on something stable.
-      path: nsLabel(MEDIATEK_NS),
+      path: nsLabel(LIBRARY_NS),
       dir: true,
       children: roots,
     },
@@ -87,7 +88,7 @@ function sortTree(nodes: FileNode[]): void {
 
 /**
  * The ref a chain writes for one of a library module's FILES —
- * `modules/audio/delay/tape-delay/module.yaml` → `@mediatek/audio/delay/tape-delay`.
+ * `modules/audio/delay/tape-delay/module.yaml` → `@st0/audio/delay/tape-delay`.
  *
  * What lets the builder find the LIVE plugin behind a shared module: the open project names it
  * by this ref, not by a folder inside itself, so the lookup that works for a project module
@@ -101,5 +102,5 @@ export function libraryModuleRef(file: string): string | null {
   const parts = file.split("/").filter(Boolean);
   if (parts[0] !== "modules") return null;
   const segs = parts.slice(1, -1);
-  return segs.length >= 2 ? `${nsLabel(MEDIATEK_NS)}/${segs.join("/")}` : null;
+  return segs.length >= 2 ? `${nsLabel(LIBRARY_NS)}/${segs.join("/")}` : null;
 }

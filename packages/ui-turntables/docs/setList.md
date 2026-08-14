@@ -15,7 +15,7 @@ clique pour l'éditer.
 | `songs.yaml` du projet | **quels** morceaux font partie du set |
 | `/mediatek/list?family=songs` du service de fichiers | lesquels cette machine sait jouer |
 
-`resolveSet` croise les deux par l'**id** de la médiathèque — un ref est `@mediatek/` suivi
+`resolveSet` croise les deux par l'**id** de la médiathèque — un ref est `@st0/` suivi
 de l'id, mot pour mot, donc le croisement est une comparaison de chaînes et rien d'autre.
 
 ## Où la liste se lit maintenant

@@ -15,7 +15,7 @@ const mod = (path: string, files: string[]): MediatekEntry => ({
 describe("libraryTree", () => {
   it("puts one namespace row above the catalogue", () => {
     const [root] = libraryTree([mod("modules/audio/reverb", ["module.yaml"])]);
-    expect(root.name).toBe("@mediatek");
+    expect(root.name).toBe("@st0");
     expect(root.dir).toBe(true);
     expect(root.children?.map((n) => n.name)).toEqual(["audio"]);
   });
@@ -84,20 +84,20 @@ describe("libraryTree", () => {
 describe("libraryModuleRef", () => {
   it("names the module the way a chain does", () => {
     expect(libraryModuleRef("modules/audio/reverb/module.yaml")).toBe(
-      "@mediatek/audio/reverb",
+      "@st0/audio/reverb",
     );
   });
 
   it("keeps the category segment", () => {
     expect(libraryModuleRef("modules/audio/delay/tape-delay/ui.yaml")).toBe(
-      "@mediatek/audio/delay/tape-delay",
+      "@st0/audio/delay/tape-delay",
     );
   });
 
   it("drops the last segment whatever it is spelt like", () => {
     // A module may be called `tape.delay`; the file is dropped by POSITION, never by looks.
     expect(libraryModuleRef("modules/audio/tape.delay/module.yaml")).toBe(
-      "@mediatek/audio/tape.delay",
+      "@st0/audio/tape.delay",
     );
   });
 

@@ -230,7 +230,7 @@ describe("instancing a module that already exists", () => {
     // proceeding would silently drop the parent that was asked for.
     writeFileSync(
       join(dir, "modules", "audio", "amp", "module.yaml"),
-      'extends: "@mediatek/audio/amps/real"\n',
+      'extends: "@st0/audio/amps/real"\n',
       "utf8",
     );
     await runCommand(
@@ -239,7 +239,7 @@ describe("instancing a module that already exists", () => {
       "cli",
     );
     const said = logs.join(" ");
-    expect(said).toContain("@mediatek/audio/amps/real");
+    expect(said).toContain("@st0/audio/amps/real");
     expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(false);
   });
 });

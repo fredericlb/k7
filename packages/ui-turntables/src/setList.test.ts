@@ -25,7 +25,7 @@ const CACHE = [
 
 describe("the song browser's list", () => {
   const song = (artist: string, name: string): SetEntry => ({
-    ref: `@mediatek/songs/${artist}/x/${name}`,
+    ref: `@st0/songs/${artist}/x/${name}`,
     id: `songs/${artist}/x/${name}`,
     name,
     artist,
@@ -100,7 +100,7 @@ describe("the song browser's list", () => {
 describe("a set list resolved against the cache", () => {
   it("pairs each ref with its catalogued song", () => {
     const set = resolveSet(
-      'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n',
+      'songs:\n  - "@st0/songs/lemo/mante/danse"\n',
       CACHE,
     );
     expect(set.issues).toEqual([]);
@@ -111,27 +111,26 @@ describe("a set list resolved against the cache", () => {
 
   it("keeps a song the cache has not got, and names it from its id", () => {
     const set = resolveSet(
-      'songs:\n  - "@mediatek/songs/lemo/mante/hiver"\n',
+      'songs:\n  - "@st0/songs/lemo/mante/hiver"\n',
       CACHE,
     );
     expect(set.entries.length).toBe(1);
     expect(set.entries[0].entry).toBe(null);
     // The folder the médiathèque filed it under is the best name available before the sync.
     expect(set.entries[0].name).toBe("hiver");
-    expect(set.entries[0].ref).toBe("@mediatek/songs/lemo/mante/hiver");
+    expect(set.entries[0].ref).toBe("@st0/songs/lemo/mante/hiver");
   });
 
   it("finds an artist for the vinyl label, tags or no tags", () => {
-    const tagged = resolveSet(
-      'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n',
-      [{ ...CACHE[0], meta: { artist: "Lemo Mante" } } as MediatekEntry],
-    );
+    const tagged = resolveSet('songs:\n  - "@st0/songs/lemo/mante/danse"\n', [
+      { ...CACHE[0], meta: { artist: "Lemo Mante" } } as MediatekEntry,
+    ]);
     expect(tagged.entries[0].artist).toBe("Lemo Mante");
 
     // Not in the cache, so there are no tags to read: the id's second segment is the artist
     // FOLDER the médiathèque filed it under, which is a fact and not a guess.
     const untagged = resolveSet(
-      'songs:\n  - "@mediatek/songs/Alain Bashung/Album inconnu/La nuit je mens"\n',
+      'songs:\n  - "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens"\n',
       [],
     );
     expect(untagged.entries[0].artist).toBe("Alain Bashung");
@@ -140,7 +139,7 @@ describe("a set list resolved against the cache", () => {
 
   it("draws the set in one order whatever the file's line order was", () => {
     const set = resolveSet(
-      'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n  - "@mediatek/songs/lemo/mante/aube"\n',
+      'songs:\n  - "@st0/songs/lemo/mante/danse"\n  - "@st0/songs/lemo/mante/aube"\n',
       CACHE,
     );
     expect(set.entries.map((e) => e.id)).toEqual([

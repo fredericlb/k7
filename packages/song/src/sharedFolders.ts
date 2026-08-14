@@ -29,7 +29,7 @@ export function hasSharedModules(dir: string): boolean {
 /**
  * The machine's media library, when it has one.
  *
- * `@mediatek` names a level whose folder is fixed. Stated once here; `moduleLibraryDirs` and
+ * `@st0` names a level whose folder is fixed. Stated once here; `moduleLibraryDirs` and
  * `loadModuleRefs` both read it, which is what keeps the modules, their panels and the
  * catalogue agreeing about what a project can reach. See docs/moduleNamespaces.md.
  */
@@ -65,6 +65,7 @@ export function moduleLibraryDirs(dir: string): string[] {
 // there — it reads the disk on the very first line. Re-exported so the vocabulary still reads
 // as one place. Same argument as `moduleKeyFromPath`'s.
 export { MODULE_NAMESPACES, type ModuleNamespace } from "./moduleTypes";
+
 import type { ModuleNamespace } from "./moduleTypes";
 
 /**
@@ -80,9 +81,13 @@ import type { ModuleNamespace } from "./moduleTypes";
  *
  * Anything that is not the machine's media library is the workspace's own `_modules`:
  * those are the only two shared roots there are.
+ *
+ * The media library answers to `@st0`, after the app that serves it. It was `@mediatek` while
+ * that app was `apps/mediatek`; the folder on disk is still `~/.studio/mediatek`, because that
+ * is a CACHE path and not a name anybody writes in a chain. See scripts/migrateNamespace.ts.
  */
 export function moduleNamespaceOf(root: string): ModuleNamespace {
-  return resolve(root) === mediatekDirFor("modules") ? "mediatek" : "workspace";
+  return resolve(root) === mediatekDirFor("modules") ? "st0" : "workspace";
 }
 
 /**

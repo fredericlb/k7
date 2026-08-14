@@ -160,7 +160,7 @@ export function FileTree({
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
   onCreateNode?: (path: string, node: string) => void;
   /**
-   * The shared module libraries as tree rows — one namespace row each (`@mediatek`), the
+   * The shared module libraries as tree rows — one namespace row each (`@st0`), the
    * catalogue under it. `null` while the listing is in flight; ABSENT for a shell that offers
    * no such tab at all, which is what makes the tab bar disappear rather than show a dead one.
    */

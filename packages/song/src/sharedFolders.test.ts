@@ -114,6 +114,8 @@ describe("sharedFolders", () => {
     addModules();
     addMediatek("modules");
     expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
-    expect(moduleNamespaceOf(join(media, "modules"))).toBe("mediatek");
+    // `st0`, after the app that serves the library — NOT after `~/.studio/mediatek`, the
+    // folder it is cached in. The two used to be one word and the folder kept it.
+    expect(moduleNamespaceOf(join(media, "modules"))).toBe("st0");
   });
 });

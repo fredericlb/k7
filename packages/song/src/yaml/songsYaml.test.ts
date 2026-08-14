@@ -8,16 +8,16 @@ import { parseSongs, songIds, songRefs } from "./songsFile";
 // sync's scope, the set list on screen) is a string comparison against it.
 
 describe("a song ref", () => {
-  it("is `@mediatek/` plus the médiathèque id, verbatim", () => {
+  it("is `@st0/` plus the médiathèque id, verbatim", () => {
     const id = "songs/lemo/mante/danse";
-    expect(songRefOf(id)).toBe("@mediatek/songs/lemo/mante/danse");
+    expect(songRefOf(id)).toBe("@st0/songs/lemo/mante/danse");
     expect(songIdOf(songRefOf(id))).toBe(id);
   });
 
   it("becomes the FOLDER a sync fetches, trailing slash and all", () => {
     // A song is its folder: the master, its variants and song.yaml. A sync that fetched only
     // the sidecar would land a catalogued folder with nothing to play.
-    expect(songPathPrefix("@mediatek/songs/lemo/mante/danse")).toBe(
+    expect(songPathPrefix("@st0/songs/lemo/mante/danse")).toBe(
       "songs/lemo/mante/danse/",
     );
   });
@@ -27,7 +27,7 @@ describe("a song ref", () => {
     // `songs/Alain Bashung/Album inconnu/La nuit je mens` is a real entry. A pattern that
     // banned whitespace refused nearly every set list anyone would write, and did it as a
     // schema error on the whole file.
-    const real = "@mediatek/songs/Alain Bashung/Album inconnu/La nuit je mens";
+    const real = "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens";
     expect(songIdOf(real)).toBe(
       "songs/Alain Bashung/Album inconnu/La nuit je mens",
     );
@@ -35,25 +35,25 @@ describe("a song ref", () => {
       "songs/Alain Bashung/Album inconnu/La nuit je mens/",
     );
     // Punctuation the tags hand out, too — `& Feduk` and `50 cents` are both in the cache.
-    expect(songIdOf("@mediatek/songs/& Feduk/Album inconnu/Rosé")).toBe(
+    expect(songIdOf("@st0/songs/& Feduk/Album inconnu/Rosé")).toBe(
       "songs/& Feduk/Album inconnu/Rosé",
     );
   });
 
   it("still refuses a ref with no segment, or an empty one", () => {
     // Structure is what the pattern is FOR, now that it says nothing about characters.
-    expect(songIdOf("@mediatek/songs/a//c")).toBe(null);
-    expect(songIdOf("@mediatek/songs/a/")).toBe(null);
-    expect(songIdOf("@mediatek/songs//")).toBe(null);
+    expect(songIdOf("@st0/songs/a//c")).toBe(null);
+    expect(songIdOf("@st0/songs/a/")).toBe(null);
+    expect(songIdOf("@st0/songs//")).toBe(null);
   });
 
   it("is not a module ref, and does not answer for one", () => {
     // The two vocabularies differ by a segment — a module ref omits its family — and they are
     // read by different files. Pinned so a future merge of the two is a deliberate act.
-    expect(songIdOf("@mediatek/audio/reverb")).toBe(null);
+    expect(songIdOf("@st0/audio/reverb")).toBe(null);
     expect(songIdOf("songs/lemo/mante/danse")).toBe(null);
-    expect(songIdOf("@mediatek/songs")).toBe(null);
-    expect(songIdOf("@mediatek/songs/")).toBe(null);
+    expect(songIdOf("@st0/songs")).toBe(null);
+    expect(songIdOf("@st0/songs/")).toBe(null);
   });
 });
 
@@ -62,34 +62,28 @@ describe("songs.yaml", () => {
 
   it("reads a set list", () => {
     const { value, issues } = parse(
-      'songs:\n  - "@mediatek/songs/a/b/c"\n  - "@mediatek/songs/d/e/f"\n',
+      'songs:\n  - "@st0/songs/a/b/c"\n  - "@st0/songs/d/e/f"\n',
     );
     expect(issues).toEqual([]);
-    expect(songRefs(value)).toEqual([
-      "@mediatek/songs/a/b/c",
-      "@mediatek/songs/d/e/f",
-    ]);
+    expect(songRefs(value)).toEqual(["@st0/songs/a/b/c", "@st0/songs/d/e/f"]);
     expect(songIds(value)).toEqual(["songs/a/b/c", "songs/d/e/f"]);
   });
 
   it("is UNORDERED: the file's line order is not the running order", () => {
     const { value } = parse(
-      'songs:\n  - "@mediatek/songs/z/z/z"\n  - "@mediatek/songs/a/a/a"\n',
+      'songs:\n  - "@st0/songs/z/z/z"\n  - "@st0/songs/a/a/a"\n',
     );
     // Sorted here rather than in each surface, so two screens cannot draw one set two ways.
-    expect(songRefs(value)).toEqual([
-      "@mediatek/songs/a/a/a",
-      "@mediatek/songs/z/z/z",
-    ]);
+    expect(songRefs(value)).toEqual(["@st0/songs/a/a/a", "@st0/songs/z/z/z"]);
   });
 
   it("drops a duplicate instead of refusing the file", () => {
     // Two people merging their halves of a set list should not have to resolve that by hand.
     const { value, issues } = parse(
-      'songs:\n  - "@mediatek/songs/a/b/c"\n  - "@mediatek/songs/a/b/c"\n',
+      'songs:\n  - "@st0/songs/a/b/c"\n  - "@st0/songs/a/b/c"\n',
     );
     expect(issues).toEqual([]);
-    expect(songRefs(value)).toEqual(["@mediatek/songs/a/b/c"]);
+    expect(songRefs(value)).toEqual(["@st0/songs/a/b/c"]);
   });
 
   it("is empty, not broken, when the set has no songs yet", () => {
@@ -98,7 +92,7 @@ describe("songs.yaml", () => {
   });
 
   it("names a bare list as the mistake it is", () => {
-    const { value, issues } = parse('- "@mediatek/songs/a/b/c"\n');
+    const { value, issues } = parse('- "@st0/songs/a/b/c"\n');
     expect(value).toBe(null);
     expect(issues[0].message).toContain("`songs:` key");
   });
@@ -108,7 +102,7 @@ describe("songs.yaml", () => {
     // next machine, which is the whole reason refs exist.
     const { value, issues } = parse("songs:\n  - songs/a/b/c\n");
     expect(value).toBe(null);
-    expect(issues[0].message).toContain("@mediatek/songs");
+    expect(issues[0].message).toContain("@st0/songs");
   });
 
   it("refuses an unknown key rather than ignoring it", () => {

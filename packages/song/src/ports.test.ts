@@ -49,8 +49,8 @@ describe("a port ref", () => {
     // A ref carries three axes at once — namespace/category, node, port — and they must not
     // eat each other. `#` was chosen precisely because `:` and `/` were already spoken for.
     expect(splitPort("crossfade#b")).toEqual({ node: "crossfade", port: "b" });
-    expect(splitPort("@mediatek/audio/crossfade:live#b")).toEqual({
-      node: "@mediatek/audio/crossfade:live",
+    expect(splitPort("@st0/audio/crossfade:live#b")).toEqual({
+      node: "@st0/audio/crossfade:live",
       port: "b",
     });
     expect(splitPort("crossfade")).toEqual({ node: "crossfade" });

@@ -475,13 +475,13 @@ export function useDeckSet(
 
     cuesOf: (deckId) => {
       const id = loads[deckId]?.id;
-      return id ? (cues[`@mediatek/${id}`] ?? []) : [];
+      return id ? (cues[`@st0/${id}`] ?? []) : [];
     },
 
     setCue: (deckId, slot, transportSeconds) => {
       const load = loadsRef.current[deckId];
       if (!load) return;
-      const ref = `@mediatek/${load.id}`;
+      const ref = `@st0/${load.id}`;
       // The FILE's clock, not the transport's — see `sourceAt`. A cue stored as a timeline
       // position would move the moment somebody touched this deck's tempo fader.
       const at = sourceAt(transportSeconds, temposRef.current[deckId]);
@@ -504,7 +504,7 @@ export function useDeckSet(
 
     jumpCue: (deckId, slot) => {
       const id = loadsRef.current[deckId]?.id;
-      const at = id ? cues[`@mediatek/${id}`]?.[slot] : null;
+      const at = id ? cues[`@st0/${id}`]?.[slot] : null;
       if (at == null || !deck.engine) return;
       // One transport for both decks (docs/mix.md), so this moves the OTHER deck too. That is
       // the engine m9 has, and a cue is still worth having on it.

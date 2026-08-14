@@ -91,7 +91,7 @@ export const TIMELINE_BASE = 600;
  * module is `plugin: {type: offline}` — a pass writes stretched audio to disk — so it has no
  * live parameter and no engine plugin. `warpFor` is how the browser realises it meanwhile.
  */
-export const TEMPO_MODULE = "@mediatek/audio/utility/tempo";
+export const TEMPO_MODULE = "@st0/audio/utility/tempo";
 export const TEMPO_PARAM = "Target BPM";
 export const TEMPO_SOURCE_PARAM = "Source BPM";
 
@@ -134,7 +134,7 @@ export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
 /**
  * The ends of the tempo fader — the MODULE's knob, not a range m9 invented.
  *
- * `@mediatek/audio/utility/tempo`'s `ui.yaml` declares a BPM knob from 10 to 300, and the
+ * `@st0/audio/utility/tempo`'s `ui.yaml` declares a BPM knob from 10 to 300, and the
  * fader in Mix IS that knob. Keeping the two the same is the point: a surface that offered a
  * narrower range would be quietly refusing values the module accepts, and one that offered a
  * wider one would send values the panel cannot draw.

@@ -31,7 +31,7 @@ node is the whole use:
 
 ```yaml
 # nodes/crossfade.yaml
-extends: "@mediatek/audio/utility/crossfade"
+extends: "@st0/audio/utility/crossfade"
 params:
   Mix: 0.5
 ```
@@ -119,7 +119,7 @@ were applied after the crossfade would be stretched post-mix, along with the oth
 
 ### The tempo module is COLD
 
-`@mediatek/audio/utility/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo
+`@st0/audio/utility/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo
 change is a time stretch, a stretch has to know where the file ends, and there is no engine
 plugin that stretches time (the engine hosts a Pitch Shifter and nothing else of that kind;
 Tracktion warps a CLIP instead). So it is the offline shape: a pass writes the stretched

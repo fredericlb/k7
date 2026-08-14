@@ -58,7 +58,7 @@ const writeLocalModule = (body: string) =>
   );
 
 // A second module library OUTSIDE the workspace, the shape the mediatek has: `modules/` with a namespace config.
-function writeMediatek(at: string, namespace = "mediatek"): void {
+function writeMediatek(at: string, namespace = "st0"): void {
   writeYaml(join(at, "modules", "config.yaml"), { namespace });
   writeYaml(join(at, "modules", "audio", "reverb", "module.yaml"), {
     plugin: { type: "vst3", name: "Big Reverb" },
@@ -70,7 +70,7 @@ const declareMediatek = (at: string): void => {
   process.env.STUDIO_MEDIATEK = at;
   writeFileSync(
     join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - '@mediatek'\n",
+    "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n    - '@st0'\n",
     "utf8",
   );
 };
@@ -91,11 +91,11 @@ describe("panels across more than one library", () => {
     rmSync(media, { recursive: true, force: true });
   });
 
-  it("loads a module OUT of the media library, through the @mediatek token", () => {
+  it("loads a module OUT of the media library, through the @st0 token", () => {
     // The end of the chain this step exists for: the project names a library it does not
     // contain, and the module resolves — with no path anywhere in project.yaml.
     const refs = loadModuleRefs(dir);
-    expect(refs["@mediatek/audio/reverb"]).toBeTruthy();
+    expect(refs["@st0/audio/reverb"]).toBeTruthy();
     expect(refs["@workspace/audio/delay/tape-delay"]).toBeTruthy();
   });
 
@@ -104,19 +104,15 @@ describe("panels across more than one library", () => {
       join(media, "modules", "audio", "reverb", "ui.yaml"),
       PANEL as unknown as Record<string, unknown>,
     );
-    expect(loadUiLibrary(dir).byRef["@mediatek/audio/reverb"]?.ui).toEqual(
-      PANEL,
-    );
+    expect(loadUiLibrary(dir).byRef["@st0/audio/reverb"]?.ui).toEqual(PANEL);
   });
 
   it("writes a shared module's panel into the shared module's own folder", () => {
     // The rule that changed: a panel is drawn for the plugin, so it lands where the plugin is
     // rather than being copied into every project that plays it.
-    const written = writeUiFile(dir, "@mediatek/audio/reverb", PANEL);
+    const written = writeUiFile(dir, "@st0/audio/reverb", PANEL);
     expect(written).toBe(join(media, "modules", "audio", "reverb", "ui.yaml"));
-    expect(loadUiLibrary(dir).byRef["@mediatek/audio/reverb"]?.ui).toEqual(
-      PANEL,
-    );
+    expect(loadUiLibrary(dir).byRef["@st0/audio/reverb"]?.ui).toEqual(PANEL);
   });
 
   it("refuses a namespace no library this project can see declares", () => {
@@ -131,11 +127,11 @@ describe("panels across more than one library", () => {
     // The same NAME in two libraries is precedence, not a collision: it is what a fork looks
     // like. The refs differ, so both are keyed — what matters is which one a local module draws.
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
-    writeUiFile(dir, "@mediatek/audio/reverb", { ...PANEL, cols: 9 });
+    writeUiFile(dir, "@st0/audio/reverb", { ...PANEL, cols: 9 });
     writeUiFile(dir, "audio/reverb", PANEL);
     const lib = loadUiLibrary(dir);
     expect(lib.byRef["audio/reverb"].ui.cols).toBe(PANEL.cols);
-    expect(lib.byRef["@mediatek/audio/reverb"].ui.cols).toBe(9);
+    expect(lib.byRef["@st0/audio/reverb"].ui.cols).toBe(9);
     expect(lib.issues).toEqual([]);
     expect(loadModules(dir).reverb.ui).toEqual(PANEL);
   });

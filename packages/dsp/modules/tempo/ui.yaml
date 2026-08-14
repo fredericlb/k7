@@ -1,4 +1,4 @@
-# panel for @mediatek/audio/utility/tempo
+# panel for @st0/audio/utility/tempo
 #
 # One knob you turn and one number you read. `Source BPM` is a METER because it is MEASURED,
 # not chosen — the cold pass writes it — exactly as normalize/ draws its `Peak`. Showing it

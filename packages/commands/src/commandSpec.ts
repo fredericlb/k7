@@ -132,7 +132,7 @@ const PROVIDERS = {
     ),
     ...PROVIDERS.audioFiles(h),
   ],
-  // The chains a bounce can run: this project's, then the médiathèque's under `@mediatek/`.
+  // The chains a bounce can run: this project's, then the médiathèque's under `@st0/`.
   // Both in one list because the command takes either — see processChain.ts.
   chains: (h) => chainNames(h.project()),
   // Sequence FILE ids, read off disk: a sequence's file id can differ from the midi-clip name collectSequences reports.
@@ -318,8 +318,7 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   tracks: "a track of this project",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",
-  chains:
-    "a chain of this project, or one the médiathèque holds (@mediatek/<path>)",
+  chains: "a chain of this project, or one the médiathèque holds (@st0/<path>)",
   modules: "a module of this project",
   baseModules:
     "the module to inherit from — the engine's catalogue and this project's",

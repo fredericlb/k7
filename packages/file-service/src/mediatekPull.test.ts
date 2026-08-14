@@ -92,7 +92,7 @@ beforeEach(() => {
   };
   revision = "r1";
   manifests = 0;
-  song = project("@mediatek/audio/filter/auto-wah");
+  song = project("@st0/audio/filter/auto-wah");
   open = [{ dir: song, invalidated: 0 }];
 });
 afterEach(() => {
@@ -146,7 +146,7 @@ describe("pulling the médiathèque", () => {
     // needs a module it never held.
     await pullOnce();
     rmSync(song, { recursive: true, force: true });
-    open = [{ dir: project("@mediatek/audio/other/thing"), invalidated: 0 }];
+    open = [{ dir: project("@st0/audio/other/thing"), invalidated: 0 }];
     await pullOnce();
     expect(cached("modules/audio/other/thing/module.yaml")).toBe(true);
   });
@@ -154,7 +154,7 @@ describe("pulling the médiathèque", () => {
   it("keeps what is no longer named — a scope is not a deletion", async () => {
     await pullOnce();
     rmSync(song, { recursive: true, force: true });
-    open = [{ dir: project("@mediatek/audio/other/thing"), invalidated: 0 }];
+    open = [{ dir: project("@st0/audio/other/thing"), invalidated: 0 }];
     await pullOnce();
     expect(cached("modules/audio/filter/auto-wah/module.yaml")).toBe(true);
   });

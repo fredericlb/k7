@@ -115,7 +115,7 @@ export function rootDir(): string {
  *  settings, the same way it passes the ports.
  *
  *  The SECOND entry defined elsewhere, for the same reason as `extsCachePath` above:
- *  `@studio/song` resolves a project's `@mediatek` reference to it and cannot import this
+ *  `@studio/song` resolves a project's `@st0` reference to it and cannot import this
  *  package, so song owns the spelling and this delegates. */
 export function mediatekDir(): string {
   return mediatekRoot();

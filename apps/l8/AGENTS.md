@@ -63,7 +63,7 @@ matches before changing it:
 | `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
 | `commandBar.md` | the step-by-step palette and module picker |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
-| `sharedModules.md` | the file tree's Libraries tab: editing a `@mediatek` module in place |
+| `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
@@ -176,7 +176,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   else.
 
   The file tree has a **second tab, Libraries**, listing the médiathèque's catalogue by
-  namespace (`@mediatek`). A module there opens the same builder **read-only**, with an Edit
+  namespace (`@st0`). A module there opens the same builder **read-only**, with an Edit
   button behind a confirmation, and saving writes straight into st0's library — nothing forks,
   because that library is the only copy. It is a second path space and therefore a second store
   (`src/library.ts`), never a path-aware one: a workspace and the médiathèque spell a module

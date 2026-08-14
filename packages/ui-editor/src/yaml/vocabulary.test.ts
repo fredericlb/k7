@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { schemaVocabulary } from "./vocabulary";
 
 const HINTS = {
-  baseModules: ["@engine/de-rez", "@mediatek/audio/utility/mixer"],
+  baseModules: ["@engine/de-rez", "@st0/audio/utility/mixer"],
   modules: ["synth", "synth:lead", "OUT", "@engine/audio/amp/nam"],
   tracks: ["melody", "pad"],
   videoTracks: ["clip1"],
@@ -90,7 +90,7 @@ describe("the chains vocabulary", () => {
     const path = "modules/audio/amp/module.yaml";
     expect(at(path, [], "extends", HINTS)).toEqual([
       "@engine/de-rez",
-      "@mediatek/audio/utility/mixer",
+      "@st0/audio/utility/mixer",
     ]);
     // Only at the top level, and only for that field: `params:` is a free map, and a rack's
     // `clip` names a clip.

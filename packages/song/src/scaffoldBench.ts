@@ -8,7 +8,7 @@ import { writeProjectFiles } from "./scaffold";
 
 const q = (s: string) => JSON.stringify(s);
 
-/** The marker that makes this project the one allowed to save at `@mediatek` level. */
+/** The marker that makes this project the one allowed to save at `@st0` level. */
 export const BENCH_MARKER = "mediatekBench";
 
 /**

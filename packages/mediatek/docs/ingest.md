@@ -52,7 +52,7 @@ in `absent` rather than thrown.
 
 This used to push `_modules/config.yaml` like any other file, so the **last workspace
 uploaded renamed the whole library** — silently, for every project inheriting from it,
-because that file declares the namespace refs are keyed by (`@mediatek/audio/reverb`).
+because that file declares the namespace refs are keyed by (`@st0/audio/reverb`).
 
 It is now skipped, and reported in `skipped` rather than dropped quietly: "it uploaded" and
 "it uploaded everything" are different claims and only one of them is true.

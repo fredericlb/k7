@@ -6,6 +6,13 @@
 > s'exécute tel quel** : `apps/pistes`, `apps/moteur`, `apps/capot`, `SESSIONS.pistes`,
 > `pistes.sid`, `~/.studio/prefs/pistes/`, `npm run dev --workspace pistes` — tous morts.
 >
+> Dernier en date, et le seul qui touche un identifiant écrit dans les fichiers de
+> l'utilisateur : le NIVEAU de module `@mediatek` → `@st0`, qui rattrape `mediatek → st0`
+> côté refs. Il a sa migration, `packages/song/scripts/migrateNamespace.ts`, et sa
+> signature d'échec est lisible pour une fois — un `?` sur le nœud du graphe. Voir
+> [packages/song/docs/moduleNamespaces.md](../packages/song/docs/moduleNamespaces.md).
+> Le dossier `~/.studio/mediatek` n'a **pas** bougé : c'est un cache, pas un nom qu'on écrit.
+>
 > Ce qui reste vivant, et pourquoi la page n'est pas supprimée : **la méthode**. L'ordre imposé
 > des phases, et surtout l'idée que chaque contrôle porte sa *signature d'échec*, sont ce qui a
 > rendu les renommages suivants vérifiables. Pour refaire l'exercice, relire la structure et

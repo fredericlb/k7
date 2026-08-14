@@ -61,7 +61,7 @@ It used to be a screen inside l8, editing the workspace's `_modules` in place th
 `_modules` was, at the time, where modules lived.
 
 It is not any more. Modules live in the médiathèque, which every project reads through the
-`@mediatek` named root; a workspace's copy is a **read-only mirror**, and the general escape
+`@st0` named root; a workspace's copy is a **read-only mirror**, and the general escape
 hatch is gone (see `packages/song/docs/moduleFork.md`). So the builder moved here, where the
 catalogue is editable — and moving it here is what made it a package, `@studio/ui-module-builder`,
 which is why it could move back out again without being rewritten.

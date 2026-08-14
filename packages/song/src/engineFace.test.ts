@@ -14,7 +14,7 @@ import type { LoadedModule } from "./rawDoc";
 import { loadUiLibrary } from "./uiLibrary";
 
 // Giving a SCANNED PLUGIN a face, the way docs/moduleNamespaces.md says it happens: not by copying it into
-// every project that plays it, but by a `@mediatek` module that EXTENDS the `@engine` ref and holds the panel.
+// every project that plays it, but by a `@st0` module that EXTENDS the `@engine` ref and holds the panel.
 //
 // The point these tests pin down is where the resolution happens. A médiathèque module's `extends` is not
 // resolved by the médiathèque — a library has no project.yaml, no modules_from, and no engine to ask. It is
@@ -46,7 +46,7 @@ beforeEach(() => {
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n  modules_from: [ '@mediatek' ]\n",
+    "project:\n  name: song\n  tempo: 120\n  modules_from: [ '@st0' ]\n",
     "utf8",
   );
   // The médiathèque module: it adds NOTHING but a name and a face. `extends` is the whole substance.
@@ -71,7 +71,7 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
   it("keys the library module and the engine module side by side", () => {
     // Both levels in one map is the precondition for the `extends` below to resolve at all.
     const all = refs();
-    expect(all["@mediatek/instruments/serum"]).toBeTruthy();
+    expect(all["@st0/instruments/serum"]).toBeTruthy();
     expect(all[SLUG]).toBeTruthy();
   });
 
@@ -79,7 +79,7 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
     // The médiathèque module declares no `plugin:` of its own — the scan is what knows it. If this
     // resolved to nothing the project would draw a face over a module that loads no plugin at all.
     const all = refs();
-    const m = resolveModule(all["@mediatek/instruments/serum"], all);
+    const m = resolveModule(all["@st0/instruments/serum"], all);
     expect(m.plugin).toMatchObject({ type: "vst3", name: "Serum" });
   });
 
@@ -87,20 +87,20 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
     // `category` is OWN_ONLY: the folder a module sits in decides its icon and its ports, and an
     // inherited category would file the médiathèque's copy wherever the engine happened to report.
     const all = refs();
-    const m = resolveModule(all["@mediatek/instruments/serum"], all);
+    const m = resolveModule(all["@st0/instruments/serum"], all);
     expect(m.category).toBe("instruments");
   });
 
   it("draws the panel the médiathèque holds, for a plugin with no folder of its own", () => {
     // The face is the reason the module exists. `@engine/serum` can carry no ui.yaml — writeUiFile
     // refuses it, having no folder to write into — so it is the library module that holds one.
-    const panel = loadUiLibrary(dir).byRef["@mediatek/instruments/serum"];
+    const panel = loadUiLibrary(dir).byRef["@st0/instruments/serum"];
     expect(panel?.ui.widgets.cutoff).toMatchObject({ bind: "Cutoff" });
   });
 
   it("reaches the module itself, not just the panel map", () => {
     // loadModuleRefs overlays the panels onto the modules it keys, which is what a project compiles from.
-    expect(refs()["@mediatek/instruments/serum"].ui).toMatchObject({
+    expect(refs()["@st0/instruments/serum"].ui).toMatchObject({
       cols: 2,
       rows: 1,
     });
@@ -109,7 +109,7 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
   it("resolves the library ref on a project header that says nothing at all", () => {
     // The reason this matters: `modules_from` was only ever written by the scaffold, so every
     // project older than that line saw the médiathèque as a dangling ref — "extends unknown
-    // module '@mediatek/…'" about a module sitting right there on disk. The level's folder is
+    // module '@st0/…'" about a module sitting right there on disk. The level's folder is
     // fixed, so the declaration stated nothing the loader did not already know, and it is gone.
     writeFileSync(
       join(dir, "project.yaml"),
@@ -117,19 +117,17 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
       "utf8",
     );
     const all = loadModuleRefs(dir, CATALOGUE);
-    expect(all["@mediatek/instruments/serum"]).toBeTruthy();
+    expect(all["@st0/instruments/serum"]).toBeTruthy();
     // …and its face comes with it: a module the loader keys but whose panel is only reached
     // through the declaration would resolve and then draw nothing.
-    expect(
-      loadUiLibrary(dir).byRef["@mediatek/instruments/serum"],
-    ).toBeTruthy();
+    expect(loadUiLibrary(dir).byRef["@st0/instruments/serum"]).toBeTruthy();
   });
 
   it("survives a machine that has never scanned", () => {
     // The catalogue is ambient. With none, the `extends` names nothing — and that must cost the
     // inheritance, not the project: validate() is what reports a dangling ref, not the loader.
     const all = loadModuleRefs(dir, {});
-    const m = resolveModule(all["@mediatek/instruments/serum"], all);
+    const m = resolveModule(all["@st0/instruments/serum"], all);
     expect(m.plugin).toBeUndefined();
     expect(m.category).toBe("instruments"); // still filed where it sits
   });
@@ -155,7 +153,7 @@ describe("scaffolding that module", () => {
     writeFileSync(at, f.text, "utf8");
     const all = refs();
     const m = resolveModule(
-      all[`@mediatek/${f.path.replace(/\/module\.yaml$/, "")}`],
+      all[`@st0/${f.path.replace(/\/module\.yaml$/, "")}`],
       all,
     );
     expect(m.plugin).toMatchObject({ name: "Serum" });

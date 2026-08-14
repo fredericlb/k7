@@ -45,16 +45,16 @@ afterEach(() => {
 
 describe("the médiathèque modules a project names", () => {
   it("finds the ones its own modules extend", () => {
-    projectModule("audio/wah", 'extends: "@mediatek/audio/filter/auto-wah"\n');
-    expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/filter/auto-wah"]);
+    projectModule("audio/wah", 'extends: "@st0/audio/filter/auto-wah"\n');
+    expect(mediatekRefs(dir)).toEqual(["@st0/audio/filter/auto-wah"]);
   });
 
   it("finds the ones a NODE extends — the ordinary way to use one", () => {
     // A use of a library module is a file in `nodes/` now, and it reaches the library
     // through `extends` like anything else. Missing it here would mean the machine never
     // cached the module its own song plays.
-    projectNode("gtr", 'extends: "@mediatek/audio/filter/auto-wah"\n');
-    expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/filter/auto-wah"]);
+    projectNode("gtr", 'extends: "@st0/audio/filter/auto-wah"\n');
+    expect(mediatekRefs(dir)).toEqual(["@st0/audio/filter/auto-wah"]);
   });
 
   it("finds one a chain step names outright, node and all", () => {
@@ -62,10 +62,10 @@ describe("the médiathèque modules a project names", () => {
     // the node suffix is dropped rather than turned into a path nothing answers to.
     writeFileSync(
       join(dir, "chains.yaml"),
-      "modules:\n  gtr: [ '@mediatek/audio/modulation/flanger:warm' ]\n",
+      "modules:\n  gtr: [ '@st0/audio/modulation/flanger:warm' ]\n",
       "utf8",
     );
-    expect(mediatekRefs(dir)).toEqual(["@mediatek/audio/modulation/flanger"]);
+    expect(mediatekRefs(dir)).toEqual(["@st0/audio/modulation/flanger"]);
   });
 
   it("ignores every other level", () => {
@@ -84,19 +84,19 @@ describe("the médiathèque modules a project names", () => {
     mkdirSync(at, { recursive: true });
     writeFileSync(
       join(at, "module.yaml"),
-      'extends: "@mediatek/audio/amp/base"\n',
+      'extends: "@st0/audio/amp/base"\n',
       "utf8",
     );
-    projectModule("audio/mine", 'extends: "@mediatek/audio/amp/child"\n');
+    projectModule("audio/mine", 'extends: "@st0/audio/amp/child"\n');
     expect(mediatekRefs(dir)).toEqual([
-      "@mediatek/audio/amp/base",
-      "@mediatek/audio/amp/child",
+      "@st0/audio/amp/base",
+      "@st0/audio/amp/child",
     ]);
   });
 
   it("maps a ref to the folder the whole module lives in", () => {
     // A module IS its folder — the jsdsp source, the presets and the panel come with it.
-    expect(mediatekPathPrefix("@mediatek/audio/filter/auto-wah")).toBe(
+    expect(mediatekPathPrefix("@st0/audio/filter/auto-wah")).toBe(
       "modules/audio/filter/auto-wah/",
     );
   });

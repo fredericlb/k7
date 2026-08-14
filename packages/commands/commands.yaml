@@ -241,7 +241,7 @@
 # original file is left on disk.
 #
 # The chain is one of the project's (its name, `project inspect graph` lists them) or one the
-# médiathèque holds, named under its own token: `@mediatek/blindtest/vocal-strip`. Both are
+# médiathèque holds, named under its own token: `@st0/blindtest/vocal-strip`. Both are
 # offered; a project chain is never shadowed by a library one sharing its name.
 #
 # Two commands rather than one taking either, because the noun is the promise: `track process`
@@ -256,7 +256,7 @@
   readable:
     en: "Bounce a track through a chain, for good"
     fr: "Traiter une piste dans une chaîne, définitivement"
-  help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @mediatek/amp-room)"
+  help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @st0/amp-room)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }, { name: chain, complete: chains }]
 - command: "clip process"
@@ -264,7 +264,7 @@
   readable:
     en: "Bounce a clip through a chain, for good"
     fr: "Traiter un clip dans une chaîne, définitivement"
-  help: "bounce one clip's file through a chain and keep the result (e.g. clip process riff @mediatek/amp-room)"
+  help: "bounce one clip's file through a chain and keep the result (e.g. clip process riff @st0/amp-room)"
   surfaces: [cli]
   args:
     [

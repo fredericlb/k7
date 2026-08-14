@@ -7,7 +7,7 @@ platine dans le graphe. Comme tout le reste du pupitre, le lien est **déclaré*
 ## Le module n'écrit aucune DSP
 
 Le moteur héberge déjà l'égaliseur 4 bandes de Tracktion (`4bandEq`, enregistré sous le nom
-`Equaliser`), avec ses filtres en plateau et en cloche. `@mediatek/audio/filter/eq3` est un
+`Equaliser`), avec ses filtres en plateau et en cloche. `@st0/audio/filter/eq3` est un
 **nom et des défauts** par-dessus — exactement ce que `audio/utility/pitch-shift` est au Pitch
 Shifter. Écrire un EQ en `jsdsp` aurait produit une deuxième implémentation, moins bonne, à
 maintenir.

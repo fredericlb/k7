@@ -699,7 +699,7 @@ async function processCommand(
   if (!target || !chain) {
     h.log([
       `usage: ${scope} process <${scope}${scope === "clip" ? "|path" : ""}> <chain>  ` +
-        "(a chain of this project, or @mediatek/<path>)",
+        "(a chain of this project, or @st0/<path>)",
     ]);
     return;
   }
