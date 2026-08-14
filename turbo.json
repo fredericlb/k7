@@ -12,6 +12,7 @@
       "outputs": ["dist/**"]
     },
     "test": {},
+    "typecheck": {},
     "//#lint": {
       "outputs": []
     },

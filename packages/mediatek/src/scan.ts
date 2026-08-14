@@ -321,7 +321,10 @@ function scanModules(): MediatekEntry[] {
   // Walk one folder under a type. A module ends the descent — what is inside one is its own
   // files and its nodes, never more modules.
   const visit = (abs: string, type: string, sub: string): void => {
-    if (isModuleDir(abs)) return push(abs, type, sub);
+    if (isModuleDir(abs)) {
+      push(abs, type, sub);
+      return;
+    }
     for (const d of dirents(abs))
       if (d.isDirectory()) visit(join(abs, d.name), type, `${sub}/${d.name}`);
   };
@@ -374,7 +377,10 @@ function scanChains(): MediatekEntry[] {
 
   // A chain ends the descent: `nodes/` is inside one, and nothing in there is a chain.
   const visit = (abs: string, sub: string): void => {
-    if (isChainDir(abs)) return push(abs, sub);
+    if (isChainDir(abs)) {
+      push(abs, sub);
+      return;
+    }
     for (const d of dirents(abs))
       if (d.isDirectory()) visit(join(abs, d.name), `${sub}/${d.name}`);
   };

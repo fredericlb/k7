@@ -1,6 +1,6 @@
 // resolvePlugin.ts — which plugin a module file actually loads, following `extends`. A face
 // declares NOTHING but that ref, so reading the text alone finds no plugin and the engine is
-// asked to load nothing. See docs/modulePreview.md.
+// asked to load nothing. See docs/chainPreview.md.
 
 import { readPluginBlock } from "@studio/engine-protocol/build";
 import { engineModuleOf } from "@studio/song/moduleTypes";

@@ -12,6 +12,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -161,9 +162,18 @@ export const CommandBar = forwardRef<
   // whole of it puts a wall over the minimap every time the bar takes the focus, and a list you
   // did not ask for is a list you have to dismiss. One letter is the whole cost of asking.
   const query = command ? "" : value.trim();
-  const matches = query ? rankCommands(commands, value, recentCommands()) : [];
+  // MEMOISED, because the bar is docked and always mounted and App renders two of it: unmemoised,
+  // both ranked the ninety-row catalogue — and read and parsed `localStorage` inside the render —
+  // on every state change anywhere in the shell, not merely when the query changed.
+  const matches = useMemo(
+    () => (query ? rankCommands(commands, value, recentCommands()) : []),
+    [query, value, commands],
+  );
   // The form's own typing goes in its field, so the bar's query is only ever the command's.
-  const suggestions = command ? rankValues(vocab, values[active] ?? "") : [];
+  const suggestions = useMemo(
+    () => (command ? rankValues(vocab, values[active] ?? "") : []),
+    [command, vocab, values, active],
+  );
   const list: readonly unknown[] = command ? suggestions : matches;
   const selIdx = list.length
     ? ((sel % list.length) + list.length) % list.length

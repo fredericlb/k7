@@ -60,13 +60,17 @@ describe("import: one module per plugin, one node per use", () => {
     const mod = read("modules/audio/reverb/module.yaml");
     expect(mod).toContain("name: Reverb");
     expect(mod).not.toContain("mix");
-    expect(read("modules/audio/reverb/vox.yaml")).toContain("mix:");
-    expect(read("modules/audio/reverb/drums.yaml")).toContain("mix:");
+    // Flat in `nodes/`, each naming what it extends — see packages/song/docs/nodes.md.
+    expect(read("nodes/reverb_vox.yaml")).toContain("mix:");
+    expect(read("nodes/reverb_vox.yaml")).toContain(
+      'extends: "@project/audio/reverb"',
+    );
+    expect(read("nodes/reverb_drums.yaml")).toContain("mix:");
 
     // …and the segments name the nodes.
     const chains = read("chains.yaml");
-    expect(chains).toContain("vox: [ reverb:vox ]");
-    expect(chains).toContain("drums: [ reverb:drums ]");
+    expect(chains).toContain("vox: [ reverb_vox ]");
+    expect(chains).toContain("drums: [ reverb_drums ]");
   });
 
   it("keeps a single-use plugin exactly as it was — no node file", () => {
@@ -77,7 +81,7 @@ describe("import: one module per plugin, one node per use", () => {
     );
     expect(stats.nodeFiles).toBe(0);
     expect(read("modules/audio/reverb/module.yaml")).toContain("mix:");
-    expect(existsSync(join(dir, "modules/audio/reverb/vox.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "nodes/reverb_vox.yaml"))).toBe(false);
     expect(read("chains.yaml")).toContain("vox: [ reverb ]");
   });
 
@@ -85,11 +89,11 @@ describe("import: one module per plugin, one node per use", () => {
     // Identical settings too: they're distinct slots in the source DAW, so tweaking one
     // must not retune the other.
     emitFolder(dir, song([track("vox", [fx("EQ"), fx("EQ")])]), {});
-    expect(existsSync(join(dir, "modules/audio/eq/vox.yaml"))).toBe(true);
-    expect(existsSync(join(dir, "modules/audio/eq/vox_2.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes/eq_vox.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes/eq_vox_2.yaml"))).toBe(true);
     const chains = read("chains.yaml");
-    expect(chains).toContain("vox: [ eq:vox ]");
-    expect(chains).toContain("eq:vox: [ eq:vox_2 ]");
+    expect(chains).toContain("vox: [ eq_vox ]");
+    expect(chains).toContain("eq_vox: [ eq_vox_2 ]");
   });
 
   it("doesn't count a dropped insert towards 'used more than once'", () => {
@@ -135,12 +139,12 @@ describe("the emitted folder is a loadable project", () => {
     expect(read("chains.yaml")).toMatch(/modules:\n\s+\S+: \[ /);
     const g = loadGraph(dir);
     expect(Object.keys(g.chains).sort()).toEqual(["drums", "vox"]);
-    expect(g.chains.vox.use.map((s) => s.module)).toEqual(["reverb:vox"]);
-    expect(g.modules["reverb:vox"].params).toEqual({ mix: 0.2 });
-    expect(g.modules["reverb:drums"].params).toEqual({ mix: 0.8 });
+    expect(g.chains.vox.use.map((s) => s.module)).toEqual(["reverb_vox"]);
+    expect(g.modules["reverb_vox"].params).toEqual({ mix: 0.2 });
+    expect(g.modules["reverb_drums"].params).toEqual({ mix: 0.8 });
     // Both inherit the plugin from the module.yaml they share.
-    expect(g.modules["reverb:vox"].plugin).toEqual(
-      g.modules["reverb:drums"].plugin,
+    expect(g.modules["reverb_vox"].plugin).toEqual(
+      g.modules["reverb_drums"].plugin,
     );
     expect(g.warnings).toEqual([]);
   });

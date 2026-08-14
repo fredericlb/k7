@@ -20,6 +20,8 @@ jobs:
       commands: |
         npm ci
         npm run lint
+        npm run lint:bytes
+        npm run typecheck
         npx turbo run test
     runAs: 1000:1000
     useTTY: true

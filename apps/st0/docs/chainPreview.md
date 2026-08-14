@@ -18,8 +18,9 @@ médiathèque has neither, which is the whole reason it needs one.
 
 This browser is talking to the **hosted** médiathèque. The moteur opens **paths on its own
 machine** and cannot fetch a URL. So what actually plays is the copy in the chosen machine's
-médiathèque cache, reached through that machine's file service — the same route m9 takes, and
-its `docs/plumbing.md` walks it end to end.
+médiathèque cache, reached through that machine's file service. The rest of this page walks
+that route end to end — it used to be written down beside the decks, and came here when they
+went.
 
 Concretely, the two halves come from different places on purpose:
 

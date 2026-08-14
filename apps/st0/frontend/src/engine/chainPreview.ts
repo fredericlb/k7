@@ -55,7 +55,7 @@ function engineHeaders(
  * Two different disks are in play and conflating them is the whole trap: the médiathèque this
  * browser is talking to is HOSTED, while the moteur opens paths on its own machine. What plays
  * is the copy in that machine's cache, reached through its file service — the same route m9
- * takes, for the same reason (see its docs/plumbing.md).
+ * takes, for the same reason (see docs/chainPreview.md, "Two disks").
  */
 export async function cacheRoot(
   fileBase: string,

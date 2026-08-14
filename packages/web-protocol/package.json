@@ -12,7 +12,8 @@
     "./hunt": "./hunt.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

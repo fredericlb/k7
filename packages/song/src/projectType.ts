@@ -1,6 +1,6 @@
-// projectType.ts — which dialect a project folder is — l8, m9 or z0 — and what to do when the
+// projectType.ts — which dialect a project folder is — l8 or z0 — and what to do when the
 // folder's NAME and its `project.yaml` disagree. The suffix decides; the file is checked
-// against it and never overrules it. Full rationale: docs/m9Project.md.
+// against it and never overrules it. Full rationale: docs/setProject.md.
 
 import { basename } from "node:path";
 import { projectApp } from "@studio/web-protocol/projects";
@@ -10,7 +10,7 @@ import type { ProjectType } from "./yaml/projectSchema";
 
 export type { ProjectType };
 
-/** What `project.yaml` says it is, or null when it says nothing (which is every song written before m9). */
+/** What `project.yaml` says it is, or null when it says nothing — which is most songs. */
 export function declaredType(dir: string): ProjectType | null {
   try {
     return (loadProjectRoot(dir).type as ProjectType | undefined) ?? null;
@@ -32,7 +32,7 @@ export function declaredType(dir: string): ProjectType | null {
  * 2. Failing that, what the **file** declares. A repository can BE the project (`"."` — see
  *    project-shell's launch.md), and then there is no suffix to read at all. This is the case
  *    `type:` exists for.
- * 3. Failing both, **l8** — every project written before m9 existed, and none of them says so.
+ * 3. Failing both, **l8** — what a folder saying nothing is, and most say nothing.
  *
  * The dialects are `ProjectApp`'s members, not a list of its own: step 1 already answers with
  * `projectApp`, so a second list could only ever disagree with the first. See projectSchema.
@@ -44,8 +44,8 @@ export function projectTypeOf(dir: string): ProjectType {
 /**
  * The contradiction between the folder's name and its own declaration, if there is one.
  *
- * Reported and not thrown, and not silently resolved either: a `set.m9` that declares
- * `type: l8` opens in m9 whatever the file says, so the declaration is a lie a reader will
+ * Reported and not thrown, and not silently resolved either: a `quiz.z0` that declares
+ * `type: l8` opens in z0 whatever the file says, so the declaration is a lie a reader will
  * believe — and the fix is one word, on a line this names. This is the same job
  * `deadProjectFields` does for a field nothing reads: stop "accepted" from meaning "silently
  * ignored", which is the failure mode this codebase keeps paying for.

@@ -278,9 +278,9 @@ export interface EmitStats {
   sequenceFiles: number;
   chainFiles: number;
   moduleNodes: number; // module.yaml files written under modules/<type>/
-  // <node>.yaml files beside them — one per extra use of a plugin (see ModuleDef).
+  // nodes/<name>.yaml files — one per use of a plugin used more than once (see ModuleDef).
   nodeFiles: number;
-  modulePresetFiles: number; // <name>.vstpreset files written beside modules
+  modulePresetFiles: number; // .vstpreset files, beside the node or module whose state they are
   missingAudio: string[];
   missingPlugins: string[]; // referenced but not in the l8 cache -> stubbed
   // Tracks given both audio and MIDI: they import as "sequences", and their audio won't load until split by hand.
@@ -299,13 +299,19 @@ export function emitFolder(
     yamlText({ io: "out" }),
   );
 
-  // Plugin state is written per-module as <name>.vstpreset beside each module file; audio is relocated separately.
+  // Plugin state is written as a .vstpreset beside whichever file owns it — the node's, or the
+  // module's when the single use folded back into module.yaml. Audio is relocated separately.
 
   // Unique name-slug per track (used as track id, chain entry name, send target).
   const usedTrackSlugs = new Set<string>();
   const slugOf = new Map<string, string>();
   for (const t of song.tracks)
     slugOf.set(t.id, uniquify(slugify(t.name), usedTrackSlugs));
+
+  // A node is FLAT now — `nodes/<name>.yaml`, named by its file alone
+  // (packages/song/docs/nodes.md). So a node shares ONE namespace with the lanes and the
+  // modules a chain step may equally name, and uniqueness has to hold across all three.
+  const usedNodeNames = new Set<string>(usedTrackSlugs);
 
   // A plugin's type folder from its role. `transformers`, not the legacy alias `midi`: an import creates fresh
   // folders, so writing the old name gave every imported song a legacy layout on day one.
@@ -342,14 +348,14 @@ export function emitFolder(
       moduleOf.set(key, mod);
       modules.push(mod);
     }
+    // A sole use folds back into module.yaml below, and the chain then names the module — so the
+    // module's own name is taken as far as a node is concerned.
+    usedNodeNames.add(mod.name.toLowerCase());
     // Each insert gets its OWN node even when identically set: they are separate slots, and sharing one would
     // make tweaking the vocal's reverb silently retune the drums'.
-    const node = uniquify(
-      owner,
-      new Set(mod.inserts.map((i) => i.node.toLowerCase())),
-    );
+    const node = uniquify(`${mod.name}_${owner}`, usedNodeNames);
     mod.inserts.push({ node, params, preset });
-    return `${mod.name}:${node}`;
+    return node;
   };
 
   // Master → OUT (or a master chain if it carries plugins).
@@ -524,9 +530,7 @@ export function emitFolder(
   for (const d of Object.values(chains))
     for (const step of d.use) liveRefs.add(step.module);
   for (const mod of modules)
-    mod.inserts = mod.inserts.filter((i) =>
-      liveRefs.has(`${mod.name}:${i.node}`),
-    );
+    mod.inserts = mod.inserts.filter((i) => liveRefs.has(i.node));
 
   // A plugin used in exactly ONE place needs no node: fold it into module.yaml, so the common import reads
   // exactly as it did before nodes existed.
@@ -534,7 +538,7 @@ export function emitFolder(
     for (const mod of modules) {
       if (mod.inserts.length !== 1) continue;
       const [only] = mod.inserts;
-      const from = `${mod.name}:${only.node}`;
+      const from = only.node;
       only.node = ""; // "" == the state lives in module.yaml
       for (const d of Object.values(chains))
         for (const step of d.use)
@@ -588,7 +592,7 @@ export function emitFolder(
   // Which modules survive: one whose every insert was orphaned has nothing left to write.
   const liveModules = modules.filter((b) => b.inserts.length > 0);
 
-  // Modules -> module.yaml plus one <node>.yaml per insert when used more than once. Each file is a FLAT struct
+  // Modules -> module.yaml plus one nodes/<node>.yaml per insert when used more than once. Each file is a FLAT struct
   // with no `name:` and no package wrapper. Opaque state rides as <node>.vstpreset, the convention the brain
   // resolves; a plugin the cache doesn't know is written as a stub the chain simply routes through.
   const cachedNames = loadCachedPluginNames();
@@ -620,29 +624,37 @@ export function emitFolder(
         `and re-import, or set a real plugin.type below.`;
     } else if (!sole) {
       note =
-        `${b.pluginName} — used ${b.inserts.length} times in this song, so each use is an\n` +
-        `NODE beside this file (referenced as "${b.name}:<node>"). The plugin is\n` +
-        `declared once here; each node carries only its own settings.`;
+        `${b.pluginName} — used ${b.inserts.length} times in this song, so each use is a\n` +
+        `NODE in nodes/ that extends this module. The plugin is declared once here;\n` +
+        `each node carries only its own settings.`;
     }
     writeFile(join(outDir, `${dir}/module.yaml`), yamlText(value, [], note));
 
     for (const ins of b.inserts) {
-      const stem = ins.node || b.name; // "" == the sole insert, kept in module.yaml
       if (ins.node) {
         const params = paramsOf(ins.params);
+        // A node is a flat file naming what it extends — never a leaf beside the module it
+        // uses, which is the layout packages/song/docs/nodes.md dropped.
         writeFile(
-          join(outDir, `${dir}/${ins.node}.yaml`),
+          join(outDir, `nodes/${ins.node}.yaml`),
           yamlText(
-            params ? { params } : {},
+            {
+              extends: `@project/${b.folder}/${b.name}`,
+              ...(params ? { params } : {}),
+            },
             [],
-            `${b.name}:${ins.node} — inherits module.yaml (the plugin); only what\n` +
-              `this use sets differs.`,
+            `${ins.node} — inherits ${b.name} (the plugin); only what this use sets differs.`,
           ),
         );
         nodeFiles++;
       }
       if (ins.preset && assets[ins.preset]) {
-        writeFile(join(outDir, `${dir}/${stem}.vstpreset`), assets[ins.preset]);
+        // Beside the file whose state it is: nodes/<node>.vstpreset for a node, and the
+        // module's own folder for the sole use that stayed in module.yaml.
+        const at = ins.node
+          ? `nodes/${ins.node}.vstpreset`
+          : `${dir}/${b.name}.vstpreset`;
+        writeFile(join(outDir, at), assets[ins.preset]);
         modulePresetFiles++;
       }
     }

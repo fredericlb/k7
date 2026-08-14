@@ -13,7 +13,8 @@
     "./stream": "./stream.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

@@ -4,6 +4,7 @@
 // bundle carries its own copy and needs no repo build dir. See docs/buildEngine.md.
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   cpSync,
@@ -119,6 +120,57 @@ const sidecarOnly = process.argv.includes("--sidecar-only");
 // separately-run, hot-reloading file service. See docs/buildEngine.md.
 const devMode = process.argv.includes("--dev");
 
+/**
+ * Refuse a vendored Node that is not the one nodejs.org published.
+ *
+ * This binary is what RUNS `engine-host.mjs` and `file-service.mjs` inside the signed app, so a
+ * substituted archive is arbitrary code shipped under our signature — and until this check the
+ * download was a bare `curl` with nothing compared afterwards. The C++ side already pins its
+ * ASIO SDK by digest (`engine/moteur/CMakeLists.txt`); this is the same rule for the other
+ * downloaded dependency.
+ *
+ * Checked against the release's own `SHASUMS256.txt` rather than a digest pinned here, because a
+ * table would need an entry per platform and arch and would go stale at every Node bump — the
+ * failure mode being a build that silently stops verifying. It catches a truncated, corrupted or
+ * swapped archive; it does not, on its own, defend against nodejs.org itself being compromised.
+ */
+function verifyNodeArchive(archivePath, archive) {
+  const sumsPath = join(CACHE, `SHASUMS256-${NODE_VERSION}.txt`);
+  if (!existsSync(sumsPath))
+    run(
+      "curl",
+      [
+        "-fsSL",
+        "-o",
+        sumsPath,
+        `https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt`,
+      ],
+      CACHE,
+    );
+
+  const line = readFileSync(sumsPath, "utf8")
+    .split("\n")
+    .find((l) => l.trim().endsWith(` ${archive}`));
+  if (!line) {
+    console.error(`\nerror: ${archive} is not listed in SHASUMS256.txt.`);
+    process.exit(1);
+  }
+  const want = line.trim().split(/\s+/)[0].toLowerCase();
+  const got = createHash("sha256")
+    .update(readFileSync(archivePath))
+    .digest("hex");
+  if (got !== want) {
+    // Removed, not just refused: leaving it means the next run finds it "cached" and trusts it.
+    rmSync(archivePath, { force: true });
+    console.error(
+      `\nerror: ${archive} failed its checksum and has been deleted.\n` +
+        `  expected ${want}\n  got      ${got}`,
+    );
+    process.exit(1);
+  }
+  console.log(`  sha256 ok — ${archive}`);
+}
+
 // Download (once, cached) an official self-contained Node and return its binary.
 function vendorNode() {
   const plat = { darwin: "darwin", win32: "win", linux: "linux" }[
@@ -151,6 +203,7 @@ function vendorNode() {
       ],
       CACHE,
     );
+  verifyNodeArchive(archivePath, archive);
   // Windows: System32's bsdtar BY PATH — it reads .zip, and a bare `tar` may resolve to Git Bash's GNU tar.
   const tar = isWin
     ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")

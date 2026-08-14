@@ -9,11 +9,16 @@ import { z } from "zod";
 import { engineFilesProxy, issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
 
+// Addresses are ADDRESSES, and the check is here because `/registry/heartbeat` is open by
+// design: what lands here is dialled by `hostsFor` and put in an outbound request's `host`, so
+// an unvalidated string would let anyone aim this server at a name of their choosing. The
+// supervisor only ever announces `127.0.0.1` plus non-internal IPv4s (engine-host's
+// addresses.ts), so nothing legitimate is turned away by requiring exactly that.
 const addressesSchema = z.object({
-  loopback: z.string(),
-  lanIps: z.array(z.string()),
-  port: z.number(),
-  filePort: z.number(),
+  loopback: z.ipv4(),
+  lanIps: z.array(z.ipv4()),
+  port: z.number().int().min(1).max(65535),
+  filePort: z.number().int().min(1).max(65535),
 });
 
 // No top-level `port`: it was required here, absent from HeartbeatInput and dropped by upsert(). The one that

@@ -18,7 +18,7 @@ describe("geolerp's ends", () => {
       graph((g) => {
         g.biquad(
           "lowpass",
-          g.geolerp(20000, 200, g.param("A", { min: 0, max: 1 })),
+          g.geolerp(20000, 200, g.param("A", { min: 0, max: 1, default: 0 })),
           1,
         );
       }),

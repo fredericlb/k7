@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { youtubeQuery, ytdlpArgs } from "./youtube.ts";
 
@@ -48,8 +49,11 @@ describe("ytdlpArgs", () => {
     const args = ytdlpArgs("x", "/vol/.hunts/tmp/abc");
     expect(args).toContain("--max-filesize");
     expect(args).toContain("--socket-timeout");
+    // Assemblé par `join` comme la production le fait : le serveur est Linux, mais un poste de
+    // développement Windows donne des antislashs — que yt-dlp accepte — et l'attente écrite en
+    // dur faisait échouer la série entière ici, et nulle part ailleurs.
     expect(args[args.indexOf("--output") + 1]).toBe(
-      "/vol/.hunts/tmp/abc/%(id)s.%(ext)s",
+      join("/vol/.hunts/tmp/abc", "%(id)s.%(ext)s"),
     );
   });
 });
