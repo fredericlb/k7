@@ -140,6 +140,37 @@ describe("a window written as a timecode", () => {
     clip({ source: "clips/kick.wav", from: "2:1" });
     expect(kick()!.sourceTo).toBeUndefined();
   });
+
+  /**
+   * …and it reaches the UNPLACED doc too, but only with the grid, because that is the only thing
+   * that can turn a bar number into seconds.
+   *
+   * This is the half that was missing. `mapClip` read `Number(c.from)`, which is `NaN` for every
+   * timecode, so the definition an editor draws from came back with NO window — while the compiled
+   * placement had one. An imported song writes nearly all of its edges this way, so the surfaces
+   * that shade the window had nothing to shade on almost every clip in a real project.
+   */
+  it("reaches the UNPLACED clip doc, given the project's grid", () => {
+    clip({ source: "clips/kick.wav", from: "2:1", to: "3:1" });
+    const c = loadAudioClipDoc(dir, "kick", { tempo: 120, num: 4, den: 4 })!;
+    expect(c.sourceFrom).toBeCloseTo(2, 6); // bar 2 beat 1 == 4 beats == 2s at 120bpm
+    expect(c.sourceTo).toBeCloseTo(4, 6);
+  });
+
+  it("drops a timecode edge with no grid rather than guessing at one", () => {
+    clip({ source: "clips/kick.wav", from: "2:1", to: "3:1" });
+    const c = loadAudioClipDoc(dir, "kick")!;
+    expect(c.sourceFrom).toBeUndefined();
+    expect(c.sourceTo).toBeUndefined();
+  });
+
+  it("still reads SECONDS with no grid, as every caller of this always could", () => {
+    clip({ source: "clips/kick.wav", from: 0.25, to: 1.5 });
+    expect(loadAudioClipDoc(dir, "kick")).toMatchObject({
+      sourceFrom: 0.25,
+      sourceTo: 1.5,
+    });
+  });
 });
 
 describe("a window that cannot be played", () => {

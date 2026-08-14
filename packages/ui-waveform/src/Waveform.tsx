@@ -352,10 +352,12 @@ function WaveformInner({
     if (sourceWindow && sourceWindow.to > sourceWindow.from) {
       const wx0 = timeToX(sourceWindow.from);
       const wx1 = timeToX(sourceWindow.to);
-      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      ctx.fillStyle = "rgba(255,255,255,0.1)";
       ctx.fillRect(wx0, 0, Math.max(1, wx1 - wx0), HEIGHT);
-      ctx.strokeStyle = "rgba(226,232,240,0.45)";
-      ctx.lineWidth = 1;
+      // The EDGES carry it, not the wash: the envelope's own fill is a gradient up to 22% drawn on
+      // top, so a band relying on its tint alone reads as a smudge exactly where there is audio.
+      ctx.strokeStyle = "rgba(226,232,240,0.8)";
+      ctx.lineWidth = 1.5;
       for (const ex of [wx0, wx1]) {
         const x = Math.round(ex) + 0.5;
         ctx.beginPath();

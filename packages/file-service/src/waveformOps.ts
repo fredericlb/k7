@@ -187,9 +187,17 @@ export class WaveformOps {
     // A placed clip comes from the compiled project; a defined-but-unplaced one is read from its definition, so its
     // waveform shows while you edit it (a video clip has none, and loadAudioClipDoc returns null). `whole` reverses
     // that precedence: the definition carries no start/length/offset, which is exactly what makes the span the file.
+    // The grid, so a TIMECODE `from:`/`to:` resolves to seconds here as it does in the compiler. An
+    // imported song writes nearly all of them that way, and without this the definition came back
+    // with no window at all — the picture was right, and there was nothing to shade it with.
+    const grid = {
+      tempo: p.tempo,
+      num: p.timeSigNumerator,
+      den: p.timeSigDenominator,
+    };
     const clip = whole
-      ? (loadAudioClipDoc(dir, clipId) ?? findClip(p, clipId))
-      : (findClip(p, clipId) ?? loadAudioClipDoc(dir, clipId));
+      ? (loadAudioClipDoc(dir, clipId, grid) ?? findClip(p, clipId))
+      : (findClip(p, clipId) ?? loadAudioClipDoc(dir, clipId, grid));
     if (!clip) throw new Error(`no clip '${clipId}'`);
     if (clip.type !== "audio")
       throw new Error(`'${clipId}' is not an audio clip`);

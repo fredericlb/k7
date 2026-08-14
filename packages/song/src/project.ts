@@ -231,8 +231,42 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
   };
 }
 
+/** The project grid a timecode window needs to become seconds. */
+export interface ClipGrid {
+  tempo: number;
+  num: number;
+  den: number;
+}
+
+/**
+ * A clip's window edge, in SECONDS. A bare number already is one; a TIMECODE is a position in the
+ * file and needs the project's grid to become one (see AudioClipSchema).
+ *
+ * Without a grid a timecode is dropped, which is what this did for EVERY caller until the drawing
+ * needed it: `Number("2:1")` is `NaN`, so the musical spelling — the one an imported song is full
+ * of — silently produced a clip with no window at all. `nodeProject` had its own resolver and was
+ * right; this path had none and was quietly wrong.
+ */
+function windowEdge(v: unknown, grid?: ClipGrid): number | undefined {
+  if (v == null || v === "") return undefined;
+  const n = Number(v);
+  if (Number.isFinite(n)) return n > 0 ? n : undefined;
+  if (!grid) return undefined;
+  try {
+    const beats = parsePosition(String(v), grid.num, grid.den);
+    return beats > 0 ? (beats * 60) / grid.tempo : undefined;
+  } catch {
+    return undefined; // a half-typed or legacy edge: no window rather than a wrong one
+  }
+}
+
 // Map a clip struct to a ClipDoc: with no explicit `type`, `notes` means MIDI and `source` means audio.
-function mapClip(c: AssembledClip, baseDir: string, where: string): ClipDoc {
+function mapClip(
+  c: AssembledClip,
+  baseDir: string,
+  where: string,
+  grid?: ClipGrid,
+): ClipDoc {
   const type: "audio" | "midi" =
     c.type === "midi" || (!c.type && c.notes) ? "midi" : "audio";
   if (type === "audio" && !c?.source)
@@ -245,8 +279,12 @@ function mapClip(c: AssembledClip, baseDir: string, where: string): ClipDoc {
     start: Number(c.start ?? 0),
     length: Number(c.length ?? 0),
     offset: Number(c.offset ?? 0),
-    ...(Number(c.from ?? 0) > 0 ? { sourceFrom: Number(c.from) } : {}),
-    ...(Number(c.to ?? 0) > 0 ? { sourceTo: Number(c.to) } : {}),
+    ...(windowEdge(c.from, grid) != null
+      ? { sourceFrom: windowEdge(c.from, grid) }
+      : {}),
+    ...(windowEdge(c.to, grid) != null
+      ? { sourceTo: windowEdge(c.to, grid) }
+      : {}),
     fadeIn: Number(c.fadeIn ?? 0),
     fadeOut: Number(c.fadeOut ?? 0),
     ...(c.disabled ? { disabled: true } : {}),
@@ -268,11 +306,17 @@ function mapClip(c: AssembledClip, baseDir: string, where: string): ClipDoc {
 // The audio clip `id` as a standalone, UNPLACED ClipDoc — what lets a surface show its
 // waveform before any track references it. Null for a video source (told apart by
 // extension, since clips/ holds both kinds identically) or a single-file song.
-export function loadAudioClipDoc(dir: string, id: string): ClipDoc | null {
+export function loadAudioClipDoc(
+  dir: string,
+  id: string,
+  // The project's grid, so a TIMECODE window resolves. Omitted, such an edge is dropped — which is
+  // all this could ever do before, and is why the callers that draw the window now pass one.
+  grid?: ClipGrid,
+): ClipDoc | null {
   if (!isFolderProject(dir)) return null;
   const def = exportSub(dir, "clips")?.[id];
   if (!def?.source || isVideoSource(String(def.source))) return null;
-  return mapClip({ id, ...def }, dir, `'${id}'`);
+  return mapClip({ id, ...def }, dir, `'${id}'`, grid);
 }
 
 // The mixer's vocabulary moved to @studio/engine-protocol/build — a leaf the BROWSER can hold,

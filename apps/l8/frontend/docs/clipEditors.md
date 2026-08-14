@@ -128,6 +128,18 @@ and reports the window separately, which repairs both panes at once: `WaveformVi
 was measuring `from / wf.seconds` from the crop's zero, i.e. shading the wrong span of an already
 wrong picture.
 
+### …and the timecode spelling had no window to shade at all
+
+The same `Number(c.from)` is why the band did not appear on a real song. `nodeProject` has always
+resolved both spellings; `mapClip` — the path `loadAudioClipDoc` takes, and therefore the one the
+`whole` view reads — resolved only numbers, so a timecode edge produced a clip with **no window**.
+Measured on 01.danse.l8, four of five sampled clips are written `to: "3:1"` and came back empty;
+only the one trimmed by `clip trim`, which writes seconds, had anything to draw.
+
+`loadAudioClipDoc` now takes the project's grid and resolves the edge the way the compiler does.
+Without a grid it still drops a timecode rather than guessing, which is exactly what it did before,
+so the preview callers that pass none are unchanged — they read only `source` anyway.
+
 The window rides on the payload in the same display seconds as the onsets and the warp marks, mapped
 through `RegionWaveform.toDisplay` — the region's own projection, handed out rather than copied. A
 second `(sec - inPoint) * stretch` elsewhere is exactly how a band comes to sit a pixel off the marks
