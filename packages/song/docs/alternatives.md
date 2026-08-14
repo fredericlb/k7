@@ -77,6 +77,22 @@ graph's track side rather than from a chain step. That fourth track-side channel
 collapsing next — a lane IS a module node now
 ([trackModules.md](trackModules.md)), and this says so the long way round.
 
+## Writing to a lane means writing to the set that is ON
+
+The "a list is a scalar" rule above has a sharp edge for lanes, and it drew blood: a set restating
+`clips:` **replaces** the arrangement, so an edit appended to the file's top-level `clips:` while
+another set is running lands in a list nobody is playing.
+
+A recorded take did exactly that. It was named after the right bar, its `clips/<id>.yaml` was
+written, its placement went in — and the lane stayed empty, because the take was added to set "1"
+while set "4" was on. Nothing failed and nothing was logged; the take was simply silent.
+
+So `yaml/trackFile.ts` resolves `clipsPath(doc)` per document — `["clips"]` for the first set,
+`["alternatives", n-1, "clips"]` otherwise — and **every** placement edit reads it: recording,
+dragging, `event move`, `event remove`, `event resize`. That file had kept the seam open for this
+(its older note called the failure "quietly rewriting an arrangement nobody was looking at") from
+back when alternatives had been removed; they returned, and the seam had to answer again.
+
 ## Not a preset
 
 They overlap and they are different things, and the difference is what to hold on to:

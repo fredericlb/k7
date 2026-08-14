@@ -1,9 +1,10 @@
-// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is a node file
+﻿// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is a node file
 // (nodes/<name>.yaml, see docs/trackModules.md). The app's most frequent edit: every clip
 // drag writes a placement's `start`. Reading and validating the file is moduleFile's job, since
 // a lane is an ordinary module; what is here is the clip list and nothing else.
 
 import { isSeq, parseDocument } from "yaml";
+import { currentAlternative } from "../alternatives";
 import { parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
 
@@ -22,14 +23,27 @@ function put(
 }
 
 /**
- * WHERE this file's clips are.
+ * WHERE this file's clips are — which is a CHOICE again.
  *
- * One key, and it used to be a choice: a lane's clip list had VARIANTS, and every edit below had
- * to find the one currently showing or quietly rewrite an arrangement nobody was looking at.
- * Alternatives are gone (to be replaced by another mechanism), so this is a constant — kept as a
- * function because every edit below reads it, and that is the seam a second answer would use.
+ * A lane's arrangement has variants once more (`alternatives:`, see ../docs/alternatives.md), and
+ * each of them restates `clips:`. A list is a scalar to the merge, so the running set REPLACES the
+ * arrangement rather than adding to it — which means an edit written to the top-level list while
+ * another set is on does exactly what the older note here warned about: it "quietly rewrites an
+ * arrangement nobody is looking at". A recorded take landed there and was silent on disk.
+ *
+ * So this is the seam that note kept open, now answering. Every edit below reads it from ITS
+ * document, so recording, dragging, moving and removing all address the set that is playing.
+ * Index 0 is the module's own fields, which ARE the first set and have no wrapper key.
  */
-const CLIPS: (string | number)[] = ["clips"];
+function clipsPath(doc: ReturnType<typeof parseDocument>): (string | number)[] {
+  const at = currentAlternative(
+    doc.toJS({ maxAliasCount: -1 }) as {
+      alternatives?: unknown;
+      alternative?: unknown;
+    } | null,
+  );
+  return at === 0 ? ["clips"] : ["alternatives", at - 1, "clips"];
+}
 
 /** Set one field on the lane — what a colour picker writes. */
 export function setTrackField(
@@ -47,7 +61,7 @@ export function setTrackField(
 
 /** One placement per line — the shape the file already uses, kept on every write. */
 function flowPlacements(doc: ReturnType<typeof parseDocument>): void {
-  const clips = doc.getIn(CLIPS);
+  const clips = doc.getIn(clipsPath(doc));
   if (!isSeq(clips)) return;
   for (const p of clips.items)
     if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
@@ -62,6 +76,7 @@ function flowPlacements(doc: ReturnType<typeof parseDocument>): void {
  */
 export function findPlacement(text: string, start: string): number {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   const clips = doc.getIn(CLIPS);
   if (!isSeq(clips)) return -1;
   return clips.items.findIndex(
@@ -74,6 +89,7 @@ export function movePlacement(text: string, start: string, to: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   doc.setIn([...CLIPS, at, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
@@ -84,6 +100,7 @@ export function removePlacement(text: string, start: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   doc.deleteIn([...CLIPS, at]);
   quoteTimecodes(doc);
   return doc.toString(OUT);
@@ -96,6 +113,7 @@ export function addPlacement(
   placement: { ref: string; start?: string; loop?: number },
 ): string {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   const clips = doc.getIn(CLIPS);
   const node = doc.createNode(placement);
   node.flow = true; // one placement per line, as the file already writes them
@@ -115,6 +133,7 @@ export function findPlacementAt(
   den: number,
 ): number {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   const clips = doc.getIn(CLIPS);
   if (!isSeq(clips)) return -1;
   return clips.items.findIndex((_p, i) => {
@@ -136,6 +155,7 @@ export function placementAt(
   index: number,
 ): Record<string, unknown> | null {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   const clips = doc.getIn(CLIPS);
   if (!isSeq(clips) || index < 0 || index >= clips.items.length) return null;
   return doc.getIn([...CLIPS, index], false) as Record<string, unknown> | null;
@@ -149,6 +169,7 @@ export function placementAt(
  */
 export function placementValues(text: string): Record<string, unknown>[] {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   const clips = doc.getIn(CLIPS);
   if (!isSeq(clips)) return [];
   return clips.items.map(
@@ -163,6 +184,7 @@ export function placementValues(text: string): Record<string, unknown>[] {
 /** Drop the placement at `index`. */
 export function removePlacementAt(text: string, index: number): string {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   doc.deleteIn([...CLIPS, index]);
   quoteTimecodes(doc);
   return doc.toString(OUT);
@@ -179,6 +201,7 @@ export function setPlacementField(
   value: string | number | boolean | undefined,
 ): string {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   if (value === undefined) doc.deleteIn([...CLIPS, index, field]);
   else doc.setIn([...CLIPS, index, field], value);
   quoteTimecodes(doc);
@@ -192,6 +215,7 @@ export function movePlacementAt(
   to: string,
 ): string {
   const doc = parseDocument(text, OPTS);
+  const CLIPS = clipsPath(doc);
   doc.setIn([...CLIPS, index, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
