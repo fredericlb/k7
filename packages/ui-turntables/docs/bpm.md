@@ -7,7 +7,7 @@ fader gauche, et le fader droit devient gris et bouge tout seul.
 ## Le fader est le paramètre d'un MODULE
 
 Ce n'est pas une commande que m9 s'invente : le projet le dit. `example.m9` pose sur chaque
-platine un nœud du module `@mediatek/audio/utility/tempo` de la médiathèque, et le
+platine un nœud du module `@st0/audio/utility/tempo` de la médiathèque, et le
 fader est le `Target BPM` de ce nœud. Un nœud par platine, parce que chaque
 platine joue à son propre BPM et qu'un paramètre appartient à un **usage**, pas à un module.
 

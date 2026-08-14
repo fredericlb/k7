@@ -10,7 +10,7 @@ import { parseSongs, songRefs } from "@studio/song/yaml/songsFile";
 export interface SetEntry {
   /** As written in songs.yaml. */
   ref: string;
-  /** The médiathèque id — the ref with its `@mediatek/` taken off. */
+  /** The médiathèque id — the ref with its `@st0/` taken off. */
   id: string;
   /** What to show. The catalogue's title when the cache holds it, else the id's last segment,
    *  which is the folder the médiathèque filed it under and the best name available. */

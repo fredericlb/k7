@@ -70,8 +70,8 @@ import {
 import { ContextMenu } from "./components/ContextMenu";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
-import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
+import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
@@ -1840,7 +1840,7 @@ export default function App({
     // (`@studio/song/moduleTypes`), because a lookup that spelled it differently would report
     // "this project has no such module" about a module plainly in the tree.
     //
-    // A LIBRARY module is named with its namespace instead — `@mediatek/audio/amps/nam` — since
+    // A LIBRARY module is named with its namespace instead — `@st0/audio/amps/nam` — since
     // that is what a chain writes for a module the project inherits rather than holds. Same
     // lookup, one spelling apart, and getting it wrong here is what would make the Libraries tab
     // a text editor: no ref, no plugin, no real parameters.

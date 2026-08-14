@@ -148,14 +148,14 @@ describe("resolveModule", () => {
     // declares none, so a plain spread had the child erase its parent's — which is why five
     // call sites had grown a `?? base?.x` for each.
     const byRef = {
-      "@mediatek/audio/amp": mod({
+      "@st0/audio/amp": mod({
         nam: "/mods/amp/assets/jcm800.nam",
         preset: "/mods/amp/p.vstpreset",
         assets: { nam: "jcm800.nam" },
       }),
     };
     const child = mod({
-      extends: "@mediatek/audio/amp",
+      extends: "@st0/audio/amp",
       nam: undefined,
       preset: undefined,
     });

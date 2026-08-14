@@ -2,14 +2,14 @@
 
 ```yaml
 songs:
-  - "@mediatek/songs/lemo/mante/danse"
-  - "@mediatek/songs/lemo/mante/aube"
+  - "@st0/songs/lemo/mante/danse"
+  - "@st0/songs/lemo/mante/aube"
 ```
 
 The only file an m9 set has that a song has no counterpart for, and the only place a
 project names the médiathèque's **songs** rather than its modules.
 
-## A ref is `@mediatek/` plus the médiathèque id, verbatim
+## A ref is `@st0/` plus the médiathèque id, verbatim
 
 A `MediatekEntry.id` is the entry's library-relative POSIX path, and the catalogue's own
 note says nothing else survives a rescan — there is no rowid, because there is no database.
@@ -25,7 +25,7 @@ open with one. `chainsFile.md` has the same note for module refs, and for the sa
 
 ### Why it looks a segment longer than a module ref
 
-`@mediatek/audio/reverb` means `modules/audio/reverb` — the module vocabulary predates the
+`@st0/audio/reverb` means `modules/audio/reverb` — the module vocabulary predates the
 médiathèque having families, and omits its own. A song ref carries `songs/` because it is
 the id.
 
@@ -104,8 +104,8 @@ entrée est **soit** une référence nue **soit** une référence qui porte quel
 
 ```yaml
 songs:
-  - "@mediatek/songs/artiste/album/titre"
-  - ref: "@mediatek/songs/artiste/album/autre"
+  - "@st0/songs/artiste/album/titre"
+  - ref: "@st0/songs/artiste/album/autre"
     markers: [ 12.5, null, 48.25 ]
 ```
 

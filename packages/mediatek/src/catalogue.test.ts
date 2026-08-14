@@ -306,8 +306,8 @@ describe("scanning samples and modules", () => {
     // counting the chain's own files would report the chains.yaml and any notes beside it.
     write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
     write("chains/gtr/README.md", "notes");
-    write("chains/gtr/nodes/eq.yaml", 'extends: "@mediatek/audio/eq"\n');
-    write("chains/gtr/nodes/comp.yaml", 'extends: "@mediatek/audio/comp"\n');
+    write("chains/gtr/nodes/eq.yaml", 'extends: "@st0/audio/eq"\n');
+    write("chains/gtr/nodes/comp.yaml", 'extends: "@st0/audio/comp"\n');
     const [chain] = scanFamily("chains");
     expect(chain.meta?.nodes).toBe(2);
     expect(chain.files).toContain("chains.yaml");

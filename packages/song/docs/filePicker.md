@@ -34,7 +34,7 @@ The ancestry half is not a refinement; without it the widget lists nothing in th
 A song points at a shared amp by making a thin local module that `extends` it:
 
 ```
-project/modules/audio/guitar/module.yaml     extends: "@mediatek/audio/amps/guitar"
+project/modules/audio/guitar/module.yaml     extends: "@st0/audio/amps/guitar"
 mediatek/modules/audio/amps/guitar/assets/   ← the fourteen profiles are HERE
 ```
 

@@ -120,7 +120,7 @@ describe("the deck's tempo is a MODULE, and the warp stands in for it", () => {
     // `example.m9`'s nodes extend exactly this. If the médiathèque renames the module,
     // this is the line that has to move with it — and the scaffold's own test pins the other
     // end, so the two cannot drift apart silently.
-    expect(TEMPO_MODULE).toBe("@mediatek/audio/utility/tempo");
+    expect(TEMPO_MODULE).toBe("@st0/audio/utility/tempo");
     expect(TEMPO_PARAM).toBe("Target BPM");
     expect(TEMPO_SOURCE_PARAM).toBe("Source BPM");
   });
@@ -174,7 +174,7 @@ describe("stretching a deck to a tempo", () => {
 
 describe("the BPM fader's ends", () => {
   it("is the MODULE's knob, 10 to 300", () => {
-    // Not a range m9 invented: `@mediatek/audio/utility/tempo`'s ui.yaml declares a BPM knob
+    // Not a range m9 invented: `@st0/audio/utility/tempo`'s ui.yaml declares a BPM knob
     // from 10 to 300, and the fader in Mix is that knob. A surface offering less would
     // quietly refuse values the module accepts.
     expect(BPM_RANGE).toEqual([10, 300]);

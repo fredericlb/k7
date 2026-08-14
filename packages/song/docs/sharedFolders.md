@@ -6,7 +6,7 @@ where they are**:
 ```
 ws/_modules/     the shared modules   → @workspace/<type>/<name>
 ws/song/         a project
-~/.studio/mediatek/modules            → @mediatek/…
+~/.studio/mediatek/modules            → @st0/…
 ```
 
 `moduleLibraryDirs()` answers that: what sits beside the project, then the machine's
@@ -23,8 +23,8 @@ The lists could only ever name those same two places, so they decided nothing �
 every project a way to be **wrong** about facts the loader already knew. Three ways, all seen
 in one afternoon:
 
-- a project older than the line that added `@mediatek` saw no médiathèque at all, and every
-  `@mediatek/…` ref in it read as "extends unknown module" — about modules sitting right
+- a project older than the line that added `@st0` saw no médiathèque at all, and every
+  `@st0/…` ref in it read as "extends unknown module" — about modules sitting right
   there on disk;
 - a `_modules` folder deleted from the workspace left its declaration behind, and
   `loadModuleRefs` **threw** on a root it could not resolve: one stale line, and the whole
@@ -63,7 +63,7 @@ module is, shared library included. See `docs/uiLibrary.md` for why that excepti
 and what it costs.
 
 `moduleNamespaceOf()` lives here too, because it is the one fact that separates the two kinds
-of root: the médiathèque's modules key as `@mediatek/…`, anything else as `@workspace/…`, and
+of root: the médiathèque's modules key as `@st0/…`, anything else as `@workspace/…`, and
 a project's own `modules/` keys bare. Everything that turns a folder into a ref, or a ref back
 into a folder, turns on that — and it asks the PATH, never a declaration. See
 docs/moduleNamespaces.md.

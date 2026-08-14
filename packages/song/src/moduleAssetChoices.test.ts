@@ -59,7 +59,7 @@ describe("moduleAssetChoices", () => {
     );
     mkModule(
       join(project, "modules", "audio", "guitar"),
-      'extends: "@mediatek/audio/amps/guitar"\n',
+      'extends: "@st0/audio/amps/guitar"\n',
     );
     // Through the real loaders, because the FOLDER each module lives in is something they
     // stamp — reading it off the ref map is what keeps this from walking the libraries again.
@@ -78,12 +78,12 @@ describe("moduleAssetChoices", () => {
     );
     mkModule(
       join(root, "mediatek", "modules", "audio", "amps", "mid"),
-      'extends: "@mediatek/audio/amps/base"\n',
+      'extends: "@st0/audio/amps/base"\n',
       ["mid.nam"],
     );
     mkModule(
       join(project, "modules", "audio", "top"),
-      'extends: "@mediatek/audio/amps/mid"\n',
+      'extends: "@st0/audio/amps/mid"\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const choices = moduleAssetChoices(project, loadModules(project).top, refs);
@@ -99,7 +99,7 @@ describe("moduleAssetChoices", () => {
     );
     mkModule(
       join(project, "modules", "audio", "local"),
-      'extends: "@mediatek/audio/amps/shared"\n',
+      'extends: "@st0/audio/amps/shared"\n',
       ["clean.nam"],
     );
     expect(
@@ -108,7 +108,7 @@ describe("moduleAssetChoices", () => {
         {
           category: "audio",
           file: "local",
-          extends: "@mediatek/audio/amps/shared",
+          extends: "@st0/audio/amps/shared",
         },
         {},
       ),
@@ -126,12 +126,12 @@ describe("moduleAssetChoices", () => {
   it("cannot loop forever on a cyclic `extends`", () => {
     // Refused upstream; this is the backstop, and it must return rather than hang a UI request.
     const refs = {
-      "@mediatek/a": { extends: "@mediatek/b" },
-      "@mediatek/b": { extends: "@mediatek/a" },
+      "@st0/a": { extends: "@st0/b" },
+      "@st0/b": { extends: "@st0/a" },
     };
-    expect(
-      moduleAssetChoices(project, { extends: "@mediatek/a" }, refs),
-    ).toEqual([]);
+    expect(moduleAssetChoices(project, { extends: "@st0/a" }, refs)).toEqual(
+      [],
+    );
   });
 });
 
@@ -148,7 +148,7 @@ describe("a file the module INHERITS", () => {
     );
     mkModule(
       join(project, "modules", "audio", "guitar"),
-      'extends: "@mediatek/audio/amps/guitar"\nparams:\n  nam: roland/bright.nam\n',
+      'extends: "@st0/audio/amps/guitar"\nparams:\n  nam: roland/bright.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
@@ -165,7 +165,7 @@ describe("a file the module INHERITS", () => {
     );
     mkModule(
       join(project, "modules", "audio", "local"),
-      'extends: "@mediatek/audio/amps/shared"\nparams:\n  nam: clean.nam\n',
+      'extends: "@st0/audio/amps/shared"\nparams:\n  nam: clean.nam\n',
       ["clean.nam"],
     );
     const refs = loadModuleRefs(project, {}, []);
@@ -184,7 +184,7 @@ describe("a file the module INHERITS", () => {
     );
     mkModule(
       join(project, "modules", "audio", "sneaky"),
-      'extends: "@mediatek/audio/amps/shared"\nparams:\n  nam: ../../../../secret.nam\n',
+      'extends: "@st0/audio/amps/shared"\nparams:\n  nam: ../../../../secret.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);

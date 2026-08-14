@@ -20,7 +20,7 @@ Les noms viennent de trois sources différentes, chacune la seule qui puisse ré
 | ce qu'on écrit | vocabulaire | qui répond |
 |---|---|---|
 | `extends:` d'un module | `@engine/…` | le **moteur**, par son socket (`engine/baseModules.ts`) |
-| `extends:` d'un module | `@mediatek/…` | le **catalogue**, par `library.baseModules()` |
+| `extends:` d'un module | `@st0/…` | le **catalogue**, par `library.baseModules()` |
 | une destination d'un `chains.yaml` | les nœuds déclarés | **le fichier lui-même** (`chainsVocabulary.ts`) |
 | une ligne de playlist | les morceaux | la **famille songs**, déjà interrogée par l'écran |
 
@@ -39,13 +39,13 @@ la **machine**, un autre moteur en a un autre, et un rescan là-bas le change so
 Les modules io que ce catalogue synthétise aussi — `@engine/IN`, `OUT`, `FILE` — sont
 délibérément absents : ils s'utilisent directement et ne sont pas des cibles d'`extends`.
 
-### `@mediatek/…` — l'autre moitié
+### `@st0/…` — l'autre moitié
 
 Un module de la bibliothèque peut en étendre un autre, et un nœud de chaîne le fait tout le
-temps (`extends: "@mediatek/audio/distortion/bitcrush"`). Le catalogue parle en chemins, les
+temps (`extends: "@st0/audio/distortion/bitcrush"`). Le catalogue parle en chemins, les
 fichiers en refs ; `moduleRefs.ts` est la conversion, et c'est tout ce qu'il est.
 
-Le mot `@mediatek` y est **écrit en clair**. Le `MEDIATEK_REF` canonique vit dans
+Le mot `@st0` y est **écrit en clair**. Le `MEDIATEK_REF` canonique vit dans
 `@studio/song/mediatekRoot`, qui appelle `node:os` pour trouver le dossier — un navigateur ne
 peut pas tirer ça pour apprendre un mot. `ChainEditor` déclare `chains.yaml` pour la même
 raison : le vocabulaire est le contrat, le résolveur de chemin ne l'est pas.

@@ -1,4 +1,4 @@
-// mediatekRefs.ts — which `@mediatek/…` modules a project actually names. The machine caches
+// mediatekRefs.ts — which `@st0/…` modules a project actually names. The machine caches
 // what its songs reach for rather than mirroring a whole catalogue, so something has to answer
 // "which ones are those" — and it has to answer from the FILES, before the loader can resolve
 // them, since a ref that resolves to nothing is exactly the one worth fetching.
@@ -19,14 +19,14 @@ const PREFIX = `${MEDIATEK_REF}/`;
 /** The module half of a ref, or null when it isn't one of the médiathèque's. */
 function mediatekModule(ref: unknown): string | null {
   if (typeof ref !== "string" || !ref.startsWith(PREFIX)) return null;
-  // A chain may name a NODE of a library module (`@mediatek/audio/x:warm`); the folder to
+  // A chain may name a NODE of a library module (`@st0/audio/x:warm`); the folder to
   // fetch is the module's, and the node travels inside it.
   const { module } = splitModuleKey(ref);
   return module.length > PREFIX.length ? module : null;
 }
 
 /**
- * Every `@mediatek/…` module this project names, sorted and deduplicated.
+ * Every `@st0/…` module this project names, sorted and deduplicated.
  *
  * Two ways a project reaches one, and both count: a module of its own that `extends` it —
  * the documented way to adjust a module you do not own — and a chain step naming it outright.
@@ -103,9 +103,9 @@ export function mediatekSongRefs(dir: string): string[] {
 }
 
 /**
- * The library-relative folder a `@mediatek/…` ref lives in, with its trailing slash.
+ * The library-relative folder a `@st0/…` ref lives in, with its trailing slash.
  *
- * `@mediatek/audio/filter/auto-wah` → `modules/audio/filter/auto-wah/`. A prefix rather than a
+ * `@st0/audio/filter/auto-wah` → `modules/audio/filter/auto-wah/`. A prefix rather than a
  * file list because a module IS its folder: the jsdsp source, the presets and the panel are as
  * much part of it as `module.yaml`, and a sync that fetched only the file named would land a
  * module that loads nothing.

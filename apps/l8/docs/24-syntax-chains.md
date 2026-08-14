@@ -55,7 +55,7 @@ A module name is one of three things:
   flat, so where the file sits tells you nothing and does not have to. **A lane is one of
   these**, extending a `@studio/…-track` module.
 - `"@engine/audio/amp/nam"` — an INHERITED module, by its ref: the level it lives at (`@engine`,
-  `@mediatek`, `@workspace`), then the path to it inside that level. Nothing declares those levels
+  `@st0`, `@workspace`), then the path to it inside that level. Nothing declares those levels
   — they are the machine's plugin scan, the médiathèque, and the `_modules` beside the song. It
   arrives merged through its own `extends`, so it behaves exactly like a local one.
 

@@ -249,7 +249,7 @@ The first level is where a module COMES FROM:
 
 - `current` — base modules this project already defines
 - `@engine` — the plugin catalogue, brought in by default
-- `@…` — any other level a module is inherited from (`@mediatek`, `@workspace`)
+- `@…` — any other level a module is inherited from (`@st0`, `@workspace`)
 
 Below that it is the catalogue's own shape: type → category → module. That nesting is not
 a taxonomy invented here — `scanModules` files each plugin at `<type>/<category>/<slug>`

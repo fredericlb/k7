@@ -16,16 +16,13 @@ const entry = (path: string, catalogued = true): MediatekEntry =>
 describe("mediatekModuleRefs", () => {
   it("names a module the way a chain node does", () => {
     // Measured against the library on this machine: a node beside a template says
-    // `extends: "@mediatek/audio/distortion/bitcrush"` for the folder of that path.
+    // `extends: "@st0/audio/distortion/bitcrush"` for the folder of that path.
     expect(
       mediatekModuleRefs([
         entry("modules/audio/distortion/bitcrush"),
         entry("modules/audio/utility/mixer"),
       ]),
-    ).toEqual([
-      "@mediatek/audio/distortion/bitcrush",
-      "@mediatek/audio/utility/mixer",
-    ]);
+    ).toEqual(["@st0/audio/distortion/bitcrush", "@st0/audio/utility/mixer"]);
   });
 
   it("drops a folder that carries no module file", () => {

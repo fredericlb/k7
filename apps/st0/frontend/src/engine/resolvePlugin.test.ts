@@ -53,7 +53,7 @@ describe("enginePluginFor", () => {
     // The face survives the machine that cannot load it — the panel is still editable, there
     // are simply no parameters to report.
     expect(enginePluginFor("@engine/serum", SCAN)).toBeUndefined();
-    expect(enginePluginFor("@mediatek/audio/x", SCAN)).toBeUndefined();
+    expect(enginePluginFor("@st0/audio/x", SCAN)).toBeUndefined();
   });
 });
 
@@ -74,7 +74,7 @@ describe("resolvePluginBlock", () => {
       ),
     };
     const got = await resolvePluginBlock(
-      'extends: "@mediatek/audio/amps/neural-amp-modeler"\nparams:\n  nam: x.nam\n',
+      'extends: "@st0/audio/amps/neural-amp-modeler"\nparams:\n  nam: x.nam\n',
       SCAN,
       async (p) => files[p] ?? Promise.reject(new Error("no such file")),
     );
@@ -106,18 +106,18 @@ describe("resolvePluginBlock", () => {
 
   it("survives a ref pointing at a file that is not there", async () => {
     expect(
-      await resolvePluginBlock(face("@mediatek/audio/gone"), SCAN, noFiles),
+      await resolvePluginBlock(face("@st0/audio/gone"), SCAN, noFiles),
     ).toBeUndefined();
   });
 
   it("does not spin on a cycle", async () => {
     const files: Record<string, string> = {
-      "modules/a/module.yaml": face("@mediatek/b"),
-      "modules/b/module.yaml": face("@mediatek/a"),
+      "modules/a/module.yaml": face("@st0/b"),
+      "modules/b/module.yaml": face("@st0/a"),
     };
     expect(
       await resolvePluginBlock(
-        face("@mediatek/a"),
+        face("@st0/a"),
         SCAN,
         async (p) => files[p] ?? "",
       ),
@@ -127,7 +127,7 @@ describe("resolvePluginBlock", () => {
 
 describe("mediatekModulePath", () => {
   it("maps a library ref onto the file behind it", () => {
-    expect(mediatekModulePath("@mediatek/audio/utility/mixer")).toBe(
+    expect(mediatekModulePath("@st0/audio/utility/mixer")).toBe(
       "modules/audio/utility/mixer/module.yaml",
     );
     expect(mediatekModulePath("@engine/mixer")).toBe("");

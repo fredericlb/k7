@@ -32,7 +32,7 @@ export function setProjectFiles(name: string): Record<string, string> {
     "songs.yaml":
       `# The set list — which of the médiathèque's songs this set draws on.\n` +
       `#\n` +
-      `# A ref is \`@mediatek/\` followed by the médiathèque id, verbatim, and the ids are what\n` +
+      `# A ref is \`@st0/\` followed by the médiathèque id, verbatim, and the ids are what\n` +
       `# st0 shows: \`songs/<artiste>/<album>/<titre>\`. Quote them — a plain scalar may not\n` +
       `# open with \`@\` in YAML.\n` +
       `#\n` +
@@ -47,8 +47,8 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# the desk's eight cue buttons, positional, in seconds into the FILE. A song with\n` +
       `# nothing to say stays one line, which is every song until somebody drops a cue:\n` +
       `#\n` +
-      `#  - "@mediatek/songs/artiste/album/titre"\n` +
-      `#  - ref: "@mediatek/songs/artiste/album/autre"\n` +
+      `#  - "@st0/songs/artiste/album/titre"\n` +
+      `#  - ref: "@st0/songs/artiste/album/autre"\n` +
       `#    markers: [ 12.5, null, 48.25 ]   # boutons 1 et 3; le 2 est vide\n` +
       `songs: []\n`,
 
@@ -178,9 +178,9 @@ const MUTED_LANE =
   "# Heard through the crossfade ONLY — see scaffoldSet.ts for why this is not optional.\n" +
   "bypassed: [ deckB ]\n";
 
-const MEDIATEK_UTILITY = "@mediatek/audio/utility";
+const MEDIATEK_UTILITY = "@st0/audio/utility";
 /** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
-const MEDIATEK_FILTER = "@mediatek/audio/filter";
+const MEDIATEK_FILTER = "@st0/audio/filter";
 /** The node names the chains file wires. Short on purpose — a chains file reads better
  *  with `tempoA` in it than with the whole ref, and the ref is one line away in nodes/. */
 const CROSSFADE = "crossfade";

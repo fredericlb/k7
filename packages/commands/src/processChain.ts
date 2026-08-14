@@ -36,7 +36,7 @@ import { renderMixdown } from "./render";
 
 /** What a chain of the médiathèque is named by, so the two vocabularies can't collide with the
  *  project's own chain names. The same token a module ref carries (see @studio/song's mediatekRoot). */
-export const MEDIATEK_CHAIN = "@mediatek/";
+export const MEDIATEK_CHAIN = "@st0/";
 
 /** The one track a bounce document has. A name, so a doc read by hand says what it was for. */
 const BOUNCE_CHAIN = "process";
@@ -162,7 +162,7 @@ function findChainFolder(want: string): { ref: string; folder: string } | null {
  * step runs.
  *
  * Each node is resolved through the project's module vocabulary, so a node that only
- * says `extends: "@mediatek/audio/eq"` arrives with the eq's plugin, params and preset folded
+ * says `extends: "@st0/audio/eq"` arrives with the eq's plugin, params and preset folded
  * in. That vocabulary is this machine's cache: a step whose module was never synced resolves to
  * nothing, and the bounce is refused rather than writing a copy that quietly skipped a treatment.
  */

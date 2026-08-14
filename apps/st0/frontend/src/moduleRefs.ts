@@ -1,6 +1,6 @@
 // moduleRefs.ts — how a médiathèque module is NAMED by a file that points at it. The
 // catalogue speaks in paths (`modules/audio/utility/mixer`); `extends:` and a chain step
-// speak in refs (`@mediatek/audio/utility/mixer`). See ../docs/completion.md.
+// speak in refs (`@st0/audio/utility/mixer`). See ../docs/completion.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 
@@ -12,13 +12,13 @@ import type { MediatekEntry } from "@studio/mediatek/types";
  * cannot pull that in to learn one word. `ChainEditor` states `chains.yaml` for the same
  * reason. The vocabulary is the contract; the path resolver is not.
  */
-export const MEDIATEK_REF = "@mediatek";
+export const MEDIATEK_REF = "@st0";
 
 /**
  * A modules listing as the refs another file may name it by, sorted.
  *
  * The family segment is dropped because the namespace replaces it: the folder
- * `modules/audio/utility/mixer` is the module `@mediatek/audio/utility/mixer`, which is what
+ * `modules/audio/utility/mixer` is the module `@st0/audio/utility/mixer`, which is what
  * `mediatekPathPrefix` maps back the other way.
  */
 export function mediatekModuleRefs(entries: MediatekEntry[]): string[] {

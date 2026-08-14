@@ -77,14 +77,14 @@ A chain that feeds no track and is nobody's bus compiles to no plugins at all �
 `ownerOf` in `@studio/song`'s `nodeProject.ts` — so it cannot be named here. That is the
 compiler's rule, not this command's.
 
-**The médiathèque's**, under its own token: `@mediatek/live/vocal-strip`, or `@mediatek/vocal-strip`
+**The médiathèque's**, under its own token: `@st0/live/vocal-strip`, or `@st0/vocal-strip`
 by bare name. The project is asked first and the library only under the token, so a project
 chain can never be shadowed by a library one that happens to share its name.
 
 A library chain is a TEMPLATE — `chains.yaml` with `@in` and `@out` for ends, and an
 `nodes/` folder beside it — read from **this machine's médiathèque cache**
 (`~/.studio/mediatek/chains/…`), because that is the disk the engine can open. Each node is
-resolved through the project's module vocabulary, so `extends: "@mediatek/audio/eq"` arrives
+resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives
 with the eq's plugin, params and preset folded in.
 
 That vocabulary is a cache, and it can be short: the unattended pull fetches the modules the

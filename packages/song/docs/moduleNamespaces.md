@@ -5,9 +5,52 @@ A module ref carries its level as an `@` prefix:
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@mediatek/audio/delay/tape-delay` | the machine's media library (`~/.studio/mediatek/modules`) | the médiathèque |
+| `@st0/audio/delay/tape-delay` | the machine's media library (`~/.studio/mediatek/modules`) | the médiathèque |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
 | `@project/audio/reverb` | the project's own `modules/` | l8 |
+
+## `@st0`, and why the folder under it is still called `mediatek`
+
+The media library's level is named after **the app that serves it**. It was `@mediatek` while
+that app was `apps/mediatek`; the app became `apps/st0` and the ref did not follow, so for a
+while a chain named a library by a word that no longer appeared anywhere else in the repo.
+
+What did *not* move is `~/.studio/mediatek`. That is a **cache path** on one machine, not a name
+anybody writes in a file — nothing resolves a ref through it, and renaming it would be a
+migration of a folder on every machine in exchange for nothing. `$STUDIO_MEDIATEK` and the
+`@studio/mediatek` package stay for the same reason: the médiathèque is still what the thing is
+called, and `st0` is what serves it.
+
+### Nothing accepts the old spelling
+
+`@mediatek/…` resolves to nothing. That is deliberate, and it is the opposite of the choice
+made for [the bare ref](#the-bare-ref) below — worth putting side by side, because the two look
+alike and are not:
+
+| | `audio/reverb` vs `@project/audio/reverb` | `@mediatek/…` vs `@st0/…` |
+|---|---|---|
+| what they are | two spellings of **one** level, both current | the **old** name of a level and its current one |
+| resolution | keyed twice, both work, forever | one key; the old name names nothing |
+| why | every `chains.yaml` ever written says the bare form | keeping it would mean two words for one library, permanently |
+
+So this one is migrated rather than aliased, and the failure is meant to be seen: a chain step
+naming an unknown module draws its name with a `?` on the graph, and an `extends:` that resolves
+to nothing is reported by `libraryModuleIssues`. Neither is silent — which is the bar a rename
+in this repo has to clear (`docs/rename-test-plan.md`).
+
+```bash
+# a project, a workspace, or the médiathèque itself — dry by default
+npx tsx packages/song/scripts/migrateNamespace.ts ~/.studio/root/<you>/<workspace> --write
+npx tsx packages/song/scripts/migrateNamespace.ts ~/.studio/mediatek --write
+```
+
+That script is a **text replace** on `@mediatek/`, where `migrateDocFields.ts` beside it goes
+through the yaml Document API. The difference is what is being changed: a doc field is a
+*structure*, and rewriting the document is what preserves everything around it — but a namespace
+appears in mapping KEYS (a chain step is one), in scalar values, inside flow sequences, and in
+the comment at the top of a panel. Reserialising to catch all four is exactly what `formatChains`
+does, and it emits a canonical document, which would eat every comment in the file. Replacing one
+unambiguous token touches nothing else: there is no other thing in this repo spelled `@mediatek`.
 
 ## The level comes from the LOCATION
 
@@ -35,7 +78,7 @@ Every root is at a fixed place, so nothing in `project.yaml` names one:
 | level | where |
 |---|---|
 | `@engine` | nowhere — synthesised from the machine's plugin scan |
-| `@mediatek` | `~/.studio/mediatek/modules` (or `$STUDIO_MEDIATEK`) |
+| `@st0` | `~/.studio/mediatek/modules` (or `$STUDIO_MEDIATEK`) |
 | `@workspace` | `../_modules`, beside the project |
 | `@project` | the project's own `modules/` |
 
@@ -78,7 +121,7 @@ To change a module you do not own, you make one at YOUR level that `extends` it:
 
 ```yaml
 # modules/audio/my-nam/module.yaml   (@project)
-extends: "@mediatek/audio/amp/nam"
+extends: "@st0/audio/amp/nam"
 params:
   Gain: 0.7
 ```
@@ -97,7 +140,7 @@ carry no `ui.yaml` — `writeUiFile` refuses it, in as many words:
 so there is no folder to draw it in
 ```
 
-The answer is a `@mediatek` module that extends it and holds the panel. The médiathèque
+The answer is a `@st0` module that extends it and holds the panel. The médiathèque
 is the editable catalogue, so the face is drawn once, there, for every song that reaches
 for the plugin — rather than copied into each project that plays it.
 

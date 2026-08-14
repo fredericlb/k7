@@ -37,7 +37,7 @@ A chain step names a **module folder** or a **node**, and the lookup matches eit
 `step.module` is one string.
 
 A **shared** module — one opened from the Libraries tab — is named the other way, with its
-namespace: `@mediatek/audio/delay/tape-delay`, because that is what a chain writes for a module
+namespace: `@st0/audio/delay/tape-delay`, because that is what a chain writes for a module
 the project inherits rather than holds. Same lookup, one spelling apart; see
 [sharedModules.md](sharedModules.md).
 

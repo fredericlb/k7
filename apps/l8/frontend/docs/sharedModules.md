@@ -19,13 +19,13 @@ It is gone, and what replaced it is smaller: **the file tree has a second tab.**
 | **Libraries** | the shared module libraries, one row per namespace | library-relative | **st0**, same-origin, on the session cookie |
 
 The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref. Today there
-is one, `@mediatek`, and under it the catalogue exactly as a ref spells it:
+is one, `@st0`, and under it the catalogue exactly as a ref spells it:
 
 ```
-@mediatek
+@st0
   audio
     delay
-      tape-delay        →  @mediatek/audio/delay/tape-delay
+      tape-delay        →  @st0/audio/delay/tape-delay
 ```
 
 A module is one row, as it is on the Project tab and by the same code (`foldModules`): the
@@ -74,7 +74,7 @@ difference:
 
 ```
 a project module   modules/audio/reverb/module.yaml            →  reverb
-a shared module    modules/audio/delay/tape-delay/module.yaml  →  @mediatek/audio/delay/tape-delay
+a shared module    modules/audio/delay/tape-delay/module.yaml  →  @st0/audio/delay/tape-delay
 ```
 
 `libraryModuleRef` is that spelling (`src/libraryTree.ts`), and getting it wrong is what would
@@ -130,7 +130,7 @@ gone is `@banc/modules.l8`: that address now answers 404 with a sentence pointin
 
 The suites here mount nothing, so none of this is covered by a green run:
 
-- open a project, switch the tree to **Libraries** → `@mediatek`, and the catalogue under it;
+- open a project, switch the tree to **Libraries** → `@st0`, and the catalogue under it;
 - click a module → the builder opens read-only, with `read-only` in the header and an Edit
   button beside it; typing in the code pane does nothing;
 - click **Edit**, confirm → the same screen takes edits, and the badge behaves as it does for a

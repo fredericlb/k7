@@ -83,7 +83,7 @@ redirected either: a library is one place, and nothing there forks.
 The engine link. Only a live plugin can say what its parameters are called, what they span and
 what presets it ships. l8 reaches its engine through the shell's shared socket and finds the
 plugin in the OPEN project's compiled graph — for a shared module too, by its
-`@mediatek/…` ref (`apps/l8/frontend/docs/sharedModules.md`). So those arrive as plain props
+`@st0/…` ref (`apps/l8/frontend/docs/sharedModules.md`). So those arrive as plain props
 (`pluginParamNames`, `pluginParamMeta`, `presets` and the two callbacks behind the dropdown),
 and a host with no engine passes nothing. The grid, the params list and the file pair work
 without one; they are just less well informed.

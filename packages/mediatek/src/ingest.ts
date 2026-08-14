@@ -29,7 +29,7 @@ export interface ImportReport {
  * Files a workspace holds that are the LIBRARY's to decide, not a contributor's.
  *
  * Only `_modules/config.yaml`, so far — it declares the namespace every module ref is keyed
- * by (`@mediatek/audio/reverb`). Uploading it made the last workspace pushed rename the
+ * by (`@st0/audio/reverb`). Uploading it made the last workspace pushed rename the
  * whole library, silently, for every project that inherits from it. `ensureLayout` writes
  * the library's own once and nothing else touches it. See layout.ts.
  */

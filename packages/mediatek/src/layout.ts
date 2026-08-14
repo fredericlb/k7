@@ -48,20 +48,20 @@ export { RECORDINGS_DIR };
 export const SAMPLE_KINDS = ["audio", "video"] as const;
 
 /**
- * The library's OWN namespace, declared in `modules/config.yaml`.
+ * The library's OWN namespace, written into `modules/config.yaml` when the folder is laid out.
  *
- * That file is where `@studio/song`'s loader already looks — a `modules_from` root without
- * one is a hard error — so the declaration lives there rather than being duplicated into
- * `mediatek.yaml`. What changed is who writes it: `ensureLayout` creates it once, and
- * `uploadWorkspace` now refuses to send a workspace's copy, because it used to and the last
- * push therefore decided what every ref in every project was keyed by.
+ * DESCRIPTIVE, not load-bearing: nothing reads this file back to resolve a ref. `@studio/song`
+ * decides a level from WHERE a root sits (`moduleNamespaceOf`), precisely so a declaration
+ * could not disagree with the disk — see that package's docs/moduleNamespaces.md for the two
+ * ways it used to. So the line is a note to whoever opens the folder, and it must say the same
+ * word the loader does.
  *
- * Not to be confused with the `@mediatek` token in a project's `modules_from:` — that is a
- * PATH the workspace resolves, this is the prefix a chain names a module BY
- * (`@mediatek/audio/reverb`). They read alike on purpose: one library, one word for it.
+ * `st0` after the app that serves the library. It said `mediatek` while that app was
+ * `apps/mediatek`, and a library laid out before the rename still says so on disk: harmless
+ * where nothing reads it, and corrected by rewriting the one line.
  */
 export const MODULES_CONFIG = "config.yaml";
-export const DEFAULT_NAMESPACE = "mediatek";
+export const DEFAULT_NAMESPACE = "st0";
 
 /**
  * The module type FOLDERS this library has on disk.

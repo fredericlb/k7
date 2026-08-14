@@ -201,7 +201,7 @@ export interface WebModuleMeta {
  *
  * `#` because the other two separators are taken and mean something else — `:` joins a module to
  * its node and `/` joins a namespace to a category to a name. A port is a third axis, so it
- * needed a third character rather than an overload of one of those: `@mediatek/audio/crossfade:live#b`
+ * needed a third character rather than an overload of one of those: `@st0/audio/crossfade:live#b`
  * has to stay readable as three separate facts. See `@studio/song`'s docs/ports.md.
  *
  * Here, in the types tier, because BOTH sides need it: the compiler derives chains from these

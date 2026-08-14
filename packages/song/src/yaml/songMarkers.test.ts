@@ -7,8 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { parseSongs, songMarkers, songRefs, withMarkers } from "./songsFile";
 
-const A = "@mediatek/songs/Daft Punk/Album inconnu/Around the world";
-const B = "@mediatek/songs/Alain Bashung/Album inconnu/La nuit je mens";
+const A = "@st0/songs/Daft Punk/Album inconnu/Around the world";
+const B = "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens";
 
 const PLAIN = `# what this set draws on
 songs:

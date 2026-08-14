@@ -15,7 +15,7 @@ export interface ScannedName {
 export type PluginBlock = { type?: string; name?: string } | undefined;
 
 const ENGINE = "@engine/";
-const MEDIATEK = "@mediatek/";
+const MEDIATEK = "@st0/";
 
 /** How deep an `extends` chain is followed. The measured library reaches two — a module
  *  extending a face extending the scan — and a cycle is caught by the visited set anyway; this
@@ -36,7 +36,7 @@ export function readExtends(yaml: string): string {
   return (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim();
 }
 
-/** Where a `@mediatek/…` ref's own file is, library-relative. "" for anything else. */
+/** Where a `@st0/…` ref's own file is, library-relative. "" for anything else. */
 export function mediatekModulePath(ref: string): string {
   return ref.startsWith(MEDIATEK)
     ? `modules/${ref.slice(MEDIATEK.length)}/module.yaml`

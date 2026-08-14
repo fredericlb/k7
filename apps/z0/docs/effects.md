@@ -10,14 +10,14 @@ comme plugins internes.
 
 | effet z0 | devient | forme |
 |---|---|---|
-| `lowpass` | `@mediatek/audio/filter/lowpass` | jsdsp, fidèle |
-| `highpass` | `@mediatek/audio/filter/highpass` | jsdsp, fidèle |
-| `overdrive` | `@mediatek/audio/distortion/overdrive` | jsdsp, fidèle à la normalisation près |
-| `chorus` | `@mediatek/audio/modulation/chorus` | jsdsp, fidèle |
-| `pitchvar` | `@mediatek/audio/modulation/wobble` | jsdsp, autre mécanisme |
-| `phaser` | `@mediatek/audio/modulation/phaser` | jsdsp, **approximation assumée** |
-| `bitreduction` | `@mediatek/audio/distortion/bitcrush` | moteur — AirWindows De Rez |
-| `pitch` | `@mediatek/audio/utility/pitch-shift` | moteur — Tracktion Pitch Shifter |
+| `lowpass` | `@st0/audio/filter/lowpass` | jsdsp, fidèle |
+| `highpass` | `@st0/audio/filter/highpass` | jsdsp, fidèle |
+| `overdrive` | `@st0/audio/distortion/overdrive` | jsdsp, fidèle à la normalisation près |
+| `chorus` | `@st0/audio/modulation/chorus` | jsdsp, fidèle |
+| `pitchvar` | `@st0/audio/modulation/wobble` | jsdsp, autre mécanisme |
+| `phaser` | `@st0/audio/modulation/phaser` | jsdsp, **approximation assumée** |
+| `bitreduction` | `@st0/audio/distortion/bitcrush` | moteur — AirWindows De Rez |
+| `pitch` | `@st0/audio/utility/pitch-shift` | moteur — Tracktion Pitch Shifter |
 | `speed` | rien : ce n'est pas un traitement | reste `speed:` sur le morceau de la session |
 
 Les six premiers portent un seul paramètre `Amount`, de 0 à 100, parce que c'est exactement ce
@@ -38,7 +38,7 @@ Donc :
 ```
 chains/blindtest/deformees/blue-monday/
   chains.yaml            "@in" → pitch → wobble → highpass → chorus → overdrive → "@out"
-  nodes/pitch.yaml   extends: "@mediatek/audio/utility/pitch-shift"
+  nodes/pitch.yaml   extends: "@st0/audio/utility/pitch-shift"
                          params: { "semitones up": 5 }
   nodes/…
 ```

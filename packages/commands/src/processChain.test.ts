@@ -91,7 +91,8 @@ function song(): string {
 function mediatek(): string {
   const d = mkdtempSync(join(tmpdir(), "td-mediatek-"));
   put(d, "mediatek.yaml", "version: 1\n");
-  put(d, "modules/config.yaml", "namespace: mediatek\n");
+  // Descriptive only — the level comes from where the root SITS, not from this line.
+  put(d, "modules/config.yaml", "namespace: st0\n");
   put(
     d,
     "modules/audio/eq/module.yaml",
@@ -105,12 +106,12 @@ function mediatek(): string {
   put(
     d,
     "chains/live/vocal-strip/nodes/hp.yaml",
-    'extends: "@mediatek/audio/eq"\nparams:\n  Low: -12\n',
+    'extends: "@st0/audio/eq"\nparams:\n  Low: -12\n',
   );
   put(
     d,
     "chains/live/vocal-strip/nodes/air.yaml",
-    'extends: "@mediatek/audio/eq"\n',
+    'extends: "@st0/audio/eq"\n',
   );
   return d;
 }
@@ -164,14 +165,14 @@ describe("resolving a chain of the project", () => {
   it("offers the project's chains and the médiathèque's under its own token", () => {
     expect(chainNames(loadProject(dir))).toEqual([
       "gtr",
-      "@mediatek/live/vocal-strip",
+      "@st0/live/vocal-strip",
     ]);
   });
 });
 
 describe("resolving a chain of the médiathèque", () => {
   it("resolves each step through what it extends", () => {
-    const c = resolveChain(dir, loadProject(dir), "@mediatek/live/vocal-strip");
+    const c = resolveChain(dir, loadProject(dir), "@st0/live/vocal-strip");
     // The step's own params win over the module's, and a step that overrides nothing still
     // arrives with the module's — that is `extends`, and it is why a template is worth having.
     expect(c.plugins.map((p) => p.type)).toEqual(["4Band EQ", "4Band EQ"]);
@@ -184,7 +185,7 @@ describe("resolving a chain of the médiathèque", () => {
 
   it("is found by its bare name too", () => {
     expect(
-      resolveChain(dir, loadProject(dir), "@mediatek/vocal-strip").plugins,
+      resolveChain(dir, loadProject(dir), "@st0/vocal-strip").plugins,
     ).toHaveLength(2);
   });
 
@@ -196,7 +197,7 @@ describe("resolving a chain of the médiathèque", () => {
       force: true,
     });
     expect(() =>
-      resolveChain(dir, loadProject(dir), "@mediatek/live/vocal-strip"),
+      resolveChain(dir, loadProject(dir), "@st0/live/vocal-strip"),
     ).toThrow(/cannot load: hp .*not in this machine's cache/);
   });
 });

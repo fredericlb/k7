@@ -164,7 +164,7 @@ export function SongVariants({
    * A chain's steps, each with the plugin it actually loads.
    *
    * Through `extends`, and that is the fix rather than a nicety: a NODE declares its
-   * overrides and nothing else — the real library's say `extends: "@mediatek/audio/…"` and a
+   * overrides and nothing else — the real library's say `extends: "@st0/audio/…"` and a
    * `params:` block — so reading the file alone found no `plugin:`, and every step of every
    * variant went to the engine naming nothing to load. The same resolution the module editor
    * does, and for the same reason: see engine/resolvePlugin.ts.

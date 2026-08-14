@@ -19,7 +19,7 @@ export const ProjectSettingsSchema = z
       .regex(/^[0-9]+\/[0-9]+$/, "expected a time signature like 4/4")
       .optional(),
     /**
-     * This project is the MODULE BENCH, and a save aimed at a `@mediatek` module writes
+     * This project is the MODULE BENCH, and a save aimed at a `@st0` module writes
      * THROUGH to the catalogue instead of forking a copy into the project.
      *
      * Exactly one project carries it, and it is generated (`scaffoldBench.ts`) rather than

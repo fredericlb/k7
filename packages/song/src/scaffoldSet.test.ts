@@ -208,11 +208,9 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     const ext = (f: string) =>
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
-    expect(ext("nodes/crossfade.yaml")).toBe(
-      "@mediatek/audio/utility/crossfade",
-    );
-    expect(ext("nodes/tempoA.yaml")).toBe("@mediatek/audio/utility/tempo");
-    expect(ext("nodes/tempoB.yaml")).toBe("@mediatek/audio/utility/tempo");
+    expect(ext("nodes/crossfade.yaml")).toBe("@st0/audio/utility/crossfade");
+    expect(ext("nodes/tempoA.yaml")).toBe("@st0/audio/utility/tempo");
+    expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
   });
 
   it("asks the médiathèque for exactly those four modules", () => {
@@ -221,10 +219,10 @@ describe("a scaffolded set", () => {
     // two NODES of one module, and fetching a module twice would be a bug in the ref
     // reader rather than a fact about the set.
     expect(mediatekRefs(dir)).toEqual([
-      "@mediatek/audio/filter/eq3",
-      "@mediatek/audio/filter/sweep",
-      "@mediatek/audio/utility/crossfade",
-      "@mediatek/audio/utility/tempo",
+      "@st0/audio/filter/eq3",
+      "@st0/audio/filter/sweep",
+      "@st0/audio/utility/crossfade",
+      "@st0/audio/utility/tempo",
     ]);
   });
 
@@ -431,13 +429,13 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     writeFileSync(
       join(dir, "songs.yaml"),
-      'songs:\n  - "@mediatek/songs/lemo/mante/danse"\n  - "@mediatek/songs/lemo/mante/aube"\n',
+      'songs:\n  - "@st0/songs/lemo/mante/danse"\n  - "@st0/songs/lemo/mante/aube"\n',
       "utf8",
     );
     // Sorted, because the list is unordered and two surfaces must not draw it two ways.
     expect(mediatekSongRefs(dir)).toEqual([
-      "@mediatek/songs/lemo/mante/aube",
-      "@mediatek/songs/lemo/mante/danse",
+      "@st0/songs/lemo/mante/aube",
+      "@st0/songs/lemo/mante/danse",
     ]);
   });
 });

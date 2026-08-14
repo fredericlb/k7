@@ -48,7 +48,7 @@ beforeEach(() => {
   writeFileSync(join(mediatek, CHAIN, "chains.yaml"), SOURCE, "utf8");
   writeFileSync(
     join(mediatek, CHAIN, "nodes", "comp.yaml"),
-    'extends: "@mediatek/audio/comp"\nparams:\n  Ratio: 4\n',
+    'extends: "@st0/audio/comp"\nparams:\n  Ratio: 4\n',
     "utf8",
   );
 });
@@ -126,7 +126,7 @@ describe("a médiathèque chain, opened on the bench", () => {
 
     ws.write(
       `${project}/nodes/comp.yaml`,
-      'extends: "@mediatek/audio/comp"\nparams:\n  Ratio: 8\n',
+      'extends: "@st0/audio/comp"\nparams:\n  Ratio: 8\n',
     );
     expect(
       readFileSync(join(mediatek, CHAIN, "nodes", "comp.yaml"), "utf8"),

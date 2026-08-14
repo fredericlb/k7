@@ -11,7 +11,7 @@ per-family revision tokens on both sides. This file is the loop that calls them.
 ## What it fetches: what the open songs name
 
 Not the whole catalogue. `mediatekRefs(project)` reads the project's files — every
-`extends: "@mediatek/…"`, every chain segment naming one, then the closure of what those
+`extends: "@st0/…"`, every chain segment naming one, then the closure of what those
 modules extend in turn — and each ref becomes the folder prefix
 `modules/<type>/<name>/`. A module IS its folder: the jsdsp source, the presets and the panel
 travel with `module.yaml`, so the scope is a prefix and never a file list.
@@ -57,4 +57,4 @@ stale deliberately — `lastRevision` is only recorded when nothing failed, so t
 did not land are retried on the next tick.
 
 With no `MEDIATEK_URL` the loop never starts. The local folder is then simply not a cache of
-anything, which is a working state: `@mediatek/…` still resolves against whatever is in it.
+anything, which is a working state: `@st0/…` still resolves against whatever is in it.

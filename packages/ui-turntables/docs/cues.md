@@ -41,8 +41,8 @@ ce qui garde une platine repérée après qu'on l'a calée.
 
 ```yaml
 songs:
-  - "@mediatek/songs/Alain Bashung/Album inconnu/La nuit je mens"
-  - ref: "@mediatek/songs/Daft Punk/Album inconnu/Around the world"
+  - "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens"
+  - ref: "@st0/songs/Daft Punk/Album inconnu/Around the world"
     markers: [ 12.5, null, 48.25 ]
 ```
 

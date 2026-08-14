@@ -1,4 +1,4 @@
-// mediatekRoot.ts — where the machine's media library is, and the `@mediatek` token a
+// mediatekRoot.ts — where the machine's media library is, and the `@st0` token a
 // project uses to name it. Defined HERE, in song, although the rest of the `~/.studio`
 // layout is engine-client's: engine-client imports song, never the reverse, so this is the
 // only direction the dependency graph allows. `paths.ts` states the same rule for
@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 /**
- * The level a médiathèque module is named under — `@mediatek/audio/reverb`.
+ * The level a médiathèque module is named under — `@st0/audio/reverb`.
  *
  * It was also what a project wrote in `modules_from`/`libraries_from` to mean "the machine's
  * media library". Those lists are gone: the folder is at a fixed location, so a project

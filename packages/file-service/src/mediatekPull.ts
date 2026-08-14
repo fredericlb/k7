@@ -36,8 +36,8 @@ let lastError = "";
  * The library-relative folders the open projects reach for, sorted so the signature is stable.
  *
  * Two vocabularies, kept apart to the last step: a MODULE ref omits its family
- * (`@mediatek/audio/x` → `modules/audio/x/`) and a SONG ref carries one
- * (`@mediatek/songs/a/b/c` → `songs/a/b/c/`), so each is mapped by its own function and only
+ * (`@st0/audio/x` → `modules/audio/x/`) and a SONG ref carries one
+ * (`@st0/songs/a/b/c` → `songs/a/b/c/`), so each is mapped by its own function and only
  * the results are merged. The songs are an m9 set's list, and they are the reason this loop
  * matters at all off the desk: the machine that plays them opens file paths, so every song in
  * the set has to be on its disk before the gig.

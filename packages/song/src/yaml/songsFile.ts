@@ -28,7 +28,7 @@ export function parseSongs(text: string): ParsedSongs {
   if (issues.length) return { value: null, issues };
 
   const raw = doc.toJS() ?? {};
-  // A bare sequence at the root — `- "@mediatek/songs/…"` with no `songs:` key. Named
+  // A bare sequence at the root — `- "@st0/songs/…"` with no `songs:` key. Named
   // precisely rather than reported as "expected object": it is the first thing anyone writes,
   // and the fix is one line.
   if (Array.isArray(raw))
@@ -137,7 +137,7 @@ export function withMarkers(
   return String(doc);
 }
 
-/** The médiathèque ids a set names — the refs with their `@mediatek/` taken off. */
+/** The médiathèque ids a set names — the refs with their `@st0/` taken off. */
 export function songIds(file: SongsFile | null | undefined): string[] {
   return songRefs(file)
     .map(songIdOf)
