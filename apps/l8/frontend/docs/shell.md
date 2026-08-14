@@ -234,6 +234,17 @@ The live x axis is nominal: `LIVE_FRAME_MS` (50) per frame, because the engine's
 and not a clock. A growing take is read for its SHAPE; the moment timings matter, the file is
 there and its own waveform has replaced this one.
 
+#### The take's start is the SHELL's, and two surfaces read it
+
+`takeStart` lives in `App`, taken off the store on the `rolling` edge. One source, because two
+surfaces draw from it — this panel's counter, and the growing clip on the armed lane
+(`RecordingClip`, see `docs/timeline.md`) — and two captures would drift the moment they mounted
+at different times, which is a subtler version of the bug below.
+
+It is READ from the snapshot rather than subscribed to: it changes once per take, and a
+subscription in the shell would re-render everything 20 times a second for a number that does not
+move.
+
 #### The counter measures THIS take, and that was the bug
 
 `takeCounter.ts` counts the pre-roll down, then the take up in bar:beat. It is a pure function

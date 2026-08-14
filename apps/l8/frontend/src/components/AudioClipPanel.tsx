@@ -1,4 +1,4 @@
-// AudioClipPanel.tsx — ONE panel for an audio clip, whether it is being recorded or being worked
+﻿// AudioClipPanel.tsx — ONE panel for an audio clip, whether it is being recorded or being worked
 // on. While a take rolls it draws the envelope the engine is pushing, growing; the moment the
 // recorder closes the file it draws that file instead, with its onsets, its threshold and the
 // button that brings it up to level. Same waveform, same place, one view of one clip.
@@ -7,7 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import { useEngineState } from "@studio/engine-browser/store";
 import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Square, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
@@ -27,6 +27,7 @@ export function AudioClipPanel({
   tempo,
   beatsPerBar,
   countIn,
+  startBeat,
   trackOrder,
   trackNames,
   command,
@@ -43,6 +44,8 @@ export function AudioClipPanel({
   beatsPerBar: number;
   /** Count-in length in BARS (0 == none) — the header counts it down before the take. */
   countIn: number;
+  /** The beat this take started on — the shell's, so the counter and the lane's growing clip agree. */
+  startBeat: number;
   /** The engine level index order, so an armed track maps to its inputLevels slot. */
   trackOrder: string[];
   /** Track id → display name, for naming who is being recorded. Which tracks those ARE comes off
@@ -90,15 +93,11 @@ export function AudioClipPanel({
   const curBeat = useEngineState((s) =>
     Math.floor((s.playhead * tempo) / 60 + 1e-6),
   );
-  // Where THIS take began, captured on the rolling EDGE. The pane this replaces captured it once
-  // per mount and then outlived its take, so every take after the first was measured against the
-  // first one's start — the whole bug, see takeCounter.ts. Same edge `useLiveEnvelope` clears on.
-  const startBeat = useRef(0);
-  const wasRolling = useRef(false);
-  if (rolling && !wasRolling.current) startBeat.current = curBeat;
-  wasRolling.current = rolling;
-
-  const count = takeCounter(startBeat.current, curBeat, countIn * beatsPerBar);
+  // `startBeat` arrives from the shell, taken on the rolling edge. The pane this replaces captured
+  // it once per MOUNT and then outlived its take, so every take after the first was measured
+  // against the first one's start — the whole bug, see takeCounter.ts. It is a prop rather than a
+  // second capture because the lane draws the growing clip from the same number.
+  const count = takeCounter(startBeat, curBeat, countIn * beatsPerBar);
   // No "how long it ran" kept once it stops: the panel switches to the FILE the moment the take is
   // over, and the file's own length is the honest answer to that. The old pane had to remember it
   // because it stayed on the live picture, whose playhead jumps back where the transport left it.

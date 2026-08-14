@@ -276,6 +276,17 @@ export default function App({
   // last take" stays true until there is another — so what makes the review appear ONCE is this, and
   // a genuinely new take has a different id and shows up on its own.
   const [reviewedTake, setReviewedTake] = useState<string | null>(null);
+  /**
+   * Where the take now rolling STARTED, in beats. One source, because two surfaces draw from it —
+   * the clip panel's counter and the growing clip on the lane — and two captures would drift the
+   * moment they mounted at different times.
+   *
+   * Read off the store at the `rolling` edge rather than subscribed to: this changes once per take,
+   * and a subscription here would re-render the whole shell 20 times a second for a number that
+   * does not move. (That is not hypothetical — it is what `Playhead` exists to avoid; see
+   * docs/timeline.md.)
+   */
+  const [takeStart, setTakeStart] = useState(0);
   // …and the one ASKED for by name (`ui review <clip>`), which outranks it. The automatic review is
   // a moment that passes — the service forgets `lastTake` when it restarts, and the ✓ ends it for
   // good — so this is how a take is reopened afterwards, including one nothing is naming any more.
@@ -2176,6 +2187,13 @@ export default function App({
 
   const waitingForEngine = !!ws?.activeProject && !engineReady;
 
+  // The take's start, taken on the edge `rolling` goes true. `recInfo.tempo` converts the store's
+  // seconds; the snapshot is READ, never subscribed to — see where `takeStart` is declared.
+  useEffect(() => {
+    if (!rolling) return;
+    setTakeStart((store.getSnapshot().playhead * recInfo.tempo) / 60);
+  }, [rolling, store, recInfo.tempo]);
+
   /**
    * The take to review: the one ASKED for, else the newest the file service has written.
    *
@@ -2579,6 +2597,10 @@ export default function App({
                     ref={timelineRef}
                     active={activePane === "timeline"}
                     reloadKey={reloadKey}
+                    // …so an armed lane draws the take as it is played, instead of being the one
+                    // place that shows nothing while you record.
+                    rolling={rolling}
+                    takeStartBeat={takeStart}
                     orbit={orbit}
                     videoTracks={videoTracks}
                     onVideoEdit={applyVideoEdit}
@@ -2780,6 +2802,7 @@ export default function App({
                     tempo={recInfo.tempo}
                     beatsPerBar={recInfo.beatsPerBar}
                     countIn={recInfo.countIn}
+                    startBeat={takeStart}
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
                     command={runCommand}

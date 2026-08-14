@@ -80,6 +80,14 @@ So the rule, and the three things that follow it:
   visibly". A silent lane costs nothing while a loud one plays. Its two bars are **scaled**,
   not resized, for the reason the playhead is translated; see `@studio/engine-browser`'s
   `docs/meters.md`, which also records what a `height` transition on a 20 Hz signal cost.
+- **`RecordingClip`** subscribes to `s.playhead` and draws the take being played on the lane it
+  is being recorded onto, from where the take started to wherever the transport has got to. Not
+  a clip: there is no file yet and nothing on disk names it — it is drawn from the transport
+  rather than from the document, and `addTakeToTrack` writes the real placement under it on Stop.
+  It is the one live element here that genuinely changes SIZE rather than position, so it sets
+  `width` where the playhead translates; being absolutely positioned, the layout that costs is
+  its own and reaches no sibling. Whether a take is rolling, and from which beat, arrive as
+  ordinary props — they change once per take, so the body pays nothing for them.
 - **`armed`** is the one live value the body reads, through `arrayEq`, because it changes on a
   keystroke rather than on a frame.
 

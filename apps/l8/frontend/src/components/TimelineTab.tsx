@@ -130,6 +130,50 @@ const tickAt = (b: number, barBeats: number) => {
  * Everything they need to place themselves arrives as a NUMBER, so React's own bailout does
  * the rest — a parent re-render with an unchanged view window re-renders neither of them.
  */
+/**
+ * The take being recorded, drawn on its lane as it grows.
+ *
+ * Its OWN subscription, for the reason set out above `Playhead`: a `useEngineState` held by
+ * TimelineTab re-renders the whole arrangement ~23 times a second. Held here, a frame rewrites one
+ * absolutely positioned div — no lane, no other clip, no ruler tick is touched.
+ *
+ * Not a clip: there is no file yet and nothing on disk names it. It is the shape of what is being
+ * played, from where the take started to wherever the transport has got to, so the lane stops being
+ * the one place that shows nothing while you record. `addTakeToTrack` writes the real placement on
+ * Stop and this disappears under it.
+ *
+ * Width and not `transform`, unlike the playhead: this element genuinely changes size, and it is
+ * absolutely positioned, so the layout it costs is its own and reaches no sibling.
+ */
+function RecordingClip({
+  tempo,
+  startBeat,
+  beatLo,
+  beatHi,
+  ppb,
+}: {
+  tempo: number;
+  startBeat: number;
+  beatLo: number;
+  beatHi: number;
+  ppb: number;
+}) {
+  const playhead = useEngineState((s) => s.playhead);
+  const now = (playhead * tempo) / 60;
+  // Before its own start — the count-in, whose beats are not recorded — there is nothing to draw.
+  if (now <= startBeat) return null;
+  const from = Math.max(startBeat, beatLo);
+  const to = Math.min(now, beatHi);
+  if (to <= from) return null;
+  return (
+    <div
+      className="pointer-events-none absolute inset-y-1 z-10 rounded border border-red-400/70 bg-red-500/25"
+      style={{ left: (from - beatLo) * ppb, width: (to - from) * ppb }}
+      title="prise en cours"
+    />
+  );
+}
+
 function Playhead({
   tempo,
   beatLo,
@@ -651,6 +695,8 @@ export interface TimelineHandle {
 export function TimelineTab({
   active,
   reloadKey,
+  rolling,
+  takeStartBeat,
   orbit,
   videoTracks,
   onVideoEdit,
@@ -676,6 +722,16 @@ export function TimelineTab({
 }: {
   active: boolean;
   reloadKey: number;
+  /**
+   * Is a take rolling, and from which beat — so an armed lane can draw it as it grows.
+   *
+   * Both are PROPS and not subscriptions: they change once per take, and a `useEngineState` held
+   * by this component re-renders the whole arrangement (see the note above `Playhead`). The one
+   * value that does move per frame is read inside `RecordingClip`, which is the only thing a frame
+   * then touches.
+   */
+  rolling: boolean;
+  takeStartBeat: number;
   // The live pattern lanes, polled by the shell: one poll feeds both this and the minimap, so they can't disagree.
   orbit: WebTrack[];
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`).
@@ -2613,6 +2669,19 @@ export function TimelineTab({
                     />
                   ) : (
                     <>
+                      {/* The take being played, growing on the lane it is being recorded onto.
+                          There is no clip yet — nothing on disk names it — so this is drawn from
+                          the transport rather than from the document, and the real placement
+                          lands under it on Stop. */}
+                      {rolling && armedIds.includes(t.id) && (
+                        <RecordingClip
+                          tempo={proj.tempo}
+                          startBeat={takeStartBeat}
+                          beatLo={beatLo}
+                          beatHi={beatHi}
+                          ppb={ppb}
+                        />
+                      )}
                       {/* The move ghost: the outline the clip left behind, where it was
                           picked up. Only on the lane that holds it, and gone the instant
                           the move commits or cancels. */}
