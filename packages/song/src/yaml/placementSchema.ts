@@ -7,10 +7,20 @@
 import { z } from "zod";
 
 // The shape a position/duration has: colon-separated numbers — why every one is written QUOTED.
-export const TIMECODE = /^[0-9]+(:[0-9]+)*$/;
+/**
+ * The shape a position/duration has: colon-separated numbers, then optionally `.ticks`.
+ *
+ * Why every one is written QUOTED, and why the dot makes that stricter rather than looser: `25:1`
+ * unquoted is a YAML 1.1 sexagesimal, and `1.5` unquoted is a plain FLOAT in any YAML. The new
+ * form collides with a number more readily than the old one did, not less.
+ *
+ * The colon chain may still run deep here: every file written before ticks existed spells its
+ * sub-beats that way, and a schema that refused them would fail songs that load perfectly.
+ */
+export const TIMECODE = /^[0-9]+(:[0-9]+)*(\.[0-9]+)?$/;
 const Timecode = z
   .string()
-  .regex(TIMECODE, "expected a timecode like 25:1 or 8:0:3");
+  .regex(TIMECODE, "expected a timecode like 25:1, 8:0:3 or 8:1:2.240");
 
 /**
  * One placed clip or sequence on a lane: WHERE it goes and HOW MANY TIMES.
