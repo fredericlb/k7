@@ -687,6 +687,19 @@ function makeHost(
         });
         c.listPlugins(filter);
       }),
+    // A clip's source envelope, for `clip trim`. Straight through to the workspace's waveform
+    // machinery, which is where the `.cache` sidecar and the engine that builds it already live —
+    // the WHOLE file, since a trim is about the source's silence and not the placement's span.
+    clipEnvelope: async (clip: string) => {
+      const w = currentWs;
+      if (!w) return null;
+      try {
+        const wf = await w.waveform(clip, 2000, true);
+        return wf?.rms?.length ? { peak: wf.rms, seconds: wf.seconds } : null;
+      } catch {
+        return null; // no envelope yet, or a clip nothing can decode — the command says so
+      }
+    },
     getAudioDevices: () =>
       new Promise<AudioDeviceInfo[]>((res) => {
         const c = ensureEngine();

@@ -4,10 +4,16 @@
 // button that brings it up to level. Same waveform, same place, one view of one clip.
 
 import { Button } from "@frediverse/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
+import { DEFAULT_TRIM_DB, trimWindow } from "@studio/commands/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
 import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Square, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
@@ -19,6 +25,10 @@ const BUCKETS = 1200;
 // slider cannot ask for something that comes back silently adjusted.
 const SENS_MIN = 0.25;
 const SENS_MAX = 8;
+// The gate's range, in dBFS. −80 is below anything a take carries; −10 is above a signal, so the
+// slider spans "keep almost everything" to "keep only what is loud" and neither end is useless.
+const GATE_MIN = -80;
+const GATE_MAX = -10;
 
 export function AudioClipPanel({
   clip,
@@ -62,6 +72,10 @@ export function AudioClipPanel({
   // remembers it in the sidecar, which is why moving the slider is a real edit and not a preview.
   const [sensitivity, setSensitivity] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState<string | null>(null);
+  // The trim gate, in dBFS, and whether its menu is open. Open is what draws the preview, so the
+  // two travel together: a gate nobody is looking at should not paint over the take.
+  const [gate, setGate] = useState(DEFAULT_TRIM_DB);
+  const [gateOpen, setGateOpen] = useState(false);
   const live = useLiveEnvelope(rolling, trackOrder);
 
   // Esc stops the take, captured so it reads as "leave the take" wherever the pointer went. Bound
@@ -134,6 +148,18 @@ export function AudioClipPanel({
   // The corrected set — the file service has already applied the clip's corrections, so this is what
   // the onsets ARE rather than what the detector last thought.
   const onsets = wf?.transients ?? [];
+  /**
+   * What a trim at this gate would KEEP — the preview, drawn as a selection over the wave.
+   *
+   * The SAME function the command runs (`trimWindow`), not a second implementation of it: a
+   * preview that disagreed with the act would be worse than no preview. It reads the envelope the
+   * panel already has, which is the same source the service gates on, so the only difference
+   * between the two is bucket resolution.
+   */
+  const keep = useMemo(
+    () => (gateOpen && wf ? trimWindow(wf.rms, wf.seconds, gate) : null),
+    [gateOpen, wf, gate],
+  );
   const seconds = (live.samples.length * live.intervalMs) / 1000;
 
   return (
@@ -213,6 +239,57 @@ export function AudioClipPanel({
               </span>
             </label>
 
+            {/* Trim: a button that OPENS a gate rather than applying one, because where the
+                silence ends is a judgement and the waveform is what you judge it on. While the
+                menu is open the part that would be KEPT is drawn as a selection over the wave, so
+                the slider is read against the take instead of against a number. */}
+            <DropdownMenu
+              open={gateOpen}
+              onOpenChange={(o) => setGateOpen(o && !!clip)}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={!!busy || !clip}>
+                  {busy === "trim" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "rogner"
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 p-3">
+                <div className="flex items-center gap-2 text-xs">
+                  seuil
+                  <input
+                    type="range"
+                    min={GATE_MIN}
+                    max={GATE_MAX}
+                    step={1}
+                    value={gate}
+                    onChange={(e) => setGate(Number(e.target.value))}
+                    className="flex-1"
+                    aria-label="seuil de rognage en dBFS"
+                  />
+                  <span className="w-12 tabular-nums">{gate} dB</span>
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {keep
+                    ? `garde ${keep.from.toFixed(2)}s → ${keep.to.toFixed(2)}s`
+                    : "rien au-dessus de ce seuil"}
+                </p>
+                <Button
+                  size="sm"
+                  className="mt-2 w-full"
+                  disabled={!keep || !!busy}
+                  onClick={() => {
+                    setGateOpen(false);
+                    if (clip) void run(`clip trim ${clip} ${gate}`, "trim");
+                  }}
+                  title="déplace la fenêtre du clip — l'audio n'est pas touché"
+                >
+                  rogner
+                </Button>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="sm"
               variant="outline"
@@ -273,6 +350,8 @@ export function AudioClipPanel({
             // The project's bars and beats, straight from the same endpoint — WebWaveformGrid and
             // the canvas's WaveformGrid are the same three fields, so no translation is needed.
             gridLines={wf.grid}
+            // The trim preview: what a cut at this gate would KEEP, while its menu is open.
+            selection={keep ? { start: keep.from, end: keep.to } : null}
             markers={onsets.map((t) => ({ id: t.toFixed(4), atSec: t }))}
             // A click on a mark refuses that onset; on a detected one that records a removal, on a
             // hand-placed one it takes the addition back — one verb, because from here it is one act.

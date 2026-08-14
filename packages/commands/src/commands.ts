@@ -54,6 +54,7 @@ import {
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { trackMixer } from "@studio/song/project";
 import {
+  clipFilePath,
   clipOnsets,
   deleteModule,
   insertChainStep,
@@ -63,6 +64,7 @@ import {
   replaceModuleInChains,
   selectModuleAlternative,
   setClipOnsets,
+  setClipWindow,
   setModuleAsset,
   setModuleBypass,
   setModuleChannel,
@@ -109,6 +111,7 @@ import { DEFAULT_PEAK, normalizeInPlace } from "./normalize";
 import { processWithChain, type Scope } from "./processChain";
 import { freezeUpstreamRender } from "./render";
 import { describeTimeline, describeTrack } from "./timeline";
+import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
 
 // Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
 // module's own file — a node's folder is `nodes/`, shared by every node in the song,
@@ -141,6 +144,13 @@ export interface CommandHost {
   // node per input of the one in use. Optional: a host with no engine link simply
   // populates the plugin modules and says the inputs were skipped.
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
+  // A clip's source envelope — per-bucket peaks over the file's whole duration, for `clip trim`,
+  // which has to know where the sound is before it can cut what is not. Optional for the reason
+  // above: building it needs the engine (it decodes and downsamples into the `.cache` sidecar), so
+  // a host without one refuses the trim by name rather than guessing at a window.
+  clipEnvelope?(
+    clip: string,
+  ): Promise<{ peak: number[]; seconds: number } | null>;
   // Transport config for git, merged over the env: the web host pins GIT_SSH_COMMAND to the user's deploy key,
   // the CLI leaves it to the machine's own config.
   gitEnv?: GitEnv;
@@ -749,6 +759,66 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // Corrections to what the engine detected, kept as a DIFF so they outlive a re-detection at another
   // sensitivity (song/onsets.ts). Three verbs rather than one that takes a list: each is a thing a person
   // does, each is one line in the file, and each is one entry in the undo journal.
+  /**
+   * clip trim <clip> [gate-dB] — cut the silence off both ends.
+   *
+   * It moves the clip's WINDOW (`from`/`to` in its sidecar), it does not touch the audio. A take's
+   * head is the tail of a count-in and the player settling; its foot is a room and a hand leaving a
+   * string. Both are things you stop PLAYING, not things you want destroyed — and a window is one
+   * line to put back, where a rewritten wav is a restore from the undo journal.
+   *
+   * The gate is in dBFS and defaults to −40: below a room's floor on any usable take, above true
+   * digital silence. Where it lands is `trimWindow`'s decision and is tested there.
+   */
+  "clip.trim": async (a, h) => {
+    const [clip, gateArg] = a.trim().split(/\s+/).filter(Boolean);
+    if (!clip) {
+      h.log([
+        "usage: clip trim <clip> [gate-dB]  (e.g. clip trim prise-01 -40)",
+      ]);
+      return;
+    }
+    const gate = gateArg === undefined ? DEFAULT_TRIM_DB : Number(gateArg);
+    if (!Number.isFinite(gate) || gate > 0) {
+      h.log([
+        `'${gateArg}' is not a gate in dBFS — a negative number, e.g. -40`,
+      ]);
+      return;
+    }
+    if (!h.clipEnvelope) {
+      h.log([
+        "this host cannot read a clip's envelope — `clip trim` needs the engine, which builds it",
+      ]);
+      return;
+    }
+    const env = await h.clipEnvelope(clip);
+    if (!env) {
+      h.log([`${clip}: no envelope yet — the engine builds it on first read`]);
+      return;
+    }
+    const win = trimWindow(env.peak, env.seconds, gate);
+    if (!win) {
+      h.log([
+        `${clip}: nothing above ${gate} dB — the gate is too high, or the take is silent`,
+        "nothing was changed: a window of zero length would play nothing at all",
+      ]);
+      return;
+    }
+    try {
+      // Snapshot BEFORE the write, so undo has the window the clip HAD. The clip's own file is
+      // what changes — the audio is untouched, which is the whole point.
+      h.snapshot?.(clipFilePath(h.songPath, clip));
+      setClipWindow(h.songPath, clip, win.from, win.to);
+    } catch (e) {
+      h.log([`clip trim failed: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([
+      `${clip}: kept ${win.from.toFixed(2)}s → ${win.to.toFixed(2)}s of ${env.seconds.toFixed(2)}s (gate ${gate} dB)`,
+    ]);
+    await h.reload();
+  },
+
   "clip.onset.add": (a, h) => onsetCommand(a, h, "add"),
   "clip.onset.remove": (a, h) => onsetCommand(a, h, "remove"),
   "clip.onset.move": (a, h) => onsetCommand(a, h, "move"),

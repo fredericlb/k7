@@ -11,7 +11,8 @@
     "./timeline": "./src/timeline.ts",
     "./recordTake": "./src/recordTake.ts",
     "./render": "./src/render.ts",
-    "./waveform": "./src/waveform.ts"
+    "./waveform": "./src/waveform.ts",
+    "./trim-gate": "./src/trimGate.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

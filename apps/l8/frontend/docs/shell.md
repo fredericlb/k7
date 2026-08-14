@@ -280,6 +280,28 @@ just the same, labelled **hors piste**. That is the case it exists for: the wave
 and the level are properties of the FILE, and none of them needs a placement. To put such a take
 back on a lane, `event add <track> <clip> <timecode>` is the verb.
 
+#### Trimming moves the WINDOW, and previews before it does
+
+`clip trim <clip> [gate-dB]` cuts the head and the tail at a gate. It moves the clip's window
+(`from`/`to` in its own file) and **never the audio**: a take's head is the tail of a count-in and
+the player settling, its foot is a room and a hand leaving a string, and both are things you stop
+*playing* rather than things you want destroyed. One line to put back, where a rewritten wav is a
+restore from the undo journal.
+
+The button **opens a gate rather than applying one**, because where the silence ends is a judgement
+and the waveform is what you judge it on. While the menu is open, the part that would be KEPT is
+drawn as a selection over the wave, so the slider is read against the take instead of against a
+number. The preview calls **the same `trimWindow`** the command runs — a preview that disagreed
+with the act would be worse than none — so the only difference between the two is bucket
+resolution.
+
+Nothing above the gate changes nothing, and says so: a take entirely below it is either silence or
+a gate set too high, and a window of zero length would play nothing at all.
+
+The envelope reaches the command through `CommandHost.clipEnvelope?()`, optional for the reason
+`getAudioDevices?()` is: building it needs the engine, which decodes and downsamples into the
+`.cache` sidecar. A host without one refuses the trim by name rather than guessing at a window.
+
 #### Onsets are dragged, not retyped
 
 A detected attack is often a hair off rather than wrong, and refusing it only to add another a few
