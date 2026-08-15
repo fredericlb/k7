@@ -57,7 +57,7 @@ filesRouter.get(
     // The last take rides this poll rather than getting a route: the browser cannot work the clip's id
     // out for itself — the engine sends a file path and this service chooses the name — and it is asking
     // here every two seconds already. See takeJustRecorded.
-    res.json({ ...req.ws!.workspaceInfo(), lastTake: takeJustRecorded() });
+    res.json({ ...req.ws!.workspaceInfo(), lastTake: takeJustRecorded(req.ws!) });
   }),
 );
 
@@ -395,16 +395,17 @@ filesRouter.post(
   validate(engineProjectBody),
   wrap((req, res) => {
     const { doc } = req.body as { doc: ProjectDoc };
-    applyClientProject(doc);
+    applyClientProject(req.ws!, doc);
     res.json({ ok: true });
   }),
 );
 
 // Quitting: stop and flush the engine and forget the active project. Another tab driving it will pick it back up.
+// This workspace's session only — leaving one project must not stop someone else's on the shared engine.
 filesRouter.post(
   "/engine/unload",
-  wrap(async (_req, res) => {
-    await unloadEngine();
+  wrap(async (req, res) => {
+    await unloadEngine(req.ws!);
     res.json({ ok: true });
   }),
 );
@@ -881,7 +882,7 @@ filesRouter.post(
       const { file, start, length } = req.ws!.resolvePreview(
         req.body as z.infer<typeof previewBody>,
       );
-      enginePreview(file, start, length);
+      enginePreview(req.ws ?? null, file, start, length);
       res.json({ ok: true });
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : 400;

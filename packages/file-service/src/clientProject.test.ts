@@ -74,8 +74,9 @@ describe("a document the browser built", () => {
   it("reaches the engine through the service's own link", () => {
     // The point of the route: there is one socket, and it is this one.
     // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
-    startEngineForActive(wsWith(root, "compiled") as any);
-    applyClientProject(emptyDoc({ name: "with-decks" }));
+    const ws = wsWith(root, "compiled") as any;
+    startEngineForActive(ws);
+    applyClientProject(ws, emptyDoc({ name: "with-decks" }));
     expect(names()).toEqual(["compiled", "with-decks"]);
   });
 
@@ -86,7 +87,7 @@ describe("a document the browser built", () => {
     // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
     const ws = wsWith(root, "compiled") as any;
     startEngineForActive(ws);
-    applyClientProject(emptyDoc({ name: "with-decks" }));
+    applyClientProject(ws, emptyDoc({ name: "with-decks" }));
     startEngineForActive(ws); // e.g. another /open on the same project
     expect(names()).toEqual(["compiled", "with-decks"]);
   });
@@ -97,7 +98,7 @@ describe("a document the browser built", () => {
     // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
     const ws = wsWith(root, "compiled") as any;
     startEngineForActive(ws);
-    applyClientProject(emptyDoc({ name: "with-decks" }));
+    applyClientProject(ws, emptyDoc({ name: "with-decks" }));
     reloadActiveProject(ws);
     expect(names()).toEqual(["compiled", "with-decks", "compiled"]);
   });
@@ -108,8 +109,9 @@ describe("a document the browser built", () => {
     const other = mkdtempSync(join(tmpdir(), "td-clientdoc-b-"));
     try {
       // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
-      startEngineForActive(wsWith(root, "first") as any);
-      applyClientProject(emptyDoc({ name: "with-decks" }));
+      const ws = wsWith(root, "first") as any;
+      startEngineForActive(ws);
+      applyClientProject(ws, emptyDoc({ name: "with-decks" }));
       // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
       startEngineForActive(wsWith(other, "second") as any);
       expect(names()).toEqual(["first", "with-decks", "second"]);

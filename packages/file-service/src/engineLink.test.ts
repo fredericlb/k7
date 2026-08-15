@@ -5,7 +5,10 @@
 // on either side: the song plays in one session while the frontend steers an empty other,
 // which reads as "the engine ignores Play". Nothing else in the repo would catch that.
 
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { emptyDoc } from "@studio/engine-protocol/build";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { rootDir, slugify } from "./slug.ts";
@@ -17,6 +20,7 @@ class FakeClient {
   closed = false;
   connects = 0;
   droppedSession: string | null = null;
+  previews: [string, number, number][] = [];
   handlers = new Map<string, (...a: unknown[]) => void>();
   constructor(
     readonly url: string,
@@ -37,6 +41,11 @@ class FakeClient {
   dropSession(session: string) {
     this.droppedSession = session;
   }
+  preview(file: string, start: number, length: number) {
+    this.previews.push([file, start, length]);
+  }
+  sendProject() {}
+  flush() {}
   setAudioDevice() {}
 }
 vi.mock("@studio/engine-client/engineClient", async (orig) => ({
@@ -44,11 +53,26 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
   EngineClient: FakeClient,
 }));
 
-const { awaitArm, ensureEngine, pruneIdleLinks, sessionOf, setSelectedEngine } =
-  await import("./engineLink.ts");
+const {
+  awaitArm,
+  enginePreview,
+  ensureEngine,
+  pruneIdleLinks,
+  sessionOf,
+  setSelectedEngine,
+  startEngineForActive,
+} = await import("./engineLink.ts");
 
 const wsFor = (email: string, name = "songs") => ({
   root: join(rootDir(), slugify(email), name),
+});
+
+/** `wsFor` with enough of a Workspace to actually SERVE `dir` — which is what `served` records. */
+const wsServing = (email: string, dir: string) => ({
+  ...wsFor(email),
+  activeProjectPath: () => dir,
+  cachedProjectDoc: () => emptyDoc({ name: "song" }),
+  invalidateProjectDoc: () => {},
 });
 
 describe("sessionOf", () => {
@@ -112,12 +136,29 @@ describe("pruneIdleLinks", () => {
     expect(client.connects).toBe(1);
   });
 
-  it("never drops the workspace being played", () => {
-    // currentWs is null in this process, so sessionOf(null) — the bare service id — is "current".
+  it("never drops a session that is holding a project", () => {
+    // The protected set is `served` — the sessions this service has actually sent a project to —
+    // not one "current" workspace. A player is idle between commands by nature; reaping their
+    // link would leave the engine holding a project nothing here could re-send to.
+    const dir = mkdtempSync(join(tmpdir(), "td-prune-"));
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+      startEngineForActive(wsServing("player@x.org", dir) as any);
+      const client = last();
+      expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([]);
+      expect(client.closed).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("DOES drop an idle session that is holding nothing", () => {
+    // A link dialled for a preview alone. It used to be spared whenever it happened to be the
+    // bare session — which, before any /open, is exactly the one nothing is playing in.
     ensureEngine(null);
     const client = last();
-    expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([]);
-    expect(client.closed).toBe(false);
+    expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.l8]);
+    expect(client.closed).toBe(true);
   });
 
   it("keeps a link that was used recently", () => {
@@ -131,6 +172,31 @@ describe("pruneIdleLinks", () => {
     const b = ensureEngine(ws("same@x.org"));
     expect(a).toBe(b);
     expect(built).toHaveLength(1);
+  });
+});
+
+/**
+ * A preview is addressed to the REQUEST's workspace session, never to a global "current" one.
+ *
+ * The global it used to default to was set only by /open, so after a service restart it was
+ * null until somebody reopened a project — and a preview through it landed on the BARE session,
+ * whose edit is empty. The engine's previewSample returns without a word on an empty session,
+ * so the failure read as a ▶ that clicks and says nothing: sound-free, error-free, and
+ * unfindable from either end. The route has the workspace in hand; it must say so.
+ */
+describe("enginePreview", () => {
+  beforeEach(() => {
+    built.length = 0;
+    setSelectedEngine(`ws://127.0.0.1:2000/${Math.random()}`);
+  });
+
+  it("plays through the request's workspace session, not the bare default", () => {
+    enginePreview(wsFor("fred@parapluie.org") as never, "C:/a.wav", 0, 0.5);
+    const client = built.at(-1);
+    if (!client) throw new Error("no engine client was built");
+    expect(client.session).toBe(sessionOf(wsFor("fred@parapluie.org")));
+    expect(client.session).not.toBe(SESSIONS.l8); // the bare id is the silent wrong room
+    expect(client.previews).toEqual([["C:/a.wav", 0, 0.5]]);
   });
 });
 

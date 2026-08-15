@@ -1,7 +1,7 @@
 // engineLink.ts — run the brain's command layer and drive the LOCAL C++ engine, dialled
-// once at boot. There is one engine, so the link and the PatternClock are module-level
-// singletons and `currentWs` tracks whose project it's playing (so a take lands right).
-// Several browser tabs share it — last write wins.
+// once at boot. One engine, but one SESSION per workspace owner: `served` says what this
+// service sent to each of them, so a re-send or a take resolves its workspace explicitly.
+// The PatternClock is the one real singleton — see docs/activeProject.md.
 
 import { basename, relative } from "node:path";
 import {
@@ -51,7 +51,47 @@ const links = new Map<string, Link>();
  *  a score between takes is idle, and reconnecting costs a round trip. */
 const LINK_IDLE_MS = 5 * 60_000;
 let selectedEngineUrl: string | undefined;
-let currentWs: Workspace | null = null; // whose project the engine is playing; recorded takes land here
+
+/**
+ * What this service last SENT to one session — the workspace it came from and the project.
+ *
+ * The record every path here used to take from one module-global `currentWs`, and the reason
+ * that hurt: it is written by `/open` and nothing else, so between a service restart and the
+ * next open it is null, and everything defaulting through it addressed `sessionOf(null)` —
+ * the BARE service id, a session the engine holds nothing in. Sending to an empty session is
+ * the quietest failure this codebase has: the engine answers nothing and reports nothing.
+ *
+ * Keyed by session, because that is the identifier every side already agrees on: the socket
+ * knows which one delivered a frame, `sessionOf(ws)` names one from a request. So a socket
+ * re-opening asks "what was I serving?" and a take asks "whose project is this?" instead of
+ * both consulting a global that may be about somebody else — or about nobody at all.
+ */
+interface Served {
+  ws: Workspace;
+  /** The project path we sent — what the ENGINE holds, which a take belongs to even if the
+   *  workspace has since made another one active. */
+  project: string;
+  /** The reconcile throttle, per session: two of them must not starve each other. */
+  lastReconcile: number;
+  reconciling: boolean;
+}
+const served = new Map<string, Served>();
+
+/** Note that `project` is what this session now holds, keeping any reconcile state in flight. */
+function noteServed(ws: Workspace, project: string): void {
+  const s = served.get(sessionOf(ws));
+  if (s) {
+    s.ws = ws;
+    s.project = project;
+    return;
+  }
+  served.set(sessionOf(ws), {
+    ws,
+    project,
+    lastReconcile: 0,
+    reconciling: false,
+  });
+}
 
 /**
  * Which session a workspace's project belongs to.
@@ -87,18 +127,22 @@ function wireEngine(session: string, e: EngineClient): void {
     } catch {
       /* no/invalid preferences — keep the system default */
     }
-    // Re-send the project this session was serving. A fresh socket can mean a fresh ENGINE —
+    // Re-send the project THIS session was serving. A fresh socket can mean a fresh ENGINE —
     // it crashed and the supervisor respawned it — and that engine holds no session at all,
-    // while `engineProject` below still says we are serving one. Nothing then re-sent it: the
+    // while `served` below still says we are serving one. Nothing then re-sent it: the
     // 2 s /workspace poll takes `prewarmEngineForActive`'s early return, the browser shows a
     // project the engine has never heard of, and the transport does nothing for ever. Observed
     // exactly that: the file service naming an active project against an engine reporting
     // `loaded=false, 0 tracks`, unstuck only by an explicit /open.
     //
+    // Asked of `served`, so each session restores ITS OWN and one serving nothing restores
+    // nothing — the global pair this replaces described the last workspace to open, and left
+    // everybody else's socket declining to re-send. See docs/activeProject.md.
+    //
     // Cheap to do unconditionally: the engine DIFFS what arrives, so a reconnect to an engine
     // that still has it answers "no changes (project already current)".
-    if (currentWs && engineProject && sessionOf(currentWs) === session)
-      sendActiveProject(currentWs, engineProject);
+    const s = served.get(session);
+    if (s) sendActiveProject(s.ws, s.project);
   });
   e.on("close", () => {
     const l = links.get(session);
@@ -111,7 +155,9 @@ function wireEngine(session: string, e: EngineClient): void {
   e.on("state", (s: { playing?: boolean; playhead?: number }) =>
     patternClock.onState(!!s.playing, Number(s.playhead ?? 0)),
   );
-  e.on("recorded", onRecorded);
+  // The session is carried by the SOCKET, not by the frame — `forSession` has already dropped
+  // everyone else's — so it is what tells a take whose project it belongs to.
+  e.on("recorded", (take: RecordedTake) => onRecorded(session, take));
 }
 
 /**
@@ -147,11 +193,12 @@ function dropLink(session: string, { tellEngine = false } = {}): void {
  * Exported for the test, and it takes `now` for the same reason.
  */
 export function pruneIdleLinks(now: number = Date.now()): string[] {
-  const current = sessionOf(currentWs);
   const dropped: string[] = [];
   for (const [session, l] of links) {
-    // Never the workspace being played: it is idle between commands by nature.
-    if (session === current) continue;
+    // Never a session holding a project: it is idle between commands by nature. Read off
+    // `served` rather than off one "current" workspace, which protected the last opener's
+    // session and reaped everybody else's out from under a project still loaded.
+    if (served.has(session)) continue;
     if (now - l.lastUsed < LINK_IDLE_MS) continue;
     dropLink(session);
     dropped.push(session);
@@ -176,12 +223,15 @@ export function setSelectedEngine(url: string): void {
  * own outbox and its own reconnect, and the alternative is a shared queue where one user's
  * backlog delays another's transport.
  *
+ * The workspace is REQUIRED, and that is the whole guard: it used to default to the global
+ * `currentWs`, so a caller with a workspace in hand could silently address somebody else's
+ * session — or, before any /open, the bare one the engine holds nothing in. Pass `null` only
+ * where there genuinely is no workspace; the bare id is then the answer, not an accident.
+ *
  * Exported so engineLink.test.ts can populate `links` without standing up a Workspace; every
  * caller in this file reaches it as the module-private thing it otherwise is.
  */
-export function ensureEngine(
-  ws: Workspace | null = currentWs,
-): EngineClient | undefined {
+export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
   if (!selectedEngineUrl) return undefined;
   const session = sessionOf(ws);
   const existing = links.get(session);
@@ -205,7 +255,7 @@ export function ensureEngine(
 }
 
 /** Whether this session's socket is open. A fresh one is not, and says so. */
-function isReady(ws: Workspace | null = currentWs): boolean {
+function isReady(ws: Workspace | null): boolean {
   return links.get(sessionOf(ws))?.ready ?? false;
 }
 
@@ -213,8 +263,21 @@ let orbitTracks: TrackDoc[] = [];
 export function strudelOrbitTracks(): TrackDoc[] {
   return orbitTracks;
 }
+
+/**
+ * Whose project the pattern clock is holding — the one thing here that is legitimately global.
+ *
+ * The clock, its strudel watcher and the browser-supplied `clientDoc` below are a SINGLE
+ * running thing: one project's patterns, one file watcher, one overlay. Several workspaces can
+ * be served at once (each has its own engine session and its own `served` entry) but only the
+ * most recent one owns the clock — last write wins, as it always has. What this variable adds
+ * is that the clock's sends now go to THAT workspace's session instead of to a global set only
+ * by /open, so an overlay pushed after a restart lands in the room the song is in.
+ */
+let clockWs: Workspace | null = null;
+
 const patternClock = new PatternClock(
-  (doc: ProjectDoc) => ensureEngine()?.sendProject(doc),
+  (doc: ProjectDoc) => ensureEngine(clockWs)?.sendProject(doc),
   undefined,
   (tracks) => {
     orbitTracks = tracks;
@@ -238,35 +301,53 @@ function dropClientProject(): void {
 }
 
 /**
+ * Hand the singleton clock a document, and with it the workspace whose session to send in.
+ *
+ * The two go together or not at all: the clock sends from inside `setBaseProject`, so a base set
+ * without an owner goes wherever the previous one went — which after a restart is the bare
+ * session, the empty room.
+ */
+function setClockProject(ws: Workspace, doc: ProjectDoc): void {
+  clockWs = ws;
+  patternClock.setBaseProject(doc);
+}
+
+/**
  * Play a document a browser built, through the service's own link.
  *
  * It becomes the pattern clock's BASE, which is what makes this one path rather than two: a
  * strudel lane still overlays its events, and the actual `sendProject` is the same call the
  * disk-driven push makes. The engine diffs, so a song already playing keeps playing under it.
+ *
+ * `ws` is the requesting workspace, for the same reason `enginePreview` takes one: the
+ * turntables surface can hand over a deck-filled document before anything has opened a project
+ * on this service, and without it that document went to the bare session and was never heard.
  */
-export function applyClientProject(doc: ProjectDoc): void {
+export function applyClientProject(ws: Workspace, doc: ProjectDoc): void {
   clientDoc = doc;
-  patternClock.setBaseProject(doc);
+  setClockProject(ws, doc);
 }
 
 function loadPatternsFor(ws: Workspace, dir: string): void {
+  clockWs = ws; // BEFORE switchTo: the clock sends from inside it, and must know where to
   patternClock.switchTo(dir);
   // NOT while a browser holds the document. It would push the bare compile — the same project
   // with the decks' clips gone — and the surface would blink empty until its next gesture. The
   // browser polls `/revision`, rebuilds from the fresh compile and hands it back, so the new
   // state arrives complete instead of arriving twice.
-  if (!clientDoc) patternClock.setBaseProject(ws.cachedProjectDoc(dir));
+  if (!clientDoc) setClockProject(ws, ws.cachedProjectDoc(dir));
   void patternClock.refreshPatterns(strudelPatterns(dir), dir);
 }
 
 function enginePlugins(
+  ws: Workspace,
   fire: (c: EngineClient) => void,
   out: string[],
   timeoutMs: number,
   rescan: boolean,
 ): Promise<void> {
-  const c = ensureEngine();
-  if (!c || !isReady()) {
+  const c = ensureEngine(ws);
+  if (!c || !isReady(ws)) {
     out.push(NO_ENGINE);
     return Promise.resolve();
   }
@@ -296,7 +377,15 @@ function safeBaseModules(dir: string): string[] {
   }
 }
 
+/**
+ * Compile `p` and push it to `ws`' session, recording that this is what that session holds.
+ *
+ * The note is taken FIRST, and even when the compile throws: a session serving a project the
+ * compiler currently refuses is still serving that project, and the reconcile and the socket's
+ * `open` both need to know which one to try again with.
+ */
 function sendActiveProject(ws: Workspace, p: string): void {
+  noteServed(ws, p);
   try {
     loadPatternsFor(ws, p);
   } catch (e) {
@@ -338,19 +427,17 @@ function watchStrudel(dir: string | null): void {
     .on("error", () => {});
 }
 
-// The project the engine is currently serving.
-let engineProject: string | null = null;
-
 // Point the engine at the active project and send it; switching to a DIFFERENT project flushes it first.
 export function startEngineForActive(ws: Workspace): void {
   const p = ws.activeProjectPath();
   if (!p) return;
-  const switching = engineProject !== null && p !== engineProject;
-  engineProject = p;
-  currentWs = ws;
+  // What THIS session was serving, not what the service last touched: another person opening
+  // their song is not this session switching projects, and flushing on it emptied a running one.
+  const before = served.get(sessionOf(ws))?.project ?? null;
+  const switching = before !== null && p !== before;
   watchStrudel(p);
   if (switching) {
-    ensureEngine()?.flush();
+    ensureEngine(ws)?.flush();
     // A document built for the project we are LEAVING must not survive into this one.
     dropClientProject();
   }
@@ -405,14 +492,10 @@ export function awaitSessions(
   });
 }
 
-/** Throttle state for the reconcile: one in flight, and not more often than RECONCILE_EVERY_MS. */
-let lastReconcile = 0;
-let reconciling = false;
-
 /**
- * Check that the engine really holds what `engineProject` claims, and put it back if not.
+ * Check that the engine really holds what `served` claims for this session, and put it back if not.
  *
- * `engineProject` is this process's belief about another process's state, and the two drift
+ * `served` is this process's belief about another process's state, and the two drift
  * silently — see docs/activeProject.md. This asks rather than remembers.
  *
  * Two faults with two cures. A session the engine is not holding is simply re-sent. An engine
@@ -423,12 +506,17 @@ let reconciling = false;
  * holds a path, so comparing them would invent a mismatch. Switching projects is
  * startEngineForActive's job anyway.
  */
-async function reconcileEngine(ws: Workspace, now: number): Promise<void> {
-  if (reconciling || now - lastReconcile < RECONCILE_EVERY_MS) return;
-  const serving = engineProject;
-  if (!serving) return;
-  lastReconcile = now;
-  reconciling = true;
+async function reconcileEngine(
+  ws: Workspace,
+  s: Served,
+  now: number,
+): Promise<void> {
+  // Throttled PER SESSION — one in flight and one per RECONCILE_EVERY_MS each, not shared:
+  // a single pair of module-level flags let one person's poll eat the other's turn.
+  if (s.reconciling || now - s.lastReconcile < RECONCILE_EVERY_MS) return;
+  const serving = s.project;
+  s.lastReconcile = now;
+  s.reconciling = true;
   try {
     const session = sessionOf(ws);
     const c = ensureEngine(ws);
@@ -447,7 +535,7 @@ async function reconcileEngine(ws: Workspace, now: number): Promise<void> {
     );
     sendActiveProject(ws, serving);
   } finally {
-    reconciling = false;
+    s.reconciling = false;
   }
 }
 
@@ -456,32 +544,42 @@ async function reconcileEngine(ws: Workspace, now: number): Promise<void> {
  * otherwise make sure it still has the one we think it has.
  *
  * Loading speculatively lets plugin instantiation overlap the browser's remaining startup.
- * The reconcile is deliberately limited to the workspace being SERVED — two of them
- * re-asserting on a poll would fight over the one shared engine, which is what the old
- * unconditional early return was really guarding.
+ *
+ * Both questions are asked of THIS workspace's session. They used to be asked of one global
+ * pair, which conflated "this session is already served" with "somebody, somewhere is": a
+ * second person's poll matched neither branch — engineProject was set, so no start; the
+ * session differed, so no reconcile — and their project was never sent at all. The old comment
+ * called that guard "two of them fighting over the one shared engine"; the engine keeps one
+ * edit PER session, so there is nothing to fight over once each poll minds its own.
  */
 export function prewarmEngineForActive(
   ws: Workspace,
   now: number = Date.now(),
 ): void {
-  if (engineProject === null) {
+  const s = served.get(sessionOf(ws));
+  if (!s) {
     startEngineForActive(ws);
     return;
   }
-  if (
-    ws.activeProjectPath() !== engineProject ||
-    sessionOf(ws) !== sessionOf(currentWs)
-  )
-    return;
-  void reconcileEngine(ws, now).catch((e: unknown) =>
+  // Another project in the same workspace: reconciling would re-assert the one being left.
+  if (ws.activeProjectPath() !== s.project) return;
+  void reconcileEngine(ws, s, now).catch((e: unknown) =>
     console.error(`   ✗ engine reconcile failed: ${(e as Error).message}`),
   );
 }
 
-// Unload: stop, flush and forget the pointers, so a left workspace neither plays nor catches a recorded take.
-export async function unloadEngine(): Promise<void> {
-  const leaving = sessionOf(currentWs);
-  const e = ensureEngine();
+/**
+ * Unload ONE workspace's session: stop, flush and forget it, so a left workspace neither plays
+ * nor catches a recorded take. `null` names the bare session, as everywhere else here.
+ *
+ * The workspace is a parameter rather than the global it was, for the reason the whole file
+ * moved: the caller is a route with `req.ws` in hand, and taking the last opener's session
+ * instead meant a second person's /engine/unload stopped somebody else's song and left their
+ * own playing.
+ */
+export async function unloadEngine(ws: Workspace | null): Promise<void> {
+  const leaving = sessionOf(ws);
+  const e = ensureEngine(ws);
   if (e) {
     try {
       e.transport("stop");
@@ -490,9 +588,13 @@ export async function unloadEngine(): Promise<void> {
       /* engine offline — nothing to unload */
     }
   }
-  engineProject = null;
-  currentWs = null;
-  dropClientProject();
+  served.delete(leaving);
+  // The clock and the browser's document are singletons, so they are only given up when it is
+  // THIS session that owned them — otherwise leaving one workspace silenced another's overlay.
+  if (clockWs && sessionOf(clockWs) === leaving) {
+    clockWs = null;
+    dropClientProject();
+  }
   // The one place that means "this workspace is DONE", so it is the one that tells the engine to
   // forget the session rather than merely letting the socket go — an idle prune deliberately does not.
   dropLink(leaving, { tellEngine: true });
@@ -500,22 +602,36 @@ export async function unloadEngine(): Promise<void> {
   await closeStrudelWatcher();
 }
 
-// Unload ONLY if the engine is serving `projectAbs` — unconditionally would stop a project another tab is driving.
+/**
+ * Unload whichever session is serving `projectAbs` — unconditionally would stop a project
+ * another tab is driving. Every session is checked, not one global: two people can have the
+ * same shared project open, and deleting the folder must not leave the other holding it.
+ */
 export async function unloadEngineIfServing(
   projectAbs: string,
 ): Promise<boolean> {
-  if (engineProject !== projectAbs) return false;
-  await unloadEngine();
-  return true;
+  const holders = [...served.values()].filter((s) => s.project === projectAbs);
+  for (const s of holders) await unloadEngine(s.ws);
+  return holders.length > 0;
 }
 
-// Audition a file over [start, start+length) seconds; a no-op when the engine is offline — previews are extras.
+/**
+ * Audition a file over [start, start+length) seconds; a no-op when the engine is offline —
+ * previews are extras.
+ *
+ * The REQUEST's workspace, deliberately not a global: the one this used to default to was set
+ * only by /open, so after a service restart it was null until somebody reopened a project — and
+ * a preview aimed through it landed on the BARE default session, whose edit is empty.
+ * previewSample then returns without a word: sound-free and error-free, which is exactly how it
+ * read — a ▶ that clicks and says nothing.
+ */
 export function enginePreview(
+  ws: Workspace | null,
   file: string,
   start: number,
   length: number,
 ): void {
-  ensureEngine()?.preview(file, start, length);
+  ensureEngine(ws)?.preview(file, start, length);
 }
 
 /**
@@ -526,20 +642,43 @@ export function enginePreview(
  * the clip. The browser polls /workspace anyway, so it costs no round trip of its own — and it is
  * never cleared, because "the last take" stays true until there is another one. Whether it has been
  * looked at is the client's business, not this one's.
+ *
+ * Per SESSION, so it is the person who recorded it who is shown it: one variable handed the
+ * newest take to whoever polled next, which for a shared file service is a clip appearing in a
+ * project it was not recorded into.
  */
-let lastTake: { clip: string; track: string } | null = null;
-export const takeJustRecorded = (): { clip: string; track: string } | null =>
-  lastTake;
+export type TakeRef = { clip: string; track: string };
+const lastTakes = new Map<string, TakeRef>();
+export const takeJustRecorded = (ws: Workspace | null): TakeRef | null =>
+  lastTakes.get(sessionOf(ws)) ?? null;
 
-function onRecorded(take: RecordedTake): void {
-  const ws = currentWs;
-  const dir = ws?.activeProjectPath();
-  if (!ws || !dir) return;
+/**
+ * Turn a finished take into a clip, in the project the SESSION that recorded it is serving.
+ *
+ * `session` comes from the socket that delivered the frame, and `served` turns it back into a
+ * workspace and a project path. It used to read a global set only by /open, which after a
+ * service restart is null — so a take recorded before anyone reopened a project was written to
+ * disk by the engine and then dropped here with nothing said at all. The wav still exists; the
+ * point is that nobody could tell it was orphaned.
+ *
+ * The project is the one we SENT, not the workspace's active one: the engine recorded into what
+ * it holds, and if the active project has moved on since, the take still belongs to the old one.
+ */
+function onRecorded(session: string, take: RecordedTake): void {
+  const s = served.get(session);
+  if (!s) {
+    // Never silent: the audio is on disk and only this message says where to look for it.
+    console.error(
+      `[rec] ${take.track}: recorded ${take.file}, but session ${session} is serving no project here — the clip was NOT added to any track`,
+    );
+    return;
+  }
+  const { ws, project } = s;
   try {
-    const id = addTakeToTrack(dir, ws.cachedProjectDoc(dir), take);
+    const id = addTakeToTrack(project, ws.cachedProjectDoc(project), take);
     ws.invalidateProjectDoc();
-    loadPatternsFor(ws, dir);
-    lastTake = { clip: id, track: take.track };
+    loadPatternsFor(ws, project);
+    lastTakes.set(session, { clip: id, track: take.track });
     console.log(`[rec] ${take.track}: added clip ${id}`);
   } catch (e) {
     console.error(
@@ -649,34 +788,36 @@ function makeHost(
         out.push(`reload error: ${(e as Error).message}`);
       }
     },
-    transport: (a: TransportAction) => ensureEngine()?.transport(a),
+    // Every engine call below names `ws`: a command knows whose workspace it runs in, and
+    // defaulting instead sent transport and arm to the bare session — the empty room.
+    transport: (a: TransportAction) => ensureEngine(ws)?.transport(a),
     arm: (track) => {
-      const c = ensureEngine();
-      if (!c || !isReady()) {
+      const c = ensureEngine(ws);
+      if (!c || !isReady(ws)) {
         out.push(NO_ENGINE);
         return Promise.resolve(undefined);
       }
-      return awaitArm(c, track, out, () => isReady());
+      return awaitArm(c, track, out, () => isReady(ws));
     },
     applyProject: (p) => {
       ws.setCachedProjectDoc(requireDir(), p);
-      patternClock.setBaseProject(p);
+      setClockProject(ws, p);
     },
-    sendProject: (p) => patternClock.setBaseProject(p),
+    sendProject: (p) => setClockProject(ws, p),
     // Say so when there is nothing to ask: the caller reports "opening…" either way, so silence reads as a dead button.
     showNativePluginUI: (id) => {
-      const e = ensureEngine();
+      const e = ensureEngine(ws);
       if (!e) out.push(NO_ENGINE);
       else e.showNativePluginUI(id);
     },
     listPlugins: (filter) =>
-      enginePlugins((c) => c.listPlugins(filter), out, 4000, false),
+      enginePlugins(ws, (c) => c.listPlugins(filter), out, 4000, false),
     rescanPlugins: (force) =>
-      enginePlugins((c) => c.rescanPlugins(force), out, 60000, true),
+      enginePlugins(ws, (c) => c.rescanPlugins(force), out, 60000, true),
     getPlugins: (filter) =>
       new Promise<PluginInfo[]>((res) => {
-        const c = ensureEngine();
-        if (!c || !isReady()) {
+        const c = ensureEngine(ws);
+        if (!c || !isReady(ws)) {
           res([]);
           return;
         }
@@ -690,11 +831,11 @@ function makeHost(
     // A clip's source envelope, for `clip trim`. Straight through to the workspace's waveform
     // machinery, which is where the `.cache` sidecar and the engine that builds it already live —
     // the WHOLE file, since a trim is about the source's silence and not the placement's span.
+    // `ws`, not a global: the clip named is one of THIS command's project's, and reading it out
+    // of another workspace's tree answered null for a file that was right there.
     clipEnvelope: async (clip: string) => {
-      const w = currentWs;
-      if (!w) return null;
       try {
-        const wf = await w.waveform(clip, 2000, true);
+        const wf = await ws.waveform(clip, 2000, true);
         return wf?.rms?.length ? { peak: wf.rms, seconds: wf.seconds } : null;
       } catch {
         return null; // no envelope yet, or a clip nothing can decode — the command says so
@@ -702,8 +843,8 @@ function makeHost(
     },
     getAudioDevices: () =>
       new Promise<AudioDeviceInfo[]>((res) => {
-        const c = ensureEngine();
-        if (!c || !isReady()) {
+        const c = ensureEngine(ws);
+        if (!c || !isReady(ws)) {
           res([]);
           return;
         }

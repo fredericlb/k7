@@ -1,4 +1,4 @@
-// `engineProject` is this process's belief about another process's state, and the two drift
+// `served` is this process's belief about another process's state, and the two drift
 // silently: a session emptied under us raises nothing, and neither does a link that has gone
 // inert. What is pinned here is that the poll ASKS the engine rather than trusting the note —
 // and what it does with each of the two answers. See docs/activeProject.md.
@@ -109,7 +109,10 @@ beforeEach(async () => {
   built.length = 0;
   FakeClient.answer = [];
   setSelectedEngine(`ws://127.0.0.1:1/${later()}`);
-  await unloadEngine(); // forget the previous test's project, so `engineProject` starts null
+  // Forget the previous test's project, so this session starts serving nothing. `null` is the
+  // right workspace to name: a temp dir outside the users root falls back to the bare session,
+  // which is the one every case in this file lands on.
+  await unloadEngine(null);
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -190,8 +193,9 @@ describe("the poll's engine upkeep", () => {
     }
   });
 
-  it("leaves ANOTHER workspace's poll alone", async () => {
-    // Two of them re-asserting on a poll would fight over the one shared engine.
+  it("leaves a poll for ANOTHER project in the same session alone", async () => {
+    // Reconciling it would re-assert the project being left. The session is the unit here —
+    // a different session has its own engine edit and its own note, and reconciles on its own.
     const other = mkdtempSync(join(tmpdir(), "td-reconcile-b-"));
     try {
       startEngineForActive(wsWith(root, "song"));

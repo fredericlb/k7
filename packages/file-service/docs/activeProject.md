@@ -59,9 +59,56 @@ existence **before** the name rule and says what actually happened, and `isProje
 requires a directory — which also stops a stale `.studio-active` marker (a project deleted
 outside the service) from being restored at construction.
 
+## Whose project — the note is per SESSION
+
+There is one engine and one link per session, and for a long time there was one note about what
+was being served: a `currentWs` (which workspace) and an `engineProject` (which folder), both
+module globals in `engineLink.ts`, both written by `POST /open` and by nothing else.
+
+That is wrong in two directions at once, and each is silent.
+
+**Null.** Between a file service restart and the next `/open` there is no current workspace, and
+`sessionOf(null)` is the BARE service id — a session the engine holds nothing in. Everything
+that defaulted through it addressed that empty session: a preview, a transport, an arm, a
+document the turntables surface built. The engine's `previewSample` returns without a word on an
+empty session, so the ▶ button clicked and said nothing; `l8 play` did nothing and reported
+nothing. Nothing was broken anywhere — the message just went to an empty room.
+
+**Somebody else's.** With two people on one file service the note names whoever opened last.
+Their sockets are separate (one per session, see `sessionOf`) but the note was not, so the other
+person's reconnect compared itself to a session that was not theirs, declined to re-send, and
+left their project stranded. A take they recorded was added to the last opener's song.
+
+So the note is now `served`, a map from session id to `{ ws, project }`, written by
+`sendActiveProject` — the single funnel through which a project reaches the engine — and read by
+session:
+
+| asks | gets its session from |
+|---|---|
+| the socket's `open` re-send | the socket, which is per session |
+| a `recorded` frame | the socket that delivered it |
+| the poll's prewarm and reconcile | `sessionOf(req.ws)` |
+| the idle prune's "do not drop this one" | every key in `served` |
+| `unloadEngine`, `/engine/unload` | `sessionOf(req.ws)` |
+
+And every remaining engine call takes its workspace as an argument — `ensureEngine(ws)` has no
+default any more, which is the point: a caller that does not say cannot compile. `null` is still
+allowed and still means the bare session, but it now has to be written down.
+
+### What is legitimately global
+
+The **PatternClock**, the strudel **file watcher**, and `clientDoc`, the document the turntables
+surface hands over. Those are one running thing, not one per person: one project's patterns, one
+watcher, one overlay. Several sessions can be served at once, but only the most recent one owns
+the clock — last write wins, as it always did. What `clockWs` adds is that the clock's sends go
+to *that* workspace's session instead of to a global set only by `/open`, so an overlay pushed
+after a restart lands in the room the song is in.
+
+`selectedEngineUrl` is global too, and that one is simply true: there is one engine.
+
 ## The engine may have forgotten, and only it knows
 
-`engineProject` is this process's note of what the ENGINE is serving, and the engine is a
+`served` is this process's note of what the ENGINE is serving, and the engine is a
 different process that can restart under us. When it does — it crashed, the supervisor
 respawned it — the new one holds no session at all, while the note still says we are serving
 a project. Nothing then re-sends it: `prewarmEngineForActive` takes its early return on every
@@ -80,15 +127,17 @@ what arrives, so reconnecting to an engine that still has the project answers "n
 
 ## Asking, rather than remembering
 
-The `open` re-send does not make `engineProject` honest — it is still one process's belief
+The `open` re-send does not make `served` honest — it is still one process's belief
 about another's state, and it only fires when a socket actually drops. A session emptied
 *without* that still strands the project, and so does the worse case below.
 
 So `prewarmEngineForActive` no longer takes an early return on the strength of the note. When
 the note is set it **asks**: `list-sessions`, throttled to one question per
-`RECONCILE_EVERY_MS` however many tabs are polling, and only for the workspace being served —
-two of them re-asserting on a poll would fight over the one shared engine, which is what the
-old unconditional return was really guarding.
+`RECONCILE_EVERY_MS` however many tabs are polling — and per SESSION, both the question and the
+throttle. The old code threw away one poll on the strength of another's, and worse, refused to
+start a workspace at all whenever some *other* session was already served: a second person's
+poll matched neither branch and their project was never sent. There is nothing to fight over,
+because the engine keeps one edit per session.
 
 Two answers, two cures:
 
