@@ -684,9 +684,28 @@ export const RACK_BIND = "@rack:";
 export const rackBindSymbol = (bind: string | undefined): string | null =>
   bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
 
-/** How many pads a row holds before the grid wraps — a drum grid's shape, and it keeps a
- *  sixteen-sound rack from drawing a node wider than the pane. */
+/** The widest a pad grid gets — it keeps a sixteen-sound rack from drawing a node wider than
+ *  the pane, and four is the shape a drum grid already has. */
 const RACK_COLS = 4;
+/** …and the smallest. A rack is a GRID of pads, so it reads as one even holding a single sound:
+ *  two pads in a row look like two controls, four in a square look like a rack with three
+ *  slots free — which is what it is. */
+const RACK_MIN = 2;
+
+/**
+ * The shape a pad grid takes for `n` sounds: square-ish, never under 2×2, never over four wide.
+ *
+ * Square-ish rather than filling rows of four, because the node is read as a PAD GRID and a
+ * 4×2 block of eight says less about the instrument than a 3×3 does. Exported for the test that
+ * pins the corners of that rule.
+ */
+export function rackGrid(n: number): { cols: number; rows: number } {
+  const cols = Math.max(
+    RACK_MIN,
+    Math.min(RACK_COLS, Math.ceil(Math.sqrt(Math.max(1, n)))),
+  );
+  return { cols, rows: Math.max(RACK_MIN, Math.ceil(Math.max(1, n) / cols)) };
+}
 
 /**
  * The UI a RACK node carries: one button per sound it has loaded.
@@ -702,9 +721,14 @@ const RACK_COLS = 4;
  *
  * An AUTHORED `ui.yaml` wins over this. A rack with a hand-made panel has said what it wants its
  * node to show, and a grid of pads bolted underneath would be the app overruling the file.
+ *
+ * The grid is `rackGrid`'s — at least 2×2, so a rack always reads as a rack. The `label` is still
+ * the symbol, and is still what a right-click and a tooltip name the pad by; whether it is
+ * PRINTED on the pad face is the renderer's business, and it is not (see DomChains): sixteen
+ * three-letter words in a card this size is a wall of text where a drum grid should be.
  */
 export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
-  const cols = Math.min(RACK_COLS, Math.max(1, rack.length));
+  const { cols, rows } = rackGrid(rack.length);
   const widgets: Record<string, WebWidget> = {};
   rack.forEach((s, i) => {
     widgets[`rack:${s.symbol}`] = {
@@ -715,7 +739,7 @@ export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
       label: s.symbol,
     };
   });
-  return { cols, rows: Math.ceil(rack.length / cols), widgets };
+  return { cols, rows, widgets };
 }
 
 /**

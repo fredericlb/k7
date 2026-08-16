@@ -15,6 +15,7 @@ import {
   NODE_W,
   nodeSize,
   rackBindSymbol,
+  rackGrid,
   rackUI,
   spaceModulesEvenly,
   subgraphForTrack,
@@ -1421,9 +1422,11 @@ describe("a RACK node draws its sounds", () => {
     { symbol: "SN", note: 38, clip: "snare" },
   ];
 
-  it("gives one pad per loaded sound, labelled by symbol and bound to it", () => {
+  it("gives one pad per loaded sound, named by symbol and bound to it", () => {
     const ui = rackUI(kit);
     expect(Object.keys(ui.widgets)).toEqual(["rack:BD", "rack:HH", "rack:SN"]);
+    // The label is kept even though the pad draws bare: it is what a tooltip and a right-click
+    // name the sound by (see DomChains, which prints it for every button but a pad).
     expect(ui.widgets["rack:BD"]).toMatchObject({
       type: "button",
       label: "BD",
@@ -1431,20 +1434,39 @@ describe("a RACK node draws its sounds", () => {
       col: 0,
       row: 0,
     });
-    // Three sounds fit one row; the grid is as wide as it needs and no wider.
-    expect(ui.cols).toBe(3);
-    expect(ui.rows).toBe(1);
+    // Three sounds make a 2×2 with one slot free — a rack reads as a GRID, not as a row.
+    expect(ui.cols).toBe(2);
+    expect(ui.rows).toBe(2);
+    expect(ui.widgets["rack:SN"]).toMatchObject({ col: 0, row: 1 });
   });
 
-  it("wraps past four, so a big rack does not draw a node wider than the pane", () => {
+  it("is never smaller than 2×2, even holding one sound", () => {
+    // Two pads side by side look like two controls; a square looks like a rack with slots free,
+    // which is what it is.
+    expect(rackGrid(1)).toEqual({ cols: 2, rows: 2 });
+    expect(rackGrid(0)).toEqual({ cols: 2, rows: 2 });
+    expect(rackGrid(4)).toEqual({ cols: 2, rows: 2 });
+  });
+
+  it("stays square-ish as it grows, and never wider than four", () => {
+    // 4×2 for eight says less about the instrument than 3×3 does; past sixteen the grid can only
+    // get taller, or the node outgrows the pane.
+    expect(rackGrid(8)).toEqual({ cols: 3, rows: 3 });
+    expect(rackGrid(9)).toEqual({ cols: 3, rows: 3 });
+    expect(rackGrid(16)).toEqual({ cols: 4, rows: 4 });
+    expect(rackGrid(24)).toEqual({ cols: 4, rows: 6 });
+  });
+
+  it("lays the pads out on that grid, in the rack's own order", () => {
     const many = Array.from({ length: 9 }, (_, i) => ({
       symbol: `P${i}`,
       note: 36 + i,
     }));
     const ui = rackUI(many);
-    expect(ui.cols).toBe(4);
+    expect(ui.cols).toBe(3);
     expect(ui.rows).toBe(3);
-    expect(ui.widgets["rack:P4"]).toMatchObject({ col: 0, row: 1 });
+    expect(ui.widgets["rack:P4"]).toMatchObject({ col: 1, row: 1 });
+    expect(ui.widgets["rack:P8"]).toMatchObject({ col: 2, row: 2 });
   });
 
   it("reads a pad bind back to its symbol, and leaves every other bind alone", () => {

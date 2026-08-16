@@ -1444,7 +1444,12 @@ function WidgetInner({
         className={`dgx-btn${on ? " on" : ""}`}
         style={{ ["--c" as string]: c }}
       >
-        {w.label ?? "?"}
+        {/* A rack PAD draws bare: the grid is the picture, and sixteen three-letter symbols in a
+            card this size is a wall of text where a drum machine's face should be. The symbol is
+            still the widget's label — it names the pad in the tooltip below and in a right-click
+            — so nothing is lost, only unprinted. Every other button keeps its word; `?` remains
+            the tell for a hand-authored one that forgot to write one. */}
+        {padSymbol ? "" : (w.label ?? "?")}
       </b>
     );
   } else if (w.type === "number") {
@@ -1516,7 +1521,14 @@ function WidgetInner({
   }
 
   return (
-    <div {...interact} style={style}>
+    <div
+      {...interact}
+      style={style}
+      // An unlabelled pad has to say what it is SOMEWHERE, and hovering is that somewhere. Only
+      // for pads: every other widget either prints its own label or draws its caption below, and
+      // a tooltip repeating the word already on screen is noise.
+      title={padSymbol ?? undefined}
+    >
       {body}
       {caption && <span className="dgx-wlab">{caption}</span>}
     </div>

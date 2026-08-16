@@ -57,6 +57,31 @@ A **video lane** gets one control. For picture, "mute" means hidden, and there i
 record arm, gain or pan to offer — a full strip there would be four controls that do
 nothing.
 
+## A RACK carries one too — a grid of pads
+
+`rackUI` gives a rack node one button per loaded sound, bound `@rack:<symbol>` — an intrinsic in
+the same family as `@mute`, routed by the renderer rather than sent to a plugin param, because a
+pad **fires** where every other widget **sets**. Synthesised for the reason `TRACK_UI` is: a
+rack's symbols are already known (merged through `extends`), so asking for a `ui.yaml` listing
+them would be asking for two lists kept in step.
+
+**The grid is at least 2×2 and at most four wide** (`rackGrid`, exported so the corners of the
+rule are pinned by a test). Two decisions there:
+
+- **Never smaller than 2×2.** Two pads in a row read as two controls; a square with slots free
+  reads as a rack with slots free, which is what it is. A one-sound rack still looks like a rack.
+- **Square-ish as it grows, capped at four columns.** Eight sounds are 3×3, not 4×2 — the node is
+  read as a pad grid, and a wide flat block says less about the instrument. The cap is what keeps
+  a sixteen-sound kit from drawing a node wider than the pane.
+
+**A pad draws bare.** The widget still carries the symbol as its `label` — that is what a tooltip
+and a right-click name it by — but `DomChains` prints it for every button *except* a pad: sixteen
+three-letter words in a card this size is a wall of text where a drum machine's face should be.
+The hover is where the symbol lives.
+
+An **authored** panel wins over all of this: a rack with a hand-made panel has said what it wants
+its node to show, and a grid of pads bolted underneath would be the app overruling the file.
+
 ## A live INPUT carries one too, and it had to
 
 `inputUI` gives an `io: in` node three dropdowns — its socket, its width, and its monitoring.
