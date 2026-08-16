@@ -261,6 +261,12 @@ function toWebClip(c: TrackDoc["clips"][number]) {
     name: c.name,
     start: c.start,
     length: c.length,
+    // The window of material this placement draws — what the browser's envelope cache keys on.
+    offset: c.offset,
+    sourceFrom: c.sourceFrom,
+    sourceTo: c.sourceTo,
+    // The NAME only: a browser has no business resolving a path on the engine's machine.
+    sourceName: c.source ? basename(c.source) : undefined,
     loopStart: c.loopStart,
     loopEnd: c.loopEnd,
     warped: c.warp ? true : undefined,

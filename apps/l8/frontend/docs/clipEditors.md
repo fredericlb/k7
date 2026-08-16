@@ -172,6 +172,18 @@ The roll's framing effect waits for that reset (`if (zoomX !== 1) return`): on t
 changes `clip.id`, `ppb` still carries the old multiplier, and scrolling by it lands somewhere else
 entirely.
 
+### "A different clip" is not the same question as "different MATERIAL"
+
+The waveform's fetch hung on `clip.id`, which is exactly the thing a trim does not change: `clip
+trim` rewrites the clip file's `from`/`to` and leaves the placement alone, so the pane kept
+drawing the material it had before. It depends on `clipEnvelopeKey` now — the same key the
+timeline's envelope cache is filed under, so the pane and the blocks behind it cannot disagree
+about what a clip currently plays. `docs/timeline.md` ("Activity runs through the blocks") holds
+the reasoning and lists what is still stale until a reload.
+
+A trim therefore re-fits the pane, like opening another clip does. That is the honest reading:
+the region really is a different one.
+
 ## The loop marks
 
 `src/clipLoop.ts` is the arithmetic, shared so the panes cannot disagree: the window that

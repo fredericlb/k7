@@ -222,6 +222,28 @@ export interface WebClip {
   name: string;
   start: number; // beats
   length: number; // beats (0 == natural)
+  /**
+   * WHICH part of the source this placement draws — the same three numbers `regionWaveform`
+   * reads, in the units `ClipDoc` states them in: `offset` the placement's in-point, `sourceFrom`
+   * and `sourceTo` the clip file's own window in seconds (absent == the file's start / its end).
+   *
+   * They are here because the browser CACHES a clip's envelope, and until it could see them a
+   * trim moved the window while the picture stayed: same id, so the cached envelope was reused
+   * and the block went on showing material the clip no longer plays. See
+   * apps/l8/frontend/src/clipEnvelope.ts, which is the only thing that reads them.
+   */
+  //
+  // All optional, including `offset` — which is required on `ClipDoc` and cannot be here: the
+  // shell SYNTHESISES stand-in clips to open an editor over (EditorTab, ModuleSidePane), and
+  // those know an id and a name and nothing about a placement. A required 0 would have them
+  // claim an in-point they never had.
+  offset?: number; // audio: seconds into the source; midi: playStart (beats)
+  sourceFrom?: number;
+  sourceTo?: number;
+  // The audio file's NAME, never its path — enough to tell that a bounce repointed the clip at a
+  // new file, which is the other way its material changes without the placement moving. The path
+  // itself stays server-side: nothing in the browser may resolve one.
+  sourceName?: string;
   // A clip-relative loop [loopStart, loopEnd) in beats, repeated to fill `length`; absent or both 0 == no loop.
   loopStart?: number;
   loopEnd?: number;

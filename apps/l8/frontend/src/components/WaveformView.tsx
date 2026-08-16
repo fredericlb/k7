@@ -9,9 +9,14 @@ import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { clipEnvelopeKey } from "../clipEnvelope";
 import { clipLoop, visibleRepeats } from "../clipLoop";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
+
+// What `api.waveform` defaults to. Stated here because it is part of the envelope's identity, and
+// a key computed at one resolution for a fetch made at another would be a key that quietly lies.
+const WAVEFORM_BUCKETS = 1000;
 
 export function WaveformView({
   project,
@@ -119,22 +124,27 @@ export function WaveformView({
     setDrag(null);
   };
 
+  // The MATERIAL's identity, not the clip's: `clip trim` rewrites the window and leaves the id
+  // alone, so depending on the id alone held this pane on the pre-trim picture. Same key as the
+  // timeline's envelope cache — src/clipEnvelope.ts.
+  const materialKey = clipEnvelopeKey(clip, project, WAVEFORM_BUCKETS);
   useEffect(() => {
     let cancelled = false;
     setWf(null);
     setError(null);
     // A different region opens at FIT, like the roll's: the zoom multiplier belonged to the clip
     // being left, and the pane's width is `zoomX * 100%` — so without this the next clip arrives
-    // stretched to whatever the last one was examined at.
+    // stretched to whatever the last one was examined at. A trim IS a different region, so it
+    // re-fits too.
     setZoomX(1);
     api
-      .waveform(clip.id, undefined, whole)
+      .waveform(clip.id, WAVEFORM_BUCKETS, whole)
       .then((w) => !cancelled && setWf(w))
       .catch((e) => !cancelled && setError((e as Error).message));
     return () => {
       cancelled = true;
     };
-  }, [clip.id, whole, setZoomX]);
+  }, [clip.id, materialKey, whole, setZoomX]);
 
   // One identity per decode: Waveform is memoised, and an inline literal here would be a new
   // object on every render of this pane, which is exactly what memo cannot see through.

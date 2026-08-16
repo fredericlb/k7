@@ -741,6 +741,15 @@ export function TimelineTab({
   );
   const clipEnd = (c: { start: number; length: number }) =>
     c.start + (c.length > 0 ? c.length : NATURAL);
+  // What a clip's ENVELOPE depends on in the project, held as one identity: the blocks below are
+  // memoised, and an object literal in a prop is exactly what memo cannot see through.
+  const envProject = useMemo(
+    () => ({
+      tempo: proj?.tempo ?? 120,
+      timeSigNumerator: proj?.timeSigNumerator ?? 4,
+    }),
+    [proj?.tempo, proj?.timeSigNumerator],
+  );
   // The song's extent in whole bars (min 4) — what the caret moves within. Pattern lanes deliberately don't extend it.
   const contentBeats = useMemo(() => {
     let end = 16;
@@ -2795,6 +2804,7 @@ export function TimelineTab({
                               clip={c}
                               spanBeats={c.length > 0 ? c.length : NATURAL}
                               color={t.color || undefined}
+                              project={envProject}
                             />
                             {/* Where the material STARTS OVER — one rule per pass, with the
                                 loop glyph on it. Without them a looping event is one long
@@ -2902,6 +2912,7 @@ export function TimelineTab({
                                 <ClipContent
                                   clip={c}
                                   spanBeats={c.length > 0 ? c.length : NATURAL}
+                                  project={envProject}
                                 />
                               </div>
                             )}

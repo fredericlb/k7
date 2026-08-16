@@ -1,11 +1,12 @@
 // ClipContent.tsx — a clip's inner detail, drawn inside its lane block when the
 // timeline is EXPANDED (the header's expand toggle). A MIDI clip shows a mini
-// piano-roll of the notes it already carries; an audio clip shows its waveform,
-// fetched once per clip and cached. Both fill the box the caller gives them (absolute
-// inset-0), so the lane row sizes it and this just paints.
+// piano-roll of the notes it already carries; an audio clip shows its waveform, fetched
+// once per clip WINDOW and cached (src/clipEnvelope.ts). Both fill the box the caller
+// gives them (absolute inset-0), so the lane row sizes it and this just paints.
 
 import { memo, useEffect, useState } from "react";
 import { api } from "../api";
+import { clipEnvelopeKey, type EnvelopeProject } from "../clipEnvelope";
 import type { WebClip, WebNote, WebWaveform } from "../types";
 
 /**
@@ -18,10 +19,14 @@ import type { WebClip, WebNote, WebWaveform } from "../types";
 export const ClipContent = memo(function ClipContent({
   clip,
   spanBeats,
+  project,
 }: {
   clip: WebClip;
   // The beats the block spans on screen — notes lay out against this, so the mini-roll lines up with the arrangement.
   spanBeats: number;
+  // Tempo and time signature: they decide how much of the source the region shows, so they are
+  // part of the envelope's identity rather than of its drawing.
+  project: EnvelopeProject;
 }) {
   return clip.type === "midi" ? (
     <ClipMidi
@@ -31,7 +36,7 @@ export const ClipContent = memo(function ClipContent({
       loopEnd={clip.loopEnd}
     />
   ) : (
-    <ClipWaveform clipId={clip.id} />
+    <ClipWaveform clip={clip} project={project} />
   );
 });
 
@@ -90,42 +95,65 @@ function ClipMidi({
   );
 }
 
-// One envelope per clip id, kept across re-renders; `null` means tried and failed, so it isn't retried each mount.
-const wfCache = new Map<string, WebWaveform | null>();
+// A modest bucket count — the lane block is small, so more would just be thrown away by the polygon's linear stretch.
+const BUCKETS = 160;
+
+/**
+ * ONE entry per clip, holding the key it was fetched under — the same shape (and the same
+ * reason) as the file service's own `WfEntry`: a changed key misses, and replacing the entry
+ * rather than adding one keeps this bounded by the clip count however many times a clip is
+ * trimmed or moved. `data: null` means tried and failed, so it isn't retried each mount.
+ */
+const wfCache = new Map<string, { key: string; data: WebWaveform | null }>();
 
 /**
  * The clip's envelope, fetched once and shared: the expanded lane's waveform and the block's
  * activity mask read the SAME entry, so opening the lanes up costs no second decode. Pass
  * null to ask for nothing (a MIDI clip has no envelope, and hooks cannot be conditional).
+ *
+ * It is keyed by `clipEnvelopeKey` and not by the id, because a trim changes what the clip
+ * plays without changing anything the id can see — see src/clipEnvelope.ts.
  */
-export function useClipWaveform(clipId: string | null): WebWaveform | null {
-  const [wf, setWf] = useState<WebWaveform | null>(() =>
-    clipId ? (wfCache.get(clipId) ?? null) : null,
-  );
+export function useClipWaveform(
+  clip: WebClip | null,
+  project: EnvelopeProject,
+): WebWaveform | null {
+  const key = clip ? clipEnvelopeKey(clip, project, BUCKETS) : null;
+  const id = clip?.id ?? null;
+  const [wf, setWf] = useState<WebWaveform | null>(() => {
+    const hit = id ? wfCache.get(id) : undefined;
+    return hit && hit.key === key ? hit.data : null;
+  });
   useEffect(() => {
-    if (!clipId) return;
-    if (wfCache.has(clipId)) {
-      setWf(wfCache.get(clipId) ?? null);
+    if (!id || !key) return;
+    const hit = wfCache.get(id);
+    if (hit && hit.key === key) {
+      setWf(hit.data);
       return;
     }
     let cancelled = false;
-    // A modest bucket count — the lane block is small, so more would just be thrown away by the polygon's linear stretch.
     api
-      .waveform(clipId, 160)
+      .waveform(id, BUCKETS)
       .then((w) => {
-        wfCache.set(clipId, w);
+        wfCache.set(id, { key, data: w });
         if (!cancelled) setWf(w);
       })
-      .catch(() => wfCache.set(clipId, null));
+      .catch(() => wfCache.set(id, { key, data: null }));
     return () => {
       cancelled = true;
     };
-  }, [clipId]);
-  return clipId ? wf : null;
+  }, [id, key]);
+  return id ? wf : null;
 }
 
-function ClipWaveform({ clipId }: { clipId: string }) {
-  const wf = useClipWaveform(clipId);
+function ClipWaveform({
+  clip,
+  project,
+}: {
+  clip: WebClip;
+  project: EnvelopeProject;
+}) {
+  const wf = useClipWaveform(clip, project);
 
   const peak = wf?.peak;
   if (!peak || !peak.length) return null;

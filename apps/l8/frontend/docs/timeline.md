@@ -349,6 +349,37 @@ averaged — a hit inside a quiet bucket is the activity the block should show. 
 envelope arrives (or when none ever will), the block wears the flat 70% it always did, so
 nothing flashes.
 
+### That cache is keyed by the WINDOW, not by the clip id
+
+`src/clipEnvelope.ts` builds the key, and it exists because the id is not enough. `clip trim`
+rewrites the clip file's `from`/`to` and *nothing else* — same id, same start, same length — so
+a cache filed under the id answered the trimmed block with the untrimmed envelope, and went on
+doing so for the rest of the session, since nothing ever evicted an entry. The block kept the
+colour pattern of material it no longer played.
+
+The key folds everything `regionWaveform` reads: the window (`offset`, `sourceFrom`,
+`sourceTo`), the placement (`start`, `length`), the fact of a warp, the project's tempo and
+time signature, and the bucket count. It is deliberately a **mirror of the file service's own
+`wfSig`** (`packages/file-service/src/waveformOps.ts`) — the two answer the same question one
+layer apart, and the service's version carries a comment about this exact failure: it had the
+window in its signature already, and the browser cache in front of it put the bug back.
+
+The entry has the same shape for the same reason: `{key, data}` filed under the clip id, so a
+changed key MISSES and the replacement keeps the map bounded by the clip count however many
+times a clip is trimmed or moved.
+
+Three fields ride the wire for this and no other purpose — `offset`, `sourceFrom`/`sourceTo`,
+and `sourceName`, the last covering the other way material changes without the placement moving
+(a bounce repoints the clip at a new file). All are optional on `WebClip`, `offset` included:
+the shell synthesises stand-in clips to open an editor over, and those know an id and a name and
+nothing about a placement.
+
+Two things are still stale until a reload, both named in the source rather than left to be
+discovered: a **warp marker moved inside an already-warped clip** (only the *fact* of a warp
+reaches the browser — the markers stay engine-side), and a **file rewritten in place under the
+same name** (the service folds a content fingerprint into its signature; a browser cannot see
+one).
+
 ## Clicking an event
 
 A click on a clip parks the caret **over it**: the `v` rectangle, anchored at the event's first

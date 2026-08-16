@@ -46,6 +46,11 @@ interface WfEntry {
  * three: they decide WHICH part of the file the region shows and at what rate (see
  * docs/waveformCache.md). They were absent while the region math ignored them, which was
  * harmless then and would now mean trimming a clip's `from` left the old picture on screen.
+ *
+ * A CACHE IN FRONT OF THIS ONE HAS TO FOLD THE SAME THINGS. l8's timeline keeps its own entry per
+ * clip and filed it under the id alone, which put that exact bug back one layer up: the block went
+ * on drawing the untrimmed envelope. Its mirror of this signature is
+ * `apps/l8/frontend/src/clipEnvelope.ts`; change one and read the other.
  */
 const wfSig = (
   fingerprint: string,

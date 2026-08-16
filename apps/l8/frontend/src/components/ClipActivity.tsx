@@ -6,6 +6,7 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import { memo, useMemo } from "react";
 import { activityMask, audioActivity, midiActivity } from "../activity";
+import type { EnvelopeProject } from "../clipEnvelope";
 import type { WebClip } from "../types";
 import { useClipWaveform } from "./ClipContent";
 
@@ -17,15 +18,17 @@ export const ClipActivity = memo(function ClipActivity({
   clip,
   spanBeats,
   color,
+  project,
 }: {
   clip: WebClip;
   // The beats the block draws — a length-0 clip draws NATURAL wide, and the activity must cover what is drawn.
   spanBeats: number;
   color?: string; // the track's authored colour; absent, the type default classes stand
+  project: EnvelopeProject; // part of the envelope's identity — see src/clipEnvelope.ts
 }) {
   // Audio reads the event's envelope — already windowed to its from/to, and the peaks are
   // normalised against that window's own loudest point, not the song's.
-  const wf = useClipWaveform(clip.type === "audio" ? clip.id : null);
+  const wf = useClipWaveform(clip.type === "audio" ? clip : null, project);
   const mask = useMemo(() => {
     const alphas =
       clip.type === "midi"
