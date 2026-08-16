@@ -4,7 +4,7 @@
 // nothing — everything is still on disk and still on screen. `node delete` does the same splice
 // and then removes the node: its file, its preset, its entry, its pin.
 //
-// The failure worth guarding against is the same one either way, and it is quiet: a chains.yaml
+// The failure worth guarding against is the same one either way, and it is quiet: a graph.yaml
 // naming a node with no file is what stops the project loading.
 
 import {
@@ -31,7 +31,7 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const chains = () => readFileSync(join(dir, "chains.yaml"), "utf8");
+const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 const lane = (name: string) =>
   writeFileSync(
     join(dir, "nodes", `${name}.yaml`),
@@ -48,7 +48,7 @@ beforeEach(() => {
   );
   // gtr -> amp -> OUT, with amp pinned and bypassed so both are visible after the two verbs.
   writeFileSync(
-    join(dir, "chains.yaml"),
+    join(dir, "graph.yaml"),
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\nbypassed: [ amp ]\npositions:\n  amp: { x: 40, y: 60 }\n",
     "utf8",
   );

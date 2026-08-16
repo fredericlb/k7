@@ -66,7 +66,7 @@ discover it by ear.
 **The project's own**, by name (`gtr`, whatever the chains pane draws). Its plugins are
 taken off the *compiled* document, where the compiler has already resolved every step: its
 plugin format, its params, the preset it loads, a jsdsp module's graph. Rebuilding that here
-from `chains.yaml` would be a second compiler, and the two would drift.
+from `graph.yaml` would be a second compiler, and the two would drift.
 
 Two things are dropped on the way out, and both would otherwise be applied twice: a **mixer**
 module (a track's level is not a treatment — it stays live on the strip, exactly as a freeze
@@ -81,7 +81,7 @@ compiler's rule, not this command's.
 by bare name. The project is asked first and the library only under the token, so a project
 chain can never be shadowed by a library one that happens to share its name.
 
-A library chain is a TEMPLATE — `chains.yaml` with `@in` and `@out` for ends, and an
+A library chain is a TEMPLATE — `graph.yaml` with `@in` and `@out` for ends, and an
 `nodes/` folder beside it — read from **this machine's médiathèque cache**
 (`~/.studio/mediatek/chains/…`), because that is the disk the engine can open. Each node is
 resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives

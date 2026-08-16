@@ -1007,7 +1007,7 @@
 # `node place <node> [x,y]` was here — it wrote `modules: { x: [] }` for a node that existed
 # but was in no chain. Two changes took its job away: `node new` puts what it makes in the graph,
 # and `graph unlink` leaves what it unlinks there. So the state it repaired — a node on disk and
-# on no screen — is one nothing reaches any more. Moving one is `node position`.
+# on no screen — is one nothing reaches any more. Moving one is `graph move`.
 - command: "graph organize"
   sid: graph.organize
   readable:
@@ -1018,12 +1018,12 @@
 # Pin a node where a drag (or a hand) put it — chains.yaml's `positions:`. The graph lays
 # out only the nodes with no pin, so a module moved once stays put for ever; `auto` hands
 # it back to the layout. The web sends this when a node's header is dropped.
-- command: "node position"
-  sid: node.position
+- command: "graph move"
+  sid: graph.move
   readable:
     en: "Pin a node's place on the graph"
     fr: "Épingler la position d'un nœud sur le graphe"
-  help: "pin a node's place on the graph, world px (e.g. node position reverb 420 180) — `auto` returns it to the layout"
+  help: "move a node on the graph, world px (e.g. graph move reverb 420 180) — `auto` hands it back to the layout"
   surfaces: [cli]
   args:
     [

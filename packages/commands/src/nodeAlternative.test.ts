@@ -28,7 +28,7 @@ function song(node: string): string {
     "utf8",
   );
   writeFileSync(
-    join(d, "chains.yaml"),
+    join(d, "graph.yaml"),
     "modules:\n  gtr: [ ampli ]\n  ampli: [ OUT ]\n",
     "utf8",
   );

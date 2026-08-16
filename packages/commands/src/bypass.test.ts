@@ -35,7 +35,7 @@ function song(): string {
     "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
     "utf8",
   );
-  writeFileSync(join(d, "chains.yaml"), CHAINS, "utf8");
+  writeFileSync(join(d, "graph.yaml"), CHAINS, "utf8");
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
@@ -67,9 +67,9 @@ const host = () =>
 
 /** Is `module` bypassed in the file right now? Read from disk, not from a return value. */
 const bypassed = (module: string): boolean => {
-  const text = readFileSync(join(dir, "chains.yaml"), "utf8");
+  const text = readFileSync(join(dir, "graph.yaml"), "utf8");
   if (!new RegExp(`^\\s*${module}:`, "m").test(text))
-    throw new Error(`no module "${module}" in chains.yaml`);
+    throw new Error(`no module "${module}" in graph.yaml`);
   const line = text.split("\n").find((l) => l.startsWith("bypassed:")) ?? "";
   return line.split(/[[\],]/).some((t) => t.trim() === module);
 };

@@ -171,7 +171,7 @@ describe("what validate says", () => {
     file("modules/audio/crossfade/module.yaml", CROSSFADE);
     file("nodes/a.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
     file("nodes/b.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
-    writeFileSync(join(dir, "chains.yaml"), yaml, "utf8");
+    writeFileSync(join(dir, "graph.yaml"), yaml, "utf8");
     return loadGraph(dir);
   };
 

@@ -37,7 +37,7 @@ Donc :
 
 ```
 chains/blindtest/deformees/blue-monday/
-  chains.yaml            "@in" → pitch → wobble → highpass → chorus → overdrive → "@out"
+  graph.yaml            "@in" → pitch → wobble → highpass → chorus → overdrive → "@out"
   nodes/pitch.yaml   extends: "@st0/audio/utility/pitch-shift"
                          params: { "semitones up": 5 }
   nodes/…

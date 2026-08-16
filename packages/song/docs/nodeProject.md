@@ -2,7 +2,7 @@
 
 Compiles a chains/modules node project into the flat `ProjectDoc` the engine plays.
 
-A node project (`project.yaml` + `chains.yaml` + `modules/` + tracks/clips/sequences)
+A node project (`project.yaml` + `graph.yaml` + `modules/` + tracks/clips/sequences)
 is a graph: chains route a track `from` through modules (`use`) to the OUT sink. A
 module carries a plugin (or io, or a rack) and params, and may `extends` another module
 to inherit its defaults. The engine consumes the flat

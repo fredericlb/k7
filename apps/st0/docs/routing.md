@@ -106,7 +106,7 @@ two `head === …` tests, and it is now `CARRIES`:
 ```
 songs      …/song.yaml      the sidecar, on the left of the split screen
 modules    …/ui.yaml        one of the builder's three panes
-chains     …/chains.yaml    the template, beside the graph it draws
+chains     …/graph.yaml    the template, beside the graph it draws
 playlists  live/ete.yaml    the file ITSELF — there is no folder in front of it
 projects   3f9a1c2b7e40     a repository id, not a path
 ```
@@ -119,7 +119,7 @@ already the path to look up, and `folderOf` would answer null for one at the top
 `folderOf(file)`. Same slot, same question, one level less of it.
 
 `chains` had to be added, not merely `songs`, and it is worth saying why: the chain editor
-already pushed `/chains/x/chains.yaml`, and `fromLocation` read that back as the bare section.
+already pushed `/chains/x/graph.yaml`, and `fromLocation` read that back as the bare section.
 The URL→state effect then applied `file: null` and shut the editor a tick after it opened.
 
 That is the loop `useLibraryRoute` exists to prevent, arriving through the one door its two

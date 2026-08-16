@@ -1,6 +1,6 @@
-# chainsFile.ts — extended notes
+# graphFile.ts — extended notes
 
-chains.yaml declares SEGMENTS — one `modules:` map, each node listing where its signal goes (a LANE is a module
+graph.yaml declares SEGMENTS — one `modules:` map, each node listing where its signal goes (a LANE is a module
 too, see trackModules.md, which is why there is no second half) — and the
 chains are derived from them (chainsGraph.ts). Everything here follows from that: an edit is an edge rewire, and
 a module is named exactly once.

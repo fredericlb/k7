@@ -28,7 +28,7 @@ function project(lanes: [string, string, string?][], chains?: string): string {
       `extends: "${ext}"\n${extra ?? ""}`,
     );
   writeFileSync(
-    join(p, "chains.yaml"),
+    join(p, "graph.yaml"),
     chains ?? `modules:\n${lanes.map(([n]) => `  ${n}: [ OUT ]\n`).join("")}`,
   );
   return p;

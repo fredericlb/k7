@@ -83,7 +83,7 @@ beforeEach(() => {
     "modules/config.yaml": "namespace: st0\n",
     "modules/audio/reverb/module.yaml": "plugin: {type: vst3}\n",
     "modules/audio/reverb/ui.yaml": "cols: 2\n",
-    "chains/live/vocals/chains.yaml": 'modules:\n  "@in": [ "@out" ]\n',
+    "chains/live/vocals/graph.yaml": 'modules:\n  "@in": [ "@out" ]\n',
   };
   listed = [];
   refuse = "";
@@ -111,7 +111,7 @@ describe("seeding a new library repository", () => {
     expect(existsSync(join(lib, "modules/audio/reverb/module.yaml"))).toBe(
       true,
     );
-    expect(existsSync(join(lib, "chains/live/vocals/chains.yaml"))).toBe(true);
+    expect(existsSync(join(lib, "chains/live/vocals/graph.yaml"))).toBe(true);
     // On the remote, not merely committed here: a gitlink is a promise that a commit is
     // fetchable, and the caller only records one once this has happened.
     expect(pushed()).toEqual(
@@ -119,7 +119,7 @@ describe("seeding a new library repository", () => {
         "modules/config.yaml",
         "modules/audio/reverb/module.yaml",
         "modules/audio/reverb/ui.yaml",
-        "chains/live/vocals/chains.yaml",
+        "chains/live/vocals/graph.yaml",
       ]),
     );
   });

@@ -6,7 +6,7 @@ d'usine existent — ne vit que dans un projet.
 
 Le banc est ce projet. Depuis l'écran d'une chaîne de la médiathèque, « Ouvrir sur le banc »
 mène à `/l8/@banc/chains/<chemin>.l8` et l8 s'ouvre sur un projet vide dont le dossier
-`modules/` est le catalogue, et dont `chains.yaml` **est** la chaîne qu'on est venu éditer.
+`modules/` est le catalogue, et dont `graph.yaml` **est** la chaîne qu'on est venu éditer.
 
 > ## Il y avait un second banc, et il n'y en a plus
 >
@@ -119,13 +119,13 @@ un projet introuvable — la phrase du service est toute l'explication.
 
 ### Ce qui revient, et ce qui reste
 
-`chains.yaml` (retraduit) et `nodes/` repartent vers `chains/<chemin>/` de la médiathèque.
+`graph.yaml` (retraduit) et `nodes/` repartent vers `chains/<chemin>/` de la médiathèque.
 Le reste — `project.yaml`, le miroir `modules/`, et la piste du banc — est le meuble du banc et
 n'a rien à faire dans une chaîne que d'autres projets chargent. La piste est dans `nodes/`
 comme les autres, donc ce qui la retient ici est son NOM (`BENCH_EDGES.track`) et rien d'autre.
 
 L'écriture touche AUSSI le cache local et pas seulement la bibliothèque hébergée. Le banc
-réécrit `chains.yaml` depuis le cache à chaque ouverture : sur une machine sans bibliothèque
+réécrit `graph.yaml` depuis le cache à chaque ouverture : sur une machine sans bibliothèque
 hébergée — là où le cache EST la bibliothèque — une sauvegarde seulement poussée serait jetée
 par l'ouverture suivante.
 

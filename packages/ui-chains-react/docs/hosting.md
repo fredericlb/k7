@@ -99,7 +99,7 @@ host whose type is wider accepts the handler unchanged.
 ### The patch cable — `onConnect(from, to)`
 
 Click a free OUTPUT jack and a dashed cable follows the cursor; click a free INPUT jack of
-the same signal and `onConnect` fires with both ends as **chains.yaml addresses** — `name` or
+the same signal and `onConnect` fires with both ends as **graph.yaml addresses** — `name` or
 `name#port`, resolved by `jackRef` exactly as `insertFor` resolves the edge inserts — so a
 host can run `graph chain connect from to` verbatim. Esc or any right-click drops the cable in
 hand (capture-phase, so neither the host's own Esc handling nor a node menu acts on a press
@@ -133,8 +133,8 @@ is in hand does the host div listen to pointermove at all.
 
 Drag ANY node's header and drop it: `onMoveNode` fires with the node's name — a module or a
 track by its chains name, a curve by its curve id, the sink by "OUT"; all `jackRef`'s answer —
-and the drop in whole, non-negative world px, ready for `node position` verbatim, which
-writes chains.yaml's `positions:`. The layout (`layout()`'s `positions` argument) then places
+and the drop in whole, non-negative world px, ready for `graph move` verbatim, which
+writes graph.yaml's `positions:`. The layout (`layout()`'s `positions` argument) then places
 only the nodes with no pin, so dagre keeps laying out new arrivals while a moved card stays
 put for ever.
 

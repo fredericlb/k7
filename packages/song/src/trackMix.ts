@@ -28,7 +28,7 @@ import {
  * The scalar fields a lane's own file still carries.
  *
  * `mute` and `solo` are NOT here any more, and neither is `frozen`. A lane's mute is its module's
- * bypass, written to `chains.yaml`'s `bypassed:` — one state in one place — and solo is derived by
+ * bypass, written to `graph.yaml`'s `bypassed:` — one state in one place — and solo is derived by
  * the surface. `volume`/`pan` left for the `Mixer` module before any of this. See
  * docs/trackModules.md.
  */

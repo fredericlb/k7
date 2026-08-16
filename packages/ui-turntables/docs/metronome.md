@@ -78,7 +78,7 @@ présentes, chargées ou non, pour qu'un chargement soit un diff et pas une pist
 ### Elle est ajoutée, pas déclarée
 
 `withDecks` la met **après** les pistes du projet. C'est la seule piste du document dont
-`chains.yaml` ne parle pas, et c'est assumé : le métronome est une commande du pupitre, pas une
+`graph.yaml` ne parle pas, et c'est assumé : le métronome est une commande du pupitre, pas une
 propriété du set. Ce que le projet déclare reste l'affaire du projet.
 
 ## Le banc

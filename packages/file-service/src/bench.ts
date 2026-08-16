@@ -45,7 +45,7 @@ export const BENCH_WORKSPACE = "Banc";
  * Bring a bench made before `live` existed forward, in place.
  *
  * The folder is regenerated on every open but `project.yaml` is NOT — it is written once, and
- * `chains.yaml`/`nodes/` are deliberately what survives. So a bench that already existed would
+ * `graph.yaml`/`nodes/` are deliberately what survives. So a bench that already existed would
  * keep saying "arrangement" forever and open with a timeline over the graph, which is the one
  * shape a bench has never been.
  *
@@ -86,7 +86,7 @@ function ensureBenchProject(userEmail: string, project: string): string {
 /**
  * The same bench, opened on ONE médiathèque chain — `@banc/chains/<path>.l8`.
  *
- * The chain is not COPIED into a project so much as read as one: `chains.yaml` is the catalogue's
+ * The chain is not COPIED into a project so much as read as one: `graph.yaml` is the catalogue's
  * file with its two boundary nodes translated into the bench's furniture (`@studio/song/benchChain`),
  * and `nodes/` is the chain's own settings, which is the other half of what a chain is.
  *
@@ -110,12 +110,12 @@ export async function ensureChainBench(
   await ensureLibraries(userEmail, root, libraries);
 
   const source = join(librariesDir(root), chainPath);
-  const chainsFile = join(source, CHAIN_FILE);
-  if (!existsSync(chainsFile))
+  const graphFile = join(source, CHAIN_FILE);
+  if (!existsSync(graphFile))
     throw new Error(
       `no chain at ${chainPath} in the libraries repository this account uses`,
     );
-  const text = readFileSync(chainsFile, "utf8");
+  const text = readFileSync(graphFile, "utf8");
   const clash = benchChainCollision(text, BENCH_EDGES);
   if (clash) throw new Error(clash);
 
@@ -151,7 +151,7 @@ export function benchChainOf(root: string, projectRel: string): string | null {
 /**
  * Write a file the chain bench just saved back into the chain it is a view of.
  *
- * `rel` is the path inside the chain folder — `chains.yaml`, or `nodes/<name>.yaml` — and it
+ * `rel` is the path inside the chain folder — `graph.yaml`, or `nodes/<name>.yaml` — and it
  * arrives ALREADY translated back into `@in`/`@out`, because only the caller knows which file
  * needed translating. This one just carries bytes.
  *

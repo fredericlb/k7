@@ -17,7 +17,7 @@ import {
 } from "./moduleFork";
 import { writeLibrary } from "./testSupport";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
-import { formatChains } from "./yaml/chainsFile";
+import { formatChains } from "./yaml/graphFile";
 
 // Editing a module that lives in the workspace's SHARED `_modules` must never write there — one library backs
 // every project, so a save made while mixing one song would change the others. The edit is copied into the
@@ -46,7 +46,7 @@ beforeEach(() => {
   // Two tracks through ONE shared module — so the fork has to repoint a key AND every
   // destination naming it, which is the whole point of the repointing test below.
   writeFileSync(
-    join(dir, "chains.yaml"),
+    join(dir, "graph.yaml"),
     formatChains({
       modules: {
         "bs.lead": [SHARED],
@@ -114,7 +114,7 @@ describe("forking on edit", () => {
   it("repoints every node that named the shared ref, and leaves none behind", () => {
     const r = forkSharedModule(dir, sharedFile(), EDIT);
     expect(r.chains).toEqual(["bs.lead", "dr.room"]);
-    const text = readFileSync(join(dir, "chains.yaml"), "utf8");
+    const text = readFileSync(join(dir, "graph.yaml"), "utf8");
     expect(text).not.toContain("@workspace/audio/delay/tape-delay");
     // Three times: the two tracks that feed it, and its own entry. Missing the key would
     // leave the module unwired; missing a destination would leave a dangling reference.
@@ -160,7 +160,7 @@ describe("forking on edit", () => {
     const first = forkSharedModule(dir, sharedFile(), EDIT);
     // The first fork repointed everything, so re-wire a track onto the shared module.
     writeFileSync(
-      join(dir, "chains.yaml"),
+      join(dir, "graph.yaml"),
       formatChains({
         modules: { "bs.lead": [SHARED], [SHARED]: ["OUT"] },
       }),
@@ -245,7 +245,7 @@ describe("giving an engine module a folder", () => {
 
   beforeEach(() => {
     writeFileSync(
-      join(dir, "chains.yaml"),
+      join(dir, "graph.yaml"),
       formatChains({
         modules: { "gt.lead": [NAM], [NAM]: ["OUT"] },
       }),
@@ -268,7 +268,7 @@ describe("giving an engine module a folder", () => {
 
   it("repoints the chains, so nothing still names the ref with no folder", () => {
     const r = materialiseEngineModule(dir, NAM, CATALOGUE);
-    const after = readFileSync(join(dir, "chains.yaml"), "utf8");
+    const after = readFileSync(join(dir, "graph.yaml"), "utf8");
     expect(after).not.toContain(NAM);
     expect(after).toContain("nam");
     expect(r.chains).toEqual(["gt.lead"]);

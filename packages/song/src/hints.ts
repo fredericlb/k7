@@ -73,7 +73,7 @@ export interface Hints {
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file that defines the entity, so the
   // editor can turn a known reference into a link. kind ∈ module|base|sink|
-  // track|clip|sequence|chain (chains all live in chains.yaml).
+  // track|clip|sequence|chain (chains all live in graph.yaml).
   paths: Record<string, string>;
   // Audio files in the project, keyed by their project-relative FOLDER ("" = the root) —
   // so a rack's `source:` (or a samples symbol's `clip:`) completes against the audio

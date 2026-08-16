@@ -282,7 +282,7 @@ same string:
 
 - `!isTrack` — the track exists, so this is an ordinary source. `isChain` alone would
   mistake it for the chain of the same name.
-- `!== name` — the track does **not** exist (a rename `chains.yaml` has not caught up with).
+- `!== name` — the track does **not** exist (a rename `graph.yaml` has not caught up with).
   `isChain` then finds this very chain, the link collapses to a self-loop, and `link()`
   drops it — taking the track node with it. A stale reference made the whole track *vanish*
   instead of showing up broken. Fall through and draw it; `validate()` says why.

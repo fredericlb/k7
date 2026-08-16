@@ -43,7 +43,7 @@ beforeEach(() => {
   // The library submodule, laid out by hand where the file service would have cloned it.
   const chain = join(benchRoot(), "_libraries", CHAIN);
   mkdirSync(chain, { recursive: true });
-  writeFileSync(join(chain, "chains.yaml"), SOURCE, "utf8");
+  writeFileSync(join(chain, "graph.yaml"), SOURCE, "utf8");
 });
 
 afterEach(() => {

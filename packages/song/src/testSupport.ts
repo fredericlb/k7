@@ -5,7 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseDocument, stringify } from "yaml";
-import { insertBetween, parseChains, renameNode } from "./yaml/chainsFile";
+import { insertBetween, parseGraph, renameNode } from "./yaml/graphFile";
 
 /** Parse a YAML file into a Document. */
 export const readDoc = (file: string) =>
@@ -75,12 +75,12 @@ export function writeNode(dir: string, name: string, value: unknown): string {
 }
 
 /**
- * The first node in chains.yaml whose name starts with `prefix` — a `modules:` key, else a destination (which is
+ * The first node in graph.yaml whose name starts with `prefix` — a `modules:` key, else a destination (which is
  * how a sink like OUT is named). Throws when there is none, so a fixture edit aimed at a step that has moved
  * fails loudly rather than passing silently.
  */
 export function chainNodeNamed(dir: string, prefix: string): string {
-  const { value } = parseChains(readFileSync(join(dir, "chains.yaml"), "utf8"));
+  const { value } = parseGraph(readFileSync(join(dir, "graph.yaml"), "utf8"));
   for (const key of Object.keys(value?.modules ?? {}))
     if (key.startsWith(prefix)) return key;
   for (const dests of Object.values(value?.modules ?? {}))
@@ -88,10 +88,10 @@ export function chainNodeNamed(dir: string, prefix: string): string {
   throw new Error(`no chain node whose name starts with '${prefix}'`);
 }
 
-// Both edits go through the SHIPPING writers (chainsFile.ts): a fixture helper with its own idea of the format
+// Both edits go through the SHIPPING writers (graphFile.ts): a fixture helper with its own idea of the format
 // would drift from it, and then the tests would be measuring the helper.
 const editChains = (dir: string, f: (text: string) => string): void => {
-  const file = join(dir, "chains.yaml");
+  const file = join(dir, "graph.yaml");
   writeFileSync(file, f(readFileSync(file, "utf8")), "utf8");
 };
 
@@ -112,7 +112,7 @@ export function insertChainStepAfter(
   step: { module: string },
 ): void {
   const before = chainNodeNamed(dir, prefix);
-  const { value } = parseChains(readFileSync(join(dir, "chains.yaml"), "utf8"));
+  const { value } = parseGraph(readFileSync(join(dir, "graph.yaml"), "utf8"));
   const dests = value?.modules?.[before] ?? [];
   editChains(dir, (text) => insertBetween(text, before, dests[0], step.module));
 }

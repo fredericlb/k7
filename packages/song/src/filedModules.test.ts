@@ -81,7 +81,7 @@ describe("a module filed under a category folder", () => {
       "reverb",
     );
     // Not a module path at all.
-    expect(moduleKeyFromPath("banc.l8/chains.yaml")).toBeNull();
+    expect(moduleKeyFromPath("banc.l8/graph.yaml")).toBeNull();
     expect(moduleKeyFromPath("modules/nonsense/x/module.yaml")).toBeNull();
   });
 

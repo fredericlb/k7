@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { formatChains, parseChains } from "./yaml/chainsFile";
+import { formatChains, parseGraph } from "./yaml/graphFile";
 
 // An io "in" module used to name the track it fed, with a `track:` field. That could not
 // survive the module living in a workspace's shared _modules: `module populate` files one
@@ -39,11 +39,11 @@ const IN = "@workspace/io/IN:in-1";
 describe("a live input, wired by its chain", () => {
   let ws: string;
   let dir: string;
-  // Wire nodes into chains.yaml's segments — each call merges, so a test states only its
+  // Wire nodes into graph.yaml's segments — each call merges, so a test states only its
   // own edges. The shipping writer emits, so the fixture cannot drift from the format.
   const wire = (seg: { modules?: Record<string, string[]> }): void => {
-    const p = join(dir, "chains.yaml");
-    const cur = parseChains(readFileSync(p, "utf8")).value ?? {};
+    const p = join(dir, "graph.yaml");
+    const cur = parseGraph(readFileSync(p, "utf8")).value ?? {};
     writeFileSync(
       p,
       formatChains({
@@ -206,8 +206,8 @@ describe("an input's monitoring and gain", () => {
       join(dir, "nodes", "mic.yaml"),
       'extends: "@studio/audio-track"\n',
     );
-    const c = join(dir, "chains.yaml");
-    const cur = parseChains(readFileSync(c, "utf8")).value ?? {};
+    const c = join(dir, "graph.yaml");
+    const cur = parseGraph(readFileSync(c, "utf8")).value ?? {};
     writeFileSync(
       c,
       formatChains({

@@ -6,7 +6,7 @@
 // `chain add` that did the same splice on a module already there. Creating is `module new`'s
 // (packages/song/docs/nodes.md), so the picker writes two lines now, and these are the second.
 //
-// The failure worth guarding against is still the quiet one: naming in chains.yaml something
+// The failure worth guarding against is still the quiet one: naming in graph.yaml something
 // that has no file, which is exactly what the compiler refuses to load.
 
 import {
@@ -33,7 +33,7 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const chains = () => readFileSync(join(dir, "chains.yaml"), "utf8");
+const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 /** The picker's two lines: the module, then a node of it — which also puts it in the graph.
  *  `module new` stopped making nodes, so this is two commands and not one. */
 const make = async (target: string, node: string) => {
@@ -49,7 +49,7 @@ beforeEach(() => {
     "utf8",
   );
   writeFileSync(
-    join(dir, "chains.yaml"),
+    join(dir, "graph.yaml"),
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
     "utf8",
   );
@@ -179,7 +179,7 @@ describe("a cold node", () => {
       "utf8",
     );
     writeFileSync(
-      join(dir, "chains.yaml"),
+      join(dir, "graph.yaml"),
       "modules:\n  gtr: [ take ]\n  take: [ amp ]\n  amp: [ OUT ]\n",
       "utf8",
     );

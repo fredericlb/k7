@@ -27,7 +27,7 @@ beforeEach(() => {
   proj = join(root, "song.l8");
   mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(join(proj, "chains.yaml"), chains("amp"), "utf8");
+  writeFileSync(join(proj, "graph.yaml"), chains("amp"), "utf8");
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
     'extends: "@studio/audio-track"\nevents: []\n',
@@ -55,7 +55,7 @@ describe("the graph memo", () => {
 
   it("rebuilds after a write through the service", () => {
     expect(steps()).toEqual(["amp"]);
-    ws.write("song.l8/chains.yaml", chains("amp", "cab"));
+    ws.write("song.l8/graph.yaml", chains("amp", "cab"));
     expect(steps()).toEqual(["amp", "cab"]);
   });
 
@@ -64,7 +64,7 @@ describe("the graph memo", () => {
     // because it carries the file count and the newest mtime.
     expect(steps()).toEqual(["amp"]);
     await new Promise((r) => setTimeout(r, 12)); // mtime resolution — the write must land in a later tick
-    writeFileSync(join(proj, "chains.yaml"), chains("amp", "cab"), "utf8");
+    writeFileSync(join(proj, "graph.yaml"), chains("amp", "cab"), "utf8");
     expect(steps()).toEqual(["amp", "cab"]);
   });
 

@@ -13,7 +13,7 @@ import {
 
 const EDGES = { track: "banc", out: "OUT", strip: "mixer" };
 
-// The real thing, from the médiathèque: `chains/blindtest/assourdissant/…/chains.yaml`.
+// The real thing, from the médiathèque: `chains/blindtest/assourdissant/…/graph.yaml`.
 const REAL = `# Assourdissant — les effets de la question, en chaîne.
 # L'ordre des modules est dans apps/z0/docs/effects.md.
 modules:

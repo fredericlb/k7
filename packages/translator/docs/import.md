@@ -135,7 +135,7 @@ Those params matter only for a plugin whose blob would not decode at all.
 ```
 <outDir>/
   project.yaml                  header
-  chains.yaml                   the graph: track -> modules -> OUT
+  graph.yaml                   the graph: track -> modules -> OUT
   modules/io/OUT/module.yaml    the stereo-output sink (io module)
   modules/{instruments,audio,transformers}/<slug>/module.yaml
                                 self-contained modules, each its own folder filed by

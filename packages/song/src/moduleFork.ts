@@ -25,7 +25,8 @@ import { loadProjectRoot, MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
-import { parseChains, renameNode } from "./yaml/chainsFile";
+import { parseGraph, renameNode } from "./yaml/graphFile";
+import { GRAPH_BASE } from "./yaml/graphSchema";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
 
 export type ForkedModule = {
@@ -92,7 +93,7 @@ export function sharedModuleRef(
  * ever names itself tells nobody anything. Its own chain is left out for exactly that reason.
  */
 function chainsUsing(text: string, module: string): string[] {
-  const chains = deriveChains(parseChains(text).value);
+  const chains = deriveChains(parseGraph(text).value);
   return Object.entries(chains)
     .filter(
       ([name, c]) =>
@@ -127,9 +128,9 @@ export function forkSharedModule(
 
   // Named after the chain that plays it, so a copy says whose it is. A module the project doesn't play yet has
   // no track to be named after — it still forks, or the edit would just be lost.
-  const chainsFile = entityFileFor(dir, "", "chains");
-  const chainsText = chainsFile ? readFileSync(chainsFile.path, "utf8") : "";
-  const track = chainsText ? (chainsUsing(chainsText, ref)[0] ?? null) : null;
+  const graphFile = entityFileFor(dir, "", GRAPH_BASE);
+  const graphText = graphFile ? readFileSync(graphFile.path, "utf8") : "";
+  const track = graphText ? (chainsUsing(graphText, ref)[0] ?? null) : null;
   const stem = track ? `${clean(track)}_${clean(leaf)}` : clean(leaf);
   const typeDir = join(dir, "modules", type);
   let module = `${stem}_1`;
@@ -157,9 +158,9 @@ export function forkSharedModule(
 
   // Repointed AFTER the files exist: a chain naming a module with no file is what the compiler refuses to load.
   let chains: string[] = [];
-  if (chainsFile) {
-    const r = renameNode(chainsText, ref, module);
-    if (r.text !== chainsText) writeFileSync(chainsFile.path, r.text, "utf8");
+  if (graphFile) {
+    const r = renameNode(graphText, ref, module);
+    if (r.text !== graphText) writeFileSync(graphFile.path, r.text, "utf8");
     // The chains as they now stand, so the report names what the copy plays in — not the
     // nodes that were rewired, which is a file-level detail nobody asked about.
     chains = chainsUsing(r.text, module);
@@ -226,12 +227,12 @@ export function materialiseEngineModule(
     writeUiFile(dir, localRef, panel.ui, `panel for ${localRef} (was ${ref})`);
 
   // Repointed AFTER the file exists, same rule as a fork: a chain naming a module with no file won't load.
-  const chainsFile = entityFileFor(dir, "", "chains");
+  const graphFile = entityFileFor(dir, "", GRAPH_BASE);
   let chains: string[] = [];
-  if (chainsFile) {
-    const text = readFileSync(chainsFile.path, "utf8");
+  if (graphFile) {
+    const text = readFileSync(graphFile.path, "utf8");
     const r = renameNode(text, ref, module);
-    if (r.text !== text) writeFileSync(chainsFile.path, r.text, "utf8");
+    if (r.text !== text) writeFileSync(graphFile.path, r.text, "utf8");
     chains = chainsUsing(r.text, module);
   }
 

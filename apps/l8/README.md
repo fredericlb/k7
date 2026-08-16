@@ -74,7 +74,7 @@ schema-driven autocompletion derived from the same Zod schemas.
 ```
 project.yaml           header + trackOrder + markers
 settings.yaml          project settings (metronome, count-in)
-chains.yaml            the routing graph — ONE `modules:` map, lanes included
+graph.yaml            the routing graph — ONE `modules:` map, lanes included
 clips/<id>.yaml        audio clips
 sequences/<id>.yaml    MIDI clip config + inline notes ({t,d,k,v} mappings)
 curves/<id>.yaml       automation curves (lfo / custom points)
@@ -93,7 +93,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   [packages/song/docs/trackModules.md](../../packages/song/docs/trackModules.md).
 - **A group holds no material — only membership.** `tracks` lists the member lane
   names. That's all a group is.
-- **Mute is the lane's BYPASS**, one name in `chains.yaml`'s `bypassed:`; solo is derived by
+- **Mute is the lane's BYPASS**, one name in `graph.yaml`'s `bypassed:`; solo is derived by
   the surface and written nowhere.
 - **A song holds picture too.** `video_tracks/<id>.yaml` places shots in SECONDS against the
   wall clock, where lanes are placed in bars against the tempo. Both are drawn on the one
@@ -107,7 +107,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   Nothing static can check that match, since labels only exist once the pattern runs,
   so it's checked when playback starts. **A `.strudel` file no lane links to is
   ignored**: `algo/` is a library you pick from, not a folder that autoloads.
-- **A strudel lane is a lane like any other**: a stable name, so `chains.yaml` can route
+- **A strudel lane is a lane like any other**: a stable name, so `graph.yaml` can route
   it and the mixer can set its gain and pan. WHICH of the two strudel modules it extends
   decides how the pattern's events are read, so a chain and a pattern can't disagree:
   `@studio/sequence-strudel-track` makes every event a MIDI note played by whatever
@@ -141,7 +141,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   instruments/synth lead` scaffolds one and puts it in the graph, and `engine/capot/songs/synth-demo.l8/nodes/`
   is the worked example — one 4OSC module, a `lead` and a `pad`, each driving its own chain.
   See `packages/song/docs/nodes.md`.
-- A **chain** (in `chains.yaml`) is a signal path, written as a flat list of nodes: a
+- A **chain** (in `graph.yaml`) is a signal path, written as a flat list of nodes: a
   **head**, the modules the signal passes through, and the sink it ends at. `chains` is
   a **list**, not a map — a chain needn't be named.
 - **The head node says where the signal comes from, and names the chain.**

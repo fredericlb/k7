@@ -36,7 +36,7 @@ and still lost the value.
 
 ## Absent is the useful case
 
-A chain **template** — the médiathèque's `chains.yaml`, `@studio/mediatek`'s `docs/chains.md` —
+A chain **template** — the médiathèque's `graph.yaml`, `@studio/mediatek`'s `docs/chains.md` —
 is generic by definition: it says how to treat something, not what to treat. Its input names no
 file, and whoever applies the template supplies the audio. A morceau hands over its master (see
 that package's `docs/variants.md`), and the drawing then says which file goes through the chain

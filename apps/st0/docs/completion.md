@@ -21,7 +21,7 @@ Les noms viennent de trois sources différentes, chacune la seule qui puisse ré
 |---|---|---|
 | `extends:` d'un module | `@engine/…` | le **moteur**, par son socket (`engine/baseModules.ts`) |
 | `extends:` d'un module | `@st0/…` | le **catalogue**, par `library.baseModules()` |
-| une destination d'un `chains.yaml` | les nœuds déclarés | **le fichier lui-même** (`chainsVocabulary.ts`) |
+| une destination d'un `graph.yaml` | les nœuds déclarés | **le fichier lui-même** (`chainsVocabulary.ts`) |
 | une ligne de playlist | les morceaux | la **famille songs**, déjà interrogée par l'écran |
 
 ### `@engine/…` — demandé à la machine
@@ -47,7 +47,7 @@ fichiers en refs ; `moduleRefs.ts` est la conversion, et c'est tout ce qu'il est
 
 Le mot `@st0` y est **écrit en clair**. Le `MEDIATEK_REF` canonique vit dans
 `@studio/song/mediatekRoot`, qui appelle `node:os` pour trouver le dossier — un navigateur ne
-peut pas tirer ça pour apprendre un mot. `ChainEditor` déclare `chains.yaml` pour la même
+peut pas tirer ça pour apprendre un mot. `ChainEditor` déclare `graph.yaml` pour la même
 raison : le vocabulaire est le contrat, le résolveur de chemin ne l'est pas.
 
 Les deux listes sont **fusionnées** par le constructeur, pas substituées : elles répondent de
@@ -55,7 +55,7 @@ deux moitiés différentes de ce qu'`extends:` peut nommer.
 
 ## Les chaînes : le fichier est son propre vocabulaire
 
-Un `chains.yaml` de la médiathèque est un **gabarit**. Ses nœuds sont les fichiers du dossier
+Un `graph.yaml` de la médiathèque est un **gabarit**. Ses nœuds sont les fichiers du dossier
 `nodes/` à côté, et une destination nomme l'un d'eux ou `@out`.
 
 Le listing d'une chaîne porte le **nombre** de ses nœuds, jamais leurs noms — et il n'y a
@@ -93,7 +93,7 @@ plus, et personne n'a demandé. Ce serait un quatrième vocabulaire, sur le mêm
 des playlists.
 
 **Les fichiers de nœud d'une chaîne** : st0 ne les ouvre pas dans un éditeur, seulement le
-`chains.yaml`. Leur `extends:` est pourtant exactement le champ dont il est question ici. Et le
+`graph.yaml`. Leur `extends:` est pourtant exactement le champ dont il est question ici. Et le
 jour où l'un s'ouvrira, il ne complétera pas tout seul : `fileKindFor` reconnaît un module à son
 dossier `modules/`, et `chains/…/nodes/eq.yaml` n'en a pas. Il faudra le lui apprendre —
 une ligne, mais une ligne dans `@studio/song`, pas ici.

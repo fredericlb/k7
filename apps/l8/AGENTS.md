@@ -213,7 +213,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   inserts are optional props the other two pass nothing for.
 - **Timeline** — vim-style: `hjkl` movement, `v` for visual selection, `z`/`Shift+z`
   for the zoom stack, `m`/`s` for mute/solo. Neither is a session flag: `m` rewrites the
-  lane's BYPASS in `chains.yaml` — a lane is a module, and its mute is that module's bypass —
+  lane's BYPASS in `graph.yaml` — a lane is a module, and its mute is that module's bypass —
   and `s` toggles the lane in project.yaml's root `soloed:` list, several at once, resolved by
   the ENGINE (`packages/song/docs/trackModules.md`). Selection
   and zoom are a stack; the innermost entry describes the view. Unlike chains, this one

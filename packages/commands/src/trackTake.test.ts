@@ -38,7 +38,7 @@ function song(): string {
     "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
     "utf8",
   );
-  writeFileSync(join(d, "chains.yaml"), "modules:\n  gtr: [ OUT ]\n", "utf8");
+  writeFileSync(join(d, "graph.yaml"), "modules:\n  gtr: [ OUT ]\n", "utf8");
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(join(d, "nodes", "gtr.yaml"), LANE, "utf8");
   return d;

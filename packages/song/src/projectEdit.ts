@@ -3,6 +3,7 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
+import { GRAPH_BASE, GRAPH_FILE } from "./yaml/graphSchema";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
@@ -30,13 +31,13 @@ import {
   connectNodes,
   disconnectNodes,
   insertBetween,
-  parseChains,
+  parseGraph,
   removeNode,
   renameNode,
   setModuleEnabled,
   setNodePosition,
   unlinkNode,
-} from "./yaml/chainsFile";
+} from "./yaml/graphFile";
 import { setMaterialWindow } from "./yaml/materialFile";
 import { setModuleList, setModuleValue } from "./yaml/moduleFile";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
@@ -409,9 +410,9 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
 // --- chains file --------------------------------------------------------------
 
 /** The project's chains file. */
-function chainsFileOf(dir: string): { path: string } {
-  const file = entityFileFor(dir, "", "chains");
-  if (!file) throw new Error(`${dir}: no chains file`);
+function graphFileOf(dir: string): { path: string } {
+  const file = entityFileFor(dir, "", GRAPH_BASE);
+  if (!file) throw new Error(`${dir}: no ${GRAPH_FILE}`);
   return { path: file.path };
 }
 
@@ -427,7 +428,7 @@ export function setModuleBypass(
   module: string,
   bypassed: boolean,
 ): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const before = readFileSync(path, "utf8");
   const after = setModuleEnabled(before, module, !bypassed);
   if (after !== before) writeFileSync(path, after, "utf8");
@@ -502,11 +503,11 @@ export function unlinkChainNode(
   dir: string,
   node: string,
 ): { rewired: string[] } {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
-  const { value, issues } = parseChains(text);
+  const { value, issues } = parseGraph(text);
   if (!value)
-    throw new Error(`chains.yaml: ${issues[0]?.message ?? "unreadable"}`);
+    throw new Error(`${GRAPH_FILE}: ${issues[0]?.message ?? "unreadable"}`);
   // Named as a step, or only ever as somebody's destination: the last module in a run has no
   // entry of its own, and it is still in the chain and still unlinkable.
   const isDest = Object.values(value.modules ?? {}).some((dests) =>
@@ -524,7 +525,7 @@ export function unlinkChainNode(
  * Delete a node: its file, its preset, and every trace of it in the chains.
  *
  * The order is load-bearing. The FILES go first and the chains second, because the state to
- * avoid at all costs is a `chains.yaml` naming a node with no file — that is what stops the
+ * avoid at all costs is a `graph.yaml` naming a node with no file — that is what stops the
  * project loading, and it is the one of the two halves that a person cannot see. Interrupted the
  * other way round you get an orphan file, which loads fine and is merely untidy.
  *
@@ -545,7 +546,7 @@ export function deleteChainNode(
     rmSync(preset, { force: true });
     removed.push(`nodes/${node}.vstpreset`);
   }
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const r = removeNode(text, node);
   if (r.text !== text) writeFileSync(path, r.text, "utf8");
@@ -554,7 +555,7 @@ export function deleteChainNode(
 
 /** Put a module in the graph wired to nothing — dropped in, to be connected after. */
 export function placeChainNode(dir: string, module: string): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = addNode(text, module);
   if (next !== text) writeFileSync(path, next, "utf8");
@@ -563,7 +564,7 @@ export function placeChainNode(dir: string, module: string): string {
 
 /** Hand EVERY node back to the layout — `graph organize` clearing the pins in one write. */
 export function clearChainNodePositions(dir: string): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = clearNodePositions(text);
   if (next !== text) writeFileSync(path, next, "utf8");
@@ -576,7 +577,7 @@ export function setChainNodePosition(
   node: string,
   at: { x: number; y: number } | null,
 ): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = setNodePosition(text, node, at);
   if (next !== text) writeFileSync(path, next, "utf8");
@@ -589,7 +590,7 @@ export function connectChainNodes(
   from: string,
   to: string,
 ): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = connectNodes(text, from, to);
   if (next !== text) writeFileSync(path, next, "utf8");
@@ -602,7 +603,7 @@ export function disconnectChainNodes(
   from: string,
   to: string,
 ): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = disconnectNodes(text, from, to);
   if (next !== text) writeFileSync(path, next, "utf8");
@@ -621,7 +622,7 @@ export function replugChainNodes(
   newFrom: string,
   newTo: string,
 ): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = connectNodes(disconnectNodes(text, from, to), newFrom, newTo);
   if (next !== text) writeFileSync(path, next, "utf8");
@@ -635,7 +636,7 @@ export function insertChainStep(
   after: string | undefined,
   module: string,
 ): string {
-  const { path } = chainsFileOf(dir);
+  const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = insertBetween(text, before, after, module);
   if (next !== text) writeFileSync(path, next, "utf8");

@@ -1,6 +1,6 @@
-// chainsFile.ts — reading and EDITING chains.yaml: bypass a module, insert one into an
+// graphFile.ts — reading and EDITING graph.yaml: bypass a module, insert one into an
 // arrow, remove one, rename one. The file holds SEGMENTS (who feeds whom), so every edit
-// here is an edge rewire. Full rationale: docs/chainsFile.md.
+// here is an edge rewire. Full rationale: docs/graphFile.md.
 
 import {
   Document,
@@ -11,21 +11,21 @@ import {
   parseDocument,
   type YAMLSeq,
 } from "yaml";
-import { type ChainsFile, ChainsFileSchema } from "./chainsSchema";
+import { type GraphFile, GraphFileSchema } from "./graphSchema";
 import type { ModuleIssue } from "./moduleFile";
 
 // YAML 1.2 (so `5:1:1` stays a string) and no wrapping, keeping a node's destinations on
-// ONE line — see docs/chainsFile.md.
+// ONE line — see docs/graphFile.md.
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 // `toString` takes only the rendering half of those (the version is a parse concern).
 const OUT = { lineWidth: 0 };
 
 export interface ParsedChains {
-  value: ChainsFile | null;
+  value: GraphFile | null;
   issues: ModuleIssue[];
 }
 
-export function parseChains(text: string): ParsedChains {
+export function parseGraph(text: string): ParsedChains {
   const lines = new LineCounter();
   const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
   const issues: ModuleIssue[] = [];
@@ -51,7 +51,7 @@ export function parseChains(text: string): ParsedChains {
       ],
     };
 
-  const result = ChainsFileSchema.safeParse(raw);
+  const result = GraphFileSchema.safeParse(raw);
   if (!result.success) {
     for (const issue of result.error.issues) {
       const keys = (issue as { keys?: string[] }).keys;
@@ -65,13 +65,13 @@ export function parseChains(text: string): ParsedChains {
 
 /** Every node the file names — lanes and modules alike, which is one map now. */
 export function nodeNames(text: string): string[] {
-  return Object.keys(parseChains(text).value?.modules ?? {});
+  return Object.keys(parseGraph(text).value?.modules ?? {});
 }
 
-function read(text: string): { doc: Document; file: ChainsFile } {
-  const { value, issues } = parseChains(text);
+function read(text: string): { doc: Document; file: GraphFile } {
+  const { value, issues } = parseGraph(text);
   if (!value)
-    throw new Error(`chains.yaml: ${issues[0]?.message ?? "unreadable"}`);
+    throw new Error(`graph.yaml: ${issues[0]?.message ?? "unreadable"}`);
   return { doc: parseDocument(text, OPTS), file: value };
 }
 
@@ -82,7 +82,7 @@ function read(text: string): { doc: Document; file: ChainsFile } {
  * had to carry through, because writing a lane's destinations into the wrong half unwired it
  * silently. There is one map now (docs/trackModules.md), so the question is a yes/no.
  */
-const hasNode = (file: ChainsFile, node: string): boolean =>
+const hasNode = (file: GraphFile, node: string): boolean =>
   !!file.modules && node in file.modules;
 
 /** A sequence item's text, whether the library handed back a scalar node or a bare string. */
@@ -138,7 +138,7 @@ export function setModuleEnabled(
 ): string {
   const { doc, file } = read(text);
   if (!hasNode(file, module))
-    throw new Error(`chains.yaml has no module "${module}"`);
+    throw new Error(`graph.yaml has no module "${module}"`);
   const listed = (file.bypassed ?? []).includes(module);
   if (enabled === !listed) return text; // already how it was asked to be
 
@@ -167,7 +167,7 @@ export function insertBetween(
 ): string {
   const { doc, file } = read(text);
   if (!hasNode(file, before))
-    throw new Error(`chains.yaml has no node "${before}"`);
+    throw new Error(`graph.yaml has no node "${before}"`);
   const dests = [...(file.modules?.[before] ?? [])];
   if (after) {
     const at = dests.indexOf(after);
@@ -269,7 +269,7 @@ export function disconnectNodes(
  * Shared by the two verbs that take a node out of the signal path, which differ only in what
  * becomes of its OWN entry afterwards. See `unlinkNode` and `removeNode`.
  */
-function spliceOut(doc: Document, file: ChainsFile, module: string): string[] {
+function spliceOut(doc: Document, file: GraphFile, module: string): string[] {
   const onward = file.modules?.[module] ?? [];
   const rewired: string[] = [];
   for (const [node, dests] of Object.entries(file.modules ?? {})) {
@@ -398,7 +398,7 @@ export function renameNode(
 }
 
 /** A whole segments file in canonical form — what the scaffold writes and what the migration emits. */
-export function formatChains(file: ChainsFile, header = ""): string {
+export function formatChains(file: GraphFile, header = ""): string {
   const doc = new Document({}, OPTS);
   const entries = Object.entries(file.modules ?? {});
   if (entries.length) {

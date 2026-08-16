@@ -36,7 +36,7 @@ function project(name: string): string {
   });
   writeFileSync(join(p, "clips", "riff.wav"), "");
   // Destinations, one line per node: gtr runs amp then cab into the bus, keys joins it there.
-  writeYaml(join(p, "chains.yaml"), {
+  writeYaml(join(p, "graph.yaml"), {
     modules: {
       gtr: ["amp"],
       amp: ["cab"],

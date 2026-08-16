@@ -60,7 +60,7 @@ describe("the line the shell runs after it", () => {
     // `node new` already put it in the graph, so all that is left is where it sits. `node
     // position` takes x and y as separate words, unlike the spawn token's comma pair.
     expect(wireCommand("adt1", null, { x: 12, y: 8 })).toBe(
-      "node position adt1 12 8",
+      "graph move adt1 12 8",
     );
   });
 

@@ -5,6 +5,7 @@
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
 
+import { GRAPH_FILE } from "./yaml/graphSchema";
 import { writeProjectFiles } from "./scaffold";
 
 const q = (s: string) => JSON.stringify(s);
@@ -52,7 +53,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `#    markers: [ 12.5, null, 48.25 ]   # boutons 1 et 3; le 2 est vide\n` +
       `songs: []\n`,
 
-    "chains.yaml":
+    [GRAPH_FILE]:
       `# Each deck through its own tempo, EQ and filter, then both meeting at one crossfade —\n` +
       `# the shape a single chain cannot express, because a chain carries ONE signal.\n` +
       `#\n` +

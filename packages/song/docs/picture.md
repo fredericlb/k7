@@ -6,7 +6,7 @@ An `.l8` folder holds sound **and image**. Same folder, same loader, read twice:
 |---|---|---|
 | `project.yaml` | `tempo`, `sampleRate`, `timeSignature`, `markers` | `viewport`, `layers`, `markers` |
 | `nodes/<id>.yaml` | the lanes | — |
-| `chains.yaml` | the signal graph | — |
+| `graph.yaml` | the signal graph | — |
 | `clips/<id>.yaml` | a source (audio) | a source (video) |
 | `video_tracks/<id>.yaml` | — | one file per picture LANE |
 
@@ -96,7 +96,7 @@ three-hour cut writes `10800`.
 - **`video_source`.** An audio lane inheriting a video lane's placements, so a shot and its
   sound could not drift. Nothing reads the key.
 - **Video chains.** `VideoPluginDoc` (`video_effect` / `video_transition`) has a shape in the
-  document and no path from a `chains.yaml` into the renderer. Nothing offers the file, for the
+  document and no path from a `graph.yaml` into the renderer. Nothing offers the file, for the
   reason the `layers` check above exists: a file nothing reads is silent acceptance.
 - **Export.** `@studio/ui-eyes`'s `exportScene` works frame-by-frame through WebCodecs; no
   surface mounts a button for it.

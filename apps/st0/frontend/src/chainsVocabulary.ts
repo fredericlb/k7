@@ -4,7 +4,7 @@
 // See ../docs/completion.md.
 
 import { CHAIN_OUT } from "@studio/song/chainsGraph";
-import { parseChains } from "@studio/song/yaml/chainsFile";
+import { parseGraph } from "@studio/song/yaml/graphFile";
 import type { YamlVocabulary } from "@studio/ui-editor/yaml/completions";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 
@@ -22,7 +22,7 @@ import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
  * be in the graph at all.
  */
 export function chainNodes(text: string): string[] | null {
-  const parsed = parseChains(text);
+  const parsed = parseGraph(text);
   if (!parsed.value) return null;
   return Object.keys(parsed.value.modules ?? {});
 }

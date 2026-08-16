@@ -556,7 +556,7 @@ silence it (see `project.ts` `withGroupMix`). Aiming at the lane would be a key 
 work, so the status line names the group instead and the redirect shows.
 
 Neither `m` nor `s` writes a flag on the lane any more. `m` is the lane's module BYPASS, one
-name in `chains.yaml`'s `bypassed:`; `s` bypasses every OTHER lane, and nothing on disk says
+name in `graph.yaml`'s `bypassed:`; `s` bypasses every OTHER lane, and nothing on disk says
 "soloed" (`packages/song/docs/trackModules.md`). The keys are unchanged and so is what you
 hear — only where the state lives moved.
 

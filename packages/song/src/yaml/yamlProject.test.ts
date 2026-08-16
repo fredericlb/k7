@@ -141,7 +141,7 @@ describe("the writers", () => {
     ).toBe(false);
     // …and off-then-on returns the file to what it was, which is the property the graph's
     // bypass button relies on: clicking twice leaves no diff.
-    const file = join(dir, "chains.yaml");
+    const file = join(dir, "graph.yaml");
     const bypassed = readFileSync(file, "utf8");
     setModuleBypass(dir, step, false);
     expect(readFileSync(file, "utf8")).not.toBe(bypassed);

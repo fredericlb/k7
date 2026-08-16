@@ -45,7 +45,7 @@ describe("a scaffolded project", () => {
     scaffold(dir, "demo");
     expect(tree().filter((f) => f.endsWith(".cue"))).toEqual([]);
     expect(tree()).toContain("project.yaml");
-    expect(tree()).toContain("chains.yaml");
+    expect(tree()).toContain("graph.yaml");
   });
 
   it("quotes the timecodes, so a placement isn't read as a number", () => {

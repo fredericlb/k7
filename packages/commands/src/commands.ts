@@ -97,8 +97,8 @@ import {
   seedWarp,
   setWarpPoint,
 } from "@studio/song/warpPoints";
-import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
+import type { GraphFile } from "@studio/song/yaml/graphSchema";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
 import {
   appendNotes,
@@ -237,7 +237,7 @@ function writeMetronomeSetting(songPath: string, on: boolean): void {
 }
 
 /**
- * Why `before → after` is not an arrow in chains.yaml, or null when it is.
+ * Why `before → after` is not an arrow in graph.yaml, or null when it is.
  *
  * Read off the SEGMENTS rather than the derived chains: the file states the edges outright, so the check is a
  * lookup instead of a walk — and the message can list what the node actually feeds, which is the next thing
@@ -249,11 +249,11 @@ function arrowError(
   after: string,
 ): string | null {
   const file = loadChains(songPath, loadProjectRoot(songPath, true), true) as
-    | ChainsFile
+    | GraphFile
     | undefined;
   const dests = file?.modules?.[before];
   if (!dests)
-    return `no node "${before}" in chains.yaml (nodes: ${
+    return `no node "${before}" in graph.yaml (nodes: ${
       Object.keys(file?.modules ?? {}).join(", ") || "none"
     })`;
   if (!dests.includes(after))
@@ -427,7 +427,7 @@ async function newTrack(
 }
 
 // What a mute/solo can address. A group is a lane too — one that carries no signal — and both are
-// silenced the same way, by name, in `chains.yaml`'s `bypassed:`.
+// silenced the same way, by name, in `graph.yaml`'s `bypassed:`.
 type MixTarget = Pick<TrackDoc, "id" | "name" | "mute">;
 
 /**
@@ -1026,7 +1026,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * non-soloed one; applySoloMute). The compiler folds a group's entry onto its members.
    *
    * It used to be DERIVED — bypass every other lane — which rewrote N files to say one fact,
-   * could not hold two solos at once, and read in chains.yaml as a wall of mutes nobody wrote.
+   * could not hold two solos at once, and read in graph.yaml as a wall of mutes nobody wrote.
    * Now one list says it, and turning the last solo off deletes the key: absent means what it
    * always means here, the default.
    *
@@ -1960,7 +1960,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // node param <node> <param> <value>: the param is read as everything BETWEEN module and value, since engine
-  // display names contain spaces. node bypass writes the module's name into chains.yaml's `bypassed` list, not
+  // display names contain spaces. node bypass writes the module's name into graph.yaml's `bypassed` list, not
   // into the module file — a module's own file is what it IS, and being switched off is where it sits.
   "node.bypass": async (a, h) => {
     const m = /^(\S+)(?:\s+(on|off|true|false))?$/.exec(a.trim());
@@ -1969,9 +1969,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     const [, module, state] = m;
-    // chains.yaml alone, not loadGraph: the only question here is which chain holds this module and whether it is
+    // graph.yaml alone, not loadGraph: the only question here is which chain holds this module and whether it is
     // on, and that is one file. loadGraph also reads every module, clip, sequence and curve in the song — 220 ms
-    // on a real project, spent to answer a question chains.yaml already answers in one. Still the derived chains
+    // on a real project, spent to answer a question graph.yaml already answers in one. Still the derived chains
     // rather than the compiled doc, so a module that is an io node or names nothing on disk is found too: bypass
     // is the one verb that still works on a dangling reference.
     const allChains = parseChains(
@@ -2015,7 +2015,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         })),
       };
       // An io module or a dangling step has no plugin in the compiled doc, so there is nothing to diff — those
-      // fall back to the full reload, which is what makes their chains.yaml edit take effect at all.
+      // fall back to the full reload, which is what makes their graph.yaml edit take effect at all.
       if (found) await h.applyProject(np);
       else await h.reload();
     } catch (e) {
@@ -2335,7 +2335,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * It names what it uses with `extends` and states only what it changes; chains name it by its
    * FILENAME alone.
    *
-   * The placing is not a convenience. A node file with no entry in `chains.yaml` is loaded and
+   * The placing is not a convenience. A node file with no entry in `graph.yaml` is loaded and
    * drawn NOWHERE — the graph's blocks come off the chains, so creating one used to leave a node
    * that existed on disk and was on no screen, waiting for a second command to become real.
    * Every node is in the graph; `modules: { x: [] }` is what says so, and it is a state the file
@@ -2510,7 +2510,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * They were one act told apart by whether a file had to be written first. Creating is
    * `module new`'s and `node new`'s; this wires.
    *
-   * The arrow is validated from chains.yaml alone, and a COLD module is refused here rather than
+   * The arrow is validated from graph.yaml alone, and a COLD module is refused here rather than
    * halfway through: it works only on audio already on disk, so where it sits is the question.
    */
   "node.insert": async (a, h) => {
@@ -2566,7 +2566,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   // `node.place` was here — `modules: { x: [] }` for a node that existed and was in no chain.
   // `node new` places what it makes and `graph unlink` leaves what it unlinks, so the state it
-  // repaired is one nothing reaches any more. Moving a node is `node position`.
+  // repaired is one nothing reaches any more. Moving a node is `graph move`.
 
   // `chain.addModule` was here — `chain add <before> <after> <module>`, an existing module
   // spliced into an arrow. That is `node insert` now, which stopped creating; the two were one
@@ -2589,15 +2589,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * node position <node> <x> <y> — pin a node where a drag (or a hand) put it, into
-   * chains.yaml's `positions:`. The layout only places what has no pin, so this is the one
+   * graph move <node> <x> <y> — pin a node where a drag (or a hand) put it, into
+   * graph.yaml's `positions:`. The layout only places what has no pin, so this is the one
    * write behind "modules stay where you moved them"; `auto` hands the node back. Cosmetic
    * on purpose — nothing about the signal reads it — which is why a bad node name is still
    * refused: a pin nothing can ever match would sit in the file for ever.
    */
-  "node.position": async (a, h) => {
+  "graph.move": async (a, h) => {
     const usage =
-      "usage: node position <node> <x> <y> (world px), or `node position <node> auto`";
+      "usage: graph move <node> <x> <y> (world px), or `graph move <node> auto`";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length < 2) {
       h.log([usage]);
@@ -2608,7 +2608,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`node position: ${(e as Error).message}`]);
+      h.log([`graph move: ${(e as Error).message}`]);
       return;
     }
     // Everything on the graph is a NODE, and every node can be put somewhere: a module or a
@@ -2653,14 +2653,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       await h.reload();
     } catch (e) {
-      h.log([`node position failed: ${(e as Error).message}`]);
+      h.log([`graph move failed: ${(e as Error).message}`]);
     }
   },
 
   /**
    * graph chain connect <from> <to> — draw a NEW arrow between two placed nodes: the graph's
    * patch-cable gesture, and how a new chain begins. Either end may carry `#port`, spelt
-   * exactly as chains.yaml spells it (packages/song/docs/ports.md).
+   * exactly as graph.yaml spells it (packages/song/docs/ports.md).
    *
    * Unlike `node insert` there is no existing arrow to validate against — the checks are the
    * ends themselves: both must be nodes this project knows, the sink has no output, and a

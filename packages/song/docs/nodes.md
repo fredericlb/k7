@@ -104,14 +104,14 @@ the top of this page: a module is a thing you could use, a node is one use of it
 
 | | |
 |---|---|
-| `node new` `node delete` `graph unlink` `node insert` `node position` | where a use sits in the chains |
+| `node new` `node delete` `graph unlink` `node insert` `graph move` | where a use sits in the chains |
 | `node bypass` `node freeze` | what a use does to the signal passing through it |
 | `node param` `node replace` `node alternative …` | how one use is set, what it plays, which of its settings is on |
 | `module new` `module clone` `module own` | the thing itself — created, copied, given a folder |
 | `module cc` | what every use of it inherits: its MIDI map |
 
 Eight of the first list were `module …` verbs, which read as edits to the definition and were
-not: `node bypass` writes a name into `chains.yaml`, and a chain names nodes. `node param
+not: `node bypass` writes a name into `graph.yaml`, and a chain names nodes. `node param
 lead "Filter Freq" 69` sets **this** use; the synth two lanes over is untouched.
 
 The completion draws the same line. The `nodes` provider offers the project's uses and nothing
@@ -122,7 +122,7 @@ providers, uses first.
 
 ## Making one, and wiring it
 
-**Every node is in the graph.** A node file with no entry in `chains.yaml` is loaded by the
+**Every node is in the graph.** A node file with no entry in `graph.yaml` is loaded by the
 project and drawn nowhere — the blocks come off the chains — so a node that existed and was on
 no screen was not a state worth being able to reach. `node new <category>/<name> <node> [x,y]`
 therefore writes the file *and* names the node in the graph, wired to nothing
@@ -136,7 +136,7 @@ module that is already there is not an error: it is the ordinary second pick of 
 WIRING is separate again, and it is one verb: `node insert <before> <after> <node>` splices a
 node into an arrow. There is no verb for "put this node on the canvas" any more — `node place`
 was it, and both of its reasons went away: `node new` places what it makes, and `graph unlink`
-leaves what it unlinks. Moving one is `node position`.
+leaves what it unlinks. Moving one is `graph move`.
 
 The two wiring verbs used to create as well — each took a `<category>/<name>` and made the
 module first. That is what made `node insert` indistinguishable from `chain add`, which did

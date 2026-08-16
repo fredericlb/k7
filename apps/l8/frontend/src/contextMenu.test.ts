@@ -226,7 +226,7 @@ describe("a module node", () => {
   });
 
   it("shrinks to the verbs that survive a DANGLING node", () => {
-    // A name nothing answers to: no file to open, no param to set. These touch chains.yaml
+    // A name nothing answers to: no file to open, no param to set. These touch graph.yaml
     // alone, which the catalogue cannot say — it describes arguments, not what a handler writes.
     // `node replace` is NOT among them any more: it repoints an `extends:`, and a dangling
     // name has no file to repoint — offering it would offer a certain failure.
@@ -421,7 +421,9 @@ describe("what the person has turned off", () => {
   });
 
   it("treats an absent entry, and an explicit true, as ON", () => {
-    const on = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {}));
+    const on = lines(
+      contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {}),
+    );
     const yes = lines(
       contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {
         "graph unlink": { menu: true },

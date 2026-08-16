@@ -137,7 +137,7 @@ describe("a scaffolded set", () => {
   it("writes the whole shape and nothing else", () => {
     scaffoldSet(dir, "winter");
     expect(tree()).toEqual([
-      "chains.yaml",
+      "graph.yaml",
       "nodes",
       "nodes/crossfade.yaml",
       // The DECKS are nodes too — a lane is a module (docs/trackModules.md), so there is

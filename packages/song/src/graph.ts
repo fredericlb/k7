@@ -1,6 +1,6 @@
 // graph.ts — load and inspect a node/track/chain project (`studio-graph <project>`): clips and sequences are
 // the material, tracks arrange them, modules wrap a plugin or rack, and chains route a track through modules to
-// the OUT sink. Chains are DERIVED from chains.yaml's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
+// the OUT sink. Chains are DERIVED from graph.yaml's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
 
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -71,7 +71,7 @@ export interface Track {
   type: "single" | "group" | "strudel";
   contentType: "audio" | "sequences"; // single/strudel: what its material is
   color?: string; // authored display colour (hex, e.g. "#ff5706"); absent when unset
-  // Silenced. Read off `chains.yaml`'s `bypassed:` — a lane's mute IS its module's bypass, which
+  // Silenced. Read off `graph.yaml`'s `bypassed:` — a lane's mute IS its module's bypass, which
   // is why the lane file carries no `mute:` for the two to disagree over.
   mute: boolean;
   // Always false. Solo is a session state the surface derives (it bypasses every OTHER lane), so
@@ -317,7 +317,7 @@ export interface GraphDoc {
   // `extends` vocabulary. Resolved like `modules`: what a consumer reads off either map
   // is what the module RUNS with, ancestry already folded in (see moduleResolve.ts).
   moduleRefs: Record<string, Module>;
-  // chains.yaml's `positions:`, verbatim — where somebody pinned a node on the graph.
+  // graph.yaml's `positions:`, verbatim — where somebody pinned a node on the graph.
   // Nothing about the SIGNAL reads it; it rides through to the renderer, whose layout
   // places only the nodes that have no entry here.
   positions?: Record<string, { x: number; y: number }>;
@@ -1267,7 +1267,7 @@ export function loadGraph(dir: string): GraphDoc {
 
 function loadGraphIn(dir: string): GraphDoc {
   const root = loadProjectRoot(dir, true); // the root file -> project, markers
-  // chains.yaml when there is one — see loadChains. Read once and passed everywhere the
+  // graph.yaml when there is one — see loadChains. Read once and passed everywhere the
   // root's own `chains` used to be, so the two formats can't disagree within one load.
   const rootChains = loadChains(dir, root, true);
   const videoTracksMap = loadVideoTracks(dir, true);
@@ -1281,7 +1281,7 @@ function loadGraphIn(dir: string): GraphDoc {
   // Which nodes are LANES has to be settled BEFORE the chains are derived — a run is named after
   // its lane, and with one `modules:` map only `extends` tells a lane from a reverb. So the local
   // modules are folded first, and the chains are told. The fold is pure and in memory; doing it
-  // twice costs a walk over a few dozen structs and buys the derivation the one fact chains.yaml
+  // twice costs a walk over a few dozen structs and buys the derivation the one fact graph.yaml
   // no longer states.
   const localResolved = resolveModuleMap(localModules, moduleRefsMap);
   const lanes = lanesOf(localResolved);

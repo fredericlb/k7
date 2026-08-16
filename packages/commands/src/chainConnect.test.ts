@@ -1,4 +1,4 @@
-// `graph chain connect` — the patch-cable verb, through the dispatcher, asserting chains.yaml.
+// `graph chain connect` — the patch-cable verb, through the dispatcher, asserting graph.yaml.
 // What matters: it CREATES an arrow (no existing one required, unlike `node insert`), it never
 // unwires what the source already feeds, and every refusal leaves the file byte-identical.
 
@@ -28,7 +28,7 @@ const host = () =>
     },
   }) as never;
 
-const chains = () => readFileSync(join(dir, "chains.yaml"), "utf8");
+const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 function song(): string {
   const d = mkdtempSync(join(tmpdir(), "td-connect-"));
@@ -39,7 +39,7 @@ function song(): string {
   );
   // `reverb` is placed and unwired — the free jacks the gesture exists for.
   writeFileSync(
-    join(d, "chains.yaml"),
+    join(d, "graph.yaml"),
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  reverb: []\n",
     "utf8",
   );

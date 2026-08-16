@@ -2,6 +2,7 @@
 // médiathèque's modules in, and nothing else. One track through a mixer to OUT, and everything
 // else is the catalogue, which is not in the folder. Rationale: apps/st0/docs/banc.md.
 
+import { GRAPH_FILE } from "./yaml/graphSchema";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { DEFAULT_COUNT_IN } from "./project";
 import { writeProjectFiles } from "./scaffold";
@@ -93,7 +94,7 @@ export function benchFiles(name: string): Record<string, string> {
       `  type: internal\n` +
       `  name: ${MIXER_PLUGIN}\n`,
     // The chain, and the one line to edit. Named in the comment because it IS the exercise.
-    "chains.yaml":
+    [GRAPH_FILE]:
       `# Le graphe, en SEGMENTS : chaque module dit où son signal va ensuite — la piste\n` +
       `# "banc" comprise, puisqu'une piste est un module comme un autre.\n` +
       `#\n` +

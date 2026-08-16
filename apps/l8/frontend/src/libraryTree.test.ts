@@ -213,7 +213,7 @@ describe("libraryModuleRef", () => {
 
   it("answers nothing for the library's chains", () => {
     expect(
-      libraryModuleRef("_libraries/chains/live/vocals/chains.yaml"),
+      libraryModuleRef("_libraries/chains/live/vocals/graph.yaml"),
     ).toBeNull();
   });
 });

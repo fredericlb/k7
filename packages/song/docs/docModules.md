@@ -13,7 +13,7 @@ content: |
 …wired from whatever it is about, like anything else:
 
 ```yaml
-# chains.yaml
+# graph.yaml
 modules:
   ampli: [ reverb, notes-amp ]
 ```

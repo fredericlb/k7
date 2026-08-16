@@ -124,7 +124,7 @@ export function clipExtentsOf(doc: {
 }
 
 export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
-  // loadGraph reads chains.yaml exactly as the compile does.
+  // loadGraph reads graph.yaml exactly as the compile does.
   const g = loadGraph(dir);
   // Curve shapes for automation node labels, narrowed below to the curves a module actually binds.
   const allCurves = (() => {

@@ -8,15 +8,16 @@
 // The pair has to be exactly reversible or saving damages the chain, so both directions live here,
 // beside each other, under one set of round-trip tests. See apps/st0/docs/banc.md.
 
-import { formatChains, parseChains } from "./yaml/chainsFile";
-import type { ChainsFile } from "./yaml/chainsSchema";
+import { formatChains, parseGraph } from "./yaml/graphFile";
+import type { GraphFile } from "./yaml/graphSchema";
 
 /** The boundary nodes a shared chain is written between. */
 export const CHAIN_IN = "@in";
 export const CHAIN_OUT = "@out";
 
 /** The file this translates, named once — a chain folder and an l8 project both hold one. */
-export const CHAIN_FILE = "chains.yaml";
+// The bench writes the project's graph file, same name as any project's.
+export { GRAPH_FILE as CHAIN_FILE } from "./yaml/graphSchema";
 
 /** What the bench scaffold calls its own furniture — see scaffoldBench. */
 export interface BenchEdges {
@@ -54,10 +55,10 @@ const rename = (dests: string[], from: string, to: string): string[] =>
   dests.map((d) => (d === from ? to : d));
 
 function mapFile(
-  file: ChainsFile,
+  file: GraphFile,
   fn: (node: string, dests: string[]) => [string, string[]] | null,
-): ChainsFile {
-  const out: ChainsFile = {};
+): GraphFile {
+  const out: GraphFile = {};
   const next: Record<string, string[]> = {};
   for (const [node, dests] of Object.entries(file.modules ?? {})) {
     const kept = fn(node, dests);
@@ -79,7 +80,7 @@ export function benchChainCollision(
   text: string,
   edges: BenchEdges,
 ): string | null {
-  const { value } = parseChains(splitHeader(text).body);
+  const { value } = parseGraph(splitHeader(text).body);
   if (!value) return null; // a file that will not parse is the loader's error to report
   const names = new Set([
     ...Object.keys(value.modules ?? {}),
@@ -94,10 +95,10 @@ export function benchChainCollision(
   return null;
 }
 
-/** A shared chain as the bench's `chains.yaml`: `@in` becomes the track, `@out` the sink. */
+/** A shared chain as the bench's `graph.yaml`: `@in` becomes the track, `@out` the sink. */
 export function chainToBench(text: string, edges: BenchEdges): string {
   const { header, body } = splitHeader(text);
-  const { value } = parseChains(body);
+  const { value } = parseGraph(body);
   if (!value) return text; // unparseable: hand it over untouched rather than emit a wrong file
   const sink = edges.strip ?? edges.out;
 
@@ -120,7 +121,7 @@ export function chainToBench(text: string, edges: BenchEdges): string {
 /** …and back: the track becomes `@in`, the strip is taken out, everything reaching the sink says `@out`. */
 export function chainFromBench(text: string, edges: BenchEdges): string {
   const { header, body } = splitHeader(text);
-  const { value } = parseChains(body);
+  const { value } = parseGraph(body);
   if (!value) return text;
 
   const back = mapFile(value, (node, dests) => {

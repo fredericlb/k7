@@ -35,7 +35,7 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const chains = () => readFileSync(join(dir, "chains.yaml"), "utf8");
+const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 const modDir = (name: string) => join(dir, "modules", "audio", name);
 
 function song(): string {
@@ -46,7 +46,7 @@ function song(): string {
     "utf8",
   );
   writeFileSync(
-    join(d, "chains.yaml"),
+    join(d, "graph.yaml"),
     // Two tracks meeting at `cab`: deleting it has to rejoin BOTH of them to what it fed.
     "modules:\n  gtr: [ amp ]\n  bass: [ cab ]\n  amp: [ cab ]\n  cab: [ OUT ]\n",
     "utf8",

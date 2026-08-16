@@ -140,7 +140,7 @@ export function chainNames(dir: string, project: ProjectDoc): string[] {
  *
  * The compiler has already resolved every step — its plugin format, its params, the preset it
  * loads, a jsdsp module's graph — and addressed each one `<chain>:<module>`, so the chain is
- * already in the document under that prefix. Rebuilding it here from chains.yaml would be a
+ * already in the document under that prefix. Rebuilding it here from the chain's own file would be a
  * second compiler, and the two would drift.
  *
  * A chain that feeds no track and is nobody's bus compiles to no plugins at all (see

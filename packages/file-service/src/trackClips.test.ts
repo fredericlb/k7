@@ -21,7 +21,7 @@ function project(clips: string, sig = "4/4"): string {
     `project:\n  name: "song"\n  tempo: 120\n  timeSignature: "${sig}"\n`,
   );
   writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
-  writeFileSync(join(p, "chains.yaml"), "modules:\n  gtr: [ OUT ]\n");
+  writeFileSync(join(p, "graph.yaml"), "modules:\n  gtr: [ OUT ]\n");
   writeFileSync(
     join(p, "nodes", "gtr.yaml"),
     `extends: "@studio/audio-track"\nevents:\n${clips}`,

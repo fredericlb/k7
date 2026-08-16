@@ -22,7 +22,7 @@ import {
   migrateLibrary,
   migrateProjectModules,
 } from "../src/moduleMigrate";
-import { renameNode } from "../src/yaml/chainsFile";
+import { renameNode } from "../src/yaml/graphFile";
 
 const root = process.argv[2];
 if (!root) {

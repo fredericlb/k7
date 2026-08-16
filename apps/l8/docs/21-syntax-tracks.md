@@ -25,7 +25,7 @@ level is a MODULE now: put a `mixer` at the end of the track's chain and set its
 and three tone bands (see Instruments).
 
 **And no `mute` either.** A lane is a module, so it has the bypass button every module node
-carries, and that is its mute: one name in `chains.yaml`'s `bypassed:` (see Chains). On a source,
+carries, and that is its mute: one name in `graph.yaml`'s `bypassed:` (see Chains). On a source,
 bypass reads as *produces nothing* rather than *passes through untouched* — which is what muting
 a lane has always meant. Solo is not written down at all: the surface derives it by bypassing
 every other lane.

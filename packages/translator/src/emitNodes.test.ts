@@ -68,7 +68,7 @@ describe("import: one module per plugin, one node per use", () => {
     expect(read("nodes/reverb_drums.yaml")).toContain("mix:");
 
     // …and the segments name the nodes.
-    const chains = read("chains.yaml");
+    const chains = read("graph.yaml");
     expect(chains).toContain("vox: [ reverb_vox ]");
     expect(chains).toContain("drums: [ reverb_drums ]");
   });
@@ -82,7 +82,7 @@ describe("import: one module per plugin, one node per use", () => {
     expect(stats.nodeFiles).toBe(0);
     expect(read("modules/audio/reverb/module.yaml")).toContain("mix:");
     expect(existsSync(join(dir, "nodes/reverb_vox.yaml"))).toBe(false);
-    expect(read("chains.yaml")).toContain("vox: [ reverb ]");
+    expect(read("graph.yaml")).toContain("vox: [ reverb ]");
   });
 
   it("separates two uses on the SAME track", () => {
@@ -91,7 +91,7 @@ describe("import: one module per plugin, one node per use", () => {
     emitFolder(dir, song([track("vox", [fx("EQ"), fx("EQ")])]), {});
     expect(existsSync(join(dir, "nodes/eq_vox.yaml"))).toBe(true);
     expect(existsSync(join(dir, "nodes/eq_vox_2.yaml"))).toBe(true);
-    const chains = read("chains.yaml");
+    const chains = read("graph.yaml");
     expect(chains).toContain("vox: [ eq_vox ]");
     expect(chains).toContain("eq_vox: [ eq_vox_2 ]");
   });
@@ -115,7 +115,7 @@ describe("import: one module per plugin, one node per use", () => {
     expect(existsSync(join(dir, "modules/instruments/synth/keys.yaml"))).toBe(
       false,
     );
-    expect(read("chains.yaml")).toContain("keys: [ synth ]");
+    expect(read("graph.yaml")).toContain("keys: [ synth ]");
   });
 });
 
@@ -133,10 +133,10 @@ describe("the emitted folder is a loadable project", () => {
       ]),
       {},
     );
-    // chains.yaml must be SEGMENTS — an import that wrote a format the loader doesn't
+    // graph.yaml must be SEGMENTS — an import that wrote a format the loader doesn't
     // take produced a project that wouldn't open at all. One node per line, as the app
     // writes them.
-    expect(read("chains.yaml")).toMatch(/modules:\n\s+\S+: \[ /);
+    expect(read("graph.yaml")).toMatch(/modules:\n\s+\S+: \[ /);
     const g = loadGraph(dir);
     expect(Object.keys(g.chains).sort()).toEqual(["drums", "vox"]);
     expect(g.chains.vox.use.map((s) => s.module)).toEqual(["reverb_vox"]);

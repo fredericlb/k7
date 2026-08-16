@@ -7,14 +7,14 @@ import {
   formatChains,
   insertBetween,
   nodeNames,
-  parseChains,
+  parseGraph,
   removeNode,
   renameNode,
   setModuleEnabled,
   setNodePosition,
-} from "./chainsFile";
+} from "./graphFile";
 
-// chains.yaml declares SEGMENTS: who feeds whom. Every edit here is an edge rewire, and
+// graph.yaml declares SEGMENTS: who feeds whom. Every edit here is an edge rewire, and
 // the two properties that matter are the same as they were for the list format:
 //
 //   does the model survive       (nodes, destinations, bypass)
@@ -49,7 +49,7 @@ const diff = (a: string, b: string): string[] => {
 
 describe("the model survives the round trip", () => {
   it("reads nodes, destinations and bypass", () => {
-    const { value, issues } = parseChains(AUTHORED);
+    const { value, issues } = parseGraph(AUTHORED);
     expect(issues).toEqual([]);
     // ONE map: the lanes and the modules are the same kind of node now.
     expect(value?.modules?.["vo.jo"]).toEqual(["eq_dj:vox"]);
@@ -63,7 +63,7 @@ describe("the model survives the round trip", () => {
     // dangerous: it is YAML's own key/value indicator. It survives (1.2 allows it inside
     // a plain scalar when no space follows), but nothing about that is obvious, and it is
     // the first thing that would break silently.
-    const { value } = parseChains(AUTHORED);
+    const { value } = parseGraph(AUTHORED);
     expect(Object.keys(value?.modules ?? {})).toContain("eq_dj:vox");
     expect(nodeNames(AUTHORED)).toContain("amp:bass");
   });
@@ -71,7 +71,7 @@ describe("the model survives the round trip", () => {
   it("names the old format rather than reporting an unknown key", () => {
     // Someone opening a project written before this change needs the migration, not
     // "unrecognized key: chains".
-    const { value, issues } = parseChains(
+    const { value, issues } = parseGraph(
       "chains:\n  - [ { track: a }, { module: OUT } ]\n",
     );
     expect(value).toBeNull();
@@ -79,7 +79,7 @@ describe("the model survives the round trip", () => {
   });
 
   it("rejects an unknown section", () => {
-    const { issues } = parseChains(
+    const { issues } = parseGraph(
       "modules:\n  a: [ b ]\nbusses:\n  c: [ d ]\n",
     );
     expect(issues[0].message).toMatch(/busses/);
@@ -128,7 +128,7 @@ describe("placing a module with no wiring", () => {
     // path, so it had to be wired the moment it was created.
     const after = addNode(AUTHORED, "wah");
     expect(after).toContain("wah: []");
-    expect(parseChains(after).value?.modules?.wah).toEqual([]);
+    expect(parseGraph(after).value?.modules?.wah).toEqual([]);
   });
 
   it("leaves a node it already knows alone", () => {
@@ -139,7 +139,7 @@ describe("placing a module with no wiring", () => {
 
   it("creates the section when the file has none", () => {
     const after = addNode("bypassed: [ x ]\n", "wah");
-    expect(parseChains(after).value?.modules?.wah).toEqual([]);
+    expect(parseGraph(after).value?.modules?.wah).toEqual([]);
   });
 });
 
@@ -147,7 +147,7 @@ describe("pinning a node's position", () => {
   it("writes a one-line flow map under `positions:`, rounded to whole px", () => {
     const after = setNodePosition(AUTHORED, "cabinet", { x: 420.7, y: 179.2 });
     expect(after).toContain("cabinet: { x: 421, y: 179 }");
-    expect(parseChains(after).value?.positions?.cabinet).toEqual({
+    expect(parseGraph(after).value?.positions?.cabinet).toEqual({
       x: 421,
       y: 179,
     });
@@ -157,7 +157,7 @@ describe("pinning a node's position", () => {
     const once = setNodePosition(AUTHORED, "cabinet", { x: 10, y: 10 });
     const twice = setNodePosition(once, "cabinet", { x: 50, y: 60 });
     expect(twice.match(/cabinet: \{/g)).toHaveLength(1);
-    expect(parseChains(twice).value?.positions?.cabinet).toEqual({
+    expect(parseGraph(twice).value?.positions?.cabinet).toEqual({
       x: 50,
       y: 60,
     });
@@ -183,7 +183,7 @@ describe("pinning a node's position", () => {
   it("a rename carries the pin, a removal drops it", () => {
     const pinned = setNodePosition(AUTHORED, "cabinet", { x: 33, y: 44 });
     const renamed = renameNode(pinned, "cabinet", "cab2").text;
-    expect(parseChains(renamed).value?.positions?.cab2).toEqual({
+    expect(parseGraph(renamed).value?.positions?.cab2).toEqual({
       x: 33,
       y: 44,
     });
@@ -203,14 +203,14 @@ describe("connecting two nodes with a new arrow", () => {
   it("creates the key for a source the file never listed", () => {
     // A node can appear only as somebody's destination until its first outgoing cable.
     const base = "modules:\n  a: [ b ]\n";
-    const { value } = parseChains(connectNodes(base, "b", "OUT"));
+    const { value } = parseGraph(connectNodes(base, "b", "OUT"));
     expect(value?.modules?.b).toEqual(["OUT"]);
   });
 
   it("carries a #port on either end, spelt as the file spells them", () => {
     const base = "modules:\n  split: []\n  wet: [ OUT ]\n";
     const after = connectNodes(base, "split#b", "wet#in2");
-    expect(parseChains(after).value?.modules?.["split#b"]).toEqual(["wet#in2"]);
+    expect(parseGraph(after).value?.modules?.["split#b"]).toEqual(["wet#in2"]);
   });
 
   it("refuses an arrow that is already there", () => {
@@ -230,7 +230,7 @@ describe("pulling one arrow out", () => {
 
   it("a source left feeding nothing KEEPS its key — the module is still placed", () => {
     const after = disconnectNodes(AUTHORED, "cabinet", "OUT");
-    expect(parseChains(after).value?.modules?.cabinet).toEqual([]);
+    expect(parseGraph(after).value?.modules?.cabinet).toEqual([]);
   });
 
   it("refuses an arrow that is not there, naming what the node does feed", () => {
@@ -262,7 +262,7 @@ describe("inserting a module into an arrow", () => {
 
   it("re-reads what it wrote", () => {
     const after = insertBetween(AUTHORED, "da.main", "drum_1", "verb");
-    const { value, issues } = parseChains(after);
+    const { value, issues } = parseGraph(after);
     expect(issues).toEqual([]);
     expect(value?.modules?.["da.main"]).toEqual(["verb"]);
     expect(value?.modules?.verb).toEqual(["drum_1"]);
@@ -302,7 +302,7 @@ describe("renaming a module", () => {
     expect(rewired).toEqual(["amp:bass"]);
     // Still seventh in `modules`: a module has a place in the file, and rebuilding the map
     // key by key is what keeps a rename from shuffling it to the bottom.
-    const keys = Object.keys(parseChains(text).value?.modules ?? {});
+    const keys = Object.keys(parseGraph(text).value?.modules ?? {});
     expect(keys[6]).toBe("cab:v2");
   });
 
@@ -315,7 +315,7 @@ describe("renaming a module", () => {
 
 describe("the canonical form", () => {
   it("emits what it parses", () => {
-    const { value } = parseChains(AUTHORED);
+    const { value } = parseGraph(AUTHORED);
     expect(formatChains(value!, "# The signal graph, as segments.")).toBe(
       AUTHORED,
     );

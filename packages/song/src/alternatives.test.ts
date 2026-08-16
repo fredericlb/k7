@@ -246,7 +246,7 @@ describe("through the real loader", () => {
       'extends: "@studio/audio-track"\nevents: []\n',
     );
     writeFileSync(
-      join(p, "chains.yaml"),
+      join(p, "graph.yaml"),
       "modules:\n  gtr: [ ampli ]\n  ampli: [ OUT ]\n",
     );
     return p;

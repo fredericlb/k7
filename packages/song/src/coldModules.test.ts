@@ -38,7 +38,7 @@ function project(chains: string): void {
     plugin: { type: "internal", name: "Chorus" },
   });
   writeModule(dir, "io", "OUT", { io: "out" });
-  writeFileSync(join(dir, "chains.yaml"), chains, "utf8");
+  writeFileSync(join(dir, "graph.yaml"), chains, "utf8");
 }
 
 /** …and a lane, so a chain sourced from one resolves. */

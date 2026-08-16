@@ -127,7 +127,7 @@ describe("a ref that spells a node with a slash", () => {
         "modules_from: [ ../_modules ]",
       ),
     );
-    const c = join(dir, "chains.yaml");
+    const c = join(dir, "graph.yaml");
     writeFileSync(
       c,
       `${readFileSync(c, "utf8")}  "@workspace/io/IN/in-2": [ melody ]\n`,

@@ -55,7 +55,7 @@ beforeEach(() => {
     "utf8",
   );
   writeFileSync(
-    join(dir, "chains.yaml"),
+    join(dir, "graph.yaml"),
     `modules:\n  gtr: [ OUT ]\n  "${IN}": [ gtr ]\n`,
     "utf8",
   );

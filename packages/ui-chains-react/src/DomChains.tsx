@@ -2572,7 +2572,7 @@ export function DomChains({
   onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
   /**
    * A module was dragged by its header and dropped: pin it there. `module` is the chains
-   * name (jackRef), `x`/`y` world px, whole and non-negative — ready for `node position`.
+   * name (jackRef), `x`/`y` world px, whole and non-negative — ready for `graph move`.
    * Optional, and the headers are draggable only when it is given (and never in the mixer
    * row): the read-only hosts keep their inert headers, the same rule as every gesture here.
    */
@@ -4128,7 +4128,7 @@ export function DomChains({
 
   // --- dragging a node by its HEADER: the pin gesture --------------------------------
   // In hand: the node, its element (moved by a transform, so React never fights the drag),
-  // and the offset in world px. On release the offset becomes `node position` — see the
+  // and the offset in world px. On release the offset becomes `graph move` — see the
   // onMoveNode prop — and the transform STAYS until the graph containing the write arrives:
   // clearing it on release would snap the card home for the length of the round trip, the
   // same trap the timeline's clip drag documents.

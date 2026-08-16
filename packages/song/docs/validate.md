@@ -29,7 +29,7 @@ By folder and basename, the way `fileKindFor` reads one:
 | `modules/**/*.yaml` — anything else | a module, generic or node (`ModuleSchema`) |
 | `nodes/*.yaml` | a module, again — the project's flat nodes folder, LANES included ([trackModules.md](trackModules.md)) |
 | `clips/`, `sequences/`, `curves/`, `video_tracks/` | that kind's schema |
-| `chains.yaml`, `project.yaml`, `songs.yaml`, `views/mix.yaml` | the root files |
+| `graph.yaml`, `project.yaml`, `songs.yaml`, `views/mix.yaml` | the root files |
 | any other `.yaml` | parsed, not judged |
 | anything not YAML | not this module's business |
 

@@ -48,7 +48,7 @@ import type {
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { loadUiLibrary } from "./uiLibrary";
-import { parseChains as parseChainsYaml } from "./yaml/chainsFile";
+import { parseGraph as parseGraphYaml } from "./yaml/graphFile";
 import { setFileValue } from "./yaml/edit";
 import { ENTITY_SCHEMAS } from "./yaml/entitySchemas";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./yaml/mixViewFile";
@@ -61,6 +61,7 @@ import {
   nodeFiles,
   readModuleFile,
 } from "./yaml/moduleIO";
+import { GRAPH_BASE } from "./yaml/graphSchema";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
 import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
 import { parsedYaml } from "./yaml/yamlCache";
@@ -901,7 +902,7 @@ export function loadProjectRoot(dir: string, validate = false): RawProjectRoot {
 }
 
 /**
- * The project's routing segments, from `chains.yaml` when it exists, else from
+ * The project's routing segments, from `graph.yaml` when it exists, else from
  * `root.chains` (a project may inline them in project.yaml). The chains themselves are
  * derived from this — see chainsGraph.ts.
  */
@@ -910,9 +911,9 @@ export function loadChains(
   root: RawProjectRoot,
   validate = false,
 ): unknown {
-  const file = entityFileFor(dir, "", "chains");
+  const file = entityFileFor(dir, "", GRAPH_BASE);
   if (!file) return root?.chains;
-  const { value, issues } = parseChainsYaml(readFileSync(file.path, "utf8"));
+  const { value, issues } = parseGraphYaml(readFileSync(file.path, "utf8"));
   if (issues.length && validate)
     throw new Error(
       `invalid chains:\n  ${issues
@@ -1041,7 +1042,7 @@ function readModuleRefs(
   // Re-key by ref; NODES are skipped, since one would silently replace its own generic's key.
   //
   // TWO keys for one module, and the second is the point: a project's own modules were named bare
-  // (`audio/reverb`) before the levels were spelled out, and every chains.yaml already written says
+  // (`audio/reverb`) before the levels were spelled out, and every graph.yaml already written says
   // them that way. `@project/audio/reverb` is the same module under its explicit level — the form
   // new files are written in — so both resolve and nothing had to be migrated.
   for (const m of Object.values(loadModules(dir))) {

@@ -1,6 +1,6 @@
 // moduleIO.ts — locate and read the YAML files a project is made of: module files
 // (module.yaml + its <node>.yaml siblings), per-file entities (tracks/, clips/, …),
-// and root files (project.yaml, chains.yaml, settings.yaml). Validation is Zod,
+// and root files (project.yaml, graph.yaml, settings.yaml). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
 import {

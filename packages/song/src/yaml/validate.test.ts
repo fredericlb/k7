@@ -55,7 +55,7 @@ describe("validateFile", () => {
         'extends: "@studio/audio-track"\ndisabled: true\n',
       ).ok,
     ).toBe(true);
-    expect(validateFile("chains.yaml", "modules:\n  lead: [cab]\n").ok).toBe(
+    expect(validateFile("graph.yaml", "modules:\n  lead: [cab]\n").ok).toBe(
       true,
     );
     expect(validateFile("project.yaml", "project:\n  tempo: 120\n").ok).toBe(

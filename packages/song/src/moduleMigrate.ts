@@ -13,6 +13,7 @@
 // One-shot and re-runnable: a project with no `@engine/…` extends left is already
 // migrated and is reported as such.
 
+import { GRAPH_FILE } from "./yaml/graphSchema";
 import {
   existsSync,
   mkdirSync,
@@ -87,7 +88,7 @@ function classify(
 
 /** Every module the chains name with no node suffix — the ones that need a name. */
 function bareChainSteps(dir: string): Set<string> {
-  const file = join(dir, "chains.yaml");
+  const file = join(dir, GRAPH_FILE);
   const out = new Set<string>();
   if (!existsSync(file)) return out;
   const doc = (parseYaml(readFileSync(file, "utf8"), { version: "1.2" }) ??

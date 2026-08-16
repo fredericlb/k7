@@ -111,7 +111,7 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 |---|---|
 | l8 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
 | m9 `EditView` | the open project file |
-| st0 `SongEditor`, `ChainEditor` | the médiathèque's `song.yaml`, a chain template's `chains.yaml` |
+| st0 `SongEditor`, `ChainEditor` | the médiathèque's `song.yaml`, a chain template's `graph.yaml` |
 | st0 `PlaylistEditor` | a playlist — the médiathèque's own format, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
 

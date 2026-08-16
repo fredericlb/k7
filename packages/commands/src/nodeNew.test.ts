@@ -1,6 +1,6 @@
 // `node new` — a use of an existing module, AND its place in the graph.
 //
-// The second half is the point. A node file with no entry in `chains.yaml` is loaded by the
+// The second half is the point. A node file with no entry in `graph.yaml` is loaded by the
 // project and drawn nowhere: the graph's blocks come off the chains, so creating one used to
 // leave a node that existed on disk and was on no screen, waiting for a second command to
 // become real. Every node is in the graph; `modules: { x: [] }` is what says so.
@@ -29,7 +29,7 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const chains = () => readFileSync(join(dir, "chains.yaml"), "utf8");
+const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-new-"));
@@ -39,7 +39,7 @@ beforeEach(() => {
     "utf8",
   );
   writeFileSync(
-    join(dir, "chains.yaml"),
+    join(dir, "graph.yaml"),
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
     "utf8",
   );
@@ -79,7 +79,7 @@ describe("node new", () => {
   it("takes the click's x,y, so a node born on the canvas lands under the cursor", async () => {
     await runCommand("node new audio/amp hall 120,80", host(), "cli");
     expect(chains()).toMatch(/positions:/);
-    // `positions: { <node>: { x, y } }` — see song/yaml/chainsFile.ts.
+    // `positions: { <node>: { x, y } }` — see song/yaml/graphFile.ts.
     expect(chains()).toMatch(/hall:\s*\{[^}]*x:\s*120[^}]*y:\s*80/);
   });
 

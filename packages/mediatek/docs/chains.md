@@ -12,7 +12,7 @@ chains/blindtest/vocal-strip/
 ```
 
 The file is a l8 `chains.yaml` — the same name and the same shape a project uses at its
-root. Not "like" it: the same parser (`@studio/song`'s `parseChains`), the same
+root. Not "like" it: the same parser (`@studio/song`'s `parseGraph`), the same
 `deriveChains`, the same graph pipeline. A template that drifted from the format it is a
 template *for* would be a second dialect to keep in step.
 

@@ -1,11 +1,11 @@
-// chainsGraph.ts — chains.yaml declares SEGMENTS (who feeds whom); this derives the
+// chainsGraph.ts — graph.yaml declares SEGMENTS (who feeds whom); this derives the
 // chains from them. A chain is a maximal linear run: it breaks where the signal splits
-// and where two signals meet. Full rationale: docs/chainsFile.md.
+// and where two signals meet. Full rationale: docs/graphFile.md.
 
 import type { Chain, Out, Step } from "./graph";
 import { splitPort } from "./moduleTypes";
-import { parseChains } from "./yaml/chainsFile";
-import { type ChainsFile, ChainsFileSchema } from "./yaml/chainsSchema";
+import { parseGraph } from "./yaml/graphFile";
+import { type GraphFile, GraphFileSchema } from "./yaml/graphSchema";
 
 /** The source a chain TEMPLATE starts at — a lane's place, without a lane. A template is
  *  what the médiathèque holds: segments with no song around them. */
@@ -45,13 +45,13 @@ export function deriveChains(
   // opening a project written last month needs the migration, not a schema error.
   if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
-      "chains.yaml: `chains:` is the old chain-list format — chains are now derived " +
+      "graph.yaml: `chains:` is the old chain-list format — chains are now derived " +
         "from `modules:` segments. Run: npx tsx packages/song/scripts/migrateChains.ts <project>",
     );
-  const parsed = ChainsFileSchema.safeParse(raw);
+  const parsed = GraphFileSchema.safeParse(raw);
   if (!parsed.success)
     throw new Error(
-      `chains.yaml: ${parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.message}`).join("; ")}`,
+      `graph.yaml: ${parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.message}`).join("; ")}`,
     );
   return chainsOf(parsed.data, isLane);
 }
@@ -73,7 +73,7 @@ export function bypassedOf(raw: unknown): Set<string> {
 
 /** The same derivation over an already-validated file. */
 export function chainsOf(
-  file: ChainsFile,
+  file: GraphFile,
   isLane: IsLane = () => false,
 ): Record<string, Chain> {
   const modules = file.modules ?? {};
@@ -274,7 +274,7 @@ export function isParked(c: Chain): boolean {
  * list rather than a throw — the pane showing the file is what reports why.
  */
 export function chainSteps(text: string): string[] {
-  const parsed = parseChains(text);
+  const parsed = parseGraph(text);
   if (!parsed.value) return [];
   let derived: Record<string, Chain>;
   try {

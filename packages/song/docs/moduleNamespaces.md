@@ -40,7 +40,7 @@ alike and are not:
 |---|---|---|
 | what they are | two spellings of **one** level, both current | the **old** name of a level and its current one |
 | resolution | keyed twice, both work, forever | one key; the old name names nothing |
-| why | every `chains.yaml` ever written says the bare form | keeping it would mean two words for one library, permanently |
+| why | every `graph.yaml` ever written says the bare form | keeping it would mean two words for one library, permanently |
 
 So this one is migrated rather than aliased, and the failure is meant to be seen: a chain step
 naming an unknown module draws its name with a `?` on the graph, and an `extends:` that resolves
@@ -112,7 +112,7 @@ folder.
 ## The bare ref
 
 `audio/reverb` and `@project/audio/reverb` are the same module. Project modules were
-named bare before the levels were spelled out, and every `chains.yaml` already written
+named bare before the levels were spelled out, and every `graph.yaml` already written
 says them that way, so `loadModuleRefs` keys each one **twice** and both resolve. Nothing
 had to be migrated; `@project/` is simply the explicit spelling.
 

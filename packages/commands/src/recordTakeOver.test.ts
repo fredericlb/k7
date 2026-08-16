@@ -44,7 +44,7 @@ beforeEach(() => {
     "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
     "utf8",
   );
-  writeFileSync(join(dir, "chains.yaml"), "modules: {}\n", "utf8");
+  writeFileSync(join(dir, "graph.yaml"), "modules: {}\n", "utf8");
   mkdirSync(join(dir, "clips"), { recursive: true });
   mkdirSync(join(dir, "nodes"), { recursive: true });
 });

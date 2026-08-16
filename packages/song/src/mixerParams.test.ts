@@ -22,7 +22,7 @@ beforeEach(() => {
     project: { name: "t", tempo: 120, sampleRate: 48000 },
   });
   writeFileSync(
-    join(dir, "chains.yaml"),
+    join(dir, "graph.yaml"),
     "modules:\n  vox: [ mixer:vox ]\n  mixer:vox: [ OUT ]\n",
     "utf8",
   );

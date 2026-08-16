@@ -17,7 +17,7 @@ let proj: string;
 
 const IN = "@workspace/io/IN:in-2";
 const chains = (text: string) =>
-  writeFileSync(join(proj, "chains.yaml"), text, "utf8");
+  writeFileSync(join(proj, "graph.yaml"), text, "utf8");
 
 /** The step for the live input, wherever the derivation put it. */
 const inputStep = () => {

@@ -2948,7 +2948,7 @@ export default function App({
                     }
                     // A dropped header likewise: the drag already said everything.
                     onMoveNode={(mod, x, y) =>
-                      void runCommand(`node position ${mod} ${x} ${y}`)
+                      void runCommand(`graph move ${mod} ${x} ${y}`)
                     }
                     pendingInsert={insertingAt}
                     seedGraph={seedGraph}

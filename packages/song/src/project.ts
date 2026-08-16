@@ -6,6 +6,7 @@
 // compiler — and are re-exported here so this stays the one import for code that both
 // produces and describes them.
 
+import { GRAPH_FILE } from "./yaml/graphSchema";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type {
@@ -144,9 +145,9 @@ export function loadProject(sourcePath: string): ProjectDoc {
   const abs = resolve(sourcePath);
   if (isFolderProject(abs)) {
     const dir = statSync(abs).isDirectory() ? abs : dirname(abs);
-    // A node project (chains.yaml / modules/) is the graph model — compile it down (nodeProject.ts).
+    // A node project (graph.yaml / modules/) is the graph model — compile it down (nodeProject.ts).
     const doc =
-      existsSync(join(dir, "chains.yaml")) || existsSync(join(dir, "modules"))
+      existsSync(join(dir, GRAPH_FILE)) || existsSync(join(dir, "modules"))
         ? compileNodeProject(dir)
         : mapDoc(assembleFolder(dir), dir);
     // Set here, not in the two compilers, so both agree by not each deciding.

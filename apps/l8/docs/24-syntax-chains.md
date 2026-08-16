@@ -1,6 +1,6 @@
 # Chains
 
-## chains.yaml
+## graph.yaml
 
 The routing graph, declared as SEGMENTS: each module says where its signal goes next. Nothing
 declares a chain — the chains are DERIVED by following the arrows.
@@ -15,7 +15,7 @@ is called after that lane; a run the signal joins into is called after the modul
 That name is an identity: it is the routing target, the bus's track, and the prefix of every
 plugin id under it.
 
-```yaml schema=ChainsFile
+```yaml schema=GraphFile
 modules:
   melody: [ synth ]
   gtr: [ amp ]
@@ -41,13 +41,13 @@ surface derives it by bypassing every other lane.
 `positions` is where you PUT a node on the graph, if you did — dragging a module's header
 writes one, and the layout only ever places the nodes that have no entry here:
 
-```yaml schema=ChainsFile
+```yaml schema=GraphFile
 positions:
   reverb: { x: 420, y: 180 }
 ```
 
 Purely cosmetic: nothing about the signal reads it, and deleting the section (or running
-`node position reverb auto`) simply hands the nodes back to the automatic layout.
+`graph move reverb auto`) simply hands the nodes back to the automatic layout.
 
 One node per line, its destinations as a flow sequence. That is the canonical form: a node written
 any other way is re-spaced by the first edit, and then every node shows up in the diff.
@@ -74,7 +74,7 @@ A ref must be QUOTED, as a key and as a destination alike. YAML reserves `@` as 
 of a plain scalar, and an unquoted one stops the file parsing — which is why picking one from the
 editor's completion list brings its quotes with it.
 
-```yaml schema=ChainsFile
+```yaml schema=GraphFile
 modules:
   gtr: [ "@engine/audio/amp/nam" ]
   "@engine/audio/amp/nam": [ OUT ]
@@ -88,7 +88,7 @@ instrument. When each lane needs its own, give the module a node per lane. Name 
 lane they serve rather than after it: one flat name space means a lane and its synth cannot share
 a name.
 
-```yaml schema=ChainsFile
+```yaml schema=GraphFile
 modules:
   melody: [ synth-melody ]
   pad: [ synth-pad ]
@@ -103,7 +103,7 @@ lane**: name the lane as its destination, and the signal lands there. This is th
 appears on the right-hand side of an arrow, and it is the only thing that may — a lane's material
 is its clips, so anything else aimed at one is discarded.
 
-```yaml schema=ChainsFile
+```yaml schema=GraphFile
 modules:
   # …and from the lane onward, the lane's own run: through an amp, out to the mix
   gtr: [ "@engine/audio/amp/nam" ]
@@ -140,5 +140,5 @@ renames the plugin ids under it. And a module the old file used in SEVERAL chain
 node per chain — the list format compiled such a module to one plugin per chain, and a segment
 file names each module once, so leaving it shared would collapse two instruments into one.
 
-The migration rewrites `chains.yaml` and nothing else. Moving the lanes themselves out of
+The migration rewrites `graph.yaml` and nothing else. Moving the lanes themselves out of
 `tracks/` and into `nodes/` is by hand, and the table in Tracks says what each one becomes.

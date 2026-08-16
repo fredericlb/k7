@@ -36,7 +36,7 @@ beforeEach(() => {
     project: { name: "song", modules_from: ["../_modules"] },
   });
   writeFileSync(
-    join(proj, "chains.yaml"),
+    join(proj, "graph.yaml"),
     'modules:\n  bs.lead: [ "@workspace/audio/delay/tape-delay" ]\n  "@workspace/audio/delay/tape-delay": [ OUT ]\n',
     "utf8",
   );
@@ -61,7 +61,7 @@ describe("the shared module library is read-only", () => {
     ).toThrow(/read-only/);
     // …and refuses to move something INTO it, which is a write to the library just the same.
     await expect(
-      ws.moveEntry("song.l8/chains.yaml", "_modules"),
+      ws.moveEntry("song.l8/graph.yaml", "_modules"),
     ).rejects.toThrow(/read-only/);
   });
 

@@ -12,7 +12,7 @@ import {
 } from "./loader";
 import { MEDIATEK_REF } from "./mediatekRoot";
 import { splitModuleKey } from "./moduleTypes";
-import type { ChainsFile } from "./yaml/chainsSchema";
+import type { GraphFile } from "./yaml/graphSchema";
 
 const PREFIX = `${MEDIATEK_REF}/`;
 
@@ -41,14 +41,14 @@ export function mediatekRefs(dir: string): string[] {
     if (ref) out.add(ref);
   }
 
-  // chains.yaml declares SEGMENTS: a node names its next hops, and a library module can be
+  // graph.yaml declares SEGMENTS: a node names its next hops, and a library module can be
   // one of them — both as a key that exists before it is wired and as a destination. Read as
   // the file is shaped rather than through the derived chains, which would need the whole
   // graph model to answer a question about names.
-  let chains: ChainsFile | null = null;
+  let chains: GraphFile | null = null;
   try {
     chains = (loadChains(dir, loadProjectRoot(dir)) ??
-      null) as ChainsFile | null;
+      null) as GraphFile | null;
   } catch {
     /* an unreadable header costs the chain half, never the module half */
   }

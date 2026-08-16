@@ -7,7 +7,7 @@ dialect: the node project you already know, with one entity fewer and two files 
 |---|---|
 | `project.yaml` | the set's settings, plus `project_type: live` — there is no arrangement |
 | `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
-| `chains.yaml` | the routing segments, exactly as in a song |
+| `graph.yaml` | the routing segments, exactly as in a song |
 | `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
 | `surfaces/desk.yaml` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
 
@@ -80,7 +80,7 @@ they repeat. On a deck there is nothing to arrange — the material is whichever
 minutes. So it authors no `events:` at all.
 
 The file still exists, and that is deliberate. The alternative — inferring the decks from
-`chains.yaml`'s keys and writing no lane files at all — costs three things:
+`graph.yaml`'s keys and writing no lane files at all — costs three things:
 
 - l8 keeps a useful error for a chain naming a node that has no file, and inference
   would have to make that error conditional on the project's type;

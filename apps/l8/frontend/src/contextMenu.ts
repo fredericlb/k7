@@ -155,7 +155,7 @@ const build = (
       };
     });
 
-// The verbs that still mean something on a node NOTHING answers to. Each acts on chains.yaml
+// The verbs that still mean something on a node NOTHING answers to. Each acts on graph.yaml
 // alone, which is why they survive; the catalogue cannot say this, since it describes arguments
 // and this is about what the handler touches.
 //

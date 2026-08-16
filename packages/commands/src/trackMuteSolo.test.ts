@@ -34,7 +34,7 @@ function song(): string {
     "utf8",
   );
   writeFileSync(
-    join(d, "chains.yaml"),
+    join(d, "graph.yaml"),
     "modules:\n  gtr: [ OUT ]\n  bass: [ OUT ]\n  drums: [ OUT ]\n",
     "utf8",
   );
@@ -64,7 +64,7 @@ const host = () =>
 /** The names `bypassed:` lists right now, read from disk. */
 const bypassed = (): string[] => {
   const line =
-    readFileSync(join(dir, "chains.yaml"), "utf8")
+    readFileSync(join(dir, "graph.yaml"), "utf8")
       .split("\n")
       .find((l) => l.startsWith("bypassed:")) ?? "";
   return line
@@ -91,11 +91,11 @@ describe("track mute", () => {
   });
 
   it("takes it back out, leaving no trace of the round trip", async () => {
-    const before = readFileSync(join(dir, "chains.yaml"), "utf8");
+    const before = readFileSync(join(dir, "graph.yaml"), "utf8");
     await runCommand("track mute bass", host(), "cli");
     docTracks = [track("gtr"), track("bass", true), track("drums")];
     await runCommand("track mute bass", host(), "cli");
-    expect(readFileSync(join(dir, "chains.yaml"), "utf8")).toBe(before);
+    expect(readFileSync(join(dir, "graph.yaml"), "utf8")).toBe(before);
   });
 
   it("pushes the doc rather than making the caller reload", async () => {

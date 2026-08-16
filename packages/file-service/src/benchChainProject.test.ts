@@ -57,7 +57,7 @@ beforeEach(() => {
 
   // The library submodule, laid out by hand where the file service would have cloned it.
   mkdirSync(join(libraryChain(), "nodes"), { recursive: true });
-  writeFileSync(join(libraryChain(), "chains.yaml"), SOURCE, "utf8");
+  writeFileSync(join(libraryChain(), "graph.yaml"), SOURCE, "utf8");
   writeFileSync(
     join(libraryChain(), "nodes", "comp.yaml"),
     'extends: "@st0/audio/comp"\nparams:\n  Ratio: 4\n',
@@ -87,7 +87,7 @@ describe("a médiathèque chain, opened on the bench", () => {
 
     const dir = benchDir(project);
     expect(existsSync(join(dir, "project.yaml"))).toBe(true);
-    const chains = readFileSync(join(dir, "chains.yaml"), "utf8");
+    const chains = readFileSync(join(dir, "graph.yaml"), "utf8");
     expect(chains).toContain("banc:");
     expect(chains).not.toContain("@in");
     // The chain's own settings came with it — a chain is its routing AND its nodes.
@@ -102,10 +102,10 @@ describe("a médiathèque chain, opened on the bench", () => {
 
     // Saved untouched: whatever the bench opened must be what the catalogue gets back, or every
     // open-and-close of a chain would rewrite it.
-    const opened = readFileSync(join(benchDir(project), "chains.yaml"), "utf8");
-    ws.write(`${project}/chains.yaml`, opened);
+    const opened = readFileSync(join(benchDir(project), "graph.yaml"), "utf8");
+    ws.write(`${project}/graph.yaml`, opened);
 
-    const back = readFileSync(join(libraryChain(), "chains.yaml"), "utf8");
+    const back = readFileSync(join(libraryChain(), "graph.yaml"), "utf8");
     expect(back).toContain('"@in": [ comp ]');
     expect(back).toContain('comp: [ "@out" ]');
     expect(back).toContain("# Voix live");
@@ -122,10 +122,10 @@ describe("a médiathèque chain, opened on the bench", () => {
     // What editing a chain on the bench actually looks like: a module spliced in before the
     // strip, which is the bench's stand-in for `@out`.
     ws.write(
-      `${project}/chains.yaml`,
+      `${project}/graph.yaml`,
       "modules:\n  banc: [ comp ]\n  comp: [ reverb ]\n  reverb: [ mixer ]\n  mixer: [ OUT ]\n",
     );
-    const back = readFileSync(join(libraryChain(), "chains.yaml"), "utf8");
+    const back = readFileSync(join(libraryChain(), "graph.yaml"), "utf8");
     expect(back).toContain("comp: [ reverb ]");
     expect(back).toContain('reverb: [ "@out" ]');
     expect(back).not.toContain("mixer");
@@ -174,7 +174,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     const odd = join(benchRoot(), "_libraries", "chains/odd");
     mkdirSync(odd, { recursive: true });
     writeFileSync(
-      join(odd, "chains.yaml"),
+      join(odd, "graph.yaml"),
       'modules:\n  "@in": [ mixer ]\n  mixer: [ "@out" ]\n',
       "utf8",
     );

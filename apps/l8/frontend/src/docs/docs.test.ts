@@ -3,13 +3,13 @@
 // written down (caught by walking each schema's keys and asking whether any example mentions them).
 // Both read the markdown under l8/docs/ itself. See ../../docs/docExamples.md.
 
-import { ChainsFileSchema } from "@studio/song/yaml/chainsSchema";
 import {
   ClipSchema,
   CurveSchema,
   SequenceSchema,
   VideoTrackSchema,
 } from "@studio/song/yaml/entitySchemas";
+import { GraphFileSchema } from "@studio/song/yaml/graphSchema";
 import {
   ModuleConfigSchema,
   ModuleSchema,
@@ -37,7 +37,7 @@ const SCHEMAS: Record<string, z.ZodType> = {
   Sequence: SequenceSchema,
   Curve: CurveSchema,
   VideoTrack: VideoTrackSchema,
-  ChainsFile: ChainsFileSchema,
+  GraphFile: GraphFileSchema,
   Module: ModuleSchema,
   UiFile: UiFileSchema,
   ModuleConfig: ModuleConfigSchema,

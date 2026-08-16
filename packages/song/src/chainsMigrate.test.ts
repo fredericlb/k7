@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deriveChains } from "./chainsGraph";
 import { migrateChainsText } from "./chainsMigrate";
-import { parseChains } from "./yaml/chainsFile";
+import { parseGraph } from "./yaml/graphFile";
 
 // A migration is only as good as what it PRESERVES, so the tests are written against the
 // derived chains rather than the text: the question is never "does the new file look
@@ -16,7 +16,7 @@ import { parseChains } from "./yaml/chainsFile";
  */
 const routed = (old: string) => {
   const { text, tracks } = migrateChainsText(old);
-  const { value, issues } = parseChains(text);
+  const { value, issues } = parseGraph(text);
   expect(issues).toEqual([]);
   return deriveChains(value, (n) => tracks.includes(n));
 };
@@ -110,7 +110,7 @@ describe("a module the old file used twice", () => {
     expect(r.split).toEqual([
       { module: "synth", nodes: ["synth:lead", "synth:pad"] },
     ]);
-    const g = deriveChains(parseChains(r.text).value, (n) =>
+    const g = deriveChains(parseGraph(r.text).value, (n) =>
       r.tracks.includes(n),
     );
     expect(path(g.melody)).toEqual(["melody", "synth:lead", "OUT"]);

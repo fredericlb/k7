@@ -11,7 +11,7 @@ import {
   chainSteps,
   deriveChains,
 } from "@studio/song/chainsGraph";
-import { parseChains } from "@studio/song/yaml/chainsFile";
+import { parseGraph } from "@studio/song/yaml/graphFile";
 
 // The three names this file used to declare itself. The ends of a template and the folder its
 // nodes live in are the médiathèque's and the song layer's vocabulary, not this app's —
@@ -51,7 +51,7 @@ export function chainGraph(
     source = CHAIN_IN,
   }: { category?: WebModuleCategory; source?: string } = {},
 ): WebGraph | null {
-  const parsed = parseChains(text);
+  const parsed = parseGraph(text);
   if (!parsed.value) return null;
   let derived: Record<string, DerivedChain>;
   try {

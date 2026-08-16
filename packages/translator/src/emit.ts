@@ -1,5 +1,5 @@
 // emit.ts — write a Song (from dawproject.ts) out as a node/track/chain project: a
-// project.yaml + chains.yaml, one self-contained module folder per plugin, and
+// project.yaml + graph.yaml, one self-contained module folder per plugin, and
 // tracks/clips/sequences. No schema file ships with it — a project is validated in
 // process against the loader's own schemas. Layout + mapping: docs/import.md.
 
@@ -154,7 +154,7 @@ function dedupeOuts(outs: OutDef[]): OutDef[] {
 }
 
 /**
- * The chains as SEGMENTS — who feeds whom, which is what chains.yaml holds.
+ * The chains as SEGMENTS — who feeds whom, which is what graph.yaml holds.
  *
  * This is where the imported sends survive. The list format gave a chain ONE sink, so a track that was dry to
  * master AND feeding a bus had to lose one of the two; a node here simply lists both destinations. `to` naming
@@ -259,7 +259,7 @@ function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
   //
   // A lane is a NODE of one of the five built-in track modules now, so `type:` and
   // `contentType:` are one `extends:` — which signal it carries is what it extends. Its mute is
-  // its module's bypass and goes to chains.yaml, not here. See packages/song/docs/trackModules.md.
+  // its module's bypass and goes to graph.yaml, not here. See packages/song/docs/trackModules.md.
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
   value.extends =
@@ -549,7 +549,7 @@ export function emitFolder(
   };
   collapseSoleInserts();
 
-  // chains.yaml — SEGMENTS (see chainSegments). The send LEVELS are still lost: a
+  // graph.yaml — SEGMENTS (see chainSegments). The send LEVELS are still lost: a
   // destination list says where the signal goes, not how much of it, so a weighted send
   // arrives at full strength.
   const {
@@ -578,7 +578,7 @@ export function emitFolder(
   const allBypassed = [...bypassed, ...muted];
   if (allBypassed.length) seg.bypassed = allBypassed;
   writeFile(
-    join(outDir, "chains.yaml"),
+    join(outDir, "graph.yaml"),
     yamlText(
       seg,
       [],

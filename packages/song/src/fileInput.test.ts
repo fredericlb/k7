@@ -89,7 +89,7 @@ describe("the file input", () => {
     );
     file("nodes/t.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
     writeFileSync(
-      join(dir, "chains.yaml"),
+      join(dir, "graph.yaml"),
       "modules:\n  t: [ amp ]\n  amp: [ FILE ]\n",
       "utf8",
     );

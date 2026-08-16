@@ -43,7 +43,7 @@ const SongEntry = z.union([
 
 export const SongsFileSchema = z
   .object({
-    // A SEQUENCE and not a map, although the list is unordered and a map is what chains.yaml
+    // A SEQUENCE and not a map, although the list is unordered and a map is what graph.yaml
     // uses for "named exactly once". Duplicates are dropped on read rather than refused: two
     // people merging their halves of a set list should not have to resolve that by hand.
     songs: z.array(SongEntry).optional(),

@@ -145,7 +145,7 @@ export function useProjectDoc(
         setMixerStrips([]);
         // NOT the mode. A doc that failed to compile says nothing about the folder's shape, and
         // snapping a live project back to a timeline on a transient error would move the screen
-        // under someone who was only mid-edit in chains.yaml.
+        // under someone who was only mid-edit in graph.yaml.
       });
     return () => {
       alive = false;

@@ -11,7 +11,7 @@ events:
   - { ref: melody, start: "1:1:1" }
 ```
 
-…wired in `chains.yaml`'s one `modules:` map, like anything else:
+…wired in `graph.yaml`'s one `modules:` map, like anything else:
 
 ```yaml
 modules:
@@ -20,7 +20,7 @@ modules:
 bypassed: [ melody ]     # a lane in this list is MUTED
 ```
 
-There is no `tracks/` folder, and no `tracks:` half of `chains.yaml`.
+There is no `tracks/` folder, and no `tracks:` half of `graph.yaml`.
 
 ## The five, as a grid
 
@@ -58,7 +58,7 @@ asks the ports rather than the ref.
 
 ## Bypass is the mute
 
-A lane's mute is its module's bypass: one name in `chains.yaml`'s `bypassed:`, written by the
+A lane's mute is its module's bypass: one name in `graph.yaml`'s `bypassed:`, written by the
 same `node bypass` the graph's bypass button has always run.
 
 On a source, bypass reads as **produces nothing** rather than *passes through untouched* — a
@@ -73,7 +73,7 @@ members there, since the engine resolves across tracks alone — and `track solo
 membership, deleting the key with the last entry: absent means nobody, like every other default.
 
 It used to be written nowhere — derived, as the set of bypasses soloing produces. That could not
-hold two solos at once, rewrote N files to say one fact, and read in `chains.yaml` as a wall of
+hold two solos at once, rewrote N files to say one fact, and read in `graph.yaml` as a wall of
 mutes nobody asked for. One list at the root says it now, and mute stays what it was: the lane's
 own bypass, untouched by anyone's solo.
 
@@ -137,7 +137,7 @@ re-parse) supplies nothing and gets `@in` alone, which is exactly the lane a tem
 
 That is why `loadGraph` and `compileNodeProject` both fold the local modules *before* deriving the
 chains. The fold is pure and in memory; doing it twice costs a walk over a few dozen structs and
-buys the derivation the one fact `chains.yaml` no longer states.
+buys the derivation the one fact `graph.yaml` no longer states.
 
 A lane is never ABSORBED into another run, whatever feeds it. A live channel routed into one
 satisfies every absorption test — one feeder, feeding nothing else, and the lane goes somewhere —
@@ -158,9 +158,9 @@ repo keeps choosing (see [nodes.md](nodes.md), which made the same call).
 | `type: strudel` + `contentType: sequences` | `extends: "@studio/sequence-strudel-track"` |
 | `type: group` | `extends: "@studio/group-track"` |
 | `events:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
-| `mute: true` | the name in `chains.yaml`'s `bypassed:` |
+| `mute: true` | the name in `graph.yaml`'s `bypassed:` |
 | `solo: true` | the name in project.yaml's root `soloed:` list |
-| the `tracks:` entry in `chains.yaml` | the same line, under `modules:` |
+| the `tracks:` entry in `graph.yaml` | the same line, under `modules:` |
 
 `l8 migrate chains` still handles the chain-list → segments step, and now reports the lanes it
 saw (`ChainsMigration.tracks`) — the old `{ track: … }` heads are the last place that is written

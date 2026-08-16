@@ -30,7 +30,7 @@ matches the folder the file is in:
 
 ```
 modules/audio/reverb/module.yaml            →  module "reverb"
-chains.yaml:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
+graph.yaml:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
 ```
 
 A chain step names a **module folder** or a **node**, and the lookup matches either, since

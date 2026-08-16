@@ -52,7 +52,7 @@ events:
     const after = read(dir);
     // The snare moved; its fade, its pass count and its disabled flag travelled with it, on
     // one line as before. A move rewrites the placement's own line and nothing else — the
-    // same trade chainsFile.ts makes: one canonical form, or the first edit re-spaces the
+    // same trade graphFile.ts makes: one canonical form, or the first edit re-spaces the
     // whole file instead of one line.
     expect(after).toContain(
       '- { ref: snare, start: "3:1:1", fadeIn: "0:1", loop: 2, disabled: true }',

@@ -4,6 +4,7 @@
 // `#` comments are the one worked example a reader gets.
 // Full rationale: docs/scaffold.md, and docs/picture.md for the video half.
 
+import { GRAPH_FILE } from "./yaml/graphSchema";
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,7 +86,7 @@ export function projectFiles(name: string): Record<string, string> {
       `extends: "@project/instruments/synth"\n`,
 
     // The graph: who feeds whom. Both lanes run their own synth node out to OUT.
-    "chains.yaml":
+    [GRAPH_FILE]:
       `# The signal graph, as SEGMENTS: each module says where its signal goes next. The\n` +
       `# chains are DERIVED by following the arrows — a run breaks where the signal splits,\n` +
       `# and where two signals meet (which is what a bus is).\n` +
@@ -270,7 +271,7 @@ export function liveProjectFiles(name: string): Record<string, string> {
     "modules/instruments/synth/module.yaml":
       song["modules/instruments/synth/module.yaml"],
 
-    "chains.yaml":
+    [GRAPH_FILE]:
       `# The signal graph, as SEGMENTS: each module says where its signal goes next — the\n` +
       `# lane "live" included, since a lane is a module too. This IS the project: with no\n` +
       `# timeline, the graph is the whole of what l8 shows, and wiring it is the work.\n` +

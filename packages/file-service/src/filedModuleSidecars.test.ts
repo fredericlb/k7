@@ -21,7 +21,7 @@ beforeEach(() => {
   const proj = join(root, "song.l8");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(join(proj, "chains.yaml"), "modules: {}\n", "utf8");
+  writeFileSync(join(proj, "graph.yaml"), "modules: {}\n", "utf8");
   writeYaml(join(proj, "modules/audio/reverb/module.yaml"), {
     plugin: { type: "vst3", name: "R" },
   });
@@ -51,7 +51,7 @@ describe("a module filed one level deep", () => {
 
   it("still answers for a flat module, and still refuses a non-module", () => {
     expect(ws.moduleUi(FLAT).ref).toBe("audio/reverb");
-    expect(() => ws.moduleUi("song.l8/chains.yaml")).toThrow(
+    expect(() => ws.moduleUi("song.l8/graph.yaml")).toThrow(
       /not a module file/,
     );
   });

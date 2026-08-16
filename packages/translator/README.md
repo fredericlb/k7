@@ -39,7 +39,7 @@ Produces a self-contained folder:
 ```
 outDir/
   project.yaml               header (name/tempo/sampleRate/timeSignature)
-  chains.yaml                the graph: track → module nodes → OUT
+  graph.yaml                the graph: track → module nodes → OUT
   modules/io/OUT/module.yaml            the stereo-output sink (io module)
   modules/{instruments,audio,transformers}/<name>/module.yaml
                                         self-contained modules: the plugin inline +
@@ -70,7 +70,7 @@ schemas (`packages/song/src/yaml/`).
 ## What it drops
 
 Automation curves, and cross-type plugin chain order is approximated (instrument/note FX
-before audio FX). Send **levels** are lost even where sends are carried: `chains.yaml`
+before audio FX). Send **levels** are lost even where sends are carried: `graph.yaml`
 records destinations, not gains, and the emitter writes a `NOTE:` saying so.
 
 Ableton additionally drops what has no portable form — Live's own devices, rack structure,

@@ -35,7 +35,7 @@ function project(content = "watch the gain here"): string {
     'extends: "@studio/audio-track"\nevents: []\n',
   );
   writeFileSync(
-    join(p, "chains.yaml"),
+    join(p, "graph.yaml"),
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT, notes ]\n",
   );
   return p;

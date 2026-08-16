@@ -1,5 +1,5 @@
-// `node position` — the pin behind "modules stay where you moved them", through the
-// dispatcher, asserting chains.yaml. A refusal must leave the file byte-identical, and
+// `graph move` — the pin behind "modules stay where you moved them", through the
+// dispatcher, asserting graph.yaml. A refusal must leave the file byte-identical, and
 // `auto` must leave no trace of the round trip.
 
 import {
@@ -28,7 +28,7 @@ const host = () =>
     },
   }) as never;
 
-const chains = () => readFileSync(join(dir, "chains.yaml"), "utf8");
+const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 function song(): string {
   const d = mkdtempSync(join(tmpdir(), "td-modpos-"));
@@ -38,7 +38,7 @@ function song(): string {
     "utf8",
   );
   writeFileSync(
-    join(d, "chains.yaml"),
+    join(d, "graph.yaml"),
     "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
     "utf8",
   );
@@ -72,23 +72,23 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("node position", () => {
+describe("graph move", () => {
   it("pins the node, rounded and clamped to the world's origin", async () => {
-    await runCommand("node position amp 420.6 -15", host(), "cli");
+    await runCommand("graph move amp 420.6 -15", host(), "cli");
     expect(chains()).toContain("amp: { x: 421, y: 0 }");
     expect(reloads).toBe(1);
   });
 
   it("`auto` hands it back and leaves no trace of the round trip", async () => {
     const before = chains();
-    await runCommand("node position amp 100 100", host(), "cli");
-    await runCommand("node position amp auto", host(), "cli");
+    await runCommand("graph move amp 100 100", host(), "cli");
+    await runCommand("graph move amp auto", host(), "cli");
     expect(chains()).toBe(before);
     expect(logs.join(" ")).toContain("back to the layout");
   });
 
   it("pins a CURVE by its id — a curve node is not a chains node, and moves all the same", async () => {
-    await runCommand("node position wob 60 90", host(), "cli");
+    await runCommand("graph move wob 60 90", host(), "cli");
     expect(chains()).toContain("wob: { x: 60, y: 90 }");
   });
 
@@ -109,8 +109,8 @@ describe("node position", () => {
   });
 
   it("`graph organize` clears every pin in one step", async () => {
-    await runCommand("node position amp 10 20", host(), "cli");
-    await runCommand("node position wob 30 40", host(), "cli");
+    await runCommand("graph move amp 10 20", host(), "cli");
+    await runCommand("graph move wob 30 40", host(), "cli");
     reloads = 0;
     await runCommand("graph organize", host(), "cli");
     expect(chains()).not.toContain("positions");
@@ -120,7 +120,7 @@ describe("node position", () => {
 
   it("refuses a node the project does not know, writing nothing", async () => {
     const before = chains();
-    await runCommand("node position nothere 10 10", host(), "cli");
+    await runCommand("graph move nothere 10 10", host(), "cli");
     expect(logs.join(" ")).toContain('no node "nothere"');
     expect(chains()).toBe(before);
     expect(reloads).toBe(0);

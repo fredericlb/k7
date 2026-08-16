@@ -56,7 +56,7 @@ describe("the médiathèque modules a project names", () => {
     // A chain may reach a library module directly; the folder to fetch is the module's, so
     // the node suffix is dropped rather than turned into a path nothing answers to.
     writeFileSync(
-      join(dir, "chains.yaml"),
+      join(dir, "graph.yaml"),
       "modules:\n  gtr: [ '@st0/audio/modulation/flanger:warm' ]\n",
       "utf8",
     );

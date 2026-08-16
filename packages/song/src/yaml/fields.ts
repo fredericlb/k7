@@ -3,7 +3,7 @@
 // kind of file answers for itself, which a single flat table could not do.
 
 import type { z } from "zod";
-import { ChainsFileSchema } from "./chainsSchema";
+import { GraphFileSchema } from "./graphSchema";
 import {
   AudioClipSchema,
   CustomCurveSchema,
@@ -198,7 +198,7 @@ function rackFields(): string[] {
 function chainFields(path: string[]): string[] {
   // The file has three sections and nothing else — inside one, the keys are node NAMES,
   // which the schema has no vocabulary for (hints.ts supplies those).
-  if (path.length === 0) return keys(ChainsFileSchema);
+  if (path.length === 0) return keys(GraphFileSchema);
   return [];
 }
 

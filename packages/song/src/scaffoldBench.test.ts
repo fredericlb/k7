@@ -91,7 +91,7 @@ describe("the module bench", () => {
     expect(
       files[`modules/audio/${BENCH_EDGES.strip}/module.yaml`],
     ).toBeDefined();
-    expect(files["chains.yaml"]).toContain(
+    expect(files["graph.yaml"]).toContain(
       `${BENCH_EDGES.strip}: [ ${BENCH_EDGES.out} ]`,
     );
   });

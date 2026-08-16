@@ -1,10 +1,26 @@
-// chainsSchema.ts — chains.yaml's shape, in Zod. The file declares SEGMENTS, not
+// chainsSchema.ts — graph.yaml's shape, in Zod. The file declares SEGMENTS, not
 // chains: each module says where its signal goes next, and the chains are derived by
 // following the arrows (see chainsGraph.ts). ONE map, because a lane is a module too now
 // (docs/trackModules.md) — the `tracks:` half is gone, and with it the rule that a name
 // could not be in both.
 
 import { z } from "zod";
+
+/**
+ * The project's graph file, by name.
+ *
+ * `graph.yaml` and not `chains.yaml`: what it holds is the whole TOPOLOGY — which nodes exist,
+ * what feeds what, which are silenced, and where each one sits. Chains are DERIVED from its
+ * `modules:` map (chainsGraph.ts), so naming the file after one of the things read out of it
+ * had it wearing the name of its own output. Positions live here for the same reason: where a
+ * node sits is a fact about the graph, not about the node.
+ *
+ * `.yaml` like every other file in a project. The resolver takes `.yml` too
+ * (yaml/moduleIO.ts's EXTS), so a hand-written one still reads; this is what gets WRITTEN.
+ */
+export const GRAPH_FILE = "graph.yaml";
+/** The base the resolver looks up — matches `graph.yaml`, and a `graph.yml` written by hand. */
+export const GRAPH_BASE = "graph";
 
 /**
  * Where one node's signal goes — module node names, or an io sink like `OUT`. Empty == unwired.
@@ -28,7 +44,7 @@ export const DestsSchema = z.array(
     }),
 );
 
-export const ChainsFileSchema = z
+export const GraphFileSchema = z
   .object({
     // Each module's next hop(s) — LANES INCLUDED, since a lane is where a run starts and
     // nothing else about it is different. A key with `[]` is a node in the graph that is
@@ -56,4 +72,4 @@ export const ChainsFileSchema = z
   .strict();
 
 export type Dests = z.infer<typeof DestsSchema>;
-export type ChainsFile = z.infer<typeof ChainsFileSchema>;
+export type GraphFile = z.infer<typeof GraphFileSchema>;

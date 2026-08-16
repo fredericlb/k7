@@ -1,6 +1,6 @@
-// chainsMigrate.ts — rewrite a project's chains.yaml from the old chain-LIST format into
+// chainsMigrate.ts — rewrite a project's graph.yaml from the old chain-LIST format into
 // segments (one `modules:` map). A one-shot, re-runnable: a file already in the new shape is
-// left alone, so running it twice is a no-op. See docs/chainsFile.md.
+// left alone, so running it twice is a no-op. See docs/graphFile.md.
 
 import {
   copyFileSync,
@@ -11,8 +11,9 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { formatChains } from "./yaml/chainsFile";
-import type { ChainsFile } from "./yaml/chainsSchema";
+import { formatChains } from "./yaml/graphFile";
+import type { GraphFile } from "./yaml/graphSchema";
+import { GRAPH_FILE } from "./yaml/graphSchema";
 
 /** One module the old file used in several chains, and the nodes it became. */
 export interface SplitModule {
@@ -92,7 +93,7 @@ function readOld(raw: unknown): OldChain[] | null {
 }
 
 /**
- * Rewrite one chains.yaml's text.
+ * Rewrite one graph.yaml's text.
  *
  * A module the old file used in SEVERAL chains is split into one node per chain. That is not cosmetic: the
  * old format compiled such a module to one plugin per chain (the ids were `<chain>:<module>`), while a segment
@@ -166,7 +167,7 @@ export function migrateChainsText(text: string): ChainsMigration {
 
   // ONE map, lanes first: a lane is a module too (docs/trackModules.md), and putting the runs'
   // sources at the top is what makes the file read top-down the way the signal flows.
-  const file: ChainsFile = { modules: { ...tracks, ...modules } };
+  const file: GraphFile = { modules: { ...tracks, ...modules } };
   if (bypassed.length) file.bypassed = bypassed;
   return {
     text: formatChains(file, HEADER),
@@ -184,13 +185,13 @@ export interface ChainsMigrationResult extends ChainsMigration {
 }
 
 /**
- * Migrate the project at `dir`, writing chains.yaml and any node file a split needs.
+ * Migrate the project at `dir`, writing graph.yaml and any node file a split needs.
  *
  * A node is an empty file beside its generic — everything it plays, it inherits. Writing one is the whole
  * cost of keeping a shared module's two lives apart, and it is what `module new … <node>` writes too.
  */
 export function migrateChains(dir: string): ChainsMigrationResult {
-  const path = join(dir, "chains.yaml");
+  const path = join(dir, GRAPH_FILE);
   const out: ChainsMigrationResult = {
     text: "",
     changed: false,
@@ -201,7 +202,7 @@ export function migrateChains(dir: string): ChainsMigrationResult {
     errors: [],
   };
   if (!existsSync(path)) {
-    out.errors.push("no chains.yaml");
+    out.errors.push("no graph.yaml");
     return out;
   }
   const before = readFileSync(path, "utf8");

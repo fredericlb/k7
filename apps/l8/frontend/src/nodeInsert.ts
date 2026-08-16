@@ -67,7 +67,7 @@ export const ensureModuleCommand = (
  * only when the pick carried a point — without one the layout answers, which is the right answer.
  *
  * `node place` did the bare-canvas half until both of its reasons went away (see the note where
- * it was declared). `node position` takes x and y as SEPARATE words, not the comma pair the
+ * it was declared). `graph move` takes x and y as SEPARATE words, not the comma pair the
  * spawn token uses.
  */
 export const wireCommand = (
@@ -79,5 +79,5 @@ export const wireCommand = (
   const y = spawn ? Math.round(spawn.y) : 0;
   if (at)
     return `node insert ${at.before} ${at.after} ${ref}${spawn ? ` ${x},${y}` : ""}`;
-  return spawn ? `node position ${ref} ${x} ${y}` : null;
+  return spawn ? `graph move ${ref} ${x} ${y}` : null;
 };

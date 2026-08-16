@@ -34,7 +34,7 @@ content: |
   sinon ça écrête sur les attaques.
 ```
 
-…then wire it in `chains.yaml`, like anything else:
+…then wire it in `graph.yaml`, like anything else:
 
 ```
 modules:
@@ -179,7 +179,7 @@ extends: "@project/instruments/synth"
 params:
   Filter Freq: 40
 
-# chains.yaml — the module and both uses are separate nodes. Pointing both
+# graph.yaml — the module and both uses are separate nodes. Pointing both
 # lanes at the bare `synth` would NOT give each its own: a module is named once,
 # so one name is one plugin, and the two lanes would sum into it.
 modules:

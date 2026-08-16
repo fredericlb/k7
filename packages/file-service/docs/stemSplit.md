@@ -24,7 +24,7 @@ pass produces the outputs before the render". It is a word rather than a silence
 the compiler's gate drops any type it does not know, which is how every `jsdsp` module once
 vanished from a compile with no warning at all.
 
-The wiring is still real: `chains.yaml` can key a module by its output
+The wiring is still real: `graph.yaml` can key a module by its output
 (`stemsplit#vocals: [ reverb ]`), the derivation now carries that port along the edge, and
 the graph draws a jack per stem. See `@studio/song`'s [ports.md](../../song/docs/ports.md).
 

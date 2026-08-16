@@ -4,7 +4,7 @@
 
 import { LineCounter, parseDocument } from "yaml";
 import type { ZodType } from "zod";
-import { parseChains } from "./chainsFile";
+import { parseGraph } from "./graphFile";
 import {
   ClipSchema,
   CurveSchema,
@@ -104,7 +104,7 @@ export function parserFor(path: string): Parse | null {
   if (inFolder("curves")) return against(CurveSchema);
   if (inFolder("video_tracks")) return against(VideoTrackSchema);
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
-  if (base === "chains") return parseChains;
+  if (base === "chains") return parseGraph;
   if (base === "project") return against(ProjectFileSchema);
   if (base === "songs") return parseSongs;
   return null;

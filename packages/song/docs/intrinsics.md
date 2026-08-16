@@ -56,11 +56,11 @@ command says so out loud. It is the only thing here that writes outside the proj
 
 ## What is still a verb of its own, and why
 
-- **`node bypass`** — it writes `chains.yaml`, not the module's file. Where a module sits in
+- **`node bypass`** — it writes `graph.yaml`, not the module's file. Where a module sits in
   the signal path is not one of its own fields.
 - **`track mute` / `track solo` / `track gain` / `track pan`** — a track's intrinsics are drawn
   from `@mute`, `@solo`, `@arm`, `@volume`, `@pan`, but they are not written into the lane's
-  file: mute is the module's bypass in `chains.yaml`, solo is `soloed:` in `project.yaml`, and
+  file: mute is the module's bypass in `graph.yaml`, solo is `soloed:` in `project.yaml`, and
   level and pan are params of the mixer module at the end of the chain. Different files, so
   different verbs.
 

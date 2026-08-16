@@ -23,7 +23,7 @@ function project(name: string, lane: Record<string, unknown>): string {
     to: "2:1",
   });
   writeFileSync(join(p, "clips", "riff.wav"), "");
-  writeYaml(join(p, "chains.yaml"), { modules: { gtr: ["OUT"] } });
+  writeYaml(join(p, "graph.yaml"), { modules: { gtr: ["OUT"] } });
   return p;
 }
 

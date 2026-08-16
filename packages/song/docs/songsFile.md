@@ -21,7 +21,7 @@ Not a path, for the reason `modules_from` is gone: `project.yaml` is committed, 
 absolute path breaks on the next machine. Not a title either — two songs share one.
 
 The refs must be **quoted**. `@` is a reserved indicator in YAML, so a plain scalar may not
-open with one. `chainsFile.md` has the same note for module refs, and for the same reason.
+open with one. `graphFile.md` has the same note for module refs, and for the same reason.
 
 ### Why it looks a segment longer than a module ref
 
@@ -47,7 +47,7 @@ either lying about it or committing during a gig.
 Duplicates are dropped rather than refused. Two people merging their halves of a set list
 should not have to resolve that by hand.
 
-It is a **sequence** and not a map, although `chains.yaml` uses a map for exactly this
+It is a **sequence** and not a map, although `graph.yaml` uses a map for exactly this
 "named once" property. Nothing hangs off a ref yet, and a map of refs to nulls reads as
 though something were missing. The day a song carries a set-local setting — a cue point, a
 trim — this becomes a map, and that migration is mechanical.

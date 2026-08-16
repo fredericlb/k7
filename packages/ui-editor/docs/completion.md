@@ -18,7 +18,7 @@ There are three layers, and each answers a question the one below it cannot:
 `valuesAt("module", [], "extends")` returns `[]`, and that is right: a base ref is whatever
 this machine's engine scanned plus whatever anybody wrote, and no Zod enum can hold it. The
 mistake was that nothing picked the question up afterwards — `projectValues` handled
-`chains.yaml` and returned `[]` for every other kind, so `extends:` was the one reference field
+`graph.yaml` and returned `[]` for every other kind, so `extends:` was the one reference field
 in the whole vocabulary that completed against nothing at all.
 
 It reads `hints.baseModules` now, which the protocol has carried the whole time and l8's
@@ -57,7 +57,7 @@ together. The field a scalar there belongs to is the key that introduced the LIS
 mapping is the one above that — the rule `entityValues.ts` already reads documents by, where
 `in: [melody, pad]` resolves like `track: melody`.
 
-This also fixed `chains.yaml` written in block form. `bypassed:` with its modules on `- ` lines
+This also fixed `graph.yaml` written in block form. `bypassed:` with its modules on `- ` lines
 below it offered the file's three section names, because that is what `fieldsAt([])` says and
 nothing was asking for values.
 

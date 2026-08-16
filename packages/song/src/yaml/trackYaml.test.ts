@@ -97,7 +97,7 @@ describe("the edits the app makes most", () => {
 
   it("flips a flag in one line", () => {
     // A lane has no fader to move (its level is a module param, see MixerPlugin) and no mute
-    // either — that is its module's bypass now, in chains.yaml. What is left on the file is
+    // either — that is its module's bypass now, in graph.yaml. What is left on the file is
     // its colour and whether it is in the render at all, and those still rewrite one line.
     const after = setTrackField(AUTHORED, "disabled", true);
     expect(changed(AUTHORED, after)).toBe(1);

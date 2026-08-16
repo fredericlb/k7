@@ -1103,7 +1103,7 @@ export class Workspace {
      * The CHAIN bench's write-through, after the ordinary write rather than instead of it.
      *
      * A chain bench is a view of one chain in the library submodule (bench.ts), so the two files
-     * that ARE the chain go back to it: `chains.yaml`, translated at the edges the way it was
+     * that ARE the chain go back to it: `graph.yaml`, translated at the edges the way it was
      * translated on the way in, and the flat `nodes/` beside it. Everything else in the folder —
      * the project, the scaffold's furniture — is the bench's own and stays here.
      *
