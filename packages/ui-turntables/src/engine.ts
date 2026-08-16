@@ -24,7 +24,7 @@ export type Phase =
 /** The transport's position, and the moment it was heard — see the note where it is set. */
 export interface Playhead {
   seconds: number;
-  /** `performance.now()` when this arrived, so a redraw can extrapolate between pushes. */
+  /** `performance.now()` when this arrived, so a reader can extrapolate between pushes. */
   at: number;
 }
 
@@ -41,9 +41,27 @@ export interface Playhead {
 export interface Deck {
   phase: Phase;
   playing: boolean;
-  /** Where the transport is, as a REF. Deliberately not state: read it in an animation
-   *  frame, do not render from it. */
+  /**
+   * Where the transport is, as a REF — the RAW anchor and the moment it landed.
+   *
+   * Deliberately not state: read it in an animation frame, do not render from it. Read it when
+   * the number is going to be WRITTEN DOWN — a cue drop stores where the finger fell, and the
+   * best estimate of that is the last thing the engine said plus however long ago it said it.
+   */
   playhead: React.RefObject<Playhead>;
+  /**
+   * Where the transport is for DRAWING — the same position, steered so it moves evenly.
+   *
+   * The frames arrive every 50 ms and not on a regular beat, so extrapolating from the raw
+   * anchor puts that jitter into whatever follows it: the wedge and the waveform redraw at
+   * 60 fps, and two frames in three would be carrying a stale or a lurching number. This one
+   * runs on local time and lets the engine bend its RATE by at most ±10%, snapping only on a
+   * real seek. See `@studio/engine-browser/playhead-clock`.
+   *
+   * Never for a value that gets stored. It is smooth on purpose, which means it is deliberately
+   * not the most accurate answer — the ±10% is the whole trade. `playhead` above is that one.
+   */
+  drawNow: () => number;
   engine: EngineClient | null;
   /**
    * Play this document — the desk's ONE way of putting the decks on the engine.

@@ -67,9 +67,23 @@ re-rendrait tout le pupitre — deux waveforms, la liste, les deux platines — 
 ligne. `useEngine` l'écrit donc dans une **ref**, et le canvas la lit dans sa propre boucle
 `requestAnimationFrame`.
 
-Entre deux pushes, la position est **extrapolée** avec l'horloge locale (`playhead + (now -
-at)`), sinon un push à 20 Hz donnerait un défilement saccadé à 60 images par seconde. À
-l'arrêt, pas d'extrapolation : elle ferait glisser une waveform que personne ne joue.
+Entre deux pushes, la position est **extrapolée**, sinon un push à 20 Hz donnerait un
+défilement saccadé à 60 images par seconde. À l'arrêt, pas d'extrapolation : elle ferait
+glisser une waveform que personne ne joue.
+
+Mais extrapoler naïvement (`playhead + (now - at)`) ne suffit pas, et c'est ce que ce canvas
+faisait. Les frames n'arrivent pas sur un battement régulier — entre le timer du moteur, le
+socket et le parsing, chacune atterrit avec un délai différent — donc se ré-ancrer sur chacune
+**recopie cette gigue** dans le défilement : on obtient 60 images par seconde de saccade au
+lieu de 20. Le canvas lit maintenant `Deck.drawNow`, où une horloge locale porte la position et
+le moteur ne courbe que son **débit**, de ±10 % au plus
+(`@studio/engine-browser/playhead-clock`). Elle décide aussi seule de l'arrêt, ce qui est
+pourquoi ce fichier ne teste plus `playing` pour savoir s'il faut extrapoler : les deux ne
+peuvent plus être en désaccord sur ce que « à l'arrêt » veut dire.
+
+`drawNow` est pour ce qu'on REGARDE. Ce qui s'écrit — un point de cue, qui mémorise où le doigt
+est tombé — lit `Deck.playhead`, l'ancre brute, parce que le lissage échange de la justesse
+contre de la continuité. Voir `apps/l8/frontend/docs/playhead.md`.
 
 ## Une seule tête pour les deux platines, mais deux horloges
 

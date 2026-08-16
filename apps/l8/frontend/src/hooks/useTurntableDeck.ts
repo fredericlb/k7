@@ -5,6 +5,11 @@
 
 import type { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
+import {
+  advancePlayhead,
+  feedPlayhead,
+  newPlayheadClock,
+} from "@studio/engine-browser/playhead-clock";
 import { type EngineStore, useStoreState } from "@studio/engine-browser/store";
 import type { Deck, Playhead } from "@studio/ui-turntables/engine";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -56,15 +61,42 @@ export function useTurntableDeck({
    * clock to now and make the playhead crawl.
    */
   const playhead = useRef<Playhead>({ seconds: 0, at: 0 });
+  /**
+   * The same frames again, STEERED — what the wedge and the waveform draw from.
+   *
+   * Two readers rather than one because they want opposite things, and the desk is the place
+   * both are visible at once: a cue drop stores where the finger fell and wants the raw
+   * estimate above; the record's progress is redrawn at 60 fps and wants a number that moves
+   * evenly, which means letting the engine bend a local clock's rate rather than copying its
+   * arrival jitter. The same split `useMidiRecording`'s `beatNow()` has against the timeline's
+   * playhead — see apps/l8/frontend/docs/playhead.md.
+   */
+  const clock = useRef(newPlayheadClock());
   useEffect(() => {
     const read = () => {
-      const seconds = store.getSnapshot().playhead;
+      const s = store.getSnapshot();
+      const seconds = s.playhead;
+      // `at` is stamped whenever the value CHANGES, not on every frame — see above. The steered
+      // clock is fed every frame regardless: a repeat is still evidence about the position, and
+      // it is `feedPlayhead` that decides what to do with it.
       if (seconds !== playhead.current.seconds)
         playhead.current = { seconds, at: performance.now() };
+      clock.current = feedPlayhead(
+        clock.current,
+        s.playing,
+        seconds,
+        performance.now(),
+      );
     };
     read();
     return store.subscribe(read);
   }, [store]);
+  // Advancing on READ is exactly right here: the callers are animation frames, and two calls in
+  // one frame advance by a zero delta, so asking twice cannot move the line twice.
+  const drawNow = useCallback(() => {
+    clock.current = advancePlayhead(clock.current, performance.now());
+    return clock.current.drawnSec;
+  }, []);
 
   /**
    * Watch exactly these plugins — l8 toggles them one at a time, the desk names a set.
@@ -115,6 +147,7 @@ export function useTurntableDeck({
         : { k: "looking" },
       playing,
       playhead,
+      drawNow,
       engine: (engineRef.current ?? null) as EngineClient | null,
       /**
        * Through the FILE SERVICE, which is the only thing that writes documents to l8's engine.
@@ -145,6 +178,7 @@ export function useTurntableDeck({
       engineReady,
       engineUrl,
       playing,
+      drawNow,
       engineRef,
       pluginParamsStore,
       watchParams,

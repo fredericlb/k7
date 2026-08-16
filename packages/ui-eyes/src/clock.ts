@@ -23,11 +23,15 @@ export interface SeekingClock extends Clock {
 
 // Follow the engine's ~20 Hz frames with a wall clock between them: 50 ms of jitter is a visible stutter at 30 fps,
 // so a frame sets an anchor and wall time carries it forward. Same interpolation patternClock does in the brain.
-// This is the one place in eyes that reads Date.now().
+// This is the one place in eyes that reads a clock.
+//
+// `performance.now()`, never `Date.now()`: the latter is the WALL clock, which an NTP correction or a daylight
+// step can move backwards under a running transport — and every reader here subtracts two readings, so a
+// backwards step reads as the picture jumping. It is also coarser. Monotonic is the whole requirement.
 export class EngineClock implements SeekingClock {
   private playing = false;
   private anchorSec = 0; // the playhead the last frame reported
-  private anchorWallMs = 0; // Date.now() when it did
+  private anchorWallMs = 0; // performance.now() when it did
 
   // A frame contradicting the prediction by more than this is a SEEK, not drift — nudging playbackRate would take
   // minutes to converge, so drivers hard-seek on onSeek instead.
@@ -43,13 +47,13 @@ export class EngineClock implements SeekingClock {
     const edge = playing !== this.playing;
     this.playing = playing;
     this.anchorSec = playheadSec;
-    this.anchorWallMs = Date.now();
+    this.anchorWallMs = performance.now();
     if (jumped || edge) this.onSeek?.(playheadSec, playing);
   }
 
   nowSec(): number {
     return this.playing
-      ? this.anchorSec + (Date.now() - this.anchorWallMs) / 1000
+      ? this.anchorSec + (performance.now() - this.anchorWallMs) / 1000
       : this.anchorSec;
   }
 
@@ -86,7 +90,7 @@ export class FrameClock implements Clock {
  * `EngineClock`. Kept because the seam is the point — the compositor cannot tell which clock it
  * has, which is what keeps the renderer independent of where its time comes from.
  *
- * `Date.now()` and nothing else: the drift this cannot have is against an audio clock that
+ * A monotonic clock and nothing else: the drift this cannot have is against an audio clock that
  * is not there. What it MUST still do is announce its own discontinuities, which is why
  * seeking and the play/pause edge both fire `onSeek` — the realtime driver hard-seeks every
  * `<video>` on those, and a seek that stayed quiet would leave the picture on the old frame.
@@ -94,13 +98,13 @@ export class FrameClock implements Clock {
 export class TransportClock implements SeekingClock {
   private playing = false;
   private anchorSec = 0; // the position at the last edge
-  private anchorWallMs = 0; // Date.now() when it was set
+  private anchorWallMs = 0; // performance.now() when it was set
 
   onSeek?: (sec: number, playing: boolean) => void;
 
   nowSec(): number {
     return this.playing
-      ? this.anchorSec + (Date.now() - this.anchorWallMs) / 1000
+      ? this.anchorSec + (performance.now() - this.anchorWallMs) / 1000
       : this.anchorSec;
   }
 
@@ -111,7 +115,7 @@ export class TransportClock implements SeekingClock {
   /** Re-anchor at the current position, then announce. Every mutator below funnels through it. */
   private set(sec: number, playing: boolean): void {
     this.anchorSec = Math.max(0, sec);
-    this.anchorWallMs = Date.now();
+    this.anchorWallMs = performance.now();
     this.playing = playing;
     this.onSeek?.(this.anchorSec, playing);
   }

@@ -241,6 +241,7 @@ export function MixView({
           spinning={deck.playing}
           wave={waves.deckA}
           playhead={deck.playhead}
+          drawNow={deck.drawNow}
           playing={deck.playing}
           tempo={tempos.deckA}
           driven={master === "deckB"}
@@ -264,6 +265,7 @@ export function MixView({
           spinning={deck.playing}
           wave={waves.deckB}
           playhead={deck.playhead}
+          drawNow={deck.drawNow}
           playing={deck.playing}
           tempo={tempos.deckB}
           driven={master === "deckA"}
@@ -480,6 +482,7 @@ function DeckSide({
   spinning,
   wave,
   playhead,
+  drawNow,
   playing,
   tempo,
   driven,
@@ -501,6 +504,8 @@ function DeckSide({
   spinning: boolean;
   wave: Wave | undefined;
   playhead: React.RefObject<Playhead>;
+  /** Where to DRAW the transport — steered, see Deck.drawNow. */
+  drawNow: () => number;
   playing: boolean;
   /** What this deck plays at — already synced, so a slave shows the master's number. */
   tempo: DeckTempo | undefined;
@@ -534,11 +539,11 @@ function DeckSide({
   );
 
   /**
-   * Where the transport is, RIGHT NOW — extrapolated between the engine's pushes.
+   * Where the transport is, RIGHT NOW — the raw anchor plus however long ago it landed.
    *
-   * It arrives ~20×/s, so the last number received can be 50 ms stale: on a downbeat that is
-   * audible when a cue is dropped, and visible as a stutter when the record's progress is
-   * drawn at 60 fps from it.
+   * The frames arrive ~20×/s, so the last number received can be 50 ms stale, and on a downbeat
+   * that is audible when a cue is dropped. This is the estimate to WRITE DOWN: nothing is
+   * smoothed, so nothing is traded away. `drawNow` is its counterpart for what is looked at.
    */
   const transportNow = () =>
     playhead.current.seconds +
@@ -569,8 +574,10 @@ function DeckSide({
           spinning={spinning && !!load}
           onPick={onPick}
           // The FILE's clock for both, so a stretched deck is not drawn further through its
-          // record than an unstretched one at the same bar — see `sourceAt`.
-          at={() => sourceAt(transportNow(), tempo)}
+          // record than an unstretched one at the same bar — see `sourceAt`. DRAWN, so the
+          // steered reader: a wedge redrawn at 60 fps off the raw anchor carries the frames'
+          // arrival jitter straight into the record's progress.
+          at={() => sourceAt(drawNow(), tempo)}
           length={tempo?.seconds ?? 0}
           markers={cues}
         />
@@ -579,8 +586,7 @@ function DeckSide({
         {load ? (
           <Waveform
             envelope={wave?.k === "ready" ? wave.env : null}
-            playhead={playhead}
-            playing={playing}
+            drawNow={drawNow}
             // The same conversion the record above uses — see `Waveform`'s `tempo`.
             tempo={tempo}
             analysing={wave?.k === "loading"}

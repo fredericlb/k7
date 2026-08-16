@@ -6,10 +6,16 @@
 // pan. Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
 
 import { cn } from "@frediverse/ui/lib/utils";
-import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { clipLoop } from "../clipLoop";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { rollFit } from "../rollFit";
 import type { WebClip, WebProject } from "../types";
@@ -667,16 +673,31 @@ function RollPlayhead({
   ppb: number;
   height: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  const localBeat = (playhead * tempo) / 60 - clipStart;
-  if (localBeat < 0 || localBeat > placedEnd) return null; // the transport is outside this clip
-  const x = (span > 0 ? localBeat % span : 0) * ppb;
+  const ref = useRef<HTMLDivElement | null>(null);
+  // Per animation frame, written onto the node — see docs/playhead.md. Hidden rather than
+  // unmounted when the transport is outside this clip: the callback needs somewhere to write
+  // on the frame it comes back.
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const localBeat = (seconds * tempo) / 60 - clipStart;
+        const inside = localBeat >= 0 && localBeat <= placedEnd;
+        el.style.visibility = inside ? "visible" : "hidden";
+        if (inside)
+          el.style.transform = `translateX(${(span > 0 ? localBeat % span : 0) * ppb}px)`;
+      },
+      [tempo, clipStart, placedEnd, span, ppb],
+    ),
+  );
   return (
     <div
+      ref={ref}
       className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-white/80"
       style={{
-        transform: `translateX(${x}px)`,
         willChange: "transform",
+        visibility: "hidden", // until the first frame says where it is
         height,
       }}
     />

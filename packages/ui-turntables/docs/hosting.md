@@ -14,6 +14,28 @@ So a host supplies a `Deck` and the desk asks nothing else. l8 does it with an a
 link its shell already holds, since it has an engine before it has a surface
 (`apps/l8/frontend/src/hooks/useTurntableDeck.ts`).
 
+### The transport is TWO readers, and a host owes both
+
+`Deck` asks for the position twice, and the split is not redundancy — the two callers want
+opposite things:
+
+| field | shape | for |
+|---|---|---|
+| `playhead` | a ref, `{ seconds, at }` — the raw anchor and when it landed | numbers that get **written down**: a cue drop stores where the finger fell |
+| `drawNow` | `() => number`, steered | numbers that get **looked at**: the record's wedge and the waveform, redrawn at 60 fps |
+
+The engine speaks every 50 ms and not on a regular beat. Extrapolating from the raw anchor is
+right for a timestamp — nothing is traded away — and wrong for a redraw, because re-anchoring on
+every frame copies the arrival jitter into the picture: 60 fps of stutter instead of 20.
+`drawNow` runs a local clock and lets the engine bend its **rate** by at most ±10%, snapping
+only on a real seek.
+
+So it is deliberately **not** the most accurate answer, and a host must not implement one by
+calling the other. `@studio/engine-browser/playhead-clock` is the clock; l8's adapter feeds it
+the same frames it writes into the ref, a few lines apart. The same distinction exists on l8's
+own timeline, where `useMidiRecording`'s `beatNow()` stays raw for exactly this reason —
+`apps/l8/frontend/docs/playhead.md` argues it once for both.
+
 ### `sendProject` is part of the seam, and it is not optional
 
 The desk plays by handing over a whole `ProjectDoc`. **Who is allowed to hand one to an engine is

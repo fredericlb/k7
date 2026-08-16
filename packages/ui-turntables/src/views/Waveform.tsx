@@ -1,10 +1,9 @@
 // Waveform.tsx — a deck's waveform, PLAYHEAD-CENTRIC: the song slides under a fixed line in
 // the middle, with the beats in yellow and the transients in grey. Canvas, driven by its own
-// animation frame off the playhead ref — never by React state. See ../../docs/waveform.md.
+// animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
 import { useEffect, useRef } from "react";
 import { type DeckTempo, sourceAt } from "../deck";
-import type { Playhead } from "../engine";
 import { bandsAt, columnColour } from "../spectrumColour";
 import {
   barsIn,
@@ -31,8 +30,7 @@ const PLAYHEAD = "#f8fafc";
 
 export function Waveform({
   envelope,
-  playhead,
-  playing,
+  drawNow,
   /**
    * This deck's stretch and placement — what turns the transport into a position in the FILE.
    *
@@ -51,8 +49,9 @@ export function Waveform({
   problem,
 }: {
   envelope: Envelope | null;
-  playhead: React.RefObject<Playhead>;
-  playing: boolean;
+  /** Where to draw the transport — steered, so this canvas does not carry the frames'
+   *  arrival jitter at 60 fps. See Deck.drawNow. */
+  drawNow: () => number;
   tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
@@ -85,15 +84,10 @@ export function Waveform({
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      // Where we are NOW: the last push plus however long ago it was, but only while
-      // running. Stopped, an extrapolation would slide a waveform nobody is playing.
-      const p = playhead.current;
-      const at = sourceAt(
-        playing
-          ? p.seconds + Math.max(0, (performance.now() - p.at) / 1000)
-          : p.seconds,
-        tempo,
-      );
+      // Where we are NOW. The clock behind `drawNow` holds still while stopped by itself —
+      // an extrapolation there would slide a waveform nobody is playing — so this no longer
+      // asks, and the two cannot disagree about what "stopped" means.
+      const at = sourceAt(drawNow(), tempo);
 
       const mid = Math.round(h / 2) + 0.5;
       if (!envelope) {
@@ -156,9 +150,12 @@ export function Waveform({
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-    // `playhead` is a ref and `envelope`/`playing` are read fresh on each frame through the
-    // closure this effect rebuilds — so the loop restarts only when one of them changes.
-  }, [envelope, playhead, playing, tempo]);
+    // `drawNow` is stable and `envelope` is read fresh on each frame through the closure this
+    // effect rebuilds — so the loop restarts only when it or the deck's stretch changes.
+    //
+    // `playing` was a dependency and a prop, and is neither now: the clock behind `drawNow`
+    // holds still while stopped, so this canvas no longer has an opinion about the transport.
+  }, [envelope, drawNow, tempo]);
 
   return (
     <div className="relative h-20 w-full overflow-hidden rounded-md bg-muted/40">

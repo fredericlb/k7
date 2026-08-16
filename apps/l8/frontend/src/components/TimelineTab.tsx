@@ -35,6 +35,7 @@ import {
 } from "react";
 import { api } from "../api";
 import type { MenuCtx } from "../contextMenu";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import {
   findRow,
@@ -141,21 +142,38 @@ function RecordingClip({
   beatHi: number;
   ppb: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  const now = (playhead * tempo) / 60;
+  const ref = useRef<HTMLDivElement | null>(null);
   // The take's material starts after the COUNT-IN, not where the transport rolled. This read
   // `now <= startBeat`, which is the transport's own start: the block appeared the instant Play
   // was pressed, grew through a count-in that records nothing, and then reached back over those
   // bars — where the placement that lands on Stop has nothing.
   const from0 = recordingFrom(startBeat, countInBeats);
-  if (now <= from0) return null;
-  const from = Math.max(from0, beatLo);
-  const to = Math.min(now, beatHi);
-  if (to <= from) return null;
+  // WIDTH per animation frame, not a transform: unlike the playhead this element genuinely
+  // changes size, and only its right edge moves. It is absolutely positioned, so the layout it
+  // costs is its own and reaches no sibling. See docs/playhead.md.
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const now = (seconds * tempo) / 60;
+        const from = Math.max(from0, beatLo);
+        const to = Math.min(now, beatHi);
+        const shown = now > from0 && to > from;
+        el.style.visibility = shown ? "visible" : "hidden";
+        if (shown) {
+          el.style.left = `${(from - beatLo) * ppb}px`;
+          el.style.width = `${(to - from) * ppb}px`;
+        }
+      },
+      [tempo, from0, beatLo, beatHi, ppb],
+    ),
+  );
   return (
     <div
+      ref={ref}
       className="pointer-events-none absolute inset-y-1 z-10 rounded border border-red-400/70 bg-red-500/25"
-      style={{ left: (from - beatLo) * ppb, width: (to - from) * ppb }}
+      style={{ visibility: "hidden" }}
       title="prise en cours"
     />
   );
@@ -176,22 +194,39 @@ function Playhead({
   left0: number; // the lane's left edge — the gutter's width
   height: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  const beat = (playhead * tempo) / 60;
-  // Hidden outright when the transport is outside the zoomed range, rather than pinned to an
-  // edge it isn't actually at.
-  if (beat < beatLo || beat > beatHi) return null;
+  const ref = useRef<HTMLDivElement | null>(null);
+  // Written per animation frame instead of rendered per engine frame: the engine speaks every
+  // 50 ms, which is one move every three screen frames and a step you can see. This component
+  // renders once and the line is moved from the callback. See docs/playhead.md.
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const beat = (seconds * tempo) / 60;
+        // HIDDEN, not unmounted, when the transport is outside the zoomed range — the callback
+        // needs a node to write to on the frame it comes back into view. Still never pinned to
+        // an edge it isn't at.
+        const inside = beat >= beatLo && beat <= beatHi;
+        el.style.visibility = inside ? "visible" : "hidden";
+        if (inside)
+          el.style.transform = `translateX(${(beat - beatLo) * ppb}px)`;
+      },
+      [tempo, beatLo, beatHi, ppb],
+    ),
+  );
   return (
     // Parked at the lane's left edge and TRANSLATED from there, rather than re-`left`-ed: a
     // position is layout and a transform is not, so the transport moves this line without
-    // relaying it out 20 times a second. `will-change` earns its keep on exactly this kind of
-    // element — one node, moving continuously for as long as the song plays.
+    // relaying it out sixty times a second. `will-change` earns its keep on exactly this kind
+    // of element — one node, moving continuously for as long as the song plays.
     <div
+      ref={ref}
       className="pointer-events-none absolute top-0 z-20 w-px bg-white/80"
       style={{
         left: left0,
-        transform: `translateX(${(beat - beatLo) * ppb}px)`,
         willChange: "transform",
+        visibility: "hidden", // until the first frame says where it is
         height,
       }}
     />
@@ -2043,7 +2078,7 @@ export function TimelineTab({
                 e.preventDefault();
               }}
               onContextMenu={(e) => {
-                // Right-click the ruler → "add marker here", pre-writing `marker new <tc> `.
+                // Right-click the ruler → "add marker here", pre-writing `project marker new <tc> `.
                 // HERE is where you right-clicked, snapped to the nearest DRAWN tick — the
                 // same rule, off the same `bars`, that a left-click seek uses. So the two
                 // buttons agree about where a point on the ruler is, and a marker can only

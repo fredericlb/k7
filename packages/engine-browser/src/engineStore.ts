@@ -142,6 +142,10 @@ export const INPUT_VU_MAX_DB = 6;
  */
 const vuStep = (t: number): number => Math.round(t * 200) / 200;
 
+// The `order.indexOf` in both hooks below is O(n) per subscriber per frame, and measured not to
+// matter — including against the memoised position map, which LOSES under ~50 tracks. Don't
+// re-flag it; the numbers are in docs/meters.md ("The O(n²) that isn't worth fixing").
+
 // ONE track's live input level, or null when unarmed — a per-node subscription, so a moving input re-renders the
 // bar rather than the graph. Returning a plain number|null keeps Object.is steady while it doesn't change.
 export function useInputLevel(trackId: string, order: string[]): number | null {

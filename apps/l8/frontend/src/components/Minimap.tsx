@@ -3,9 +3,9 @@
 // the timeline caret. Clicking (or dragging across) scrubs the playhead to that
 // position — the whole song is always mapped to the full width, so it never scrolls.
 
-import { useEngineState } from "@studio/engine-browser/store";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { HATCH, projectRows, type RowKey, rowIndexOf } from "../rows";
 import type { WebProject, WebTrack } from "../types";
@@ -228,13 +228,29 @@ function MinimapPlayhead({
   totalBeats: number;
   tempo: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  const beat = (playhead * (tempo || 120)) / 60;
-  const pct = Math.max(0, Math.min(100, (beat / totalBeats) * 100));
+  const ref = useRef<HTMLDivElement | null>(null);
+  // Per animation frame, written straight onto the node — the engine's 50 ms cadence is a
+  // visible step on a bar this short. See docs/playhead.md.
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const beat = (seconds * (tempo || 120)) / 60;
+        const pct = Math.max(0, Math.min(100, (beat / totalBeats) * 100));
+        el.style.transform = `translateX(${pct}%)`;
+        el.style.visibility = "visible";
+      },
+      [totalBeats, tempo],
+    ),
+  );
   return (
     <div
+      ref={ref}
       className="pointer-events-none absolute inset-y-0 left-0 w-full border-white border-l"
-      style={{ transform: `translateX(${pct}%)`, willChange: "transform" }}
+      // Hidden until the first callback says where it is: the position is written to the node
+      // rather than rendered, so an unstyled first paint would flash the line at beat 0.
+      style={{ willChange: "transform", visibility: "hidden" }}
     />
   );
 }

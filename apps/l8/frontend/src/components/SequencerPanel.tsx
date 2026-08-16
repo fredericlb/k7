@@ -6,10 +6,10 @@
 // command — one line, one Ctrl+Z — and the grid redraws from the reload it triggers.
 
 import { cn } from "@frediverse/ui/lib/utils";
-import { useEngineState } from "@studio/engine-browser/store";
 import type { WebRackSound } from "@studio/graph-model";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clipLoop } from "../clipLoop";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import {
   notesByCell,
   type PadEdit,
@@ -503,15 +503,38 @@ function StepPlayhead({
   placedEnd: number;
   span: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  const localBeat = (playhead * tempo) / 60 - clipStart;
-  if (localBeat < 0 || localBeat > Math.max(placedEnd, span) || span <= 0)
-    return null;
-  const frac = (localBeat % span) / span;
+  const ref = useRef<HTMLDivElement | null>(null);
+  // Per animation frame, and off `left` onto a transform while we are here: `left` is LAYOUT,
+  // and this used to relayout the grid twenty times a second. The line is the element's left
+  // EDGE — the box spans the panel and gets translated, because a percentage translate is a
+  // percentage of the element's own width, which is the panel's only when it spans it. Same
+  // trick the minimap's playhead uses, and for the same reason. See docs/playhead.md.
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const localBeat = (seconds * tempo) / 60 - clipStart;
+        const inside =
+          span > 0 && localBeat >= 0 && localBeat <= Math.max(placedEnd, span);
+        el.style.visibility = inside ? "visible" : "hidden";
+        if (inside)
+          el.style.transform = `translateX(${((localBeat % span) / span) * 100}%)`;
+      },
+      [tempo, clipStart, placedEnd, span],
+    ),
+  );
   return (
-    <div
-      className="pointer-events-none absolute inset-y-0 z-20 w-px bg-white/80"
-      style={{ left: `${frac * 100}%`, willChange: "left" }}
-    />
+    // The outer box does not move and CLIPS. Without it the inner one, translated up to a full
+    // width right, would extend the scrollable overflow of the panel's `overflow-auto` ancestor
+    // and grow a phantom horizontal scrollbar for as long as the transport rolled. The minimap
+    // uses the same full-width translate with no wrapper because nothing scrolls around it.
+    <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-full overflow-hidden">
+      <div
+        ref={ref}
+        className="absolute inset-y-0 left-0 w-full border-white/80 border-l"
+        style={{ willChange: "transform", visibility: "hidden" }}
+      />
+    </div>
   );
 }

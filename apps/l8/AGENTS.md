@@ -60,6 +60,7 @@ matches before changing it:
 | `shellRouting.md` | `routes.ts` + `useViewRoute.ts` — view / full / panel against the URL |
 | `chainsGraph.md` | the chains renderer and its camera rules |
 | `timeline.md` | the keyboard-driven arrangement view |
+| `playhead.md` | why the playhead is steered by the engine's frames rather than drawn from them |
 | `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
 | `clipEditors.md` | the piano roll and the waveform over one event — and the loop marks they share |
 | `commandBar.md` | the step-by-step palette and module picker |

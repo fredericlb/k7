@@ -100,3 +100,35 @@ It is now stopped at **both ends**, on purpose, because the two halves fix diffe
 The floor is 4 Hz rather than nothing so that a change made from another tab still lands within
 250 ms. Neither half delays a real change: the moment anything is happening, the idle test fails
 and the frame differs, so both gates open on the same tick.
+
+## The O(n²) that isn't worth fixing
+
+`useInputLevel` and `useTrackLevel` each do `order.indexOf(trackId)` inside the selector. Every
+metered node scanning the whole track order, twenty times a second, is the textbook shape of an
+O(n²) per frame — and it has been written up as one, by a standing pass over this repo. It is
+recorded here so the next pass does not spend the afternoon again.
+
+Measured, with realistic track names, over one second of engine frames (20 of them), summed
+across every subscriber:
+
+| tracks | `order.indexOf` | a memoised position map |
+|---|---|---|
+| 15 — the real song | 0.01 ms | 0.03 ms — **slower** |
+| 100 | 0.10 ms | 0.02 ms |
+| 250 | 0.54 ms | 0.09 ms |
+
+At 250 tracks — sixteen times the size of a real song — the whole thing costs 0.05% of one core,
+about 0.1 µs per subscriber per frame. The alternative is a `WeakMap` on the `order` array
+holding a `Map` of positions; it wins above roughly 50 tracks and **loses below them**, because
+building the Map costs more than the scan it replaces, and the arrays it would be keyed on are
+rebuilt whenever the host re-renders.
+
+Read the table as an order of magnitude, not a reading. The same microbenchmark gave anything
+from 0.1 to 11 ms/s for the same operation depending on how the id strings were constructed —
+common prefix length, whether V8 had interned them — and that spread is itself the answer: this
+sits below the React bookkeeping that surrounds it. The costs that *do* show up on a frame are
+the ones the rest of this page is about — the re-renders, and the frames that need not be sent.
+
+If a project ever does carry hundreds of tracks, the thing to reach for is not the lookup. It is
+the number of subscriptions: one `useSyncExternalStore` per metered node, each checked on every
+frame, is the term that grows.

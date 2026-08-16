@@ -16,7 +16,8 @@
     "./lease": "./src/lease.ts",
     "./stream": "./src/streamPlayer.ts",
     "./stream-sink": "./src/streamSink.ts",
-    "./relook": "./src/relook.ts"
+    "./relook": "./src/relook.ts",
+    "./playhead-clock": "./src/playheadClock.ts"
   },
   "scripts": {
     "test": "vitest run",
