@@ -201,9 +201,17 @@ everything once, deliberately.
 
 ### The patch cable
 
-Click a free output jack, a dashed cable follows the cursor, click a free input jack of the
-same signal: the shell runs `graph chain connect <from> <to>` outright — both ends were clicked,
-so there is nothing for the bar to ask. Clicking an OCCUPIED jack lifts that cable's end
+**Drag out of a free output jack and release over a free input** of the same signal, and the
+shell runs `graph chain connect <from> <to>` outright — both ends were named by the gesture, so
+there is nothing for the bar to ask. **Or click the two jacks in turn**, which is the same
+gesture with the button released in the middle: the cable stays in hand between them.
+
+Both, and without a mode or a distance threshold to guess at, because the press ARMS and the
+release LANDS — a release over the socket the press came from is what a click looks like to a
+pointer, and lands nothing (`@studio/ui-chains/patchGesture`, and `packages/ui-chains/docs/cable.md`
+for why the drag was impossible while the cable was drawn on `click`).
+
+Pressing an OCCUPIED jack lifts that cable's end
 instead: land it on another jack and the shell runs `graph chain replug` (one end moved, one undo
 step); drop it on the bare canvas and the arrow is deleted (`graph chain disconnect`) — a NEW
 cable dropped there simply ceases. Esc or right-click puts everything back, writing nothing.

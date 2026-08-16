@@ -10,7 +10,8 @@
     "./cableCanvas": "./src/cableCanvas.ts",
     "./hang": "./src/hang.ts",
     "./modulePreview": "./src/modulePreview.ts",
-    "./zoomGesture": "./src/zoomGesture.ts"
+    "./zoomGesture": "./src/zoomGesture.ts",
+    "./patchGesture": "./src/patchGesture.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

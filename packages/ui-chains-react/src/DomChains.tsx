@@ -72,6 +72,7 @@ import {
   newSway,
   stepSway,
 } from "@studio/ui-chains/hang";
+import { patchAct } from "@studio/ui-chains/patchGesture";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 // The one icon this file draws from a set: the freeze badge. Everything else on a card is a
 // shape built out of CSS, which a snowflake is not.
@@ -1706,17 +1707,25 @@ function NodeInner({
   /** Right-click on one of this node's controls — the menu for the PARAM, not for the module. */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   sinkPlay?: SinkPlay;
-  /** A free jack was clicked — the patch-cable gesture. Absent (read-only hosts, ghosts), the
-   *  sockets stay inert exactly as they always were. */
+  /** A jack was pressed or released — the patch-cable gesture. Absent (read-only hosts, ghosts),
+   *  the sockets stay inert exactly as they always were.
+   *
+   *  BOTH halves of the pointer, because one socket answers two gestures: press-drag-release, and
+   *  click-then-click. `phase` is the only thing that tells them apart — see cable.md. */
   onTapJack?: (
     n: GraphNode,
     side: "in" | "out",
     jack: Jack,
     index: number,
+    phase: "down" | "up",
   ) => void;
-  /** The cable in hand, while one is — which SIDE its loose end seeks and the signal it
-   *  carries, gating which jacks invite landing it. */
-  patchWant?: { seeking: "in" | "out"; type: WebSignal } | null;
+  /** The cable in hand, while one is — which SIDE its loose end seeks, the signal it carries and
+   *  the node its plugged end is ON, gating which jacks invite landing it. */
+  patchWant?: {
+    seeking: "in" | "out";
+    type: WebSignal;
+    node: string;
+  } | null;
   /** The header was pressed on a node the host lets you move — the pin gesture. Absent, the
    *  header is inert and the press pans, exactly as it always did. */
   onHeaderDrag?: (n: GraphNode, e: React.PointerEvent) => void;
@@ -2092,7 +2101,12 @@ function NodeInner({
               (patchWant
                 ? p.free &&
                   side === patchWant.seeking &&
-                  p.type === patchWant.type
+                  p.type === patchWant.type &&
+                  // …and never back onto the node the cable LEFT. `graph chain connect` refuses
+                  // it outright ("can't connect 'x' to itself"), so offering the socket only
+                  // promised a landing the verb throws out. Unreachable until a lane grew an
+                  // input, which put a free one on the very node most cables leave from.
+                  n.id !== patchWant.node
                 : side === "out" || !p.free);
             return (
               <span
@@ -2112,12 +2126,26 @@ function NodeInner({
                   // twice, and a disagreement reads as a cable that misses its socket.
                   left: `${((i + 1) / (all.length + 1)) * 100}%`,
                 }}
-                // stopPropagation, or the same click also selects the node under the jack.
-                onClick={
+                // The press, not the click: a cable is drawn by DRAGGING out of a socket, and a
+                // click event only exists once the button is already back up. stopPropagation for
+                // the reason the node header gives — the same press must not also arm a pan, which
+                // is what used to pull the whole graph sideways under a cable being drawn.
+                onPointerDown={
                   plug
                     ? (e) => {
                         e.stopPropagation();
-                        onTapJack?.(n, side, p, i);
+                        onTapJack?.(n, side, p, i, "down");
+                      }
+                    : undefined
+                }
+                // …and the release lands it, which is the other half of the drag. A release on the
+                // socket the press armed lands nothing: that gesture is a CLICK, and it leaves the
+                // cable in hand for a second click elsewhere.
+                onPointerUp={
+                  plug
+                    ? (e) => {
+                        e.stopPropagation();
+                        onTapJack?.(n, side, p, i, "up");
                       }
                     : undefined
                 }
@@ -3972,6 +4000,7 @@ export function DomChains({
     type: WebSignal;
     seeking: "in" | "out"; // which side of a jack lands the loose end
     fixedRef: string; // the plugged end's chains address
+    fixedNode: string; // …the node it is ON, which is the one jack gating must NOT offer
     fixedAt: { x: number; y: number }; // …and its socket, where the temp cable is pinned
     // The arrow this WAS, when an existing cable was lifted — absent for a new one. The
     // drawn cable with this id steps aside while its ghost is in hand (see rebuildCables).
@@ -4010,29 +4039,56 @@ export function DomChains({
     paintRef.current();
   };
 
+  // The socket THIS press armed from, so its own release lands nothing — that gesture is a click,
+  // and it leaves the cable in hand for a second one. Cleared by every release.
+  const armedFrom = useRef<string | null>(null);
+
+  /** The loose end went into `p`: a lifted cable moves one of its ends, a new one is drawn. */
+  const landPatch = (
+    cur: NonNullable<typeof patchRef.current>,
+    n: GraphNode,
+    p: Jack,
+  ): void => {
+    const landed = jackRef(n, p.name);
+    if (cur.edge) {
+      const nf = cur.seeking === "out" ? landed : cur.edge.from;
+      const nt = cur.seeking === "in" ? landed : cur.edge.to;
+      cb.current.onReplug?.(cur.edge.from, cur.edge.to, nf, nt);
+    } else {
+      cb.current.onConnect?.(cur.fixedRef, landed);
+    }
+    setPatchNow(null);
+  };
+
   const tapJack = useCallback(
-    (n: GraphNode, side: "in" | "out", p: Jack, index: number) => {
-      if (suppressClick.current) return; // that click ended a pan
+    (
+      n: GraphNode,
+      side: "in" | "out",
+      p: Jack,
+      index: number,
+      phase: "down" | "up",
+    ) => {
       const cur = patchRef.current;
-      if (cur) {
+      const here = jackRef(n, p.name);
+      // A press STARTS a gesture, so it can never be the click that ended a pan. It has to clear
+      // the flag itself: the press no longer arms a pan (it stops propagation), so the pointerup
+      // that used to reset this never fires, and one pan would leave every socket dead.
+      if (phase === "down") suppressClick.current = false;
+      const act = patchAct(phase, !!cur, armedFrom.current, here);
+      if (phase === "up" || act === "land") {
         // NodeInner arms only jacks of the seeking side, free and type-matched: land it.
-        const landed = jackRef(n, p.name);
-        if (cur.edge) {
-          const nf = cur.seeking === "out" ? landed : cur.edge.from;
-          const nt = cur.seeking === "in" ? landed : cur.edge.to;
-          cb.current.onReplug?.(cur.edge.from, cur.edge.to, nf, nt);
-        } else {
-          cb.current.onConnect?.(cur.fixedRef, landed);
-        }
-        setPatchNow(null);
+        if (cur && act === "land") landPatch(cur, n, p);
+        armedFrom.current = null;
         return;
       }
+      armedFrom.current = here;
       if (p.free) {
         // A free OUT jack starts a NEW cable (a free IN jack is never armed at rest).
         setPatchNow({
           type: p.type,
           seeking: "in",
           fixedRef: jackRef(n, p.name),
+          fixedNode: n.id,
           fixedAt: jackPoint(n, "out", index),
         });
         return;
@@ -4072,6 +4128,7 @@ export function DomChains({
               type: p.type,
               seeking: "out",
               fixedRef: to,
+              fixedNode: tgt.id,
               fixedAt: jackPoint(tgt, "in", inIndex),
               edge: { id: e.id, from, to },
             }
@@ -4080,6 +4137,7 @@ export function DomChains({
               type: p.type,
               seeking: "in",
               fixedRef: from,
+              fixedNode: src.id,
               fixedAt: jackPoint(src, "out", outIndex),
               edge: { id: e.id, from, to },
             },
@@ -4108,7 +4166,10 @@ export function DomChains({
   // What every node's jack gating reads — memoised, or holding a cable would re-render all
   // the cards on every unrelated state change (the object would be new each render).
   const patchWant = useMemo(
-    () => (patch ? { seeking: patch.seeking, type: patch.type } : null),
+    () =>
+      patch
+        ? { seeking: patch.seeking, type: patch.type, node: patch.fixedNode }
+        : null,
     [patch],
   );
 

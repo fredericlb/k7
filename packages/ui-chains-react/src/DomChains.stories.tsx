@@ -11,6 +11,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
+import { useState } from "react";
 import { DomChains } from "./DomChains";
 import { ModuleIcon, moduleGlyph } from "./moduleIcons";
 
@@ -58,6 +59,49 @@ function Graph({ graph }: { graph: WebGraph }) {
         selected={null}
         onSelect={() => {}}
         command={() => {}}
+      />
+    </div>
+  );
+}
+
+/**
+ * A free output and a free input, and a host that ANSWERS — which is what arms the sockets.
+ *
+ * The crossfade is what makes the bench work at all: every input in a fully wired graph is
+ * occupied, so a cable in hand would find nowhere to land and the whole graph would go dark. Fed
+ * on `a` only, it offers `b` — one free audio input for the loose end to seek.
+ */
+function Bench() {
+  const [wrote, setWrote] = useState<string[]>([]);
+  const graph: WebGraph = {
+    chains: {
+      gtr: {
+        from: "gtr",
+        use: [step("crossfade", { inputs: CROSSFADE })],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+      synth: { from: "synth", use: [step("reverb")], out: [] },
+    },
+    tracks: ["gtr", "synth"],
+    warnings: [],
+  };
+  const { nodes, edges } = buildGraph(graph);
+  return (
+    <div style={{ height: 380, background: "#0d0d0f" }}>
+      <pre data-testid="wrote" style={{ color: "#9ca3af", margin: 0 }}>
+        {wrote.join("\n") || "— rien écrit —"}
+      </pre>
+      <DomChains
+        icons={icons}
+        graph={layout(nodes, edges)}
+        selected={null}
+        onSelect={() => {}}
+        command={() => {}}
+        onConnect={(f, t) => setWrote((w) => [...w, `connect ${f} ${t}`])}
+        onDisconnect={(f, t) => setWrote((w) => [...w, `disconnect ${f} ${t}`])}
+        onReplug={(f, t, nf, nt) =>
+          setWrote((w) => [...w, `replug ${f} ${t} → ${nf} ${nt}`])
+        }
       />
     </div>
   );
@@ -209,6 +253,18 @@ export const Automation: Story = {
       warnings: [],
     },
   },
+};
+
+/**
+ * The one story with the patch gesture ARMED — the sockets are inert everywhere else, because
+ * DomChains only arms them for a host that can answer `onConnect`.
+ *
+ * It is here to be dragged in: press the free output, pull, release on a free input. That is the
+ * gesture the graph did not have (packages/ui-chains/docs/cable.md), and the only way to see it is
+ * to do it. What it wrote is printed above the graph, so the result is readable without a console.
+ */
+export const PatchBench: StoryObj<typeof Bench> = {
+  render: () => <Bench />,
 };
 
 /** A midi instrument beside an audio effect — a socket is coloured by what it carries, like the cable for it. */
