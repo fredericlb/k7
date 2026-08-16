@@ -1419,10 +1419,10 @@ export default function App({
       }
       /**
        * ui review <clip> — reopen the take review on a clip: its waveform under the project's ruler,
-       * its onsets as marks you add and refuse, and the button that brings it up to level.
+       * its onsets as marks you add and refuse, and the chains it can be bounced through.
        *
        * A `ui` command because it opens a VIEW and writes nothing; what the view then does is the
-       * brain's (`clip normalize`, `clip onset …`). It exists because the automatic review is a
+       * brain's (`clip process`, `clip trim`, `clip onset …`). It exists because the automatic review is a
        * moment that passes — `lastTake` is the file service's memory and dies with the process, and
        * the ✓ ends it for good — so a take could become unreachable while its file sat on disk.
        *

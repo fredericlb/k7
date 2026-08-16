@@ -445,15 +445,10 @@ int main(int argc, char** argv) {
     // the number back and writes it into the module's `Peak` before rendering through it.
     if (argc >= 3 && std::string(argv[1]) == "--peak") return studio::printFilePeak(argv[2]);
 
-    // Normalize mode: peak-normalize the given clips with one shared gain, each inside its own window
-    // (see NormalizeClips.cpp). Quadruples: <in> <out> <fromSec> <toSec>, toSec < 0 == the file's end.
-    if (argc >= 7 && std::string(argv[1]) == "--normalize") {
-        const double target = std::atof(argv[2]);
-        std::vector<studio::NormalizeItem> items;
-        for (int i = 3; i + 3 < argc; i += 4)
-            items.push_back({argv[i], argv[i + 1], std::atof(argv[i + 2]), std::atof(argv[i + 3])});
-        return studio::normalizeClips(target, items);
-    }
+    // There was a `--normalize` mode here, driving the `track normalize` / `clip normalize` commands.
+    // Both are gone: normalising is a treatment, and a treatment is a chain the brain bounces material
+    // through with `--render` (packages/commands/docs/processChain.md). The médiathèque's `normalize`
+    // module is measured by `--peak` above and rendered like any other.
 
     // Batch waveform mode: read audio paths from stdin and write every `{file}.cache` in THIS process, so a song
     // with many fresh clips pays JUCE startup once instead of per file. Prints a flushed "ok"/"err" line per file

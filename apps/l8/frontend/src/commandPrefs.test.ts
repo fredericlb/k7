@@ -19,7 +19,7 @@ import {
 
 const CMDS = [
   { canonical: "clip trim", readable: "Trim a clip" },
-  { canonical: "clip normalize", readable: "Normalise" },
+  { canonical: "clip process", readable: "Bounce a clip through a chain" },
   { canonical: "track mute", readable: "Mute a track" },
   { canonical: "ui help", readable: "Help" },
 ];
@@ -104,7 +104,7 @@ describe("the order", () => {
     expect(orderCommands(CMDS, prefs).map((c) => c.canonical)).toEqual([
       "ui help",
       "clip trim",
-      "clip normalize",
+      "clip process",
       "track mute",
     ]);
   });
@@ -117,7 +117,7 @@ describe("the order", () => {
     expect(orderCommands(CMDS, prefs).map((c) => c.canonical)).toEqual([
       "clip trim", // catalogue order breaks the tie
       "track mute",
-      "clip normalize",
+      "clip process",
       "ui help",
     ]);
   });
@@ -135,7 +135,7 @@ describe("moving one", () => {
     expect(orderCommands(CMDS, next).map((c) => c.canonical)).toEqual([
       "clip trim",
       "track mute",
-      "clip normalize",
+      "clip process",
       "ui help",
     ]);
   });

@@ -27,7 +27,6 @@ add_library(studio_engine STATIC
     GraphDspPlugin.cpp
     MixerPlugin.cpp
     MidiGraphPlugin.cpp
-    NormalizeClips.cpp
     FilePeak.cpp
     ParamDump.cpp
     AudioInputs.cpp

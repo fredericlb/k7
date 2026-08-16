@@ -290,9 +290,11 @@ export function contextMenu(
       ]);
     }
     case "take":
-      // Written out rather than derived, and for a sharper reason than the group's: `<track>
-      // <number>` is ALSO the shape of `track normalize`, so asking the catalogue for "commands
-      // taking these two" would offer to normalise a take.
+      // Written out rather than derived. `<track> <number>` was ALSO the shape of `track
+      // normalize`, so asking the catalogue for "commands taking these two" would have offered to
+      // normalise a take; that command is gone, but the list stays explicit — a take's two verbs
+      // are a menu somebody chose, and the next command to take a track and a number would join
+      // it silently.
       return offer([
         { verb: "track take select", arg: `${ctx.track} ${ctx.n}` },
         { verb: "track take delete", arg: `${ctx.track} ${ctx.n}` },

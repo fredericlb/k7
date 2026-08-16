@@ -87,10 +87,9 @@ describe("the palette's one-field view of completions()", () => {
     // The line has to keep the empty partial so it ends with a SPACE — that space is
     // what tells completions() the command is settled and its args are being filled.
     // Dropping it left the bare command name, which reads as "still typing a name".
-    expect(completeArg("track normalize", [], "", ["melody", "bass"])).toEqual([
-      "melody",
-      "bass",
-    ]);
+    expect(
+      completeArg("track take select", [], "", ["melody", "bass"]),
+    ).toEqual(["melody", "bass"]);
   });
 
   it("works for a MULTI-WORD command name", () => {
@@ -109,9 +108,9 @@ describe("the palette's one-field view of completions()", () => {
   });
 
   it("offers nothing for an argument with no vocabulary", () => {
-    expect(completeArg("track normalize", ["melody"], "", ["melody"])).toEqual(
-      [],
-    ); // the peak value
+    expect(
+      completeArg("track take select", ["melody"], "", ["melody"]),
+    ).toEqual([]); // the take number
     expect(completeArg("node new", ["instruments/synth"], "")).toEqual([]); // the node name
   });
 });
@@ -196,16 +195,12 @@ describe("commands.yaml is well-formed against the providers", () => {
     expect(validateArgs(of("project marker new"), "xyz Chorus")).toMatch(
       /bar:beat/,
     );
-    expect(validateArgs(of("track normalize"), "melody abc")).toMatch(
-      /a number/,
-    );
+    expect(validateArgs(of("clip trim"), "riff abc")).toMatch(/a number/);
     expect(validateArgs(of("sequence note new"), "melody H9 4 6")).toMatch(
       /note name/,
     );
     // The offending token appears in the message, so the palette can point at it.
-    expect(validateArgs(of("track normalize"), "melody left")).toContain(
-      '"left"',
-    );
+    expect(validateArgs(of("clip trim"), "riff left")).toContain('"left"');
   });
 
   it("accepts every shape its handlers accept", () => {
@@ -213,8 +208,9 @@ describe("commands.yaml is well-formed against the providers", () => {
     const of = (name: string) => specs.find((c) => c.command === name)!;
     for (const tc of ["5", "5:1", "5:1:1"])
       expect(validateArgs(of("project marker new"), `${tc} Chorus`)).toBeNull();
-    // Negative and fractional numbers, notes as names or as MIDI numbers.
-    expect(validateArgs(of("track normalize"), "melody -6.5")).toBeNull();
+    // Negative and fractional numbers, notes as names or as MIDI numbers. A trim gate is in dB,
+    // so a negative one is the ordinary case rather than an edge.
+    expect(validateArgs(of("clip trim"), "riff -6.5")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody F#3 0 1")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody 60 0 1")).toBeNull();
     // Too few arguments is the handler's message to give, not a shape error.

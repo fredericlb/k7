@@ -22,11 +22,27 @@ and the log line was the only place you could find out what had actually been bo
 command refuses the other's argument and names the one to run instead. Two also keeps them in
 the `<noun> <verb>` namespace every other command uses.
 
-It replaces `clip normalize`, which peak-normalised a track's clips to −1 dBFS through the
-engine's `--normalize`. Normalising is one treatment, hard-coded, and the médiathèque already
-ships a `normalize` module — a chain naming that module does the same job and can be *followed
-by something*. The old command wrote `_norm` copies and repointed nothing, so the project had
-to be edited by hand afterwards; that half is the interesting one, and it is here now.
+## They replaced `track normalize` and `clip normalize`
+
+Both are **gone**, and so is everything under them: `normalize.ts`, the engine's `--normalize`
+mode and `NormalizeClips.cpp`. Normalising is a TREATMENT, and these two commands are how a
+treatment is applied — the médiathèque ships a `normalize` module, so a chain naming it does the
+same job over a track's files or over one clip's, and can be *followed by something*.
+
+Two things improve on the way, and one is given up.
+
+The old commands wrote their result **over the take**; a bounce lands a stamped render beside the
+source and repoints the clip at it, so the material it replaced is still on disk rather than
+recoverable only from the journal. And `clip normalize` was one hard-coded gain where
+`clip process` is any chain, so a normalisation followed by a limiter is one command instead of a
+feature request.
+
+What is given up is **one shared gain across a SET of files**. That is what `--normalize` could
+say and a chain cannot: a track's clips normalised together, the loudest reaching the target and
+the rest keeping their relative levels. Each source is rendered on its own here (see *Offline,
+always* below), so `track process gtr normalize` brings every clip to the target independently.
+For a track of takes that were balanced against each other, that is a different result — worth
+knowing before reaching for it, and the reason this paragraph is not a footnote.
 
 ## What "in place" means
 

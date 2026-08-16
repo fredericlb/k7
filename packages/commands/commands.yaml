@@ -226,34 +226,10 @@
       { name: chain, complete: chains },
     ]
 
-# Peak-normalise the MATERIAL, over itself. `peak` is linear and optional — the default leaves a
-# decibel of headroom. WAV only, because the engine writes WAV whatever it read (see normalize.ts).
-# `clip normalize` measures and gains INSIDE the clip's `from`/`to` window — the take around the
-# event keeps its bytes; `track normalize` names files, not events, and takes them whole.
-- command: "track normalize"
-  sid: track.normalize
-  readable:
-    en: "Normalise a track's clips"
-    fr: "Normaliser les clips d'une piste"
-  help: "bring a track's clips to a peak, in place (e.g. track normalize gtr)"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: peak, type: number, optional: true, hint: "0–1 linear, default 0.891 (−1 dBFS)" },
-    ]
-- command: "clip normalize"
-  sid: clip.normalize
-  readable:
-    en: "Normalise a clip"
-    fr: "Normaliser un clip"
-  help: "bring one clip's window to a peak, in place (e.g. clip normalize prise-01)"
-  surfaces: [cli]
-  args:
-    [
-      { name: clip, complete: clipTargets },
-      { name: peak, type: number, optional: true, hint: "0–1 linear, default 0.891 (−1 dBFS)" },
-    ]
+# `track normalize` and `clip normalize` were here and are gone. Normalising is a TREATMENT, and
+# the two commands above are how a treatment is applied: the médiathèque ships a `normalize`
+# module, so a chain naming it does the same job through `track process` / `clip process` — over a
+# whole track's files or over one clip's — and can be followed by something. See docs/processChain.md.
 
 # Cut the silence off both ends of a clip. It moves the clip's WINDOW (`from`/`to` in its own
 # file) and never the audio: a take's head is the tail of a count-in and the player settling, its

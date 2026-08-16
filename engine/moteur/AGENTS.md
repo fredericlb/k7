@@ -38,7 +38,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   ParamDump.cpp             --dump-params / --dump-params-ext
   PluginEditor.cpp          native plugin editor windows + PluginEditorController
   Recording.cpp             arming, takes, transport record listener
-  NormalizeClips.cpp        clip normalisation
+  FilePeak.cpp              one file's true peak (--peak), what a cold module is measured with
   Waveform.cpp              waveform peak data
   Warnings.{h,cpp}          the warning channel the UI shows
   MultiEditTest.cpp         N-sessions-on-one-device measurement (docs/multiEdit.md)

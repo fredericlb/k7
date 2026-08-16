@@ -18,7 +18,7 @@ namespace studio {
 
 namespace {
 // Read in blocks rather than loading the file: a master is minutes long, and a running max needs one block
-// at a time. NormalizeClips buffers whole files because it also WRITES them; this only measures.
+// at a time. This only ever MEASURES, so it never needs the whole file in memory.
 constexpr int kReadBlock = 1 << 16;
 
 // dBFS of a linear magnitude. Silence has no dB — it is reported as the floor the `Peak` param declares,

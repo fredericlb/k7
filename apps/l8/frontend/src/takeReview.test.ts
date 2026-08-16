@@ -55,7 +55,7 @@ describe("finding the lane a clip is on", () => {
 
 describe("the command itself", () => {
   it("is a `ui` line, so the shell answers it rather than the backend", () => {
-    // It opens a VIEW and writes nothing — what the panel then does (normalize, onsets) is the
+    // It opens a VIEW and writes nothing — what the panel then does (process, trim, onsets) is the
     // brain's. The pairing is enforced both ways, so being in the table is what makes it dispatch.
     expect(isUiLine("review ge.rythm_1.1_260814T194357")).toBe(true);
   });

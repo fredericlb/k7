@@ -44,8 +44,7 @@ there, and two channels in anti-phase read as **silence** — 94 dB out on a fil
 hear. It is also stored at four decimals. Right for drawing, useless for setting a gain.
 
 This streams the file in blocks and takes `getMagnitude` across all channels, so it holds no more
-than one block whatever the file's length — unlike `--normalize`, which buffers whole files because
-it also writes them. Silence reports the `-100` floor rather than negative infinity, which is the
+than one block whatever the file's length. Silence reports the `-100` floor rather than negative infinity, which is the
 same floor the `Peak` param declares. A float file over full scale is reported as measured: rounding
 here would be this mode inventing a policy that belongs to the module.
 
@@ -59,19 +58,17 @@ The per-line threshold exists so a prewarm can rebuild a stale envelope **withou
 sensitivity somebody tuned** — the Node side reads each file's previous sidecar and sends it
 back.
 
-## `--normalize <targetPeak> <in1> <out1> <from1> <to1> [<in2> <out2> <from2> <to2> …]`
+## `--normalize` was here, and is gone
 
-Peak-normalize a set of clips with a **single shared gain**, each inside its own **window**:
-decode every input, find the loudest peak across every window, compute one
-`gain = targetPeak / maxPeak`, and apply it inside each window — the samples outside a
-clip's `from`/`to` keep their bytes, so a louder count-in the window was trimmed to exclude
-neither caps the gain nor gets pushed over full scale. Each file is written back whole,
-preserving sample rate, channel count and bit depth. Prints a JSON manifest
-`{ maxPeak, gain, count }`.
+It peak-normalized a set of clips with one **shared gain**, each inside its own window, writing
+every file back over itself. Its only callers were the brain's `track normalize` and
+`clip normalize`, and both were removed: normalising is a TREATMENT, and a treatment in this
+system is a chain. `track process` / `clip process` bounce material through one, and the
+médiathèque ships a `normalize` module — measured by `--peak` above and rendered through
+`--render` like every other treatment. See `packages/commands/docs/processChain.md`.
 
-The window is in seconds; `to < 0` means the file's end, so `0 -1` is the whole file. A
-window the file outgrew, or one that does not run forwards, falls back to the whole file.
-
-One shared gain is what lets a whole track's clips be normalized together: the loudest hits
-the target and the rest keep their relative levels. The `normalize` command in the brain
-decides *which* clips and *which* windows, and updates the references to the new files.
+What that mode could say and a chain cannot is **one gain across a SET of files**, so a track's
+clips keep their relative levels. A chain renders each source on its own, so a track processed
+through `normalize` brings every clip to the target independently. That is a real difference and
+a deliberate trade: it buys a treatment that can be followed by another, lands in a stamped
+render beside the source rather than over it, and leaves nothing hard-coded in the engine.

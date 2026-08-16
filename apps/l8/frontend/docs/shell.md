@@ -350,9 +350,9 @@ dev it restarts on every code change. The ✓ ends it for good as well. A take c
 become unreachable while its file sat in `clips/`.
 
 `ui review <clip>` names one and opens the panel on it. It is a `ui` command because it opens a
-VIEW and writes nothing — what the panel then does (`clip normalize`, `clip onset …`) is the
-brain's — and the named clip outranks the automatic one, without the rolling guard: asking for a
-clip by name is a deliberate act, not something that appeared while you were playing.
+VIEW and writes nothing — what the panel then does (`clip process`, `clip trim`, `clip onset …`)
+is the brain's — and the named clip outranks the automatic one, without the rolling guard: asking
+for a clip by name is a deliberate act, not something that appeared while you were playing.
 
 The lane is looked up rather than asked for (`takeReview.ts`), and a clip nothing places opens
 just the same, labelled **hors piste**. That is the case it exists for: the waveform, the onsets
@@ -403,11 +403,17 @@ number. The preview calls **the same `trimWindow`** the command runs — a previ
 with the act would be worse than none — so the only difference between the two is bucket
 resolution.
 
-Both the gate and `clip normalize` are **bounded to the window the clip already has**: a re-trim
-refines `from`/`to` and never reaches back into material an earlier trim removed (undo is how that
-comes back), and normalise measures its peak and lands its gain inside the window only, so the
-take around the event keeps its bytes (the engine's `--normalize` carries the window — see
-`engine/moteur/docs/cliModes.md`).
+The gate is **bounded to the window the clip already has**: a re-trim refines `from`/`to` and never
+reaches back into material an earlier trim removed (undo is how that comes back).
+
+`clip normalize` used to be bounded the same way and beside it in this panel. It is gone, and so
+is `track normalize` — the button became **operations**, every chain the project and the library
+offer, and normalising is one of them (`clip process <clip> <chain>` over a chain naming the
+médiathèque's `normalize` module). That is the trade: a treatment that can be followed by another,
+landing in a stamped render the clip is repointed at, instead of one hard-coded gain written over
+the take. The engine's `--normalize` mode went with them. See `@studio/commands`'
+`docs/processChain.md`, which records the one thing that was given up — a single gain shared
+across a whole track's files.
 
 Nothing above the gate changes nothing, and says so: a take entirely below it is either silence or
 a gate set too high, and a window of zero length would play nothing at all.

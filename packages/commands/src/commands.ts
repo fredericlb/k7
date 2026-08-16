@@ -122,7 +122,6 @@ import {
   pull,
   switchAlternative,
 } from "./git";
-import { DEFAULT_PEAK, normalizeInPlace } from "./normalize";
 import { processWithChain, type Scope } from "./processChain";
 import { freezeUpstreamRender } from "./render";
 import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
@@ -609,54 +608,15 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
  * noun makes. See processChain.ts and docs/processChain.md.
  */
 /**
- * `<scope> normalize <target> [peak]` — the material brought to a peak, over itself.
- *
- * `peak` is linear (1.0 == full scale) and optional; the default leaves a decibel of headroom, for the
- * reason DEFAULT_PEAK gives. A reload follows because the FILES changed under the compiler — the clip
- * definitions did not, so nothing else would notice.
- */
-async function normalizeCommand(
-  arg: string,
-  h: CommandHost,
-  scope: Scope,
-): Promise<void> {
-  const [target, peakArg] = arg.trim().split(/\s+/).filter(Boolean);
-  if (!target) {
-    h.log([
-      `usage: ${scope} normalize <${scope}> [peak 0–1, default ${DEFAULT_PEAK}]`,
-    ]);
-    return;
-  }
-  const peak = peakArg === undefined ? DEFAULT_PEAK : Number(peakArg);
-  if (!Number.isFinite(peak)) {
-    h.log([`'${peakArg}' is not a peak — a number over 0 and at most 1`]);
-    return;
-  }
-  const { lines, changed } = normalizeInPlace(
-    h.songPath,
-    h.project(),
-    target,
-    scope,
-    findEngineBinary(),
-    peak,
-    // The same journal hook the bounce uses, so this is one Ctrl+Z away.
-    (abs) => h.snapshot?.(abs),
-    // A clip is measured AND gained inside its own `from`/`to`: the operation acts on the
-    // material the event is, and the take around it keeps its bytes. A track names files, not
-    // events, so its scope stays the whole file.
-    scope === "clip" ? clipWindow(h, target) : null,
-  );
-  h.log(lines);
-  if (changed) await h.reload();
-}
-
-/**
  * The interval a clip PLAYS, in file seconds — its `from`/`to` resolved the way the compiler
  * resolves them (timecode spelling included), or null when it states none.
  *
- * This is what bounds `clip trim` and `clip normalize`: an operation launched on an event acts on
- * the material that event IS, not on the rest of the take around it. `to` comes back as Infinity
- * when only `from` is stated — each caller clamps it to what it knows the file to be.
+ * This is what bounds `clip trim`: an operation launched on an event acts on the material that
+ * event IS, not on the rest of the take around it. `to` comes back as Infinity when only `from`
+ * is stated — the caller clamps it to what it knows the file to be.
+ *
+ * `clip normalize` was the other caller and is gone with `track normalize`, normalising having
+ * become a chain (docs/processChain.md) — which is why this now has a single one.
  */
 function clipWindow(
   h: CommandHost,
@@ -906,10 +866,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "track.process": (a, h) => processCommand(a, h, "track"),
   "clip.process": (a, h) => processCommand(a, h, "clip"),
 
-  // Peak-normalise the material itself, in place and undoably — the engine has always known how, and
-  // until now nothing asked it. See normalize.ts for why in place is safe and why it is WAV only.
-  "track.normalize": (a, h) => normalizeCommand(a, h, "track"),
-  "clip.normalize": (a, h) => normalizeCommand(a, h, "clip"),
+  // There is no `track.normalize` / `clip.normalize` any more: normalising is a treatment, and a
+  // treatment is a chain — the two verbs above apply one (docs/processChain.md).
 
   // --- a clip's onsets ---------------------------------------------------------
   // Corrections to what the engine detected, kept as a DIFF so they outlive a re-detection at another

@@ -210,7 +210,7 @@ These are static and wire up from `main()`:
 | `dumpPluginParamsExternal` | `--dump-params-ext <format> <identifier> <statefile>` — an external restored from its `.vstpreset`, complete iff it round-trips |
 | `renderDocument` | `--render <doc.json\|-> --out <dir> [--stems]`: offline bounce with no audio device, so MIDI and instrument tracks are rendered (unlike an ffmpeg mixdown) |
 | `writeWaveformCache` | `--waveform <audiofile>` — see [cliModes.md](cliModes.md) |
-| `normalizeClips` | see [cliModes.md](cliModes.md) |
+| `printFilePeak` | `--peak <audiofile>` — the measuring half of a cold module, see [cliModes.md](cliModes.md) |
 
 The param dumps are l8's text alternative to an opaque `.vstpreset`: the payload is
 `{ "params": {paramID: value}, "complete": bool }`, where `complete` means the params fully
