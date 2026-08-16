@@ -266,8 +266,10 @@ function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
     contentTypeOf(t) === "sequences"
       ? "@studio/sequence-track"
       : "@studio/audio-track";
-  value.clips = placements;
-  return yamlText(value, [["clips"]]);
+  // The lane file's own key — `events:`, not `clips:`. A clip is the material in
+  // clips/<id>.yaml; these are placements of it. See song/yaml/moduleSchema.
+  value.events = placements;
+  return yamlText(value, [["events"]]);
 }
 
 // --- entry -------------------------------------------------------------------

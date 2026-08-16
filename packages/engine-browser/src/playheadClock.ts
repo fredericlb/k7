@@ -1,45 +1,96 @@
-// playheadClock.ts — a DRAWN playhead that runs on wall time between the engine's 20 Hz frames
-// and is steered by them rather than snapped to them. Pure: no React, no DOM, no clock of its
-// own — every function takes `now`. It trades accuracy for continuity, so it is for things that
-// are LOOKED at; anything that timestamps wants the raw anchor instead. See docs/playhead.md.
+// playheadClock.ts — a DRAWN playhead. The transport's rate is KNOWN (one second per second:
+// the protocol has play/stop/seek and no varispeed), so this predicts from local time and the
+// only unknown it estimates is the OFFSET between the two clocks. A frame that disagrees is a
+// measurement, not a drift — except past SEEK_EPS, where it is a jump and the estimate is rolled
+// back. Pure: no React, no DOM, no clock of its own. See apps/l8/frontend/docs/playhead.md.
 
-/** A frame contradicting the drawn position by more than this is a SEEK, not drift. */
+/** A frame contradicting the estimate by more than this is a SEEK, not latency. */
 export const SEEK_EPS = 0.3; // seconds — the same figure ui-eyes' EngineClock uses
 
-/** Seconds over which a full-span correction is absorbed. */
-export const RATE_TAU = 0.5;
+/**
+ * How far back the offset estimate looks, in ms.
+ *
+ * Bounded for one reason: the engine's playhead advances on the AUDIO clock (the interface's
+ * crystal) and `performance.now()` is the system one. They differ by tens of ppm, so the true
+ * offset creeps. Ageing samples out is what absorbs that — at 100 ppm, four seconds of creep is
+ * 0.4 ms, which is nothing, whereas an unbounded window would hold a stale best sample for the
+ * length of a set.
+ */
+export const WINDOW_MS = 4000;
 
-/** The most the drawn clock may run off real time, either way. ±10% is not visible; a snap is. */
-export const RATE_SPAN = 0.1;
+/** The most the drawn offset may creep per second of real time while chasing the estimate. */
+export const SLEW = 0.02;
+
+/** One frame, as evidence about the offset rather than as a position. */
+interface Sample {
+  /** `playhead − arrival`: what the local clock's zero maps to in transport seconds. */
+  offset: number;
+  at: number;
+}
 
 export interface PlayheadClock {
-  /** What the last frame said, and the `now` at which it reached us. */
-  anchorSec: number;
-  anchorAt: number;
   playing: boolean;
-  /** What was last drawn, and when. This is the clock that actually moves the line. */
-  drawnSec: number;
+  /** The frames still in the window, oldest first. Empty while stopped. */
+  window: Sample[];
+  /** The best offset the window supports — see `estimateOf`. */
+  offset: number;
+  /** The offset actually being DRAWN from, which chases `offset` under SLEW. */
+  drawnOffset: number;
+  /** Where the last frame said we were. The answer outright while stopped. */
+  anchorSec: number;
   drawnAt: number;
 }
 
+/**
+ * The window starts EMPTY: the estimate is built only from frames that actually arrived.
+ *
+ * Seeding it from the caller's snapshot is tempting and is not a measurement — the snapshot is
+ * whatever the store last received, so its transit time is unknown and already spent. In
+ * practice such a sample UNDERSTATES the offset, which a max filter discards the moment a real
+ * frame lands, so seeding is harmless rather than wrong. It is left out because it was not
+ * harmless in a BENCH: constructed with a perfect value it made the clock measure 2.5 ms more
+ * accurate than it is, which is the sort of thing that gets quoted later.
+ */
 export const newPlayheadClock = (
   seconds = 0,
   playing = false,
   now = 0,
 ): PlayheadClock => ({
-  anchorSec: seconds,
-  anchorAt: now,
   playing,
-  drawnSec: seconds,
+  window: [],
+  offset: seconds - now / 1000,
+  drawnOffset: seconds - now / 1000,
+  anchorSec: seconds,
   drawnAt: now,
 });
 
 /**
+ * The best offset the window supports: the LARGEST sample.
+ *
+ * A frame is sampled by the engine and then reaches us — serialised, sent, parsed — so its
+ * arrival is always later than the moment it describes. Every sample therefore UNDERSTATES the
+ * true offset, by exactly its own transit time, and the largest one is the frame that got here
+ * fastest. Taking the max is taking the least-delayed measurement and discarding the rest; it is
+ * the same reasoning NTP applies to round trips, and it is only available because the rate is
+ * known — with an unknown rate these samples would have to be regressed, noise and all.
+ */
+const estimateOf = (window: Sample[]): number => {
+  let best = -Infinity;
+  for (const s of window) if (s.offset > best) best = s.offset;
+  return best;
+};
+
+/**
  * Take one engine frame.
  *
- * A play/pause EDGE re-seats the drawn clock outright: the value it held is from before the
- * gap, and easing across that gap would walk the line over material nobody played. Drift is
- * left to `advancePlayhead`, which is where the steering happens.
+ * ROLLBACK is the interesting half. A frame further from the estimate than `SEEK_EPS` is not a
+ * late packet, it is the transport having moved — a seek, a loop wrap, a play from elsewhere —
+ * and every sample in the window is now evidence about a position that no longer exists.
+ * Keeping them would hold the drawn line at the old offset for a whole window; worse, the max
+ * filter would prefer them, because a backwards seek makes every new sample smaller. So the
+ * window is thrown away and re-seeded from this frame alone, and the drawn offset goes with it.
+ *
+ * A play/pause edge is the same event by another name.
  */
 export function feedPlayhead(
   c: PlayheadClock,
@@ -47,38 +98,51 @@ export function feedPlayhead(
   seconds: number,
   now: number,
 ): PlayheadClock {
-  const edge = playing !== c.playing;
+  if (!playing)
+    return { ...c, playing, window: [], anchorSec: seconds, drawnAt: now };
+  const sample: Sample = { offset: seconds - now / 1000, at: now };
+  // An empty window is a seed, not a rollback — but it takes the same path: one sample, and the
+  // drawn offset set to it rather than eased towards it.
+  const edge = !c.playing || c.window.length === 0;
+  const jumped =
+    c.window.length > 0 && Math.abs(sample.offset - c.offset) > SEEK_EPS;
+  if (edge || jumped)
+    return {
+      playing: true,
+      window: [sample],
+      offset: sample.offset,
+      drawnOffset: sample.offset, // the rollback: draw the authority, not the old prediction
+      anchorSec: seconds,
+      drawnAt: now,
+    };
+  const window = [...c.window, sample].filter((s) => now - s.at <= WINDOW_MS);
   return {
+    ...c,
+    playing: true,
+    window,
+    offset: estimateOf(window),
     anchorSec: seconds,
-    anchorAt: now,
-    playing,
-    drawnSec: edge ? seconds : c.drawnSec,
-    drawnAt: edge ? now : c.drawnAt,
   };
 }
 
 /**
- * Advance the drawn clock to `now`.
+ * Where to draw, at `now`.
  *
- * The frames are not a position to copy, they are a MEASUREMENT of one. Re-anchoring on each
- * would put the timer's and the socket's jitter straight back into the line, which is the
- * stutter this exists to remove — 60 fps of it instead of 20. So local time runs, and the
- * error against the engine only bends its RATE, by at most ±10%.
+ * `drawnOffset + now` and nothing else — a straight line in local time, which is what makes it
+ * smooth: there is no per-frame correction to see, because the frames only ever move the
+ * OFFSET, and the offset barely moves. What movement it has is slewed, so even a re-estimate is
+ * absorbed at 2% of real time rather than stepped.
  *
- * Two consequences worth stating. The line is monotonic while rolling: the rate stays positive,
- * so a frame arriving late can never drag it backwards. And a real discontinuity — a seek, a
- * loop wrap — is past `SEEK_EPS` and snaps, because easing 8 bars at 1.1× would take a minute.
+ * Monotonic while rolling: local time only increases and the slew cannot outrun it.
  */
 export function advancePlayhead(c: PlayheadClock, now: number): PlayheadClock {
-  if (!c.playing) return { ...c, drawnSec: c.anchorSec, drawnAt: now }; // stopped: the frame IS the answer
-  const target = c.anchorSec + (now - c.anchorAt) / 1000;
+  if (!c.playing) return { ...c, drawnAt: now };
   const dt = Math.max(0, now - c.drawnAt) / 1000;
-  const predicted = c.drawnSec + dt;
-  const err = target - predicted;
-  if (Math.abs(err) > SEEK_EPS) return { ...c, drawnSec: target, drawnAt: now };
-  const rate = Math.min(
-    1 + RATE_SPAN,
-    Math.max(1 - RATE_SPAN, 1 + err / RATE_TAU),
-  );
-  return { ...c, drawnSec: c.drawnSec + dt * rate, drawnAt: now };
+  const err = c.offset - c.drawnOffset;
+  const step = Math.min(Math.abs(err), dt * SLEW) * Math.sign(err);
+  return { ...c, drawnOffset: c.drawnOffset + step, drawnAt: now };
 }
+
+/** The position to draw at `now`, in transport seconds. */
+export const playheadAt = (c: PlayheadClock, now: number): number =>
+  c.playing ? c.drawnOffset + now / 1000 : c.anchorSec;

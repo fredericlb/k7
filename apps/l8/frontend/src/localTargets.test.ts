@@ -33,7 +33,7 @@ describe("resolveEntry", () => {
     expect(resolveEntry("rythm", TREE)).toBe("clips/rythm.yaml");
   });
 
-  it("answers a FOLDER too — `file move` and `ui pin` are offered on one", () => {
+  it("answers a FOLDER too — `fs file move` and `ui pin` are offered on one", () => {
     expect(resolveEntry("clips", TREE)).toBe("clips");
   });
 
@@ -72,7 +72,7 @@ describe("paths", () => {
 
 describe("headTokens", () => {
   it("keeps the leading tokens whole and hands the REST over as one", () => {
-    // `file rename <path> <new name>`: a name may have spaces in it, a path may not.
+    // `fs file rename <path> <new name>`: a name may have spaces in it, a path may not.
     expect(headTokens("clips/kick.wav the loud one.wav", 2)).toEqual([
       "clips/kick.wav",
       "the loud one.wav",

@@ -203,7 +203,7 @@ export const VideoTrackSchema = z
     y: Px.optional(),
     w: Px.optional(),
     h: Px.optional(),
-    clips: z.array(VideoPlacementSchema).optional(), // "video" tracks only
+    events: z.array(VideoPlacementSchema).optional(), // "video" tracks only — see #Module's `events:`
     shapes: z.array(ShapeSchema).optional(), // "shape" tracks only
   })
   .strict();

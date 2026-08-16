@@ -75,9 +75,11 @@ Mais extrapoler naïvement (`playhead + (now - at)`) ne suffit pas, et c'est ce 
 faisait. Les frames n'arrivent pas sur un battement régulier — entre le timer du moteur, le
 socket et le parsing, chacune atterrit avec un délai différent — donc se ré-ancrer sur chacune
 **recopie cette gigue** dans le défilement : on obtient 60 images par seconde de saccade au
-lieu de 20. Le canvas lit maintenant `Deck.drawNow`, où une horloge locale porte la position et
-le moteur ne courbe que son **débit**, de ±10 % au plus
-(`@studio/engine-browser/playhead-clock`). Elle décide aussi seule de l'arrêt, ce qui est
+lieu de 20. Le canvas lit maintenant `Deck.drawNow`. Le débit du transport étant CONNU — une seconde par
+seconde, fader de pitch compris, puisque celui-ci étire le clip et non le transport — l'horloge
+prédit depuis le temps local et n'estime que l'OFFSET, en retenant la frame la moins retardée
+d'une fenêtre récente (`@studio/engine-browser/playhead-clock`). La position dessinée est donc
+une droite, et un vrai seek fait reculer la fenêtre. Elle décide aussi seule de l'arrêt, ce qui est
 pourquoi ce fichier ne teste plus `playing` pour savoir s'il faut extrapoler : les deux ne
 peuvent plus être en désaccord sur ce que « à l'arrêt » veut dire.
 

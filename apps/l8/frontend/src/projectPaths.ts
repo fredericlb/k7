@@ -26,7 +26,7 @@ export const isClipFile = (path: string): boolean =>
  */
 export const isTrackFile = (path: string): boolean =>
   kind("nodes").test(norm(path));
-/** A PICTURE lane's placement file: a flat mapping whose `clips:` lists placements, in seconds.
+/** A PICTURE lane's placement file: a flat mapping whose `events:` lists placements, in seconds.
  *  What the editor's readers strip is drawn for (components/VideoReadersStrip.tsx). */
 export const isVideoTrackFile = (path: string): boolean =>
   kind("video_tracks").test(norm(path));

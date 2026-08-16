@@ -97,33 +97,77 @@ One flat key space: a chain step naming `lead` must mean exactly one thing. So a
 may not take the name of a module, and `createNode` refuses it up front. A file
 written by hand that collides is reported as an issue rather than silently winning.
 
-## Instancing one from `module insert` / `module place`
+## `node …` and `module …` — which verb is which
 
-Both take two trailing optionals — `[extends-ref] [node]` — and they are told apart by
-SHAPE when only one is given (a ref has a slash or an `@`), which is what lets you name a
-node without inventing a ref. With BOTH given they are positional, and that is where the
-hole was: a module the project already has plus an `extends-ref` was refused outright, so
-naming a node of it meant also passing a ref, and passing a ref is what the refusal was
-about. Reusing a module you already have — the ordinary case — had no spelling at all.
+The first word of a command says **what it addresses**, and the split follows the sentence at
+the top of this page: a module is a thing you could use, a node is one use of it.
 
-A node name now makes the ref **redundant rather than contradictory**: it says "use the
-module that is already there, under this name". Two refusals remain, and both are real:
+| | |
+|---|---|
+| `node new` `node delete` `graph unlink` `node insert` `node position` | where a use sits in the chains |
+| `node bypass` `node freeze` | what a use does to the signal passing through it |
+| `node param` `node replace` `node alternative …` | how one use is set, what it plays, which of its settings is on |
+| `module new` `module clone` `module own` | the thing itself — created, copied, given a folder |
+| `module cc` | what every use of it inherits: its MIDI map |
 
-- a ref with **no node** to justify it — there is nothing to do with it but ignore it, and
-  ignoring what someone typed is how a command lies;
-- a ref that **disagrees** with what the module already extends. Instancing cannot re-parent a
-  module, so proceeding would silently drop the parent that was asked for. The message names
-  the one it actually has.
+Eight of the first list were `module …` verbs, which read as edits to the definition and were
+not: `node bypass` writes a name into `chains.yaml`, and a chain names nodes. `node param
+lead "Filter Freq" 69` sets **this** use; the synth two lanes over is untouched.
 
-## Taking one back out — `node unlink`
+The completion draws the same line. The `nodes` provider offers the project's uses and nothing
+else, where `modules` also offers the `@refs` a shared definition is named by — and **editing a
+shared definition is the builder's job**, not a verb's: a `node …` line must never write a file
+another project reads. A block in the graph is both, so its right-click menu asks both
+providers, uses first.
 
-`node unlink <name>` removes a node from the chains and **joins what fed it to what
-it fed**, so the run closes over the gap instead of going quiet. Its files are untouched.
+## Making one, and wiring it
+
+**Every node is in the graph.** A node file with no entry in `chains.yaml` is loaded by the
+project and drawn nowhere — the blocks come off the chains — so a node that existed and was on
+no screen was not a state worth being able to reach. `node new <category>/<name> <node> [x,y]`
+therefore writes the file *and* names the node in the graph, wired to nothing
+(`modules: { <node>: [] }`), at the click when the web sends one.
+
+`module new <category>/<name> [extends-ref]` writes the module and **only** the module. It used
+to take a trailing node name and make one in the same breath, which is why the graph's `+` could
+send a single line — but a module and a USE of it are two things, and a chain names the use. A
+module that is already there is not an error: it is the ordinary second pick of the same thing.
+
+WIRING is separate again, and it is one verb: `node insert <before> <after> <node>` splices a
+node into an arrow. There is no verb for "put this node on the canvas" any more — `node place`
+was it, and both of its reasons went away: `node new` places what it makes, and `graph unlink`
+leaves what it unlinks. Moving one is `node position`.
+
+The two wiring verbs used to create as well — each took a `<category>/<name>` and made the
+module first. That is what made `node insert` indistinguishable from `chain add`, which did
+this same splice on a module already there: one act, told apart only by whether a file had to
+be written on the way. `chain add` is gone, and its half is what `node insert` now IS.
+
+So the graph's `+` writes `node new <type>/<name> ` into the bar and the person types the name.
+For a pick from a CATALOGUE the shell runs a `module new` ahead of it, because `node new`
+instances a module that exists and a catalogue pick has no local folder yet; for a module this
+project already has, that step is absent and the gesture is one line. See `nodeInsert.ts` in
+l8's frontend.
+
+One refusal remains on `module new`, and it is real: an `extends-ref` that **disagrees** with
+what the module already extends. Asking for it again cannot re-parent it, so proceeding would
+silently drop the parent that was asked for. The message names the one it actually has.
+
+## Taking one back out — `graph unlink`
+
+`graph unlink <name>` takes a node out of the SIGNAL PATH and **joins what fed it to what
+it fed**, so the run closes over the gap instead of going quiet. Its files are untouched, and so
+is its place on the canvas: the entry stays as `modules: { <name>: [] }`, with its pin and its
+bypass. Every node is in the graph, and a verb about cables should not make one disappear.
+
+Deleting one outright — the file, the preset, the entry, the pin — is `node delete`. Same splice,
+and then it is gone. The MODULE it uses is left alone either way: a node is one use of one, and
+other projects read the same module.
 
 That last clause is the whole reason it exists. Taking a module out of the signal path and
 getting rid of it are two different intentions, and for a while only the second had a command
 (`module delete`, now gone) — so "mute this out of the chain for a moment" meant deleting a node
-and losing its settings. Unlinked, it is still on disk with everything it had, and `chain add`
+and losing its settings. Unlinked, it is still on disk with everything it had, and `node insert`
 puts it back.
 
 The splice itself is `removeNode`'s; a node fed from two paths has both of them rejoined. A **lane** used to be refused here — a chain started at it, so

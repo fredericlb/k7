@@ -135,7 +135,7 @@ function curveFields(path: string[]): string[] {
 
 function videoTrackFields(path: string[]): string[] {
   if (path.length === 0) return keys(VideoTrackSchema);
-  if (path[0] === "clips") return keys(VideoPlacementSchema);
+  if (path[0] === "events") return keys(VideoPlacementSchema);
   // A shape's fields depend on its `type`; offer every kind's, as the top level does.
   if (path[0] === "shapes")
     return [
@@ -157,14 +157,14 @@ function videoTrackFields(path: string[]): string[] {
 function moduleFields(path: string[]): string[] {
   if (path.length === 0) return keys(ModuleSchema);
   const [head, ...rest] = path;
-  // A lane's placements. `clips:` is a module field now, so it is offered here rather than by a
+  // A lane's placements. `events:` is a module field now, so it is offered here rather than by a
   // track vocabulary of its own — which is the whole of what the `track` kind used to be for.
-  if (head === "clips") return keys(PlacementSchema);
+  if (head === "events") return keys(PlacementSchema);
   // A lane's TAKES: a list of takes, each of which holds a list of placements. So the offer
   // depends on how deep the path is — the take's own two fields, or a placement's.
   if (head === "takes") {
     if (!rest.length) return [];
-    return rest.includes("clips") ? keys(PlacementSchema) : keys(TakeSchema);
+    return rest.includes("events") ? keys(PlacementSchema) : keys(TakeSchema);
   }
   // One of the module's other attribute SETS: the same fields it has itself, plus a name. Derived
   // like everything else here, so a field added to a module is offered inside an alternative too.

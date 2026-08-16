@@ -22,14 +22,21 @@ does not have, so this is a question of who calls, not of whether it works.
 
 ## Where a host puts them
 
-This package renders a grid; it decides nothing about where. In l8 there are three homes,
+This package renders a grid; it decides nothing about where. In l8 there are four homes,
 and the split is deliberate:
 
 | where | what persists an edit |
 |---|---|
 | the **chains slot** in the main view, opened by `sequence edit roll\|tracker <sequence>` and closed by its × | written straight to the file, per edit |
+| the **clip pane's `tracker` mode**, one of the three the header's view switch offers | the same, and the same code: both mount `SeqGridFile` |
 | the **editor popin's tabs** — Text / Roll / Tracker, on a sequence | into the editor's buffer: dirty flag, Save button, one path with the text |
 | st0 / anywhere else drawing a sequence | its own |
+
+The first two share `SeqGridFile` rather than each reading and writing the file themselves:
+"read it once, hand it to the grid, write every edit back" is one behaviour, and two copies of it
+is how the two homes come to disagree about when a file is re-read. What is NOT shared is the
+frame — `SeqGridPane` draws the sequence's own bar, the clip pane draws its view switch. See
+`apps/l8/frontend/docs/clipEditors.md`.
 
 The fullscreen editor pane has neither, on purpose: it is the text editor, and a grid
 wants the room the main view has. See `apps/l8/frontend/docs/shell.md`.

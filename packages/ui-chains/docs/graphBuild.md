@@ -67,16 +67,17 @@ built-in with no folder anywhere (`@studio/song`'s `uiLibrary.ts` says so outrig
 `moduleRootFor` throws for it). So every live input in every project drew a card reading
 **"No Options"**, and no amount of authoring could have fixed it.
 
-**Everything is a dropdown, and that is a constraint rather than a taste.** A module FIELD is
-written by a command naming a state, so only a widget carrying `options` can commit one — a knob
-bound to a field draws, drags, and writes nothing (see `up()` in `DomChains`). `@gain` is
-deliberately **absent** for exactly that: it is a continuous trim, there is no `module gain` verb
-to send it, and a knob that moved without saving is worse than no knob.
+**Everything is a dropdown, and that is a constraint rather than a taste.** Only a widget carrying
+`options` can commit a module field — `setModuleField` in `DomChains` sends the picked option's
+`arg`, so a knob bound to a field draws, drags, and writes nothing. `@gain` is deliberately
+**absent** for that reason and only that one: a continuous trim has no options to pick. It is no
+longer for want of a verb — `node param <node> @gain <db>` exists — so what a gain knob now
+waits on is a commit-on-release path for a dragged intrinsic.
 
 **Width is not a field.** Mono and stereo are not two settings — they are how wide *one* setting
 is, so the width dropdown binds `@channel` like the socket does and writes the same field one
-channel wider or narrower. That is why there is one verb (`module channel`) and no state that can
-disagree with the file. A pair is even/odd and nothing else, because the interface groups no other
+channel wider or narrower. Both dropdowns therefore send the same line — `node param <node>
+@channel …` — and no state can disagree with the file. A pair is even/odd and nothing else, because the interface groups no other
 way: the pair containing channel 4 is 3+4, never 4+5.
 
 **The channel list is the machine's**, so it arrives as an argument to `buildGraph` rather than

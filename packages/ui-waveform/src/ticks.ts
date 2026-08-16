@@ -112,3 +112,43 @@ export function subdivideBeats(
   while (unit * ppb > maxPx && unit > floor) unit /= 2;
   return unit;
 }
+
+/** The finest split of one column this will make — a 16th of the interval it is handed. */
+export const MAX_GRID_SPLIT = 16;
+
+/**
+ * The EXTRA lines to draw between the ticks a ruler was handed, when its columns have opened up.
+ *
+ * `subdivideBeats` answers the same question for a ruler that knows its unit and can compute any
+ * tick it likes. This is for the other kind — the waveform, handed a bar/beat list by the file
+ * service, which cannot ask for a finer one: the sub-beat times simply are not in the data, so
+ * the only thing it can do is SPLIT what it has. Same halving rule, same `MAX_COLUMN_PX`, so the
+ * two produce the same density at the same zoom and the ruler over the wave agrees with it.
+ *
+ * Split per PAIR rather than once for the list: a warped clip's beats are not evenly spaced on
+ * screen, and one split count for all of them would crowd the compressed passages while leaving
+ * the stretched ones bare. Interpolating linearly inside a pair is exact for the same reason the
+ * projection is — it is piecewise-linear between the marks, and these ARE the marks.
+ *
+ * Returns times, not counts, because that is what both callers want: the canvas draws them and
+ * the click snaps to them (`nearestTick`), which is what keeps "you can only land on a line that
+ * is on screen" true once there are more lines than the service sent.
+ */
+export function subdivideGrid(
+  times: number[],
+  pxPerSec: number,
+  maxPx = MAX_COLUMN_PX,
+): number[] {
+  const out: number[] = [];
+  if (!Number.isFinite(pxPerSec) || pxPerSec <= 0) return out;
+  for (let i = 0; i + 1 < times.length; i++) {
+    const t0 = times[i];
+    const t1 = times[i + 1];
+    const gap = (t1 - t0) * pxPerSec;
+    if (!(gap > maxPx)) continue;
+    let n = 2;
+    while (gap / n > maxPx && n < MAX_GRID_SPLIT) n *= 2;
+    for (let j = 1; j < n; j++) out.push(t0 + ((t1 - t0) * j) / n);
+  }
+  return out;
+}

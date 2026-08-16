@@ -8,16 +8,16 @@ a module is named exactly once.
 The four edits the app actually makes (the honest test set):
 
 - **bypass a module** — the graph's bypass button, many times a session
-- **insert a module** — `module insert`, and the graph's drop-on-an-arrow
-- **take a module out of the signal path** — `node unlink` (`module delete`, which removed the
+- **insert a module** — `node insert`, and the graph's drop-on-an-arrow
+- **take a module out of the signal path, leaving it on the canvas** — `graph unlink`; `node delete` is the one that removes it (`module delete`, which removed the
   files as well, is gone: deleting them is the file tree's)
-- **rename a module** — forking a shared module into the project (`module replace` used to do
+- **rename a module** — forking a shared module into the project (`node replace` used to do
   this too; it repoints a node's `extends:` now and never touches a chain)
 
 ## What the shape bought
 
 - **Bypass no longer needs a chain named.** The list format let one module sit in two chains, so bypassing it in
-  one had to leave the other running — `module bypass` had to find the chains, refuse when there were two, and
+  one had to leave the other running — `node bypass` had to find the chains, refuse when there were two, and
   the frontend had to carry a chain name alongside the module. A module is named once here, so there is one
   thing to toggle. That is why `bypassed` is a flat list at the root and not a field on the node: there is no
   second copy for it to get out of step with.

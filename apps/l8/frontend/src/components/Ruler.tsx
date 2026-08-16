@@ -221,6 +221,70 @@ export const RulerTicks = memo(function RulerTicks({
 });
 
 /**
+ * The GRID that matches those ticks — the same ladder, one step fainter, drawn across the
+ * material instead of in a header of its own.
+ *
+ * It lives here beside `RulerTicks` rather than in whichever surface draws lanes, because the
+ * pair is one statement: a line under the ruler has to be a line the ruler drew, at the weight
+ * the ruler gave it. The timeline had this and the piano roll did not — the roll drew bar lines
+ * only, hard-coded, so at any zoom past the bar the ruler subdivided and the material below it
+ * stayed blank.
+ *
+ * Memoised for the reason `RulerTicks` is: with the ticks it is the most numerous thing on the
+ * surface, every prop is a number, and a re-render of the host for any other reason (a caret
+ * move, a poll landing, a meter changing) must leave it untouched. See docs/timeline.md.
+ */
+export const Grid = memo(function Grid({
+  mode,
+  beatLo,
+  lastBeat,
+  unit,
+  barBeats,
+  bps,
+  secStep,
+  ppb,
+  laneW,
+  left0,
+  top,
+  height,
+}: TickProps & {
+  ppb: number;
+  laneW: number;
+  left0: number;
+  top: number;
+  height: number;
+}) {
+  return (
+    <>
+      {rulerTicks(mode, beatLo, lastBeat, unit, barBeats, bps, secStep).map(
+        (t) => {
+          const left = (t.beat - beatLo) * ppb;
+          // A tick at the lane's right edge is a 1px border past the end of the box, and one
+          // pixel of horizontal scroll in a view that fits its pane exactly.
+          if (left >= laneW) return null;
+          return (
+            <div
+              key={`grid:${t.key}`}
+              className={cn(
+                "pointer-events-none absolute border-l border-dashed",
+                // The ruler's three weights, one step fainter: down here they cross the
+                // material rather than sitting in a header of their own.
+                t.level === 0
+                  ? "border-border/40"
+                  : t.level === 1
+                    ? "border-border/25"
+                    : "border-border/10",
+              )}
+              style={{ left: left0 + left, top, height }}
+            />
+          );
+        },
+      )}
+    </>
+  );
+});
+
+/**
  * The ruler a clip editor stacks over its material: the SONG's positions, not the file's — the
  * tick at "bar 33" is the same bar 33 the timeline shows, because a clip editor is a magnified
  * piece of the arrangement and its header should say where in the song you are looking.

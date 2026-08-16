@@ -6,17 +6,17 @@ and what it `extends` says what kind of lane it is. There is no `tracks/` folder
 Five built-in modules, and none of them has a file anywhere — they belong to the studio, so a
 lane costs exactly one file, its own:
 
-| extends | carries | its clips come from |
+| extends | carries | its events come from |
 |---|---|---|
-| `@studio/audio-track` | audio | `clips:` |
-| `@studio/sequence-track` | notes | `clips:` |
+| `@studio/audio-track` | audio | `events:` |
+| `@studio/sequence-track` | notes | `events:` |
 | `@studio/audio-strudel-track` | audio | `strudel:` |
 | `@studio/sequence-strudel-track` | notes | `strudel:` |
 | `@studio/group-track` | nothing — it is a relationship | nothing |
 
 Five because there were always two questions, and `type: single | group | strudel` beside
 `contentType: audio | sequences` only ever asked one of them at a time. What signal a lane
-carries and where its clips come from are both read off one `extends:` now, and neither can go
+carries and where its events come from are both read off one `extends:` now, and neither can go
 missing or disagree with the other.
 
 A track has no `volume` and no `pan`. They were the one part of its sound that lived outside its
@@ -41,7 +41,7 @@ plays the same thing and no two lines can disagree about what that is.
 extends: "@studio/audio-track"
 # color: "#c8a97e"   # the lane's colour, and its icon's in the timeline
 # disabled: true     # excluded from the render entirely, chains and all
-clips:
+events:
   - { ref: kick, start: "1:1:1" }
   - { ref: snare, start: "2:1:1", loop: 4 }   # four passes of the snare's window, back to back
   - { ref: kick, start: "6:1:1", fadeIn: "0:1:0", fadeOut: "0:1:0" }
@@ -57,7 +57,7 @@ it extends, and a module has one output port.
 
 ```yaml schema=Module
 extends: "@studio/sequence-track"
-clips:
+events:
   - { ref: melody, start: "1:1:1" }
   - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
 ```
@@ -91,13 +91,13 @@ indented under the lane, playing nothing.
 
 ```yaml schema=Module
 extends: "@studio/audio-track"
-clips:
+events:
   - { ref: gtr_3.1_260815T221030, start: "3:1:1" }   # the newest pass — what plays
 takes:
-  - clips:
+  - events:
       - { ref: gtr_3.1_260815T220641, start: "3:1:1" }   # the pass before it
   - name: quieter one          # optional; the row shows it instead of "take 2"
-    clips:
+    events:
       - { ref: gtr_3.1_260815T220914, start: "3:1:1" }
 ```
 
@@ -135,7 +135,7 @@ above).
 
 A lane's **alternatives** and its **freeze** are still here, and both belong to every module now
 rather than to lanes alone: `alternatives:` holds other sets of attributes (for a lane, one of
-those attributes is its `clips:`), and `frozen:` names a render standing in for everything
+those attributes is its `events:`), and `frozen:` names a render standing in for everything
 upstream of the module rather than for that one lane. Both are in Instruments.
 
 One field is simply gone:

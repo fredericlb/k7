@@ -27,6 +27,14 @@ type LegacyTrack = RawTrack & {
   role?: unknown;
   plugins?: unknown[];
   sends?: unknown[];
+  /**
+   * The old flat format's own `events:` — a list of clip IDS, not placements.
+   *
+   * Declared here rather than inherited, because a lane's list is `events:` now and this one
+   * must NOT follow it: these are files written before the rename, and reading them is the only
+   * reason this path exists. The word means what it meant when they were written.
+   */
+  clips?: unknown[];
 };
 
 // True when `abs` is a folder project (a directory with a project.yaml) or the project file itself.

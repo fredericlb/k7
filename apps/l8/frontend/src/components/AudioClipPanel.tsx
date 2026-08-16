@@ -34,6 +34,21 @@ const BUCKETS = 1200;
 // slider cannot ask for something that comes back silently adjusted.
 const SENS_MIN = 0.25;
 const SENS_MAX = 8;
+
+/**
+ * The three ways of looking at a clip's wave. They differ in what is DRAWN over it and in what
+ * pointing at it does — see `view` in the component.
+ *
+ * `warp` draws the onsets too, as plain grey rules: a stretch point is placed by dropping a beat
+ * onto a hit, so the hits have to be visible while the warp marks are what the hand is on. They
+ * are reference there, not pins — only `onsets` lets you touch them.
+ */
+type ClipMarkView = "standard" | "onsets" | "warp";
+const CLIP_VIEWS: { value: ClipMarkView; label: string }[] = [
+  { value: "standard", label: "standard" },
+  { value: "onsets", label: "onsets" },
+  { value: "warp", label: "warp" },
+];
 // The gate's range, in dBFS. −80 is below anything a take carries; −10 is above a signal, so the
 // slider spans "keep almost everything" to "keep only what is loud" and neither end is useless.
 const GATE_MIN = -80;
@@ -139,7 +154,17 @@ export function AudioClipPanel({
   const [asked, setAsked] = useState({ bars: DEFAULT_BARS, start: 0 });
   // Off by default: the marks are an editing layer, and opening a clip is first of all LOOKING at
   // it. Hiding them also stows their verbs — a click must not add an onset nobody can see.
-  const [showMarks, setShowMarks] = useState(false);
+  /**
+   * What the picture is FOR right now — and so what it draws and what a click means.
+   *
+   * One control rather than a pile of toggles, because the three answers are exclusive in
+   * practice: onsets and stretch points are both vertical rules over the same wave, and shown
+   * together neither reads. It also settles what a click does, which a checkbox could not: in
+   * `onsets` the canvas is an onset editor, everywhere else pointing at it means nothing.
+   */
+  const [view, setView] = useState<ClipMarkView>("standard");
+  const editingOnsets = view === "onsets";
+  const editingWarp = view === "warp";
   // The box the waveform fills, measured. See MIN_WAVE_H. The width came along for the
   // arrangement ruler, which needs pixels-per-beat before it can draw a tick.
   const waveBox = useRef<HTMLDivElement>(null);
@@ -407,10 +432,16 @@ export function AudioClipPanel({
                 written, or was deleted while its file stayed in clips/. It works the same: the
                 waveform, the onsets and the level belong to the FILE. */}
             {track ? <span>sur {track}</span> : <span>hors piste</span>}
-            {showMarks && (
+            {editingOnsets && (
               <span className="text-muted-foreground/70">
                 cliquer ajoute un onset · glisser un repère le déplace · cliquer
                 l'enlève
+              </span>
+            )}
+            {editingWarp && (
+              <span className="text-muted-foreground/70">
+                les traits gris sont les onsets, en repère — clip warp pose les
+                points d'étirement
               </span>
             )}
             {/* What is on screen, and the way back to the whole take. Said out loud because a
@@ -431,17 +462,27 @@ export function AudioClipPanel({
               </span>
             )}
 
-            {/* The whole marking toolkit lives behind this: the onsets, the warp rules, the
-                click/drag verbs and the detection slider come and go as one layer. */}
+            {/* What the picture is for. Native `<select>` like the sliders beside it — this
+                toolbar is plain controls, and a styled menu here would be the odd one out. */}
             <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={showMarks}
-                onChange={(e) => setShowMarks(e.target.checked)}
-              />
-              Voir les marqueurs
+              vue
+              <select
+                className="rounded border border-input bg-background px-1 py-0.5"
+                value={view}
+                onChange={(e) => setView(e.target.value as ClipMarkView)}
+                aria-label="type de vue"
+              >
+                {CLIP_VIEWS.map((v) => (
+                  <option key={v.value} value={v.value}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
             </label>
-            {showMarks && (
+            {/* The threshold belongs to the onset editor: it is what re-detects the very marks
+                you are correcting. In `warp` the rules are a backdrop, and a slider that
+                silently rewrote the sidecar under a stretch job would be a trap. */}
+            {editingOnsets && (
               <label className="flex items-center gap-2">
                 seuil
                 <input
@@ -735,7 +776,7 @@ export function AudioClipPanel({
                 // The trim preview: what a cut at this gate would KEEP, while its menu is open.
                 selection={keep ? { start: keep.from, end: keep.to } : null}
                 markers={
-                  showMarks
+                  editingOnsets
                     ? onsets.map((t) => ({ id: t.toFixed(4), atSec: t }))
                     : undefined
                 }
@@ -744,7 +785,11 @@ export function AudioClipPanel({
                 markerPlace="low"
                 // The clip's stretch points, if it has a map: a dashed rule at the moment of the
                 // source, a blue one where that moment's beat lands. `clip warp` is what moves them.
-                warps={showMarks ? wf.warpMarks : undefined}
+                warps={editingWarp ? wf.warpMarks : undefined}
+                // …and the onsets under them, as plain rules. A stretch point is placed by
+                // dropping a beat onto a hit, so the hits have to be on screen — as reference,
+                // not as pins: only the `onsets` view lets you touch them.
+                onsets={editingWarp ? onsets : undefined}
                 // No `sourceWindow` band: the view is CAGED to the clip's `from`/`to` (see `span`), so
                 // the window is the whole picture rather than a span inside it — a band would tint
                 // everything and mark nothing.
@@ -752,7 +797,7 @@ export function AudioClipPanel({
                 // A click on a mark refuses that onset; on a detected one that records a removal, on a
                 // hand-placed one it takes the addition back — one verb, because from here it is one act.
                 onMarkerClick={
-                  showMarks
+                  editingOnsets
                     ? (m) =>
                         void run(
                           `clip onset remove ${clip} ${m.atSec.toFixed(4)}`,
@@ -763,7 +808,7 @@ export function AudioClipPanel({
                 // …and dragging one MOVES it: the detector heard the attack a hair late, and saying
                 // where it belongs is one act, not a refusal followed by an addition.
                 onMarkerMove={
-                  showMarks
+                  editingOnsets
                     ? (m, to) =>
                         void run(
                           `clip onset move ${clip} ${m.atSec.toFixed(4)} ${to.toFixed(4)}`,
@@ -775,7 +820,7 @@ export function AudioClipPanel({
                 // is nothing to seek on a take that is not playing, so this is what pointing means here.
                 // Marks hidden, the click is stowed with them — no invisible onsets.
                 onSeek={
-                  showMarks
+                  editingOnsets
                     ? (sec) =>
                         void run(
                           `clip onset add ${clip} ${sec.toFixed(4)}`,

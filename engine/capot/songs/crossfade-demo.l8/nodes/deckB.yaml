@@ -18,6 +18,6 @@
 #
 # TODO: try automating Mix so the two decks trade places over a bar.
 extends: "@studio/audio-track"
-clips:
+events:
   - { ref: snare, start: "1:2:1" }
   - { ref: snare, start: "1:4:1" }

@@ -164,7 +164,7 @@ params:
 
 ## nodes/<name>.yaml — one use of a module
 
-A project's USES of its modules live in a flat `nodes/` folder at its root, and the FILENAME names the node: a chain says `lead`, not the module it came from. The file is the same flat shape as module.yaml, says which module it uses with `extends:`, and states only what it changes. Each node keeps its own params and its own `nodes/<name>.vstpreset`, so tweaking one leaves the module and every other use alone. Merge order: extended base → the module → the node. To add one: right-click a module in the file tree → "New node…", or run `node new instruments/synth lead`.
+A project's USES of its modules live in a flat `nodes/` folder at its root, and the FILENAME names the node: a chain says `lead`, not the module it came from. The file is the same flat shape as module.yaml, says which module it uses with `extends:`, and states only what it changes. Each node keeps its own params and its own `nodes/<name>.vstpreset`, so tweaking one leaves the module and every other use alone. Merge order: extended base → the module → the node. To add one: right-click a module in the file tree → "New node…", or run `node new instruments/synth lead` — which also puts it in the graph, wired to nothing, since a node with no entry there would be drawn nowhere.
 
 The folder is flat on purpose — a node does not mirror the folders of the thing it uses, so a use of a médiathèque module needs no local folder for it.
 
@@ -212,7 +212,7 @@ nothing falls back to the first rather than silencing the module.
 The **⋮ button** on a node's top-right corner lists them, switches, and starts another — empty or
 as a copy of the one that is on. It lights up while a set other than the module's own is running,
 because a node on a variant otherwise looks exactly like one on its own settings. From the command
-bar: `module alternative select|create|copy <module> [name]`, and a bare `select` lists them.
+bar: `node alternative select|create|copy <node> [name]`, and a bare `select` lists them.
 
 For a **lane**, the timeline offers the same thing where you are already looking: a small badge
 beside the track icon carries the name of the set that is playing, amber while it is not the lane's
@@ -220,7 +220,7 @@ own. Click it and you get that lane's menu — switch to another set, or start o
 a lane that has a choice, so a lane with a single set is exactly as it was.
 
 A lane's sets are its **takes**, and they behave the way takes should. A new one starts **empty**
-(`clips: []`), not holding the previous take's placements. Editing clips while a take is on changes
+(`events: []`), not holding the previous take's placements. Editing clips while a take is on changes
 **that take** — the first edit copies in whatever it was playing, so the take you came from keeps
 what it had. A lane's colour and its `disabled` flag stay the lane's, shared by every take.
 
@@ -250,7 +250,7 @@ amped sound, not the sound going into it — and everything **downstream stays l
 whole difference between freezing and bouncing.
 
 The **⋮ button** on a node's corner freezes and unfreezes; from the command bar it is
-`module freeze <module>`, the same line both ways. What it writes is `frozen:`, naming the render
+`node freeze <node>`, the same line both ways. What it writes is `frozen:`, naming the render
 it made, and the badge on the node is a snowflake: cold blue on the point, and on every node the
 render already contains.
 
@@ -264,7 +264,7 @@ again, which is what makes a project safe to clone without it.
 ```yaml schema=Module
 extends: "@project/audio/amp"
 params: { Gain: 3 }
-frozen: renders/amp.wav      # written by `module freeze amp`; delete it and it plays live
+frozen: renders/amp.wav      # written by `node freeze amp`; delete it and it plays live
 ```
 
 ## modules/instruments/<name>/module.yaml — rack (drum kit)
@@ -322,7 +322,7 @@ A panel used to be a `ui:` block inside `module.yaml`. It moved into its own fil
 
 ## modules/<type>/<name>/module.yaml — automations:
 
-Bind a curve to a parameter. `curve` names a curves/<id>.yaml; `param` is the parameter's display name — the same name a widget binds and `module param` addresses. A curve's polarity decides whether it sweeps the parameter's whole range or rides ± around where the knob sits.
+Bind a curve to a parameter. `curve` names a curves/<id>.yaml; `param` is the parameter's display name — the same name a widget binds and `node param` addresses. A curve's polarity decides whether it sweeps the parameter's whole range or rides ± around where the knob sits.
 
 ```yaml schema=Module
 automations:

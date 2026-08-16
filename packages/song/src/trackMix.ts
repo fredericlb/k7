@@ -14,7 +14,7 @@ import {
   movePlacementAt,
   placementAt,
   placementValues,
-  pushClipsToTake,
+  pushEventsToTake,
   removeAllTakes,
   removePlacementAt,
   removeTake,
@@ -422,7 +422,7 @@ export function pushTrackClipsToTake(
     dir,
     id,
     (text) => {
-      const next = pushClipsToTake(text, name);
+      const next = pushEventsToTake(text, name);
       pushed = next !== text;
       return next;
     },
@@ -463,7 +463,7 @@ export function keepTrackTake(dir: string, id: string): number {
 export function trackTakes(
   dir: string,
   id: string,
-): { name?: string; clips: unknown[] }[] {
+): { name?: string; events: unknown[] }[] {
   const found = entityFileFor(join(dir, "nodes"), "nodes", id);
   if (!found) return [];
   return takeValues(readFileSync(found.path, "utf8"));
@@ -489,5 +489,5 @@ export function setTrackFields(
 }
 
 // A lane's ALTERNATIVES lived here. They belong to the MODULE a lane is now, so the verbs are
-// `module alternative …` (projectEdit.ts) and which clip list an edit above lands in is
+// `node alternative …` (projectEdit.ts) and which clip list an edit above lands in is
 // yaml/trackFile.ts's `clipsToEdit`. See docs/alternatives.md.

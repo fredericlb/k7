@@ -125,9 +125,10 @@ export function compileVideoTracks(
       w: Number(t.w ?? 0),
       h: Number(t.h ?? 0),
       // Only the matching field is read downstream, so the other stays empty.
+      // Authored `events:` becomes the compiled `clips` — the boundary, as on the audio side.
       clips:
         kind === "video"
-          ? (Array.isArray(t.clips) ? t.clips : []).map((p) =>
+          ? (Array.isArray(t.events) ? t.events : []).map((p) =>
               videoPlacementToClip(dir, p, clipsMap),
             )
           : [],

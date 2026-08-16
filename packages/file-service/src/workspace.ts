@@ -235,23 +235,18 @@ async function renameWithRetry(
   }
 }
 
-// The strip a track's surfaces read: the mixer module at the end of its chain, flattened to the five numbers a
+// The strip a track's surfaces read: the mixer module at the end of its chain, flattened to the two numbers a
 // fader panel needs plus the module ref an edit has to address. Spread into the WebTrack, so a track with no
 // strip simply has no `mixer` key rather than one full of zeroes that look like settings.
+//
+// Level and pan only. The mixer's three tone bands are still its params — nothing about the plugin or the
+// module changed — but they are not lifted onto the track: they are read and written where the module's other
+// params are, which is the one place that cannot disagree with itself.
 function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
   const p = trackMixer(t);
   if (!p) return {};
   const v = (name: string) => Number(p.params?.[name] ?? 0);
-  return {
-    mixer: {
-      module: p.name,
-      volume: v("Volume"),
-      pan: v("Pan"),
-      low: v("Low"),
-      mid: v("Mid"),
-      high: v("High"),
-    },
-  };
+  return { mixer: { module: p.name, volume: v("Volume"), pan: v("Pan") } };
 }
 
 // One clip as the browser reads it. Named, rather than written inline where the lane's clips are

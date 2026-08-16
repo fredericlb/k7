@@ -51,8 +51,9 @@ export const KEYS: Record<string, Binding> = {
     { if: "caret_track", command: "track mute {caret_track}" },
   ],
   s: { if: "caret_track", command: "track solo {caret_track}" },
-  // r arms the track under the caret. Session state the engine holds, so it writes no file and survives a reload.
-  r: { if: "caret_track", command: "track rec {caret_track}" },
+  // r arms the track under the caret. Session state the engine holds, so it writes no file and
+  // survives a reload — which is why the verb is `transport arm` and not a `track` one.
+  r: { if: "caret_track", command: "transport arm {caret_track}" },
   // Shift+R toggles the GLOBAL record enable — what play DOES with the armed set, not what is armed.
   R: "transport record",
   // e edits the clip under the caret; with none there the binding resolves to nothing.

@@ -8,6 +8,7 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -19,7 +20,7 @@ import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { rollFit } from "../rollFit";
 import type { WebClip, WebProject } from "../types";
-import { ArrangementRuler } from "./Ruler";
+import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
 
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const pc = (k: number) => ((k % 12) + 12) % 12;
@@ -42,6 +43,7 @@ const clamp = (v: number, lo: number, hi: number) =>
 export function PianoRoll({
   project,
   clip,
+  modes,
   onClose,
   onSeek,
   onCreateNote,
@@ -50,6 +52,9 @@ export function PianoRoll({
 }: {
   project: WebProject;
   clip: WebClip;
+  /** The clip pane's view switch, drawn at the end of the header. Absent for the hosts that
+   *  offer no other view of these notes — the editor's own preview. See ClipViewModes.tsx. */
+  modes?: ReactNode;
   /** Absent when the frame around it owns the closing — see GraphSlotPane. */
   onClose?: () => void;
   /** Seek the transport, in SONG seconds — what a click on the arrangement ruler does. */
@@ -151,19 +156,27 @@ export function PianoRoll({
     el.scrollLeft = (fitBeatLo - origin) * ppb; // …and the left edge of the fitted span
   }, [clip.id, availH, rowH, fitHiK, fitBeatLo, origin, ppb, zoomX]);
 
-  // The grid's beats are ABSOLUTE — the file's own bar numbers — drawn offset by the origin, so a
-  // window opening at bar 3 still says 3 rather than renumbering itself from 1.
+  /**
+   * The file's own ruler and the grid under it, on the SHARED ladder — `rulerScale` picks the
+   * unit from the current `ppb` exactly as the timeline's does, so zooming in subdivides (bar →
+   * beat → half → sixteenth…) and zooming out thins the numbers rather than smearing them.
+   *
+   * It used to be two hand-rolled loops here: bars every `barBeats`, beats every 1, whatever the
+   * zoom. So the roll had a fixed ruler under a zoomable canvas — no lines at all between beats
+   * however far in you went, and a wall of unreadable numbers on the way out — and the LANES
+   * drew bar lines only, which left the material below the ruler without the ruler's own grid.
+   *
+   * The beats are ABSOLUTE — the file's own numbering, `origin` included — so a window opening
+   * at bar 3 says 3 rather than renumbering itself from 1. That is what the shared ladder gives
+   * for free: it counts from the coordinate's origin, not from the view's left edge.
+   */
   const gridEnd = origin + canvasBeats;
-  const bars: number[] = [];
-  for (
-    let t = Math.ceil(origin / barBeats) * barBeats;
-    t <= gridEnd;
-    t += barBeats
-  )
-    bars.push(t);
-  const beats: number[] = [];
-  for (let t = Math.ceil(origin); t <= Math.floor(gridEnd); t++)
-    if (t % barBeats !== 0) beats.push(t);
+  const bps = Math.max(1e-6, project.tempo / 60);
+  const {
+    unit: gridUnit,
+    secStep: gridSecStep,
+    barStride: gridStride,
+  } = rulerScale("bars", ppb, barBeats, bps, gridEnd);
 
   // --- left-click-drag to draw a note ----------------------------------------------
   // A live draft while dragging: pitch fixed at the press row, time from press to cursor.
@@ -403,11 +416,15 @@ export function PianoRoll({
             </span>
           )}
         </span>
+        {modes && <span className="ml-auto">{modes}</span>}
         {onClose && (
           <button
             onClick={onClose}
             title={m["editor.closeHint"]()}
-            className="ml-auto rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className={cn(
+              "rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground",
+              !modes && "ml-auto",
+            )}
           >
             close ✕
           </button>
@@ -445,32 +462,28 @@ export function PianoRoll({
                 </div>
               </div>
             )}
-            {/* bars + beats ruler — the FILE's own numbering, window origin included */}
+            {/* bars + beats ruler — the FILE's own numbering, window origin included, on the
+                same ladder the arrangement ruler above it and the timeline both draw. */}
             <div className="flex" style={{ height: RULER_H }}>
               <div
                 className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
                 style={{ width: GUTTER }}
               />
               <div
-                className="relative border-b border-border"
+                className="relative overflow-hidden border-b border-border"
                 style={{ width: laneW }}
               >
-                {beats.map((t) => (
-                  <div
-                    key={`t${t}`}
-                    className="absolute bottom-0 border-l border-border/25"
-                    style={{ left: (t - origin) * ppb, height: RULER_H / 2 }}
-                  />
-                ))}
-                {bars.map((t) => (
-                  <div
-                    key={t}
-                    className="absolute top-0 h-full border-l border-border/60 pl-0.5"
-                    style={{ left: (t - origin) * ppb }}
-                  >
-                    {t / barBeats + 1}
-                  </div>
-                ))}
+                <RulerTicks
+                  mode="bars"
+                  beatLo={origin}
+                  lastBeat={gridEnd}
+                  unit={gridUnit}
+                  barBeats={barBeats}
+                  bps={bps}
+                  secStep={gridSecStep}
+                  ppb={ppb}
+                  barStride={gridStride}
+                />
               </div>
             </div>
           </div>
@@ -519,13 +532,23 @@ export function PianoRoll({
                   style={{ top: keyTop(k) }}
                 />
               ))}
-              {bars.map((t) => (
-                <div
-                  key={t}
-                  className="absolute top-0 border-l border-border/50"
-                  style={{ left: (t - origin) * ppb, height: gridH }}
-                />
-              ))}
+              {/* The ruler's own lines, carried down over the notes — every subdivision it
+                  drew, at its three weights one step fainter. The same layer the timeline puts
+                  under its lanes (Ruler.tsx), so a position reads the same in both. */}
+              <Grid
+                mode="bars"
+                beatLo={origin}
+                lastBeat={gridEnd}
+                unit={gridUnit}
+                barBeats={barBeats}
+                bps={bps}
+                secStep={gridSecStep}
+                ppb={ppb}
+                laneW={laneW}
+                left0={0}
+                top={0}
+                height={gridH}
+              />
               {/* No loop band, no repeat lines: the canvas IS the window now (rollFit cages it),
                   so the violet layer would frame everything and mark nothing. The header still
                   states the loop and its pass count in words. */}

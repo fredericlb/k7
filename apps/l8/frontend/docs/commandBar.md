@@ -94,7 +94,7 @@ components with two copies of that would be two commands.
   suggestions it takes the highlighted one, as Tab does — **unless the field already holds it**,
   and that clause is the whole of a bug this had: an exact match still ranks first, so the list
   stays on screen after a pick, and taking it again is a no-op. Enter was therefore eaten for
-  ever, and a command whose LAST field has a vocabulary (`module replace <module>
+  ever, and a command whose LAST field has a vocabulary (`node replace <node>
   <extends-ref>`) could never be submitted at all. The three answers live in one place,
   `enterAction` in `commandFill.ts`, which is also what the footer names — so the panel cannot
   promise "run" while the key would pick.
@@ -248,7 +248,7 @@ around, which is the same lesson the timeline's lane menu learned from its gutte
 
 Opened by the `+` on a graph arrow, before the command bar sees anything. It only PRE-WRITES,
 and unlike `ContextMenu` — which runs a line the click already filled — that is not a rule but
-the shape of the thing: picking a module answers ONE of `module insert`'s arguments, and the
+the shape of the thing: picking a module answers ONE of `node insert`'s arguments, and the
 rest still has to be typed.
 
 The first level is where a module COMES FROM:

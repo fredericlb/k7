@@ -52,7 +52,7 @@ splitting the clip in two, which is an edit to make on purpose and not a side ef
 ## Not a freeze
 
 Freezing is reversible and leaves the material alone: it bounces everything upstream of a module,
-plays that instead, and deletes the render when you unfreeze (`module freeze`, and
+plays that instead, and deletes the render when you unfreeze (`node freeze`, and
 `packages/song/docs/freeze.md`). This rewrites what the clips play, which is what you want when the
 treatment IS the sound and you no longer want to carry the plugins that made it.
 
@@ -63,7 +63,7 @@ discover it by ear.
 
 ## Where a chain comes from
 
-**The project's own**, by name (`gtr`, whatever `project inspect graph` lists). Its plugins are
+**The project's own**, by name (`gtr`, whatever the chains pane draws). Its plugins are
 taken off the *compiled* document, where the compiler has already resolved every step: its
 plugin format, its params, the preset it loads, a jsdsp module's graph. Rebuilding that here
 from `chains.yaml` would be a second compiler, and the two would drift.

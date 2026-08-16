@@ -260,20 +260,18 @@ export function disconnectNodes(
 }
 
 /**
- * Remove `module` from the graph, joining what fed it to what it fed.
+ * Rejoin what fed `module` to what it fed, and hand back the nodes that were repointed.
  *
- * Splicing rather than merely deleting the key is the point: a module in the middle of a run has an upstream and
- * a downstream, and dropping it without reconnecting them would silently cut the signal — the file would still
- * parse, and the track would go quiet with nothing to point at. Returns the nodes that were repointed.
+ * Splicing rather than merely dropping the key is the point: a module in the middle of a run has an upstream and
+ * a downstream, and cutting it out without reconnecting them would silently cut the signal — the file would still
+ * parse, and the track would go quiet with nothing to point at.
+ *
+ * Shared by the two verbs that take a node out of the signal path, which differ only in what
+ * becomes of its OWN entry afterwards. See `unlinkNode` and `removeNode`.
  */
-export function removeNode(
-  text: string,
-  module: string,
-): { text: string; rewired: string[] } {
-  const { doc, file } = read(text);
+function spliceOut(doc: Document, file: ChainsFile, module: string): string[] {
   const onward = file.modules?.[module] ?? [];
   const rewired: string[] = [];
-
   for (const [node, dests] of Object.entries(file.modules ?? {})) {
     if (node === module || !dests.includes(module)) continue;
     // The module's own destinations take its place, deduped: two branches that both
@@ -285,7 +283,41 @@ export function removeNode(
     setDests(doc, node, next);
     rewired.push(node);
   }
+  return rewired;
+}
 
+/**
+ * Take `module` out of the signal path and LEAVE IT IN THE GRAPH, wired to nothing.
+ *
+ * Every node is in the graph (docs/nodes.md): a node with no entry in this file is loaded and
+ * drawn nowhere, so unlinking used to make one vanish from the canvas — which reads as a delete,
+ * and is not one. Its cables go, its entry stays as `modules: { <node>: [] }`, and so does its
+ * pin: a node that jumped to wherever the layout put it would have moved for a reason nobody
+ * asked for. Its `bypassed:` flag stays too — it is still a node, and still silenced or not.
+ */
+export function unlinkNode(
+  text: string,
+  module: string,
+): { text: string; rewired: string[] } {
+  const { doc, file } = read(text);
+  const rewired = spliceOut(doc, file, module);
+  // Named as a step or only ever as somebody's destination — either way it has an entry now.
+  setDests(doc, module, []);
+  return { text: doc.toString(OUT), rewired };
+}
+
+/**
+ * Take `module` out of the graph ENTIRELY — the entry, its bypass and its pin.
+ *
+ * What `node delete` writes once the node's files are gone. Nothing may name a node with no
+ * file: that is precisely what stops the project loading.
+ */
+export function removeNode(
+  text: string,
+  module: string,
+): { text: string; rewired: string[] } {
+  const { doc, file } = read(text);
+  const rewired = spliceOut(doc, file, module);
   doc.deleteIn(["modules", module]);
   dropFromBypassed(doc, module);
   // Its pin goes with it — a position for a node that is gone is a key nothing can read.

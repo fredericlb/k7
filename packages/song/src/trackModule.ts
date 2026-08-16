@@ -29,7 +29,7 @@ export {
  * What tells the five apart, and the only thing that does.
  *
  * `signal` is null for a group: it holds member names and carries nothing, which is why it has
- * neither port. `generated` says where the lane's clips come from — written down in `clips:`, or
+ * neither port. `generated` says where the lane's events come from — written down in `events:`, or
  * streamed from `strudel:` while the transport rolls.
  */
 interface TrackShape {
@@ -50,7 +50,7 @@ const SHAPES: Record<string, TrackShape> = {
  * synthesises, because a module with no folder still answers the same questions as one with a
  * folder.
  *
- * NO input on any of the five: what arrives on a lane is its clips. A live interface channel is
+ * NO input on any of the five: what arrives on a lane is its events. A live interface channel is
  * the one thing that may be routed into one, and the compiler lands it on the lane rather than
  * feeding a port — see MODULE_TYPES.tracks for why that stayed as it was.
  *
@@ -77,7 +77,7 @@ export const trackModules = (): Record<string, LoadedModule> =>
 export const isTrack = (m: { kind?: unknown } | null | undefined): boolean =>
   m?.kind === "track";
 
-/** …and is it one whose clips are STREAMED rather than written down (a strudel lane)? */
+/** …and is it one whose events are STREAMED rather than written down (a strudel lane)? */
 export const isGeneratedTrack = (
   m: { kind?: unknown; generated?: unknown } | null | undefined,
 ): boolean => isTrack(m) && m?.generated === true;
@@ -109,15 +109,15 @@ export interface Lane {
   contentType: "audio" | "sequences";
   color?: string;
   /** As AUTHORED — timecodes still strings. Empty for a group and for a generated lane. */
-  clips: RawPlacement[];
+  events: RawPlacement[];
   /**
-   * The lane's TAKES: previous arrangements, each the same list `clips` is (docs/takes.md).
+   * The lane's TAKES: previous arrangements, each the same list `events` is (docs/takes.md).
    *
-   * Read here beside `clips` and by the same rule, which is what makes a take belong to the
+   * Read here beside `events` and by the same rule, which is what makes a take belong to the
    * alternative it was played in — the resolver folds the selected set before any of this, so a
    * lane running one sees its takes and not the module's.
    */
-  takes: { name?: string; clips: RawPlacement[] }[];
+  takes: { name?: string; events: RawPlacement[] }[];
   /** A group's members, by node name. Empty for every other kind. */
   tracks: string[];
   /** A generated lane's pattern file, project-relative. */
@@ -135,16 +135,16 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
     type: group ? "group" : strudel ? "strudel" : "single",
     contentType: m.outputs?.[0]?.type === "midi" ? "sequences" : "audio",
     color: typeof m.color === "string" && m.color ? m.color : undefined,
-    clips:
-      group || strudel || !Array.isArray(m.clips)
+    events:
+      group || strudel || !Array.isArray(m.events)
         ? []
-        : (m.clips as RawPlacement[]),
+        : (m.events as RawPlacement[]),
     takes:
       group || strudel || !Array.isArray(m.takes)
         ? []
-        : (m.takes as { name?: string; clips: RawPlacement[] }[]).map((t) => ({
+        : (m.takes as { name?: string; events: RawPlacement[] }[]).map((t) => ({
             ...(t?.name ? { name: t.name } : {}),
-            clips: Array.isArray(t?.clips) ? t.clips : [],
+            events: Array.isArray(t?.events) ? t.events : [],
           })),
     tracks: group && Array.isArray(m.tracks) ? m.tracks.map(String) : [],
     strudel:

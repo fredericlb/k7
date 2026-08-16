@@ -117,7 +117,7 @@ describe("a lane, read off what it extends", () => {
       [
         "gtr",
         "@studio/audio-track",
-        'clips:\n  - { ref: riff, start: "2:1:1" }\n',
+        'events:\n  - { ref: riff, start: "2:1:1" }\n',
       ],
     ]);
     mkdirSync(join(p, "clips"), { recursive: true });

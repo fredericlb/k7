@@ -15,30 +15,77 @@ cadence — the per-frame step of the drawn line:
 | | frames that did not move | mean step | step σ | biggest jump |
 |---|---|---|---|---|
 | drawing the reported value | **141 of 210** | 16.4 ms | 23.5 ms | 50.0 ms |
-| `playheadClock` | **0** | 16.7 ms | **0.67 ms** | 17.6 ms |
+| `playhead-clock` | **0** | 16.7 ms | **0.00 ms** | 16.7 ms |
 
-## The clock is STEERED by the frames, not set from them
+## The rate is KNOWN, so the only unknown is the offset
 
-`src/playheadClock.ts` is pure and testable; `src/hooks/usePlayheadFrames.ts` binds it to React.
+`@studio/engine-browser/playhead-clock` is pure and testable;
+`src/hooks/usePlayheadFrames.ts` binds it to React.
 
-The frames are treated as a *measurement* of the position, not as the position. Local wall time
-carries the line, and the error against the engine only bends its **rate**, by at most ±10%
-(`RATE_SPAN`), absorbing a full correction over about half a second (`RATE_TAU`).
+The protocol has `play`, `stop` and `seek` and no varispeed, so the transport advances at
+exactly one second per second. (Not even on the decks: a pitch fader re-stretches the CLIP and
+slips it, because *"there is one transport and two decks"*.) That single fact decides the whole
+design:
 
-Re-anchoring on every frame — the obvious version — is the trap: it copies the timer's and the
-socket's jitter straight back into the line, so you get 60 fps of stutter instead of 20. The
-table above is exactly that comparison.
+```
+transport(t) = offset + t          // t is local monotonic time; the rate is 1, not estimated
+```
 
-Two properties fall out of steering rather than snapping:
+One unknown. Every frame is a measurement of it — `offset_i = playhead_i − arrival_i` — and the
+noise is **one-directional**: a frame is sampled and then travels, so it always *understates*
+the offset, by exactly its own transit time.
 
-- **It never goes backwards while rolling.** The rate stays positive, so a frame arriving late
-  cannot drag the line back over material that already played.
-- **A real discontinuity still snaps.** A seek or a loop wrap is past `SEEK_EPS` (0.3 s, the
-  figure `ui-eyes`' `EngineClock` already uses) and is taken whole — easing eight bars at 1.1×
-  would take a minute.
+So the estimate is the **largest** sample in a bounded window: the frame that got here fastest,
+with the rest discarded. It is the same reasoning NTP applies to round trips, and it is only
+available because the rate is known — with an unknown rate these samples would have to be
+regressed, noise and all.
 
-Stopped, there is nothing to smooth: the frame IS the answer, and a scrub lands exactly where it
-says.
+What that buys is a drawn position that is a **straight line in local time**. There is no
+per-frame correction to see, because a frame moves the offset and never the position, and the
+offset barely moves.
+
+The window is bounded (`WINDOW_MS`) for one reason: the engine's playhead advances on the AUDIO
+clock — the interface's crystal — while `performance.now()` is the system one. They differ by
+tens of ppm, so the true offset creeps. Ageing samples out absorbs it; at 100 ppm four seconds
+of creep is 0.4 ms.
+
+### Rollback
+
+A frame further from the estimate than `SEEK_EPS` (0.3 s, the figure `ui-eyes`' `EngineClock`
+already uses) is not a late packet — the transport moved. A seek, a loop wrap, a play from
+elsewhere. Every sample in the window now describes a position that no longer exists, so the
+window is **thrown away** and re-seeded from that frame alone, and the drawn offset goes with it.
+
+Without the flush the max filter would be actively wrong rather than merely stale: a jump
+*forward* makes every later sample smaller, so the old ones would win for a full window. That is
+what the two rollback tests pin, and they were verified red by keeping the window.
+
+### What is left over
+
+`SLEW` — the drawn offset chases the estimate at 2% of real time rather than stepping to it.
+That is the only smoothing left, it applies to a number that changes rarely, and it is what
+keeps the line monotonic when the estimate moves down.
+
+Stopped, there is nothing to estimate: the frame IS the answer, and a scrub lands exactly where
+it says.
+
+### Measured against the version this replaced
+
+The same feed, with realistic transit times (4 to 55 ms, never negative — a frame cannot arrive
+before it was sampled):
+
+| | step σ | lag behind the engine |
+|---|---|---|
+| a PLL: anchor + elapsed, error bends the rate ±10% | 0.23 ms | 8.9 ms, up to 10.0 |
+| offset estimate | **0.00 ms** | **4.0 ms, flat** |
+
+The PLL converged on the *mean* latency, because it corrected toward every sample. The estimator
+sits at the *minimum* — 4.0 ms is the best transit in the feed, and no method can do better than
+how stale the freshest thing you were told is.
+
+One honest limit on the word "lag": this is distance from the engine's reported position, which
+is not the sound leaving the interface. Output latency (buffer + driver) sits between them and
+neither figure accounts for it.
 
 ## It draws without rendering
 
@@ -93,12 +140,20 @@ three times the canvas work for a smoother line: a pessimisation, not a fix. Doi
 means splitting the playhead out of that canvas onto a cheap overlay, in a package with several
 consumers. Left alone on purpose.
 
-**`useMidiRecording`'s `beatNow()` must stay raw.** It timestamps incoming MIDI notes, and it
-re-anchors on every frame precisely because raw `anchor + elapsed` is the most accurate estimate
-of where the transport *is*. This clock is deliberately not that: it trades accuracy for
-continuity, bending its rate by up to ±10% so the eye sees no step. That trade is right for a
-line and wrong for a note. **Folding these two together would silently degrade recorded timing**
-— it is the one unification on this page that must not happen.
+**`useMidiRecording`'s `beatNow()` is still raw — but the reason given here was wrong.**
+
+This page argued, twice and forcefully, that folding `beatNow()` onto this clock would *silently
+degrade recorded timing*, because the clock traded accuracy for continuity. That was true of the
+clock it replaced. The rate-bending PLL corrected toward every sample and so converged on the
+**mean** transit latency; this one converges on the **minimum**. Measured on a realistic feed,
+raw `anchor + elapsed` lags by whatever the last frame's transit happened to be — 4 to 55 ms,
+mean ~14 — while the estimate sits flat at 4.
+
+So folding them would not degrade MIDI timing. It would probably improve it. What stops it being
+a tidy-up is that it changes where recorded notes land by a few milliseconds, which is a
+musician-facing change and wants to be someone's decision, tested against a click. Recorded here
+rather than quietly done, and the same paragraph now sits in the decks' `docs/hosting.md`, where
+`CueButtons` raises the identical question.
 
 **The decks are on it now**, and the clock moved to `@studio/engine-browser/playhead-clock` to
 get there — both l8 and `@studio/ui-turntables` already depend on that package, and it is where

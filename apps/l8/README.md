@@ -138,7 +138,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   or another use; the merge order is *extended base → the module → the node*. The folder
   is flat on purpose: a node does not mirror the folders of what it uses, so using a
   médiathèque module needs no local folder for it. `l8 cmd node new
-  instruments/synth lead` scaffolds one, and `engine/capot/songs/synth-demo.l8/nodes/`
+  instruments/synth lead` scaffolds one and puts it in the graph, and `engine/capot/songs/synth-demo.l8/nodes/`
   is the worked example — one 4OSC module, a `lead` and a `pad`, each driving its own chain.
   See `packages/song/docs/nodes.md`.
 - A **chain** (in `chains.yaml`) is a signal path, written as a flat list of nodes: a

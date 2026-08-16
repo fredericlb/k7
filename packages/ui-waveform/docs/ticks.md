@@ -14,6 +14,19 @@ every 2nd, then every 4th, every 8th — so the survivors are always the round o
 
 `nearestTick` answers where a CLICK goes: the closest line the ruler actually drew.
 
+`subdivideGrid` is `subdivideBeats` for the ruler that cannot compute its own ticks. The waveform
+is handed a bar/beat list by the file service (`beatGrid`) and the sub-beat times are simply not
+in it, so when a column opens past `MAX_COLUMN_PX` the only thing left is to SPLIT what arrived —
+same halving, same threshold, so the wave and the ruler stacked over it reach the same density at
+the same zoom. Before it, zooming l8's audio clip panel in subdivided the ruler to sixteenths
+while the wave underneath stayed ruled in whole beats, and the pair read as two grids.
+
+It splits **per pair**, not once for the list: a warped clip's beats are not evenly spaced on
+screen, and one count for all of them would crowd the compressed passages while leaving the
+stretched ones bare. Interpolating inside a pair is exact for the same reason the projection is —
+piecewise-linear between the marks, and these *are* the marks. The extra times join `gridTimes`,
+so the guarantee below still holds once there are more lines than the service sent.
+
 ## Snapping is to the drawn list, not to the unit
 
 Rounding to a multiple of the unit would be the obvious implementation and is wrong twice

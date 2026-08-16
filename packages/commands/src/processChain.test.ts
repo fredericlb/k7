@@ -75,7 +75,7 @@ function song(): string {
   put(
     d,
     "nodes/gtr.yaml",
-    'extends: "@studio/audio-track"\nclips:\n  - { ref: riff, start: "1:1" }\n',
+    'extends: "@studio/audio-track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
   );
   put(
     d,

@@ -30,7 +30,7 @@ beforeEach(() => {
   writeFileSync(join(proj, "chains.yaml"), chains("amp"), "utf8");
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
   for (const m of ["amp", "cab"])

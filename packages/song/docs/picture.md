@@ -67,7 +67,7 @@ picture will not compile" stay two different answers.
 # video_tracks/main.yaml
 kind: video
 x: 0, y: 0, w: 1280, h: 720    # where in the viewport; omit for the full frame
-clips:
+events:
   - { ref: shot_a, start: 0, length: 4 }
   - { ref: shot_b, start: 4, length: 0, source_from: 2.5 }
 ```

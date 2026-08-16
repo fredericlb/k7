@@ -62,13 +62,13 @@ describe("applying one", () => {
     expect(applyAlternative(m).params).toEqual({ Gain: 9, Tone: 5 });
   });
 
-  it("replaces a LIST outright, which is what a lane's clips need", () => {
+  it("replaces a LIST outright, which is what a lane's events need", () => {
     const m = mod({
-      clips: [{ ref: "a" }, { ref: "b" }],
+      events: [{ ref: "a" }, { ref: "b" }],
       alternative: "take2",
-      alternatives: [{ name: "take2", clips: [{ ref: "c" }] }],
+      alternatives: [{ name: "take2", events: [{ ref: "c" }] }],
     });
-    expect(applyAlternative(m).clips).toEqual([{ ref: "c" }]);
+    expect(applyAlternative(m).events).toEqual([{ ref: "c" }]);
   });
 
   it("may set ANY module field, not just params", () => {
@@ -243,7 +243,7 @@ describe("through the real loader", () => {
     writeFileSync(join(p, "nodes", "ampli.yaml"), node);
     writeFileSync(
       join(p, "nodes", "gtr.yaml"),
-      'extends: "@studio/audio-track"\nclips: []\n',
+      'extends: "@studio/audio-track"\nevents: []\n',
     );
     writeFileSync(
       join(p, "chains.yaml"),

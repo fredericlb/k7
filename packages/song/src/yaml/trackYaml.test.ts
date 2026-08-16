@@ -20,7 +20,7 @@ import {
 const AUTHORED = `color: "#739814"
 extends: "@studio/audio-track"
 disabled: false
-clips:
+events:
   - { ref: bass_3_0, start: "25:1", fadeIn: "8:0:3:0:0:1:1:2" }
   - { ref: bass_3_1, start: "54:1", fadeIn: "8:0:3:0:0:1:1:2" }
 `;
@@ -30,7 +30,7 @@ describe("the timecode trap", () => {
     const { value, issues } = parseModule(AUTHORED);
     expect(issues).toEqual([]);
     expect(value?.extends).toBe("@studio/audio-track");
-    expect(value?.clips?.[0]).toEqual({
+    expect(value?.events?.[0]).toEqual({
       ref: "bass_3_0",
       start: "25:1",
       fadeIn: "8:0:3:0:0:1:1:2",
@@ -42,16 +42,16 @@ describe("the timecode trap", () => {
     // LEMO - DANSE. Unquoted, the same bytes mean different things per YAML version, and
     // the 1.1 reading is silently, catastrophically wrong: bar 25 becomes beat 1501.
     const unquoted =
-      "clips:\n  - { ref: b, start: 25:1, length: 8:0:3:0:0:1:1:2 }\n";
-    expect(parse(unquoted, { version: "1.2" }).clips[0].start).toBe("25:1");
-    expect(parse(unquoted, { version: "1.1" }).clips[0].start).toBe(1501);
-    expect(parse(unquoted, { version: "1.1" }).clips[0].length).toBe(
+      "events:\n  - { ref: b, start: 25:1, length: 8:0:3:0:0:1:1:2 }\n";
+    expect(parse(unquoted, { version: "1.2" }).events[0].start).toBe("25:1");
+    expect(parse(unquoted, { version: "1.1" }).events[0].start).toBe(1501);
+    expect(parse(unquoted, { version: "1.1" }).events[0].length).toBe(
       22397212803662,
     );
     // QUOTED, both versions agree — which is why nothing this app writes is unquoted.
-    const quoted = 'clips:\n  - { ref: b, start: "25:1" }\n';
-    expect(parse(quoted, { version: "1.2" }).clips[0].start).toBe("25:1");
-    expect(parse(quoted, { version: "1.1" }).clips[0].start).toBe("25:1");
+    const quoted = 'events:\n  - { ref: b, start: "25:1" }\n';
+    expect(parse(quoted, { version: "1.2" }).events[0].start).toBe("25:1");
+    expect(parse(quoted, { version: "1.1" }).events[0].start).toBe("25:1");
   });
 
   it("re-quotes a timecode it writes, wherever it sits", () => {
@@ -60,7 +60,7 @@ describe("the timecode trap", () => {
     expect(moved).not.toMatch(/start: 26:1[^"]/);
     // …including one written into a placement wholesale, and NOT the loop count beside it,
     // which is a number and would be corrupted by quoting rather than saved by it.
-    const rewritten = setTrackField(AUTHORED, "clips", [
+    const rewritten = setTrackField(AUTHORED, "events", [
       { ref: "x", start: "1:1", fadeIn: "2:1", loop: 4 },
     ]);
     expect(rewritten).toContain('start: "1:1"');
@@ -81,10 +81,10 @@ describe("the timecode trap", () => {
 
   it("rejects something that isn't a timecode", () => {
     const { value, issues } = parseModule(
-      'extends: "@studio/audio-track"\nclips:\n  - { ref: b, start: "bar 25" }\n',
+      'extends: "@studio/audio-track"\nevents:\n  - { ref: b, start: "bar 25" }\n',
     );
     expect(value).toBeNull();
-    expect(issues[0].path).toBe("clips.0.start");
+    expect(issues[0].path).toBe("events.0.start");
     expect(issues[0].message).toMatch(/timecode/);
   });
 });
@@ -134,7 +134,7 @@ describe("the edits the app makes most", () => {
       loop: 2,
     });
     expect(after).toContain('- { ref: bass_3_2, start: "70:1", loop: 2 }');
-    expect(parseModule(after).value?.clips).toHaveLength(3);
+    expect(parseModule(after).value?.events).toHaveLength(3);
   });
 
   it("keeps the colour, the extends and every other field byte-identical", () => {

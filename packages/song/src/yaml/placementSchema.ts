@@ -1,6 +1,6 @@
 // placementSchema.ts — one placed clip or sequence, in Zod, and the timecode rule that governs
 // it. Its own file because a placement is no longer a track's alone: a lane is a module now
-// (docs/trackModules.md), so moduleSchema is what carries `clips:` and this is what it imports.
+// (docs/trackModules.md), so moduleSchema is what carries `events:` and this is what it imports.
 // A placement's timecodes ("25:1") must be QUOTED — unquoted, YAML 1.1 reads them as sexagesimal
 // numbers (bar 25 silently becomes beat 1501). See moduleFile's quoteTimecodes.
 

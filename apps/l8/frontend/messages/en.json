@@ -85,7 +85,7 @@
   "cmd.channel": "channel",
   "cmd.channels": "channels",
   "cmd.create module": "create module",
-  "cmd.module param": "module param",
+  "cmd.node param": "node param",
   "cmd.inspect graph": "inspect graph",
   "cmd.inspect timeline": "inspect timeline",
   "cmd.list plugins": "list plugins",

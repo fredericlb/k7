@@ -879,7 +879,12 @@ Four decisions, and the last two are the load-bearing ones:
   stable id but only the backend's commands have one — the shell's own `ui …` lines do not — and a
   page that could arrange half the catalogue would order a menu it does not draw.
 - **The entity a command acts on is the first word of its line**, which is what the filter offers.
-  Nothing new to author, and a command added to the app is filterable the day it exists.
+  Nothing new to author, and a command added to the app is filterable the day it exists. A
+  PLURAL head folds into its singular (`entityGroup`): `events move` lists among the `event`
+  ones, marked with a layers glyph. Acting on several at once is the same subject taken several
+  at a time, not another subject — and a group holding one command hid it from the only filter
+  anyone would look under. Derived from the catalogue, not tabulated: a plural whose singular
+  nobody wrote keeps its own group rather than inventing a subject out of a suffix.
 - **A partial order.** Commands someone has placed come first, by their number; everything else
   follows in catalogue order. A total order would mean every command added to the app later
   arriving at a position a saved list had already decided — and it is what lets you pull three
@@ -910,7 +915,7 @@ than the tokens now: what comes back from a focused button is whatever runs a `t
 command — wherever the person has put it — plus Escape, with Enter left to the control.
 
 **Context menus draw those icons.** `MenuItem` gained a `verb` — the command WITHOUT the entity and
-untranslated (`module bypass`, not `bypasser gtr`) — which is exactly what the prefs are keyed by.
+untranslated (`node bypass`, not `bypasser gtr`) — which is exactly what the prefs are keyed by.
 Kept as a field rather than re-derived from `command`, so a menu never has to un-localize a line to
 find out which command it is; and two entries for one verb on two different tracks are one command
 wearing one icon. `contextMenu.ts` stays a pure function of the catalogue and the thing clicked:
@@ -954,10 +959,16 @@ you like to work is not editing a song. What draws the line is the PROJECT.
 A line the shell recognises but cannot act on is reported as *handled* rather than passed
 down: the backend has no such command either, and "unknown command" would say less.
 
-Two heads collide and the order settles them: `ui file <path>` opens a file, `file new`,
-`file rename`, `file move`, `file delete` and `file upload` do something *to* one. Only the
-second token tells them apart, so `BARE_HEADS` is checked **first** — otherwise the pairing
-rule above would send every `file <verb>` back with "type: ui file …".
+Two heads used to collide: `ui file <path>` opens a file, and `file new`, `file rename`, `file
+move`, `file delete`, `file upload` did something *to* one. Only the second token told them
+apart, so the table carried a `BARE_NAMES` list checked **first** — without it the pairing rule
+above answered every `file <verb>` with "type: ui file …".
+
+The tree's verbs are an **`fs` group** now — `fs file new`, `fs folder new`, `fs file rename` —
+and they share a head with nothing, so the exception is gone with the collision. `isUiLine` is
+two lists and no special case. The group is worth having on its own terms (they are the one
+family that acts on the workspace's files rather than on the song), and it happens to be what
+the exception was standing in for.
 
 ### Every action on screen is a command
 
@@ -981,7 +992,7 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 | the editor settings screen's one toggle | `ui vim` | `toggleVim` in `App` |
 | the share menu | `project commit`, `project pull` (the CLI's), `project export`, `project share k7` | `hooks/useShare.ts` |
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |
-| the file tree's right-click menu | `file new`, `folder new`, `file rename`, `file move`, `file delete`, `file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
+| the file tree's right-click menu | `fs file new`, `fs folder new`, `fs file rename`, `fs file move`, `fs file delete`, `fs file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
 | the recording pane's *stop* | `transport stop` | the engine |
 | a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
 

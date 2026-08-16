@@ -220,7 +220,7 @@ export function insertFor(
 /**
  * The chains.yaml name a JACK click has in hand: the node as the chains spell it — the same
  * resolution insertFor uses — plus `#port` when the jack names one. What the patch-cable
- * gesture hands the host, so `chain connect` receives addresses the file already speaks.
+ * gesture hands the host, so `graph chain connect` receives addresses the file already speaks.
  */
 export function jackRef(n: GraphNode, port?: string): string {
   const name = n.kind === "module" ? (n.module ?? n.label) : n.label;

@@ -6,5 +6,5 @@
 # something in the SIGNAL is a doc module on the graph now; a note about a lane's own file is
 # a comment in that file, which is where a reader of it looks.
 extends: "@studio/sequence-track"
-clips:
+events:
   - { ref: melody, start: "1:1:1" }

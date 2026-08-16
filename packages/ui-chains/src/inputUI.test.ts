@@ -84,8 +84,9 @@ describe("the panel as a whole", () => {
   });
 
   it("offers no gain knob, which could not commit", () => {
-    // A knob bound to a module FIELD draws, drags and writes nothing (DomChains' up()), and there
-    // is no `module gain` verb to send. Absent beats present-and-dead.
+    // A knob bound to a module FIELD draws, drags and writes nothing: the renderer commits the
+    // picked OPTION's `arg`, and a continuous trim has no options. (The verb is no longer the
+    // obstacle — `node param <node> @gain <db>` exists.) Absent beats present-and-dead.
     expect(Object.keys(inputUI(RIG, [1]).widgets).sort()).toEqual([
       "channel",
       "monitor",

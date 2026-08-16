@@ -2,7 +2,7 @@
 // have different origins, which is the whole reason this is a module and not two inline sums.
 
 import { describe, expect, it } from "vitest";
-import { clipLoop, visibleRepeats } from "./clipLoop";
+import { clipLoop, placedRepeats, visibleRepeats } from "./clipLoop";
 import type { WebClip } from "./types";
 
 const clip = (over: Partial<WebClip>): WebClip => ({
@@ -80,5 +80,38 @@ describe("visibleRepeats", () => {
 
   it("drops them when it is not — a solid grey block is not information", () => {
     expect(visibleRepeats(l, 0.5)).toEqual([]);
+  });
+});
+
+describe("placedRepeats", () => {
+  it("counts from the EVENT's start, not from the material's", () => {
+    // The case the two axes disagree on: a MIDI window that opens at bar 5. On the roll the
+    // first repeat is at 8 + 4; on a lane the event's left edge IS the first pass, so it is at 4.
+    const l = clipLoop(
+      clip({ type: "midi", length: 12, loopStart: 8, loopEnd: 12 }),
+    );
+    if (!l) throw new Error("fixture has a loop");
+    expect(visibleRepeats(l, 24)).toEqual([12, 16]);
+    expect(placedRepeats(l, 24)).toEqual([4, 8]);
+  });
+
+  it("agrees with the editor's axis for audio, whose window opens at 0", () => {
+    const l = clipLoop(
+      clip({ type: "audio", length: 12, loopStart: 3, loopEnd: 7 }),
+    );
+    if (!l) throw new Error("fixture has a loop");
+    expect(placedRepeats(l, 24)).toEqual(visibleRepeats(l, 24));
+  });
+
+  it("marks nothing for a window that plays once", () => {
+    const l = clipLoop(clip({ length: 4, loopStart: 0, loopEnd: 4 }));
+    if (!l) throw new Error("fixture has a loop");
+    expect(placedRepeats(l, 24)).toEqual([]);
+  });
+
+  it("drops them when a pass is too narrow to tell apart", () => {
+    const l = clipLoop(clip({ length: 80, loopStart: 0, loopEnd: 8 }));
+    if (!l) throw new Error("fixture has a loop");
+    expect(placedRepeats(l, 0.5)).toEqual([]);
   });
 });

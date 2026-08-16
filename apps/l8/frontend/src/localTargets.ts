@@ -20,7 +20,7 @@ export function bestMatch(arg: string, pool: readonly string[]): string | null {
 /**
  * The tree entry a name means — any of them, folders included.
  *
- * Deliberately not narrowed to files: `file move`, `file delete` and `ui pin` are offered on a
+ * Deliberately not narrowed to files: `fs file move`, `fs file delete` and `ui pin` are offered on a
  * folder by the right-click menu, so a command that could not name one would be the narrower
  * of the two ways to do the same thing.
  */
@@ -61,7 +61,7 @@ export const baseName = (path: string): string =>
   path.replace(/\\/g, "/").replace(/\/+$/, "").split("/").pop() ?? path;
 
 /**
- * Split a line into its leading N tokens and the rest, so `file rename <path> <new name>` can
+ * Split a line into its leading N tokens and the rest, so `fs file rename <path> <new name>` can
  * take a name with spaces in it while the path before it stays one token. Fewer tokens than
  * asked for answers what there is — the caller reports the usage line, not this.
  */

@@ -1,10 +1,10 @@
 // Editing a lane that is playing one of its ALTERNATIVES must edit that one.
 //
-// A lane is a module node and its takes are that module's attribute sets, so `clips:` exists in
+// A lane is a module node and its takes are that module's attribute sets, so `events:` exists in
 // two places at once: the module's own (which is set "1") and one per entry under
 // `alternatives:`. Every edit here used to write the module's own list whichever set was on, so
 // moving a clip while on take 2 silently rewrote take 1 — the arrangement you were NOT looking
-// at. See docs/alternatives.md and the `clipsIn`/`clipsToEdit` pair in trackFile.ts.
+// at. See docs/alternatives.md and the `eventsIn`/`eventsToEdit` pair in trackFile.ts.
 
 import {
   mkdirSync,
@@ -32,7 +32,7 @@ import {
 
 /** A lane on its SECOND set, which states nothing — so it plays the module's own arrangement. */
 const INHERITING = `extends: "@studio/audio-track"
-clips:
+events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
 alternatives:
@@ -42,17 +42,17 @@ alternative: "2"
 
 /** The same lane on a second set that states an arrangement of its OWN. */
 const OWN = `extends: "@studio/audio-track"
-clips:
+events:
   - { ref: take1_a, start: "1:1" }
 alternatives:
-  - clips:
+  - events:
       - { ref: take2_a, start: "9:1" }
 alternative: "2"
 `;
 
-const own = (text: string) => parse(text, { version: "1.2" }).clips;
+const own = (text: string) => parse(text, { version: "1.2" }).events;
 const alt = (text: string, i = 0) =>
-  parse(text, { version: "1.2" }).alternatives[i].clips;
+  parse(text, { version: "1.2" }).alternatives[i].events;
 
 describe("a lane playing an alternative", () => {
   it("reads through to the arrangement it inherits", () => {
@@ -121,7 +121,7 @@ describe("a lane playing an alternative", () => {
     // An empty set is written `- {}`, and a flow map keeps everything inside it on one line: the
     // forked arrangement arrived as a single 400-character row. These files are read by people.
     const after = movePlacement(INHERITING, "1:1", "3:1");
-    expect(after).toContain("  - clips:\n");
+    expect(after).toContain("  - events:\n");
     expect(after).toContain('      - { ref: take1_a, start: "3:1" }\n');
     expect(after.split("\n").every((l) => l.length < 120)).toBe(true);
   });
@@ -129,7 +129,7 @@ describe("a lane playing an alternative", () => {
   it("still edits the module's own list when the FIRST set is on", () => {
     // The ordinary case, and the one that must not have moved: no `alternative:` key at all.
     const plain = `extends: "@studio/audio-track"
-clips:
+events:
   - { ref: a, start: "1:1" }
 `;
     const after = movePlacement(plain, "1:1", "2:1");
@@ -140,7 +140,7 @@ clips:
 
 /** A lane on its own, no sets yet — what `create` is asked about most. */
 const PLAIN = `extends: "@studio/audio-track"
-clips:
+events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
 `;
@@ -148,10 +148,10 @@ clips:
 describe("creating an alternative", () => {
   it("blanks a LANE's clips, so a new take is a new take", () => {
     // A set states only what it changes, so an empty entry would inherit the arrangement and the
-    // new take would open holding the old one's placements. `clips: []` says it outright — a list
+    // new take would open holding the old one's placements. `events: []` says it outright — a list
     // is a scalar to the merge, which is what a lane's takes need.
     const { text, name } = addAlternative(PLAIN, undefined, {
-      blankClips: true,
+      blankEvents: true,
     });
     expect(name).toBe("2");
     expect(alt(text)).toEqual([]);
@@ -167,17 +167,17 @@ params: { Gain: 3 }
     expect(parse(text, { version: "1.2" }).alternatives[0]).toEqual({});
   });
 
-  it("a COPY still starts from what is playing, blankClips or not", () => {
+  it("a COPY still starts from what is playing, blankEvents or not", () => {
     const { text } = addAlternative(OWN, "third", {
       copy: true,
-      blankClips: true,
+      blankEvents: true,
     });
     expect(alt(text, 1)).toEqual([{ ref: "take2_a", start: "9:1" }]);
   });
 
   it("the new take is EDITABLE without touching the old one", () => {
     // The two halves together, which is the whole report: create, then place a clip.
-    const created = addAlternative(PLAIN, undefined, { blankClips: true }).text;
+    const created = addAlternative(PLAIN, undefined, { blankEvents: true }).text;
     const after = addPlacement(created, { ref: "take2_a", start: "1:1" });
     expect(own(after).map((p: { ref: string }) => p.ref)).toEqual([
       "take1_a",
@@ -187,7 +187,7 @@ params: { Gain: 3 }
   });
 });
 
-// The layer that decides `blankClips`, since whether a module is a LANE is a question about what
+// The layer that decides `blankEvents`, since whether a module is a LANE is a question about what
 // it extends — and only the loader can answer it.
 describe("newModuleAlternative, through the real loader", () => {
   let dir: string;
@@ -200,7 +200,7 @@ describe("newModuleAlternative, through the real loader", () => {
       "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1 }\n",
     );
     writeLane(dir, "gtr", "audio-track", {
-      clips: [{ ref: "take1_a", start: "1:1" }],
+      events: [{ ref: "take1_a", start: "1:1" }],
     });
     writeNode(dir, "ampli", { extends: "@project/audio/amp", params: {} });
   });
@@ -214,8 +214,8 @@ describe("newModuleAlternative, through the real loader", () => {
   it("gives a lane an empty arrangement", () => {
     newModuleAlternative(dir, "gtr");
     const f = read("gtr");
-    expect(f.alternatives[0].clips).toEqual([]);
-    expect(f.clips).toHaveLength(1);
+    expect(f.alternatives[0].events).toEqual([]);
+    expect(f.events).toHaveLength(1);
     expect(f.alternative).toBe("2");
   });
 

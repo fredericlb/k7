@@ -3,13 +3,7 @@
 // lists is one the dispatcher will actually recognise.
 
 import { describe, expect, it } from "vitest";
-import {
-  BARE_NAMES,
-  BARE_TRANSPORT,
-  isUiLine,
-  UI_EXACT,
-  UI_HEADS,
-} from "./localCommands";
+import { BARE_TRANSPORT, isUiLine, UI_EXACT, UI_HEADS } from "./localCommands";
 import { LOCAL_ARGS, LOCAL_COMMANDS } from "./palette";
 
 // What `runLocalCommand` sees: the line lowercased, with any `ui ` prefix already stripped.
@@ -43,20 +37,20 @@ describe("every shell command is one the dispatcher recognises", () => {
     expect(wrong).toEqual([]);
   });
 
-  it("lets a file VERB through where `ui file` would have caught it", () => {
-    // The one real collision: only the second token tells the two apart.
+  it("tells `ui file` from the TREE's verbs, which now share no head with it", () => {
+    // This was the one real collision — `file new x` against `ui file x`, told apart only by
+    // the second token, and it needed a list of exceptions checked before everything else. The
+    // tree's verbs are an `fs` group now, so the group name does what the exception did.
     expect(isUiLine("file kick.yaml")).toBe(true); // `ui file` — open it
-    expect(isUiLine("file new clips kick.yaml")).toBe(false); // the tree's verb
-    expect(isUiLine("file rename a b")).toBe(false);
-    expect(isUiLine("file delete a")).toBe(false);
-    expect(isUiLine("folder new clips takes")).toBe(false);
-  });
-
-  it("catches a bare verb too, so it reaches its own usage line", () => {
-    // Without the whole-word rule `file new` (no arguments yet) fell back onto the `file `
-    // head and was answered with "type: ui file new" — advice for a command that is not one.
-    for (const n of BARE_NAMES) expect(isUiLine(n), n).toBe(false);
-    // …and a name that merely STARTS with one is not it.
+    for (const l of [
+      "fs file new clips kick.yaml",
+      "fs file rename a b",
+      "fs file delete a",
+      "fs folder new clips takes",
+      "fs file new", // bare, as the bar dispatches it before its form is filled
+    ])
+      expect(isUiLine(l), l).toBe(false);
+    // …and a file whose NAME starts with a verb is still a file to open.
     expect(isUiLine("file newsletter.yaml")).toBe(true);
   });
 

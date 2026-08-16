@@ -1,4 +1,4 @@
-// `module position` — the pin behind "modules stay where you moved them", through the
+// `node position` — the pin behind "modules stay where you moved them", through the
 // dispatcher, asserting chains.yaml. A refusal must leave the file byte-identical, and
 // `auto` must leave no trace of the round trip.
 
@@ -45,7 +45,7 @@ function song(): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
   const md = join(d, "modules", "audio", "amp");
@@ -72,41 +72,45 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("module position", () => {
+describe("node position", () => {
   it("pins the node, rounded and clamped to the world's origin", async () => {
-    await runCommand("module position amp 420.6 -15", host(), "cli");
+    await runCommand("node position amp 420.6 -15", host(), "cli");
     expect(chains()).toContain("amp: { x: 421, y: 0 }");
     expect(reloads).toBe(1);
   });
 
   it("`auto` hands it back and leaves no trace of the round trip", async () => {
     const before = chains();
-    await runCommand("module position amp 100 100", host(), "cli");
-    await runCommand("module position amp auto", host(), "cli");
+    await runCommand("node position amp 100 100", host(), "cli");
+    await runCommand("node position amp auto", host(), "cli");
     expect(chains()).toBe(before);
     expect(logs.join(" ")).toContain("back to the layout");
   });
 
   it("pins a CURVE by its id — a curve node is not a chains node, and moves all the same", async () => {
-    await runCommand("module position wob 60 90", host(), "cli");
+    await runCommand("node position wob 60 90", host(), "cli");
     expect(chains()).toContain("wob: { x: 60, y: 90 }");
   });
 
-  it("a module PLACED with a trailing x,y is born there — pinned in the same undo step", async () => {
-    await runCommand("module place audio/verb2 120,80", host(), "cli");
-    expect(chains()).toContain("verb2: []");
-    expect(chains()).toContain("verb2: { x: 120, y: 80 }");
+  it("a node CREATED with a trailing x,y is born there — pinned in the same undo step", async () => {
+    // `node new` places what it makes and takes the click, so this is one command where it was
+    // two. `node place` is gone (packages/song/docs/nodes.md).
+    await runCommand("module new audio/verb2", host(), "cli");
+    await runCommand("node new audio/verb2 verb2n 120,80", host(), "cli");
+    expect(chains()).toContain("verb2n: []");
+    expect(chains()).toContain("verb2n: { x: 120, y: 80 }");
   });
 
-  it("without the token, a placed module still asks the layout — no pin appears", async () => {
-    await runCommand("module place audio/verb3", host(), "cli");
-    expect(chains()).toContain("verb3: []");
+  it("without the token, a new node still asks the layout — no pin appears", async () => {
+    await runCommand("module new audio/verb3", host(), "cli");
+    await runCommand("node new audio/verb3 verb3n", host(), "cli");
+    expect(chains()).toContain("verb3n: []");
     expect(chains()).not.toContain("positions");
   });
 
   it("`graph organize` clears every pin in one step", async () => {
-    await runCommand("module position amp 10 20", host(), "cli");
-    await runCommand("module position wob 30 40", host(), "cli");
+    await runCommand("node position amp 10 20", host(), "cli");
+    await runCommand("node position wob 30 40", host(), "cli");
     reloads = 0;
     await runCommand("graph organize", host(), "cli");
     expect(chains()).not.toContain("positions");
@@ -116,7 +120,7 @@ describe("module position", () => {
 
   it("refuses a node the project does not know, writing nothing", async () => {
     const before = chains();
-    await runCommand("module position nothere 10 10", host(), "cli");
+    await runCommand("node position nothere 10 10", host(), "cli");
     expect(logs.join(" ")).toContain('no node "nothere"');
     expect(chains()).toBe(before);
     expect(reloads).toBe(0);

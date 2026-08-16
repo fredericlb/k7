@@ -15,6 +15,17 @@ export interface CommandPref {
    *  take a default shortcut away without giving another. Absent ⇒ the app's own binding.
    *  Applied by `effectiveKeys` (keys.ts), which is where the change/steal rules live. */
   key?: string;
+  /**
+   * Whether a right-click may offer it. Absent ⇒ yes, which is what the menu did before this
+   * existed.
+   *
+   * Only ever a way to take one AWAY. The menu is DERIVED — what you clicked says which type it
+   * answers for, and every command whose leading arguments are exactly that is offered
+   * (contextMenu.ts) — so this cannot add a command the click does not fit, and `true` is
+   * therefore never worth storing. What it is for is the verb that fits and is still noise on
+   * that menu, which the catalogue has no way to say: it describes arguments, not appetite.
+   */
+  menu?: boolean;
 }
 
 /**
@@ -45,18 +56,64 @@ export function entityOf(canonical: string): string {
   return head || canonical;
 }
 
-/** Every entity present, in a stable order — what the page's filter offers. */
-export function entitiesOf(commands: readonly CommandLike[]): string[] {
-  return [...new Set(commands.map((c) => entityOf(c.canonical)))].sort((a, b) =>
-    a.localeCompare(b),
-  );
+/** Every head a catalogue uses, for the plural fold below. */
+const headsOf = (commands: readonly CommandLike[]): Set<string> =>
+  new Set(commands.map((c) => entityOf(c.canonical)));
+
+/**
+ * The entity a command is LISTED under: its head, folded to the singular when the singular is
+ * a head too. `events move` belongs with `event add` and `event remove`.
+ *
+ * A plural is the same subject taken several at a time, not another subject — so a group of its
+ * own, holding one command, said nothing the singular's group did not, and hid it from the only
+ * filter anyone would look under. Derived from the catalogue rather than tabulated: the day a
+ * second plural verb is written it folds on its own, and a plural with no singular (nothing has
+ * one today) keeps its own group rather than inventing a subject nobody wrote.
+ */
+export function entityGroup(
+  canonical: string,
+  heads: ReadonlySet<string>,
+): string {
+  const head = entityOf(canonical);
+  const singular = head.endsWith("s") ? head.slice(0, -1) : "";
+  return singular && heads.has(singular) ? singular : head;
 }
+
+/** Is this command the PLURAL one of its group — the one that acts on several at once? */
+export function isPluralCommand(
+  canonical: string,
+  heads: ReadonlySet<string>,
+): boolean {
+  return entityOf(canonical) !== entityGroup(canonical, heads);
+}
+
+/** Every entity present, in a stable order — what the page's filter offers, plurals folded in. */
+export function entitiesOf(commands: readonly CommandLike[]): string[] {
+  const heads = headsOf(commands);
+  return [
+    ...new Set(commands.map((c) => entityGroup(c.canonical, heads))),
+  ].sort((a, b) => a.localeCompare(b));
+}
+
+/** The heads a page needs to fold and to badge — computed once, handed to both. */
+export const commandHeads = headsOf;
 
 /** What to CALL a command: the person's own name for it, else the catalogue's sentence, else the
  *  line itself — which is always something, so a menu never draws a blank row. */
 export function labelOf(c: CommandLike, prefs: CommandPrefs): string {
   const own = prefs[c.canonical]?.label?.trim();
   return own || c.readable?.trim() || c.canonical;
+}
+
+/**
+ * May a right-click offer `canonical`? Absent ⇒ yes — see `CommandPref.menu`.
+ *
+ * Takes the LINE rather than a CommandLike, because the context menu also builds entries the
+ * catalogue does not hold (`ui file` on a lane, `track mute` on a group), and a person turning
+ * one of those off should have it obey too.
+ */
+export function inMenu(canonical: string, prefs: CommandPrefs): boolean {
+  return prefs[canonical]?.menu !== false;
 }
 
 /**

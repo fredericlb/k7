@@ -24,6 +24,15 @@ export interface DocTrack {
   pan: number;
   mute: boolean;
   solo: boolean;
+  /**
+   * The mixer NODE the level and pan live on — `mixer.module`, e.g. "mixer:vo.jo".
+   *
+   * Carried because a knob has to name it: those two are `node param <this> Volume|Pan` now,
+   * and a track states no level of its own to address instead. Empty when the track has no
+   * strip, which is not "at unity" — it is a track with nowhere to put a level, and the knob
+   * has to refuse rather than invent a module ref.
+   */
+  mixer: string;
 }
 
 export interface ProjectDocState {
@@ -120,6 +129,7 @@ export function useProjectDoc(
             // the honest thing to draw for a lane that has nowhere to put a level.
             volume: t.mixer?.volume ?? 0,
             pan: ((t.mixer?.pan ?? 0) + 1) / 2,
+            mixer: t.mixer?.module ?? "",
             mute: t.mute,
             solo: t.solo,
           })),

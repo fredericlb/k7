@@ -32,7 +32,7 @@ function project(content = "watch the gain here"): string {
   );
   writeFileSync(
     join(p, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
   );
   writeFileSync(
     join(p, "chains.yaml"),

@@ -8,10 +8,6 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { alternativesOf } from "@studio/song/alternatives";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
-import {
-  assetLookup,
-  moduleAssetChoices,
-} from "@studio/song/moduleAssetChoices";
 import { parsePosition } from "@studio/song/timecode";
 import { parse as parseYaml } from "yaml";
 import {
@@ -58,7 +54,10 @@ export interface CommandSpec {
   // The palette's line, and what it fuzzy-matches on. See commands.yaml's header.
   readable?: ReadableDescription;
   surfaces: Surface[];
-  with?: string[]; // fixed leading args passed to the handler (e.g. module nam -> ["nam"])
+  // `with:` was here — fixed leading args a spec passed to a shared handler, so several verbs
+  // could reach one. Its last user was `module nam`, one verb per file-valued param; those are
+  // `node param <node> nam <file>` now, and the mechanism had nobody left. A verb that IS one
+  // setting of another verb is a fact for the ARGUMENT to carry, not for the catalogue to bake in.
   args?: ArgSpec[]; // trailing user args (for completion)
 }
 
@@ -75,6 +74,18 @@ const PROVIDERS = {
     ...collectPluginModules(h.project()).map((b) => b.module),
     ...h.baseModules.filter((r) => r.startsWith("@")),
   ],
+  /**
+   * This project's NODES — its uses of modules, by the name the chains call them.
+   *
+   * The same first half as `modules` and deliberately not the second: a `@ref` names a shared
+   * DEFINITION, and editing one is the builder's job, not a `node …` verb's (it would write a
+   * file every other project reads). The two providers are what makes that line visible in the
+   * completion rather than only in the documentation.
+   *
+   * Off the compiled project, so a name here is one the chains actually hold — which is what a
+   * node IS. See packages/song/docs/nodes.md.
+   */
+  nodes: (h) => collectPluginModules(h.project()).map((b) => b.module),
   tracks: (h) => h.project().tracks.map((t) => t.id),
   /**
    * Every alternative name in the project, deduped. Not the named module's alone: a provider is
@@ -113,7 +124,7 @@ const PROVIDERS = {
       return [];
     }
   },
-  // Marker names for `marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
+  // Marker names for `project marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
   markerNames: (h) => h.project().markers.map((m) => m.name),
   // What `clip process` accepts: the audio clips this project places, then its audio files —
   // for material no clip file has claimed yet. Tracks are deliberately absent, and the handler
@@ -144,30 +155,6 @@ const PROVIDERS = {
     } catch {
       return [];
     }
-  },
-  // Every module's own assets at once, as assets-relative paths, plus `none` to clear. Not
-  // narrowed to the module being edited: the completion runs before that argument is typed,
-  // and a project's modules carry a handful of files each, not a library's worth.
-  assetFiles: (h) => {
-    // Read once, then asked per module: `moduleAssetChoices` walks each module's ancestry, so a
-    // thin local module extending a médiathèque amp offers that amp's profiles rather than the
-    // empty list its own folder holds.
-    const refs = (() => {
-      try {
-        return loadModuleRefs(h.songPath);
-      } catch {
-        return {};
-      }
-    })();
-    const lookup = assetLookup(h.songPath);
-    return [
-      ...new Set(
-        Object.values(loadModules(h.songPath)).flatMap((m) =>
-          moduleAssetChoices(h.songPath, m, refs, lookup),
-        ),
-      ),
-      "none",
-    ];
   },
   // Audio files in the active project, walked per completion so new ones appear; hidden dirs are skipped.
   audioFiles: (h) => {
@@ -232,7 +219,6 @@ export function loadCommandSpecs(): CommandSpec[] {
         surfaces: Array.isArray(c.surfaces)
           ? (c.surfaces as Surface[])
           : ["cli"],
-        with: Array.isArray(c.with) ? c.with.map(String) : undefined,
         args: Array.isArray(c.args)
           ? c.args.map((a: any) => {
               // An unknown provider is a typo: reported and dropped, never thrown — a throw here would empty the WHOLE catalogue.
@@ -296,12 +282,13 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // module nor anything on disk the `file` class would colour.
   chains: "choice",
   modules: "module",
+  // A node is drawn as a module is — it is one, in use — so the palette colours them alike.
+  nodes: "module",
   baseModules: "module",
   categories: "module",
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
-  assetFiles: "file",
 };
 
 export function argClass(a: ArgSpec): ArgClass {
@@ -320,12 +307,12 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",
   chains: "a chain of this project, or one the médiathèque holds (@st0/<path>)",
   modules: "a module of this project",
+  nodes: "a node of this project — one of its uses of a module",
   baseModules:
     "the module to inherit from — the engine's catalogue and this project's",
   categories:
     "<category>/<name> — the category decides the module's kind and its ports",
   markerNames: "a marker of this project",
-  assetFiles: "a file the module carries, in its own assets/ folder",
   sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
 };
@@ -483,8 +470,5 @@ export async function runCommand(
     host.log([`${spec.command}: ${bad}`]);
     return;
   }
-  const args = [...(spec.with ?? []), userArgs]
-    .filter((a) => a !== "")
-    .join(" ");
-  await handler(args, host);
+  await handler(userArgs, host);
 }

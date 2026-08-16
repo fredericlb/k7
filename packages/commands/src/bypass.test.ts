@@ -1,4 +1,4 @@
-// `module bypass` — the command behind the graph's bypass button.
+// `node bypass` — the command behind the graph's bypass button.
 //
 // The WRITER (setChainStepBypass) had a test and was correct. The command around it did
 // not, and inverted the flag on its way there: it computed the state it wanted, reported
@@ -39,7 +39,7 @@ function song(): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
   for (const m of ["amp", "cab"]) {
@@ -80,17 +80,17 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("module bypass", () => {
+describe("node bypass", () => {
   it("bypasses an active module, and says so", async () => {
     expect(bypassed("amp")).toBe(false);
-    await runCommand("module bypass amp", host(), "cli");
+    await runCommand("node bypass amp", host(), "cli");
     expect(bypassed("amp")).toBe(true);
     expect(logs.join(" ")).toContain("bypassed");
   });
 
   it("toggles back, leaving the other modules alone", async () => {
-    await runCommand("module bypass amp", host(), "cli");
-    await runCommand("module bypass amp", host(), "cli");
+    await runCommand("node bypass amp", host(), "cli");
+    await runCommand("node bypass amp", host(), "cli");
     expect(bypassed("amp")).toBe(false);
     expect(bypassed("cab")).toBe(false);
   });
@@ -99,19 +99,19 @@ describe("module bypass", () => {
     // The inversion was invisible precisely because these two disagreed.
     for (const expected of [true, false, true]) {
       logs.length = 0;
-      await runCommand("module bypass cab", host(), "cli");
+      await runCommand("node bypass cab", host(), "cli");
       expect(bypassed("cab")).toBe(expected);
       expect(logs.join(" ")).toContain(expected ? "bypassed" : "active");
     }
   });
 
   it("takes an explicit state, which is not a toggle", async () => {
-    await runCommand("module bypass amp on", host(), "cli");
+    await runCommand("node bypass amp on", host(), "cli");
     expect(bypassed("amp")).toBe(true);
     // Again: `on` means bypassed, so a second one must not flip it back.
-    await runCommand("module bypass amp on", host(), "cli");
+    await runCommand("node bypass amp on", host(), "cli");
     expect(bypassed("amp")).toBe(true);
-    await runCommand("module bypass amp off", host(), "cli");
+    await runCommand("node bypass amp off", host(), "cli");
     expect(bypassed("amp")).toBe(false);
   });
 });

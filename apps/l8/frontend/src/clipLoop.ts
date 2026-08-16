@@ -67,3 +67,24 @@ export function visibleRepeats(
 ): number[] {
   return loop.win * pxPerBeat >= minPx ? loop.repeats : [];
 }
+
+/**
+ * The same repeats, as offsets from the PLACEMENT's start — which is the timeline's origin.
+ *
+ * `repeats` is on the EDITOR's axis, and that axis's zero is the MATERIAL's: for a MIDI clip it
+ * is the notes' own beats, so a window opening at bar 5 puts the first repeat at `5 + win`. On a
+ * lane the zero is the event's left edge, where the k-th pass is simply k windows along. Same
+ * arithmetic, different zero, and using the wrong one draws a looping sequence's marks a whole
+ * window too far right — silently, and only for MIDI.
+ */
+export function placedRepeats(
+  loop: ClipLoop,
+  pxPerBeat: number,
+  minPx = 6,
+): number[] {
+  if (loop.win * pxPerBeat < minPx) return [];
+  const out: number[] = [];
+  for (let k = 1; k < loop.passes && k <= MAX_MARKS; k++)
+    out.push(k * loop.win);
+  return out;
+}

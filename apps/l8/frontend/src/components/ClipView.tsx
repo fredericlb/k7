@@ -14,10 +14,12 @@ import { api } from "../api";
 import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
 import { trackPlacing } from "../takeReview";
-import type { WebClip, WebNote, WebProject } from "../types";
+import type { Hints, WebClip, WebNote, WebProject } from "../types";
 import { AudioClipPanel } from "./AudioClipPanel";
+import { type ClipViewMode, ClipViewModes } from "./ClipViewModes";
 import { GraphSlotPane } from "./GraphSlotPane";
 import { PianoRoll } from "./PianoRoll";
+import { SeqGridFile } from "./SeqGridFile";
 import { SequencerPanel } from "./SequencerPanel";
 
 // What to show: a concrete clip (timeline caret or click), or the live sequence file open in the
@@ -154,6 +156,8 @@ export function ClipView({
   reloadKey = 0,
   onSeek,
   command,
+  onChanged,
+  setStatus,
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
@@ -162,6 +166,12 @@ export function ClipView({
   onClose: () => void;
   /** Bumped by the shell after every command's reload — what keeps the open clip FRESH below. */
   reloadKey?: number;
+  /** A write landed outside the command journal — the TRACKER writes its file directly, and the
+   *  timeline draws the same notes. Absent, the tracker still edits; nothing else re-reads. */
+  onChanged?: () => void;
+  /** Where a failed write is reported. Only the tracker has one — the other two views write
+   *  through `command`, which reports its own. */
+  setStatus?: (s: string) => void;
   /** Seek the transport, in SONG seconds — what a click on a clip editor's arrangement ruler
    *  does. Threaded to both editors; a sequence FILE has no placement and draws no such ruler. */
   onSeek?: (seconds: number) => void;
@@ -224,29 +234,80 @@ export function ClipView({
    * asked for on demand (the shell holds none), `undefined` meaning "not answered yet" — the
    * roll is not flashed in the meantime, a one-request wait on the local service.
    *
-   * `forceRoll` is the way out for what a grid cannot say (velocities, off-grid timing, keys
-   * the rack does not name); reopening the clip returns to the sequencer.
+   * A graph that will not BUILD is kept apart from a graph that names no rack. The two used to
+   * be one `null`, so a project the compiler refuses — one bad key in one node file — read as
+   * "this track feeds no rack" and quietly opened the roll instead: the panel vanished and
+   * nothing on screen said why. `graphError` is that reason, and it is shown.
    */
   const midiTrack =
     target.kind !== "seq" && target.clip.type === "midi"
       ? trackPlacing(target.project, target.clip.id)
       : "";
   const [graph, setGraph] = useState<WebGraph | null | undefined>(undefined);
-  const [forceRoll, setForceRoll] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
+  /**
+   * WHICH view of these notes, and the pane's own state: a clip opens on the best view it has —
+   * the sequencer when there is a rack to name the rows, the roll otherwise — and the header's
+   * dropdown moves it from there. Reset per clip, so the choice is about what you are looking
+   * at and not a mode the pane is stuck in.
+   *
+   * It replaced a one-way `forceRoll` boolean: leaving the sequencer was a button, and coming
+   * back meant closing the pane and clicking the clip again.
+   */
+  const [mode, setMode] = useState<ClipViewMode>("sequencer");
   useEffect(() => {
-    setForceRoll(false);
+    setGraphError(null);
+    setMode("sequencer");
     if (!midiTrack) return void setGraph(null);
     let cancelled = false;
     setGraph(undefined);
     void api
       .graph()
       .then((g) => !cancelled && setGraph(g))
-      .catch(() => !cancelled && setGraph(null));
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setGraphError(e.message || "graphe illisible");
+        setGraph(null);
+      });
     return () => {
       cancelled = true;
     };
   }, [midiTrack, clip?.id]);
   const rack = midiTrack ? rackFor(graph ?? null, midiTrack) : null;
+  // "sequencer" is the default rather than a claim: with no rack there is no grid to draw, so
+  // it falls to the roll — and the dropdown does not offer what does not exist.
+  const view: ClipViewMode = mode === "sequencer" && !rack ? "roll" : mode;
+
+  /**
+   * The TRACKER edits the sequence FILE, so it needs the file — and the racks the grid relabels
+   * notes with. Both come off `/hints`, which already answers "which file defines this
+   * sequence", and only once a tracker is actually asked for: the other two views never pay it.
+   *
+   * On `reloadKey` as well as on the view, so a sequence CREATED since the pane opened has a
+   * path. The service memoises this on the project's revision and the editor asks for it after
+   * every command anyway, so the repeat is a cache hit; `SeqGridFile` keys its read on the path,
+   * which does not move, so nothing is re-read under a hand mid-edit.
+   */
+  const [hints, setHints] = useState<Pick<Hints, "paths" | "racks"> | null>(
+    null,
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a TRIGGER, not a value this body reads — dropping it is exactly the "a sequence made since the pane opened has no path" bug.
+  useEffect(() => {
+    if (view !== "tracker") return;
+    let cancelled = false;
+    void api
+      .hints()
+      .then((h) => !cancelled && setHints(h))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [view, reloadKey]);
+  const seqPath = hints?.paths[`sequence:${seqId}`] ?? null;
+
+  const modes = (
+    <ClipViewModes value={view} onChange={setMode} sequencer={!!rack} />
+  );
   // No title bar: each of the three leaves draws its own header already — the roll says what it
   // is and how to draw a note, the waveform names the file — and a second row above it would say
   // the same thing twice. The frame contributes the shell and one floating ✕, which is what this
@@ -266,35 +327,89 @@ export function ClipView({
           <div className="p-3 text-sm text-muted-foreground">
             lecture du graphe…
           </div>
-        ) : rack && !forceRoll ? (
+        ) : rack && view === "sequencer" ? (
           <SequencerPanel
             project={project ?? target.project}
             clip={clip}
             rack={rack}
-            onOpenRoll={() => setForceRoll(true)}
+            modes={modes}
             command={command}
           />
+        ) : view === "tracker" ? (
+          // The tracker over the sequence FILE, headed the way the other two are — the pane's
+          // own strip, since a text grid draws none of its own. It writes straight to the file
+          // where the roll and the sequencer write through `sequence note …` commands; both
+          // land in the same YAML (see SeqGridFile.tsx).
+          <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
+            <div className="flex items-center gap-2 border-border border-b px-3 py-1 text-xs">
+              <span className="font-semibold text-primary">▦ {seqId}</span>
+              <span className="truncate text-muted-foreground">
+                {seqPath ?? "…"}
+              </span>
+              <span className="ml-auto">{modes}</span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto">
+              {hints && !seqPath ? (
+                // The clip names no sequence file of this project — a placement whose `ref` is
+                // gone, or a clip whose notes are inline. Said, rather than an empty grid.
+                <div className="p-3 text-muted-foreground text-sm">
+                  pas de fichier de séquence pour « {seqId} » — le tracker édite
+                  un fichier, pas un événement
+                </div>
+              ) : seqPath ? (
+                <SeqGridFile
+                  path={seqPath}
+                  view="tracker"
+                  racks={hints?.racks ?? {}}
+                  onChanged={onChanged ?? (() => {})}
+                  setStatus={setStatus ?? (() => {})}
+                />
+              ) : (
+                <div className="p-3 text-muted-foreground text-sm">
+                  lecture du projet…
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
-          <PianoRoll
-            project={project ?? target.project}
-            clip={clip}
-            onSeek={onSeek}
-            onCreateNote={
-              onCreateNote
-                ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1)
-                : undefined
-            }
-            onSetVelocity={
-              onSetVelocity
-                ? (k, t, v) => onSetVelocity(seqId, k, t, v)
-                : undefined
-            }
-            onSetNoteRange={
-              onSetNoteRange
-                ? (k, t, ns, ne) => onSetNoteRange(seqId, k, t, ns, ne)
-                : undefined
-            }
-          />
+          // The roll, and above it the reason the sequencer is not here when there IS one. The
+          // roll still edits the notes — a graph that will not build says nothing about them —
+          // so the failure is reported beside the work rather than in place of it.
+          <div className="flex h-full min-h-0 flex-col">
+            {graphError && (
+              <div
+                className="shrink-0 whitespace-pre-wrap border-amber-500/40 border-b bg-amber-500/10 px-3 py-1 text-amber-300 text-xs"
+                title="le pas-à-pas a besoin du graphe pour connaître le rack en aval"
+              >
+                pas de séquenceur : le graphe ne se construit pas — {graphError}
+              </div>
+            )}
+            {/* The roll's own root is `h-full`, so it gets a box to be the whole of — the
+                notice takes its height off the top rather than pushing the grid out. */}
+            <div className="min-h-0 min-w-0 flex-1">
+              <PianoRoll
+                project={project ?? target.project}
+                clip={clip}
+                modes={modes}
+                onSeek={onSeek}
+                onCreateNote={
+                  onCreateNote
+                    ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1)
+                    : undefined
+                }
+                onSetVelocity={
+                  onSetVelocity
+                    ? (k, t, v) => onSetVelocity(seqId, k, t, v)
+                    : undefined
+                }
+                onSetNoteRange={
+                  onSetNoteRange
+                    ? (k, t, ns, ne) => onSetNoteRange(seqId, k, t, ns, ne)
+                    : undefined
+                }
+              />
+            </div>
+          </div>
         )
       ) : (
         // An audio event opens the CLIP PANEL — the same one a take lands in, with its onsets, its

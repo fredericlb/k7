@@ -136,7 +136,7 @@ export function wantsKind(
  * it would change the field: an exact match still ranks first (see `rankValues`), so once the
  * field holds the suggestion the list is still on screen — and taking it again is a no-op.
  * Without that clause Enter is eaten for ever, and a form whose last field has a vocabulary
- * (`module replace <module> <extends-ref>`) can never be submitted at all: the reported bug.
+ * (`node replace <node> <extends-ref>`) can never be submitted at all: the reported bug.
  */
 export type EnterAction =
   | { kind: "take"; value: string }

@@ -34,7 +34,7 @@ const seq = (body: Record<string, unknown>) =>
 const place = (p: Record<string, unknown>) =>
   writeYaml(join(dir, "nodes", "melody.yaml"), {
     extends: "@studio/sequence-track",
-    clips: [{ ref: "melody", start: "1:1:1", ...p }],
+    events: [{ ref: "melody", start: "1:1:1", ...p }],
   });
 const melody = () =>
   compileNodeProject(dir)
@@ -156,7 +156,7 @@ describe("`loop` counts passes of that window", () => {
     writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
     writeYaml(join(dir, "nodes", "riff.yaml"), {
       extends: "@studio/audio-track",
-      clips: [{ ref: "riff", start: "1:1:1", loop: 2 }],
+      events: [{ ref: "riff", start: "1:1:1", loop: 2 }],
     });
     let msg = "";
     try {

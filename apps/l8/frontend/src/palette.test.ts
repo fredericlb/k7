@@ -29,7 +29,7 @@ const CATALOGUE: CommandInfo[] = [
   ),
   cmd("transport play", "Start playback", "Lancer la lecture"),
   cmd(
-    "marker new",
+    "project marker new",
     "Add a marker to the timeline",
     "Ajouter un repère sur la timeline",
   ),
@@ -96,9 +96,9 @@ describe("finding a command by describing it", () => {
 
   it("matches in French when that is the language", () => {
     expect(names("couper", "fr")).toContain("track mute");
-    expect(names("repère", "fr")).toContain("marker new");
+    expect(names("repère", "fr")).toContain("project marker new");
     // …and the command's NAME still works, because a name is not translated.
-    expect(names("marker", "fr")).toContain("marker new");
+    expect(names("marker", "fr")).toContain("project marker new");
   });
 
   it("is fuzzy, not a prefix", () => {
@@ -168,10 +168,12 @@ describe("what you used lately comes first", () => {
   });
 
   it("decays down the history, so the last thing you did beats the tenth", () => {
-    const used = ["marker new", ...Array(8).fill("x"), "track color"];
+    const used = ["project marker new", ...Array(8).fill("x"), "track color"];
     expect(recent("track", used)[0]).toBe("track color");
     // …and the fresher one wins when both match.
-    expect(recent("a", ["track color", "marker new"])[0]).toBe("track color");
+    expect(recent("a", ["track color", "project marker new"])[0]).toBe(
+      "track color",
+    );
   });
 
   it("is a NUDGE, not an override — a clearly better match still wins", () => {

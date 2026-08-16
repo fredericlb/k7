@@ -28,6 +28,7 @@ import {
 import {
   categoryForRole,
   FILE_PARAMS,
+  isFileParam,
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
@@ -70,6 +71,8 @@ import { parsedYaml } from "./yaml/yamlCache";
 export {
   categoryForRole,
   FILE_PARAMS,
+  // …and the question every writer of one asks: is this param's value a FILE?
+  isFileParam,
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
@@ -1187,7 +1190,7 @@ contentType: sequences
         `mute: false
 solo: false
 ` +
-        `clips:
+        `events:
   - { ref: ${id}, start: "1:1:1" }
 `,
     );
@@ -1200,7 +1203,7 @@ contentType: audio
         `mute: false
 solo: false
 ` +
-        `clips: []
+        `events: []
 `,
     );
   }

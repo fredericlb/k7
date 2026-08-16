@@ -25,7 +25,6 @@ import {
   Volume2,
 } from "lucide-react";
 import {
-  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -34,6 +33,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import { clipLoop, placedRepeats } from "../clipLoop";
 import type { MenuCtx } from "../contextMenu";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
@@ -58,11 +58,11 @@ import { ClipActivity } from "./ClipActivity";
 import { ClipContent } from "./ClipContent";
 import type { EditTarget } from "./ClipView";
 import {
+  Grid,
   type RulerMode,
   RulerTicks,
   rulerScale,
   rulerTicks,
-  type TickProps,
 } from "./Ruler";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
@@ -89,6 +89,10 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
 const NATURAL = 4; // beats drawn for a length-0 clip
+// How wide a pass must be before its loop mark also gets the glyph. The rule alone stays down to
+// `placedRepeats`' own floor; the 8px icon needs its own width plus air, or a fast loop draws a
+// row of touching glyphs that reads as grit rather than as a repeat.
+const MIN_LOOP_GLYPH_PX = 18;
 const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fill
 const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 
@@ -341,68 +345,8 @@ function LaneAlternative({
   );
 }
 
-/**
- * The lanes' grid layer, memoised — with the ruler's ticks, the most numerous elements on the
- * surface.
- *
- * It is a pure function of the VIEW WINDOW, and every prop here is a number, so React's
- * shallow compare settles it: a re-render of the timeline for any other reason (a caret move,
- * a poll landing, a meter changing) leaves it untouched. That matters more than its render
- * cost, which is small: with the ticks it was the bulk of the DOM the profile caught React
- * rewriting — `updateProperties` was 12 % of the whole capture, and a tick's `style` object is
- * new on every render, so all three of its properties were written again each time. See
- * docs/timeline.md. The tick maths and the ruler layer live in Ruler.tsx now, shared with the
- * clip editors — same ladder, same stride, same look.
- */
-const Grid = memo(function Grid({
-  mode,
-  beatLo,
-  lastBeat,
-  unit,
-  barBeats,
-  bps,
-  secStep,
-  ppb,
-  laneW,
-  left0,
-  top,
-  height,
-}: TickProps & {
-  ppb: number;
-  laneW: number;
-  left0: number;
-  top: number;
-  height: number;
-}) {
-  return (
-    <>
-      {rulerTicks(mode, beatLo, lastBeat, unit, barBeats, bps, secStep).map(
-        (t) => {
-          const left = (t.beat - beatLo) * ppb;
-          // A tick at the lane's right edge is a 1px border past the end of the box, and one
-          // pixel of horizontal scroll in a view that fits its pane exactly.
-          if (left >= laneW) return null;
-          return (
-            <div
-              key={`grid:${t.key}`}
-              className={cn(
-                "pointer-events-none absolute border-l border-dashed",
-                // The ruler's three weights, one step fainter: down here they cross the
-                // material rather than sitting in a header of their own.
-                t.level === 0
-                  ? "border-border/40"
-                  : t.level === 1
-                    ? "border-border/25"
-                    : "border-border/10",
-              )}
-              style={{ left: left0 + left, top, height }}
-            />
-          );
-        },
-      )}
-    </>
-  );
-});
+// The lanes' grid layer is `Grid`, in Ruler.tsx beside the ticks it matches — the piano roll
+// draws the same one now. Its memo and the profile that asked for it are documented there.
 
 interface Caret {
   row: RowKey; // identity, not an index — the orbit lanes renumber the rows
@@ -1114,7 +1058,7 @@ export function TimelineTab({
         clipId: c.id,
       };
       // No MOVE on a generated lane: its clips are streamed by the pattern, so there is no
-      // `clips:` entry in its file to rewrite. The press is tracked either way, because a CLICK
+      // `events:` entry in its file to rewrite. The press is tracked either way, because a CLICK
       // is a request to SEE the clip and that asks nothing of the disk.
       //
       // A FROZEN lane's clip is out for the same reason and one worse: it is a render, and the
@@ -1693,7 +1637,7 @@ export function TimelineTab({
 
   // While the bar is filling `events move`, the rectangle ANSWERS its region — and re-answers
   // on every change, so a shift+drag grows the fields live. Track lanes only: a group holds no
-  // placements, picture has no verbs, and a generated lane's file has no `clips:` to rewrite.
+  // placements, picture has no verbs, and a generated lane's file has no `events:` to rewrite.
   useEffect(() => {
     if (!feedEventsMove || !selBox || !proj) return;
     const ids = visRows
@@ -2412,7 +2356,7 @@ export function TimelineTab({
                   >
                     {row.take.clips.map((c, i) => (
                       <div
-                        // Same key rule as a lane's clips: one ref may be placed twice.
+                        // Same key rule as a lane's events: one ref may be placed twice.
                         key={`${c.id}-${i}`}
                         title={`${c.name} — take ${row.n}, at beat ${c.start + 1}`}
                         className="pointer-events-none absolute inset-y-1 overflow-hidden rounded-sm border border-dashed border-muted-foreground/50 bg-muted-foreground/20 px-1 text-[10px] leading-4"
@@ -2760,6 +2704,16 @@ export function TimelineTab({
                         const w = (c.length > 0 ? c.length : NATURAL) * ppb;
                         // A clip whose content loops to fill its length: flagged, so the repeats aren't mistaken for one long take.
                         const looping = (c.loopEnd ?? 0) > (c.loopStart ?? 0);
+                        // …and WHERE it starts over. Not the same question as `looping` above,
+                        // which now only feeds the tooltip: a MIDI clip states its window even
+                        // when it plays once (clipLoop.ts), so `looping` can be true with
+                        // nothing to mark. The marks come off `passes`, so they draw nothing.
+                        const loop = clipLoop(c);
+                        const loopMarks = loop ? placedRepeats(loop, ppb) : [];
+                        // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is
+                        // where it stops being a glyph and starts being grit.
+                        const loopGlyphs =
+                          !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
                         // A time-stretched clip plays back at an altered rate — flag it with a countdown-timer icon.
                         const stretched = !!c.warped;
                         // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
@@ -2815,7 +2769,8 @@ export function TimelineTab({
                             }}
                             className={cn(
                               // `isolate` so the activity layer's -z-10 stays inside this block instead of dropping behind the lane.
-                              "absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
+                              // `group` is what the name reads to know it is being pointed at.
+                              "group absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
                               // Disabled: still placed, still readable, plainly off. Not
                               // hidden — an event you can't see is a deleted one.
                               c.disabled &&
@@ -2841,6 +2796,29 @@ export function TimelineTab({
                               spanBeats={c.length > 0 ? c.length : NATURAL}
                               color={t.color || undefined}
                             />
+                            {/* Where the material STARTS OVER — one rule per pass, with the
+                                loop glyph on it. Without them a looping event is one long
+                                block, and nothing on it says whether it is a single take or
+                                the same bar sixteen times. `placedRepeats`, not
+                                `visibleRepeats`: this axis starts at the event's left edge
+                                (see clipLoop.ts). Clipped to the DRAWN width, so a resize
+                                drag drops the marks it is about to lose rather than
+                                leaving them past the end. */}
+                            {loopMarks
+                              .filter((b) => b * ppb < drawW)
+                              .map((b) => (
+                                <div
+                                  key={b}
+                                  className="pointer-events-none absolute inset-y-0 w-px bg-white/30"
+                                  style={{ left: b * ppb }}
+                                >
+                                  {/* Only when a pass is wide enough to hold it — below that
+                                      the glyphs touch and read as a dotted smear. */}
+                                  {loopGlyphs && (
+                                    <Repeat className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 h-2 w-2 text-white/75" />
+                                  )}
+                                </div>
+                              ))}
                             {/* Edge handles. Narrow strips inside the block's own ends,
                                 so they never overlap the neighbouring event and the body
                                 between them still drags the whole clip. */}
@@ -2892,13 +2870,29 @@ export function TimelineTab({
                               ) : (
                                 <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               )}
-                              {looping && (
-                                <Repeat className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                              )}
+                              {/* The loop badge that sat here is gone: the marks down the
+                                  block say the same thing and say WHERE, which a badge in a
+                                  corner never could. */}
                               {stretched && (
                                 <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               )}
-                              <span className="truncate">{c.name || c.id}</span>
+                              {/* The name, on HOVER. A lane full of blocks each shouting its
+                                  own name is noise you read past; what the eye wants at rest
+                                  is the shape of the arrangement. Faded rather than
+                                  unmounted, so the row keeps its height and the icons beside
+                                  it never move.
+                                  …and shown outright while the block is in hand: a drag puts
+                                  `pointer-events-none` on it so `laneAtPoint` can see past
+                                  it, which also means it stops being hovered — exactly when
+                                  knowing what you are holding matters most. */}
+                              <span
+                                className={cn(
+                                  "truncate opacity-0 transition-opacity group-hover:opacity-100",
+                                  (moving || resizing) && "opacity-100",
+                                )}
+                              >
+                                {c.name || c.id}
+                              </span>
                             </div>
                             {/* The clip's waveform / mini piano-roll, only when there's
                               room for it. `relative` anchors ClipContent's absolute fill;

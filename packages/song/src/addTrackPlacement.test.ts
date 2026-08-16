@@ -42,12 +42,12 @@ describe("putting a clip on a lane", () => {
   it("creates the clips list on a lane that had none", () => {
     lane('extends: "@studio/audio-track"\n');
     addTrackPlacement(dir, "gtr", "riff", "1:1");
-    expect(laneText()).toContain("clips:");
+    expect(laneText()).toContain("events:");
   });
 
   it("keeps the placements already there", () => {
     lane(
-      'extends: "@studio/audio-track"\nclips: [ { ref: first, start: "1:1" } ]\n',
+      'extends: "@studio/audio-track"\nevents: [ { ref: first, start: "1:1" } ]\n',
     );
     addTrackPlacement(dir, "gtr", "second", "5:1");
     expect(laneText()).toContain("ref: first");
@@ -56,13 +56,13 @@ describe("putting a clip on a lane", () => {
 
   it("lands on the set the lane is PLAYING, not the first one", () => {
     lane(
-      'extends: "@studio/audio-track"\nclips: []\nalternatives:\n  - name: b\n    clips: []\nalternative: b\n',
+      'extends: "@studio/audio-track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTrackPlacement(dir, "gtr", "riff", "2:1");
     // The running set gets it; the file's top-level list stays empty.
     const text = laneText();
     const top = text.slice(
-      text.indexOf("clips:"),
+      text.indexOf("events:"),
       text.indexOf("alternatives:"),
     );
     expect(top).not.toContain("ref: riff");

@@ -169,8 +169,8 @@ describe("wiring a named port", () => {
 describe("what validate says", () => {
   const wire = (yaml: string) => {
     file("modules/audio/crossfade/module.yaml", CROSSFADE);
-    file("nodes/a.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
-    file("nodes/b.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("nodes/a.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
+    file("nodes/b.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
     writeFileSync(join(dir, "chains.yaml"), yaml, "utf8");
     return loadGraph(dir);
   };
@@ -228,7 +228,7 @@ describe("what validate says", () => {
   it("refuses more sources than the module has ports", () => {
     // A port arity error THROWS rather than warning: a chain wired to a port that is not there
     // is not a song that plays imperfectly, it is one the compiler cannot lay out at all.
-    file("nodes/c.yaml", 'extends: "@studio/audio-track"\nclips: []\n');
+    file("nodes/c.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
     expect(() =>
       wire(
         "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  c: [ crossfade#b ]\n  crossfade: [ OUT ]\n",

@@ -106,7 +106,7 @@ Three things deliberately opt out of optimism:
 Knob drags go through `App.quietCommand`, which runs the backend command but deliberately
 never bumps `reloadKey`. Bypass and library picks must **not** use it: without a reload the
 click lands on disk and in the engine while the picture stays frozen. Bypass is also sent as
-a bare `module bypass` toggle, so the button need not know the current state and two fast
+a bare `node bypass` toggle, so the button need not know the current state and two fast
 clicks cannot race the file.
 
 Live parameter sends are coalesced to one per frame, and only a plugin param feeds live — a
@@ -170,7 +170,7 @@ they never re-subscribe. A movement threshold is what keeps a pan from also sele
 ### Moving a card, and where dagre still rules
 
 Drag any node's header and it goes where you put it: written to chains.yaml's `positions:` by
-`module position` (the drop runs the verb outright, like the cable's landing). Everything that
+`node position` (the drop runs the verb outright, like the cable's landing). Everything that
 can be added to the graph IS a node — a module, a track, a curve, the sink — and every node is
 addressed by one name: its chains name, a curve by its curve id, the sink by `OUT`. A curve
 draws once however many params it drives (one automation edge each), so its pin has one card
@@ -182,9 +182,10 @@ dragged out of the line would put a console's channel wherever it last was), and
 panel honours them, so a module sits in one place whichever pane is looking.
 
 **A new node is born under the cursor.** The graph's create flows carry the click's world
-point into the verb itself — an optional trailing `x,y` on `module place`, `module insert`
-and `chain add` (the picker's `at` field, filled by the shell) — and the handler pins the
-node there in the same undo step. The comma spelling is what makes the token unmistakable
+point into the verb itself — an optional trailing `x,y` on `node new` and `node insert` — and the
+handler pins the node there in the same undo step. On the bare canvas that is the whole of it:
+`node new` both creates and places, so the shell has nothing to run after it unless the pick
+carried a point, in which case it sends one `node position`. The comma spelling is what makes the token unmistakable
 for a ref or a node name, so a typed line without it still works and still asks the layout;
 dagre is the fallback for a node nobody gave a birthplace, never the boss of one somebody did.
 
@@ -201,10 +202,10 @@ everything once, deliberately.
 ### The patch cable
 
 Click a free output jack, a dashed cable follows the cursor, click a free input jack of the
-same signal: the shell runs `chain connect <from> <to>` outright — both ends were clicked,
+same signal: the shell runs `graph chain connect <from> <to>` outright — both ends were clicked,
 so there is nothing for the bar to ask. Clicking an OCCUPIED jack lifts that cable's end
-instead: land it on another jack and the shell runs `chain replug` (one end moved, one undo
-step); drop it on the bare canvas and the arrow is deleted (`chain disconnect`) — a NEW
+instead: land it on another jack and the shell runs `graph chain replug` (one end moved, one undo
+step); drop it on the bare canvas and the arrow is deleted (`graph chain disconnect`) — a NEW
 cable dropped there simply ceases. Esc or right-click puts everything back, writing nothing.
 The gestures live in the renderer (`packages/ui-chains-react/docs/hosting.md` — `onConnect`,
 `onReplug`, `onDisconnect`), armed here in `App.tsx` beside `onEdgeInsert`; the verbs and

@@ -414,7 +414,7 @@ describe("a scaffolded set", () => {
     // Empty in git and filled at play time: what a deck plays is whichever song from
     // songs.yaml was loaded onto it. This is the one thing an m9 project has that an l8
     // song does not.
-    for (const t of Object.values(tracks)) expect(t.clips).toEqual([]);
+    for (const t of Object.values(tracks)) expect(t.events).toEqual([]);
   });
 
   it("starts with an empty set list", () => {

@@ -7,14 +7,14 @@ under the new pass.
 ```yaml
 # nodes/gtr.yaml
 extends: "@studio/audio-track"
-clips:
+events:
   - { ref: gtr_3.1_260815T221030, start: "3:1:1" }
 takes:
-  - clips:
+  - events:
       - { ref: gtr_3.1_260815T220641, start: "3:1:1" }
 ```
 
-It is the same shape as `clips:` because it *is* the same thing: a list of placements. That is
+It is the same shape as `events:` because it *is* the same thing: a list of placements. That is
 the whole design, and everything below follows from it.
 
 ## Why a list of placements, and not a new kind of object
@@ -23,7 +23,7 @@ A take has to draw like the arrangement it was — same clips, same extents, sam
 the reason to keep one is to compare it with what replaced it. Any second shape would have to be
 compiled by a second reader, and the two would drift on the first field either one gained.
 
-So `takes:` compiles through the **same** `placementToClip` the lane's own `clips:` go through
+So `takes:` compiles through the **same** `placementToClip` the lane's own `events:` go through
 (`nodeProject.ts`), reaches the browser through the **same** `toWebClip` (`workspace.ts`), and
 draws as a row of the same geometry. A take is not a special case anywhere except in what it is
 allowed to do: nothing. It has no level, no arm, no chain, and no drag.
@@ -73,7 +73,7 @@ applied is a state nobody asked for.
 ## Whose takes they are
 
 `takes:` is an ordinary field of a module, listed in `MODULE_FIELDS` — so an **alternative** can
-carry its own, exactly as it carries its own `clips:`.
+carry its own, exactly as it carries its own `events:`.
 
 That is not incidental. Two alternatives are two ways of playing the part, and a pass recorded
 against one is not a pass of the other. The writers in `yaml/trackFile.ts` follow the same rule

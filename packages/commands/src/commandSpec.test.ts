@@ -47,7 +47,7 @@ describe("completions (against the real commands.yaml)", () => {
 
   it("uses the LONGEST matching command so `track mute` isn't shadowed by a shorter one", () => {
     // Getting track-completed lines proves the full `track mute` won rather than
-    // some shorter prefix. No command name prefixes another today — `channel set`
+    // some shorter prefix. No command name prefixes another today — `system channel set`
     // closed the last one — so this guards the rule, not a live collision.
     const got = completions("track mute ", host(["melody", "bass"]), "cli");
     expect(got).toEqual(["track mute melody", "track mute bass"]);
@@ -87,7 +87,7 @@ describe("the palette's one-field view of completions()", () => {
     // The line has to keep the empty partial so it ends with a SPACE — that space is
     // what tells completions() the command is settled and its args are being filled.
     // Dropping it left the bare command name, which reads as "still typing a name".
-    expect(completeArg("track gain", [], "", ["melody", "bass"])).toEqual([
+    expect(completeArg("track normalize", [], "", ["melody", "bass"])).toEqual([
       "melody",
       "bass",
     ]);
@@ -109,7 +109,9 @@ describe("the palette's one-field view of completions()", () => {
   });
 
   it("offers nothing for an argument with no vocabulary", () => {
-    expect(completeArg("track gain", ["melody"], "", ["melody"])).toEqual([]); // the dB value
+    expect(completeArg("track normalize", ["melody"], "", ["melody"])).toEqual(
+      [],
+    ); // the peak value
     expect(completeArg("node new", ["instruments/synth"], "")).toEqual([]); // the node name
   });
 });
@@ -174,37 +176,45 @@ describe("commands.yaml is well-formed against the providers", () => {
     // rest of the line — those are always last, and anything after them is free text.
     const spec = (name: string) =>
       loadCommandSpecs().find((c) => c.command === name);
-    // `marker new <timecode> <name>`: the name may contain spaces, so only the timecode
+    // `project marker new <timecode> <name>`: the name may contain spaces, so only the timecode
     // carries a type, and a spaced name must not make the timecode fail.
-    expect(spec("marker new")?.args?.map((a) => a.type)).toEqual([
+    expect(spec("project marker new")?.args?.map((a) => a.type)).toEqual([
       "timecode",
       undefined,
     ]);
-    expect(validateArgs(spec("marker new")!, "5:1:1 Verse two")).toBeNull();
-    // `module param <module> <param> <value>` is re-split by its handler (a param name
+    expect(
+      validateArgs(spec("project marker new")!, "5:1:1 Verse two"),
+    ).toBeNull();
+    // `node param <node> <param> <value>` is re-split by its handler (a param name
     // has spaces), so nothing in it is typed.
-    expect((spec("module param")?.args ?? []).every((a) => !a.type)).toBe(true);
+    expect((spec("node param")?.args ?? []).every((a) => !a.type)).toBe(true);
   });
 
   it("refuses a malformed scalar before the handler runs", () => {
     const specs = loadCommandSpecs();
     const of = (name: string) => specs.find((c) => c.command === name)!;
-    expect(validateArgs(of("marker new"), "xyz Chorus")).toMatch(/bar:beat/);
-    expect(validateArgs(of("track gain"), "melody abc")).toMatch(/a number/);
+    expect(validateArgs(of("project marker new"), "xyz Chorus")).toMatch(
+      /bar:beat/,
+    );
+    expect(validateArgs(of("track normalize"), "melody abc")).toMatch(
+      /a number/,
+    );
     expect(validateArgs(of("sequence note new"), "melody H9 4 6")).toMatch(
       /note name/,
     );
     // The offending token appears in the message, so the palette can point at it.
-    expect(validateArgs(of("track pan"), "melody left")).toContain('"left"');
+    expect(validateArgs(of("track normalize"), "melody left")).toContain(
+      '"left"',
+    );
   });
 
   it("accepts every shape its handlers accept", () => {
     const specs = loadCommandSpecs();
     const of = (name: string) => specs.find((c) => c.command === name)!;
     for (const tc of ["5", "5:1", "5:1:1"])
-      expect(validateArgs(of("marker new"), `${tc} Chorus`)).toBeNull();
-    // Negative and fractional gains, notes as names or as MIDI numbers.
-    expect(validateArgs(of("track gain"), "melody -6.5")).toBeNull();
+      expect(validateArgs(of("project marker new"), `${tc} Chorus`)).toBeNull();
+    // Negative and fractional numbers, notes as names or as MIDI numbers.
+    expect(validateArgs(of("track normalize"), "melody -6.5")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody F#3 0 1")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody 60 0 1")).toBeNull();
     // Too few arguments is the handler's message to give, not a shape error.

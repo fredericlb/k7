@@ -1,4 +1,4 @@
-// `module alternative select|create|copy` — the three verbs the node's ⋮ menu runs.
+// `node alternative select|create|copy` — the three verbs the node's ⋮ menu runs.
 //
 // Through the DISPATCHER and asserting the FILE, for the reason bypass.test.ts gives: a command
 // that reports one state and writes another is the bug a writer-only test cannot see.
@@ -35,7 +35,7 @@ function song(node: string): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
   writeFileSync(join(d, "nodes", "ampli.yaml"), node, "utf8");
@@ -76,10 +76,10 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("module alternative select", () => {
+describe("node alternative select", () => {
   it("writes the selection and re-reads the project", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative select ampli crunch", host(), "cli");
+    await runCommand("node alternative select ampli crunch", host(), "cli");
     expect(file()).toContain("alternative: crunch");
     // A set may change any field — the plugin, the panel — so there is nothing cheap to diff.
     expect(reloaded).toBe(1);
@@ -87,7 +87,7 @@ describe("module alternative select", () => {
 
   it("LISTS them, marking the one that is on, when no name is given", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative select ampli", host(), "cli");
+    await runCommand("node alternative select ampli", host(), "cli");
     expect(logs.join(" ")).toContain("[1]");
     expect(logs.join(" ")).toContain("crunch");
     expect(file()).toBe(WITH_CRUNCH); // a question writes nothing
@@ -95,23 +95,23 @@ describe("module alternative select", () => {
 
   it("says so when the module has only its own settings", async () => {
     dir = song('extends: "@project/audio/amp"\n');
-    await runCommand("module alternative select ampli", host(), "cli");
+    await runCommand("node alternative select ampli", host(), "cli");
     expect(logs.join(" ")).toContain("has one set of settings");
   });
 
   it("refuses a name the module does not have, and writes nothing", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative select ampli ghost", host(), "cli");
+    await runCommand("node alternative select ampli ghost", host(), "cli");
     expect(logs.join(" ")).toContain("no alternative");
     expect(file()).toBe(WITH_CRUNCH);
     expect(reloaded).toBe(0);
   });
 });
 
-describe("module alternative create / copy", () => {
+describe("node alternative create / copy", () => {
   it("adds an empty one and switches to it", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative create ampli clean", host(), "cli");
+    await runCommand("node alternative create ampli clean", host(), "cli");
     expect(file()).toContain("- name: clean");
     expect(file()).toContain("alternative: clean");
     expect(logs.join(" ")).toContain("empty");
@@ -119,8 +119,8 @@ describe("module alternative create / copy", () => {
 
   it("copies what the CURRENT set states, not the module's own", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative select ampli crunch", host(), "cli");
-    await runCommand("module alternative copy ampli crunchier", host(), "cli");
+    await runCommand("node alternative select ampli crunch", host(), "cli");
+    await runCommand("node alternative copy ampli crunchier", host(), "cli");
     const after = file();
     expect(after).toContain("alternative: crunchier");
     // crunch's own `Gain: 9`, and NOT the module's `Gain: 3` merged under it.
@@ -129,14 +129,14 @@ describe("module alternative create / copy", () => {
 
   it("refuses a name already taken", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative create ampli crunch", host(), "cli");
+    await runCommand("node alternative create ampli crunch", host(), "cli");
     expect(logs.join(" ")).toContain("already has");
     expect(file()).toBe(WITH_CRUNCH);
   });
 
   it("names an unnamed one by its position, counting the module's own as 1", async () => {
     dir = song(WITH_CRUNCH);
-    await runCommand("module alternative create ampli", host(), "cli");
+    await runCommand("node alternative create ampli", host(), "cli");
     expect(logs.join(" ")).toContain("'3'");
   });
 });

@@ -28,9 +28,9 @@ const CATALOGUE: CommandInfo[] = [
     args: [a("track", "track", "tracks"), a("dB", "number")],
   },
   {
-    command: "track low",
-    help: "set a track's low band on its mixer strip, in dB",
-    args: [a("track", "track", "tracks"), a("dB", "number")],
+    command: "track pan",
+    help: "set a track's pan on its mixer strip, -1 left … +1 right",
+    args: [a("track", "track", "tracks"), a("-1..1", "number")],
   },
   {
     command: "event remove",
@@ -48,45 +48,40 @@ const CATALOGUE: CommandInfo[] = [
     ],
   },
   {
-    command: "module bypass",
+    command: "node bypass",
     help: "bypass a module so it passes sound through untouched (bare: toggles)",
-    args: [a("module", "module", "modules"), a("state", "choice")],
+    args: [a("node", "module", "nodes"), a("state", "choice")],
   },
   {
-    command: "node unlink",
-    help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. node unlink lead)",
-    args: [a("node", "module", "modules")],
+    command: "graph unlink",
+    help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. graph unlink lead)",
+    args: [a("node", "module", "nodes")],
   },
   {
     // Takes the module FIRST — the node clicked on — then the ONE thing the menu cannot know:
     // what to point it at. Derived here like everything else, stopping at a trailing space.
-    command: "module replace",
-    help: "replace what a node is, keeping its name and its place (e.g. module replace echo @engine/audio/filter/auto-wah)",
+    command: "node replace",
+    help: "replace what a node is, keeping its name and its place (e.g. node replace echo @engine/audio/filter/auto-wah)",
     args: [
-      a("module", "module", "modules"),
+      a("node", "module", "nodes"),
       a("extends-ref", "module", "baseModules"),
     ],
   },
   {
-    command: "module param",
+    command: "node param",
     help: "set a module's plugin param",
     args: [
-      a("module", "module", "modules"),
+      a("node", "module", "nodes"),
       a("param", "text"),
       a("value", "number"),
     ],
   },
   {
-    // The SAME argument shape as `module param` — a module, then free text. Only the argument's
+    // The SAME argument shape as `node param` — a module, then free text. Only the argument's
     // name separates them, which is why the param slot pins one.
     command: "module clone",
     help: "clone a module folder (e.g. module clone instruments/bass bass2)",
     args: [a("category/name", "module", "modules"), a("newName", "text")],
-  },
-  {
-    command: "module nam",
-    help: "load a Neural Amp Modeler model the module carries",
-    args: [a("module", "module", "modules"), a("file", "file", "assetFiles")],
   },
   {
     command: "module new",
@@ -104,13 +99,13 @@ const CATALOGUE: CommandInfo[] = [
     args: [a("clip", "file", "clipTargets"), a("chain", "choice", "chains")],
   },
   {
-    command: "marker new",
+    command: "project marker new",
     help: "drop a named marker at a timecode",
     args: [a("timecode", "timecode"), a("name", "text")],
   },
   {
-    command: "marker delete",
-    help: "remove a marker by name (e.g. marker delete Chorus)",
+    command: "project marker delete",
+    help: "remove a marker by name (e.g. project marker delete Chorus)",
     args: [a("name", "marker", "markerNames")],
   },
 ];
@@ -122,12 +117,12 @@ describe("a track", () => {
   const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
 
   it("offers EVERY command a track can answer, not a chosen few", () => {
-    // The point of deriving it: `track low` was never in the hand-written menu, and nobody has
+    // The point of deriving it: `track pan` was never in the hand-written menu, and nobody has
     // to remember to add the next one either.
     expect(lines(menu)).toEqual([
       "track mute gtr",
       "track gain gtr ",
-      "track low gtr ",
+      "track pan gtr ",
       "event remove gtr ",
       "event move gtr ",
       "ui file gtr",
@@ -195,8 +190,8 @@ describe("a take", () => {
   });
 
   it("is NOT derived — `<track> <number>` is also a gain", () => {
-    // The reason this one is written out by hand: `track gain`, `track pan` and the three tone
-    // bands have exactly that shape, so asking the catalogue would offer to set a take's level.
+    // The reason this one is written out by hand: `track gain` and `track pan` have exactly that
+    // shape, so asking the catalogue would offer to set a take's level.
     expect(
       lines(contextMenu({ kind: "take", track: "gtr", n: 1 }, TAKES)),
     ).not.toContain("track gain gtr 1");
@@ -209,12 +204,11 @@ describe("a module node", () => {
     // instead of the provider would offer `module new` on every module in the graph.
     const l = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE));
     expect(l).toEqual([
-      "module bypass lead ",
-      "node unlink lead",
-      "module replace lead ",
-      "module param lead ",
+      "node bypass lead ",
+      "graph unlink lead",
+      "node replace lead ",
+      "node param lead ",
       "module clone lead ",
-      "module nam lead ",
       "ui file lead",
     ]);
   });
@@ -234,13 +228,13 @@ describe("a module node", () => {
   it("shrinks to the verbs that survive a DANGLING node", () => {
     // A name nothing answers to: no file to open, no param to set. These touch chains.yaml
     // alone, which the catalogue cannot say — it describes arguments, not what a handler writes.
-    // `module replace` is NOT among them any more: it repoints an `extends:`, and a dangling
+    // `node replace` is NOT among them any more: it repoints an `extends:`, and a dangling
     // name has no file to repoint — offering it would offer a certain failure.
     expect(
       lines(
         contextMenu({ kind: "module", id: "gone", missing: true }, CATALOGUE),
       ),
-    ).toEqual(["module bypass gone ", "node unlink gone"]);
+    ).toEqual(["node bypass gone ", "graph unlink gone"]);
   });
 });
 
@@ -285,18 +279,17 @@ describe("a param", () => {
   );
 
   it("quotes a name with spaces, so it survives as one argument", () => {
-    expect(lines(menu)).toContain('module param amp "Filter Freq" ');
+    expect(lines(menu)).toContain('node param amp "Filter Freq" ');
   });
 
   it("offers only what takes a module AND a free-text param", () => {
-    // `module bypass` takes a choice second and `module nam` a file: neither is this param.
+    // `node bypass` takes a CHOICE second, not free text — so it is not this param.
     const l = lines(menu).join(" ");
     expect(l).not.toContain("bypass");
-    expect(l).not.toContain("nam");
   });
 
   it("is not fooled by a command of the same SHAPE", () => {
-    // `module clone <module> <newName>` fills a (module, text) pair exactly as `module param`
+    // `module clone <module> <newName>` fills a (module, text) pair exactly as `node param`
     // does. Offering it here would pre-write a right-clicked knob's name as a folder name — the
     // one case in this file where matching on types alone was not enough.
     expect(lines(menu).join(" ")).not.toContain("module clone");
@@ -319,16 +312,16 @@ describe("a param", () => {
 });
 
 describe("the ruler and its markers", () => {
-  it("derives `marker new` from a bare timecode", () => {
+  it("derives `project marker new` from a bare timecode", () => {
     expect(
       lines(contextMenu({ kind: "marker-add", tc: "5:1" }, CATALOGUE)),
-    ).toEqual(["marker new 5:1 "]);
+    ).toEqual(["project marker new 5:1 "]);
   });
 
-  it("derives `marker delete` from a marker's name", () => {
+  it("derives `project marker delete` from a marker's name", () => {
     expect(
       lines(contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE)),
-    ).toEqual(["marker delete Chorus"]);
+    ).toEqual(["project marker delete Chorus"]);
   });
 });
 
@@ -397,5 +390,43 @@ describe("the menu's contract", () => {
 
   it("opens no menu on the sink", () => {
     expect(contextMenu({ kind: "sink", id: "OUT" }, CATALOGUE)).toEqual([]);
+  });
+});
+
+// A person may take a verb OFF the right-click (commandPrefs.ts's `menu`). The menu is derived,
+// so this can only ever remove: there is no arrangement of prefs that puts a command on a menu
+// its arguments do not fit.
+describe("what the person has turned off", () => {
+  it("drops a verb marked `menu: false`, and leaves the rest alone", () => {
+    const all = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE));
+    expect(all).toContain("graph unlink lead");
+    const some = lines(
+      contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {
+        "graph unlink": { menu: false },
+      }),
+    );
+    expect(some).not.toContain("graph unlink lead");
+    expect(some).toEqual(all.filter((l) => l !== "graph unlink lead"));
+  });
+
+  it("reaches the entries the CATALOGUE does not hold either", () => {
+    // `ui file` is written by hand in contextMenu.ts, not derived — the filter sits at the one
+    // place every entry passes through precisely so those obey too.
+    const off = lines(
+      contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {
+        "ui file": { menu: false },
+      }),
+    );
+    expect(off).not.toContain("ui file lead");
+  });
+
+  it("treats an absent entry, and an explicit true, as ON", () => {
+    const on = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {}));
+    const yes = lines(
+      contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {
+        "graph unlink": { menu: true },
+      }),
+    );
+    expect(yes).toEqual(on);
   });
 });

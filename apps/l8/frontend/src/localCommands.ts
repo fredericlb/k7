@@ -56,21 +56,11 @@ export const UI_HEADS: readonly string[] = [
   "copy path ",
 ];
 
-/**
- * The bare-named ones that share a head with a `ui` command, checked FIRST.
- *
- * `file new x` and `ui file x` differ only in their second token: one says what to DO to a
- * file, the other names one to open. Without this the pairing rule would send every
- * `file <verb>` back with "type: ui file …".
- */
-export const BARE_NAMES: readonly string[] = [
-  "file new",
-  "file rename",
-  "file move",
-  "file delete",
-  "file upload",
-  "folder new",
-];
+// `BARE_NAMES` was here: the tree's verbs, checked FIRST because `file new x` and `ui file x`
+// differed only in their second token — one says what to DO to a file, the other names one to
+// open — so without it the pairing rule answered every `file <verb>` with "type: ui file …".
+// They are `fs file new`, `fs folder new` … now, and share a head with nothing: the group name
+// does what the exception did, so the exception is gone.
 
 /**
  * The transport verbs the shell answers over the ENGINE's socket instead of sending to the file
@@ -95,7 +85,7 @@ export const BARE_TRANSPORT: readonly string[] = [
 /**
  * Does `line` name this command? Whole-word: the name ends the line or is followed by a space.
  *
- * Both forms matter. `file new clips kick.yaml` is the line as run; a bare `file new` is what a
+ * Both forms matter. `fs file new clips kick.yaml` is the line as run; a bare `fs file new` is what a
  * bar dispatches before its form is filled, and it has to reach the same branch — which answers
  * with a usage line rather than falling through to the backend as an unknown verb.
  */
@@ -107,8 +97,8 @@ const heads = (line: string, names: readonly string[]): boolean =>
 
 /**
  * Does this line — already stripped of any `ui ` prefix, already lowercased — name a `ui`
- * command? A bare name wins, which is the whole point of checking it first.
+ * command? One list of exact names, one of heads, and nothing to except: no bare-named command
+ * shares a head with a `ui` one any more (see the note above BARE_NAMES's grave).
  */
 export const isUiLine = (line: string): boolean =>
-  !heads(line, BARE_NAMES) &&
-  (UI_EXACT.includes(line) || heads(line, UI_HEADS));
+  UI_EXACT.includes(line) || heads(line, UI_HEADS);

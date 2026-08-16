@@ -47,7 +47,7 @@ positions:
 ```
 
 Purely cosmetic: nothing about the signal reads it, and deleting the section (or running
-`module position reverb auto`) simply hands the nodes back to the automatic layout.
+`node position reverb auto`) simply hands the nodes back to the automatic layout.
 
 One node per line, its destinations as a flow sequence. That is the canonical form: a node written
 any other way is re-spaced by the first edit, and then every node shows up in the diff.

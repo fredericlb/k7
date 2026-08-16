@@ -149,7 +149,7 @@ describe("the writers", () => {
     expect(readFileSync(file, "utf8")).toBe(bypassed);
   });
 
-  it("inserts a module into the arrow `chain add` names", () => {
+  it("inserts a module into the arrow `node insert` names", () => {
     const chain = Object.keys(loadGraph(dir).chains)[0];
     const c = loadGraph(dir).chains[chain];
     const before = c.use.map((s) => s.module);

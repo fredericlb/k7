@@ -40,7 +40,7 @@ you already know:
 
 - **`params` merge per entry.** A set that touches `Gain` leaves `Tone` alone, which is what
   makes an alternative worth writing: it states only what it CHANGES.
-- **A list is a scalar to the merge**, so a set restating `clips:` replaces the arrangement
+- **A list is a scalar to the merge**, so a set restating `events:` replaces the arrangement
   outright. That is exactly what a lane's takes need, and it is the same rule that lets a
   node empty an inherited `automations:` with `[]`.
 - **Any field may differ** — the plugin, the panel, the colour. An alternative is a module
@@ -101,7 +101,7 @@ states you A/B are different wishes.
 
 ## The three verbs
 
-`module alternative select|create|copy <module> [name]`, and the ⋮ menu runs the same three. All
+`node alternative select|create|copy <node> [name]`, and the ⋮ menu runs the same three. All
 of them end in a project RELOAD rather than a patched doc pushed to the engine: a set may change
 the plugin, the panel or a whole clip list, so there is nothing cheap to diff.
 
@@ -111,19 +111,19 @@ came to try. `copy` starts from what is ON — and from what that set STATES, no
 result. Copying the merge would bake the module's own fields into the new entry, and every later
 edit to them would then stop reaching it.
 
-**A LANE is the exception, and it is `clips: []`.** "States only what it changes" cuts the wrong
-way for an arrangement: a set that says nothing about `clips:` inherits them, so a new take would
+**A LANE is the exception, and it is `events: []`.** "States only what it changes" cuts the wrong
+way for an arrangement: a set that says nothing about `events:` inherits them, so a new take would
 open holding the previous take's placements — and a new take is empty. `newModuleAlternative` asks
 `isTrack` of the RESOLVED module (`extends` folded; `loadModules` alone hands back the ref as a
 string) and passes `blankClips`. Not for `copy`, whose whole promise is what is playing.
 
 ## Editing a lane that is on one — the fork
 
-A lane's `clips:` exists in two places at once: the module's own, which is set "1", and one per
+A lane's `events:` exists in two places at once: the module's own, which is set "1", and one per
 entry under `alternatives:`. So "move this clip" has to say WHICH, and `yaml/trackFile.ts` answers
 it twice, because reading and writing do not agree:
 
-- **`clipsIn`** — what an edit ADDRESSES. A set stating no `clips:` inherits the module's, so that
+- **`clipsIn`** — what an edit ADDRESSES. A set stating no `events:` inherits the module's, so that
   is what is on screen and what a clip is picked out of.
 - **`clipsToEdit`** — where it LANDS: always the selected set, copying the inherited list into it
   on the first write.

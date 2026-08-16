@@ -34,7 +34,7 @@ the source, while `start` says where on the timeline the shot sits. `mute` here 
 ```yaml schema=VideoTrack
 kind: video
 # name: "A-roll"     # the lane's label; the FILENAME is still its id
-clips:
+events:
   - { ref: shot_a, start: 0, length: 4 }
   - { ref: shot_b, start: 4, length: 0, source_from: 2.5 }
 

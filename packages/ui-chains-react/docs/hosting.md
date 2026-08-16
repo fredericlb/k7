@@ -101,7 +101,7 @@ host whose type is wider accepts the handler unchanged.
 Click a free OUTPUT jack and a dashed cable follows the cursor; click a free INPUT jack of
 the same signal and `onConnect` fires with both ends as **chains.yaml addresses** — `name` or
 `name#port`, resolved by `jackRef` exactly as `insertFor` resolves the edge inserts — so a
-host can run `chain connect from to` verbatim. Esc or any right-click drops the cable in
+host can run `graph chain connect from to` verbatim. Esc or any right-click drops the cable in
 hand (capture-phase, so neither the host's own Esc handling nor a node menu acts on a press
 that only meant "never mind"); a second output click restarts the cable there instead.
 
@@ -113,7 +113,7 @@ arrow already there — is the verb's to refuse, because the graph on screen can
 than the file.
 
 Two siblings complete it, `onDisconnect(from, to)` and `onReplug(from, to, newFrom, newTo)`
-(→ `chain disconnect` / `chain replug`), and together they make cables MOVABLE: clicking an
+(→ `graph chain disconnect` / `graph chain replug`), and together they make cables MOVABLE: clicking an
 OCCUPIED jack lifts the cable end plugged into it — the other end stays put, the drawn cable
 steps aside for its dashed ghost, and the loose end seeks a jack of the side it came off
 (free, same signal). Landing runs the replug, one verb and one undo step for one gesture;
@@ -133,7 +133,7 @@ is in hand does the host div listen to pointermove at all.
 
 Drag ANY node's header and drop it: `onMoveNode` fires with the node's name — a module or a
 track by its chains name, a curve by its curve id, the sink by "OUT"; all `jackRef`'s answer —
-and the drop in whole, non-negative world px, ready for `module position` verbatim, which
+and the drop in whole, non-negative world px, ready for `node position` verbatim, which
 writes chains.yaml's `positions:`. The layout (`layout()`'s `positions` argument) then places
 only the nodes with no pin, so dagre keeps laying out new arrivals while a moved card stays
 put for ever.

@@ -25,10 +25,10 @@ function project(name: string): string {
   for (const m of ["amp", "cab", "verb", "plate"])
     writeModule(p, "audio", m, { plugin: { type: "vst3", name: m } });
   writeLane(p, "gtr", "audio-track", {
-    clips: [{ ref: "riff", start: "1:1:1" }],
+    events: [{ ref: "riff", start: "1:1:1" }],
   });
   writeLane(p, "keys", "audio-track", {
-    clips: [{ ref: "riff", start: "1:1:1" }],
+    events: [{ ref: "riff", start: "1:1:1" }],
   });
   writeYaml(join(p, "clips", "riff.yaml"), {
     source: "clips/riff.wav",

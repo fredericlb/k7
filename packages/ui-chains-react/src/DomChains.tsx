@@ -2197,7 +2197,7 @@ function NodeInner({
   );
 }
 /**
- * A lane's clips: a mini timeline of the whole lane, then the first few by name.
+ * A lane's events: a mini timeline of the whole lane, then the first few by name.
  *
  * Its own component because the hover link between the two needs STATE, and the node around it
  * is memoised so that a pan or a meter frame re-renders no card at all — putting a `useState`
@@ -2552,7 +2552,7 @@ export function DomChains({
   /**
    * The patch cable landed: a free OUT jack was clicked, the cable followed the cursor, and a
    * free IN jack of the same signal took it. `from`/`to` are chains.yaml addresses —
-   * `name` or `name#port` (see jackRef) — so the host can run `chain connect from to`
+   * `name` or `name#port` (see jackRef) — so the host can run `graph chain connect from to`
    * verbatim. Optional, and the jacks are clickable only when it is given: st0's read-only
    * views and the desk pass nothing and keep their inert sockets, the way they pass no
    * command bar. Esc or any right-click drops the cable in hand.
@@ -2560,19 +2560,19 @@ export function DomChains({
   onConnect?: (from: string, to: string) => void;
   /**
    * A lifted cable was dropped on the bare canvas: delete its arrow. Same addresses
-   * `onConnect` speaks, ready for `chain disconnect`. Lifting needs BOTH this and
+   * `onConnect` speaks, ready for `graph chain disconnect`. Lifting needs BOTH this and
    * `onReplug` — the jacks offer to pick a cable up only when the drop has somewhere to go.
    */
   onDisconnect?: (from: string, to: string) => void;
   /**
    * A lifted cable's loose end landed on another jack: the arrow from→to becomes
-   * newFrom→newTo (only one end differs). Ready for `chain replug`, verbatim — one gesture,
+   * newFrom→newTo (only one end differs). Ready for `graph chain replug`, verbatim — one gesture,
    * one verb, one undo step.
    */
   onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
   /**
    * A module was dragged by its header and dropped: pin it there. `module` is the chains
-   * name (jackRef), `x`/`y` world px, whole and non-negative — ready for `module position`.
+   * name (jackRef), `x`/`y` world px, whole and non-negative — ready for `node position`.
    * Optional, and the headers are draggable only when it is given (and never in the mixer
    * row): the read-only hosts keep their inert headers, the same rule as every gesture here.
    */
@@ -3593,7 +3593,7 @@ export function DomChains({
           // to a new one, so a drag that reached one commits nothing rather than guessing.
         } else if (d.tgt.kind === "plugin" && d.node.module) {
           cb.current.command(
-            `module param ${d.node.module} ${JSON.stringify(d.tgt.name)} ${d.value}`,
+            `node param ${d.node.module} ${JSON.stringify(d.tgt.name)} ${d.value}`,
           );
         }
         // The override stays until the matching frame arrives (see the reconcile effects).
@@ -3824,11 +3824,10 @@ export function DomChains({
   // The plugin's OWN window, drawn by the plugin on the engine's machine. The verb names an
   // instance rather than a module, because a window belongs to what is loaded, not to the file.
   const openPlugin = useCallback(
-    (module: string) =>
-      void cb.current.command(`instance external-ui ${module}`),
+    (module: string) => void cb.current.command(`node external-ui ${module}`),
     [],
   );
-  // Bare `module bypass` toggles, and NOT the quiet path: bypass changes the graph's shape, so it must reload.
+  // Bare `node bypass` toggles, and NOT the quiet path: bypass changes the graph's shape, so it must reload.
   const bypassModule = useCallback(
     (module: string) => cb.current.onBypassModule?.(module),
     [],
@@ -3871,8 +3870,12 @@ export function DomChains({
       if (!opt) return; // a field with no named settings — nothing to write
       // `arg` where the entry SAYS one thing and SETS another: a socket reads "Input 1 + 2" and
       // writes `1,2`. Everywhere else the word on screen is the word in the file.
+      //
+      // The line names the field the way the WIDGET does — `@channel`, the bind verbatim — so
+      // there is one vocabulary and no verb per field to keep in step. See the `INTRINSICS`
+      // table in @studio/commands.
       cb.current.command(
-        `module ${tgt.field} ${tgt.module} ${opt.arg ?? opt.label}`,
+        `node param ${tgt.module} @${tgt.field} ${opt.arg ?? opt.label}`,
       );
     },
     [],
@@ -3898,7 +3901,7 @@ export function DomChains({
       cb.current.setPluginParam?.(tgt.pluginId, tgt.name, value);
       if (n.module)
         cb.current.command(
-          `module param ${n.module} ${JSON.stringify(tgt.name)} ${value}`,
+          `node param ${n.module} ${JSON.stringify(tgt.name)} ${value}`,
         );
     },
     [setModuleField],
@@ -3947,7 +3950,7 @@ export function DomChains({
       cb.current.setPluginParam?.(tgt.pluginId, tgt.name, next);
       if (n.module)
         cb.current.command(
-          `module param ${n.module} ${JSON.stringify(tgt.name)} ${next}`,
+          `node param ${n.module} ${JSON.stringify(tgt.name)} ${next}`,
         );
     },
     [setModuleField],
@@ -4125,7 +4128,7 @@ export function DomChains({
 
   // --- dragging a node by its HEADER: the pin gesture --------------------------------
   // In hand: the node, its element (moved by a transform, so React never fights the drag),
-  // and the offset in world px. On release the offset becomes `module position` — see the
+  // and the offset in world px. On release the offset becomes `node position` — see the
   // onMoveNode prop — and the transform STAYS until the graph containing the write arrives:
   // clearing it on release would snap the card home for the length of the round trip, the
   // same trap the timeline's clip drag documents.

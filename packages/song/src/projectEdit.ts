@@ -3,7 +3,7 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
   baseModuleRefs,
@@ -35,6 +35,7 @@ import {
   renameNode,
   setModuleEnabled,
   setNodePosition,
+  unlinkNode,
 } from "./yaml/chainsFile";
 import { setMaterialWindow } from "./yaml/materialFile";
 import { setModuleList, setModuleValue } from "./yaml/moduleFile";
@@ -168,7 +169,7 @@ export function selectModuleAlternative(
 /**
  * Add one and switch to it — empty, or a copy of the set that is on. Answers the name it got.
  *
- * A LANE's empty one is empty of PLACEMENTS (`blankClips`), because a new take that opens holding
+ * A LANE's empty one is empty of PLACEMENTS (`blankEvents`), because a new take that opens holding
  * the previous take's clips is not a new take. Resolved here and not in the document editor: the
  * question is what this module extends, and the vocabulary to answer it lives on this side.
  */
@@ -183,11 +184,11 @@ export function newModuleAlternative(
   // folders' stamp, so this costs a directory walk and not a re-read. A name that resolves to
   // nothing simply is not a lane, which leaves the old behaviour.
   const node = loadModules(dir)[module];
-  const blankClips =
+  const blankEvents =
     !!node && isTrack(resolveModule(node, loadModuleRefs(dir)));
   let chosen = name ?? "";
   const path = editModuleFile(dir, module, (text) => {
-    const made = addAlternative(text, name, { ...opts, blankClips });
+    const made = addAlternative(text, name, { ...opts, blankEvents });
     chosen = made.name;
     return made.text;
   });
@@ -485,16 +486,17 @@ export function setModuleExtends(
 // it used to bundle in.
 
 /**
- * Take a node OUT of the chains, joining what fed it to what it fed — and leave its files alone.
+ * Take a node out of the SIGNAL PATH, joining what fed it to what it fed — and leave it in the
+ * graph, wired to nothing.
  *
- * A node you unlink is still on disk with its settings intact, so putting it back is `chain
- * add`. Taking a module out of the signal path and getting rid of it are two different
- * intentions, and this is the one with a command.
+ * Its files are untouched and so is its place on the canvas: unlinking is "take it out of the
+ * run", not "get rid of it". Putting it back is `node insert`. Removing it altogether — the
+ * files and the entry — is `node delete`.
  *
  * A LANE used to be refused here, because a chain started at it and there was nothing feeding it
  * to rejoin to what it feeds. A lane is a module now, with an input port of its own
  * (docs/trackModules.md), so the splice is well defined: it leaves the signal path and its file
- * stays on disk with its clips — which is exactly what unlinking means everywhere else.
+ * stays on disk with its events — which is exactly what unlinking means everywhere else.
  */
 export function unlinkChainNode(
   dir: string,
@@ -513,9 +515,41 @@ export function unlinkChainNode(
   if (!(node in (value.modules ?? {})) && !isDest)
     throw new Error(`no '${node}' in the chains`);
 
-  const r = removeNode(text, node);
+  const r = unlinkNode(text, node);
   if (r.text !== text) writeFileSync(path, r.text, "utf8");
   return { rewired: r.rewired };
+}
+
+/**
+ * Delete a node: its file, its preset, and every trace of it in the chains.
+ *
+ * The order is load-bearing. The FILES go first and the chains second, because the state to
+ * avoid at all costs is a `chains.yaml` naming a node with no file — that is what stops the
+ * project loading, and it is the one of the two halves that a person cannot see. Interrupted the
+ * other way round you get an orphan file, which loads fine and is merely untidy.
+ *
+ * The MODULE it uses is left alone. A node is one use of one; deleting the last use is not a
+ * statement about the thing being used, and other projects read the same module.
+ */
+export function deleteChainNode(
+  dir: string,
+  node: string,
+): { rewired: string[]; removed: string[] } {
+  const found = entityFileFor(join(dir, "nodes"), "nodes", node);
+  if (!found) throw new Error(`no node '${node}' in this project`);
+  const removed = [found.rel];
+  rmSync(found.path, { force: true });
+  // Its own preset, when it has one — `nodes/<node>.vstpreset` (see loader's ancestry fold).
+  const preset = join(dir, "nodes", `${node}.vstpreset`);
+  if (existsSync(preset)) {
+    rmSync(preset, { force: true });
+    removed.push(`nodes/${node}.vstpreset`);
+  }
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const r = removeNode(text, node);
+  if (r.text !== text) writeFileSync(path, r.text, "utf8");
+  return { rewired: r.rewired, removed };
 }
 
 /** Put a module in the graph wired to nothing — dropped in, to be connected after. */

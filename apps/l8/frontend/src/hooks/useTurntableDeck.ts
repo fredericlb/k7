@@ -9,6 +9,7 @@ import {
   advancePlayhead,
   feedPlayhead,
   newPlayheadClock,
+  playheadAt,
 } from "@studio/engine-browser/playhead-clock";
 import { type EngineStore, useStoreState } from "@studio/engine-browser/store";
 import type { Deck, Playhead } from "@studio/ui-turntables/engine";
@@ -65,11 +66,11 @@ export function useTurntableDeck({
    * The same frames again, STEERED — what the wedge and the waveform draw from.
    *
    * Two readers rather than one because they want opposite things, and the desk is the place
-   * both are visible at once: a cue drop stores where the finger fell and wants the raw
-   * estimate above; the record's progress is redrawn at 60 fps and wants a number that moves
-   * evenly, which means letting the engine bend a local clock's rate rather than copying its
-   * arrival jitter. The same split `useMidiRecording`'s `beatNow()` has against the timeline's
-   * playhead — see apps/l8/frontend/docs/playhead.md.
+   * both are visible at once: a cue drop stores where the finger fell and wants the raw estimate
+   * above, latency and all; the record's progress is redrawn at 60 fps and wants a number that
+   * moves evenly, which the transport's KNOWN rate makes exact — the clock predicts from local
+   * time and only estimates the offset. The same split `useMidiRecording`'s `beatNow()` has
+   * against the timeline's playhead — see apps/l8/frontend/docs/playhead.md.
    */
   const clock = useRef(newPlayheadClock());
   useEffect(() => {
@@ -94,8 +95,9 @@ export function useTurntableDeck({
   // Advancing on READ is exactly right here: the callers are animation frames, and two calls in
   // one frame advance by a zero delta, so asking twice cannot move the line twice.
   const drawNow = useCallback(() => {
-    clock.current = advancePlayhead(clock.current, performance.now());
-    return clock.current.drawnSec;
+    const now = performance.now();
+    clock.current = advancePlayhead(clock.current, now);
+    return playheadAt(clock.current, now);
   }, []);
 
   /**

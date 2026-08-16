@@ -25,7 +25,7 @@ journal (`workspace.recordChange`).
 
 So `track mute gtr` goes; `track gain gtr ` asks for the dB. Roughly a third of the rows run.
 The ones worth knowing, because they change something and go at once:
-`event remove`, `marker delete`, `node unlink` and `module own`.
+`event remove`, `project marker delete`, `graph unlink` and `module own`.
 
 `complete` is **stated, not sniffed** off the trailing space on `command`. That space is a caret
 position; whether a line is finished is a different question, and two questions must not share
@@ -55,7 +55,7 @@ it — `ArgProvider` in `@studio/web-protocol`, mirrored from the `PROVIDERS` ke
 
 ### The one case where even that is not enough
 
-`module param <module> <param>` and `module clone <module> <newName>` are the SAME shape: a
+`node param <node> <param>` and `module clone <module> <newName>` are the SAME shape: a
 `modules` value, then free text. Nothing about the types tells them apart, so the param slot
 also pins the argument's **name**. That is the catalogue's own word for the role, so it is
 still derived rather than a list of chosen commands — but it is a seam, and if a third command
@@ -65,7 +65,7 @@ of that shape ever appears it will be the thing to look at.
 
 The label is the catalogue's `help` — what it does — and the line sits beside it, muted. The line
 stays because a pick either runs it or writes it into the bar, and hiding which line that is
-would make the gesture opaque. Command names used to be the label, and `module bypass` twice over
+would make the gesture opaque. Command names used to be the label, and `node bypass` twice over
 said nothing you did not already know from having right-clicked it.
 
 The `(e.g. …)` tail is stripped, and only that. It answers "how do I type this", which the
@@ -87,14 +87,14 @@ question about a HANDLER, and the catalogue only describes arguments.
   but it is not a value the `tracks` provider lists. Deriving would hand a group a freeze, a
   gain and four `event` verbs, none of which reach it.
 - **A dangling module.** A step naming a module that does not exist keeps exactly the verbs
-  that touch `chains.yaml` alone: `module bypass` and `node unlink`. That is about what those
-  handlers write, which no argument declares. `module replace` used to be the third — it wrote
+  that touch `chains.yaml` alone: `node bypass` and `graph unlink`. That is about what those
+  handlers write, which no argument declares. `node replace` used to be the third — it wrote
   a new module and rewired the reference — but it repoints an `extends:` now, and a dangling
   name has no file to repoint: offering it would be offering a certain failure. What is left
   for one is to take it out, or to write the file it names.
 - **A take.** Its two verbs take a track and a number — and so do `track gain`, `track pan` and
   the three tone bands. Nothing in the argument types tells those apart, so deriving would offer
-  to set a take's level. This is the same seam `module param` / `module clone` sit on, and the
+  to set a take's level. This is the same seam `node param` / `module clone` sit on, and the
   sharpest instance of it. See `packages/song/docs/takes.md`.
 - **A chain.** No command takes a chain as its FIRST argument — `track process` and
   `clip process` take one second, and a line cannot be pre-written with a hole in the middle.

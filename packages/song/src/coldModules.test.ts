@@ -46,7 +46,7 @@ function track(id: string): void {
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", `${id}.yaml`),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
 }

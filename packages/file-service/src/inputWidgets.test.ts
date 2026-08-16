@@ -36,7 +36,7 @@ beforeEach(() => {
   });
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
   writeModule(proj, "audio", "amp", {

@@ -1,4 +1,4 @@
-// videoTrackFile.ts — read and edit a video track's `clips:` list, each placement
+// videoTrackFile.ts — read and edit a video track's `events:` list, each placement
 // `{ref, start, length, source_from}` in DECIMAL SECONDS. A SURGICAL text rewrite, like every
 // other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
 // document the format, and a round trip through the serialiser would delete every one of them.
@@ -28,17 +28,17 @@ export function listVideoPlacements(text: string): VideoPlacement[] {
   } catch {
     return []; // a half-typed file has no placements to show yet
   }
-  const clips = doc.getIn(["clips"]);
+  const clips = doc.getIn(["events"]);
   if (!isSeq(clips)) return [];
   const out: VideoPlacement[] = [];
   clips.items.forEach((_item, i) => {
-    const ref = doc.getIn(["clips", i, "ref"]);
+    const ref = doc.getIn(["events", i, "ref"]);
     if (typeof ref !== "string" || !ref) return; // not a placement
     out.push({
       ref,
-      start: num(doc.getIn(["clips", i, "start"])),
-      length: num(doc.getIn(["clips", i, "length"])),
-      sourceFrom: num(doc.getIn(["clips", i, "source_from"])),
+      start: num(doc.getIn(["events", i, "start"])),
+      length: num(doc.getIn(["events", i, "length"])),
+      sourceFrom: num(doc.getIn(["events", i, "source_from"])),
     });
   });
   return out;
@@ -63,13 +63,13 @@ export function setVideoPlacementField(
   } catch {
     return text;
   }
-  const clips = doc.getIn(["clips"]);
+  const clips = doc.getIn(["events"]);
   if (!isSeq(clips)) return text;
   const at = clips.items.findIndex(
-    (_item, i) => doc.getIn(["clips", i, "ref"]) === ref,
+    (_item, i) => doc.getIn(["events", i, "ref"]) === ref,
   );
   if (at < 0) return text;
   // Rounded to milliseconds: a drag's float noise doesn't belong in the file, and cutting needs no more.
-  doc.setIn(["clips", at, field], Math.round(value * 1000) / 1000);
+  doc.setIn(["events", at, field], Math.round(value * 1000) / 1000);
   return doc.toString({ lineWidth: 0 });
 }

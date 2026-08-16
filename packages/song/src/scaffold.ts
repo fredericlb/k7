@@ -112,7 +112,7 @@ export function projectFiles(name: string): Record<string, string> {
       `# The melody lane. \`@studio/sequence-track\` is a lane carrying NOTES whose clips are\n` +
       `# written down here; \`@studio/audio-track\` is the same for audio.\n` +
       `extends: "@studio/sequence-track"\n` +
-      `clips:\n  - { ref: melody, start: "1:1:1" }\n`,
+      `events:\n  - { ref: melody, start: "1:1:1" }\n`,
 
     // A group: no material of its own, just members — nests the two lanes below so "melody" stays top-level.
     "nodes/live.yaml":
@@ -123,7 +123,7 @@ export function projectFiles(name: string): Record<string, string> {
     // Two pattern lanes — the lane's NAME picks the part, matched to the pattern's `.label(...)`.
     "nodes/pad.yaml":
       `# A GENERATED lane: its clips are streamed from the pattern while the transport rolls,\n` +
-      `# which is why it says \`strudel:\` where an authored lane says \`clips:\`.\n` +
+      `# which is why it says \`strudel:\` where an authored lane says \`events:\`.\n` +
       `extends: "@studio/sequence-strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
@@ -225,7 +225,7 @@ export function projectFiles(name: string): Record<string, string> {
       `kind: video\n` +
       `# name: "A-roll"     # the lane's label; the FILENAME is still its id\n` +
       `x: 0\ny: 0\nw: 1280\nh: 720\n` +
-      `clips:\n  - { ref: sample, start: 0, length: 6, source_from: 0 }\n`,
+      `events:\n  - { ref: sample, start: 0, length: 6, source_from: 0 }\n`,
   };
 
   return base;
@@ -280,7 +280,7 @@ export function liveProjectFiles(name: string): Record<string, string> {
       `  live: [ synth ]\n` +
       `  synth: [ OUT ]\n`,
 
-    // No `clips:` key at all — not an empty list. A live lane is not an arrangement with
+    // No `events:` key at all — not an empty list. A live lane is not an arrangement with
     // nothing in it; it is a lane that is played rather than written.
     "nodes/live.yaml":
       `# Played, not arranged: a MIDI controller reaches the synth through the chain above.\n` +

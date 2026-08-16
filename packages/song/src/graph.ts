@@ -674,7 +674,7 @@ export function buildGraph(
       mute: bypassed.has(name),
       // Derived by the surface, never written. See the note on Track.solo.
       solo: false,
-      placements: lane.clips.map(
+      placements: lane.events.map(
         (p): Placement => ({
           ref: String(p.ref ?? ""),
           start: pos(p.start),
@@ -1393,7 +1393,7 @@ function main(): void {
   }
 }
 
-// Run main() only when this FILE is the entry point (`l8 inspect graph`). The
+// Run main() only when this FILE is the entry point (npx tsx …/graph.ts <project>). The
 // `import.meta.url === argv[1]` test alone isn't enough: bundlers rewrite
 // import.meta.url to the bundle's own URL, so when this module is bundled as a library
 // into another entry (the packaged file service) both sides match and the CLI would

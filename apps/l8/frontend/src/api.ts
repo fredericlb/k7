@@ -9,7 +9,6 @@ import type { EnginePrefs } from "@studio/engine-browser/registry";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
@@ -140,14 +139,12 @@ export const api = {
     fsend<{ project: string; log: string[] }>("POST", "/import-project", {
       path,
     }),
+  // `createProject` and `deleteProject` were here, for the two verbs this app has stopped
+  // carrying. The routes are the file service's and st0 calls them — see apps/st0/docs/projects.md.
   // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its
   // path. One `shape` where there were a `type` and a `mode`: every project is an `.l8` folder
   // now, so "which app opens it" has no answers left. See @studio/song's PROJECT_SHAPES.
-  createProject: (shape: ProjectShape, name: string) =>
-    fsend<{ project: string }>("POST", "/project/create", { shape, name }),
   // Delete a project: unload it and move it to _recycle_bin. Reversible, but it can no longer be started.
-  deleteProject: (path: string) =>
-    fsend<{ recycled: string }>("POST", "/project/delete", { path }),
   // Only l8 has a timeline, so only l8 asks for the tracks a Strudel pattern drives.
   strudelTracks: () => fget<WebTrack[]>("/strudel-tracks"),
   // Upload raw bytes (octet-stream, not fsend). A 409 rides through with `.status` so a skip can be reported.

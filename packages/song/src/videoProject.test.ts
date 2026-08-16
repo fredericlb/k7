@@ -73,8 +73,8 @@ describe("layers", () => {
   it("refuses a lane no layer names — it would compile and never draw", () => {
     project(`  viewport: [640, 360]\n  layers: [main]\n`);
     clip("a", "a.mp4");
-    lane("main", `clips:\n  - { ref: a, start: 0, length: 1 }\n`);
-    lane("ghost", `clips: []\n`);
+    lane("main", `events:\n  - { ref: a, start: 0, length: 1 }\n`);
+    lane("ghost", `events: []\n`);
     expect(() => loadVideoProject(dir)).toThrow(
       /ghost.*missing from project.layers/s,
     );
@@ -82,7 +82,7 @@ describe("layers", () => {
 
   it("refuses a layer naming no lane", () => {
     project(`  viewport: [640, 360]\n  layers: [main, nope]\n`);
-    lane("main", `clips: []\n`);
+    lane("main", `events: []\n`);
     expect(() => loadVideoProject(dir)).toThrow(/nope.*not a video track/s);
   });
 

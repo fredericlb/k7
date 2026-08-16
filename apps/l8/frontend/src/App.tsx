@@ -30,12 +30,6 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
 // loader in behind it.
 import { moduleKeyFromPath } from "@studio/song/moduleTypes";
-// From the SCHEMA rather than from `projectMode`, which re-exports it: that module walks the
-// disk to read `project_type`, and pulling it into the bundle drags node:fs in behind it.
-import {
-  PROJECT_SHAPES,
-  type ProjectShape,
-} from "@studio/song/yaml/projectSchema";
 import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
@@ -71,7 +65,6 @@ import {
 } from "./components/CommandBar";
 import { CommandsSettings } from "./components/CommandsSettings";
 import { ContextMenu } from "./components/ContextMenu";
-import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { EditorSettingsPage } from "./components/EditorSettingsPage";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
@@ -113,7 +106,7 @@ import {
   useProjectErrors,
   useWarmWaveforms,
 } from "./hooks/usePolls";
-import { useProjectDelete, useProjectImport } from "./hooks/useProjectDialogs";
+import { useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
 import { isMixFormat, MIX_FORMATS, useShare } from "./hooks/useShare";
 import { useSurfaces } from "./hooks/useSurfaces";
@@ -133,10 +126,12 @@ import { isLibraryPath, libraryModuleRef } from "./libraryTree";
 import { BARE_TRANSPORT, isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
-  moduleInsertCommand,
-  modulePlaceCommand,
+  chainRefFromCreate,
+  createForGraphCommand,
+  ensureModuleCommand,
   type PendingInsert,
-} from "./moduleInsert";
+  wireCommand,
+} from "./nodeInsert";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
@@ -180,10 +175,6 @@ const EMPTY_PRESETS: PresetInfo[] = [];
 
 /** The same, for a song with no picture — which is most of them. Keeps the timeline's row memo cold. */
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
-
-/** Narrow a typed word to a shape the create route will accept. */
-const isProjectShape = (s: string): s is ProjectShape =>
-  (PROJECT_SHAPES as readonly string[]).includes(s);
 
 export default function App({
   engineUrl,
@@ -1035,39 +1026,12 @@ export default function App({
     }
   }, []);
 
-  // `new project <audio|live|set> <name>`: the same scaffold `l8 create` runs, via the file
-  // service, then open it. All three are `.l8` folders — the shape picks the file map, and the
-  // file service is the one thing on the machine that can write one.
-  const createNewProject = useCallback(
-    async (type: ProjectShape, name: string) => {
-      try {
-        setStatus(`creating ${type} project "${name}"…`);
-        const { project } = await api.createProject(type, name);
-        pushLog("info", `created ${type} project ${project}`);
-        await openProject(project);
-      } catch (e) {
-        setStatus(`create error: ${(e as Error).message}`);
-        pushLog("error", (e as Error).message);
-      }
-    },
-    [openProject, pushLog],
-  );
-
   // The import (.dawproject) and delete-project dialog flows. Both are Radix dialogs, which
   // answer Escape themselves but let it go on propagating — so they register here too, or the
   // key that dismissed the dialog would also close the graph slot behind it. Not while BUSY:
   // an import in flight has nothing to cancel, and its dialog is a progress report.
   const imp = useProjectImport({ openProject, onStatus: setStatus });
-  const del = useProjectDelete({
-    onStatus: setStatus,
-    onDeleted: (w) => {
-      setWs(w);
-      lastActive.current = w.activeProject;
-      bumpReload();
-    },
-  });
   usePopin(!!imp.importPath && !imp.importing, imp.cancelImport);
-  usePopin(!!del.deletePath && !del.deleting, del.cancelDelete);
 
   // Follow what happened under us: a project switch (another tab, the CLI), and a TAKE.
   useActiveProjectFollow({
@@ -1303,42 +1267,10 @@ export default function App({
         setRackBuilder(true);
         return true;
       }
-      // new project <audio|live|set> <name> — first token the shape, the rest the name, so
-      // multi-word names work.
-      if (line.startsWith("project new")) {
-        const rest = s.slice("project new".length).trim();
-        const sp = rest.search(/\s/);
-        const type = (sp === -1 ? rest : rest.slice(0, sp)).toLowerCase();
-        const name = sp === -1 ? "" : rest.slice(sp + 1).trim();
-        if (!isProjectShape(type) || !name)
-          setStatus(`usage: project new <${PROJECT_SHAPES.join("|")}> <name>`);
-        else void createNewProject(type, name);
-        return true;
-      }
-      // delete project <name> — resolve against the workspace's projects and hand it to the confirm dialog.
-      if (line.startsWith("project delete")) {
-        const arg = s.slice("project delete".length).trim();
-        const projects = ws?.projects ?? [];
-        const match = arg
-          ? projects.includes(arg)
-            ? arg
-            : (projects
-                .map((p) => ({ p, score: fuzzyScore(arg, p) }))
-                .filter((x) => x.score >= 0)
-                .sort((a, b) => b.score - a.score || a.p.localeCompare(b.p))[0]
-                ?.p ?? null)
-          : null;
-        if (!arg) setStatus("usage: project delete <name>");
-        else if (!match) setStatus(`no project "${arg}" in this workspace`);
-        else if (match === ".")
-          setStatus("can't delete the workspace root project");
-        else {
-          const target = match;
-          // Defer the dialog until AFTER the palette closes, so the modal doesn't read that as an outside-dismiss.
-          setTimeout(() => del.askDelete(target), 0);
-        }
-        return true;
-      }
+      // `project new` and `project delete` were answered here. Both are gone with the
+      // workspace this app stopped showing: it is opened ON one project and lists no others,
+      // so neither verb had anything left to name. st0 owns the repositories — see
+      // packages/project-shell/docs/launch.md.
       if (line.startsWith("file ")) {
         openInEditor(s.slice(5).trim());
         return true;
@@ -1615,9 +1547,9 @@ export default function App({
       // --- the file tree's right-click menu, as commands ------------------------
       // Each of these calls the SAME callback the menu item runs (see EditorHandle), so the two
       // ways in cannot come to mean different things — including the confirm a delete asks for.
-      if (namesLine(line, "file new") || namesLine(line, "folder new")) {
+      if (namesLine(line, "fs file new") || namesLine(line, "fs folder new")) {
         const folder = line.startsWith("folder ");
-        const head = folder ? "folder new" : "file new";
+        const head = folder ? "fs folder new" : "fs file new";
         const [dirArg, name] = headTokens(s.slice(head.length), 2);
         const dir = dirArg
           ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
@@ -1630,24 +1562,25 @@ export default function App({
         return true;
       }
       // The NAME, not a path: a rename leaves the entry where it is.
-      if (namesLine(line, "file rename")) {
-        const [pathArg, name] = headTokens(s.slice("file rename".length), 2);
+      if (namesLine(line, "fs file rename")) {
+        const [pathArg, name] = headTokens(s.slice("fs file rename".length), 2);
         const path = pathArg
           ? resolveEntry(pathArg, editorRef.current?.entries() ?? [])
           : null;
         if (!pathArg || !name)
-          setStatus("usage: file rename <path> <new name>");
+          setStatus("usage: fs file rename <path> <new name>");
         else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
         else editorRef.current?.rename(path, name);
         return true;
       }
       // What dragging a row onto a folder does.
-      if (namesLine(line, "file move")) {
-        const [pathArg, dirArg] = headTokens(s.slice("file move".length), 2);
+      if (namesLine(line, "fs file move")) {
+        const [pathArg, dirArg] = headTokens(s.slice("fs file move".length), 2);
         const entries = editorRef.current?.entries() ?? [];
         const path = pathArg ? resolveEntry(pathArg, entries) : null;
         const dir = dirArg ? resolveEntry(dirArg, entries) : null;
-        if (!pathArg || !dirArg) setStatus("usage: file move <path> <folder>");
+        if (!pathArg || !dirArg)
+          setStatus("usage: fs file move <path> <folder>");
         else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
         else if (!dir || !editorRef.current?.isDir(dir))
           setStatus(`no folder "${dirArg}" in this workspace`);
@@ -1655,23 +1588,23 @@ export default function App({
         return true;
       }
       // Recycled, not erased — and confirmed, because the menu's is.
-      if (namesLine(line, "file delete")) {
-        const arg = s.slice("file delete".length).trim();
+      if (namesLine(line, "fs file delete")) {
+        const arg = s.slice("fs file delete".length).trim();
         const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!arg) setStatus("usage: file delete <path>");
+        if (!arg) setStatus("usage: fs file delete <path>");
         else if (!path) setStatus(`no entry "${arg}" in this workspace`);
         else editorRef.current?.remove(path, editorRef.current.isDir(path));
         return true;
       }
       // Opens the OS picker. `folder` asks for a whole directory, which a browser draws as a
       // different dialog and so needs a different input — see FileTree.
-      if (namesLine(line, "file upload")) {
-        const [dirArg, what] = headTokens(s.slice("file upload".length), 2);
+      if (namesLine(line, "fs file upload")) {
+        const [dirArg, what] = headTokens(s.slice("fs file upload".length), 2);
         const dir = dirArg
           ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
           : null;
         if (!dir || !editorRef.current?.isDir(dir))
-          setStatus("usage: file upload <folder> [files|folder]");
+          setStatus("usage: fs file upload <folder> [files|folder]");
         else if (
           !editorRef.current.pickUpload(
             dir,
@@ -1728,7 +1661,6 @@ export default function App({
       ws,
       openHelp,
       closeHelp,
-      del,
       imp,
       engineRef,
       midiSeqRef,
@@ -1740,7 +1672,6 @@ export default function App({
       // answered here or handed to the service. Stale, this would send Space to the server for
       // ever — the flag is false on the first render of every session.
       connected,
-      createNewProject,
       setFull,
       setView,
       toggleMixer,
@@ -1796,7 +1727,17 @@ export default function App({
       const willInsert = pendingInsert.current;
       pendingInsert.current = null;
       if (willInsert) setInsertingAt(willInsert);
+      // …and where the node that line is about to create should GO. Consumed the same way and
+      // for the same reason: it belongs to THIS line and to no later one.
+      const wire = pendingWire.current;
+      pendingWire.current = null;
+      const madeRef = wire ? chainRefFromCreate(s) : null;
+      // …and the module that line's node needs, when the pick came from a catalogue. Ahead of
+      // it rather than after, since `node new` refuses a module that is not there yet.
+      const ensure = madeRef ? pendingModule.current : null;
+      pendingModule.current = null;
       try {
+        if (ensure) await api.command(ensure);
         const { output, graph } = await api.command(s);
         setStatus(output.length ? output.join("  ·  ") : `ran: ${s}`);
         for (const o of output) pushLog("info", o);
@@ -1808,6 +1749,14 @@ export default function App({
           setSeedGraph({ id: seedId.current, graph });
         }
         setReloadKey((k) => k + 1);
+        // The picker's second half: the module exists now, so put the node it made where the
+        // click was. Its own command — journalled, undoable and typeable like any other — which
+        // is the price of verbs that do one thing each.
+        // …and null when there is nothing left to do: on the bare canvas `node new` has
+        // already placed it, and with no click point the layout decides.
+        const after =
+          madeRef && wire ? wireCommand(madeRef, wire.at, wire.spawn) : null;
+        if (after) await runCommandRef.current(after);
         // The repo verbs move the badge, the view AND the workspace — a pull can add projects.
         // Here rather than in the share menu, because the palette and a key run them too.
         if (/^project (commit|pull|alternative)\b/.test(s)) onRepoChanged();
@@ -1926,6 +1875,10 @@ export default function App({
   // would rebuild every pane's onContextMenu the moment the commands land.
   const cmdCatalogue = useRef<CommandInfo[]>([]);
   cmdCatalogue.current = backendCmds;
+  // …and the prefs beside it, for the same reason: the handler below has empty deps, so reading
+  // the state directly would pin whatever it was on the first render.
+  const cmdPrefs = useRef<CommandPrefs>({});
+  cmdPrefs.current = commandPrefs;
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
     // A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so:
     // the namespace is the catalogue's own and nothing on disk declares it. Derived here rather than carried
@@ -1935,7 +1888,7 @@ export default function App({
       ctx.kind === "module" && ctx.id.startsWith("@engine/")
         ? { ...ctx, ambient: true }
         : ctx;
-    const items = contextMenu(full, cmdCatalogue.current);
+    const items = contextMenu(full, cmdCatalogue.current, cmdPrefs.current);
     if (items.length) setMenu({ items, x, y });
   }, []);
   /**
@@ -1968,21 +1921,21 @@ export default function App({
         // any other — they ARE an alternative, and hiding them would leave no way back to them.
         ...names.map((name) => ({
           label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
-          command: `module alternative select ${module} ${name}`,
+          command: `node alternative select ${module} ${name}`,
           complete: true,
-          verb: "module alternative select",
+          verb: "node alternative select",
         })),
         {
           label: "New alternative…",
-          command: `module alternative create ${module} `,
+          command: `node alternative create ${module} `,
           complete: false,
-          verb: "module alternative create",
+          verb: "node alternative create",
         },
         {
           label: "Copy this one…",
-          command: `module alternative copy ${module} `,
+          command: `node alternative copy ${module} `,
           complete: false,
-          verb: "module alternative copy",
+          verb: "node alternative copy",
         },
         // Freeze. One entry, and it runs on the click: the command is a toggle, and which way it
         // will go is exactly what the label says. A node INSIDE somebody else's render is offered
@@ -1997,9 +1950,9 @@ export default function App({
                   n.frozen === "at"
                     ? "Unfreeze"
                     : "Freeze (bake everything upstream)",
-                command: `module freeze ${module}`,
+                command: `node freeze ${module}`,
                 complete: true,
-                verb: "module freeze",
+                verb: "node freeze",
               },
             ]),
       ];
@@ -2009,6 +1962,15 @@ export default function App({
   );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingInsert | null>(null);
+  // Where the node a CREATING line is about to make should be wired: an arrow, or nowhere (the
+  // bare canvas), plus the world point the click happened at. See onModulePick.
+  const pendingWire = useRef<{
+    at: PendingInsert | null;
+    spawn: { x: number; y: number } | null;
+  } | null>(null);
+  // …and the `module new` that has to run BEFORE that line, for a pick with no local folder yet.
+  // Null for a module of this project, which is the common case and stays one command.
+  const pendingModule = useRef<string | null>(null);
   // "which file?" — a filepicker widget's asset browser. The popup is viewport-positioned,
   // so the shell renders it, exactly as it does the `+`'s module picker below.
   const [assetPicker, setAssetPicker] = useState<{
@@ -2150,7 +2112,7 @@ export default function App({
       at?: { x: number; y: number },
     ) => {
       if (!baseModules.length) {
-        prewriteCommand(`chain add ${info.before} ${info.after} `);
+        prewriteCommand(`node insert ${info.before} ${info.after} `);
         offerSpawnAt(at);
         return;
       }
@@ -2162,7 +2124,9 @@ export default function App({
   const placeInGraph = useCallback(
     (x: number, y: number, at?: { x: number; y: number }) => {
       if (!baseModules.length) {
-        prewriteCommand("module place ");
+        // No catalogue to pick from: the person names what to create, and `node new`
+        // puts it in the graph itself.
+        prewriteCommand("node new ");
         offerSpawnAt(at);
         return;
       }
@@ -2175,22 +2139,25 @@ export default function App({
       if (!modulePicker) return;
       setModulePicker(null);
       const { info, at } = modulePicker;
-      // Remember the arrow: this command only CREATES the module, and runCommand splices it (see moduleInsert.ts).
-      pendingInsert.current = info;
+      /**
+       * TWO lines, and the split is the vocabulary's: what the pick needs is a module (created,
+       * or noded if it is already there) and then that node WIRED — an arrow to splice into, or
+       * the bare canvas. `node insert` used to do both from a `<category>/<name>`, which is
+       * what made it indistinguishable from the verb that only spliced.
+       *
+       * Only this first line reaches the bar, because only the node name is missing and only a
+       * person can supply it. The second is the shell's, run against whatever name they typed —
+       * see `chainRefFromCreate` in nodeInsert.ts, which reads it back off the line.
+       */
+      pendingWire.current = { at: info, spawn: at ?? null };
+      pendingInsert.current = info; // the ghost on the arrow, while the commands run
       const ref = pick.namespace === null ? undefined : pick.ref;
-      // ONE command, whichever kind was picked: it creates the module when there is none and nodes it
-      // either way. Only the node name is missing, and only the user can supply it — so the line stops at
-      // the bar with the cursor where that name goes. Without an arrow the verb is `module place`, and the
-      // module arrives in the graph connected to nothing, which is a state the file can hold.
-      // The click's world point fills the line's `at` field, so the node is born under it.
-      prewriteCommand(
-        info
-          ? moduleInsertCommand(info, pick.type, pick.name, ref)
-          : modulePlaceCommand(pick.type, pick.name, ref),
-      );
-      offerSpawnAt(at);
+      // A catalogue pick has no local folder, and `node new` instances a module that exists —
+      // so its `module new` runs ahead of the line the person is about to complete.
+      pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
+      prewriteCommand(createForGraphCommand(pick.type, pick.name));
     },
-    [modulePicker, prewriteCommand, offerSpawnAt],
+    [modulePicker, prewriteCommand],
   );
 
   // What the caret is currently over, for the conditional bindings (keys.ts).
@@ -2952,7 +2919,7 @@ export default function App({
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
-                      void runCommand(`module bypass ${mod}`)
+                      void runCommand(`node bypass ${mod}`)
                     }
                     onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
@@ -2969,17 +2936,19 @@ export default function App({
                     // siblings likewise — a lifted cable dropped on the canvas deletes
                     // its arrow, landed on another jack it moves one end.
                     onConnect={(from, to) =>
-                      void runCommand(`chain connect ${from} ${to}`)
+                      void runCommand(`graph chain connect ${from} ${to}`)
                     }
                     onDisconnect={(from, to) =>
-                      void runCommand(`chain disconnect ${from} ${to}`)
+                      void runCommand(`graph chain disconnect ${from} ${to}`)
                     }
                     onReplug={(from, to, nf, nt) =>
-                      void runCommand(`chain replug ${from} ${to} ${nf} ${nt}`)
+                      void runCommand(
+                        `graph chain replug ${from} ${to} ${nf} ${nt}`,
+                      )
                     }
                     // A dropped header likewise: the drag already said everything.
                     onMoveNode={(mod, x, y) =>
-                      void runCommand(`module position ${mod} ${x} ${y}`)
+                      void runCommand(`node position ${mod} ${x} ${y}`)
                     }
                     pendingInsert={insertingAt}
                     seedGraph={seedGraph}
@@ -3027,6 +2996,11 @@ export default function App({
                     reloadKey={reloadKey}
                     // A click on the editor's arrangement ruler is the timeline's seek.
                     onSeek={seek}
+                    // The TRACKER view writes its sequence file directly rather than through a
+                    // command, so the reload it needs is asked for here — the same pair
+                    // `SeqGridPane` takes for the same grid.
+                    onChanged={bumpReload}
+                    setStatus={setStatus}
                     // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are
                     // command lines like everything else here.
                     command={runCommand}
@@ -3133,7 +3107,7 @@ export default function App({
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
-                      void runCommand(`module bypass ${mod}`)
+                      void runCommand(`node bypass ${mod}`)
                     }
                     onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
@@ -3483,9 +3457,13 @@ export default function App({
             onPick={(file) => {
               const { module, param } = assetPicker;
               setAssetPicker(null);
-              // The param names the command AND the key written — `module nam <module> <file>`.
-              // "" is a real choice — clearing the asset; the command spells that `none`.
-              void runCommand(`module ${param} ${module} ${file || "none"}`);
+              // A file-valued param is a param: `node param <node> nam <file>`. It used to be a
+              // verb per param (`module nam …`), which this line built from the param's own name
+              // — so picking an `.onnx` sent a command nobody had written. "" is a real choice,
+              // clearing the asset; the command spells that `none`.
+              void runCommand(
+                `node param ${module} ${param} ${file || "none"}`,
+              );
             }}
             onClose={() => setAssetPicker(null)}
           />
@@ -3564,15 +3542,6 @@ export default function App({
           onConfirm={() => void imp.confirmImport()}
           onOpen={() => void imp.openImported()}
           onCancel={imp.cancelImport}
-        />
-
-        {/* "delete this project?" — the `delete project` command lands here */}
-        <DeleteProjectDialog
-          path={del.deletePath}
-          busy={del.deleting}
-          error={del.deleteError}
-          onConfirm={() => void del.confirmDelete()}
-          onCancel={del.cancelDelete}
         />
 
         {/* Settings screens (cog menu) — an OVERLAY covering the shell, not a view. I/O is

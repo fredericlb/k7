@@ -210,7 +210,7 @@ export const TakeSchema = z
     // Unnamed is the ordinary case — a take is known by its number, the way an alternative is.
     // A name is there for the day one is worth keeping by name.
     name: z.string().min(1).optional(),
-    clips: z.array(PlacementSchema),
+    events: z.array(PlacementSchema),
   })
   .strict();
 
@@ -308,21 +308,30 @@ const MODULE_FIELDS = {
   //
   // Accepted on any module, meaningful only on one that extends a `@studio/…-track`. The
   // schema deliberately does not police that: it validates ONE file, and which module a name
-  // extends is a question about the whole project. `graph.ts`'s validate() reports a `clips:`
+  // extends is a question about the whole project. `graph.ts`'s validate() reports an `events:`
   // on a reverb, exactly as it reports a `channel:` on something that is not an input — same
   // rule, same place.
 
-  // The placements on this lane: what plays, where, and how many times.
-  clips: z.array(PlacementSchema).optional(),
+  /**
+   * The placements on this lane: what plays, where, and how many times.
+   *
+   * `events:` and not `clips:`, which it was until the two words collided once too often. A
+   * CLIP is the material — `clips/<id>.yaml`, a source and a window into it — and one clip is
+   * placed on a lane any number of times. Calling both of them clips meant a `clips:` list
+   * whose entries were not clips, next to a `clips/` folder whose files were. Every surface
+   * already said "event" in its prose (`event resize`, `event remove`, the timeline's own
+   * menus); only the file disagreed.
+   */
+  events: z.array(PlacementSchema).optional(),
   /**
    * The TAKES kept beside them: each is another list of placements this lane could be playing.
    *
    * Recording over what a lane holds does not throw it away — the events that were there move
-   * into a take, and the new recording becomes `clips:`. `track take select <n>` swaps the two
+   * into a take, and the new recording becomes `events:`. `track take select <n>` swaps the two
    * back, so the arrangement on the lane and the takes under it are the same kind of thing
    * looked at from either side.
    *
-   * In MODULE_FIELDS like `clips:` itself, which is what gives an ALTERNATIVE its own takes:
+   * In MODULE_FIELDS like `events:` itself, which is what gives an ALTERNATIVE its own takes:
    * two sets of settings are two ways of playing the part, and a take of one is not a take of
    * the other. See packages/song/docs/takes.md.
    */
@@ -334,8 +343,8 @@ const MODULE_FIELDS = {
   disabled: z.boolean().optional(),
   // A GROUP lane's members, by node name. It holds no material of its own.
   tracks: z.array(z.string()).optional(),
-  // A GENERATED lane's pattern: its clips are filled while the transport rolls, so this stands
-  // where `clips:` would. Which of the two a lane may write is decided by what it extends — an
+  // A GENERATED lane's events are filled while the transport rolls, so this stands
+  // where `events:` would. Which of the two a lane may write is decided by what it extends — an
   // authored lane has no pattern, a generated one has no placements.
   strudel: z
     .string()

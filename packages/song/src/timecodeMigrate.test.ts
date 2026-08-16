@@ -11,14 +11,14 @@ const run = (t: string) => migrateTimecodes(t, 4, 4);
 describe("shortening the chain", () => {
   it("turns sub-beat levels into ticks", () => {
     // "1:1:1:3" is two sixteenths of a sixteenth in: 2 × 1/16 beat = 0.125 beats = 120 ticks.
-    const { text, changes } = run(`clips:\n  - { ref: a, start: "1:1:1:3" }\n`);
+    const { text, changes } = run(`events:\n  - { ref: a, start: "1:1:1:3" }\n`);
     expect(text).toContain(`start: "1:1.120"`);
     expect(changes).toHaveLength(1);
     expect(parsePosition("1:1.120", 4, 4)).toBeCloseTo(0.125, 9);
   });
 
   it("leaves a timecode that is already short exactly as it is", () => {
-    const src = `clips:\n  - { ref: a, start: "25:1" }\n`;
+    const src = `events:\n  - { ref: a, start: "25:1" }\n`;
     expect(run(src).text).toBe(src);
     expect(run(src).changes).toEqual([]);
   });
@@ -26,7 +26,7 @@ describe("shortening the chain", () => {
   it("reads a fade as a DURATION, not a position", () => {
     // 0-based, so every field counts itself: "0:0:0:3" is 3 × 1/16 beat = 0.1875 = 180 ticks. Read
     // as a POSITION the same string is 0, since a position's fields start at 1 — a whole fade out.
-    const { text } = run(`clips:\n  - { ref: a, fadeIn: "0:0:0:3" }\n`);
+    const { text } = run(`events:\n  - { ref: a, fadeIn: "0:0:0:3" }\n`);
     expect(text).toContain(`fadeIn: "0:0.180"`);
     expect(parseDuration("0:0.180", 4, 4)).toBeCloseTo(0.1875, 9);
     expect(parsePosition("0:0:0:3", 4, 4)).not.toBeCloseTo(0.1875, 9);
@@ -49,7 +49,7 @@ describe("what it refuses to touch", () => {
   it("keeps the file's comments and shape — it splices, it does not re-serialise", () => {
     const src = [
       "# the verse take",
-      "clips:",
+      "events:",
       '  - { ref: a, start: "1:1:1:3" }  # bar 1',
       "",
       "  # and the chorus",
@@ -73,7 +73,7 @@ describe("running it twice", () => {
    */
   it("is a no-op the second time", () => {
     const once = run(
-      `clips:\n  - { ref: a, to: "5:3:3:4:1:2:3:3", start: "46:3:3" }\n`,
+      `events:\n  - { ref: a, to: "5:3:3:4:1:2:3:3", start: "46:3:3" }\n`,
     );
     expect(once.changes.length).toBe(2);
     const twice = run(once.text);
@@ -83,7 +83,7 @@ describe("running it twice", () => {
 
   it("leaves a canonical value untouched even when it looks convertible", () => {
     // "1:1:2" is half a beat and is exactly what the writer emits for it.
-    const src = `clips:\n  - { ref: a, start: "1:1:2" }\n`;
+    const src = `events:\n  - { ref: a, start: "1:1:2" }\n`;
     expect(run(src).changes).toEqual([]);
   });
 });
@@ -91,7 +91,7 @@ describe("running it twice", () => {
 describe("what it says about rounding", () => {
   it("reports nothing when the value lands on a whole tick", () => {
     expect(
-      run(`clips:\n  - { ref: a, start: "1:1:1:3" }\n`).changes[0].driftBeats,
+      run(`events:\n  - { ref: a, start: "1:1:1:3" }\n`).changes[0].driftBeats,
     ).toBe(0);
   });
 
@@ -101,7 +101,7 @@ describe("what it says about rounding", () => {
    * 0.28 ms at 110bpm. Reported rather than assumed, because "lossless" would be a claim.
    */
   it("measures the rounding when it cannot land on one", () => {
-    const { changes } = run(`clips:\n  - { ref: a, to: "5:3:3:4:1:2:3:3" }\n`);
+    const { changes } = run(`events:\n  - { ref: a, to: "5:3:3:4:1:2:3:3" }\n`);
     expect(changes).toHaveLength(1);
     expect(changes[0].driftBeats).toBeGreaterThan(0);
     expect(changes[0].driftBeats).toBeLessThanOrEqual(0.5 / 960);
@@ -115,7 +115,7 @@ describe("what it says about rounding", () => {
       "9:1:4:1:1:2:2:3",
     ];
     for (const tc of deep) {
-      const { changes } = run(`clips:\n  - { ref: a, to: "${tc}" }\n`);
+      const { changes } = run(`events:\n  - { ref: a, to: "${tc}" }\n`);
       expect(changes[0].driftBeats).toBeLessThanOrEqual(0.5 / 960);
     }
   });

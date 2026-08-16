@@ -1,5 +1,5 @@
 x: 960
-clips:
+events:
   - { ref: bars, start: 0, length: 8, source_from: 0 }
 y: 540
 w: 320

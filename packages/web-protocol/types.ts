@@ -306,15 +306,17 @@ export interface WebPlugin {
   name: string;
 }
 // One track's strip, read off the mixer module at the end of its chain. `module` is the node ref an edit
-// addresses (e.g. "mixer:vo.jo"); the rest are that module's params, in their own units — dB for the level and
-// the three tone bands, -1..+1 for the pan.
+// addresses (e.g. "mixer:vo.jo"); the rest are that module's params, in their own units — dB for the level,
+// -1..+1 for the pan.
+//
+// The three tone bands were here and are not any more. They remain on the MIXER — the plugin has them, the
+// module declares them, a panel can bind them and a node file can hold them — but a track no longer carries
+// them: a strip's EQ is the mixer module's business, reached where every other module param is, and lifting
+// three of its params onto the track meant two places to read one value.
 export interface WebMixer {
   module: string;
   volume: number;
   pan: number;
-  low: number;
-  mid: number;
-  high: number;
 }
 export interface WebTrack {
   id: string;
@@ -427,7 +429,6 @@ export type ArgClass =
 // keys in packages/commands/src/commandSpec.ts, where a test fails if the two drift.
 export type ArgProvider =
   | "alternatives"
-  | "assetFiles"
   | "audioFiles"
   | "baseModules"
   | "categories"
@@ -436,6 +437,10 @@ export type ArgProvider =
   | "markerNames"
   | "modules"
   | "moduleAlternatives"
+  // A NODE — one of this project's uses of a module, which is what the `node …` verbs address.
+  // Separate from `modules` because a `@ref` names a shared definition, and those are edited in
+  // the builder rather than by a verb. See packages/song/docs/nodes.md.
+  | "nodes"
   | "sequenceFiles"
   | "tracks";
 export interface CommandArg {

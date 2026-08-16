@@ -73,7 +73,7 @@ describe("a chain step naming a missing module", () => {
     const g = loadGraph(dir);
     expect(g.warnings.some((w) => w.includes("ghost"))).toBe(true);
     // Still a step of its chain — that is what the graph draws the `?` node from, and
-    // what `module bypass ghost` finds to write `enabled: false` on.
+    // what `node bypass ghost` finds to write `enabled: false` on.
     expect(
       Object.values(g.chains).some((c) =>
         c.use.some((s) => s.module === "ghost"),

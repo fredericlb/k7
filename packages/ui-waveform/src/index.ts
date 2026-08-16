@@ -9,10 +9,12 @@ export {
   labelMinPx,
   labelStride,
   MAX_COLUMN_PX,
+  MAX_GRID_SPLIT,
   MIN_LABEL_PX,
   MONO_CHAR_PX,
   nearestTick,
   subdivideBeats,
+  subdivideGrid,
 } from "./ticks";
 export type {
   Annotation,

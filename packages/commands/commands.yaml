@@ -17,7 +17,6 @@
 #   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists now —
 #             the web backend dispatches under it too, so every command runs on both;
 #             the field is kept for when a surface needs its own subset again.
-#   with      fixed leading args passed to the handler
 #   args      trailing user args. Each may carry EITHER `complete:` — a named provider
 #             in commandSpec.ts PROVIDERS, whose values come from the live project —
 #             OR `values: [...]`, a closed set fixed by the command itself. An unknown
@@ -136,7 +135,7 @@
 # --- mixer ---
 # `track mute|solo` flip a flag; `gain`/`pan` SET a value. The verbs say which they
 # are — these two never took a state to set, so naming them `mute`/`solo` implied one.
-# Mute is the lane's module bypass (chains.yaml's `bypassed:`); solo is PROJECT state —
+# Mute is the lane's bypass (chains.yaml's `bypassed:`); solo is PROJECT state —
 # membership in project.yaml's root `soloed:` list, several lanes at once, resolved by
 # the engine (any soloed track silences the rest).
 # `transport toggle` no longer shares a first word with these, so the longest-prefix
@@ -206,92 +205,6 @@
 # armed — there'd be nothing to capture. Armed tracks record when the transport
 # rolls, so there is no separate "record" verb: you arm, then you play.
 
-- command: "track rec"
-  sid: track.rec
-  readable:
-    en: "Arm a track for recording"
-    fr: "Armer une piste pour l'enregistrement"
-  help: "toggle a track's record arm (armed tracks record on play)"
-  surfaces: [cli]
-  args: [{ name: track, complete: tracks }]
-
-- command: "track gain"
-  sid: track.gain
-  readable:
-    en: "Set a track's level in dB"
-    fr: "Régler le niveau d'une piste en dB"
-  help: "set a track's gain in dB on its mixer strip (e.g. track gain melody -6)"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: dB, type: number, hint: "-60 … +6 dB — 0 is unity, below -60 is silence" },
-    ]
-- command: "track low"
-  sid: track.low
-  readable:
-    en: "Set a track's low band in dB"
-    fr: "Régler les graves d'une piste en dB"
-  help: "set a track's low band on its mixer strip, in dB"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: dB, type: number, hint: "-18 … +18 dB — 0 is flat" },
-    ]
-- command: "track mid"
-  sid: track.mid
-  readable:
-    en: "Set a track's mid band in dB"
-    fr: "Régler les médiums d'une piste en dB"
-  help: "set a track's mid band on its mixer strip, in dB"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: dB, type: number, hint: "-18 … +18 dB — 0 is flat" },
-    ]
-- command: "track high"
-  sid: track.high
-  readable:
-    en: "Set a track's high band in dB"
-    fr: "Régler les aigus d'une piste en dB"
-  help: "set a track's high band on its mixer strip, in dB"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: dB, type: number, hint: "-18 … +18 dB — 0 is flat" },
-    ]
-- command: "track pan"
-  sid: track.pan
-  readable:
-    en: "Set a track's pan"
-    fr: "Régler le panoramique d'une piste"
-  help: "set a track's pan, -1 (left) .. 1 (right)"
-  surfaces: [cli]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: pos, type: number, hint: "-1 left · 0 centre · 1 right" },
-    ]
-# --- bouncing material through a chain ---
-# Run material through a chain and KEEP the result: the render lands beside the original as
-# <name>_<chain>.wav and the clip files are pointed at it, so every placement plays the treated
-# material where it already sat. A bounce IN PLACE — the arrangement does not move and the
-# original file is left on disk.
-#
-# The chain is one of the project's (its name, `project inspect graph` lists them) or one the
-# médiathèque holds, named under its own token: `@st0/blindtest/vocal-strip`. Both are
-# offered; a project chain is never shadowed by a library one sharing its name.
-#
-# Two commands rather than one taking either, because the noun is the promise: `track process`
-# treats every file the track's clips play, `clip process` treats one clip's file (and so every
-# placement of it, on every track). Each refuses the other's argument and says which to run —
-# one command reading both made its first word decorative.
-#
-# Not `track freeze`, which is reversible and leaves the material alone: this rewrites what the
-# clips play. See packages/commands/docs/processChain.md.
 - command: "track process"
   sid: track.process
   readable:
@@ -576,24 +489,24 @@
 # A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
 # the name is the rest of the line, so it may contain spaces. Stored in project.cue's
 # top-level `markers` map. The timeline draws them and offers "add marker" on right-click.
-- command: "marker new"
-  sid: marker.create
+- command: "project marker new"
+  sid: project.marker.create
   readable:
     en: "Add a marker to the timeline"
     fr: "Ajouter un repère sur la timeline"
-  help: "add a named timeline marker (e.g. marker new 5:1:1 Chorus)"
+  help: "add a named timeline marker (e.g. project marker new 5:1:1 Chorus)"
   surfaces: [cli]
   args:
     [
       { name: timecode, type: timecode },
       { name: name, hint: "the marker's name — the rest of the line, spaces allowed" },
     ]
-- command: "marker delete"
-  sid: marker.delete
+- command: "project marker delete"
+  sid: project.marker.delete
   readable:
     en: "Delete a marker"
     fr: "Supprimer un repère"
-  help: "remove a marker by name (e.g. marker delete Chorus)"
+  help: "remove a marker by name (e.g. project marker delete Chorus)"
   surfaces: [cli]
   args: [{ name: name, complete: markerNames }]
 
@@ -628,8 +541,8 @@
 # An INSTANCE is a node in this project's chains — one use of a module — and its external UI is
 # the plugin's own window, drawn by the plugin itself on the engine's machine. `module open`
 # named the module, which is the file; what opens a window is the instance loaded in the engine.
-- command: "instance external-ui"
-  sid: instance.externalUi
+- command: "node external-ui"
+  sid: node.externalUi
   readable:
     en: "Open an instance's own plugin window"
     fr: "Ouvrir la fenêtre native d'une instance"
@@ -642,31 +555,31 @@
 # per-song edit, so it lives in the médiathèque's « État du moteur » — the one screen that
 # reaches both the engine and its machine, which a pick needs (engine/moteur/docs/audioDevice.md).
 # These labels just annotate that rig, so they stay on every surface.
-- command: "channel list"
-  sid: channels.list
+- command: "system channel list"
+  sid: system.channel.list
   help: "show the input/output channel labels"
   surfaces: [cli]
   readable:
     en: "Show the channel labels"
     fr: "Afficher les libellés des canaux"
-- command: "channel clear"
-  sid: channels.clear
+- command: "system channel clear"
+  sid: system.channel.clear
   readable:
     en: "Remove a channel label"
     fr: "Retirer le libellé d'un canal"
-  help: "remove a channel label (e.g. channel clear in 3+4)"
+  help: "remove a channel label (e.g. system channel clear in 3+4)"
   surfaces: [cli]
   args:
     [
       { name: dir, values: [in, out] },
       { name: chans, hint: "one channel or a pair — 3, or 3+4 for a stereo pair" },
     ]
-- command: "channel set"
-  sid: channels.set
+- command: "system channel set"
+  sid: system.channel.set
   readable:
     en: "Give channels a label"
     fr: "Nommer des canaux"
-  help: "label channels (e.g. channel set in 3+4 synth)"
+  help: "label channels (e.g. system channel set in 3+4 synth)"
   surfaces: [cli]
   args:
     [
@@ -688,48 +601,56 @@
   readable:
     en: "Create a module"
     fr: "Créer un module"
-  help: "create a module (e.g. module new instruments/bass, or module new audio/echo @engine/audio/delay/adt lead to inherit a plugin and node it)"
+  help: "create a module, and only that — a chain names a NODE, so follow it with `node new` (e.g. module new instruments/bass, or module new audio/echo @engine/audio/delay/adt to inherit a plugin)"
   surfaces: [cli]
   args:
     [
       { name: "category/name", complete: categories },
-      { name: "extends-ref", complete: baseModules },
-      {
-        name: "node-name",
-        optional: true,
-        hint: "optional — names a node of the new module, used in chains as name:node",
-      },
+      { name: "extends-ref", optional: true, complete: baseModules },
     ]
-# Creates a NODE of an existing module: `nodes/<node>.yaml`, flat at the project root
-# whatever the module it uses. The file names the node, and `extends:` says what it is a use
-# of — state only what THIS use changes. Chains reference it by its own name, or as
-# "<module>:<node>" for one filed beside a module folder, and it gets its own params and its
-# own <node>.vstpreset. Also on the web file tree: right-click a module folder -> "New node…".
 - command: "node new"
   sid: node.new
   readable:
-    en: "Create another node of a module"
-    fr: "Créer un nouveau nœud d'un module"
-  help: "create a node of a module (e.g. node new instruments/synth lead) — used in chains as synth:lead"
+    en: "Create a node of a module, in the graph"
+    fr: "Créer un nœud d'un module, dans le graphe"
+  help: "create a node of a module and put it in the graph, wired to nothing (e.g. node new instruments/synth lead)"
   surfaces: [cli]
   args:
     [
       { name: "category/name", complete: categories },
       { name: "node-name", hint: "used in chains as name:node" },
+      {
+        name: at,
+        optional: true,
+        hint: "optional — x,y world px: the node is drawn there (the web fills the click)",
+      },
     ]
 # `module delete` was here: it removed the module's file or folder AND every chain step
 # naming it, because a step pointing at a module that no longer exists is a dangling
 # reference the compiler refuses to load. It is gone — deleting a module's files is the file
-# tree's `file delete`, and taking a node out of the signal path is `node unlink` below.
+# tree's `file delete`, and taking a node out of the signal path is `graph unlink` below.
 # Takes a node OUT of the signal path and leaves its FILES alone — what fed it is joined to
 # what it fed, so the run closes over the gap instead of going quiet. The counterpart of
-# `chain add`: a node you unlink still has its settings and goes back in with one command.
-- command: "node unlink"
-  sid: node.unlink
+# `node insert`: a node you unlink still has its settings and goes back in with one command.
+# Deletes a node OUTRIGHT: its file, its preset, and its place in the graph — what fed it
+# rejoined to what it fed, exactly as `graph unlink` does, so the run closes over the gap
+# instead of going quiet. The MODULE it uses is untouched: a node is one use of one, and other
+# projects read the same module. The counterpart of `node new`; `graph unlink` is the milder
+# one, which leaves everything on disk and in the graph.
+- command: "node delete"
+  sid: node.delete
+  readable:
+    en: "Delete a node, files and all"
+    fr: "Supprimer un nœud, fichiers compris"
+  help: "delete a node: its file, its preset and its place in the graph (e.g. node delete lead)"
+  surfaces: [cli]
+  args: [{ name: "node", complete: modules }]
+- command: "graph unlink"
+  sid: graph.unlink
   readable:
     en: "Take a node out of its chain"
     fr: "Retirer un nœud de sa chaîne"
-  help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. node unlink lead)"
+  help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. graph unlink lead)"
   surfaces: [cli]
   args: [{ name: "node", complete: modules }]
 # Gives a module the ENGINE reports a folder in this project. A scanned plugin has no files
@@ -749,16 +670,16 @@
 # not a new folder either — the name stays, so every chain step keeps its place and nothing is
 # rewired, and the file stays, so its position on the graph survives. Only what it IS changes.
 # What described the old thing (`plugin`, `params`, `rack`) goes with it, and the log says so.
-- command: "module replace"
-  sid: module.replace
+- command: "node replace"
+  sid: node.replace
   readable:
     en: "Point a node at another module"
     fr: "Pointer un nœud vers un autre module"
-  help: "replace what a node is, keeping its name and its place (e.g. module replace echo @engine/audio/filter/auto-wah)"
+  help: "replace what a node is, keeping its name and its place (e.g. node replace echo @engine/audio/filter/auto-wah)"
   surfaces: [cli]
   args:
     [
-      { name: "module", complete: modules },
+      { name: node, complete: nodes },
       { name: "extends-ref", complete: baseModules },
     ]
 - command: "module clone"
@@ -776,82 +697,36 @@
 # The shared `_modules` holds what someone WROTE — a jsdsp module's source, a rack's
 # sample map. The engine's plugins are not files: its scan is the catalogue, so there is
 # nothing to populate and nothing to keep in step. `module rescan plugins` refreshes it.
-# A module's widget grid lives in the workspace's `_ui/`, not in the module file — so
-# a rebuilt `_modules` never took hand-drawn work with it, and one panel
-# serves every project that inherits the module. This moves the ones still written inline,
-# in this project AND in the shared `_modules` beside it. Re-runnable: a module with no
-# `ui:` left is already migrated and is skipped.
-- command: "ui migrate"
-  sid: ui.migrate
-  readable:
-    en: "Move module panels into the library"
-    fr: "Déplacer les panneaux vers la bibliothèque"
-  help: "move module `ui:` blocks out into the workspace's _ui/ library (safe to re-run)"
-  surfaces: [cli]
-  args: []
-# chains.yaml used to be a LIST of chains, each naming its source, its modules and its
-# sink. It holds SEGMENTS now — who feeds whom — and the chains are derived from them. A
-# project written before that is refused with a message pointing here. Re-runnable: a file
-# already in the new shape is left alone.
-- command: "chains migrate"
-  sid: chains.migrate
-  readable:
-    en: "Rewrite an old chains.yaml into segments"
-    fr: "Convertir un ancien chains.yaml en segments"
-  help: "rewrite a pre-segments chains.yaml (keeps the old file as chains.yaml.bak)"
-  surfaces: [cli]
-  args: []
+# `ui migrate` and `chains migrate` were here — a verb each for a one-shot repair of a
+# project written before a format change. Both are scripts now, run on a folder rather than
+# offered in every session's palette for ever:
+#
+#   npx tsx packages/song/scripts/migrateUis.ts <project>      panels out into the _ui/ library
+#   npx tsx packages/song/scripts/migrateChains.ts <root>      a pre-segments chains.yaml
+#
+# (chains.yaml used to be a LIST of chains, each naming its source, its modules and its sink.
+# It holds SEGMENTS now — who feeds whom — and the chains are derived from them. A project
+# written before that is refused, with a message pointing at the script.)
 # Sets one plugin param on a module node, writing it to the module's own .cue.
 # `param` is the engine's display name for it ("Filter Freq"), which is what the
 # module UI's widgets bind to — and what `list params` prints.
 # Bypass a module: it keeps its place in the graph and its params, but passes its input
 # straight through — its name joins chains.yaml's `bypassed` list. Bare, it toggles —
 # that's what the graph's bypass button sends.
-# Longest-prefix dispatch keeps this distinct from "module param".
-# Is a live input audible? A module FIELD, not a param — an io module runs no plugin, so
-# there is nothing to send a value to. The graph's IN panel sends this when its `@monitor`
-# dropdown is picked. It may write the workspace's SHARED file, beside the `channel:` that
-# says which input it is: both describe the desk rather than the song.
-# Which interface input a live input listens on — one channel, or two for a stereo pair. A module
-# FIELD like `monitor` and written beside it, because both describe the desk rather than the song.
-# The graph's IN panel sends this from BOTH its dropdowns: the socket names the set, and the width
-# names the same set one channel wider or narrower — mono and stereo are not two settings, they are
-# how wide this one is. A pair is even/odd and nothing else: the interface groups no other way.
-- command: "module channel"
-  sid: module.channel
+# Longest-prefix dispatch keeps this distinct from "node param".
+# `module channel` and `module monitor` were here, a verb per FIELD. Both are intrinsics —
+# a module's own field rather than a plugin's parameter — and they are written with
+# `node param <node> @channel 1,2` / `@monitor auto` now, beside `@gain`, which never
+# had a verb at all. One vocabulary: what a widget binds (`@channel`) is what you type.
+# See `INTRINSICS` in commands.ts and packages/song/docs/intrinsics.md.
+- command: "node bypass"
+  sid: node.bypass
   readable:
-    en: "Choose which interface input a live input listens on"
-    fr: "Choisir sur quelle entrée d'interface écoute une entrée live"
-  help: "set a live input's interface channel (`1`, or `1,2` for a stereo pair)"
+    en: "Bypass a node"
+    fr: "Contourner un nœud"
+  help: "bypass a node so it passes sound through untouched (bare: toggles)"
   surfaces: [cli]
-  args:
-    [
-      { name: module, complete: modules },
-      {
-        name: channels,
-        hint: "the interface channel, counted from 1 — or two of them for a stereo pair (`1,2`)",
-      },
-    ]
-- command: "module monitor"
-  sid: module.monitor
-  readable:
-    en: "Choose when a live input is audible"
-    fr: "Choisir quand une entrée live est audible"
-  help: "set whether a live input is audible (off | auto — audible when armed | on)"
-  surfaces: [cli]
-  args:
-    [
-      { name: module, complete: modules },
-      { name: state, values: [off, auto, on] },
-    ]
-- command: "module bypass"
-  sid: module.bypass
-  readable:
-    en: "Bypass a module"
-    fr: "Contourner un module"
-  help: "bypass a module so it passes sound through untouched (bare: toggles)"
-  surfaces: [cli]
-  args: [{ name: module, complete: modules }, { name: state, values: [on, off] }]
+  args: [{ name: node, complete: nodes }, { name: state, values: [on, off] }]
 # --- a module's ALTERNATIVES (its other attribute sets) ---
 # NOT `project alternative`, which is a git branch, and not a PRESET, which is a starting point
 # you stamp into the module's params. This is a set of attributes the module can be switched
@@ -861,45 +736,45 @@
 #
 # The name is optional everywhere: an unnamed one answers to its position, counting the module's
 # own fields as 1. The ⋮ button on a node's corner runs these three.
-- command: "module alternative create"
-  sid: module.alt.create
+- command: "node alternative create"
+  sid: node.alt.create
   readable:
-    en: "Create an empty alternative for a module"
-    fr: "Créer une alternative vide pour un module"
-  help: "add an empty alternative to a module and switch to it (e.g. module alternative create ampli crunch)"
+    en: "Create an empty alternative for a node"
+    fr: "Créer une alternative vide pour un nœud"
+  help: "add an empty alternative to a node and switch to it (e.g. node alternative create ampli crunch)"
   surfaces: [cli]
   args:
     [
-      { name: module, complete: modules },
+      { name: node, complete: nodes },
       { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
     ]
 # The other half of the same wish: keep this set, try a change to it. A copy carries what the
 # CURRENT set states, which re-typing it by hand would get wrong.
-- command: "module alternative copy"
-  sid: module.alt.copy
+- command: "node alternative copy"
+  sid: node.alt.copy
   readable:
-    en: "Copy a module's settings into an alternative"
+    en: "Copy a node's settings into an alternative"
     fr: "Copier les réglages dans une nouvelle alternative"
   help: "add an alternative holding a copy of the one that is on, and switch to it"
   surfaces: [cli]
   args:
     [
-      { name: module, complete: modules },
+      { name: node, complete: nodes },
       { name: name, optional: true, hint: "its name — numbered after the last one if you don't say" },
     ]
 # Named rather than left as the bare verb: `select` and `create` say what they do, and a bare
-# `module alternative ampli crunch` reads like a declaration rather than a move. With no name, it
+# `node alternative ampli crunch` reads like a declaration rather than a move. With no name, it
 # lists what the module has.
-- command: "module alternative select"
-  sid: module.alt.select
+- command: "node alternative select"
+  sid: node.alt.select
   readable:
-    en: "Switch a module to another alternative"
-    fr: "Basculer un module sur une autre alternative"
-  help: "switch a module to another of its alternatives (e.g. module alternative select ampli crunch)"
+    en: "Switch a node to another alternative"
+    fr: "Basculer un nœud sur une autre alternative"
+  help: "switch a node to another of its alternatives (e.g. node alternative select ampli crunch)"
   surfaces: [cli]
   args:
     [
-      { name: module, complete: modules },
+      { name: node, complete: nodes },
       { name: name, optional: true, complete: moduleAlternatives },
     ]
 # --- freezing (bake everything upstream of a module) ---
@@ -910,51 +785,53 @@
 # the point of freezing rather than bouncing. Refused when something upstream also feeds a node
 # outside the set: its signal would be in the render and still playing. The ⋮ button on a node's
 # corner runs this. See packages/song/docs/freeze.md.
-- command: "module freeze"
-  sid: module.freeze
+- command: "node freeze"
+  sid: node.freeze
   readable:
-    en: "Freeze a module and everything upstream of it"
-    fr: "Geler un module et tout ce qui est en amont"
-  help: "bake everything upstream of a module, itself included, into one render (again: unfreeze)"
+    en: "Freeze a node and everything upstream of it"
+    fr: "Geler un nœud et tout ce qui est en amont"
+  help: "bake everything upstream of a node, itself included, into one render (again: unfreeze)"
   surfaces: [cli]
-  args: [{ name: module, complete: modules }]
-# Point a file-valued param at one of the module's own assets — a .nam model in
-# modules/<category>/<module>/assets/. The panel's dropdown runs this when you pick a file;
-# `none` clears it. The file is written and the project reloaded: the plugin reads its file
-# when it is built, so there is nothing to patch in the running engine.
+  args: [{ name: node, complete: nodes }]
+# `module nam` was here — one verb per FILE-VALUED param, named after the param so there was
+# one word to learn. `module ir` had been the other and went with the shared library; `onnx`,
+# the one that came after, never got a verb at all, and the asset picker sends the param's own
+# name — so picking an `.onnx` reached a command that did not exist. It is a param: it lands in
+# `params:` like the numbers do, and it is set by `node param <node> nam <file>` now.
 #
-# One command per file-valued param rather than `module asset <param> …`: the param names the
-# command AND the key written, so there is one word to learn. `with:` tells the shared handler
-# which one. `module ir` was the other; impulse responses went with the shared library.
-- command: "module nam"
-  sid: module.asset
+# Every control a node has, under one verb. A plain name is the PLUGIN's parameter, sent to the
+# running plugin and written into `params:`. A name starting with `@` is an INTRINSIC — the
+# module's own field, written into its file and read when the module is next built. And two
+# names — `nam`, `onnx` — are params whose value is a FILE the module carries:
+#
+#   node param synth "Filter Freq" 69       a plugin's own parameter
+#   node param ge_rythm-in @channel 1,2     which interface input it listens on
+#   node param ge_rythm-in @monitor auto    audible when armed
+#   node param ge_rythm-in @gain -3         the input trim, in dB
+#   node param amp nam jcm800.nam           an asset the module carries (`none` clears it)
+#
+# The `@` is the same one a widget binds, so what the graph's IN panel sends is the line you
+# could have typed. A live input runs no plugin at all, which is why its controls could never
+# have been params in the first sense. A file-valued one is checked against the module's assets
+# and is NOT patched into the running engine: a plugin reads its file when it is built.
+- command: "node param"
+  sid: node.param
   readable:
-    en: "Load a Neural Amp Modeler profile"
-    fr: "Charger un profil Neural Amp Modeler"
-  help: "load a Neural Amp Modeler model the module carries (e.g. module nam amp jcm800.nam)"
+    en: "Set one of a node's controls"
+    fr: "Régler un contrôle d'un nœud"
+  help: "set a node's plugin param, an @intrinsic, or a file it carries (e.g. node param synth \"Filter Freq\" 69)"
   surfaces: [cli]
-  with: ["nam"]
   args:
     [
-      { name: module, complete: modules },
+      { name: node, complete: nodes },
       {
-        name: file,
-        complete: assetFiles,
-        hint: "a .nam model in the module's assets/ — or `none` to clear it",
+        name: param,
+        hint: "the engine's name for it (quote it if it has spaces), @channel · @monitor · @gain, or nam · onnx",
       },
-    ]
-- command: "module param"
-  sid: module.param
-  readable:
-    en: "Set one of a module's plugin parameters"
-    fr: "Régler un paramètre de greffon d'un module"
-  help: "set a module's plugin param (e.g. module param synth \"Filter Freq\" 69)"
-  surfaces: [cli]
-  args:
-    [
-      { name: module, complete: modules },
-      { name: param, hint: "the engine's name for it — quote it if it has spaces" },
-      { name: value, hint: "a number, in the param's own units" },
+      {
+        name: value,
+        hint: "a number — or the state an @intrinsic takes, or a file the module carries (`none` clears it)",
+      },
     ]
 # Binds a MIDI control change to one of a module's params, in the `controller.yaml` in the
 # module's own folder — so the map follows the module into every project that names it, and
@@ -973,14 +850,12 @@
       { name: channel, hint: "1-16, or `none` to unbind this param" },
       { name: cc, hint: "0-127 — the control number the knob sends" },
     ]
-- command: "project inspect graph"
-  sid: graph.inspect
-  readable:
-    en: "Show the chains a track runs through"
-    fr: "Afficher les chaînes que traverse une piste"
-  help: "show the chain(s) for a track (or the whole graph)"
-  surfaces: [cli]
-  args: [{ name: track, complete: tracks }]
+# `project inspect graph` was here — the routing as text. It is a reader, and the one place
+# it was reachable from the app (a right-click on a chain node) offered nothing else, so it
+# was a row in the palette nobody ran. `describeGraph` keeps its own CLI entry:
+#
+#   npx tsx packages/song/src/graph.ts <project> [track]
+#
 # Moves one placement (a clip/sequence) on a track from its current timecode to a new one.
 # The event is found by its start position; only that placement's `start:` is rewritten.
 # The optional 4th arg moves the placement to ANOTHER track. Refused unless the two
@@ -1103,76 +978,36 @@
 # name it in a chain — a name THIS command picks. Takes the arrow first (before, after) so
 # the node name still lands last, where a person types it. No chain to name: the two
 # ends ARE an edge in chains.yaml, so there is nothing left to disambiguate.
-- command: "module insert"
-  sid: module.insert
+- command: "node insert"
+  sid: node.insert
   readable:
-    en: "Create a module and insert it into a chain"
-    fr: "Créer un module et l'insérer dans une chaîne"
-  help: "create a module and insert it into an arrow in one step (e.g. module insert melody OUT audio/wah @engine/audio/filter/auto-wah w1)"
+    en: "Splice a node into a chain"
+    fr: "Insérer un nœud dans une chaîne"
+  help: "splice a node into an arrow, between the two ends of it (e.g. node insert melody OUT wah)"
   surfaces: [cli]
   args:
     [
-      { name: before, hint: "the node the arrow LEAVES — the new module goes after it" },
-      { name: after, hint: "the node the arrow ENTERS — the new module goes before it" },
-      { name: "category/name", complete: categories },
-      { name: "extends-ref", complete: baseModules },
       {
-        name: "node-name",
-        optional: true,
-        hint: "optional — used in chains as name:node",
+        name: before,
+        complete: nodes,
+        hint: "the node the arrow LEAVES — the spliced one goes after it",
       },
       {
-        name: at,
-        optional: true,
-        hint: "optional — x,y world px: the node is born there (the web fills the click)",
+        name: after,
+        complete: nodes,
+        hint: "the node the arrow ENTERS — the spliced one goes before it",
       },
-    ]
-# The same, minus the arrow: create the module and put it in the graph wired to NOTHING.
-# `modules: { x: [] }` is a state chains.yaml can hold, and it is what a right-click on
-# empty canvas asks for — put this here, I'll connect it in a moment.
-- command: "module place"
-  sid: module.place
-  readable:
-    en: "Create a module in the graph, unwired"
-    fr: "Créer un module dans le graphe, sans câblage"
-  help: "create a module and drop it in the graph, wired to nothing (e.g. module place audio/wah @engine/audio/filter/auto-wah w1)"
-  surfaces: [cli]
-  args:
-    [
-      { name: "category/name", complete: categories },
-      { name: "extends-ref", complete: baseModules },
-      {
-        name: "node-name",
-        optional: true,
-        hint: "optional — used in chains as name:node",
-      },
+      { name: node, complete: nodes },
       {
         name: at,
         optional: true,
-        hint: "optional — x,y world px: the node is born there (the web fills the click)",
+        hint: "optional — x,y world px: the node is drawn there (the web fills the click)",
       },
     ]
-- command: "chain add"
-  sid: chain.addModule
-  readable:
-    en: "Insert an existing module between two nodes"
-    fr: "Insérer un module existant entre deux nœuds"
-  help: "insert an existing module between two nodes (e.g. chain add melody synth reverb)"
-  surfaces: [cli]
-  args:
-    [
-      { name: before, hint: "the node the arrow LEAVES — the module goes after it" },
-      { name: after, hint: "the node the arrow ENTERS — the module goes before it" },
-      { name: module, complete: modules },
-      {
-        name: at,
-        optional: true,
-        hint: "optional — x,y world px: the node is born there (the web fills the click)",
-      },
-    ]
-# Hand EVERY node back to the automatic layout: clears `positions:` outright, and the web
-# forgets where it was drawing each card. This is the ONE moment dagre reorganizes a graph —
-# an edit (a cable pulled, a module dropped in) never moves what is already on screen.
+# `node place <node> [x,y]` was here — it wrote `modules: { x: [] }` for a node that existed
+# but was in no chain. Two changes took its job away: `node new` puts what it makes in the graph,
+# and `graph unlink` leaves what it unlinks there. So the state it repaired — a node on disk and
+# on no screen — is one nothing reaches any more. Moving one is `node position`.
 - command: "graph organize"
   sid: graph.organize
   readable:
@@ -1183,29 +1018,29 @@
 # Pin a node where a drag (or a hand) put it — chains.yaml's `positions:`. The graph lays
 # out only the nodes with no pin, so a module moved once stays put for ever; `auto` hands
 # it back to the layout. The web sends this when a node's header is dropped.
-- command: "module position"
-  sid: module.position
+- command: "node position"
+  sid: node.position
   readable:
-    en: "Pin a module's place on the graph"
-    fr: "Épingler la position d'un module sur le graphe"
-  help: "pin a node's place on the graph, world px (e.g. module position reverb 420 180) — `auto` returns it to the layout"
+    en: "Pin a node's place on the graph"
+    fr: "Épingler la position d'un nœud sur le graphe"
+  help: "pin a node's place on the graph, world px (e.g. node position reverb 420 180) — `auto` returns it to the layout"
   surfaces: [cli]
   args:
     [
-      { name: module, complete: modules },
+      { name: node, complete: nodes },
       { name: x, hint: "world px — or `auto` to hand it back to the layout" },
       { name: y, type: number, optional: true },
     ]
 # Draw a NEW arrow between two placed nodes — the graph's patch cable: click a free output
-# jack, then a free input jack. Either end may carry "#port". `chain add` splices into an
+# jack, then a free input jack. Either end may carry "#port". `node insert` splices into an
 # existing arrow; this one creates an arrow where there was none, which is how a new chain
 # begins.
-- command: "chain connect"
-  sid: chain.connect
+- command: "graph chain connect"
+  sid: graph.chain.connect
   readable:
     en: "Connect two nodes with a new cable"
     fr: "Relier deux nœuds par un nouveau câble"
-  help: "draw a new arrow from one node to another (e.g. chain connect gtr reverb, or splitter#b wet)"
+  help: "draw a new arrow from one node to another (e.g. graph chain connect gtr reverb, or splitter#b wet)"
   surfaces: [cli]
   args:
     [
@@ -1215,12 +1050,12 @@
 # The mirror: pull ONE cable out. The web sends this when a lifted cable is dropped on the
 # canvas. A source left feeding nothing keeps its place in the graph — deleting a cable
 # must not also delete the module.
-- command: "chain disconnect"
-  sid: chain.disconnect
+- command: "graph chain disconnect"
+  sid: graph.chain.disconnect
   readable:
     en: "Remove one cable between two nodes"
     fr: "Retirer un câble entre deux nœuds"
-  help: "remove the arrow from one node to another (e.g. chain disconnect gtr reverb)"
+  help: "remove the arrow from one node to another (e.g. graph chain disconnect gtr reverb)"
   surfaces: [cli]
   args:
     [
@@ -1231,12 +1066,12 @@
 # one undo step, however the ends are respelt. The web sends this when a cable lifted off a
 # jack lands on another; only one end usually changes, but the line states all four so the
 # handler never guesses which.
-- command: "chain replug"
-  sid: chain.replug
+- command: "graph chain replug"
+  sid: graph.chain.replug
   readable:
     en: "Move one end of a cable to another node"
     fr: "Déplacer une extrémité d'un câble vers un autre nœud"
-  help: "re-plug an arrow (e.g. chain replug gtr reverb gtr delay — the gtr cable now feeds delay)"
+  help: "re-plug an arrow (e.g. graph chain replug gtr reverb gtr delay — the gtr cable now feeds delay)"
   surfaces: [cli]
   args:
     [
@@ -1245,14 +1080,11 @@
       { name: newFrom, hint: "the source after the move (same, when the target end moved)" },
       { name: newTo, hint: "the target after the move" },
     ]
-- command: "project inspect timeline"
-  sid: timeline.inspect
-  readable:
-    en: "Show a track's clips"
-    fr: "Afficher les clips d'une piste"
-  help: "show a track's clips (or the whole arrangement)"
-  surfaces: [cli]
-  args: [{ name: track, complete: tracks }]
+# …and `project inspect timeline` with it — the arrangement as text, which the timeline
+# itself draws. Its describer keeps a CLI entry too:
+#
+#   npx tsx packages/commands/src/timeline.ts <project> [track]
+#
 
 # --- transport ---
 - command: "transport play"
@@ -1294,4 +1126,16 @@
   readable:
     en: "Turn the metronome on or off"
     fr: "Activer ou désactiver le métronome"
+# Arming lives HERE and not under `track`, where it was `track rec`. It reads like a track's
+# property and is not one: nothing is written to any file, and a reload does not restore it.
+# It is a message to the ENGINE, which holds the armed set and reports it back on every state
+# frame — the same kind of thing as play and stop, addressed at one lane.
+- command: "transport arm"
+  sid: transport.arm
+  readable:
+    en: "Arm a track for recording"
+    fr: "Armer une piste pour l'enregistrement"
+  help: "toggle a track's record arm (armed tracks record on play)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
 

@@ -36,8 +36,8 @@ describe("a lane's takes on the compiled doc", () => {
   const doc = () =>
     compileNodeProject(
       project("kept", {
-        clips: [{ ref: "riff", start: "1:1:1" }],
-        takes: [{ clips: [{ ref: "riff", start: "5:1:1" }] }],
+        events: [{ ref: "riff", start: "1:1:1" }],
+        takes: [{ events: [{ ref: "riff", start: "5:1:1" }] }],
       }),
     );
 
@@ -61,7 +61,7 @@ describe("a lane's takes on the compiled doc", () => {
   it("says nothing at all on a lane with none", () => {
     // Absent rather than empty, so the wire and the eye both read "this lane has no takes".
     const d = compileNodeProject(
-      project("bare", { clips: [{ ref: "riff", start: "1:1:1" }] }),
+      project("bare", { events: [{ ref: "riff", start: "1:1:1" }] }),
     );
     expect(d.tracks.find((x) => x.id === "gtr")).not.toHaveProperty("takes");
   });
@@ -71,8 +71,8 @@ describe("withoutTakes", () => {
   it("strips them, and leaves everything else where it was", () => {
     const d = compileNodeProject(
       project("stripped", {
-        clips: [{ ref: "riff", start: "1:1:1" }],
-        takes: [{ name: "one", clips: [{ ref: "riff", start: "5:1:1" }] }],
+        events: [{ ref: "riff", start: "1:1:1" }],
+        takes: [{ name: "one", events: [{ ref: "riff", start: "5:1:1" }] }],
       }),
     );
     const out = withoutTakes(d);
@@ -84,7 +84,7 @@ describe("withoutTakes", () => {
 
   it("is the SAME document when nothing has a take — the engine sees no churn", () => {
     const d = compileNodeProject(
-      project("none", { clips: [{ ref: "riff", start: "1:1:1" }] }),
+      project("none", { events: [{ ref: "riff", start: "1:1:1" }] }),
     );
     expect(withoutTakes(d)).toBe(d);
   });
@@ -94,16 +94,16 @@ describe("takes belong to the alternative they were played in", () => {
   it("compiles the SET's takes, not the module's", () => {
     const d = compileNodeProject(
       project("alt", {
-        clips: [{ ref: "riff", start: "1:1:1" }],
-        takes: [{ clips: [{ ref: "riff", start: "5:1:1" }] }],
+        events: [{ ref: "riff", start: "1:1:1" }],
+        takes: [{ events: [{ ref: "riff", start: "5:1:1" }] }],
         alternative: "loud",
         alternatives: [
           {
             name: "loud",
-            clips: [{ ref: "riff", start: "1:1:1" }],
+            events: [{ ref: "riff", start: "1:1:1" }],
             takes: [
-              { clips: [{ ref: "riff", start: "9:1:1" }] },
-              { clips: [{ ref: "riff", start: "13:1:1" }] },
+              { events: [{ ref: "riff", start: "9:1:1" }] },
+              { events: [{ ref: "riff", start: "13:1:1" }] },
             ],
           },
         ],

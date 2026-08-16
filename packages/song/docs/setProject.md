@@ -77,7 +77,7 @@ This is the one genuinely new thing, and it is small.
 In a song, `nodes/bass.yaml` **is** the arrangement: the clips, where they sit, how often
 they repeat. On a deck there is nothing to arrange — the material is whichever song from
 `songs.yaml` was loaded onto it ten seconds ago, and it will be a different one in four
-minutes. So it authors no `clips:` at all.
+minutes. So it authors no `events:` at all.
 
 The file still exists, and that is deliberate. The alternative — inferring the decks from
 `chains.yaml`'s keys and writing no lane files at all — costs three things:
@@ -151,7 +151,7 @@ fills in each deck's song, and sends it to the engine over its own socket. So th
 built in the browser.
 
 Loading a song is therefore NOT a project edit. The decks' tracks are declared with
-`clips: []` exactly so a live choice can fill them without writing to the folder: a set list
+`events: []` exactly so a live choice can fill them without writing to the folder: a set list
 is committed, what is on a deck right now is not.
 
 **One thing still cannot be a module.** The tempo is `offline`, so it compiles to no plugin —

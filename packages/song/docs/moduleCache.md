@@ -63,7 +63,7 @@ vocabulary, and the catalogue is the one input the stamp cannot see.
 
 Walking the stamp **once per turn of the event loop** — memoise it, clear it on `setImmediate`
 — looks safe and is not. The reasoning behind it ("nothing can land between two synchronous
-reads") forgets that this process is itself a writer: `module param` writes a module file and
+reads") forgets that this process is itself a writer: `node param` writes a module file and
 reloads the project in the same synchronous stretch, so the second read would be answered from
 a stamp taken before the write. `packages/song`'s suite catches it — 13 failures in
 `presets.test.ts` and its neighbours, all of the shape "module 'synth' has no params". The
@@ -82,7 +82,7 @@ previous line.
 makes it safe is exactly what the tick memo lacked: the scope is **named by a caller that reads
 and never writes**. `compileNodeProject` and `loadGraph` are those callers — a compile is a pure
 read of a folder — and they are the only two. Everything outside a scope stamps per call, as
-before, so `module param`'s write-then-reload still sees its own write.
+before, so `node param`'s write-then-reload still sees its own write.
 
 Lazily, too: a scope that never asks the cache walks nothing.
 

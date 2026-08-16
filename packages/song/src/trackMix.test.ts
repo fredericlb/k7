@@ -62,7 +62,7 @@ describe("panToLabel", () => {
   });
 });
 
-// removeTrackPlacement drops one placement from a track's `clips:` list, addressed by its
+// removeTrackPlacement drops one placement from a track's `events:` list, addressed by its
 // start POSITION (the key `move event` uses too).
 //
 // Three of these cases used to be about the TEXT: no hole where the element was, no comma
@@ -85,7 +85,7 @@ describe("removeTrackPlacement", () => {
 
   const THREE = `# the drum lane
 extends: "@studio/audio-track"
-clips:
+events:
   - { ref: kick, start: "1:1:1", length: "1:0:0" }
   - { ref: snare, start: "2:1:1", length: "1:0:0" }
   - { ref: hat, start: "3:1:1", length: "1:0:0" }
@@ -114,12 +114,12 @@ clips:
 
   it("empties the list cleanly when it was the only placement", () => {
     const read = track(
-      'extends: "@studio/audio-track"\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
+      'extends: "@studio/audio-track"\nevents:\n  - { ref: kick, start: "1:1:1" }\n',
     );
     expect(removeTrackPlacement(dir, "drums", 0, 4, 4)).toBe(true);
     expect(read()).not.toContain("kick");
     // An empty list, not a broken one — the track still loads, with nothing placed.
-    expect(read()).toMatch(/clips:\s*\[\s*\]/);
+    expect(read()).toMatch(/events:\s*\[\s*\]/);
   });
 
   it("reports false — and writes nothing — when no placement sits there", () => {

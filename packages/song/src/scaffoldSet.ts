@@ -255,7 +255,7 @@ function filterNode(letter: string): string {
 /** One deck: a track that is DECLARED here and whose material arrives at play time. */
 function deckTrack(letter: string, wiring: string): string {
   return (
-    `# Deck ${letter}. A lane with no arrangement — it authors no \`clips:\` at all.\n` +
+    `# Deck ${letter}. A lane with no arrangement — it authors no \`events:\` at all.\n` +
     `#\n` +
     `# That is the one thing a SET has that an arranged song does not. In a song a lane's\n` +
     `# file IS its arrangement; on a deck the material is whichever song from songs.yaml was\n` +

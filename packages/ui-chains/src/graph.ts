@@ -710,11 +710,12 @@ export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
  * (see @studio/song's uiLibrary.ts). Every input in every project therefore drew a card saying
  * "No Options" until this existed.
  *
- * All three are dropdowns, and that is a constraint rather than a taste: a module FIELD is written
- * by a command naming a state, so only a widget carrying `options` can commit one — a knob bound to
- * a field draws, drags and writes nothing. `@gain` is deliberately absent for exactly that reason:
- * it is a continuous trim, there is no `module gain` verb to send, and a knob that moved without
- * saving would be worse than no knob.
+ * All three are dropdowns, and that is a constraint rather than a taste: only a widget carrying
+ * `options` can commit a module field — `setModuleField` in the renderer reads the picked option's
+ * `arg`, so a knob bound to a field draws, drags and writes nothing. `@gain` is deliberately absent
+ * for that reason, and only that one: a continuous trim has no options to pick. (It is no longer
+ * for want of a verb — `node param <node> @gain <db>` exists; what is missing is a
+ * commit-on-release path for a dragged intrinsic.)
  *
  * The channel list is the MACHINE's, so it arrives as an argument rather than being invented here:
  * the sets are what `findWaveInput` matches exactly, and offering a channel the interface does not

@@ -35,7 +35,7 @@ describe("moveTrackPlacement", () => {
   it("rewrites ONLY the matching placement, leaving every other line identical", () => {
     const before = `# the drum lane
 extends: "@studio/audio-track"
-clips:
+events:
   - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
   - { ref: snare, start: "2:1:1", fadeIn: "0:1", loop: 2, disabled: true }
 `;
@@ -66,14 +66,14 @@ clips:
 
   it("keeps the moved timecode QUOTED", () => {
     // Unquoted, `3:1:1` is a YAML 1.1 sexagesimal: the clip would reload at beat 11461.
-    const dir = trackDir('clips:\n  - { ref: kick, start: "2:1:1" }\n');
+    const dir = trackDir('events:\n  - { ref: kick, start: "2:1:1" }\n');
     moveTrackPlacement(dir, "drums", 4, "3:1:1", NUM, DEN);
     expect(read(dir)).toContain('start: "3:1:1"');
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("matches by position, not string — 2:1:1 and its beat value are the same event", () => {
-    const dir = trackDir('clips:\n  - { ref: kick, start: "2:1:1" }\n');
+    const dir = trackDir('events:\n  - { ref: kick, start: "2:1:1" }\n');
     // 4/4: bar 2 beat 1 == 4 beats. Pass the beat value; it still finds "2:1:1".
     expect(moveTrackPlacement(dir, "drums", 4, "3:1:1", NUM, DEN)).toBe(true);
     expect(read(dir)).toContain("ref: kick");
@@ -81,7 +81,7 @@ clips:
   });
 
   it("returns false, and writes nothing, when nothing sits at the position", () => {
-    const body = 'clips:\n  - { ref: kick, start: "1:1:1" }\n';
+    const body = 'events:\n  - { ref: kick, start: "1:1:1" }\n';
     const dir = trackDir(body);
     expect(
       moveTrackPlacement(
@@ -98,7 +98,7 @@ clips:
   });
 
   it("doesn't confuse `start` with a ref name that contains it", () => {
-    const dir = trackDir('clips:\n  - { ref: start_kick, start: "1:1:1" }\n');
+    const dir = trackDir('events:\n  - { ref: start_kick, start: "1:1:1" }\n');
     expect(moveTrackPlacement(dir, "drums", 0, "2:1:1", NUM, DEN)).toBe(true);
     expect(read(dir)).toContain("ref: start_kick");
     expect(read(dir)).toContain('start: "2:1:1"');
@@ -121,7 +121,7 @@ describe("moveTrackPlacementsInRange", () => {
   it("moves every placement starting in the range, and only those, one line each", () => {
     const before = `# the drum lane
 extends: "@studio/audio-track"
-clips:
+events:
   - { ref: intro, start: "1:1:1" }
   - { ref: kick, start: "2:1:1", fadeIn: "0:1" }
   - { ref: snare, start: "3:3", loop: 2 }
@@ -153,7 +153,7 @@ clips:
 
   it("includes both endpoints — an event sitting AT `to` moves", () => {
     const dir = trackDir(
-      'clips:\n  - { ref: a, start: "2:1" }\n  - { ref: b, start: "4:1" }\n',
+      'events:\n  - { ref: a, start: "2:1" }\n  - { ref: b, start: "4:1" }\n',
     );
     const n = moveTrackPlacementsInRange(
       dir,
@@ -171,7 +171,7 @@ clips:
   });
 
   it("moves left too, and keeps the rewritten timecodes quoted", () => {
-    const dir = trackDir('clips:\n  - { ref: a, start: "3:1:1" }\n');
+    const dir = trackDir('events:\n  - { ref: a, start: "3:1:1" }\n');
     expect(moveTrackPlacementsInRange(dir, "drums", 0, 100, -4, NUM, DEN)).toBe(
       1,
     );
@@ -180,7 +180,7 @@ clips:
   });
 
   it("returns 0 and writes nothing when the range holds no placement", () => {
-    const body = 'clips:\n  - { ref: a, start: "1:1:1" }\n';
+    const body = 'events:\n  - { ref: a, start: "1:1:1" }\n';
     const dir = trackDir(body);
     expect(
       moveTrackPlacementsInRange(

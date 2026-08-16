@@ -11,7 +11,7 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
-import { ArrowDown, ArrowUp, Loader2, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowUp, Layers, Loader2, RotateCcw } from "lucide-react";
 import {
   lazy,
   Suspense,
@@ -22,8 +22,10 @@ import {
 } from "react";
 import {
   type CommandPrefs,
+  commandHeads,
   entitiesOf,
-  entityOf,
+  entityGroup,
+  isPluralCommand,
   labelOf,
   moveCommand,
   orderCommands,
@@ -57,6 +59,8 @@ export function CommandsSettings({
   // set is fetched once for both. Null for the first frames, which shows an empty icon button.
   const icons = useIcons();
   const entities = useMemo(() => entitiesOf(commands), [commands]);
+  // Every head the catalogue uses, so a PLURAL verb lists under its singular — see entityGroup.
+  const heads = useMemo(() => commandHeads(commands), [commands]);
 
   // Ordered FIRST, then filtered — so the arrows move a command against the whole arrangement and
   // not against whatever the filter happens to show. Moving "up" inside a filtered view otherwise
@@ -69,7 +73,7 @@ export function CommandsSettings({
   const needle = q.trim().toLowerCase();
   const shown = ordered.filter(
     (c) =>
-      (!entity || entityOf(c.canonical) === entity) &&
+      (!entity || entityGroup(c.canonical, heads) === entity) &&
       (!needle ||
         c.canonical.toLowerCase().includes(needle) ||
         labelOf(c, prefs).toLowerCase().includes(needle)),
@@ -214,9 +218,41 @@ export function CommandsSettings({
                 onChange={(e) => set(c.canonical, { label: e.target.value })}
                 className="h-7 flex-1 text-xs"
               />
-              <code className="w-56 shrink-0 truncate text-[11px] text-muted-foreground">
-                {c.canonical}
+              {/* The line, and — on the one that acts on SEVERAL — a mark saying so. A plural
+                  verb lists under its singular (`events move` among the `event` ones), which is
+                  where anyone would look for it; the badge is what keeps the two tellable apart
+                  once they are side by side. */}
+              <code className="flex w-56 shrink-0 items-center gap-1 truncate text-[11px] text-muted-foreground">
+                {isPluralCommand(c.canonical, heads) && (
+                  <Layers
+                    className="h-3 w-3 shrink-0 text-primary/70"
+                    aria-label="agit sur plusieurs à la fois"
+                  />
+                )}
+                <span className="truncate">{c.canonical}</span>
               </code>
+
+              {/* On the right-click, or not. Only ever a way to take one AWAY: the menu is
+                  DERIVED — what you clicked decides which verbs fit it — so ticking this cannot
+                  put a command somewhere it does not belong. Unticking is for the verb that
+                  fits and is still clutter, which the catalogue cannot say for you. */}
+              <label
+                className="flex w-7 shrink-0 items-center justify-center"
+                title="proposer cette commande au clic droit"
+              >
+                <input
+                  type="checkbox"
+                  checked={prefs[c.canonical]?.menu !== false}
+                  onChange={(e) =>
+                    // `undefined` rather than `true`, so an untouched command keeps no entry at
+                    // all — the same rule the label and the icon follow.
+                    set(c.canonical, {
+                      menu: e.target.checked ? undefined : false,
+                    })
+                  }
+                  aria-label="au clic droit"
+                />
+              </label>
 
               {/* The shortcut. Click, press a key — Échap annule, ⌫ retire. A stolen key is
                   visible without ceremony: the row that held it reads the same effective map
@@ -268,6 +304,7 @@ export function CommandsSettings({
                     icon: undefined,
                     order: undefined,
                     key: undefined,
+                    menu: undefined,
                   })
                 }
               >

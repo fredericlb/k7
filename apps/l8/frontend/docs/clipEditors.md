@@ -5,6 +5,9 @@ sequence's track feeds a RACK — `SequencerPanel`, a step sequencer. `ClipView`
 them and all are mounted by the same two hosts — the editor's bottom strip, and the graph slot
 when a clip is clicked in the timeline (see [shell.md](shell.md)).
 
+A MIDI clip's three readings — sequencer, piano roll, tracker — are one **view switch** in the
+pane's header rather than three ways in; see [The view switch](#the-view-switch).
+
 ## The step sequencer
 
 A MIDI clip is a list of notes, but when its signal lands on a rack the notes are not pitches —
@@ -56,9 +59,40 @@ twice. The writer refuses that last case as well, as the last word.
 
 Keys the rack has no row for are **rows too**, not a count: they follow the rack's rows, high
 first, labelled by their pitch and drawn amber — a played take with keys the kit does not name
-must show, and stay editable, rather than read as data lost. The 🎹 button still opens the same
-clip in the roll (off-grid timing and precise lengths live there); reopening the clip returns to
-the sequencer, since the rack is what the track IS.
+must show, and stay editable, rather than read as data lost.
+
+## The view switch
+
+One clip's notes have three readings, and the header's dropdown (`ClipViewModes.tsx`) is how you
+move between them. It is drawn in **all three headers**, which is the whole point: it replaced a
+one-way 🎹 button on the sequencer, so leaving the grid was a click and coming back meant closing
+the pane and clicking the clip again.
+
+| mode | what it is | how it writes |
+|---|---|---|
+| `sequencer` | one row per rack sound, one column per step | `sequence note …` commands — one press, one Ctrl+Z |
+| `roll` | the piano roll — off-grid timing, precise lengths, keys the rack does not name | the same commands |
+| `tracker` | the sequence FILE as a text grid — arrows move, keys type notes | straight to the file (`SeqGridFile`) |
+
+Two rules decide what you get:
+
+- **The sequencer is offered only when there is a rack.** `rackFor.ts` answers that, and with no
+  rack the entry is not in the menu at all rather than present and dead — there would be no rows
+  to draw. The default mode is `sequencer` and falls through to `roll` when the rack is absent,
+  so a clip still opens on the best view it has.
+- **The mode resets per clip.** It is about what you are looking at, not a state the pane is stuck
+  in; the rack is what the track IS, so the next clip opens on its own best view.
+
+The tracker is the same grid `sequence edit tracker <sequence>` opens in the graph slot — the
+file-owning half is `SeqGridFile`, mounted by both, so there is one answer to "read it, hand it to
+the grid, write it back". It edits the sequence file directly where the other two go through
+commands; both land in the same YAML, and the difference is only whose undo you get — the
+editor's, rather than the shell's journal. A clip whose `ref` names no sequence file says so
+instead of drawing an empty grid.
+
+One consequence worth naming: the tracker reads its file **once**, deliberately, so an edit made
+elsewhere needs the view reopening — refetching under a hand mid-edit is how a cursor and a
+half-typed note are lost. Switching mode and back is what reopens it.
 
 One plumbing fact this panel surfaced: the graph slot's `target` is a snapshot taken at the
 click, so `ClipView` re-reads the compiled project on every `reloadKey` and re-finds the
@@ -68,6 +102,34 @@ drags snapped back on release.
 They share their pan/zoom hook (`@studio/ui-timeline/panZoom`, and
 [timeline.md](timeline.md) says why a plain wheel scrolls) and nothing else about their drawing:
 one draws 128 key rows, the other a canvas envelope.
+
+## The ruler subdivides with the zoom, and the material carries its lines
+
+Every ruler in the app draws off one ladder — `rulerScale` picks the unit from the current pixels
+per beat, `RulerTicks` draws it, `Grid` repeats it one weight fainter across the material
+(`Ruler.tsx`, shared with the timeline). Zooming in descends bar → beat → half → sixteenth;
+zooming out thins the *numbers* while keeping the lines, so the grid never smears.
+
+The roll was the surface that did not have this. Its own ruler — the FILE's numbering, under the
+arrangement ruler — was two loops written here: bars every `barBeats`, beats every 1, at any zoom.
+And the lane under it drew bar lines **only**. So the roll's ruler ticked at a fixed resolution
+while its canvas zoomed, and the notes sat over a grid coarser than the ruler above them. Both
+now come from `rulerScale`, at the roll's live `ppb`.
+
+Three things fall out of sharing it, and all three were the point:
+
+- **A position reads the same in both panes.** The timeline's bar 33 line and the roll's are the
+  same line at the same weight, because one function drew them.
+- **The zoom is the resolution control here too.** A click on the arrangement ruler snaps to a
+  tick that was drawn, so opening the view up is how a finer position is reached — the rule
+  `packages/ui-waveform/docs/ticks.md` states for every ruler.
+- **The window's origin is respected for free.** The ladder counts from the coordinate's origin
+  rather than the view's left edge, so a clip windowed to open at bar 3 says 3, exactly as the
+  hand-rolled version had to arrange for itself.
+
+The waveform canvas reaches the same density by a different route: its bar/beat lines arrive from
+the file service as a list, so it splits what it was sent (`subdivideGrid`) instead of computing a
+unit. Same threshold, so the `ArrangementRuler` over an audio clip and the wave under it agree.
 
 ## A clip with a window is CAGED to it
 

@@ -1,11 +1,9 @@
-// useProjectDialogs.ts — the two project-level dialog flows: importing a foreign project
-// (.dawproject or .als; two-phase: confirm runs the import and returns a log, then "open"
-// activates the new project) and deleting a project (confirmed, recycled — not erased).
-// Extracted from App.tsx; behaviour unchanged.
+// useProjectDialogs.ts — importing a foreign project (.dawproject or .als; two-phase: confirm
+// runs the import and returns a log, then "open" activates the new project). It held the
+// DELETE flow too, until l8 stopped showing a workspace to pick a project out of.
 
 import { useCallback, useState } from "react";
 import { api } from "../api";
-import type { WorkspaceInfo } from "../types";
 
 export function useProjectImport(opts: {
   openProject: (path: string) => Promise<void>;
@@ -79,54 +77,6 @@ export function useProjectImport(opts: {
   };
 }
 
-export function useProjectDelete(opts: {
-  onStatus: (s: string) => void;
-  /** Called with the fresh workspace after a successful delete. */
-  onDeleted: (w: WorkspaceInfo) => void;
-}): {
-  deletePath: string | null;
-  deleting: boolean;
-  deleteError: string | null;
-  /** Open the confirm dialog for this project (clears any previous error). */
-  askDelete: (path: string) => void;
-  confirmDelete: () => Promise<void>;
-  cancelDelete: () => void;
-} {
-  const [deletePath, setDeletePath] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const askDelete = useCallback((path: string) => {
-    setDeleteError(null);
-    setDeletePath(path);
-  }, []);
-
-  const confirmDelete = useCallback(async () => {
-    if (!deletePath) return;
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      const { recycled } = await api.deleteProject(deletePath);
-      opts.onStatus(`deleted ${deletePath} → ${recycled}`);
-      setDeletePath(null);
-      const w = await api.workspace();
-      opts.onDeleted(w);
-    } catch (e) {
-      setDeleteError((e as Error).message);
-    } finally {
-      setDeleting(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deletePath]);
-
-  const cancelDelete = useCallback(() => setDeletePath(null), []);
-
-  return {
-    deletePath,
-    deleting,
-    deleteError,
-    askDelete,
-    confirmDelete,
-    cancelDelete,
-  };
-}
+// `useProjectDelete` was here, behind the `project delete` verb and its confirm dialog. Both
+// are gone: l8 shows no workspace to pick a project out of, and st0 owns the repositories.
+// The file service still has the route — that is what st0 calls.

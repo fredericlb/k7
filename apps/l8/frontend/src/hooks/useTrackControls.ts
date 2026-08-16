@@ -67,12 +67,14 @@ export function useTrackControls(opts: {
   const onTrackToggle = useCallback(
     (id: string, control: "mute" | "solo" | "arm") => {
       if (control === "arm") {
-        // An instrument track arms for MIDI capture in the browser; an audio track arms in the engine via `rec`.
+        // An instrument track arms for MIDI capture in the browser; an audio track arms in the
+        // ENGINE, which is why the verb is `transport arm`: it names a lane but nothing about it
+        // is written down, and a reload does not restore it.
         if (midiSeqRef.current[id]) {
           setMidiArmed((cur) => (cur === id ? null : id));
           return;
         }
-        void quietCommand(`track rec ${id}`);
+        void quietCommand(`transport arm ${id}`);
         return;
       }
       setOptMS((prev) => {
@@ -98,15 +100,28 @@ export function useTrackControls(opts: {
   // It used to convert a linear gain to dB here, because a track carried a linear volume.
   // Left in place over a value that is ALREADY dB, that sum takes the log of a negative
   // number: every fader below unity would have written silence.
+  // …and it addresses the MIXER NODE by name. `track gain` / `track pan` are gone: they were two
+  // verbs reaching one module's params by the wrong noun, and every other param on that same
+  // module already answered to `node param`. A track with no strip has no node to name, so the
+  // knob does nothing rather than inventing one — the same refusal the old command made in
+  // words, and the graph draws no fader for such a lane anyway.
+  const mixerOf = useCallback(
+    (id: string) => docTracks.find((t) => t.id === id)?.mixer ?? "",
+    [docTracks],
+  );
   const onTrackSet = useCallback(
     (id: string, control: "volume" | "pan", value: number) => {
-      if (control === "pan") {
-        void quietCommand(`track pan ${id} ${(value * 2 - 1).toFixed(2)}`);
-        return;
-      }
-      void quietCommand(`track gain ${id} ${Math.max(-60, value).toFixed(1)}`);
+      const node = mixerOf(id);
+      if (!node) return;
+      // Quoted: a node ref carries a `:` and may carry spaces, and `node param` splits on them.
+      const param = control === "pan" ? "Pan" : "Volume";
+      const v =
+        control === "pan"
+          ? (value * 2 - 1).toFixed(2)
+          : Math.max(-60, value).toFixed(1);
+      void quietCommand(`node param "${node}" ${param} ${v}`);
     },
-    [quietCommand],
+    [quietCommand, mixerOf],
   );
 
   // No reload bump, deliberately: a knob is released dozens of times while mixing, and

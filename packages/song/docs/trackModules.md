@@ -7,7 +7,7 @@ what it `extends` says what kind of lane it is:
 # nodes/melody.yaml
 extends: "@studio/sequence-track"
 color: "#c8a97e"
-clips:
+events:
   - { ref: melody, start: "1:1:1" }
 ```
 
@@ -59,7 +59,7 @@ asks the ports rather than the ref.
 ## Bypass is the mute
 
 A lane's mute is its module's bypass: one name in `chains.yaml`'s `bypassed:`, written by the
-same `module bypass` the graph's bypass button has always run.
+same `node bypass` the graph's bypass button has always run.
 
 On a source, bypass reads as **produces nothing** rather than *passes through untouched* — a
 source has no input to pass through. That is the one semantic worth stating out loud, and it is
@@ -157,7 +157,7 @@ repo keeps choosing (see [nodes.md](nodes.md), which made the same call).
 | `type: strudel` + `contentType: audio` | `extends: "@studio/audio-strudel-track"` |
 | `type: strudel` + `contentType: sequences` | `extends: "@studio/sequence-strudel-track"` |
 | `type: group` | `extends: "@studio/group-track"` |
-| `clips:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
+| `events:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
 | `mute: true` | the name in `chains.yaml`'s `bypassed:` |
 | `solo: true` | the name in project.yaml's root `soloed:` list |
 | the `tracks:` entry in `chains.yaml` | the same line, under `modules:` |

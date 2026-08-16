@@ -46,7 +46,7 @@ export function deriveChains(
   if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
       "chains.yaml: `chains:` is the old chain-list format — chains are now derived " +
-        "from `modules:` segments. Run `l8 migrate chains <project>`.",
+        "from `modules:` segments. Run: npx tsx packages/song/scripts/migrateChains.ts <project>",
     );
   const parsed = ChainsFileSchema.safeParse(raw);
   if (!parsed.success)

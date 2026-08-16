@@ -159,8 +159,11 @@ describe("nodes at the edges", () => {
 });
 
 describe("what it refuses", () => {
-  it("names the old list format", () => {
-    expect(() => chains({ chains: [] })).toThrow(/migrate chains/);
+  it("names the old list format, and the SCRIPT that converts it", () => {
+    // It was a command and is a script now: a one-shot repair belongs to the folder you run it
+    // on, not to every session's palette. This message is the only place anyone meets it, so it
+    // has to carry the whole line.
+    expect(() => chains({ chains: [] })).toThrow(/migrateChains\.ts/);
   });
 
   it("no longer has a track/module collision to refuse", () => {

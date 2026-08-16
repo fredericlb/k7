@@ -167,13 +167,13 @@ export function ChainsTab({
     at?: { x: number; y: number },
   ) => void;
   // The patch cable landed: a free output clicked, then a free input — both as chains.yaml
-  // addresses (`name` or `name#port`), ready for `chain connect`.
+  // addresses (`name` or `name#port`), ready for `graph chain connect`.
   onConnect?: (from: string, to: string) => void;
-  // A lifted cable dropped on the bare canvas — ready for `chain disconnect`.
+  // A lifted cable dropped on the bare canvas — ready for `graph chain disconnect`.
   onDisconnect?: (from: string, to: string) => void;
-  // A lifted cable's end landed on another jack — ready for `chain replug`.
+  // A lifted cable's end landed on another jack — ready for `graph chain replug`.
   onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
-  // A module's header was dragged and dropped: pin it there — ready for `module position`.
+  // A module's header was dragged and dropped: pin it there — ready for `node position`.
   onMoveNode?: (module: string, x: number, y: number) => void;
   // Live plugin params as an EXTERNAL store, so param frames re-render the graph and not the whole app.
   pluginParamsStore: PluginParamsStore;

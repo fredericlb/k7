@@ -21,20 +21,30 @@ opposite things:
 
 | field | shape | for |
 |---|---|---|
-| `playhead` | a ref, `{ seconds, at }` — the raw anchor and when it landed | numbers that get **written down**: a cue drop stores where the finger fell |
-| `drawNow` | `() => number`, steered | numbers that get **looked at**: the record's wedge and the waveform, redrawn at 60 fps |
+| `playhead` | a ref, `{ seconds, at }` — the last frame, unprocessed, and when it landed | a cue drop, which stores where the finger fell |
+| `drawNow` | `() => number` | the record's wedge and the waveform, redrawn at 60 fps |
 
-The engine speaks every 50 ms and not on a regular beat. Extrapolating from the raw anchor is
-right for a timestamp — nothing is traded away — and wrong for a redraw, because re-anchoring on
-every frame copies the arrival jitter into the picture: 60 fps of stutter instead of 20.
-`drawNow` runs a local clock and lets the engine bend its **rate** by at most ±10%, snapping
-only on a real seek.
+The engine speaks every 50 ms and not on a regular beat. Extrapolating from the raw anchor
+re-anchors on every frame and copies that arrival jitter into the picture — 60 fps of stutter
+instead of 20. The transport's rate is KNOWN — one second per second, pitch fader included,
+since that stretches the clip rather than the transport — so `drawNow` predicts from local time
+and estimates only the OFFSET, taking the least-delayed frame of a recent window. The drawn
+position is then a straight line, and a real seek rolls the window back.
 
-So it is deliberately **not** the most accurate answer, and a host must not implement one by
-calling the other. `@studio/engine-browser/playhead-clock` is the clock; l8's adapter feeds it
-the same frames it writes into the ref, a few lines apart. The same distinction exists on l8's
-own timeline, where `useMidiRecording`'s `beatNow()` stays raw for exactly this reason —
-`apps/l8/frontend/docs/playhead.md` argues it once for both.
+**A correction worth reading before you choose between them.** This page used to say `drawNow`
+was deliberately the less accurate of the two, because it traded accuracy for continuity. That
+was true of the clock it replaced — a rate-bending PLL, which converged on the *mean* transit
+latency. This one converges on the *minimum*, so it is not a trade any more: measured over a
+realistic feed, the raw anchor lags by whatever the last frame's transit was (4 to 55 ms, mean
+~14) while `drawNow` sits flat at the best one.
+
+Which leaves the split resting on something narrower than it was: `playhead` is what the engine
+literally said, and `drawNow` is an estimate of the same thing. Moving the cue path onto
+`drawNow` would probably be an improvement and would change where cues land by a few
+milliseconds — a musician-facing change, and so a decision rather than a tidy-up. Until then a
+host owes both, and must not implement one by calling the other.
+`@studio/engine-browser/playhead-clock` is the clock; l8's adapter feeds it the same frames it
+writes into the ref, a few lines apart.
 
 ### `sendProject` is part of the seam, and it is not optional
 

@@ -16,24 +16,16 @@ import type {
   AudioDeviceInfo,
   PluginInfo,
 } from "@studio/engine-client/engineClient";
-import { migrateChains } from "@studio/song/chainsMigrate";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import { createCurveFile, loadCurves } from "@studio/song/curves";
 import { freezeBlockedBy, freezePlans } from "@studio/song/freeze";
-import {
-  coldPlacementError,
-  describeGraph,
-  describeTrackGraph,
-  loadGraph,
-  parseChains,
-  resolveTrack,
-} from "@studio/song/graph";
+import { coldPlacementError, loadGraph, parseChains } from "@studio/song/graph";
 import {
   cloneModuleFile,
   createModuleFile,
   createNode,
   createTrackFile,
-  FILE_PARAMS,
+  isFileParam,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -59,6 +51,7 @@ import {
   clipOnsets,
   clipWarpMarkers,
   connectChainNodes,
+  deleteChainNode,
   disconnectChainNodes,
   insertChainStep,
   moduleAlternatives,
@@ -75,6 +68,7 @@ import {
   setModuleChannel,
   setModuleExtends,
   setModuleFrozen,
+  setModuleInputGain,
   setModuleMonitor,
   setModuleParam,
   unlinkChainNode,
@@ -88,12 +82,9 @@ import {
 import {
   addTrackPlacement,
   keepTrackTake,
-  MAX_GAIN_DB,
-  MIN_GAIN_DB,
   movePlacementToTrack,
   moveTrackPlacement,
   moveTrackPlacementsInRange,
-  panToLabel,
   removeTrackPlacement,
   removeTrackTake,
   resizeTrackPlacement,
@@ -101,7 +92,6 @@ import {
   setTrackPlacementDisabled,
   trackTakes,
 } from "@studio/song/trackMix";
-import { migrateModuleUis } from "@studio/song/uiMigrate";
 import {
   removeWarpPoint,
   seedWarp,
@@ -130,7 +120,6 @@ import {
 import { DEFAULT_PEAK, normalizeInPlace } from "./normalize";
 import { processWithChain, type Scope } from "./processChain";
 import { freezeUpstreamRender } from "./render";
-import { describeTimeline, describeTrack } from "./timeline";
 import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
 
 // Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
@@ -286,50 +275,13 @@ function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   return { x: Math.max(0, Number(m[1])), y: Math.max(0, Number(m[2])) };
 }
 
-/**
- * Sort the two trailing optionals — `[extends-ref] [node-name]` — by SHAPE rather than by position.
- *
- * A ref is a path (`@engine/audio/amp/nam`, `audio/nam`); a node name is one segment, letters/digits/_/-
- * only, which createNode enforces. So the slash tells them apart, and it has to: the picker writes no
- * ref for a module the project already has, and the node the user then types landed in the ref slot — which
- * came back as "module 'echo' already exists, drop the extends-ref" about a ref they never wrote.
- */
-function splitOptionals(rest: (string | undefined)[]): {
-  extendsRef?: string;
-  node?: string;
-} {
-  const args = rest.filter((a): a is string => !!a);
-  const isRef = (s: string) => s.includes("/") || s.startsWith("@");
-  if (args.length > 1) return { extendsRef: args[0], node: args[1] };
-  if (!args.length) return {};
-  return isRef(args[0]) ? { extendsRef: args[0] } : { node: args[0] };
-}
+// `splitOptionals` was here — it told an `[extends-ref]` from a `[node-name]` by SHAPE, because
+// `module new` took both and they were positional. `module new` writes a module and nothing else
+// now, so there is one optional left and nothing to disambiguate.
 
-/**
- * The cold refusal for a `module insert`, asked BEFORE anything is written.
- *
- * The module being placed may not exist yet, so this asks what it WILL BE: the project module
- * `<category>/<name>` if it is already there, else the ref it is about to extend — which is
- * where the coldness comes from in the case that matters, a use of the médiathèque's normalise.
- * Either way the answer is on disk now, which is what lets a refusal leave nothing behind.
- */
-function coldInsertError(
-  songPath: string,
-  target: string,
-  rest: (string | undefined)[],
-  before: string,
-): string | null {
-  const segs = target.split("/");
-  if (segs.length !== 2 || !segs[0] || !segs[1]) return null; // makeModule reports the shape
-  const g = loadGraph(songPath);
-  const ref = moduleRefOf(segs[0], segs[1]);
-  const { extendsRef } = splitOptionals(rest);
-  const module =
-    g.moduleRefs[ref] ??
-    g.moduleRefs[`@project/${ref}`] ??
-    (extendsRef ? g.moduleRefs[extendsRef] : undefined);
-  return coldPlacementError(g, module, target, before);
-}
+// `coldInsertError` was here: the cold rule asked of a module that did not exist yet, since
+// `node insert` created one. It takes a node that IS there now, so the general
+// `coldPlacementError` answers directly.
 
 /** What a module already on disk extends, or "" — read from its own file rather than through
  *  the loaders, which walk every library to answer a question about one known folder. */
@@ -350,51 +302,40 @@ function existingExtends(
 }
 
 /**
- * Create the module a `+` picked and hand back the name chains.yaml should use, or the message to show instead.
+ * Create the module a `+` picked and hand back its name, or the message to show instead.
  *
  * The picker offers two kinds of thing and this handles both: something from the CATALOGUE (no local folder yet
- * — create one extending it) and a module this project already has (node it, do not recreate it). Existing
- * plus an `extends-ref` is neither, and is reported rather than silently ignored.
+ * — create one extending it) and a module this project already has (leave it alone, do not recreate it).
  *
- * Shared by `module insert` and `module place`: the two differ only in what they do with the name afterwards,
- * and having written the creation twice is how the two would drift.
+ * It does NOT make a node. `module new` writes a module and stops: what a chain names is a node, and creating
+ * one is `node new`'s — which also puts it in the graph, since a node with no entry there is drawn nowhere.
+ * Bundling the two here is what made "create a module" and "start using it" one act that could not be had
+ * separately.
  */
 function makeModule(
   songPath: string,
   target: string,
-  ...rest: (string | undefined)[]
+  extendsRef?: string,
 ): { ref: string; rel: string | null } | { error: string } {
-  const { extendsRef, node } = splitOptionals(rest);
   const segs = target.split("/");
   if (segs.length !== 2 || !segs[0] || !segs[1])
     return { error: `'${target}' is not <category>/<name>` };
   const [category, name] = segs;
   const exists = existsSync(join(songPath, "modules", category, name));
+  // Already there AND told to inherit something else: a real disagreement, not redundancy — a
+  // module cannot be re-parented by asking for it again, so acting would ignore what was typed.
   if (exists && extendsRef) {
-    // Naming a NODE makes the ref redundant rather than contradictory: "use the module
-    // that is already there, under this name". Refusing that was a dead end, because the two
-    // optionals are positional once both are given — there was no way to name the node
-    // without also passing a ref, and passing one is what the refusal was about.
     const inherits = existingExtends(songPath, category, name);
-    if (!node)
-      return {
-        error: `module '${name}' already exists — add a node name to use it, or drop the extends-ref`,
-      };
-    // …unless it names a DIFFERENT parent, which is a real disagreement and not redundancy:
-    // the module cannot be re-parented by instancing it, so acting would ignore what was typed.
     if (inherits && inherits !== extendsRef)
       return {
-        error: `module '${name}' extends '${inherits}', not '${extendsRef}' — drop the extends-ref to node it as it is`,
+        error: `module '${name}' extends '${inherits}', not '${extendsRef}' — drop the extends-ref to use it as it is`,
       };
   }
   try {
     const rel = exists
       ? null
       : createModuleFile(songPath, category, name, extendsRef);
-    if (node) createNode(songPath, category, name, node);
-    // A node is named by its FILE alone now — `nodes/<node>.yaml` — so the chain
-    // says that and nothing about the module it uses.
-    return { ref: node ? node : name, rel };
+    return { ref: name, rel };
   } catch (e) {
     return { error: `${(e as Error).message} — nothing was changed` };
   }
@@ -523,7 +464,7 @@ async function setLaneBypass(
 // may change any field, so the doc carries the chosen one collapsed in and has nothing left to
 // say about the others.
 
-/** `module alternative create|copy` — one shape, one difference. */
+/** `node alternative create|copy` — one shape, one difference. */
 async function moduleAltAdd(
   a: string,
   h: CommandHost,
@@ -532,7 +473,7 @@ async function moduleAltAdd(
   const verb = copy ? "copy" : "create";
   const [module, name] = a.trim().split(/\s+/).filter(Boolean);
   if (!module) {
-    h.log([`usage: module alternative ${verb} <module> [name]`]);
+    h.log([`usage: node alternative ${verb} <node> [name]`]);
     return;
   }
   try {
@@ -542,7 +483,7 @@ async function moduleAltAdd(
     ]);
     await h.reload();
   } catch (e) {
-    h.log([`module alternative ${verb}: ${(e as Error).message}`]);
+    h.log([`node alternative ${verb}: ${(e as Error).message}`]);
   }
 }
 
@@ -604,83 +545,6 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
 }
 
 // --- the channel strip -------------------------------------------------------
-
-const clampDb = (x: number, lo: number, hi: number) =>
-  Math.min(hi, Math.max(lo, x));
-/** The tone bands' range, matching MixerPlugin's. */
-const EQ_DB = 18;
-
-/**
- * Set one knob on a track's strip.
- *
- * The value goes to the MIXER MODULE at the end of the chain, not to the track file: a track states no level of
- * its own any more. A track without a strip is refused rather than silently given one — where a mixer belongs in
- * a chain is a routing decision, and guessing it here would put a fader somewhere nobody asked for.
- */
-async function stripParam(
-  a: string,
-  h: CommandHost,
-  verb: string,
-  param: string,
-  parse: (v: number) => number,
-  describe: (v: number) => string,
-): Promise<void> {
-  const [id, ...rest] = a.trim().split(/\s+/).filter(Boolean);
-  if (!id) {
-    h.log([`usage: ${verb} <track> …`]);
-    return;
-  }
-  const p = h.project();
-  const t = p.tracks.find((x) => x.id === id || x.name === id);
-  if (!t) {
-    h.log([`no track "${id}"`]);
-    return;
-  }
-  const mixer = trackMixer(t);
-  if (!mixer) {
-    h.log([
-      `${t.id} has no mixer module — add one at the end of its chain to give it a ${verb}`,
-    ]);
-    return;
-  }
-  try {
-    const value = parse(Number(rest[0]));
-    setModuleParam(h.songPath, mixer.name, param, value);
-    // Push the mutated doc rather than reloading, so a fader drag stays snappy — the same trick mixMutate uses.
-    const np: ProjectDoc = {
-      ...p,
-      tracks: p.tracks.map((x) =>
-        x.id === t.id
-          ? {
-              ...x,
-              plugins: x.plugins.map((pl) =>
-                pl.id === mixer.id
-                  ? { ...pl, params: { ...pl.params, [param]: value } }
-                  : pl,
-              ),
-            }
-          : x,
-      ),
-    };
-    await h.applyProject(np);
-    h.log([`${t.id}: ${describe(value)}`]);
-  } catch (e) {
-    h.log([`${verb} failed: ${(e as Error).message}`]);
-  }
-}
-
-const eqBand = (a: string, h: CommandHost, verb: string, param: string) =>
-  stripParam(
-    a,
-    h,
-    verb,
-    param,
-    (v) => {
-      if (!Number.isFinite(v)) throw new Error(`${verb} <track> <dB>`);
-      return clampDb(v, -EQ_DB, EQ_DB);
-    },
-    (db) => `${verb} ${db > 0 ? "+" : ""}${db.toFixed(1)} dB`,
-  );
 
 /**
  * `track process` / `clip process`: bounce material through a chain and keep the result.
@@ -833,6 +697,142 @@ async function processCommand(
   // Only when something landed: the clip files changed under the compiler, and nothing else
   // would tell it. A run that wrote nothing has nothing to re-read.
   if (changed) await h.reload();
+}
+
+/**
+ * A module's INTRINSICS — its own fields, set as `node param <node> @<field> <value>`.
+ *
+ * Each takes the value as TYPED and answers with what to say about it, or throws the sentence
+ * that says why it cannot. They are a table rather than a verb apiece (`module channel`,
+ * `module monitor`) because from the outside they are one act — set this control on this
+ * module — and the `@` is the whole of the difference from a plugin param: a param is sent to a
+ * running plugin, a field is written into the file and read when the module is BUILT.
+ *
+ * That is also what makes them reachable from a widget: a `bind: "@channel"` in a module's
+ * `ui.yaml` needs no command of its own, and the day a fourth field is bindable it needs no
+ * verb either — one line here. See packages/song/docs/intrinsics.md.
+ */
+const INTRINSICS: Record<
+  string,
+  (dir: string, module: string, raw: string) => { path: string; said: string }
+> = {
+  // One channel or two, and two only ever means a pair the interface actually groups —
+  // `findWaveInput` matches a device on its exact channel list, so a set the rig does not offer
+  // resolves to nothing and plays as silence. Nothing here can check that (the rig is the
+  // engine's to know); the graph's IN panel only ever offers sets that exist, and this refuses
+  // the shapes that could never be one.
+  channel: (dir, module, raw) => {
+    const channels = raw.split(",").map((s) => Number(s.trim()));
+    if (channels.some((n) => !Number.isInteger(n) || n < 1))
+      throw new Error(`'${raw}' is not a channel or a pair of them`);
+    return {
+      path: setModuleChannel(dir, module, channels),
+      said: `channel ${channels.join(", ")}`,
+    };
+  },
+  monitor: (dir, module, raw) => {
+    if (raw !== "off" && raw !== "auto" && raw !== "on")
+      throw new Error(`'${raw}' is not off, auto or on`);
+    return { path: setModuleMonitor(dir, module, raw), said: `monitor ${raw}` };
+  },
+  gain: (dir, module, raw) => {
+    const db = Number(raw);
+    if (!Number.isFinite(db)) throw new Error(`'${raw}' is not a number of dB`);
+    return { path: setModuleInputGain(dir, module, db), said: `gain ${db} dB` };
+  },
+};
+
+/**
+ * Point a FILE-VALUED param at one of the module's own assets, or clear it with `none`.
+ *
+ * `nam` and `onnx` (moduleTypes' FILE_PARAMS) are params like any other — they land in `params:`
+ * beside the numbers — but their value is a filename, so two things differ. It is checked
+ * against the assets the module actually carries, and it is NOT patched into the running engine:
+ * a plugin loads its file when it is BUILT, so this writes and reloads. Swapping an amp model is
+ * not a knob drag.
+ *
+ * They had a verb apiece (`module nam`), and the second one never got written: the asset picker
+ * sends `${param} …` for whichever param it was opened on, so picking an `.onnx` reached a
+ * command that did not exist. One branch here answers both, and the next one costs nothing.
+ */
+async function setFileParam(
+  h: CommandHost,
+  module: string,
+  param: string,
+  rawFile: string,
+): Promise<void> {
+  const file = rawFile.replace(/^"(.*)"$/s, "$1").trim();
+  const clearing = file === "none";
+  // An empty list means the module has no `assets/` — say that, not "no such file", which
+  // sends you looking through a directory that isn't there. The files live in the module,
+  // so there is one place to look and nothing to declare anywhere.
+  if (!clearing) {
+    const found = loadModules(h.songPath)[module];
+    // Its own assets AND its ancestors': the same answer the panel's picker offers, so the
+    // command cannot refuse a file the picker just showed. It could — a song points at a shared
+    // amp with a thin local module that extends it, and only the shared folder holds the files.
+    const have = moduleAssetChoices(
+      h.songPath,
+      found,
+      loadModuleRefs(h.songPath),
+    );
+    if (!have.includes(file)) {
+      h.log([
+        have.length
+          ? `no '${file}' in ${module}'s assets — it has: ${have.join(", ")}`
+          : `${module} carries no assets — drop the file in modules/<category>/${found?.file ?? module}/assets/`,
+      ]);
+      return;
+    }
+  }
+  try {
+    setModuleAsset(h.songPath, module, param, clearing ? null : file);
+    h.log([`${module}: ${clearing ? `${param} cleared` : file}`]);
+    await h.reload();
+  } catch (e) {
+    h.log([`node param ${param} failed: ${(e as Error).message}`]);
+  }
+}
+
+/**
+ * Write one intrinsic, and say where it landed.
+ *
+ * The file may be the workspace's SHARED one — `module populate` files one io/IN node per
+ * interface channel there, beside the `channel:` that says which channel it is — so the reach
+ * of the write is said out loud. Nothing else here writes past the project on a click.
+ *
+ * Reloaded rather than patched into the running engine: a field is read when the module is
+ * built, so the engine learns it by rebuilding the track's input.
+ */
+async function setIntrinsic(
+  h: CommandHost,
+  module: string,
+  field: string,
+  raw: string,
+): Promise<void> {
+  const write = INTRINSICS[field];
+  if (!write) {
+    h.log([
+      `no intrinsic '@${field}' — a module's own fields are ${Object.keys(
+        INTRINSICS,
+      )
+        .map((f) => `@${f}`)
+        .join(", ")}`,
+    ]);
+    return;
+  }
+  try {
+    const { path, said } = write(h.songPath, module, raw);
+    h.log([
+      `${module}: ${said}` +
+        (relative(h.songPath, path).startsWith("..")
+          ? " — in the shared library, so every project beside this one sees it"
+          : ""),
+    ]);
+    await h.reload();
+  } catch (e) {
+    h.log([`node param @${field} failed: ${(e as Error).message}`]);
+  }
 }
 
 // --- SID registry ------------------------------------------------------------
@@ -1127,38 +1127,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`track take delete failed: ${(e as Error).message}`]);
     }
   },
-  "track.gain": (a, h) =>
-    stripParam(
-      a,
-      h,
-      "gain",
-      "Volume",
-      (v) => {
-        if (!Number.isFinite(v)) throw new Error("gain <track> <dB>");
-        return clampDb(v, MIN_GAIN_DB, MAX_GAIN_DB);
-      },
-      (db) => `gain ${db <= MIN_GAIN_DB ? "-inf" : db.toFixed(1)} dB`,
-    ),
-  "track.pan": (a, h) =>
-    stripParam(
-      a,
-      h,
-      "pan",
-      "Pan",
-      (v) => {
-        if (!Number.isFinite(v)) throw new Error("pan <track> <-1..1>");
-        return clampDb(v, -1, 1);
-      },
-      (x) => `pan ${panToLabel((x + 1) / 2)}`,
-    ),
-  // The strip's tone stack — three gains at fixed frequencies (see MixerPlugin). One verb per band rather than
-  // one taking a band name: each is its own thing to bind a key or a knob to.
-  "track.low": (a, h) => eqBand(a, h, "low", "Low"),
-  "track.mid": (a, h) => eqBand(a, h, "mid", "Mid"),
-  "track.high": (a, h) => eqBand(a, h, "high", "High"),
+  // `track gain` and `track pan` were here, and are `node param <mixer node> Volume|Pan`
+  // now. A track states no level of its own — the value always went to the MIXER MODULE at the
+  // end of its chain — so two verbs addressed one module's params by the wrong noun, and every
+  // other param on that same module already answered to `node param`.
 
   // `track alternative select|create|copy` and `track freeze` were here. Both are module verbs
-  // now, because a lane IS a module: `module alternative *` and `module freeze` reach a lane and
+  // now, because a lane IS a module: `node alternative *` and `node freeze` reach a lane and
   // a reverb by the same name. See packages/song/docs/trackModules.md.
 
   // event move <track> <timecode> <newTimecode> — a surgical rewrite of that placement's `start:` alone.
@@ -1855,7 +1830,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // Add or move a named marker, stored under a CANONICAL timecode so `5` and `5:1:1` are the same marker.
-  "marker.create": async (arg, h) => {
+  "project.marker.create": async (arg, h) => {
     const trimmed = arg.trim();
     const sp = trimmed.search(/\s/);
     const tcRaw = sp === -1 ? "" : trimmed.slice(0, sp);
@@ -1891,10 +1866,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // Remove every marker with this name — names are the handle a user knows, timecodes only the storage key.
-  "marker.delete": async (arg, h) => {
+  "project.marker.delete": async (arg, h) => {
     const name = arg.trim();
     if (!name) {
-      h.log(["usage: marker delete <name>"]);
+      h.log(["usage: project marker delete <name>"]);
       return;
     }
     const p = h.project();
@@ -1924,7 +1899,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // --- channel labels (global user preferences) -------------------------------
   // The interface in use is shown here but CHOSEN in the médiathèque's « État du moteur »,
   // which both switches the engine and writes this file (engine/moteur/docs/audioDevice.md).
-  "channels.list": (_a, h) => {
+  "system.channel.list": (_a, h) => {
     const p = loadPreferences();
     const f = formatChannels(p);
     h.log([
@@ -1933,12 +1908,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       `out: ${f.out || "(none — set with: channel out <ch> <label>)"}`,
     ]);
   },
-  "channels.set": (a, h) => {
+  "system.channel.set": (a, h) => {
     // channel <in|out> <chans> <label…>   e.g. channel in 3+4 synth
     const m = a.trim().match(/^(in|out)\s+(\S+)\s+(.+)$/i);
     if (!m)
       return h.log([
-        "usage: channel set <in|out> <chans> <label>   e.g. channel set in 3+4 synth",
+        "usage: system channel set <in|out> <chans> <label>   e.g. system channel set in 3+4 synth",
       ]);
     const dir = m[1].toLowerCase() as "in" | "out";
     const ch = parseChannels(m[2]);
@@ -1947,10 +1922,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     setChannelLabel(dir, ch, m[3].trim());
     h.log([`${dir} ${ch.join("+")} = ${m[3].trim()}`]);
   },
-  "channels.clear": (a, h) => {
-    // channel clear <in|out> <chans>
+  "system.channel.clear": (a, h) => {
+    // system channel clear <in|out> <chans>
     const m = a.trim().match(/^(in|out)\s+(\S+)/i);
-    if (!m) return h.log(["usage: channel clear <in|out> <chans>"]);
+    if (!m) return h.log(["usage: system channel clear <in|out> <chans>"]);
     const dir = m[1].toLowerCase() as "in" | "out";
     const ch = parseChannels(m[2]);
     if (!ch.length) return h.log([`bad channels '${m[2]}'`]);
@@ -1960,7 +1935,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // The external UI of ONE INSTANCE: the plugin's own window, drawn by the plugin on the
   // engine's machine. The argument names a node in this project's chains, which is what a
   // window can be opened for — a module with no instance loaded has none.
-  "instance.externalUi": async (a, h) => {
+  "node.externalUi": async (a, h) => {
     const name = a.trim();
     const modules = collectPluginModules(h.project());
     if (!name) {
@@ -1984,13 +1959,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     h.log([`opening ${match.module} (${match.type}) on ${match.track}…`]);
   },
 
-  // module param <module> <param> <value>: the param is read as everything BETWEEN module and value, since engine
-  // display names contain spaces. module bypass writes the module's name into chains.yaml's `bypassed` list, not
+  // node param <node> <param> <value>: the param is read as everything BETWEEN module and value, since engine
+  // display names contain spaces. node bypass writes the module's name into chains.yaml's `bypassed` list, not
   // into the module file — a module's own file is what it IS, and being switched off is where it sits.
-  "module.bypass": async (a, h) => {
+  "node.bypass": async (a, h) => {
     const m = /^(\S+)(?:\s+(on|off|true|false))?$/.exec(a.trim());
     if (!m) {
-      h.log(["usage: module bypass <module> [on|off]"]);
+      h.log(["usage: node bypass <node> [on|off]"]);
       return;
     }
     const [, module, state] = m;
@@ -2048,64 +2023,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  /**
-   * module monitor <module> <off|auto|on> — is this live input audible?
-   *
-   * A module FIELD, not a param: an io module runs no plugin, so there is nothing to send a value to and nothing
-   * to patch. The engine learns it by rebuilding the track's input, which is what the reload is for.
-   *
-   * The file it writes may be the workspace's SHARED one — `module populate` files one io/IN node per
-   * interface channel there, beside the `channel:` that says which channel it is. Whether that input is audible
-   * belongs with it: both describe the desk, not the song. Said out loud in the log, because it is the one thing
-   * here that reaches past this project.
-   */
-  // `module.channel` and `module.monitor` were here, a verb per field. Both are `module param
-  // <module> @<field> <value>` now — see `setIntrinsic`, which is where their validation and
+  // `module.channel` and `module.monitor` were here, a verb per field — "is this input
+  // audible", "which socket is it on". Both are `node param <node> @<field> <value>` now:
+  // see `INTRINSICS` and `setIntrinsic`, which is where their validation, their reload and
   // their shared-library message went.
 
-  // Point a file-valued param at one of the module's own assets (`none` clears it). Not patchable into the running
-  // engine — the plugin loads its file when BUILT — so it writes and reloads. Swapping an amp model isn't a knob drag.
-  "module.asset": async (a, h) => {
-    const m = /^(\S+)\s+(\S+)\s+(.+)$/.exec(a.trim());
-    if (!m) {
-      h.log([
-        `usage: module <${FILE_PARAMS.join("|")}> <module> <file>  (e.g. module nam amp jcm800.nam, or \`none\` to clear)`,
-      ]);
-      return;
-    }
-    const [, param, module, rawFile] = m;
-    const file = rawFile.replace(/^"(.*)"$/s, "$1").trim();
-    const clearing = file === "none";
-    // An empty list means the module has no `assets/` — say that, not "no such file", which
-    // sends you looking through a directory that isn't there. The files live in the module,
-    // so there is one place to look and nothing to declare anywhere.
-    if (!clearing) {
-      const found = loadModules(h.songPath)[module];
-      // Its own assets AND its ancestors' — the same answer the panel's picker offers, so the
-      // command cannot refuse a file the picker just showed. It could: a song points at a shared
-      // amp with a thin local module that extends it, and only the shared folder holds the files.
-      const have = moduleAssetChoices(
-        h.songPath,
-        found,
-        loadModuleRefs(h.songPath),
-      );
-      if (!have.includes(file)) {
-        h.log([
-          have.length
-            ? `no '${file}' in ${module}'s assets — it has: ${have.join(", ")}`
-            : `${module} carries no assets — drop the file in modules/<category>/${found?.file ?? module}/assets/`,
-        ]);
-        return;
-      }
-    }
-    try {
-      setModuleAsset(h.songPath, module, param, clearing ? null : file);
-      h.log([`${module}: ${clearing ? `${param} cleared` : file}`]);
-      await h.reload();
-    } catch (e) {
-      h.log([`module ${param} failed: ${(e as Error).message}`]);
-    }
-  },
+  // `module.asset` was here, reached by one verb per file-valued param (`module nam`). It is
+  // `node param <node> nam <file>` now — see `setFileParam`, which the param handler calls
+  // when the name is one of FILE_PARAMS.
 
   /**
    * The three alternative verbs, one operation each on ONE module's file.
@@ -2115,10 +2040,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * cheap to diff, and re-reading is both simpler and what the engine has to be told anyway.
    * See packages/song/docs/alternatives.md.
    */
-  "module.alt.select": async (a, h) => {
+  "node.alt.select": async (a, h) => {
     const [module, name] = a.trim().split(/\s+/).filter(Boolean);
     if (!module) {
-      h.log(["usage: module alternative select <module> [name]"]);
+      h.log(["usage: node alternative select <node> [name]"]);
       return;
     }
     try {
@@ -2128,7 +2053,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         h.log([
           names.length > 1
             ? `${module}: ${names.map((n) => (n === current ? `[${n}]` : n)).join("  ")}`
-            : `${module} has one set of settings — 'module alternative create ${module}' starts a second`,
+            : `${module} has one set of settings — 'node alternative create ${module}' starts a second`,
         ]);
         return;
       }
@@ -2136,12 +2061,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${module}: running alternative '${name}'`]);
       await h.reload();
     } catch (e) {
-      h.log([`module alternative: ${(e as Error).message}`]);
+      h.log([`node alternative: ${(e as Error).message}`]);
     }
   },
 
-  "module.alt.create": (a, h) => moduleAltAdd(a, h, false),
-  "module.alt.copy": (a, h) => moduleAltAdd(a, h, true),
+  "node.alt.create": (a, h) => moduleAltAdd(a, h, false),
+  "node.alt.copy": (a, h) => moduleAltAdd(a, h, true),
 
   /**
    * Freeze at a module — a TOGGLE, because a freeze has exactly two states and the file says
@@ -2151,10 +2076,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * wav until it is thawed. The refusals are the interesting half and all come before the engine
    * is even looked for: see packages/song/docs/freeze.md.
    */
-  "module.freeze": async (a, h) => {
+  "node.freeze": async (a, h) => {
     const module = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!module) {
-      h.log(["usage: module freeze <module>"]);
+      h.log(["usage: node freeze <node>"]);
       return;
     }
     const g = loadGraph(h.songPath);
@@ -2233,16 +2158,22 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
-  "module.param": async (a, h) => {
-    const m = /^(\S+)\s+(.+?)\s+(\S+)$/.exec(a.trim());
+  "node.param": async (a, h) => {
+    // The NODE may be quoted as the param may: a node is named by its file, and a file may carry
+    // a space. It could not be addressed at all before — `\S+` stopped at the space and the whole
+    // line failed to match — which the graph's own fader now walks into, since it names the mixer
+    // node it found rather than a name someone typed.
+    const m = /^("[^"]*"|\S+)\s+(.+?)\s+(\S+)$/.exec(a.trim());
     if (!m) {
       h.log([
-        'usage: module param <module> <param> <value>  (e.g. module param synth "Filter Freq" 69)',
+        'usage: node param <node> <param> <value>  (e.g. node param synth "Filter Freq" 69)',
       ]);
       return;
     }
-    const [, module, rawParam, rawValue] = m;
-    const param = rawParam.replace(/^"(.*)"$/s, "$1").trim();
+    const [, rawModule, rawParam, rawValue] = m;
+    const unquote = (s: string) => s.replace(/^"(.*)"$/s, "$1").trim();
+    const module = unquote(rawModule);
+    const param = unquote(rawParam);
     // An INTRINSIC: `@channel`, `@monitor`, `@gain` — the module's own field rather than a
     // plugin's parameter. Same verb because it is the same act from the outside (set this
     // control on this module), and the `@` is the whole of the difference: a plugin param is
@@ -2250,6 +2181,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // packages/song/docs/intrinsics.md.
     if (param.startsWith("@")) {
       await setIntrinsic(h, module, param.slice(1), rawValue);
+      return;
+    }
+    // …and a FILE-valued one: `nam`, `onnx`. A param like any other — it lands in `params:` —
+    // whose value is a filename the module carries rather than a number, and which the engine
+    // reads when it BUILDS the plugin. See setFileParam.
+    if (isFileParam(param)) {
+      await setFileParam(h, module, param, rawValue);
       return;
     }
     const value = Number(rawValue);
@@ -2284,13 +2222,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.applyProject(np);
       h.log([`${module}: ${param} = ${value}`]);
     } catch (e) {
-      h.log([`module param failed: ${(e as Error).message}`]);
+      h.log([`node param failed: ${(e as Error).message}`]);
     }
   },
 
   // module cc <module> <param> <channel> <cc> — bind a MIDI control to a param, or
   // `module cc <module> <param> none` to unbind. The param is read as everything BETWEEN the
-  // module and the trailing numbers, since plugin display names contain spaces (as in module.param).
+  // module and the trailing numbers, since plugin display names contain spaces (as in node.param).
   //
   // Writes a file and nothing else: the binding is played by the BROWSER's Web MIDI, so there is
   // no engine state to patch and no project to re-apply. The reload the caller does afterwards is
@@ -2350,97 +2288,69 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // ui migrate moves the `ui:` blocks still living inside module files out into a `ui.yaml` beside each (see uiMigrate.ts).
-  // Both trees at once — this project's modules and the shared `_modules` beside it — because a panel is keyed
-  // by ref, and leaving half of them inline would mean two places to look for the same thing.
-  "ui.migrate": async (_a, h) => {
-    const r = migrateModuleUis(h.songPath);
-    if (r.moved.length)
-      h.log([
-        `moved ${r.moved.length} panel(s):`,
-        ...r.moved.map((m) => `  ${m}`),
-      ]);
-    else h.log(["no inline `ui:` left — nothing to move"]);
-    if (r.errors.length)
-      h.log(["not moved:", ...r.errors.map((e) => `  ${e}`)]);
-    if (r.moved.length) await h.reload();
-  },
+  // `ui.migrate` and `chains.migrate` were here. Both are scripts now — see
+  // packages/song/scripts/migrateUis.ts and migrateChains.ts, which call the same functions.
 
-  // chains migrate rewrites a pre-segments chains.yaml (see chainsMigrate.ts). Re-runnable: a file already in
-  // the new shape is left alone, so running it twice costs a read.
-  "chains.migrate": async (_a, h) => {
-    const r = migrateChains(h.songPath);
-    if (!r.changed) {
-      h.log([
-        r.errors.length
-          ? `chains migrate: ${r.errors.join("; ")}`
-          : "chains.yaml is already segments — nothing to migrate",
-      ]);
+  /**
+   * module new <category>/<name> [extends-ref] — scaffold a module, and only that.
+   *
+   * The optional arg is the ref this module INHERITS, filled by the graph's module picker when
+   * the pick comes from a catalogue rather than from this project.
+   *
+   * It used to take a node name too and make one in the same breath, which is why the picker
+   * could send one line. It does not: a module and a USE of it are two things, and a chain names
+   * the use. `node new` makes those, and puts them in the graph. A module that is already there
+   * is not an error — it is the ordinary second pick of the same thing.
+   */
+  "module.create": async (a, h) => {
+    const usage = "usage: module new <category>/<name> [extends-ref]";
+    const [target, extendsRef, ...extra] = a
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!target || extra.length) {
+      h.log([usage]);
       return;
     }
+    const made = makeModule(h.songPath, target, extendsRef);
+    if ("error" in made) {
+      h.log([`module new failed: ${made.error}`, usage]);
+      return;
+    }
+    const { ref, rel } = made;
     h.log([
-      "migrated chains.yaml to segments (the old file is beside it as chains.yaml.bak)",
-      // A split is the one change that touches more than the routing file, so it is said
-      // outright rather than left for the reader to notice a new module file.
-      ...r.split.map(
-        (s) =>
-          `  '${s.module}' was used in ${s.nodes.length} chains — split into ${s.nodes.join(", ")}`,
-      ),
-      ...r.created.map((c) => `  created ${c}`),
-      ...r.notes.map((n) => `  note: ${n}`),
-      ...r.errors.map((e) => `  ! ${e}`),
+      rel
+        ? `created ${rel} — add an inline plugin/rack (or an \`extends\`) to give it a sound`
+        : `${target} is already here`,
+      // A chain names a NODE, never this — say so, since the next act is always the same one.
+      `use it with \`node new ${target} <node-name>\``,
     ]);
     await h.reload();
   },
 
-  // module new <category>/<name> scaffolds a BARE module; the author adds an inline plugin, rack or `extends`.
-  "module.create": async (a, h) => {
-    const usage =
-      "usage: module new <category>/<name> [extends-ref] [node-name]";
-    // Two optional args, both filled by the graph's module picker: the ref this module INHERITS, and a node to
-    // create in the same breath — a chain step names `module:node`, so the picker always asks for one.
-    const [target, extendsRef, node] = a.trim().split(/\s+/).filter(Boolean);
-    if (!target) {
-      h.log([usage]);
-      return;
-    }
-    // "<category>/<name>", exactly two segments: guessing a category would put the module where nobody asked.
-    const segs = target.split("/");
-    if (segs.length !== 2 || !segs[0] || !segs[1]) {
-      h.log([`'${target}' is not <category>/<name>`, usage]);
-      return;
-    }
-    const [category, name] = segs;
-    try {
-      // createModuleFile validates `extendsRef` and throws on a typo — worth surfacing: a bad `extends` won't compile.
-      const rel = createModuleFile(h.songPath, category, name, extendsRef);
-      const log = [
-        extendsRef
-          ? `created ${rel} extending ${extendsRef}`
-          : `created ${rel} — add an inline plugin/rack (or an \`extends\`) to give it a sound`,
-      ];
-      // The node comes AFTER the module, whose folder it needs. A failure leaves the module and says so.
-      if (node) {
-        const irel = createNode(h.songPath, category, name, node);
-        log.push(`created ${irel} — use it in a chain as {module: "${node}"}`);
-      }
-      h.log(log);
-      await h.reload();
-    } catch (e) {
-      h.log([`create module failed: ${(e as Error).message}`]);
-    }
-  },
-
-  // node new — one USE of an existing module, as `nodes/<node>.yaml`. It names what it uses with
-  // `extends` and states only what it changes; chains name it by its FILENAME alone.
+  /**
+   * node new <category>/<name> <node-name> [x,y] — one USE of an existing module, as
+   * `nodes/<node>.yaml`, AND its place in the graph.
+   *
+   * It names what it uses with `extends` and states only what it changes; chains name it by its
+   * FILENAME alone.
+   *
+   * The placing is not a convenience. A node file with no entry in `chains.yaml` is loaded and
+   * drawn NOWHERE — the graph's blocks come off the chains, so creating one used to leave a node
+   * that existed on disk and was on no screen, waiting for a second command to become real.
+   * Every node is in the graph; `modules: { x: [] }` is what says so, and it is a state the file
+   * already holds.
+   */
   "node.new": async (a, h) => {
-    const usage = "usage: node new <category>/<name> <node-name>";
-    const args = a.trim().split(/\s+/).filter(Boolean);
-    if (args.length !== 2) {
+    const usage = "usage: node new <category>/<name> <node-name> [x,y]";
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    // Born where the cursor was — the web sends the click, so a new node never asks the layout.
+    const at = takeSpawnAt(parts);
+    if (parts.length !== 2) {
       h.log([usage]);
       return;
     }
-    const [target, node] = args;
+    const [target, node] = parts;
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
       h.log([`'${target}' is not <category>/<name>`, usage]);
@@ -2449,7 +2359,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const [category, module] = segs;
     try {
       const rel = createNode(h.songPath, category, module, node);
-      h.log([`created ${rel} — use it in a chain as {module: "${node}"}`]);
+      placeChainNode(h.songPath, node);
+      if (at) setChainNodePosition(h.songPath, node, at);
+      h.log([`created ${rel} — in the graph, wired to nothing yet`]);
       await h.reload();
     } catch (e) {
       h.log([`node new failed: ${(e as Error).message}`]);
@@ -2458,14 +2370,41 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   // `module.delete` was here — the file, and the graph closed back up around it. Gone with its
   // verb: a module's files are the file tree's to remove, and taking a node out of the signal
-  // path without deleting anything is `node unlink` below.
+  // path without deleting anything is `graph unlink` below.
 
-  // node unlink <node> — out of the signal path, files untouched. The splice is
-  // removeNode's; what this adds is that nothing is deleted, so it goes back with `chain add`.
-  "node.unlink": async (a, h) => {
+  // graph unlink <node> — out of the signal path, files untouched. The splice is
+  // removeNode's; what this adds is that nothing is deleted, so it goes back with `node insert`.
+  /**
+   * node delete <node> — the node's file, its preset, and its place in the graph.
+   *
+   * The splice is `graph unlink`'s: what fed it is rejoined to what it fed, so a run does not
+   * go quiet. What this adds is that the files GO — which is why it is a different verb and not
+   * a flag. The module it uses is untouched.
+   */
+  "node.delete": async (a, h) => {
     const node = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!node) {
-      h.log(["usage: node unlink <node>"]);
+      h.log(["usage: node delete <node>"]);
+      return;
+    }
+    try {
+      const { rewired, removed } = deleteChainNode(h.songPath, node);
+      h.log([
+        `deleted ${removed.join(", ")}` +
+          (rewired.length
+            ? ` — rejoined what fed it: ${rewired.join(", ")}`
+            : ""),
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`node delete failed: ${(e as Error).message}`]);
+    }
+  },
+
+  "graph.unlink": async (a, h) => {
+    const node = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!node) {
+      h.log(["usage: graph unlink <node>"]);
       return;
     }
     try {
@@ -2475,11 +2414,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           (rewired.length
             ? ` and rejoined what fed it: ${rewired.join(", ")}`
             : " — nothing fed it, so there was nothing to rejoin") +
-          "; its files are untouched",
+          "; it stays in the graph, wired to nothing",
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`node unlink failed: ${(e as Error).message}`]);
+      h.log([`graph unlink failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2503,7 +2442,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * module replace <module> <extends-ref> — point a node at another module.
+   * node replace <node> <extends-ref> — point a node at another module.
    *
    * ONE edit, to one line: the node's `extends`. Everything that is not what it IS survives —
    * the name, so every chain step keeps its place and nothing is rewired; the file, so its
@@ -2516,8 +2455,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * one sits"), and from the node's context menu it asked for two things when the only one worth
    * naming is the replacement.
    */
-  "module.replace": async (a, h) => {
-    const usage = "usage: module replace <module> <extends-ref>";
+  "node.replace": async (a, h) => {
+    const usage = "usage: node replace <node> <extends-ref>";
     const [key, ref] = a.trim().split(/\s+/).filter(Boolean);
     if (!key || !ref) {
       h.log([usage]);
@@ -2531,7 +2470,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`module replace failed: ${(e as Error).message}`]);
+      h.log([`node replace failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2558,172 +2497,37 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  "graph.inspect": (a, h) => {
-    let g;
-    try {
-      g = loadGraph(h.songPath);
-    } catch (e) {
-      h.log([`project inspect graph: ${(e as Error).message}`]);
-      return;
-    }
-    const track = a.trim();
-    const header = `${g.project.name}  ·  ${Object.keys(g.chains).length} chains · ${Object.keys(g.tracks).length} tracks`;
-    let body: string[];
-    if (track) {
-      const id = resolveTrack(g, track);
-      if (!id) {
-        h.log([
-          `no track matching '${track}' (tracks: ${Object.keys(g.tracks).join(", ") || "none"})`,
-        ]);
-        return;
-      }
-      body = [
-        `chains for track '${id}':`,
-        ...describeTrackGraph(g, id).map((l) => "  " + l),
-      ];
-    } else {
-      body = ["graph:", ...describeGraph(g).map((l) => "  " + l)];
-    }
-    h.log([header, ...body, ...g.warnings.map((w) => `! ${w}`)]);
-  },
+  // `graph.inspect` was here — the routing as text, and `timeline.inspect` below it for the
+  // arrangement. Two READERS, and the only place either was reachable from the app was a
+  // right-click that offered nothing else. Both describers keep their own CLI entry
+  // (`@studio/song`'s graph.ts and this package's timeline.ts), so what went is the palette row.
 
   /**
-   * module insert <before> <after> <category>/<name> [extends-ref] [node]
+   * node insert <before> <after> <node> [x,y] — splice a node that EXISTS into an arrow.
    *
-   * The graph's `+` in ONE command. It used to be two — `module new`, then `chain add` — sent as two HTTP calls
-   * with a full project recompile between them, purely because the frontend had to learn the new module's name
-   * before it could name it in a chain. Here that name is known: this command chose it.
+   * It used to create the module too, from a `<category>/<name>`, and that is what made it read
+   * as a duplicate of `chain add` — which did this same splice on a node that was already there.
+   * They were one act told apart by whether a file had to be written first. Creating is
+   * `module new`'s and `node new`'s; this wires.
    *
-   * It also skips the loadGraph `chain add` needs (~250 ms on a real song): the arrow is a question about
-   * chains.yaml alone, and the module's existence needs no checking because we just created it.
-   *
-   * No chain to name any more: `before → after` IS an edge in the file, so there is nothing left for a chain
-   * name to disambiguate — and the index arithmetic that used to place the step went with it.
+   * The arrow is validated from chains.yaml alone, and a COLD module is refused here rather than
+   * halfway through: it works only on audio already on disk, so where it sits is the question.
    */
-  "module.insert": async (a, h) => {
+  "node.insert": async (a, h) => {
     const usage =
-      "usage: module insert <before> <after> <category>/<name> [extends-ref] [node] [x,y]";
+      "usage: node insert <before> <after> <node> [x,y] (the two ends of one graph arrow, then the node to splice between them)";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     const at = takeSpawnAt(parts);
     if (parts.length < 3) {
       h.log([usage]);
       return;
     }
-    const [before, after, target, ...rest] = parts;
-
-    // The arrow, from chains.yaml alone — checked BEFORE the module is created, so a bad
-    // drop leaves nothing behind.
-    try {
-      const arrow = arrowError(h.songPath, before, after);
-      if (arrow) {
-        h.log([arrow]);
-        return;
-      }
-    } catch (e) {
-      h.log([`module insert: ${(e as Error).message}`]);
-      return;
-    }
-
-    // …and the cold rule, for the same reason and in the same place: a module that cannot go here
-    // must not leave a folder behind. Asked of what is being placed BEFORE it exists — the
-    // coldness is a fact about the module or about what it extends, both readable now.
-    try {
-      const cold = coldInsertError(h.songPath, target, rest, before);
-      if (cold) {
-        h.log([cold]);
-        return;
-      }
-    } catch (e) {
-      h.log([`module insert: ${(e as Error).message}`]);
-      return;
-    }
-
-    // The module FIRST: a chain naming something that does not exist is a project that will not load, so the
-    // file has to be there before the reference is written.
-    const made = makeModule(h.songPath, target, ...rest);
-    if ("error" in made) {
-      h.log([`module insert failed: ${made.error}`, usage]);
-      return;
-    }
-    const { ref, rel } = made;
-    try {
-      insertChainStep(h.songPath, before, after, ref);
-      // Born where the `+` was clicked — same rule as `module place`.
-      if (at) setChainNodePosition(h.songPath, ref, at);
-      h.log([
-        `${rel ? `created ${rel}; ` : ""}inserted ${ref} between ${before} and ${after}`,
-      ]);
-      await h.reload();
-    } catch (e) {
-      // The module exists and is fine; only the wiring failed. Say which, or it reads as a total failure.
-      h.log([
-        `${rel ? `created ${rel}, but ` : ""}the chain insert failed: ${(e as Error).message}`,
-      ]);
-      await h.reload();
-    }
-  },
-
-  /**
-   * module place <category>/<name> [extends-ref] [node]
-   *
-   * The same as `module insert`, minus the arrow: the module is created and written into chains.yaml wired to
-   * NOTHING. That is a state the file can now hold (`modules: { x: [] }`), and it is what a right-click on empty
-   * canvas asks for — put this here, I'll connect it in a moment.
-   *
-   * It is a real node from that instant, not a sketch: it shows in the graph, it is named in the file, and the
-   * compiler skips it because it is on no path. The alternative — creating the module and leaving chains.yaml
-   * alone — makes a folder nothing mentions, which is the shape a module takes when you have FORGOTTEN it.
-   */
-  "module.place": async (a, h) => {
-    const usage =
-      "usage: module place <category>/<name> [extends-ref] [node] [x,y]";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
-    const at = takeSpawnAt(parts);
-    const [target, ...rest] = parts;
-    if (!target) {
-      h.log([usage]);
-      return;
-    }
-    const made = makeModule(h.songPath, target, ...rest);
-    if ("error" in made) {
-      h.log([`module place failed: ${made.error}`, usage]);
-      return;
-    }
-    const { ref, rel } = made;
-    try {
-      placeChainNode(h.songPath, ref);
-      // Born where the cursor was — the web sends the click, so a new node never asks the
-      // layout where to appear. Absent (a typed line), the layout still answers.
-      if (at) setChainNodePosition(h.songPath, ref, at);
-      h.log([
-        `${rel ? `created ${rel}; ` : ""}placed ${ref} — wired to nothing yet`,
-      ]);
-      await h.reload();
-    } catch (e) {
-      // The module exists and is fine; only the placement failed. Say which, or it reads as a total failure.
-      h.log([
-        `${rel ? `created ${rel}, but ` : ""}the placement failed: ${(e as Error).message}`,
-      ]);
-      await h.reload();
-    }
-  },
-
-  // chain add <before> <after> <module> — splice an EXISTING module into the arrow between two nodes.
-  "chain.addModule": async (a, h) => {
-    const usage =
-      "usage: chain add <before> <after> <module> [x,y] (the two ends of one graph arrow, then the module to insert between them)";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
-    const at = takeSpawnAt(parts);
-    if (parts.length < 3) {
-      h.log([usage]);
-      return;
-    }
-    const [before, after, block] = parts;
-    let g;
+    const [before, after, node] = parts;
+    let g: ReturnType<typeof loadGraph>;
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`chain add: ${(e as Error).message}`]);
+      h.log([`node insert: ${(e as Error).message}`]);
       return;
     }
     const arrow = arrowError(h.songPath, before, after);
@@ -2731,19 +2535,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([arrow]);
       return;
     }
-    // The block must be a real node: the engine would reject a dangling ref, so catch it with an actionable message.
-    // A shared module is named by its ref and lives in moduleRefs until a chain uses it.
-    if (!(block in g.modules) && !(block in g.moduleRefs)) {
+    // A real node: the engine would refuse a dangling ref, so catch it with an actionable
+    // message. A shared module is named by its ref and lives in moduleRefs until a chain uses it.
+    if (!(node in g.modules) && !(node in g.moduleRefs)) {
       h.log([
-        `no module "${block}" in this project (modules: ${Object.keys(g.modules).join(", ") || "none"})`,
+        `no node "${node}" in this project (nodes: ${Object.keys(g.modules).join(", ") || "none"}) — create one with \`node new\``,
       ]);
       return;
     }
-    // A COLD module only works on audio already on disk — refused before the file is touched.
     const cold = coldPlacementError(
       g,
-      g.modules[block] ?? g.moduleRefs[block],
-      block,
+      g.modules[node] ?? g.moduleRefs[node],
+      node,
       before,
     );
     if (cold) {
@@ -2751,15 +2554,23 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     try {
-      insertChainStep(h.songPath, before, after, block);
-      // Born where the `+` was clicked — same rule as the two creating verbs.
-      if (at) setChainNodePosition(h.songPath, block, at);
-      h.log([`inserted ${block} between ${before} and ${after}`]);
+      insertChainStep(h.songPath, before, after, node);
+      // Born where the `+` was clicked, same rule as `node new`.
+      if (at) setChainNodePosition(h.songPath, node, at);
+      h.log([`inserted ${node} between ${before} and ${after}`]);
       await h.reload();
     } catch (e) {
-      h.log([`chain add failed: ${(e as Error).message}`]);
+      h.log([`node insert failed: ${(e as Error).message}`]);
     }
   },
+
+  // `node.place` was here — `modules: { x: [] }` for a node that existed and was in no chain.
+  // `node new` places what it makes and `graph unlink` leaves what it unlinks, so the state it
+  // repaired is one nothing reaches any more. Moving a node is `node position`.
+
+  // `chain.addModule` was here — `chain add <before> <after> <module>`, an existing module
+  // spliced into an arrow. That is `node insert` now, which stopped creating; the two were one
+  // act told apart only by whether a file had to be written first.
 
   /**
    * graph organize — hand EVERY node back to the layout: the pins come off in one write and
@@ -2778,15 +2589,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * module position <module> <x> <y> — pin a node where a drag (or a hand) put it, into
+   * node position <node> <x> <y> — pin a node where a drag (or a hand) put it, into
    * chains.yaml's `positions:`. The layout only places what has no pin, so this is the one
    * write behind "modules stay where you moved them"; `auto` hands the node back. Cosmetic
    * on purpose — nothing about the signal reads it — which is why a bad node name is still
    * refused: a pin nothing can ever match would sit in the file for ever.
    */
-  "module.position": async (a, h) => {
+  "node.position": async (a, h) => {
     const usage =
-      "usage: module position <module> <x> <y> (world px), or `module position <module> auto`";
+      "usage: node position <node> <x> <y> (world px), or `node position <node> auto`";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length < 2) {
       h.log([usage]);
@@ -2797,7 +2608,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`module position: ${(e as Error).message}`]);
+      h.log([`node position: ${(e as Error).message}`]);
       return;
     }
     // Everything on the graph is a NODE, and every node can be put somewhere: a module or a
@@ -2842,22 +2653,22 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       await h.reload();
     } catch (e) {
-      h.log([`module position failed: ${(e as Error).message}`]);
+      h.log([`node position failed: ${(e as Error).message}`]);
     }
   },
 
   /**
-   * chain connect <from> <to> — draw a NEW arrow between two placed nodes: the graph's
+   * graph chain connect <from> <to> — draw a NEW arrow between two placed nodes: the graph's
    * patch-cable gesture, and how a new chain begins. Either end may carry `#port`, spelt
    * exactly as chains.yaml spells it (packages/song/docs/ports.md).
    *
-   * Unlike `chain add` there is no existing arrow to validate against — the checks are the
+   * Unlike `node insert` there is no existing arrow to validate against — the checks are the
    * ends themselves: both must be nodes this project knows, the sink has no output, and a
    * track is a source nothing can feed.
    */
-  "chain.connect": async (a, h) => {
+  "graph.chain.connect": async (a, h) => {
     const usage =
-      "usage: chain connect <from> <to> — each a node, optionally name#port (e.g. chain connect gtr reverb)";
+      "usage: graph chain connect <from> <to> — each a node, optionally name#port (e.g. graph chain connect gtr reverb)";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 2) {
       h.log([usage]);
@@ -2873,7 +2684,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`chain connect: ${(e as Error).message}`]);
+      h.log([`graph chain connect: ${(e as Error).message}`]);
       return;
     }
     if (base(from) === "OUT") {
@@ -2903,20 +2714,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`connected ${from} → ${to}`]);
       await h.reload();
     } catch (e) {
-      h.log([`chain connect failed: ${(e as Error).message}`]);
+      h.log([`graph chain connect failed: ${(e as Error).message}`]);
     }
   },
 
   /**
-   * chain disconnect <from> <to> — pull ONE cable out: the mirror of `chain connect`, and
+   * graph chain disconnect <from> <to> — pull ONE cable out: the mirror of `graph chain connect`, and
    * what a lifted cable dropped on the canvas runs. No graph load: the file's own "does
    * not feed" refusal IS the validation, and it names what the node actually feeds.
    */
-  "chain.disconnect": async (a, h) => {
+  "graph.chain.disconnect": async (a, h) => {
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 2) {
       h.log([
-        "usage: chain disconnect <from> <to> — each a node, optionally name#port",
+        "usage: graph chain disconnect <from> <to> — each a node, optionally name#port",
       ]);
       return;
     }
@@ -2926,19 +2737,19 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`disconnected ${from} → ${to}`]);
       await h.reload();
     } catch (e) {
-      h.log([`chain disconnect failed: ${(e as Error).message}`]);
+      h.log([`graph chain disconnect failed: ${(e as Error).message}`]);
     }
   },
 
   /**
-   * chain replug <from> <to> <newFrom> <newTo> — move one end of an existing arrow, in ONE
+   * graph chain replug <from> <to> <newFrom> <newTo> — move one end of an existing arrow, in ONE
    * write: the re-plug gesture, and one undo step however the ends are respelt. The old
    * pair must be an arrow (the file refuses otherwise) and the new pair passes the same
-   * checks `chain connect` makes, because it is one.
+   * checks `graph chain connect` makes, because it is one.
    */
-  "chain.replug": async (a, h) => {
+  "graph.chain.replug": async (a, h) => {
     const usage =
-      "usage: chain replug <from> <to> <newFrom> <newTo> — the arrow from→to becomes newFrom→newTo";
+      "usage: graph chain replug <from> <to> <newFrom> <newTo> — the arrow from→to becomes newFrom→newTo";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 4) {
       h.log([usage]);
@@ -2958,7 +2769,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`chain replug: ${(e as Error).message}`]);
+      h.log([`graph chain replug: ${(e as Error).message}`]);
       return;
     }
     if (base(newFrom) === "OUT") {
@@ -2984,48 +2795,19 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`replugged: ${from} → ${to} is now ${newFrom} → ${newTo}`]);
       await h.reload();
     } catch (e) {
-      h.log([`chain replug failed: ${(e as Error).message}`]);
+      h.log([`graph chain replug failed: ${(e as Error).message}`]);
     }
   },
 
-  // The arrangement as text, read off the compiled project — so it reports what would actually sound.
-  "timeline.inspect": (a, h) => {
-    let p: ProjectDoc;
-    try {
-      p = h.project();
-    } catch (e) {
-      h.log([`project inspect timeline: ${(e as Error).message}`]);
-      return;
-    }
-    const track = a.trim();
-    const clips = p.tracks.reduce((n, t) => n + t.clips.length, 0);
-    const header = `${p.name}  ·  ${p.tracks.length} tracks · ${clips} clips`;
-    if (!track) {
-      h.log([header, "timeline:", ...describeTimeline(p).map((l) => "  " + l)]);
-      return;
-    }
-    const t = p.tracks.find((x) => x.id === track || x.name === track);
-    if (!t) {
-      h.log([
-        `no track matching '${track}' (tracks: ${p.tracks.map((x) => x.id).join(", ") || "none"})`,
-      ]);
-      return;
-    }
-    h.log([
-      header,
-      ...describeTrack(t, p.timeSigNumerator, p.timeSigDenominator).map(
-        (l) => "  " + l,
-      ),
-    ]);
-  },
-
-  // --- recording — the one track edit that writes NO file ---------------------
-  // Arming is session state that dies with the engine, so there is nothing to write. The two checks here are the
-  // SONG's: does the track exist, and does it declare an input. The engine re-checks and adds what only it knows.
-  "track.rec": async (a, h) => {
+  // --- recording — the one lane edit that writes NO file ----------------------
+  // Arming is session state that dies with the engine, so there is nothing to write, which is why it sits under
+  // `transport` and not `track`: it names a lane but it is a message to the engine, like play and stop. The two
+  // checks here are the SONG's — does the track exist, does it declare an input. The engine re-checks and adds
+  // what only it knows.
+  "transport.arm": async (a, h) => {
     const id = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!id) {
-      h.log(["usage: track rec <track>"]);
+      h.log(["usage: transport arm <track>"]);
       return;
     }
     const p = h.project();
@@ -3035,7 +2817,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     if (!t) {
       h.log([
         p.groups.some(matches)
-          ? `"${id}" is a group — rec takes a track (a group carries no input)`
+          ? `"${id}" is a group — arm takes a track (a group carries no input)`
           : `no track "${id}"`,
       ]);
       return;
@@ -3054,7 +2836,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // undefined == the engine refused or never answered; the host has already said which, and knows more than this.
     const armed = await h.arm(t.id);
     if (armed !== undefined)
-      h.log([`${t.id}: rec ${armed ? "armed" : "disarmed"}`]);
+      h.log([`${t.id}: ${armed ? "armed" : "disarmed"}`]);
   },
 
   "transport.play": (_a, h) => h.transport("play"),

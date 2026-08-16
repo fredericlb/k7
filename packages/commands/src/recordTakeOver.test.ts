@@ -72,7 +72,7 @@ function laneWithRiff(): void {
   );
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips:\n  - { ref: riff, start: "3:1" }\n',
+    'extends: "@studio/audio-track"\nevents:\n  - { ref: riff, start: "3:1" }\n',
     "utf8",
   );
 }
@@ -91,7 +91,7 @@ describe("recording over what a lane is playing", () => {
     laneWithRiff();
     const id = addTakeToTrack(dir, doc(), take(4, 8)); // bar 3, four bars — right on top
     expect(takes()).toHaveLength(1);
-    expect(takes()[0].clips).toEqual([{ ref: "riff", start: "3:1" }]);
+    expect(takes()[0].events).toEqual([{ ref: "riff", start: "3:1" }]);
     const now = playing();
     expect(now).toHaveLength(1);
     expect(now[0].id).toBe(id);
@@ -131,8 +131,8 @@ describe("recording round a loop", () => {
     ];
     expect(takes()).toHaveLength(2);
     // Oldest first: take 1 is pass 1, take 2 is pass 2, and the lane plays pass 3.
-    expect(takes()[0].clips).toEqual([{ ref: ids[0], start: "3:1" }]);
-    expect(takes()[1].clips).toEqual([{ ref: ids[1], start: "3:1" }]);
+    expect(takes()[0].events).toEqual([{ ref: ids[0], start: "3:1" }]);
+    expect(takes()[1].events).toEqual([{ ref: ids[1], start: "3:1" }]);
     const now = playing();
     expect(now).toHaveLength(1);
     expect(now[0].id).toBe(ids[2]);
@@ -151,12 +151,12 @@ describe("recording over an alternative", () => {
       join(dir, "nodes", "gtr.yaml"),
       [
         'extends: "@studio/audio-track"',
-        "clips:",
+        "events:",
         '  - { ref: riff, start: "3:1" }',
         "alternative: loud",
         "alternatives:",
         "  - name: loud",
-        "    clips:",
+        "    events:",
         '      - { ref: riff, start: "3:1" }',
         "",
       ].join("\n"),
@@ -166,6 +166,6 @@ describe("recording over an alternative", () => {
     const text = trackText();
     // The take is the alternative's, and the module's own clips are untouched.
     expect(takeValues(text)).toHaveLength(1);
-    expect(text).toMatch(/^clips:\n {2}- \{ ref: riff, start: "3:1" \}$/m);
+    expect(text).toMatch(/^events:\n {2}- \{ ref: riff, start: "3:1" \}$/m);
   });
 });

@@ -1,5 +1,5 @@
-// `chain connect` — the patch-cable verb, through the dispatcher, asserting chains.yaml.
-// What matters: it CREATES an arrow (no existing one required, unlike `chain add`), it never
+// `graph chain connect` — the patch-cable verb, through the dispatcher, asserting chains.yaml.
+// What matters: it CREATES an arrow (no existing one required, unlike `node insert`), it never
 // unwires what the source already feeds, and every refusal leaves the file byte-identical.
 
 import {
@@ -46,7 +46,7 @@ function song(): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nclips: []\n',
+    'extends: "@studio/audio-track"\nevents: []\n',
     "utf8",
   );
   for (const m of ["amp", "reverb"]) {
@@ -68,22 +68,22 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("chain connect", () => {
+describe("graph chain connect", () => {
   it("draws a new arrow without touching what the source already feeds", async () => {
-    await runCommand("chain connect amp reverb", host(), "cli");
+    await runCommand("graph chain connect amp reverb", host(), "cli");
     expect(chains()).toContain("amp: [ OUT, reverb ]");
     expect(logs.join(" ")).toContain("connected amp → reverb");
     expect(reloads).toBe(1);
   });
 
   it("wires an unwired module to the sink — how a placed module joins the song", async () => {
-    await runCommand("chain connect reverb OUT", host(), "cli");
+    await runCommand("graph chain connect reverb OUT", host(), "cli");
     expect(chains()).toContain("reverb: [ OUT ]");
   });
 
   it("refuses an arrow that is already there, writing nothing", async () => {
     const before = chains();
-    await runCommand("chain connect gtr amp", host(), "cli");
+    await runCommand("graph chain connect gtr amp", host(), "cli");
     expect(logs.join(" ")).toContain("already feeds");
     expect(chains()).toBe(before);
     expect(reloads).toBe(0);
@@ -91,37 +91,37 @@ describe("chain connect", () => {
 
   it("refuses a node the project does not know", async () => {
     const before = chains();
-    await runCommand("chain connect amp nothere", host(), "cli");
+    await runCommand("graph chain connect amp nothere", host(), "cli");
     expect(logs.join(" ")).toContain('no node "nothere"');
     expect(chains()).toBe(before);
   });
 
   it("refuses the sink as a source and a track as a target", async () => {
-    await runCommand("chain connect OUT reverb", host(), "cli");
+    await runCommand("graph chain connect OUT reverb", host(), "cli");
     expect(logs.join(" ")).toContain("sink");
-    await runCommand("chain connect reverb gtr", host(), "cli");
+    await runCommand("graph chain connect reverb gtr", host(), "cli");
     expect(logs.join(" ")).toContain("is a track");
     expect(reloads).toBe(0);
   });
 
   it("refuses a node fed to itself, ports notwithstanding", async () => {
-    await runCommand("chain connect amp#b amp", host(), "cli");
+    await runCommand("graph chain connect amp#b amp", host(), "cli");
     expect(logs.join(" ")).toContain("itself");
   });
 });
 
-describe("chain add, born at the cursor", () => {
-  it("a trailing x,y pins the spliced module where the + was clicked", async () => {
-    await runCommand("chain add gtr amp reverb 300,140", host(), "cli");
+describe("node insert, born at the cursor", () => {
+  it("a trailing x,y pins the spliced node where the + was clicked", async () => {
+    await runCommand("node insert gtr amp reverb 300,140", host(), "cli");
     expect(chains()).toContain("gtr: [ reverb ]");
     expect(chains()).toContain("reverb: [ amp ]");
     expect(chains()).toContain("reverb: { x: 300, y: 140 }");
   });
 });
 
-describe("chain disconnect", () => {
+describe("graph chain disconnect", () => {
   it("pulls one cable, and the module it stranded stays placed", async () => {
-    await runCommand("chain disconnect amp OUT", host(), "cli");
+    await runCommand("graph chain disconnect amp OUT", host(), "cli");
     expect(chains()).toContain("amp: []");
     expect(chains()).toContain("gtr: [ amp ]");
     expect(reloads).toBe(1);
@@ -129,17 +129,17 @@ describe("chain disconnect", () => {
 
   it("refuses an arrow that is not there, writing nothing", async () => {
     const before = chains();
-    await runCommand("chain disconnect gtr reverb", host(), "cli");
+    await runCommand("graph chain disconnect gtr reverb", host(), "cli");
     expect(logs.join(" ")).toContain("does not feed");
     expect(chains()).toBe(before);
     expect(reloads).toBe(0);
   });
 });
 
-describe("chain replug", () => {
+describe("graph chain replug", () => {
   it("moves one end in one write — the old arrow gone, the new one there", async () => {
     // The target end of gtr→amp moves to reverb.
-    await runCommand("chain replug gtr amp gtr reverb", host(), "cli");
+    await runCommand("graph chain replug gtr amp gtr reverb", host(), "cli");
     expect(chains()).toContain("gtr: [ reverb ]");
     expect(chains()).not.toContain("gtr: [ amp ]");
     expect(reloads).toBe(1);
@@ -147,21 +147,21 @@ describe("chain replug", () => {
 
   it("says so when nothing moved, and writes nothing", async () => {
     const before = chains();
-    await runCommand("chain replug gtr amp gtr amp", host(), "cli");
+    await runCommand("graph chain replug gtr amp gtr amp", host(), "cli");
     expect(logs.join(" ")).toContain("nothing moved");
     expect(chains()).toBe(before);
   });
 
   it("a bad OLD arrow refuses the whole move — no half-replug", async () => {
     const before = chains();
-    await runCommand("chain replug gtr reverb gtr OUT", host(), "cli");
+    await runCommand("graph chain replug gtr reverb gtr OUT", host(), "cli");
     expect(logs.join(" ")).toContain("does not feed");
     expect(chains()).toBe(before);
   });
 
   it("the new pair passes the connect checks — an unknown node refuses it", async () => {
     const before = chains();
-    await runCommand("chain replug gtr amp gtr nothere", host(), "cli");
+    await runCommand("graph chain replug gtr amp gtr nothere", host(), "cli");
     expect(logs.join(" ")).toContain('no node "nothere"');
     expect(chains()).toBe(before);
   });

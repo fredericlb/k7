@@ -22,12 +22,12 @@ const logs: string[] = [];
 let reloaded = 0;
 
 const LANE = `extends: "@studio/audio-track"
-clips:
+events:
   - { ref: pass3, start: "3:1" }
 takes:
-  - clips:
+  - events:
       - { ref: pass1, start: "3:1" }
-  - clips:
+  - events:
       - { ref: pass2, start: "3:1" }
 `;
 
@@ -77,9 +77,9 @@ describe("track take select", () => {
   it("SWAPS: the take goes onto the lane and what played becomes that take", async () => {
     await runCommand("track take select gtr 1", host(), "cli");
     const m = lane();
-    expect(refs(m.clips)).toEqual(["pass1"]);
-    expect(refs(m.takes[0].clips)).toEqual(["pass3"]);
-    expect(refs(m.takes[1].clips)).toEqual(["pass2"]); // untouched
+    expect(refs(m.events)).toEqual(["pass1"]);
+    expect(refs(m.takes[0].events)).toEqual(["pass3"]);
+    expect(refs(m.takes[1].events)).toEqual(["pass2"]); // untouched
     expect(reloaded).toBe(1);
   });
 
@@ -118,8 +118,8 @@ describe("track take delete", () => {
     await runCommand("track take delete gtr 1", host(), "cli");
     const m = lane();
     expect(m.takes).toHaveLength(1);
-    expect(refs(m.takes[0].clips)).toEqual(["pass2"]);
-    expect(refs(m.clips)).toEqual(["pass3"]); // the lane keeps playing what it played
+    expect(refs(m.takes[0].events)).toEqual(["pass2"]);
+    expect(refs(m.events)).toEqual(["pass3"]); // the lane keeps playing what it played
   });
 
   it("leaves NO empty list when the last one goes", async () => {
@@ -138,7 +138,7 @@ describe("track take keep", () => {
     await runCommand("track take select gtr 1", host(), "cli");
     await runCommand("track take keep gtr", host(), "cli");
     const text = readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
-    expect(refs(lane().clips)).toEqual(["pass1"]);
+    expect(refs(lane().events)).toEqual(["pass1"]);
     expect(text).not.toContain("takes");
     expect(logs.join(" ")).toContain("deleted 2 takes");
   });

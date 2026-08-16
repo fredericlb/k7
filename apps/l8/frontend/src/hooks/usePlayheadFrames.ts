@@ -7,6 +7,7 @@ import {
   feedPlayhead,
   newPlayheadClock,
   type PlayheadClock,
+  playheadAt,
 } from "@studio/engine-browser/playhead-clock";
 import { useEngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef } from "react";
@@ -43,9 +44,10 @@ export function usePlayheadFrames(onFrame: (seconds: number) => void): void {
   const draw = useCallback(() => {
     const c = clock.current;
     if (!c) return;
-    const next = advancePlayhead(c, performance.now());
+    const now = performance.now();
+    const next = advancePlayhead(c, now);
     clock.current = next;
-    cb.current(next.drawnSec);
+    cb.current(playheadAt(next, now));
   }, []);
 
   useEffect(() => {

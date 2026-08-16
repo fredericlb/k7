@@ -313,7 +313,7 @@ function readJsDspGraph(source: string): string | undefined {
 /**
  * What a render's clip id ends with, and the test for one — a RESERVED suffix.
  *
- * A frozen lane's clip answers to no `clips:` entry: it is a render, not a placement. Anything
+ * A frozen lane's clip answers to no `events:` entry: it is a render, not a placement. Anything
  * that would edit a placement has to know that, and the compiled doc has no other way to say it
  * (`ClipDoc` is the engine's wire, and the engine has no use for the distinction). So the id is
  * the marker, and it is declared here rather than sniffed for at the far end. See docs/freeze.md.
@@ -422,7 +422,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       }
     }
   for (const [trackId, t] of Object.entries(lanesMap))
-    for (const p of t.clips) {
+    for (const p of t.events) {
       const ref = String(p?.ref ?? "");
       if (!ref) continue;
       const clip = clipsMap[ref];
@@ -806,10 +806,12 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
         ? [frozenClip(id, renderOn.get(id) as string)]
         : frozenLanes.has(id)
           ? []
-          : t.clips.map((p) =>
+          : // The lane's authored `events:` become the engine's `clips` — this line IS the
+            // boundary between the two words. See moduleSchema's `events:`.
+            t.events.map((p) =>
               placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
             ),
-      // The lane's TAKES, through the SAME compiler its clips go through, so a take has the real
+      // The lane's TAKES, through the SAME compiler its events go through, so a take has the real
       // extents of the arrangement it was and a surface can draw one without a second reader.
       // Stripped before the document reaches the engine (`withoutTakes`), and left off entirely
       // when there are none — see docs/takes.md.
@@ -817,7 +819,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
         ? {
             takes: t.takes.map((tk) => ({
               ...(tk.name ? { name: tk.name } : {}),
-              clips: tk.clips.map((p) =>
+              clips: tk.events.map((p) =>
                 placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
               ),
             })),

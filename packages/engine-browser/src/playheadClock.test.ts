@@ -3,140 +3,139 @@ import {
   advancePlayhead,
   feedPlayhead,
   newPlayheadClock,
-  RATE_SPAN,
+  playheadAt,
   SEEK_EPS,
+  WINDOW_MS,
 } from "./playheadClock";
 
-// The engine speaks every 50 ms and the screen draws every ~16 ms, so two frames in three are
-// drawn from local time alone. What these pin is the steering: local time must carry the line,
-// the engine must correct it without being copied, and a real jump must not be eased through.
+// The transport's rate is KNOWN — one second per second — so the only unknown is the offset
+// between the engine's clock and ours, and every frame is a noisy measurement of it. Noisy in
+// ONE direction: a frame is sampled and then travels, so it always understates the offset. What
+// these pin is that the estimate takes the least-delayed frame, that the drawn line is a
+// straight one, and that a real jump rolls the estimate back instead of being averaged in.
 
 const FRAME = 1000 / 60;
+/** Transit times, in ms. Never negative — a frame cannot arrive before it was sampled. */
+const LAT = [4, 9, 6, 31, 5, 12, 7, 22, 4, 8, 55, 6];
+const MIN_LAT = Math.min(...LAT);
 
-/** Run `ms` of animation frames, feeding the engine's own frames at `enginePeriod`. */
-function play(opts: {
-  ms: number;
-  enginePeriod: number;
-  /** Jitter added to each engine frame's arrival, in ms — the thing being filtered out. */
-  jitter?: (i: number) => number;
-}): { drawn: number[]; at: number[] } {
-  const { ms, enginePeriod, jitter = () => 0 } = opts;
+/** Play for `ms`, feeding frames every 50 ms with those transit times. */
+function play(ms: number, lat: number[] = LAT) {
   let c = newPlayheadClock(0, true, 0);
-  const drawn: number[] = [];
-  const at: number[] = [];
-  let nextEngine = enginePeriod;
+  const rows: { t: number; drawn: number; truth: number }[] = [];
+  let next = 50;
   let i = 0;
   for (let now = 0; now <= ms; now += FRAME) {
-    while (nextEngine <= now) {
-      // The engine reports the truth for the moment it SAMPLED, and reaches us late.
-      const sampled = nextEngine / 1000;
-      c = feedPlayhead(c, true, sampled, nextEngine + jitter(i++));
-      nextEngine += enginePeriod;
+    while (next + lat[i % lat.length] <= now) {
+      // Sampled at `next`, arrives later — which is the whole problem.
+      c = feedPlayhead(c, true, next / 1000, next + lat[i % lat.length]);
+      i++;
+      next += 50;
     }
     c = advancePlayhead(c, now);
-    drawn.push(c.drawnSec);
-    at.push(now);
+    rows.push({ t: now, drawn: playheadAt(c, now), truth: now / 1000 });
   }
-  return { drawn, at };
+  return rows;
 }
 
 describe("playheadClock", () => {
-  it("moves on every animation frame, not only when the engine speaks", () => {
-    const { drawn } = play({ ms: 500, enginePeriod: 50 });
-    // 20 Hz over 500 ms is 10 distinct positions; 60 Hz is ~30. The old code drew the former.
-    const distinct = new Set(drawn.map((s) => s.toFixed(4)));
-    expect(distinct.size).toBeGreaterThan(25);
+  it("draws a STRAIGHT line — the frames move the offset, never the position", () => {
+    const rows = play(4000).slice(60);
+    const steps = rows.slice(1).map((r, i) => r.drawn - rows[i].drawn);
+    // Every step identical to the last: a known rate means there is nothing per-frame to correct.
+    for (const s of steps) expect(s).toBeCloseTo(FRAME / 1000, 9);
   });
 
-  it("keeps up with real time over a second", () => {
-    const { drawn } = play({ ms: 1000, enginePeriod: 50 });
-    expect(drawn[drawn.length - 1]).toBeCloseTo(1.0, 1);
+  it("settles at the BEST frame's latency, not the average one", () => {
+    const rows = play(6000).slice(120);
+    // The estimate is the least-delayed sample, so the line sits exactly that far behind. It
+    // cannot do better: 4 ms is how stale the freshest thing we were told actually is.
+    for (const r of rows)
+      expect((r.truth - r.drawn) * 1000).toBeCloseTo(MIN_LAT, 1);
   });
 
-  it("never goes backwards while rolling, however the frames arrive", () => {
-    // ±30 ms of arrival jitter on a 50 ms cadence — frames landing out of their slot entirely.
-    const { drawn } = play({
-      ms: 3000,
-      enginePeriod: 50,
-      jitter: (i) => [0, 28, -18, 9, -25, 31][i % 6],
-    });
-    for (let i = 1; i < drawn.length; i++)
-      expect(drawn[i]).toBeGreaterThanOrEqual(drawn[i - 1]);
+  it("never goes backwards while rolling", () => {
+    const rows = play(6000);
+    for (let i = 1; i < rows.length; i++)
+      expect(rows[i].drawn).toBeGreaterThanOrEqual(rows[i - 1].drawn);
   });
 
-  it("draws smoothly THROUGH arrival jitter rather than copying it", () => {
-    // The measurement that matters: per-frame steps should be near-constant. Copying the
-    // engine's position would make them alternate between 0 and a 50 ms lurch.
-    const { drawn } = play({
-      ms: 3000,
-      enginePeriod: 50,
-      jitter: (i) => [0, 28, -18, 9, -25, 31][i % 6],
-    });
-    const steps = drawn.slice(1).map((s, i) => s - drawn[i]);
-    const settled = steps.slice(30); // past the first anchor
-    const ideal = FRAME / 1000;
-    for (const s of settled) {
-      expect(s).toBeGreaterThan(ideal * (1 - RATE_SPAN) - 1e-9);
-      expect(s).toBeLessThan(ideal * (1 + RATE_SPAN) + 1e-9);
-    }
+  it("builds its estimate only from frames that arrived", () => {
+    // Construction is not a measurement, so it contributes no sample. The property matters less
+    // for correctness than for honesty: a clock seeded with a perfect value measures better than
+    // it is, and the first version of the bench above was flattered by exactly that.
+    const c = newPlayheadClock(12.5, true, 1000);
+    expect(c.window).toHaveLength(0);
+    expect(feedPlayhead(c, true, 13, 1500).window).toHaveLength(1);
   });
 
-  it("converges on the engine rather than drifting away from it", () => {
-    const { drawn, at } = play({ ms: 4000, enginePeriod: 50 });
-    const last = drawn.length - 1;
-    // Within a frame or two of where the engine actually is — the local clock is steered, not free.
-    expect(Math.abs(drawn[last] - at[last] / 1000)).toBeLessThan(0.05);
+  it("rolls the estimate back on a seek instead of averaging it in", () => {
+    let c = newPlayheadClock(0, true, 0);
+    for (let t = 50; t <= 2000; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 5);
+    c = advancePlayhead(c, 2000);
+    // Eight seconds back. Every sample in the window describes a position that is now gone.
+    c = feedPlayhead(c, true, 10.0, 2010);
+    c = advancePlayhead(c, 2016);
+    expect(playheadAt(c, 2016)).toBeCloseTo(10.006, 2);
+    // …and the OLD samples are gone with it: a max filter would otherwise prefer them forever,
+    // because a jump forward makes every later sample smaller.
+    expect(c.window).toHaveLength(1);
   });
 
-  it("snaps on a seek instead of easing over it", () => {
-    let c = newPlayheadClock(10, true, 0);
-    c = advancePlayhead(c, 16);
-    c = feedPlayhead(c, true, 2, 16); // eight seconds back: a seek
-    c = advancePlayhead(c, 32);
-    expect(c.drawnSec).toBeCloseTo(2.016, 2);
+  it("rolls back on a loop wrap, which is a seek backwards", () => {
+    let c = newPlayheadClock(0, true, 0);
+    for (let t = 50; t <= 2000; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 5);
+    c = feedPlayhead(c, true, 0.02, 2010); // wrapped to the top
+    c = advancePlayhead(c, 2026);
+    expect(playheadAt(c, 2026)).toBeLessThan(0.1);
+    expect(c.window).toHaveLength(1);
   });
 
-  it("snaps on a loop wrap, which is a seek backwards", () => {
-    let c = newPlayheadClock(7.9, true, 0);
-    c = feedPlayhead(c, true, 0.02, 50); // wrapped to the top of the loop
-    c = advancePlayhead(c, 66);
-    expect(c.drawnSec).toBeLessThan(0.1);
+  it("ages a sample out, so a drifting clock cannot be held by one old best frame", () => {
+    let c = newPlayheadClock(0, true, 0);
+    c = feedPlayhead(c, true, 0.05, 51); // a 1 ms transit — the best there will be
+    for (let t = 100; t <= WINDOW_MS + 400; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 20);
+    // Past the window, only the 20 ms samples remain, so the estimate has given the millisecond
+    // back rather than trusting a frame from four seconds ago.
+    expect(c.window.every((s) => s.at > WINDOW_MS + 400 - WINDOW_MS)).toBe(
+      true,
+    );
+    expect((0 - c.offset) * 1000).toBeCloseTo(20, 0);
   });
 
   it("re-seats on a play edge rather than easing across the gap", () => {
     let c = newPlayheadClock(4, false, 0);
     c = advancePlayhead(c, 100);
-    expect(c.drawnSec).toBe(4); // stopped: the frame IS the answer
-    c = feedPlayhead(c, true, 4, 100); // Play, from where it rested
+    expect(playheadAt(c, 100)).toBe(4); // stopped: the frame IS the answer
+    c = feedPlayhead(c, true, 4, 100);
     c = advancePlayhead(c, 116);
-    expect(c.drawnSec).toBeCloseTo(4.016, 3);
+    expect(playheadAt(c, 116)).toBeCloseTo(4.016, 3);
   });
 
-  it("holds still while stopped, whatever the frames say about time passing", () => {
+  it("holds still while stopped, whatever time does", () => {
     let c = newPlayheadClock(12.5, false, 0);
     for (let now = 0; now < 1000; now += FRAME) c = advancePlayhead(c, now);
-    expect(c.drawnSec).toBe(12.5);
+    expect(playheadAt(c, 1000)).toBe(12.5);
   });
 
   it("follows a scrub while stopped, with no easing at all", () => {
     let c = newPlayheadClock(12.5, false, 0);
     c = feedPlayhead(c, false, 3.25, 50);
     c = advancePlayhead(c, 66);
-    expect(c.drawnSec).toBe(3.25);
+    expect(playheadAt(c, 66)).toBe(3.25);
   });
 
-  it("corrects a drift smaller than SEEK_EPS without a jump", () => {
+  it("treats a frame inside SEEK_EPS as latency, not as a jump", () => {
     let c = newPlayheadClock(0, true, 0);
-    // Local time has run 120 ms ahead of the engine — under the seek threshold, so it must be
-    // absorbed by the rate rather than yanked back.
-    c = feedPlayhead(c, true, 0, 0);
-    c = { ...c, drawnSec: 0.12, drawnAt: 0 };
-    const before = c.drawnSec;
-    c = advancePlayhead(c, FRAME);
-    expect(c.drawnSec).toBeGreaterThanOrEqual(before); // no backwards yank
-    expect(c.drawnSec - before).toBeLessThan(
-      (FRAME / 1000) * (1 - RATE_SPAN) + 1e-9,
-    );
-    expect(0.12).toBeLessThan(SEEK_EPS);
+    for (let t = 50; t <= 1000; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 5);
+    const before = c.window.length;
+    // 200 ms late — ugly, under the threshold, and therefore evidence rather than an event.
+    c = feedPlayhead(c, true, 1.05, 1255);
+    expect(c.window.length).toBeGreaterThan(before - 1);
+    expect(0.2).toBeLessThan(SEEK_EPS);
   });
 });

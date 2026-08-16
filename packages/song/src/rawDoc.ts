@@ -6,7 +6,7 @@
 import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { ModuleKind } from "./moduleTypes";
 
-/** One entry of a track's `clips:` list — a placement of a clip/sequence by ref. */
+/** One entry of a lane's `events:` list — a placement of a clip/sequence by ref. */
 export interface RawPlacement {
   ref?: string;
   start?: string | number;
@@ -31,7 +31,7 @@ export interface RawTrack {
   mute?: unknown;
   solo?: unknown;
   disabled?: unknown;
-  clips?: RawPlacement[];
+  events?: RawPlacement[];
   tracks?: unknown[]; // group only: member ids
   strudel?: unknown; // strudel only: the pattern file
   frozen?: unknown; // single only: the render standing in for its material + modules (see frozenRender)
@@ -81,7 +81,7 @@ export interface RawVideoTrack {
   y?: unknown;
   w?: unknown;
   h?: unknown;
-  clips?: RawVideoPlacement[]; // "video" tracks
+  events?: RawVideoPlacement[]; // "video" tracks
   shapes?: unknown[]; // "shape" tracks
   [key: string]: unknown;
 }
@@ -155,7 +155,7 @@ export interface LoadedModule {
   // included, project-relative. See docs/freeze.md.
   frozen?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
-  clips?: unknown; // the placements on this lane — where its material goes, and how many times
+  events?: unknown; // the placements on this lane — where its material goes, and how many times
   takes?: unknown; // the arrangements set aside, each another list of placements (docs/takes.md)
   color?: unknown; // the lane's colour, and its icon's in the timeline
   disabled?: unknown; // excluded from the render entirely, chains and all

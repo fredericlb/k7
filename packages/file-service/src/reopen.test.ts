@@ -61,7 +61,7 @@ describe("a project changed underneath the Workspace", () => {
   const setColor = (c: string): void => {
     writeFileSync(
       join(proj, "nodes", "melody.yaml"),
-      `extends: "@studio/sequence-track"\ncolor: "${c}"\nclips:\n  - { ref: melody, start: "1:1:1" }\n`,
+      `extends: "@studio/sequence-track"\ncolor: "${c}"\nevents:\n  - { ref: melody, start: "1:1:1" }\n`,
       "utf8",
     );
   };

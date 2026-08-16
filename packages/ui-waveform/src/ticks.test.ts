@@ -8,10 +8,12 @@ import {
   labelled,
   labelMinPx,
   labelStride,
+  MAX_GRID_SPLIT,
   MIN_LABEL_PX,
   MONO_CHAR_PX,
   nearestTick,
   subdivideBeats,
+  subdivideGrid,
 } from "./ticks";
 
 describe("labelMinPx", () => {
@@ -94,6 +96,41 @@ describe("subdivideBeats", () => {
     expect(subdivideBeats(4, 0)).toBe(4);
     expect(subdivideBeats(4, Number.NaN)).toBe(4);
     expect(subdivideBeats(4, 1e9)).toBeGreaterThanOrEqual(1 / 64);
+  });
+});
+
+describe("subdivideGrid", () => {
+  // The other half of the same rule, for the ruler that is HANDED its ticks (the waveform's
+  // bar/beat list comes off the wire) and can only split what it has. Same MAX_COLUMN_PX.
+  it("adds nothing while the columns still fit", () => {
+    // 1s apart at 40px/s — under the 50px threshold, so the beats stand on their own.
+    expect(subdivideGrid([0, 1, 2], 40)).toEqual([]);
+  });
+
+  it("halves a column that has opened up", () => {
+    // 1s apart at 80px/s: 80px is too wide, 40px is not — one line in the middle of each.
+    expect(subdivideGrid([0, 1, 2], 80)).toEqual([0.5, 1.5]);
+  });
+
+  it("keeps halving as the zoom opens", () => {
+    // 1s at 200px/s: 200 → 100 → 50, and 50 is not > 50, so quarters.
+    expect(subdivideGrid([0, 1], 200)).toEqual([0.25, 0.5, 0.75]);
+  });
+
+  it("splits each PAIR on its own — a warped clip's beats are not evenly spaced", () => {
+    // The first second is compressed on screen (40px, left alone), the next is stretched.
+    expect(subdivideGrid([0, 1, 3], 40)).toEqual([2]);
+  });
+
+  it("floors rather than spinning, and refuses a degenerate scale", () => {
+    expect(subdivideGrid([0, 1], 0)).toEqual([]);
+    expect(subdivideGrid([0, 1], Number.NaN)).toEqual([]);
+    expect(subdivideGrid([0, 1], 1e9)).toHaveLength(MAX_GRID_SPLIT - 1);
+  });
+
+  it("has nothing to split with fewer than two lines", () => {
+    expect(subdivideGrid([], 100)).toEqual([]);
+    expect(subdivideGrid([4], 100)).toEqual([]);
   });
 });
 

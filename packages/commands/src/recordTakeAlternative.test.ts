@@ -1,8 +1,8 @@
 // Where a take lands when the lane is running one of its OTHER sets of attributes.
 //
-// A lane's alternatives each restate `clips:`, and a list is a scalar to the merge — so the running
+// A lane's alternatives each restate `events:`, and a list is a scalar to the merge — so the running
 // set REPLACES the arrangement rather than adding to it (packages/song/docs/alternatives.md). A take
-// appended to the file's top-level `clips:` while another set is running is therefore written to a
+// appended to the file's top-level `events:` while another set is running is therefore written to a
 // set nobody is playing: on disk, and silent. This is the shape of `nodes/ge.rythm.yaml` in a real
 // project, which is where it was found.
 
@@ -79,10 +79,10 @@ describe("a take recorded on a lane running its FIRST set", () => {
 
 describe("a take recorded while an ALTERNATIVE is running", () => {
   it("lands on the set the lane is actually playing", () => {
-    // THE bug: appended to the top-level `clips:` instead, the take is on disk, declared, named
+    // THE bug: appended to the top-level `events:` instead, the take is on disk, declared, named
     // after the right bar — and absent from the lane, because the running set replaced that list.
     lane(
-      'extends: "@studio/audio-track"\nclips: []\nalternatives:\n  - name: b\n    clips: []\nalternative: b\n',
+      'extends: "@studio/audio-track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     const id = addTakeToTrack(dir, doc(), take());
     expect(played()).toContain(id);
@@ -91,7 +91,7 @@ describe("a take recorded while an ALTERNATIVE is running", () => {
   it("keeps the other sets untouched", () => {
     // An alternative is a take you can go back to. Recording into one must not edit the others.
     lane(
-      'extends: "@studio/audio-track"\nclips: [ { ref: first, start: "1:1" } ]\nalternatives:\n  - name: b\n    clips: []\nalternative: b\n',
+      'extends: "@studio/audio-track"\nevents: [ { ref: first, start: "1:1" } ]\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTakeToTrack(dir, doc(), take());
     const text = readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
@@ -101,7 +101,7 @@ describe("a take recorded while an ALTERNATIVE is running", () => {
 
   it("still names the take after the bar it was played at", () => {
     lane(
-      'extends: "@studio/audio-track"\nalternatives:\n  - name: b\n    clips: []\nalternative: b\n',
+      'extends: "@studio/audio-track"\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     const id = addTakeToTrack(dir, doc(), take());
     expect(id).toContain("_3.1_");

@@ -5,6 +5,7 @@ import {
   labelStride,
   MAX_COLUMN_PX,
   nearestTick,
+  subdivideGrid,
 } from "./ticks";
 import type {
   Annotation,
@@ -47,6 +48,18 @@ interface Props {
    * there. Empty ⇒ nothing drawn, which is every clip that has no map.
    */
   warps?: { orig: number; target: number }[];
+  /**
+   * Onsets to draw as plain rules, in seconds — reference material, not something to grab.
+   *
+   * The same times `markers` carries as pins, in the form a host wants when they are the
+   * BACKDROP rather than the subject: placing a stretch point means dropping a beat onto a hit,
+   * so the hits have to be visible while the warp marks are what the hand is on.
+   *
+   * Solid, deliberately, though the note on `gridLines` below says solid means "a thing you can
+   * act on". These are things — located events the detector found — and not a regular grid; the
+   * grammar that matters here is dashed = derived rule, solid = measured moment.
+   */
+  onsets?: number[];
   /**
    * The material's own window — the span of the source this clip IS — in the same display seconds
    * as everything else here.
@@ -100,6 +113,7 @@ const NO_ANNOTATIONS: Annotation[] = [];
 const NO_MARKERS: Marker[] = [];
 const NO_GRID: WaveformGrid[] = [];
 const NO_WARPS: { orig: number; target: number }[] = [];
+const NO_ONSETS: number[] = [];
 
 const ampToDb = (amp: number): number =>
   amp > 0 ? 20 * Math.log10(amp) : MIN_DB;
@@ -176,6 +190,7 @@ function WaveformInner({
   view,
   markerPlace = "top",
   warps = NO_WARPS,
+  onsets = NO_ONSETS,
   sourceWindow = null,
   gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
@@ -231,6 +246,24 @@ function WaveformInner({
   const span = v1 > v0 ? v1 - v0 : total;
   const timeToX = (t: number) => (span > 0 ? ((t - v0) / span) * width : 0);
   const xToTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
+
+  /**
+   * The lines BETWEEN the ones the host sent, once the zoom has opened its columns past
+   * `MAX_COLUMN_PX` — the ruler over this canvas subdivides at exactly that width, and a wave
+   * still ruled in whole beats under a ruler ticking sixteenths reads as two different grids.
+   *
+   * Derived here rather than in the draw effect because the CLICK wants them too: snapping is to
+   * the list that was drawn (docs/ticks.md), so a line you can see and cannot land on would break
+   * the one guarantee this grid makes.
+   */
+  const subGrid = useMemo(
+    () =>
+      subdivideGrid(
+        gridLines.map((g) => g.t),
+        span > 0 ? width / span : 0,
+      ),
+    [gridLines, width, span],
+  );
   const dbToY = (db: number) => dbToYIn(db, HEIGHT);
 
   // Taken apart from the object so an unstable `envelope` literal — which is what a host
@@ -331,6 +364,17 @@ function WaveformInner({
     // marker, a selection edge — so the grid, which is every tick, reads as a rule instead
     // of competing with them. Labels are drawn last, on top. Used by the DAW clip editor.
     ctx.setLineDash(GRID_DASH);
+    // The subdivisions first, so a beat's own line wins where the two round to one pixel. Fainter
+    // again than a beat — the same three-weight rhythm the ruler above draws.
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    ctx.lineWidth = 1;
+    for (const t of subGrid) {
+      const sx = Math.round(timeToX(t)) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, HEIGHT);
+      ctx.stroke();
+    }
     for (const g of gridLines) {
       const gx = Math.round(timeToX(g.t)) + 0.5;
       ctx.strokeStyle = g.bar
@@ -451,6 +495,19 @@ function WaveformInner({
       ctx.stroke();
     }
 
+    // Onsets as rules — ABOVE the envelope, below the stretch points. Under the envelope (where
+    // the grid sits) they would vanish exactly where the material is loud, which is where the
+    // hits are.
+    ctx.strokeStyle = "rgba(203,213,225,0.5)";
+    ctx.lineWidth = 1;
+    for (const t of onsets) {
+      const ox = Math.round(timeToX(t)) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(ox, 0);
+      ctx.lineTo(ox, HEIGHT);
+      ctx.stroke();
+    }
+
     // Stretch points: a dashed rule where the SOURCE moment is, a solid blue one where its beat
     // lands, and a connector between them when they differ. Drawn HERE rather than as an overlay
     // div because `timeToX` is the one authoritative mapping — an absolutely positioned layer over
@@ -555,6 +612,7 @@ function WaveformInner({
     annotations,
     markers,
     gridLines,
+    subGrid,
     currentTime,
     selection,
     dragSel,
@@ -564,11 +622,16 @@ function WaveformInner({
     // envelope, which invalidates `layers` and redraws anyway. That is a coincidence of the fetch,
     // not a rule, and it would go quiet the first time one of them was set from local state.
     warps,
+    onsets,
     sourceWindow,
   ]);
 
-  // The grid's times alone — what a click snaps to (see nearestTick).
-  const gridTimes = useMemo(() => gridLines.map((g) => g.t), [gridLines]);
+  // The grid's times alone — what a click snaps to (see nearestTick). The subdivisions are in
+  // it: they are drawn, and the rule is that you can only land on a line that is on screen.
+  const gridTimes = useMemo(
+    () => [...gridLines.map((g) => g.t), ...subGrid].sort((a, b) => a - b),
+    [gridLines, subGrid],
+  );
 
   const localX = (clientX: number) => {
     const rect = canvasRef.current!.getBoundingClientRect();

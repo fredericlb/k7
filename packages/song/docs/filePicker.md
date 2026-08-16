@@ -11,7 +11,7 @@ widgets:
 ```
 
 `bind` is the whole configuration, and it names three things at once: the param the choice is
-written to, the command that writes it (`module nam <module> <file>`), and the extension offered
+written to, the command that writes it (`node param <node> nam <file>`), and the extension offered
 (`.nam`). One choice to make, and nothing that can disagree with itself.
 
 The button shows the current file's stem; clicking opens a **searchable tree** of the module's
@@ -59,7 +59,7 @@ The same mistake in a second shape: `buildGraphDoc` briefly loaded the ref map i
 graph build, and a graph is polled. Both are the same lesson: this data is loaded once per
 request already, and the walk is expensive enough that a second one shows up as a timeout.
 
-**Three** places computed that folder, not two. The third was the WRITE: `module nam` checks the
+**Three** places computed that folder, not two. The third was the WRITE: `node param` checks the
 file against the module's assets before writing it, off the same wrong line — so once the picker
 could offer a profile, the command refused it and the click did nothing at all.
 

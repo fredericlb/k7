@@ -105,7 +105,7 @@ re-renders a few times a second on a poll or a keystroke, not 23. Measure before
 
 ### Dropping a marker
 
-Right-clicking the ruler offers `marker new <tc>`, and `<tc>` is **where you right-clicked,
+Right-clicking the ruler offers `project marker new <tc>`, and `<tc>` is **where you right-clicked,
 snapped to the nearest drawn tick** — the same `nearestTick` against the same `bars` that a
 left-click seek uses. Both buttons therefore agree about where a point on the ruler is, and a
 marker can only land on a line you can see. The zoom is the resolution control here too.
@@ -222,7 +222,7 @@ named one without the gutter having to choose.
 Not a menu of its own: the **same** one the chains pane opens on that lane's node, through the
 shell's `onNodeMenu`. So the switch, the two `create` entries and the freeze are one behaviour
 with one implementation, and each row is literally the command line it runs —
-`module alternative select|create|copy`, `module freeze`. Switching goes on the click; the two
+`node alternative select|create|copy`, `node freeze`. Switching goes on the click; the two
 that need a name arrive in the command bar half-typed, which is what `complete` already means in
 `contextMenu.ts`.
 
@@ -393,7 +393,7 @@ line — so it is one undo step and one reload however many placements it touche
 can type the same range with no mouse anywhere near. While the bar is filling it, the
 selection feeds its region through `feedEventsMove`, the same road `feedMove` gives the
 single-event drag: tracks, from and to fill themselves (track lanes only — groups hold no
-placements, picture has no verbs, a generated lane's file has no `clips:`), re-offered on
+placements, picture has no verbs, a generated lane's file has no `events:`), re-offered on
 every change so growing the rectangle keeps the fields true, and only the delta is left to
 type. The range's ends are both inclusive on event STARTS, the same cells the rectangle
 covers — where the loop's `[lo, hi+1)` covers time, a start either falls in a cell or not.
@@ -581,3 +581,18 @@ three drags and why a placement is not a command, is in [picture.md](picture.md)
 `rulerTicks` is the one function behind both modes. It returns ticks positioned in BEATS, the
 surface's only coordinate, each carrying its own label and weight, so `Grid` and `RulerTicks`
 stay unit-blind — and `bars`, the snap list every ruler gesture reads, is simply its output.
+
+## Both layers live in `Ruler.tsx`, and the roll draws them too
+
+`Grid` used to be declared in this file, which meant the timeline had a grid matching its ruler
+and the piano roll did not: the roll drew its own ruler from two hand-rolled loops (bars every
+`barBeats`, beats every 1, whatever the zoom) and put **bar lines only** under the notes. So
+zooming a clip in subdivided nothing and zooming it out smeared the numbers, while the same zoom
+on the timeline behaved. `Grid` sits beside `RulerTicks` now and the roll calls both, off the
+same `rulerScale`.
+
+The pair is one statement and that is why they are together: a line under a ruler has to be a
+line the ruler drew, at the weight the ruler gave it. Anything with a ruler gets both —
+[clipEditors.md](clipEditors.md) has the roll's side, and the waveform canvas answers the same
+question a different way (`subdivideGrid`, in `packages/ui-waveform/docs/ticks.md`) because its
+ticks arrive as a list off the wire rather than as a unit it can compute.

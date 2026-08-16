@@ -45,7 +45,7 @@ export interface Hints {
   curves: string[]; // automation curve ids (curves/<id>.yaml) — for pinning a module's automations
   // What each module's file-valued params may be set to — its own `assets/` walked, as
   // assets-relative paths ("Two-Rock/Clean.nam"), keyed by the chain `use` ref. What the
-  // panel's dropdown offers and what completes `module nam`. A module with no assets/ is
+  // panel's dropdown offers, and what a `node param <node> nam …` is checked against. One with none is
   // absent rather than empty.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names (open — new ones still allowed)

@@ -37,15 +37,15 @@ is applied (see `@studio/mediatek`'s `docs/chains.md` and this package's `docs/f
 ## Where the rule is enforced
 
 `coldPlacementError` in `graph.ts`, and nowhere else. Every surface that can add a module to a
-chain calls it — `module insert`, `chain add`, and whatever the chain views wire to them —
+chain calls it — `node insert` and whatever the chain views wire to it —
 because a rule enforced in two places is a rule that will be enforced differently in one of them.
 
 Three things about how it is asked are deliberate:
 
-- **Before anything is written.** `module insert` creates the module and then splices it in; the
+- **Before anything is written.** `node insert` creates the module and then splices it in; the
   refusal has to come first, or a rejected drop leaves a folder behind. So the check takes the
   module (or the ref it is about to extend) rather than looking it up by the name it will have.
-- **Placing wired to NOTHING is allowed.** `module place` drops a node in connected to nothing.
+- **Arriving wired to NOTHING is allowed.** `node new` drops a node in connected to nothing.
   There is no input yet to be wrong about, and refusing there would mean refusing to write a
   module you are about to give a file to. The refusal comes when it is wired.
 - **The message says what to do**, not only that it refused — a live input has no "whole" yet,

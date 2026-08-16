@@ -27,8 +27,6 @@ export const LOCAL_COMMANDS = [
   "ui close", // close the bottom panel
   "ui popin close", // close the topmost overlay (what Esc reaches for first)
   "ui slot close", // put the graph back where a grid, a clip or a take had taken its place
-  "project new", // scaffold a new project at the workspace root, then open it
-  "project delete", // recycle a project folder (confirmed via a dialog)
   "ui edit sequence", // open a MIDI sequence's file in the editor
   "ui edit clip", // open an audio clip's file in the editor
   // A sequence's notes where the graph is, until the × puts the graph back. Bare-named: they
@@ -77,12 +75,12 @@ export const LOCAL_COMMANDS = [
   "project export",
   "project share k7",
   "project import",
-  "file new",
-  "folder new",
-  "file rename",
-  "file move",
-  "file delete",
-  "file upload",
+  "fs file new",
+  "fs folder new",
+  "fs file rename",
+  "fs file move",
+  "fs file delete",
+  "fs file upload",
   // The rack builder popin: a 4×4 pad grid that ends in a `modules/instruments/<name>` on
   // disk. Web-local because the building is the browser's (drops, audition); the create
   // writes through the file routes like the tree's own verbs.
@@ -138,8 +136,6 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Show the chains graph again",
     fr: "Réafficher le graphe des chaînes",
   },
-  "project new": { en: "Create a new project", fr: "Créer un nouveau projet" },
-  "project delete": { en: "Delete a project", fr: "Supprimer un projet" },
   "ui edit sequence": {
     en: "Open a MIDI sequence in the editor",
     fr: "Ouvrir une séquence MIDI dans l'éditeur",
@@ -291,21 +287,21 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Import a .dawproject or an .als",
     fr: "Importer un .dawproject ou un .als",
   },
-  "file new": { en: "Create an empty file", fr: "Créer un fichier vide" },
-  "folder new": { en: "Create a folder", fr: "Créer un dossier" },
-  "file rename": {
+  "fs file new": { en: "Create an empty file", fr: "Créer un fichier vide" },
+  "fs folder new": { en: "Create a folder", fr: "Créer un dossier" },
+  "fs file rename": {
     en: "Rename a file or a folder",
     fr: "Renommer un fichier ou un dossier",
   },
-  "file move": {
+  "fs file move": {
     en: "Move a file into another folder",
     fr: "Déplacer un fichier dans un autre dossier",
   },
-  "file delete": {
+  "fs file delete": {
     en: "Send a file to the recycle bin",
     fr: "Envoyer un fichier à la corbeille",
   },
-  "file upload": {
+  "fs file upload": {
     en: "Upload files into a folder",
     fr: "Envoyer des fichiers dans un dossier",
   },
@@ -319,13 +315,6 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
 export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui file": [{ name: "path", kind: "file", hint: "a file of this project" }],
   // `shape` is the fixed audio|live|set choice completed below in makeCompleteArg.
-  "project new": [
-    { name: "shape", kind: "choice", hint: "audio · live · set" },
-    { name: "name", kind: "text", hint: "the new project's folder name" },
-  ],
-  "project delete": [
-    { name: "name", kind: "text", hint: "a project of this workspace" },
-  ],
   "ui edit sequence": [
     { name: "name", kind: "file", hint: "a sequence of this project" },
   ],
@@ -371,26 +360,26 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
   // The file verbs take TREE ENTRIES — folders included, and binaries kept. `ui file`'s `path`
   // above is the narrower list of what the editor can open: renaming a .wav is not opening it.
-  "file new": [
+  "fs file new": [
     { name: "folder", kind: "file", hint: "the folder it goes in" },
     { name: "name", kind: "text", hint: "the new file's name" },
   ],
-  "folder new": [
+  "fs folder new": [
     { name: "folder", kind: "file", hint: "the folder it goes in" },
     { name: "name", kind: "text", hint: "the new folder's name" },
   ],
-  "file rename": [
+  "fs file rename": [
     { name: "path", kind: "file", hint: "a file or folder of this workspace" },
     { name: "name", kind: "text", hint: "its new name — it does not move" },
   ],
-  "file move": [
+  "fs file move": [
     { name: "path", kind: "file", hint: "a file or folder of this workspace" },
     { name: "folder", kind: "file", hint: "where it goes" },
   ],
-  "file delete": [
+  "fs file delete": [
     { name: "path", kind: "file", hint: "a file or folder of this workspace" },
   ],
-  "file upload": [
+  "fs file upload": [
     { name: "folder", kind: "file", hint: "where the files land" },
     { name: "what", kind: "choice", hint: "files · folder" },
   ],
@@ -398,12 +387,12 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
 
 // The commands whose `path`/`folder` argument names any TREE ENTRY rather than an openable file.
 const ENTRY_COMMANDS = new Set([
-  "file new",
-  "folder new",
-  "file rename",
-  "file move",
-  "file delete",
-  "file upload",
+  "fs file new",
+  "fs folder new",
+  "fs file rename",
+  "fs file move",
+  "fs file delete",
+  "fs file upload",
   "ui pin",
   "ui copy path",
   "project import",
@@ -573,16 +562,12 @@ export function makeListArg(shell: {
     const canonical = canonicalizeCommand(command);
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     const first = priorArgs.length === 0;
-    // `project new`'s first arg is a fixed choice the backend knows nothing about, so offer it
-    // here: a song, a rig, or a SET — two decks meeting at a crossfade and a list to play
-    // through them. All three are `.l8` folders this app opens (@studio/song's PROJECT_SHAPES).
-    if (canonical === "project new" && first) return ["audio", "live", "set"];
     // The shell's other fixed sets. Each is the shell's OWN vocabulary — a panel, a language,
     // an output format — so asking the backend for it would be a round trip for a literal.
     if (canonical === "ui panel" && first) return ["graph", "logs"];
     if (canonical === "ui language" && first) return shell.locales();
     if (canonical === "project export" && first) return ["wav", "mp3"];
-    if (canonical === "file upload" && !first) return ["files", "folder"];
+    if (canonical === "fs file upload" && !first) return ["files", "folder"];
     // …and the ones that are the project's, but that only this app can answer.
     if (canonical === "ui surface" && first) return shell.surfaces();
     if (canonical === "ui file" && first) return shell.files();
@@ -598,7 +583,7 @@ export function makeListArg(shell: {
         .map((f) => (f.split("/").pop() ?? f).replace(/\.ya?ml$/i, ""));
     if (ENTRY_COMMANDS.has(canonical)) {
       // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, right above.
-      // Reading it here is what stops a NAME field — `file rename`'s second — being answered
+      // Reading it here is what stops a NAME field — `fs file rename`'s second — being answered
       // with the whole tree.
       const arg = LOCAL_ARGS[canonical]?.[priorArgs.length];
       return arg?.kind === "file" ? shell.entries() : [];

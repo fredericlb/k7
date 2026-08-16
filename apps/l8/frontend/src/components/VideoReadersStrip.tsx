@@ -1,5 +1,5 @@
 // VideoReadersStrip.tsx — the per-placement dock for an open video_tracks/*.yaml: one
-// small <video> reader per `clips:` entry, with Set From / Set To writing the reader's
+// small <video> reader per `events:` entry, with Set From / Set To writing the reader's
 // current timecode into that placement's `source_from` / `length`. Both are surgical text
 // rewrites of the open file (@studio/song/yaml/videoTrackFile); autosave writes it.
 

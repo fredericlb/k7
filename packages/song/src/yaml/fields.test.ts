@@ -54,9 +54,9 @@ describe("derived module fields", () => {
       // …and a LANE's own fields, which arrived when tracks stopped being a second entity:
       // a lane is a node of a `@studio/…-track` module, so its arrangement is module
       // fields like any other. See docs/trackModules.md.
-      "clips",
+      "events",
       // …and the arrangements the lane WAS playing, each another list of placements. Beside
-      // `clips:` because it is the same thing set aside. See docs/takes.md.
+      // `events:` because it is the same thing set aside. See docs/takes.md.
       "takes",
       "color",
       "disabled",
@@ -77,9 +77,9 @@ describe("derived module fields", () => {
   it("answers inside a take, at both of its levels", () => {
     // A take is a list of lists: `takes[0]` is a take, `takes[0].clips[0]` is a placement. The
     // editor completes both, so setting one aside by hand is as writable as the lane itself.
-    expect(fieldsAt("module", ["takes", "0"])).toEqual(["name", "clips"]);
-    expect(fieldsAt("module", ["takes", "0", "clips", "0"])).toEqual(
-      fieldsAt("module", ["clips"]),
+    expect(fieldsAt("module", ["takes", "0"])).toEqual(["name", "events"]);
+    expect(fieldsAt("module", ["takes", "0", "events", "0"])).toEqual(
+      fieldsAt("module", ["events"]),
     );
   });
 
@@ -112,13 +112,13 @@ describe("derived lane fields", () => {
   it("has no kind of its own — a lane is a module file", () => {
     // There used to be a `track` FileKind here, with a per-kind narrowing (`trackFieldsForType`)
     // because `type: single | group | strudel` unlocked different fields. A lane is a node
-    // now, so `nodes/melody.yaml` is a MODULE file, and which of `clips:`/`tracks:`/
+    // now, so `nodes/melody.yaml` is a MODULE file, and which of `events:`/`tracks:`/
     // `strudel:` it may write is decided by what it extends — a question about the project, not
     // about one file. See docs/trackModules.md.
     expect(fileKindFor("nodes/melody.yaml")).toBe("module");
     expect(fileKindFor("tracks/melody.yaml")).toBeNull();
     expect(fieldsAt("module", [])).toEqual(
-      expect.arrayContaining(["clips", "tracks", "strudel", "color"]),
+      expect.arrayContaining(["events", "tracks", "strudel", "color"]),
     );
   });
 
@@ -128,7 +128,7 @@ describe("derived lane fields", () => {
     const inside = fieldsAt("module", ["alternatives", "0"]);
     expect(inside).toContain("name");
     expect(inside).toContain("params");
-    expect(inside).toContain("clips");
+    expect(inside).toContain("events");
     expect(inside).not.toContain("extends");
     expect(inside).not.toContain("alternatives");
     // The list itself has no field vocabulary — its entries are positions, not names.
@@ -136,7 +136,7 @@ describe("derived lane fields", () => {
   });
 
   it("answers inside a placement", () => {
-    expect(fieldsAt("module", ["clips"])).toEqual([
+    expect(fieldsAt("module", ["events"])).toEqual([
       "ref",
       "start",
       // The event's own window — the placement-level half of the material's pair.

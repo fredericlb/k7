@@ -1,8 +1,11 @@
 ﻿import { describe, expect, it } from "vitest";
 import {
   type CommandPrefs,
+  commandHeads,
   entitiesOf,
+  entityGroup,
   entityOf,
+  isPluralCommand,
   labelOf,
   moveCommand,
   orderCommands,
@@ -35,6 +38,41 @@ describe("the entity a command acts on", () => {
 
   it("lists what a catalogue actually contains, sorted, without repeats", () => {
     expect(entitiesOf(CMDS)).toEqual(["clip", "track", "ui"]);
+  });
+});
+
+// A PLURAL verb — `events move`, which moves every event in a range — is the same subject taken
+// several at a time, not another subject. A group of its own held one command, said nothing the
+// singular's group did not, and hid it from the only filter anyone would look under.
+describe("a plural verb", () => {
+  const WITH_PLURAL = [
+    ...CMDS,
+    { canonical: "event add", readable: "Put a clip on a track" },
+    { canonical: "events move", readable: "Move every event in a range" },
+  ];
+  const heads = commandHeads(WITH_PLURAL);
+
+  it("lists under its SINGULAR", () => {
+    expect(entityGroup("events move", heads)).toBe("event");
+    expect(entitiesOf(WITH_PLURAL)).toEqual(["clip", "event", "track", "ui"]);
+  });
+
+  it("says it is the plural one, so a row can be marked", () => {
+    expect(isPluralCommand("events move", heads)).toBe(true);
+    expect(isPluralCommand("event add", heads)).toBe(false);
+  });
+
+  it("keeps its own group when nothing SINGULAR answers to it", () => {
+    // Derived, not tabulated — but a fold is only a fold when there is something to fold into.
+    // A plural whose singular nobody wrote would otherwise invent a subject out of a suffix.
+    const alone = commandHeads([{ canonical: "chains organize" }]);
+    expect(entityGroup("chains organize", alone)).toBe("chains");
+    expect(isPluralCommand("chains organize", alone)).toBe(false);
+  });
+
+  it("does not fold a word that merely ENDS in s", () => {
+    const h = commandHeads([{ canonical: "process all" }]);
+    expect(entityGroup("process all", h)).toBe("process");
   });
 });
 

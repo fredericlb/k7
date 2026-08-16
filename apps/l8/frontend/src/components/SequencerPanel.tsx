@@ -7,7 +7,14 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import type { WebRackSound } from "@studio/graph-model";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { clipLoop } from "../clipLoop";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import {
@@ -39,15 +46,16 @@ export function SequencerPanel({
   project,
   clip,
   rack,
-  onOpenRoll,
+  modes,
   command,
 }: {
   project: WebProject;
   clip: WebClip;
   /** The downstream rack's sounds, in symbol order — the rows. See rackFor.ts. */
   rack: WebRackSound[];
-  /** Show this clip as a piano roll instead — the way out for what a grid cannot say. */
-  onOpenRoll?: () => void;
+  /** The view switch, drawn at the end of the header — the same control the other two views
+   *  carry, so leaving the sequencer and coming back are one gesture. See ClipViewModes.tsx. */
+  modes?: ReactNode;
   /** Runs a command line through the shell, which journals it — one press, one Ctrl+Z. */
   command: (line: string) => void | Promise<void>;
 }) {
@@ -330,16 +338,7 @@ export function SequencerPanel({
             </button>
           ))}
         </span>
-        {onOpenRoll && (
-          <button
-            type="button"
-            onClick={onOpenRoll}
-            title="ouvrir en piano roll — pour ce qu'une grille ne sait pas dire"
-            className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            🎹
-          </button>
-        )}
+        {modes}
       </div>
 
       {/* The grid: one row per sound, one column per step, the bar boundaries shaded down the

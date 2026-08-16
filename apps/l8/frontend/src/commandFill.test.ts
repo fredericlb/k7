@@ -231,9 +231,9 @@ describe("a clip drag answering the form", () => {
 // What Enter does in the form. The reported bug: with a suggestion highlighted, Enter did
 // nothing at all — it took the suggestion, the list kept showing it (an exact match still
 // ranks first), and the next Enter took it again, for ever. A command whose LAST field has a
-// vocabulary could therefore never be submitted, which is exactly `module replace`'s shape.
+// vocabulary could therefore never be submitted, which is exactly `node replace`'s shape.
 describe("enterAction", () => {
-  // `module replace <module> <extends-ref>` — both required, the last one completing.
+  // `node replace <node> <extends-ref>` — both required, the last one completing.
   const REPLACE: PaletteArg[] = [
     arg("module", "module"),
     arg("extends-ref", "module"),

@@ -52,7 +52,7 @@ function withoutPaths(nodes: FileNode[], paths: string[]): FileNode[] {
 
 /**
  * The two actions that live nowhere else — the pins are this component's localStorage and the
- * OS pickers are its two hidden inputs. Exposed so `ui pin` and `file upload` can reach them:
+ * OS pickers are its two hidden inputs. Exposed so `ui pin` and `fs file upload` can reach them:
  * every action the tree offers is a command, and these are the ones no route and no parent hold.
  */
 export interface FileTreeHandle {
