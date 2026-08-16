@@ -84,6 +84,7 @@ import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import {
   isInSharedModules,
+  librariesDirFor,
   moduleLibraryDirs,
   moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
@@ -92,6 +93,7 @@ import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
 import { isVideoProject, loadVideoProject } from "@studio/song/videoProject";
 import { videoDuration } from "@studio/song/videoTracks";
+import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import type {
   FileContent,
@@ -991,6 +993,42 @@ export class Workspace {
   }
 
   /**
+   * The CHAINS the account's library repository holds — what the chains builder lists.
+   *
+   * A chain is a folder holding a `graph.yaml`, at any depth under `chains/`, and nothing
+   * inside one is another: the médiathèque's own rule, and the same walk `processChain`'s
+   * `libraryChains` does for `@st0/…` refs. Restated rather than imported because that one is
+   * bound to a command's argument and this answers a browser — but the rule is one rule, and if
+   * it ever gains a case both have to learn it.
+   *
+   * `ref` is what the chain is CALLED (`process/normalize`), `path` where it is, workspace-
+   * relative, because that is the only address a browser may hand back. A missing submodule is
+   * an empty list, never a throw: an account with no library yet has no chains, which is a fact
+   * and not an error.
+   */
+  libraryChains(): { ref: string; path: string }[] {
+    const root = librariesDirFor(this.activeProject ?? this.root, "chains");
+    const out: { ref: string; path: string }[] = [];
+    const walk = (at: string, ref: string): void => {
+      let entries: Dirent[];
+      try {
+        entries = readdirSync(at, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      if (entries.some((e) => e.isFile() && e.name === GRAPH_FILE)) {
+        if (ref) out.push({ ref, path: this.toRel(at) });
+        return;
+      }
+      for (const e of entries)
+        if (e.isDirectory())
+          walk(join(at, e.name), ref ? `${ref}/${e.name}` : e.name);
+    };
+    walk(root, "");
+    return out.sort((a, b) => a.ref.localeCompare(b.ref));
+  }
+
+  /**
    * Make an empty module in one of those libraries, and answer where its file landed.
    *
    * The folder is created on the way, which is what makes a level with `exists: false` an
@@ -1880,8 +1918,11 @@ export class Workspace {
     }
   }
 
-  graphDoc(): WebGraph {
-    const dir = this.requireActive();
+  // `at` builds the graph of a folder OTHER than the open project — a library chain, for the
+  // builder. The cache below already refuses to key on anything but the active project, which is
+  // why passing one costs nothing to explain: it takes the branch that was there for it.
+  graphDoc(at?: string): WebGraph {
+    const dir = at ?? this.requireActive();
     // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
     if (dir !== this.activeProject)
       return buildGraphDoc(dir, this.clipExtents(dir));

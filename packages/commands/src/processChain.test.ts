@@ -108,7 +108,7 @@ function libraries(): string {
   );
   put(
     d,
-    "chains/live/vocal-strip/chains.yaml",
+    "chains/live/vocal-strip/graph.yaml",
     'modules:\n  "@in": [ hp ]\n  hp: [ air ]\n  air: [ "@out" ]\n',
   );
   put(

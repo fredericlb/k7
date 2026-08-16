@@ -13,6 +13,7 @@ const st = (o: Partial<RouteState> = {}): RouteState => ({
   panel: null,
   help: false,
   surface: null,
+  builder: null,
   ...o,
 });
 

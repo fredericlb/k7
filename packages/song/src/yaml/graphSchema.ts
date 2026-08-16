@@ -22,6 +22,12 @@ export const GRAPH_FILE = "graph.yaml";
 /** The base the resolver looks up — matches `graph.yaml`, and a `graph.yml` written by hand. */
 export const GRAPH_BASE = "graph";
 
+// A library CHAIN uses this same name. It is not a second kind of document that happens to look
+// like a graph — it IS one: a folder holding this file and a `nodes/` beside it, differing only in
+// having no `project.yaml` and in naming its ends `@in`/`@out`. It carried `chains.yaml` and an
+// `instances/` folder until both were migrated to these; nothing needs a second spelling now.
+// See @studio/mediatek's docs/chains.md.
+
 /**
  * Where one node's signal goes — module node names, or an io sink like `OUT`. Empty == unwired.
  *

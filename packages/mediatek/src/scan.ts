@@ -336,7 +336,7 @@ function scanModules(): MediatekEntry[] {
 }
 
 /**
- * Chains: any folder under `chains/` that HOLDS a `chains.yaml`, at whatever depth.
+ * Chains: any folder under `chains/` that HOLDS a `graph.yaml`, at whatever depth.
  *
  * The same rule modules follow, and the same reason — the file is what makes the folder, so
  * how deep you file it is your business and not the scan's. A chain is a TEMPLATE: the segments

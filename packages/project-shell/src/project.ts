@@ -72,6 +72,11 @@ export const projectApi = {
    *  one is the SONG and these sit outside it — see the file service's `moduleLibraries`. */
   moduleLibraries: () =>
     fget<{ libraries: ModuleLibrary[] }>("/module-libraries"),
+  /** The CHAINS that library holds — what the chains builder lists. `ref` is what a chain is
+   *  called (`process/normalize`), `path` where it is; the path comes from here rather than
+   *  being built, exactly as a module library's does. */
+  libraryChains: () =>
+    fget<{ chains: { ref: string; path: string }[] }>("/library-chains"),
   /** Make an empty module in one of them. `root` is a path THAT call answered with, `rel` the
    *  module's path under it — at least `<type>/<name>`. */
   createModule: (root: string, rel: string) =>
@@ -112,6 +117,9 @@ export const projectApi = {
   videoDoc: () => fget<WebVideoProject>("/video-doc"),
   videoErrors: () => fget<ProjectErrors>("/video-errors"),
   graph: () => fget<WebGraph>("/graph"),
+  /** The graph of a library CHAIN, by the path `/library-chains` gave — the builder's drawing. */
+  graphAt: (path: string) =>
+    fget<WebGraph>(`/graph?at=${encodeURIComponent(path)}`),
   // The project's `surfaces/` folder, parsed — the special views it asks its editor to draw.
   // Empty for almost every project; see packages/song/docs/surfaces.md.
   surfaces: () => fget<ProjectSurfaces>("/surfaces"),
@@ -172,11 +180,13 @@ export const projectApi = {
    * Optional on purpose: a host that ignores it behaves exactly as before, and still benefits,
    * because building it warmed the cache its next `/graph` will hit.
    */
-  command: (line: string) =>
+  command: (line: string, at?: string) =>
     fsend<{ output: string[]; graph?: WebGraph; rev?: string }>(
       "POST",
       "/command",
-      { line },
+      // `at` points the verbs at a folder OTHER than the open project — the chains builder's
+      // template. A path this caller was GIVEN (`/library-chains` answered it), never one it built.
+      { line, ...(at ? { at } : {}) },
     ),
 
   // --- The project-wide undo/redo journal, driven by Ctrl+Z / Ctrl+Y ------------

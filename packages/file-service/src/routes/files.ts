@@ -122,6 +122,20 @@ filesRouter.get(
 );
 
 /**
+ * The chains the library repository holds — what l8's chains builder lists.
+ *
+ * Beside `/module-libraries` for the same reason it is: both answer about things OUTSIDE the
+ * open song, which `/tree` is deliberately not about. A chain's `path` comes from here rather
+ * than being built by the caller, so opening one is addressed the way a module library is.
+ */
+filesRouter.get(
+  "/library-chains",
+  wrap((req, res) => {
+    res.json({ chains: req.ws!.libraryChains() });
+  }),
+);
+
+/**
  * Make an empty module: `<root>/<type>/<name>/module.yaml`.
  *
  * A module is a FOLDER holding a definition, so there is nothing useful "New folder…" could do
@@ -423,7 +437,10 @@ filesRouter.get(
     res.json(webCompletions(req.ws!, String(req.query.line ?? ""))),
   ),
 );
-const cmdBody = z.object({ line: z.string() });
+// `at` is a workspace-relative folder the verbs should act on INSTEAD of the open project — the
+// chains builder's template. Through `safePath` like every other path a browser sends, so it
+// cannot address its way out of the workspace, and absent for every ordinary command.
+const cmdBody = z.object({ line: z.string(), at: z.string().optional() });
 /**
  * Run a verb, and hand back the new GRAPH with it when the project changed.
  *
@@ -444,11 +461,12 @@ filesRouter.post(
   "/command",
   validate(cmdBody),
   wrap(async (req, res) => {
-    const { line } = req.body as z.infer<typeof cmdBody>;
+    const { line, at } = req.body as z.infer<typeof cmdBody>;
+    const target = at ? req.ws!.mediaPath(at) : undefined;
     const before = req.ws!.revision().rev;
     const t0 = performance.now();
     // req.userEmail lets commit/pull pin git to this user's deploy key (see makeHost).
-    const output = await runWebCommand(req.ws!, line, req.userEmail);
+    const output = await runWebCommand(req.ws!, line, req.userEmail, target);
     const ran = performance.now();
     const rev = req.ws!.revision().rev;
     const changed = rev !== before;
@@ -672,7 +690,10 @@ filesRouter.get(
   "/graph",
   wrap((req, res) => {
     try {
-      res.json(req.ws!.graphDoc());
+      // `?at=<rel>` asks for a folder other than the open project — a library chain, drawn by the
+      // chains builder. Through safePath like every path a browser sends.
+      const at = String(req.query.at ?? "");
+      res.json(req.ws!.graphDoc(at ? req.ws!.mediaPath(at) : undefined));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

@@ -764,8 +764,12 @@ function makeHost(
   out: string[],
   userEmail?: string,
   snapshot?: (absPath: string) => void,
+  // Where the verbs act, when it is NOT the open project: the chains builder edits a template in
+  // `_libraries`, which is a graph document of its own. Absolute, already resolved and checked by
+  // the caller — a path from a browser never reaches this without going through `safePath`.
+  at?: string,
 ): CommandHost {
-  const dir = ws.activeProjectPath();
+  const dir = at ?? ws.activeProjectPath();
   const requireDir = (): string => {
     if (!dir) throw new Error(NO_PROJECT);
     return dir;
@@ -880,14 +884,21 @@ export async function runWebCommand(
   ws: Workspace,
   line: string,
   userEmail?: string,
+  // The folder the verbs act on, when the caller means something other than the open project —
+  // the chains builder's template. Absolute; the route resolves and checks it.
+  at?: string,
 ): Promise<string[]> {
   const out: string[] = [];
-  if (!ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim()))
+  if (!at && !ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim()))
     return [NO_PROJECT];
   // Journal whatever files the command changes, so Ctrl+Z can undo it (a no-op when nothing changed).
   await ws.recordChange(line, async (snapshot) => {
     try {
-      await runCommand(line, makeHost(ws, out, userEmail, snapshot), SURFACE);
+      await runCommand(
+        line,
+        makeHost(ws, out, userEmail, snapshot, at),
+        SURFACE,
+      );
     } catch (e) {
       out.push(`error: ${(e as Error).message}`);
     }

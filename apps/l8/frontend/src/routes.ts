@@ -39,6 +39,19 @@ export interface RouteState {
    * packages/song/docs/surfaces.md.
    */
   surface: string | null;
+  /**
+   * The CHAIN BUILDER: a library chain being edited, by its ref (`process/normalize`), or null.
+   *
+   * A screen over the layout, like `help` and a surface — not a `Pane`, because the four panes
+   * are the shell's own and this one edits a document that is not the open project. What it
+   * draws is the ordinary graph editor pointed at a chain's `chains.yaml` instead of the
+   * project's `graph.yaml`; that the two are the same document under two names is
+   * `graphFileOf`'s doing, in @studio/song. See docs/chainsBuilder.md.
+   *
+   * The empty string is the LIST — the builder open on no chain yet — which is a real state and
+   * not "closed": `/chains-builder` is an address you can bookmark before picking one.
+   */
+  builder: string | null;
 }
 
 const PANES: Pane[] = ["editor", "viewport", "timeline", "chains"];
@@ -100,15 +113,19 @@ const isPanel = (s: string): s is Panel => (PANELS as string[]).includes(s);
  * fullscreened pane and the root.
  */
 export function toPath(s: RouteState): string {
-  // Help wins, then a surface, then a fullscreened pane. The order is the stacking order on
-  // screen — each of these covers the one after it, so the URL names the topmost.
+  // Help wins, then the chain builder, then a surface, then a fullscreened pane. The order is the
+  // stacking order on screen — each of these covers the one after it, so the URL names the topmost.
   const path = s.help
     ? "/docs"
-    : s.surface
-      ? `/surface/${encodeURIComponent(s.surface)}`
-      : s.full
-        ? `/${s.full}`
-        : "/";
+    : s.builder !== null
+      ? s.builder
+        ? `/chains-builder/${s.builder.split("/").map(encodeURIComponent).join("/")}`
+        : "/chains-builder"
+      : s.surface
+        ? `/surface/${encodeURIComponent(s.surface)}`
+        : s.full
+          ? `/${s.full}`
+          : "/";
   return s.panel ? `${path}?panel=${s.panel}` : path;
 }
 
@@ -137,10 +154,32 @@ export function fromLocation(
   const seg = pathname.replace(/^\/+|\/+$/g, "");
   const panelParam = new URLSearchParams(search).get("panel") ?? "";
   const panel = isPanel(panelParam) ? panelParam : null;
-  const base = { view: current, full: null, panel, help: false, surface: null };
+  const base = {
+    view: current,
+    full: null,
+    panel,
+    help: false,
+    surface: null,
+    builder: null,
+  };
 
   // `/help` still lands here: it was the docs' address for a while, and a bookmark shouldn't drop you elsewhere.
   if (seg === "docs" || seg === "help") return { ...base, help: true };
+  // `/chains-builder` is the LIST, `/chains-builder/<ref>` one chain. A ref has slashes of its
+  // own (`process/normalize`), so the tail is taken whole rather than split — the same reason a
+  // surface id is. Not checked against the library: the chains arrive after the shell, exactly
+  // as the surfaces do, and an address that named one would parse to "no chain" on every deep link.
+  if (seg === "chains-builder") return { ...base, builder: "" };
+  if (seg.startsWith("chains-builder/")) {
+    const ref = seg.slice("chains-builder/".length);
+    let decoded = ref;
+    try {
+      decoded = decodeURIComponent(ref);
+    } catch {
+      // A hand-typed % that is not an escape — kept, as the surface branch keeps it.
+    }
+    return { ...base, builder: decoded };
+  }
   // `/surface/<id>`. The id is NOT checked against the project's list: the surfaces arrive a
   // moment after the shell does, so an address that named one would parse to "no surface" on
   // every deep link and quietly drop you on the layout. The screen resolves it once they land,

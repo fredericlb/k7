@@ -31,15 +31,25 @@ export const FAMILY_ERROR = `family must be one of: ${FAMILIES.join(", ")}`;
  */
 export const RECORDINGS_DIR = "recordings";
 
-/** The file that makes a folder a CHAIN — the same name, and the same shape, a l8 project
- *  uses at its root. Here rather than in scan.ts for the reason RECORDINGS_DIR is: a browser
- *  reaching for the word would otherwise pull `node:fs` in with it. scan.ts re-exports it, so
- *  every existing importer is unchanged. */
-export const CHAINS_FILE = "chains.yaml";
+/**
+ * The file that makes a folder a CHAIN — the same name, and the same shape, a l8 project uses
+ * at its root.
+ *
+ * Literally the same now. It said `chains.yaml` while a project's said `graph.yaml`, on the
+ * argument that a shared chain is a different object from a project's whole topology. It is not:
+ * a chain is a FOLDER holding this file and a `nodes/` beside it, which is exactly what a project
+ * holds, and the two differ only in a chain having no `project.yaml` and naming its ends
+ * `@in`/`@out`. One name, so nothing downstream has to carry a second spelling.
+ *
+ * Here rather than in scan.ts for the reason RECORDINGS_DIR is: a browser reaching for the word
+ * would otherwise pull `node:fs` in with it. scan.ts re-exports it, so every existing importer is
+ * unchanged.
+ */
+export const CHAINS_FILE = "graph.yaml";
 
-/** Where a chain keeps the nodes its segments name, beside its `chains.yaml`. Here for the
- *  same reason CHAINS_FILE is: the médiathèque's chain pane and l8's `clip process` both name
- *  this folder, and only one of the two may open `node:fs`. */
+/** Where a chain keeps the nodes its segments name, beside its graph file — `instances/` until
+ *  it was migrated to this. Here for the same reason CHAINS_FILE is: the médiathèque's chain
+ *  pane and l8's `clip process` both name this folder, and only one of the two may open `node:fs`. */
 export const NODES_DIR = "nodes";
 
 /** The sidecar that makes a folder a SONG and carries its title, its provenance and its

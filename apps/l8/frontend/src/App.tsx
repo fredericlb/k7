@@ -55,6 +55,7 @@ import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
 import { AudioClipPanel } from "./components/AudioClipPanel";
+import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
 import { ClipView, type EditTarget } from "./components/ClipView";
 import {
@@ -211,6 +212,15 @@ export default function App({
    * `Pane`. It behaves like `help` — over the layout, which is left exactly as it was underneath.
    */
   const [openSurface, setOpenSurface] = useState<string | null>(null);
+  /**
+   * The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed.
+   *
+   * Beside `openSurface` and for the same reason — a screen over the layout, not a pane — but it
+   * edits a document that is not the open project at all: a chain template in `_libraries`. What
+   * makes that possible without a second editor is that a chain IS a graph, so the same verbs
+   * reach it once they are pointed at its folder. See docs/chainsBuilder.md.
+   */
+  const [openBuilder, setOpenBuilder] = useState<string | null>(null);
   // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
   // full screen of its own (a code pane, a params list and a widget grid), and the shell's panes are
   // already three. Nothing under it unmounts, so closing it puts the editor back exactly as it was.
@@ -678,13 +688,21 @@ export default function App({
 
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
-    { view, full, panel, help: showHelp, surface: openSurface },
+    {
+      view,
+      full,
+      panel,
+      help: showHelp,
+      surface: openSurface,
+      builder: openBuilder,
+    },
     useCallback((next) => {
       setView(next.view);
       setFull(next.full);
       setPanel(next.panel);
       setShowHelp(next.help);
       setOpenSurface(next.surface);
+      setOpenBuilder(next.builder);
     }, []),
     hasTimeline,
     hasViewport,
@@ -3508,6 +3526,16 @@ export default function App({
             onClose={() => setOpenSurface(null)}
           />
         ))}
+        {/* The chains builder: the account's library chains, edited as the graphs they are. Over
+            the layout like a surface screen, and nothing under it unmounts — closing it puts the
+            song back exactly as it was. See docs/chainsBuilder.md. */}
+        {openBuilder !== null && (
+          <ChainsBuilder
+            open={openBuilder}
+            onOpen={setOpenBuilder}
+            onClose={() => setOpenBuilder(null)}
+          />
+        )}
         {/* A deep link naming a surface this project has not got — `fromLocation` deliberately
             does not check the id, since the list arrives a moment after the shell. A `split`
             surface lands here too: it is drawn in the layout and has no screen to open, so

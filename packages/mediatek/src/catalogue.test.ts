@@ -291,31 +291,31 @@ describe("scanning samples and modules", () => {
   // A chain is a TEMPLATE: segments wiring named nodes to each other, with `@in` and `@out`
   // standing where a project would have a track and a sink. Same rule as a module — the file is
   // what makes the folder — so the two scans read alike on purpose.
-  it("catalogues a chain by its chains.yaml, at any depth", () => {
+  it("catalogues a chain by its graph.yaml, at any depth", () => {
     write(
-      "chains/gtr/chains.yaml",
+      "chains/gtr/graph.yaml",
       'tracks:\n  "@in": [ eq ]\nmodules:\n  eq: [ "@out" ]\n',
     );
-    write("chains/live/vocals/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
+    write("chains/live/vocals/graph.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
     const paths = scanFamily("chains").map((e) => e.path);
     expect(paths).toEqual(["chains/gtr", "chains/live/vocals"]);
   });
 
   it("counts the nodes beside the file, not the files in the folder", () => {
     // How big a template is, without opening it. The nodes live in their own folder, so
-    // counting the chain's own files would report the chains.yaml and any notes beside it.
-    write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
+    // counting the chain's own files would report the graph.yaml and any notes beside it.
+    write("chains/gtr/graph.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
     write("chains/gtr/README.md", "notes");
     write("chains/gtr/nodes/eq.yaml", 'extends: "@st0/audio/eq"\n');
     write("chains/gtr/nodes/comp.yaml", 'extends: "@st0/audio/comp"\n');
     const [chain] = scanFamily("chains");
     expect(chain.meta?.nodes).toBe(2);
-    expect(chain.files).toContain("chains.yaml");
+    expect(chain.files).toContain("graph.yaml");
   });
 
   it("stops AT a chain — nodes/ is inside one, not a chain of its own", () => {
-    write("chains/gtr/chains.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
-    write("chains/gtr/nodes/chains.yaml", "modules: {}\n"); // pathological, but decisive
+    write("chains/gtr/graph.yaml", 'tracks:\n  "@in": [ "@out" ]\n');
+    write("chains/gtr/nodes/graph.yaml", "modules: {}\n"); // pathological, but decisive
     expect(scanFamily("chains").map((e) => e.path)).toEqual(["chains/gtr"]);
   });
 

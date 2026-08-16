@@ -409,7 +409,15 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
 
 // --- chains file --------------------------------------------------------------
 
-/** The project's chains file. */
+/**
+ * The graph file a folder holds — a project's, or a library CHAIN's, which is the same file.
+ *
+ * Every verb below goes through this one function, which is what lets the graph editor act on a
+ * chain template without a single verb knowing it might be one. That costs nothing to arrange
+ * because a chain is not a lookalike: it is a folder holding a `graph.yaml` and a `nodes/`, the
+ * same two things a project holds, differing only in having no `project.yaml` and in naming its
+ * ends `@in`/`@out`.
+ */
 function graphFileOf(dir: string): { path: string } {
   const file = entityFileFor(dir, "", GRAPH_BASE);
   if (!file) throw new Error(`${dir}: no ${GRAPH_FILE}`);

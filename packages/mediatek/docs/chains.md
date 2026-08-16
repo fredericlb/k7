@@ -1,20 +1,32 @@
 # Chains — routing templates the library holds
 
-A **chain** in the médiathèque is a folder holding a `chains.yaml`, at whatever depth under
+A **chain** in the médiathèque is a folder holding a `graph.yaml`, at whatever depth under
 `chains/`:
 
 ```
 chains/blindtest/vocal-strip/
-  chains.yaml        ← the segments
+  graph.yaml     ← the segments
   nodes/         ← the modules they name
     eq.yaml
     gate.yaml
 ```
 
-The file is a l8 `chains.yaml` — the same name and the same shape a project uses at its
-root. Not "like" it: the same parser (`@studio/song`'s `parseGraph`), the same
-`deriveChains`, the same graph pipeline. A template that drifted from the format it is a
-template *for* would be a second dialect to keep in step.
+**A chain is a folder, laid out exactly as a project is.** Same file name, same `nodes/` beside
+it, same parser (`@studio/song`'s `parseGraph`), same `deriveChains`, same graph pipeline. It is
+not a lookalike and not a second dialect: it is the same document, and it differs in two things
+only, both about what it *is* rather than how it is written — it has no `project.yaml` beside it,
+and it names its ends `@in`/`@out` instead of a lane and a sink.
+
+That homogeneity is what lets l8's graph editor edit one with no special case anywhere: every
+graph verb goes through a single `graphFileOf`, and it has one name to look for. See
+[apps/l8/frontend/docs/chainsBuilder.md](../../../apps/l8/frontend/docs/chainsBuilder.md).
+
+> It was not always so, and the two names cost more than they bought. The file was `chains.yaml`
+> and the folder `instances/`, on the argument that a shared chain is a different object from a
+> project's topology. The argument was true and irrelevant: what a thing IS did not make it a
+> different SHAPE, and the second spelling had to be carried by every reader — a fallback in the
+> editor, a constant of its own in this package, a branch in the walk. Migrated, all 18 of them,
+> and the fallback deleted rather than extended.
 
 ## `@in` and `@out`
 
@@ -25,6 +37,14 @@ to treat something, not what to treat. So it names its ends `@in` and `@out`.
 works unchanged. `deriveChains` follows a track's first hop exactly as it does in a song, and
 `buildGraph` draws a source node for it. The chain has no tracks, but it has one thing the
 signal comes FROM, and that is the same position in the graph.
+
+> **Measured, and it disagrees.** Through `chainSteps` — the reading `clip process` and
+> `track process` use — a file declaring `@in` under `tracks:` yields **no steps at all**, while
+> one declaring it under `modules:` yields them. The `blindtest/` chains are written the first
+> way and `live/vocals` the second, so the two shapes are both in the library today. Only the
+> bouncing path was measured; whether z0's variant path reads the `tracks:` form successfully is
+> a separate question that was not tested. A chain meant to be bounced through must use
+> `modules:` until this is settled — see `chains/process/normalize`.
 
 ## The nodes are files
 
