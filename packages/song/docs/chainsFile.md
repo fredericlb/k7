@@ -9,8 +9,10 @@ The four edits the app actually makes (the honest test set):
 
 - **bypass a module** — the graph's bypass button, many times a session
 - **insert a module** — `module insert`, and the graph's drop-on-an-arrow
-- **remove a module** — `module delete`
-- **rename a module** — `module replace`, and forking a shared module into the project
+- **take a module out of the signal path** — `node unlink` (`module delete`, which removed the
+  files as well, is gone: deleting them is the file tree's)
+- **rename a module** — forking a shared module into the project (`module replace` used to do
+  this too; it repoints a node's `extends:` now and never touches a chain)
 
 ## What the shape bought
 

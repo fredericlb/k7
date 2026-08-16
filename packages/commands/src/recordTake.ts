@@ -7,7 +7,7 @@ import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
 import { beatsToPosition } from "@studio/song/timecode";
-import { editTrackStruct } from "@studio/song/trackMix";
+import { editTrackStruct, pushTrackClipsToTake } from "@studio/song/trackMix";
 import { addPlacement } from "@studio/song/yaml/trackFile";
 
 // A finished take as the engine reports it. Position in SECONDS — it has no tempo map, so converting is ours.
@@ -54,6 +54,24 @@ function writeClipDecl(
   return path;
 }
 
+// A hair under a tick: two events that merely touch, end to start, are not on top of each other.
+const TOUCHING = 1e-6;
+
+/** Does anything the lane is playing sit under this take's span? What decides a take is made. */
+function overlaps(
+  doc: ProjectDoc,
+  take: RecordedTake,
+  beats: (s: number) => number,
+): boolean {
+  const track = doc.tracks.find((t) => t.id === take.track);
+  if (!track) return false;
+  const from = beats(take.start);
+  const to = from + beats(take.length);
+  return track.clips.some(
+    (c) => c.start < to - TOUCHING && c.start + c.length > from + TOUCHING,
+  );
+}
+
 /**
  * Declare a finished take and place it on its track. Returns the clip id.
  *
@@ -89,6 +107,12 @@ export function addTakeToTrack(
   if (dest !== take.file) renameSync(take.file, dest);
 
   writeClipDecl(dir, id, wavName, window);
+
+  // Recording OVER something sets it aside rather than stacking on top of it (docs/takes.md).
+  // The overlap is read off the COMPILED doc, so what counts is what the lane actually plays —
+  // windows and loops folded in — and the caller recompiles between takes, which is what makes
+  // a loop record one take per pass: pass 2 finds pass 1's clip and puts it away in its turn.
+  if (overlaps(doc, take, beats)) pushTrackClipsToTake(dir, take.track);
 
   // Declare the clip BEFORE placing it: a placement naming no clip fails the compile, so the order keeps it loadable.
   editTrackStruct(

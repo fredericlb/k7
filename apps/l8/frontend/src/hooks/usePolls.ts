@@ -177,17 +177,33 @@ export function useWarmWaveforms(
 }
 
 /**
- * Follow a project switch made under us (another tab, the CLI): when the workspace's
- * active project changes, refresh the workspace + project state and bump the reload.
- * `lastActiveRef` is shared with the shell so its own opens don't read as a switch.
+ * Follow what happens to the workspace under us — the two things this tab did not do itself.
+ *
+ * A project SWITCH (another tab, the CLI): refresh the workspace + project state and bump the
+ * reload. `lastActiveRef` is shared with the shell so its own opens don't read as a switch.
+ *
+ * And a TAKE landing. That one is not a poll of its own: the answer is already in this
+ * request, and the hook simply stopped reading it. A recording is the one edit nobody types —
+ * the ENGINE writes the wav, the file service declares the clip and places it on the lane —
+ * so no command reply ever tells this tab about it. Without this, a take appeared only when
+ * the next command happened to reload the document, which is why stopping with the header's
+ * Stop button never showed one at all: the clip was on disk and on the lane, and the screen
+ * went on showing the song without it.
+ *
+ * The first answer only SEEDS the take: `lastTake` is the service's memory of the newest take
+ * ever, so firing on it would reopen the review of an old recording on every page load.
  */
 export function useActiveProjectFollow(opts: {
   lastActiveRef: React.RefObject<string | null>;
   onSwitch: (w: WorkspaceInfo) => void;
+  /** A take was recorded: the workspace now names a clip this tab has never seen. */
+  onTake?: (w: WorkspaceInfo) => void;
 }): void {
   const optsRef = useRef(opts);
   optsRef.current = opts;
   useEffect(() => {
+    // undefined == no answer read yet; null == read, and there was no take.
+    let seen: string | null | undefined;
     const id = setInterval(async () => {
       try {
         const w = await api.workspace();
@@ -195,6 +211,10 @@ export function useActiveProjectFollow(opts: {
           optsRef.current.lastActiveRef.current = w.activeProject;
           optsRef.current.onSwitch(w);
         }
+        const clip = w.lastTake?.clip ?? null;
+        const landed = isNewTake(seen, clip);
+        seen = clip;
+        if (landed) optsRef.current.onTake?.(w);
       } catch {
         /* backend momentarily unavailable */
       }
@@ -202,3 +222,16 @@ export function useActiveProjectFollow(opts: {
     return () => clearInterval(id);
   }, []);
 }
+
+/**
+ * Is `clip` a take this tab has not seen? `seen` is undefined before the first answer.
+ *
+ * The undefined case is the whole of it: `lastTake` is the file service's memory of the newest
+ * take it ever wrote, not a fresh event, so a tab opened hours later is told about a recording
+ * from this morning. Seeding on the first answer is what makes this mean "a take just landed"
+ * rather than "a take exists".
+ */
+export const isNewTake = (
+  seen: string | null | undefined,
+  clip: string | null,
+): boolean => seen !== undefined && clip !== null && clip !== seen;

@@ -45,6 +45,7 @@ import {
 } from "react";
 import { api } from "../api";
 import { useDiskSync } from "../hooks/useDiskSync";
+import { moduleBehind } from "../moduleBehind";
 import {
   fileStem,
   isClipFile,
@@ -54,9 +55,11 @@ import {
   isTrackFile,
   isVideoTrackFile,
   moduleFileOf,
+  rackKeyOf,
   readScalarField,
 } from "../projectPaths";
 import type { SeqView } from "../sequenceEdit";
+import { rackSliceRanges, scanSlices, setSliceWindow } from "../sliceSymbols";
 import type {
   Diagnostic,
   FileContent,
@@ -72,6 +75,7 @@ import type { EditTarget } from "./ClipView";
 import { EditorPane } from "./EditorPane";
 import { FileTree, type FileTreeHandle } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
+import { ModuleSidePane } from "./ModuleSidePane";
 import { SeqGrid } from "./SeqGrid";
 import { UploadProgress } from "./UploadProgress";
 import { type VideoReader, VideoReadersStrip } from "./VideoReadersStrip";
@@ -360,11 +364,14 @@ export function EditorTab({
     clip: WebClip;
     // Span the whole source, not the placed region — what a clips/*.yaml shows (see WaveformView).
     whole?: boolean;
-    // Slice-rack windows to overlay on the waveform, when the open sequence's use_rack is a slice rack.
-    sliceRanges?: { symbol: string; from: number; to: number }[];
+    // Slice-rack windows to overlay on the waveform — coloured, when they are a rack's slices.
+    sliceRanges?: {
+      symbol: string;
+      from: number;
+      to: number;
+      color?: string;
+    }[];
   } | null>(null);
-  // When the OPEN file is a slice-rack module.yaml: its source, driving inline per-symbol waveform editors.
-  const [sliceRack, setSliceRack] = useState<{ source: string } | null>(null);
   // The last sound auditioned from a gutter ▶, docked under the editor until dismissed or the file changes.
   const [preview, setPreview] = useState<{
     project: WebProject;
@@ -398,8 +405,13 @@ export function EditorTab({
       try {
         const proj = await api.projectDoc();
         const root = (hints.projectRoot || "").replace(/[\\/]+$/, "");
+        // ALREADY-absolute stays untouched: a ▶ in a pane reached by absolute path (the popin's
+        // module side, a ctrl-click) resolves its source absolute, and prefixing the root onto
+        // that built `<project>\C:\…` — a stat nothing could ever satisfy.
         const abs = (rel: string) =>
-          root ? [root, ...rel.split(/[\\/]/)].filter(Boolean).join("/") : rel;
+          !root || /^([A-Za-z]:[\\/]|[\\/])/.test(rel)
+            ? rel
+            : [root, ...rel.split(/[\\/]/)].filter(Boolean).join("/");
         const base = (rel: string) => rel.split(/[\\/]/).pop() || rel;
         if (req.kind === "clip") {
           setPreview({
@@ -476,10 +488,9 @@ export function EditorTab({
       void api.preview(r).catch((e) => {
         setStatus(`preview error: ${(e as Error).message}`);
       });
-      // A slice-rack file already shows every slice inline, so auditioning shouldn't also dock a redundant waveform.
-      if (!sliceRack) void previewSound(r);
+      void previewSound(r);
     },
-    [previewSound, setStatus, filePath, activeProject, sliceRack],
+    [previewSound, setStatus, filePath, activeProject],
   );
 
   // Feed the shared Editor panel the SOURCE behind the open file, so the bottom pane shows what you're looking at.
@@ -488,31 +499,11 @@ export function EditorTab({
     if (!file || file.binary) {
       onEditTarget(null);
       setAudioClip(null);
-      setSliceRack(null);
       return;
     }
     const p = file.path.replace(/\\/g, "/");
     let cancelled = false;
     const stem = fileStem(p);
-
-    // Inline slice editors, set idempotently: a fresh {source} each keystroke would reconfigure the whole editor.
-    let inlineSliceSource: string | null = null;
-    if (isRackModuleFile(p)) {
-      const mod =
-        p
-          .replace(/\/module\.ya?ml$/i, "")
-          .split("/")
-          .pop() ?? "";
-      const rk = hints.racks[mod];
-      if (rk?.rackType === "slice" && rk.source) inlineSliceSource = rk.source;
-    }
-    setSliceRack((prev) =>
-      (prev?.source ?? null) === inlineSliceSource
-        ? prev
-        : inlineSliceSource
-          ? { source: inlineSliceSource }
-          : null,
-    );
 
     if (isSeqFile(p)) {
       // A sequence driving a SLICE rack docks that rack's source waveform, with each symbol's [from,to] drawn on it.
@@ -520,9 +511,7 @@ export function EditorTab({
       const rack = useRack ? hints.racks[useRack] : undefined;
       if (rack && rack.rackType === "slice" && rack.source) {
         const source = rack.source;
-        const ranges = rack.symbols
-          .filter((s) => s.from != null && s.to != null)
-          .map((s) => ({ symbol: s.symbol, from: s.from!, to: s.to! }));
+        const ranges = rackSliceRanges(rack.symbols);
         void api
           .projectDoc()
           .then((proj) => {
@@ -612,16 +601,58 @@ export function EditorTab({
       };
     }
 
-    if (isRackModuleFile(p)) {
-      // A SLICE-rack module.yaml gets INLINE editors instead of the docked strip; here we only make sure it is off.
-      setAudioClip(null);
-      onEditTarget(null);
-      return;
+    /**
+     * A SLICE RACK — the module.yaml itself, or a NODE of one (two lines, `extends` +
+     * `type: rack`, the symbols living in the module) — docks the SOURCE waveform with every
+     * symbol's window in its own colour: the slicer. It used to be inline waveforms under each
+     * symbol line of the module file; one picture with coloured windows replaced them, and the
+     * symbol names in the text wear the same hues (sliceSymbols.ts). `rackKeyOf` is what lets
+     * one map answer for both spellings of "this file is a rack".
+     */
+    const nodeKey = rackKeyOf(p);
+    const nodeRack = nodeKey ? hints.racks[nodeKey] : undefined;
+    if (nodeRack?.rackType === "slice" && nodeRack.source) {
+      // In the popin SPLIT the module pane docks this same picture, and the module's is the
+      // editable one — once is enough, so the instance side stands down when the split shows.
+      if (popin && moduleBehind(file.content, hints, p) != null) {
+        setAudioClip(null);
+        onEditTarget(null);
+        return;
+      }
+      const source = nodeRack.source;
+      const ranges = rackSliceRanges(nodeRack.symbols);
+      void api
+        .projectDoc()
+        .then((proj) => {
+          if (cancelled) return;
+          setAudioClip({
+            project: proj,
+            clip: {
+              id: source,
+              type: "audio",
+              name: source,
+              start: 0,
+              length: 0,
+              notes: [],
+            },
+            sliceRanges: ranges,
+          });
+          onEditTarget(null);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAudioClip(null);
+            onEditTarget(null);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
     }
 
     setAudioClip(null);
     onEditTarget(null);
-  }, [active, file, hints, onEditTarget]);
+  }, [active, file, hints, onEditTarget, popin]);
 
   const refresh = useCallback(async () => {
     try {
@@ -1071,6 +1102,28 @@ export function EditorTab({
   // with no notes in it, a binary — falls back to the editor without the tabs deciding.
   const grid = popin && isSeq && editable && tab !== "text" ? tab : null;
 
+  /**
+   * The MODULE behind the open file, when the popin shows an INSTANCE: a node's own file names
+   * its per-instance fields, and what those override lives one `extends:` away — so the popin
+   * shows both, side by side, both editable. Read from the BUFFER, so retyping the extends line
+   * swaps the pane, and resolved exactly as a ctrl-click on it resolves (moduleBehind.ts). A
+   * base with no file to edit — `@engine/…`, the `@studio/…` track bases — resolves to nothing
+   * and the popin stays one pane. Popin only: the full-screen editor has the tree, and a second
+   * file there is one click away rather than a question.
+   */
+  const moduleSide =
+    popin && file && !file.binary && !grid
+      ? moduleBehind(file.content, hints, file.path)
+      : null;
+
+  // Whether the docked slicer's drags have anything of THIS buffer's to write: the symbols must
+  // live in the open file. A node's dock shows the module's slices — read-only here, editable in
+  // the pane whose buffer holds them (the popin's module side, or the module file itself).
+  const canSliceEdit = useMemo(
+    () => !!file && !file.binary && scanSlices(file.content) != null,
+    [file],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
@@ -1272,27 +1325,63 @@ export function EditorTab({
                 onChange={(v) => setFile({ ...file, content: v })}
               />
             ) : (
-              <EditorPane
-                file={file}
-                onEditorView={(v) => {
-                  cmViewRef.current = v;
-                }}
-                hints={hints}
-                vimMode={vimMode}
-                audioClip={audioClip}
-                preview={preview}
-                onClosePreview={() => setPreview(null)}
-                onChange={(v) => {
-                  if (file) setFile({ ...file, content: v });
-                }}
-                onSave={autosave.flush}
-                onOpenEntity={open}
-                onPreview={handlePreview}
-                // A slice-rack module.yaml → inline per-symbol waveform editors in the code.
-                sliceRack={sliceRack}
-                // The open file's load errors, drawn inline as squiggles.
-                diagnostics={lintItems}
-              />
+              // The wrapper is ALWAYS this flex row, side pane or not, so toggling the module
+              // pane cannot remount the main editor — its undo history is the popin's one file.
+              <div className="flex h-full min-h-0">
+                <div className="min-w-0 flex-1">
+                  <EditorPane
+                    file={file}
+                    onEditorView={(v) => {
+                      cmViewRef.current = v;
+                    }}
+                    hints={hints}
+                    vimMode={vimMode}
+                    audioClip={audioClip}
+                    preview={preview}
+                    onClosePreview={() => setPreview(null)}
+                    onChange={(v) => {
+                      if (file) setFile({ ...file, content: v });
+                    }}
+                    onSave={autosave.flush}
+                    onOpenEntity={open}
+                    onPreview={handlePreview}
+                    // The docked slicer's drag — only when the symbols live in THIS buffer.
+                    onSliceEdit={
+                      canSliceEdit
+                        ? (symbol, from, to) => {
+                            if (!file || file.binary) return;
+                            const next = setSliceWindow(
+                              file.content,
+                              symbol,
+                              from,
+                              to,
+                            );
+                            if (next != null)
+                              setFile({ ...file, content: next });
+                          }
+                        : undefined
+                    }
+                    // The open file's load errors, drawn inline as squiggles.
+                    diagnostics={lintItems}
+                  />
+                </div>
+                {/* The instance's MODULE, editable beside it — see `moduleSide` above. Keyed by
+                    path, so extending something else builds a fresh buffer rather than pouring
+                    a different file into an old one. */}
+                {moduleSide && (
+                  <ModuleSidePane
+                    key={moduleSide}
+                    path={moduleSide}
+                    refName={
+                      readScalarField(file?.content ?? "", "extends") ?? ""
+                    }
+                    hints={hints}
+                    vimMode={vimMode}
+                    setStatus={setStatus}
+                    onChanged={onChanged}
+                  />
+                )}
+              </div>
             )}
           </div>
           {/* An input's socket, docked under its text for the same reason the readers are: which

@@ -204,6 +204,16 @@ export const AutomationSchema = z
   .object({ param: z.string().min(1), curve: z.string().min(1) })
   .strict();
 
+/** One TAKE: another list of placements this lane could be playing. See docs/takes.md. */
+export const TakeSchema = z
+  .object({
+    // Unnamed is the ordinary case — a take is known by its number, the way an alternative is.
+    // A name is there for the day one is worth keeping by name.
+    name: z.string().min(1).optional(),
+    clips: z.array(PlacementSchema),
+  })
+  .strict();
+
 /**
  * Everything a module says about ITSELF — every field but `extends` and the alternatives.
  *
@@ -304,6 +314,19 @@ const MODULE_FIELDS = {
 
   // The placements on this lane: what plays, where, and how many times.
   clips: z.array(PlacementSchema).optional(),
+  /**
+   * The TAKES kept beside them: each is another list of placements this lane could be playing.
+   *
+   * Recording over what a lane holds does not throw it away — the events that were there move
+   * into a take, and the new recording becomes `clips:`. `track take select <n>` swaps the two
+   * back, so the arrangement on the lane and the takes under it are the same kind of thing
+   * looked at from either side.
+   *
+   * In MODULE_FIELDS like `clips:` itself, which is what gives an ALTERNATIVE its own takes:
+   * two sets of settings are two ways of playing the part, and a take of one is not a take of
+   * the other. See packages/song/docs/takes.md.
+   */
+  takes: z.array(TakeSchema).optional(),
   // The lane's colour, and its icon's in the timeline.
   color: z.string().optional(),
   // Excluded from the render entirely, chains and all — distinct from bypassing it, which

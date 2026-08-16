@@ -13,6 +13,10 @@ export interface RawPlacement {
   fadeIn?: string | number;
   fadeOut?: string | number;
   loop?: number; // how many times the material's window is played (see PlacementSchema)
+  // The EVENT's own window into the material — intersected with the material's, most
+  // restrictive edge wins (see PlacementSchema). Same spellings as the material's pair.
+  from?: unknown;
+  to?: unknown;
   disabled?: boolean; // silenced, but still placed — the event-level `mute`
 }
 
@@ -152,6 +156,7 @@ export interface LoadedModule {
   frozen?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
   clips?: unknown; // the placements on this lane — where its material goes, and how many times
+  takes?: unknown; // the arrangements set aside, each another list of placements (docs/takes.md)
   color?: unknown; // the lane's colour, and its icon's in the timeline
   disabled?: unknown; // excluded from the render entirely, chains and all
   tracks?: unknown; // a GROUP lane's member names
@@ -286,6 +291,8 @@ export interface RawProjectRoot {
    */
   project_type?: ProjectMode;
   trackOrder?: string[];
+  // The soloed lanes — solo as project state, resolved by the engine (see projectSchema.ts).
+  soloed?: string[];
   markers?: unknown;
   chains?: unknown;
 }

@@ -381,6 +381,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   return {
     chains,
     tracks: Object.keys(g.tracks),
+    ...(g.positions ? { positions: g.positions } : {}),
     videoTracks: Object.keys(g.videoTracks),
     trackColors,
     trackSignals,

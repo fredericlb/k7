@@ -18,8 +18,8 @@ import {
 } from "react";
 import {
   applyOffer,
-  canRun,
   emptyValues,
+  enterAction,
   firstMissing,
   lineArgs,
   nextField,
@@ -349,14 +349,18 @@ export const CommandBar = forwardRef<
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (suggestions.length) {
-        takeSuggestion(suggestions[selIdx]);
-        return;
-      }
-      const missing = firstMissing(command.args, values);
-      if (canRun(command.args, values)) runNow(values);
-      else if (missing >= 0) {
-        setActive(missing);
+      // The three answers and the order between them are `enterAction`'s — including the
+      // clause that stops a completed field eating every Enter (see it for the bug).
+      const act = enterAction(
+        command.args,
+        values,
+        active,
+        suggestions.length ? suggestions[selIdx] : undefined,
+      );
+      if (act.kind === "take") takeSuggestion(act.value);
+      else if (act.kind === "run") runNow(values);
+      else if (act.kind === "goto") {
+        setActive(act.index);
         setSel(0);
       }
       return;
@@ -473,7 +477,15 @@ export const CommandBar = forwardRef<
           suggestions={suggestions}
           selected={selIdx}
           argColor={ARG_COLOR}
-          runnable={canRun(command.args, values)}
+          // What Enter will do right now — the same decision the key itself takes.
+          enterDoes={
+            enterAction(
+              command.args,
+              values,
+              active,
+              suggestions.length ? suggestions[selIdx] : undefined,
+            ).kind
+          }
           onType={setField}
           onFocusField={(i) => {
             setActive(i);

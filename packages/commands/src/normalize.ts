@@ -24,6 +24,11 @@ export const DEFAULT_PEAK = 0.891;
  * already in memory when its own bytes are replaced. What makes it *undoable* is `beforeWrite` — the same
  * hook the chain bounce uses, which the web host points at its journal, so Ctrl+Z brings the take back.
  *
+ * `window` bounds the operation to the interval a clip PLAYS (`from`/`to`, in file seconds): the peak is
+ * measured there and the gain lands there, so the material outside the window keeps its bytes — a louder
+ * count-in the window was trimmed to exclude neither caps the gain nor gets pushed over full scale.
+ * `to` may be Infinity ("to the end"); the engine reads it as the file's end. Null is the whole file.
+ *
  * WAV only, and that is a real limit rather than caution: the engine writes WAV whatever it read, so
  * normalising an mp3 over itself would leave WAV bytes behind an `.mp3` name — a file that plays here and
  * nowhere else. Recorded takes are WAV, which is the case this exists for.
@@ -36,6 +41,7 @@ export function normalizeInPlace(
   engineBin: string | null,
   peak = DEFAULT_PEAK,
   beforeWrite?: (absPath: string) => void,
+  window?: { from: number; to: number } | null,
 ): ProcessResult {
   const verb = `${scope} normalize`;
   if (!(peak > 0 && peak <= 1))
@@ -87,9 +93,16 @@ export function normalizeInPlace(
   // moment where undoing half of it would be right.
   for (const s of sources) beforeWrite?.(s);
 
+  // Quadruples on the wire: <in> <out> <fromSec> <toSec>, with -1 meaning "the file's end" —
+  // Infinity does not survive String() as something atof can read.
+  const from = String(Math.max(0, window?.from ?? 0));
+  const to =
+    window && Number.isFinite(window.to) && window.to > 0
+      ? String(window.to)
+      : "-1";
   const r = spawnSync(
     engineBin,
-    ["--normalize", String(peak), ...sources.flatMap((s) => [s, s])],
+    ["--normalize", String(peak), ...sources.flatMap((s) => [s, s, from, to])],
     { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
   );
   if (r.status !== 0)
@@ -109,9 +122,13 @@ export function normalizeInPlace(
     gain = null;
   }
   const dB = gain && gain > 0 ? 20 * Math.log10(gain) : null;
+  // Say the bounds out loud when there are any: "normalised" with no qualifier reads as the file.
+  const where = window
+    ? ` within ${from}s → ${to === "-1" ? "end" : `${to}s`}`
+    : "";
   return {
     lines: [
-      `normalised ${label} to ${peak} peak` +
+      `normalised ${label} to ${peak} peak${where}` +
         (dB === null ? "" : ` (${dB >= 0 ? "+" : ""}${dB.toFixed(1)} dB)`),
     ],
     changed: true,

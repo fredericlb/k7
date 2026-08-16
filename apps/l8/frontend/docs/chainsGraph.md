@@ -167,6 +167,50 @@ canvas under the overhanging half) instead of the button.
 Window-level pointer listeners are bound once and read the latest callbacks through refs, so
 they never re-subscribe. A movement threshold is what keeps a pan from also selecting.
 
+### Moving a card, and where dagre still rules
+
+Drag any node's header and it goes where you put it: written to chains.yaml's `positions:` by
+`module position` (the drop runs the verb outright, like the cable's landing). Everything that
+can be added to the graph IS a node — a module, a track, a curve, the sink — and every node is
+addressed by one name: its chains name, a curve by its curve id, the sink by `OUT`. A curve
+draws once however many params it drives (one automation edge each), so its pin has one card
+to move. The layout
+places only what has no pin: dagre still owns every NEW module and everything nobody moved,
+which keeps its "never hand-roll layout" rule intact — a pin is not routing, it is somebody's
+answer overriding the ranker's for one card. The mixer row ignores pins entirely (a strip
+dragged out of the line would put a console's channel wherever it last was), and the graph
+panel honours them, so a module sits in one place whichever pane is looking.
+
+**A new node is born under the cursor.** The graph's create flows carry the click's world
+point into the verb itself — an optional trailing `x,y` on `module place`, `module insert`
+and `chain add` (the picker's `at` field, filled by the shell) — and the handler pins the
+node there in the same undo step. The comma spelling is what makes the token unmistakable
+for a ref or a node name, so a typed line without it still works and still asks the layout;
+dagre is the fallback for a node nobody gave a birthplace, never the boss of one somebody did.
+
+**An edit never reorganizes the picture.** Pulling a cable used to re-rank the whole graph on
+the reload — every card jumped, which read as the delete scrambling the view. Both hosts now
+keep a session memory of where every node was DRAWN (`prevLaid`, handed to `layout()` as
+`prev`): dagre still runs on each layout, but its answer lands only on nodes it has never
+placed. Precedence is pin > held > dagre — the file outranks the session, since another tab
+may have written a pin. `graph organize` is the ONE reorganizing operation: it clears
+`positions:` in the file, the shell bumps `organizeKey` so the hosts drop their held
+positions in the same breath (or the command would visibly do nothing), and dagre lays out
+everything once, deliberately.
+
+### The patch cable
+
+Click a free output jack, a dashed cable follows the cursor, click a free input jack of the
+same signal: the shell runs `chain connect <from> <to>` outright — both ends were clicked,
+so there is nothing for the bar to ask. Clicking an OCCUPIED jack lifts that cable's end
+instead: land it on another jack and the shell runs `chain replug` (one end moved, one undo
+step); drop it on the bare canvas and the arrow is deleted (`chain disconnect`) — a NEW
+cable dropped there simply ceases. Esc or right-click puts everything back, writing nothing.
+The gestures live in the renderer (`packages/ui-chains-react/docs/hosting.md` — `onConnect`,
+`onReplug`, `onDisconnect`), armed here in `App.tsx` beside `onEdgeInsert`; the verbs and
+their refusals — unknown node, arrow already there or not there, the sink as a source — are
+`@studio/commands`', because the graph on screen can be a compile older than the file.
+
 ## Adding a module: what the wait is, and what covers it
 
 Dropping a module on an arrow writes two files and then waits on a recompile. Measured on a

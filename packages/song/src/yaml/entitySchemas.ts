@@ -29,7 +29,9 @@ const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
  *
  * Distinct from a placement's `start`, which is musical and says where on the TIMELINE the clip sits. Trimming
  * the sample is a property of the material; where it lands is a property of the arrangement — and the extent
- * belongs here too, so a placement has no length of its own to disagree with (see PlacementSchema).
+ * is derived, so a placement has no length of its own to disagree with. A placement MAY carry its own
+ * `from`/`to`, and then the most restrictive pair wins: an event can narrow this window, never widen it
+ * (see PlacementSchema and docs/clipResize.md).
  */
 const WindowEdge = z.union([
   z.number().min(0), // seconds

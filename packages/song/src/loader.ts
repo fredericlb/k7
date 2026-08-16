@@ -62,6 +62,7 @@ import {
 } from "./yaml/moduleIO";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
 import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
+import { parsedYaml } from "./yaml/yamlCache";
 
 // The module vocabulary lives in moduleTypes.ts (a leaf, no filesystem) so the engine
 // catalogue can share it without importing this file. Re-exported here because this is
@@ -105,7 +106,13 @@ export function readYamlEntities(
   if (!existsSync(folder)) return { values, issues };
   const schema = (ENTITY_SCHEMAS as Record<string, ZodType | undefined>)[sub];
   for (const { id, file } of entityFiles(folder, sub)) {
-    const raw = parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
+    // Cached only when a schema is going to rebuild the result: with one, `r.data` below is
+    // zod's own fresh structure and the cached parse never leaves this loop. Without one the
+    // raw itself is what the caller gets, and a cached object handed out is a shared object.
+    // `tracks` is the only kind with no schema, and no compile path reads it.
+    const raw = schema
+      ? parsedYaml(file.path)
+      : parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
     if (!schema) {
       values[id] = raw;
       continue;

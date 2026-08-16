@@ -37,9 +37,18 @@ plugins they point at. It is shared by `applyFull()` (which then rebuilds) and `
 ### A retimed clip is RE-INSERTED, and a stub in that switch is not free
 
 `ClipMoved` covers any change to a clip's start, length, source, offset, source window,
-loop **or warp** — `clipMoved()` in ProjectDiff compares all of them together, because they
-are applied in one place: at INSERT time, by `clipPositionFor`, `applyClipLoop` and
-`applyClipWarp`, and nowhere else. So the incremental case removes the clip and inserts it
+loop, warp **or notes** — `clipMoved()` in ProjectDiff compares all of them together, because
+they are applied in one place: at INSERT time, by `clipPositionFor`, `applyClipLoop`,
+`applyClipWarp` and the MIDI fill, and nowhere else.
+
+The NOTES were the last field missing from that list, and they failed exactly as the comment
+above the function predicts: *a field missing here is a field you can edit while the engine is
+up and hear nothing change*. A clip's identity is its id, which a note edit does not touch, so
+`diff` reported no change at all — and the whole note vocabulary (`sequence note new`,
+`remove`, `velocity`, `move`) reached the engine and altered nothing audible. It is a
+`std::vector<NoteDoc>`, so `NoteDoc` carries the field-by-field `operator==` this comparison
+needs. Measured on a real song before and after: removing one snare dropped the master's energy
+over its beat by a quarter, where before the fix all three readings were identical. So the incremental case removes the clip and inserts it
 again rather than calling `setStart`/`setLength`, which would move it and silently drop
 everything else it carries.
 

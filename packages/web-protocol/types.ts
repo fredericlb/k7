@@ -335,6 +335,10 @@ export interface WebTrack {
   solo: boolean;
   disabled?: boolean; // true ⇒ track is ignored (filtered by the brain); absent when false
   clips: WebClip[];
+  // The lane's TAKES — what it was playing before something was recorded over it. Absent on a
+  // lane with none. Drawn as rows indented under it; nothing plays them until one is selected
+  // (`track take select`). See packages/song/docs/takes.md.
+  takes?: WebTake[];
   plugins: WebPlugin[];
   // `docs` / `todos` were here, for the Docs panel. Both are gone with it — a note is a doc
   // module on the graph now (`@studio/doc`). See packages/song/docs/docModules.md.
@@ -344,6 +348,12 @@ export interface WebTrack {
   // gutter reads them off `WebGraph` (`trackAlternatives`, `frozen`) rather than off a second
   // copy on this document. Putting them back would also cost a clone of the module vocabulary on
   // every 2 s poll of /project-doc, which is memoised per revision and this route is not.
+}
+// A TAKE (mirrors TakeDoc): an arrangement the lane WAS playing, set aside. Its clips are compiled
+// exactly as the lane's own are, so a row of them draws with no special case.
+export interface WebTake {
+  name?: string;
+  clips: WebClip[];
 }
 // A group track (mirrors GroupDoc): clipless, drawn as a header with its member tracks indented under it.
 export interface WebGroup {

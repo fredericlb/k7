@@ -136,6 +136,9 @@
 # --- mixer ---
 # `track mute|solo` flip a flag; `gain`/`pan` SET a value. The verbs say which they
 # are — these two never took a state to set, so naming them `mute`/`solo` implied one.
+# Mute is the lane's module bypass (chains.yaml's `bypassed:`); solo is PROJECT state —
+# membership in project.yaml's root `soloed:` list, several lanes at once, resolved by
+# the engine (any soloed track silences the rest).
 # `transport toggle` no longer shares a first word with these, so the longest-prefix
 # rule that used to be load-bearing here is not any more.
 - command: "track mute"
@@ -157,6 +160,44 @@
 # `track alternative create|copy|select` and `track freeze` were here. Both are gone with the
 # fields they wrote — `alternatives:` and `frozen:` — to be replaced by another mechanism later.
 # See packages/song/docs/trackModules.md.
+
+# --- takes ---
+# A TAKE is what a lane WAS playing, set aside — recording over an event, or round a loop, moves
+# the events that were there into one rather than throwing them away. Both verbs name the track,
+# as every other command here does; the timeline's menu on a take's header sends them filled in.
+# Takes belong to the alternative they were played in. See packages/song/docs/takes.md.
+- command: "track take select"
+  sid: track.take.select
+  readable:
+    en: "Move a take onto the track"
+    fr: "Déplacer vers la piste"
+  help: "move a take onto the track (e.g. track take select gtr 2) — what was playing becomes that take"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: n, type: number, hint: "which take, counting from 1" },
+    ]
+- command: "track take keep"
+  sid: track.take.keep
+  readable:
+    en: "Keep this take, and delete the others"
+    fr: "Garder cette prise, supprimer les autres"
+  help: "keep what the track is playing and delete every take of it (e.g. track take keep gtr)"
+  surfaces: [cli]
+  args: [{ name: track, complete: tracks }]
+- command: "track take delete"
+  sid: track.take.delete
+  readable:
+    en: "Delete a take"
+    fr: "Supprimer la prise"
+  help: "delete this take, and the events it held (e.g. track take delete gtr 2)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: n, type: number, hint: "which take, counting from 1" },
+    ]
 
 # --- recording ---
 # `rec` toggles a track's record ARM. Unlike mute/solo it writes no file: arming is
@@ -274,6 +315,8 @@
 
 # Peak-normalise the MATERIAL, over itself. `peak` is linear and optional — the default leaves a
 # decibel of headroom. WAV only, because the engine writes WAV whatever it read (see normalize.ts).
+# `clip normalize` measures and gains INSIDE the clip's `from`/`to` window — the take around the
+# event keeps its bytes; `track normalize` names files, not events, and takes them whole.
 - command: "track normalize"
   sid: track.normalize
   readable:
@@ -291,7 +334,7 @@
   readable:
     en: "Normalise a clip"
     fr: "Normaliser un clip"
-  help: "bring one clip's file to a peak, in place (e.g. clip normalize prise-01)"
+  help: "bring one clip's window to a peak, in place (e.g. clip normalize prise-01)"
   surfaces: [cli]
   args:
     [
@@ -463,6 +506,43 @@
       { name: newEnd, type: number, hint: "where it should end — end − start is its length" },
     ]
 
+# Move one note to another key and/or start, KEEPING what it is: its length and its velocity
+# ride along, because it is the same note put somewhere else. Remove-then-add would lose both —
+# `sequence note new` takes no velocity — and be two journal steps for one act. The step
+# sequencer's ctrl-drag runs this. A destination that already holds a note is refused: (key,
+# start) is how every surface addresses one.
+- command: "sequence note move"
+  sid: sequence.moveNote
+  readable:
+    en: "Move a note to another key or beat"
+    fr: "Déplacer une note vers une autre touche ou un autre temps"
+  help: "move one note, keeping its length and velocity (e.g. sequence note move drums C1 4 D1 4.5)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "beats — where it starts NOW" },
+      { name: newNote, type: note },
+      { name: newStart, type: number, hint: "beats — where it should start" },
+    ]
+
+# Remove one note, addressed the way every note edit addresses one: by key and by where it
+# starts. The step sequencer's button-off runs this; the roll has no delete gesture yet.
+- command: "sequence note remove"
+  sid: sequence.removeNote
+  readable:
+    en: "Remove a note from a sequence"
+    fr: "Retirer une note d'une séquence"
+  help: "remove one note (e.g. sequence note remove drums C1 4)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "beats from the start of the sequence" },
+    ]
+
 # Append a batch of already-timed notes to a sequence — the commit half of the web
 # editor's MIDI recording. `notes` is a JSON array of {t,d,k,v?} in clip-local beats.
 # Programmatic (the recorder builds the payload), so it's on the CLI mostly for parity.
@@ -517,35 +597,43 @@
   surfaces: [cli]
   args: [{ name: name, complete: markerNames }]
 
-# --- plugins ---
-- command: "module list vst"
-  sid: plugin.list
-  help: "list cached VST3 plugins"
-  surfaces: [cli]
-  with: ["vst"]
-  readable:
-    en: "List the cached VST3 plugins"
-    fr: "Lister les greffons VST3 en cache"
-- command: "module list plugins"
-  sid: plugin.list
-  help: "list all cached plugins"
+# --- the machine's plugins ---
+# `system` is what the MACHINE has, not what this song uses: the plugin cache belongs to the
+# engine's installation and outlives every project. That is why these two are not `module`
+# verbs — they answer "what is installed here", where a `module` verb acts on a file in the
+# song. A `module list vst` sat beside the first one, the same command with a format filter
+# baked in; the filter is an argument of the listing, not a second verb.
+- command: "system plugins list"
+  sid: system.plugins.list
+  help: "list all cached plugins (a word narrows it by format, e.g. system plugins list vst)"
   surfaces: [cli]
   readable:
     en: "List every cached plugin"
     fr: "Lister tous les greffons en cache"
-- command: "module rescan plugins"
-  sid: plugin.rescan
+  args:
+    [
+      {
+        name: format,
+        optional: true,
+        hint: "narrow by format — vst, vst3, au… (default: every one)",
+      },
+    ]
+- command: "system plugins scan"
+  sid: system.plugins.scan
   help: "scan installed plugins and refresh the cache"
   surfaces: [cli]
   readable:
     en: "Scan the installed plugins again"
     fr: "Rescanner les greffons installés"
-- command: "module open"
-  sid: plugin.open
+# An INSTANCE is a node in this project's chains — one use of a module — and its external UI is
+# the plugin's own window, drawn by the plugin itself on the engine's machine. `module open`
+# named the module, which is the file; what opens a window is the instance loaded in the engine.
+- command: "instance external-ui"
+  sid: instance.externalUi
   readable:
-    en: "Open a plugin's own window"
-    fr: "Ouvrir la fenêtre d'un greffon"
-  help: "open a plugin's UI window"
+    en: "Open an instance's own plugin window"
+    fr: "Ouvrir la fenêtre native d'une instance"
+  help: "open the plugin's own UI window for one instance"
   surfaces: [cli]
   args: [{ name: module, complete: modules }]
 
@@ -629,22 +717,13 @@
       { name: "category/name", complete: categories },
       { name: "node-name", hint: "used in chains as name:node" },
     ]
-# Removes a module and every chain step naming it — the two halves of "delete", because a
-# step pointing at a module that no longer exists is a dangling reference the compiler
-# refuses to load. `synth:lead` deletes just that node file; `synth` deletes the whole
-# folder, nodes included (they cannot outlive their parent).
-- command: "module delete"
-  sid: module.delete
-  readable:
-    en: "Delete a module and unwire it everywhere"
-    fr: "Supprimer un module et le déconnecter partout"
-  help: "delete a module (or one node) and remove it from every chain (e.g. module delete synth:lead)"
-  surfaces: [cli]
-  args: [{ name: "module", complete: modules }]
+# `module delete` was here: it removed the module's file or folder AND every chain step
+# naming it, because a step pointing at a module that no longer exists is a dangling
+# reference the compiler refuses to load. It is gone — deleting a module's files is the file
+# tree's `file delete`, and taking a node out of the signal path is `node unlink` below.
 # Takes a node OUT of the signal path and leaves its FILES alone — what fed it is joined to
 # what it fed, so the run closes over the gap instead of going quiet. The counterpart of
-# `chain add`, and the difference from `module delete` is the whole point: a node you
-# unlink still has its settings and goes back in with one command.
+# `chain add`: a node you unlink still has its settings and goes back in with one command.
 - command: "node unlink"
   sid: node.unlink
   readable:
@@ -666,20 +745,20 @@
   help: "give an engine module a folder in this project, so it can carry a panel and presets (e.g. module own @engine/nam)"
   surfaces: [cli]
   args: [{ name: "ref", complete: baseModules }]
-# Swaps what a chain step IS while keeping WHERE it sits. Not delete-then-add: that loses
-# the position. The chains are rewritten first, so no instant passes with a chain naming a
-# module that does not exist. Takes the same arguments as `module new` after the name.
+# Points a node at ANOTHER module: one edit, to its `extends:` line. Not delete-then-add and
+# not a new folder either — the name stays, so every chain step keeps its place and nothing is
+# rewired, and the file stays, so its position on the graph survives. Only what it IS changes.
+# What described the old thing (`plugin`, `params`, `rack`) goes with it, and the log says so.
 - command: "module replace"
   sid: module.replace
   readable:
-    en: "Replace a module, keeping its place"
-    fr: "Remplacer un module en gardant sa place"
-  help: "replace a module in place, keeping its position in every chain (e.g. module replace echo audio/wah @engine/audio/filter/auto-wah)"
+    en: "Point a node at another module"
+    fr: "Pointer un nœud vers un autre module"
+  help: "replace what a node is, keeping its name and its place (e.g. module replace echo @engine/audio/filter/auto-wah)"
   surfaces: [cli]
   args:
     [
       { name: "module", complete: modules },
-      { name: "category/name", complete: categories },
       { name: "extends-ref", complete: baseModules },
     ]
 - command: "module clone"
@@ -948,6 +1027,24 @@
         hint: "optional — another track, of the same type as this one",
       },
     ]
+# The bulk form of `event move`: every event STARTING between `from` and `to` (both
+# inclusive), on each named lane, moved by a signed duration. One command so the whole
+# gesture is one undo step and one reload — and what the timeline's selection rectangle
+# feeds when the bar is filling it.
+- command: "events move"
+  sid: events.move
+  readable:
+    en: "Move all events in a range"
+    fr: "Déplacer tous les événements d'une plage"
+  help: "move every event in a range (e.g. events move drums,bass 2:1 4:4 +1:0)"
+  surfaces: [cli]
+  args:
+    [
+      { name: tracks, complete: tracks, hint: "track ids, comma-joined — or 'all'" },
+      { name: from, type: timecode },
+      { name: to, type: timecode, hint: "the range's end, inclusive" },
+      { name: by, hint: "signed duration — +1:0 a bar right, -0:1 a beat left" },
+    ]
 # Drops one placement from a track, addressed the same way `event move` addresses it.
 # The clip/sequence itself stays in clips/ — a placement is a reference, and the same
 # material may sit on other tracks. Also on the timeline: right-click an event → Remove.
@@ -971,6 +1068,9 @@
 # Re-time an event: a new start AND a new end, in one edit. The end is a POSITION on the
 # timeline, not a duration — it is what you drag, and what you can read off the ruler.
 # The timeline sends this form when an event's edge handle is dragged.
+# The edit lands on the EVENT's own `from`/`to` (PlacementSchema), clamped inside the
+# material's window — the most restrictive pair wins — so the material and its other
+# placements are untouched. Reaching outside the material's window is `clip trim`'s job.
 - command: "event resize"
   sid: event.resize
   readable:
@@ -1021,6 +1121,11 @@
         optional: true,
         hint: "optional — used in chains as name:node",
       },
+      {
+        name: at,
+        optional: true,
+        hint: "optional — x,y world px: the node is born there (the web fills the click)",
+      },
     ]
 # The same, minus the arrow: create the module and put it in the graph wired to NOTHING.
 # `modules: { x: [] }` is a state chains.yaml can hold, and it is what a right-click on
@@ -1041,6 +1146,11 @@
         optional: true,
         hint: "optional — used in chains as name:node",
       },
+      {
+        name: at,
+        optional: true,
+        hint: "optional — x,y world px: the node is born there (the web fills the click)",
+      },
     ]
 - command: "chain add"
   sid: chain.addModule
@@ -1054,6 +1164,86 @@
       { name: before, hint: "the node the arrow LEAVES — the module goes after it" },
       { name: after, hint: "the node the arrow ENTERS — the module goes before it" },
       { name: module, complete: modules },
+      {
+        name: at,
+        optional: true,
+        hint: "optional — x,y world px: the node is born there (the web fills the click)",
+      },
+    ]
+# Hand EVERY node back to the automatic layout: clears `positions:` outright, and the web
+# forgets where it was drawing each card. This is the ONE moment dagre reorganizes a graph —
+# an edit (a cable pulled, a module dropped in) never moves what is already on screen.
+- command: "graph organize"
+  sid: graph.organize
+  readable:
+    en: "Re-lay out the whole graph"
+    fr: "Réorganiser tout le graphe"
+  help: "hand every node back to the automatic layout (clears all pinned positions)"
+  surfaces: [cli]
+# Pin a node where a drag (or a hand) put it — chains.yaml's `positions:`. The graph lays
+# out only the nodes with no pin, so a module moved once stays put for ever; `auto` hands
+# it back to the layout. The web sends this when a node's header is dropped.
+- command: "module position"
+  sid: module.position
+  readable:
+    en: "Pin a module's place on the graph"
+    fr: "Épingler la position d'un module sur le graphe"
+  help: "pin a node's place on the graph, world px (e.g. module position reverb 420 180) — `auto` returns it to the layout"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: x, hint: "world px — or `auto` to hand it back to the layout" },
+      { name: y, type: number, optional: true },
+    ]
+# Draw a NEW arrow between two placed nodes — the graph's patch cable: click a free output
+# jack, then a free input jack. Either end may carry "#port". `chain add` splices into an
+# existing arrow; this one creates an arrow where there was none, which is how a new chain
+# begins.
+- command: "chain connect"
+  sid: chain.connect
+  readable:
+    en: "Connect two nodes with a new cable"
+    fr: "Relier deux nœuds par un nouveau câble"
+  help: "draw a new arrow from one node to another (e.g. chain connect gtr reverb, or splitter#b wet)"
+  surfaces: [cli]
+  args:
+    [
+      { name: from, hint: "the node the cable LEAVES — optionally name#port" },
+      { name: to, hint: "the node it plugs into — optionally name#port" },
+    ]
+# The mirror: pull ONE cable out. The web sends this when a lifted cable is dropped on the
+# canvas. A source left feeding nothing keeps its place in the graph — deleting a cable
+# must not also delete the module.
+- command: "chain disconnect"
+  sid: chain.disconnect
+  readable:
+    en: "Remove one cable between two nodes"
+    fr: "Retirer un câble entre deux nœuds"
+  help: "remove the arrow from one node to another (e.g. chain disconnect gtr reverb)"
+  surfaces: [cli]
+  args:
+    [
+      { name: from, hint: "the node the cable leaves — optionally name#port" },
+      { name: to, hint: "the node it plugs into — optionally name#port" },
+    ]
+# Move ONE end of an existing cable: the arrow from→to becomes newFrom→newTo, atomically —
+# one undo step, however the ends are respelt. The web sends this when a cable lifted off a
+# jack lands on another; only one end usually changes, but the line states all four so the
+# handler never guesses which.
+- command: "chain replug"
+  sid: chain.replug
+  readable:
+    en: "Move one end of a cable to another node"
+    fr: "Déplacer une extrémité d'un câble vers un autre nœud"
+  help: "re-plug an arrow (e.g. chain replug gtr reverb gtr delay — the gtr cable now feeds delay)"
+  surfaces: [cli]
+  args:
+    [
+      { name: from, hint: "the arrow's current source — optionally name#port" },
+      { name: to, hint: "its current target" },
+      { name: newFrom, hint: "the source after the move (same, when the target end moved)" },
+      { name: newTo, hint: "the target after the move" },
     ]
 - command: "project inspect timeline"
   sid: timeline.inspect

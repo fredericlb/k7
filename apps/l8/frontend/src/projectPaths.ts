@@ -41,6 +41,26 @@ export const isRackModuleFile = (path: string): boolean =>
   /(^|\/)modules\/[^/]+\/[^/]+\/module\.ya?ml$/i.test(norm(path));
 
 /**
+ * The chain-`use` key a file answers to in `hints.racks`: a module's folder name, or a NODE's
+ * stem. A node restating `type: rack` resolves its rack through `extends`, and the hints map
+ * carries the FOLDED result under the node's own name — so both spellings of "this file is a
+ * rack" are asked with one key. Null for a file that is neither; a key the map has no entry
+ * for is simply not a rack.
+ */
+export const rackKeyOf = (path: string): string | null => {
+  const p = norm(path);
+  if (isRackModuleFile(p))
+    return (
+      p
+        .replace(/\/module\.ya?ml$/i, "")
+        .split("/")
+        .pop() ?? null
+    );
+  const m = /(^|\/)nodes\/([^/]+)\.ya?ml$/i.exec(p);
+  return m ? m[2] : null;
+};
+
+/**
  * A module file the BUILDER opens — `module.yaml`, or either of the two files beside it.
  *
  * All three, because the builder edits all three and its routes take any of them (see `@studio/song`'s

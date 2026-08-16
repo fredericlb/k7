@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
 import { commandTranslations } from "../commandI18n";
+import type { CommandPrefs } from "../commandPrefs";
 import { DOC_PARTS } from "../docs/pages";
 import { shortcutsByCommand } from "../keys";
 import { usePopin } from "../popins";
@@ -72,6 +73,10 @@ const VIEW_COMMANDS: { command: string; help: string }[] = [
     command: "transport locate",
     help: "move the playhead to the timeline caret",
   },
+  {
+    command: "transport replay",
+    help: "play again from where playback last started",
+  },
   { command: "ui help", help: "show this help" },
 ];
 
@@ -131,9 +136,16 @@ function Section({
   );
 }
 
-export function HelpPage({ onBack }: { onBack: () => void }) {
+export function HelpPage({
+  onBack,
+  prefs,
+}: {
+  onBack: () => void;
+  /** The person's command prefs — their own keys must be what the legend advertises. */
+  prefs?: CommandPrefs;
+}) {
   const [commands, setCommands] = useState<CommandInfo[]>([]);
-  const shortcuts = shortcutsByCommand();
+  const shortcuts = shortcutsByCommand(prefs);
 
   // Fetched on open, and the one section that CAN'T be markdown: it is generated from commands.yaml. Best-effort.
   useEffect(() => {

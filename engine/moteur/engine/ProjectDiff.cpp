@@ -71,7 +71,11 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.offset != b.offset
         || a.sourceFrom != b.sourceFrom || a.sourceTo != b.sourceTo
         || a.loopStart != b.loopStart || a.loopEnd != b.loopEnd
-        || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers;
+        || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers
+        // The NOTES, for exactly the reason above: a MIDI clip's are written into the edit when
+        // the clip is inserted and nowhere else. Missing here, the whole note vocabulary — add,
+        // remove, velocity, move — reached the engine and changed nothing you could hear.
+        || a.notes != b.notes;
 }
 
 // Diff the contents of one track (that exists in both docs).

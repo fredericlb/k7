@@ -49,7 +49,7 @@ export function parseMarkers(raw: unknown, num: number, den: number): Marker[] {
 }
 
 /** Bars of count-in a project gets when settings.yaml doesn't say. See parseSettings. */
-export const DEFAULT_COUNT_IN = 4;
+export const DEFAULT_COUNT_IN = 1;
 
 // Read settings.yaml, defaulting each field so a partial file never fails the load (`count_in` is the on-disk name).
 export function parseSettings(raw: unknown): SettingsDoc {
@@ -57,9 +57,9 @@ export function parseSettings(raw: unknown): SettingsDoc {
     string,
     unknown
   >;
-  // 4 when the file says nothing — a take should start with a count, and a project that never mentions
-  // count_in gets the usual one rather than none. `count_in: 0` still means "record immediately": it is a
-  // stated 0, which `??` leaves alone.
+  // One bar when the file says nothing — a take should start with a count, and a project that never
+  // mentions count_in gets the usual one rather than none. `count_in: 0` still means "record
+  // immediately": it is a stated 0, which `??` leaves alone.
   const n = Number(s.count_in ?? DEFAULT_COUNT_IN);
   return {
     metronome: Boolean(s.metronome ?? false),
@@ -91,6 +91,22 @@ export function withGroupMix(doc: ProjectDoc): ProjectDoc {
       if (!g || (!g.mute && !g.solo)) return t;
       return { ...t, mute: t.mute || g.mute, solo: t.solo || g.solo };
     }),
+  };
+}
+
+/**
+ * Drop every lane's takes on the way to the engine.
+ *
+ * A take is what a lane WAS playing — the arrangement set aside, not something to play — so the
+ * engine has no use for it and no business diffing it. It is compiled onto the document anyway
+ * because a surface draws it with the same clip extents the arrangement has, and one compiler
+ * producing both is what keeps the two identical. This is where the two readers part.
+ */
+export function withoutTakes(doc: ProjectDoc): ProjectDoc {
+  if (!doc.tracks.some((t) => t.takes?.length)) return doc;
+  return {
+    ...doc,
+    tracks: doc.tracks.map(({ takes, ...t }) => t),
   };
 }
 

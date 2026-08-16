@@ -75,6 +75,31 @@ interface Slot {
 }
 const memo = new Map<string, Slot>();
 
+/** The stamp the enclosing `withModuleStamp` already paid for, computed on the first ask. */
+let scope: { dir: string; stamp?: string } | null = null;
+
+/**
+ * Run `fn` with ONE stamp walk for `dir`, however many cached reads it makes.
+ *
+ * A compile asks twice — `loadModules` then `loadModuleRefs` — and each ask re-walked the module
+ * folders: 328 readdirs and 418 stats, 28 ms of a 144 ms compile, spent proving nothing had
+ * changed since the previous line. Measured on a real song (15 tracks, 57 clips, 31 plugins):
+ * the second walk is 19% of `compileNodeProject` and of `loadGraph` alike.
+ *
+ * Scoped EXPLICITLY rather than by tick or by clock, because a stale stamp serves a module under
+ * a name nobody wrote: only a caller that reads and never writes may say it. The compile entry
+ * points are those callers; anything outside a scope still stamps per read, as before.
+ */
+export function withModuleStamp<T>(dir: string, fn: () => T): T {
+  const outer = scope;
+  scope = { dir };
+  try {
+    return fn();
+  } finally {
+    scope = outer;
+  }
+}
+
 /**
  * `build()`'s result for `dir`, kept until the module folders change.
  *
@@ -87,7 +112,13 @@ export function cachedForModules<T>(
   key: string,
   build: () => T,
 ): T {
-  const stamp = moduleStamp(dir);
+  let stamp: string;
+  if (scope?.dir === dir) {
+    scope.stamp ??= moduleStamp(dir); // lazily, so a scope that reads nothing walks nothing
+    stamp = scope.stamp;
+  } else {
+    stamp = moduleStamp(dir);
+  }
   let slot = memo.get(dir);
   if (slot && slot.stamp !== stamp) slot = undefined; // changed on disk — drop the whole slot
   memo.delete(dir);

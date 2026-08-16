@@ -9,7 +9,7 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
   "recordDir": "<abs>",
   "sampleRate": 48000,
   "settings": {
-    "countIn": 4,
+    "countIn": 1,
     "metronome": false,
   },
   "strudel": false,
@@ -203,7 +203,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
   "recordDir": "<abs>",
   "sampleRate": 48000,
   "settings": {
-    "countIn": 4,
+    "countIn": 1,
     "metronome": false,
   },
   "strudel": true,

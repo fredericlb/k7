@@ -38,6 +38,53 @@ describe("finding the sound", () => {
   });
 });
 
+describe("bounded to the clip's own window", () => {
+  it("ignores sound OUTSIDE the interval — a re-trim never reaches back", () => {
+    // Sound in buckets 1 and 8 lies outside a clip playing 3s → 7s; only bucket 5 counts.
+    const env = [0, LOUD, 0, 0, 0, LOUD, 0, 0, LOUD, 0];
+    expect(trimWindow(env, 10, -40, { from: 3, to: 7 })).toEqual({
+      from: 4,
+      to: 7,
+    });
+  });
+
+  it("clamps the margin to the interval, not to the file", () => {
+    // Sound in the interval's first bucket: the one-bucket widening would land at 2s, before the
+    // clip's own `from` — the cage holds it at 3s.
+    const env = [0, 0, 0, LOUD, 0, 0, 0, 0, 0, 0];
+    expect(trimWindow(env, 10, -40, { from: 3, to: 7 })).toEqual({
+      from: 3,
+      to: 5,
+    });
+  });
+
+  it("counts a bucket the interval only touches", () => {
+    // The interval ends mid-bucket 5; the sound there is still the clip's sound.
+    const env = [0, 0, 0, 0, 0, LOUD, 0, 0, 0, 0];
+    expect(trimWindow(env, 10, -40, { from: 3, to: 5.5 })).toEqual({
+      from: 4,
+      to: 5.5,
+    });
+  });
+
+  it("answers null when the interval holds nothing above the gate", () => {
+    // The take is loud elsewhere — but elsewhere is not this clip.
+    const env = [LOUD, LOUD, 0, 0, 0, 0, 0, 0, LOUD, LOUD];
+    expect(trimWindow(env, 10, -40, { from: 3, to: 7 })).toBe(null);
+  });
+
+  it("survives an interval the file outgrew, and one that runs backwards", () => {
+    const env = [0, LOUD, 0];
+    // A `to` past the audio clamps to the file…
+    expect(trimWindow(env, 3, -40, { from: 0, to: 99 })).toEqual({
+      from: 0,
+      to: 3,
+    });
+    // …and a window of no length is nothing to look in.
+    expect(trimWindow(env, 3, -40, { from: 2, to: 1 })).toBe(null);
+  });
+});
+
 describe("when there is nothing to keep", () => {
   it("answers null rather than trimming to nothing", () => {
     // A take entirely below the gate is either silence or a gate set too high. Both are things to

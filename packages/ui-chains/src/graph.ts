@@ -14,6 +14,8 @@ import type {
   WebWidget,
 } from "@studio/graph-model";
 import { splitPort } from "@studio/graph-model";
+// Type-only the other way (hang.ts takes `Pt` as a type), so this import cannot cycle.
+import { hangPoints } from "./hang";
 
 /**
  * What a node carries from its step, and how — declared once instead of copied.
@@ -362,12 +364,15 @@ export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
 }
 
 /**
- * A cable's polyline: a STRAIGHT line from the socket it leaves to the socket it plugs into.
+ * A cable's polyline: it HANGS from the socket it leaves to the socket it plugs into.
  *
  * dagre's waypoints are deliberately dropped. They bent a cable around the card it skipped, which
  * is the right answer for a flow chart and the wrong one for a patch bay: a rack's cables run
- * straight between plugs and cross where they cross, and reading one is following its ANGLE from
- * a socket, which a bend destroys. dagre still places the nodes; only the routing is ours.
+ * plug to plug and cross where they cross — over the cards, which is why the canvas draws above
+ * them. dagre still places the nodes; the cable is gravity's (`hangPoints`, docs/hang.md), a stub
+ * out of each plate and then the sag, sampled so the Catmull-Rom every consumer already traces
+ * through these points IS the curve. It was a straight line for a while; a straight line is a
+ * cable with infinite tension, and nothing on a desk looks like that.
  *
  * The endpoints are the sockets rather than dagre's border points, which is what makes a cable
  * look plugged in. Both are the ones the cable NAMES — `crossfade#b` for the jack it arrives at,
@@ -394,10 +399,7 @@ export function cablePath(
   const to = tgt
     ? jackPoint(tgt, "in", toIndex < 0 ? 0 : toIndex)
     : pts[pts.length - 1];
-  // Two points, so every consumer draws a line: `smoothPath` emits a plain `L` at this length
-  // and the canvas's flatten walks the segment. There is nothing left to curve THROUGH, which is
-  // the point — the leads that used to square the exit only existed to fight the curve.
-  return [from, to];
+  return hangPoints(from, to, src?.flow === "across" || tgt?.flow === "across");
 }
 
 export interface LaidOutGraph {
@@ -1083,12 +1085,15 @@ export function buildGraph(
         if (e) e.weight = (e.weight ?? 1) + 4;
       }
 
-      // One curve node per binding, so a curve reused by two params draws twice. The edge bypasses link() and carries
-      // the automation payload the renderer draws purple.
+      // One curve node PER CURVE — everything on the graph is a node, and a curve is one
+      // thing however many params it drives: each binding is an EDGE out of the same node,
+      // exactly as a module feeding two places is one card with two cables. (It was one
+      // node per binding, which drew a reused curve twice and made "where is this curve"
+      // two answers.) The edges bypass link() and carry the automation payload drawn purple.
       for (const a of s.automations ?? []) {
         const curve = graph.curves?.[a.curve];
         if (!curve) continue; // the curve was dropped (missing file) — nothing to draw
-        const cid = `aut:${name}:${i}:${a.param}`;
+        const cid = `crv:${a.curve}`;
         add(cid, {
           label: a.curve,
           sub: curveSubLabel(curve),
@@ -1100,7 +1105,8 @@ export function buildGraph(
           unknownPlugin: false,
           hasNativePluginUI: false,
         });
-        const key = `${cid}->${moduleId(s.module)}`;
+        // The param is part of the key: one curve may drive two params of one module.
+        const key = `${cid}->${moduleId(s.module)}:${a.param}`;
         edges.set(key, {
           id: key,
           source: cid,
@@ -1583,7 +1589,20 @@ function snapToRankRows(
 
 // Position with dagre and KEEP its routed edge points, so a send that skips a column bends around the module.
 // dagre returns centres; we store top-left, while edge points stay in the same absolute graph space.
-export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
+export function layout(
+  nodes: RawNode[],
+  raw: RawEdge[],
+  // Where somebody PINNED nodes (chains.yaml `positions:`, by chains name): those win over
+  // everything the ranker decided, and dagre only ever places what has no entry — a module
+  // dragged once stays where it was put, a new one still arrives laid out.
+  positions?: Record<string, { x: number; y: number }>,
+  // Where each node was DRAWN last time, by node id — the host's session memory. A node in
+  // this map stays exactly there, so an edit (a cable pulled, a module dropped in) never
+  // reorganizes the picture: dagre still runs, but its answer lands only on nodes it has
+  // never placed. Pins outrank it (the file outranks the session — another tab may have
+  // written one); `graph organize` is the command that empties both and lets dagre speak.
+  prev?: ReadonlyMap<string, { x: number; y: number }>,
+): LaidOutGraph {
   const g = new dagre.graphlib.Graph({ multigraph: true });
   g.setGraph({
     // Signal runs DOWN the page. `nodesep` and `ranksep` swap axes with it: `nodesep` is now
@@ -1619,7 +1638,7 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
     return { ...n, x: x - n.w / 2, y: y - n.h / 2 };
   });
 
-  const outNodes = snapToRankRows(
+  let outNodes = snapToRankRows(
     placed,
     new Map(
       nodes.flatMap((n) =>
@@ -1627,6 +1646,18 @@ export function layout(nodes: RawNode[], raw: RawEdge[]): LaidOutGraph {
       ),
     ),
   );
+  if (positions || prev) {
+    // The same name resolution the edge inserts and the jacks use (cables.ts's jackRef,
+    // inlined here because cables imports this file): a module by its chains name, the rest
+    // by label. Applied AFTER the rank snap and BEFORE the extents, so a pinned or held
+    // node both wins over the rows and still counts toward the graph's measured size.
+    outNodes = outNodes.map((n) => {
+      const p =
+        positions?.[n.kind === "module" ? (n.module ?? n.label) : n.label] ??
+        prev?.get(n.id);
+      return p ? { ...n, x: p.x, y: p.y } : n;
+    });
+  }
   const outEdges: GraphEdge[] = raw.map((e) => ({
     id: e.id,
     source: e.source,

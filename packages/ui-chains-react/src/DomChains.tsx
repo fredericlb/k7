@@ -26,6 +26,10 @@ import type {
   WebWidget,
 } from "@studio/graph-model";
 import {
+  AUTO_ARROW,
+  AUTO_DASH,
+  AUTO_SHADOW_W,
+  AUTO_W,
   type CableDraw,
   drawCables,
   newScratch,
@@ -36,12 +40,12 @@ import {
 } from "@studio/ui-chains/cableCanvas";
 import {
   type AutoTarget,
-  arrowPoints,
   autoTarget,
   buildCableGeom,
   type CableGeom,
   computeLive,
   insertFor,
+  jackRef,
   midByArc,
   smoothPath,
 } from "@studio/ui-chains/cables";
@@ -51,6 +55,8 @@ import {
   type EdgeInsert,
   type GraphNode,
   headerFontPx,
+  type Jack,
+  jackPoint,
   type LaidOutGraph,
   PORT_PLATE,
   rackBindSymbol,
@@ -59,6 +65,13 @@ import {
   widgetNorm,
   widgetRect,
 } from "@studio/ui-chains/graph";
+import {
+  type CableSway,
+  exciteSway,
+  hangPoints,
+  newSway,
+  stepSway,
+} from "@studio/ui-chains/hang";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 // The one icon this file draws from a set: the freeze badge. Everything else on a card is a
 // shape built out of CSS, which a snowflake is not.
@@ -243,10 +256,15 @@ const CSS = `
    auto width the insets are over-constrained and its INTRINSIC size (the width/height
    attributes, which we set in DEVICE px) wins. See docs/wobble.md. */
 .dgx-cablecv { position:absolute; inset:0; width:100%; height:100%; display:block;
-  pointer-events:none; }
+  pointer-events:none;
+  /* OVER the cards: a patch bay's cables lie on top of the rack, not behind it — and the
+     shadow each cable already strokes is what seats it visually on the card face it crosses.
+     Safe because this layer never takes the pointer; the SVG's hit paths, labels and inserts
+     stay below the nodes, so nothing a card offers becomes unclickable under a cable. */
+  z-index:2; }
 .dgx-cbl-shadow { fill:none; stroke:#000; stroke-opacity:.5; stroke-linecap:round; stroke-linejoin:round; }
 .dgx-cbl { fill:none; stroke-linecap:round; stroke-linejoin:round; }
-.dgx-cbl.auto  { stroke:var(--mauve); stroke-width:1.8; stroke-dasharray:5 4; }
+/* .dgx-cbl.auto is gone: the automation cables draw on the canvas with everything else. */
 .dgx-hit { fill:none; stroke:transparent; stroke-width:14; cursor:pointer; pointer-events:stroke; }
 .dgx-ins-line { fill:none; stroke:#3b82f6; stroke-width:2.5; stroke-linecap:round; }
 .dgx-ins-btn { cursor:pointer; pointer-events:auto; }
@@ -287,6 +305,9 @@ const CSS = `
 .dgx-hd { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; gap:7px;
   padding:7px 10px; box-sizing:border-box; border-bottom:1px solid #2f2f36; border-radius:11px 11px 0 0;
   background:linear-gradient(180deg,rgba(255,255,255,.015),transparent); }
+/* GRAB — the header moves the card, where the host allows it (the pin gesture). */
+.dgx-hd.grab { cursor:grab; }
+.dgx-hd.grab:active { cursor:grabbing; }
 /* The content area every node has below its header. A no-UI module shows "No Options"
    here — or, when its plugin is missing/unknown/unsupported, WHY there are none; a
    sink shows its OUT/stereo mark; a Ui'd module shows its widget grid. */
@@ -464,6 +485,15 @@ const CSS = `
    only when it is looking for somewhere to plug in. */
 .dgx-port.free { opacity:.55; }
 .dgx-port.free i { border-color:#2c2c33; background:radial-gradient(circle at 37% 33%,#232228,#0a0a0d 68%); }
+/* PLUG — a free socket the patch gesture can use right now: an out to draw a cable from, a
+   matching in to land it in. Only a host that passes onConnect arms this, so a read-only
+   graph keeps its inert sockets. */
+.dgx-port.plug { cursor:pointer; opacity:.85; }
+.dgx-port.plug:hover { opacity:1; }
+.dgx-port.plug:hover i { border-color:color-mix(in srgb,var(--jc) 80%,#2c2c33); }
+/* The cable in hand: dashed and coloured by its signal, its far end pinned to the cursor —
+   a promise of a cable, not yet one, which is what the dashes say. */
+.dgx-patchcable { fill:none; stroke-width:2; stroke-dasharray:6 5; opacity:.9; pointer-events:none; }
 
 /* A widget is absolutely placed at its widgetRect box (node-local), so the drawing and the
    automation-arrow targets agree with graph.ts by construction. */
@@ -1634,6 +1664,9 @@ function NodeInner({
   onWatchWaveform,
   onContextParam,
   sinkPlay,
+  onTapJack,
+  patchWant,
+  onHeaderDrag,
 }: {
   n: GraphNode;
   selected: string | null;
@@ -1673,6 +1706,20 @@ function NodeInner({
   /** Right-click on one of this node's controls — the menu for the PARAM, not for the module. */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   sinkPlay?: SinkPlay;
+  /** A free jack was clicked — the patch-cable gesture. Absent (read-only hosts, ghosts), the
+   *  sockets stay inert exactly as they always were. */
+  onTapJack?: (
+    n: GraphNode,
+    side: "in" | "out",
+    jack: Jack,
+    index: number,
+  ) => void;
+  /** The cable in hand, while one is — which SIDE its loose end seeks and the signal it
+   *  carries, gating which jacks invite landing it. */
+  patchWant?: { seeking: "in" | "out"; type: WebSignal } | null;
+  /** The header was pressed on a node the host lets you move — the pin gesture. Absent, the
+   *  header is inert and the press pans, exactly as it always did. */
+  onHeaderDrag?: (n: GraphNode, e: React.PointerEvent) => void;
 }) {
   const { ModuleIcon, moduleGlyph, TrackIcon } = useIcons();
   // The category whose glyph this node wears. A sink has none of its own, but it IS io, so it gets io's arrows.
@@ -1863,8 +1910,11 @@ function NodeInner({
       onContextMenu={(e) => onContext(n, e)}
     >
       <div
-        className="dgx-hd"
+        className={`dgx-hd${onHeaderDrag ? " grab" : ""}`}
         style={{ "--corners": corners.length } as React.CSSProperties}
+        // Drag the header, move the card — the pin gesture. Buttons living in the header
+        // already stop this press for their own reasons, so they stay buttons.
+        onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
       >
         {/* The accent dot marks identity on a node with no glyph of its own. Where one
             IS drawn it leads the row instead, saying the node's kind rather than just
@@ -2031,28 +2081,51 @@ function NodeInner({
       )}
       {n.kind !== "curve" &&
         (["in", "out"] as const).map((side) =>
-          (n.jacks?.[side] ?? []).map((p, i, all) => (
-            <span
-              key={`${side}:${p.name ?? i}`}
-              className={`dgx-port ${side}${p.free ? " free" : ""}`}
-              title={
-                p.name
-                  ? `${p.name} (${p.type})${p.free ? " — free" : ""}`
-                  : undefined
-              }
-              style={{
-                // Coloured by what the port carries, so a socket matches the cable for it.
-                ["--jc" as string]: cableColorFor(p.type),
-                // Spread across the WIDTH: the sockets are on the top and bottom edges now
-                // that signal runs down. Must agree with `jackPoint`, which is where the
-                // cable's end is computed — the plate and the cable end are one place drawn
-                // twice, and a disagreement reads as a cable that misses its socket.
-                left: `${((i + 1) / (all.length + 1)) * 100}%`,
-              }}
-            >
-              <i />
-            </span>
-          )),
+          (n.jacks?.[side] ?? []).map((p, i, all) => {
+            // The patch gesture, where the host armed it. At REST: a free OUT starts a new
+            // cable, and any OCCUPIED jack lifts the cable end plugged into it — only a
+            // free IN answers to nothing, having nothing to give. Holding one: exactly the
+            // jacks that can LAND the loose end — the seeking side, free, and the same
+            // signal, because a midi cable has no business in an audio socket.
+            const plug =
+              !!onTapJack &&
+              (patchWant
+                ? p.free &&
+                  side === patchWant.seeking &&
+                  p.type === patchWant.type
+                : side === "out" || !p.free);
+            return (
+              <span
+                key={`${side}:${p.name ?? i}`}
+                className={`dgx-port ${side}${p.free ? " free" : ""}${plug ? " plug" : ""}`}
+                title={
+                  p.name
+                    ? `${p.name} (${p.type})${p.free ? " — free" : ""}`
+                    : undefined
+                }
+                style={{
+                  // Coloured by what the port carries, so a socket matches the cable for it.
+                  ["--jc" as string]: cableColorFor(p.type),
+                  // Spread across the WIDTH: the sockets are on the top and bottom edges now
+                  // that signal runs down. Must agree with `jackPoint`, which is where the
+                  // cable's end is computed — the plate and the cable end are one place drawn
+                  // twice, and a disagreement reads as a cable that misses its socket.
+                  left: `${((i + 1) / (all.length + 1)) * 100}%`,
+                }}
+                // stopPropagation, or the same click also selects the node under the jack.
+                onClick={
+                  plug
+                    ? (e) => {
+                        e.stopPropagation();
+                        onTapJack?.(n, side, p, i);
+                      }
+                    : undefined
+                }
+              >
+                <i />
+              </span>
+            );
+          }),
         )}
 
       {n.kind === "sink" ? (
@@ -2206,14 +2279,13 @@ function ClipList({
 const Node = memo(NodeInner);
 
 // The SVG layer OVER the cable canvas: everything about a cable that does not move — its
-// label, the automation arrows, and the hit paths the insert `+` hangs off. The signal
-// cables themselves are drawn by DomChains onto a canvas; see @studio/ui-chains'
-// docs/wobble.md for why they left the DOM.
+// label, the automation PARAM labels, and the hit paths the insert `+` hangs off. Every
+// cable — signal and automation alike — is drawn by DomChains onto the canvas; see
+// @studio/ui-chains' docs/wobble.md for why they left the DOM.
 function CablesInner({
   signal,
   auto,
   showLabels,
-  boost,
   hovered,
   setHovered,
   onInsert,
@@ -2221,12 +2293,17 @@ function CablesInner({
   signal: EdgeGeom[];
   auto: AutoTarget[];
   showLabels: boolean;
-  // World-unit stroke multiplier that grows as the camera pulls back, keeping on-screen thickness constant.
-  boost: number;
   hovered: string | null;
   setHovered: (id: string | null) => void;
   // The pointer position travels with it: the `+` opens a picker, which must land where you clicked.
-  onInsert: (info: EdgeInsert, x: number, y: number) => void;
+  onInsert: (
+    info: EdgeInsert,
+    x: number,
+    y: number,
+    // WORLD coords of the cable's midpoint — where the picked module will be BORN, so a new
+    // node appears on the arrow it was dropped onto rather than wherever the layout says.
+    at: { x: number; y: number },
+  ) => void;
 }) {
   return (
     <>
@@ -2256,43 +2333,31 @@ function CablesInner({
         );
       })}
 
-      {/* automation cables — straight mauve bezier into the target widget / border */}
-      {auto.map((s) => {
-        const dx = Math.max(40, Math.abs(s.to.x - s.from.x) * 0.45);
-        const d = `M ${s.from.x} ${s.from.y} C ${s.from.x + dx} ${s.from.y}, ${s.to.x - dx} ${s.to.y}, ${s.to.x} ${s.to.y}`;
-        const ang = Math.atan2(s.to.y - s.from.y, s.to.x - s.from.x);
-        const lab = s.onWidget
-          ? {
-              x: (s.from.x + s.to.x) / 2,
-              y: (s.from.y + s.to.y) / 2 - 6,
-              anchor: "middle" as const,
-            }
-          : { x: s.to.x - 4, y: s.to.y - 12, anchor: "end" as const };
-        return (
-          <g key={s.id}>
-            <path className="dgx-cbl-shadow" d={d} strokeWidth={3.2 * boost} />
-            <path
-              className="dgx-cbl auto"
-              d={d}
-              style={{ strokeWidth: 1.8 * boost }}
-            />
-            <polygon
-              points={arrowPoints(s.to, ang, 6.5 * boost)}
-              fill={MAUVE}
-            />
-            {showLabels && (
-              <text
-                className="dgx-alab"
-                x={lab.x}
-                y={lab.y}
-                textAnchor={lab.anchor}
-              >
-                {s.param}
-              </text>
-            )}
-          </g>
-        );
-      })}
+      {/* automation cables draw on the CANVAS now, hanging and swaying like every other —
+          a curve is a node, and its cables are cables. Only the param LABEL stays here,
+          text being the one thing a canvas draws worse. Chord midpoint on purpose: the
+          hang sags below it, so the label sits clear of its own cable. */}
+      {showLabels &&
+        auto.map((s) => {
+          const lab = s.onWidget
+            ? {
+                x: (s.from.x + s.to.x) / 2,
+                y: (s.from.y + s.to.y) / 2 - 6,
+                anchor: "middle" as const,
+              }
+            : { x: s.to.x - 4, y: s.to.y - 12, anchor: "end" as const };
+          return (
+            <text
+              key={s.id}
+              className="dgx-alab"
+              x={lab.x}
+              y={lab.y}
+              textAnchor={lab.anchor}
+            >
+              {s.param}
+            </text>
+          );
+        })}
 
       {/* insert affordance — a transparent hit path over each eligible arrow, plus the
           blue recolour + circled `+` while it's hovered */}
@@ -2310,7 +2375,7 @@ function CablesInner({
               onMouseLeave={() => setHovered(null)}
               onClick={(e) => {
                 e.stopPropagation();
-                onInsert(g.insert!, e.clientX, e.clientY);
+                onInsert(g.insert!, e.clientX, e.clientY, mid);
               }}
             />
             {on && (
@@ -2321,7 +2386,7 @@ function CablesInner({
                   onMouseEnter={() => setHovered(g.id)}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onInsert(g.insert!, e.clientX, e.clientY);
+                    onInsert(g.insert!, e.clientX, e.clientY, mid);
                   }}
                 >
                   <circle cx={mid.x} cy={mid.y} r={9} />
@@ -2412,6 +2477,10 @@ export function DomChains({
   onContextMenu,
   onEdgeInsert,
   onCanvasInsert,
+  onConnect,
+  onDisconnect,
+  onReplug,
+  onMoveNode,
   onCamReady,
   row,
   camStore,
@@ -2466,9 +2535,48 @@ export function DomChains({
   onSelect: (c: string | null) => void;
   onPickModule?: (module: string | null) => void;
   onContextMenu?: (ctx: GraphMenuCtx, x: number, y: number) => void;
-  onEdgeInsert?: (info: EdgeInsert, x: number, y: number) => void;
-  /** Right-click on EMPTY canvas — a pick lands in the graph wired to nothing. */
-  onCanvasInsert?: (x: number, y: number) => void;
+  // `at` is the arrow's midpoint in WORLD px — where the picked module will be born.
+  onEdgeInsert?: (
+    info: EdgeInsert,
+    x: number,
+    y: number,
+    at?: { x: number; y: number },
+  ) => void;
+  /** Right-click on EMPTY canvas — a pick lands in the graph wired to nothing, BORN at the
+   *  click (`at`, world px) rather than wherever the layout would put it. */
+  onCanvasInsert?: (
+    x: number,
+    y: number,
+    at?: { x: number; y: number },
+  ) => void;
+  /**
+   * The patch cable landed: a free OUT jack was clicked, the cable followed the cursor, and a
+   * free IN jack of the same signal took it. `from`/`to` are chains.yaml addresses —
+   * `name` or `name#port` (see jackRef) — so the host can run `chain connect from to`
+   * verbatim. Optional, and the jacks are clickable only when it is given: st0's read-only
+   * views and the desk pass nothing and keep their inert sockets, the way they pass no
+   * command bar. Esc or any right-click drops the cable in hand.
+   */
+  onConnect?: (from: string, to: string) => void;
+  /**
+   * A lifted cable was dropped on the bare canvas: delete its arrow. Same addresses
+   * `onConnect` speaks, ready for `chain disconnect`. Lifting needs BOTH this and
+   * `onReplug` — the jacks offer to pick a cable up only when the drop has somewhere to go.
+   */
+  onDisconnect?: (from: string, to: string) => void;
+  /**
+   * A lifted cable's loose end landed on another jack: the arrow from→to becomes
+   * newFrom→newTo (only one end differs). Ready for `chain replug`, verbatim — one gesture,
+   * one verb, one undo step.
+   */
+  onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
+  /**
+   * A module was dragged by its header and dropped: pin it there. `module` is the chains
+   * name (jackRef), `x`/`y` world px, whole and non-negative — ready for `module position`.
+   * Optional, and the headers are draggable only when it is given (and never in the mixer
+   * row): the read-only hosts keep their inert headers, the same rule as every gesture here.
+   */
+  onMoveNode?: (module: string, x: number, y: number) => void;
   /** Hands the camera up, once mounted — see ChainsCamApi. */
   onCamReady?: (cam: ChainsCamApi) => void;
   /**
@@ -2638,6 +2746,10 @@ export function DomChains({
     onContextMenu,
     onEdgeInsert,
     onCanvasInsert,
+    onConnect,
+    onDisconnect,
+    onReplug,
+    onMoveNode,
     command,
     onBypassModule,
     onNodeMenu,
@@ -2657,6 +2769,10 @@ export function DomChains({
     onContextMenu,
     onEdgeInsert,
     onCanvasInsert,
+    onConnect,
+    onDisconnect,
+    onReplug,
+    onMoveNode,
     command,
     onBypassModule,
     onNodeMenu,
@@ -2676,10 +2792,23 @@ export function DomChains({
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const signal: EdgeGeom[] = [];
     const auto: AutoTarget[] = [];
+    // An automation cable is a CABLE: it hangs, sways and rides the canvas like every signal
+    // one — a curve is a node, and its cables behave as cables do. Only its param LABEL stays
+    // in the SVG (text is the one thing a canvas draws worse), off the AutoTarget list.
+    const autoGeom: ({ id: string } & CableGeom)[] = [];
     for (const e of graph.edges) {
       if (e.automation) {
         const a = autoTarget(e, byId);
-        if (a) auto.push(a);
+        if (!a) continue;
+        auto.push(a);
+        autoGeom.push({
+          id: a.id,
+          ...buildCableGeom(
+            hangPoints(a.from, a.to),
+            WOBBLE_STEP,
+            WOBBLE_MAX_SAMPLES,
+          ),
+        });
         continue;
       }
       if (e.points.length < 2) continue;
@@ -2698,7 +2827,7 @@ export function DomChains({
         insert: insertFor(e.source, e.target, byId),
       });
     }
-    return { byId, signal, auto };
+    return { byId, signal, auto, autoGeom };
   }, [graph]);
 
   // --- node motion: the cards slide, arrive and leave rather than jumping -----------
@@ -2785,20 +2914,60 @@ export function DomChains({
   const motionCables = useRef<() => CableDraw[]>(() => []);
   motionCables.current = () => {
     const ms = motions.current;
+    const drag = nodeDrag.current;
     const byId = new Map<string, GraphNode>();
     for (const n of layoutNodes.current) {
       const p = motionPos(n, ms);
-      byId.set(n.id, p.x === n.x && p.y === n.y ? n : { ...n, x: p.x, y: p.y });
+      let { x, y } = p;
+      // A card in hand (or dropped, pending its reload) is wherever the hand put it.
+      if (drag && n.id === drag.n.id) {
+        x = n.x + drag.dx;
+        y = n.y + drag.dy;
+      } else {
+        const dropped = droppedNodes.current.get(n.id);
+        if (dropped) {
+          x = n.x + dropped.dx;
+          y = n.y + dropped.dy;
+        }
+      }
+      byId.set(n.id, x === n.x && y === n.y ? n : { ...n, x, y });
     }
     const draws: CableDraw[] = [];
+    const lifted = patchRef.current?.edge?.id;
     for (const e of graph.edges) {
-      if (e.automation || e.points.length < 2) continue;
+      if (e.id === lifted) continue; // its end is in hand — the dashed ghost draws it
+      // The automation cables move too — a curve is a node, its cables are cables, and a
+      // dragged card must not shed the mauve ones while the others follow.
+      if (e.automation) {
+        const a = autoTarget(e, byId);
+        if (!a) continue;
+        const base = hangPoints(a.from, a.to);
+        const sway = swayFor(a.id);
+        exciteSway(sway, base[0], base[base.length - 1]);
+        draws.push({
+          geom: { base, samples: NO_SAMPLES, len: 0 },
+          color: MAUVE,
+          live: false,
+          sway,
+          width: AUTO_W,
+          shadowWidth: AUTO_SHADOW_W,
+          dash: AUTO_DASH,
+          arrowSize: AUTO_ARROW,
+        });
+        continue;
+      }
+      if (e.points.length < 2) continue;
       const base = cablePath(e, byId.get(e.source), byId.get(e.target));
       if (base.length < 2) continue;
+      // Every motion frame re-reads the sockets, so the swing is fed continuously through a
+      // slide — the slack trails the cards and settles after they land.
+      const sway = swayFor(e.id);
+      exciteSway(sway, base[0], base[base.length - 1]);
       draws.push({
         geom: { base, samples: NO_SAMPLES, len: 0 },
         color: cableColorFor(e.signal),
         live: false,
+        sway,
       });
     }
     return draws;
@@ -2827,6 +2996,14 @@ export function DomChains({
    */
   // biome-ignore lint/correctness/useExhaustiveDependencies: the refs above were reassigned with this render's layout, so `graph` IS the trigger and the body reads nothing else.
   useLayoutEffect(() => {
+    // A new layout retires every dropped card's inline transform: its left/top now carry the
+    // written position (or, if the write failed, the honest old one), so the offset comes off
+    // in the same frame the node re-renders — no snap, no double offset.
+    if (droppedNodes.current.size) {
+      for (const { el } of droppedNodes.current.values())
+        el.style.transform = "";
+      droppedNodes.current.clear();
+    }
     if (!animate) {
       // Turned off mid-flight — nothing else would ever take the inline styles back off.
       if (motions.current.size || styled.current.size) settleMotion.current();
@@ -2884,6 +3061,18 @@ export function DomChains({
   const applyLive = useRef<() => void>(NOOP);
   // Set by the ripple effect below; poked whenever liveness changes, to start a stopped loop.
   const rippleRef = useRef<() => void>(NOOP);
+  // One swing per cable, keyed by edge id and SHARED with the draws — the spring loop mutates
+  // these and repaints, so a settling cable never rebuilds the draw list. See ui-chains docs/hang.md.
+  const sways = useRef(new Map<string, CableSway>());
+  const swayKick = useRef<() => void>(NOOP);
+  const swayFor = (id: string): CableSway => {
+    let s = sways.current.get(id);
+    if (!s) {
+      s = newSway();
+      sways.current.set(id, s);
+    }
+    return s;
+  };
 
   // --- the cable canvas ------------------------------------------------------------
   // Thicker cables as the camera pulls back, so their width on screen holds. Taken from the LOD
@@ -2896,18 +3085,60 @@ export function DomChains({
   // without the subscription that calls them having the graph as a dependency.
   // Colour by what a cable CARRIES, live or not — tinting live cables orange made everything look like audio.
   rebuildCables.current = () => {
-    // Mid-move the laid-out geometry is a lie: the cards are somewhere between two layouts and
-    // the cables have to leave from where they actually are. See docs/nodeMotion.md.
-    if (motions.current.size) {
+    // Mid-move the laid-out geometry is a lie: the cards are somewhere between two layouts
+    // and the cables have to leave from where they actually are — and a HELD or freshly
+    // dropped card is the same lie, told by a hand instead of the tween. See docs/nodeMotion.md.
+    if (motions.current.size || nodeDrag.current || droppedNodes.current.size) {
       cableDrawsRef.current = motionCables.current();
+      swayKick.current();
       return;
     }
     const live = liveRef.current;
-    cableDrawsRef.current = model.signal.map((g) => ({
-      geom: g,
-      color: cableColorFor(g.signal),
-      live: live.has(g.id),
-    }));
+    // The cable whose end is in hand steps aside: its dashed ghost is the drawing of it.
+    const lifted = patchRef.current?.edge?.id;
+    cableDrawsRef.current = [
+      ...model.signal
+        .filter((g) => g.id !== lifted)
+        .map((g) => {
+          // Excitation happens HERE, where the endpoints are read: a rebuild whose sockets moved
+          // (a new layout landing, a motion frame) swings the slack; one that only changed
+          // liveness reads the same points and excites nothing.
+          const sway = swayFor(g.id);
+          exciteSway(sway, g.base[0], g.base[g.base.length - 1]);
+          return {
+            geom: g,
+            color: cableColorFor(g.signal),
+            live: live.has(g.id),
+            sway,
+          };
+        }),
+      // The automation cables, same physics, wearing the auto dress — a cable is a cable.
+      ...model.autoGeom.map((g): CableDraw => {
+        const sway = swayFor(g.id);
+        exciteSway(sway, g.base[0], g.base[g.base.length - 1]);
+        return {
+          geom: g,
+          color: MAUVE,
+          live: false,
+          sway,
+          width: AUTO_W,
+          shadowWidth: AUTO_SHADOW_W,
+          dash: AUTO_DASH,
+          arrowSize: AUTO_ARROW,
+        };
+      }),
+    ];
+    // Springs for cables that left go with them, or a rewired graph accumulates ghosts.
+    const total = model.signal.length + model.autoGeom.length;
+    if (sways.current.size > total) {
+      const keep = new Set([
+        ...model.signal.map((g) => g.id),
+        ...model.autoGeom.map((g) => g.id),
+      ]);
+      for (const id of sways.current.keys())
+        if (!keep.has(id)) sways.current.delete(id);
+    }
+    swayKick.current();
   };
   // The liveness set is keyed by EDGE, so it is recomputed from the track ids against the
   // current edges — which is why a graph change goes through here too, not just a meter frame.
@@ -2997,6 +3228,34 @@ export function DomChains({
     return () => {
       if (raf) cancelAnimationFrame(raf);
       rippleRef.current = NOOP;
+    };
+  }, []);
+
+  // The SWING's clock, beside the ripple's and for the same economy: stepped at the screen's
+  // rate while any cable moves, stopped dead the moment the last one settles — a still graph
+  // pays nothing. Kicked by every rebuild, which is where excitation happens; a kick while
+  // running is a no-op, so motion frames and the spring never race two loops.
+  useEffect(() => {
+    let raf = 0;
+    let lastAt = 0;
+    const tick = (now: number) => {
+      // Capped dt: a background tab's first frame back would otherwise integrate seconds at once.
+      const dt = Math.min(0.05, (now - lastAt) / 1000);
+      lastAt = now;
+      let moving = false;
+      for (const s of sways.current.values())
+        if (stepSway(s, dt)) moving = true;
+      paintRef.current();
+      raf = moving ? requestAnimationFrame(tick) : 0;
+    };
+    swayKick.current = () => {
+      if (raf) return;
+      lastAt = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      swayKick.current = NOOP;
     };
   }, []);
 
@@ -3562,8 +3821,11 @@ export function DomChains({
     },
     [],
   );
+  // The plugin's OWN window, drawn by the plugin on the engine's machine. The verb names an
+  // instance rather than a module, because a window belongs to what is loaded, not to the file.
   const openPlugin = useCallback(
-    (module: string) => void cb.current.command(`module open ${module}`),
+    (module: string) =>
+      void cb.current.command(`instance external-ui ${module}`),
     [],
   );
   // Bare `module bypass` toggles, and NOT the quiet path: bypass changes the graph's shape, so it must reload.
@@ -3690,10 +3952,288 @@ export function DomChains({
     },
     [setModuleField],
   );
-  const insert = useCallback((info: EdgeInsert, x: number, y: number) => {
-    if (suppressClick.current) return;
-    cb.current.onEdgeInsert?.(info, x, y);
+  const insert = useCallback(
+    (info: EdgeInsert, x: number, y: number, at: { x: number; y: number }) => {
+      if (suppressClick.current) return;
+      cb.current.onEdgeInsert?.(info, x, y, at);
+    },
+    [],
+  );
+
+  // --- the patch cable ----------------------------------------------------------------
+  // In hand: a cable with ONE loose end. A free OUT jack starts a NEW one (loose end seeks
+  // an input); an OCCUPIED jack lifts an EXISTING cable's end off it — the other end stays
+  // plugged, and what the loose end seeks is the side it came off. Landing writes connect
+  // or replug; a click on bare canvas deletes what existed and drops what did not.
+  const [patch, setPatch] = useState<{
+    type: WebSignal;
+    seeking: "in" | "out"; // which side of a jack lands the loose end
+    fixedRef: string; // the plugged end's chains address
+    fixedAt: { x: number; y: number }; // …and its socket, where the temp cable is pinned
+    // The arrow this WAS, when an existing cable was lifted — absent for a new one. The
+    // drawn cable with this id steps aside while its ghost is in hand (see rebuildCables).
+    edge?: { id: string; from: string; to: string };
+  } | null>(null);
+  const patchRef = useRef(patch);
+  patchRef.current = patch;
+  const patchEl = useRef<SVGPathElement | null>(null);
+  // The laid-out graph, for the jack → edge lookup a lift needs — a ref, so tapJack stays
+  // stable while always reading the current layout.
+  const graphRef = useRef(graph);
+  graphRef.current = graph;
+
+  // Screen → world, the inverse of the camera `applyCam` writes — the first thing here to
+  // need it: everything else either lives in world coords already or stays in client px.
+  const toWorld = useCallback((cx: number, cy: number) => {
+    const r = hostRef.current?.getBoundingClientRect();
+    const c = cam.current;
+    return {
+      x: (cx - (r?.left ?? 0) - c.x) / c.k,
+      y: (cy - (r?.top ?? 0) - c.y) / c.k,
+    };
   }, []);
+
+  /** The dashed promise of a cable HANGS like the real one it becomes — same curve, same
+   *  sag. `f` is always the OUT end: a lifted source end puts the cursor there instead. */
+  const patchD = (f: { x: number; y: number }, t: { x: number; y: number }) =>
+    smoothPath(hangPoints(f, t));
+
+  // A patch change hides/unhides a drawn cable, so the canvas must follow at once — the ref
+  // is written before the state lands, because rebuildCables reads the ref.
+  const setPatchNow = (next: typeof patchRef.current): void => {
+    patchRef.current = next;
+    setPatch(next);
+    rebuildCables.current();
+    paintRef.current();
+  };
+
+  const tapJack = useCallback(
+    (n: GraphNode, side: "in" | "out", p: Jack, index: number) => {
+      if (suppressClick.current) return; // that click ended a pan
+      const cur = patchRef.current;
+      if (cur) {
+        // NodeInner arms only jacks of the seeking side, free and type-matched: land it.
+        const landed = jackRef(n, p.name);
+        if (cur.edge) {
+          const nf = cur.seeking === "out" ? landed : cur.edge.from;
+          const nt = cur.seeking === "in" ? landed : cur.edge.to;
+          cb.current.onReplug?.(cur.edge.from, cur.edge.to, nf, nt);
+        } else {
+          cb.current.onConnect?.(cur.fixedRef, landed);
+        }
+        setPatchNow(null);
+        return;
+      }
+      if (p.free) {
+        // A free OUT jack starts a NEW cable (a free IN jack is never armed at rest).
+        setPatchNow({
+          type: p.type,
+          seeking: "in",
+          fixedRef: jackRef(n, p.name),
+          fixedAt: jackPoint(n, "out", index),
+        });
+        return;
+      }
+      // An occupied jack: lift the FIRST signal cable's end off it. First, because a jack
+      // rarely carries two — and the other end of any of them is one more click away.
+      // Only where the drop has somewhere to go: a host without replug/disconnect keeps
+      // its cables plugged.
+      if (!cb.current.onReplug || !cb.current.onDisconnect) return;
+      const g = graphRef.current;
+      const e = g.edges.find(
+        (ed) =>
+          !ed.automation &&
+          (side === "out" ? ed.source : ed.target) === n.id &&
+          ((side === "out" ? ed.sourcePort : ed.targetPort) ?? undefined) ===
+            (p.name ?? undefined),
+      );
+      if (!e) return; // only automation plugs here — those cables are edited on the module
+      const src = g.nodes.find((x) => x.id === e.source);
+      const tgt = g.nodes.find((x) => x.id === e.target);
+      if (!src || !tgt) return;
+      const from = jackRef(src, e.sourcePort);
+      const to = jackRef(tgt, e.targetPort);
+      const inIndex = Math.max(
+        0,
+        tgt.jacks?.in.findIndex((j) => j.name === e.targetPort) ?? 0,
+      );
+      const outIndex = Math.max(
+        0,
+        src.jacks?.out.findIndex((j) => j.name === e.sourcePort) ?? 0,
+      );
+      setPatchNow(
+        side === "out"
+          ? {
+              // The source end comes off: the target stays plugged, the loose end seeks
+              // a new OUT jack to leave from.
+              type: p.type,
+              seeking: "out",
+              fixedRef: to,
+              fixedAt: jackPoint(tgt, "in", inIndex),
+              edge: { id: e.id, from, to },
+            }
+          : {
+              // The target end comes off: the source stays plugged, as a new cable would be.
+              type: p.type,
+              seeking: "in",
+              fixedRef: from,
+              fixedAt: jackPoint(src, "out", outIndex),
+              edge: { id: e.id, from, to },
+            },
+      );
+    },
+    // biome-ignore lint/correctness/useExhaustiveDependencies: setPatchNow reads refs only.
+    [],
+  );
+
+  // Direct DOM on every move, no re-render: the cable's loose end is the cursor, 60 times
+  // a second — at the OUT end of the curve when the source side is what came off.
+  const movePatch = useCallback(
+    (e: React.PointerEvent) => {
+      const cur = patchRef.current;
+      const el = patchEl.current;
+      if (!cur || !el) return;
+      const w = toWorld(e.clientX, e.clientY);
+      el.setAttribute(
+        "d",
+        cur.seeking === "in" ? patchD(cur.fixedAt, w) : patchD(w, cur.fixedAt),
+      );
+    },
+    [toWorld],
+  );
+
+  // What every node's jack gating reads — memoised, or holding a cable would re-render all
+  // the cards on every unrelated state change (the object would be new each render).
+  const patchWant = useMemo(
+    () => (patch ? { seeking: patch.seeking, type: patch.type } : null),
+    [patch],
+  );
+
+  // A click on the BARE canvas while a cable is in hand: an existing cable dropped there is
+  // DELETED, a new one simply ceases. Same target test as the canvas menu — a node click
+  // bubbles here too, and dropping on a node's body must keep the cable in hand.
+  const canvasDrop = (e: React.MouseEvent): boolean => {
+    const cur = patchRef.current;
+    if (!cur || suppressClick.current) return false;
+    const t = e.target as HTMLElement;
+    if (t !== hostRef.current && !t.classList?.contains("dgx-world"))
+      return false;
+    if (cur.edge) cb.current.onDisconnect?.(cur.edge.from, cur.edge.to);
+    setPatchNow(null);
+    return true;
+  };
+
+  // --- dragging a node by its HEADER: the pin gesture --------------------------------
+  // In hand: the node, its element (moved by a transform, so React never fights the drag),
+  // and the offset in world px. On release the offset becomes `module position` — see the
+  // onMoveNode prop — and the transform STAYS until the graph containing the write arrives:
+  // clearing it on release would snap the card home for the length of the round trip, the
+  // same trap the timeline's clip drag documents.
+  const nodeDrag = useRef<{
+    n: GraphNode;
+    el: HTMLElement;
+    sx: number;
+    sy: number;
+    dx: number;
+    dy: number;
+    moved: boolean;
+  } | null>(null);
+  // Dropped, written, waiting for the reload: offsets the cables must keep honouring, and
+  // transforms to take off the moment a new layout lands (see the motion layout effect).
+  const droppedNodes = useRef(
+    new Map<string, { dx: number; dy: number; el: HTMLElement }>(),
+  );
+
+  const beginNodeDrag = useCallback((n: GraphNode, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    // The same press must not also arm a pan — the reason every header control stops it too.
+    e.stopPropagation();
+    const el = (e.currentTarget as HTMLElement).closest(
+      "[data-node-id]",
+    ) as HTMLElement | null;
+    if (!el) return;
+    nodeDrag.current = {
+      n,
+      el,
+      sx: e.clientX,
+      sy: e.clientY,
+      dx: 0,
+      dy: 0,
+      moved: false,
+    };
+    const onMove = (ev: PointerEvent) => {
+      const d = nodeDrag.current;
+      if (!d) return;
+      const k = Math.max(cam.current.k, 0.01);
+      d.dx = (ev.clientX - d.sx) / k;
+      d.dy = (ev.clientY - d.sy) / k;
+      if (Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) > 3) d.moved = true;
+      d.el.style.transform = `translate(${d.dx}px, ${d.dy}px)`;
+      // The cables follow live — through the same path a node MOTION takes, which also
+      // excites their springs: dragging a card makes its slack swing, as it should.
+      rebuildCables.current();
+      paintRef.current();
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const d = nodeDrag.current;
+      nodeDrag.current = null;
+      if (!d) return;
+      if (!d.moved) {
+        // A press that never travelled is a click, and the click is the node's own.
+        d.el.style.transform = "";
+        return;
+      }
+      // Clamped to the world's origin: the fit frames 0.. and a pin at -300 would sit
+      // outside every frame the camera can be asked for.
+      const x = Math.max(0, Math.round(d.n.x + d.dx));
+      const y = Math.max(0, Math.round(d.n.y + d.dy));
+      droppedNodes.current.set(d.n.id, {
+        dx: x - d.n.x,
+        dy: y - d.n.y,
+        el: d.el,
+      });
+      // Pre-seed the drawn map with the drop, so the layout that lands the write plans NO
+      // slide — the card is already exactly where the file will say it is.
+      drawn.current.set(d.n.id, { node: d.n, x, y });
+      rebuildCables.current();
+      paintRef.current();
+      cb.current.onMoveNode?.(jackRef(d.n), x, y);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, []);
+
+  // Esc or ANY right-click puts the cable in hand BACK — capture phase, so neither the
+  // shell's own Esc ladder nor a node's context menu acts on a press that only meant
+  // "never mind". A lifted cable re-draws where it was: cancelling writes nothing.
+  useEffect(() => {
+    if (!patch) return;
+    const back = () => {
+      patchRef.current = null;
+      setPatch(null);
+      rebuildCables.current();
+      paintRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      back();
+    };
+    const onCtx = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      back();
+    };
+    window.addEventListener("keydown", onKey, true);
+    const host = hostRef.current;
+    host?.addEventListener("contextmenu", onCtx, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      host?.removeEventListener("contextmenu", onCtx, true);
+    };
+  }, [patch]);
   /**
    * Right-click on EMPTY canvas — the picker, for a module that lands wired to nothing.
    *
@@ -3709,7 +4249,12 @@ export function DomChains({
       !(t as HTMLElement).classList?.contains("dgx-world")
     )
       return;
-    cb.current.onCanvasInsert?.(e.clientX, e.clientY);
+    // The click's WORLD point rides along: the module picked will be born exactly there.
+    cb.current.onCanvasInsert?.(
+      e.clientX,
+      e.clientY,
+      toWorld(e.clientX, e.clientY),
+    );
   };
 
   const showWidgets = lod.widgets;
@@ -3738,6 +4283,9 @@ export function DomChains({
           ref={hostRef}
           className={`dgx${panning ? " panning" : ""}`}
           onPointerDown={onPointerDown}
+          // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
+          onPointerMove={patch ? movePatch : undefined}
+          onClick={patch ? canvasDrop : undefined}
           onContextMenu={canvasMenu}
           style={{ cursor: hovered ? "pointer" : undefined }}
         >
@@ -3758,11 +4306,20 @@ export function DomChains({
                 signal={model.signal}
                 auto={model.auto}
                 showLabels={showLabels}
-                boost={linkBoost}
                 hovered={hovered}
                 setHovered={setHovered}
                 onInsert={insert}
               />
+              {/* The cable in hand, its far end moved by movePatch off-React. In the world
+                  SVG, so its coordinates are jackPoint's own and no conversion can drift. */}
+              {patch && (
+                <path
+                  ref={patchEl}
+                  className="dgx-patchcable"
+                  style={{ stroke: cableColorFor(patch.type) }}
+                  d={patchD(patch.fixedAt, patch.fixedAt)}
+                />
+              )}
             </svg>
             {/* On their way out: drawn where they were last seen, faded down by the loop and
                 unmounted when it settles. Before the live nodes so a card arriving on the same
@@ -3816,6 +4373,14 @@ export function DomChains({
                 onWatchWaveform={onWatchWaveform}
                 onContextParam={contextParam}
                 sinkPlay={sinkPlay}
+                onTapJack={onConnect ? tapJack : undefined}
+                patchWant={patchWant}
+                // EVERY node — everything on the graph is a node, and what is a node can be
+                // put somewhere: a module by its chains name, a track by its id, a curve by
+                // its curve id, the sink by "OUT" (all jackRef's answer). Only the mixer row
+                // refuses, being an arrangement: a strip dragged out of the line would put a
+                // console's channel wherever it last was.
+                onHeaderDrag={onMoveNode && !row ? beginNodeDrag : undefined}
               />
             ))}
           </div>

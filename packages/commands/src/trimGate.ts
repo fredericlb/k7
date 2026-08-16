@@ -27,28 +27,41 @@ export const ampToDb = (amp: number): number =>
  * begins, and clipping the attack that crossed it would be audible where a few silent milliseconds
  * are not.
  *
- * Null when nothing at all is above the gate. That is not a trim to nothing: a take entirely below
- * the gate is either silence or a gate set too high, and both are things to say rather than to
- * apply. The caller refuses.
+ * `within` is the interval the clip already PLAYS — its current `from`/`to` — and the gate looks
+ * only inside it: a re-trim refines the window and never reaches back into material an earlier
+ * trim removed. The answer is clamped to it, widening included. Omitted, the whole file is the
+ * interval, which is what a first trim is.
+ *
+ * Null when nothing in the interval is above the gate. That is not a trim to nothing: a take
+ * entirely below the gate is either silence or a gate set too high, and both are things to say
+ * rather than to apply. The caller refuses.
  */
 export function trimWindow(
   env: readonly number[],
   seconds: number,
   gateDb: number,
+  within?: TrimWindow | null,
 ): TrimWindow | null {
   if (!env.length || !(seconds > 0)) return null;
+  const per = seconds / env.length;
+  const lo = Math.max(0, Math.min(within?.from ?? 0, seconds));
+  const hi = Math.max(lo, Math.min(within?.to ?? seconds, seconds));
+  if (!(hi > lo)) return null;
+  // The buckets the interval touches — a partly covered bucket counts, the honest reading of a
+  // resolution coarser than the bound.
+  const i0 = Math.max(0, Math.floor(lo / per));
+  const i1 = Math.min(env.length - 1, Math.ceil(hi / per) - 1);
   let first = -1;
   let last = -1;
-  for (let i = 0; i < env.length; i++)
+  for (let i = i0; i <= i1; i++)
     if (ampToDb(env[i]) > gateDb) {
       if (first < 0) first = i;
       last = i;
     }
   if (first < 0) return null;
 
-  const per = seconds / env.length;
-  const from = Math.max(0, (first - 1) * per);
-  const to = Math.min(seconds, (last + 2) * per);
+  const from = Math.max(lo, (first - 1) * per);
+  const to = Math.min(hi, (last + 2) * per);
   // A single bucket over the gate still has to be a window, not a point.
   return to > from ? { from, to } : null;
 }

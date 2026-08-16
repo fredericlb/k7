@@ -38,6 +38,17 @@ reads as *produces nothing* — which is exactly what muting a lane has always m
 lane's file carries no `mute:` for the two to disagree over. Solo is written nowhere at all: the
 surface derives it by bypassing every other lane.
 
+`positions` is where you PUT a node on the graph, if you did — dragging a module's header
+writes one, and the layout only ever places the nodes that have no entry here:
+
+```yaml schema=ChainsFile
+positions:
+  reverb: { x: 420, y: 180 }
+```
+
+Purely cosmetic: nothing about the signal reads it, and deleting the section (or running
+`module position reverb auto`) simply hands the nodes back to the automatic layout.
+
 One node per line, its destinations as a flow sequence. That is the canonical form: a node written
 any other way is re-spaced by the first edit, and then every node shows up in the diff.
 

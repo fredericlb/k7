@@ -58,13 +58,12 @@ const CATALOGUE: CommandInfo[] = [
     args: [a("node", "module", "modules")],
   },
   {
-    // Takes a module FIRST, then two things it does not know yet — so it is derived here like
-    // everything else, and stops at a trailing space.
+    // Takes the module FIRST — the node clicked on — then the ONE thing the menu cannot know:
+    // what to point it at. Derived here like everything else, stopping at a trailing space.
     command: "module replace",
-    help: "replace a module in place, keeping its position in every chain (e.g. module replace echo audio/wah @engine/audio/filter/auto-wah)",
+    help: "replace what a node is, keeping its name and its place (e.g. module replace echo @engine/audio/filter/auto-wah)",
     args: [
       a("module", "module", "modules"),
-      a("category/name", "module", "categories"),
       a("extends-ref", "module", "baseModules"),
     ],
   },
@@ -170,6 +169,40 @@ describe("a group", () => {
   });
 });
 
+describe("a take", () => {
+  const TAKES: CommandInfo[] = [
+    ...CATALOGUE,
+    {
+      command: "track take select",
+      help: "move a take onto the track (e.g. track take select gtr 2) — what was playing becomes that take",
+      args: [a("track", "track", "tracks"), a("n", "number")],
+    },
+    {
+      command: "track take delete",
+      help: "delete this take, and the events it held (e.g. track take delete gtr 2)",
+      args: [a("track", "track", "tracks"), a("n", "number")],
+    },
+  ];
+
+  it("offers its two verbs, both already filled in", () => {
+    const items = contextMenu({ kind: "take", track: "gtr", n: 2 }, TAKES);
+    expect(lines(items)).toEqual([
+      "track take select gtr 2",
+      "track take delete gtr 2",
+    ]);
+    // A click that answered every argument leaves nothing for the bar to collect: both run.
+    expect(items.every((i) => i.complete)).toBe(true);
+  });
+
+  it("is NOT derived — `<track> <number>` is also a gain", () => {
+    // The reason this one is written out by hand: `track gain`, `track pan` and the three tone
+    // bands have exactly that shape, so asking the catalogue would offer to set a take's level.
+    expect(
+      lines(contextMenu({ kind: "take", track: "gtr", n: 1 }, TAKES)),
+    ).not.toContain("track gain gtr 1");
+  });
+});
+
 describe("a module node", () => {
   it("offers what takes a module, and not what takes a CATEGORY", () => {
     // Both are class `module` on the wire — the colour they are drawn in. Matching on that
@@ -201,17 +234,13 @@ describe("a module node", () => {
   it("shrinks to the verbs that survive a DANGLING node", () => {
     // A name nothing answers to: no file to open, no param to set. These touch chains.yaml
     // alone, which the catalogue cannot say — it describes arguments, not what a handler writes.
-    // `module replace` is the repair that KEEPS the node: it needs no file behind the old name,
-    // and leaves everything that fed it wired to the one it swaps in.
+    // `module replace` is NOT among them any more: it repoints an `extends:`, and a dangling
+    // name has no file to repoint — offering it would offer a certain failure.
     expect(
       lines(
         contextMenu({ kind: "module", id: "gone", missing: true }, CATALOGUE),
       ),
-    ).toEqual([
-      "module bypass gone ",
-      "node unlink gone",
-      "module replace gone ", // trailing space: the module to swap in is still owed
-    ]);
+    ).toEqual(["module bypass gone ", "node unlink gone"]);
   });
 });
 
@@ -219,7 +248,7 @@ describe("a clip", () => {
   it("offers the event family once it knows WHICH placement", () => {
     const l = lines(
       contextMenu(
-        { kind: "clip", id: "riff", midi: false, track: "gtr", tc: "2:1:1" },
+        { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
         CATALOGUE,
       ),
     );
@@ -227,22 +256,25 @@ describe("a clip", () => {
       "ui file riff",
       "event remove gtr 2:1:1",
       "event move gtr 2:1:1 ",
-      "clip process riff ",
     ]);
   });
 
   it("says nothing about a placement it was not told the address of", () => {
-    expect(
-      lines(contextMenu({ kind: "clip", id: "riff", midi: false }, CATALOGUE)),
-    ).toEqual(["ui file riff", "clip process riff "]);
+    expect(lines(contextMenu({ kind: "clip", id: "riff" }, CATALOGUE))).toEqual(
+      ["ui file riff"],
+    );
   });
 
-  it("never offers `clip process` on a MIDI clip", () => {
-    // `clipTargets` lists no MIDI and the handler refuses one by name: never offer what the
-    // command would reject.
-    expect(
-      lines(contextMenu({ kind: "clip", id: "lead", midi: true }, CATALOGUE)),
-    ).toEqual(["ui file lead"]);
+  it("never offers the `clip …` family — an event is a placement, not the material", () => {
+    // The material may sit on other lanes too: `clip process riff` here read as "process this
+    // event" while acting on every placement of the file. Those verbs stay the bar's.
+    const l = lines(
+      contextMenu(
+        { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
+        CATALOGUE,
+      ),
+    ).join(" ");
+    expect(l).not.toContain("clip process");
   });
 });
 
@@ -312,7 +344,7 @@ describe("the menu's contract", () => {
     for (const ctx of [
       { kind: "track", id: "gtr" },
       { kind: "module", id: "lead" },
-      { kind: "clip", id: "riff", midi: false, track: "gtr", tc: "1:1:1" },
+      { kind: "clip", id: "riff", track: "gtr", tc: "1:1:1" },
       { kind: "marker", name: "Chorus" },
     ] as const)
       for (const item of contextMenu(ctx, CATALOGUE)) {

@@ -262,7 +262,7 @@ describe("where a cable plugs in", () => {
     expect(path[0]).toEqual(jackPoint(src, "out", 0));
   });
 
-  it("leaves and enters straight, so a cable comes out of the plate square", () => {
+  it("hangs from socket to socket — plugged in at both ends, sagging between them", () => {
     const src = node({
       id: "s",
       x: -200,
@@ -282,13 +282,15 @@ describe("where a cable plugs in", () => {
       src,
       twoIn,
     );
-    // Two points and nothing between them: a cable runs STRAIGHT from one socket to the other.
-    // The leads that used to square each exit only existed to fight the curve that is now gone.
-    expect(path).toHaveLength(2);
-    // …and both ends are the SOCKETS, not the border points dagre routed to. That is what makes
+    // Both ends are the SOCKETS, not the border points dagre routed to. That is what makes
     // a cable look plugged in, and it is the only part of dagre's route still used.
     expect(path[0]).toEqual(jackPoint(src, "out", 0));
-    expect(path[1]).toEqual(jackPoint(twoIn, "in", 0));
+    expect(path[path.length - 1]).toEqual(jackPoint(twoIn, "in", 0));
+    // …and between them it HANGS: somewhere the slack falls below both sockets, because a
+    // straight line is a cable with infinite tension. The shape itself is hang.ts's, tested there.
+    expect(path.length).toBeGreaterThan(2);
+    const sockets = Math.max(path[0].y, path[path.length - 1].y);
+    expect(Math.max(...path.map((p) => p.y))).toBeGreaterThan(sockets);
   });
 
   it("drops dagre's waypoints — a patch bay's cables do not skirt anything", () => {
@@ -307,7 +309,6 @@ describe("where a cable plugs in", () => {
       twoIn,
     );
     expect(path).not.toContainEqual(bend);
-    expect(path).toHaveLength(2);
   });
 
   it("falls back to dagre's own end when a node is missing", () => {

@@ -42,6 +42,7 @@ const ROW_ZOOM_OUT = 0.8;
 
 export function ChainsTab({
   reloadKey,
+  organizeKey = 0,
   active,
   showList,
   trackOrder,
@@ -61,6 +62,10 @@ export function ChainsTab({
   onContextMenu,
   onEdgeInsert,
   onCanvasInsert,
+  onConnect,
+  onDisconnect,
+  onReplug,
+  onMoveNode,
   pluginParamsStore,
   requestPluginParams,
   watchPluginParams,
@@ -76,6 +81,9 @@ export function ChainsTab({
   onMidiStatus,
 }: {
   reloadKey: number;
+  // Bumped when `graph organize` ran: the one signal that empties the session's held node
+  // positions and lets dagre re-lay out everything — an ordinary reload never does.
+  organizeKey?: number;
   // VISIBLE, not focused: a display:none container has no size and fit() would frame to 0.
   active: boolean;
   showList: boolean; // the sidebar is fullscreen chrome; the global view's pane is canvas only
@@ -144,14 +152,29 @@ export function ChainsTab({
   // that names it — so its builder lives in the médiathèque, not in one song's graph.
   // Right-click a node → the shell opens its context menu.
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  // A `+` click opens the module picker at the pointer, and pre-writes a command once one is chosen.
+  // A `+` click opens the module picker at the pointer, and pre-writes a command once one is
+  // chosen. `at` is the click's WORLD point — where the picked module will be born.
   onEdgeInsert?: (
     info: { before: string; after: string },
     x: number,
     y: number,
+    at?: { x: number; y: number },
   ) => void;
   // A right-click on empty canvas opens the same picker, for a module wired to nothing.
-  onCanvasInsert?: (x: number, y: number) => void;
+  onCanvasInsert?: (
+    x: number,
+    y: number,
+    at?: { x: number; y: number },
+  ) => void;
+  // The patch cable landed: a free output clicked, then a free input — both as chains.yaml
+  // addresses (`name` or `name#port`), ready for `chain connect`.
+  onConnect?: (from: string, to: string) => void;
+  // A lifted cable dropped on the bare canvas — ready for `chain disconnect`.
+  onDisconnect?: (from: string, to: string) => void;
+  // A lifted cable's end landed on another jack — ready for `chain replug`.
+  onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
+  // A module's header was dragged and dropped: pin it there — ready for `module position`.
+  onMoveNode?: (module: string, x: number, y: number) => void;
   // Live plugin params as an EXTERNAL store, so param frames re-render the graph and not the whole app.
   pluginParamsStore: PluginParamsStore;
   requestPluginParams: (id: string) => void;
@@ -360,6 +383,11 @@ export function ChainsTab({
     };
   }, [graph, showDocs, docNames]);
 
+  // Where each node was DRAWN last — the session memory that keeps an EDIT from
+  // reorganizing the picture: dagre places only what it has never placed. `graph organize`
+  // (organizeKey) is what empties it, deliberately.
+  const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const organizeSeen = useRef(organizeKey);
   const laid = useMemo(() => {
     if (!drawn) return null;
     // No OUT card. Reaching the sound card is what the END of a chain means here — a mixer sits
@@ -376,8 +404,30 @@ export function ChainsTab({
     // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
     // dagre would otherwise space them by whatever feeds them. See @studio/ui-chains.
     const row = alignModules ?? [];
-    return spaceModulesEvenly(layout(alignModuleRank(nodes, row), edges), row);
-  }, [drawn, alignModules, inputDevices]);
+    // `graph organize` ran: forget the session's positions AND ignore the (old) pins this
+    // once — the reload that clears them may not have landed yet, and holding onto either
+    // would make "reorganize" a command that visibly does nothing.
+    const fresh = organizeSeen.current !== organizeKey;
+    organizeSeen.current = organizeKey;
+    if (fresh) prevLaid.current = null;
+    // The pins and the held positions apply only to the free graph: the mixer row IS an
+    // arrangement, and a strip dragged out of the line would put a console's channel
+    // wherever it last was.
+    const out = spaceModulesEvenly(
+      layout(
+        alignModuleRank(nodes, row),
+        edges,
+        row.length || fresh ? undefined : drawn.positions,
+        row.length ? undefined : (prevLaid.current ?? undefined),
+      ),
+      row,
+    );
+    if (!row.length)
+      prevLaid.current = new Map(
+        out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
+      );
+    return out;
+  }, [drawn, alignModules, inputDevices, organizeKey]);
 
   // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this
   // costs nothing and cannot move the picture under the pointer.
@@ -771,6 +821,10 @@ export function ChainsTab({
             onContextMenu={onContextMenu}
             onEdgeInsert={onEdgeInsert}
             onCanvasInsert={onCanvasInsert}
+            onConnect={onConnect}
+            onDisconnect={onDisconnect}
+            onReplug={onReplug}
+            onMoveNode={onMoveNode}
             onCamReady={handleCamReady}
             camStore={camStore}
             command={command}

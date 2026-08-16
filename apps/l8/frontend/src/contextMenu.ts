@@ -15,7 +15,7 @@ export type MenuCtx =
   // applies. `ambient` means the ENGINE provides it and nothing is on disk: it can be given a folder.
   | { kind: "module"; id: string; missing?: boolean; ambient?: boolean }
   // A placed clip. `track` + `tc` say WHICH placement, so the `event …` family can be offered; both optional.
-  | { kind: "clip"; id: string; midi: boolean; track?: string; tc?: string }
+  | { kind: "clip"; id: string; track?: string; tc?: string }
   // One control on a module, right-clicked: `param` is the widget's `bind`, `cc` what is already
   // mapped to it. A binding is per param, so this is its own kind rather than part of "module".
   | {
@@ -25,6 +25,8 @@ export type MenuCtx =
       label: string;
       cc?: { ch: number; cc: number };
     }
+  // A TAKE row under a lane: the track it belongs to, and which take it is (1-based).
+  | { kind: "take"; track: string; n: number }
   | { kind: "chain"; id: string; track?: string }
   | { kind: "sink"; id: string }
   // Right-click on the timeline ruler — offer to drop a marker at `tc`, the beat under the
@@ -142,13 +144,13 @@ const build = (commands: CommandInfo[], entries: Entry[]): MenuItem[] =>
 
 // The verbs that still mean something on a node NOTHING answers to. Each acts on chains.yaml
 // alone, which is why they survive; the catalogue cannot say this, since it describes arguments
-// and this is about what the handler touches. `module replace` is here as the actual repair: it
-// creates the new module and rewrites the reference, and never opens the old one.
-const SURVIVES_MISSING = new Set([
-  "module bypass",
-  "node unlink",
-  "module replace",
-]);
+// and this is about what the handler touches.
+//
+// `module replace` used to be here, as the repair that created the missing module and pointed
+// the chains at it. It repoints an `extends:` now — there is no file behind a dangling name to
+// repoint — so offering it would be offering a verb that can only answer "no such module".
+// What is left for one is to take it out (`node unlink`) or to write the file it names.
+const SURVIVES_MISSING = new Set(["module bypass", "node unlink"]);
 
 /** The menu for a context; empty means "don't open a menu here". */
 export function contextMenu(ctx: MenuCtx, commands: CommandInfo[]): MenuItem[] {
@@ -198,6 +200,11 @@ export function contextMenu(ctx: MenuCtx, commands: CommandInfo[]): MenuItem[] {
       ]);
     }
     case "clip":
+      // Deliberately NOT the `clip …` family (`clipTargets`): what was right-clicked is an
+      // EVENT — a placement on a lane — and the material it references may sit on other lanes
+      // too. Offering `clip process` here read as "process this event" while acting on every
+      // placement of the file. The material's own verbs stay reachable from the bar and the
+      // clip's editor, where the clip is what you are looking at.
       return build(commands, [
         {
           verb: "ui file",
@@ -212,9 +219,6 @@ export function contextMenu(ctx: MenuCtx, commands: CommandInfo[]): MenuItem[] {
               { kind: "timecode", value: ctx.tc },
             ])
           : []),
-        // Anything taking the clip ITSELF. Audio only: `clipTargets` lists no MIDI, and the
-        // handler refuses one by name — never offer what the command would reject.
-        ...(ctx.midi ? [] : from([{ provider: "clipTargets", value: ctx.id }])),
       ]);
     case "param": {
       // A param name may contain spaces ("Filter Freq"), and every command here takes it as one
@@ -246,6 +250,14 @@ export function contextMenu(ctx: MenuCtx, commands: CommandInfo[]): MenuItem[] {
           : []),
       ]);
     }
+    case "take":
+      // Written out rather than derived, and for a sharper reason than the group's: `<track>
+      // <number>` is ALSO the shape of `track gain`, `track pan` and the three tone bands, so
+      // asking the catalogue for "commands taking these two" would offer to set a take's level.
+      return build(commands, [
+        { verb: "track take select", arg: `${ctx.track} ${ctx.n}` },
+        { verb: "track take delete", arg: `${ctx.track} ${ctx.n}` },
+      ]);
     case "chain":
       // A chain answers no command's first argument — `track process` and `clip process` take one
       // SECOND, and a line cannot be pre-written with a hole in the middle. So the only offer is

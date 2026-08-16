@@ -24,7 +24,7 @@ and what a command changes is undone by Ctrl+Z, because every command runs insid
 journal (`workspace.recordChange`).
 
 So `track mute gtr` goes; `track gain gtr ` asks for the dB. Roughly a third of the rows run.
-The ones worth knowing, because they change something and go at once: `module delete`,
+The ones worth knowing, because they change something and go at once:
 `event remove`, `marker delete`, `node unlink` and `module own`.
 
 `complete` is **stated, not sniffed** off the trailing space on `command`. That space is a caret
@@ -78,7 +78,7 @@ than the command name.
 
 ## What is still written by hand, and why
 
-Four things the catalogue genuinely cannot say. They are worth listing, because each is a
+Five things the catalogue genuinely cannot say. They are worth listing, because each is a
 question about a HANDLER, and the catalogue only describes arguments.
 
 - **The shell's own commands.** `ui file`, `ui midi learn` and the `module cc … none` unbind
@@ -87,18 +87,30 @@ question about a HANDLER, and the catalogue only describes arguments.
   but it is not a value the `tracks` provider lists. Deriving would hand a group a freeze, a
   gain and four `event` verbs, none of which reach it.
 - **A dangling module.** A step naming a module that does not exist keeps exactly the verbs
-  that touch `chains.yaml` alone: `module bypass`, `node unlink` and
-  `module replace` — the last being the actual repair, since it writes the new module and
-  rewrites the reference without ever opening the old one. That is about what those handlers
-  write, which no argument declares.
+  that touch `chains.yaml` alone: `module bypass` and `node unlink`. That is about what those
+  handlers write, which no argument declares. `module replace` used to be the third — it wrote
+  a new module and rewired the reference — but it repoints an `extends:` now, and a dangling
+  name has no file to repoint: offering it would be offering a certain failure. What is left
+  for one is to take it out, or to write the file it names.
+- **A take.** Its two verbs take a track and a number — and so do `track gain`, `track pan` and
+  the three tone bands. Nothing in the argument types tells those apart, so deriving would offer
+  to set a take's level. This is the same seam `module param` / `module clone` sit on, and the
+  sharpest instance of it. See `packages/song/docs/takes.md`.
 - **A chain.** No command takes a chain as its FIRST argument — `track process` and
   `clip process` take one second, and a line cannot be pre-written with a hole in the middle.
   So the only offer is about the track the chain carries, which is a different entity.
 
-Two more restrictions are derived rather than written, and worth knowing they are not
-exceptions: an **engine module** gets `module own` because its `@engine/…` id genuinely IS a
-base-module ref, and a **MIDI clip** is refused `clip process` because `clipTargets` lists no
-MIDI — never offer what the command would reject.
+One more derivation worth knowing is not an exception: an **engine module** gets `module own`
+because its `@engine/…` id genuinely IS a base-module ref.
+
+A right-clicked **event** deliberately gets no `clip …` entry at all (the `clipTargets`
+family). What was clicked is a PLACEMENT on a lane, and the material it references may sit on
+other lanes too — `clip process` in that menu read as "process this event" while acting on
+every placement of the file. The event menu offers the `event …` family plus `ui file`; the
+material's own verbs stay reachable from the bar and from the clip's editor, where the clip
+itself is what you are looking at. (This also removed the one MIDI/audio split the menu had:
+`clipTargets` lists no MIDI, and with the family gone the ctx no longer needs to say which
+kind the clip is.)
 
 ## The menu can now be long
 

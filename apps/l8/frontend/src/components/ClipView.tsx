@@ -6,16 +6,19 @@
 // Audio used to open `WaveformView`, which draws the same picture and can act on none of it. There
 // is one audio clip panel now, and clicking a clip reaches it.
 
+import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song/seqWindow";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { fileStem } from "../projectPaths";
+import { rackFor } from "../rackFor";
 import { trackPlacing } from "../takeReview";
 import type { WebClip, WebNote, WebProject } from "../types";
 import { AudioClipPanel } from "./AudioClipPanel";
 import { GraphSlotPane } from "./GraphSlotPane";
 import { PianoRoll } from "./PianoRoll";
+import { SequencerPanel } from "./SequencerPanel";
 
 // What to show: a concrete clip (timeline caret or click), or the live sequence file open in the
 // editor, parsed here.
@@ -148,6 +151,8 @@ function SeqRoll({
 export function ClipView({
   target,
   onClose,
+  reloadKey = 0,
+  onSeek,
   command,
   onCreateNote,
   onSetVelocity,
@@ -155,6 +160,11 @@ export function ClipView({
 }: {
   target: EditTarget;
   onClose: () => void;
+  /** Bumped by the shell after every command's reload — what keeps the open clip FRESH below. */
+  reloadKey?: number;
+  /** Seek the transport, in SONG seconds — what a click on a clip editor's arrangement ruler
+   *  does. Threaded to both editors; a sequence FILE has no placement and draws no such ruler. */
+  onSeek?: (seconds: number) => void;
   /** Runs a command line through the shell, which journals it — what the audio clip panel's
    *  onsets, trim and normalise go through. A note edit takes the callbacks below instead, because
    *  those existed first and the roll builds its own lines. */
@@ -178,8 +188,65 @@ export function ClipView({
     newEnd: number,
   ) => void;
 }) {
-  const clip = target.kind === "seq" ? null : target.clip;
+  /**
+   * The open clip, kept FRESH. `target` is a snapshot taken at the click, and the panels write
+   * through commands whose reload lands in the shell — without re-reading here, the sequencer
+   * lit nothing it wrote and the roll drew every drag snapping back. The placement is found
+   * again by (id, start), the pair a placement is addressed by everywhere; gone (deleted in
+   * another tab, moved) it falls back to the snapshot rather than to a blank pane.
+   */
+  const [freshProject, setFreshProject] = useState<WebProject | null>(null);
+  useEffect(() => {
+    if (target.kind === "seq") return void setFreshProject(null);
+    let cancelled = false;
+    void api
+      .projectDoc()
+      .then((p) => !cancelled && setFreshProject(p))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey, target]);
+  const clip = useMemo(() => {
+    if (target.kind === "seq") return null;
+    const base = target.clip;
+    for (const t of freshProject?.tracks ?? [])
+      for (const c of t.clips ?? [])
+        if (c.id === base.id && Math.abs(c.start - base.start) < 1e-6) return c;
+    return base;
+  }, [target, freshProject]);
+  const project =
+    target.kind === "seq" ? null : (freshProject ?? target.project);
   const seqId = clip ? clip.name || clip.id : "";
+  /**
+   * A MIDI clip whose track feeds a RACK opens as a STEP SEQUENCER: the rack's symbols are the
+   * rows, so the panel exists exactly when the graph says the notes land on one. The graph is
+   * asked for on demand (the shell holds none), `undefined` meaning "not answered yet" — the
+   * roll is not flashed in the meantime, a one-request wait on the local service.
+   *
+   * `forceRoll` is the way out for what a grid cannot say (velocities, off-grid timing, keys
+   * the rack does not name); reopening the clip returns to the sequencer.
+   */
+  const midiTrack =
+    target.kind !== "seq" && target.clip.type === "midi"
+      ? trackPlacing(target.project, target.clip.id)
+      : "";
+  const [graph, setGraph] = useState<WebGraph | null | undefined>(undefined);
+  const [forceRoll, setForceRoll] = useState(false);
+  useEffect(() => {
+    setForceRoll(false);
+    if (!midiTrack) return void setGraph(null);
+    let cancelled = false;
+    setGraph(undefined);
+    void api
+      .graph()
+      .then((g) => !cancelled && setGraph(g))
+      .catch(() => !cancelled && setGraph(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [midiTrack, clip?.id]);
+  const rack = midiTrack ? rackFor(graph ?? null, midiTrack) : null;
   // No title bar: each of the three leaves draws its own header already — the roll says what it
   // is and how to draw a note, the waveform names the file — and a second row above it would say
   // the same thing twice. The frame contributes the shell and one floating ✕, which is what this
@@ -195,25 +262,40 @@ export function ClipView({
           onSetNoteRange={onSetNoteRange}
         />
       ) : clip?.type === "midi" ? (
-        <PianoRoll
-          project={target.project}
-          clip={clip}
-          onCreateNote={
-            onCreateNote
-              ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1)
-              : undefined
-          }
-          onSetVelocity={
-            onSetVelocity
-              ? (k, t, v) => onSetVelocity(seqId, k, t, v)
-              : undefined
-          }
-          onSetNoteRange={
-            onSetNoteRange
-              ? (k, t, ns, ne) => onSetNoteRange(seqId, k, t, ns, ne)
-              : undefined
-          }
-        />
+        graph === undefined ? (
+          <div className="p-3 text-sm text-muted-foreground">
+            lecture du graphe…
+          </div>
+        ) : rack && !forceRoll ? (
+          <SequencerPanel
+            project={project ?? target.project}
+            clip={clip}
+            rack={rack}
+            onOpenRoll={() => setForceRoll(true)}
+            command={command}
+          />
+        ) : (
+          <PianoRoll
+            project={project ?? target.project}
+            clip={clip}
+            onSeek={onSeek}
+            onCreateNote={
+              onCreateNote
+                ? (k, t0, t1) => onCreateNote(seqId, k, t0, t1)
+                : undefined
+            }
+            onSetVelocity={
+              onSetVelocity
+                ? (k, t, v) => onSetVelocity(seqId, k, t, v)
+                : undefined
+            }
+            onSetNoteRange={
+              onSetNoteRange
+                ? (k, t, ns, ne) => onSetNoteRange(seqId, k, t, ns, ne)
+                : undefined
+            }
+          />
+        )
       ) : (
         // An audio event opens the CLIP PANEL — the same one a take lands in, with its onsets, its
         // trim and its normalise. It used to open `WaveformView`, which draws the same waveform and
@@ -222,10 +304,13 @@ export function ClipView({
         clip && (
           <AudioClipPanel
             clip={clip.id}
-            track={trackPlacing(target.project, clip.id)}
+            track={trackPlacing(project ?? target.project, clip.id)}
             // The project's own, so the twelve-bar window is twelve of THIS song's bars.
-            tempo={target.project.tempo}
-            beatsPerBar={target.project.timeSigNumerator}
+            tempo={(project ?? target.project).tempo}
+            beatsPerBar={(project ?? target.project).timeSigNumerator}
+            // The clicked EVENT's beat — what puts the song's ruler over the wave.
+            placedAt={clip.start}
+            onSeek={onSeek}
             command={command}
             onClose={onClose}
           />

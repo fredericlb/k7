@@ -128,3 +128,32 @@ export function wantsKind(
 ): boolean {
   return args[active]?.kind === kind;
 }
+
+/**
+ * What Enter does in the parameter form — the three answers, and the order between them.
+ *
+ * A highlighted suggestion is taken first, because completion is the validation. But ONLY when
+ * it would change the field: an exact match still ranks first (see `rankValues`), so once the
+ * field holds the suggestion the list is still on screen — and taking it again is a no-op.
+ * Without that clause Enter is eaten for ever, and a form whose last field has a vocabulary
+ * (`module replace <module> <extends-ref>`) can never be submitted at all: the reported bug.
+ */
+export type EnterAction =
+  | { kind: "take"; value: string }
+  | { kind: "run" }
+  | { kind: "goto"; index: number }
+  | { kind: "none" };
+
+export function enterAction(
+  args: readonly PaletteArg[],
+  values: readonly string[],
+  active: number,
+  /** The highlighted suggestion, or undefined when the field lists none. */
+  suggestion: string | undefined,
+): EnterAction {
+  if (suggestion !== undefined && suggestion !== (values[active] ?? ""))
+    return { kind: "take", value: suggestion };
+  if (canRun(args, values)) return { kind: "run" };
+  const missing = firstMissing(args, values);
+  return missing >= 0 ? { kind: "goto", index: missing } : { kind: "none" };
+}

@@ -83,6 +83,37 @@ extends: "@studio/sequence-strudel-track"
 strudel: algo/pattern.strudel
 ```
 
+## takes — what the lane was playing before
+
+Record over an event, or round a loop, and what was there is not lost: it is moved into a
+**take**, another list of placements on the same lane. The timeline draws each one as a row
+indented under the lane, playing nothing.
+
+```yaml schema=Module
+extends: "@studio/audio-track"
+clips:
+  - { ref: gtr_3.1_260815T221030, start: "3:1:1" }   # the newest pass — what plays
+takes:
+  - clips:
+      - { ref: gtr_3.1_260815T220641, start: "3:1:1" }   # the pass before it
+  - name: quieter one          # optional; the row shows it instead of "take 2"
+    clips:
+      - { ref: gtr_3.1_260815T220914, start: "3:1:1" }
+```
+
+`track take select <track> <n>` **swaps**: take `n` goes onto the lane and what the lane was
+playing becomes take `n`, so listening to another pass loses nothing and running it again puts
+everything back. It is the right-click **Move a take onto the track** on a take's row.
+`track take delete <track> <n>` removes one, and the events it held with it. Once you have picked
+the pass you want — by listening round them, which leaves it on the lane — `track take keep
+<track>` deletes all the others.
+
+After a recording that left several passes, the waveform panel lists them in a sidebar: clicking
+one puts it on the lane so you hear it in the song, and **garder celle-ci** is that last verb.
+
+A take belongs to the alternative it was played in — `takes:` is an ordinary module field, so a
+lane running one of its `alternatives:` has that set's takes and not the module's own.
+
 ## One name space
 
 A lane and a module share one set of names, because they are the same kind of thing. A chain

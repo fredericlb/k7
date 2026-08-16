@@ -96,8 +96,13 @@ Windows dev machine at 100 % never showed it.
 The fix is one line: `width:100%; height:100%` alongside the insets, so the CSS box is the
 host's box by construction rather than by arithmetic.
 
-The labels, the automation cables and the hit paths stayed in SVG. They do not move, so they
-cost nothing per frame — and text is the one thing a canvas would draw worse.
+The labels and the hit paths stayed in SVG: they do not move, so they cost nothing per frame —
+and text is the one thing a canvas would draw worse. The automation cables stayed there at
+first for the same reason, and moved to the canvas when the cables gained their hang and their
+physics (docs/hang.md): a cable that sways is a cable that moves, and a curve is a node whose
+cables behave as cables do — dashed mauve, an arrowhead traced from the last drawn segment,
+but the same hang, the same spring, the same layer over the cards. Only their param labels
+remain in the SVG, being text.
 
 ## Why the trace is the contract
 

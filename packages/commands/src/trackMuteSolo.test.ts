@@ -1,10 +1,8 @@
-// `track mute` / `track solo` — a lane's mute IS its module's bypass.
-//
-// Both used to write a flag onto the lane's own file. A lane is a module now
-// (packages/song/docs/trackModules.md), so mute is one name in `chains.yaml`'s `bypassed:` and
-// solo is not written down at all: it is the set of mutes it produces. These go through the
-// dispatcher and assert the FILE, for the reason bypass.test.ts gives — a command that reports
-// one state and writes another is exactly the bug a writer-only test cannot see.
+// `track mute` / `track solo` — a lane's mute IS its module's bypass, and solo is PROJECT
+// STATE: `soloed:` at project.yaml's root lists the soloed lanes, several at once, and the
+// engine resolves it across the mixer. These go through the dispatcher and assert the FILE,
+// for the reason bypass.test.ts gives — a command that reports one state and writes another
+// is exactly the bug a writer-only test cannot see.
 
 import {
   mkdirSync,
@@ -17,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TrackDoc } from "@studio/song/project";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
@@ -113,24 +112,46 @@ describe("track mute", () => {
 });
 
 describe("track solo", () => {
-  it("bypasses every OTHER lane, and not the soloed one", async () => {
+  const soloedInFile = (): string[] =>
+    parse(readFileSync(join(dir, "project.yaml"), "utf8"), { version: "1.2" })
+      .soloed ?? [];
+
+  it("writes the lane into project.yaml's `soloed:` and bypasses nobody", async () => {
     await runCommand("track solo bass", host(), "cli");
-    expect(bypassed().sort()).toEqual(["drums", "gtr"]);
+    expect(soloedInFile()).toEqual(["bass"]);
+    expect(bypassed()).toEqual([]); // the old derivation muted the others; the engine does now
     expect(logs.join(" ")).toContain("solo on");
   });
 
-  it("lifts it by un-bypassing everything — there is no state to restore", async () => {
+  it("holds SEVERAL solos at once — the list is the point", async () => {
     await runCommand("track solo bass", host(), "cli");
-    docTracks = [track("gtr", true), track("bass"), track("drums", true)];
+    await runCommand("track solo drums", host(), "cli");
+    expect(soloedInFile()).toEqual(["bass", "drums"]);
+  });
+
+  it("toggles one lane out and DELETES the key with the last — absent is the default", async () => {
     await runCommand("track solo bass", host(), "cli");
-    expect(bypassed()).toEqual([]);
+    await runCommand("track solo drums", host(), "cli");
+    await runCommand("track solo bass", host(), "cli");
+    expect(soloedInFile()).toEqual(["drums"]);
+    await runCommand("track solo drums", host(), "cli");
+    expect(readFileSync(join(dir, "project.yaml"), "utf8")).not.toContain(
+      "soloed",
+    );
     expect(logs.join(" ")).toContain("solo off");
+  });
+
+  it("pushes the doc with the solo flags set, rather than making the caller reload", async () => {
+    await runCommand("track solo bass", host(), "cli");
+    expect(applied?.tracks.find((t) => t.id === "bass")?.solo).toBe(true);
+    expect(applied?.tracks.find((t) => t.id === "gtr")?.solo).toBe(false);
   });
 
   it("un-mutes the lane it solos, so soloing a muted lane is one gesture", async () => {
     await runCommand("track mute bass", host(), "cli");
     docTracks = [track("gtr"), track("bass", true), track("drums")];
     await runCommand("track solo bass", host(), "cli");
-    expect(bypassed().sort()).toEqual(["drums", "gtr"]);
+    expect(bypassed()).toEqual([]); // its own bypass lifted, nobody else's written
+    expect(applied?.tracks.find((t) => t.id === "bass")?.mute).toBe(false);
   });
 });

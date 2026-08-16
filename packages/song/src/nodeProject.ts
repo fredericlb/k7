@@ -28,6 +28,7 @@ import {
   readYamlEntities,
   withChainModuleRefs,
 } from "./loader";
+import { withModuleStamp } from "./moduleCache";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
 import {
   defaultPreferences,
@@ -124,8 +125,21 @@ function placementToClip(
             ]),
           }
         : undefined;
-    const from = edge(cm.from);
-    const to = edge(cm.to);
+    /**
+     * The effective window: the clip's own, narrowed by the EVENT's (`from`/`to` on the
+     * placement). The most restrictive edge wins — the larger `from`, the smaller `to` — so an
+     * event can only play less of the material than the clip declares, never more. An empty
+     * intersection compiles like an open extent (length 0, nothing above zero to play).
+     */
+    const cFrom = edge(cm.from);
+    const cTo = edge(cm.to);
+    const pFrom = edge(p.from);
+    const pTo = edge(p.to);
+    const from =
+      cFrom != null || pFrom != null
+        ? Math.max(cFrom ?? 0, pFrom ?? 0)
+        : undefined;
+    const to = cTo != null && pTo != null ? Math.min(cTo, pTo) : (cTo ?? pTo);
     /**
      * The window, in beats — the clip's extent, stated whenever the file says enough to know it.
      *
@@ -187,14 +201,25 @@ function placementToClip(
       Math.ceil(
         notes.reduce((m, n) => Math.max(m, n.time + n.duration), 0) / bar,
       ) * bar;
-    const wFrom = seqMap[ref].from != null ? pos(seqMap[ref].from) : 0;
-    const wToRaw = seqMap[ref].to != null ? pos(seqMap[ref].to) : extent;
-    const wTo = wToRaw > wFrom ? wToRaw : extent > wFrom ? extent : wFrom;
+    // The sequence's own window first, with its fallback: a malformed `to` (at or before
+    // `from`) falls back to the notes' extent rather than compiling a window that plays nothing.
+    const mFrom = seqMap[ref].from != null ? pos(seqMap[ref].from) : 0;
+    const mToRaw = seqMap[ref].to != null ? pos(seqMap[ref].to) : extent;
+    const mTo = mToRaw > mFrom ? mToRaw : extent > mFrom ? extent : mFrom;
+    // …then the EVENT's, intersected exactly as an audio placement's is with its clip's: the
+    // larger `from`, the smaller `to` — positions in the notes, like the material's own pair.
+    // No fallback HERE: an event window disjoint from the material's is empty and plays nothing,
+    // where a malformed material window above meant "the file is wrong, keep the notes".
+    const eFrom = p.from != null ? pos(p.from) : null;
+    const eTo = p.to != null ? pos(p.to) : null;
+    const wFrom = Math.max(mFrom, eFrom ?? 0);
+    const wTo = Math.max(wFrom, eTo != null ? Math.min(mTo, eTo) : mTo);
     const win = wTo - wFrom;
-    // A `to` the file WROTE and that does not land on the extent says something the notes do not: it cuts a tail
+    // A `to` that WAS written and does not land on the extent says something the notes do not: it cuts a tail
     // that is in the file, or it pads past the last hit. Either is worth a range, and without one the roll has
     // nothing to draw — the case `from` is absent and the clip plays once was the hole.
-    const statedTo = seqMap[ref].to != null && Math.abs(wTo - extent) > 1e-9;
+    const statedTo =
+      (seqMap[ref].to != null || eTo != null) && Math.abs(wTo - extent) > 1e-9;
     return {
       ...base,
       type: "midi",
@@ -329,7 +354,13 @@ function normGain(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
 }
 
+// A compile READS the project and writes nothing, so one walk of the module folders covers it
+// however many times it asks the module cache — twice, today. See moduleCache.ts.
 export function compileNodeProject(dir: string): ProjectDoc {
+  return withModuleStamp(dir, () => compileNodeProjectIn(dir));
+}
+
+function compileNodeProjectIn(dir: string): ProjectDoc {
   // The rig, not the song — unreadable preferences mean no labels resolve, never a failed compile.
   let prefs: Preferences;
   try {
@@ -722,6 +753,12 @@ export function compileNodeProject(dir: string): ProjectDoc {
     };
   }
 
+  // The soloed lanes, from project.yaml's root `soloed:` — solo as project state. A group's id
+  // folds onto its member tracks HERE, because the engine resolves solo across TRACKS alone
+  // (applySoloMute) and never sees the grouping. An unknown name is inert, like a `bypassed:`
+  // entry nothing carries.
+  const soloed = new Set((root.soloed ?? []).map(String));
+
   const groups: GroupDoc[] = Object.entries(lanesMap)
     .filter(([, t]) => t.type === "group" && !t.disabled)
     .map(([id, t]) => ({
@@ -729,7 +766,7 @@ export function compileNodeProject(dir: string): ProjectDoc {
       name: id,
       color: t.color ?? "",
       mute: bypassed.has(id),
-      solo: false,
+      solo: soloed.has(id),
     }));
 
   // A strudel lane compiles to an EMPTY track carrying its chain's plugins — what the
@@ -754,8 +791,8 @@ export function compileNodeProject(dir: string): ProjectDoc {
       // The lane's own bypass. It is the same button every module node carries, and on a source it
       // reads as "produces nothing" — which is what muting a lane has always meant.
       mute: bypassed.has(id),
-      // Derived by the surface, which bypasses every OTHER lane; nothing writes it here.
-      solo: false,
+      // Its own entry, or its group's — the fold the engine cannot do (see `soloed` above).
+      solo: soloed.has(id) || soloed.has(groupOf[id] ?? ""),
       disabled: false, // filtered out above
       // From the io "in" module that names this track, if any (see inputOf above).
       inputChannels: inputOf[id]?.channels ?? [],
@@ -772,6 +809,20 @@ export function compileNodeProject(dir: string): ProjectDoc {
           : t.clips.map((p) =>
               placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
             ),
+      // The lane's TAKES, through the SAME compiler its clips go through, so a take has the real
+      // extents of the arrangement it was and a surface can draw one without a second reader.
+      // Stripped before the document reaches the engine (`withoutTakes`), and left off entirely
+      // when there are none — see docs/takes.md.
+      ...(t.takes.length
+        ? {
+            takes: t.takes.map((tk) => ({
+              ...(tk.name ? { name: tk.name } : {}),
+              clips: tk.clips.map((p) =>
+                placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+              ),
+            })),
+          }
+        : {}),
       plugins: trackPlugins[id] ?? [],
       sends: trackSends[id] ?? [],
       automation: [],
@@ -795,7 +846,8 @@ export function compileNodeProject(dir: string): ProjectDoc {
       inputGain: 0,
       color: "",
       mute: false,
-      solo: false,
+      // A bus return can be soloed like any lane — it is a strip on the same mixer.
+      solo: soloed.has(name),
       disabled: false,
       // A bus frozen at one of its own modules plays the render here: the lanes that met at it
       // are silent, and this return track carries what they summed to.

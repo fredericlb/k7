@@ -3,7 +3,13 @@
 // lists is one the dispatcher will actually recognise.
 
 import { describe, expect, it } from "vitest";
-import { BARE_NAMES, isUiLine, UI_EXACT, UI_HEADS } from "./localCommands";
+import {
+  BARE_NAMES,
+  BARE_TRANSPORT,
+  isUiLine,
+  UI_EXACT,
+  UI_HEADS,
+} from "./localCommands";
 import { LOCAL_ARGS, LOCAL_COMMANDS } from "./palette";
 
 // What `runLocalCommand` sees: the line lowercased, with any `ui ` prefix already stripped.
@@ -68,5 +74,31 @@ describe("every shell command is one the dispatcher recognises", () => {
   it("refuses a bare `ui` and an unknown line", () => {
     expect(isUiLine("")).toBe(false);
     expect(isUiLine("track mute melody")).toBe(false);
+  });
+});
+
+// The transport verbs the shell answers over the engine's own socket. Their reason is latency —
+// the service sends the same message, after an HTTP round trip and the undo journal — so what
+// is worth pinning is that they stay OUT of `ui` and never grow to include a verb that writes.
+describe("the bare transport verbs", () => {
+  it("are not `ui` lines — `ui` promises not to move the transport", () => {
+    for (const line of BARE_TRANSPORT) expect(isUiLine(line)).toBe(false);
+  });
+
+  it("holds only the four that write nothing", () => {
+    // `transport metronome` rewrites settings.yaml, `loop`/`locate` are the timeline's and
+    // `record`/`replay` have branches of their own. A verb added here without a file to write
+    // would silently stop being journaled — which is the failure this list is one edit away from.
+    expect([...BARE_TRANSPORT].sort()).toEqual([
+      "transport play",
+      "transport rewind",
+      "transport stop",
+      "transport toggle",
+    ]);
+  });
+
+  it("names them as the catalogue does, so a typed line reaches the same branch", () => {
+    // The dispatcher matches the line whole and lowercased; every entry must already be that.
+    for (const line of BARE_TRANSPORT) expect(line).toBe(line.toLowerCase());
   });
 });

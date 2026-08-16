@@ -5,6 +5,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  AUTO_ARROW,
+  AUTO_DASH,
+  AUTO_SHADOW_W,
+  AUTO_W,
   CABLE_W,
   type CableCtx,
   drawCables,
@@ -12,8 +16,10 @@ import {
   newScratch,
   SHADOW_COLOR,
   SHADOW_W,
+  swayInto,
   tracePolyline,
   WOBBLE_AMP,
+  WOBBLE_WAVELENGTH,
   wobbleInto,
 } from "./cableCanvas";
 import { buildCableGeom, type CableGeom, smoothPath } from "./cables";
@@ -32,14 +38,24 @@ const bend = [
 type Call = [string, ...number[]];
 
 // A context that records instead of drawing, plus the state a frame sets on it.
-function recorder(): CableCtx & { calls: Call[]; strokes: [string, number][] } {
+function recorder(): CableCtx & {
+  calls: Call[];
+  strokes: [string, number][];
+  fills: string[];
+  dashes: (readonly number[])[];
+} {
   const calls: Call[] = [];
   const strokes: [string, number][] = [];
+  const fills: string[] = [];
+  const dashes: (readonly number[])[] = [];
   return {
     calls,
     strokes,
+    fills,
+    dashes,
     lineWidth: 0,
     strokeStyle: "",
+    fillStyle: "",
     lineCap: "",
     lineJoin: "",
     clearRect: (...a) => void calls.push(["clearRect", ...a]),
@@ -48,9 +64,15 @@ function recorder(): CableCtx & { calls: Call[]; strokes: [string, number][] } {
     moveTo: (...a) => void calls.push(["moveTo", ...a]),
     lineTo: (...a) => void calls.push(["lineTo", ...a]),
     bezierCurveTo: (...a) => void calls.push(["bezierCurveTo", ...a]),
+    closePath: () => void calls.push(["closePath"]),
+    setLineDash: (segs) => void dashes.push(segs),
     stroke() {
       calls.push(["stroke"]);
       strokes.push([String(this.strokeStyle), this.lineWidth]);
+    },
+    fill() {
+      calls.push(["fill"]);
+      fills.push(String(this.fillStyle));
     },
   };
 }
@@ -167,6 +189,36 @@ describe("wobbleInto", () => {
     wobbleInto(s, long, 0);
     expect(s.buf.length).toBeGreaterThanOrEqual(before.length * 2);
   });
+
+  it("a sway rides the same pinned-ends envelope — a swinging cable stays plugged in", () => {
+    const s = newScratch();
+    const n = wobbleInto(s, g, 0.7, WOBBLE_AMP, WOBBLE_WAVELENGTH, 18, -9);
+    expect(s.buf[0]).toBeCloseTo(g.samples[0].x, 12);
+    expect(s.buf[1]).toBeCloseTo(g.samples[0].y, 12);
+    expect(s.buf[(n - 1) * 2]).toBeCloseTo(g.samples[n - 1].x, 12);
+    expect(s.buf[(n - 1) * 2 + 1]).toBeCloseTo(g.samples[n - 1].y, 12);
+  });
+});
+
+describe("swayInto", () => {
+  it("pins the endpoints and pushes the middle by the offset", () => {
+    const base: Pt[] = [
+      { x: 0, y: 0 },
+      { x: 50, y: 10 },
+      { x: 100, y: 0 },
+    ];
+    const s = newScratch();
+    const n = swayInto(s, base, 10, 20);
+    expect(n).toBe(3);
+    // Close-to, not equal: sin(pi) is ~1e-16 in floats, invisible at any zoom.
+    expect(s.buf[0]).toBeCloseTo(0, 12);
+    expect(s.buf[1]).toBeCloseTo(0, 12);
+    expect(s.buf[4]).toBeCloseTo(100, 12);
+    expect(s.buf[5]).toBeCloseTo(0, 12);
+    // The middle carries the full offset: sin(pi/2) = 1.
+    expect(s.buf[2]).toBeCloseTo(60, 12);
+    expect(s.buf[3]).toBeCloseTo(30, 12);
+  });
 });
 
 describe("drawCables", () => {
@@ -228,5 +280,43 @@ describe("drawCables", () => {
       newScratch(),
     );
     expect(ctx.strokes).toEqual([]);
+  });
+
+  it("an automation cable wears its dress: solid shadow, dashed stroke, filled arrowhead", () => {
+    const ctx = recorder();
+    drawCables(
+      ctx,
+      frame({
+        cables: [
+          {
+            geom: g,
+            color: "#a889b5",
+            live: false,
+            width: AUTO_W,
+            shadowWidth: AUTO_SHADOW_W,
+            dash: AUTO_DASH,
+            arrowSize: AUTO_ARROW,
+          },
+        ],
+      }),
+      newScratch(),
+    );
+    expect(ctx.strokes).toEqual([
+      [SHADOW_COLOR, AUTO_SHADOW_W],
+      ["#a889b5", AUTO_W],
+    ]);
+    // Solid for the shadow, the dash for the cable, solid again for the head.
+    expect(ctx.dashes).toEqual([[], AUTO_DASH, []]);
+    expect(ctx.fills).toEqual(["#a889b5"]);
+    // The head is a closed triangle whose TIP is the cable's own last drawn point.
+    const closeAt = ctx.calls.findIndex((c) => c[0] === "closePath");
+    expect(closeAt).toBeGreaterThan(-1);
+    const tip = ctx.calls
+      .slice(0, closeAt)
+      .reverse()
+      .find((c) => c[0] === "moveTo");
+    const last = g.base[g.base.length - 1];
+    expect(tip?.[1]).toBeCloseTo(last.x, 12);
+    expect(tip?.[2]).toBeCloseTo(last.y, 12);
   });
 });

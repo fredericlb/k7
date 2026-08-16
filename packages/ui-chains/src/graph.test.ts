@@ -126,25 +126,50 @@ describe("buildGraph", () => {
       warnings: [],
     });
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    // A curve node per binding, purple (kind "curve"), labelled by curve id + shape.
-    expect(byId["aut:lead:0:Filter Freq"]).toMatchObject({
+    // One curve node PER CURVE, purple (kind "curve"), labelled by curve id + shape —
+    // a curve is a node like everything else on the graph, however many params it drives.
+    expect(byId["crv:sweep"]).toMatchObject({
       kind: "curve",
       label: "sweep",
       sub: "custom",
     });
-    expect(byId["aut:lead:0:Osc1 Tune"]).toMatchObject({
+    expect(byId["crv:wobble"]).toMatchObject({
       kind: "curve",
       label: "wobble",
       sub: "lfo triangle",
     });
     // The widget-bound automation carries a node-local widget offset; the other doesn't.
-    const withWidget = edges.find((e) => e.source === "aut:lead:0:Filter Freq");
-    const noWidget = edges.find((e) => e.source === "aut:lead:0:Osc1 Tune");
+    const withWidget = edges.find((e) => e.source === "crv:sweep");
+    const noWidget = edges.find((e) => e.source === "crv:wobble");
     expect(withWidget?.target).toBe("mod:synth");
     expect(withWidget?.automation).toMatchObject({ param: "Filter Freq" });
     expect(withWidget?.automation?.widget).toBeTruthy();
     expect(noWidget?.automation).toMatchObject({ param: "Osc1 Tune" });
     expect(noWidget?.automation?.widget).toBeUndefined();
+  });
+
+  it("a curve driving two params is ONE node with two edges — a node, not a stamp", () => {
+    const { nodes, edges } = buildGraph({
+      chains: {
+        lead: {
+          use: [
+            {
+              module: "synth",
+              automations: [
+                { param: "Filter Freq", curve: "sweep" },
+                { param: "Osc1 Tune", curve: "sweep" },
+              ],
+            },
+          ],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      tracks: [],
+      curves: { sweep: { type: "custom" } },
+      warnings: [],
+    });
+    expect(nodes.filter((n) => n.kind === "curve")).toHaveLength(1);
+    expect(edges.filter((e) => e.source === "crv:sweep")).toHaveLength(2);
   });
 
   it("skips an automation whose curve is missing from the graph", () => {
@@ -852,6 +877,73 @@ describe("layout puts every track on one line", () => {
   });
 });
 
+describe("layout honours the pins", () => {
+  const uneven = graph(
+    {
+      long: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "eq" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox"],
+  );
+
+  it("a pinned module sits exactly where its pin says; everything else keeps dagre's answer", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const free = layout(nodes, edges);
+    const laid = layout(nodes, edges, { comp: { x: 640, y: 480 } });
+    const comp = laid.nodes.find((n) => n.module === "comp");
+    expect(comp).toMatchObject({ x: 640, y: 480 });
+    // The unpinned nodes are the layout's, byte for byte — dagre still owns the new arrivals.
+    for (const n of laid.nodes.filter((x) => x.module !== "comp")) {
+      const was = free.nodes.find((f) => f.id === n.id);
+      expect({ x: n.x, y: n.y }).toEqual({ x: was?.x, y: was?.y });
+    }
+  });
+
+  it("a pinned node still counts toward the graph's measured size", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges, { comp: { x: 2000, y: 1500 } });
+    expect(laid.width).toBeGreaterThan(2000);
+    expect(laid.height).toBeGreaterThan(1500);
+  });
+
+  it("a pin for a name the graph does not draw changes nothing", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const free = layout(nodes, edges);
+    const laid = layout(nodes, edges, { ghost: { x: 1, y: 1 } });
+    expect(laid.nodes.map((n) => [n.x, n.y])).toEqual(
+      free.nodes.map((n) => [n.x, n.y]),
+    );
+  });
+
+  it("`prev` holds a drawn node in place through an edit — dagre speaks only for the new", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const first = layout(nodes, edges);
+    const prev = new Map(first.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+    // The same graph minus one edge — the kind of change a pulled cable makes, and exactly
+    // what used to re-rank everything.
+    const fewer = edges.filter((_, i) => i !== edges.length - 1);
+    const second = layout(nodes, fewer, undefined, prev);
+    for (const n of second.nodes) {
+      const was = prev.get(n.id);
+      expect({ x: n.x, y: n.y }).toEqual(was);
+    }
+  });
+
+  it("a pin outranks `prev` — the file outranks the session", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const first = layout(nodes, edges);
+    const prev = new Map(first.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+    const laid = layout(nodes, edges, { comp: { x: 900, y: 700 } }, prev);
+    expect(laid.nodes.find((n) => n.module === "comp")).toMatchObject({
+      x: 900,
+      y: 700,
+    });
+  });
+});
+
 describe("headerFontPx", () => {
   // A card is only as wide as its panel's grid now, so a fixed header size left seventeen
   // identically-shaped mixers all reading "vo_j…". The name is fitted instead.
@@ -1035,7 +1127,7 @@ describe("spaceModulesEvenly", () => {
     const { nodes, edges } = buildGraph(uneven);
     const before = layout(alignModuleRank(nodes, row), edges);
     const after = spaceModulesEvenly(before, row);
-    // `cablePath` draws a straight line and reads BOTH ends off the nodes, so re-spacing a card
+    // `cablePath` hangs the cable from BOTH ends read off the nodes, so re-spacing a card
     // re-routes its cable for free. This used to strip dagre's waypoints by hand, back when they
     // were the route; touching an edge now would only invent a second opinion about where it goes.
     expect(after.edges).toBe(before.edges);

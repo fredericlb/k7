@@ -14,6 +14,7 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { createPortal } from "react-dom";
+import type { EnterAction } from "../commandFill";
 import type { ArgClass } from "../types";
 import type { PaletteArg, PaletteCommand } from "./CommandBar";
 
@@ -24,7 +25,7 @@ export function CommandParams({
   suggestions,
   selected,
   argColor,
-  runnable,
+  enterDoes,
   onType,
   onFocusField,
   onPick,
@@ -39,8 +40,8 @@ export function CommandParams({
   suggestions: readonly string[];
   selected: number;
   argColor: Record<ArgClass, string>;
-  /** Whether every required field is answered, so the footer can say what Enter will do. */
-  runnable: boolean;
+  /** What Enter will do THIS press, so the footer can name it — see `enterAction`. */
+  enterDoes: EnterAction["kind"];
   onType: (index: number, value: string) => void;
   onFocusField: (index: number) => void;
   onPick: (value: string) => void;
@@ -133,11 +134,18 @@ export function CommandParams({
       )}
 
       {/* What the two keys do, said rather than remembered — this panel is where a person meets
-          the rule that Tab is "next question" and Enter is "that is my line". */}
+          the rule that Tab is "next question" and Enter is "that is my line". It names what
+          Enter will do THIS press, which is not always "run": a highlighted suggestion the
+          field does not hold yet is taken first, and saying "run" there would be a promise the
+          key does not keep (see `enterAction`). */}
       <footer className="flex items-center justify-between gap-2 border-t border-border px-3 py-1 text-[10px] text-muted-foreground">
         <span>Tab · next</span>
-        <span className={cn(runnable && "text-foreground")}>
-          {runnable ? "Enter · run" : "Enter · next missing"}
+        <span className={cn(enterDoes === "run" && "text-foreground")}>
+          {enterDoes === "take"
+            ? "Enter · pick"
+            : enterDoes === "run"
+              ? "Enter · run"
+              : "Enter · next missing"}
         </span>
         <span>Esc · cancel</span>
       </footer>

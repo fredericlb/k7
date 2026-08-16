@@ -552,9 +552,18 @@ constexpr double kDefaultTransientSensitivity = 2.0;
 int writeWaveformCache(const std::string& audioPath,
                        double transientSensitivity = kDefaultTransientSensitivity);
 
+// One clip to peak-normalize: the file pair, and the WINDOW the clip plays (seconds; toSec < 0 ==
+// the file's end). The peak is measured inside the window and the gain lands inside it only — the
+// material around a clip's from/to keeps its bytes.
+struct NormalizeItem {
+    std::string in;
+    std::string out;
+    double fromSec = 0.0;
+    double toSec = -1.0;
+};
+
 // Peak-normalize a set of clips with ONE shared gain, preserving each source's format, and print a JSON
 // manifest. Drives the `normalize` command. See docs/cliModes.md.
-int normalizeClips(double targetPeak,
-                   const std::vector<std::pair<std::string, std::string>>& pairs);
+int normalizeClips(double targetPeak, const std::vector<NormalizeItem>& items);
 
 }  // namespace studio

@@ -3,11 +3,13 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
+  baseModuleRefs,
   loadModuleRefs,
   loadModules,
+  projectModules,
   splitModuleKey,
 } from "@studio/song/loader";
 import { parseDocument, parse as parseYaml } from "yaml";
@@ -24,11 +26,15 @@ import {
 } from "./yaml/alternativeFile";
 import {
   addNode,
+  clearNodePositions,
+  connectNodes,
+  disconnectNodes,
   insertBetween,
   parseChains,
   removeNode,
   renameNode,
   setModuleEnabled,
+  setNodePosition,
 } from "./yaml/chainsFile";
 import { setMaterialWindow } from "./yaml/materialFile";
 import { setModuleList, setModuleValue } from "./yaml/moduleFile";
@@ -225,6 +231,23 @@ export function setModuleMonitor(
 }
 
 /**
+ * Set a live input's `gain` — the interface trim, in dB, 0 being unity.
+ *
+ * A module FIELD like `monitor` and `channel`, and the third of the three an input answers.
+ * Unclamped: Tracktion does not clamp it either, and what is USEFUL (±24 dB, the range the
+ * builder's binds declare) is a judgement for the surface offering the control, not for the
+ * writer taking a number someone typed.
+ */
+export function setModuleInputGain(
+  dir: string,
+  module: string,
+  db: number,
+): string {
+  if (!Number.isFinite(db)) throw new Error("a gain is a number of decibels");
+  return editModuleValue(dir, module, ["gain"], db);
+}
+
+/**
  * Set a live input's `channel` — which interface channels it listens on, 1-based.
  *
  * One for mono, two for a stereo pair, and the two-element form only ever means a pair the interface
@@ -410,71 +433,63 @@ export function setModuleBypass(
   return path;
 }
 
-/**
- * Delete a module and every chain step naming it, returning what was touched.
- *
- * A module is a FOLDER; a node is one file inside it. Deleting `synth:lead` removes `lead.yaml` and leaves
- * the generic alone, while deleting `synth` removes the whole folder — nodes cannot outlive their parent.
- * The chain references go either way, because a step naming a module that no longer exists is exactly the
- * dangling reference the compiler refuses to load: removing the file has to mean removing the references, or
- * "delete" leaves the project unopenable.
- */
-export function deleteModule(
-  dir: string,
-  key: string,
-): { removed: string; rewired: string[] } {
-  const { folder, path } = moduleFileOf(dir, key);
-  // A node is one FILE in the shared `nodes/` folder — removing that folder would take
-  // every other use of every other module with it. A module still takes its own folder whole.
-  const isNode = !!(loadModules(dir) as Record<string, { home?: string }>)[key]
-    ?.home;
-  if (isNode) rmSync(path, { force: true });
-  else rmSync(folder, { recursive: true, force: true });
-  const removed = relative(dir, isNode ? path : folder)
-    .split(sep)
-    .join("/");
+/** What a module file says about WHAT IT IS, as opposed to where it sits or how it looks.
+ *  Repointing its `extends` drops these: they described the thing it used to be, and left
+ *  behind they would either outrank the new ref (`plugin`, which wins over an inherited one)
+ *  or address knobs and sounds it has not got. */
+const DESCRIBES_WHAT_IT_IS = ["plugin", "params", "rack"] as const;
 
-  let rewired: string[] = [];
-  try {
-    const { path: chainsPath } = chainsFileOf(dir);
-    const text = readFileSync(chainsPath, "utf8");
-    const r = removeNode(text, key);
-    if (r.text !== text) writeFileSync(chainsPath, r.text, "utf8");
-    rewired = r.rewired;
-  } catch {
-    // No chains file, or one this cannot parse. The module is gone either way, which is what was asked.
+/**
+ * Repoint a node (or a module) at another module: rewrite its `extends`, keep everything else.
+ *
+ * This is what "replace" means on a node. The name stays, so every chain step naming it keeps
+ * its place and nothing is rewired; the file stays, so its position on the graph, its panel and
+ * its alternatives survive. Only what it IS changes — which is one line.
+ *
+ * The ref is checked against the project's real vocabulary rather than a guessed path: an
+ * inherited `@ns/…` has no local file to stat, and a typo must be refused before anything is
+ * written. Repointing something at itself is refused for the same reason the resolver guards
+ * its walk — an `extends` cycle resolves to nothing at all.
+ */
+export function setModuleExtends(
+  dir: string,
+  module: string,
+  ref: string,
+): { rel: string; dropped: string[] } {
+  if (module === ref) throw new Error(`'${module}' cannot extend itself`);
+  const known = projectModules(dir);
+  if (!(ref in known)) {
+    const refs = baseModuleRefs(known);
+    throw new Error(
+      `unknown module '${ref}'${refs.length ? ` — this project has: ${refs.join(", ")}` : " — this project has none"}`,
+    );
   }
-  return { removed, rewired };
+  const dropped: string[] = [];
+  const path = editModuleFile(dir, module, (text) => {
+    const doc = parseDocument(text, { version: "1.2" });
+    doc.setIn(["extends"], ref);
+    for (const k of DESCRIBES_WHAT_IT_IS)
+      if (doc.hasIn([k])) {
+        doc.deleteIn([k]);
+        dropped.push(k);
+      }
+    return doc.toString({ lineWidth: 0 });
+  });
+  return { rel: relative(dir, path).split(sep).join("/"), dropped };
 }
 
-/**
- * Point every chain step naming `from` at `to`, then delete `from`'s files.
- *
- * The order matters and is the whole design: the chains are rewritten FIRST, so at no instant does a chain name
- * a module that does not exist. Doing it the other way round leaves a window — and if the rename then failed,
- * a permanently broken project.
- */
-export function replaceModuleInChains(
-  dir: string,
-  from: string,
-  to: string,
-): { removed: string; rewired: string[] } {
-  const { path } = chainsFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const r = renameNode(text, from, to);
-  if (r.text !== text) writeFileSync(path, r.text, "utf8");
-  // Now nothing refers to it, so removing its files cannot dangle. deleteModule's own chain sweep finds nothing.
-  const { removed } = deleteModule(dir, from);
-  return { removed, rewired: r.rewired };
-}
+// `deleteModule` was here: it removed a module's file or folder AND every chain step naming
+// it, since a step pointing at a module that is gone is a dangling reference the compiler
+// refuses to load. It went with the `module delete` verb that was its only caller — removing a
+// module's files is the file tree's business now, and `unlinkChainNode` below is the other half
+// it used to bundle in.
 
 /**
  * Take a node OUT of the chains, joining what fed it to what it fed — and leave its files alone.
  *
- * The whole difference from `deleteModule` is that last clause. A node you unlink is still
- * on disk with its settings intact, so putting it back is `chain add`; deleting it is not
- * undoable that way. Taking a module out of the signal path and getting rid of it are two
- * different intentions, and only one of them had a command.
+ * A node you unlink is still on disk with its settings intact, so putting it back is `chain
+ * add`. Taking a module out of the signal path and getting rid of it are two different
+ * intentions, and this is the one with a command.
  *
  * A LANE used to be refused here, because a chain started at it and there was nothing feeding it
  * to rejoin to what it feeds. A lane is a module now, with an input port of its own
@@ -508,6 +523,73 @@ export function placeChainNode(dir: string, module: string): string {
   const { path } = chainsFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = addNode(text, module);
+  if (next !== text) writeFileSync(path, next, "utf8");
+  return path;
+}
+
+/** Hand EVERY node back to the layout — `graph organize` clearing the pins in one write. */
+export function clearChainNodePositions(dir: string): string {
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const next = clearNodePositions(text);
+  if (next !== text) writeFileSync(path, next, "utf8");
+  return path;
+}
+
+/** Pin a node's place on the graph — or, with null, hand it back to the layout. */
+export function setChainNodePosition(
+  dir: string,
+  node: string,
+  at: { x: number; y: number } | null,
+): string {
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const next = setNodePosition(text, node, at);
+  if (next !== text) writeFileSync(path, next, "utf8");
+  return path;
+}
+
+/** Draw a new arrow from `from` to `to` (each optionally `name#port`) — the patch-cable gesture's write. */
+export function connectChainNodes(
+  dir: string,
+  from: string,
+  to: string,
+): string {
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const next = connectNodes(text, from, to);
+  if (next !== text) writeFileSync(path, next, "utf8");
+  return path;
+}
+
+/** Take the arrow from `from` to `to` out — the patch cable pulled and dropped on the canvas. */
+export function disconnectChainNodes(
+  dir: string,
+  from: string,
+  to: string,
+): string {
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const next = disconnectNodes(text, from, to);
+  if (next !== text) writeFileSync(path, next, "utf8");
+  return path;
+}
+
+/**
+ * Move ONE end of an existing arrow: `from → to` becomes `newFrom → newTo` — the re-plug
+ * gesture. One read and one write, so however the two halves are spelt the file changes
+ * atomically: a crash between "pulled" and "plugged" cannot leave the cable half-gone.
+ */
+export function replugChainNodes(
+  dir: string,
+  from: string,
+  to: string,
+  newFrom: string,
+  newTo: string,
+): string {
+  const { path } = chainsFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const next = connectNodes(disconnectNodes(text, from, to), newFrom, newTo);
   if (next !== text) writeFileSync(path, next, "utf8");
   return path;
 }

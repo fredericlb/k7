@@ -41,13 +41,19 @@ The per-line threshold exists so a prewarm can rebuild a stale envelope **withou
 sensitivity somebody tuned** — the Node side reads each file's previous sidecar and sends it
 back.
 
-## `--normalize <targetPeak> <in1> <out1> [<in2> <out2> …]`
+## `--normalize <targetPeak> <in1> <out1> <from1> <to1> [<in2> <out2> <from2> <to2> …]`
 
-Peak-normalize a set of clips with a **single shared gain**: decode every input, find the
-loudest peak across all of them, compute one `gain = targetPeak / maxPeak`, and write each
-input scaled by it — preserving sample rate, channel count and bit depth. Prints a JSON
-manifest `{ maxPeak, gain, count }`.
+Peak-normalize a set of clips with a **single shared gain**, each inside its own **window**:
+decode every input, find the loudest peak across every window, compute one
+`gain = targetPeak / maxPeak`, and apply it inside each window — the samples outside a
+clip's `from`/`to` keep their bytes, so a louder count-in the window was trimmed to exclude
+neither caps the gain nor gets pushed over full scale. Each file is written back whole,
+preserving sample rate, channel count and bit depth. Prints a JSON manifest
+`{ maxPeak, gain, count }`.
+
+The window is in seconds; `to < 0` means the file's end, so `0 -1` is the whole file. A
+window the file outgrew, or one that does not run forwards, falls back to the whole file.
 
 One shared gain is what lets a whole track's clips be normalized together: the loudest hits
 the target and the rest keep their relative levels. The `normalize` command in the brain
-decides *which* clips and updates the references to the new files.
+decides *which* clips and *which* windows, and updates the references to the new files.

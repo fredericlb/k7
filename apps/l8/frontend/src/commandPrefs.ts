@@ -11,6 +11,10 @@ export interface CommandPref {
   icon?: string;
   /** Where it sits in a menu. Absent ⇒ after everything ordered, in catalogue order. */
   order?: number;
+  /** The key that runs it — a keyToken string ("g", "shift+space"), or keys.ts's KEY_NONE to
+   *  take a default shortcut away without giving another. Absent ⇒ the app's own binding.
+   *  Applied by `effectiveKeys` (keys.ts), which is where the change/steal rules live. */
+  key?: string;
 }
 
 /**

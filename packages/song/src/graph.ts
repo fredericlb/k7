@@ -19,6 +19,7 @@ import {
   NODE_SEP,
   withChainModuleRefs,
 } from "./loader";
+import { withModuleStamp } from "./moduleCache";
 import {
   type ResolvedModule,
   resolvedCc,
@@ -316,6 +317,10 @@ export interface GraphDoc {
   // `extends` vocabulary. Resolved like `modules`: what a consumer reads off either map
   // is what the module RUNS with, ancestry already folded in (see moduleResolve.ts).
   moduleRefs: Record<string, Module>;
+  // chains.yaml's `positions:`, verbatim — where somebody pinned a node on the graph.
+  // Nothing about the SIGNAL reads it; it rides through to the renderer, whose layout
+  // places only the nodes that have no entry here.
+  positions?: Record<string, { x: number; y: number }>;
   warnings: string[];
 }
 
@@ -713,10 +718,26 @@ export function buildGraph(
     disabledTracks: [...disabledTracks].sort(),
     modules,
     moduleRefs,
+    ...(positionsOf(chainsMap) ? { positions: positionsOf(chainsMap) } : {}),
     warnings: [],
   };
   g.warnings = validate(g);
   return g;
+}
+
+// The pins, read defensively: `chainsMap` may be the inline `root.chains`, which no schema saw.
+function positionsOf(
+  chainsMap: unknown,
+): Record<string, { x: number; y: number }> | undefined {
+  const p = (chainsMap as { positions?: unknown })?.positions;
+  if (!p || typeof p !== "object") return undefined;
+  const out: Record<string, { x: number; y: number }> = {};
+  for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
+    const at = v as { x?: unknown; y?: unknown };
+    if (typeof at?.x === "number" && typeof at?.y === "number")
+      out[k] = { x: at.x, y: at.y };
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 // Is `id` a sink: an io module the signal ENDS at (like OUT). Chains route to it by
@@ -1238,7 +1259,13 @@ function downstream(g: GraphDoc, out: Out[], seen: Set<string>): string {
 
 // --- loader (fs) -------------------------------------------------------------
 
+// Reads and writes nothing, and asks the module cache twice — one stamp walk covers the pair.
+// See moduleCache.ts; the same wrapping is on compileNodeProject.
 export function loadGraph(dir: string): GraphDoc {
+  return withModuleStamp(dir, () => loadGraphIn(dir));
+}
+
+function loadGraphIn(dir: string): GraphDoc {
   const root = loadProjectRoot(dir, true); // the root file -> project, markers
   // chains.yaml when there is one — see loadChains. Read once and passed everywhere the
   // root's own `chains` used to be, so the two formats can't disagree within one load.

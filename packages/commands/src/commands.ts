@@ -18,7 +18,7 @@ import type {
 } from "@studio/engine-client/engineClient";
 import { migrateChains } from "@studio/song/chainsMigrate";
 import { bindModuleCc } from "@studio/song/controllerBind";
-import { createCurveFile } from "@studio/song/curves";
+import { createCurveFile, loadCurves } from "@studio/song/curves";
 import { freezeBlockedBy, freezePlans } from "@studio/song/freeze";
 import {
   coldPlacementError,
@@ -52,24 +52,28 @@ import {
   setChannelLabel,
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
-import { trackMixer } from "@studio/song/project";
+import { loadAudioClipDoc, trackMixer } from "@studio/song/project";
 import {
+  clearChainNodePositions,
   clipFilePath,
   clipOnsets,
   clipWarpMarkers,
-  deleteModule,
+  connectChainNodes,
+  disconnectChainNodes,
   insertChainStep,
   moduleAlternatives,
   newModuleAlternative,
   placeChainNode,
-  replaceModuleInChains,
+  replugChainNodes,
   selectModuleAlternative,
+  setChainNodePosition,
   setClipOnsets,
   setClipWarp,
   setClipWindow,
   setModuleAsset,
   setModuleBypass,
   setModuleChannel,
+  setModuleExtends,
   setModuleFrozen,
   setModuleMonitor,
   setModuleParam,
@@ -78,18 +82,24 @@ import {
 import {
   beatsToDuration,
   beatsToPosition,
+  parseDuration,
   parsePosition,
 } from "@studio/song/timecode";
 import {
   addTrackPlacement,
+  keepTrackTake,
   MAX_GAIN_DB,
   MIN_GAIN_DB,
   movePlacementToTrack,
   moveTrackPlacement,
+  moveTrackPlacementsInRange,
   panToLabel,
   removeTrackPlacement,
+  removeTrackTake,
   resizeTrackPlacement,
+  selectTrackTake,
   setTrackPlacementDisabled,
+  trackTakes,
 } from "@studio/song/trackMix";
 import { migrateModuleUis } from "@studio/song/uiMigrate";
 import {
@@ -98,11 +108,13 @@ import {
   setWarpPoint,
 } from "@studio/song/warpPoints";
 import type { ChainsFile } from "@studio/song/yaml/chainsSchema";
-import { setFileValue } from "@studio/song/yaml/edit";
+import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
 import {
   appendNotes,
   isPlayableNote,
+  moveNote,
+  removeNote,
   setNoteTimeRange,
   setNoteVelocity,
 } from "@studio/song/yaml/sequenceFile";
@@ -258,6 +270,20 @@ function arrowError(
   if (!dests.includes(after))
     return `'${before}' does not feed '${after}' (it feeds: ${dests.join(", ") || "nothing"})`;
   return null;
+}
+
+/**
+ * An optional trailing `<x>,<y>` — where the cursor was when the web asked, so a created
+ * node is BORN there instead of asking the layout. Pulled off the argument list before any
+ * other parsing: the comma makes it unmistakable for a ref or a node name, which is the
+ * whole reason for the spelling. Clamped to the world's origin like every pin.
+ */
+function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
+  const last = parts[parts.length - 1];
+  const m = last ? /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(last) : null;
+  if (!m) return null;
+  parts.pop();
+  return { x: Math.max(0, Number(m[1])), y: Math.max(0, Number(m[2])) };
 }
 
 /**
@@ -467,9 +493,8 @@ type MixTarget = Pick<TrackDoc, "id" | "name" | "mute">;
  * Silence (or un-silence) a set of lanes, and push the result.
  *
  * A lane's mute IS its module's bypass — one state, in the one place a bypass is written
- * (packages/song/docs/trackModules.md). `track mute` and `track solo` are both this: mute toggles
- * the lane named, solo bypasses every OTHER one. Nothing is stored for solo, which is why it is
- * spelled as the set of mutes it produces rather than as a flag of its own.
+ * (packages/song/docs/trackModules.md). `track mute` is this; solo stopped being — it is
+ * project state now (`soloed:` in project.yaml, see track.solo below), not a set of mutes.
  *
  * The doc is mutated and pushed rather than reloaded, so a mixer move stays snappy.
  */
@@ -519,6 +544,45 @@ async function moduleAltAdd(
   } catch (e) {
     h.log([`module alternative ${verb}: ${(e as Error).message}`]);
   }
+}
+
+/**
+ * Resolve `<track> <n>` for the two take verbs, or say what is wrong with it.
+ *
+ * The count is read off the FILE rather than off the compiled project, so a take can still be
+ * deleted on a lane the compiler is currently refusing — the file is what these two verbs write.
+ */
+function takeTarget(
+  a: string,
+  h: CommandHost,
+  verb: string,
+): { track: { id: string }; n: number } | null {
+  const [idArg, nArg] = a.trim().split(/\s+/).filter(Boolean);
+  if (!idArg || nArg === undefined) {
+    h.log([`usage: track take ${verb} <track> <n>`]);
+    return null;
+  }
+  const p = h.project();
+  const track = p.tracks.find((t) => t.id === idArg || t.name === idArg);
+  if (!track) {
+    h.log([`no track "${idArg}"`]);
+    return null;
+  }
+  const n = Number(nArg);
+  if (!Number.isInteger(n) || n < 1) {
+    h.log([`take numbers count from 1 — "${nArg}" is not one`]);
+    return null;
+  }
+  const have = trackTakes(h.songPath, track.id).length;
+  if (n > have) {
+    h.log([
+      have
+        ? `${track.id} has ${have} take${have > 1 ? "s" : ""} — no take ${n}`
+        : `${track.id} has no takes`,
+    ]);
+    return null;
+  }
+  return { track, n };
 }
 
 /** Resolve a `track mute`/`track solo` argument to a lane or a group, or report why not. */
@@ -658,9 +722,38 @@ async function normalizeCommand(
     peak,
     // The same journal hook the bounce uses, so this is one Ctrl+Z away.
     (abs) => h.snapshot?.(abs),
+    // A clip is measured AND gained inside its own `from`/`to`: the operation acts on the
+    // material the event is, and the take around it keeps its bytes. A track names files, not
+    // events, so its scope stays the whole file.
+    scope === "clip" ? clipWindow(h, target) : null,
   );
   h.log(lines);
   if (changed) await h.reload();
+}
+
+/**
+ * The interval a clip PLAYS, in file seconds — its `from`/`to` resolved the way the compiler
+ * resolves them (timecode spelling included), or null when it states none.
+ *
+ * This is what bounds `clip trim` and `clip normalize`: an operation launched on an event acts on
+ * the material that event IS, not on the rest of the take around it. `to` comes back as Infinity
+ * when only `from` is stated — each caller clamps it to what it knows the file to be.
+ */
+function clipWindow(
+  h: CommandHost,
+  clip: string,
+): { from: number; to: number } | null {
+  const p = h.project();
+  const doc = loadAudioClipDoc(h.songPath, clip, {
+    tempo: p.tempo,
+    num: p.timeSigNumerator,
+    den: p.timeSigDenominator,
+  });
+  if (!doc || (doc.sourceFrom == null && doc.sourceTo == null)) return null;
+  return {
+    from: doc.sourceFrom ?? 0,
+    to: doc.sourceTo ?? Number.POSITIVE_INFINITY,
+  };
 }
 
 /**
@@ -776,7 +869,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * line to put back, where a rewritten wav is a restore from the undo journal.
    *
    * The gate is in dBFS and defaults to −40: below a room's floor on any usable take, above true
-   * digital silence. Where it lands is `trimWindow`'s decision and is tested there.
+   * digital silence. Where it lands is `trimWindow`'s decision and is tested there — BOUNDED to
+   * the window the clip already has, so a re-trim refines it and never reaches back into material
+   * an earlier trim removed (undo is how that comes back, deliberately).
    */
   "clip.trim": async (a, h) => {
     const [clip, gateArg] = a.trim().split(/\s+/).filter(Boolean);
@@ -804,10 +899,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${clip}: no envelope yet — the engine builds it on first read`]);
       return;
     }
-    const win = trimWindow(env.peak, env.seconds, gate);
+    const win = trimWindow(env.peak, env.seconds, gate, clipWindow(h, clip));
     if (!win) {
       h.log([
-        `${clip}: nothing above ${gate} dB — the gate is too high, or the take is silent`,
+        `${clip}: nothing above ${gate} dB in its window — the gate is too high, or the take is silent`,
         "nothing was changed: a window of zero length would play nothing at all",
       ]);
       return;
@@ -926,27 +1021,111 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     );
   },
   /**
-   * Solo, derived: bypass every OTHER lane, or lift it when they already are.
+   * Solo, as PROJECT STATE: `soloed:` at project.yaml's root lists the soloed lanes — several
+   * at once — and the ENGINE resolves it across the mixer (any soloed track silences every
+   * non-soloed one; applySoloMute). The compiler folds a group's entry onto its members.
    *
-   * Nothing on disk says "soloed" — a lane carries no flag and `chains.yaml` has no second list
-   * beside `bypassed:`. Solo IS the set of mutes it produces, which is why turning it off simply
-   * un-bypasses everything: there is no prior state to restore, and inventing a memory of one
-   * would be a second source of truth for what you can already see.
+   * It used to be DERIVED — bypass every other lane — which rewrote N files to say one fact,
+   * could not hold two solos at once, and read in chains.yaml as a wall of mutes nobody wrote.
+   * Now one list says it, and turning the last solo off deletes the key: absent means what it
+   * always means here, the default.
+   *
+   * Soloing a MUTED lane still lifts its mute, as the old gesture did — asking to hear a lane
+   * is one act. The doc is mutated and pushed rather than reloaded, so the mixer stays snappy,
+   * with the same fold the compiler applies.
    */
   "track.solo": async (a, h) => {
     const t = mixTarget(a, h, "solo");
     if (!t) return;
     const p = h.project();
-    const others = [...p.tracks, ...p.groups].filter((x) => x.id !== t.id);
-    const on = others.some((x) => !x.mute) || t.mute;
-    await setLaneBypass(
-      h,
-      new Map([
-        [t.id, false],
-        ...others.map((x) => [x.id, on] as [string, boolean]),
-      ]),
-      `${t.id}: solo ${on ? "on" : "off"}`,
-    );
+    const cur = (loadProjectRoot(h.songPath).soloed ?? []).map(String);
+    const on = !cur.includes(t.id);
+    const next = on ? [...cur, t.id] : cur.filter((x) => x !== t.id);
+    const file = join(h.songPath, "project.yaml");
+    if (next.length) setFileValue(file, ["soloed"], next);
+    else deleteFileValue(file, ["soloed"]);
+    const unmute = on && t.mute;
+    if (unmute) setModuleBypass(h.songPath, t.id, false);
+    const soloSet = new Set(next);
+    await h.applyProject({
+      ...p,
+      tracks: p.tracks.map((x) => ({
+        ...x,
+        solo: soloSet.has(x.id) || soloSet.has(x.group),
+        ...(unmute && x.id === t.id ? { mute: false } : {}),
+      })),
+      groups: p.groups.map((g) => ({
+        ...g,
+        solo: soloSet.has(g.id),
+        ...(unmute && g.id === t.id ? { mute: false } : {}),
+      })),
+    });
+    h.log([
+      `${t.id}: solo ${on ? "on" : "off"}` +
+        (next.length ? ` — soloed: ${next.join(", ")}` : ""),
+    ]);
+  },
+  /**
+   * Swap take `n` onto the track — and what the track was playing becomes take `n`.
+   *
+   * An EXCHANGE, not a load, which is what makes listening to another take free: nothing is
+   * lost, and running it again puts everything back. See packages/song/docs/takes.md.
+   */
+  "track.take.select": async (a, h) => {
+    const t = takeTarget(a, h, "select");
+    if (!t) return;
+    try {
+      selectTrackTake(h.songPath, t.track.id, t.n);
+      h.log([
+        `${t.track.id}: playing take ${t.n} — what was there is now take ${t.n}`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`track take select failed: ${(e as Error).message}`]);
+    }
+  },
+  /**
+   * Keep what the track is playing, and delete every take of it — the end of choosing.
+   *
+   * Named for the decision rather than for what it removes: you have listened round the takes
+   * (each listen is a `select`, which leaves the one you liked ON the track), and this is the
+   * button that says that one. Nothing names a take here, because the choice was already made
+   * by whichever is playing.
+   */
+  "track.take.keep": async (a, h) => {
+    const id = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!id) {
+      h.log(["usage: track take keep <track>"]);
+      return;
+    }
+    const track = h.project().tracks.find((t) => t.id === id || t.name === id);
+    if (!track) {
+      h.log([`no track "${id}"`]);
+      return;
+    }
+    try {
+      const gone = keepTrackTake(h.songPath, track.id);
+      h.log([
+        gone
+          ? `${track.id}: kept what it plays, deleted ${gone} take${gone > 1 ? "s" : ""}`
+          : `${track.id} has no takes`,
+      ]);
+      if (gone) await h.reload();
+    } catch (e) {
+      h.log([`track take keep failed: ${(e as Error).message}`]);
+    }
+  },
+  /** Delete take `n`, and the events it held — a take is where they live. */
+  "track.take.delete": async (a, h) => {
+    const t = takeTarget(a, h, "delete");
+    if (!t) return;
+    try {
+      removeTrackTake(h.songPath, t.track.id, t.n);
+      h.log([`${t.track.id}: take ${t.n} deleted`]);
+      await h.reload();
+    } catch (e) {
+      h.log([`track take delete failed: ${(e as Error).message}`]);
+    }
   },
   "track.gain": (a, h) =>
     stripParam(
@@ -1071,6 +1250,112 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
+  /**
+   * events move <tracks> <from> <to> <by> — the bulk form of `event move`: every placement
+   * STARTING in [from, to] (both inclusive), on each named lane, moved by the signed
+   * duration `by` (+1:0 is a bar right in 4/4, -0:1 a beat left).
+   *
+   * One command on purpose, not a loop of `event move` lines: the whole gesture is then one
+   * undo step and one reload — and the addresses are collected before any write, where a
+   * loop's later lines would address a project its earlier lines already changed.
+   */
+  "events.move": async (a, h) => {
+    const m = /^(\S+)\s+(\S+)\s+(\S+)\s+([+-]\S+)$/.exec(a.trim());
+    if (!m) {
+      h.log([
+        "usage: events move <tracks> <from> <to> <+/-delta>  (e.g. events move drums,bass 2:1 4:4 +1:0)",
+      ]);
+      return;
+    }
+    const [, tracksArg, fromTc, toTc, byArg] = m;
+    const p = h.project();
+    // "all" is every lane that can hold a placement; naming a generated lane is refused,
+    // because refusing what was asked for beats silently doing less than asked.
+    const tracks: typeof p.tracks = [];
+    if (tracksArg.toLowerCase() === "all")
+      tracks.push(...p.tracks.filter((t) => !t.generated));
+    else
+      for (const name of new Set(tracksArg.split(",").filter(Boolean))) {
+        const t = p.tracks.find((x) => x.id === name || x.name === name);
+        if (!t) {
+          h.log([
+            `no track "${name}"${p.tracks.length ? ` — try: ${p.tracks.map((x) => x.id).join(", ")}` : ""}`,
+          ]);
+          return;
+        }
+        if (t.generated) {
+          h.log([
+            `can't move events on '${t.id}': it is generated by an algo pattern and holds no placements`,
+          ]);
+          return;
+        }
+        tracks.push(t);
+      }
+    const num = p.timeSigNumerator;
+    const den = p.timeSigDenominator;
+    let fromBeats: number;
+    let toBeats: number;
+    let deltaBeats: number;
+    try {
+      fromBeats = parsePosition(fromTc, num, den);
+      toBeats = parsePosition(toTc, num, den);
+      // The delta is a DURATION wearing a sign, so "+1:0" means one bar whatever the bar is.
+      deltaBeats =
+        (byArg[0] === "-" ? -1 : 1) * parseDuration(byArg.slice(1), num, den);
+    } catch (e) {
+      h.log([`bad timecode: ${(e as Error).message}`]);
+      return;
+    }
+    if (toBeats < fromBeats) [fromBeats, toBeats] = [toBeats, fromBeats];
+    if (deltaBeats === 0) {
+      h.log(["nothing to do: the delta is zero"]);
+      return;
+    }
+    // Count the hits off the compiled project first: a clear refusal beats a partial write,
+    // and the earliest hit is what a negative delta must not push before 1:1:1.
+    const hits = tracks.map((t) => ({
+      t,
+      starts: t.clips
+        .map((c) => c.start)
+        .filter((s) => s >= fromBeats - 1e-6 && s <= toBeats + 1e-6),
+    }));
+    const all = hits.flatMap((x) => x.starts);
+    if (!all.length) {
+      h.log([
+        `no events between ${fromTc} and ${toTc} on ${tracks.map((t) => t.id).join(", ")}`,
+      ]);
+      return;
+    }
+    if (Math.min(...all) + deltaBeats < -1e-6) {
+      h.log([`can't move by ${byArg}: it would push an event before 1:1:1`]);
+      return;
+    }
+    try {
+      let moved = 0;
+      const touched: string[] = [];
+      for (const { t, starts } of hits) {
+        if (!starts.length) continue;
+        const n = moveTrackPlacementsInRange(
+          h.songPath,
+          t.id,
+          fromBeats,
+          toBeats,
+          deltaBeats,
+          num,
+          den,
+        );
+        moved += n;
+        if (n) touched.push(t.id);
+      }
+      h.log([
+        `moved ${moved} event${moved === 1 ? "" : "s"} on ${touched.join(", ")} by ${byArg}`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`events move failed: ${(e as Error).message}`]);
+    }
+  },
+
   // event remove <track> <timecode> — drop that placement, addressed exactly as `event move` addresses it.
   // The clip itself stays: a placement is a REFERENCE, and an unplaced clip in clips/ is still yours.
   // event disable <track> <timecode> [on|off|toggle]
@@ -1157,13 +1442,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([
         `${track.id}: ${hit.name || hit.id} -> ${startTc}..${endTc} (${span})` +
           (done.loops > 1 ? ` × ${done.loops}` : ""),
-        // The window is the MATERIAL's, so this edit reaches every placement of it. Said out
-        // loud rather than left to be discovered: nothing else in the song announces itself
-        // changing under you. See @studio/song's docs/clipResize.md.
-        `  ${done.material} windowed` +
-          (done.sharedWith
-            ? ` — also resizes ${done.sharedWith} other placement(s) of '${done.ref}'`
-            : ""),
+        // The edit is the EVENT's own window, clamped inside the material's `from`/`to` — the
+        // most restrictive pair wins, so other placements of the material are untouched, and
+        // reaching OUTSIDE the material's window is its own edit (`clip trim`, its pane), not
+        // this one's. See @studio/song's docs/clipResize.md.
+        `  this event only — ${done.material} keeps its own from/to`,
       ]);
       await h.reload();
     } catch (e) {
@@ -1388,6 +1671,99 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
+  /**
+   * sequence note move <sequence> <note> <start> <newNote> <newStart> — the same note, put
+   * somewhere else: its length and its velocity ride along (see moveNote). The step
+   * sequencer's ctrl-drag runs this.
+   */
+  "sequence.moveNote": async (arg, h) => {
+    const [seqId, noteStr, startStr, toStr, toStartStr] = arg
+      .trim()
+      .split(/\s+/);
+    if (
+      !seqId ||
+      !noteStr ||
+      startStr === undefined ||
+      !toStr ||
+      toStartStr === undefined
+    ) {
+      h.log([
+        "usage: sequence note move <sequence> <note> <start> <newNote> <newStart>",
+      ]);
+      return;
+    }
+    const k = parseMidiNote(noteStr);
+    const nk = parseMidiNote(toStr);
+    if (k === null || nk === null) {
+      h.log([
+        `bad note "${k === null ? noteStr : toStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const t = Number(startStr);
+    const nt = Number(toStartStr);
+    if (!Number.isFinite(t) || !Number.isFinite(nt)) {
+      h.log(["start and newStart (beats) must be numbers"]);
+      return;
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      writeFileSync(file, moveNote(text, k, t, nk, nt), "utf8");
+    } catch (e) {
+      h.log([`sequence note move: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([
+      `${seqId}: ${noteStr} (k${k}) ${fmtBeat(t)} → ${toStr} (k${nk}) ${fmtBeat(nt)}`,
+    ]);
+    await h.reload();
+  },
+
+  // Remove one note, addressed by key and start like every note edit — the step sequencer's
+  // button-off. Same shape as noteVelocity below: resolve the file, rewrite, say what happened.
+  "sequence.removeNote": async (arg, h) => {
+    const [seqId, noteStr, startStr] = arg.trim().split(/\s+/);
+    if (!seqId || !noteStr || startStr === undefined) {
+      h.log(["usage: sequence note remove <sequence> <note> <start>"]);
+      return;
+    }
+    const k = parseMidiNote(noteStr);
+    if (k === null) {
+      h.log([
+        `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const t = Number(startStr);
+    if (!Number.isFinite(t)) {
+      h.log(["start (beats) must be a number"]);
+      return;
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      writeFileSync(file, removeNote(text, k, t), "utf8");
+    } catch (e) {
+      h.log([`sequence note remove: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([`${seqId}: ${noteStr} (k${k}) at ${fmtBeat(t)} removed`]);
+    await h.reload();
+  },
+
   "sequence.noteVelocity": async (arg, h) => {
     const [seqId, noteStr, startStr, velStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined || velStr === undefined) {
@@ -1535,10 +1911,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
-  "plugin.list": async (a, h) => {
+  // The MACHINE's plugin cache, not this song's modules — hence `system`. The optional word is
+  // a format filter, which is what `module list vst` used to be as a verb of its own.
+  "system.plugins.list": async (a, h) => {
     await h.listPlugins(a.trim() || undefined);
   },
-  "plugin.rescan": async (_a, h) => {
+  "system.plugins.scan": async (_a, h) => {
     h.log(["rescanning plugins… (first scan can take a while)"]);
     await h.rescanPlugins();
   },
@@ -1579,7 +1957,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     clearChannelLabel(dir, ch);
     h.log([`cleared ${dir} ${ch.join("+")}`]);
   },
-  "plugin.open": async (a, h) => {
+  // The external UI of ONE INSTANCE: the plugin's own window, drawn by the plugin on the
+  // engine's machine. The argument names a node in this project's chains, which is what a
+  // window can be opened for — a module with no instance loaded has none.
+  "instance.externalUi": async (a, h) => {
     const name = a.trim();
     const modules = collectPluginModules(h.project());
     if (!name) {
@@ -1678,68 +2059,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * belongs with it: both describe the desk, not the song. Said out loud in the log, because it is the one thing
    * here that reaches past this project.
    */
-  /**
-   * module channel <module> <n>[,<n2>] — which interface input this live input listens on.
-   *
-   * A module FIELD like `monitor`, written into the module's own file and possibly the workspace's
-   * shared one, for the same reason: which socket a guitar is in describes the desk, not the song.
-   *
-   * One channel or two, and two only ever means a pair the interface actually groups — `findWaveInput`
-   * matches a device on its exact channel list, so a set the rig does not offer resolves to nothing and
-   * plays as silence. Nothing here can check that (the rig is the engine's to know); the graph's IN panel
-   * only ever offers sets that exist, and this refuses the shapes that could never be one.
-   */
-  "module.channel": async (a, h) => {
-    const usage =
-      "usage: module channel <module> <n>[,<n2>]  (e.g. module channel ge_rythm-in 1,2)";
-    const [module, spec] = a.trim().split(/\s+/).filter(Boolean);
-    if (!module || !spec) {
-      h.log([usage]);
-      return;
-    }
-    const channels = spec.split(",").map((s) => Number(s.trim()));
-    if (channels.some((n) => !Number.isInteger(n) || n < 1)) {
-      h.log([`'${spec}' is not a channel or a pair of them`, usage]);
-      return;
-    }
-    try {
-      const path = setModuleChannel(h.songPath, module, channels);
-      h.log([
-        `${module}: channel ${channels.join(", ")}` +
-          (relative(h.songPath, path).startsWith("..")
-            ? " — in the shared library, so every project beside this one sees it"
-            : ""),
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.log([`module channel failed: ${(e as Error).message}`]);
-    }
-  },
-
-  "module.monitor": async (a, h) => {
-    const usage = "usage: module monitor <module> <off|auto|on>";
-    const [module, state] = a.trim().split(/\s+/).filter(Boolean);
-    if (!module || !state) {
-      h.log([usage]);
-      return;
-    }
-    if (state !== "off" && state !== "auto" && state !== "on") {
-      h.log([`'${state}' is not off, auto or on`, usage]);
-      return;
-    }
-    try {
-      const path = setModuleMonitor(h.songPath, module, state);
-      h.log([
-        `${module}: monitor ${state}` +
-          (relative(h.songPath, path).startsWith("..")
-            ? " — in the shared library, so every project beside this one sees it"
-            : ""),
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.log([`module monitor failed: ${(e as Error).message}`]);
-    }
-  },
+  // `module.channel` and `module.monitor` were here, a verb per field. Both are `module param
+  // <module> @<field> <value>` now — see `setIntrinsic`, which is where their validation and
+  // their shared-library message went.
 
   // Point a file-valued param at one of the module's own assets (`none` clears it). Not patchable into the running
   // engine — the plugin loads its file when BUILT — so it writes and reloads. Swapping an amp model isn't a knob drag.
@@ -1921,6 +2243,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     const [, module, rawParam, rawValue] = m;
     const param = rawParam.replace(/^"(.*)"$/s, "$1").trim();
+    // An INTRINSIC: `@channel`, `@monitor`, `@gain` — the module's own field rather than a
+    // plugin's parameter. Same verb because it is the same act from the outside (set this
+    // control on this module), and the `@` is the whole of the difference: a plugin param is
+    // sent to a running plugin, a field is written into the file and read at BUILD time. See
+    // packages/song/docs/intrinsics.md.
+    if (param.startsWith("@")) {
+      await setIntrinsic(h, module, param.slice(1), rawValue);
+      return;
+    }
     const value = Number(rawValue);
     if (!Number.isFinite(value)) {
       h.log([`"${rawValue}" is not a number — a param value is numeric`]);
@@ -2125,27 +2456,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // clone module — copy a module folder (file, .vstpreset, rack audio) into the same category under a new name.
-  // module delete <name|name:node> — the file, and the graph closed back up around it.
-  "module.delete": async (a, h) => {
-    const key = a.trim().split(/\s+/).filter(Boolean)[0];
-    if (!key) {
-      h.log(["usage: module delete <module|module:node>"]);
-      return;
-    }
-    try {
-      const { removed, rewired } = deleteModule(h.songPath, key);
-      h.log([
-        `deleted ${removed}` +
-          (rewired.length
-            ? ` and rejoined what fed it: ${rewired.join(", ")}`
-            : ""),
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.log([`delete module failed: ${(e as Error).message}`]);
-    }
-  },
+  // `module.delete` was here — the file, and the graph closed back up around it. Gone with its
+  // verb: a module's files are the file tree's to remove, and taking a node out of the signal
+  // path without deleting anything is `node unlink` below.
 
   // node unlink <node> — out of the signal path, files untouched. The splice is
   // removeNode's; what this adds is that nothing is deleted, so it goes back with `chain add`.
@@ -2189,45 +2502,36 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // module replace <name> <category/name> [extends-ref] — swap what a chain step IS, keeping where it sits.
-  //
-  // Not delete-then-create: that loses the position. The chain is rewritten in place, so the new module lands
-  // exactly where the old one was, in every chain that named it. What it keeps is the NAME the chains use;
-  // everything the old module carried — params, ui, preset — goes, because it belonged to the old module.
+  /**
+   * module replace <module> <extends-ref> — point a node at another module.
+   *
+   * ONE edit, to one line: the node's `extends`. Everything that is not what it IS survives —
+   * the name, so every chain step keeps its place and nothing is rewired; the file, so its
+   * position on the graph and its panel stay put. What goes is what described the old thing
+   * (`plugin`, `params`, `rack`), and the log says which, because a field disappearing from a
+   * file somebody hand-wrote should never be discovered later.
+   *
+   * It used to CREATE a module — `<category>/<name>` plus an optional extends — and rewrite the
+   * chains onto the new name. That answered a different question ("put a new module where this
+   * one sits"), and from the node's context menu it asked for two things when the only one worth
+   * naming is the replacement.
+   */
   "module.replace": async (a, h) => {
-    const usage =
-      "usage: module replace <module> <category>/<name> [extends-ref]";
-    const [key, target, extendsRef] = a.trim().split(/\s+/).filter(Boolean);
-    if (!key || !target) {
+    const usage = "usage: module replace <module> <extends-ref>";
+    const [key, ref] = a.trim().split(/\s+/).filter(Boolean);
+    if (!key || !ref) {
       h.log([usage]);
       return;
     }
-    const segs = target.split("/");
-    if (segs.length !== 2 || !segs[0] || !segs[1]) {
-      h.log([`'${target}' is not <category>/<name>`, usage]);
-      return;
-    }
-    const [category, name] = segs;
-    // The new module FIRST: if it cannot be created, the old one is still there and still wired up.
-    let rel: string;
     try {
-      rel = createModuleFile(h.songPath, category, name, extendsRef);
-    } catch (e) {
-      h.log([`replace failed: ${(e as Error).message} — '${key}' left alone`]);
-      return;
-    }
-    try {
-      const { removed, rewired } = replaceModuleInChains(h.songPath, key, name);
+      const { rel, dropped } = setModuleExtends(h.songPath, key, ref);
       h.log([
-        `created ${rel}, replaced '${key}' with '${name}'` +
-          (rewired.length
-            ? ` (fed by ${rewired.join(", ")})`
-            : " (it was wired to nothing)") +
-          `; removed ${removed}`,
+        `${key}: extends ${ref} (${rel})` +
+          (dropped.length ? ` — dropped its own ${dropped.join(", ")}` : ""),
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`created ${rel}, but the swap failed: ${(e as Error).message}`]);
+      h.log([`module replace failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2298,8 +2602,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    */
   "module.insert": async (a, h) => {
     const usage =
-      "usage: module insert <before> <after> <category>/<name> [extends-ref] [node]";
+      "usage: module insert <before> <after> <category>/<name> [extends-ref] [node] [x,y]";
     const parts = a.trim().split(/\s+/).filter(Boolean);
+    const at = takeSpawnAt(parts);
     if (parts.length < 3) {
       h.log([usage]);
       return;
@@ -2343,6 +2648,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const { ref, rel } = made;
     try {
       insertChainStep(h.songPath, before, after, ref);
+      // Born where the `+` was clicked — same rule as `module place`.
+      if (at) setChainNodePosition(h.songPath, ref, at);
       h.log([
         `${rel ? `created ${rel}; ` : ""}inserted ${ref} between ${before} and ${after}`,
       ]);
@@ -2368,8 +2675,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * alone — makes a folder nothing mentions, which is the shape a module takes when you have FORGOTTEN it.
    */
   "module.place": async (a, h) => {
-    const usage = "usage: module place <category>/<name> [extends-ref] [node]";
-    const [target, ...rest] = a.trim().split(/\s+/).filter(Boolean);
+    const usage =
+      "usage: module place <category>/<name> [extends-ref] [node] [x,y]";
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const at = takeSpawnAt(parts);
+    const [target, ...rest] = parts;
     if (!target) {
       h.log([usage]);
       return;
@@ -2382,6 +2692,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const { ref, rel } = made;
     try {
       placeChainNode(h.songPath, ref);
+      // Born where the cursor was — the web sends the click, so a new node never asks the
+      // layout where to appear. Absent (a typed line), the layout still answers.
+      if (at) setChainNodePosition(h.songPath, ref, at);
       h.log([
         `${rel ? `created ${rel}; ` : ""}placed ${ref} — wired to nothing yet`,
       ]);
@@ -2398,8 +2711,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // chain add <before> <after> <module> — splice an EXISTING module into the arrow between two nodes.
   "chain.addModule": async (a, h) => {
     const usage =
-      "usage: chain add <before> <after> <module> (the two ends of one graph arrow, then the module to insert between them)";
+      "usage: chain add <before> <after> <module> [x,y] (the two ends of one graph arrow, then the module to insert between them)";
     const parts = a.trim().split(/\s+/).filter(Boolean);
+    const at = takeSpawnAt(parts);
     if (parts.length < 3) {
       h.log([usage]);
       return;
@@ -2438,10 +2752,239 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     try {
       insertChainStep(h.songPath, before, after, block);
+      // Born where the `+` was clicked — same rule as the two creating verbs.
+      if (at) setChainNodePosition(h.songPath, block, at);
       h.log([`inserted ${block} between ${before} and ${after}`]);
       await h.reload();
     } catch (e) {
       h.log([`chain add failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * graph organize — hand EVERY node back to the layout: the pins come off in one write and
+   * dagre speaks again on the next draw. Deliberately the ONLY reorganizing operation: an
+   * edit keeps every card where it stands (the renderer holds them), so the picture moves
+   * exactly when somebody asks it to.
+   */
+  "graph.organize": async (_a, h) => {
+    try {
+      clearChainNodePositions(h.songPath);
+      h.log(["graph reorganized — every node handed back to the layout"]);
+      await h.reload();
+    } catch (e) {
+      h.log([`graph organize failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * module position <module> <x> <y> — pin a node where a drag (or a hand) put it, into
+   * chains.yaml's `positions:`. The layout only places what has no pin, so this is the one
+   * write behind "modules stay where you moved them"; `auto` hands the node back. Cosmetic
+   * on purpose — nothing about the signal reads it — which is why a bad node name is still
+   * refused: a pin nothing can ever match would sit in the file for ever.
+   */
+  "module.position": async (a, h) => {
+    const usage =
+      "usage: module position <module> <x> <y> (world px), or `module position <module> auto`";
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) {
+      h.log([usage]);
+      return;
+    }
+    const [name, xArg, yArg] = parts;
+    let g: ReturnType<typeof loadGraph>;
+    try {
+      g = loadGraph(h.songPath);
+    } catch (e) {
+      h.log([`module position: ${(e as Error).message}`]);
+      return;
+    }
+    // Everything on the graph is a NODE, and every node can be put somewhere: a module or a
+    // track by its chains name, a curve by its curve id, the sink by "OUT" — which is already
+    // in g.modules, being an io module like any other. The curves are a best-effort read: an
+    // unreadable curves/ costs the acceptance, not a crash.
+    const curves = (() => {
+      try {
+        return loadCurves(h.songPath);
+      } catch {
+        return {};
+      }
+    })();
+    if (!(name in g.modules) && !(name in g.tracks) && !(name in curves)) {
+      h.log([
+        `no node "${name}" in this project (modules: ${
+          Object.keys(g.modules).join(", ") || "none"
+        })`,
+      ]);
+      return;
+    }
+    try {
+      if (xArg.toLowerCase() === "auto") {
+        setChainNodePosition(h.songPath, name, null);
+        h.log([`${name}: back to the layout`]);
+      } else {
+        const x = Number(xArg);
+        const y = Number(yArg);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          h.log([usage]);
+          return;
+        }
+        // Clamped to the world's origin — the fit frames 0.., and a negative pin would sit
+        // outside every frame the camera can be asked for.
+        setChainNodePosition(h.songPath, name, {
+          x: Math.max(0, x),
+          y: Math.max(0, y),
+        });
+        h.log([
+          `${name}: pinned at ${Math.max(0, Math.round(x))},${Math.max(0, Math.round(y))}`,
+        ]);
+      }
+      await h.reload();
+    } catch (e) {
+      h.log([`module position failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * chain connect <from> <to> — draw a NEW arrow between two placed nodes: the graph's
+   * patch-cable gesture, and how a new chain begins. Either end may carry `#port`, spelt
+   * exactly as chains.yaml spells it (packages/song/docs/ports.md).
+   *
+   * Unlike `chain add` there is no existing arrow to validate against — the checks are the
+   * ends themselves: both must be nodes this project knows, the sink has no output, and a
+   * track is a source nothing can feed.
+   */
+  "chain.connect": async (a, h) => {
+    const usage =
+      "usage: chain connect <from> <to> — each a node, optionally name#port (e.g. chain connect gtr reverb)";
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    if (parts.length !== 2) {
+      h.log([usage]);
+      return;
+    }
+    const [from, to] = parts;
+    const base = (s: string) => s.split("#")[0];
+    if (base(from) === base(to)) {
+      h.log([`can't connect '${base(from)}' to itself`]);
+      return;
+    }
+    let g: ReturnType<typeof loadGraph>;
+    try {
+      g = loadGraph(h.songPath);
+    } catch (e) {
+      h.log([`chain connect: ${(e as Error).message}`]);
+      return;
+    }
+    if (base(from) === "OUT") {
+      h.log(["OUT is the sink — it has no output to connect from"]);
+      return;
+    }
+    if (base(to) in g.tracks) {
+      h.log([`'${base(to)}' is a track — a source; nothing can feed it`]);
+      return;
+    }
+    const known = (name: string) =>
+      name === "OUT" ||
+      name in g.modules ||
+      name in g.moduleRefs ||
+      name in g.tracks;
+    for (const end of [from, to])
+      if (!known(base(end))) {
+        h.log([
+          `no node "${base(end)}" in this project (modules: ${
+            Object.keys(g.modules).join(", ") || "none"
+          })`,
+        ]);
+        return;
+      }
+    try {
+      connectChainNodes(h.songPath, from, to);
+      h.log([`connected ${from} → ${to}`]);
+      await h.reload();
+    } catch (e) {
+      h.log([`chain connect failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * chain disconnect <from> <to> — pull ONE cable out: the mirror of `chain connect`, and
+   * what a lifted cable dropped on the canvas runs. No graph load: the file's own "does
+   * not feed" refusal IS the validation, and it names what the node actually feeds.
+   */
+  "chain.disconnect": async (a, h) => {
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    if (parts.length !== 2) {
+      h.log([
+        "usage: chain disconnect <from> <to> — each a node, optionally name#port",
+      ]);
+      return;
+    }
+    const [from, to] = parts;
+    try {
+      disconnectChainNodes(h.songPath, from, to);
+      h.log([`disconnected ${from} → ${to}`]);
+      await h.reload();
+    } catch (e) {
+      h.log([`chain disconnect failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * chain replug <from> <to> <newFrom> <newTo> — move one end of an existing arrow, in ONE
+   * write: the re-plug gesture, and one undo step however the ends are respelt. The old
+   * pair must be an arrow (the file refuses otherwise) and the new pair passes the same
+   * checks `chain connect` makes, because it is one.
+   */
+  "chain.replug": async (a, h) => {
+    const usage =
+      "usage: chain replug <from> <to> <newFrom> <newTo> — the arrow from→to becomes newFrom→newTo";
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    if (parts.length !== 4) {
+      h.log([usage]);
+      return;
+    }
+    const [from, to, newFrom, newTo] = parts;
+    if (from === newFrom && to === newTo) {
+      h.log(["nothing moved — the cable is where it was"]);
+      return;
+    }
+    const base = (s: string) => s.split("#")[0];
+    if (base(newFrom) === base(newTo)) {
+      h.log([`can't connect '${base(newFrom)}' to itself`]);
+      return;
+    }
+    let g: ReturnType<typeof loadGraph>;
+    try {
+      g = loadGraph(h.songPath);
+    } catch (e) {
+      h.log([`chain replug: ${(e as Error).message}`]);
+      return;
+    }
+    if (base(newFrom) === "OUT") {
+      h.log(["OUT is the sink — it has no output to connect from"]);
+      return;
+    }
+    if (base(newTo) in g.tracks) {
+      h.log([`'${base(newTo)}' is a track — a source; nothing can feed it`]);
+      return;
+    }
+    const known = (name: string) =>
+      name === "OUT" ||
+      name in g.modules ||
+      name in g.moduleRefs ||
+      name in g.tracks;
+    for (const end of [newFrom, newTo])
+      if (!known(base(end))) {
+        h.log([`no node "${base(end)}" in this project`]);
+        return;
+      }
+    try {
+      replugChainNodes(h.songPath, from, to, newFrom, newTo);
+      h.log([`replugged: ${from} → ${to} is now ${newFrom} → ${newTo}`]);
+      await h.reload();
+    } catch (e) {
+      h.log([`chain replug failed: ${(e as Error).message}`]);
     }
   },
 

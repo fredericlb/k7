@@ -26,8 +26,11 @@ export function WaveformView({
   // Span the whole SOURCE rather than the clip's placed region — how a clips/*.yaml shows its material, so the
   // pane fits the file end to end and `from`/`to` can be judged against all of it.
   whole?: boolean;
-  // Slice-rack windows over the waveform (source seconds): one symbol's [from,to], so you see where each sound sits.
-  sliceRanges?: { symbol: string; from: number; to: number }[];
+  // Slice-rack windows over the waveform (source seconds): one symbol's [from,to], so you see
+  // where each sound sits. `color` is the slice's own hue (sliceSymbols.ts), shared with the
+  // symbol's painted name in the editor; absent, the window is the colourless band a clip's
+  // `from`/`to` draws — the two uses of this overlay that must not look alike.
+  sliceRanges?: { symbol: string; from: number; to: number; color?: string }[];
   // With this, each window grows draggable edges that rewrite the symbol's from/to — only when its own file is open.
   onSliceEdit?: (symbol: string, from: number, to: number) => void;
   // Docked in the editor there is nothing to close (the strip lives and dies with the file), so the header drops it.
@@ -234,13 +237,28 @@ export function WaveformView({
                       key={r.symbol}
                       // A clip window with no `to:` written runs to the file's end, which only this side knows.
                       title={`${r.symbol} — ${eff.from.toFixed(3)}s to ${Number.isFinite(eff.to) ? `${eff.to.toFixed(3)}s` : "the end"}`}
-                      className="absolute inset-y-0 border-x border-primary/70 bg-primary/10"
+                      className={
+                        r.color
+                          ? "absolute inset-y-0 border-x"
+                          : "absolute inset-y-0 border-x border-primary/70 bg-primary/10"
+                      }
                       style={{
                         left: `${clampF * 100}%`,
                         width: `${width * 100}%`,
+                        // The slice's own hue — border at full, fill at ~10% ("1A"), the same
+                        // weight the colourless band carries.
+                        ...(r.color
+                          ? {
+                              borderColor: r.color,
+                              backgroundColor: `${r.color}1A`,
+                            }
+                          : {}),
                       }}
                     >
-                      <span className="absolute left-0.5 top-0.5 rounded bg-background/70 px-0.5 font-mono text-[10px] text-primary">
+                      <span
+                        className="absolute left-0.5 top-0.5 rounded bg-background/70 px-0.5 font-mono text-[10px] text-primary"
+                        style={r.color ? { color: r.color } : undefined}
+                      >
                         {r.symbol}
                       </span>
                       {onSliceEdit && (
@@ -255,7 +273,10 @@ export function WaveformView({
                             onPointerMove={onHandleMove}
                             onPointerUp={endHandleDrag}
                             onLostPointerCapture={endHandleDrag}
-                            className={`pointer-events-auto absolute inset-y-0 left-0 -ml-1.5 w-3 cursor-ew-resize touch-none border-l-2 border-primary/80 hover:bg-primary/30 ${active && drag?.edge === "from" ? "bg-primary/30" : ""}`}
+                            className={`pointer-events-auto absolute inset-y-0 left-0 -ml-1.5 w-3 cursor-ew-resize touch-none border-l-2 ${r.color ? "" : "border-primary/80 hover:bg-primary/30"} ${active && drag?.edge === "from" && !r.color ? "bg-primary/30" : ""}`}
+                            style={
+                              r.color ? { borderColor: r.color } : undefined
+                            }
                           />
                           <div
                             title={`${r.symbol} — drag to set 'to'`}
@@ -263,7 +284,10 @@ export function WaveformView({
                             onPointerMove={onHandleMove}
                             onPointerUp={endHandleDrag}
                             onLostPointerCapture={endHandleDrag}
-                            className={`pointer-events-auto absolute inset-y-0 right-0 -mr-1.5 w-3 cursor-ew-resize touch-none border-r-2 border-primary/80 hover:bg-primary/30 ${active && drag?.edge === "to" ? "bg-primary/30" : ""}`}
+                            className={`pointer-events-auto absolute inset-y-0 right-0 -mr-1.5 w-3 cursor-ew-resize touch-none border-r-2 ${r.color ? "" : "border-primary/80 hover:bg-primary/30"} ${active && drag?.edge === "to" && !r.color ? "bg-primary/30" : ""}`}
+                            style={
+                              r.color ? { borderColor: r.color } : undefined
+                            }
                           />
                         </>
                       )}

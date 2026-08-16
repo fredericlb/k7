@@ -3,7 +3,11 @@
 // engine questions import engineControl instead and carry none of it — so a new method
 // belongs there unless it genuinely needs a project doc. This file should stay this short.
 
-import { type ProjectDoc, withGroupMix } from "@studio/song/project";
+import {
+  type ProjectDoc,
+  withGroupMix,
+  withoutTakes,
+} from "@studio/song/project";
 import { EngineControl } from "./engineControl";
 
 // Re-exported so `@studio/engine-client/engineClient` importers keep resolving what they used to get here.
@@ -19,9 +23,10 @@ export { EngineControl } from "./engineControl";
 
 export class EngineClient extends EngineControl {
   // The doc is folded to what the engine plays at this one choke point: withGroupMix resolves groups onto their
-  // members, which the engine has no notion of. Nothing strips picture here: a ProjectDoc carries none.
-  // Ordering with flush() holds: one socket, one outbox.
+  // members, which the engine has no notion of, and withoutTakes drops what a lane WAS playing —
+  // material for a surface to draw, never for the engine to diff. Nothing strips picture here: a
+  // ProjectDoc carries none. Ordering with flush() holds: one socket, one outbox.
   sendProject(doc: ProjectDoc): void {
-    this.send({ type: "project", doc: withGroupMix(doc) });
+    this.send({ type: "project", doc: withoutTakes(withGroupMix(doc)) });
   }
 }

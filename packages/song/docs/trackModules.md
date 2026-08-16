@@ -65,11 +65,17 @@ On a source, bypass reads as **produces nothing** rather than *passes through un
 source has no input to pass through. That is the one semantic worth stating out loud, and it is
 why the lane file carries no `mute:` for the two to disagree over.
 
-**Solo is written nowhere.** It is a session state the surface derives: soloing a lane bypasses
-every other one, and turning solo off un-bypasses them. There is no prior state to restore and no
-`soloed:` list to keep in step — solo IS the set of mutes it produces, which is what you can
-already see. `TrackDoc.solo` survives on the wire as a field nothing sets, to be deleted with the
-C++ struct.
+**Solo is PROJECT STATE**: `soloed:` at project.yaml's root lists the soloed lanes, several at
+once, and the ENGINE resolves the relationship (any soloed track silences every non-soloed one —
+`applySoloMute`, which had implemented exactly this all along; `TrackDoc.solo` was the field
+nothing set). The compiler stamps the flag onto the listed lanes — a group's entry folds onto its
+members there, since the engine resolves across tracks alone — and `track solo` toggles
+membership, deleting the key with the last entry: absent means nobody, like every other default.
+
+It used to be written nowhere — derived, as the set of bypasses soloing produces. That could not
+hold two solos at once, rewrote N files to say one fact, and read in `chains.yaml` as a wall of
+mutes nobody asked for. One list at the root says it now, and mute stays what it was: the lane's
+own bypass, untouched by anyone's solo.
 
 ## One name space
 
@@ -153,7 +159,7 @@ repo keeps choosing (see [nodes.md](nodes.md), which made the same call).
 | `type: group` | `extends: "@studio/group-track"` |
 | `clips:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
 | `mute: true` | the name in `chains.yaml`'s `bypassed:` |
-| `solo: true` | nothing — derived by the surface |
+| `solo: true` | the name in project.yaml's root `soloed:` list |
 | the `tracks:` entry in `chains.yaml` | the same line, under `modules:` |
 
 `l8 migrate chains` still handles the chain-list → segments step, and now reports the lanes it

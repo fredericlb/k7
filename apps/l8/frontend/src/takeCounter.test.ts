@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barBeat, takeCounter } from "./takeCounter";
+import { barBeat, recordingFrom, takeCounter } from "./takeCounter";
 
 // The counter in the clip panel's header. The bug it replaces: the start beat was captured once per
 // MOUNT and the panel outlives its take, so from the second take onward it measured against the
@@ -54,5 +54,30 @@ describe("bar:beat", () => {
 
   it("survives a nonsense time signature rather than dividing by zero", () => {
     expect(barBeat(5, 0)).toEqual({ bar: 6, beat: 1 });
+  });
+});
+
+// Where a take's MATERIAL begins — the one number two surfaces have to agree on: the growing
+// clip on the lane and the live envelope in the clip panel. `startBeat` is the TRANSPORT's
+// start, so drawing from it put a block on screen the instant Play was pressed, and let it
+// reach back over count-in bars the placement that lands on Stop does not cover.
+describe("recordingFrom", () => {
+  it("is the transport's start plus the count-in", () => {
+    expect(recordingFrom(16, 4)).toBe(20);
+    // …and the transport's start itself when there is no pre-roll at all (`count_in: 0`).
+    expect(recordingFrom(16, 0)).toBe(16);
+  });
+
+  it("never moves the start backwards on a nonsense pre-roll", () => {
+    expect(recordingFrom(16, -8)).toBe(16);
+  });
+
+  it("agrees with the counter about when recording begins", () => {
+    // One rule, two readings: the counter flips to "recording" exactly where the material starts.
+    const start = 16;
+    const preRoll = 4;
+    const from = recordingFrom(start, preRoll);
+    expect(takeCounter(start, from - 1, preRoll).phase).toBe("count-in");
+    expect(takeCounter(start, from, preRoll).phase).toBe("recording");
   });
 });

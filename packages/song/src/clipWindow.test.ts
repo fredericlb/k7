@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,14 +9,14 @@ import { loadAudioClipDoc } from "./project";
 import { writeYaml } from "./testSupport";
 import { ClipSchema } from "./yaml/entitySchemas";
 
-// `from`/`to` in clips/<id>.yaml window the SOURCE FILE: the clip is that slice of it, wherever it is placed.
+// `from`/`to` window the SOURCE FILE, at TWO levels. The clip's own file carries the material's
+// window — the slice it is, shared by every placement — and a placement may carry the same two
+// words for ITSELF. The effective window is the most restrictive pair: the larger `from`, the
+// smaller `to`. So an event can only narrow what its material plays, never reach outside it —
+// which is what lets `event resize` be one event's edit (see docs/clipResize.md).
 //
-// They live on the CLIP and not on the placement on purpose. A placement's `offset`/`length` are musical — where
-// on the timeline the clip sits — and every placement would have to repeat the trim. Trimming the sample is a
-// property of the material, so it is said once, in the file that owns it.
-//
-// Seconds, not a timecode, for the same reason: they measure into a file, which knows nothing of the tempo. A
-// rack slice already spells its window this way, with these two words.
+// Seconds in their bare-number spelling, because they measure into a file, which knows nothing
+// of the tempo; a timecode spelling is musical and converted at the project's grid.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(
@@ -33,6 +33,13 @@ const SONG = join(
 let dir: string;
 const clip = (body: Record<string, unknown>) =>
   writeYaml(join(dir, "clips", "kick.yaml"), body);
+// The kick's PLACEMENT, with extra fields spliced into its flow entry — the event's own window.
+const place = (fields: string) =>
+  writeFileSync(
+    join(dir, "nodes", "drums.yaml"),
+    `extends: "@studio/audio-track"\nclips:\n  - { ref: kick, start: "1:1:1"${fields} }\n  - { ref: snare, start: "2:1:1" }\n`,
+    "utf8",
+  );
 const kick = () =>
   compileNodeProject(dir)
     .tracks.flatMap((t) => t.clips)
@@ -103,6 +110,50 @@ describe("a clip's window into its source", () => {
     expect(c.start).toBe(0);
     expect(c.length).toBe(0);
     expect(c.offset).toBe(0);
+  });
+});
+
+describe("the EVENT's own window, on the placement", () => {
+  it("windows the placement when the clip states none", () => {
+    clip({ source: "clips/kick.wav" });
+    place(", from: 0.25, to: 1.5");
+    expect(kick()).toMatchObject({ sourceFrom: 0.25, sourceTo: 1.5 });
+    // …and gives the event its extent: 1.25 s is 2.5 beats at 120bpm.
+    expect(kick()!.length).toBeCloseTo(2.5, 6);
+  });
+
+  it("intersects with the clip's — the most restrictive edge wins", () => {
+    // Clip 0.5 → 1.25; event 0.25 → 1.5 asks for more on both sides and gets none of it.
+    clip({ source: "clips/kick.wav", from: 0.5, to: 1.25 });
+    place(", from: 0.25, to: 1.5");
+    expect(kick()).toMatchObject({ sourceFrom: 0.5, sourceTo: 1.25 });
+    // The other way round, the event is the narrow one and wins both edges.
+    clip({ source: "clips/kick.wav", from: 0.25, to: 1.5 });
+    place(", from: 0.5, to: 1.25");
+    expect(kick()).toMatchObject({ sourceFrom: 0.5, sourceTo: 1.25 });
+  });
+
+  it("narrows ONE edge while the clip keeps the other", () => {
+    clip({ source: "clips/kick.wav", from: 0.25, to: 1.5 });
+    place(", to: 1");
+    expect(kick()).toMatchObject({ sourceFrom: 0.25, sourceTo: 1 });
+  });
+
+  it("reads a timecode edge like the clip's own", () => {
+    clip({ source: "clips/kick.wav" });
+    place(', from: "2:1"'); // bar 2 beat 1 of the file = 2 s at 120bpm 4/4
+    expect(kick()!.sourceFrom).toBeCloseTo(2, 6);
+  });
+
+  it("does not reach the OTHER placements of the clip", () => {
+    // The snare placement carries no window, and the kick's event window is the kick's alone —
+    // the material file still says nothing, so nothing else in the song changed.
+    clip({ source: "clips/kick.wav" });
+    place(", from: 0.25");
+    const snare = compileNodeProject(dir)
+      .tracks.flatMap((t) => t.clips)
+      .find((c) => c.id === "snare")!;
+    expect(snare.sourceFrom).toBeUndefined();
   });
 });
 

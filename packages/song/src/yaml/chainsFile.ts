@@ -189,6 +189,77 @@ export function insertBetween(
 }
 
 /**
+ * Pin (or, with null, release) where `node` sits on the graph:
+ * `positions: { <node>: { x: …, y: … } }`.
+ *
+ * Rounded to whole px — a hand-editable file has no business carrying thirteen decimals of a
+ * pointer position — and written as a one-line flow map, the destination lists' own style.
+ * Releasing the last pin drops the section, so a fully auto graph leaves no trace behind.
+ */
+export function setNodePosition(
+  text: string,
+  node: string,
+  at: { x: number; y: number } | null,
+): string {
+  const { doc } = read(text);
+  if (at === null) {
+    dropPosition(doc, node);
+    return doc.toString(OUT);
+  }
+  if (!isMap(doc.getIn(["positions"])))
+    doc.set("positions", doc.createNode({}));
+  const entry = doc.createNode({ x: Math.round(at.x), y: Math.round(at.y) });
+  entry.flow = true;
+  doc.setIn(["positions", node], entry);
+  return doc.toString(OUT);
+}
+
+/**
+ * Draw a NEW arrow from `from` to `to` — the graph editor's patch cable. Either end may carry
+ * a `#port` suffix, exactly as the file spells them (docs/ports.md): the KEY carries the
+ * source's port, the destination string the target's.
+ *
+ * `from` gains `to` in its destinations, created as a key if the file never listed it — a node
+ * can appear only as somebody's destination until now. Nothing else moves: unlike
+ * insertBetween, no existing arrow is required or touched, which is the difference between
+ * plugging a cable and splicing into one.
+ */
+export function connectNodes(text: string, from: string, to: string): string {
+  const { doc, file } = read(text);
+  const dests = [...(file.modules?.[from] ?? [])];
+  if (dests.includes(to)) throw new Error(`'${from}' already feeds '${to}'`);
+  dests.push(to);
+  setDests(doc, from, dests);
+  return doc.toString(OUT);
+}
+
+/**
+ * Take ONE arrow out: `from` stops feeding `to` — the patch cable pulled and dropped.
+ *
+ * The mirror of connectNodes, and nothing else moves: a source left with no destinations
+ * keeps its key as `[]`, because an unwired node is still a PLACED node (see addNode) —
+ * deleting a cable must not also delete the module it fed from the graph.
+ */
+export function disconnectNodes(
+  text: string,
+  from: string,
+  to: string,
+): string {
+  const { doc, file } = read(text);
+  const dests = file.modules?.[from] ?? [];
+  if (!dests.includes(to))
+    throw new Error(
+      `'${from}' does not feed '${to}' (it feeds: ${dests.join(", ") || "nothing"})`,
+    );
+  setDests(
+    doc,
+    from,
+    dests.filter((d) => d !== to),
+  );
+  return doc.toString(OUT);
+}
+
+/**
  * Remove `module` from the graph, joining what fed it to what it fed.
  *
  * Splicing rather than merely deleting the key is the point: a module in the middle of a run has an upstream and
@@ -217,7 +288,27 @@ export function removeNode(
 
   doc.deleteIn(["modules", module]);
   dropFromBypassed(doc, module);
+  // Its pin goes with it — a position for a node that is gone is a key nothing can read.
+  dropPosition(doc, module);
   return { text: doc.toString(OUT), rewired };
+}
+
+/** Drop the whole `positions:` section — `graph organize`'s write: every node handed back
+ *  to the layout at once, and the file left as if nobody had ever dragged a card. */
+export function clearNodePositions(text: string): string {
+  const { doc } = read(text);
+  if (!isMap(doc.get("positions"))) return text;
+  doc.delete("positions");
+  return doc.toString(OUT);
+}
+
+/** Take one node's pin out of `positions:`, dropping the section once it empties — guarded,
+ *  because `deleteIn` THROWS on a path through a section the file never had. */
+function dropPosition(doc: Document, node: string): void {
+  const map = doc.get("positions");
+  if (!isMap(map)) return;
+  doc.deleteIn(["positions", node]);
+  if (!map.items.length) doc.delete("positions");
 }
 
 /**
@@ -263,6 +354,14 @@ export function renameNode(
     for (let i = 0; i < items.length; i++)
       if (itemText(items[i]) === from) items[i] = doc.createNode(to);
   }
+  // Its pin follows the rename, in place like the modules key — the node did not move.
+  const positions = doc.get("positions");
+  if (isMap(positions))
+    for (const item of positions.items)
+      if (isScalar(item.key) && item.key.value === from) {
+        item.key.value = to;
+        item.key.type = undefined;
+      }
   return { text: doc.toString(OUT), rewired };
 }
 

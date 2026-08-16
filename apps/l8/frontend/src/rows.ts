@@ -5,7 +5,13 @@
 // endpoint, so passing only `project.tracks` silently loses them and any group they fill.
 
 import { HATCH } from "@studio/ui-timeline/lanes";
-import type { WebGroup, WebProject, WebTrack, WebVideoTrack } from "./types";
+import type {
+  WebGroup,
+  WebProject,
+  WebTake,
+  WebTrack,
+  WebVideoTrack,
+} from "./types";
 
 // The hatching lives in @studio/ui-timeline; re-exported here so the two surfaces that use it
 // keep reaching for one import.
@@ -15,6 +21,10 @@ export type Row =
   | { kind: "group"; group: WebGroup }
   // `index` is the track's position in the ORIGINAL array: clustering reorders the display, not the engine's levels.
   | { kind: "track"; track: WebTrack; index: number; grouped: boolean }
+  // A TAKE of the lane above it: what that lane WAS playing, drawn indented under it and
+  // playing nothing until it is moved back onto the track. `n` is 1-based — it is the number
+  // the two `track take …` commands name it by. See packages/song/docs/takes.md.
+  | { kind: "take"; track: WebTrack; take: WebTake; n: number }
   // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio
   // rows, in the `layers:` draw order the picture compile already put them in.
   | { kind: "video"; track: WebVideoTrack };
@@ -44,22 +54,25 @@ export function projectRows(
 
   const rows: Row[] = [];
   const done = new Set<string>();
+  // A lane's takes follow it immediately, oldest first — they belong under the lane they came
+  // off, and a take of a grouped lane is indented one step further than the lane is.
+  const withTakes = (track: WebTrack, index: number, grouped: boolean) => {
+    rows.push({ kind: "track", track, index, grouped });
+    (track.takes ?? []).forEach((take, i) =>
+      rows.push({ kind: "take", track, take, n: i + 1 }),
+    );
+  };
   tracks.forEach((track, index) => {
     const group = byId.get(track.group);
     if (!group) {
-      rows.push({ kind: "track", track, index, grouped: false });
+      withTakes(track, index, false);
       return;
     }
     if (done.has(group.id)) return; // already emitted with its header
     done.add(group.id);
     rows.push({ kind: "group", group });
     for (const m of members.get(group.id) ?? [])
-      rows.push({
-        kind: "track",
-        track: m.track,
-        index: m.index,
-        grouped: true,
-      });
+      withTakes(m.track, m.index, true);
   });
 
   // Video lanes last, as their own block: no group, no engine index, and the renderer stacks
@@ -72,14 +85,18 @@ export function projectRows(
 // A row's identity, never its index: live lanes come and go, and an index caret would slide onto another lane.
 // PREFIXED by kind, not bare: a song may name an audio lane and a video lane the same thing, and
 // they are two rows.
-export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>"
+export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>" | "take:<id>:<n>"
 
 export const rowKey = (r: Row): RowKey =>
   r.kind === "group"
     ? `group:${r.group.id}`
     : r.kind === "video"
       ? `video:${r.track.id}`
-      : `track:${r.track.id}`;
+      : r.kind === "take"
+        ? // By NUMBER, not by contents: a take has no id, and its number is what the commands
+          // name it by. Selecting one renumbers nothing — the swap keeps every take in place.
+          `take:${r.track.id}:${r.n}`
+        : `track:${r.track.id}`;
 
 export const rowIndexOf = (rows: Row[], key: RowKey): number =>
   rows.findIndex((r) => rowKey(r) === key);
@@ -109,6 +126,10 @@ export type RowTarget = { kind: "track" | "group" | "video"; id: string };
 export function rowTarget(r: Row): RowTarget | null {
   if (r.kind === "group") return { kind: "group", id: r.group.id };
   if (r.kind === "video") return { kind: "video", id: r.track.id };
+  // A TAKE points at nothing. Everything downstream of this asks the engine something — a level,
+  // an arm, a chain — and a take is not playing: answering with its lane would put the caret's
+  // marks on a row that cannot act on them, and mute the LANE from a take's own header.
+  if (r.kind === "take") return null;
   if (r.track.generated)
     return r.track.group ? { kind: "group", id: r.track.group } : null;
   return { kind: "track", id: r.track.id };

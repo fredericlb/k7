@@ -110,6 +110,14 @@ export interface Lane {
   color?: string;
   /** As AUTHORED — timecodes still strings. Empty for a group and for a generated lane. */
   clips: RawPlacement[];
+  /**
+   * The lane's TAKES: previous arrangements, each the same list `clips` is (docs/takes.md).
+   *
+   * Read here beside `clips` and by the same rule, which is what makes a take belong to the
+   * alternative it was played in — the resolver folds the selected set before any of this, so a
+   * lane running one sees its takes and not the module's.
+   */
+  takes: { name?: string; clips: RawPlacement[] }[];
   /** A group's members, by node name. Empty for every other kind. */
   tracks: string[];
   /** A generated lane's pattern file, project-relative. */
@@ -131,6 +139,13 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
       group || strudel || !Array.isArray(m.clips)
         ? []
         : (m.clips as RawPlacement[]),
+    takes:
+      group || strudel || !Array.isArray(m.takes)
+        ? []
+        : (m.takes as { name?: string; clips: RawPlacement[] }[]).map((t) => ({
+            ...(t?.name ? { name: t.name } : {}),
+            clips: Array.isArray(t?.clips) ? t.clips : [],
+          })),
     tracks: group && Array.isArray(m.tracks) ? m.tracks.map(String) : [],
     strudel:
       strudel && typeof m.strudel === "string" && m.strudel

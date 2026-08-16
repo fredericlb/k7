@@ -144,3 +144,59 @@ describe("a song that carries picture", () => {
     ).toEqual(["track:bass"]);
   });
 });
+
+// A lane's TAKES: rows of their own, under the lane they came off. See packages/song/docs/takes.md.
+describe("takes", () => {
+  const withTakes = (id: string, n: number, over: Partial<WebTrack> = {}) =>
+    track({
+      id,
+      ...over,
+      takes: Array.from({ length: n }, () => ({ clips: [] })),
+    });
+
+  it("follows its lane immediately, oldest first", () => {
+    const rows = projectRows({ groups: [] }, [
+      withTakes("gtr", 2),
+      track({ id: "bass" }),
+    ]);
+    expect(rows.map(rowKey)).toEqual([
+      "track:gtr",
+      "take:gtr:1",
+      "take:gtr:2",
+      "track:bass",
+    ]);
+  });
+
+  it("stays inside its group, under the member it belongs to", () => {
+    const rows = projectRows({ groups: [group("drums")] }, [
+      withTakes("kick", 1, { group: "drums" }),
+      track({ id: "snare", group: "drums" }),
+    ]);
+    expect(rows.map(rowKey)).toEqual([
+      "group:drums",
+      "track:kick",
+      "take:kick:1",
+      "track:snare",
+    ]);
+  });
+
+  it("numbers from 1 — the number the two `track take …` commands name it by", () => {
+    const rows = projectRows({ groups: [] }, [withTakes("gtr", 3)]);
+    expect(rows.filter((r) => r.kind === "take").map((r) => r.n)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it("ADDRESSES nothing — it is not a lane and cannot answer a lane's commands", () => {
+    // Everything downstream of rowTarget asks the engine something: a level, an arm, a chain.
+    // Answering with the lane would mute the LANE from a take's own header.
+    const rows = projectRows({ groups: [] }, [withTakes("gtr", 1)]);
+    expect(rowTarget(rows[1] as Row)).toBeNull();
+  });
+
+  it("adds no rows to a lane with none", () => {
+    expect(
+      projectRows({ groups: [] }, [track({ id: "gtr" })]).map(rowKey),
+    ).toEqual(["track:gtr"]);
+  });
+});

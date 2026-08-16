@@ -277,6 +277,9 @@ export interface WebTrackClip {
 export interface WebGraph {
   chains: Record<string, WebChain>;
   tracks: string[]; // track ids, for resolving `from`
+  // Where somebody PINNED a node, by its chains name — chains.yaml's `positions:`, verbatim.
+  // The layout places only what has no entry here; a node dragged once stays put for ever.
+  positions?: Record<string, { x: number; y: number }>;
   // Video track ids. A video lane is a chain source like any other, and one no chain mentions is still drawn.
   videoTracks?: string[];
   // What each track EMITS into a chain's first module, by track id; a track absent here is treated as audio.

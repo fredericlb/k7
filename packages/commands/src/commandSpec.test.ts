@@ -41,8 +41,8 @@ function host(trackIds: string[]): CommandHost {
 
 describe("completions (against the real commands.yaml)", () => {
   it("completes a partial command to the matching command names", () => {
-    const got = completions("module list ", host([]), "cli").sort();
-    expect(got).toEqual(["module list plugins", "module list vst"]);
+    const got = completions("system plugins ", host([]), "cli").sort();
+    expect(got).toEqual(["system plugins list", "system plugins scan"]);
   });
 
   it("uses the LONGEST matching command so `track mute` isn't shadowed by a shorter one", () => {

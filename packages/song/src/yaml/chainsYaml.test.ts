@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   addNode,
+  clearNodePositions,
+  connectNodes,
+  disconnectNodes,
   formatChains,
   insertBetween,
   nodeNames,
@@ -8,6 +11,7 @@ import {
   removeNode,
   renameNode,
   setModuleEnabled,
+  setNodePosition,
 } from "./chainsFile";
 
 // chains.yaml declares SEGMENTS: who feeds whom. Every edit here is an edge rewire, and
@@ -136,6 +140,103 @@ describe("placing a module with no wiring", () => {
   it("creates the section when the file has none", () => {
     const after = addNode("bypassed: [ x ]\n", "wah");
     expect(parseChains(after).value?.modules?.wah).toEqual([]);
+  });
+});
+
+describe("pinning a node's position", () => {
+  it("writes a one-line flow map under `positions:`, rounded to whole px", () => {
+    const after = setNodePosition(AUTHORED, "cabinet", { x: 420.7, y: 179.2 });
+    expect(after).toContain("cabinet: { x: 421, y: 179 }");
+    expect(parseChains(after).value?.positions?.cabinet).toEqual({
+      x: 421,
+      y: 179,
+    });
+  });
+
+  it("updates a pin in place — one entry per node, however many drags", () => {
+    const once = setNodePosition(AUTHORED, "cabinet", { x: 10, y: 10 });
+    const twice = setNodePosition(once, "cabinet", { x: 50, y: 60 });
+    expect(twice.match(/cabinet: \{/g)).toHaveLength(1);
+    expect(parseChains(twice).value?.positions?.cabinet).toEqual({
+      x: 50,
+      y: 60,
+    });
+  });
+
+  it("releasing the last pin drops the whole section", () => {
+    const pinned = setNodePosition(AUTHORED, "cabinet", { x: 10, y: 10 });
+    const released = setNodePosition(pinned, "cabinet", null);
+    expect(released).not.toContain("positions");
+  });
+
+  it("clearing hands every node back and leaves no section — `graph organize`'s write", () => {
+    const pinned = setNodePosition(
+      setNodePosition(AUTHORED, "cabinet", { x: 1, y: 2 }),
+      "reverb",
+      { x: 3, y: 4 },
+    );
+    expect(clearNodePositions(pinned)).toBe(AUTHORED);
+    // …and a file with nothing to clear comes back byte-identical.
+    expect(clearNodePositions(AUTHORED)).toBe(AUTHORED);
+  });
+
+  it("a rename carries the pin, a removal drops it", () => {
+    const pinned = setNodePosition(AUTHORED, "cabinet", { x: 33, y: 44 });
+    const renamed = renameNode(pinned, "cabinet", "cab2").text;
+    expect(parseChains(renamed).value?.positions?.cab2).toEqual({
+      x: 33,
+      y: 44,
+    });
+    const removed = removeNode(pinned, "cabinet").text;
+    expect(removed).not.toContain("positions");
+  });
+});
+
+describe("connecting two nodes with a new arrow", () => {
+  it("adds the destination without touching what the source already feeds", () => {
+    // A patch cable is not a splice: amp:bass keeps cabinet AND gains reverb.
+    const after = connectNodes(AUTHORED, "amp:bass", "reverb");
+    expect(after).toContain("amp:bass: [ cabinet, reverb ]");
+    expect(diff(AUTHORED, after)).toHaveLength(1); // one line, the source's own
+  });
+
+  it("creates the key for a source the file never listed", () => {
+    // A node can appear only as somebody's destination until its first outgoing cable.
+    const base = "modules:\n  a: [ b ]\n";
+    const { value } = parseChains(connectNodes(base, "b", "OUT"));
+    expect(value?.modules?.b).toEqual(["OUT"]);
+  });
+
+  it("carries a #port on either end, spelt as the file spells them", () => {
+    const base = "modules:\n  split: []\n  wet: [ OUT ]\n";
+    const after = connectNodes(base, "split#b", "wet#in2");
+    expect(parseChains(after).value?.modules?.["split#b"]).toEqual(["wet#in2"]);
+  });
+
+  it("refuses an arrow that is already there", () => {
+    expect(() => connectNodes(AUTHORED, "cabinet", "OUT")).toThrow(
+      /already feeds/,
+    );
+  });
+});
+
+describe("pulling one arrow out", () => {
+  it("removes exactly that destination, and only that", () => {
+    const wired = connectNodes(AUTHORED, "amp:bass", "reverb");
+    const after = disconnectNodes(wired, "amp:bass", "reverb");
+    expect(after).toContain("amp:bass: [ cabinet ]");
+    expect(diff(AUTHORED, after)).toHaveLength(0); // the round trip leaves no trace
+  });
+
+  it("a source left feeding nothing KEEPS its key — the module is still placed", () => {
+    const after = disconnectNodes(AUTHORED, "cabinet", "OUT");
+    expect(parseChains(after).value?.modules?.cabinet).toEqual([]);
+  });
+
+  it("refuses an arrow that is not there, naming what the node does feed", () => {
+    expect(() => disconnectNodes(AUTHORED, "cabinet", "reverb")).toThrow(
+      /does not feed 'reverb' \(it feeds: OUT\)/,
+    );
   });
 });
 

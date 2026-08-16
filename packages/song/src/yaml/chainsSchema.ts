@@ -42,6 +42,16 @@ export const ChainsFileSchema = z
     // input to pass through. That is what a lane's mute is, and it is why mute stopped being
     // a field on the lane — one state, one place.
     bypassed: z.array(z.string().min(1)).optional(),
+    // Where a node SITS on the graph, world px — written when someone drags its header, absent
+    // for every node the layout still places (dagre lays out only what has no entry here).
+    // Cosmetic on purpose: nothing about the signal reads it, so a file without it is the same
+    // song — which is why it is a sibling of `modules:` and not a field inside it.
+    positions: z
+      .record(
+        z.string().min(1),
+        z.object({ x: z.number(), y: z.number() }).strict(),
+      )
+      .optional(),
   })
   .strict();
 

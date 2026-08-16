@@ -93,11 +93,17 @@ function ClipMidi({
 // One envelope per clip id, kept across re-renders; `null` means tried and failed, so it isn't retried each mount.
 const wfCache = new Map<string, WebWaveform | null>();
 
-function ClipWaveform({ clipId }: { clipId: string }) {
-  const [wf, setWf] = useState<WebWaveform | null>(
-    () => wfCache.get(clipId) ?? null,
+/**
+ * The clip's envelope, fetched once and shared: the expanded lane's waveform and the block's
+ * activity mask read the SAME entry, so opening the lanes up costs no second decode. Pass
+ * null to ask for nothing (a MIDI clip has no envelope, and hooks cannot be conditional).
+ */
+export function useClipWaveform(clipId: string | null): WebWaveform | null {
+  const [wf, setWf] = useState<WebWaveform | null>(() =>
+    clipId ? (wfCache.get(clipId) ?? null) : null,
   );
   useEffect(() => {
+    if (!clipId) return;
     if (wfCache.has(clipId)) {
       setWf(wfCache.get(clipId) ?? null);
       return;
@@ -115,6 +121,11 @@ function ClipWaveform({ clipId }: { clipId: string }) {
       cancelled = true;
     };
   }, [clipId]);
+  return clipId ? wf : null;
+}
+
+function ClipWaveform({ clipId }: { clipId: string }) {
+  const wf = useClipWaveform(clipId);
 
   const peak = wf?.peak;
   if (!peak || !peak.length) return null;

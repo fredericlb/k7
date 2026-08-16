@@ -1,0 +1,101 @@
+// rackBuilder.ts — the rack builder's arithmetic: which pad fires which note, in which order
+// the symbols are written, and the module.yaml the CREATE button commits. Pure, because what
+// lands in the project is exactly what deserves a test — the popin is a grid drawn around
+// these numbers.
+
+import { stringify } from "yaml";
+
+/** The grid's side. 4×4 today — sixteen pads, the drum-machine page. */
+export const GRID = 4;
+/** The bottom-left pad's note. 36 is C1, where every pad convention starts. */
+export const FIRST_NOTE = 36;
+
+/**
+ * The MIDI note a pad fires. The grid READS like a drum machine: bottom row first, left to
+ * right, then the row above — so bottom-left is 36 and top-right is 51. `row` counts from the
+ * TOP (the order the grid renders in), `col` from the left.
+ */
+export const padNote = (row: number, col: number): number =>
+  FIRST_NOTE + (GRID - 1 - row) * GRID + col;
+
+/**
+ * Every cell in NOTE order — bottom-left first. The order the symbols are WRITTEN in, so the
+ * hints, the slice colours and the sequencer's rows read the grid the way it plays; and the
+ * order a multi-file drop fills cells in.
+ */
+export function cellsInNoteOrder(): { row: number; col: number }[] {
+  const out: { row: number; col: number }[] = [];
+  for (let row = GRID - 1; row >= 0; row--)
+    for (let col = 0; col < GRID; col++) out.push({ row, col });
+  return out;
+}
+
+/** A pad's default symbol: the file's stem, upper-cased, squeezed to the characters a symbol
+ *  is comfortable being addressed by (letters, digits, _ and -). Empty in, "PAD" out. */
+export function defaultSymbol(fileName: string): string {
+  const stem = fileName.replace(/\.[^.]*$/, "");
+  const clean = stem
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return clean || "PAD";
+}
+
+export interface RackPad {
+  symbol: string;
+  fileName: string; // as it will sit beside module.yaml
+  note: number;
+}
+
+/**
+ * What stops a CREATE, as sentences — empty means go. The name becomes a folder and the
+ * symbols become addresses, so both are held to the identifier charset; duplicates are refused
+ * because a symbol is how a note edit finds its sound.
+ */
+export function rackIssues(
+  name: string,
+  pads: readonly RackPad[],
+  taken: readonly string[] = [],
+): string[] {
+  const out: string[] = [];
+  if (!name) out.push("le rack n'a pas de nom");
+  else if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name))
+    out.push("le nom devient un dossier : lettres, chiffres, _ et - seulement");
+  if (taken.includes(`instruments/${name}`))
+    out.push(`instruments/${name} existe déjà`);
+  if (!pads.length) out.push("aucun sample sur la grille");
+  const seen = new Set<string>();
+  for (const p of pads) {
+    if (!/^[A-Za-z0-9_-]+$/.test(p.symbol))
+      out.push(`symbole invalide : "${p.symbol}"`);
+    else if (seen.has(p.symbol)) out.push(`symbole en double : ${p.symbol}`);
+    seen.add(p.symbol);
+  }
+  const files = new Set<string>();
+  for (const p of pads) {
+    if (files.has(p.fileName))
+      out.push(`deux pads portent le même fichier : ${p.fileName}`);
+    files.add(p.fileName);
+  }
+  return out;
+}
+
+/**
+ * The module.yaml a samples rack is. `clip` is the bare file name — the file sits BESIDE
+ * module.yaml, the layout every rack in a real song already loads (resolveRackAudio joins the
+ * module's own folder). Symbols in the order given, which the caller hands over in NOTE order.
+ */
+export function buildRackModuleYaml(
+  name: string,
+  pads: readonly RackPad[],
+): string {
+  const symbols: Record<string, { note: number; clip: string }> = {};
+  for (const p of pads) symbols[p.symbol] = { note: p.note, clip: p.fileName };
+  return (
+    `# ${name} — samples rack, built with the rack builder.\n` +
+    stringify(
+      { type: "rack", rack: { rack_type: "samples", symbols } },
+      { lineWidth: 0 },
+    )
+  );
+}

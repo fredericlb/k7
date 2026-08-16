@@ -151,7 +151,8 @@ That second case is not hypothetical either. Measured on 2026-08-14: the engine 
 replaced under a file service that had been up for 32 hours, whose socket was still
 `ESTABLISHED` and whose link still reported `ready` — and which was inert in both directions.
 `module list plugins` fired and timed out after 4 s having heard nothing (`[cmd] module list
-plugins — ran=4023ms`), `POST /open` loaded nothing, and the engine reported `loaded=false,
+plugins — ran=4023ms`; that verb is `system plugins list` now, and the log line is quoted as it
+was), `POST /open` loaded nothing, and the engine reported `loaded=false,
 tracks=0` on the very session the browser was pressing Play on. Nothing anywhere reported a
 fault. Restarting the service fixed it instantly, which is exactly the cure a re-dial is.
 

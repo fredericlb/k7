@@ -6,21 +6,22 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
 import { beatsToPosition, parsePosition } from "./timecode";
-import {
-  materialWindowOf,
-  setMaterialWindow,
-  type WindowValue,
-} from "./yaml/materialFile";
-import { entityFileFor, entityFiles } from "./yaml/moduleIO";
+import { materialWindowOf, type WindowValue } from "./yaml/materialFile";
+import { entityFileFor } from "./yaml/moduleIO";
 import {
   addPlacement,
   findPlacementAt,
   movePlacementAt,
   placementAt,
   placementValues,
+  pushClipsToTake,
+  removeAllTakes,
   removePlacementAt,
+  removeTake,
+  selectTake,
   setPlacementField,
   setTrackField,
+  takeValues,
 } from "./yaml/trackFile";
 
 /**
@@ -143,6 +144,55 @@ export function moveTrackPlacement(
   return moved;
 }
 
+/**
+ * Move EVERY placement whose start falls in [fromBeats, toBeats] (both inclusive) by
+ * `deltaBeats` — the bulk form of moveTrackPlacement: one file rewrite however many
+ * events the range holds, so the whole gesture is one journal step for the caller.
+ *
+ * The starts are collected BEFORE any line is rewritten, which is the property a loop of
+ * single moves cannot give: addressing is by position, and moving one event onto another's
+ * start would shadow that event's address mid-pass. Returns how many moved; 0 writes nothing.
+ */
+export function moveTrackPlacementsInRange(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  toBeats: number,
+  deltaBeats: number,
+  num: number,
+  den: number,
+): number {
+  let moved = 0;
+  editTrackStruct(
+    dir,
+    id,
+    (text) => {
+      const starts = placementValues(text).map((p) => {
+        try {
+          return parsePosition(String(p.start ?? "1:1:1"), num, den);
+        } catch {
+          return null; // an unparseable start can't fall in any range
+        }
+      });
+      let out = text;
+      starts.forEach((s, i) => {
+        if (s === null || s < fromBeats - 1e-6 || s > toBeats + 1e-6) return;
+        // By index, not by position: indices are stable under a start rewrite, so the
+        // original starts collected above stay true addresses for the whole pass.
+        out = movePlacementAt(
+          out,
+          i,
+          beatsToPosition(s + deltaBeats, num, den),
+        );
+        moved++;
+      });
+      return out;
+    },
+    "move the events in a range",
+  );
+  return moved;
+}
+
 /** Switch the placement at `fromBeats` on or off. Returns true if one was there. The
  *  flag is written when true and DELETED when false, so switching back leaves the file
  *  as it was rather than accumulating `disabled: false` on every event ever touched. */
@@ -169,24 +219,28 @@ export function setTrackPlacementDisabled(
   return hit;
 }
 
-/** What a resize turned out to touch — the caller reports it, since a window is SHARED. */
+/** What a resize touched — ONE event, now that the window it writes is the placement's own. */
 export interface ResizeReport {
-  ref: string; // the material whose window moved
+  ref: string; // the material the event plays
   material: string; // its project-relative path
   kind: MaterialKind;
   loops: number; // the pass count afterwards
-  sharedWith: number; // OTHER placements of the same material, across the song
 }
+
+// Close enough for a window edge: seconds are tidied to 1e-6 and beats are exact fractions.
+const EDGE_EPS = 1e-6;
 
 /**
  * Re-time the event at `fromBeats` so it spans `startBeats..endBeats`.
  *
- * A placement has no length, so this is not one edit to one file: the extent belongs to the
- * MATERIAL, and what changes is its `from`/`to` (plus `loop`, when the event repeats). The
- * placement's own `start` moves only when the left edge did.
+ * The edit lands on the PLACEMENT: its `start` when the left edge moved, its `loop` when the
+ * event repeats, and otherwise its own `from`/`to` — the event-level window `PlacementSchema`
+ * carries. The material's window is read but never written: it is the CAGE (the most
+ * restrictive pair wins), so the event's window is clamped inside it, and an edge that only
+ * restates the material's own is cleared rather than copied — the placement then says nothing,
+ * which is what "no further restriction" should look like in the file.
  *
- * Returns null when there is no such event. The report names what was touched because a
- * window is shared by every placement of that material — see docs/clipResize.md.
+ * Returns null when there is no such event. See docs/clipResize.md.
  */
 export function resizeTrackPlacement(
   dir: string,
@@ -212,46 +266,46 @@ export function resizeTrackPlacement(
     );
   const { kind, file } = found;
 
-  // As authored: a timecode window is read the same way the compiler reads it, so a resize
-  // of a file spelled that way lands on the same numbers rather than a beat off.
-  const win = materialWindowOf(file.path);
+  // As authored: a timecode window is read the way the compiler reads it, so a resize of a
+  // file spelled that way lands on the same numbers rather than a beat off.
   const edge = (v: WindowValue | undefined): number | undefined => {
     if (v === undefined) return undefined;
     if (typeof v === "number") return v;
     const beats = parsePosition(v, num, den);
     return kind === "sequence" ? beats : (beats * 60) / tempo;
   };
+  const win = materialWindowOf(file.path);
+  const matFrom = edge(win.from) ?? 0;
+  const matTo = edge(win.to);
+  const raw = (v: unknown): WindowValue | undefined =>
+    typeof v === "number" || typeof v === "string" ? v : undefined;
+  const evFrom = edge(raw(placement.from));
+  const evTo = edge(raw(placement.to));
+
   const next = resizeToWindow(
     {
       kind,
-      from: edge(win.from) ?? 0,
-      to: edge(win.to),
+      // The EFFECTIVE window is what the drag was aimed at — the extent on screen.
+      from: Math.max(matFrom, evFrom ?? 0),
+      to:
+        matTo != null && evTo != null ? Math.min(matTo, evTo) : (matTo ?? evTo),
       loops: Math.max(1, Math.floor(Number(placement.loop ?? 1)) || 1),
       startBeats: fromBeats,
+      bounds: { from: matFrom, ...(matTo != null ? { to: matTo } : {}) },
     },
     { startBeats, endBeats, tempo },
   );
 
-  // The material first: it is what carries the extent, so a reload landing between the two
-  // writes shows the new length at the old position rather than an event of length zero.
-  // 0 whatever the kind, so an untrimmed material keeps saying nothing rather than gaining a
-  // `from: "1:1"` that only restates the default (setMaterialWindow deletes on 0).
-  setMaterialWindow(
-    file.path,
-    next.from === 0
-      ? 0
-      : kind === "sequence"
-        ? beatsToPosition(next.from, num, den)
-        : next.from,
-    kind === "sequence" ? beatsToPosition(next.to, num, den) : next.to,
-  );
+  // One file, one write: everything a resize decides is the placement's own.
+  const fmt = (u: number): WindowValue =>
+    kind === "sequence" ? beatsToPosition(u, num, den) : u;
   editTrackStruct(
     dir,
     id,
     (t) => {
       const i = findPlacementAt(t, fromBeats, num, den);
       if (i < 0) return t;
-      const withStart =
+      let out =
         Math.abs(next.startBeats - fromBeats) > 1e-6
           ? setPlacementField(
               t,
@@ -261,40 +315,36 @@ export function resizeTrackPlacement(
             )
           : t;
       // `loop: 1` is the default and is cleared rather than written, like every other absent field.
-      return setPlacementField(
-        withStart,
+      out = setPlacementField(
+        out,
         i,
         "loop",
         next.loops > 1 ? next.loops : undefined,
       );
+      // A looped event's window did not move — its from/to stay whatever they were.
+      if (next.loops <= 1) {
+        out = setPlacementField(
+          out,
+          i,
+          "from",
+          next.from > matFrom + EDGE_EPS ? fmt(next.from) : undefined,
+        );
+        // Cleared when it lands on the material's own `to` — but when the material states
+        // none, the event's `to` is the only thing that gives the extent a number, so it stays.
+        out = setPlacementField(
+          out,
+          i,
+          "to",
+          matTo != null && next.to >= matTo - EDGE_EPS
+            ? undefined
+            : fmt(next.to),
+        );
+      }
+      return out;
     },
     "resize a clip",
   );
-  return {
-    ref,
-    material: file.rel,
-    kind,
-    loops: next.loops,
-    sharedWith: sharedWith(dir, ref),
-  };
-}
-
-/** How many OTHER placements name `ref` — what else this window edit just changed.
- *  Off the files' own text, for the reason placementValues gives: counting must not depend
- *  on every lane in the song being schema-valid. Every node is read, not only the lanes:
- *  a module that is not one simply has no `clips:` to count. */
-function sharedWith(dir: string, ref: string): number {
-  let n = -1; // the placement being resized is one of them
-  for (const { file } of entityFiles(join(dir, "nodes"), "nodes")) {
-    let text: string;
-    try {
-      text = readFileSync(file.path, "utf8");
-    } catch {
-      continue;
-    }
-    for (const p of placementValues(text)) if (String(p.ref ?? "") === ref) n++;
-  }
-  return Math.max(0, n);
+  return { ref, material: file.rel, kind, loops: next.loops };
 }
 
 /** Where a placement's material lives — `clips/<ref>` or `sequences/<ref>`, whichever exists. */
@@ -352,6 +402,71 @@ export function removeTrackPlacement(
     "remove a clip",
   );
   return removed;
+}
+
+// --- takes ------------------------------------------------------------------------------
+// The lane-level face of trackFile's three writers, on the same terms every other mutation
+// here uses: a lane by its id, resolved to `nodes/<id>.yaml`. See docs/takes.md.
+
+/**
+ * Set aside what lane `id` is playing, as a new take. Returns true if there was anything to
+ * set aside — recording onto an empty lane is not recording OVER anything.
+ */
+export function pushTrackClipsToTake(
+  dir: string,
+  id: string,
+  name?: string,
+): boolean {
+  let pushed = false;
+  editTrackStruct(
+    dir,
+    id,
+    (text) => {
+      const next = pushClipsToTake(text, name);
+      pushed = next !== text;
+      return next;
+    },
+    `set aside track "${id}"'s clips`,
+  );
+  return pushed;
+}
+
+/** Swap take `n` (1-based) with what lane `id` is playing. Throws if there is no take `n`. */
+export function selectTrackTake(dir: string, id: string, n: number): string {
+  return editTrackStruct(
+    dir,
+    id,
+    (text) => selectTake(text, n),
+    `select take ${n} on track "${id}"`,
+  );
+}
+
+/** Delete take `n` (1-based) from lane `id`, and the clips it held. Throws if there is none. */
+export function removeTrackTake(dir: string, id: string, n: number): string {
+  return editTrackStruct(
+    dir,
+    id,
+    (text) => removeTake(text, n),
+    `delete take ${n} on track "${id}"`,
+  );
+}
+
+/** Keep what lane `id` is playing and drop every take. Returns how many went. */
+export function keepTrackTake(dir: string, id: string): number {
+  const had = trackTakes(dir, id).length;
+  if (had)
+    editTrackStruct(dir, id, removeAllTakes, `keep track "${id}"'s take`);
+  return had;
+}
+
+/** The takes lane `id` holds, in order — for a caller counting them or listing them. */
+export function trackTakes(
+  dir: string,
+  id: string,
+): { name?: string; clips: unknown[] }[] {
+  const found = entityFileFor(join(dir, "nodes"), "nodes", id);
+  if (!found) return [];
+  return takeValues(readFileSync(found.path, "utf8"));
 }
 
 /** Apply `fields` to track `id`. Returns the path written. */

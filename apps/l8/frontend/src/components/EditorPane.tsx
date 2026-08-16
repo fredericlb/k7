@@ -10,13 +10,9 @@ import { projectLanguage } from "@studio/ui-editor/yaml/language";
 import { projectPreviewGutter } from "@studio/ui-editor/yaml/previewGutter";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { useEffect, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
-import {
-  type SliceEnvelope,
-  sliceWaveformWidgets,
-} from "../sliceWaveformWidget";
+import { sliceSymbolColors } from "../sliceSymbols";
 import type {
   FileContent,
   Hints,
@@ -37,7 +33,7 @@ export function EditorPane({
   onSave,
   onOpenEntity,
   onPreview,
-  sliceRack,
+  onSliceEdit,
   diagnostics,
   onEditorView,
 }: {
@@ -65,8 +61,9 @@ export function EditorPane({
   onOpenEntity?: (path: string) => void;
   // Audition a sample from a gutter play button on a source/clip/slice line.
   onPreview?: (req: PreviewReq) => void;
-  // For a slice-rack module.yaml: its source, driving the INLINE per-symbol editors whose handles rewrite the doc.
-  sliceRack?: { source: string } | null;
+  // The docked slicer's drag: rewrite one symbol's from/to in THIS pane's buffer. Passed only
+  // when the buffer is the file the slices live in — with it, the dock's windows grow handles.
+  onSliceEdit?: (symbol: string, from: number, to: number) => void;
   // This file's load findings, already filtered, drawn inline as squiggles and refreshed on each poll.
   diagnostics?: LintItem[];
   // Hand the live CodeMirror view up, so the shell can ask it for its focus/undo depth (Ctrl+Z arbitration).
@@ -85,34 +82,6 @@ export function EditorPane({
   useEffect(() => {
     Vim.defineEx("write", "w", () => saveRef.current());
   }, []);
-
-  // The source waveform for a slice-rack file's inline editors, fetched once per source.
-  const sliceSource = sliceRack?.source ?? null;
-  const [sliceEnv, setSliceEnv] = useState<SliceEnvelope | null>(null);
-  useEffect(() => {
-    if (!sliceSource) {
-      setSliceEnv(null);
-      return;
-    }
-    let cancelled = false;
-    setSliceEnv(null);
-    api
-      .waveform(sliceSource)
-      .then(
-        (w) =>
-          !cancelled &&
-          setSliceEnv({
-            rms: w.rms,
-            seconds: w.seconds,
-            // The onsets to slice against. This is the whole source, so they're already on the same axis as `seconds`.
-            transients: w.transients,
-          }),
-      )
-      .catch(() => !cancelled && setSliceEnv(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [sliceSource]);
 
   // A project file — the ones that get the language mode, completion, links and lint.
   const isProjectFile = !!file && /\.ya?ml$/i.test(file.path);
@@ -143,8 +112,10 @@ export function EditorPane({
       if (onOpenEntity) ext.push(projectEntityLinks(hints, onOpenEntity));
       // A ▶ in the gutter on every source/clip/slice line auditions that sample.
       if (onPreview) ext.push(projectPreviewGutter(onPreview));
-      // A slice-rack module.yaml: a waveform under each symbol line, its window highlighted and its edges draggable.
-      if (sliceSource && sliceEnv) ext.push(sliceWaveformWidgets(sliceEnv));
+      // A slice-rack file: its symbol names painted in their slice's colour — the link to the
+      // docked waveform's windows, made by hue. Any other file decorates nothing (see
+      // sliceSymbols.ts; the inline per-symbol waveforms this replaced are gone).
+      ext.push(sliceSymbolColors());
     } else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
     return ext;
   }, [
@@ -155,8 +126,6 @@ export function EditorPane({
     onOpenEntity,
     onPreview,
     file?.path,
-    sliceSource,
-    sliceEnv,
   ]);
 
   // New diagnostics but the same document, so nudge the linter. A no-op until the view mounts (grids have none).
@@ -205,6 +174,9 @@ export function EditorPane({
             clip={strip.clip}
             whole={strip.whole}
             sliceRanges={strip.sliceRanges}
+            // The slicer's edit gesture — only for the dock, never a dismissable preview: a
+            // preview shows some OTHER file's sound, and its windows are not this buffer's.
+            onSliceEdit={preview ? undefined : onSliceEdit}
             onClose={preview ? onClosePreview : undefined}
           />
         </div>

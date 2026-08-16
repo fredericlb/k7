@@ -58,6 +58,12 @@ project:
 # Lane order in the timeline, top first. Absent = the order tracks/ is read in.
 trackOrder: [drums, bass, melody]
 
+# The soloed lanes — solo as project state, several at once: any entry silences
+# every lane not listed. `track solo <lane>` (the timeline's `s`) toggles a name
+# in and out, and deletes the line with the last one. Absent = nobody soloed.
+# A group's id solos its members; mute stays the lane's own bypass, untouched.
+soloed: [drums, bass]
+
 # Named positions, for navigation. TIMECODE -> label, and the keys are
 # quoted for the usual reason: unquoted, "5:1:1" is a number.
 markers:
@@ -109,10 +115,10 @@ Session preferences that belong to the SONG rather than to the machine — what 
 
 ```yaml schema=Settings
 metronome: false
-count_in: 4      # bars of click before a recording take starts
+count_in: 1      # bars of click before a recording take starts
 ```
 
-`count_in` defaults to **4** when the file doesn't mention it; write `count_in: 0` to record immediately.
+`count_in` defaults to **1** when the file doesn't mention it; write `count_in: 0` to record immediately.
 
 Note that the engine currently rolls **at most two bars**: Tracktion's count-in has three settings — none, one
 bar, two bars — so a larger number is accepted and stored, but plays as two.

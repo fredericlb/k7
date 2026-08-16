@@ -12,9 +12,10 @@ import { resizeToWindow } from "./clipResize";
 import { loadLanes } from "./loader";
 import { resizeTrackPlacement } from "./trackMix";
 
-// Dragging a clip's edge. A placement has NO length — the extent is `loop` × the window the
-// material declares — so a resize writes `from`/`to` on the clip or sequence, and touches the
-// placement only for what is really its own. See docs/clipResize.md.
+// Dragging a clip's edge. A placement has NO length — the extent is `loop` × the effective
+// window — so a resize writes `from`/`to` on the EVENT itself, clamped inside the window the
+// material declares: the most restrictive pair wins, and the material and its other placements
+// are untouched. See docs/clipResize.md.
 
 const NUM = 4;
 const DEN = 4;
@@ -98,6 +99,27 @@ describe("resizeToWindow — the rule", () => {
     expect(r.startBeats).toBe(3); // gave back only the 0.5s (1 beat) it actually had
   });
 
+  it("stops the in-point at the material's own `from`, when it states one", () => {
+    // The material plays 0.5s → …; the event's window may not reach before that — the most
+    // restrictive edge wins, so an edge written earlier would never play.
+    const r = resizeToWindow(
+      { ...base, from: 1, startBeats: 4, bounds: { from: 0.5 } },
+      { startBeats: 0, endBeats: 8, tempo: TEMPO },
+    );
+    expect(r.from).toBe(0.5);
+    expect(r.startBeats).toBe(3); // gave back the 0.5s it had before the cage
+  });
+
+  it("stops the out-point at the material's `to`", () => {
+    // The material ends at 1s; dragging the right edge to 4s of timeline asks for material
+    // that is not in the window — the event's edge stops where the sound does.
+    const r = resizeToWindow(
+      { ...base, to: 1, bounds: { from: 0, to: 1 } },
+      { startBeats: 0, endBeats: 8, tempo: TEMPO },
+    );
+    expect(r.to).toBe(1);
+  });
+
   it("changes the COUNT, not the window, when the event repeats", () => {
     const looped = { ...base, kind: "sequence" as const, to: 2, loops: 2 };
     const r = resizeToWindow(looped, {
@@ -122,7 +144,7 @@ describe("resizeToWindow — the rule", () => {
 });
 
 describe("resizeTrackPlacement — what lands on disk", () => {
-  it("writes the window on the CLIP and leaves the placement alone", () => {
+  it("writes the window on the EVENT and leaves the material alone", () => {
     const dir = clipSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     const rep = resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
     expect(rep).toMatchObject({
@@ -130,11 +152,11 @@ describe("resizeTrackPlacement — what lands on disk", () => {
       material: "clips/kick.yaml",
       kind: "audio",
     });
-    expect(readAt(dir, "clips", "kick.yaml")).toContain("to: 2");
-    // The placement is untouched: where it sits did not change, so nothing of its own did.
-    expect(readAt(dir, "nodes", "drums.yaml")).toBe(
-      'extends: "@studio/audio-track"\nclips:\n  - { ref: kick, start: "1:1:1" }\n',
-    );
+    // The event's own `to`, in seconds — 4 beats at 120bpm.
+    expect(readAt(dir, "nodes", "drums.yaml")).toContain("to: 2");
+    // The material is untouched: its window belongs to every placement, and this edit is one's.
+    expect(readAt(dir, "clips", "kick.yaml")).toBe("source: clips/kick.wav\n");
+    expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -148,11 +170,11 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("keeps a sequence's window QUOTED", () => {
+  it("keeps a sequence's event window QUOTED", () => {
     // Unquoted, `to: 2:3` is a YAML 1.1 sexagesimal — the window would reload as beat 163.
     const dir = seqSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 6, TEMPO);
-    expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "2:3"');
+    expect(readAt(dir, "nodes", "drums.yaml")).toContain('to: "2:3"');
     expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
@@ -160,17 +182,47 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   it("moves the placement's start when the left edge was the one dragged", () => {
     const dir = seqSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 2, 8, TEMPO);
-    expect(readAt(dir, "nodes", "drums.yaml")).toContain('start: "1:3"');
-    expect(readAt(dir, "sequences", "kick.yaml")).toContain('from: "1:3"');
+    const nodes = readAt(dir, "nodes", "drums.yaml");
+    expect(nodes).toContain('start: "1:3"');
+    expect(nodes).toContain('from: "1:3"');
+    expect(readAt(dir, "sequences", "kick.yaml")).not.toContain("from:");
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("leaves `from` off entirely when the material is not trimmed", () => {
-    // Absent means the material's start; writing the default back would make "not trimmed"
-    // and "trimmed to the beginning" read alike.
+  it("leaves `from` off entirely when the event is not trimmed", () => {
+    // Absent means "no further restriction"; writing the material's own edge back would make
+    // "not trimmed" and "trimmed to where it already was" read alike.
     const dir = seqSong('clips:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
-    expect(readAt(dir, "sequences", "kick.yaml")).not.toContain("from:");
+    expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("from:");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("clears the event's `to` when the drag lands on the material's own", () => {
+    // The material plays to 1s (2 beats). Dragging the end out to 8 beats asks past it: the
+    // cage clamps to 1s, which only restates the material — so the event says nothing at all.
+    const dir = clipSong(
+      'clips:\n  - { ref: kick, start: "1:1:1" }\n',
+      "source: clips/kick.wav\nto: 1\n",
+    );
+    resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 8, TEMPO);
+    const nodes = readAt(dir, "nodes", "drums.yaml");
+    expect(nodes).not.toContain("to:");
+    expect(readAt(dir, "clips", "kick.yaml")).toContain("to: 1"); // untouched
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("narrows INSIDE the material's window, and writes only the event", () => {
+    // Material 0.5s → 2.5s; the event resized to one bar from its own start plays 0.5s → 1.5s.
+    const dir = clipSong(
+      'clips:\n  - { ref: kick, start: "1:1:1" }\n',
+      "source: clips/kick.wav\nfrom: 0.5\nto: 2.5\n",
+    );
+    resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 2, TEMPO);
+    const nodes = readAt(dir, "nodes", "drums.yaml");
+    expect(nodes).not.toContain("from:"); // stays at the material's own edge
+    expect(nodes).toContain("to: 1.5");
+    expect(readAt(dir, "clips", "kick.yaml")).toContain("from: 0.5"); // untouched
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -181,20 +233,23 @@ describe("resizeTrackPlacement — what lands on disk", () => {
     );
     const rep = resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 8, TEMPO);
     expect(rep?.loops).toBe(4);
-    expect(readAt(dir, "nodes", "drums.yaml")).toContain("loop: 4");
-    expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "1:3"'); // window untouched
+    const nodes = readAt(dir, "nodes", "drums.yaml");
+    expect(nodes).toContain("loop: 4");
+    expect(nodes).not.toContain("to:"); // the window did not move, so none was written
+    expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "1:3"'); // untouched
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("counts the OTHER placements the window edit reaches", () => {
-    // The consequence of the window belonging to the material: four kicks from one file all
-    // resize together. The command SAYS so rather than letting it be discovered.
+  it("leaves the OTHER placements of the material alone", () => {
+    // The point of the event-level window: four kicks from one file no longer resize together.
     const dir = clipSong(
       'clips:\n  - { ref: kick, start: "1:1:1" }\n  - { ref: kick, start: "2:1:1" }\n  - { ref: kick, start: "3:1:1" }\n',
     );
-    expect(
-      resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO)?.sharedWith,
-    ).toBe(2);
+    resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 2, TEMPO);
+    const nodes = readAt(dir, "nodes", "drums.yaml");
+    expect(nodes).toContain('{ ref: kick, start: "2:1:1" }');
+    expect(nodes).toContain('{ ref: kick, start: "3:1:1" }');
+    expect(readAt(dir, "clips", "kick.yaml")).toBe("source: clips/kick.wav\n");
     rmSync(dir, { recursive: true, force: true });
   });
 

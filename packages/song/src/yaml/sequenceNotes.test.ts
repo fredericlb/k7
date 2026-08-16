@@ -6,7 +6,12 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { SequenceSchema } from "./entitySchemas";
-import { findNote, setNoteVelocity } from "./sequenceFile";
+import {
+  findNote,
+  moveNote,
+  removeNote,
+  setNoteVelocity,
+} from "./sequenceFile";
 
 const AUTHORED = `from: "1:1"
 notes:
@@ -35,6 +40,37 @@ describe("findNote", () => {
     // Beats arrive as decimals from a pixel position; an exact-equality match would miss.
     const text = "notes:\n  - { t: 0.3333333, d: 1, k: 60 }\n";
     expect(findNote(text, 60, 0.33333335)).toBe(0);
+  });
+});
+
+describe("removeNote", () => {
+  it("removes exactly the note addressed and leaves the others alone", () => {
+    const after = removeNote(AUTHORED, 64, 1);
+    expect(notesOf(after)).toEqual([
+      { t: 0, d: 1, k: 60 },
+      { t: 1, d: 0.5, k: 67 },
+    ]);
+    expect(
+      SequenceSchema.safeParse(parse(after, { version: "1.2" })).success,
+    ).toBe(true);
+  });
+
+  it("tells two stacked notes apart by their key", () => {
+    // Both start at beat 1; only the addressed key goes.
+    const after = removeNote(AUTHORED, 67, 1);
+    expect(notesOf(after)).toEqual([
+      { t: 0, d: 1, k: 60 },
+      { t: 1, d: 0.5, k: 64, v: 0.4 },
+    ]);
+  });
+
+  it("refuses a note it cannot find, rather than removing something else", () => {
+    expect(() => removeNote(AUTHORED, 60, 9)).toThrow(/no note/);
+  });
+
+  it("keeps everything else in the file", () => {
+    const after = removeNote(AUTHORED, 60, 0);
+    expect(after).toContain('from: "1:1"');
   });
 });
 
@@ -83,5 +119,53 @@ notes:
     const after = setNoteVelocity(withComments, 60, 0, 0.5);
     expect(after).toContain("# the melody");
     expect(after).toContain("# the downbeat");
+  });
+});
+
+// Moving a note to another pad of the step sequencer — ctrl-drag. What matters is what it does
+// NOT touch: the note keeps its length and its velocity, because it is the same note put
+// somewhere else. Remove-then-add would have lost both (`sequence note new` takes no velocity).
+describe("moveNote", () => {
+  it("carries the note's length and velocity to the new key and start", () => {
+    const after = moveNote(AUTHORED, 64, 1, 60, 2.5);
+    expect(notesOf(after)).toEqual([
+      { t: 0, d: 1, k: 60 },
+      { t: 2.5, d: 0.5, k: 60, v: 0.4 }, // v and d rode along
+      { t: 1, d: 0.5, k: 67 },
+    ]);
+    expect(
+      SequenceSchema.safeParse(parse(after, { version: "1.2" })).success,
+    ).toBe(true);
+  });
+
+  it("moves within one key, and to another key at the same beat", () => {
+    expect(notesOf(moveNote(AUTHORED, 60, 0, 60, 3))[0]).toEqual({
+      t: 3,
+      d: 1,
+      k: 60,
+    });
+    expect(notesOf(moveNote(AUTHORED, 60, 0, 62, 0))[0]).toEqual({
+      t: 0,
+      d: 1,
+      k: 62,
+    });
+  });
+
+  it("refuses a destination that already holds one — (key, start) is the address", () => {
+    // k67 already starts at 1: landing there would make two notes the same note.
+    expect(() => moveNote(AUTHORED, 60, 0, 67, 1)).toThrow(/already/);
+  });
+
+  it("accepts a move that lands exactly where it started", () => {
+    expect(notesOf(moveNote(AUTHORED, 60, 0, 60, 0))[0]).toEqual({
+      t: 0,
+      d: 1,
+      k: 60,
+    });
+  });
+
+  it("refuses a note it cannot find, and a start before the sequence", () => {
+    expect(() => moveNote(AUTHORED, 60, 9, 61, 0)).toThrow(/no note/);
+    expect(() => moveNote(AUTHORED, 60, 0, 61, -1)).toThrow(/before/);
   });
 });

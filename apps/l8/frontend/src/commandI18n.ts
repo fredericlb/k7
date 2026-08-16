@@ -36,7 +36,7 @@ export function commandLabel(canonical: string): string {
   return commandTranslations(canonical).join("/");
 }
 
-// Longest name first, like the dispatcher: insurance against a future `module list` shadowing `module list plugins`.
+// Longest name first, like the dispatcher: insurance against a `system plugins` shadowing `system plugins list`.
 function byLengthDesc(a: { from: string }, b: { from: string }): number {
   return b.from.length - a.from.length;
 }

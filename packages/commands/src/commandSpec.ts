@@ -58,7 +58,7 @@ export interface CommandSpec {
   // The palette's line, and what it fuzzy-matches on. See commands.yaml's header.
   readable?: ReadableDescription;
   surfaces: Surface[];
-  with?: string[]; // fixed leading args passed to the handler (e.g. module list vst -> ["vst"])
+  with?: string[]; // fixed leading args passed to the handler (e.g. module nam -> ["nam"])
   args?: ArgSpec[]; // trailing user args (for completion)
 }
 

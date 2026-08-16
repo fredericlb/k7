@@ -120,13 +120,13 @@ module that is already there, under this name". Two refusals remain, and both ar
 `node unlink <name>` removes a node from the chains and **joins what fed it to what
 it fed**, so the run closes over the gap instead of going quiet. Its files are untouched.
 
-That last clause is the whole reason it exists beside `module delete`. Taking a module out of
-the signal path and getting rid of it are two different intentions, and only the second had a
-command — so "mute this out of the chain for a moment" meant deleting a node and losing its
-settings. Unlinked, it is still on disk with everything it had, and `chain add` puts it back.
+That last clause is the whole reason it exists. Taking a module out of the signal path and
+getting rid of it are two different intentions, and for a while only the second had a command
+(`module delete`, now gone) — so "mute this out of the chain for a moment" meant deleting a node
+and losing its settings. Unlinked, it is still on disk with everything it had, and `chain add`
+puts it back.
 
-The splice itself is `removeNode`'s, the same one `module delete` uses; a node fed from two
-paths has both of them rejoined. A **lane** used to be refused here — a chain started at it, so
+The splice itself is `removeNode`'s; a node fed from two paths has both of them rejoined. A **lane** used to be refused here — a chain started at it, so
 there was nothing feeding it to reconnect to what it feeds. A lane is a module now
 ([trackModules.md](trackModules.md)), so it unlinks like anything else: it leaves the signal path
 and its file stays on disk with its clips, which is what unlinking means everywhere else.

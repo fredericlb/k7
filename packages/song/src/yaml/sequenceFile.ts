@@ -98,6 +98,51 @@ export function setNoteTimeRange(
 }
 
 /**
+ * Remove one note — what the step sequencer's button-off writes.
+ *
+ * Addressed as every note edit addresses one, by key and start; throwing on a miss for the
+ * same reason the others do — a surface that points at a note that is not there is out of
+ * date, and silently removing nothing would hide that.
+ */
+export function removeNote(text: string, k: number, t: number): string {
+  const at = findNote(text, k, t);
+  if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
+  const doc = parseDocument(text, OPTS);
+  doc.deleteIn(["notes", at]);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/**
+ * Move one note to another key and/or start — what the sequencer's ctrl-drag writes.
+ *
+ * The note is MOVED, not rebuilt: only `k` and `t` are rewritten, so its length and its
+ * velocity ride along untouched. Remove-then-add would have lost both — `sequence note new`
+ * takes no velocity at all — and it would have been two journal steps for one act.
+ *
+ * The destination is refused when it already holds a note: (key, start) is how every surface
+ * addresses one, so two notes sharing the pair would be the same note twice and the next edit
+ * could not say which it meant.
+ */
+export function moveNote(
+  text: string,
+  k: number,
+  t: number,
+  newK: number,
+  newT: number,
+): string {
+  const at = findNote(text, k, t);
+  if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
+  if (newT < 0) throw new Error("a note cannot start before the sequence does");
+  const same = newK === k && Math.abs(newT - t) < EPS;
+  if (!same && findNote(text, newK, newT) >= 0)
+    throw new Error(`k${newK} already has a note at beat ${newT}`);
+  const doc = parseDocument(text, OPTS);
+  doc.setIn(["notes", at, "k"], newK);
+  doc.setIn(["notes", at, "t"], newT);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/**
  * Set one note's velocity — what the roll's velocity drag writes.
  *
  * `undefined` CLEARS the key rather than writing `v: 1`, so a note dragged back to full loses the

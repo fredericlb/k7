@@ -112,6 +112,129 @@ function flowPlacements(
     if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
 }
 
+// --- takes: the OTHER lists of placements this lane keeps (docs/takes.md) --------------
+//
+// A take is the same thing `clips:` is — a list of placements — put aside. So all three writers
+// below are moves between two seqs, never a rebuild: a placement carries its own comments and
+// its own spelling, and it should read the same after being set aside as it did before.
+
+/** The module's own takes — set "1"'s, and where a lane with no alternatives keeps them. */
+const OWN_TAKES: (string | number)[] = ["takes"];
+
+/** Where this file's takes are, on the same rule `clipsToEdit` follows: the SELECTED set's, so
+ *  an alternative's takes are its own. Created empty on first use. */
+function takesToEdit(
+  doc: ReturnType<typeof parseDocument>,
+): (string | number)[] {
+  const at = selectedSet(doc);
+  const path = at === 0 ? OWN_TAKES : ["alternatives", at - 1, "takes"];
+  if (!isSeq(doc.getIn(path))) doc.setIn(path, doc.createNode([]));
+  return path;
+}
+
+/** The takes this file holds, as plain values — for a caller counting them or naming one. */
+export function takeValues(
+  text: string,
+): { name?: string; clips: unknown[] }[] {
+  const doc = parseDocument(text, OPTS);
+  const takes = doc.getIn(takesPathFor(doc));
+  if (!isSeq(takes)) return [];
+  return takes.items.map((t) => {
+    const v = (t as { toJSON?: () => unknown })?.toJSON?.() ?? t;
+    const o = (v ?? {}) as { name?: string; clips?: unknown[] };
+    return { ...(o.name ? { name: o.name } : {}), clips: o.clips ?? [] };
+  });
+}
+
+/** Where the takes to READ are: the selected set's when it has any, else the module's own. */
+function takesPathFor(
+  doc: ReturnType<typeof parseDocument>,
+): (string | number)[] {
+  const at = selectedSet(doc);
+  if (at === 0) return OWN_TAKES;
+  const mine = ["alternatives", at - 1, "takes"];
+  return isSeq(doc.getIn(mine)) ? mine : OWN_TAKES;
+}
+
+/**
+ * Move what the lane is playing into a NEW take, leaving it empty.
+ *
+ * What recording over an event does before the new one is placed. The clips are MOVED — the
+ * same nodes, appended to `takes:` — so a take reads exactly like the arrangement it was.
+ * A lane holding nothing makes no take: an empty one would be a row that says nothing.
+ */
+export function pushClipsToTake(text: string, name?: string): string {
+  const doc = parseDocument(text, OPTS);
+  const clipsPath = clipsToEdit(doc);
+  const clips = doc.getIn(clipsPath);
+  if (!isSeq(clips) || !clips.items.length) return text;
+  const takes = doc.getIn(takesToEdit(doc));
+  if (!isSeq(takes)) return text;
+  const entry = doc.createNode({ ...(name ? { name } : {}), clips: [] });
+  entry.flow = false;
+  takes.items.push(entry);
+  doc.setIn([...takesToEdit(doc), takes.items.length - 1, "clips"], clips);
+  doc.setIn(clipsPath, doc.createNode([]));
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
+/**
+ * Swap take `n` (1-based) with what the lane is playing — one exchange, both ways at once.
+ *
+ * The lane's arrangement becomes take `n` and take `n` becomes the arrangement, which is what
+ * makes this reversible by running it again: nothing is lost by looking at another take. An `n`
+ * nothing answers to throws rather than writing, so a stale menu cannot empty a lane.
+ */
+export function selectTake(text: string, n: number): string {
+  const doc = parseDocument(text, OPTS);
+  const takesPath = takesToEdit(doc);
+  const takes = doc.getIn(takesPath);
+  if (!isSeq(takes) || n < 1 || n > takes.items.length)
+    throw new Error(`no take ${n} on this lane`);
+  const clipsPath = clipsToEdit(doc);
+  const wasPlaying = doc.getIn(clipsPath);
+  const wasTake = doc.getIn([...takesPath, n - 1, "clips"]);
+  doc.setIn(clipsPath, isSeq(wasTake) ? wasTake : doc.createNode([]));
+  doc.setIn(
+    [...takesPath, n - 1, "clips"],
+    isSeq(wasPlaying) ? wasPlaying : doc.createNode([]),
+  );
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
+/** Remove take `n` (1-based). The clips it held go with it — a take is where they live. */
+export function removeTake(text: string, n: number): string {
+  const doc = parseDocument(text, OPTS);
+  const takesPath = takesToEdit(doc);
+  const takes = doc.getIn(takesPath);
+  if (!isSeq(takes) || n < 1 || n > takes.items.length)
+    throw new Error(`no take ${n} on this lane`);
+  takes.items.splice(n - 1, 1);
+  // The last one leaves no empty list behind: absent is how a lane with no takes reads.
+  if (!takes.items.length) doc.deleteIn(takesPath);
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
+/**
+ * Drop every take, keeping what the lane is playing. The end of choosing between them.
+ *
+ * The clips inside go with them, exactly as `removeTake` takes one take's clips: a take is where
+ * those placements live. Deliberately one act rather than a loop of `removeTake` at the call
+ * site — "keep this one" is a decision about the whole list, and half of it applied is a state
+ * nobody asked for.
+ */
+export function removeAllTakes(text: string): string {
+  const doc = parseDocument(text, OPTS);
+  const path = takesPathFor(doc);
+  if (!isSeq(doc.getIn(path))) return text;
+  doc.deleteIn(path);
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
 /**
  * The index of the placement starting at `start`, or -1. How the app addresses one.
  *

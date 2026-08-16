@@ -96,6 +96,61 @@ before.
 a superset covering timeline things (markers, clip placements) this cannot produce, and a
 host whose type is wider accepts the handler unchanged.
 
+### The patch cable — `onConnect(from, to)`
+
+Click a free OUTPUT jack and a dashed cable follows the cursor; click a free INPUT jack of
+the same signal and `onConnect` fires with both ends as **chains.yaml addresses** — `name` or
+`name#port`, resolved by `jackRef` exactly as `insertFor` resolves the edge inserts — so a
+host can run `chain connect from to` verbatim. Esc or any right-click drops the cable in
+hand (capture-phase, so neither the host's own Esc handling nor a node menu acts on a press
+that only meant "never mind"); a second output click restarts the cable there instead.
+
+The prop is optional and is the gesture's switch: a host that passes nothing keeps inert
+sockets, which is what the médiathèque's read-only views and the desk want — the same rule
+as the command bar and the edge inserts. Signal compatibility is enforced at the socket (a
+midi cable is never offered an audio input); everything else — does the node exist, is the
+arrow already there — is the verb's to refuse, because the graph on screen can be older
+than the file.
+
+Two siblings complete it, `onDisconnect(from, to)` and `onReplug(from, to, newFrom, newTo)`
+(→ `chain disconnect` / `chain replug`), and together they make cables MOVABLE: clicking an
+OCCUPIED jack lifts the cable end plugged into it — the other end stays put, the drawn cable
+steps aside for its dashed ghost, and the loose end seeks a jack of the side it came off
+(free, same signal). Landing runs the replug, one verb and one undo step for one gesture;
+clicking the BARE canvas deletes the arrow (a new cable dropped there simply ceases — it
+never existed); Esc or right-click puts it back, writing nothing. A jack carrying several
+cables lifts the first — the other end of any of them is one more click away. Lifting is
+offered only when both callbacks are given, so a drop always has somewhere to go; automation
+plugs lift nothing, their bindings being the module's to edit.
+
+Mechanically: the temporary cable is one dashed path in the world-space SVG, its far end
+moved by direct DOM writes on pointermove (no re-render per frame), its near end pinned at
+`jackPoint`'s own coordinates so it cannot miss the socket it left. Landing it is the one
+place the renderer converts screen to world (the camera's inverse), and only while a cable
+is in hand does the host div listen to pointermove at all.
+
+### The pin — `onMoveNode(module, x, y)`
+
+Drag ANY node's header and drop it: `onMoveNode` fires with the node's name — a module or a
+track by its chains name, a curve by its curve id, the sink by "OUT"; all `jackRef`'s answer —
+and the drop in whole, non-negative world px, ready for `module position` verbatim, which
+writes chains.yaml's `positions:`. The layout (`layout()`'s `positions` argument) then places
+only the nodes with no pin, so dagre keeps laying out new arrivals while a moved card stays
+put for ever.
+
+The rule behind the uniformity: **everything that can be added to the graph is a node.** A
+curve is not a per-binding stamp — it draws ONCE, with one automation edge per param it
+drives, exactly as a module feeding two places is one card with two cables — so "where is
+this curve" has one answer and one pin.
+
+Optional and gating like every gesture here: no `onMoveNode`, no draggable headers — and never
+in the `row` arrangement, whose whole point is that the strips sit on a line. During the drag
+the card moves by an inline transform (React never fights the hand) and its cables follow
+through the same rebuilt-geometry path a node motion takes — springs included, so the slack
+swings. The transform survives the DROP until the graph containing the write arrives, and the
+drop pre-seeds the motion planner's drawn map, so the card neither snaps home for the length of
+the round trip nor slides to where it already is. A press that never travelled stays a click.
+
 ## Styling: one injected sheet
 
 The stylesheet is injected by the component and scoped under `.dgx`, which is what lets it

@@ -20,6 +20,7 @@ import {
   ModuleSchema,
   RackSchema,
   RackSoundSchema,
+  TakeSchema,
   UISchema,
   WIDGET_TYPES,
 } from "./moduleSchema";
@@ -159,6 +160,12 @@ function moduleFields(path: string[]): string[] {
   // A lane's placements. `clips:` is a module field now, so it is offered here rather than by a
   // track vocabulary of its own — which is the whole of what the `track` kind used to be for.
   if (head === "clips") return keys(PlacementSchema);
+  // A lane's TAKES: a list of takes, each of which holds a list of placements. So the offer
+  // depends on how deep the path is — the take's own two fields, or a placement's.
+  if (head === "takes") {
+    if (!rest.length) return [];
+    return rest.includes("clips") ? keys(PlacementSchema) : keys(TakeSchema);
+  }
   // One of the module's other attribute SETS: the same fields it has itself, plus a name. Derived
   // like everything else here, so a field added to a module is offered inside an alternative too.
   // See docs/alternatives.md.

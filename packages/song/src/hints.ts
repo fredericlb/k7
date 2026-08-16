@@ -242,12 +242,18 @@ export function projectHints(dir: string): Hints {
       // sit at `modules/audio/amps/neural-amp-modeler/`, so destructuring two segments sent
       // "go to this module" at the category folder — a path with no `module.yaml` in it.
       const cut = ref.indexOf("/");
-      if (cut > 0)
+      if (cut > 0) {
         addPath(
           "base",
           ref,
           `modules/${ref.slice(0, cut)}/${ref.slice(cut + 1)}/module`,
         );
+        // The `@project/` spelling is the SAME module — loadModuleRefs registers both, and a
+        // real file's `extends` may use either. Without the alias, a ctrl-click and the popin's
+        // module pane go blind on exactly the files written the explicit way.
+        const rel = paths[`base:${ref}`];
+        if (rel) paths[`base:@project/${ref}`] = rel;
+      }
     }
   for (const s of [...ioSinks, ...ioSources])
     if (!s.startsWith("@")) addPath("sink", s, `modules/io/${s}/module`);

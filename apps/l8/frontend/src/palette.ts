@@ -47,6 +47,7 @@ export const LOCAL_COMMANDS = [
   "transport locate", // move the playhead to the caret
   "transport loop", // set/clear the transport loop from the selection
   "transport record", // the global record enable (engine session state, over the wire)
+  "transport replay", // back to where playback last started, and roll again (shift+space)
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
@@ -82,6 +83,10 @@ export const LOCAL_COMMANDS = [
   "file move",
   "file delete",
   "file upload",
+  // The rack builder popin: a 4×4 pad grid that ends in a `modules/instruments/<name>` on
+  // disk. Web-local because the building is the browser's (drops, audition); the create
+  // writes through the file routes like the tree's own verbs.
+  "module create rack",
 ];
 
 /**
@@ -174,6 +179,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "transport record": {
     en: "Turn the global record enable on or off",
     fr: "Activer ou désactiver l'enregistrement global",
+  },
+  "transport replay": {
+    en: "Play again from where playback last started",
+    fr: "Rejouer depuis le dernier départ de lecture",
   },
   // Also in the backend's catalogue, and filtered out of the list when it is reachable. Kept
   // here so the row is still described when it is not — an undescribed row is an unfindable one.
@@ -299,6 +308,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "file upload": {
     en: "Upload files into a folder",
     fr: "Envoyer des fichiers dans un dossier",
+  },
+  "module create rack": {
+    en: "Build a samples rack on a pad grid",
+    fr: "Construire un rack de samples sur une grille",
   },
 };
 
@@ -500,9 +513,9 @@ const RECENT_BONUS = 4;
 /**
  * Which command a canonical LINE runs — the longest name that prefixes it, or null.
  *
- * Longest, exactly as the dispatcher picks it (`runCommand` in commandSpec.ts), or `module list`
- * would claim a line that `module list plugins` is going to run and the history would remember
- * the wrong one.
+ * Longest, exactly as the dispatcher picks it (`runCommand` in commandSpec.ts), or a `system
+ * plugins` would claim a line that `system plugins list` is going to run and the history would
+ * remember the wrong one.
  */
 export function commandNameOf(
   line: string,

@@ -1,0 +1,194 @@
+import { describe, expect, it } from "vitest";
+import { rackFor } from "./rackFor";
+import {
+  noteInCell,
+  notesByCell,
+  type PadEdit,
+  settledEdits,
+  stepCells,
+  unknownKeys,
+} from "./stepGrid";
+import type { WebNote } from "./types";
+
+// The step sequencer's decisions: which panel a MIDI clip opens in (rackFor), and the grid its
+// window divides into (stepGrid). Pinned here because nothing in this app mounts a component —
+// the buttons are a table drawn around these numbers.
+
+const note = (time: number, key: number, duration = 0.5): WebNote => ({
+  time,
+  duration,
+  key,
+});
+
+describe("the grid", () => {
+  it("divides the window at the chosen precision, in absolute beats", () => {
+    // An 8-beat window at 1/8 notes (half a beat) is sixteen cells.
+    expect(stepCells(0, 8, 0.5)).toHaveLength(16);
+    // A windowed clip's cells start at ITS origin, on the same axis its notes use.
+    expect(stepCells(8, 4, 1)).toEqual([8, 9, 10, 11]);
+  });
+
+  it("keeps a last, partial cell rather than dropping the tail", () => {
+    expect(stepCells(0, 3, 2)).toEqual([0, 2]);
+  });
+
+  it("has nothing to draw for an empty window or step", () => {
+    expect(stepCells(0, 0, 1)).toEqual([]);
+    expect(stepCells(0, 4, 0)).toEqual([]);
+  });
+
+  it("does not drift on a fine grid — counted, not accumulated", () => {
+    const cells = stepCells(0, 64, 0.25);
+    expect(cells).toHaveLength(256);
+    expect(cells[255]).toBeCloseTo(63.75, 9);
+  });
+});
+
+describe("what lights a cell", () => {
+  const notes = [note(0, 36), note(1.25, 36), note(2, 38)];
+
+  it("is a note on the row's key starting inside the cell", () => {
+    expect(noteInCell(notes, 36, 0, 0.5)).toBe(notes[0]);
+    expect(noteInCell(notes, 38, 2, 0.5)).toBe(notes[2]);
+    expect(noteInCell(notes, 36, 2, 0.5)).toBeNull(); // right cell, other key
+  });
+
+  it("claims a note drawn OFF the grid lines, so a played take still shows", () => {
+    // 1.25 is not a 1/8 line's start, but it is inside the cell at 1 — and toggling that cell
+    // off must address the note where it really is.
+    expect(noteInCell(notes, 36, 1, 0.5)).toBe(notes[1]);
+    expect(noteInCell(notes, 36, 1.5, 0.5)).toBeNull(); // …and only that cell claims it
+  });
+
+  it("turns the keys the rack has no row for into EXTRA rows, high first", () => {
+    expect(unknownKeys(notes, [36], 0, 8)).toEqual([38]);
+    expect(unknownKeys(notes, [36, 38], 0, 8)).toEqual([]);
+    // Distinct — three stray hits on one key are one row…
+    expect(
+      unknownKeys(
+        [...notes, { time: 3, duration: 0.5, key: 40 }],
+        [36, 38],
+        0,
+        8,
+      ),
+    ).toEqual([40]);
+    // …and inside the window only: the cage already says what it hides.
+    expect(unknownKeys(notes, [38], 0, 1)).toEqual([36]); // only the k36 at 0
+  });
+});
+
+describe("rackFor — which panel a clip opens in", () => {
+  const rack = [
+    { symbol: "BD", note: 36 },
+    { symbol: "SN", note: 38 },
+  ];
+
+  it("finds the rack in the chain the track feeds", () => {
+    const g = {
+      chains: {
+        drums: { from: "drums", use: [{ module: "kit", rack }], out: [] },
+      },
+      tracks: ["drums"],
+      warnings: [],
+    };
+    expect(rackFor(g, "drums")).toBe(rack);
+  });
+
+  it("follows the outs to a rack further down", () => {
+    const g = {
+      chains: {
+        a: {
+          from: "drums",
+          use: [{ module: "eq" }],
+          out: [{ to: "b", gain: 1 }],
+        },
+        b: { use: [{ module: "kit", rack }], out: [] },
+      },
+      tracks: ["drums"],
+      warnings: [],
+    };
+    expect(rackFor(g, "drums")).toBe(rack);
+  });
+
+  it("answers null when the signal never meets one — the roll's case", () => {
+    const g = {
+      chains: {
+        a: { from: "melody", use: [{ module: "synth" }], out: [] },
+      },
+      tracks: ["melody"],
+      warnings: [],
+    };
+    expect(rackFor(g, "melody")).toBeNull();
+    expect(rackFor(null, "melody")).toBeNull();
+  });
+
+  it("survives a routing cycle", () => {
+    const g = {
+      chains: {
+        a: { from: "drums", use: [], out: [{ to: "b", gain: 1 }] },
+        b: { use: [], out: [{ to: "a", gain: 1 }] },
+      },
+      tracks: ["drums"],
+      warnings: [],
+    };
+    expect(rackFor(g, "drums")).toBeNull();
+  });
+});
+
+// Editing has to feel instant, and the document takes ~half a second to agree (a `sequence
+// note` command recompiles the project). So the grid paints the press at once and reconciles
+// when the reload lands — and it must not rescan every note per cell while doing it.
+describe("notesByCell", () => {
+  const notes = [note(0, 36), note(1.25, 36), note(2, 38)];
+
+  it("indexes each note by its cell, agreeing with noteInCell", () => {
+    const by = notesByCell(notes, 0, 8, 0.5);
+    expect(by.get("36@0")).toBe(notes[0]);
+    // 1.25 is off the grid lines: it belongs to the cell at 1, index 2 — as noteInCell says.
+    expect(by.get("36@2")).toBe(notes[1]);
+    expect(noteInCell(notes, 36, 1, 0.5)).toBe(notes[1]);
+    expect(by.get("38@4")).toBe(notes[2]);
+    expect(by.size).toBe(3);
+  });
+
+  it("drops what falls outside the window, and keeps the FIRST of a collision", () => {
+    const dup = note(0.1, 36);
+    const by = notesByCell([notes[0], dup, note(99, 36)], 0, 8, 0.5);
+    expect(by.get("36@0")).toBe(notes[0]);
+    expect(by.size).toBe(1);
+  });
+
+  it("indexes from the window's own origin", () => {
+    expect(notesByCell([note(8.5, 36)], 8, 4, 0.5).get("36@1")).toBeDefined();
+  });
+});
+
+describe("settledEdits", () => {
+  const on = (vel?: number): PadEdit => ({
+    on: true,
+    ...(vel === undefined ? {} : { vel }),
+  });
+  const off: PadEdit = { on: false };
+
+  it("forgets an edit the document now agrees with", () => {
+    const by = new Map([["36@0", note(0, 36)]]);
+    expect(settledEdits(new Map([["36@0", on()]]), by)).toEqual(["36@0"]);
+    expect(settledEdits(new Map([["38@1", off]]), by)).toEqual(["38@1"]);
+  });
+
+  it("HOLDS one still in flight, so the cell does not flicker back", () => {
+    const empty = new Map<string, WebNote>();
+    expect(settledEdits(new Map([["36@0", on()]]), empty)).toEqual([]);
+    const by = new Map([["36@0", note(0, 36)]]);
+    expect(settledEdits(new Map([["36@0", off]]), by)).toEqual([]);
+  });
+
+  it("waits for the VELOCITY too, not merely for the note", () => {
+    const by = new Map([["36@0", { ...note(0, 36), vel: 0.5 }]]);
+    expect(settledEdits(new Map([["36@0", on(0.8)]]), by)).toEqual([]);
+    expect(settledEdits(new Map([["36@0", on(0.5)]]), by)).toEqual(["36@0"]);
+    // A note the file states nothing for IS full — the schema's default.
+    const full = new Map([["36@0", note(0, 36)]]);
+    expect(settledEdits(new Map([["36@0", on(1)]]), full)).toEqual(["36@0"]);
+  });
+});

@@ -247,6 +247,40 @@ The live x axis is nominal: `LIVE_FRAME_MS` (50) per frame, because the engine's
 and not a clock. A growing take is read for its SHAPE; the moment timings matter, the file is
 there and its own waveform has replaced this one.
 
+#### Several passes: the sidebar of takes
+
+When the lane holds **takes** — a loop record, or a punch over an event, leaves one per pass
+(`packages/song/docs/takes.md`) — the panel grows a column on its left listing every version there
+is to listen to: each take in slot order, then what the lane is playing, marked. `takeOptions` in
+`takeReview.ts` derives it from the project doc, and answers empty for a lane with no takes, which
+is what keeps the ordinary single-take panel exactly as it was.
+
+**Clicking a row is `track take select`.** Not a preview: the take goes ONTO the lane, because
+the point is to hear the pass in the song — with the rest of the band — and only what a lane
+plays reaches the engine. The swap loses nothing and is its own undo, so an audition costs a
+command and no material. The playhead is sent to where that take begins, which is what makes the
+column's ▶ mean "hear this one from the top".
+
+Two consequences worth stating:
+
+- **the row you are looking at is the row you would hear.** There is no second notion of a
+  "selected but not playing" take for the panel to disagree with the engine about;
+- **the numbers do not move while you listen.** A select exchanges two lists rather than
+  reordering them, so the column stays put under the pointer.
+
+**Garder celle-ci** is `track take keep <track>`: it keeps whatever is on the lane — the one you
+last clicked — and deletes the rest. The button names the decision rather than a number, because
+the choice was already made by clicking.
+
+The **other host does not pass takes**: `ClipView` — the panel a click on an audio event opens —
+mounts the same component with no sidebar, deliberately. There the clip you clicked is the subject,
+and a select would move it off the lane under its own view. Reaching a take from the timeline is
+what the indented take rows and their right-click menu are for (`docs/timeline.md`).
+
+`placedAt` comes from the DOCUMENT for this reason (`placedBeat`). It used to be the beat the
+transport rolled at, which is right for the take that just landed and wrong for one picked out of
+the sidebar: a take plays where it was recorded, not where the last one was.
+
 #### The take's start is the SHELL's, and two surfaces read it
 
 `takeStart` lives in `App`, taken off the store on the `rolling` edge. One source, because two
@@ -275,6 +309,38 @@ the pre-roll, and a take can never have run for less than nothing. Whatever the 
 its playhead during a count-in — its business, not the counter's — the worst this can show now is a
 number that stops moving, rather than one nobody can explain.
 
+**The count-in draws nothing, anywhere.** Nothing is recorded during it, so the clip panel shows
+the countdown alone and the lane's growing block does not exist yet — `recordingFrom` (the
+transport's start plus the pre-roll) is the one number both read, and the counter flips to
+"recording" on exactly that beat. Two things were wrong before it: the block was drawn from the
+TRANSPORT's start, so it appeared the instant Play was pressed and then reached back over bars the
+placement that lands on Stop does not cover; and `useLiveEnvelope` was cleared on the `rolling`
+edge, so the picture opened with however many bars of click and room the pre-roll lasted and
+everything after it sat that far right of where it is in the file. The envelope now collects from
+the first recorded frame.
+
+#### How the tab learns a take happened at all
+
+Nobody types a recording. The ENGINE writes the wav, the file service declares the clip and
+places it on the lane, and this tab is told by neither — so the document it is drawing is one
+clip out of date and nothing in it knows.
+
+The signal is `lastTake` on `/workspace`, which the 2 s poll (`useActiveProjectFollow`) was
+already fetching and discarding: it only looked at `activeProject`. It now reads the take too,
+and the shell does the two things that were missing — `setWs`, which is what opens the review
+panel on the new clip, and a reload, which is what puts the clip on its lane.
+
+It used to work by accident and only one way. Stopping with **Space** went through the file
+service, whose reply bumped the reload for its own reasons; stopping with the header's **Stop**
+button never showed the take at all — it was on disk, on the lane, and off the screen. Routing
+the transport keys onto the engine socket (above) took the accident away, which is how this was
+finally noticed: measured on a real recording, `/workspace` was answering
+`lastTake: ge.rythm_1.1_260816T000616` while the timeline drew the song without it.
+
+The first answer only SEEDS: `lastTake` is the service's memory of the newest take it ever
+wrote, not an event, so firing on it would reopen this morning's recording every time a tab
+loads. `isNewTake` is that rule, and it is a pure function for exactly that reason.
+
 #### …and the panel can be asked for, not only awaited
 
 The automatic appearance is a moment that passes, and it passed more easily than anyone meant:
@@ -301,6 +367,11 @@ So the panel shows **twelve bars** by default and the wheel zooms, out as readil
 says `12/34 mes.` with a **tout** beside it, because a window that showed only the first bars
 without saying so would read as a clip that had been cut.
 
+Everything moves inside the clip's own `from`/`to`: the panel is **caged to the interval the clip
+plays** (see [clipEditors.md](clipEditors.md)), so the bars are the interval's bars, "tout" is the
+whole interval, and what a trim cut away is simply not on screen. The file is still fetched whole
+(`whole`), so onsets and every command stay in file-absolute seconds.
+
 `Waveform` gained a `view` for this: a span in seconds, absent meaning all of it as before. A
 **window** rather than a zoom factor, since what a host wants to say is "these twelve bars" and not
 "×3.7" — and everything crossing that boundary stays in **absolute seconds**. A view is a way of
@@ -308,10 +379,14 @@ looking, not a change of units, so a marker's time, a selection, a trim preview 
 mean the same thing zoomed or not. Only the pins are filtered: their `left` is absolute px, so one
 outside the window would hang in the panel's chrome rather than be clipped by the canvas.
 
-It is anchored at the start and does **not pan** — zooming out is how you reach the rest. A pan
-would be a second gesture on a surface whose drag already means "select". `barWindow.ts` holds the
-maths and its edges: a take shorter than the window, a part-bar take, and a tempo that has not
-arrived yet (a bar of zero seconds would make every take infinitely many bars long).
+The zoom is **anchored under the cursor** — the moment pointed at stays where it is, the same
+promise the timeline and the roll make through `useHZoom` — and a two-finger pinch does the same
+on a touchscreen, anchored at the centre of the touches. There is still **no pan** gesture: a pan
+would be a second gesture on a surface whose drag already means "select", and zooming out then in
+somewhere else reaches every part of the take. `barWindow.ts` holds the maths and its edges: the
+anchor (`anchorBars`), a take shorter than the window, a start pushed off either end, a part-bar
+take, and a tempo that has not arrived yet (a bar of zero seconds would make every take infinitely
+many bars long).
 
 #### Trimming moves the WINDOW, and previews before it does
 
@@ -327,6 +402,12 @@ drawn as a selection over the wave, so the slider is read against the take inste
 number. The preview calls **the same `trimWindow`** the command runs — a preview that disagreed
 with the act would be worse than none — so the only difference between the two is bucket
 resolution.
+
+Both the gate and `clip normalize` are **bounded to the window the clip already has**: a re-trim
+refines `from`/`to` and never reaches back into material an earlier trim removed (undo is how that
+comes back), and normalise measures its peak and lands its gain inside the window only, so the
+take around the event keeps its bytes (the engine's `--normalize` carries the window — see
+`engine/moteur/docs/cliModes.md`).
 
 Nothing above the gate changes nothing, and says so: a take entirely below it is either silence or
 a gate set too high, and a window of zero length would play nothing at all.
@@ -443,13 +524,38 @@ key. Two of those groups want different things:
 single-key binding — `1`, `m`, `s`, `f` — after a mouse click, which the listener still lets a
 focused control keep.
 
-One thing Space deliberately does **not** do here: take the direct route. It resolves to
-`transport toggle`, which goes through `runCommand` to the file service like any other command,
-while the header's play button sends `play`/`stop` straight over the engine WebSocket. The
-WebSocket path *drops* a transport verb while the engine is applying a change
-(`useEngineLink.ts`), which is right for a button you can see is disabled and wrong for a key
-whose whole promise is that it always works. The two paths are worth knowing about; they are not
-the same path, and this one is the one that cannot be silently dropped.
+Space takes the **direct route when it can**, and the slow one when it must. `transport
+play|stop|toggle|rewind` (`BARE_TRANSPORT` in `localCommands.ts`) are answered by the shell over
+the engine WebSocket — the same socket the header's play button has always used.
+
+They went through the file service, and that was a real cost, not a theoretical one: the service
+sends this very message, but only after an HTTP round trip, after the undo journal has walked the
+whole project twice to find that a transport verb changed no file (**62 ms warm, 215 ms cold**,
+measured on a real song), and behind whatever else that single-threaded process was doing — a
+project compile there is **1.5 s**. Measured end to end on an idle service, one keypress cost
+**110–145 ms**; over the socket the engine acknowledges in **13–50 ms**, most of which is waiting
+for the next 20 Hz state frame. That was the "sometimes it takes a second": the delay belonged to
+the queue, not to the transport.
+
+Two cases still fall through to the service, and they are why the branch is a fallthrough rather
+than a send: **no socket of our own**, and an engine **mid-apply**. The WebSocket path *drops* a
+transport verb while the engine is applying a change (`useEngineLink.ts`) — a queue there turned
+one press into three plays and a rewind — and dropping is right for a button you can see is
+disabled and wrong for a key whose whole promise is that it always works. So the key keeps the
+slow path for exactly that window.
+
+Nothing is lost by answering them here: they write no file, so there is nothing to journal and
+nothing to reload — the `setReloadKey` every other command pays for was pure waste on these.
+`transport metronome` is NOT one of them: it rewrites `settings.yaml`.
+
+**Shift+Space** is the shifted pair and survives a focused control by the same listener rule: it
+runs `transport replay` — the playhead returns to where playback last started, and rolls again.
+That one IS a local command on the WebSocket path, because the seek half only exists there, and
+its memory is the shell's own (`replayAtRef` in `App.tsx`): while the transport is stopped the
+playhead sits where a play would begin, and the rising edge of `playing` freezes that value — so
+a start from a key, the bar, another tab or the CLI all count, and pressing it mid-playback
+jumps back and keeps rolling. Shift+space arrives as `" "` with `shiftKey`, so `keyToken` spells
+the modifier out (`"shift+space"`) where a shifted letter arrives already uppercased.
 
 ### The editor POPIN
 
@@ -482,6 +588,48 @@ Three details it needs to be usable:
   the common case rather than the exotic one.
 - **Any change of layout puts it away.** It is a detour to one file, not a place to be, so it is
   deliberately NOT URL state — a reload lands you in the view, not in the popin.
+
+#### An INSTANCE in the popin shows its module beside it
+
+A node's file names its per-instance fields, and what those override lives one `extends:` away —
+so when the popin's file has an `extends:` that resolves to a file, the popin splits: the
+instance on the left, the **module on the right, both editable**. The module side is a small
+self-contained editor (`ModuleSidePane`, its own buffer and autosave — the main pane is THE
+editor instance and its undo history must stay its own), and its writes follow the same fork
+rule as any save: a shared `_modules` file becomes a project copy, and the pane moves onto it.
+
+The resolution is `moduleBehind.ts` — the same answer a ctrl-click on the extends value gives
+(`base:` then `module:` in `hints.paths`) — read from the BUFFER, so retyping the extends line
+swaps the pane. A base with no file to edit (`@engine/…`, the `@studio/…` track bases) resolves
+to nothing and the popin stays one pane. Popin only: the full-screen editor has the tree, and a
+second file there is one click away rather than a question.
+
+**Each pane carries its own widgets**, the ones the main editor would give the same file — and
+a picture both would carry is drawn ONCE. A slice rack docks THE SLICER at the bottom: the
+source waveform with every symbol's window in its own colour, the symbol names in the text
+painted to match (`sliceSymbols.ts`; the racks hint carries the source absolute, so no pane
+does path arithmetic), and the gutter ▶s auditioning each line. The windows grow draggable
+edges only in the pane whose BUFFER holds the symbols — the module's — where a drag rewrites
+the two numbers like a keystroke. In the split, that means the slicer sits under the MODULE
+pane alone: the instance side would show the identical picture read-only, so it stands down
+(the same dock still serves a node opened WITHOUT the split — full screen, or a base with no
+file). There used to be an inline waveform under every symbol line instead: one picture with
+coloured windows replaced the stack of them. `rackKeyOf` (projectPaths.ts) is what lets one map
+answer for both spellings of "this file is a rack": a module's folder name, a node's stem.
+
+#### The RACK BUILDER popin
+
+`module create rack` (web-local — the building is the browser's) opens a 4×4 pad grid over the
+shell. Drop audio files on the pads — several at once fill onward in NOTE order — click one to
+hear it (a local object-URL, no server round trip), edit each pad's name (the rack's SYMBOLS)
+and name the rack. CREATE uploads the samples beside a fresh `module.yaml` and writes the
+module at `modules/instruments/<name>/` — the beside-the-module layout every rack in a real
+song already loads — then the shell reloads and the graph's picker offers it.
+
+The notes are the drum-machine page, pinned in `rackBuilder.ts`: bottom-left is 36, rightward,
+then the row above — so the grid READS the way it plays, and the symbols are written in that
+order, which is the order the hints, the sequencer's rows and the slice colours all walk.
+Samples only for now; the slice flavour has its own editor (the docked slicer).
 
 #### A sequence in the popin has TABS
 
@@ -745,6 +893,21 @@ It lives in the ACCOUNT's preferences, not the rig's — what you call a command
 another browser, where which audio interface to open belongs to the machine. `L8Prefs` widens
 `EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
 writing this cannot wipe the engine id beside it.
+
+**Shortcuts are the fourth field of that layer.** Each row of the page carries a key cell:
+click it, press a key, and the pref stores the raw `keyToken` (`"g"`, `"shift+space"`) under
+`key:`. Escape renounces the capture, Backspace removes the shortcut (stored as `KEY_NONE` when
+the command has a default — deleting the pref would resurrect it), and choosing the default
+again drops the field, leaving no entry behind. The rules live in `effectiveKeys` (keys.ts),
+pure and tested: an assignment MOVES a shortcut rather than doubling it (the default token goes
+dead), a taken token is stolen outright (visible — the losing row reads the same map and its
+cell goes blank), and the CONDITIONAL bindings — the esc ladder, `f`'s interpolation, `m`'s
+three meanings — are not remappable: they are rules, not shortcuts, and `resolveToken` falls
+through to them only for tokens the effective map does not name. App's listener, the help
+legend (`shortcutsByCommand`) and the pane buttons' tooltips all read the same map, so a moved
+key is advertised wherever keys are shown. The focused-control rule follows the commands rather
+than the tokens now: what comes back from a focused button is whatever runs a `transport …`
+command — wherever the person has put it — plus Escape, with Enter left to the control.
 
 **Context menus draw those icons.** `MenuItem` gained a `verb` — the command WITHOUT the entity and
 untranslated (`module bypass`, not `bypasser gtr`) — which is exactly what the prefs are keyed by.

@@ -164,15 +164,8 @@ export function midByArc(g: CableGeom): Pt {
   return g.base[g.base.length - 1];
 }
 
-// An arrowhead polygon (SVG points string) at `to`, pointing along `ang`.
-export function arrowPoints(to: Pt, ang: number, size: number): string {
-  const w = 0.42;
-  return [
-    `${to.x},${to.y}`,
-    `${to.x - size * Math.cos(ang - w)},${to.y - size * Math.sin(ang - w)}`,
-    `${to.x - size * Math.cos(ang + w)},${to.y - size * Math.sin(ang + w)}`,
-  ].join(" ");
-}
+// `arrowPoints` (the SVG arrowhead string) is gone: the automation cables draw on the
+// canvas now, and the head is traced there from the last drawn segment — see drawCables.
 
 /**
  * Which cables carry a signal right now (a Set of edge ids). Liveness starts at the
@@ -222,6 +215,16 @@ export function insertFor(
   const name = (n: GraphNode) =>
     n.kind === "module" ? (n.module ?? n.label) : n.label;
   return { before: name(s), after: name(t) };
+}
+
+/**
+ * The chains.yaml name a JACK click has in hand: the node as the chains spell it — the same
+ * resolution insertFor uses — plus `#port` when the jack names one. What the patch-cable
+ * gesture hands the host, so `chain connect` receives addresses the file already speaks.
+ */
+export function jackRef(n: GraphNode, port?: string): string {
+  const name = n.kind === "module" ? (n.module ?? n.label) : n.label;
+  return port ? `${name}#${port}` : name;
 }
 
 // Where an automation arrow lands: the target widget's centre, or the module's left edge.

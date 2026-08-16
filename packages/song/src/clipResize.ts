@@ -5,13 +5,18 @@
 /** The units a window is written in: seconds into a file, or beats into a sequence's notes. */
 export type MaterialKind = "audio" | "sequence";
 
-/** The event as it stands: its window in the MATERIAL's own units, and how many passes it plays. */
+/** The event as it stands: its EFFECTIVE window (material ∩ event, in the material's own units),
+ *  how many passes it plays — and the material's own window, the cage the event's may not leave. */
 export interface ResizeBefore {
   kind: MaterialKind;
-  from: number; // 0 when the file says none — the material's start
+  from: number; // 0 when nothing narrows it — the material's start
   to?: number; // absent means "to the end of the source", a length only the engine knows
   loops: number;
   startBeats: number; // where the placement sits on the timeline
+  /** The MATERIAL's window: what the event's window is clamped inside, since the most
+   *  restrictive pair wins and writing past it would be writing an edge that never plays.
+   *  Absent bounds are the material's own extent — from 0, to unknown. */
+  bounds?: { from?: number; to?: number };
 }
 
 /** Where the drag put the two edges, on the timeline, in beats. */
@@ -42,20 +47,24 @@ const toBeats = (units: number, kind: MaterialKind, tempo: number): number =>
 const tidy = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 /**
- * The window and count that make the event span `startBeats..endBeats`.
+ * The window and count that make the event span `startBeats..endBeats` — the EVENT's window,
+ * since a resize is one event's edit and the material's own `from`/`to` stay untouched.
  *
  * Two cases, and which one applies is decided by `loops`, not by the drag:
  *
- * - **One pass** — the drag sets the WINDOW. Both edges move the material's `from`/`to`, which
- *   is where a clip's extent lives; dragging the left edge trims into the material rather than
- *   sliding it, exactly as it moves the in-point in any DAW.
+ * - **One pass** — the drag sets the WINDOW. Both edges move the event's `from`/`to`; dragging
+ *   the left edge trims into the material rather than sliding it, exactly as it moves the
+ *   in-point in any DAW.
  * - **Looped** — the drag sets the COUNT and leaves the window alone. A looped clip's length was
  *   a consequence of the repeat (see materialWindow), so lengthening it means another pass, not a
  *   longer window. Rounded to whole passes, because a partial one is not something `loop:` can say.
  *
- * `from` never goes below zero: there is no material before the start of the file. A left edge
- * dragged past it stops there, and the placement's `start` is pulled along so what is left stays
- * under the same beat instead of sliding.
+ * The window is CLAMPED inside `bounds` — the material's own window — because the most
+ * restrictive pair wins: an edge written past the material's would never play, and the drag
+ * should land where the sound will. A left edge dragged past `bounds.from` stops there, and the
+ * placement's `start` is pulled along so what is left stays under the same beat instead of
+ * sliding; a right edge dragged past `bounds.to` stops at the material's end — reaching further
+ * is the material's edit (its own pane, or `clip trim`), not the event's.
  */
 export function resizeToWindow(
   before: ResizeBefore,
@@ -65,13 +74,15 @@ export function resizeToWindow(
   const { tempo } = to;
   const mat = (b: number) => toMaterial(b, kind, tempo);
   const beats = (u: number) => toBeats(u, kind, tempo);
+  const lo = Math.max(0, before.bounds?.from ?? 0);
+  const hi = before.bounds?.to;
 
   let startBeats = to.startBeats;
   // The left edge moved by this much, so the window's in-point moves with it.
   let from = before.from + mat(startBeats - before.startBeats);
-  if (from < 0) {
-    startBeats += beats(-from); // clamped at the material's start; the event keeps its alignment
-    from = 0;
+  if (from < lo) {
+    startBeats += beats(lo - from); // clamped at the material's window; the event keeps its alignment
+    from = lo;
   }
   const extent = Math.max(0, to.endBeats - startBeats);
 
@@ -86,10 +97,11 @@ export function resizeToWindow(
       loops: passes,
     };
   }
+  const end = from + mat(extent);
   return {
     startBeats,
     from: tidy(from),
-    to: tidy(from + mat(extent)),
+    to: tidy(hi != null ? Math.min(end, hi) : end),
     loops: 1,
   };
 }

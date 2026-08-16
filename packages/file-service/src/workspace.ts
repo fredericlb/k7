@@ -254,6 +254,34 @@ function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
   };
 }
 
+// One clip as the browser reads it. Named, rather than written inline where the lane's clips are
+// mapped, because a lane's TAKES hold the same thing and a take should draw identically to the
+// arrangement it was — two copies of this is how the two would come to differ.
+function toWebClip(c: TrackDoc["clips"][number]) {
+  return {
+    id: c.id,
+    type: c.type,
+    name: c.name,
+    start: c.start,
+    length: c.length,
+    loopStart: c.loopStart,
+    loopEnd: c.loopEnd,
+    warped: c.warp ? true : undefined,
+    disabled: c.disabled ? true : undefined,
+    // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
+    frozen: isFrozenClipId(c.id) ? true : undefined,
+    notes: c.notes.map((n) => ({
+      time: n.time,
+      duration: n.duration,
+      key: n.key,
+      // Only when the file SAID one: the compiler defaults `vel` to 1, and passing that through
+      // would make every note look explicitly full — which is what a roll's velocity line has to
+      // tell apart from a note that states nothing. See WebNote.
+      ...(n.vel !== undefined && n.vel !== 1 ? { vel: n.vel } : {}),
+    })),
+  };
+}
+
 // TrackDoc[] -> the flat WebTrack[] the Timeline draws, root-independent so live lanes share it.
 export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
   return tracks.map((t) => ({
@@ -266,28 +294,17 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
     ...mixerOf(t),
     mute: t.mute,
     solo: t.solo,
-    clips: t.clips.map((c) => ({
-      id: c.id,
-      type: c.type,
-      name: c.name,
-      start: c.start,
-      length: c.length,
-      loopStart: c.loopStart,
-      loopEnd: c.loopEnd,
-      warped: c.warp ? true : undefined,
-      disabled: c.disabled ? true : undefined,
-      // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
-      frozen: isFrozenClipId(c.id) ? true : undefined,
-      notes: c.notes.map((n) => ({
-        time: n.time,
-        duration: n.duration,
-        key: n.key,
-        // Only when the file SAID one: the compiler defaults `vel` to 1, and passing that through
-        // would make every note look explicitly full — which is what a roll's velocity line has to
-        // tell apart from a note that states nothing. See WebNote.
-        ...(n.vel !== undefined && n.vel !== 1 ? { vel: n.vel } : {}),
-      })),
-    })),
+    clips: t.clips.map(toWebClip),
+    // The takes, through the same mapping — absent when the lane has none, exactly as the
+    // compiled doc leaves it. See packages/song/docs/takes.md.
+    ...(t.takes?.length
+      ? {
+          takes: t.takes.map((k) => ({
+            ...(k.name ? { name: k.name } : {}),
+            clips: k.clips.map(toWebClip),
+          })),
+        }
+      : {}),
     plugins: t.plugins.map((pl) => ({
       id: pl.id,
       type: pl.type,

@@ -3,6 +3,8 @@
 // bar. Continuous interaction (caret movement, growing a selection) is deliberately NOT
 // here — it belongs to the view that owns it. That line is the rule this table keeps.
 
+import type { CommandPrefs } from "./commandPrefs";
+
 // A binding: a command string, a conditional, or alternatives tried in order.
 export type Binding = string | { if?: string; command: string } | Binding[];
 
@@ -27,6 +29,8 @@ export const KEYS: Record<string, Binding> = {
   // Space is the transport wherever you are, short of a text editor: App's listener lets it
   // through a focused button/link/select where it stands aside for every other key.
   space: "transport toggle",
+  // Shift+Space replays: back to where playback last started, and roll again from there.
+  "shift+space": "transport replay",
   enter: "transport rewind",
   // t locates the transport to the timeline caret; quiet on a label, which is a row rather than a beat.
   t: "transport locate",
@@ -78,7 +82,9 @@ export const KEYS: Record<string, Binding> = {
  */
 export function keyToken(e: KeyboardEvent): string | null {
   if (e.metaKey || e.ctrlKey || e.altKey) return null;
-  if (e.key === " ") return "space";
+  // Shift+space still arrives as " ", so the shift is read here — a letter would arrive
+  // already uppercased ("Z"), which is why only the named keys need the modifier spelt out.
+  if (e.key === " ") return e.shiftKey ? "shift+space" : "space";
   if (e.key === "Enter") return "enter";
   if (e.key === "Escape") return "esc";
   // Shift+Tab lands here and cycles FORWARD too: a ring of three is walked in at most two presses.
@@ -130,23 +136,81 @@ export function resolveBinding(
   return binding.command ? interpolate(binding.command, cond) : null;
 }
 
-/** The key bound to a plain command, for tooltips — so a hint can't advertise a key
- * this table doesn't actually bind. */
-export const keyForCommand = (command: string): string | undefined =>
-  Object.keys(KEYS).find((k) => KEYS[k] === command);
+/** Stored in a CommandPref's `key` when the person took a default shortcut away without
+ *  giving another — "no key" has to be sayable, and an absent field already means "the app's". */
+export const KEY_NONE = "none";
+
+/**
+ * The SIMPLE one-key bindings — the app's, with the person's `key:` prefs applied
+ * (commandPrefs.ts, the settings page's Commands screen).
+ *
+ * Three rules, in order: a command given a key VACATES its default token (a shortcut is
+ * changed, not doubled); an assignment then lands, stealing its token from whatever held it —
+ * visibly, since every row of the settings page reads this same map; and KEY_NONE removes
+ * without replacing. Vacate-all-then-assign-all, so two prefs trading tokens cannot depend on
+ * object order.
+ *
+ * The CONDITIONAL bindings (the esc ladder, `f`'s interpolation, `m`'s three meanings) are
+ * deliberately not in this map: they are rules rather than shortcuts, and stay the app's —
+ * the same line keyForCommand has always drawn by matching plain strings only.
+ */
+export function effectiveKeys(prefs: CommandPrefs): Record<string, string> {
+  const eff: Record<string, string> = {};
+  for (const [token, b] of Object.entries(KEYS))
+    if (typeof b === "string") eff[token] = b;
+  for (const [canonical, p] of Object.entries(prefs))
+    if (p.key)
+      for (const t of Object.keys(eff)) if (eff[t] === canonical) delete eff[t];
+  for (const [canonical, p] of Object.entries(prefs))
+    if (p.key && p.key !== KEY_NONE) eff[p.key] = canonical;
+  return eff;
+}
+
+/**
+ * What a pressed token runs: the effective simple map first; a token it does not name falls
+ * through to KEYS only for a CONDITIONAL binding. A simple default the person moved or removed
+ * is dead here on purpose — found again in KEYS, "change this shortcut" would mean "add one".
+ */
+export function resolveToken(
+  token: string,
+  cond: ConditionCtx,
+  eff: Record<string, string>,
+): string | null {
+  const own = eff[token];
+  if (own !== undefined) return own;
+  const b = KEYS[token];
+  return b === undefined || typeof b === "string"
+    ? null
+    : resolveBinding(b, cond);
+}
+
+/** The key bound to a plain command, for tooltips — so a hint can't advertise a key the
+ * effective table doesn't actually bind. With prefs, the person's own layer applies (a moved,
+ * stolen or removed key reads as such); without, the app's defaults. */
+export const keyForCommand = (
+  command: string,
+  prefs?: CommandPrefs,
+): string | undefined => {
+  if (prefs) {
+    const eff = effectiveKeys(prefs);
+    return Object.keys(eff).find((k) => eff[k] === command);
+  }
+  return Object.keys(KEYS).find((k) => KEYS[k] === command);
+};
 
 /** A readable label for a key token — the raw tokens are terse ("esc", "Z", "?"). */
 export function keyLabel(token: string): string {
   const named: Record<string, string> = {
     space: "Space",
+    "shift+space": "⇧Space",
     enter: "Enter",
     esc: "Esc",
     tab: "Tab",
   };
   if (named[token]) return named[token];
-  if (token === "Z") return "⇧Z"; // shift+z arrives as the bare token "Z"
-  if (token === "L") return "⇧L"; // shift+l (loop) — same bare-token shape as Z
-  if (token === "R") return "⇧R"; // shift+r (global record) — same bare-token shape as Z
+  // A shifted letter arrives as its own uppercase token ("Z", "L"…) — spell the shift out,
+  // whichever letter a person binds; a lone letter reads as if it were the unshifted key.
+  if (/^[A-Z]$/.test(token)) return `⇧${token}`;
   return token;
 }
 
@@ -168,14 +232,21 @@ function baseCommands(binding: Binding | undefined): string[] {
 }
 
 /**
- * Reverse of KEYS for the help view: each command mapped to the readable label of
- * the key that runs it (first key wins). Derived from the table itself, so the help
- * dialog can only ever show a key this table actually binds.
+ * Reverse of the keymap for the help view: each command mapped to the readable label of
+ * the key that runs it (first key wins). Derived from the effective table, so the help
+ * dialog can only ever show a key that actually binds — the person's own layer included.
  */
-export function shortcutsByCommand(): Record<string, string> {
+export function shortcutsByCommand(
+  prefs: CommandPrefs = {},
+): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [token, binding] of Object.entries(KEYS))
+  for (const [token, cmd] of Object.entries(effectiveKeys(prefs)))
+    if (!(cmd in out)) out[cmd] = keyLabel(token);
+  // The conditional bindings, by their base commands — the app's, exactly as resolveToken keeps them.
+  for (const [token, binding] of Object.entries(KEYS)) {
+    if (typeof binding === "string") continue;
     for (const cmd of baseCommands(binding))
       if (!(cmd in out)) out[cmd] = keyLabel(token);
+  }
   return out;
 }

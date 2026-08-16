@@ -1,7 +1,7 @@
-﻿// CommandsSettings.tsx — the "Commandes" settings screen: rename a command, give it an icon, and
-// arrange the order menus list them in. Filtered by the ENTITY a command acts on, which its sid
-// already says. The catalogue itself is the app's; everything edited here is the person's own
-// layer over it (commandPrefs.ts) and travels with their account.
+﻿// CommandsSettings.tsx — the "Commandes" settings screen: rename a command, give it an icon,
+// bind it a keyboard shortcut, and arrange the order menus list them in. Filtered by the ENTITY
+// a command acts on. The catalogue itself is the app's; everything edited here is the person's
+// own layer over it (commandPrefs.ts + keys.ts's effectiveKeys) and travels with their account.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -12,7 +12,14 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import { ArrowDown, ArrowUp, Loader2, RotateCcw } from "lucide-react";
-import { lazy, Suspense, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   type CommandPrefs,
   entitiesOf,
@@ -22,6 +29,7 @@ import {
   orderCommands,
   setCommandPref,
 } from "../commandPrefs";
+import { KEY_NONE, keyForCommand, keyLabel, keyToken } from "../keys";
 import { useIcons } from "../lucideIcons";
 import type { PaletteCommand } from "./CommandBar";
 
@@ -67,8 +75,58 @@ export function CommandsSettings({
         labelOf(c, prefs).toLowerCase().includes(needle)),
   );
 
-  const set = (sid: string, patch: Parameters<typeof setCommandPref>[2]) =>
-    onChange(setCommandPref(prefs, sid, patch));
+  // Stable per (prefs, onChange), because the key-capture effect below depends on it.
+  const set = useCallback(
+    (sid: string, patch: Parameters<typeof setCommandPref>[2]) =>
+      onChange(setCommandPref(prefs, sid, patch)),
+    [prefs, onChange],
+  );
+
+  // The row whose shortcut cell is waiting for a key, by canonical. One at a time, obviously.
+  const [capturing, setCapturing] = useState<string | null>(null);
+  /**
+   * The capture itself. Window + capture phase, so the press reaches nothing else — the
+   * shell's own key listener already stands down while a settings screen is open, but the
+   * browser's focused-button semantics (Space clicks what you last clicked) do not.
+   *
+   * Escape renounces. Backspace/Delete takes the shortcut away: as KEY_NONE when the command
+   * has a default (deleting the pref would resurrect it), by dropping the field when it never
+   * had one. Choosing the default again is not an override, so the field comes off instead —
+   * a person putting a key back should leave no entry behind.
+   */
+  useEffect(() => {
+    if (!capturing) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        setCapturing(null);
+        return;
+      }
+      if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return; // still choosing
+      if (e.key === "Backspace" || e.key === "Delete") {
+        set(capturing, {
+          key: keyForCommand(capturing) ? KEY_NONE : undefined,
+        });
+        setCapturing(null);
+        return;
+      }
+      const token = keyToken(e);
+      if (!token) return; // a ⌘/⌃/⌥ chord — those stay the browser's, so they can't be bound
+      set(capturing, {
+        key: token === keyForCommand(capturing) ? undefined : token,
+      });
+      setCapturing(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [capturing, set]);
+
+  // What the row's cell shows: the person's key, a steal, a removal — the effective map's answer.
+  const effKeyLabel = (canonical: string): string | null => {
+    const k = keyForCommand(canonical, prefs);
+    return k ? keyLabel(k) : null;
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -78,8 +136,8 @@ export function CommandsSettings({
         </Button>
         <h2 className="text-sm font-medium">Commandes</h2>
         <span className="text-xs text-muted-foreground">
-          leur nom, leur icône et l'ordre des menus — pour vous, sur tous vos
-          navigateurs
+          leur nom, leur icône, leur raccourci et l'ordre des menus — pour vous,
+          sur tous vos navigateurs
         </span>
         <Input
           value={q}
@@ -160,6 +218,25 @@ export function CommandsSettings({
                 {c.canonical}
               </code>
 
+              {/* The shortcut. Click, press a key — Échap annule, ⌫ retire. A stolen key is
+                  visible without ceremony: the row that held it reads the same effective map
+                  and its cell goes blank. */}
+              <Button
+                size="sm"
+                variant={capturing === c.canonical ? "default" : "outline"}
+                title="cliquer puis presser une touche — Échap annule, ⌫ retire (⇧ passe, ⌘/⌃/⌥ restent au navigateur)"
+                className="h-7 w-16 shrink-0 justify-center font-mono text-[11px]"
+                onClick={() =>
+                  setCapturing((cur) =>
+                    cur === c.canonical ? null : c.canonical,
+                  )
+                }
+              >
+                {capturing === c.canonical
+                  ? "…"
+                  : (effKeyLabel(c.canonical) ?? "—")}
+              </Button>
+
               <Button
                 size="icon-xs"
                 variant="ghost"
@@ -190,6 +267,7 @@ export function CommandsSettings({
                     label: undefined,
                     icon: undefined,
                     order: undefined,
+                    key: undefined,
                   })
                 }
               >

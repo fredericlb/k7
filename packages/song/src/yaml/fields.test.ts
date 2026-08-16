@@ -55,6 +55,9 @@ describe("derived module fields", () => {
       // a lane is a node of a `@studio/…-track` module, so its arrangement is module
       // fields like any other. See docs/trackModules.md.
       "clips",
+      // …and the arrangements the lane WAS playing, each another list of placements. Beside
+      // `clips:` because it is the same thing set aside. See docs/takes.md.
+      "takes",
       "color",
       "disabled",
       "tracks",
@@ -69,6 +72,15 @@ describe("derived module fields", () => {
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));
+  });
+
+  it("answers inside a take, at both of its levels", () => {
+    // A take is a list of lists: `takes[0]` is a take, `takes[0].clips[0]` is a placement. The
+    // editor completes both, so setting one aside by hand is as writable as the lane itself.
+    expect(fieldsAt("module", ["takes", "0"])).toEqual(["name", "clips"]);
+    expect(fieldsAt("module", ["takes", "0", "clips", "0"])).toEqual(
+      fieldsAt("module", ["clips"]),
+    );
   });
 
   it("answers for a nested struct, which the CUE version could not", () => {
@@ -127,6 +139,9 @@ describe("derived lane fields", () => {
     expect(fieldsAt("module", ["clips"])).toEqual([
       "ref",
       "start",
+      // The event's own window — the placement-level half of the material's pair.
+      "from",
+      "to",
       "fadeIn",
       "fadeOut",
       "loop",
@@ -158,9 +173,14 @@ describe("derived values", () => {
 });
 
 describe("chain fields", () => {
-  it("offers the file's two sections, and nothing inside them", () => {
-    // Two, not three: `tracks:` is gone, because a lane is a module and lives in `modules:`.
-    expect(fieldsAt("chains", [])).toEqual(["modules", "bypassed"]);
+  it("offers the file's three sections, and nothing inside them", () => {
+    // `tracks:` stays gone (a lane is a module and lives in `modules:`); `positions:` is the
+    // pins — where dragged nodes sit, cosmetic and hand-editable like the rest.
+    expect(fieldsAt("chains", [])).toEqual([
+      "modules",
+      "bypassed",
+      "positions",
+    ]);
     // Inside a section the keys are node NAMES — a project's own vocabulary, which the
     // schema cannot know. Offering field names there would invent one.
     expect(fieldsAt("chains", ["modules"])).toEqual([]);

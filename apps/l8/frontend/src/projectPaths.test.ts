@@ -8,6 +8,7 @@ import {
   isTrackFile,
   isVideoTrackFile,
   moduleFileOf,
+  rackKeyOf,
   readScalarField,
 } from "./projectPaths";
 
@@ -134,5 +135,28 @@ describe("entityFile", () => {
 
   it("returns null when the song has no such file", () => {
     expect(entityFile(files, "tracks", "snare")).toBe(null);
+  });
+});
+
+describe("rackKeyOf", () => {
+  // The key `hints.racks` files a rack under: the chain `use` ref — a module's folder name, or
+  // a NODE's stem, since the hint folds a node's `extends` in under the node's own name.
+  it("answers a module's folder name, filing included", () => {
+    expect(rackKeyOf("modules/instruments/drum_1/module.yaml")).toBe("drum_1");
+    expect(rackKeyOf("song.l8/modules/instruments/drum_1/module.yml")).toBe(
+      "drum_1",
+    );
+  });
+
+  it("answers a node's stem — the instance of a rack is a rack too", () => {
+    expect(rackKeyOf("nodes/da_main-drum_1.yaml")).toBe("da_main-drum_1");
+    expect(rackKeyOf("song.l8/nodes/da_main-drum_1.yaml")).toBe(
+      "da_main-drum_1",
+    );
+  });
+
+  it("answers nothing for every other file", () => {
+    expect(rackKeyOf("clips/kick.yaml")).toBe(null);
+    expect(rackKeyOf("modules/instruments/drum_1/panel.yaml")).toBe(null);
   });
 });

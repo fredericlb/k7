@@ -121,6 +121,20 @@ export interface AutomationDoc {
   points: [number, number][]; // [beat, output]
 }
 
+/**
+ * A TAKE: what a lane was playing, set aside when something was recorded over it.
+ *
+ * The same list of clips a lane holds, compiled the same way — so a surface can draw one without
+ * knowing it is looking at a take. **The engine never receives these**: `withoutTakes` strips them
+ * at the one place a document is sent (see @studio/song's project.ts). They are compiled here
+ * rather than beside the drawing code so that a take's clips get their real extents from the one
+ * compiler, and stay identical to the arrangement they were.
+ */
+export interface TakeDoc {
+  name?: string;
+  clips: ClipDoc[];
+}
+
 export interface TrackDoc {
   id: string;
   name: string;
@@ -140,6 +154,8 @@ export interface TrackDoc {
   monitor: string; // Tracktion's "off" | "auto" (armed) | "on"; ignored when inputChannels is empty
   inputGain: number; // interface input trim in dB, 0 == unity; ignored when inputChannels is empty
   clips: ClipDoc[];
+  // The lane's takes — absent on a lane with none, and never on the wire (see TakeDoc).
+  takes?: TakeDoc[];
   plugins: PluginDoc[];
   sends: SendDoc[];
   automation: AutomationDoc[];

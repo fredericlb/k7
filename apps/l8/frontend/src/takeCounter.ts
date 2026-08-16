@@ -40,6 +40,18 @@ export function takeCounter(
   };
 }
 
+/**
+ * The beat the take's MATERIAL starts on: the transport's start plus the count-in.
+ *
+ * `startBeat` is where the transport rolled, not where recording begins — the count-in runs
+ * between them — and every surface that draws a take has to know the difference. The growing
+ * clip on the lane drew from `startBeat`, so it appeared the instant Play was pressed and, once
+ * recording did start, stretched back over bars that hold nothing.
+ */
+export function recordingFrom(startBeat: number, countInBeats: number): number {
+  return startBeat + Math.max(0, countInBeats);
+}
+
 /** The take's position as bar:beat, 1-based — a live counter, so x/4 is assumed as it always was. */
 export function barBeat(
   recordedBeats: number,

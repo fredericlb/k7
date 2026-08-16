@@ -1,6 +1,6 @@
-// clipLoop.ts — where a clip's LOOP sits on the axis its editor draws, so the piano roll and the
-// waveform mark the same thing from the same arithmetic. Both panes span the clip's PLACED
-// length, which for a looped clip is the window several times over — without the marks, the
+// clipLoop.ts — where a clip's LOOP sits on the axis its editor draws, so its editors read the
+// same arithmetic. The piano roll is CAGED to it (rollFit.ts): the window is the whole view. The
+// waveform strip still spans the placed length and draws the repeat marks — without them the
 // material stops partway along a pane whose width nothing on screen explains.
 
 import type { WebClip } from "./types";

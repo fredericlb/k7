@@ -18,6 +18,7 @@ import type { WebGraph, WebProject } from "../types";
 
 export function GraphPanel({
   reloadKey,
+  organizeKey = 0,
   trackId,
   trackOrder,
   project,
@@ -33,6 +34,8 @@ export function GraphPanel({
   onTrackSet,
 }: {
   reloadKey: number;
+  // Bumped when `graph organize` ran — empties the held node positions (see ChainsTab's).
+  organizeKey?: number;
   trackId: string | null;
   // The engine's track order; the live-signal set is derived off the store (see ChainsTab).
   trackOrder: string[];
@@ -92,13 +95,35 @@ export function GraphPanel({
       .catch((e) => setError((e as Error).message));
   }, [reloadKey]);
 
+  // The session memory ChainsTab keeps, for the same reason: an edit must not reorganize
+  // the picture under the pointer. Per TRACK — another track is another picture — and
+  // emptied by `graph organize` (organizeKey), the one reorganizing operation.
+  const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const prevScope = useRef<string | number>("");
   const laid = useMemo(() => {
     if (!graph || !trackId) return null;
     const sub = subgraphForTrack(graph, trackId);
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
     const { nodes, edges } = buildGraph(sub);
-    return layout(nodes, edges);
-  }, [graph, trackId]);
+    const scope = `${trackId}:${organizeKey}`;
+    if (prevScope.current !== scope) {
+      prevScope.current = scope;
+      prevLaid.current = null;
+    }
+    // The pins apply here too: the panel is a window onto the same graph, and a module the
+    // person placed must not sit somewhere else depending on which pane is looking. After an
+    // organize they are simply gone from the file, so nothing needs suppressing here.
+    const out = layout(
+      nodes,
+      edges,
+      graph.positions,
+      prevLaid.current ?? undefined,
+    );
+    prevLaid.current = new Map(
+      out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
+    );
+    return out;
+  }, [graph, trackId, organizeKey]);
 
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);

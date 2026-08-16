@@ -17,6 +17,10 @@ Trois passes, toutes reproductibles :
    spécificateur publié, les `bin`/`main`, les entrées esbuild du tray, et les tests.
 3. **Config** — dépendances importées sans être déclarées, scripts manquants, variables
    d'environnement lues sans être documentées.
+4. **Symboles** — chaque nom `export`é, confronté à tous les identifiants qui apparaissent
+   dans les autres fichiers. Un nom que rien d'autre ne prononce, pas même son propre fichier,
+   n'a plus d'appelant possible. Grossier exprès : un homonyme sauve un mort, jamais l'inverse,
+   donc la liste est un plancher.
 
 **Trois pièges de méthode, tous rencontrés en écrivant ceci :**
 
@@ -45,6 +49,7 @@ Trois passes, toutes reproductibles :
 | `packages/file-service/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
 | `packages/engine-host/src/main.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `engine/capot/scripts/build-engine.mjs`, qui les bundle dans le tray. Zéro import n'est pas zéro appelant. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
+| `packages/dsp/src/emit.ts` | le script `build` du paquet (`tsx src/emit.ts`). Une passe qui ne regarde que `bin` et les entrées esbuild le déclare mort ; **un `scripts` de `package.json` est un appelant.** |
 
 `@studio/dsp` est aussi l'API d'auteur publiée aux utilisateurs
 (`apps/l8/docs/25-syntax-instruments.md`), et le C++ colle son JSON généré
@@ -103,11 +108,49 @@ et `/surface`. Les douze autres sont de la plomberie interne exposée.
 | export `AuthUser` | `apps/st0/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. |
 | script `"serve"` | `apps/l8/frontend/package.json` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
 
+### Des SYMBOLES, pas des fichiers
+
+Le fichier vit, la fonction non : personne ne prononce ce nom, nulle part, pas même le fichier
+qui le déclare. Relevé par la passe 4 ; les trois déjà décrits ailleurs sur cette page
+(`probeLocalEngine`/`isReachable`, `rollGridPlugin`/`trackerPlugin`, `ChainsPanel`) n'y sont pas
+répétés.
+
+| symbole | où | note |
+|---|---|---|
+| `FrameClock` | `packages/ui-eyes/src/clock.ts` | l'horloge que **l'exporteur** avance — et `export.ts` est déjà mort deux lignes plus haut. Le chemin WebCodecs est mort en entier : le baril, `exportScene`, et l'horloge qui le cadence. À trancher d'un bloc, comme §6. |
+| `valueAt` | `packages/ui-timeline/src/lanes.ts` | l'inverse de `xFor` ; les hôtes convertissent tous dans l'autre sens. |
+| `loadMixView` | `packages/song/src/loader.ts` | la vue Mix se lit désormais par `yaml/mixViewFile`. |
+| `setTrackFields` | `packages/song/src/trackMix.ts` | |
+| `mediatekDirFor` | `packages/song/src/mediatekRoot.ts` | |
+| `isFileParam`, `isDocRef` | `packages/song/src/moduleTypes.ts` | deux gardes de type que plus rien n'interroge. |
+| `isGeneratedTrack` | `packages/song/src/trackModule.ts` | |
+| `readDoc` | `packages/song/src/testSupport.ts` | un support de test qu'aucun test n'utilise. |
+| `listAll` | `packages/mediatek/src/catalogue.ts` | |
+| `remoteListing` | `packages/mediatek/src/remote.ts` | |
+| `forgetPlayers`, `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
+| `hasLibraries` | `packages/file-service/src/libraries.ts` | à côté de `LibrariesMovedError`, elle aussi sans lanceur. |
+| `fileServiceLogPath` | `packages/engine-client/src/paths.ts` | |
+| `PORT_LEAD` | `packages/ui-chains/src/graph.ts` | |
+| `EMPTY_SET` | `packages/ui-turntables/src/setList.ts` | |
+| `isYamlFile` | `packages/ui-editor/src/yaml/language.ts` | |
+| `AVAILABLE_EFFECTS` | `packages/player-web/src/audioEffects.ts` | la liste que l'UI d'effets aurait dessinée. |
+| `localizedCommandNames` | `apps/l8/frontend/src/commandI18n.ts` | |
+| `chainRefFromCreate` | `apps/l8/frontend/src/moduleInsert.ts` | |
+| `knownPrefs` | `apps/st0/frontend/src/prefs.ts` | |
+| `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
+| `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | quatre primitives de dessin sur les six du fichier ; le présentateur ne dessine plus ni bouton ni boîte joueur. |
+
+**232 symboles de plus ne sont prononcés que par leur propre test.** Ce n'est pas du code mort —
+c'est le choix, assumé partout ici, de tester une constante ou un pas de calcul plutôt que la
+seule fonction publique qui les enveloppe. Compté ici pour que le chiffre ne surprenne pas la
+prochaine passe : `ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), `ui-chains/graph.ts` (9).
+
 **Outillage sans point d'entrée** — des programmes, pas du code mort, mais que rien ne câble :
 
-- `packages/song/scripts/{migrateModules,migrateChains,migrateDocFields,projectFingerprint}.ts` —
-  aucun script npm ni tâche turbo. `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe
-  que pour `migrateModules.ts`.
+- `packages/song/scripts/{migrateModules,migrateChains,migrateDocFields,migrateNamespace,migrateTimecodes,projectFingerprint}.ts`
+  — aucun script npm ni tâche turbo. `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe
+  que pour `migrateModules.ts`. Deux se sont ajoutés depuis le relevé précédent : le dossier
+  grossit d'une migration à chaque renommage, et rien ne les retire une fois jouées.
 - `packages/ui-turntables/scripts/{tempo-drag,metronome}.ts` — ceux-là sont **documentés** et se
   lancent à la main (`docs/hosting.md`) ; ils mesurent un SON, ce qu'aucun test unitaire ne fait.
 
@@ -165,7 +208,7 @@ propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
 |---|---|
 | Des tests qui ne tournent jamais : des fichiers `*.test.ts` et aucun script `test`, donc `turbo run test` les ignore. | `packages/translator` (2 fichiers), `packages/ui-waveform` (1) |
 | Importé sans être déclaré — ne se résout que par hoisting. | `engine-host` (`@frediverse/oidc`, `yaml`), `file-service` + `web-protocol` (`@studio/engine-protocol`), `translator` (`yaml`, `vitest`), `ui-editor` (`yaml`), `ui-waveform` (`vitest`), `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `l8-frontend` (`yaml`, `zod`, `vitest`), `st0-frontend` (`@studio/ui-editor`) |
-| `yaml` chez `l8-frontend` n'est pas que du test : `sliceWaveformWidget.ts` l'importe en production. | `apps/l8/frontend` |
+| `yaml` chez `l8-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. (Ce constat nommait `sliceWaveformWidget.ts`, supprimé depuis ; les deux fichiers ci-dessus l'ont repris.) | `apps/l8/frontend` |
 | Aucun bloc `dependencies` alors que le paquet importe `@studio/engine-protocol` ; et `zod` + `@types/express` sont déclarés en devDeps sans qu'une seule ligne les importe. | `packages/web-protocol` |
 | Pas de champ `description`. | `packages/ui-waveform`, `packages/web-protocol` |
 | Lues dans le code, absentes de `env.example.yaml` : `STUDIO_REGISTRY_URL` (9 lectures), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |

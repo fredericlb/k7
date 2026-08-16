@@ -3,7 +3,13 @@
 // and root files (project.yaml, chains.yaml, settings.yaml). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  type Dirent,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { basename, extname, join } from "node:path";
 import { formatIssue, type ModuleIssue, parseModule } from "./moduleFile";
 
@@ -51,6 +57,43 @@ export function moduleFileFor(
 }
 
 /**
+ * The YAML files a folder holds, keyed by basename, `.yaml` winning over `.yml`.
+ *
+ * One `readdir` and nothing else. Listing a folder used to cost three syscalls per entry — the
+ * readdir, a `statSync` to prove the entry was a file, then `existsSync` back through
+ * `moduleFileFor` to find the name readdir had just handed over. On a real song that was 40% of
+ * `entityFiles`, for facts already in hand: a `Dirent` says file-or-directory itself. Only a
+ * SYMLINK still needs a stat — `Dirent` reports the link, `statSync` reports its target, and a
+ * library module reached through one must keep loading.
+ */
+function yamlFilesIn(folder: string): Map<string, string> {
+  let found: Dirent[];
+  try {
+    found = readdirSync(folder, { withFileTypes: true });
+  } catch {
+    return new Map(); // not there, or unreadable — every caller treats that as empty
+  }
+  const byBase = new Map<string, string>();
+  for (const e of found) {
+    const ext = extname(e.name).toLowerCase();
+    if (!EXTS.includes(ext)) continue;
+    if (e.isDirectory()) continue;
+    if (!e.isFile()) {
+      // A symlink, or something stranger: ask what it points AT, as the stat used to.
+      try {
+        if (!statSync(join(folder, e.name)).isFile()) continue;
+      } catch {
+        continue;
+      }
+    }
+    const base = basename(e.name, ext);
+    // `.yaml` wins when both spellings are there, whichever order readdir returned them in.
+    if (ext === ".yaml" || !byBase.has(base)) byBase.set(base, e.name);
+  }
+  return byBase;
+}
+
+/**
  * The NODE files beside a module's generic — every `<node>.yaml` that is none of the folder's own
  * (MODULE_OWN_BASES). One entry per node NAME; a directory is never one.
  */
@@ -58,30 +101,14 @@ export function nodeFiles(
   folder: string,
   relDir: string,
 ): { node: string; file: ModuleFile }[] {
-  let names: string[];
-  try {
-    names = readdirSync(folder);
-  } catch {
-    return []; // unreadable folder — the generic still loads
-  }
-  const bases = new Set<string>();
-  for (const f of names) {
-    const ext = extname(f).toLowerCase();
-    if (!EXTS.includes(ext)) continue;
-    const base = basename(f, ext);
+  const out: { node: string; file: ModuleFile }[] = [];
+  for (const [base, name] of [...yamlFilesIn(folder)].sort()) {
     // The generic, the panel, the preset shelf and the MIDI map are the module ITSELF, not uses of it.
     if (MODULE_OWN_BASES.has(base)) continue;
-    try {
-      if (!statSync(join(folder, f)).isFile()) continue;
-    } catch {
-      continue;
-    }
-    bases.add(base);
-  }
-  const out: { node: string; file: ModuleFile }[] = [];
-  for (const base of [...bases].sort()) {
-    const file = moduleFileFor(folder, relDir, base);
-    if (file) out.push({ node: base, file });
+    out.push({
+      node: base,
+      file: { path: join(folder, name), rel: `${relDir}/${name}` },
+    });
   }
   return out;
 }
@@ -104,28 +131,12 @@ export function entityFiles(
   folder: string,
   relDir: string,
 ): { id: string; file: ModuleFile }[] {
-  let names: string[];
-  try {
-    names = readdirSync(folder);
-  } catch {
-    return [];
-  }
-  const bases = new Set<string>();
-  for (const f of names) {
-    const ext = extname(f).toLowerCase();
-    if (!EXTS.includes(ext)) continue;
-    try {
-      if (!statSync(join(folder, f)).isFile()) continue;
-    } catch {
-      continue;
-    }
-    bases.add(basename(f, ext));
-  }
   const out: { id: string; file: ModuleFile }[] = [];
-  for (const base of [...bases].sort()) {
-    const file = entityFileFor(folder, relDir, base);
-    if (file) out.push({ id: base, file });
-  }
+  for (const [base, name] of [...yamlFilesIn(folder)].sort())
+    out.push({
+      id: base,
+      file: { path: join(folder, name), rel: `${relDir}/${name}` },
+    });
   return out;
 }
 

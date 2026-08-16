@@ -55,6 +55,16 @@ struct NoteDoc {
     double vel = 1.0;     // 0..1
     int channel = 0;
     double rel = 1.0;     // release velocity 0..1
+
+    // Compared FIELD BY FIELD by the diff: a MIDI clip's notes are applied when the clip is
+    // inserted and nowhere else, so a clip whose notes changed has to be re-inserted. Without
+    // this the whole note vocabulary — add, remove, velocity, move — reached the engine and
+    // changed nothing you could hear. See ProjectDiff's clipMoved.
+    bool operator==(const NoteDoc& o) const {
+        return time == o.time && duration == o.duration && key == o.key && vel == o.vel
+            && channel == o.channel && rel == o.rel;
+    }
+    bool operator!=(const NoteDoc& o) const { return ! (*this == o); }
 };
 
 enum class ClipType { Audio, Midi };

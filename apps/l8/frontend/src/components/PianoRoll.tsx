@@ -1,22 +1,25 @@
-﻿// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip, opening ZOOMED TO FIT its notes and the
-// loop window that frames them, without being bounded by either: all 128 keys exist and the canvas
-// runs to the clip's placed extent (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note
-// (press = pitch + start, release = end) via `sequence note new`; a pinch zooms time, a plain wheel
-// and a middle-drag pan. Drawn by the Editor bottom panel and, when a clip is clicked, where the
-// graph is (ClipView).
+﻿// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip. A clip that states a window
+// (`from`/`to`) is CAGED to it: the canvas spans the window and what is outside is not drawn;
+// without one it opens zoomed to fit its notes and the canvas runs to the placed extent
+// (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note (press = pitch + start,
+// release = end) via `sequence note new`; a pinch zooms time, a plain wheel and a middle-drag
+// pan. Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { clipLoop, visibleRepeats } from "../clipLoop";
+import { clipLoop } from "../clipLoop";
 import { m } from "../paraglide/messages.js";
 import { rollFit } from "../rollFit";
 import type { WebClip, WebProject } from "../types";
+import { ArrangementRuler } from "./Ruler";
 
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const pc = (k: number) => ((k % 12) + 12) % 12;
-const noteName = (k: number) => `${NAMES[pc(k)]}${Math.floor(k / 12) - 1}`; // MIDI 60 => C4
+// Exported for the step sequencer's row labels — one spelling of a key, wherever it is read.
+export const noteName = (k: number) =>
+  `${NAMES[pc(k)]}${Math.floor(k / 12) - 1}`; // MIDI 60 => C4
 const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(pc(k));
 
 const N_NOTES = 128; // every possible MIDI note (0..127)
@@ -34,6 +37,7 @@ export function PianoRoll({
   project,
   clip,
   onClose,
+  onSeek,
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
@@ -42,6 +46,8 @@ export function PianoRoll({
   clip: WebClip;
   /** Absent when the frame around it owns the closing — see GraphSlotPane. */
   onClose?: () => void;
+  /** Seek the transport, in SONG seconds — what a click on the arrangement ruler does. */
+  onSeek?: (seconds: number) => void;
   // Draw a note via `sequence note new`; absent, the roll is read-only (no known sequence to write to).
   onCreateNote?: (key: number, startBeat: number, endBeat: number) => void;
   /**
@@ -95,13 +101,26 @@ export function PianoRoll({
   }, [clip.id, setZoomX]);
 
   // What the view opens on, both axes — see rollFit.ts, which is where the arithmetic is tested.
+  // `origin` is the beat at the canvas's left edge: the window's `from`, 0 without one.
   const fit = rollFit(notes, clip.length, barBeats, loop);
-  const { placedEnd, canvasBeats } = fit;
+  const { placedEnd, canvasBeats, origin } = fit;
   const fitHiK = fit.hiKey;
   const fitBeatLo = fit.loBeat;
 
+  // Only what the window contains is drawn. A note over the edge is kept and CUT there — the lane
+  // clips it — so material half-in still reads as present; one wholly outside does not exist here.
+  const visNotes = notes.filter(
+    (n) => n.time < origin + canvasBeats && n.time + n.duration > origin,
+  );
+
+  // A PLACED clip stacks the ARRANGEMENT's ruler over its own: the roll is a magnified piece of
+  // the song, and its header should say where in the song you are looking. A sequence FILE has
+  // no placement (length 0), so there is nothing global to point at.
+  const placed = clip.length > 0;
+  const rulersH = RULER_H * (placed ? 2 : 1);
+
   const availW = Math.max(0, pane.w - GUTTER);
-  const availH = Math.max(0, pane.h - RULER_H);
+  const availH = Math.max(0, pane.h - rulersH);
   // Base scales: the framed rows fill the height, the framed beat span fills the width — then
   // zoomX stretches the time axis past fit.
   const rowH = availH > 0 ? availH / fit.rows : 12;
@@ -123,17 +142,22 @@ export function PianoRoll({
     if (zoomX !== 1) return;
     framedFor.current = clip.id;
     el.scrollTop = (127 - fitHiK) * rowH; // top of the fit pitch range
-    el.scrollLeft = fitBeatLo * ppb; // …and the left edge of the fitted span
-  }, [clip.id, availH, rowH, fitHiK, fitBeatLo, ppb, zoomX]);
+    el.scrollLeft = (fitBeatLo - origin) * ppb; // …and the left edge of the fitted span
+  }, [clip.id, availH, rowH, fitHiK, fitBeatLo, origin, ppb, zoomX]);
 
-  const bars = Array.from(
-    { length: Math.floor(canvasBeats / barBeats) + 1 },
-    (_, i) => i,
-  );
-  const beats = Array.from(
-    { length: Math.floor(canvasBeats) },
-    (_, b) => b,
-  ).filter((b) => b % barBeats !== 0);
+  // The grid's beats are ABSOLUTE — the file's own bar numbers — drawn offset by the origin, so a
+  // window opening at bar 3 still says 3 rather than renumbering itself from 1.
+  const gridEnd = origin + canvasBeats;
+  const bars: number[] = [];
+  for (
+    let t = Math.ceil(origin / barBeats) * barBeats;
+    t <= gridEnd;
+    t += barBeats
+  )
+    bars.push(t);
+  const beats: number[] = [];
+  for (let t = Math.ceil(origin); t <= Math.floor(gridEnd); t++)
+    if (t % barBeats !== 0) beats.push(t);
 
   // --- left-click-drag to draw a note ----------------------------------------------
   // A live draft while dragging: pitch fixed at the press row, time from press to cursor.
@@ -146,7 +170,13 @@ export function PianoRoll({
 
   const atEvent = (e: PointerEvent | React.PointerEvent) => {
     const r = laneRef.current!.getBoundingClientRect();
-    const beat = Math.max(0, (e.clientX - r.left) / ppb);
+    // Lane x → an ABSOLUTE beat: the lane's left edge is the origin, and a windowed clip cannot
+    // be pointed outside its own window.
+    const beat = clamp(
+      origin + (e.clientX - r.left) / ppb,
+      origin,
+      origin + canvasBeats,
+    );
     const key = clamp(127 - Math.floor((e.clientY - r.top) / rowH), 0, 127);
     return { beat, key };
   };
@@ -333,7 +363,7 @@ export function PianoRoll({
 
   const draftBox = draft
     ? {
-        left: Math.min(draft.t0, draft.t1) * ppb,
+        left: (Math.min(draft.t0, draft.t1) - origin) * ppb,
         width: Math.max(3, Math.abs(draft.t1 - draft.t0) * ppb),
         top: keyTop(draft.k),
       }
@@ -347,7 +377,12 @@ export function PianoRoll({
           🎹 {clip.name || clip.id}
         </span>
         <span className="text-muted-foreground">
-          {notes.length} notes · {Math.round(placedEnd)} beats
+          {visNotes.length} notes
+          {/* What the cage hides, counted — so a windowed file whose notes sit before its `from`
+              reads as windowed rather than as data lost. */}
+          {notes.length > visNotes.length &&
+            ` (+${notes.length - visNotes.length} hors fenêtre)`}{" "}
+          · {Math.round(placedEnd)} beats
           {/* What the marks in the grid add up to, said in words: a clip that is ten passes of
               eight beats is not a 80-beat pattern, and the pane is 80 beats wide either way. */}
           {loop && (
@@ -376,50 +411,61 @@ export function PianoRoll({
       <div ref={bodyRef} className="relative min-h-0 flex-1 overflow-auto">
         <div
           className="relative font-mono"
-          style={{ width: GUTTER + laneW, height: RULER_H + gridH }}
+          style={{ width: GUTTER + laneW, height: rulersH + gridH }}
         >
-          {/* bars + beats ruler */}
-          <div
-            className="sticky top-0 z-20 flex bg-background text-[10px] text-muted-foreground"
-            style={{ height: RULER_H }}
-          >
-            <div
-              className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
-              style={{ width: GUTTER }}
-            />
-            <div
-              className="relative border-b border-border"
-              style={{ width: laneW }}
-            >
-              {beats.map((b) => (
+          {/* The rulers, stacked and sticky as one: the SONG's positions on top (the shared
+              arrangement ruler — the same ticks the timeline draws, offset to the placement),
+              the file's own bars + beats below. */}
+          <div className="sticky top-0 z-20 bg-background text-[10px] text-muted-foreground">
+            {placed && (
+              <div className="flex" style={{ height: RULER_H }}>
                 <div
-                  key={`t${b}`}
-                  className="absolute bottom-0 border-l border-border/25"
-                  style={{ left: b * ppb, height: RULER_H / 2 }}
+                  className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
+                  style={{ width: GUTTER }}
                 />
-              ))}
-              {bars.map((bar) => (
                 <div
-                  key={bar}
-                  className="absolute top-0 h-full border-l border-border/60 pl-0.5"
-                  style={{ left: bar * barBeats * ppb }}
+                  className="relative border-b border-border/50"
+                  style={{ width: laneW }}
                 >
-                  {bar + 1}
+                  <ArrangementRuler
+                    startBeat={clip.start}
+                    beats={canvasBeats}
+                    ppb={ppb}
+                    barBeats={barBeats}
+                    tempo={project.tempo}
+                    height={RULER_H}
+                    onSeek={onSeek}
+                  />
                 </div>
-              ))}
-              {/* The loop, as a bracket on the ruler. The lines down the grid say WHERE; this
-                  says which span they belong to, at the one place a reader looks for extents. */}
-              {loop && (
-                <div
-                  title={`loop ${loop.win}b × ${loop.passes}`}
-                  className="absolute bottom-0 border-x-2 border-b-2 border-violet-400/70"
-                  style={{
-                    left: loop.from * ppb,
-                    width: Math.max(2, loop.win * ppb),
-                    height: RULER_H / 2,
-                  }}
-                />
-              )}
+              </div>
+            )}
+            {/* bars + beats ruler — the FILE's own numbering, window origin included */}
+            <div className="flex" style={{ height: RULER_H }}>
+              <div
+                className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
+                style={{ width: GUTTER }}
+              />
+              <div
+                className="relative border-b border-border"
+                style={{ width: laneW }}
+              >
+                {beats.map((t) => (
+                  <div
+                    key={`t${t}`}
+                    className="absolute bottom-0 border-l border-border/25"
+                    style={{ left: (t - origin) * ppb, height: RULER_H / 2 }}
+                  />
+                ))}
+                {bars.map((t) => (
+                  <div
+                    key={t}
+                    className="absolute top-0 h-full border-l border-border/60 pl-0.5"
+                    style={{ left: (t - origin) * ppb }}
+                  >
+                    {t / barBeats + 1}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -447,7 +493,9 @@ export function PianoRoll({
             </div>
             <div
               ref={laneRef}
-              className={`relative ${onCreateNote ? "cursor-crosshair" : ""}`}
+              // overflow-hidden is the cage's edge: a note crossing the window's `from` or `to`
+              // is drawn at its true beats and cut where the window ends.
+              className={`relative overflow-hidden ${onCreateNote ? "cursor-crosshair" : ""}`}
               style={{ width: laneW }}
               onPointerDown={onLanePointerDown}
             >
@@ -465,45 +513,17 @@ export function PianoRoll({
                   style={{ top: keyTop(k) }}
                 />
               ))}
-              {bars.map((bar) => (
+              {bars.map((t) => (
                 <div
-                  key={bar}
+                  key={t}
                   className="absolute top-0 border-l border-border/50"
-                  style={{ left: bar * barBeats * ppb, height: gridH }}
+                  style={{ left: (t - origin) * ppb, height: gridH }}
                 />
               ))}
-              {/* The LOOP: the window that repeats, then a line where each later pass begins.
-                  Under the notes, so a note over the window's edge still reads as a note. The
-                  canvas spans the clip's PLACED length, so without this a repeated pattern is
-                  eight beats of material in eighty beats of empty grid. */}
-              {loop && (
-                <>
-                  <div
-                    className="pointer-events-none absolute top-0 bg-violet-400/10"
-                    style={{
-                      left: loop.from * ppb,
-                      width: Math.max(1, loop.win * ppb),
-                      height: gridH,
-                    }}
-                  />
-                  {visibleRepeats(loop, ppb).map((b) => (
-                    <div
-                      key={`lr${b}`}
-                      className="pointer-events-none absolute top-0 border-l border-violet-400/25"
-                      style={{ left: b * ppb, height: gridH }}
-                    />
-                  ))}
-                  {/* The two points themselves, last so they sit over the repeat lines. */}
-                  {[loop.from, loop.to].map((b, i) => (
-                    <div
-                      key={`le${b}-${i}`}
-                      className="pointer-events-none absolute top-0 border-l border-violet-400/70"
-                      style={{ left: b * ppb, height: gridH }}
-                    />
-                  ))}
-                </>
-              )}
-              {notes.map((n, i) => {
+              {/* No loop band, no repeat lines: the canvas IS the window now (rollFit cages it),
+                  so the violet layer would frame everything and mark nothing. The header still
+                  states the loop and its pass count in words. */}
+              {visNotes.map((n, i) => {
                 const top = keyTop(n.key);
                 const h = Math.max(1, rowH - 1);
                 // What this note is worth: the file's `vel`, or the drag's live value while it is
@@ -558,7 +578,7 @@ export function PianoRoll({
                       // The note follows the hand while it is the one being dragged, so the roll
                       // shows where it will land before anything is written. Nothing is committed
                       // until release — this is a picture, not an edit.
-                      left: (dragging ? drawStart : n.time) * ppb,
+                      left: ((dragging ? drawStart : n.time) - origin) * ppb,
                       width: Math.max(
                         2,
                         (dragging
@@ -607,7 +627,8 @@ export function PianoRoll({
               <RollPlayhead
                 tempo={project.tempo}
                 clipStart={clip.start}
-                canvasBeats={canvasBeats}
+                placedEnd={placedEnd}
+                span={canvasBeats}
                 ppb={ppb}
                 height={gridH}
               />
@@ -631,24 +652,30 @@ export function PianoRoll({
 function RollPlayhead({
   tempo,
   clipStart,
-  canvasBeats,
+  placedEnd,
+  span,
   ppb,
   height,
 }: {
   tempo: number;
   clipStart: number;
-  canvasBeats: number;
+  /** The clip's extent on the timeline — where the transport stops being this clip's business. */
+  placedEnd: number;
+  /** Beats the canvas draws. A windowed clip's later passes FOLD back into it — the view is one
+   *  pass, and the transport is always somewhere in it. */
+  span: number;
   ppb: number;
   height: number;
 }) {
   const playhead = useEngineState((s) => s.playhead);
   const localBeat = (playhead * tempo) / 60 - clipStart;
-  if (localBeat < 0 || localBeat > canvasBeats) return null; // the transport is outside this clip
+  if (localBeat < 0 || localBeat > placedEnd) return null; // the transport is outside this clip
+  const x = (span > 0 ? localBeat % span : 0) * ppb;
   return (
     <div
       className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-white/80"
       style={{
-        transform: `translateX(${localBeat * ppb}px)`,
+        transform: `translateX(${x}px)`,
         willChange: "transform",
         height,
       }}

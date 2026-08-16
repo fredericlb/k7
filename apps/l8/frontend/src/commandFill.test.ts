@@ -3,6 +3,7 @@ import {
   applyOffer,
   canRun,
   emptyValues,
+  enterAction,
   firstMissing,
   lineArgs,
   nextField,
@@ -224,5 +225,56 @@ describe("a clip drag answering the form", () => {
     expect(wantsKind(MOVE, 2, "timecode")).toBe(true);
     values[2] = "5:1:1";
     expect(canRun(MOVE, values)).toBe(true);
+  });
+});
+
+// What Enter does in the form. The reported bug: with a suggestion highlighted, Enter did
+// nothing at all — it took the suggestion, the list kept showing it (an exact match still
+// ranks first), and the next Enter took it again, for ever. A command whose LAST field has a
+// vocabulary could therefore never be submitted, which is exactly `module replace`'s shape.
+describe("enterAction", () => {
+  // `module replace <module> <extends-ref>` — both required, the last one completing.
+  const REPLACE: PaletteArg[] = [
+    arg("module", "module"),
+    arg("extends-ref", "module"),
+  ];
+
+  it("takes a highlighted suggestion that would change the field", () => {
+    expect(enterAction(REPLACE, ["lead", ""], 1, "audio/cab")).toEqual({
+      kind: "take",
+      value: "audio/cab",
+    });
+  });
+
+  it("RUNS once the field already holds it — the bug", () => {
+    // Same suggestion still highlighted, now equal to the answer. Taking it again would be a
+    // no-op, and it is what ate every Enter.
+    expect(enterAction(REPLACE, ["lead", "audio/cab"], 1, "audio/cab")).toEqual(
+      {
+        kind: "run",
+      },
+    );
+  });
+
+  it("runs when the field lists no vocabulary at all", () => {
+    expect(enterAction(REPLACE, ["lead", "audio/cab"], 1, undefined)).toEqual({
+      kind: "run",
+    });
+  });
+
+  it("goes to the question that is actually missing, rather than sulking", () => {
+    expect(enterAction(REPLACE, ["", "audio/cab"], 1, "audio/cab")).toEqual({
+      kind: "goto",
+      index: 0,
+    });
+  });
+
+  it("still takes a DIFFERENT suggestion over running", () => {
+    // Completion is the validation: arrowing to another entry and pressing Enter answers the
+    // field, it does not dispatch the line that was runnable a moment ago.
+    expect(enterAction(REPLACE, ["lead", "audio/cab"], 1, "audio/ir")).toEqual({
+      kind: "take",
+      value: "audio/ir",
+    });
   });
 });

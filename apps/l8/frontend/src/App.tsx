@@ -24,7 +24,7 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
-import type { PresetInfo } from "@studio/engine-protocol";
+import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
@@ -87,6 +87,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
+import { RackBuilder } from "./components/RackBuilder";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
 import { ShareMenu } from "./components/ShareMenu";
@@ -123,13 +124,13 @@ import { useLocale } from "./i18n";
 import {
   blurOnClick,
   type ConditionCtx,
-  KEYS,
+  effectiveKeys,
   keyForCommand,
   keyToken,
-  resolveBinding,
+  resolveToken,
 } from "./keys";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
-import { isUiLine, namesLine } from "./localCommands";
+import { BARE_TRANSPORT, isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
   moduleInsertCommand,
@@ -155,7 +156,12 @@ import {
   TransportClock,
   VIEW_META,
 } from "./shellMeta";
-import { trackPlacing } from "./takeReview";
+import {
+  placedBeat,
+  type TakeOption,
+  takeOptions,
+  trackPlacing,
+} from "./takeReview";
 import type {
   CommandInfo,
   ProjectInfo,
@@ -305,6 +311,9 @@ export default function App({
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
   const [status, setStatus] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  // Bumped when `graph organize` runs: the graph hosts hold every drawn node in place across
+  // ordinary edits, and this is the one signal that lets dagre re-lay out everything.
+  const [organizeKey, setOrganizeKey] = useState(0);
   const bumpReload = useCallback(() => setReloadKey((k) => k + 1), []);
   // MIDI recording is browser-side (the engine records audio only), one track at a time, landing in its sequence.
   const [midiArmed, setMidiArmed] = useState<string | null>(null);
@@ -375,6 +384,10 @@ export default function App({
   // keeps Escape while you are TYPING in it — the listener stands aside for a code editor — so
   // the key still leaves insert mode and only reaches here from outside the text.
   usePopin(editorPopin, () => setEditorPopin(false));
+  // The rack builder popin — a 4×4 pad grid that ends in modules/instruments/<name> on disk.
+  // Opened by the `module create rack` palette command; Esc and the backdrop close it.
+  const [rackBuilder, setRackBuilder] = useState(false);
+  usePopin(rackBuilder, () => setRackBuilder(false));
   // Whether ANY overlay is up, this shell's or a component's own. Drives the `popin` condition.
   const anyPopin = useAnyPopin();
   /**
@@ -505,6 +518,9 @@ export default function App({
     setCommandPrefs(next);
     void engines.patchPrefs({ commands: next }).catch(() => {});
   }, []);
+  // The keymap as this person has it: the app's simple bindings with their `key:` prefs applied.
+  // Computed once per prefs change — the key listener reads it on every press.
+  const effKeys = useMemo(() => effectiveKeys(commandPrefs), [commandPrefs]);
   const lastActive = useRef<string | null>(null);
   const lastShiftAt = useRef(0); // for the double-tap-Shift palette opener
   const pendingPrewrite = useRef<string | null>(null);
@@ -518,6 +534,9 @@ export default function App({
     connected,
     engineReady,
     engineBusy,
+    // …and the same flag as a REF, for the one caller that must read it without being rebuilt
+    // when it changes: the local command dispatcher (see the bare transport verbs).
+    engineBusyRef,
     engineWarnings,
     watchWaveform,
     transport,
@@ -537,6 +556,23 @@ export default function App({
     setStatus,
     pushLog,
   );
+
+  // Where playback LAST STARTED, in seconds — what `transport replay` returns to. Read off the
+  // store's frames rather than recorded when this shell presses play, so a start from anywhere
+  // (a key, the bar, another tab, the CLI) counts: while stopped, the playhead sits where a play
+  // would begin, and the rising edge freezes that value. A raw subscription, not useEngineState —
+  // frames arrive at 20 Hz and this must remember, not re-render.
+  const replayAtRef = useRef(0);
+  useEffect(() => {
+    let wasPlaying = store.getSnapshot().playing;
+    let restingAt = store.getSnapshot().playhead;
+    return store.subscribe(() => {
+      const s = store.getSnapshot();
+      if (!s.playing) restingAt = s.playhead;
+      else if (!wasPlaying) replayAtRef.current = restingAt;
+      wasPlaying = s.playing;
+    });
+  }, [store]);
 
   // The interface's inputs, asked for only while the builder is open on a module that HAS an input
   // to point somewhere. Nothing else in l8 needs the grouping: the IO panel meters the ports the
@@ -1033,9 +1069,23 @@ export default function App({
   usePopin(!!imp.importPath && !imp.importing, imp.cancelImport);
   usePopin(!!del.deletePath && !del.deleting, del.cancelDelete);
 
-  // Follow a project switch made under us (another tab, the CLI).
+  // Follow what happened under us: a project switch (another tab, the CLI), and a TAKE.
   useActiveProjectFollow({
     lastActiveRef: lastActive,
+    /**
+     * A recording landed. Two halves, and the bug was that neither happened on its own:
+     * `setWs` carries the clip's name, which is what opens the review panel on it, and the
+     * reload is what puts the clip on its lane — the placement was written by the file
+     * service, so nothing in this tab knew the document had changed.
+     *
+     * It used to work by accident, and only one way: stopping with SPACE went through the
+     * file service, whose reply bumped the reload for its own reasons. Stopping with the
+     * header's button never showed the take at all.
+     */
+    onTake: (w) => {
+      setWs(w);
+      bumpReload();
+    },
     onSwitch: (w) => {
       setWs(w);
       void api
@@ -1247,6 +1297,12 @@ export default function App({
         setGraphSlot(null);
         return true;
       }
+      // The rack builder popin — the building is the browser's (drops, audition), so the
+      // command only OPENS it; its create writes through the file routes like the tree's verbs.
+      if (line === "module create rack") {
+        setRackBuilder(true);
+        return true;
+      }
       // new project <audio|live|set> <name> — first token the shape, the rest the name, so
       // multi-word names work.
       if (line.startsWith("project new")) {
@@ -1320,6 +1376,41 @@ export default function App({
       // Toggle record over the wire. Reading the live snapshot keeps this out of the deps and always flips current.
       if (line === "transport record") {
         engineRef.current?.setRecordEnabled(!store.getSnapshot().recordEnabled);
+        return true;
+      }
+      // Replay: the playhead returns to where playback last started, and rolls again — the
+      // retrigger every DAW keeps under a shifted play. The memory is this shell's (see
+      // replayAtRef): live transport state routes through the engine WebSocket, never a server.
+      // Pressed mid-playback it jumps back and keeps rolling; `play` is not a toggle.
+      if (line === "transport replay") {
+        seek(replayAtRef.current);
+        transport("play");
+        return true;
+      }
+      /**
+       * …and so do the four bare verbs, for the same reason and one more: LATENCY.
+       *
+       * They went to the file service, which sends the very message this socket sends — after an
+       * HTTP round trip, after the undo journal walks the whole project twice (measured at 62 ms
+       * warm and 215 ms cold on a real song), and behind whatever that single-threaded service was
+       * already doing. A project compile is 1.5 s there, so a Space pressed while one was in
+       * flight waited for it. That is the "sometimes a second" nobody could reproduce on demand:
+       * the delay belonged to the queue, not to the transport.
+       *
+       * Nothing is lost by keeping them here. The verbs write no file, so there is nothing to
+       * journal and nothing to reload — and the header's play button has always driven this same
+       * socket directly, so this is the two paths agreeing rather than a new one.
+       *
+       * It FALLS THROUGH to the service in the two cases the socket cannot answer for: no
+       * connection of our own, and an engine mid-apply — which this path DROPS rather than
+       * queues (`useEngineLink`, and the reason is that a queue turned one press into three
+       * plays and a rewind). Dropping is right for a button you can see is disabled and wrong
+       * for a key whose whole promise is that it always works, so the key keeps the slow path
+       * for exactly that window. Fast when it can be, honest when it cannot.
+       */
+      if (BARE_TRANSPORT.includes(line)) {
+        if (!connected || engineBusyRef.current) return false;
+        transport(line.slice("transport ".length) as TransportAction);
         return true;
       }
       // `rec <track>`: an instrument track arms in the browser, an audio track in the engine. See docs/shell.md.
@@ -1642,6 +1733,13 @@ export default function App({
       engineRef,
       midiSeqRef,
       store,
+      seek,
+      transport,
+      engineBusyRef,
+      // …and whether that socket is up, which decides whether the bare transport verbs are
+      // answered here or handed to the service. Stale, this would send Space to the server for
+      // ever — the flag is false on the first render of every session.
+      connected,
       createNewProject,
       setFull,
       setView,
@@ -1713,6 +1811,9 @@ export default function App({
         // The repo verbs move the badge, the view AND the workspace — a pull can add projects.
         // Here rather than in the share menu, because the palette and a key run them too.
         if (/^project (commit|pull|alternative)\b/.test(s)) onRepoChanged();
+        // The one reorganizing verb: the graph hosts drop their held positions with the
+        // same reload that drops the pins, or "reorganize" would visibly do nothing.
+        if (s === "graph organize") setOrganizeKey((k) => k + 1);
       } catch (e) {
         setStatus(`command error: ${(e as Error).message}`);
         pushLog("error", (e as Error).message);
@@ -2002,7 +2103,17 @@ export default function App({
     info: { before: string; after: string } | null;
     x: number;
     y: number;
+    // The click's WORLD point — where the picked module will be BORN (`at` on the create
+    // verbs), so a new node never asks the layout where to appear.
+    at?: { x: number; y: number };
   } | null>(null);
+  // Offer the click into the pre-written line's `at` field — deferred a tick, because
+  // prewrite has only just SET the bar's command state and a same-tick offer reads the old.
+  const offerSpawnAt = useCallback((at?: { x: number; y: number }) => {
+    if (!at) return;
+    const v = `${Math.max(0, Math.round(at.x))},${Math.max(0, Math.round(at.y))}`;
+    setTimeout(() => cmdRef.current?.offer({ at: v }, true), 0);
+  }, []);
   // The picker's vocabulary, PREFETCHED. It used to be fetched on the click, which put a full /hints — the
   // tracks, the clips, the plugin scan, the path map — between pressing `+` and seeing a list of modules. The
   // catalogue barely moves, so it is fetched once and refreshed when the project changes.
@@ -2032,31 +2143,38 @@ export default function App({
   // Opening the picker awaits nothing now. With no vocabulary yet — the very first frames, or a failed
   // fetch — pre-write the command instead, which is what a picker with nothing to show was always worth.
   const insertIntoChain = useCallback(
-    (info: { before: string; after: string }, x: number, y: number) => {
+    (
+      info: { before: string; after: string },
+      x: number,
+      y: number,
+      at?: { x: number; y: number },
+    ) => {
       if (!baseModules.length) {
         prewriteCommand(`chain add ${info.before} ${info.after} `);
+        offerSpawnAt(at);
         return;
       }
-      setModulePicker({ info, x, y });
+      setModulePicker({ info, x, y, at });
     },
-    [baseModules, prewriteCommand],
+    [baseModules, prewriteCommand, offerSpawnAt],
   );
   // Right-click on empty canvas: the same picker, but the pick has nowhere to be spliced.
   const placeInGraph = useCallback(
-    (x: number, y: number) => {
+    (x: number, y: number, at?: { x: number; y: number }) => {
       if (!baseModules.length) {
         prewriteCommand("module place ");
+        offerSpawnAt(at);
         return;
       }
-      setModulePicker({ info: null, x, y });
+      setModulePicker({ info: null, x, y, at });
     },
-    [baseModules, prewriteCommand],
+    [baseModules, prewriteCommand, offerSpawnAt],
   );
   const onModulePick = useCallback(
     (pick: ModulePick) => {
       if (!modulePicker) return;
       setModulePicker(null);
-      const { info } = modulePicker;
+      const { info, at } = modulePicker;
       // Remember the arrow: this command only CREATES the module, and runCommand splices it (see moduleInsert.ts).
       pendingInsert.current = info;
       const ref = pick.namespace === null ? undefined : pick.ref;
@@ -2064,13 +2182,15 @@ export default function App({
       // either way. Only the node name is missing, and only the user can supply it — so the line stops at
       // the bar with the cursor where that name goes. Without an arrow the verb is `module place`, and the
       // module arrives in the graph connected to nothing, which is a state the file can hold.
+      // The click's world point fills the line's `at` field, so the node is born under it.
       prewriteCommand(
         info
           ? moduleInsertCommand(info, pick.type, pick.name, ref)
           : modulePlaceCommand(pick.type, pick.name, ref),
       );
+      offerSpawnAt(at);
     },
-    [modulePicker, prewriteCommand],
+    [modulePicker, prewriteCommand, offerSpawnAt],
   );
 
   // What the caret is currently over, for the conditional bindings (keys.ts).
@@ -2132,8 +2252,17 @@ export default function App({
           el.tagName === "A" ||
           el.tagName === "SELECT");
       if (control) {
+        // What comes back from a focused control is the TRANSPORT's keys — wherever the person
+        // has put them, so a remapped play key keeps the promise Space's default had — plus
+        // Escape. Enter stays the control's even though its default is transport rewind: it
+        // activates the button, which is what keeps a Tab-focused control operable.
         const t = keyToken(e);
-        if (t !== "space" && t !== "esc") return;
+        const passes =
+          t === "esc" ||
+          (t !== null &&
+            t !== "enter" &&
+            !!effKeys[t]?.startsWith("transport "));
+        if (!passes) return;
       }
       // The command bar: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a held Shift.
       // Docked, it FOCUSES the bar that is already there; on the phone it still opens the popin.
@@ -2162,16 +2291,16 @@ export default function App({
       lastShiftAt.current = 0;
       const token = keyToken(e);
       if (!token) return;
-      const binding = KEYS[token];
-      if (!binding) return;
-      const command = resolveBinding(binding, conditions);
+      // Through the person's own keymap: their assignments and steals first, the app's
+      // conditional bindings (esc, f, m…) as the fallback — see keys.ts's resolveToken.
+      const command = resolveToken(token, conditions, effKeys);
       if (!command) return;
       e.preventDefault();
       void runCommand(command);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [builder, conditions, docked, runCommand, settingsScreen]);
+  }, [builder, conditions, docked, effKeys, runCommand, settingsScreen]);
 
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
   // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor
@@ -2252,6 +2381,41 @@ export default function App({
     !(recordEnabled && playing)
       ? ws.lastTake
       : null);
+
+  /**
+   * The takes the reviewed lane holds — the panel's sidebar, when a recording left a choice.
+   *
+   * Recomputed off the project doc, so it follows every swap: `runCommand` bumps the reload key,
+   * the doc comes back, and the row marked "on the track" is the one that just moved there.
+   */
+  const reviewTakes = useMemo(
+    () => takeOptions(projectDoc, reviewTake?.track ?? ""),
+    [projectDoc, reviewTake?.track],
+  );
+  /**
+   * Listen to another take: it goes ON the track, and what was there becomes that take.
+   *
+   * A swap rather than a preview, because the point is to hear the pass IN the song — with the
+   * rest of the band — and only what the lane plays reaches the engine. Nothing is lost by it
+   * (packages/song/docs/takes.md), so this is an audition that happens to be an edit, and one
+   * Ctrl+Z away like every other command. The playhead goes to where the take starts, so the
+   * sidebar's ▶ means "hear this one from its beginning".
+   */
+  const pickTake = useCallback(
+    async (t: TakeOption) => {
+      const track = reviewTake?.track;
+      if (!track || t.n === null) return;
+      await runCommand(`track take select ${track} ${t.n}`);
+      if (t.clip) setReviewOn({ clip: t.clip, track });
+      seek((t.startBeat * 60) / recInfo.tempo);
+    },
+    [reviewTake?.track, runCommand, seek, recInfo.tempo],
+  );
+  // …and the decision: keep whatever is on the track, delete the rest.
+  const keepTake = useCallback(() => {
+    const track = reviewTake?.track;
+    if (track) void runCommand(`track take keep ${track}`);
+  }, [reviewTake?.track, runCommand]);
 
   // Everything that makes the transport unable to answer, as one flag — because to whoever is reaching for Play
   // the two causes are the same fact, and the button has to say so either way.
@@ -2453,7 +2617,7 @@ export default function App({
                 <nav className="flex items-center gap-1">
                   {layout.fullscreen.map((p) => {
                     const Icon = PANE_META[p].icon;
-                    const key = keyForCommand(`ui ${p}`);
+                    const key = keyForCommand(`ui ${p}`, commandPrefs);
                     return (
                       <Button
                         key={p}
@@ -2527,6 +2691,19 @@ export default function App({
               <div
                 className="fixed inset-0 z-40 bg-black/40"
                 onPointerDown={() => setEditorPopin(false)}
+              />
+            )}
+            {/* The rack builder — a popin of its own: a 4×4 pad grid that ends in a
+                modules/instruments/<name> on disk. Opened by `module create rack`. */}
+            {rackBuilder && (
+              <RackBuilder
+                activeProject={ws?.activeProject ?? null}
+                onClose={() => setRackBuilder(false)}
+                onCreated={(ref) => {
+                  setRackBuilder(false);
+                  setStatus(`rack ${ref} créé — branchez-le depuis le graphe`);
+                  bumpReload();
+                }}
               />
             )}
             <div
@@ -2656,6 +2833,9 @@ export default function App({
                     // place that shows nothing while you record.
                     rolling={rolling}
                     takeStartBeat={takeStart}
+                    // The pre-roll, in beats: the growing clip skips it, because those bars
+                    // record nothing and the placement that lands on Stop does not cover them.
+                    takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
                     orbit={orbit}
                     videoTracks={videoTracks}
                     onVideoEdit={applyVideoEdit}
@@ -2715,6 +2895,14 @@ export default function App({
                             )
                         : undefined
                     }
+                    // …and the selection rectangle answers `events move` the same way: its
+                    // region fills tracks/from/to, leaving only the delta to type.
+                    feedEventsMove={
+                      barPending?.canonical === "events move"
+                        ? (tracks, from, to) =>
+                            cmdRef.current?.offer({ tracks, from, to })
+                        : undefined
+                    }
                     onFocusRow={focusRowInPanes}
                     trackControls={trackControls}
                     onTrackToggle={onTrackToggle}
@@ -2753,6 +2941,7 @@ export default function App({
                 >
                   <ChainsTab
                     reloadKey={reloadKey}
+                    organizeKey={organizeKey}
                     active={!chainsOffScreen && !graphSlot}
                     // The sidebar is fullscreen chrome (ChainsTab's own rule): it belongs wherever
                     // the graph has the window rather than half of it. A project with no
@@ -2775,6 +2964,23 @@ export default function App({
                     onContextMenu={openContextMenu}
                     onEdgeInsert={insertIntoChain}
                     onCanvasInsert={placeInGraph}
+                    // The patch cable's landing runs the verb outright: both ends were
+                    // clicked, so there is nothing left for the bar to ask. Its two
+                    // siblings likewise — a lifted cable dropped on the canvas deletes
+                    // its arrow, landed on another jack it moves one end.
+                    onConnect={(from, to) =>
+                      void runCommand(`chain connect ${from} ${to}`)
+                    }
+                    onDisconnect={(from, to) =>
+                      void runCommand(`chain disconnect ${from} ${to}`)
+                    }
+                    onReplug={(from, to, nf, nt) =>
+                      void runCommand(`chain replug ${from} ${to} ${nf} ${nt}`)
+                    }
+                    // A dropped header likewise: the drag already said everything.
+                    onMoveNode={(mod, x, y) =>
+                      void runCommand(`module position ${mod} ${x} ${y}`)
+                    }
                     pendingInsert={insertingAt}
                     seedGraph={seedGraph}
                     // The NOTES: whether the graph draws them, and how many it has to draw —
@@ -2816,6 +3022,11 @@ export default function App({
                   <ClipView
                     target={graphSlot.target}
                     onClose={() => setGraphSlot(null)}
+                    // The slot's target is a snapshot from the click; this is what lets the
+                    // open clip re-read itself after every command's reload.
+                    reloadKey={reloadKey}
+                    // A click on the editor's arrangement ruler is the timeline's seek.
+                    onSeek={seek}
                     // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are
                     // command lines like everything else here.
                     command={runCommand}
@@ -2869,6 +3080,24 @@ export default function App({
                     beatsPerBar={recInfo.beatsPerBar}
                     countIn={recInfo.countIn}
                     startBeat={takeStart}
+                    // Where the clip on screen actually SITS on its lane. The take that just
+                    // landed sits where the transport rolled — but one picked out of the sidebar
+                    // sits wherever it was recorded, so the ruler asks the document rather than
+                    // assuming the last take's start.
+                    placedAt={
+                      (reviewTake &&
+                        placedBeat(
+                          projectDoc,
+                          reviewTake.track,
+                          reviewTake.clip,
+                        )) ??
+                      takeStart
+                    }
+                    takes={reviewTakes}
+                    onPickTake={pickTake}
+                    onKeepTake={keepTake}
+                    onPlay={() => void runCommand("transport toggle")}
+                    onSeek={seek}
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
                     command={runCommand}
@@ -2898,6 +3127,7 @@ export default function App({
                 {panel === "graph" && (
                   <GraphPanel
                     reloadKey={reloadKey}
+                    organizeKey={organizeKey}
                     trackId={caret?.trackId ?? null}
                     trackOrder={trackOrder}
                     project={projectDoc}
@@ -3277,7 +3507,7 @@ export default function App({
             its own table of contents, one scrollable body you can ctrl-F end to end. */}
         {showHelp && (
           <div className="fixed inset-0 z-50 bg-background">
-            <HelpPage onBack={closeHelp} />
+            <HelpPage onBack={closeHelp} prefs={commandPrefs} />
           </div>
         )}
 

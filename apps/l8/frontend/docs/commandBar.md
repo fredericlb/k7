@@ -91,7 +91,13 @@ components with two copies of that would be two commands.
   one first, so completion is still the validation, and then steps on.
 - **Enter** means "that is my line": it runs as soon as every required parameter is answered.
   When one is missing it moves there instead of refusing silently. On a field showing
-  suggestions it takes the highlighted one, as Tab does.
+  suggestions it takes the highlighted one, as Tab does — **unless the field already holds it**,
+  and that clause is the whole of a bug this had: an exact match still ranks first, so the list
+  stays on screen after a pick, and taking it again is a no-op. Enter was therefore eaten for
+  ever, and a command whose LAST field has a vocabulary (`module replace <module>
+  <extends-ref>`) could never be submitted at all. The three answers live in one place,
+  `enterAction` in `commandFill.ts`, which is also what the footer names — so the panel cannot
+  promise "run" while the key would pick.
 - **Escape** drops the list, and a second Escape abandons the command and gives the bar back.
 
 Bottom-right, small, and over nothing you would be pointing at: the bar is the bottom strip,

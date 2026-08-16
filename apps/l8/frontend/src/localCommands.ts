@@ -73,6 +73,26 @@ export const BARE_NAMES: readonly string[] = [
 ];
 
 /**
+ * The transport verbs the shell answers over the ENGINE's socket instead of sending to the file
+ * service — which would send this very message, after an HTTP round trip and the undo journal.
+ *
+ * They are NOT `ui` lines: `ui` promises not to move the transport, and these are the transport.
+ * They are the catalogue's own verbs, dispatched here because the shortest path to the engine is
+ * the socket the shell already holds — measured at ~110 ms through the service on an idle
+ * machine, and up to a second and a half behind a project compile. See docs/shell.md.
+ *
+ * `transport metronome` is deliberately absent: it rewrites settings.yaml, so it is a real
+ * command with a real edit. `locate`, `loop`, `record` and `replay` are answered here too, each
+ * for its own reason, and their branches are in App.
+ */
+export const BARE_TRANSPORT: readonly string[] = [
+  "transport play",
+  "transport stop",
+  "transport toggle",
+  "transport rewind",
+];
+
+/**
  * Does `line` name this command? Whole-word: the name ends the line or is followed by a space.
  *
  * Both forms matter. `file new clips kick.yaml` is the line as run; a bare `file new` is what a

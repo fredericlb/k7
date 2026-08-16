@@ -282,6 +282,30 @@ void diff_clip_retimed_by_every_field() {
     CHECK(moves([](ClipDoc& c) { c.warp.algorithm = "slice"; }));
     CHECK(moves([](ClipDoc& c) { c.warp.markers = {{0.0, 0.0}, {4.0, 2.0}}; }));
 
+    // The NOTES, every way one can change: a MIDI clip's are written into the edit when the clip
+    // is inserted and nowhere else, so a clip whose notes moved has to be re-inserted. Missing
+    // from the comparison, the whole note vocabulary — add, remove, velocity, MOVE — reached the
+    // engine and changed nothing anyone could hear.
+    const NoteDoc n1{0.0, 0.5, 36, 1.0, 0, 1.0};
+    const NoteDoc n2{1.0, 0.5, 38, 0.8, 0, 1.0};
+    ProjectDoc withNote = a;
+    withNote.tracks[0].clips[0].notes = {n1};
+    CHECK(diff(a, withNote).size() == 1 && hasKind(diff(a, withNote), ChangeKind::ClipMoved));
+    const auto notesMove = [&](std::vector<NoteDoc> to) {
+        ProjectDoc b = withNote;
+        b.tracks[0].clips[0].notes = std::move(to);
+        const auto d = diff(withNote, b);
+        return d.size() == 1 && hasKind(d, ChangeKind::ClipMoved);
+    };
+    CHECK(notesMove({n1, n2}));                                    // one added
+    CHECK(notesMove({}));                                          // the last one removed
+    CHECK(notesMove({{0.0, 0.5, 36, 0.4, 0, 1.0}}));               // its velocity
+    CHECK(notesMove({{2.0, 0.5, 36, 1.0, 0, 1.0}}));               // moved in time
+    CHECK(notesMove({{0.0, 0.5, 38, 1.0, 0, 1.0}}));               // moved to another key
+    // …and the same notes are still nothing to do.
+    ProjectDoc sameNotes = withNote;
+    CHECK(diff(withNote, sameNotes).empty());
+
     // …and a change to none of them is still nothing to do.
     ProjectDoc same = a;
     CHECK(diff(a, same).empty());

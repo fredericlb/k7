@@ -1,6 +1,5 @@
-// What the piano roll opens on. The regression this pins is measurable and was measured: a looped
-// clip framed its PLACED extent, so `da.dub`'s drums opened with the notes in the leftmost 7% of
-// the pane and eighty beats of empty grid beside them.
+// What the piano roll opens on — and, for a clip that states a window, the cage it may not leave:
+// the view spans `from`/`to`, and what is outside the window is not drawn at all.
 
 import { describe, expect, it } from "vitest";
 import { clipLoop } from "./clipLoop";
@@ -25,16 +24,10 @@ const clip = (over: Partial<WebClip>): WebClip => ({
 const fitFor = (c: WebClip, barBeats = 4) =>
   rollFit(c.notes, c.length, barBeats, clipLoop(c));
 
-/** What fraction of the framed width the notes occupy — the number in the report. */
-const fill = (c: WebClip, barBeats = 4) => {
-  const f = fitFor(c, barBeats);
-  const end = c.notes.reduce((m, n) => Math.max(m, n.time + n.duration), 0);
-  return (end - f.loBeat) / f.beats;
-};
-
-describe("the time axis", () => {
-  it("frames a LOOPED clip on its window, not on its placed extent", () => {
+describe("the time axis, windowed", () => {
+  it("is the window itself — a looped clip is its pattern, not its placed extent", () => {
     // LEMO - DANSE, da.dub/drums_2_0: 7.135 beats of notes, 80 beats placed, an 8-beat loop.
+    // The view is the 8-beat window; the nine later passes are the same picture again.
     const c = clip({
       length: 80,
       loopStart: 0,
@@ -42,34 +35,22 @@ describe("the time axis", () => {
       notes: [note(0, 0.5, 36), note(7, 0.135056, 38)],
     });
     const f = fitFor(c);
+    expect(f.origin).toBe(0);
     expect(f.loBeat).toBe(0);
-    expect(f.hiBeat).toBeCloseTo(9.6, 5); // the 8-beat window + 20%
-    // The bug: this used to be 96 beats, and the notes filled 7% of it.
-    expect(f.beats).toBeCloseTo(9.6, 5);
-    expect(fill(c)).toBeGreaterThan(0.7);
+    expect(f.hiBeat).toBe(8);
+    expect(f.beats).toBe(8);
+    expect(f.canvasBeats).toBe(8);
   });
 
-  it("still reaches the placed extent with its CANVAS", () => {
-    // The later passes and their marks are there to be scrolled to — framing the window must not
-    // make them unreachable.
+  it("still knows the placed extent — the playhead's bound, not the canvas's", () => {
     const f = fitFor(
       clip({ length: 80, loopStart: 0, loopEnd: 8, notes: [note(0)] }),
     );
     expect(f.placedEnd).toBe(80);
-    expect(f.canvasBeats).toBeGreaterThanOrEqual(80);
-    expect(f.canvasBeats % 4).toBe(0); // whole bars
+    expect(f.canvasBeats).toBe(8);
   });
 
-  it("frames an UNLOOPED clip as it always did", () => {
-    // bs.verse/bass_2_0: 19.96 beats of notes in a 20-beat clip — already ~83% full, and the
-    // margin is the whole difference. Nothing here may move.
-    const c = clip({ length: 20, notes: [note(0), note(18.96, 1)] });
-    expect(fill(c)).toBeCloseTo(1 / 1.2, 2);
-  });
-
-  it("frames a window that opens past beat 0 with nothing before it", () => {
-    // A sequence windowed to bar 3 onwards: the roll opens THERE rather than on the empty bars
-    // before it, the same way the pitch axis skips the octaves nothing uses.
+  it("opens AT a window that starts past beat 0 — the origin is its `from`", () => {
     const f = fitFor(
       clip({
         length: 4,
@@ -78,31 +59,64 @@ describe("the time axis", () => {
         notes: [note(8, 1, 62), note(11, 1, 64)],
       }),
     );
-    expect(f.loBeat).toBeCloseTo(7.2, 5); // 8 − 20% of the 4-beat span
-    expect(f.hiBeat).toBeCloseTo(12.8, 5);
+    expect(f.origin).toBe(8);
+    expect(f.loBeat).toBe(8);
+    expect(f.hiBeat).toBe(12);
+    expect(f.canvasBeats).toBe(4);
   });
 
-  it("…but keeps notes that sit BEFORE the window in view", () => {
-    // They are in the file and they do not play, which is exactly the thing worth seeing. Framing
-    // the window alone would hide them, and their absence would read as data lost.
+  it("does not let a note BEFORE the window stretch the view or the pitch fit", () => {
+    // The note at beat 0 does not sound and is not shown — the window is the whole picture, and
+    // the pitch axis is fitted to what the window contains, the same way the time axis is.
     const f = fitFor(
       clip({
         length: 4,
         loopStart: 8,
         loopEnd: 12,
-        notes: [note(0, 1, 60), note(8, 1, 62), note(11, 1, 64)],
+        notes: [note(0, 1, 20), note(8, 1, 62), note(11, 1, 64)],
       }),
     );
-    expect(f.loBeat).toBe(0);
-    expect(f.hiBeat).toBeGreaterThan(12);
+    expect(f.loBeat).toBe(8);
+    expect(f.loKey).toBeGreaterThan(20); // fitted to 62..64, not dragged down to the hidden 20
   });
 
-  it("includes the loop's END even when the last note falls short of it", () => {
-    // Otherwise the marker for where the loop closes sits outside the opening view.
+  it("ends exactly at the loop's end, even when the last note falls short of it", () => {
     const f = fitFor(
       clip({ length: 16, loopStart: 0, loopEnd: 16, notes: [note(0, 1)] }),
     );
-    expect(f.hiBeat).toBeGreaterThan(16);
+    expect(f.hiBeat).toBe(16);
+  });
+
+  it("counts a note OVER the window's edge as inside, for the pitch fit", () => {
+    // It is cut at the edge but its visible part is in the view, so its pitch must be framed.
+    const f = fitFor(
+      clip({
+        length: 4,
+        loopStart: 8,
+        loopEnd: 12,
+        notes: [note(7, 2, 100), note(9, 1, 60)],
+      }),
+    );
+    expect(f.hiKey).toBeGreaterThanOrEqual(100);
+  });
+});
+
+describe("the time axis, unwindowed", () => {
+  it("frames an UNLOOPED clip on its content with a margin, as it always did", () => {
+    // bs.verse/bass_2_0: 19.96 beats of notes in a 20-beat clip — already ~83% full, and the
+    // margin is the whole difference. Nothing here may move.
+    const c = clip({ length: 20, notes: [note(0), note(18.96, 1)] });
+    const f = fitFor(c);
+    const end = c.notes.reduce((m, n) => Math.max(m, n.time + n.duration), 0);
+    expect((end - f.loBeat) / f.beats).toBeCloseTo(1 / 1.2, 2);
+    expect(f.origin).toBe(0);
+  });
+
+  it("still reaches the placed extent with its CANVAS", () => {
+    const f = fitFor(clip({ length: 80, notes: [note(0)] }));
+    expect(f.placedEnd).toBe(80);
+    expect(f.canvasBeats).toBeGreaterThanOrEqual(80);
+    expect(f.canvasBeats % 4).toBe(0); // whole bars
   });
 
   it("gives an empty sequence a bar to look at", () => {

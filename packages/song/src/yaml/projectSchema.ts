@@ -181,6 +181,11 @@ export const ProjectFileSchema = z
     // `tempo` would say it were a knob on a song rather than what the folder is.
     project_type: z.enum(PROJECT_MODES).optional(),
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
+    // The soloed lanes, by id — solo as PROJECT STATE, several at once: any entry silences
+    // every lane not listed (the engine's applySoloMute resolves it across the mixer). A root
+    // sibling like `trackOrder`: a list of lane ids about the mixer, not one of the song's
+    // settings. Absent or empty, nobody is soloed. A group's id solos its members.
+    soloed: z.array(z.string()).optional(),
     markers: z // timeline markers: a position -> its label
       .record(
         z

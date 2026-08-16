@@ -173,6 +173,24 @@ generated lane has no file and no chain of its own, so it names its **group**.
 A header selection survives playback, as every caret position now does — see "The caret and
 the playhead are independent" above.
 
+## A lane's takes
+
+A lane's **takes** — what it was playing before something was recorded over it — are rows of
+their own, indented under the lane, short as a group header and drawn faintly. `projectRows`
+emits them right after their lane, so a take of a grouped lane nests at both levels.
+
+They are **read-only**, and that is the whole rule for this row. Nothing on it is playing, so
+there is no level to draw, no arm to toggle and nothing a drag could mean. Two things follow:
+
+- `rowTarget` answers **null** for a take. Everything downstream of it asks the engine
+  something, and answering with the lane would mute the LANE from a take's own header.
+- the one gesture is the right-click menu — **Move a take onto the track** and **Delete a
+  take** — which is a pair of ordinary commands, so it is typeable like everything else.
+
+Its events are drawn where they SIT, at the lane's own scale and with the same widths, because
+the reason to keep a take is to compare it with what replaced it. See
+`packages/song/docs/takes.md`.
+
 ## A lane's alternatives
 
 A lane can hold several sets of attributes and play one, and its gutter says **which**:
@@ -312,6 +330,25 @@ within; the drawing may be wider. Live pattern lanes deliberately do **not** ext
 their clips are the scheduler's look-ahead, so following them would grow the timeline a bar
 at a time as playback runs.
 
+## Activity runs through the blocks
+
+An event's block is not a flat fill: its opacity runs from **50% where the content is quiet to
+100% where it is loud**, changing along the block, so a lane reads as what it will do before it
+plays. The mapping is pure and tested (`src/activity.ts`); `ClipActivity` is the layer that
+wears it, and the block's own background moved in there (masked by a CSS alpha gradient, so the
+fill stays whatever it was — a type class or the track's authored colour — and the string stays
+colour-blind).
+
+What "loud" means is the event's own: an **audio** clip reads its envelope's peaks — the same
+`/waveform` fetch the expanded lane draws, one shared cache entry per clip, already windowed to
+the event's from/to — normalised to *that window's* loudest point, so a quiet take still shows
+its shape. A **sequence** sums the velocities of every note *sounding* at each position (a
+chord is louder than its loudest note; a missing `vel` is the schema's default, 1), tiling a
+loop window exactly as the mini-roll tiles its notes. Peaks are max-pooled into buckets, never
+averaged — a hit inside a quiet bucket is the activity the block should show. Until an audio
+envelope arrives (or when none ever will), the block wears the flat 70% it always did, so
+nothing flashes.
+
 ## Clicking an event
 
 A click on a clip parks the caret **over it**: the `v` rectangle, anchored at the event's first
@@ -331,6 +368,35 @@ Two things it deliberately does not do. It fires on the pointer coming back UP w
 moved — a drag is a move and ends as one. And it is skipped entirely while the command bar is
 filling `event move`: there, a click on a clip is how you say *which* clip, and answering the
 question you asked for beats a selection you did not.
+
+## Shift: growing the rectangle with the pointer
+
+**Shift+click** on a lane grows the caret into the `v` rectangle — anchored where the caret is
+(or where the rectangle's anchor already was, so successive shifted clicks keep extending one
+selection), headed at the cell under the pointer. Keeping the button down and **dragging**
+moves the head live, across beats and across rows, exactly as `hjkl` would move it — it is the
+same `Selection`, so `z`, Shift+L and `v` then act on it, and the status line counts it.
+
+A shifted press is a selection press even when it lands on a clip: `beginClipDrag` bails on
+`shiftKey` *before* stopping propagation, so the press bubbles to the lane instead of picking
+the clip up. And the head's row is read off the rows' own DOM (`data-sel-row`, on every row
+wrapper — groups and video lanes too), for the reason `laneAtPoint` hit-tests
+`data-lane-track`: rows come in three heights, and a second copy of that geometry would drift.
+Starting the gesture still needs a track lane, the only row a caret cell lives on; the drag can
+then sweep over any row, as the keyboard's head already could.
+
+### The rectangle answers `events move`
+
+Acting on the rectangle is a COMMAND, not a gesture: `events move <tracks> <from> <to> <by>`
+(in `@studio/commands`) moves every event starting in the range by a signed duration, in one
+line — so it is one undo step and one reload however many placements it touches, and the CLI
+can type the same range with no mouse anywhere near. While the bar is filling it, the
+selection feeds its region through `feedEventsMove`, the same road `feedMove` gives the
+single-event drag: tracks, from and to fill themselves (track lanes only — groups hold no
+placements, picture has no verbs, a generated lane's file has no `clips:`), re-offered on
+every change so growing the rectangle keeps the fields true, and only the delta is left to
+type. The range's ends are both inclusive on event STARTS, the same cells the rectangle
+covers — where the loop's `[lo, hi+1)` covers time, a start either falls in a cell or not.
 
 ## Moving a clip
 

@@ -9,6 +9,7 @@ import {
   cubicAt,
   cubicSegments,
   insertFor,
+  jackRef,
   midByArc,
   smoothPath,
   TRACK_NODE_PREFIX,
@@ -153,5 +154,29 @@ describe("insertFor", () => {
     expect(
       insertFor("a", "b", byId(node("a", "track"), node("b", "track"))),
     ).toBeNull();
+  });
+});
+
+describe("jackRef", () => {
+  // A track node's id wears the trk: prefix but its LABEL is the chains name — same for the sink.
+  const node = (
+    kind: GraphNode["kind"],
+    id: string,
+    label: string,
+    module?: string,
+  ) => ({ id, kind, label, module }) as GraphNode;
+
+  it("names a node as the chains spell it, exactly as insertFor does", () => {
+    expect(jackRef(node("module", "m1", "reverb (long)", "reverb"))).toBe(
+      "reverb",
+    );
+    expect(jackRef(node("track", "trk:gtr", "gtr"))).toBe("gtr");
+    expect(jackRef(node("sink", "sink", "OUT"))).toBe("OUT");
+  });
+
+  it("suffixes the port the jack names, in the file's own spelling", () => {
+    expect(jackRef(node("module", "m1", "split", "split"), "b")).toBe(
+      "split#b",
+    );
   });
 });

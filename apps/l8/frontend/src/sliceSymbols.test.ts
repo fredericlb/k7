@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { scanSlices } from "./sliceWaveformWidget";
+import {
+  SLICE_COLORS,
+  scanSlices,
+  setSliceWindow,
+  sliceColor,
+} from "./sliceSymbols";
 
-// Dragging a slice handle rewrites the `from`/`to` NUMBER in the document, by position. So
-// the property worth pinning is not "it found a symbol" but "the range it reports actually
-// addresses that number" — a range off by one silently eats a comma or a brace and leaves
-// the author with a file that no longer parses.
+// Dragging a slice handle on the docked waveform rewrites the `from`/`to` NUMBER in the
+// document, by position. So the property worth pinning is not "it found a symbol" but "the
+// range it reports actually addresses that number" — a range off by one silently eats a comma
+// or a brace and leaves the author with a file that no longer parses. The symbol NAME's range
+// matters the same way: it is what the colour is painted over.
 
-/** Cut the doc at a reported range: what a drag would replace. */
+/** Cut the doc at a reported range: what a drag would replace, or a colour would cover. */
 const at = (doc: string, r: [number, number]) => doc.slice(r[0], r[1]);
 
 const SLICE = `# a break, sliced
@@ -35,6 +41,12 @@ describe("scanSlices", () => {
     expect(at(SLICE, out[1].toRange)).toBe("1.25");
   });
 
+  it("reports the symbol NAME's range — what the colour is painted over", () => {
+    const out = scanSlices(SLICE)!;
+    expect(at(SLICE, out[0].keyRange)).toBe("BD");
+    expect(at(SLICE, out[1].keyRange)).toBe("SN");
+  });
+
   it("survives a `to` that is followed by more fields on the same line", () => {
     // The CUE reader's hazard: a field's value span ran to the closing brace, so `to`
     // would have grabbed "0.5, note: 36" whole. Here the parser bounds it.
@@ -57,8 +69,7 @@ describe("scanSlices", () => {
     const out = scanSlices(doc)!;
     expect([out[0].from, out[0].to]).toEqual([0.25, 0.75]);
     expect(at(doc, out[0].fromRange)).toBe("0.25");
-    // The widget goes under the symbol's LAST line, not its first.
-    expect(doc.slice(0, out[0].anchor)).toContain("to: 0.75");
+    expect(at(doc, out[0].keyRange)).toBe("BD");
   });
 
   it("is null for a samples rack — those symbols name clips, not windows", () => {
@@ -74,18 +85,35 @@ describe("scanSlices", () => {
   });
 
   it("is null while the file doesn't parse, rather than guessing", () => {
-    // Mid-keystroke. Returning a half-read set would place handles at stale offsets, and a
-    // drag would then write into the wrong place.
+    // Mid-keystroke. Returning a half-read set would place a drag's write at stale offsets.
     expect(
       scanSlices("rack:\n  rack_type: slice\n  symbols:\n    BD: { from:"),
     ).toBe(null);
   });
+});
 
-  it("skips a symbol whose window isn't a pair of numbers", () => {
-    const doc =
-      "rack:\n  rack_type: slice\n  source: b.wav\n  symbols:\n" +
-      "    BD: { note: 36 }\n" +
-      "    SN: { note: 38, from: 0, to: 1 }\n";
-    expect(scanSlices(doc)?.map((s) => s.symbol)).toEqual(["SN"]);
+describe("setSliceWindow — what the dock's drag commits", () => {
+  it("rewrites exactly the two numbers, and the file still parses", () => {
+    const out = setSliceWindow(SLICE, "SN", 0.5374, 1)!;
+    expect(out).toContain("SN: { note: 38, from: 0.5374, to: 1 }");
+    expect(out).toContain("BD: { note: 36, from: 0, to: 0.5 }"); // untouched
+    expect(scanSlices(out)?.[1]).toMatchObject({ from: 0.5374, to: 1 });
+  });
+
+  it("rounds to 0.1 ms, so a drag's float noise never lands in the file", () => {
+    const out = setSliceWindow(SLICE, "BD", 0.123456789, 0.5)!;
+    expect(out).toContain("from: 0.1235");
+  });
+
+  it("answers null when the buffer holds no such symbol — a stray drag writes nowhere", () => {
+    expect(setSliceWindow(SLICE, "HH", 0, 1)).toBe(null);
+    expect(setSliceWindow("extends: x\n", "BD", 0, 1)).toBe(null);
+  });
+});
+
+describe("the palette", () => {
+  it("gives neighbours different colours and cycles past its end", () => {
+    expect(sliceColor(0)).not.toBe(sliceColor(1));
+    expect(sliceColor(SLICE_COLORS.length)).toBe(sliceColor(0));
   });
 });
