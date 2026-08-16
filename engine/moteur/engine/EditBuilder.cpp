@@ -507,6 +507,20 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     // file, so the sound is silent. Point the resolver straight at the file; nothing else here goes through one.
     edit.filePathResolver = [](const juce::String& s) { return juce::File(s); };
 
+    // Tracktion's master fader defaults to -3 dB, and nothing here ever moved it. Every mixdown this engine
+    // has written came out 3 dB below the material that made it, on a fader no surface draws and nobody set.
+    //
+    // Found by measuring, after two wrong guesses: a one-track doc with no plugins rendered 3 dB low WITH the
+    // master (`useMaster=true`) and exactly at unity without it, so a stem was always right and a mixdown
+    // always low. It is not a pan law — the plugin was asked, and answered `vol=-3, pan=0`. Track faders were
+    // never involved.
+    //
+    // Set here, so playback, `--render` and a freeze move together: a bounce that came back at one level and
+    // played at another would be audible the moment you froze a track. It matters most where a render is
+    // written BACK onto the material — `clip process` treated the same audio 3 dB quieter every pass.
+    // See packages/commands/docs/peakPass.md.
+    if (auto master = edit.getMasterVolumePlugin()) master->setVolumeDb(0.0f);
+
     edit.tempoSequence.getTempo(0)->setBpm(doc.tempo);
     if (auto* ts = edit.tempoSequence.getTimeSig(0)) {
         ts->numerator = doc.timeSigNumerator;

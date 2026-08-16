@@ -566,4 +566,10 @@ struct NormalizeItem {
 // manifest. Drives the `normalize` command. See docs/cliModes.md.
 int normalizeClips(double targetPeak, const std::vector<NormalizeItem>& items);
 
+// The TRUE peak of one file — the loudest sample on ANY channel — printed as JSON on stdout. What a cold
+// module's measuring pass reads before a render (@studio/commands' peakPass.ts). Deliberately not taken
+// from the `{file}.cache` envelope: that one is a mono sum at four decimals, which is right for drawing a
+// waveform and up to 6 dB wrong for setting a gain. See docs/cliModes.md.
+int printFilePeak(const std::string& audioPath);
+
 }  // namespace studio

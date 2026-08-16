@@ -441,6 +441,10 @@ int main(int argc, char** argv) {
         return studio::writeWaveformCache(
             argv[2], argc >= 4 ? std::atof(argv[3]) : studio::kDefaultTransientSensitivity);
 
+    // Peak mode: print one file's true peak and exit. The measuring half of a COLD module — the brain reads
+    // the number back and writes it into the module's `Peak` before rendering through it.
+    if (argc >= 3 && std::string(argv[1]) == "--peak") return studio::printFilePeak(argv[2]);
+
     // Normalize mode: peak-normalize the given clips with one shared gain, each inside its own window
     // (see NormalizeClips.cpp). Quadruples: <in> <out> <fromSec> <toSec>, toSec < 0 == the file's end.
     if (argc >= 7 && std::string(argv[1]) == "--normalize") {

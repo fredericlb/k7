@@ -139,13 +139,16 @@ a plugin id. The material is what changes, and the track is where the material i
 
 ## What is NOT wired yet
 
-**The measuring pass.** Nothing reads a file's peak and writes it into `Peak`: the flag, the
-rule, the refusal, the graph and the module are here; the analysis that would make a normaliser
-actually normalise is not. `io: file` playback is the other half of the same gap (this package's
-`docs/fileInput.md` records it).
+~~**The measuring pass.**~~ It is wired: `@studio/commands`' `peakPass.ts`, run inside
+`processWithChain`'s per-source loop, filled from the engine's `--peak` mode. See that package's
+`docs/peakPass.md` — including why the `{file}.cache` envelope is the wrong place to read a peak
+from, which is the mistake this was one step away from making.
 
-Until then a cold module of that shape compiles and applies its default gain. That is why the
-`Peak` default attenuates rather than boosts: the un-measured state has to be harmless.
+The `Peak` default still attenuates rather than boosts, and still should: a chain reaching the
+engine without the pass having run is a state the module has to survive.
+
+`io: file` playback remains the other half of the gap this page recorded (this package's
+`docs/fileInput.md`).
 
 **The producing pass** is further along: `@studio/commands`' `coldPass.ts` decides which steps
 are offline and refuses early, and `@studio/file-service` runs the model. What is left is the

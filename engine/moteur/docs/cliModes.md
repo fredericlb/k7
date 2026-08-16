@@ -31,6 +31,24 @@ resolution — not per clip region in Node, which resampled a short clip's envel
 the same audio disagree with itself at two zoom levels. Clip-region slicing and the bar/beat
 grid still stay in Node; this only produces the whole-file envelope and its onsets.
 
+## `--peak <file>`
+
+The file's TRUE peak — the loudest sample on any channel — as JSON on stdout:
+`{"peak":…,"peakDb":…,"frames":…,"channels":…,"sampleRate":…}`. Read by a COLD module's measuring
+pass (`@studio/commands`' `peakPass.ts`) to fill in the `Peak` its graph needs before a render.
+
+It exists **because `--waveform` cannot answer this**, which is not obvious and was measured: that
+envelope averages the channels into one signal before taking its per-bucket maximum, because it is
+drawing a single waveform line. A peak on one channel of a stereo pair therefore reads 6 dB low
+there, and two channels in anti-phase read as **silence** — 94 dB out on a file you can plainly
+hear. It is also stored at four decimals. Right for drawing, useless for setting a gain.
+
+This streams the file in blocks and takes `getMagnitude` across all channels, so it holds no more
+than one block whatever the file's length — unlike `--normalize`, which buffers whole files because
+it also writes them. Silence reports the `-100` floor rather than negative infinity, which is the
+same floor the `Peak` param declares. A float file over full scale is reported as measured: rounding
+here would be this mode inventing a policy that belongs to the module.
+
 ## `--waveform-batch` (stdin)
 
 One line per file, so a song with many fresh clips pays JUCE's startup once. A line is

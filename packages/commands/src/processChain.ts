@@ -33,6 +33,7 @@ import { librariesDirFor } from "@studio/song/sharedFolders";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { parse as parseYaml } from "yaml";
+import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
 import { renderMixdown } from "./render";
 
 /** What a chain of the médiathèque is named by, so the two vocabularies can't collide with the
@@ -97,7 +98,7 @@ function dspGraphOf(m: LoadedModule): string | undefined {
  *
  * Read out of the submodule mounted beside this project, not out of the machine's médiathèque
  * cache — which is why it takes the project dir where it used to take nothing. A chain is a
- * folder holding `chains.yaml`, at any depth, and nothing inside one is another: the
+ * folder holding a `graph.yaml`, at any depth, and nothing inside one is another: the
  * médiathèque's own rule, restated here because `scanFamily` is bound to the cache root and
  * this no longer reads that. A missing submodule is an empty list, never a throw.
  */
@@ -173,7 +174,7 @@ function findChainFolder(
 }
 
 /**
- * A chain of the MÉDIATHÈQUE: its `chains.yaml` for the order, its `nodes/` for what each
+ * A chain of the MÉDIATHÈQUE: its `graph.yaml` for the order, its `nodes/` for what each
  * step runs.
  *
  * Each node is resolved through the project's module vocabulary, so a node that only
@@ -513,12 +514,28 @@ export function processWithChain(
 
   const show = (s: string) => relative(dir, s).split("\\").join("/");
   const lines: string[] = [];
+  // A chain with a MEASURING cold step in it — a normaliser — needs its number before it can be
+  // rendered, and the number is a fact about THIS file. So the measurement sits inside the loop,
+  // which is what "offline, on a file, immediately before the render" means. Asked once, up front,
+  // so a chain with no such step pays no decode: most bounces are not normalisations.
+  const measuring = needsPeak(chain.plugins);
   let changed = false;
   for (const source of targets.sources) {
     const out = renderPath(source, chain.slug);
     try {
       beforeWrite?.(out); // let the host back up the prior render before we overwrite it
-      bounceThroughChain(engine, project, source, chain, out);
+      // Per source, and never written back into `chain`: the next file has its own peak, and a
+      // shared chain would hand it this one's gain.
+      const forThisFile = measuring
+        ? {
+            ...chain,
+            plugins: withMeasuredPeak(
+              chain.plugins,
+              measureFilePeakDb(engine, source),
+            ),
+          }
+        : chain;
+      bounceThroughChain(engine, project, source, forThisFile, out);
     } catch (e) {
       // Per source, and the loop continues: one clip the engine could not decode must not cost
       // the other three their bounce.

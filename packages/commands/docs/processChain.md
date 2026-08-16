@@ -81,11 +81,12 @@ compiler's rule, not this command's.
 by bare name. The project is asked first and the library only under the token, so a project
 chain can never be shadowed by a library one that happens to share its name.
 
-A library chain is a TEMPLATE — `graph.yaml` with `@in` and `@out` for ends, and an
-`nodes/` folder beside it — read from **this machine's médiathèque cache**
-(`~/.studio/mediatek/chains/…`), because that is the disk the engine can open. Each node is
-resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives
-with the eq's plugin, params and preset folded in.
+A library chain is a TEMPLATE — a `graph.yaml` with `@in` and `@out` for ends, and a `nodes/`
+folder beside it — read from the workspace's **library repository** (`_libraries/chains/…`, what
+`librariesDirFor` resolves), because that is the disk the engine can open. Same layout as a
+project, deliberately and to the filename: see `@studio/mediatek`'s `docs/chains.md`. Each node is
+resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the
+eq's plugin, params and preset folded in.
 
 That vocabulary is a cache, and it can be short: the unattended pull fetches the modules the
 open songs NAME (`@studio/file-service`'s `mediatekPull.ts`), and a library chain names its own.
@@ -109,24 +110,30 @@ The engine writes wav and only wav, so the render is a `.wav` whatever the sourc
 it anything else would produce a file that lies about itself.
 
 It is a **mixdown**, so it comes back as the master does: stereo, at the project's sample rate,
-in the engine's own bit depth. A mono clip therefore comes back stereo — and at the same level,
-not 3 dB down, because the centre pan law it picked up on the way to the master is exactly the
-one a stereo file does not pick up on the way back. Measured, not assumed: a mono sine at 0.5
-through a −6 dB strip renders at 0.177, which is −6 dB of chain and −3 dB of pan law, and plays
-back at the level it left.
+in the engine's own bit depth. A mono clip therefore comes back stereo.
+
+**It comes back at the level it left**, which this page claimed before it was true: a −12 dBFS file
+through a chain set to exactly 0 dB of gain now renders at −12 dBFS, mono and stereo alike.
+
+It used to come back 3 dB down, and the worked example above always said so — a 0.5 sine through a
+−6 dB strip rendering at 0.177 is −9 dB, not −6. Tracktion's master fader defaults to −3 dB and
+nothing ever moved it, so every mixdown this engine wrote was 3 dB below its material. `EditBuilder`
+sets it to unity now. The bug was old and quiet; what made it visible is that a normalisation asks
+for an exact level, so a constant offset stops hiding.
 
 ## What a cold module still does not get
 
 A **cold** module — one that has to know the whole of its input before it can produce any of it,
 like the normaliser in `packages/dsp/modules/normalize/` — is legal here: the input is a file,
-which is the condition `coldPlacementError` enforces. But the pass that would *measure* that
-file and feed the value back into the module's params is still not wired anywhere
-(`@studio/song`'s `docs/coldModules.md` says so, and `docs/fileInput.md` records the other half).
+which is the condition `coldPlacementError` enforces.
 
-So a cold module in a chain bounced here applies its default gain, which is deliberately the
-harmless direction: `Peak: 0` attenuates rather than boosts. This is where that pass would
-belong when it exists — offline, on a file, immediately before the render — and nothing here
-pretends it already runs.
+The pass that measures that file and feeds the value back **now runs**, exactly where this page
+predicted it would belong: offline, on a file, immediately before the render. It is `peakPass.ts`,
+inside the per-source loop, and it reads the number from the engine's `--peak` mode rather than from
+the waveform sidecar — see `docs/peakPass.md` for why that distinction is not a detail.
+
+`Peak: 0` remains the default, still attenuating rather than boosting, for a chain that reaches the
+engine some other way.
 
 ## Re-running
 
