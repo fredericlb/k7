@@ -187,9 +187,44 @@ them needs FTZ/DAZ set once per audio thread, and there is no hook we own to do 
 | biquad coefficients recomputed every block (`sin`, `cos`, `sqrt` + two spin locks) | recomputed only when frequency or Q moves |
 | the per-sample loop walked **every** node and branched on its phase | `sampleNodes_`, the sample-phase indices in declared order |
 | `adelay` did four integer `%` per sample per channel (~20-40 cycles each) | delay lines rounded up to a power of two, wrap by mask |
+| the envelope's per-sample loop called `buffer.getReadPointer(ch, start)` per sample per channel | read pointers taken once, as the sample phase already did |
 
 Declared order is preserved, because a node reading a wire written later gets the previous
 sample's value and that *is* the unit delay a feedback loop needs.
+
+### …and what was measured and deliberately NOT done
+
+The last row is worth 3% of that one loop, and no more. It is recorded because the number was
+hard to get, and because the first two attempts at it were wrong.
+
+**Measuring across two builds is not measuring.** Applying the hoist and rebuilding showed the
+auto-wah 12% faster and the envelope-only graph 18% faster — and the **flanger 7% faster too,
+and the flanger has no envelope node at all**. That is code layout moving under a recompile, not
+the change. The honest form is both spellings compiled into one binary, timed against the same
+buffer with the arms interleaved: 570 ns against 550 ns for one 256-sample stereo block,
+repeatable across runs. So the compiler does not hoist it by itself, and what it costs is ~17 ns
+of a 5 333 333 ns block budget.
+
+**The other three phase walks are right as they are.** `analysis`, `audio` and `mix` each still
+iterate every node and skip on `n.phase`, and only the sample phase got an index list. That
+asymmetry is not an oversight: the sample phase walks **once per sample** — 48 000 times a second
+per node — and the other three walk **once per block**, 187 times a second. A 256:1 difference,
+which is the whole reason one of them was worth fixing.
+
+Measured, by padding the auto-wah with inert control nodes: 188 extra nodes cost ~4.5 ns each per
+block, and that figure *includes* each one's own arithmetic, so the skipping alone is a fraction
+of it. On a real graph — the shipped ones are 4 to 12 nodes — the three skipped walks come to
+something under 40 ns on a block that takes 2 800 ns. Three more index vectors on the class, for
+0.0007% of the budget, is a worse class than it is a saving.
+
+For scale, the shipped graphs cost 0.05% (auto-wah) and 0.24% (flanger) of real time per
+instance. The flanger is five times the auto-wah because it is the one that runs per-sample
+dispatch — which is the design working as `DspGraph.h` describes it, not a defect.
+
+`DspGraph_test.cpp` had **no graph with an `envelope` node**, so the analysis phase — the one this
+touched — was uncovered. Three tests now pin it: the envelope follows the louder channel, either
+side, and a mono buffer reads one channel without reaching the null second pointer. Verified red
+by making the loop read channel 0 twice.
 
 **A settings file rewritten on every play — fixed.** `Edit::setCountInMode` looks like an Edit
 property and is not one: Tracktion implements it as

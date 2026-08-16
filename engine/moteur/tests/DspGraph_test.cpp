@@ -236,7 +236,72 @@ void a_block_bigger_than_prepared_is_chunked_not_grown() {
     for (int i = 0; i < big; ++i) CHECK(std::abs(buf.getReadPointer(0)[i] - 0.5f) < 1e-5f);
 }
 
+// The ANALYSIS phase — the one phase no graph in this file exercised, which is how a change to its
+// per-sample loop could land uncovered. An envelope follows the LOUDER channel: it takes the peak
+// across the pair per sample, so a loop that read channel 0 twice, or that lost the second read
+// while its pointers were hoisted, would follow the quiet side and be silently wrong on every
+// stereo source. Attack 0.1 ms at 48 kHz settles in ~5 samples, so after a block the envelope IS
+// the peak, and `gain` then multiplies the buffer by it — a number that can be written down.
+void an_envelope_follows_the_louder_channel() {
+    auto g = buildGraph(R"({
+      "params": [ { "name": "Attack", "min": 0.1, "max": 200, "default": 0.1 },
+                  { "name": "Release", "min": 1, "max": 1000, "default": 1000 } ],
+      "nodes": [ { "type": "envelope", "in": ["Attack", "Release"], "out": "env" },
+                 { "type": "gain", "in": ["env"] } ]
+    })");
+    if (!g) return;
+    g->prepare(kRate, kBlock);
+    auto buf = dcChannels(2, {0.1f, 0.8f});
+    const float params[2] = {0.1f, 1000.0f};
+    g->process(buf, 0, kBlock, params, 2);
+    // env -> 0.8 (the loud channel), so each channel comes out scaled by 0.8.
+    for (int i = 0; i < kBlock; ++i) {
+        CHECK(std::abs(buf.getReadPointer(0)[i] - 0.1f * 0.8f) < 1e-3f);
+        CHECK(std::abs(buf.getReadPointer(1)[i] - 0.8f * 0.8f) < 1e-3f);
+    }
+}
+
+// …and the mirror, so neither channel is the one that happens to be read: loud LEFT, quiet right.
+void an_envelope_follows_it_on_either_side() {
+    auto g = buildGraph(R"({
+      "params": [ { "name": "Attack", "min": 0.1, "max": 200, "default": 0.1 },
+                  { "name": "Release", "min": 1, "max": 1000, "default": 1000 } ],
+      "nodes": [ { "type": "envelope", "in": ["Attack", "Release"], "out": "env" },
+                 { "type": "gain", "in": ["env"] } ]
+    })");
+    if (!g) return;
+    g->prepare(kRate, kBlock);
+    auto buf = dcChannels(2, {0.8f, 0.1f});
+    const float params[2] = {0.1f, 1000.0f};
+    g->process(buf, 0, kBlock, params, 2);
+    for (int i = 0; i < kBlock; ++i) {
+        CHECK(std::abs(buf.getReadPointer(0)[i] - 0.8f * 0.8f) < 1e-3f);
+        CHECK(std::abs(buf.getReadPointer(1)[i] - 0.1f * 0.8f) < 1e-3f);
+    }
+}
+
+// A MONO buffer through the same graph: the hoisted read pointers keep a null second entry, and
+// `numChans` is what must stop the loop reaching it. One channel, no crash, envelope on that one.
+void an_envelope_on_a_mono_buffer_reads_one_channel() {
+    auto g = buildGraph(R"({
+      "params": [ { "name": "Attack", "min": 0.1, "max": 200, "default": 0.1 },
+                  { "name": "Release", "min": 1, "max": 1000, "default": 1000 } ],
+      "nodes": [ { "type": "envelope", "in": ["Attack", "Release"], "out": "env" },
+                 { "type": "gain", "in": ["env"] } ]
+    })");
+    if (!g) return;
+    g->prepare(kRate, kBlock);
+    auto buf = dcChannels(1, {0.5f});
+    const float params[2] = {0.1f, 1000.0f};
+    g->process(buf, 0, kBlock, params, 2);
+    for (int i = 0; i < kBlock; ++i)
+        CHECK(std::abs(buf.getReadPointer(0)[i] - 0.5f * 0.5f) < 1e-3f);
+}
+
 int main() {
+    RUN(an_envelope_follows_the_louder_channel);
+    RUN(an_envelope_follows_it_on_either_side);
+    RUN(an_envelope_on_a_mono_buffer_reads_one_channel);
     RUN(mix_moves_the_output_of_a_sample_rate_graph);
     RUN(mix_at_zero_gives_back_exactly_what_came_in);
     RUN(mix_at_one_gives_the_graph_untouched);

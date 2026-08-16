@@ -364,11 +364,17 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
         // envelope(attack_ms, release_ms) -> peak level, followed per sample
         const float atk = coeffFor(r(n.in[0]), sampleRate_);
         const float rel = coeffFor(r(n.in[1]), sampleRate_);
+        // Read pointers taken ONCE, as the sample phase below already does. The compiler does not
+        // hoist them by itself: measured in one binary, both spellings side by side, this is ~3%
+        // of the loop. Small — see docs/audit-stabilite.md — but it costs two lines and makes the
+        // two per-sample loops in this file read alike.
+        const float* rd[2] = {buffer.getReadPointer(0, startSample),
+                              numChans > 1 ? buffer.getReadPointer(1, startSample) : nullptr};
         float env = n.s0;
         for (int i = 0; i < numSamples; ++i) {
             float peak = 0.0f;
             for (int ch = 0; ch < numChans; ++ch)
-                peak = juce::jmax(peak, std::abs(buffer.getReadPointer(ch, startSample)[i]));
+                peak = juce::jmax(peak, std::abs(rd[ch][i]));
             env = peak + (peak > env ? atk : rel) * (env - peak);
         }
         n.s0 = env;
