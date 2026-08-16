@@ -207,12 +207,30 @@ with it: the edge carries `sourcePort`, and `link()` keys a cable on the SOCKET 
 pair, so a splitter feeding one target from two outputs draws two cables instead of one drawn
 from whichever jack was seen first.
 
-Three nodes are special and each for its own reason. A **track** has no input jack: what arrives
-on a lane is its clips, and there is no socket to look for. A **sink** is the mirror image. A
+Three nodes are special and each for its own reason. A **sink** has no output jack: it is where
+signal stops. A **live input** is its mirror and has no input jack — nothing plugs into a preamp,
+and the socket it listens on is a param picked on its card, not a hole on its edge. `monitor` is
+what names one, because the file service sets it for an io `in` step and for nothing else. A
 **curve** is off the signal path entirely — it drives a knob rather than plugging in — so it is
 left out of `jacksFor` (which types a jack by the signal it carries, and a curve carries none)
 and the renderer gives it one mauve socket of its own. An **automation** edge occupies no jack
 for the same reason; counted as a feeder it would have revealed the next free socket for nothing.
+
+A **track** is the one node whose sockets are not a fixed set. It has an input jack — what a lane
+PLAYS is its clips, which was never a reason nothing could arrive on it — typed by what the lane
+puts on the wire, so a midi lane offers a midi socket rather than the audio an unfed jack falls
+back to. And its outputs are its SENDS: the one it has taken, it grows a free one beside it
+(`spare` in `jacksFor`), or a lane feeding one thing could never feed a second. Both jacks are the
+same socket, since `jackRef` names an unnamed one by its node alone — landing on the spare writes
+a second *arrow*, not a second port, which is exactly what a send is.
+
+> What may LAND on that socket is narrower than what may be dragged to it: a run carrying a live
+> interface input, and nothing else — recording a preamp onto a lane. `graph chain connect` used
+> to refuse every track outright, stricter than the model it guards, so an `IN` node sat in the
+> graph with nowhere to go; it now asks the same question `packages/song` asks, by walking
+> UPSTREAM of the cable's source (`runCarriesInput`). The derivation splits `mic → comp` into two
+> chains, so reading either one's steps would answer no for every recording path with a plugin on
+> it.
 
 The **pending** node — the module being created, drawn where it will land — gets no sockets at
 all, because it is not built by `buildGraph`. That is the right answer rather than an oversight:

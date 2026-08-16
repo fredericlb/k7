@@ -96,12 +96,51 @@ describe("graph chain connect", () => {
     expect(chains()).toBe(before);
   });
 
-  it("refuses the sink as a source and a track as a target", async () => {
+  it("refuses the sink as a source, and an ORDINARY module aimed at a lane", async () => {
     await runCommand("graph chain connect OUT reverb", host(), "cli");
     expect(logs.join(" ")).toContain("sink");
     await runCommand("graph chain connect reverb gtr", host(), "cli");
-    expect(logs.join(" ")).toContain("is a track");
+    // A lane's material is its clips; the derivation discards anything else aimed at one, so
+    // the refusal is what stops a cable that would have gone quietly nowhere.
+    expect(logs.join(" ")).toContain(
+      "only a live input's signal lands on a lane",
+    );
     expect(reloads).toBe(0);
+  });
+
+  it("LETS a live input feed a lane — which is what recording onto one is", async () => {
+    // The one exception the model makes (packages/song's graph.ts lands a live input's signal on
+    // a lane). The verb used to refuse every track outright, stricter than the thing it guards,
+    // which left an `IN` node in the graph with nowhere it could go.
+    const io = join(dir, "modules", "io", "mic");
+    mkdirSync(io, { recursive: true });
+    writeFileSync(join(io, "module.yaml"), "io: in\n", "utf8");
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: []\n",
+      "utf8",
+    );
+    await runCommand("graph chain connect mic gtr", host(), "cli");
+    expect(logs.join(" ")).toContain("connected mic → gtr");
+    expect(chains()).toContain("mic: [ gtr ]");
+  });
+
+  it("…and still when the input is UPSTREAM, not the node the cable leaves", async () => {
+    // A preamp through a compressor and onto the lane. What decides is the run REACHING the
+    // source, not the source itself — the second branch of runCarriesInput, and the shape of a
+    // real recording path.
+    const io = join(dir, "modules", "io", "mic");
+    mkdirSync(io, { recursive: true });
+    writeFileSync(join(io, "module.yaml"), "io: in\n", "utf8");
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: [ reverb ]\n  reverb: []\n",
+      "utf8",
+    );
+    // The derivation splits this into TWO chains — `mic` whose out names reverb, and `reverb`
+    // alone — so reading either one's steps answers no. Only walking the feeds finds the preamp.
+    await runCommand("graph chain connect reverb gtr", host(), "cli");
+    expect(logs.join(" ")).toContain("connected reverb → gtr");
   });
 
   it("refuses a node fed to itself, ports notwithstanding", async () => {

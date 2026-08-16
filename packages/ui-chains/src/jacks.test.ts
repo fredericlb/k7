@@ -139,14 +139,48 @@ describe("the sockets a built graph puts on its nodes", () => {
     expect(xf?.jacks?.out).toHaveLength(1);
   });
 
-  it("leaves a track with no input socket and a sink with no output one", () => {
-    // A lane's material is its clips — there is no jack for a reader to look for — and a sink is
-    // the mirror image: somewhere to arrive, nowhere to leave.
+  it("gives a lane an input socket, and a SPARE output once its first is taken", () => {
+    // A lane used to have neither: nothing could be routed INTO it, and a lane already feeding
+    // something had no free socket left to feed a second — which is what a send is.
     const { nodes } = buildGraph(wired);
-    expect(nodes.find((n) => n.id === "trk:deckA")?.jacks?.in).toEqual([]);
-    expect(nodes.find((n) => n.id === "trk:deckA")?.jacks?.out).toHaveLength(1);
+    const deck = nodes.find((n) => n.id === "trk:deckA");
+    expect(deck?.jacks?.in).toEqual([{ type: AUDIO, free: true }]);
+    // The taken one and the spare. Both unnamed, because they are the same socket: `jackRef` names
+    // it by the node alone, so landing on the spare writes a second ARROW, not a second port.
+    expect(deck?.jacks?.out).toEqual([
+      { type: AUDIO, free: false },
+      { type: AUDIO, free: true },
+    ]);
+  });
+
+  it("still leaves a sink with no output socket", () => {
+    // Unchanged, and the mirror of a source: somewhere to arrive, nowhere to leave.
+    const { nodes } = buildGraph(wired);
     expect(nodes.find((n) => n.id === "snk:OUT")?.jacks?.out).toEqual([]);
     expect(nodes.find((n) => n.id === "snk:OUT")?.jacks?.in).toHaveLength(1);
+  });
+
+  it("leaves a live INPUT with no input socket — nothing plugs into a preamp", () => {
+    // `monitor` is what says "this is an input", set by the file service for an io "in" step and
+    // for nothing else. It used to draw the socket every undeclared module gets, which invited a
+    // cable into a node that has no upstream at all — what it listens on is a param on its card.
+    const { nodes } = buildGraph({
+      chains: {
+        live: {
+          from: "live",
+          // `monitor` is the marker whatever its VALUE — an input that is not being listened to
+          // is still an input. "off" rather than a boolean: it is a three-way (auto/off/on).
+          use: [{ module: "IN", emits: AUDIO, monitor: "off" as const }],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      tracks: [],
+      warnings: [],
+    });
+    const inNode = nodes.find((n) => n.id === "mod:IN");
+    expect(inNode?.jacks?.in).toEqual([]);
+    // …and it still has somewhere to leave from, or it could feed nothing.
+    expect(inNode?.jacks?.out).toHaveLength(1);
   });
 
   it("does not let an automation arrow occupy an input", () => {

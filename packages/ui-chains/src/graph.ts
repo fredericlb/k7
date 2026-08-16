@@ -277,15 +277,32 @@ export interface Jack {
  *
  * Outputs do not: all of them show at once. An output is offered, never required, so there is no
  * progression to disclose — the question "what can I take off this module" wants one answer.
+ *
+ * `spare` is for a node whose sockets are a LIST rather than a fixed set — a lane's outputs, which
+ * are its sends. Its one undeclared socket taken, it grows a free one beside it, or a lane feeding
+ * one thing could never feed a second. It says nothing about a node that DECLARES its ports: a
+ * separator with three stems has three, and a fourth hole would be a lie about the module.
  */
 export function jacksFor(
   ports: { name: string; type: WebSignal; mandatory?: boolean }[] | undefined,
   fed: ReadonlySet<string>,
   fallback: WebSignal | undefined,
   grow: boolean,
+  spare = false,
 ): Jack[] {
   // A module that declares nothing has the one port every module has, typed by what it handles.
-  if (!ports?.length) return [{ type: fallback ?? "audio", free: !fed.size }];
+  if (!ports?.length) {
+    const type = fallback ?? "audio";
+    // Both jacks are the SAME socket — `jackRef` names an unnamed one by its node alone, so the
+    // spare writes a second arrow out of it rather than addressing a second port. That is what a
+    // send IS, and it is why the spare survives: the one below it never stops being fed.
+    if (spare && fed.size)
+      return [
+        { type, free: false },
+        { type, free: true },
+      ];
+    return [{ type, free: !fed.size }];
+  }
   const isFed = (p: { name: string }, i: number) =>
     fed.has(p.name) || (i === 0 && fed.has(""));
   // Outputs, which show all at once and read their occupancy the same way inputs do: the edge
@@ -1279,13 +1296,24 @@ export function buildGraph(
   const NONE: ReadonlySet<string> = new Set();
   for (const n of nodes.values()) {
     if (n.kind === "curve") continue; // a curve is a source of automation, not of signal
+    // A live INPUT is a SOURCE: nothing plugs into a preamp, and the socket it listens on is a
+    // param picked on its card, not a hole on its edge. `monitor` is the marker for the reason
+    // `inputUI` gives — the file service sets it for an io "in" step and for nothing else.
+    const source = n.monitor !== undefined;
     n.jacks = {
-      // A track has no input jack: what arrives on a lane is its clips, and there is no socket
-      // for a reader to look for. A sink is the mirror image — somewhere to arrive, nowhere to leave.
-      in:
-        n.kind === "track"
-          ? []
-          : jacksFor(n.inputs, fed.get(n.id) ?? NONE, arriving.get(n.id), true),
+      // A lane takes a feed like anything else. What it PLAYS is its clips, which was never a
+      // reason for nothing to be able to ARRIVE on it. Typed by what the lane puts on the wire,
+      // so a midi lane offers a midi socket rather than the audio every unfed jack falls back to.
+      in: source
+        ? []
+        : jacksFor(
+            n.inputs,
+            fed.get(n.id) ?? NONE,
+            arriving.get(n.id) ??
+              (n.kind === "track" ? leaving.get(n.id) : undefined),
+            true,
+          ),
+      // A sink is the mirror image of a source — somewhere to arrive, nowhere to leave.
       out:
         n.kind === "sink"
           ? []
@@ -1294,6 +1322,8 @@ export function buildGraph(
               left.get(n.id) ?? NONE,
               leaving.get(n.id),
               false,
+              // A lane's outputs are its SENDS, so a taken one grows a spare. See jacksFor.
+              n.kind === "track",
             ),
     };
   }

@@ -19,7 +19,12 @@ import type {
 import { bindModuleCc } from "@studio/song/controllerBind";
 import { createCurveFile, loadCurves } from "@studio/song/curves";
 import { freezeBlockedBy, freezePlans } from "@studio/song/freeze";
-import { coldPlacementError, loadGraph, parseChains } from "@studio/song/graph";
+import {
+  coldPlacementError,
+  isInputModule,
+  loadGraph,
+  parseChains,
+} from "@studio/song/graph";
 import {
   cloneModuleFile,
   createModuleFile,
@@ -259,6 +264,56 @@ function arrowError(
   if (!dests.includes(after))
     return `'${before}' does not feed '${after}' (it feeds: ${dests.join(", ") || "nothing"})`;
   return null;
+}
+
+/**
+ * Does the signal ARRIVING at `node` come off a live interface input?
+ *
+ * The one question that decides whether a cable may land on a lane: a track's material is its
+ * clips, and the single exception the model makes is a live input's signal, which is what
+ * recording onto a lane IS. `packages/song`'s graph.ts asks the same thing of the chain whose
+ * `out` names the track, and warns when the answer is no.
+ *
+ * UPSTREAM, not "somewhere in this node's chain". A preamp reaches a compressor through the mic
+ * chain's `out`, and the compressor is the first step of a chain of its OWN — so reading `use`
+ * alone answers no for `mic → comp`, which is the shape of every recording path with a plugin on
+ * it. Walking the feeds is the only reading that survives the derivation splitting a run in two.
+ */
+function runCarriesInput(
+  g: ReturnType<typeof loadGraph>,
+  node: string,
+): boolean {
+  const bare = (s: string) => s.split("#")[0];
+  const isLive = (name: string): boolean => {
+    const b = g.modules[name];
+    return !!b && isInputModule(g, b);
+  };
+  // Who feeds whom. A chain is a linear run — `from` then its steps — and its `out` names what
+  // the last of them feeds, which is how one chain reaches another.
+  const feeders = new Map<string, string[]>();
+  const link = (from: string, to: string): void => {
+    const at = feeders.get(bare(to));
+    if (at) at.push(bare(from));
+    else feeders.set(bare(to), [bare(from)]);
+  };
+  for (const c of Object.values(g.chains)) {
+    const run = [...(c.from ? [c.from] : []), ...c.use.map((s) => s.module)];
+    for (let i = 1; i < run.length; i++) link(run[i - 1], run[i]);
+    const last = run[run.length - 1];
+    if (last) for (const o of c.out) link(last, o.to);
+  }
+  // …then back up from `node`, itself included. `seen` is not an optimisation: a graph may hold a
+  // cycle, and this would not return from one.
+  const seen = new Set<string>();
+  const stack = [bare(node)];
+  while (stack.length) {
+    const n = stack.pop() as string;
+    if (seen.has(n)) continue;
+    seen.add(n);
+    if (isLive(n)) return true;
+    for (const f of feeders.get(n) ?? []) stack.push(f);
+  }
+  return false;
 }
 
 /**
@@ -2663,8 +2718,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * exactly as graph.yaml spells it (packages/song/docs/ports.md).
    *
    * Unlike `node insert` there is no existing arrow to validate against — the checks are the
-   * ends themselves: both must be nodes this project knows, the sink has no output, and a
-   * track is a source nothing can feed.
+   * ends themselves: both must be nodes this project knows, the sink has no output, and a lane
+   * takes only what a live input puts on it (`runCarriesInput`).
    */
   "graph.chain.connect": async (a, h) => {
     const usage =
@@ -2691,8 +2746,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log(["OUT is the sink — it has no output to connect from"]);
       return;
     }
-    if (base(to) in g.tracks) {
-      h.log([`'${base(to)}' is a track — a source; nothing can feed it`]);
+    // A lane MAY be fed, by exactly one thing: a run carrying a live interface input. That is the
+    // model's own rule — packages/song's graph.ts lands a live input's signal on a lane and warns
+    // about anything else aiming at one, because the derivation discards it. This used to refuse
+    // every track outright, which was stricter than the thing it guards and left an `IN` node with
+    // nowhere to go. See packages/ui-chains/docs/graphBuild.md.
+    if (base(to) in g.tracks && !runCarriesInput(g, base(from))) {
+      h.log([
+        `'${base(to)}' is a track — only a live input's signal lands on a lane`,
+      ]);
       return;
     }
     const known = (name: string) =>
