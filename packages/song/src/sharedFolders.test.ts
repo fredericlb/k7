@@ -120,3 +120,35 @@ describe("sharedFolders", () => {
     expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("st0");
   });
 });
+
+// A CHAIN template lives inside the library repository, and its nodes name `@st0/…` modules that
+// sit two folders up in that same repo. `../_libraries` resolves to nothing from there, so a chain
+// loaded on its own used to see NO catalogue and drew every node as a missing plugin.
+describe("a folder INSIDE the library repository", () => {
+  it("reaches the library's own modules", () => {
+    const ws = mkdtempSync(join(tmpdir(), "inside-"));
+    try {
+      mkdirSync(join(ws, "_libraries", "modules", "audio"), {
+        recursive: true,
+      });
+      const chain = join(ws, "_libraries", "chains", "process", "normalize");
+      mkdirSync(chain, { recursive: true });
+      expect(moduleLibraryDirs(chain)).toEqual([
+        join(ws, "_libraries", "modules"),
+      ]);
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
+  });
+
+  it("is not a search — a folder with no `_libraries` on its path finds nothing", () => {
+    // The rule this file exists to keep: these are FIXED locations. The segment is either on the
+    // path or it is not, and nothing walks up hunting for one.
+    const bare = mkdtempSync(join(tmpdir(), "bare-"));
+    try {
+      expect(moduleLibraryDirs(bare)).toEqual([]);
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
+    }
+  });
+});

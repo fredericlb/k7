@@ -56,7 +56,20 @@ export function hasSharedModules(dir: string): boolean {
  */
 export function librariesModulesRoot(dir: string): string | null {
   const root = librariesDirFor(dir, "modules");
-  return existsSync(root) ? root : null;
+  if (existsSync(root)) return root;
+  // …or `dir` is INSIDE the library repository already — a chain template, whose nodes name
+  // `@st0/…` modules living two folders up in the same repo. `../_libraries` resolves to nothing
+  // from there, so a chain loaded on its own saw NO catalogue at all and drew every node as a
+  // missing plugin.
+  //
+  // Still a fixed location, which is the rule this file exists to keep: `_libraries` is a folder
+  // NAME, not a declaration, and finding the one you are standing in is the same layout read from
+  // within. Nothing here is a search — the segment either is on the path or it is not.
+  const segs = dir.split(/[\\/]+/);
+  const at = segs.lastIndexOf(LIBRARIES_DIR);
+  if (at < 0) return null;
+  const inside = join(...segs.slice(0, at + 1), "modules");
+  return existsSync(inside) ? inside : null;
 }
 
 /**
