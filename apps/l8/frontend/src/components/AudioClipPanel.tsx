@@ -12,6 +12,7 @@ import {
 import { cn } from "@frediverse/ui/lib/utils";
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/commands/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
+import { projectApi } from "@studio/project-shell/project";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Play, Square, X } from "lucide-react";
@@ -67,6 +68,9 @@ const DEFAULT_BARS = 12;
 const NO_TRACKS: string[] = [];
 const NO_NAMES: Record<string, string> = {};
 const NO_TAKES: TakeOption[] = [];
+/** The token a library chain is named by — @studio/commands' MEDIATEK_CHAIN, which is not an
+ *  export subpath. One word, and  refuses the ref without it. */
+const MEDIATEK_CHAIN = "@st0/";
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
@@ -143,6 +147,35 @@ export function AudioClipPanel({
   // undefined asks for whatever threshold the file was last built with; a number re-detects AND
   // remembers it in the sidecar, which is why moving the slider is a real edit and not a preview.
   const [sensitivity, setSensitivity] = useState<number | undefined>(undefined);
+  /**
+   * The chains this clip can be run through, as `clip process` names them. Fetched once when the
+   * panel opens: the list changes when somebody edits the library, which is not something to poll.
+   */
+  const [chains, setChains] = useState<string[] | null>(null);
+  const [opSearch, setOpSearch] = useState("");
+  useEffect(() => {
+    let live = true;
+    projectApi
+      .libraryChains()
+      .then(
+        (r) =>
+          live && setChains(r.chains.map((c) => `${MEDIATEK_CHAIN}${c.ref}`)),
+      )
+      .catch(() => live && setChains([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  // Filtered on the whole ref, so typing  finds  wherever the word
+  // sits — a chain is filed by path, and nobody remembers which folder it went in.
+  const ops = useMemo(
+    () =>
+      (chains ?? []).filter((c) =>
+        c.toLowerCase().includes(opSearch.trim().toLowerCase()),
+      ),
+    [chains, opSearch],
+  );
+
   const [busy, setBusy] = useState<string | null>(null);
   // The trim gate, in dBFS, and whether its menu is open. Open is what draws the preview, so the
   // two travel together: a gate nobody is looking at should not paint over the take.
@@ -552,21 +585,53 @@ export function AudioClipPanel({
                 </Button>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!!busy || !clip}
-              onClick={() =>
-                clip && void run(`clip normalize ${clip}`, "normalize")
-              }
-              title="amener la fenêtre du clip à −1 dBFS, sur place (annulable) — le reste du fichier n'est pas touché"
-            >
-              {busy === "normalize" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "normaliser"
-              )}
-            </Button>
+            {/* Operations: every chain the project and the library offer, run over THIS clip.
+                It replaced a lone "normaliser" button — normalising is one treatment among many,
+                and the médiathèque already ships it as a chain (see @studio/commands
+                docs/processChain.md). The render lands beside the source, stamped, and the clip
+                is repointed at it: that half is 's and is not redone here. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={!!busy || !clip}>
+                  {busy === "process" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "operations"
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 p-1">
+                <input
+                  value={opSearch}
+                  onChange={(e) => setOpSearch(e.target.value)}
+                  placeholder="chercher une chaîne…"
+                  // Not autofocused: the menu takes the focus itself, and stealing it back
+                  // breaks the arrow keys the list is navigated with.
+                  className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                />
+                <div className="max-h-64 overflow-auto">
+                  {ops.length === 0 ? (
+                    <p className="px-2 py-1 text-xs text-muted-foreground">
+                      {chains === null ? "…" : "aucune chaîne"}
+                    </p>
+                  ) : (
+                    ops.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() =>
+                          clip &&
+                          void run(`clip process ${clip} ${c}`, "process")
+                        }
+                        className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
+                      >
+                        {c}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="sm" onClick={onClose} title="terminé">
               <Check className="h-3.5 w-3.5" />
             </Button>

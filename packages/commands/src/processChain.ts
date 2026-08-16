@@ -34,6 +34,7 @@ import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { parse as parseYaml } from "yaml";
 import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
+import { fileStamp } from "./recordTake";
 import { renderMixdown } from "./render";
 
 /** What a chain of the médiathèque is named by, so the two vocabularies can't collide with the
@@ -375,10 +376,17 @@ export function resolveTargets(
 /** Where a source's render lands: `<name>_<slug>.wav`, beside it. Re-running strips the
  *  previous suffix rather than stacking one, so processing twice overwrites rather than
  *  producing `kick_warm_warm.wav`. Always `.wav` — the engine writes nothing else. */
-export function renderPath(source: string, slug: string): string {
+export function renderPath(
+  source: string,
+  slug: string,
+  stamp = fileStamp(),
+): string {
   const p = parsePath(source);
-  const base = p.name.replace(new RegExp(`_${slug}$`), "");
-  return join(p.dir, `${base}_${slug}.wav`);
+  // A previous run of the SAME chain is stripped, stamp and all, so the names do not grow by a
+  // slug and a date every time. A run of a DIFFERENT chain is not: that one stacks on purpose —
+  // the clip now plays the warmed file, and treating that is a second treatment.
+  const base = p.name.replace(new RegExp(`_${slug}_\\d{6}T\\d{6}$`), "");
+  return join(p.dir, `${base}_${slug}_${stamp}.wav`);
 }
 
 /**

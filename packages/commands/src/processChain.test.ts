@@ -250,17 +250,30 @@ describe("what a target names", () => {
 });
 
 describe("where the render lands", () => {
-  it("is named for the chain, beside the source, and always a wav", () => {
+  it("is named for the chain and the moment, beside the source, always a wav", () => {
     expect(
-      renderPath("/songs/clips/riff.mp3", "warm").replace(/\\/g, "/"),
-    ).toBe("/songs/clips/riff_warm.wav");
+      renderPath("/songs/clips/riff.mp3", "warm", "260816T101500").replace(
+        /\\/g,
+        "/",
+      ),
+    ).toBe("/songs/clips/riff_warm_260816T101500.wav");
   });
 
-  it("does not stack suffixes when the same chain is run twice", () => {
-    // Re-running has to overwrite. Stacking would leave riff_warm_warm.wav — a second bounce
-    // OF the first one, which is not what "run it again" means.
-    const once = renderPath("/songs/clips/riff.wav", "warm");
-    expect(renderPath(once, "warm")).toBe(once);
+  it("replaces a previous run of the SAME chain rather than growing the name", () => {
+    // Every run is its own file — that is what the stamp is for, and why nothing is overwritten
+    // any more. What must not happen is the name growing a slug and a date each time.
+    const once = renderPath("/songs/clips/riff.wav", "warm", "260816T101500");
+    const twice = renderPath(once, "warm", "260816T113000");
+    expect(twice.replace(/\\/g, "/")).toBe(
+      "/songs/clips/riff_warm_260816T113000.wav",
+    );
+  });
+
+  it("STACKS a different chain — the clip now plays the warmed file, and that is the material", () => {
+    const warm = renderPath("/songs/clips/riff.wav", "warm", "260816T101500");
+    expect(renderPath(warm, "bright", "260816T113000").replace(/\\/g, "/")).toBe(
+      "/songs/clips/riff_warm_260816T101500_bright_260816T113000.wav",
+    );
   });
 });
 

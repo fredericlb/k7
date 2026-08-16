@@ -18,8 +18,14 @@ export interface RecordedTake {
   length: number; // seconds
 }
 
-// A wall-clock stamp for a take's filename, so two takes of one track at one bar don't collide.
-function fileStamp(d = new Date()): string {
+/**
+ * A wall-clock stamp for a filename — `260814T194357`, the spelling every dated file in a project
+ * already uses. Exported because a bounce needs the same one: two runs of one chain over one clip
+ * must not land on one name, for the same reason two takes of one bar must not.
+ *
+ * The date is an ARGUMENT, so a caller can be tested. Nothing but a test ever passes one.
+ */
+export function fileStamp(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return (
     `${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}` +

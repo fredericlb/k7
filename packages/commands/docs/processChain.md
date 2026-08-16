@@ -6,7 +6,7 @@ clip  process <clip|path> <chain>
 ```
 
 Runs material through a chain and **keeps the result**: the render lands beside the source as
-`<name>_<chain>.wav`, and the clip files are pointed at it. Every placement then plays the
+`<name>_<chain>_<stamp>.wav`, and the clip files are pointed at it. Every placement then plays the
 treated material, exactly where it already sat.
 
 ## Why two commands
@@ -137,11 +137,20 @@ engine some other way.
 
 ## Re-running
 
-The suffix is stripped before it is re-applied, so processing `riff.wav` with `warm` twice
-overwrites `riff_warm.wav` rather than producing `riff_warm_warm.wav` — which would be a bounce
-OF the bounce, and not what "run it again" means. Running a *different* chain on an
-already-processed clip stacks deliberately: the clip now plays `riff_warm.wav`, and treating
-that gives `riff_warm_bright.wav`.
+Every run is its OWN file: the render carries a wall-clock stamp,
+`riff_warm_260816T101500.wav`, the same spelling every dated file in a project uses (`fileStamp`,
+shared with a take's name). Nothing is overwritten, so a treatment you regret is one repoint away
+from being undone and the file it replaced is still on disk.
+
+It used to overwrite, and the stamp is what changed: `riff.wav` through `warm` twice landed on one
+name, on the argument that a second run is a correction rather than a second thing. That is true of
+the INTENT and false of the file — the first render is material somebody may already have listened
+to, and a bounce that eats it leaves nothing to compare against.
+
+What has not changed is that the name must not GROW. A previous run of the same chain is stripped,
+stamp and all, so ten passes of `warm` leave `riff_warm_<latest>.wav` and not a name carrying ten
+dates. A DIFFERENT chain still stacks, deliberately: the clip now plays the warmed file, and
+treating that is a second treatment — `riff_warm_<t1>_bright_<t2>.wav` says exactly what it is.
 
 One source's failure is its own: a file the engine could not decode costs that file its bounce,
 and the loop continues. Everything that did land is listed, with which clips now play it.
