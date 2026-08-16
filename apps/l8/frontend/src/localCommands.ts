@@ -34,6 +34,9 @@ export const UI_EXACT: readonly string[] = [
   "settings io",
   // The command catalogue as this person arranges it: names, icons, menu order.
   "settings commands",
+  // The library's chains, edited as the graphs they are — a screen of its own, so it is opened
+  // the way `help` and the settings screens are rather than by a pane. See docs/chainsBuilder.md.
+  "chains builder",
   "vim",
   "engine",
   "workspace quit",

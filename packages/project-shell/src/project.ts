@@ -76,7 +76,9 @@ export const projectApi = {
    *  called (`process/normalize`), `path` where it is; the path comes from here rather than
    *  being built, exactly as a module library's does. */
   libraryChains: () =>
-    fget<{ chains: { ref: string; path: string }[] }>("/library-chains"),
+    fget<{ chains: { ref: string; path: string; nodes: string[] }[] }>(
+      "/library-chains",
+    ),
   /** Make an empty module in one of them. `root` is a path THAT call answered with, `rel` the
    *  module's path under it — at least `<type>/<name>`. */
   createModule: (root: string, rel: string) =>

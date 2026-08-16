@@ -1,6 +1,7 @@
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
+  CHAINS_LABEL,
   isLibraryPath,
   libraryModuleRef,
   libraryTree,
@@ -233,5 +234,69 @@ describe("isLibraryPath", () => {
 
   it("matches a whole segment, never a prefix", () => {
     expect(isLibraryPath("_librariesX/modules/a/module.yaml")).toBe(false);
+  });
+});
+
+// The library's CHAINS, in the same tab as its modules — they come out of the same repository,
+// and a tab that showed one and not the other would make you look in two places for one thing.
+describe("chains in the libraries tree", () => {
+  const LEVELS = [
+    { ns: "workspace", path: "_libraries/modules", exists: true, nodes: [] },
+  ] as never;
+  const CHAINS = [
+    {
+      ref: "process/normalize",
+      path: "_libraries/chains/process/normalize",
+      nodes: ["normalize.yaml"],
+    },
+    { ref: "live/vocals", path: "_libraries/chains/live/vocals", nodes: [] },
+  ];
+
+  it("adds them under a row of their own, LAST", () => {
+    const rows = libraryTree(LEVELS, CHAINS);
+    // Not filed under a module namespace: a chain is not a module, and putting it there would
+    // say it was one.
+    expect(rows[rows.length - 1].name).toBe(CHAINS_LABEL);
+    expect(rows.length).toBe(2);
+  });
+
+  it("draws each chain as a FOLDER holding its nodes", () => {
+    const chainsRow = libraryTree(LEVELS, CHAINS).at(-1);
+    expect(chainsRow?.children?.map((c) => c.name)).toEqual([
+      "process/normalize",
+      "live/vocals",
+    ]);
+    // A chain is a folder on disk — a graph and the nodes it names — and the tree says so rather
+    // than hiding half of it. It was a leaf until the nodes had somewhere to be.
+    expect(chainsRow?.children?.every((c) => c.dir)).toBe(true);
+    expect(chainsRow?.children?.[0].path).toBe(
+      "_libraries/chains/process/normalize",
+    );
+  });
+
+  it("puts a chain's NODES under it, each at its real path", () => {
+    // The path is what tells a node's row from its chain's when one is clicked, so it is the
+    // real one and not a label.
+    const first = libraryTree(LEVELS, CHAINS).at(-1)?.children?.[0];
+    expect(first?.children?.map((n) => n.name)).toEqual(["normalize.yaml"]);
+    expect(first?.children?.[0].path).toBe(
+      "_libraries/chains/process/normalize/nodes/normalize.yaml",
+    );
+    expect(first?.children?.[0].dir).toBe(false);
+  });
+
+  it("still draws a chain with no nodes as a folder", () => {
+    // One node away from having some; a leaf row would say it could never.
+    const row = libraryTree(LEVELS, [
+      { ref: "empty", path: "_libraries/chains/empty", nodes: [] },
+    ]).at(-1);
+    expect(row?.children?.[0].dir).toBe(true);
+    expect(row?.children?.[0].children).toEqual([]);
+  });
+
+  it("grows no row at all when the library has no chains", () => {
+    // An account whose library holds none is a fact, not an empty folder to draw.
+    expect(libraryTree(LEVELS, [])).toHaveLength(1);
+    expect(libraryTree(LEVELS)).toHaveLength(1);
   });
 });

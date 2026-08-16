@@ -25,6 +25,20 @@ So the whole feature is four small seams rather than a parallel editor:
 `at` is a path the caller was **given**, never one it built — the rule `/module-libraries` and
 `POST /module` already follow — and it goes through `safePath` like every path a browser sends.
 
+## Getting there
+
+Three doors, and the tab is the one you find without knowing the word:
+
+- the **Libraries tab** of the file tree, under `@st0/chains` — beside the shared modules, because
+  both come out of the one library repository, and looking in two places for one library is what
+  that tab exists to avoid. One row per chain; opening it opens the builder on that chain.
+- `chains builder` in the command bar, which toggles like `help`.
+- `/chains-builder`, or `/chains-builder/<ref>` — an address you can bookmark.
+
+The screen shipped with none of them, which is a whole feature nobody can reach. A chain row is a
+LEAF though a chain is a folder on disk: what the tab offers is the chain, not its files, and the
+module lookup beside it cannot tell the two folders apart — so the chain map is asked first.
+
 ## What the screen wires
 
 The list, and `DomChains` on the chosen chain with the patch cable, the splice and the pin
@@ -35,10 +49,21 @@ than the song — and it bumps a revision so the drawing re-reads the file the v
 A chain drawn without its gestures would be a picture of one, which st0 already has
 (`ChainView`, read-only, beside the YAML).
 
+## The text half
+
+Beside the drawing: one tab per file — the chain graph, then each node — in the repo own YamlPane,
+with the autosave every text pane here runs. No Save button; written as soon as it is a file the
+compiler could read.
+
+The two halves are one chain seen twice. A verb rewrites the file under the pane showing it, so a
+save bumps the same revision the gestures do and both re-read. Editing a node extends changes
+what the graph draws on the next read.
+
 ## What is not wired yet
 
-- **Creating** a chain, and creating a node inside one. `node new` writes into `nodes/` beside the
-  graph file, so it should follow the same way the others did; it is untested here.
+- **Creating a chain.** Adding a NODE to one works and is tested (`chainNodeNew.test.ts`): pointed
+  at a template, `node new` writes into that chain's own `nodes/` and puts the node in its graph.
+  Making a new chain from nothing has no verb yet.
 - **Committing.** The library is a git repository (`st0-libraries`) and an edit leaves it dirty.
   Nothing in this screen publishes.
 - **The engine.** A chain edited here is not heard. That is what the bench is for

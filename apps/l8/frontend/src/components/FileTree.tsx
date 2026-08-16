@@ -21,6 +21,7 @@ import {
   Library,
   Pin,
   Play,
+  Workflow,
   X,
 } from "lucide-react";
 import {
@@ -144,6 +145,8 @@ export function FileTree({
   onCloneModule,
   onCreateNode,
   levels,
+  chains,
+  onOpenChain,
   onOpenLibraryModule,
   onCreateModule,
   ref,
@@ -183,6 +186,10 @@ export function FileTree({
    * the tab bar disappear rather than show a dead one.
    */
   levels?: ModuleLibrary[];
+  /** The library's CHAINS, listed in the same tab — one row each, opening the chains builder. */
+  chains?: readonly { ref: string; path: string; nodes?: string[] }[];
+  /** A chain row was opened: its ref, for the builder. */
+  onOpenChain?: (ref: string, node?: string) => void;
   /** A module row in a LIBRARY was clicked. The same path space as every other row here — the
    *  libraries are a folder in the workspace — but a different callback, because what the
    *  builder does with it differs: it opens read-only (see ../libraryTree.ts). */
@@ -297,9 +304,23 @@ export function FileTree({
   // exactly as a project one is. Folded here rather than where the rows are built, so the two
   // trees cannot come to disagree about what a module looks like (see libraryTree.ts).
   const lib = useMemo(() => {
-    const rows = libraryTree(levels ?? []);
+    const rows = libraryTree(levels ?? [], chains ?? []);
     return rows.length ? foldModules(rows) : null;
-  }, [levels]);
+  }, [levels, chains]);
+  // A chain row by its path, so opening one is answered before the module lookup: the two trees
+  // share a tab and a click, and only this map tells their rows apart.
+  // Both a chain row and its NODE rows answer here: the value is the chain to open, and the node
+  // to land on when the row was one. A node is addressed by the chain it belongs to, because the
+  // builder opens a chain and then a file within it — there is no such thing as a node alone.
+  const chainByPath = useMemo(() => {
+    const m = new Map<string, { ref: string; node?: string }>();
+    for (const c of chains ?? []) {
+      m.set(c.path, { ref: c.ref });
+      for (const n of c.nodes ?? [])
+        m.set(`${c.path}/nodes/${n}`, { ref: c.ref, node: n });
+    }
+    return m;
+  }, [chains]);
   // What may not be touched — `@engine`, whose rows are a vocabulary and not files.
   const frozen = useMemo(() => readOnlyPaths(levels ?? []), [levels]);
 
@@ -596,11 +617,27 @@ export function FileTree({
             // reason — a row you can read and cannot open.
             isDisabled={(n) => isBinary(n) || frozen.has(n.path)}
             onOpen={(node) => {
+              // A CHAIN first: it is a folder on disk holding a `graph.yaml` and a `nodes/`,
+              // exactly as a module folder holds its definition, so the module lookup below has
+              // no way of telling the two apart. This map does, and it is asked first.
+              const chain = chainByPath.get(node.path);
+              if (chain) {
+                onOpenChain?.(chain.ref, chain.node);
+                return;
+              }
               const file = lib.modules.get(node.path);
               if (file) onOpenLibraryModule?.(`${node.path}/${file}`);
             }}
+            // A chain FOLDER opens on its name while its chevron still folds — it holds its nodes
+            // AND is a thing to edit, and the tree can say both. See docs/chainsBuilder.md.
+            opensOnName={(n) => chainByPath.has(n.path)}
             icon={(node, open) =>
-              lib.modules.has(node.path) ? (
+              // A chain wears the builder's own glyph, so the row and the screen it opens are
+              // recognisably one thing.
+              chainByPath.get(node.path)?.node === undefined &&
+              chainByPath.has(node.path) ? (
+                <Workflow className="h-4 w-4 shrink-0" />
+              ) : lib.modules.has(node.path) ? (
                 <Boxes className="h-4 w-4 shrink-0" />
               ) : open ? (
                 <FolderOpen className="h-4 w-4 shrink-0" />

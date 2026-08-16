@@ -280,6 +280,8 @@ export function EditorTab({
   onOpenItem,
   onOpenBuilder,
   onOpenLibraryModule,
+  onOpenChain,
+  chainsBuilder,
   diagnostics,
   videoSources,
   inputDevices,
@@ -314,6 +316,10 @@ export function EditorTab({
   // a flag on the one above, because the path is in the médiathèque's space and not the
   // workspace's — and the two spell a module identically (see ../library.ts).
   onOpenLibraryModule: (moduleFile: string) => void;
+  /** A chain row of the Libraries tab was opened — its ref, for the chains builder. */
+  onOpenChain: (ref: string, node?: string) => void;
+  /** The chains builder, when one is open — rendered in the editor's own place. */
+  chainsBuilder?: React.ReactNode;
   /**
    * Each picture clip ref → the media file it names, from the COMPILED document.
    *
@@ -347,6 +353,10 @@ export function EditorTab({
    * find them in it is why this tab was empty: they were never there.
    */
   const [libraries, setLibraries] = useState<ModuleLibrary[]>([]);
+  /** The library CHAINS, fetched and refreshed exactly as the module levels are — same repo. */
+  const [libChains, setLibChains] = useState<{ ref: string; path: string }[]>(
+    [],
+  );
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");
@@ -658,14 +668,16 @@ export function EditorTab({
     try {
       // The libraries ride along: they change for the same reasons the tree does — a module
       // created, a submodule mounted — and one refresh is one round trip rather than two.
-      const [t, h, l] = await Promise.all([
+      const [t, h, l, c] = await Promise.all([
         api.tree(),
         api.hints(),
         api.moduleLibraries(),
+        api.libraryChains(),
       ]);
       setTree(t);
       setHints(h);
       setLibraries(l.libraries);
+      setLibChains(c.chains);
     } catch (e) {
       setStatus(`load error: ${(e as Error).message}`);
     }
@@ -1286,6 +1298,8 @@ export function EditorTab({
               onCloneModule={cloneModuleEntry}
               onCreateNode={createNodeEntry}
               levels={libraries}
+              chains={libChains}
+              onOpenChain={onOpenChain}
               onCreateModule={async (root, rel) => {
                 try {
                   const { path } = await api.createModule(root, rel);
@@ -1312,7 +1326,11 @@ export function EditorTab({
             />
           </aside>
         )}
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* The chains builder takes the EDITOR's place — beside the file tree, which is its
+              navigation — rather than covering the shell. Absolute inside this main, so the tree
+              keeps its width and nothing under it unmounts. */}
+          {chainsBuilder}
           <div className="min-h-0 flex-1">
             {/* A grid edit lands in the SAME buffer a keystroke does — so switching tabs mid-edit
                 shows the text you just drew, and autosave writes it whichever way you made it. */}

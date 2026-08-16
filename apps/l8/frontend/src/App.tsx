@@ -221,6 +221,9 @@ export default function App({
    * reach it once they are pointed at its folder. See docs/chainsBuilder.md.
    */
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
+  /** The NODE of that chain to land on, when the tree row was one — its file name, or null for
+   *  the chain itself. Not in the URL: it is where a click put you, not what the address names. */
+  const [builderNode, setBuilderNode] = useState<string | null>(null);
   // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
   // full screen of its own (a code pane, a params list and a widget grid), and the shell's panes are
   // already three. Nothing under it unmounts, so closing it puts the editor back exactly as it was.
@@ -1296,6 +1299,13 @@ export default function App({
       if (line === "help") {
         if (window.location.hash === "#help") closeHelp();
         else openHelp();
+        return true;
+      }
+      // The chains builder. `""` is the LIST — the screen open on no chain yet, which is a real
+      // state and the address `/chains-builder` parses to. Toggles, like `help` above: typing it
+      // again closes rather than reopening the screen you are looking at.
+      if (line === "chains builder") {
+        setOpenBuilder((cur) => (cur === null ? "" : null));
         return true;
       }
       // The timeline owns its selection + zoom + loop + move; the shell only dispatches.
@@ -2743,6 +2753,22 @@ export default function App({
                 onOpenLibraryModule={(path) =>
                   setBuilder({ path, pane: "panel" })
                 }
+                // A chain row opens the builder ON that chain — the same promise the module row
+                // beside it makes, since both come out of the one library repository.
+                chainsBuilder={
+                  openBuilder !== null ? (
+                    <ChainsBuilder
+                      open={openBuilder}
+                      focusNode={builderNode}
+                      vimMode={vimMode}
+                      onClose={() => setOpenBuilder(null)}
+                    />
+                  ) : null
+                }
+                onOpenChain={(ref, node) => {
+                  setOpenBuilder(ref);
+                  setBuilderNode(node ?? null);
+                }}
                 diagnostics={diagnostics}
                 videoSources={videoSources}
                 // The channel strip an `io: in` file gets under its text — the surface that
@@ -3526,16 +3552,6 @@ export default function App({
             onClose={() => setOpenSurface(null)}
           />
         ))}
-        {/* The chains builder: the account's library chains, edited as the graphs they are. Over
-            the layout like a surface screen, and nothing under it unmounts — closing it puts the
-            song back exactly as it was. See docs/chainsBuilder.md. */}
-        {openBuilder !== null && (
-          <ChainsBuilder
-            open={openBuilder}
-            onOpen={setOpenBuilder}
-            onClose={() => setOpenBuilder(null)}
-          />
-        )}
         {/* A deep link naming a surface this project has not got — `fromLocation` deliberately
             does not check the id, since the list arrives a moment after the shell. A `split`
             surface lands here too: it is drawn in the layout and has no screen to open, so

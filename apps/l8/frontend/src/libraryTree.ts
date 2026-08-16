@@ -24,8 +24,15 @@ export const nsLabel = (ns: string): string => `@${ns}`;
  * `@st0` is the one level that disappears when absent: it is a git submodule somebody has to
  * mount, not a folder to fill in, so an empty row would be an offer nothing here can honour.
  */
-export function libraryTree(libraries: ModuleLibrary[]): FileNode[] {
-  return libraries
+export function libraryTree(
+  libraries: ModuleLibrary[],
+  // The library's CHAINS, which come from the same repository the shared modules do and belong
+  // in the same tab. One LEAF row each rather than a folder to open: a chain is a folder on disk
+  // (a `graph.yaml` and a `nodes/`), but what you want from this tab is the chain, and the
+  // builder is what opens it — the same promise a module row makes.
+  chains: readonly { ref: string; path: string; nodes?: string[] }[] = [],
+): FileNode[] {
+  const levels = libraries
     .filter((l) => l.exists || l.ns !== "st0")
     .map((l) => ({
       name: nsLabel(l.ns),
@@ -36,7 +43,36 @@ export function libraryTree(libraries: ModuleLibrary[]): FileNode[] {
       dir: true,
       children: l.nodes,
     }));
+  if (!chains.length) return levels;
+  // Last, and under a row of its own: a chain is not a module, and filing it under a module
+  // namespace would say it was one. The label is the vocabulary a `clip process` uses.
+  return [
+    ...levels,
+    {
+      name: CHAINS_LABEL,
+      path: CHAINS_LABEL,
+      dir: true,
+      // A chain OPENS, and its nodes are under it — a chain is a folder holding a graph and the
+      // nodes it names, and the tree says so rather than hiding half of it. A chain with none is
+      // still a folder: it is one node away from having some, and a leaf row would say otherwise.
+      children: chains.map((c) => ({
+        name: c.ref,
+        path: c.path,
+        dir: true,
+        children: (c.nodes ?? []).map((n) => ({
+          name: n,
+          // The real path, like every other row here — it is what tells this node's row from
+          // its chain's when one is clicked.
+          path: `${c.path}/nodes/${n}`,
+          dir: false,
+        })),
+      })),
+    },
+  ];
 }
+
+/** The row the library's chains hang under. A label, not a path — like `@engine`'s. */
+export const CHAINS_LABEL = "@st0/chains";
 
 /**
  * Every path under a READ-ONLY level, plus the level's own row.

@@ -4,8 +4,11 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { projectApi } from "@studio/project-shell/project";
+import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
+import { useAutosave } from "@studio/ui-editor/autosave";
+import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { Loader2, Workflow } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
@@ -14,6 +17,8 @@ import type { WebGraph } from "../types";
 interface LibraryChain {
   ref: string;
   path: string;
+  /** The node files beside the graph, by name — the other half of what a chain IS. */
+  nodes: string[];
 }
 
 /**
@@ -30,11 +35,16 @@ interface LibraryChain {
  */
 export function ChainsBuilder({
   open,
-  onOpen,
   onClose,
+  vimMode,
+  focusNode,
 }: {
   open: string;
-  onOpen: (ref: string) => void;
+  /** A node file of that chain to land on — the tree row that was clicked. The editor opens on
+   *  it and the graph selects it, so one click answers "show me this node" in both halves. */
+  focusNode?: string | null;
+  /** The shell's editing mode, passed through so this pane behaves like every other one. */
+  vimMode: boolean;
   onClose: () => void;
 }) {
   const [chains, setChains] = useState<LibraryChain[] | null>(null);
@@ -94,55 +104,152 @@ export function ChainsBuilder({
     [chosen],
   );
 
+  /** The node id the drawing selects: the focused file without its extension, or none. */
+  const selectedNode = useMemo(
+    () => (focusNode ? focusNode.replace(/.ya?ml$/i, "") : null),
+    [focusNode],
+  );
+
   const drawn = useMemo(() => {
     if (!graph) return null;
     const { nodes, edges } = buildGraph(graph);
     return layout(nodes, edges);
   }, [graph]);
 
-  return (
-    <div className="absolute inset-0 z-40 flex bg-background">
-      <aside className="w-64 shrink-0 overflow-auto border-r">
-        <header className="flex items-center gap-2 border-b px-3 py-2">
-          <Workflow className="size-4" />
-          <span className="text-sm font-medium">Chains</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-auto text-xs text-muted-foreground hover:underline"
-          >
-            fermer
-          </button>
-        </header>
-        {chains === null ? (
-          <p className="p-3 text-xs text-muted-foreground">…</p>
-        ) : chains.length === 0 ? (
-          // Not an error: an account whose library has no chains yet is a fact, and the sentence
-          // says where they would come from rather than that something failed.
-          <p className="p-3 text-xs text-muted-foreground">
-            Aucune chaîne dans la bibliothèque de ce compte.
-          </p>
-        ) : (
-          <ul>
-            {chains.map((c) => (
-              <li key={c.ref}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(c.ref)}
-                  className={cn(
-                    "w-full px-3 py-1.5 text-left text-xs hover:bg-muted",
-                    c.ref === open && "bg-muted font-medium",
-                  )}
-                >
-                  {c.ref}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
+  // --- the text half -----------------------------------------------------------------
+  // A chain is two things on disk — the graph file and the nodes it names — and the gestures
+  // above reach only the first. Params, `extends`, everything a node IS, is text; without it the
+  // screen draws a chain nobody can change.
+  const files = useMemo(
+    () =>
+      chosen
+        ? [
+            { label: GRAPH_FILE, path: `${chosen.path}/${GRAPH_FILE}` },
+            ...chosen.nodes.map((n) => ({
+              label: `nodes/${n}`,
+              path: `${chosen.path}/nodes/${n}`,
+            })),
+          ]
+        : [],
+    [chosen],
+  );
+  const [openFile, setOpenFile] = useState<string | null>(null);
+  // The tree asked for a node: open its tab. An effect and not an initial value, because the
+  // screen stays mounted — clicking a second node must move the pane, not be ignored.
+  useEffect(() => {
+    if (chosen && focusNode) setOpenFile(`${chosen.path}/nodes/${focusNode}`);
+  }, [chosen, focusNode]);
+  const [text, setText] = useState("");
+  // What was last read or saved, so the pane knows whether it is dirty without a second state.
+  const [saved, setSaved] = useState("");
 
-      <section className="relative min-w-0 flex-1">
+  // The chosen file, re-read whenever a verb changed the chain — a `graph move` rewrites the
+  // graph file under the pane showing it.
+  useEffect(() => {
+    const path = openFile ?? files[0]?.path;
+    if (!path) {
+      setText("");
+      setSaved("");
+      return;
+    }
+    let live = true;
+    projectApi
+      .read(path)
+      .then((f) => {
+        if (!live) return;
+        setText(f.content ?? "");
+        setSaved(f.content ?? "");
+      })
+      .catch((e: Error) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [openFile, files, rev]);
+
+  const path = openFile ?? files[0]?.path ?? null;
+  const write = useCallback(
+    async (next: string) => {
+      if (!path) return;
+      await projectApi.write(path, next);
+      setSaved(next);
+      // The drawing follows the text: editing a node's `extends` changes what the graph shows.
+      setRev((r) => r + 1);
+    },
+    [path],
+  );
+  // The same autosave every text pane in this repo runs — no Save button, written as soon as it
+  // is a file the compiler could read. See @studio/ui-editor's docs/autosave.md.
+  const autosave = useAutosave({ path, text, saved, write });
+
+  return (
+    <div className="absolute inset-0 z-10 flex bg-background">
+      {/* No chain LIST here: the Libraries tab of the file tree is the navigation, and a
+          second list of the same rows would be two places to look for one thing. What stays is
+          the name of what is open and the way out. */}
+      <header className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded border bg-background px-2 py-1">
+        <Workflow className="size-3.5" />
+        <span className="text-xs font-medium">{open || "—"}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs text-muted-foreground hover:underline"
+        >
+          fermer
+        </button>
+      </header>
+
+      {/* The text half, LEFT of the drawing: what you type is what the graph is made of, so it
+          reads first. The two are one chain seen twice, and a change in either shows in the other
+          on the next read. */}
+      {open && chosen ? (
+        <aside className="flex min-w-0 flex-1 basis-0 flex-col border-r">
+          <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1.5">
+            {files.map((f) => (
+              <button
+                key={f.path}
+                type="button"
+                onClick={() => setOpenFile(f.path)}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[11px] hover:bg-muted",
+                  (openFile ?? files[0]?.path) === f.path &&
+                    "bg-muted font-medium",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              // `node new` writes into the chain's own `nodes/`, because the verb resolves that
+              // folder from the graph file it was pointed at — the same `at` every gesture uses.
+              onClick={() => {
+                const name = window.prompt(
+                  "Nouveau nœud — <type>/<module> <nom>",
+                );
+                if (name?.trim()) void command(`node new ${name.trim()}`);
+              }}
+              className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+            >
+              + nœud
+            </button>
+          </div>
+          <div className="min-h-0 min-w-0 flex-1">
+            {path ? (
+              <YamlPane
+                path={path}
+                content={text}
+                vimMode={vimMode}
+                onChange={setText}
+                onSave={autosave.flush}
+              />
+            ) : null}
+          </div>
+          <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
+            {text === saved ? "enregistré" : "…"}
+          </p>
+        </aside>
+      ) : null}
+      <section className="relative min-w-0 flex-1 basis-0">
         {error && (
           <p className="absolute inset-x-0 top-0 z-10 bg-destructive/10 p-2 text-xs">
             {error}
@@ -160,7 +267,10 @@ export function ChainsBuilder({
           <DomChains
             icons={STUDIO_ICONS}
             graph={drawn}
-            selected={null}
+            // The node the tree asked for, selected in the drawing — the same click answers in
+            // both halves. The graph names a node by its FILE's basename, which is what a chain
+            // graph writes in its segments.
+            selected={selectedNode}
             onSelect={() => {}}
             command={command}
             // The patch cable, the splice and the pin — the same three the project's graph wires,

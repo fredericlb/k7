@@ -1006,9 +1006,22 @@ export class Workspace {
    * an empty list, never a throw: an account with no library yet has no chains, which is a fact
    * and not an error.
    */
-  libraryChains(): { ref: string; path: string }[] {
+  libraryChains(): { ref: string; path: string; nodes: string[] }[] {
     const root = librariesDirFor(this.activeProject ?? this.root, "chains");
-    const out: { ref: string; path: string }[] = [];
+    const out: { ref: string; path: string; nodes: string[] }[] = [];
+    // A chain's node files, by NAME — the folder holding them is fixed, and the caller addresses
+    // them under the chain's own `path`. A chain with no `nodes/` yet is a real state (one just
+    // created), so an unreadable folder is an empty list rather than a throw.
+    const nodesIn = (at: string): string[] => {
+      try {
+        return readdirSync(join(at, "nodes"), { withFileTypes: true })
+          .filter((e) => e.isFile() && /\.ya?ml$/i.test(e.name))
+          .map((e) => e.name)
+          .sort();
+      } catch {
+        return [];
+      }
+    };
     const walk = (at: string, ref: string): void => {
       let entries: Dirent[];
       try {
@@ -1017,7 +1030,7 @@ export class Workspace {
         return;
       }
       if (entries.some((e) => e.isFile() && e.name === GRAPH_FILE)) {
-        if (ref) out.push({ ref, path: this.toRel(at) });
+        if (ref) out.push({ ref, path: this.toRel(at), nodes: nodesIn(at) });
         return;
       }
       for (const e of entries)
